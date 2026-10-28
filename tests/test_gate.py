@@ -20,18 +20,19 @@ VANILLA = {"default.xbe": fill("xbe", 3000), "gamedata/a.xbr": fill("a", 100), "
            "movies/m.bik": fill("m", 70)}
 
 
-def _release(tmp_path, name: str, files: dict[str, bytes]) -> gate.Release:
+def _release(tmp_path, name: str, files: dict[str, bytes], dirs=("gamedata", "movies")) -> gate.Release:
     manifest = tmp_path / f"{name}.json"
-    manifest.write_text(json.dumps({"dirs": ["gamedata", "movies"], "files": {
+    manifest.write_text(json.dumps({"dirs": list(dirs), "files": {
         p: [len(data), hashlib.sha256(data).hexdigest()] for p, data in files.items()}}), encoding="utf-8")
     return dataclasses.replace(gate.USA, name=name, label=name.title(), manifest=manifest)
 
 
 def test_the_gate_names_the_release_or_the_first_file_that_differs(tmp_path):
-    """The release is the one whose ``default.xbe`` the image holds; a
-    missing, extra, resized or changed file is named, the first in path
-    order; a stamp for a build checks only the files a build reads."""
-    other = _release(tmp_path, "other", VANILLA | {"default.xbe": fill("XBE", 3000)})
+    """The release is the one whose ``default.xbe`` the image holds, else
+    the one whose folders it has, else the first; a missing, extra, resized
+    or changed file is named, the first in path order; a stamp for a build
+    checks only the files a build reads."""
+    other = _release(tmp_path, "other", VANILLA | {"default.xbe": fill("XBE", 3000)}, ("gamedata", "movies", "saves"))
     test = _release(tmp_path, "test", VANILLA)
     src = tmp_path / "in.iso"
 
@@ -50,7 +51,9 @@ def test_the_gate_names_the_release_or_the_first_file_that_differs(tmp_path):
             (VANILLA | {"gamedata/a.xbr": fill("a", 101)}, "Test image: gamedata/a.xbr: 101 B, where vanilla has 100 B"),
             (gamedata, "Test image: gamedata/a.xbr: missing"),
             (VANILLA | {"gamedata/c.xbr": b"c"}, "Test image: gamedata/c.xbr: not in the vanilla image"),
-            (VANILLA | {"default.xbe": fill("x", 3000)}, "Other image: default.xbe: its contents differ")):
+            (VANILLA | {"default.xbe": fill("x", 3000)}, "Test image: default.xbe: its contents differ"),
+            ({p: d for p, d in VANILLA.items() if p != "movies/m.bik"} | {"default.xbe": fill("x", 3000)},
+             "Other image: default.xbe: its contents differ")):
         with pytest.raises(gate.NotVanillaError) as refused:
             verify(files)
         assert str(refused.value) == f"{src} is not the vanilla {why}"

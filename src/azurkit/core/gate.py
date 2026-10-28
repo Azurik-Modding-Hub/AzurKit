@@ -8,7 +8,7 @@ Each image is the file its release's variable names (``AZURKIT_ISO``,
 ``user_data_dir("AzurKit")``).
 
 :func:`verify` is the gate (D27). It tells the release by the sha256 of the
-image's ``default.xbe``, then checks the image's files against that
+image's ``default.xbe`` (else by its folders), then checks the image's files against that
 release's manifest (``manifests/<release>.json``: each folder, and each
 file's size and sha256, a copy of the oracle's), one :data:`iso.CHUNK` read
 at a time on the caller's thread, and names the first file (in path order)
@@ -98,13 +98,14 @@ def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Relea
     a build reads (:data:`BUILD_FILES`; the rest of the image is copied as it
     is). :class:`NotVanillaError` names the first file, in path order, that
     is missing, extra, or has another size or sha256, checked against the
-    release whose ``default.xbe`` the image holds, else the first of
-    ``releases``. It reads only on the caller's thread."""
+    release whose ``default.xbe`` the image holds, else the one whose folders
+    it has (a modded image), else the first of ``releases``. It reads only on
+    the caller's thread."""
     path = Path(path)
     stat = path.stat()
     with iso.Reader(path) as r:
         have = {e.path: e for e in r.entries()}
-        release = _release(r, have.get("default.xbe"), releases)
+        release = _release(r, have, releases)
         if why := _first_difference(r, have, release, whole):
             raise NotVanillaError(f"{path} is not the vanilla {release.label} image: {why}")
     return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole)
@@ -117,10 +118,14 @@ def _sha256(r: iso.Reader, entry: iso.Entry) -> str:
     return digest.hexdigest()
 
 
-def _release(r: iso.Reader, xbe: iso.Entry | None, releases: tuple[Release, ...]) -> Release:
-    """The release whose ``default.xbe`` the image holds, else the first."""
+def _release(r: iso.Reader, have: dict[str, iso.Entry], releases: tuple[Release, ...]) -> Release:
+    """The release whose ``default.xbe`` the image holds, else the one whose
+    folders it has (USA's 58 and Europe's 6 differ), else the first."""
+    xbe = have.get("default.xbe")
     sha = _sha256(r, xbe) if xbe and not xbe.is_dir else None
-    return next((rel for rel in releases if rel.files.get("default.xbe", [0, ""])[1] == sha), releases[0])
+    dirs = {path for path, entry in have.items() if entry.is_dir}
+    return (next((rel for rel in releases if rel.files.get("default.xbe", [0, ""])[1] == sha), None)
+            or next((rel for rel in releases if set(rel.dirs) == dirs), releases[0]))
 
 
 def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Release, whole: bool) -> str | None:
