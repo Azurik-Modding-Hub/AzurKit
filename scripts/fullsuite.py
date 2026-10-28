@@ -14,8 +14,10 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 3 still running. On 3, issue the same command again: it rejoins the run.
 
 ``--changed`` runs only the test files that the worktree's changes against
-``main`` (or ``--base``) pick (:func:`plan`), plus the lint files. A path no
-rule covers makes it the whole suite; the meta's ``mode`` says which.
+``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
+files and the oracle's test, whose USA and Europe cases make every receipt
+show both tiers run (D26). A path no rule covers makes it the whole suite;
+the meta's ``mode`` says which.
 
 The key is built from HEAD, a hash of the uncommitted diff and the untracked
 files, the base, the mode and the selection. A passing receipt with the same
@@ -42,6 +44,7 @@ import time
 from pathlib import Path
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py", "tests/test_provenance.py")
+SMOKE = (*LINT, "tests/test_oracle.py")   # every changed-area run's; test_oracle reads both images
 CAP = 1800
 FINAL = {"done", "capped", "error"}
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
@@ -92,18 +95,17 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     """The test files to run for the ``changed`` paths, or ``None`` for the
     whole suite: each changed test file, each test file that imports a changed
     module directly or through others, the wheel's test for a change under
-    src/, the oracle's test for a change in tests/oracle/, and the lint files;
+    src/, and :data:`SMOKE` (the oracle's test covers tests/oracle/);
     nothing more for docs. A change to the suite's configuration, to what
     every session loads or to a path no rule covers is the whole suite."""
-    picked, touched = set(LINT), set()
+    picked, touched = set(SMOKE), set()
     for rel in changed:
         if rel in WHOLE:
             return None
-        if rel.endswith(DOCS) or rel in ("LICENSE", ".gitignore") or rel.startswith("tests/provenance/"):
+        if (rel.endswith(DOCS) or rel in ("LICENSE", ".gitignore")
+                or rel.startswith(("tests/provenance/", "tests/oracle/"))):
             continue
-        if rel.startswith("tests/oracle/"):
-            picked.add("tests/test_oracle.py")
-        elif (module := module_of(rel)) is None:
+        if (module := module_of(rel)) is None:
             return None
         else:
             touched.add(module)

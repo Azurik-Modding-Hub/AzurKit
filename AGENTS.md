@@ -79,11 +79,12 @@ uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
   git config changes.
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
-  (or the whole suite) in the background under a lock, and prints a key and a
-  receipt path. `--wait 540` waits for the result; exit 3 means it is still
-  running, so issue the same command again.
+  with the oracle's USA and Europe test (or the whole suite) in the background
+  under a lock, and prints a key and a receipt path. `--wait 540` waits for the
+  result; exit 3 means it is still running, so issue the same command again.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
-  `main` once a passing receipt covers the branch's head. There is no remote
+  `main` once a passing receipt covers the branch's head with `vanilla: N run`
+  and `europe: M run`, N and M at least 1 (D26). There is no remote
   until AzurKit goes public (D137, D91: Azurik-Modding-Hub at 4.4).
 
 ## Environment

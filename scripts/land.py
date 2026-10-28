@@ -5,8 +5,8 @@ covers its head (the twin of Modkit's ``land``).
 
 It refuses unless BRANCH's head fast-forwards from main (an unborn main takes
 any head). It also needs a passing ``scripts/fullsuite.py`` receipt for that
-head's clean tree: either a whole-suite run, or a changed-area run whose base is
-main's head.
+head's clean tree, in which at least one vanilla and one europe test ran (D26):
+either a whole-suite run, or a changed-area run whose base is main's head.
 
 Then it moves main. In the worktree that has main checked out, that is a
 fast-forward merge; otherwise it updates the ref from its old value. It removes
@@ -34,6 +34,7 @@ def receipt_for(folder: Path, head: str, main: str | None) -> dict | None:
     for meta in folder.glob("suite-*.meta"):
         m = json.loads(meta.read_text(encoding="utf-8"))
         if (m["head"] == head and m["clean"] and fs.status_code(m) == 0
+                and (m.get("vanilla_run") or 0) >= 1 and (m.get("europe_run") or 0) >= 1
                 and (m["mode"] == "full" or (main is not None and m["base"] == main))):
             found.append(m)
     return max(found, key=lambda m: m.get("finished_at") or "", default=None)
@@ -61,8 +62,8 @@ def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
         return 1, f"land: {branch} ({top[:12]}) doesn't fast-forward from main ({main[:12]}): rebase it onto main"
     folder = fs.receipts(repo)
     if (m := receipt_for(folder, top, main)) is None:
-        return 1, (f"land: no passing clean receipt for {branch} ({top[:12]}): run scripts/fullsuite.py on its "
-                   f"worktree (receipts in {folder})")
+        return 1, (f"land: no passing clean receipt with vanilla and europe tests run for {branch} ({top[:12]}): "
+                   f"run scripts/fullsuite.py on its worktree (receipts in {folder})")
     did = f"main {main[:12] if main else '(unborn)'} -> {top[:12]} ({branch}; receipt {m['key']}, {m['mode']})"
     if dry_run:
         return 0, f"land --dry-run: would move {did}"
