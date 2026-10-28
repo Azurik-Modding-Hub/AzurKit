@@ -32,8 +32,8 @@ exec uv run --no-sync python -I tests/_leak_guard.py --pre-push "$1"
 """
 
 
-def install_hook() -> Path:
-    common = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+def install_hook(root: Path = ROOT) -> Path:
+    common = subprocess.run(["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
                             capture_output=True, text=True, check=True).stdout.strip()
     hook = Path(common) / "hooks" / "pre-push"
     if hook.exists() and "leak-guard pre-push hook" not in hook.read_text(encoding="utf-8", errors="replace"):

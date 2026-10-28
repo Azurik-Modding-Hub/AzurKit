@@ -4,9 +4,13 @@ repository tracks, could commit or pushes."""
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
+import bootstrap
 from tests import _leak_guard
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,6 +101,20 @@ def test_a_push_fails_on_a_refused_file_a_later_commit_deleted(tmp_path):
     head = git("rev-parse", "HEAD")
     assert _leak_guard.scan_push(tmp_path, "origin", f"refs/heads/main {head} refs/heads/main {zero}\n") == [
         f"boot.bin in {added[:12]}: XBE magic at 0"]
+
+
+def test_bootstrap_writes_the_hook_the_global_hook_hands_a_push_to(tmp_path):
+    """The owner's global pre-push hook hands a push on only to a hook holding
+    this exact line: bootstrap writes it, executable, in the common git dir,
+    and refuses to replace a hook that isn't the leak guard's."""
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    hook = bootstrap.install_hook(tmp_path)
+    assert hook.resolve() == (tmp_path / ".git" / "hooks" / "pre-push").resolve()
+    assert "# leak-guard pre-push hook, written by `uv run bootstrap.py`" in hook.read_text(encoding="utf-8")
+    assert os.access(hook, os.X_OK)
+    hook.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="isn't the leak guard's"):
+        bootstrap.install_hook(tmp_path)
 
 
 def test_the_checkout_holds_nothing_the_guard_refuses():
