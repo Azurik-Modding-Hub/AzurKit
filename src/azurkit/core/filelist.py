@@ -39,7 +39,7 @@ def _rows(lines: list[str]) -> Iterator[Row]:
             folder = "/".join(["gamedata", *filter(None, line.strip("\\").split("\\"))])
             continue
         kind, *rest = line.split(None, 3) or [""]
-        if kind == "f" and len(rest) == 3 and rest[1].isdigit():
+        if kind == "f" and len(rest) == 3 and rest[1].isdecimal():
             yield Row(number, f"{folder}/{rest[2].strip()}", rest[0].lower(), int(rest[1]))
 
 

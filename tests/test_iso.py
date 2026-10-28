@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 from azurkit import cli
-from azurkit.core import gate, iso
+from azurkit.core import filelist, gate, iso
 from tests._xiso import S, fill, image
 
 
@@ -78,7 +78,8 @@ def test_a_build_rewrites_the_filelist_lines_of_the_files_it_changes_and_of_stal
     a file at another size than its own (vanilla Europe has three) gets the
     file's own; an unlisted file changes nothing, and an explicit
     ``filelist.txt`` gets the same rewrite. With no edits the image is its
-    input, stale lines and all."""
+    input, stale lines and all. A line whose size isn't decimal digits
+    lists no file."""
     old = {"english.txt": fill("english", 90), "gamedata/config.xbr": fill("config", 5000),
            "gamedata/loc.xbr": fill("loc", 60), "gamedata/index/index.xbr": fill("index", 3000)}
     stale = _listing(old | {"gamedata/loc.xbr": fill("stale", 61)})
@@ -94,6 +95,7 @@ def test_a_build_rewrites_the_filelist_lines_of_the_files_it_changes_and_of_stal
         iso.pack(iso.read(src, files | explicit), out)
         with iso.Reader(out) as r:
             assert r.read("filelist.txt") == _listing(new), explicit
+    assert filelist.rows(b"f 00 \xb2 a.xbr\r\nf 00 7 b.xbr\r\n") == [filelist.Row(1, "gamedata/b.xbr", "00", 7)]
 
 
 def test_an_image_the_kernel_would_trip_on_is_refused_before_anything_is_written(tmp_path):
