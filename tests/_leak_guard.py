@@ -36,9 +36,9 @@ a run is read from the player's image at its address instead. The literals
 (:func:`byte_literals`) are a Python file's bytes literals, ``bytes.fromhex``
 and hex strings, lists of byte-sized ints and the concatenations and repeats
 of these, and in any text file runs of hex byte pairs, ``\\xNN`` escapes or
-``0xNN, ...`` lists. A run of one byte value repeated isn't counted, nor is
-text (a str that isn't hex): a format's marker, a save's ``fileversion=``
-say, is written as text.
+``0xNN, ...`` or decimal lists. A run of one byte value repeated isn't
+counted, nor is text (a str that isn't hex): a format's marker, a save's
+``fileversion=`` say, is written as text.
 """
 
 from __future__ import annotations
@@ -201,6 +201,8 @@ VANILLA_RUN = 8   # bytes in a row of a vanilla default.xbe that a literal may n
 _HEX_TEXT = re.compile(r"(?<![0-9A-Za-z_])(?:[0-9A-Fa-f]{2})+(?:[ \t]+(?:[0-9A-Fa-f]{2})+)*(?![0-9A-Za-z_])")
 _ESCAPES = re.compile(r"(?:\\x[0-9A-Fa-f]{2})+")
 _BYTE_LIST = re.compile(r"(?<![\w.])0x[0-9A-Fa-f]{1,2}(?:\s*,\s*0x[0-9A-Fa-f]{1,2})+(?![\w.])")
+_DECIMAL = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
+_DECIMAL_LIST = re.compile(rf"(?<![\w.]){_DECIMAL}(?:\s*,\s*{_DECIMAL})+(?![\w.])")
 _HEX_STRING = re.compile(r"\s*(?:[0-9A-Fa-f]{2}\s*)+")
 
 
@@ -252,8 +254,8 @@ def byte_literals(rel: str, text: str) -> list[tuple[int, bytes]]:
     ``rel``: in Python, each literal expression's bytes (a bytes literal, a
     ``bytes.fromhex`` or hex string, a list of byte-sized ints, and their
     ``+`` and ``*``), the runs a part from elsewhere splits; in any file,
-    each run of hex byte pairs, ``\\xNN`` escapes or ``0xNN`` items. A
-    literal of fewer than :data:`VANILLA_RUN` bytes isn't listed."""
+    each run of hex byte pairs, ``\\xNN`` escapes or ``0xNN`` or decimal
+    items. A literal of fewer than :data:`VANILLA_RUN` bytes isn't listed."""
     found = []
     if rel.endswith(".py"):
         def visit(node: ast.AST, folded: bool) -> None:
@@ -269,7 +271,8 @@ def byte_literals(rel: str, text: str) -> list[tuple[int, bytes]]:
     lines = [0, *(m.end() for m in re.finditer("\n", text))]
     for pattern, value in ((_HEX_TEXT, lambda s: bytes.fromhex(s)),
                            (_ESCAPES, lambda s: bytes.fromhex(s.replace("\\x", ""))),
-                           (_BYTE_LIST, lambda s: bytes(int(x, 16) for x in s.split(",")))):
+                           (_BYTE_LIST, lambda s: bytes(int(x, 16) for x in s.split(","))),
+                           (_DECIMAL_LIST, lambda s: bytes(int(x) for x in s.split(",")))):
         for m in pattern.finditer(text):
             found.append((bisect.bisect_right(lines, m.start()), value(m.group())))
     return [(line, data) for line, data in found if len(data) >= VANILLA_RUN]

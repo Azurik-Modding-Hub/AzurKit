@@ -143,7 +143,7 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_xbe(tmp_path, usa_iso, europ
         "scripts/c.py": f"X = {list(run)}\n",
         "src/d.py": f"X = (bytes.fromhex('{run[:6].hex()}')\n     + bytes([{', '.join(map(str, run[6:]))}, cap]))\n",
         "web/e.js": (f"const a = [{', '.join(f'0x{b:02x}' for b in run)}];\n// {run.hex(' ')}\n"
-                     f'const s = "{escaped}";\n'),
+                     f'const s = "{escaped}";\nconst d = new Uint8Array([{", ".join(map(str, run))}]);\n'),
         "src/ok.py": f'N = b"\\x90" * 32\nH = "{hashlib.sha256(run).hexdigest()}"\n',
         "docs/out.py": f'X = b"{escaped}"\n',
     }
@@ -154,7 +154,7 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_xbe(tmp_path, usa_iso, europ
     found = _leak_guard.vanilla_runs(tmp_path, xbes)
     assert found == sorted(f"{at}: a 13 B literal holds 13 B in a row of the {label} default.xbe"
                            for at in ("src/a.py:1", "tests/b.py:1", "scripts/c.py:1", "src/d.py:1",
-                                      "web/e.js:1", "web/e.js:2", "web/e.js:3")
+                                      "web/e.js:1", "web/e.js:2", "web/e.js:3", "web/e.js:4")
                            for label in xbes if run in xbes[label])
     assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run)))
     assert _leak_guard.vanilla_runs(ROOT, xbes) == []
