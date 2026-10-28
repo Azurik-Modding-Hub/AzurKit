@@ -107,7 +107,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.busy = threading.Lock()        # one build or save at a time
         self.progress = (0, 0)
         self.cancelled = threading.Event()
-        self.quitting = False               # set under busy by quit(): no save starts after it
+        self.quitting = False               # set by quit(), before it cancels: no save starts after it
         self.chosen: Path | None = None     # the save dialog's last answer, which it asked before replacing
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
@@ -115,10 +115,13 @@ class Server(http.server.ThreadingHTTPServer):
         """Cancel a save in flight and wait until it has removed its part
         file (D35): its thread is a daemon, which the interpreter's exit
         would kill mid-write. The window's closing hook (its close button,
-        and Cmd-Q, after which no ``finally`` runs) and :meth:`close`."""
+        and Cmd-Q, after which no ``finally`` runs) and :meth:`close`. A
+        save that takes ``busy`` after ``quitting`` is set refuses; one that
+        took it before sees ``cancelled``, set after ``quitting``."""
+        self.quitting = True
         self.cancelled.set()
         with self.busy:
-            self.quitting = True
+            pass
 
     def close(self) -> None:
         self.quit()
@@ -150,9 +153,9 @@ class Server(http.server.ThreadingHTTPServer):
             if self.cancelled.is_set():
                 raise Cancelled
         with self.busy:
+            self.cancelled.clear()   # before the check: a quit after it still cancels this save
             if self.quitting:
                 raise ValueError("AzurKit is quitting: nothing was written")
-            self.cancelled.clear()
             self.progress = (0, 0)
             try:
                 return {"saved": sdk.build(recipe, str(out), progress=progress)}
