@@ -11,7 +11,7 @@ uv run bootstrap.py                         # once, in the main checkout: uv syn
 uv run --locked pytest -q <files>           # targeted tests while you work
 uv run --locked pytest                      # the whole suite
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
-uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit, a PyInstaller onedir
+uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
 ```
 
 - Use `uv run --locked` for everything. Never a bare `pip`, `python` or
@@ -114,26 +114,37 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
 ## The two hosts (D866)
 
 - **The page** (`web/`): pick the image, choose packs, Build, then Save. One
-  page for both hosts. It decides no output byte: the engine (`azurkit.sdk`)
-  returns the build as segments (`iso.Image.segments`) and the page joins them
-  into a Blob of slices of the player's file and the bytes the build writes.
-  Its CSP has no `'unsafe-eval'` and it uses no eval: a webview host calls in
-  through a bridge (pywebview's `run_js` or `js_api`), never `evaluate_js`.
+  page for both hosts: `host.json` names the host's engine. It decides no
+  output byte. Its CSP has no `'unsafe-eval'` and it uses no eval, and no
+  host evaluates script in it (pywebview's `evaluate_js` would need eval).
   Text reaches it only through `textContent`.
-- **The site** is the page with Pyodide's core and the wheel
-  (`uv run --locked python scripts/web_tools.py --site DIR`). Its engine
-  runs the wheel, unpacked without its dependencies, under Pyodide in a module
-  worker started from a `blob:` URL (so the page's CSP holds there), one
-  worker per build; `tests/test_hosts.py` runs the gate under Pyodide on Node,
-  and `tests/test_site.py` the packs' G1 cases and a save in Chromium.
+- **The site** is the page with Pyodide's core, the wheel and its
+  `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
+  engine runs the wheel, unpacked without its dependencies, under Pyodide in
+  a module worker started from a `blob:` URL (so the page's CSP holds there),
+  one worker per build. It returns the build as segments
+  (`iso.Image.segments`), which the page joins into a Blob of slices of the
+  player's file and the bytes the build writes, and Save downloads it.
+  `tests/test_hosts.py` runs the gate under Pyodide on Node, and
+  `tests/test_site.py` the packs' G1 cases and a save in Chromium.
 - **The app** (D732) is `python -m azurkit` (`src/azurkit/__main__.py`): with
-  arguments the `azurkit` command, with none the page (`web/`) in a
-  pywebview window, else the default browser, served by `azurkit.app` on
-  127.0.0.1 to this launch's token only. `scripts/freeze.py` builds its
-  PyInstaller onedir; pyinstaller and pywebview are the `app` dependency
-  group, never the wheel's. The bundle is read-only: every write goes
-  through platformdirs. It carries no Unicorn, zig, capstone or GPL code;
-  `tests/test_hosts.py` checks each name in it and its licence.
+  no arguments the page in a pywebview window, else in the default browser;
+  `serve` serves it without opening either (the tests' way in); any other
+  arguments are the `azurkit` command. `azurkit.app` serves the page on
+  127.0.0.1 to this launch's token only, and is its engine: `host.json`
+  and JSON calls (`api/build`, `api/save`, ...) that run `azurkit.sdk` on
+  CPython, only from the page's own origin. The page takes the image's path
+  (remembered in platformdirs' config folder; the window adds file dialogs)
+  and Save writes the build to a path, never over an existing file but one
+  the save dialog chose. The window sets pywebview's `text_select`, or
+  pywebview injects a `<style>` the CSP refuses. `scripts/freeze.py` builds
+  the app (`AzurKit.app` on macOS, a windowed onedir); pyinstaller and
+  pywebview are the `app` dependency group, never the wheel's. The bundle is
+  read-only: every write goes through platformdirs, or to the path the
+  player saves to. It carries no Unicorn, zig, capstone or GPL code;
+  `tests/test_hosts.py` checks each name in it and its licence, and builds
+  the packs' G1 cases and a save through its page (`AzurKit serve` in
+  headless Chromium).
 
 ## Commits and landing
 

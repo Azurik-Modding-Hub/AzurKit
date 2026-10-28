@@ -12,12 +12,14 @@ code.
 **Status:** AzurKit checks your image and builds it with its first five
 packs: fps_unlock, qol_alloc_race (on by default), qol_gem_popups,
 qol_other_popups and qol_pickup_anims, on both releases, from the command
-line or in the web page (step 4.1d1: pick your image, choose packs, Build,
-then Save; it runs in your browser, and nothing is uploaded). The page isn't
-hosted yet, and the app's window gets it at step 4.1d2. Version 1 will carry
-the 17 patch packs and their sliders on both releases (USA and Europe),
-character swaps and variants, and the randomizer. Players will get a web page
-and a download-and-run app; developers will get `uv tool install azurkit`.
+line, in the web page (pick your image, choose packs, Build, then Save; it
+runs in your browser, and nothing is uploaded) or in the app, which shows the
+same page in its own window and writes the build where you save it. The page
+isn't hosted and the app isn't released yet: on macOS you build the app
+yourself (below). Version 1 will carry the 17 patch packs and their sliders
+on both releases (USA and Europe), character swaps and variants, and the
+randomizer. Players will get a web page and a download-and-run app;
+developers will get `uv tool install azurkit`.
 
 ## xemu only
 
@@ -55,8 +57,8 @@ uv run --locked azurkit verify [--iso PATH]              # is it vanilla USA or 
 uv run --locked azurkit packs                            # the packs, and which a build applies by default
 uv run --locked azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
 uv run --locked python scripts/web_tools.py --site DIR   # the site: the page, Pyodide and the wheel
-uv run --locked python -m azurkit                        # the app: the page in a window (its engine comes at 4.1d2)
-uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit, a PyInstaller onedir
+uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
+uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS
 ```
 
 The vanilla tests read the two images, found by `AZURKIT_ISO` (USA) and

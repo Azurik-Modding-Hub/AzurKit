@@ -124,16 +124,17 @@ def wheel(out: Path, root: Path = ROOT) -> Path:
 def site(out: Path, root: Path = ROOT, built: Path | None = None) -> Path:
     """The site in the new folder ``out``: ``web/``'s files, Pyodide's
     core in ``pyodide/``, the wheel (``built``, else built now) and
-    ``site.json``, which names the wheel and its sha256 for the worker's
-    fetch (``integrity``)."""
+    ``host.json``, which tells the page its engine is the site's and names
+    the wheel and its sha256 for the worker's fetch (``integrity``). The
+    app's server answers ``host.json`` itself (``azurkit.app``)."""
     shutil.copytree(root / "web", out)
     if lost := missing(root):
         raise SystemExit(f"Pyodide {VERSION} lacks {', '.join(lost)}: run `uv run bootstrap.py`")
     shutil.copytree(pyodide_dir(root), out / "pyodide")
     built = shutil.copy2(built, out) if built else wheel(out, root)
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
-    (out / "site.json").write_text(json.dumps({"wheel": Path(built).name, "integrity": f"sha256-{digest}"}) + "\n",
-                                   encoding="utf-8")
+    (out / "host.json").write_text(json.dumps({"engine": "site", "wheel": Path(built).name,
+                                               "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8")
     return out
 
 

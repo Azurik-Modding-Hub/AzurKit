@@ -1,12 +1,14 @@
 """``python -m azurkit``, and the frozen app's entry (``scripts/freeze.py``):
-with arguments it is the ``azurkit`` command, with none it opens the page
-(``azurkit.app``)."""
+with no arguments it opens the page (``azurkit.app``), with ``serve`` it
+serves the page without opening it, and with any other arguments it is the
+``azurkit`` command."""
 
 import sys
 
 if __name__ == "__main__":
-    if sys.argv[1:]:
-        from azurkit.cli import main
-    else:
+    argv = sys.argv[1:]
+    if argv in ([], ["serve"]):
         from azurkit.app import main
-    sys.exit(main())
+    else:
+        from azurkit.cli import main
+    sys.exit(main(argv))

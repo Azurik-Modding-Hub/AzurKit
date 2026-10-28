@@ -1,6 +1,6 @@
 // The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, one worker per build (WEB §3.6). The page
 // starts it from a blob: URL that imports this file, so the page's CSP holds here too (WEB §6.4). Pyodide comes from
-// this site alone; the wheel, fetched with the integrity site.json gives, is unpacked without its dependencies
+// this site alone; the wheel, fetched with the integrity host.json gives, is unpacked without its dependencies
 // (WEB §6.3). The player's image is mounted read-only (WORKERFS) and azurkit.sdk reads it and decides every output
 // byte: the page gets the build as segments (WEB §3.4), spans of the image ("copy"), the bytes the build writes
 // ("bytes") and zeros past the image's end ("zero"), which it joins into a Blob.
@@ -17,7 +17,7 @@ self.addEventListener("securitypolicyviolation", (e) =>
 const lastLine = (error) => String(error?.message ?? error).trim().split("\n").at(-1);
 
 async function load() {
-  const site = await (await fetch(new URL("site.json", base))).json();
+  const site = await (await fetch(new URL("host.json", base))).json();
   const pyodide = new URL("pyodide/", base).href;
   const { loadPyodide } = await import(new URL("pyodide.mjs", pyodide).href);
   const py = await loadPyodide({
