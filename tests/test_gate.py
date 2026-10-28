@@ -16,8 +16,8 @@ from azurkit import cli
 from azurkit.core import gate
 from tests._xiso import fill, image
 
-VANILLA = {"default.xbe": fill("xbe", 3000), "gamedata/a.xbr": fill("a", 100), "gamedata/b.xbr": fill("b", 5000),
-           "movies/m.bik": fill("m", 70)}
+VANILLA = {"default.xbe": fill("xbe", 3000), "filelist.txt": fill("f", 40), "gamedata/a.xbr": fill("a", 100),
+           "gamedata/b.xbr": fill("b", 5000), "movies/m.bik": fill("m", 70)}
 
 
 def _release(tmp_path, name: str, files: dict[str, bytes], dirs=("gamedata", "movies")) -> gate.Release:
@@ -43,6 +43,8 @@ def test_the_gate_names_the_release_or_the_first_file_that_differs(tmp_path):
     stamp = verify(VANILLA)
     assert (stamp.release, stamp.path, stamp.size, stamp.whole) == (test, src, src.stat().st_size, True)
     assert verify(VANILLA | {"movies/m.bik": fill("M", 70)}, whole=False).release == test
+    with pytest.raises(gate.NotVanillaError, match=r"filelist\.txt: its contents differ$"):
+        verify(VANILLA | {"filelist.txt": fill("F", 40)}, whole=False)   # a build rewrites it
     gamedata = {p: d for p, d in VANILLA.items() if p != "gamedata/a.xbr"}
     for files, why in (
             (VANILLA | {"gamedata/b.xbr": fill("B", 5000), "movies/m.bik": fill("M", 70)},

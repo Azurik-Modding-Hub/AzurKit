@@ -31,7 +31,7 @@ from platformdirs import user_data_path
 from azurkit.core import iso
 
 _MANIFESTS = Path(__file__).with_name("manifests")
-BUILD_FILES = ("default.xbe", "gamedata/")   # what a build reads: the files a stamp for a build vouches for
+BUILD_FILES = ("default.xbe", "filelist.txt", "gamedata/")   # what a build reads: a stamp for a build vouches for these
 
 
 @dataclass(frozen=True)
