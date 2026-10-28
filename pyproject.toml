@@ -29,9 +29,15 @@ dev = [
     "pytest==9.2.0",
     "import-linter==2.15",
 ]
+# The app (D732): PyInstaller freezes it (scripts/freeze.py) and pywebview is its window; neither is in the wheel.
+app = [
+    "pyinstaller==6.22.3",
+    "pywebview==6.2.1",
+]
 
 [tool.uv]
 required-version = ">=0.12"
+default-groups = ["dev", "app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -41,6 +47,7 @@ markers = [
     "vanilla: reads the verified USA image; a run that selects one fails without it, so deselect with -m \"not vanilla\" (D26)",
     "europe: reads the verified Europe image, and is vanilla too; a run that selects one fails without it, so deselect with -m \"not europe\" (D26)",
     "pure: needs no game data; tests/conftest.py marks every test that isn't vanilla",
+    "web: runs under Pyodide on Node (`uv run bootstrap.py` fetches Pyodide); a run that selects one fails without them, so deselect with -m \"not web\"",
 ]
 
 # The engine's contracts (tests/test_contracts.py runs them, with the AST rules import-linter can't express).

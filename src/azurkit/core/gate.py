@@ -5,7 +5,8 @@ them, unchanged.
 Each image is the file its release's variable names (``AZURKIT_ISO``,
 ``AZURKIT_ISO_EUROPE``), or when that is unset, ``usa.iso`` or
 ``europe.iso`` in the user data folder (``platformdirs``'
-``user_data_dir("AzurKit")``).
+``user_data_dir("AzurKit")``, imported only to find it: the web page's
+worker loads the wheel without its dependencies and passes the image's path).
 
 :func:`verify` is the gate (D27). It tells the release by the sha256 of the
 image's ``default.xbe`` (else by its folders), then checks the image's files against that
@@ -25,8 +26,6 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-
-from platformdirs import user_data_path
 
 from azurkit.core import iso
 
@@ -82,6 +81,7 @@ class Stamp:
 
 def data_path(release: Release) -> Path:
     """Where the user data folder keeps the release's image."""
+    from platformdirs import user_data_path
     return user_data_path("AzurKit", appauthor=False) / f"{release.name}.iso"
 
 

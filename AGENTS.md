@@ -7,10 +7,11 @@ file by file. [`README.md`](README.md) says what AzurKit is. These rules bind.
 ## Setup and tests
 
 ```bash
-uv run bootstrap.py                         # once, in the main checkout: uv sync --locked, the pre-push hook
+uv run bootstrap.py                         # once, in the main checkout: uv sync --locked, the pre-push hook, Pyodide
 uv run --locked pytest -q <files>           # targeted tests while you work
 uv run --locked pytest                      # the whole suite
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
+uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit, a PyInstaller onedir
 ```
 
 - Use `uv run --locked` for everything. Never a bare `pip`, `python` or
@@ -24,6 +25,13 @@ uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
   - A run prints `vanilla: N run` and `europe: M run`.
   - The images are found by `AZURKIT_ISO` and `AZURKIT_ISO_EUROPE`, else as
     `usa.iso` and `europe.iso` in the user data folder (`src/azurkit/core/gate.py`).
+- **The web tier:** a test that runs under Pyodide on Node (the site's
+  runtime) takes the `pyodide` fixture (it becomes `web`; `tests/_pyodide.py`
+  runs the `azurkit` command from the wheel alone). A run that selects one
+  needs Node on PATH and Pyodide's pinned core, which `uv run bootstrap.py`
+  puts in the main checkout's `.tools/` for every lane
+  (`scripts/web_tools.py`). Without them the run stops with one message; the
+  opt-out is `-m "not web"`. The summary prints `web: K run`.
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
@@ -63,9 +71,23 @@ uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
   holds this (see `pyproject.toml`).
 - **AST rules:** `core`, `edits` and `tools` hold no threads, processes,
   subprocesses, prints or exits, so the web page's worker runs them as they
-  are. Only `tools/characters` imports numpy, and nothing imports capstone,
+  are. The worker loads the wheel without its dependencies, so the engine
+  imports platformdirs only where it needs the user data folder. Only `tools/characters` imports numpy, and nothing imports capstone,
   unicorn, zig or Tk. `tests/test_contracts.py` checks these, along with
   import-linter's contracts.
+
+## The two hosts (D866)
+
+- **The site** runs the wheel under Pyodide in a worker; `tests/test_hosts.py`
+  runs the gate there.
+- **The app** (D732) is `python -m azurkit` (`src/azurkit/__main__.py`): with
+  arguments the `azurkit` command, with none the page (`web/`) in a
+  pywebview window, else the default browser, served by `azurkit.app` on
+  127.0.0.1 to this launch's token only. `scripts/freeze.py` builds its
+  PyInstaller onedir; pyinstaller and pywebview are the `app` dependency
+  group, never the wheel's. The bundle is read-only: every write goes
+  through platformdirs. It carries no Unicorn, zig, capstone or GPL code;
+  `tests/test_hosts.py` checks each name in it and its licence.
 
 ## Commits and landing
 

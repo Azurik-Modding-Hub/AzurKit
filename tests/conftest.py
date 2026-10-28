@@ -9,6 +9,11 @@
   that release's vanilla image (size and sha256), stops before running
   anything, with one message that says why. Otherwise the summary prints
   ``vanilla: N run`` and ``europe: M run``.
+- A test that runs under Pyodide on Node takes the ``pyodide`` fixture (it
+  becomes ``web``). Like the images, Node and Pyodide (``uv run
+  bootstrap.py`` fetches it) are needed by a run that selects one, which
+  otherwise stops with one message; ``-m "not web"`` opts out. The summary
+  prints ``web: K run``.
 - A skip or an xfail fails the run unless ``tests/skip_allowlist.toml`` lists
   its test id with a regex its reason matches. The list starts empty (Q277).
 - Failure output is byte-safe (``tests/_byte_safe.py``).
@@ -23,8 +28,10 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import sys
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -40,12 +47,14 @@ for _var in ("GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAM
     os.environ.pop(_var, None)
 
 from azurkit.core import gate  # noqa: E402
+from scripts import web_tools  # noqa: E402
+from tests import _pyodide  # noqa: E402
 
 pytest_plugins = ["tests._byte_safe", "pytester"]
 
 ALLOWED_SKIPS: dict[str, str] = tomllib.loads((ROOT / "tests" / "skip_allowlist.toml").read_text(encoding="utf-8"))
 _images: dict[str, Path] = {}         # release name -> its verified image
-_ran: dict[str, set[str]] = {"vanilla": set(), "europe": set()}
+_ran: dict[str, set[str]] = {"vanilla": set(), "europe": set(), "web": set()}
 _gated = False
 
 
@@ -72,6 +81,8 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.europe)
         if names & {"usa_iso", "europe_iso"}:
             item.add_marker(pytest.mark.vanilla)
+        if "pyodide" in names:
+            item.add_marker(pytest.mark.web)
         if item.get_closest_marker("europe") and not item.get_closest_marker("vanilla"):
             raise pytest.UsageError(f"{item.nodeid}: a europe test is vanilla too (use the europe_iso fixture)")
         if not item.get_closest_marker("vanilla"):
@@ -81,26 +92,43 @@ def pytest_collection_modifyitems(config, items):
 @pytest.hookimpl(trylast=True)   # after -m deselects
 def pytest_collection_finish(session):
     global _gated
-    needed = {gate.USA if not item.get_closest_marker("europe") else gate.EUROPE
-              for item in session.items if item.get_closest_marker("vanilla")}
+    needed = {release for item in session.items if item.get_closest_marker("vanilla")
+              for release in ((gate.EUROPE,) if item.get_closest_marker("europe") else ())
+              + ((gate.USA,) if "usa_iso" in getattr(item, "fixturenames", ()) or not item.get_closest_marker("europe") else ())}
     for release in sorted(needed, key=gate.RELEASES.index):
         found = _verify(release)
         if isinstance(found, str):
             pytest.exit(found, returncode=pytest.ExitCode.USAGE_ERROR)
         _images[release.name] = found
+    if any(item.get_closest_marker("web") for item in session.items):
+        if shutil.which("node") is None:
+            pytest.exit('web tests need Node (24 or newer) on PATH, or run `pytest -m "not web"`',
+                        returncode=pytest.ExitCode.USAGE_ERROR)
+        if lost := web_tools.missing(ROOT):
+            pytest.exit(f"web tests need Pyodide {web_tools.VERSION} in {web_tools.pyodide_dir(ROOT)} (it lacks "
+                        f"{', '.join(lost)}): run `uv run bootstrap.py`, or `pytest -m \"not web\"`",
+                        returncode=pytest.ExitCode.USAGE_ERROR)
     _gated = True
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def usa_iso() -> Path:
     """The verified USA image (the test is ``vanilla``)."""
     return _images["usa"]
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def europe_iso() -> Path:
     """The verified Europe image (the test is ``europe`` and ``vanilla``)."""
     return _images["europe"]
+
+
+@pytest.fixture(scope="session")
+def pyodide(tmp_path_factory) -> Callable[..., dict]:
+    """``run(*argv)``: the ``azurkit`` command under Pyodide on Node, from
+    this checkout's wheel alone (``tests/_pyodide.py``; the test is ``web``)."""
+    wheel = _pyodide.wheel(tmp_path_factory.mktemp("wheel"))
+    return lambda *argv: _pyodide.run(list(argv), wheel)
 
 
 def _fail_unlisted_skip(report):
@@ -126,7 +154,7 @@ def pytest_runtest_makereport(item, call):
 
 def pytest_runtest_logreport(report):
     if report.when == "call":
-        for tier in ("vanilla", "europe"):
+        for tier in ("vanilla", "europe", "web"):
             if tier in report.keywords:
                 _ran[tier].add(report.nodeid)
 
@@ -135,3 +163,4 @@ def pytest_terminal_summary(terminalreporter):
     if _gated:
         terminalreporter.write_line(f"vanilla: {len(_ran['vanilla'])} run")
         terminalreporter.write_line(f"europe: {len(_ran['europe'])} run")
+        terminalreporter.write_line(f"web: {len(_ran['web'])} run")
