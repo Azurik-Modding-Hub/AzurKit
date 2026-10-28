@@ -24,7 +24,8 @@ committed and deleted again is caught too. Refused:
   EEPROM (an ``eeprom`` name ending ``.bin``), a guest RAM snapshot
   (``AZL3SNAP`` at 0) or a private key;
 - a disassembly listing: 4 or more consecutive lines of x86 instructions in a
-  text file.
+  text file, each at its line's start or in its trailing comment (after
+  ``#``, ``//``, ``/*`` or ``;``).
 """
 
 from __future__ import annotations
@@ -53,7 +54,8 @@ _PRIVATE_KEY = re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\r?\n")
 # One line of an x86 listing, Intel or AT&T syntax: an optional comment leader,
 # address and instruction bytes, then a mnemonic with x86 operands (a register,
 # a memory operand, an immediate or a branch target), or one that takes none
-# after an address or bytes, or alone on its line.
+# after an address or bytes, or alone on its line or comment. It is matched at
+# the line's start and after each comment marker (_COMMENT).
 _REG = (r"%?(?:[re]?(?:ax|bx|cx|dx|si|di|sp|bp|ip)|[abcd][lh]|r(?:[89]|1[0-5])[dwb]?|"
         r"[c-gs]s|xmm\d+|ymm\d+|mm\d|st(?:\(\d\))?|cr\d|dr\d)")
 _MNEMONIC = (r"(?:mov(?:zx|sx|sxd|s[sd]|ap[sd]|up[sd]|[dq]|s[bwdq])?|lea|push|pop|call|jmp|j(?:n?[ezsopcgl]|n?[ab]e?|"
@@ -61,15 +63,16 @@ _MNEMONIC = (r"(?:mov(?:zx|sx|sxd|s[sd]|ap[sd]|up[sd]|[dq]|s[bwdq])?|lea|push|po
              r"i?mul|i?div|xchg|cmov\w{1,3}|set\w{1,3}|f\w{2,7}|(?:add|sub|mul|div|min|max|sqrt|cmp|and|or|xor|ucomi|"
              r"comi|cvt\w{3,8}|unpck\w{2,4}|shuf)(?:p[sd]|s[sd])?|pxor|por|pand|movd|stos[bwd]?|lods[bwd]?|"
              r"scas[bwd]?|cmps[bwd]?|loop\w{0,2}|bt[src]?|bs[fr]|bswap|enter|int)[lbwq]?")
-_IMMEDIATE = r"\$?[-+]?(?:0x[0-9a-f]+|[0-9a-f]+h|\d+|(?=[0-9a-f]*\d)[0-9a-f]{4,})(?=\s*(?:,|\(|$|[;#]))"
+_IMMEDIATE = r"\$?[-+]?(?:0x[0-9a-f]+|[0-9a-f]+h|\d+|(?=[0-9a-f]*\d)[0-9a-f]{4,})(?=\s*(?:,|\(|$|[;#]|\*/))"
 _MEMORY = rf"(?:[c-gs]s:)?\[\s*(?:{_REG}\b|0x[0-9a-f]+|[0-9a-f]+h\b|\w+_[0-9a-f]+)"
 _LABEL = r"(?:(?:short|near|far)\s+)?(?:sub|loc|off|unk|byte|word|dword|j|fun|lab|dat|thunk_fun|ptr)_[0-9a-f]+\b"
 _OPERAND = rf"(?:{_REG}\b|(?:byte|word|dword|qword|tbyte|xmmword)\s+ptr\b|{_MEMORY}|{_IMMEDIATE}|{_LABEL})"
 _NO_OPERAND = (r"(?:ret[nf]?|leave|nop|int3|cdq|cwde|cbw|pushad?|popad?|pushfd?|popfd?|sahf|lahf|hlt|cld|std|"
                r"clc|stc|emms|fwait|wait|lock|rep(?:n?[ez])?(?:\s+(?:movs|stos|lods|scas|cmps)[bwdq]?)?)")
 _PREFIX = r"(?:(?:0x)?[0-9a-f]{4,16}:?\s+(?:(?:[0-9a-f]{2}\s){1,15}\s*)?|(?:[0-9a-f]{2}\s){1,15}\s*)"
-_INSTRUCTION = re.compile(rf"^\s*(?:[#;/*>|-]+\s*)?(?:{_PREFIX}?{_MNEMONIC}\s+{_OPERAND}|{_PREFIX}{_NO_OPERAND}\b|"
-                          rf"{_NO_OPERAND}\s*(?:[;#].*)?$)", re.IGNORECASE)
+_INSTRUCTION = re.compile(rf"\s*(?:[#;/*>|-]+\s*)?(?:{_PREFIX}?{_MNEMONIC}\s+{_OPERAND}|{_PREFIX}{_NO_OPERAND}\b|"
+                          rf"{_NO_OPERAND}\s*(?:(?:[;#]|\*/).*)?$)", re.IGNORECASE)
+_COMMENT = re.compile(r"#|//|/\*|;")
 
 
 @cache
@@ -84,11 +87,16 @@ def _whole_files() -> dict[int, dict[str, str]]:
     return by_size
 
 
+def _instruction(line: str) -> bool:
+    """An x86 instruction at the line's start or after one of its comment markers."""
+    return any(_INSTRUCTION.match(line, pos) for pos in (0, *(m.end() for m in _COMMENT.finditer(line))))
+
+
 def disassembly(text: str) -> int | None:
     """The line number starting the first run of 4 or more x86 instruction lines, or ``None``."""
     run = 0
     for number, line in enumerate(text.splitlines(), 1):
-        run = run + 1 if _INSTRUCTION.match(line) else 0
+        run = run + 1 if _instruction(line) else 0
         if run == DISASSEMBLY_RUN:
             return number - DISASSEMBLY_RUN + 1
     return None

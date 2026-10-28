@@ -20,8 +20,9 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
     """Refused: a whole game file under any name (its size and sha256 in a
     manifest), the ISO or its parts, an XBE, an XBR, a save, an xemu disk, an
     EEPROM, a guest RAM snapshot, a private key, and 4 or more consecutive
-    x86 instruction lines in any text file (Ghidra's, objdump's, IDA's or a
-    comment's). Snippets, prose and code that merely name instructions pass."""
+    x86 instruction lines in any text file (Ghidra's, objdump's, IDA's, a
+    comment's or trailing comments' after bytes in code). Snippets, prose and
+    code that merely name instructions pass."""
     game_file = bytes(range(64)) * 4
     monkeypatch.setattr(_leak_guard, "_whole_files", lambda: {
         len(game_file): {hashlib.sha256(game_file).hexdigest(): "usa ISO's media/a.bik"}})
@@ -33,6 +34,8 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
         "slot.dat": b"fileversion=1\n", "SaveMeta.dat": b"\xff\xfe" + "Name=Slot\r\n".encode("utf-16-le"),
         "hdd.img": b"QFI\xfb" + bytes(60), "xemu_eeprom.bin": bytes(256), "w1.snap": b"AZL3SNAP" + bytes(56),
         "deploy": b"-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n",
+        "trailing.c": _listing("    0x01, 0x02,  // mov eax, [esp+4]", "    0x03,  /* push eax */",
+                               "    0x04,  ; call sub_12360", "    0x05,  # ret").encode(),
         "ghidra.md": _listing("00012345  8B 45 08   MOV EAX,dword ptr [EBP + 0x8]", "0001234A  50  PUSH EAX",
                               "0001234B  E8 10 00 00 00  CALL FUN_00012360", "00012350  C3  RET").encode(),
         "objdump.txt": _listing("   12345:\t8b 45 08\tmov    0x8(%ebp),%eax", "   12348:\t50\tpush   %eax",
@@ -47,6 +50,8 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
                              "and leave.").encode(),
         "code.py": _listing("    ok = (a", "          and 0 < b", "          or 5 > c", "          and d[0])").encode(),
         "three.md": _listing("push ebp", "mov ebp, esp", "sub esp, 0x10", "", "ret").encode(),
+        "comments.c": _listing("a += 4;  // add 4 more", "if (a) return;  /* test it */", "b = a; c = b;",
+                               "x = 1  # or move it").encode(),
         "picture.png": b"\x89PNG\r\n\x1a\n" + bytes(56),
     }
     for name, data in (files | allowed).items():
@@ -64,6 +69,7 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
         "ghidra.md": "x86 disassembly: 4 or more instruction lines from line 1",
         "objdump.txt": "x86 disassembly: 4 or more instruction lines from line 1",
         "ida.py": "x86 disassembly: 4 or more instruction lines from line 1",
+        "trailing.c": "x86 disassembly: 4 or more instruction lines from line 1",
         **dict.fromkeys(allowed)}
 
 
