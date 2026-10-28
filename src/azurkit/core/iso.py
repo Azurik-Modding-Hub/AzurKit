@@ -24,7 +24,7 @@ import io
 import itertools
 import os
 import struct
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -358,11 +358,13 @@ def _check(image: Image) -> None:
             raise ValueError(f"{a} and {b} share a sector")
 
 
-def pack(image: Image, out: str | os.PathLike) -> str:
+def pack(image: Image, out: str | os.PathLike, progress: Callable[[int, int], object] | None = None) -> str:
     """Write ``image`` to ``out`` and return its sha256, hashed as it is
     written. ``out`` appears only once it is whole and on the disk (a fresh
     ``.part`` beside it, fsynced, then renamed into place; D35), and it may
-    not be the image's input (D36)."""
+    not be the image's input (D36). ``progress(done, total)`` is called
+    after each :data:`CHUNK`; an exception it raises cancels the write, and
+    nothing is left behind."""
     out = Path(out)
     if out.exists() and out.samefile(image.source):
         raise ValueError(f"{out}: it is the build's input, which a build never writes over")
@@ -373,6 +375,8 @@ def pack(image: Image, out: str | os.PathLike) -> str:
             while data := src.read(CHUNK):
                 digest.update(data)
                 dst.write(data)
+                if progress is not None:
+                    progress(src.tell(), image.size)
             dst.flush()
             os.fsync(dst.fileno())
         os.replace(part, out)

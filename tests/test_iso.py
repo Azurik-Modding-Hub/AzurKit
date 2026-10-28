@@ -32,7 +32,8 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     segments cover the image once, in order: the replaced bytes once each,
     the rest copied from the input or zeros past its end. A build never
     writes over its input (D36), and pack returns the sha256 of what it
-    wrote."""
+    wrote, reporting its progress; an exception the progress callback
+    raises cancels the write and leaves nothing behind."""
     old = {"a.bin": fill("a", 90), "gamedata/big.xbr": fill("big", 3 * S), "gamedata/sub/c.xbr": fill("c", 100),
            "z.bin": fill("z", 10)}
     src = tmp_path / "in.iso"
@@ -43,7 +44,15 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     with pytest.raises(ValueError, match="the build's input"):
         iso.pack(built, src)
     out = tmp_path / "out.iso"
-    assert iso.pack(built, out) == _sha256(out) == built.sha256()
+    seen = []
+    assert iso.pack(built, out, progress=lambda *done: seen.append(done)) == _sha256(out) == built.sha256()
+    assert seen[-1] == (built.size, built.size)
+
+    def cancel(done, total):
+        raise KeyboardInterrupt
+    with pytest.raises(KeyboardInterrupt):
+        iso.pack(built, tmp_path / "cancelled.iso", progress=cancel)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.iso", "out.iso"]
     data, end = out.read_bytes(), src.stat().st_size // S
     pieces = built.segments()
     assert b"".join(bytes(p.data) if isinstance(p, iso.Bytes) else data[p.offset:p.offset + p.size]
@@ -127,8 +136,8 @@ RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
 @pytest.mark.parametrize("release", RELEASES)
 def test_an_identity_build_is_the_vanilla_image_and_starts_no_thread(release, request, tmp_path, monkeypatch, capsys):
     """pack(read(v)) is v, byte for byte, for each release: ``azurkit build``
-    checks the files a build reads (D27), then writes the image with no
-    edits. The build path starts no thread (the web page's worker has none;
+    checks the files a build reads (D27), then, with no pack (``--no-defaults``),
+    writes the image with no edits. The build path starts no thread (the web page's worker has none;
     Modkit's gate hashed on 8), which the guard here would refuse."""
     def refuse(*args, **kwargs):
         raise AssertionError("the build path started a thread")
@@ -139,7 +148,7 @@ def test_an_identity_build_is_the_vanilla_image_and_starts_no_thread(release, re
         ThreadPoolExecutor(1).submit(int)
     source, out = request.getfixturevalue(f"{release.name}_iso"), tmp_path / f"{release.name}.out"
     try:
-        assert cli.main(["build", "--iso", str(source), "--out", str(out)]) == 0
+        assert cli.main(["build", "--iso", str(source), "--out", str(out), "--no-defaults"]) == 0
         written = _sha256(out)
     finally:
         out.unlink(missing_ok=True)

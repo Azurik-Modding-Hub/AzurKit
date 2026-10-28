@@ -1,9 +1,14 @@
-"""The ``azurkit`` command.
+"""The ``azurkit`` command, a thin shell over :mod:`azurkit.sdk`: each verb
+turns its flags into the sdk's JSON and prints what comes back.
 
     azurkit verify [--iso PATH ...]       is each image a release's vanilla one, every file of it?
-    azurkit build --iso PATH --out PATH   the identity build: the image packed with no edits
+    azurkit packs                         the packs: on by default or not, the releases, what each does
+    azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
 
-A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1.
+``build`` applies the packs on by default (D528) and each ``--pack``, less
+each ``--no-pack``; ``--no-defaults`` starts from none (no packs at all is
+the identity build). A refusal or failure is one ``azurkit: ...`` line on
+stderr and exit 1.
 """
 
 from __future__ import annotations
@@ -12,42 +17,61 @@ import argparse
 import sys
 from pathlib import Path
 
-from azurkit import __version__
-from azurkit.core import gate, iso
+from azurkit import __version__, sdk
+from azurkit.core import gate
 
 
 def _verify(args: argparse.Namespace) -> int:
-    images, failed = [Path(p) for p in args.iso], 0
+    images, failed = list(args.iso), 0
     if not images:
         for release in gate.RELEASES:
             if (found := gate.find(release)) is None:
                 print(f"azurkit: no {release.label} image: {gate.missing(release)}", file=sys.stderr)
                 failed = 1
             else:
-                images.append(found)
+                images.append(str(found))
     for image in images:
         try:
-            stamp = gate.verify(image)
+            checked = sdk.verify(image)
         except (OSError, ValueError) as exc:
             print(f"azurkit: {exc}", file=sys.stderr)
             failed = 1
             continue
-        print(f"{image}: the vanilla {stamp.release.label} image, every file as its manifest has it")
+        print(f"{image}: the vanilla {checked['label']} image, every file as its manifest has it")
     return failed
 
 
+def _packs(args: argparse.Namespace) -> int:
+    for pack in sdk.catalog()["packs"]:
+        params = "".join(f" [{name}={value:g}]" for name, value in pack["parameters"].items())
+        print(f"{pack['name']:<18} {'on ' if pack['default_on'] else 'off'}  "
+              f"{'/'.join(pack['releases'])}  {pack['description']}{params}")
+    return 0
+
+
+def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool) -> dict:
+    """``build``'s flags as the sdk's recipe; ``ValueError`` names a pack no
+    pack has, or one both added and taken away (no flag cancels another)."""
+    catalog = {p["name"]: p for p in sdk.catalog()["packs"]}
+    if unknown := sorted({*packs, *no_packs} - catalog.keys()):
+        raise ValueError(f"no pack {', '.join(map(repr, unknown))} (the packs: {', '.join(catalog)})")
+    if both := sorted(set(packs) & set(no_packs)):
+        raise ValueError(f"packs both added and taken away: {', '.join(both)}")
+    chosen = {name for name, p in catalog.items() if defaults and p["default_on"]} | set(packs)
+    return {"iso": iso, "packs": {name: {} for name in catalog if name in chosen - set(no_packs)}}
+
+
 def _build(args: argparse.Namespace) -> int:
-    source, out = Path(args.iso), Path(args.out)
     try:
-        stamp = gate.verify(source, whole=False)              # D27: a build starts from vanilla
-        for release in gate.RELEASES:                             # D36
-            if (vanilla := gate.find(release)) and out.exists() and out.samefile(vanilla):
-                raise ValueError(f"{out}: it is the vanilla {release.label} image, which a build never writes over")
-        sha256 = iso.pack(iso.read(source), out)
+        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults), args.out)
     except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
-    print(f"{out}: {stamp.release.label}, {out.stat().st_size:,} B, sha256 {sha256}")
+    for layer in built["layers"]:
+        print(f"{layer['id']}: {layer['sites']} sites, {layer['bytes']} B")
+    for conflict in built["conflicts"]:
+        print(f"conflict: {conflict}")
+    print(f"{Path(built['out'])}: {built['label']}, {built['size']:,} B, sha256 {built['sha256']}")
     return 0
 
 
@@ -61,11 +85,20 @@ def main(argv: list[str] | None = None) -> int:
                                           "against that release's manifest, and name the first file that differs.")
     verify.add_argument("--iso", action="append", default=[], metavar="PATH", help="an image to check (repeatable)")
     verify.set_defaults(run=_verify)
-    build = verbs.add_parser("build", help="pack an image with no edits (the identity build)",
-                             description="Check that --iso is a vanilla image (the files a build reads), then write "
-                                         "it to --out with no edits: the same bytes.")
+    packs = verbs.add_parser("packs", help="list the packs", description="List the packs in the order a build "
+                             "applies them: on by default or off, the releases each supports, what it does, and "
+                             "its parameters with their defaults.")
+    packs.set_defaults(run=_packs)
+    build = verbs.add_parser("build", help="build an image with packs",
+                             description="Check that --iso is a vanilla image (the files a build reads), apply the "
+                                         "packs on by default and each --pack, less each --no-pack, and write the "
+                                         "image to --out. Nothing is written if any pack fails.")
     build.add_argument("--iso", required=True, metavar="PATH", help="the vanilla image")
     build.add_argument("--out", required=True, metavar="PATH", help="where to write the build (never the input)")
+    build.add_argument("--pack", action="append", default=[], metavar="NAME", help="a pack to apply (repeatable)")
+    build.add_argument("--no-pack", action="append", default=[], metavar="NAME",
+                       help="a pack on by default to leave out (repeatable)")
+    build.add_argument("--no-defaults", action="store_true", help="leave out every pack on by default")
     build.set_defaults(run=_build)
     args = parser.parse_args(argv)
     if args.verb is None:

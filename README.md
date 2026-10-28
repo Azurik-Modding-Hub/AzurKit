@@ -9,8 +9,10 @@ step is checked against Modkit's recorded outputs: per-file sha256s,
 copied into [`tests/oracle/`](tests/oracle/). AzurKit never imports Modkit's
 code.
 
-**Status:** AzurKit reads and checks your image and packs it back unchanged
-(step 4.1b1), so there is nothing to play yet. Version 1 will carry the web page, the 17 patch packs and their sliders on
+**Status:** AzurKit checks your image and builds it with its first five
+packs (step 4.1c): fps_unlock, qol_alloc_race (on by default), qol_gem_popups,
+qol_other_popups and qol_pickup_anims, on both releases, from the command
+line only. Version 1 will carry the web page, the 17 patch packs and their sliders on
 both releases (USA and Europe), character swaps and variants, and the
 randomizer. Players will get a web page and a download-and-run app;
 developers will get `uv tool install azurkit`.
@@ -48,7 +50,8 @@ uv run bootstrap.py                  # uv sync --locked, the leak guard's pre-pu
 uv run --locked pytest               # the suite
 uv run --locked pytest -m "not vanilla"   # only the tests that need no game data
 uv run --locked azurkit verify [--iso PATH]              # is it vanilla USA or Europe, every file of it?
-uv run --locked azurkit build --iso PATH --out PATH     # the identity build: the image, no edits yet
+uv run --locked azurkit packs                            # the packs, and which a build applies by default
+uv run --locked azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
 uv run --locked python -m azurkit                        # the app: the page in a window (a placeholder until 4.1d)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit, a PyInstaller onedir
 ```

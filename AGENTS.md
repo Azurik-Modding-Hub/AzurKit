@@ -63,6 +63,26 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
     port's to-do.
 - AzurKit never imports Modkit, and nothing NOTICE.md credits to JTCPP is
   ported (D95). `tests/test_provenance.py` checks that.
+- **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
+  sha256, its sections, every patch site's size and vanilla sha256, Europe's
+  address map) are derived from the oracle by `scripts/gen_facts.py`; run it
+  after a packs or core sync, never edit them by hand. `tests/test_packs.py`
+  holds them to it.
+
+## Packs
+
+- A pack (`src/azurkit/tools/mods/packs/`) holds only what it writes: each
+  site a `PatchSpec` at a USA address (Europe's comes from the facts), its
+  bytes, and the offsets of the absolute addresses (`abs32`) and rel32
+  branches (`rel32`) in them. The facts give each site's size and the
+  sha256 of its vanilla bytes; never put vanilla bytes or game constants in
+  a pack: read a value the pack scales from the vanilla XBE (`Xbe.read`).
+- A `custom_apply` writes only through `Xbe.patch`, inside the footprint it
+  declares (AZ-097). Errors name the site, never its bytes (D35).
+- Describe patch bytes in prose: four or more comment lines that read as
+  x86 instructions are a disassembly listing to the leak guard.
+- A port is done when its cases match the oracle: the facts site by site,
+  then G1 per file on both releases (`tests/test_packs.py`).
 
 ## The engine's contracts
 

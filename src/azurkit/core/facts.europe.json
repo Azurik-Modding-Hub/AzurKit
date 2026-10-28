@@ -1,0 +1,1530 @@
+{
+ "_about": "Written by scripts/gen_facts.py from tests/oracle/ (Modkit's facts and Europe's address map), never by hand. Hashes, sizes and addresses only: a site's vanilla bytes are their sha256 and size.",
+ "absent": {
+  "0x001001D0": "USA's .text slack before BINK, where small shims and slider values land: Europe's .text has none, so they land in SHIMS",
+  "0x0011D5D0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011D630": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011D690": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011D6C0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011D6F0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011D720": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011D7B0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011D8F0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011DB30": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011DB80": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011DC10": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011DC90": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011DF00": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011E530": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011E590": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011E650": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011E8B0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011E940": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011EDB0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011EDD0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011EE00": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011EF60": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011F260": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011F480": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011F5A0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011F5D0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011F630": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011F890": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011F8F8": "a D3D address mask Europe's D3D (XDK 4039) holds in another register: qol_memory_upper64_gpu (Step 2.162h) has a site of Europe's own for it",
+  "0x0011FB60": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011FCF0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011FEB0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011FEE0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0011FF00": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001201E0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120230": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120310": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120360": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001203C0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120510": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120640": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120720": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120780": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001207C0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120810": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120D20": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120DF0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120F80": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00120FE0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121040": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121060": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121080": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121150": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001211A0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001211E0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121240": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121300": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121740": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00121DF0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00122110": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00122240": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001222A0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00122310": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001223D0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00122510": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00122630": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00122710": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00122F60": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00123590": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001236D0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00123810": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001238B0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00123E00": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00123E20": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00124140": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00124160": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00124200": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00124320": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00124380": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001244F0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001245A0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00124740": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00124860": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001248A0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001249A0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00125250": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00125530": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0012635D": "fps_unlock's D3D Present site: XDK 4039's Present has no such code (Step RG.7, AZ-320)",
+  "0x001263C0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001263E2": "fps_unlock's D3D Present site: XDK 4039's Present has no such code (Step RG.7, AZ-320)",
+  "0x00126570": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x001268B0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00126900": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00126DC0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00127680": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00127990": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0012A410": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0012A4B0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0012A790": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0012A7B0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x0012A840": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
+  "0x00137205": "Europe's DSOUND (XDK 4039) was rebuilt: a shim that needs it owes Europe RE first",
+  "0x0013807C": "Europe's DSOUND (XDK 4039) was rebuilt: a shim that needs it owes Europe RE first"
+ },
+ "addresses": {
+  "0x00012A50": "0x00012A50",
+  "0x00015DA0": "0x00015DA0",
+  "0x00016610": "0x00016610",
+  "0x000185E0": "0x000185E0",
+  "0x00018980": "0x00018980",
+  "0x00018D30": "0x00018D30",
+  "0x0001B110": "0x0001B110",
+  "0x0001B306": "0x0001B306",
+  "0x000256B0": "0x000256B0",
+  "0x0002A020": "0x0002A020",
+  "0x0002A046": "0x0002A046",
+  "0x0002A04C": "0x0002A04C",
+  "0x0002A0BC": "0x0002A0BC",
+  "0x0002A0CD": "0x0002A0CD",
+  "0x0002BB55": "0x0002BB55",
+  "0x0002C7E2": "0x0002C7E2",
+  "0x0002F4B0": "0x0002F4B0",
+  "0x0002F4BD": "0x0002F4BD",
+  "0x0002F4C9": "0x0002F4C9",
+  "0x0002F4D8": "0x0002F4D8",
+  "0x000307E0": "0x000307E0",
+  "0x00030940": "0x00030940",
+  "0x000309A0": "0x000309A0",
+  "0x00030BD0": "0x00030BD0",
+  "0x00030C1C": "0x00030C1C",
+  "0x00030C26": "0x00030C26",
+  "0x00038C60": "0x00038C60",
+  "0x00038D2F": "0x00038D2F",
+  "0x00039006": "0x00039006",
+  "0x0003900B": "0x0003900B",
+  "0x0003C700": "0x0003C700",
+  "0x0003E887": "0x0003E887",
+  "0x0003EA57": "0x0003EA57",
+  "0x0003EBD5": "0x0003EBD5",
+  "0x0003EC58": "0x0003EC58",
+  "0x0003F075": "0x0003F075",
+  "0x000402E0": "0x000402E0",
+  "0x000413EE": "0x000413EE",
+  "0x0004146F": "0x0004146F",
+  "0x00041F67": "0x00041F67",
+  "0x00041F6C": "0x00041F6C",
+  "0x00041FB0": "0x00041FB0",
+  "0x00042070": "0x00042070",
+  "0x00042200": "0x00042200",
+  "0x00042237": "0x00042237",
+  "0x00042253": "0x00042253",
+  "0x00042430": "0x00042430",
+  "0x00042750": "0x00042750",
+  "0x00042910": "0x00042910",
+  "0x000429DA": "0x000429DA",
+  "0x000429F7": "0x000429F7",
+  "0x00042E40": "0x00042E40",
+  "0x00043066": "0x00043066",
+  "0x0004323C": "0x0004323C",
+  "0x00043584": "0x00043584",
+  "0x00043719": "0x00043719",
+  "0x00043A62": "0x00043A62",
+  "0x00043B47": "0x00043B47",
+  "0x00043B96": "0x00043B96",
+  "0x000440F0": "0x000440F0",
+  "0x00044355": "0x00044355",
+  "0x00044389": "0x00044389",
+  "0x00044640": "0x00044640",
+  "0x00045C10": "0x00045C10",
+  "0x00045E30": "0x00045E30",
+  "0x000460B0": "0x000460B0",
+  "0x00047BC6": "0x00047BC6",
+  "0x00047CF3": "0x00047CF3",
+  "0x00047EEF": "0x00047EEF",
+  "0x00049480": "0x00049480",
+  "0x0004B510": "0x0004B510",
+  "0x0004B600": "0x0004B600",
+  "0x0004B680": "0x0004B680",
+  "0x0004B900": "0x0004B900",
+  "0x0004B93C": "0x0004B93C",
+  "0x0004B948": "0x0004B948",
+  "0x0004E9D9": "0x0004E9D9",
+  "0x0004FF10": "0x0004FF10",
+  "0x00050950": "0x00050950",
+  "0x000513D3": "0x000513D3",
+  "0x00052133": "0x00052133",
+  "0x00052950": "0x00052950",
+  "0x00052F50": "0x00052F50",
+  "0x00053750": "0x00053750",
+  "0x000548E3": "0x000548E3",
+  "0x0005545A": "0x0005545A",
+  "0x00055AB0": "0x00055AB0",
+  "0x00055BB9": "0x00055BB9",
+  "0x00055F80": "0x00055F80",
+  "0x00057B70": "0x00057B70",
+  "0x000596CC": "0x0005970C",
+  "0x00059AFD": "0x00059AB5",
+  "0x00059B37": "0x00059AEF",
+  "0x0005C920": "0x0005C8D0",
+  "0x0005C990": "0x0005C940",
+  "0x0005E620": "0x0005E5D0",
+  "0x0005E690": "0x0005E640",
+  "0x0005F620": "0x0005F5D0",
+  "0x0005F6E0": "0x0005F690",
+  "0x0005F6E5": "0x0005F695",
+  "0x0005F748": "0x0005F6F8",
+  "0x0005F774": "0x0005F724",
+  "0x00060870": "0x00060820",
+  "0x00060BD0": "0x00060B80",
+  "0x000634B0": "0x00063460",
+  "0x000649E0": "0x00064990",
+  "0x00068A49": "0x000689F9",
+  "0x0007A1CA": "0x0007A17A",
+  "0x0007E2E0": "0x0007E290",
+  "0x0007E3DD": "0x0007E38D",
+  "0x0007E3F0": "0x0007E3A0",
+  "0x0007EBB0": "0x0007EB60",
+  "0x0007EC10": "0x0007EBC0",
+  "0x0007EC20": "0x0007EBD0",
+  "0x0007EC36": "0x0007EBE6",
+  "0x0007EC53": "0x0007EC03",
+  "0x0007EC5D": "0x0007EC0D",
+  "0x0007EC67": "0x0007EC17",
+  "0x0007EDA4": "0x0007ED54",
+  "0x0007EE3B": "0x0007EDEB",
+  "0x0007EF10": "0x0007EEC0",
+  "0x0007EF80": "0x0007EF30",
+  "0x0007EF85": "0x0007EF35",
+  "0x0007EF90": "0x0007EF40",
+  "0x0007F08B": "0x0007F03B",
+  "0x0007F09B": "0x0007F04B",
+  "0x0007F0AA": "0x0007F05A",
+  "0x0007F0B2": "0x0007F062",
+  "0x0007F18B": "0x0007F13B",
+  "0x0007F1A8": "0x0007F158",
+  "0x0007F1F0": "0x0007F1A0",
+  "0x00080C35": "0x00080BE5",
+  "0x00080C3A": "0x00080BEA",
+  "0x00080D71": "0x00080D21",
+  "0x00081066": "0x00081016",
+  "0x000810F3": "0x000810A3",
+  "0x000810F8": "0x000810A8",
+  "0x00081277": "0x00081227",
+  "0x00081292": "0x00081242",
+  "0x0008129C": "0x0008124C",
+  "0x00081891": "0x00081841",
+  "0x00081952": "0x00081902",
+  "0x0008196F": "0x0008191F",
+  "0x000819C9": "0x00081979",
+  "0x00081BEA": "0x00081B9A",
+  "0x00081DB0": "0x00081D60",
+  "0x00081E10": "0x00081DC0",
+  "0x00081EC0": "0x00081E70",
+  "0x00081FEB": "0x00081F9B",
+  "0x000827E0": "0x00082790",
+  "0x000837A0": "0x00083750",
+  "0x00083D80": "0x00083D30",
+  "0x00083F90": "0x00083F40",
+  "0x00083FAC": "0x00083F5C",
+  "0x00083FCE": "0x00083F7E",
+  "0x00083FE0": "0x00083F90",
+  "0x000842D0": "0x00084280",
+  "0x000846D0": "0x00084680",
+  "0x00084940": "0x000848F0",
+  "0x000849E4": "0x00084994",
+  "0x00084A40": "0x000849F0",
+  "0x00084E59": "0x00084E09",
+  "0x00084ED3": "0x00084E83",
+  "0x00084F90": "0x00084F40",
+  "0x000854B4": "0x00085464",
+  "0x000856D4": "0x00085684",
+  "0x00085700": "0x000856B0",
+  "0x00085920": "0x000858D0",
+  "0x00085A7C": "0x00085A2C",
+  "0x00085B65": "0x00085B15",
+  "0x00085CAA": "0x00085C5A",
+  "0x00085CD7": "0x00085C87",
+  "0x00085F50": "0x00085F00",
+  "0x00085F62": "0x00085F12",
+  "0x00086162": "0x00086112",
+  "0x0008656D": "0x0008651D",
+  "0x000865C8": "0x00086578",
+  "0x000866D9": "0x00086689",
+  "0x0008672A": "0x000866DA",
+  "0x00086D96": "0x00086D46",
+  "0x00086D9E": "0x00086D4E",
+  "0x00086DAE": "0x00086D5E",
+  "0x000870EE": "0x0008709E",
+  "0x000870F7": "0x000870A7",
+  "0x0008743B": "0x000873EB",
+  "0x00087444": "0x000873F4",
+  "0x00087920": "0x000878D0",
+  "0x00087929": "0x000878D9",
+  "0x00087F4C": "0x00087EFC",
+  "0x00087F55": "0x00087F05",
+  "0x00087F65": "0x00087F15",
+  "0x00087F80": "0x00087F30",
+  "0x00087FA7": "0x00087F57",
+  "0x00088357": "0x00088307",
+  "0x000883CB": "0x0008837B",
+  "0x000883FF": "0x000883AF",
+  "0x00088733": "0x000886E3",
+  "0x000888C2": "0x00088872",
+  "0x00088951": "0x00088901",
+  "0x00088958": "0x00088908",
+  "0x000889A6": "0x00088956",
+  "0x000889BB": "0x0008896B",
+  "0x00088A3A": "0x000889EA",
+  "0x00088A5E": "0x00088A0E",
+  "0x00088A80": "0x00088A30",
+  "0x00088D78": "0x00088D28",
+  "0x00088E70": "0x00088E20",
+  "0x00089060": "0x00089010",
+  "0x000890EA": "0x0008909A",
+  "0x00089126": "0x000890D6",
+  "0x00089154": "0x00089104",
+  "0x0008915A": "0x0008910A",
+  "0x00089160": "0x00089110",
+  "0x00089290": "0x00089240",
+  "0x000892AD": "0x0008925D",
+  "0x00089300": "0x000892B0",
+  "0x0008934E": "0x000892FE",
+  "0x0008939F": "0x0008934F",
+  "0x000893AE": "0x0008935E",
+  "0x000893CE": "0x0008937E",
+  "0x000893DD": "0x0008938D",
+  "0x00089409": "0x000893B9",
+  "0x0008944E": "0x000893FE",
+  "0x00089466": "0x00089416",
+  "0x00089480": "0x00089430",
+  "0x0008996D": "0x0008991D",
+  "0x00089982": "0x00089932",
+  "0x00089A70": "0x00089A20",
+  "0x00089AAC": "0x00089A5C",
+  "0x00089B76": "0x00089B26",
+  "0x0008A095": "0x0008A045",
+  "0x0008A4E3": "0x0008A493",
+  "0x0008A4F0": "0x0008A4A0",
+  "0x0008AB32": "0x0008AAE2",
+  "0x0008AB3F": "0x0008AAEF",
+  "0x0008AB70": "0x0008AB20",
+  "0x0008ADC2": "0x0008AD72",
+  "0x0008B002": "0x0008AFB2",
+  "0x0008B0D4": "0x0008B084",
+  "0x0008B0DB": "0x0008B08B",
+  "0x0008B100": "0x0008B0B0",
+  "0x0008B18C": "0x0008B13C",
+  "0x0008B195": "0x0008B145",
+  "0x0008B6CD": "0x0008B67D",
+  "0x0008B700": "0x0008B6B0",
+  "0x0008B7BF": "0x0008B76F",
+  "0x0008BDB0": "0x0008BD60",
+  "0x0008BDF3": "0x0008BDA3",
+  "0x0008BE00": "0x0008BDB0",
+  "0x0008BF61": "0x0008BF11",
+  "0x0008C080": "0x0008C030",
+  "0x0008C2EC": "0x0008C29C",
+  "0x0008C37D": "0x0008C32D",
+  "0x0008C382": "0x0008C332",
+  "0x0008C3B0": "0x0008C360",
+  "0x0008C3C3": "0x0008C373",
+  "0x0008C450": "0x0008C400",
+  "0x0008C553": "0x0008C503",
+  "0x0008C6AE": "0x0008C65E",
+  "0x0008C728": "0x0008C6D8",
+  "0x0008C745": "0x0008C6F5",
+  "0x0008C7D0": "0x0008C780",
+  "0x0008C8A0": "0x0008C850",
+  "0x0008C9CC": "0x0008C97C",
+  "0x0008CC21": "0x0008CBD1",
+  "0x0008CCC0": "0x0008CC70",
+  "0x0008CE14": "0x0008CDC4",
+  "0x0008CF84": "0x0008CF34",
+  "0x0008D091": "0x0008D041",
+  "0x0008D15A": "0x0008D10A",
+  "0x0008D322": "0x0008D2D2",
+  "0x0008D38A": "0x0008D33A",
+  "0x0008D39A": "0x0008D34A",
+  "0x0008D3E5": "0x0008D395",
+  "0x0008D406": "0x0008D3B6",
+  "0x0008D44D": "0x0008D3FD",
+  "0x0008D46F": "0x0008D41F",
+  "0x0008D648": "0x0008D5F8",
+  "0x0008D682": "0x0008D632",
+  "0x0008D6AF": "0x0008D65F",
+  "0x0008D750": "0x0008D700",
+  "0x0008FD19": "0x0008FDD9",
+  "0x00097420": "0x000974F0",
+  "0x000A0620": "0x000A07A0",
+  "0x000A1420": "0x000A15A0",
+  "0x000A2630": "0x000A27B0",
+  "0x000A2DF0": "0x000A2F70",
+  "0x000A2FD0": "0x000A3150",
+  "0x000A30D0": "0x000A3250",
+  "0x000A48D7": "0x000A4A57",
+  "0x000A48DD": "0x000A4A5D",
+  "0x000A48FA": "0x000A4A7A",
+  "0x000A490C": "0x000A4A8C",
+  "0x000A5CA0": "0x000A5E20",
+  "0x000A67A0": "0x000A6920",
+  "0x000AB580": "0x000AB700",
+  "0x000AB5B0": "0x000AB730",
+  "0x000AE76C": "0x000AE8EC",
+  "0x000AF322": "0x000AF4A2",
+  "0x000AF3B0": "0x000AF530",
+  "0x000B5CED": "0x000B5E6D",
+  "0x000BAB60": "0x000BACE0",
+  "0x000BAD46": "0x000BAEC6",
+  "0x000BAD55": "0x000BAED5",
+  "0x000CA1D0": "0x000CA350",
+  "0x000CA390": "0x000CA510",
+  "0x000CA470": "0x000CA5F0",
+  "0x000CACD0": "0x000CAE50",
+  "0x000CAD40": "0x000CAEC0",
+  "0x000CAEC0": "0x000CB040",
+  "0x000CAF6B": "0x000CB0EB",
+  "0x000CB020": "0x000CB1A0",
+  "0x000CB080": "0x000CB200",
+  "0x000CB2A0": "0x000CB420",
+  "0x000CB5CB": "0x000CB74B",
+  "0x000CBC80": "0x000CBE00",
+  "0x000CCDF0": "0x000CCF70",
+  "0x000CE0B0": "0x000CE230",
+  "0x000D0830": "0x000D0B30",
+  "0x000D09E0": "0x000D0CE0",
+  "0x000D0D60": "0x000D1060",
+  "0x000D1420": "0x000D1720",
+  "0x000D1520": "0x000D1820",
+  "0x000DF948": "0x000DFC48",
+  "0x000DFA10": "0x000DFD10",
+  "0x000DFE7B": "0x000E017B",
+  "0x000E007F": "0x000E037F",
+  "0x000E016A": "0x000E046A",
+  "0x000E02CF": "0x000E05CF",
+  "0x000E0466": "0x000E0766",
+  "0x000E06B4": "0x000E09B4",
+  "0x000E0B48": "0x000E0E48",
+  "0x000E0CA3": "0x000E0FA3",
+  "0x000E0D04": "0x000E1004",
+  "0x000E0D60": "0x000E1060",
+  "0x000E0D80": "0x000E1080",
+  "0x000E0D9E": "0x000E109E",
+  "0x000E0E9B": "0x000E119B",
+  "0x000E0FB3": "0x000E12B3",
+  "0x000E1218": "0x000E1518",
+  "0x000E2BC9": "0x000E2FBB",
+  "0x000E2C21": "0x000E2F5E",
+  "0x000E2DA7": "0x000E30F8",
+  "0x000E2DCF": "0x000E3120",
+  "0x000E2DFD": "0x000E314E",
+  "0x000E2F40": "0x000E3291",
+  "0x000E66A4": "0x000E69F5",
+  "0x000E6A2D": "0x000E6D7E",
+  "0x000E6A92": "0x000E6DE3",
+  "0x000E705E": "0x000E73AF",
+  "0x000E72DC": "0x000E762E",
+  "0x000E7334": "0x000E7686",
+  "0x000E735D": "0x000E76AF",
+  "0x000E7395": "0x000E76E7",
+  "0x000E73B2": "0x000E7704",
+  "0x000E7404": "0x000E7756",
+  "0x000E7458": "0x000E77AA",
+  "0x000E752B": "0x000E787D",
+  "0x000E75D6": "0x000E7928",
+  "0x000E76BD": "0x000E7A0F",
+  "0x000E77A5": "0x000E7AF7",
+  "0x000E7A90": "0x000E7DE0",
+  "0x000E7A9A": "0x000E7DEA",
+  "0x000EB240": "0x000EB560",
+  "0x000EB278": "0x000EB598",
+  "0x000EB2F8": "0x000EB618",
+  "0x000EB320": "0x000EB640",
+  "0x000EB358": "0x000EB678",
+  "0x000EB3C0": "0x000EB6E0",
+  "0x000EB495": "0x000EB7B5",
+  "0x000EB4E1": "0x000EB801",
+  "0x000EB561": "0x000EB881",
+  "0x000EB7C0": "0x000EBAE0",
+  "0x000EBC8E": "0x000EBFAE",
+  "0x000EBD20": "0x000EC040",
+  "0x000EBE0C": "0x000EC12C",
+  "0x000EBE3E": "0x000EC15E",
+  "0x000EBE54": "0x000EC174",
+  "0x000EC09F": "0x000EC3BF",
+  "0x000EC190": "0x000EC4B0",
+  "0x000EC203": "0x000EC523",
+  "0x000EC288": "0x000EC5A8",
+  "0x000EC2A9": "0x000EC5C9",
+  "0x000EC8E0": "0x000ECC00",
+  "0x000ECC91": "0x000ECFB1",
+  "0x000ECCA4": "0x000ECFC4",
+  "0x000ECCE6": "0x000ED006",
+  "0x000ECDA0": "0x000ED0C0",
+  "0x000ECDC0": "0x000ED0E0",
+  "0x000ECE35": "0x000ED155",
+  "0x000ECE72": "0x000ED192",
+  "0x000ECEE6": "0x000ED206",
+  "0x000ECF20": "0x000ED240",
+  "0x000ECF90": "0x000ED2B0",
+  "0x000ECFB1": "0x000ED2D1",
+  "0x000ED000": "0x000ED320",
+  "0x000ED0AA": "0x000ED3CA",
+  "0x000ED15C": "0x000ED47C",
+  "0x000ED2E0": "0x000ED600",
+  "0x000ED399": "0x000ED6B9",
+  "0x000ED419": "0x000ED739",
+  "0x000ED470": "0x000ED790",
+  "0x000ED4C2": "0x000ED7E2",
+  "0x000ED6C9": "0x000ED9E9",
+  "0x000ED997": "0x000EDCB7",
+  "0x000EDAB0": "0x000EDDD0",
+  "0x000EDAE3": "0x000EDE03",
+  "0x000EDB07": "0x000EDE27",
+  "0x000EEB6D": "0x000EEE8D",
+  "0x000EEC08": "0x000EEF28",
+  "0x000EEC33": "0x000EEF53",
+  "0x000EEC90": "0x000EEFB0",
+  "0x000EECBE": "0x000EEFDE",
+  "0x000EEDE3": "0x000EF103",
+  "0x000EEEAF": "0x000EF1CF",
+  "0x000EEEDE": "0x000EF1FE",
+  "0x000EEF01": "0x000EF221",
+  "0x000EEF30": "0x000EF250",
+  "0x000EF1EB": "0x000EF50B",
+  "0x000EF21D": "0x000EF53D",
+  "0x000F02CE": "0x000F05EE",
+  "0x000F02FB": "0x000F061B",
+  "0x000F0399": "0x000F06B9",
+  "0x000F03EC": "0x000F070C",
+  "0x000F05AF": "0x000F08CF",
+  "0x000F0618": "0x000F0938",
+  "0x000F063D": "0x000F095D",
+  "0x000F0765": "0x000F0A85",
+  "0x000F07E2": "0x000F0B02",
+  "0x000F0A8C": "0x000F0DAC",
+  "0x000F0B37": "0x000F0E57",
+  "0x000F0BBF": "0x000F0EDF",
+  "0x000F0D74": "0x000F1094",
+  "0x000F1374": "0x000F1694",
+  "0x000F14DC": "0x000F17FC",
+  "0x000F1831": "0x000F1B51",
+  "0x000F18EE": "0x000F1C0E",
+  "0x000F1BDE": "0x000F1EFE",
+  "0x000F1E13": "0x000F2133",
+  "0x000F1E95": "0x000F21B5",
+  "0x000F1EFB": "0x000F221B",
+  "0x000F23F8": "0x000F2718",
+  "0x000F252B": "0x000F284B",
+  "0x000F256F": "0x000F288F",
+  "0x000F28B5": "0x000F2BD5",
+  "0x000F2969": "0x000F2C89",
+  "0x000F34C8": "0x000F37E8",
+  "0x000F34FA": "0x000F381A",
+  "0x000F3547": "0x000F3867",
+  "0x000F35B9": "0x000F38D9",
+  "0x000F35E0": "0x000F3900",
+  "0x000F35F9": "0x000F3919",
+  "0x000F3674": "0x000F3994",
+  "0x000F37F8": "0x000F3B18",
+  "0x000F410B": "0x000F442B",
+  "0x000F4214": "0x000F4534",
+  "0x000F441A": "0x000F473A",
+  "0x000F4542": "0x000F4862",
+  "0x000F4563": "0x000F4883",
+  "0x000F45C1": "0x000F48E1",
+  "0x000F45EF": "0x000F490F",
+  "0x000F4EB0": "0x000F51D0",
+  "0x000F4F09": "0x000F5229",
+  "0x000F53D1": "0x000F56F1",
+  "0x000F5658": "0x000F5978",
+  "0x000F568A": "0x000F59AA",
+  "0x000F5717": "0x000F5A37",
+  "0x000F5AF3": "0x000F5E13",
+  "0x000F5B1D": "0x000F5E3D",
+  "0x000F5C94": "0x000F5FB4",
+  "0x000F5D0F": "0x000F602F",
+  "0x000F5FDC": "0x000F6304",
+  "0x000F601A": "0x000F6342",
+  "0x000F6057": "0x000F637F",
+  "0x000F61ED": "0x000F6515",
+  "0x000F6220": "0x000F6548",
+  "0x000FB518": "0x000FB848",
+  "0x000FB608": "0x000FB938",
+  "0x000FB9D6": "0x000FBD06",
+  "0x0011DF40": "0x0011E320",
+  "0x0011E074": "0x0011E434",
+  "0x001212D0": "0x00122010",
+  "0x00121390": "0x001220CE",
+  "0x00123E90": "0x00125980",
+  "0x00123EE5": "0x001259D5",
+  "0x00123F2C": "0x00125A1C",
+  "0x00123FBD": "0x00125AA8",
+  "0x00124047": "0x00125B35",
+  "0x001240D3": "0x00125BC3",
+  "0x001242C0": "0x00125DB0",
+  "0x00124360": "0x00125E60",
+  "0x00124441": "0x00125F51",
+  "0x00124640": "0x00126130",
+  "0x001249BD": "0x001264AD",
+  "0x00125160": "0x00126BF0",
+  "0x0012A060": "0x00128D90",
+  "0x0012A15A": "0x00128EAA",
+  "0x0012A3B8": "0x001290C8",
+  "0x0012D120": "0x0012C1B0",
+  "0x0012D497": "0x0012C525",
+  "0x0012D552": "0x0012C5D7",
+  "0x0015CFED": "0x0015F04B",
+  "0x0015E0B0": "0x0016010E",
+  "0x0015E597": "0x001605F5",
+  "0x00187E87": "0x0018A087",
+  "0x001979D0": "0x00199B78",
+  "0x00197A18": "0x00199BC0",
+  "0x001980A0": "0x0019A248",
+  "0x001980A8": "0x0019A250",
+  "0x001980BC": "0x0019A264",
+  "0x001980E0": "0x0019A288",
+  "0x001980E4": "0x0019A28C",
+  "0x00198120": "0x0019A2C8",
+  "0x00198138": "0x0019A2E0",
+  "0x0019814C": "0x0019A2F4",
+  "0x00198158": "0x0019A300",
+  "0x0019815C": "0x0019A304",
+  "0x00198160": "0x0019A308",
+  "0x00198164": "0x0019A30C",
+  "0x00198168": "0x0019A310",
+  "0x0019816C": "0x0019A314",
+  "0x00198170": "0x0019A318",
+  "0x001981B8": "0x0019A360",
+  "0x001981C8": "0x0019A370",
+  "0x001981E0": "0x0019A388",
+  "0x001981F0": "0x0019A398",
+  "0x00198228": "0x0019A3D0",
+  "0x001983E8": "0x0019A590",
+  "0x00198410": "0x0019A5B8",
+  "0x00198560": "0x0019A708",
+  "0x00198580": "0x0019A728",
+  "0x001985B8": "0x0019A760",
+  "0x001985D0": "0x0019A778",
+  "0x00198628": "0x0019A7D0",
+  "0x00198660": "0x0019A808",
+  "0x00198688": "0x0019A830",
+  "0x001986E8": "0x0019A890",
+  "0x00198700": "0x0019A8A8",
+  "0x0019873C": "0x0019A8E4",
+  "0x00198758": "0x0019A900",
+  "0x00198770": "0x0019A918",
+  "0x00198788": "0x0019A930",
+  "0x00198968": "0x0019AB10",
+  "0x001989A8": "0x0019AB50",
+  "0x001989C8": "0x0019AB70",
+  "0x00198A38": "0x0019ABE0",
+  "0x00198AB0": "0x0019AC58",
+  "0x00198C98": "0x0019AE40",
+  "0x0019ADB0": "0x0019CF68",
+  "0x0019BD70": "0x0019DF28",
+  "0x0019BE18": "0x0019DFD0",
+  "0x0019BE30": "0x0019DFE8",
+  "0x0019BE48": "0x0019E000",
+  "0x0019BF34": "0x0019E0EC",
+  "0x0019BFE4": "0x0019E19C",
+  "0x0019BFFC": "0x0019E1B4",
+  "0x0019C0B4": "0x0019E26C",
+  "0x0019D698": "0x0019ED84",
+  "0x0019D6B8": "0x0019EDA8",
+  "0x0019E038": "0x001A01F0",
+  "0x0019E048": "0x001A0200",
+  "0x0019E054": "0x001A020C",
+  "0x0019E070": "0x001A0228",
+  "0x0019E150": "0x001A0308",
+  "0x0019E240": "0x001A03F8",
+  "0x0019E54C": "0x001A0704",
+  "0x0019E56C": "0x001A0724",
+  "0x0019EA68": "0x001A0C20",
+  "0x0019EB1C": "0x001A0CD4",
+  "0x0019EB34": "0x001A0CEC",
+  "0x0019EB5C": "0x001A0D14",
+  "0x0019EB78": "0x001A0D30",
+  "0x0019EBA0": "0x001A0D58",
+  "0x0019EBC0": "0x001A0D78",
+  "0x0019EBDC": "0x001A0D94",
+  "0x0019EBF8": "0x001A0DB0",
+  "0x0019EC14": "0x001A0DCC",
+  "0x0019EC38": "0x001A0DF0",
+  "0x0019EC58": "0x001A0E10",
+  "0x0019EC78": "0x001A0E30",
+  "0x0019F270": "0x001A1428",
+  "0x0019FD34": "0x001A1EEC",
+  "0x001A1E3C": "0x001A3FF0",
+  "0x001A1E4C": "0x001A4000",
+  "0x001A2508": "0x001A47A8",
+  "0x001A250C": "0x001A47AC",
+  "0x001A2510": "0x001A47B0",
+  "0x001A2524": "0x001A47C4",
+  "0x001A2588": "0x001A4830",
+  "0x001A25B4": "0x001A485C",
+  "0x001A25B8": "0x001A4860",
+  "0x001A25BC": "0x001A4864",
+  "0x001A2650": "0x001A48F8",
+  "0x001A2674": "0x001A491C",
+  "0x001A268C": "0x001A4934",
+  "0x001A26C4": "0x001A496C",
+  "0x001A26C8": "0x001A4970",
+  "0x001A2704": "0x001A49AC",
+  "0x001A2724": "0x001A49CC",
+  "0x001A2730": "0x001A49D8",
+  "0x001A2740": "0x001A49E8",
+  "0x001A2750": "0x001A49F8",
+  "0x001A2768": "0x001A4A10",
+  "0x001A2774": "0x001A4A1C",
+  "0x001A28C8": "0x001A4B70",
+  "0x001A7AE4": "0x001A9A64",
+  "0x001A9C0C": "0x001ABB8C",
+  "0x001A9C84": "0x001ABC04",
+  "0x001A9C88": "0x001ABC08",
+  "0x001AA230": "0x001AC1B8",
+  "0x001AAB68": "0x001ACB00",
+  "0x001AAC2C": "0x001ACBC4",
+  "0x001BCDB4": "0x001BED54",
+  "0x001BCDC8": "0x001BED68",
+  "0x001BCDD0": "0x001BED70",
+  "0x001BCDD4": "0x001BED74",
+  "0x001BCDD8": "0x001BED78",
+  "0x001BE314": "0x001C02B4",
+  "0x001BF61C": "0x001C15BC",
+  "0x001BF63C": "0x001C15DC",
+  "0x0037ADEC": "0x0037CD8C",
+  "0x0037BE98": "0x0037DE38",
+  "0x00380E04": "0x00382DA4",
+  "0x00387890": "0x00389830",
+  "0x00387B00": "0x00389AA0",
+  "0x00389B00": "0x0038BAA0",
+  "0x00389B78": "0x0038BB18",
+  "0x0038A610": "0x0038C5B0",
+  "0x0038ABB8": "0x0038CB58",
+  "0x0038B0D0": "0x0038D070",
+  "0x0038B678": "0x0038D618",
+  "0x0038B67C": "0x0038D61C",
+  "0x0038C058": "0x0038DFF8",
+  "0x0038C1E4": "0x0038E184",
+  "0x0038C1E8": "0x0038E188",
+  "0x0038C1EC": "0x0038E18C",
+  "0x0038C1F4": "0x0038E194",
+  "0x0038C1F8": "0x0038E198",
+  "0x0038C364": "0x0038E304",
+  "0x0038D320": "0x0038F2C8",
+  "0x0038DC50": "0x0038FBF8",
+  "0x0039014C": "0x00392100"
+ },
+ "release": "europe",
+ "sections": [
+  {
+   "flags": "0x00000036",
+   "name": ".text",
+   "raw": "0x00001000",
+   "raw_size": "0x000EF500",
+   "sha256": "5c34a2824647aa38937c7318b702a3d896855ec517ba9878f9b74d0bf7719c39",
+   "va": "0x00011000",
+   "vsize": "0x000EF500"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK",
+   "raw": "0x000F1000",
+   "raw_size": "0x00016080",
+   "sha256": "8f952876f75bafdf9f60df02ea6c7489e35f394f0a42767101de581fef1272b0",
+   "va": "0x00100500",
+   "vsize": "0x00016080"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK32",
+   "raw": "0x00108000",
+   "raw_size": "0x00001264",
+   "sha256": "884a678c3d244b2735eaa123e9c33a62de5d0f3443e18097839812eaf51b975a",
+   "va": "0x00116580",
+   "vsize": "0x00001265"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK32A",
+   "raw": "0x0010A000",
+   "raw_size": "0x00001578",
+   "sha256": "c9829d0df887275d62b3844e3fe26fb55af1c926c615cc57b07a4a0f3c3ecc82",
+   "va": "0x00117800",
+   "vsize": "0x00001579"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK16",
+   "raw": "0x0010C000",
+   "raw_size": "0x0000131C",
+   "sha256": "1bb784f73761f535718564055c6d19b5b660805a651b6ebcada5710cd8a246fd",
+   "va": "0x00118D80",
+   "vsize": "0x0000131C"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK4444",
+   "raw": "0x0010E000",
+   "raw_size": "0x000015A0",
+   "sha256": "d3bbbd4cb300c457b254c91f31f198cdd1b98d2db255474d719676a1600dc465",
+   "va": "0x0011A0A0",
+   "vsize": "0x000015A0"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK5551",
+   "raw": "0x00110000",
+   "raw_size": "0x00001134",
+   "sha256": "0c515bf905c521f30fb95669be2d8cfa9e3c01b486085e8c18f0e61f2e5430b6",
+   "va": "0x0011B640",
+   "vsize": "0x00001134"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK16MX",
+   "raw": "0x00112000",
+   "raw_size": "0x00000130",
+   "sha256": "36a45054c1d4827547104ab02c116e31b5c4d2adf8eaec92100fef63f12a04d4",
+   "va": "0x0011C780",
+   "vsize": "0x00000130"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK16X2",
+   "raw": "0x00113000",
+   "raw_size": "0x00000558",
+   "sha256": "0ac99adff3151cb26fcbf6c276b33af379b9364c895d7cfc0808b1dfc9544a1b",
+   "va": "0x0011C8C0",
+   "vsize": "0x00000558"
+  },
+  {
+   "flags": "0x00000016",
+   "name": "BINK16M",
+   "raw": "0x00114000",
+   "raw_size": "0x000001F8",
+   "sha256": "ee14ba2ebec8b348848b198fcc1b5fed7a052278525e6f05dfe8104d1acddbc6",
+   "va": "0x0011CE20",
+   "vsize": "0x000001F8"
+  },
+  {
+   "flags": "0x00000006",
+   "name": "BINK32MX",
+   "raw": "0x00115000",
+   "raw_size": "0x000001BC",
+   "sha256": "a7b1215e8291ee6bc0454435a8dfbdddc9bea79afdabd7ba6a5aa103511b8d3b",
+   "va": "0x0011D020",
+   "vsize": "0x000001BC"
+  },
+  {
+   "flags": "0x00000006",
+   "name": "BINK32X2",
+   "raw": "0x00116000",
+   "raw_size": "0x0000058C",
+   "sha256": "9cbcc420a8e5d843ccbba27368e6658091d5e1866be4d1397321ee3a3bf1a10c",
+   "va": "0x0011D1E0",
+   "vsize": "0x0000058C"
+  },
+  {
+   "flags": "0x00000006",
+   "name": "BINK32M",
+   "raw": "0x00117000",
+   "raw_size": "0x0000014C",
+   "sha256": "e479634ec4d04e8921cd79a7ad5c922f0b6c496de09f84cc5ea0c41eacb993d7",
+   "va": "0x0011D780",
+   "vsize": "0x0000014C"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "D3D",
+   "raw": "0x00118000",
+   "raw_size": "0x00014BBC",
+   "sha256": "b7c7708fc8f85ec43f432d6d291eeb8e8a868864bb1b6d6393deba67806aab8a",
+   "va": "0x0011D8E0",
+   "vsize": "0x00017EA0"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "DSOUND",
+   "raw": "0x0012D000",
+   "raw_size": "0x000203E4",
+   "sha256": "b723db6802c38b1c94cfb0a56d1e04d12473b9265cd1873a965867b9c0539bef",
+   "va": "0x00135780",
+   "vsize": "0x000205C4"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "XGRPH",
+   "raw": "0x0014E000",
+   "raw_size": "0x00014004",
+   "sha256": "89bf28cff99c3647e5d96574086a56e8ef834dd1dde2abb3042056969f65571b",
+   "va": "0x00155D60",
+   "vsize": "0x00014C78"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "D3DX",
+   "raw": "0x00163000",
+   "raw_size": "0x0001F3B8",
+   "sha256": "5f752b44941cfca1cdca4cf2919059e54d486af328bf9725f5274c47af80f1ec",
+   "va": "0x0016A9E0",
+   "vsize": "0x0001F3C0"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "XPP",
+   "raw": "0x00183000",
+   "raw_size": "0x00007764",
+   "sha256": "fae4205bafcf88d1f74ffb86212f36ca3c010d2a3e7174e58f14de9699046551",
+   "va": "0x00189DA0",
+   "vsize": "0x00007764"
+  },
+  {
+   "flags": "0x00000006",
+   "name": ".rdata",
+   "raw": "0x0018B000",
+   "raw_size": "0x00013718",
+   "sha256": "6bfbf463339e0a3025786c1d2593cc21830e5c42752b68d3c7876e6ee209ea95",
+   "va": "0x00191520",
+   "vsize": "0x00013718"
+  },
+  {
+   "flags": "0x00000007",
+   "name": ".data",
+   "raw": "0x0019F000",
+   "raw_size": "0x00008010",
+   "sha256": "509e15a1ada81590d8006ca6e6bc9df768a656a1b6fc8d677da342adce641054",
+   "va": "0x001A4C40",
+   "vsize": "0x001EE19C"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "BINKDATA",
+   "raw": "0x001A8000",
+   "raw_size": "0x00004250",
+   "sha256": "366aa9c7f51f9e0f0fcbaba97ea2da64a34b3eee6a09385eb22a1a49606ab03d",
+   "va": "0x00392DE0",
+   "vsize": "0x00004250"
+  },
+  {
+   "flags": "0x00000026",
+   "name": "DOLBY",
+   "raw": "0x001AD000",
+   "raw_size": "0x00006D84",
+   "sha256": "c493eb6f8390ec48cde2da2995c114662059f7790f99d68adbda76a63b4b46ae",
+   "va": "0x00397040",
+   "vsize": "0x00006D98"
+  },
+  {
+   "flags": "0x00000038",
+   "name": "$$XTIMAGE",
+   "raw": "0x001B4000",
+   "raw_size": "0x00002800",
+   "sha256": "f3fc6df730009b51240ff0c613c54f161201cf2a56f19a6312c47dd269d80cea",
+   "va": "0x0039DDE0",
+   "vsize": "0x00002800"
+  }
+ ],
+ "sites": {
+  "0x0002A0BC": {
+   "sha256": "af3de80a7ceb90220f4ee4366026ba4df19a41a3311d9064b3fe1dea102af70e",
+   "size": 4
+  },
+  "0x0002A0CD": {
+   "sha256": "af3de80a7ceb90220f4ee4366026ba4df19a41a3311d9064b3fe1dea102af70e",
+   "size": 4
+  },
+  "0x0002BB55": {
+   "sha256": "2f168207fce6f640dc148c5ce9156b6c3870c61279f90b3d8ed365ff3cabfeb4",
+   "size": 4
+  },
+  "0x0002C7E2": {
+   "sha256": "9df6b6f0b01453dbfaefb36b8bca9ced1331dc89433b09c43798c062df2e5ed6",
+   "size": 4
+  },
+  "0x0002C7E7": {
+   "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+   "size": 1
+  },
+  "0x00030940": {
+   "sha256": "e9db133d956971ed8a98315aceaf2600e05c0f1c1777c084af034b73ab3d3e47",
+   "size": 9
+  },
+  "0x0003EBD5": {
+   "sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x000413EE": {
+   "sha256": "29dcf1c9ac7739bc2ac8695b9017918c9e0ffc3b85f0b8a6959d5a71b93596a5",
+   "size": 5
+  },
+  "0x000429F7": {
+   "sha256": "68514d94ea2a24b5920f19879c49a56668ab4165be5984564d8f1622c7488335",
+   "size": 8
+  },
+  "0x00047BC6": {
+   "sha256": "8db598bd71d9d6f8e46c057884f2d8c64a058325e11481e7fa0dbb6f601da55c",
+   "size": 2
+  },
+  "0x00047CF3": {
+   "sha256": "8db598bd71d9d6f8e46c057884f2d8c64a058325e11481e7fa0dbb6f601da55c",
+   "size": 2
+  },
+  "0x00047EEF": {
+   "sha256": "dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986",
+   "size": 1
+  },
+  "0x0004E9D9": {
+   "sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x000548E3": {
+   "sha256": "dcb2c097529bf05ceaac0a189055a1186aeb742b4e6ee08e9d3de4483acc8a37",
+   "size": 9
+  },
+  "0x00055BB9": {
+   "sha256": "ae1d9e1902721151d272484f44d8c53430abd6026fb600e048e93eb660b85cf5",
+   "size": 5
+  },
+  "0x00055F80": {
+   "sha256": "fe3a4880a5855c6437c52e7d387cb8bffea4f36cd178e9cf3f5ea55cd6c5441b",
+   "size": 5
+  },
+  "0x0005970C": {
+   "sha256": "6527919125dd56629d7a4d77771ad05eb5a14f2178337925cc70d554e52fe448",
+   "size": 4
+  },
+  "0x00059AB5": {
+   "sha256": "7a2e64adbd4084309bc5fb0c980f394f246a4188544f80f38f03478e473f6a11",
+   "size": 58
+  },
+  "0x00059AEF": {
+   "sha256": "5cecee68add809701cfe546d8046c91f98ecbbc7d125a36acf9d8418be7e6ca4",
+   "size": 30
+  },
+  "0x0005F690": {
+   "sha256": "5a63ca0d25e9ecd3787cfbc1edca1e8644795b35e3bb03e510f7447a8a567f54",
+   "size": 10
+  },
+  "0x0005F695": {
+   "sha256": "1b09471411918d91b69ad92632ca1deee2c90118070bfccde8b70a5873cefaa9",
+   "size": 5
+  },
+  "0x00083F5E": {
+   "sha256": "c3641f8544d7c02f3580b07c0f9887f0c6a27ff5ab1d4a3e29caf197cfc299ae",
+   "size": 1
+  },
+  "0x00083F80": {
+   "sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00084E85": {
+   "sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00085686": {
+   "sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00086112": {
+   "sha256": "273c78ec933569d64e7e1f0781a1faa8f01a711fa5ed56e4aefec782ba955aaf",
+   "size": 4
+  },
+  "0x00086D46": {
+   "sha256": "79b9735430c1167a6b0204ef9dbdb55e0e21c00ee82997b37a875301cf4dc954",
+   "size": 4
+  },
+  "0x0008709E": {
+   "sha256": "c35cfc520902df098380fc1a60c43bc11c75a53e7c6a5cf4816032bdde43651c",
+   "size": 6
+  },
+  "0x000873EB": {
+   "sha256": "c35cfc520902df098380fc1a60c43bc11c75a53e7c6a5cf4816032bdde43651c",
+   "size": 6
+  },
+  "0x000878D0": {
+   "sha256": "c35cfc520902df098380fc1a60c43bc11c75a53e7c6a5cf4816032bdde43651c",
+   "size": 6
+  },
+  "0x00087EFC": {
+   "sha256": "88910733ba58a65e1308892938422805b7f0efb4a506aecef58024a37c328e75",
+   "size": 6
+  },
+  "0x00087F57": {
+   "sha256": "6be41aba9eb5e88d4d1e26421e924b76f64a3c48610eb9cc18805c32f0b51c59",
+   "size": 6
+  },
+  "0x00088307": {
+   "sha256": "6be41aba9eb5e88d4d1e26421e924b76f64a3c48610eb9cc18805c32f0b51c59",
+   "size": 6
+  },
+  "0x0008896B": {
+   "sha256": "43b8eb0d682cc7d2f921bcea804b79f5a3345f1daa12a21f42e6cc94accd3db6",
+   "size": 4
+  },
+  "0x00088970": {
+   "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+   "size": 1
+  },
+  "0x0008909C": {
+   "sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x000890D8": {
+   "sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00089104": {
+   "sha256": "0b46bde5ee2279568da37f4f9eccb02737311f1c22888cf294574f4ad14b5c94",
+   "size": 4
+  },
+  "0x00089109": {
+   "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+   "size": 1
+  },
+  "0x00089112": {
+   "sha256": "bc960421fc4f3e6b3ae239a8ef1864f8ef3837b38c7d08ad27234a0313738d11",
+   "size": 3
+  },
+  "0x00089300": {
+   "sha256": "b9c205bdac187f20bf876cea369cb6032ad1bf69043b31d716b36b8defbffdf2",
+   "size": 2
+  },
+  "0x00089360": {
+   "sha256": "bc960421fc4f3e6b3ae239a8ef1864f8ef3837b38c7d08ad27234a0313738d11",
+   "size": 3
+  },
+  "0x00089380": {
+   "sha256": "cb27a4e93dc6ec4eb88bac69f35b90881c9ba233e75aaa75ab9af31680edcf17",
+   "size": 2
+  },
+  "0x0008938F": {
+   "sha256": "dec6eda5813fcd92eea8f8d1ae39186b7835f4d40d801b128a2a3bcfda65d720",
+   "size": 3
+  },
+  "0x00089A5C": {
+   "sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x0008B771": {
+   "sha256": "9f15ce64455ec5a8fcfd1d7e551b8653cd616e2f6409cb0117e26b7efe4a8729",
+   "size": 3
+  },
+  "0x0008C29C": {
+   "sha256": "d189f274f20166241d096900c5ce0f34aa025e22239413d018306994b6425fda",
+   "size": 5
+  },
+  "0x0008C6F6": {
+   "sha256": "a35777eff125d3424a045c7851c0a25cac154ad6ee371f468a3eae961405937a",
+   "size": 4
+  },
+  "0x0008D2D4": {
+   "sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x0008D5F9": {
+   "sha256": "a0327a22e8c42a97fc5d319b50bb50970cb3c8301dde4f0ea1dda43c0fe17a6c",
+   "size": 4
+  },
+  "0x0008FDD9": {
+   "sha256": "673d9fad9ab7f6ad8b0102ed11a5ec94d9e4fc9c83c1236126e971315c824a03",
+   "size": 3
+  },
+  "0x000A4A57": {
+   "sha256": "bcfc68bbde222bd9e1e06b5f504130ea7818f3ba8cacf077b11735a704ef0df2",
+   "size": 6
+  },
+  "0x000A4A5D": {
+   "sha256": "20ac471da3b1c87924ee21950322f1054098162c32b5ccf4e1a55fb854812daa",
+   "size": 6
+  },
+  "0x000A4A7A": {
+   "sha256": "af0b8a2d84f8fba184ae761292d2c3010f5a602422eab6403901e700df041a34",
+   "size": 5
+  },
+  "0x000A4A8C": {
+   "sha256": "32803fcddeee397596ae2378dd0c1049b42bc4be5de110f850b0f792fb0bd65c",
+   "size": 5
+  },
+  "0x000AE8EC": {
+   "sha256": "86bb5ab92dc66901e2573da91a164da5bb4a4b6331bc4fd329ec145484bf6b62",
+   "size": 13
+  },
+  "0x000AF4A2": {
+   "sha256": "ecb528988884cef5186fee65a9aa2cfc394201dc8579ffb6230dcf544cc7f92c",
+   "size": 29
+  },
+  "0x000AF530": {
+   "sha256": "b8980bf9c969c224969d61993929e6867bf21d9e7e1b3c56382f88451cad63f2",
+   "size": 29
+  },
+  "0x000B5E6D": {
+   "sha256": "2fc4b80157e43f30f1be774241dd152b9e756a946f9adb39f389ed2257fda32a",
+   "size": 5
+  },
+  "0x000BAEC6": {
+   "sha256": "43ef709041e642ad24fd0b7f1a12df0c04bce521f38684eeb79a91d9a34e96bc",
+   "size": 5
+  },
+  "0x000BAED5": {
+   "sha256": "7991c3cac30ca2f18f6bd50bb5fcbf4353e5af2bb1e5651a8964aa34b64a3485",
+   "size": 5
+  },
+  "0x000FB848": {
+   "sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x000FB938": {
+   "sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x0011E320": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0011E434": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001203D8": {
+   "sha256": "b2bb4ae277c555630f2a6049be9433aaedac1879189a2fa54ebeb3f946e55205",
+   "size": 6
+  },
+  "0x00122010": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001220CE": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00122BA9": {
+   "sha256": "608aa931e63de1eacbc8cf15780393212dd62677929bfbfb3f5c31b63e62a4df",
+   "size": 2
+  },
+  "0x00122CB2": {
+   "sha256": "e3b98a4da31a127d4bde6e43033f66ba274cab0eb7eb1c70ec41402bf6273dd8",
+   "size": 1
+  },
+  "0x00122D02": {
+   "sha256": "e3b98a4da31a127d4bde6e43033f66ba274cab0eb7eb1c70ec41402bf6273dd8",
+   "size": 1
+  },
+  "0x00125980": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001259D5": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125A1C": {
+   "sha256": "cb5b577e08540f14b73c878f82001b579e14ec0cd60588275012a8a077cff772",
+   "size": 6
+  },
+  "0x00125AA8": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125B35": {
+   "sha256": "b2bb4ae277c555630f2a6049be9433aaedac1879189a2fa54ebeb3f946e55205",
+   "size": 6
+  },
+  "0x00125BC3": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125DB0": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125E60": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125F51": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00126130": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001264AD": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00126BF0": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00128D90": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00128EAA": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001290C8": {
+   "sha256": "b2bb4ae277c555630f2a6049be9433aaedac1879189a2fa54ebeb3f946e55205",
+   "size": 6
+  },
+  "0x00129111": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0012C1B0": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0012C525": {
+   "sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0012C5D7": {
+   "sha256": "69a8afd001911faff006f76da8060b31f0efcaae87fbdee3446e11569e88f5ab",
+   "size": 9
+  },
+  "0x0019A248": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A250": {
+   "sha256": "3bd25052bd76c700a87d0d0a490a491798c422df2bd728dd33876d4a20e570e3",
+   "size": 4
+  },
+  "0x0019A2C8": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A2E0": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A360": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A370": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A388": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A398": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A3D0": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A590": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A5B8": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A708": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A728": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A760": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A778": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A7D0": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A808": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A830": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A890": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A8A8": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A8E4": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A900": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A930": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AB10": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AB50": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AB70": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019ABE0": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AC58": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AE40": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019DFD0": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0CD4": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0CEC": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D14": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D30": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D58": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D78": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D94": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0DB0": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0DCC": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0DF0": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0E10": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0E30": {
+   "sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A48F8": {
+   "sha256": "409303c5035263c102682239f8d654e7e194daae6235aff347c036576a261d96",
+   "size": 4
+  },
+  "0x001A4934": {
+   "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+   "size": 4
+  },
+  "0x001A49AC": {
+   "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+   "size": 4
+  },
+  "0x001A49CC": {
+   "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+   "size": 4
+  },
+  "0x001A49E8": {
+   "sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x001A49F8": {
+   "sha256": "9986f3768d0dbf92b44320840835188181810a1681e0d2ad00ede9dc7ffaabc2",
+   "size": 8
+  },
+  "0x001A4B70": {
+   "sha256": "a6eb657cf3aab7d4083b6f0eca93d6e4726d1db995b090f29decf45f2376682d",
+   "size": 8
+  },
+  "0x001AC1B8": {
+   "sha256": "0835a5c87ba00a93f8d84fb3bdf20866024a13fc710fc1225e3d67073543bba0",
+   "size": 4
+  }
+ },
+ "xbe": {
+  "base": "0x00010000",
+  "sha256": "72e0cf6af079a4024886d9e94812d87d4a35c177135b6196d215abe138866eab",
+  "size": 1798144
+ }
+}
