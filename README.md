@@ -10,9 +10,10 @@ copied into [`tests/oracle/`](tests/oracle/). AzurKit never imports Modkit's
 code.
 
 **Status:** AzurKit checks your image and builds it with its first five
-packs: fps_unlock, qol_alloc_race (on by default), qol_gem_popups,
-qol_other_popups and qol_pickup_anims, on both releases, from the command
-line, in the web page (pick your image, choose packs, Build, then Save; it
+packs: fps_unlock (with its frame-rate slider), qol_alloc_race (on by
+default), qol_gem_popups, qol_other_popups and qol_pickup_anims, on both
+releases, from the command line, in the web page (pick your image, choose
+packs and set their sliders, Build, then Save; it
 runs in your browser, and nothing is uploaded) or in the app, which shows the
 same page in its own window and writes the build where you save it. The page
 isn't hosted and the app isn't released yet: on macOS you build the app
@@ -55,7 +56,8 @@ uv run --locked pytest               # the suite
 uv run --locked pytest -m "not vanilla"   # only the tests that need no game data
 uv run --locked azurkit verify [--iso PATH]              # is it vanilla USA or Europe, every file of it?
 uv run --locked azurkit packs                            # the packs, and which a build applies by default
-uv run --locked azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
+uv run --locked azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults] \
+    [--pack-param PACK.SLIDER=VALUE ...]                 # a slider takes any finite number, never clamped
 uv run --locked python scripts/web_tools.py --site DIR   # the site: the page, Pyodide and the wheel
 uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS

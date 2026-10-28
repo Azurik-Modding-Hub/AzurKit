@@ -4,7 +4,9 @@ Pyodide 314 in a module worker, unpacked without its dependencies (WEB §3,
 ``scripts/web_tools.py`` assembles. Each ported pack's G1 case builds its
 golden on both releases, and the page's build is CPython's: the same report,
 and the same segments, so the Blob it saves is the image ``sdk.image`` makes;
-the saved file of all five packs is that image, byte for byte. Under the
+so is a build with a slider set on the page (Step 4.1e1), whose track holds
+its vanilla value and widens, never clamps; the saved file of all five
+packs is that image, byte for byte. Under the
 page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a
 GET of one of the site's own files: the image never leaves the page. The
 page is driven as ``tests/_page.py`` says."""
@@ -86,23 +88,31 @@ def _signature(made: iso.Image) -> list[list]:
 
 @pytest.mark.parametrize("release", RELEASES)
 def test_each_ported_pack_builds_its_g1_golden_in_chromium(release, chromium, site, request):
-    """One page per pack, built at once: each page's report holds the G1
-    golden's files (and only ``filelist.txt`` besides) and equals CPython's,
-    and its segments are CPython's; no CSP violation, no request but GETs of
-    the site's files."""
+    """One page per pack, and one with fps_unlock's slider typed to 120
+    FPS, built at once: each page's report and segments are CPython's for
+    the values it sent, and the packs at their defaults hold the G1
+    golden's files (and only ``filelist.txt`` besides). The slider's track
+    holds its default and vanilla value, and a value typed past its hints
+    widens it (D23, D42). No CSP violation, no request but GETs of the
+    site's files."""
     path = request.getfixturevalue(f"{release.name}_iso")
     golden = _page.golden(release)
+    cases = [(name, {}) for name in mods.PACKS] + [("fps_unlock", {"target_fps": "120"})]
     served = Site(chromium, site)
     try:
-        pages = {name: served.open() for name in mods.PACKS}
-        for name, page in pages.items():
+        pages = [served.open() for _ in cases]
+        assert _page.slide(pages[-1], "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
+        assert _page.slide(pages[-1], "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
+        for (name, values), page in zip(cases, pages):
             page.set_input_files("#iso", str(path))
-            _page.build(page, [name])
-        for name, page in pages.items():
-            built = _built(page)
-            made, report = sdk.image({"iso": str(path), "packs": {name: {}}})
-            _page.check_g1(built["report"]["result"], golden, name)
-            assert (built["report"], built["segments"]) == (report, _signature(made)), name
+            _page.build(page, [name], {name: values})
+        for (name, values), page in zip(cases, pages):
+            built, sent = _built(page), page.evaluate("() => azurkit.sent")
+            assert sent == {name: {s.name: float(values.get(s.name, s.default)) for s in mods.PACKS[name].sliders()}}
+            made, report = sdk.image({"iso": str(path), "packs": sent})
+            if not values:
+                _page.check_g1(built["report"]["result"], golden, name)
+            assert (built["report"], built["segments"]) == (report, _signature(made)), (name, values)
             _page.check_csp(page)
         assert served.stray() == []
     finally:

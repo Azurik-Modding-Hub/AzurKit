@@ -15,19 +15,19 @@ that need degrees or seconds are pointed at a 30.0 nothing writes.
 
 Europe has every USA site at its own address, but the two D3D ones: its
 XDK 4039 D3D has stand-ins at its own addresses. The pack's sites are a
-function of F (:func:`sites`); it is a ``custom_apply`` whose footprint is
-every place :func:`sites` can name (AZ-097). Ported from Modkit's
+function of F (:func:`sites`), its slider :data:`TARGET_FPS`; it is a
+``custom_apply`` whose footprint is every place :func:`sites` can name
+(AZ-097). Ported from Modkit's
 ``azurik_mod/patches/fps_unlock`` at the packs oracle's tag; its comments
 there hold the evidence for each site.
 """
 
 from __future__ import annotations
 
-import math
 import struct
 from collections.abc import Callable
 
-from azurkit.tools.mods.engine import Pack, PatchSpec, Place, Xbe
+from azurkit.tools.mods.engine import Pack, ParametricPatch, PatchSpec, Place, Xbe
 
 MAX_FPS = 15 * 127   # the step cap and the bounce limit are signed imm8 operands: ceil(F/15) <= 127
 RATE = 0x1A28C8      # the main loop's rate, a double
@@ -47,15 +47,10 @@ PROBE, PROBE_SLOT, PROBE_READER = 0x1A2674, 0x1A268C, 0x86162   # the ground pro
 SOLVER_CAP = 0x1AA230                                            # the collision solver's correction cap
 
 
-def target_rate(value: object) -> int:
-    """``value`` as the whole frame rate F; ``ValueError`` unless it is a
-    whole number from 1 to :data:`MAX_FPS` (an encoding limit, D45)."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-        raise ValueError(f"target_fps: {value!r} is not a finite number")
-    if value != int(value) or not 1 <= value <= MAX_FPS:
-        raise ValueError(f"target_fps: {value:g} is not a whole number from 1 to {MAX_FPS} "
-                         f"(the step cap ceil(F/15) is a signed byte)")
-    return int(value)
+# F, a whole number of frames per second from 1 to MAX_FPS (an encoding limit, D45); 30 is vanilla.
+TARGET_FPS = ParametricPatch(name="target_fps", label="Frame rate", default=60, slider_min=30, slider_max=120,
+                             slider_step=1, unit="fps", description="Frames per second; 30 is vanilla.", vanilla=30,
+                             whole=(1, MAX_FPS), why="the step cap ceil(F/15) is a signed byte")
 
 
 def _f32(value: float) -> bytes:
@@ -115,16 +110,16 @@ def sites(F: int, read: Callable[[int, int], bytes]) -> list[PatchSpec]:
     return out
 
 
-def apply(xbe: Xbe, target_fps: float = 60) -> None:
-    F = target_rate(target_fps)
-    if F != 30:
-        for spec in sites(F, xbe.read):
+def apply(xbe: Xbe, target_fps: int) -> None:
+    if target_fps != 30:
+        for spec in sites(target_fps, xbe.read):
             xbe.patch(spec)
 
 
 PACK = Pack(
     name="fps_unlock",
     description="Runs the game at a chosen frame rate (60 FPS by default) instead of 30.",
+    sites=(TARGET_FPS,),
     custom_apply=apply,
     footprint=tuple(Place(va=s.va, releases=s.releases) for s in sites(60, lambda va, size: bytes(size))),
 )

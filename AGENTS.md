@@ -94,6 +94,18 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   a pack: read a value the pack scales from the vanilla XBE (`Xbe.read`).
 - A `custom_apply` writes only through `Xbe.patch`, inside the footprint it
   declares (AZ-097). Errors name the site, never its bytes (D35).
+- **Sliders** (`ParametricPatch`) are a pack's parameters. Each takes any
+  finite number, never clamped (D23). `slider_min` and `slider_max` are
+  display hints, and the track holds the default and the vanilla value
+  (D42). Only an encoding's limit refuses a value (`whole`, D45).
+  - A slider at a site writes `encode(value)` there. A virtual one hands its
+    value to `custom_apply`, which takes exactly the pack's sliders.
+  - `mods.normalize` is every host's one check of a recipe's packs. Unknown
+    packs and sliders, NaN and inf are refused by name. A value equal to its
+    default is dropped.
+- **Presets** (`edits/preset.py`, `sdk.preset_encode` and `preset_decode`)
+  carry a recipe as a link's `#p=` fragment: names, numbers and hashes only,
+  never an image path or a byte (Q174), capped as untrusted input.
 - Describe patch bytes in prose: four or more comment lines that read as
   x86 instructions are a disassembly listing to the leak guard.
 - A port is done when its cases match the oracle: the facts site by site,
@@ -113,7 +125,8 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
 
 ## The two hosts (D866)
 
-- **The page** (`web/`): pick the image, choose packs, Build, then Save. One
+- **The page** (`web/`): pick the image, choose packs and set their sliders
+  (a box takes any value; the track widens to hold it), Build, then Save. One
   page for both hosts: `host.json` names the host's engine. It decides no
   output byte. Its CSP has no `'unsafe-eval'` and it uses no eval, and no
   host evaluates script in it (pywebview's `evaluate_js` would need eval).

@@ -2,13 +2,15 @@
 turns its flags into the sdk's JSON and prints what comes back.
 
     azurkit verify [--iso PATH ...]       is each image a release's vanilla one, every file of it?
-    azurkit packs                         the packs: on by default or not, the releases, what each does
+    azurkit packs                         the packs: on by default or not, the releases, what each does, its sliders
     azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
+                  [--pack-param PACK.SLIDER=VALUE ...]
 
 ``build`` applies the packs on by default (D528) and each ``--pack``, less
 each ``--no-pack``; ``--no-defaults`` starts from none (no packs at all is
-the identity build). A refusal or failure is one ``azurkit: ...`` line on
-stderr and exit 1.
+the identity build). ``--pack-param`` sets a slider of a pack it applies, to
+any finite number (D23: never clamped). A refusal or failure is one
+``azurkit: ...`` line on stderr and exit 1.
 """
 
 from __future__ import annotations
@@ -43,27 +45,42 @@ def _verify(args: argparse.Namespace) -> int:
 
 def _packs(args: argparse.Namespace) -> int:
     for pack in sdk.catalog()["packs"]:
-        params = "".join(f" [{name}={value:g}]" for name, value in pack["parameters"].items())
+        params = "".join(f" [{s['name']}={s['default']:g}]" for s in pack["sliders"])
         print(f"{pack['name']:<18} {'on ' if pack['default_on'] else 'off'}  "
               f"{'/'.join(pack['releases'])}  {pack['description']}{params}")
     return 0
 
 
-def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool) -> dict:
+def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, params: list[str] = ()) -> dict:
     """``build``'s flags as the sdk's recipe; ``ValueError`` names a pack no
-    pack has, or one both added and taken away (no flag cancels another)."""
+    pack has, one both added and taken away (no flag cancels another), and a
+    ``--pack-param`` that isn't ``PACK.SLIDER=NUMBER`` of a pack the build
+    applies (the sdk names a slider or value it refuses)."""
     catalog = {p["name"]: p for p in sdk.catalog()["packs"]}
     if unknown := sorted({*packs, *no_packs} - catalog.keys()):
         raise ValueError(f"no pack {', '.join(map(repr, unknown))} (the packs: {', '.join(catalog)})")
     if both := sorted(set(packs) & set(no_packs)):
         raise ValueError(f"packs both added and taken away: {', '.join(both)}")
     chosen = {name for name, p in catalog.items() if defaults and p["default_on"]} | set(packs)
-    return {"iso": iso, "packs": {name: {} for name in catalog if name in chosen - set(no_packs)}}
+    built = {name: {} for name in catalog if name in chosen - set(no_packs)}
+    for given in params:
+        target, _, value = given.partition("=")
+        pack, _, slider = target.partition(".")
+        try:
+            number = float(value)
+        except ValueError:
+            number = None
+        if not slider or number is None:
+            raise ValueError(f"--pack-param {given}: not PACK.SLIDER=NUMBER")
+        if pack not in built:
+            raise ValueError(f"--pack-param {given}: the build doesn't apply {pack!r} (add --pack {pack})")
+        built[pack][slider] = number
+    return {"iso": iso, "packs": built}
 
 
 def _build(args: argparse.Namespace) -> int:
     try:
-        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults), args.out)
+        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param), args.out)
     except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
@@ -99,6 +116,9 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--no-pack", action="append", default=[], metavar="NAME",
                        help="a pack on by default to leave out (repeatable)")
     build.add_argument("--no-defaults", action="store_true", help="leave out every pack on by default")
+    build.add_argument("--pack-param", action="append", default=[], metavar="PACK.SLIDER=VALUE",
+                       help="set a slider of a pack the build applies: any finite number, never clamped "
+                            "(repeatable; azurkit packs lists them)")
     build.set_defaults(run=_build)
     args = parser.parse_args(argv)
     if args.verb is None:

@@ -49,8 +49,23 @@ def fill(page, field: str, text: str) -> None:
     }""", [field, text])
 
 
-def build(page, packs: list[str]) -> None:
-    """Tick exactly ``packs`` and click Build (the image is picked)."""
+def slide(page, pack: str, slider: str, text: str) -> list[str]:
+    """Type ``text`` into ``pack``'s ``slider`` box; its track's min, max
+    and value, and the box's value."""
+    return page.evaluate("""([id, text]) => {
+        const box = document.getElementById(id), track = box.previousElementSibling;
+        box.value = text;
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+        return [track.min, track.max, track.value, box.value];
+    }""", [f"{pack}.{slider}", text])
+
+
+def build(page, packs: list[str], values: dict[str, dict[str, str]] | None = None) -> None:
+    """Tick exactly ``packs``, type each of ``values`` (``{pack: {slider:
+    text}}``) into its slider's box, and click Build (the image is picked)."""
+    for pack, sliders in (values or {}).items():
+        for slider, text in sliders.items():
+            slide(page, pack, slider, text)
     page.evaluate("""(packs) => {
         for (const box of document.querySelectorAll("#packs input[data-pack]")) {
             if (box.checked !== packs.includes(box.dataset.pack)) box.click();

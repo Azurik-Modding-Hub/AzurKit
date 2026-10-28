@@ -1,5 +1,5 @@
-// The page (D866): pick your image, choose packs, Build, then Save. One page for both hosts, the site and the app;
-// it decides no output byte (WEB §3.1). host.json names the host's engine, and the engine, azurkit.sdk, plans and
+// The page (D866): pick your image, choose packs and set their sliders, Build, then Save. One page for both hosts,
+// the site and the app; it decides no output byte (WEB §3.1). host.json names the host's engine, and the engine, azurkit.sdk, plans and
 // checks the build. The site's, siteEngine(), is the wheel under Pyodide in a fresh module worker for each build: it
 // returns the build as segments, which this page joins into a Blob of slices of your own file and the bytes the
 // build writes (WEB §3.4), and Save downloads it. The app's, appEngine(), is azurkit.sdk on CPython behind the app's
@@ -8,7 +8,7 @@
 // 'unsafe-eval', and no host evaluates script in the page (4.1b2).
 const $ = (id) => document.getElementById(id);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
-                packs: null, build: null, url: null, saved: null, poll: null, violations: [] };
+                packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [] };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 function say(text, error = false) {
@@ -99,28 +99,68 @@ function appEngine(host, { ready, built, refused, failed, saved }) {
   };
 }
 
+const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
+// What a slider's box holds, as the engine gets it: a number, or the text as typed, which the engine refuses by name.
+const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
+
+// One slider, inline: its label, its track, its box and unit. The box holds the value (any finite number, D23); the
+// track's ends are hints that widen to hold the vanilla value (D42) and whatever the box holds, so nothing clamps.
+function sliderRow(pack, slider) {
+  const row = Object.assign(document.createElement("div"), { className: "slider", title: slider.description });
+  const id = `${pack.name}.${slider.name}`;
+  const track = Object.assign(document.createElement("input"), {
+    type: "range", step: slider.whole ? Math.max(1, slider.step) : slider.step, ariaLabel: `${slider.label} (track)` });
+  const box = Object.assign(document.createElement("input"), {
+    type: "text", id, value: String(slider.default), inputMode: "decimal", spellcheck: false, autocomplete: "off" });
+  box.dataset.slider = slider.name;
+  const fit = () => {
+    const value = typed(box.value), ends = [slider.min, slider.max, slider.default, slider.vanilla, value];
+    const held = ends.filter((v) => typeof v === "number");
+    track.min = String(Math.min(...held));
+    track.max = String(Math.max(...held));
+    if (typeof value === "number") track.value = String(value);
+    box.classList.toggle("changed", value !== slider.default);
+  };
+  track.addEventListener("input", () => {
+    box.value = track.value;
+    fit();
+  });
+  box.addEventListener("input", fit);
+  const label = Object.assign(document.createElement("label"), { htmlFor: id, textContent: slider.label });
+  const unit = Object.assign(document.createElement("span"), { className: "unit", textContent:
+    slider.unit + (slider.vanilla === null ? "" : ` · vanilla ${slider.vanilla}`) });
+  row.append(label, track, box, unit);
+  fit();
+  return row;
+}
+
 function renderPacks(catalog) {
   const list = $("packs");
   list.replaceChildren();
   for (const pack of catalog.packs) {
+    const item = Object.assign(document.createElement("div"), { className: "pack" });
+    item.dataset.pack = pack.name;
     const label = document.createElement("label");
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: pack.default_on });
     box.dataset.pack = pack.name;
-    const params = Object.entries(pack.parameters).map(([k, v]) => ` (${k} ${v})`).join("");
     const name = Object.assign(document.createElement("span"), { className: "name", textContent: pack.name });
-    const what = Object.assign(document.createElement("span"), { textContent: pack.description + params });
+    const what = Object.assign(document.createElement("span"), { textContent: pack.description });
     const where = Object.assign(document.createElement("span"), {
       className: "releases", textContent: ` ${pack.releases.map((r) => r === "usa" ? "USA" : "Europe").join(", ")}` });
     what.append(where);
     label.append(box, name, what);
-    list.append(label);
+    item.append(label, ...pack.sliders.map((slider) => sliderRow(pack, slider)));
+    list.append(item);
   }
 }
 
+// The ticked packs, each with its sliders' values as typed: the engine normalizes them and names what it refuses.
 function chosen() {
   const packs = {};
-  for (const box of $("packs").querySelectorAll("input[data-pack]")) {
-    if (box.checked) packs[box.dataset.pack] = {};
+  for (const item of $("packs").querySelectorAll(".pack")) {
+    if (!item.querySelector("input[data-pack]").checked) continue;
+    packs[item.dataset.pack] = Object.fromEntries(
+      [...item.querySelectorAll("input[data-slider]")].map((box) => [box.dataset.slider, typed(box.value)]));
   }
   return packs;
 }
@@ -263,12 +303,14 @@ async function main() {
   }
 
   $("packs").addEventListener("change", forget);
+  $("packs").addEventListener("input", forget);
   $("build").addEventListener("click", () => {
     forget();
     if (!state.app) state.ready = false;   // the site's engine is replaced after each build
     busy(true);
     say("Checking your image and building…");
-    state.engine.build(state.file, chosen());
+    state.sent = chosen();
+    state.engine.build(state.file, state.sent);
   });
   $("cancel").addEventListener("click", () => {
     if (!state.app) state.ready = false;
