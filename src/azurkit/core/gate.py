@@ -92,6 +92,13 @@ def find(release: Release) -> Path | None:
     return path if path.is_file() else None
 
 
+def missing(release: Release) -> str:
+    """Why :func:`find` found no image for the release, and what to do."""
+    if named := os.environ.get(release.env):
+        return f"{release.env} names no file ({named})"
+    return f"set {release.env} or put it at {data_path(release)}"
+
+
 def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Release, ...] = RELEASES) -> Stamp:
     """The :class:`Stamp` of the image at ``path`` when it is one of
     ``releases``' vanilla images: every file of it (``whole``), or every one

@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
@@ -61,10 +62,11 @@ def test_the_gate_names_the_release_or_the_first_file_that_differs(tmp_path):
         assert str(refused.value) == f"{src} is not the vanilla {why}"
 
 
-def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path, capsys):
+def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path, capsys, monkeypatch):
     """``azurkit verify`` and ``azurkit build`` name why an image isn't a
     release's vanilla one in one line and exit 1; the build writes
-    nothing (D27, D35)."""
+    nothing (D27, D35). ``azurkit verify`` with no ``--iso`` also exits 1
+    when a release's image is missing, and says why."""
     src, out = tmp_path / "in.iso", tmp_path / "out.iso"
     src.write_bytes(image({"default.xbe": fill("x", 20)}))
     assert cli.main(["verify", "--iso", str(src)]) == 1
@@ -74,3 +76,8 @@ def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path
     assert capsys.readouterr().err == (f"azurkit: {src} is not the vanilla USA image: default.xbe: 20 B, where "
                                        f"vanilla has {gate.USA.files['default.xbe'][0]:,} B\n")
     assert not out.exists()
+    monkeypatch.setattr(gate, "verify", lambda path, **_: gate.Stamp(gate.USA, Path(path), 0, 0, True))
+    monkeypatch.setenv("AZURKIT_ISO", str(src))
+    monkeypatch.setenv("AZURKIT_ISO_EUROPE", str(out))
+    assert cli.main(["verify"]) == 1
+    assert capsys.readouterr().err == f"azurkit: no Europe image: AZURKIT_ISO_EUROPE names no file ({out})\n"

@@ -52,9 +52,7 @@ _gated = False
 def _verify(release: gate.Release) -> Path | str:
     """The release's image, or why the run can't use one."""
     if (path := gate.find(release)) is None:
-        where = (f"{release.env} names no file ({os.environ[release.env]})" if os.environ.get(release.env)
-                 else f"set {release.env} or put it at {gate.data_path(release)}")
-        return (f"{release.name} tests need the {release.label} image: {where}, or run "
+        return (f"{release.name} tests need the {release.label} image: {gate.missing(release)}, or run "
                 f'`pytest -m "not {"vanilla" if release is gate.USA else "europe"}"`')
     size = path.stat().st_size
     if size == release.iso_size:

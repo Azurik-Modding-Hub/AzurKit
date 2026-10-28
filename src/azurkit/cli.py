@@ -17,17 +17,14 @@ from azurkit.core import gate, iso
 
 
 def _verify(args: argparse.Namespace) -> int:
-    images = [Path(p) for p in args.iso]
+    images, failed = [Path(p) for p in args.iso], 0
     if not images:
         for release in gate.RELEASES:
             if (found := gate.find(release)) is None:
-                print(f"azurkit: no {release.label} image: set {release.env} or put it at "
-                      f"{gate.data_path(release)}", file=sys.stderr)
+                print(f"azurkit: no {release.label} image: {gate.missing(release)}", file=sys.stderr)
+                failed = 1
             else:
                 images.append(found)
-        if not images:
-            return 1
-    failed = 0
     for image in images:
         try:
             stamp = gate.verify(image)
