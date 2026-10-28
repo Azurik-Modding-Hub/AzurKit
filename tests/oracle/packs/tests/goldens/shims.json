@@ -1,0 +1,32 @@
+{
+ "enemy_scaling.o": {
+  "normalized sha256": "4ca75406d2bfa75363be058d4f728af7687802870853e19717b9df2c106d71dd"
+ },
+ "player_physics.o": {
+  "normalized sha256": "fd1b07fa006bb59df9fface2c43799de9842b3aada6fa0476b1166f2727173ef"
+ },
+ "qol_memory_budget.o": {
+  "normalized sha256": "80f6b046dffd88a9c39451ba72b749a159b751281931b3add53721e93c948c7c"
+ },
+ "qol_memory_upper256.o": {
+  "normalized sha256": "b4606a15bd15fa4a7d45befc21c8b5764e30d580d8a6841825fde70ca508d37f"
+ },
+ "qol_memory_upper64.o": {
+  "normalized sha256": "e75649ed9df593e24b5720e4fca398c891691a6a21711098f3a8db36a02b5527"
+ },
+ "qol_memory_upper64_gpu.o": {
+  "normalized sha256": "5c629e74c06460d7702fc7775856969afbedd75459c569aef83d41bba53f198f"
+ },
+ "qol_photo_mode.o": {
+  "normalized sha256": "1c506f34233589d1111bf0743b7f06eb5379bf62cef0ecba841635b619c279f8"
+ },
+ "qol_save_warp.o": {
+  "normalized sha256": "0114720c43cc5b686b7550eb5e0d7135c1f0483ca55a134bf83139b9d815da83"
+ },
+ "qol_skip_logo.o": {
+  "normalized sha256": "e5db47df6586e86b8a64fac827045f5276b30b3d1ef9d8a7c45eaade5aaf3f12"
+ },
+ "xboxkrnl_resolver.o": {
+  "normalized sha256": "c5d4149f2f9d9302d59566a1acb1002bb53f3d6e9d215cd6e02e9ee808fbbd85"
+ }
+}

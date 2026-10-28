@@ -1,0 +1,4 @@
+# The only skips (and xfails) a run may have (D26; read by tests/conftest.py).
+# Each key is a test id, each value a regex searched in its reason; any other
+# skip fails the run. It starts empty (Q277): an entry is added only with the
+# owner's review, never to get a run to green.

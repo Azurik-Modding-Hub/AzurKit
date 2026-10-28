@@ -1,0 +1,127 @@
+{
+ "air_shield_flaps": {
+  "config.xbr": "ea0f4c00deef7763ca10abb2e00c937f2659b3b879151117268225d03884a4ab",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "air_shield_flaps:air_shield_1_flaps=0,air_shield_2_flaps=0,air_shield_3_flaps=0": {
+  "config.xbr": "b7d880be6350acb5a14ae8b72b7990acde5f6b0b15f5e720418b7f5f2136521f",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "air_shield_flaps:air_shield_1_flaps=12,air_shield_2_flaps=25,air_shield_3_flaps=40": {
+  "config.xbr": "65ea41dd12111c456b7ba3aa498a0a784eaf367d38a0affa544c1f0f3d50b94a",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "air_shield_flaps:air_shield_1_flaps=3,air_shield_2_flaps=4,air_shield_3_flaps=9": {
+  "config.xbr": "1c993cab2568f5d4bf0c14ae372ce654f5d55a28e9fb58e61d998d20bd231122",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "enemy_damage": {
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "enemy_damage:enemy_damage_neutral=-0.5,enemy_damage_weakness=3,enemy_damage_immune=1": {
+  "config.xbr": "e82426d0d2a14748d88024cda4a9d452c969bf54a1e072fde4881c0b988ab955",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "enemy_damage:enemy_damage_neutral=2,enemy_damage_weakness=0.5,enemy_damage_immune=-1": {
+  "config.xbr": "ecbdda87dbf09f01c9e7f82965aacb01021c74bb99d59d269f3a3b1423b6a457",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "enemy_scaling": {
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "enemy_scaling:boss_health_scale=2,boss_damage_dealt_scale=3,boss_attack_speed_scale=2,boss_move_speed_scale=0.5,boss_size_scale=1.5": {
+  "config.xbr": "0517e5a84a0a66afe121c355efc48369ea722ffad85172c676cfa56948ab7820",
+  "default.xbe": "52ce12b58d7c55aad96c2ce537d17a8205efe08b09e8a93d277ba93cf30d2133"
+ },
+ "enemy_scaling:enemy_health_scale=0.3,enemy_damage_dealt_scale=-1,enemy_attack_speed_scale=0,enemy_move_speed_scale=3,enemy_size_scale=0.5": {
+  "config.xbr": "11981388e3ee8244a1bfc085088d8270a3d39f6bdf32397065f723e032388948",
+  "default.xbe": "6b464a278319b6017f48742413596b09573a064fd9f8110d1f690af30c82b939"
+ },
+ "enemy_scaling:enemy_health_scale=2,enemy_damage_dealt_scale=0.5,enemy_attack_speed_scale=1.5,enemy_move_speed_scale=0.75,enemy_size_scale=1.25": {
+  "config.xbr": "3f7e9c3e6304a4f5a1bbbe7cae72b5f583f281951a7184bdc3c08156db906ba4",
+  "default.xbe": "3326898d30453d1a7cdb1e75b2264fc33d3a6121bf512cabd9442d3928a20c63"
+ },
+ "fps_unlock": {
+  "default.xbe": "5a0de71c09d44e1232e16bb5b52f17307e6ce0040ac3831b66a7aade7bd7fecc"
+ },
+ "player_max_hp": {
+  "config.xbr": "ea0f4c00deef7763ca10abb2e00c937f2659b3b879151117268225d03884a4ab",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "player_max_hp:health_bar_full_scale=5000": {
+  "config.xbr": "5975b380a043a7c3cdb9f8faa0b2e950f96caffa0c104ba021617441def0efd1",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "player_max_hp:starting_hp=20000": {
+  "config.xbr": "959cc64ac6a28a5928acb021ace52f8e79bc1f8541012a59130f11c9345152c2",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "player_max_hp:starting_hp=500": {
+  "config.xbr": "a07ea51770fb3dd64a1853d2c01c5101d7cb9b5bc7b2e7a462f61265cd731086",
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "player_physics": {
+  "default.xbe": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5"
+ },
+ "player_physics:climb_speed_scale=2": {
+  "default.xbe": "257cd6f6eecc58e5db8c495da11df97188b00021f926fd05951ee957aa478135"
+ },
+ "player_physics:gravity=0,walk_speed_scale=0,swim_speed_scale=0,jump_speed_scale=0,air_control_scale=0,flap_height_scale=0,flap_below_peak_scale=0,wing_flap_ceiling_scale=0,flap_descent_fuel_cost_scale=0,flap_entry_fuel_cost_scale=0": {
+  "config.xbr": "89b23c00cb34adf15bfca1a9a57ba1123fb9d2b6a961c97390fa44917484dcc4",
+  "default.xbe": "7984befe313c783614a971075b3b56669f94f84816d3818e12955b5615fafa69"
+ },
+ "player_physics:gravity=19.6,walk_speed_scale=0.5,swim_speed_scale=12,jump_speed_scale=7.5,air_control_scale=0.25,flap_height_scale=0.5,flap_below_peak_scale=4,wing_flap_ceiling_scale=30,flap_descent_fuel_cost_scale=-0.5,flap_entry_fuel_cost_scale=-1": {
+  "config.xbr": "ea4b86f5fa97cda1c4df2f6c35146d0392793c728d69638f622af6564d5a6bf2",
+  "default.xbe": "fff3cc9c038916def1a0e0ec7d2c7922333dea2c3652f6cd6094acd2a9c85951"
+ },
+ "player_physics:gravity=4.9,walk_speed_scale=2,swim_speed_scale=2,jump_speed_scale=1.5,air_control_scale=2,flap_height_scale=2,flap_below_peak_scale=2,wing_flap_ceiling_scale=5,flap_descent_fuel_cost_scale=0.01,flap_entry_fuel_cost_scale=0.5": {
+  "config.xbr": "1ec7b64b5878e982f44a940ca2f668ce95a61ccacdf0b2d387c6d97a22553183",
+  "default.xbe": "3b42077106c9ee96d458d18782fb8cc03008024596abfb1fcd8b688ac78b8ab2"
+ },
+ "player_physics:roll_speed_scale=2": {
+  "default.xbe": "630baaae61b1b0a2b5bc41b68337b13779191d11b211befa492a23f2e161f588"
+ },
+ "player_physics:roll_time_scale=2": {
+  "default.xbe": "860984090ca1b54908bd8e4540895cdb1e3c711f738c61d73f0693d86d73570a"
+ },
+ "player_physics:walk_speed_scale=2,roll_time_scale=2,climb_speed_scale=2,toggle_walk_speed_scale=1,toggle_roll_time_scale=1,toggle_climb_speed_scale=1": {
+  "config.xbr": "1ec7b64b5878e982f44a940ca2f668ce95a61ccacdf0b2d387c6d97a22553183",
+  "default.xbe": "7e8055c61a2445f84d19809d06047f37ab7fd49433546430752e2e61e4e74050"
+ },
+ "qol_alloc_race": {
+  "default.xbe": "226aba28f3a785f929f384a2b2e2bc72a4aaee6f4cdd486ec2f50485e00fc30b"
+ },
+ "qol_gem_popups": {
+  "default.xbe": "6183a1c26bce29719f65ecf2c525b66c9ca9388b671dc67a3d25e1534b6d4aeb"
+ },
+ "qol_memory_budget": {
+  "default.xbe": "e6016213483a08626cc296a583260191557cf57e25f7cbdb0f182d1b8d61caeb"
+ },
+ "qol_memory_upper256": {
+  "default.xbe": "44bf33969ae5df0b38b8f35f67329270e9f58b0f5234652b4b97c12b4e89bf0f"
+ },
+ "qol_memory_upper64": {
+  "default.xbe": "81aefb3b68016a41d4b107a25f26be1d0a62f9d7b60b6cfec5ebfd37db49f844"
+ },
+ "qol_memory_upper64_gpu": {
+  "default.xbe": "622a916e9d716e3ff1c191c51565a9826c069be717c3b137a1eee39dca1435e9"
+ },
+ "qol_other_popups": {
+  "default.xbe": "87d63eb6f0085778d2092ec68026ef9210b334a1d4c093b1dbe0d56649f60fad"
+ },
+ "qol_photo_mode": {
+  "default.xbe": "fba661eeb4a6e4079a543875d8f0838c5ad130cac2fd47ea1bd6f0ccdfae7e4a"
+ },
+ "qol_photo_mode:fly_speed=2": {
+  "default.xbe": "efbbfc284623718e21ecc77830b9eba34d5a1a904f8a94a1529f98675ca308c8"
+ },
+ "qol_pickup_anims": {
+  "default.xbe": "c67535101f9397e911a4d372e487e77be73fbd1deaef1e37372ff76236a4eb24"
+ },
+ "qol_save_warp": {
+  "default.xbe": "2b7cf9069cee6d13c11e6262326431467054f80f0bb6213bfcdb0e0bfee28803"
+ },
+ "qol_skip_logo": {
+  "default.xbe": "bd2807067c7f42a869e5f4ef38c38cb697e73c924f383dd6f55856645611b53f"
+ }
+}

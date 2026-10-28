@@ -1,0 +1,1484 @@
+{
+ "tests/facts/xbe.europe.json": {
+  "enemy_scaling": {
+   "pack": "enemy_scaling",
+   "params": {},
+   "region": "europe"
+  },
+  "enemy_scaling:boss_attack_speed_scale=2": {
+   "pack": "enemy_scaling",
+   "params": {
+    "boss_attack_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "enemy_scaling:boss_damage_dealt_scale=2": {
+   "pack": "enemy_scaling",
+   "params": {
+    "boss_damage_dealt_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "enemy_scaling:enemy_damage_dealt_scale=2": {
+   "pack": "enemy_scaling",
+   "params": {
+    "enemy_damage_dealt_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "fps_unlock": {
+   "pack": "fps_unlock",
+   "params": {},
+   "region": "europe"
+  },
+  "fps_unlock:target_fps=120": {
+   "pack": "fps_unlock",
+   "params": {
+    "target_fps": 120.0
+   },
+   "region": "europe"
+  },
+  "player_physics": {
+   "pack": "player_physics",
+   "params": {},
+   "region": "europe"
+  },
+  "player_physics:air_control_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:climb_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "climb_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:flap_below_peak_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_below_peak_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:flap_descent_fuel_cost_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_descent_fuel_cost_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:flap_entry_fuel_cost_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_entry_fuel_cost_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:flap_height_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_height_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:gravity=19.6": {
+   "pack": "player_physics",
+   "params": {
+    "gravity": 19.6
+   },
+   "region": "europe"
+  },
+  "player_physics:jump_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "jump_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:roll_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:roll_time_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_time_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:swim_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "swim_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:wing_flap_ceiling_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "wing_flap_ceiling_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "qol_alloc_race": {
+   "pack": "qol_alloc_race",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_gem_popups": {
+   "pack": "qol_gem_popups",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_budget": {
+   "pack": "qol_memory_budget",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_budget:budget_mib=84": {
+   "pack": "qol_memory_budget",
+   "params": {
+    "budget_mib": 84.0
+   },
+   "region": "europe"
+  },
+  "qol_memory_upper256": {
+   "pack": "qol_memory_upper256",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_upper64": {
+   "pack": "qol_memory_upper64",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_upper64_gpu": {
+   "pack": "qol_memory_upper64_gpu",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_other_popups": {
+   "pack": "qol_other_popups",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_photo_mode": {
+   "pack": "qol_photo_mode",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_photo_mode:fly_speed=2": {
+   "pack": "qol_photo_mode",
+   "params": {
+    "fly_speed": 2.0
+   },
+   "region": "europe"
+  },
+  "qol_pickup_anims": {
+   "pack": "qol_pickup_anims",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_save_warp": {
+   "pack": "qol_save_warp",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_skip_logo": {
+   "pack": "qol_skip_logo",
+   "params": {},
+   "region": "europe"
+  }
+ },
+ "tests/facts/xbe.json": {
+  "enemy_scaling": {
+   "pack": "enemy_scaling",
+   "params": {},
+   "region": "usa"
+  },
+  "enemy_scaling:boss_attack_speed_scale=2": {
+   "pack": "enemy_scaling",
+   "params": {
+    "boss_attack_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "enemy_scaling:boss_damage_dealt_scale=2": {
+   "pack": "enemy_scaling",
+   "params": {
+    "boss_damage_dealt_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "enemy_scaling:enemy_damage_dealt_scale=2": {
+   "pack": "enemy_scaling",
+   "params": {
+    "enemy_damage_dealt_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "fps_unlock": {
+   "pack": "fps_unlock",
+   "params": {},
+   "region": "usa"
+  },
+  "fps_unlock:target_fps=120": {
+   "pack": "fps_unlock",
+   "params": {
+    "target_fps": 120.0
+   },
+   "region": "usa"
+  },
+  "player_physics": {
+   "pack": "player_physics",
+   "params": {},
+   "region": "usa"
+  },
+  "player_physics:air_control_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:climb_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "climb_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:flap_below_peak_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_below_peak_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:flap_descent_fuel_cost_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_descent_fuel_cost_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:flap_entry_fuel_cost_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_entry_fuel_cost_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:flap_height_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "flap_height_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:gravity=19.6": {
+   "pack": "player_physics",
+   "params": {
+    "gravity": 19.6
+   },
+   "region": "usa"
+  },
+  "player_physics:jump_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "jump_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:roll_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:roll_time_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_time_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:swim_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "swim_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:wing_flap_ceiling_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "wing_flap_ceiling_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "qol_alloc_race": {
+   "pack": "qol_alloc_race",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_gem_popups": {
+   "pack": "qol_gem_popups",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_budget": {
+   "pack": "qol_memory_budget",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_budget:budget_mib=84": {
+   "pack": "qol_memory_budget",
+   "params": {
+    "budget_mib": 84.0
+   },
+   "region": "usa"
+  },
+  "qol_memory_upper256": {
+   "pack": "qol_memory_upper256",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_upper64": {
+   "pack": "qol_memory_upper64",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_upper64_gpu": {
+   "pack": "qol_memory_upper64_gpu",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_other_popups": {
+   "pack": "qol_other_popups",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_photo_mode": {
+   "pack": "qol_photo_mode",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_photo_mode:fly_speed=2": {
+   "pack": "qol_photo_mode",
+   "params": {
+    "fly_speed": 2.0
+   },
+   "region": "usa"
+  },
+  "qol_pickup_anims": {
+   "pack": "qol_pickup_anims",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_save_warp": {
+   "pack": "qol_save_warp",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_skip_logo": {
+   "pack": "qol_skip_logo",
+   "params": {},
+   "region": "usa"
+  }
+ },
+ "tests/goldens/europe/packs.json": {
+  "enemy_scaling": {
+   "pack": "enemy_scaling",
+   "params": {},
+   "region": "europe"
+  },
+  "enemy_scaling:boss_health_scale=2,boss_damage_dealt_scale=3,boss_attack_speed_scale=2,boss_move_speed_scale=0.5,boss_size_scale=1.5": {
+   "pack": "enemy_scaling",
+   "params": {
+    "boss_attack_speed_scale": 2.0,
+    "boss_damage_dealt_scale": 3.0,
+    "boss_health_scale": 2.0,
+    "boss_move_speed_scale": 0.5,
+    "boss_size_scale": 1.5
+   },
+   "region": "europe"
+  },
+  "enemy_scaling:enemy_health_scale=0.3,enemy_damage_dealt_scale=-1,enemy_attack_speed_scale=0,enemy_move_speed_scale=3,enemy_size_scale=0.5": {
+   "pack": "enemy_scaling",
+   "params": {
+    "enemy_attack_speed_scale": 0.0,
+    "enemy_damage_dealt_scale": -1.0,
+    "enemy_health_scale": 0.3,
+    "enemy_move_speed_scale": 3.0,
+    "enemy_size_scale": 0.5
+   },
+   "region": "europe"
+  },
+  "enemy_scaling:enemy_health_scale=2,enemy_damage_dealt_scale=0.5,enemy_attack_speed_scale=1.5,enemy_move_speed_scale=0.75,enemy_size_scale=1.25": {
+   "pack": "enemy_scaling",
+   "params": {
+    "enemy_attack_speed_scale": 1.5,
+    "enemy_damage_dealt_scale": 0.5,
+    "enemy_health_scale": 2.0,
+    "enemy_move_speed_scale": 0.75,
+    "enemy_size_scale": 1.25
+   },
+   "region": "europe"
+  },
+  "fps_unlock": {
+   "pack": "fps_unlock",
+   "params": {},
+   "region": "europe"
+  },
+  "player_physics": {
+   "pack": "player_physics",
+   "params": {},
+   "region": "europe"
+  },
+  "player_physics:climb_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "climb_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:gravity=0,walk_speed_scale=0,swim_speed_scale=0,jump_speed_scale=0,air_control_scale=0,flap_height_scale=0,flap_below_peak_scale=0,wing_flap_ceiling_scale=0,flap_descent_fuel_cost_scale=0,flap_entry_fuel_cost_scale=0": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 0.0,
+    "flap_below_peak_scale": 0.0,
+    "flap_descent_fuel_cost_scale": 0.0,
+    "flap_entry_fuel_cost_scale": 0.0,
+    "flap_height_scale": 0.0,
+    "gravity": 0.0,
+    "jump_speed_scale": 0.0,
+    "swim_speed_scale": 0.0,
+    "walk_speed_scale": 0.0,
+    "wing_flap_ceiling_scale": 0.0
+   },
+   "region": "europe"
+  },
+  "player_physics:gravity=19.6,walk_speed_scale=0.5,swim_speed_scale=12,jump_speed_scale=7.5,air_control_scale=0.25,flap_height_scale=0.5,flap_below_peak_scale=4,wing_flap_ceiling_scale=30,flap_descent_fuel_cost_scale=-0.5,flap_entry_fuel_cost_scale=-1": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 0.25,
+    "flap_below_peak_scale": 4.0,
+    "flap_descent_fuel_cost_scale": -0.5,
+    "flap_entry_fuel_cost_scale": -1.0,
+    "flap_height_scale": 0.5,
+    "gravity": 19.6,
+    "jump_speed_scale": 7.5,
+    "swim_speed_scale": 12.0,
+    "walk_speed_scale": 0.5,
+    "wing_flap_ceiling_scale": 30.0
+   },
+   "region": "europe"
+  },
+  "player_physics:gravity=4.9,walk_speed_scale=2,swim_speed_scale=2,jump_speed_scale=1.5,air_control_scale=2,flap_height_scale=2,flap_below_peak_scale=2,wing_flap_ceiling_scale=5,flap_descent_fuel_cost_scale=0.01,flap_entry_fuel_cost_scale=0.5": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 2.0,
+    "flap_below_peak_scale": 2.0,
+    "flap_descent_fuel_cost_scale": 0.01,
+    "flap_entry_fuel_cost_scale": 0.5,
+    "flap_height_scale": 2.0,
+    "gravity": 4.9,
+    "jump_speed_scale": 1.5,
+    "swim_speed_scale": 2.0,
+    "walk_speed_scale": 2.0,
+    "wing_flap_ceiling_scale": 5.0
+   },
+   "region": "europe"
+  },
+  "player_physics:roll_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:roll_time_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_time_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "player_physics:walk_speed_scale=2,roll_time_scale=2,climb_speed_scale=2,toggle_walk_speed_scale=1,toggle_roll_time_scale=1,toggle_climb_speed_scale=1": {
+   "pack": "player_physics",
+   "params": {
+    "climb_speed_scale": 2.0,
+    "roll_time_scale": 2.0,
+    "toggle_climb_speed_scale": 1.0,
+    "toggle_roll_time_scale": 1.0,
+    "toggle_walk_speed_scale": 1.0,
+    "walk_speed_scale": 2.0
+   },
+   "region": "europe"
+  },
+  "qol_alloc_race": {
+   "pack": "qol_alloc_race",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_gem_popups": {
+   "pack": "qol_gem_popups",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_budget": {
+   "pack": "qol_memory_budget",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_upper256": {
+   "pack": "qol_memory_upper256",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_upper64": {
+   "pack": "qol_memory_upper64",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_memory_upper64_gpu": {
+   "pack": "qol_memory_upper64_gpu",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_other_popups": {
+   "pack": "qol_other_popups",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_photo_mode": {
+   "pack": "qol_photo_mode",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_photo_mode:fly_speed=2": {
+   "pack": "qol_photo_mode",
+   "params": {
+    "fly_speed": 2.0
+   },
+   "region": "europe"
+  },
+  "qol_pickup_anims": {
+   "pack": "qol_pickup_anims",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_save_warp": {
+   "pack": "qol_save_warp",
+   "params": {},
+   "region": "europe"
+  },
+  "qol_skip_logo": {
+   "pack": "qol_skip_logo",
+   "params": {},
+   "region": "europe"
+  }
+ },
+ "tests/goldens/gui.json": {
+  "run_randomizer:mods": {
+   "gui": "run_randomizer",
+   "kwargs": {
+    "pack_params": {
+     "player_max_hp": {
+      "starting_hp": 500.0
+     },
+     "player_physics": {
+      "gravity": 19.6,
+      "jump_speed_scale": 1.5,
+      "walk_speed_scale": 2.0
+     }
+    },
+    "packs": {
+     "fps_unlock": true,
+     "player_max_hp": true,
+     "player_physics": true,
+     "qol_pickup_anims": true,
+     "qol_skip_logo": true
+    }
+   },
+   "region": "usa"
+  },
+  "run_randomizer:mods+xbr_editor": {
+   "gui": "run_randomizer",
+   "kwargs": {
+    "config_edits": {
+     "xbr_editor": [
+      [
+       "critters_damage",
+       "water_elemental",
+       "hitPoints",
+       777.0
+      ],
+      [
+       "armor_properties",
+       "no_armor_1",
+       "Type",
+       "hide"
+      ]
+     ]
+    },
+    "pack_params": {
+     "player_max_hp": {
+      "starting_hp": 500.0
+     },
+     "player_physics": {
+      "gravity": 19.6,
+      "jump_speed_scale": 1.5,
+      "walk_speed_scale": 2.0
+     }
+    },
+    "packs": {
+     "fps_unlock": true,
+     "player_max_hp": true,
+     "player_physics": true,
+     "qol_pickup_anims": true,
+     "qol_skip_logo": true
+    }
+   },
+   "region": "usa"
+  },
+  "run_randomizer:xbr_editor": {
+   "gui": "run_randomizer",
+   "kwargs": {
+    "config_edits": {
+     "xbr_editor": [
+      [
+       "critters_damage",
+       "water_elemental",
+       "hitPoints",
+       777.0
+      ],
+      [
+       "armor_properties",
+       "no_armor_1",
+       "Type",
+       "hide"
+      ]
+     ]
+    }
+   },
+   "region": "usa"
+  }
+ },
+ "tests/goldens/packs.json": {
+  "air_shield_flaps": {
+   "pack": "air_shield_flaps",
+   "params": {},
+   "region": "usa"
+  },
+  "air_shield_flaps:air_shield_1_flaps=0,air_shield_2_flaps=0,air_shield_3_flaps=0": {
+   "pack": "air_shield_flaps",
+   "params": {
+    "air_shield_1_flaps": 0.0,
+    "air_shield_2_flaps": 0.0,
+    "air_shield_3_flaps": 0.0
+   },
+   "region": "usa"
+  },
+  "air_shield_flaps:air_shield_1_flaps=12,air_shield_2_flaps=25,air_shield_3_flaps=40": {
+   "pack": "air_shield_flaps",
+   "params": {
+    "air_shield_1_flaps": 12.0,
+    "air_shield_2_flaps": 25.0,
+    "air_shield_3_flaps": 40.0
+   },
+   "region": "usa"
+  },
+  "air_shield_flaps:air_shield_1_flaps=3,air_shield_2_flaps=4,air_shield_3_flaps=9": {
+   "pack": "air_shield_flaps",
+   "params": {
+    "air_shield_1_flaps": 3.0,
+    "air_shield_2_flaps": 4.0,
+    "air_shield_3_flaps": 9.0
+   },
+   "region": "usa"
+  },
+  "enemy_damage": {
+   "pack": "enemy_damage",
+   "params": {},
+   "region": "usa"
+  },
+  "enemy_damage:enemy_damage_neutral=-0.5,enemy_damage_weakness=3,enemy_damage_immune=1": {
+   "pack": "enemy_damage",
+   "params": {
+    "enemy_damage_immune": 1.0,
+    "enemy_damage_neutral": -0.5,
+    "enemy_damage_weakness": 3.0
+   },
+   "region": "usa"
+  },
+  "enemy_damage:enemy_damage_neutral=2,enemy_damage_weakness=0.5,enemy_damage_immune=-1": {
+   "pack": "enemy_damage",
+   "params": {
+    "enemy_damage_immune": -1.0,
+    "enemy_damage_neutral": 2.0,
+    "enemy_damage_weakness": 0.5
+   },
+   "region": "usa"
+  },
+  "enemy_scaling": {
+   "pack": "enemy_scaling",
+   "params": {},
+   "region": "usa"
+  },
+  "enemy_scaling:boss_health_scale=2,boss_damage_dealt_scale=3,boss_attack_speed_scale=2,boss_move_speed_scale=0.5,boss_size_scale=1.5": {
+   "pack": "enemy_scaling",
+   "params": {
+    "boss_attack_speed_scale": 2.0,
+    "boss_damage_dealt_scale": 3.0,
+    "boss_health_scale": 2.0,
+    "boss_move_speed_scale": 0.5,
+    "boss_size_scale": 1.5
+   },
+   "region": "usa"
+  },
+  "enemy_scaling:enemy_health_scale=0.3,enemy_damage_dealt_scale=-1,enemy_attack_speed_scale=0,enemy_move_speed_scale=3,enemy_size_scale=0.5": {
+   "pack": "enemy_scaling",
+   "params": {
+    "enemy_attack_speed_scale": 0.0,
+    "enemy_damage_dealt_scale": -1.0,
+    "enemy_health_scale": 0.3,
+    "enemy_move_speed_scale": 3.0,
+    "enemy_size_scale": 0.5
+   },
+   "region": "usa"
+  },
+  "enemy_scaling:enemy_health_scale=2,enemy_damage_dealt_scale=0.5,enemy_attack_speed_scale=1.5,enemy_move_speed_scale=0.75,enemy_size_scale=1.25": {
+   "pack": "enemy_scaling",
+   "params": {
+    "enemy_attack_speed_scale": 1.5,
+    "enemy_damage_dealt_scale": 0.5,
+    "enemy_health_scale": 2.0,
+    "enemy_move_speed_scale": 0.75,
+    "enemy_size_scale": 1.25
+   },
+   "region": "usa"
+  },
+  "fps_unlock": {
+   "pack": "fps_unlock",
+   "params": {},
+   "region": "usa"
+  },
+  "player_max_hp": {
+   "pack": "player_max_hp",
+   "params": {},
+   "region": "usa"
+  },
+  "player_max_hp:health_bar_full_scale=5000": {
+   "pack": "player_max_hp",
+   "params": {
+    "health_bar_full_scale": 5000.0
+   },
+   "region": "usa"
+  },
+  "player_max_hp:starting_hp=20000": {
+   "pack": "player_max_hp",
+   "params": {
+    "starting_hp": 20000.0
+   },
+   "region": "usa"
+  },
+  "player_max_hp:starting_hp=500": {
+   "pack": "player_max_hp",
+   "params": {
+    "starting_hp": 500.0
+   },
+   "region": "usa"
+  },
+  "player_physics": {
+   "pack": "player_physics",
+   "params": {},
+   "region": "usa"
+  },
+  "player_physics:climb_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "climb_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:gravity=0,walk_speed_scale=0,swim_speed_scale=0,jump_speed_scale=0,air_control_scale=0,flap_height_scale=0,flap_below_peak_scale=0,wing_flap_ceiling_scale=0,flap_descent_fuel_cost_scale=0,flap_entry_fuel_cost_scale=0": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 0.0,
+    "flap_below_peak_scale": 0.0,
+    "flap_descent_fuel_cost_scale": 0.0,
+    "flap_entry_fuel_cost_scale": 0.0,
+    "flap_height_scale": 0.0,
+    "gravity": 0.0,
+    "jump_speed_scale": 0.0,
+    "swim_speed_scale": 0.0,
+    "walk_speed_scale": 0.0,
+    "wing_flap_ceiling_scale": 0.0
+   },
+   "region": "usa"
+  },
+  "player_physics:gravity=19.6,walk_speed_scale=0.5,swim_speed_scale=12,jump_speed_scale=7.5,air_control_scale=0.25,flap_height_scale=0.5,flap_below_peak_scale=4,wing_flap_ceiling_scale=30,flap_descent_fuel_cost_scale=-0.5,flap_entry_fuel_cost_scale=-1": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 0.25,
+    "flap_below_peak_scale": 4.0,
+    "flap_descent_fuel_cost_scale": -0.5,
+    "flap_entry_fuel_cost_scale": -1.0,
+    "flap_height_scale": 0.5,
+    "gravity": 19.6,
+    "jump_speed_scale": 7.5,
+    "swim_speed_scale": 12.0,
+    "walk_speed_scale": 0.5,
+    "wing_flap_ceiling_scale": 30.0
+   },
+   "region": "usa"
+  },
+  "player_physics:gravity=4.9,walk_speed_scale=2,swim_speed_scale=2,jump_speed_scale=1.5,air_control_scale=2,flap_height_scale=2,flap_below_peak_scale=2,wing_flap_ceiling_scale=5,flap_descent_fuel_cost_scale=0.01,flap_entry_fuel_cost_scale=0.5": {
+   "pack": "player_physics",
+   "params": {
+    "air_control_scale": 2.0,
+    "flap_below_peak_scale": 2.0,
+    "flap_descent_fuel_cost_scale": 0.01,
+    "flap_entry_fuel_cost_scale": 0.5,
+    "flap_height_scale": 2.0,
+    "gravity": 4.9,
+    "jump_speed_scale": 1.5,
+    "swim_speed_scale": 2.0,
+    "walk_speed_scale": 2.0,
+    "wing_flap_ceiling_scale": 5.0
+   },
+   "region": "usa"
+  },
+  "player_physics:roll_speed_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:roll_time_scale=2": {
+   "pack": "player_physics",
+   "params": {
+    "roll_time_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "player_physics:walk_speed_scale=2,roll_time_scale=2,climb_speed_scale=2,toggle_walk_speed_scale=1,toggle_roll_time_scale=1,toggle_climb_speed_scale=1": {
+   "pack": "player_physics",
+   "params": {
+    "climb_speed_scale": 2.0,
+    "roll_time_scale": 2.0,
+    "toggle_climb_speed_scale": 1.0,
+    "toggle_roll_time_scale": 1.0,
+    "toggle_walk_speed_scale": 1.0,
+    "walk_speed_scale": 2.0
+   },
+   "region": "usa"
+  },
+  "qol_alloc_race": {
+   "pack": "qol_alloc_race",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_gem_popups": {
+   "pack": "qol_gem_popups",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_budget": {
+   "pack": "qol_memory_budget",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_upper256": {
+   "pack": "qol_memory_upper256",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_upper64": {
+   "pack": "qol_memory_upper64",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_memory_upper64_gpu": {
+   "pack": "qol_memory_upper64_gpu",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_other_popups": {
+   "pack": "qol_other_popups",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_photo_mode": {
+   "pack": "qol_photo_mode",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_photo_mode:fly_speed=2": {
+   "pack": "qol_photo_mode",
+   "params": {
+    "fly_speed": 2.0
+   },
+   "region": "usa"
+  },
+  "qol_pickup_anims": {
+   "pack": "qol_pickup_anims",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_save_warp": {
+   "pack": "qol_save_warp",
+   "params": {},
+   "region": "usa"
+  },
+  "qol_skip_logo": {
+   "pack": "qol_skip_logo",
+   "params": {},
+   "region": "usa"
+  }
+ },
+ "tests/goldens/pipelines.json": {
+  "apply-physics:zero-scales": {
+   "args": {
+    "air_control_speed": 0.0,
+    "allow_modded_input": false,
+    "climb_speed": null,
+    "command": "apply-physics",
+    "flap_below_peak": 0.0,
+    "flap_descent_fuel_cost": 0.0,
+    "flap_height": 0.0,
+    "gravity": 0.0,
+    "iso": "{iso}",
+    "jump_speed": 0.0,
+    "output": "{output}",
+    "roll_speed": null,
+    "roll_time": null,
+    "speed_toggle": null,
+    "swim_speed": 0.0,
+    "walk_speed": 0.0,
+    "wing_flap_ceiling": 0.0,
+    "xbe": null
+   },
+   "cli": [
+    "apply-physics",
+    "--gravity",
+    "0",
+    "--walk-speed",
+    "0",
+    "--swim-speed",
+    "0",
+    "--jump-speed",
+    "0",
+    "--air-control-speed",
+    "0",
+    "--flap-height",
+    "0",
+    "--flap-below-peak",
+    "0",
+    "--wing-flap-ceiling",
+    "0",
+    "--flap-descent-fuel-cost",
+    "0"
+   ],
+   "region": "usa"
+  },
+  "pack_build_iso:starting_hp=500": {
+   "args": {
+    "config_mod": {
+     "_keyed_patches": {
+      "critters_damage": {
+       "golem": {
+        "hitPoints": 321.0
+       }
+      }
+     },
+     "level": "training_room",
+     "level_patches": [
+      {
+       "action": "move",
+       "entity": "large_air_fuel",
+       "x": 1.0,
+       "y": 2.0,
+       "z": 3.0
+      }
+     ],
+     "patches": [
+      {
+       "entity": "catalisk",
+       "property": "damage",
+       "section": "damage",
+       "value": 123.0
+      }
+     ],
+     "xbr_edits": [
+      {
+       "entity": "air_elemental",
+       "op": "set_keyed_double",
+       "prop": "hitPoints",
+       "section": "critters_damage",
+       "value": 999.0,
+       "xbr_file": "config.xbr"
+      },
+      {
+       "offset": 2048,
+       "op": "replace_bytes",
+       "value": "deadbeef",
+       "value_kind": "hex",
+       "xbr_file": "a1.xbr"
+      }
+     ]
+    },
+    "enable": [
+     "player_max_hp",
+     "air_shield_flaps",
+     "player_physics"
+    ],
+    "params": {
+     "air_shield_flaps": {
+      "air_shield_1_flaps": 3.0,
+      "air_shield_2_flaps": 4.0,
+      "air_shield_3_flaps": 9.0
+     },
+     "player_max_hp": {
+      "starting_hp": 500.0
+     },
+     "player_physics": {
+      "gravity": 19.6,
+      "jump_speed_scale": 1.5
+     }
+    }
+   },
+   "mcp": "pack_build_iso",
+   "region": "usa"
+  },
+  "patch:config-mod": {
+   "args": {
+    "allow_modded_input": false,
+    "command": "patch",
+    "disable_pack": null,
+    "iso": "{iso}",
+    "mod": [
+     {
+      "_keyed_patches": {
+       "critters_damage": {
+        "golem": {
+         "hitPoints": 321.0
+        }
+       }
+      },
+      "level": "training_room",
+      "level_patches": [
+       {
+        "action": "move",
+        "entity": "large_air_fuel",
+        "x": 1.0,
+        "y": 2.0,
+        "z": 3.0
+       }
+      ],
+      "patches": [
+       {
+        "entity": "catalisk",
+        "property": "damage",
+        "section": "damage",
+        "value": 123.0
+       }
+      ],
+      "xbr_edits": [
+       {
+        "entity": "air_elemental",
+        "op": "set_keyed_double",
+        "prop": "hitPoints",
+        "section": "critters_damage",
+        "value": 999.0,
+        "xbr_file": "config.xbr"
+       },
+       {
+        "offset": 2048,
+        "op": "replace_bytes",
+        "value": "deadbeef",
+        "value_kind": "hex",
+        "xbr_file": "a1.xbr"
+       }
+      ]
+     }
+    ],
+    "output": "{output}"
+   },
+   "cli": [
+    "patch",
+    "--mod",
+    {
+     "_keyed_patches": {
+      "critters_damage": {
+       "golem": {
+        "hitPoints": 321.0
+       }
+      }
+     },
+     "level": "training_room",
+     "level_patches": [
+      {
+       "action": "move",
+       "entity": "large_air_fuel",
+       "x": 1.0,
+       "y": 2.0,
+       "z": 3.0
+      }
+     ],
+     "patches": [
+      {
+       "entity": "catalisk",
+       "property": "damage",
+       "section": "damage",
+       "value": 123.0
+      }
+     ],
+     "xbr_edits": [
+      {
+       "entity": "air_elemental",
+       "op": "set_keyed_double",
+       "prop": "hitPoints",
+       "section": "critters_damage",
+       "value": 999.0,
+       "xbr_file": "config.xbr"
+      },
+      {
+       "offset": 2048,
+       "op": "replace_bytes",
+       "value": "deadbeef",
+       "value_kind": "hex",
+       "xbr_file": "a1.xbr"
+      }
+     ]
+    }
+   ],
+   "region": "usa"
+  },
+  "randomize-full:config-mod": {
+   "args": {
+    "allow_modded_input": false,
+    "command": "randomize-full",
+    "config_mod": {
+     "_keyed_patches": {
+      "critters_damage": {
+       "golem": {
+        "hitPoints": 321.0
+       }
+      }
+     },
+     "level": "training_room",
+     "level_patches": [
+      {
+       "action": "move",
+       "entity": "large_air_fuel",
+       "x": 1.0,
+       "y": 2.0,
+       "z": 3.0
+      }
+     ],
+     "patches": [
+      {
+       "entity": "catalisk",
+       "property": "damage",
+       "section": "damage",
+       "value": 123.0
+      }
+     ],
+     "xbr_edits": [
+      {
+       "entity": "air_elemental",
+       "op": "set_keyed_double",
+       "prop": "hitPoints",
+       "section": "critters_damage",
+       "value": 999.0,
+       "xbr_file": "config.xbr"
+      },
+      {
+       "offset": 2048,
+       "op": "replace_bytes",
+       "value": "deadbeef",
+       "value_kind": "hex",
+       "xbr_file": "a1.xbr"
+      }
+     ]
+    },
+    "dark_fire": null,
+    "disable_pack": null,
+    "enable_pack": null,
+    "exclude_category": null,
+    "fps_unlock": false,
+    "gem_popups": false,
+    "gravity": null,
+    "iso": "{iso}",
+    "movement_tier": null,
+    "no_randomize": true,
+    "no_skip": null,
+    "obsidian_cost": null,
+    "other_popups": false,
+    "output": "{output}",
+    "pack_param": null,
+    "pickup_anims": false,
+    "plan": null,
+    "player_air_control_scale": null,
+    "player_attack_balance": null,
+    "player_attack_damage": 1.0,
+    "player_attack_ground": null,
+    "player_attack_reach": 1.0,
+    "player_attack_speed": 1.0,
+    "player_character": null,
+    "player_character_anims": null,
+    "player_character_mode": null,
+    "player_character_scale": 1.0,
+    "player_character_size": null,
+    "player_character_sounds": null,
+    "player_climb_scale": null,
+    "player_flap_below_peak_scale": null,
+    "player_flap_descent_fuel_cost_scale": null,
+    "player_flap_scale": null,
+    "player_jiggle_stiffness": null,
+    "player_jiggle_strength": null,
+    "player_jump_scale": null,
+    "player_roll_scale": null,
+    "player_roll_time_scale": null,
+    "player_shape": null,
+    "player_speed_toggle": null,
+    "player_swim_scale": null,
+    "player_variant_file": null,
+    "player_variant_sounds": null,
+    "player_walk_scale": null,
+    "player_weapon": null,
+    "player_wing_flap_ceiling_scale": null,
+    "ram": 128,
+    "retired_force": null,
+    "retired_hard_barriers": null,
+    "retired_item_pool": null,
+    "retired_no_barriers": null,
+    "retired_no_connections": null,
+    "retired_no_gems": null,
+    "retired_no_keys": null,
+    "retired_no_major": null,
+    "retired_player_character_standardize": null,
+    "save_settings": null,
+    "seed": null,
+    "settings": null,
+    "share": null,
+    "skip": null,
+    "skip_ceiling": null,
+    "skip_logo": false,
+    "spoiler": null
+   },
+   "cli": [
+    "randomize-full",
+    "--no-randomize",
+    "--config-mod",
+    {
+     "_keyed_patches": {
+      "critters_damage": {
+       "golem": {
+        "hitPoints": 321.0
+       }
+      }
+     },
+     "level": "training_room",
+     "level_patches": [
+      {
+       "action": "move",
+       "entity": "large_air_fuel",
+       "x": 1.0,
+       "y": 2.0,
+       "z": 3.0
+      }
+     ],
+     "patches": [
+      {
+       "entity": "catalisk",
+       "property": "damage",
+       "section": "damage",
+       "value": 123.0
+      }
+     ],
+     "xbr_edits": [
+      {
+       "entity": "air_elemental",
+       "op": "set_keyed_double",
+       "prop": "hitPoints",
+       "section": "critters_damage",
+       "value": 999.0,
+       "xbr_file": "config.xbr"
+      },
+      {
+       "offset": 2048,
+       "op": "replace_bytes",
+       "value": "deadbeef",
+       "value_kind": "hex",
+       "xbr_file": "a1.xbr"
+      }
+     ]
+    }
+   ],
+   "region": "usa"
+  },
+  "randomize-full:zero-scales": {
+   "args": {
+    "allow_modded_input": false,
+    "command": "randomize-full",
+    "config_mod": null,
+    "dark_fire": null,
+    "disable_pack": null,
+    "enable_pack": null,
+    "exclude_category": null,
+    "fps_unlock": false,
+    "gem_popups": false,
+    "gravity": 0.0,
+    "iso": "{iso}",
+    "movement_tier": null,
+    "no_randomize": true,
+    "no_skip": null,
+    "obsidian_cost": null,
+    "other_popups": false,
+    "output": "{output}",
+    "pack_param": null,
+    "pickup_anims": false,
+    "plan": null,
+    "player_air_control_scale": 0.0,
+    "player_attack_balance": null,
+    "player_attack_damage": 1.0,
+    "player_attack_ground": null,
+    "player_attack_reach": 1.0,
+    "player_attack_speed": 1.0,
+    "player_character": null,
+    "player_character_anims": null,
+    "player_character_mode": null,
+    "player_character_scale": 1.0,
+    "player_character_size": null,
+    "player_character_sounds": null,
+    "player_climb_scale": null,
+    "player_flap_below_peak_scale": 0.0,
+    "player_flap_descent_fuel_cost_scale": 0.0,
+    "player_flap_scale": 0.0,
+    "player_jiggle_stiffness": null,
+    "player_jiggle_strength": null,
+    "player_jump_scale": 0.0,
+    "player_roll_scale": null,
+    "player_roll_time_scale": null,
+    "player_shape": null,
+    "player_speed_toggle": null,
+    "player_swim_scale": 0.0,
+    "player_variant_file": null,
+    "player_variant_sounds": null,
+    "player_walk_scale": 0.0,
+    "player_weapon": null,
+    "player_wing_flap_ceiling_scale": 0.0,
+    "ram": 128,
+    "retired_force": null,
+    "retired_hard_barriers": null,
+    "retired_item_pool": null,
+    "retired_no_barriers": null,
+    "retired_no_connections": null,
+    "retired_no_gems": null,
+    "retired_no_keys": null,
+    "retired_no_major": null,
+    "retired_player_character_standardize": null,
+    "save_settings": null,
+    "seed": null,
+    "settings": null,
+    "share": null,
+    "skip": null,
+    "skip_ceiling": null,
+    "skip_logo": false,
+    "spoiler": null
+   },
+   "cli": [
+    "randomize-full",
+    "--no-randomize",
+    "--gravity",
+    "0",
+    "--player-walk-scale",
+    "0",
+    "--player-swim-scale",
+    "0",
+    "--player-jump-scale",
+    "0",
+    "--player-air-control-scale",
+    "0",
+    "--player-flap-scale",
+    "0",
+    "--player-flap-below-peak-scale",
+    "0",
+    "--player-wing-flap-ceiling-scale",
+    "0",
+    "--player-flap-descent-fuel-cost-scale",
+    "0"
+   ],
+   "region": "usa"
+  }
+ },
+ "tests/goldens/shims.json": {
+  "enemy_scaling.o": {
+   "source": "azurik_mod/patches/enemy_scaling/shim.c"
+  },
+  "player_physics.o": {
+   "source": "azurik_mod/patches/player_physics/speed_toggle.c"
+  },
+  "qol_memory_budget.o": {
+   "source": "azurik_mod/patches/qol_memory_budget/shim.c"
+  },
+  "qol_memory_upper256.o": {
+   "source": "azurik_mod/patches/qol_memory_upper256/shim.c"
+  },
+  "qol_memory_upper64.o": {
+   "source": "azurik_mod/patches/qol_memory_upper64/shim.c"
+  },
+  "qol_memory_upper64_gpu.o": {
+   "source": "azurik_mod/patches/qol_memory_upper64_gpu/shim.c"
+  },
+  "qol_photo_mode.o": {
+   "source": "azurik_mod/patches/qol_photo_mode/shim.c"
+  },
+  "qol_save_warp.o": {
+   "source": "azurik_mod/patches/qol_save_warp/shim.c"
+  },
+  "qol_skip_logo.o": {
+   "source": "azurik_mod/patches/qol_skip_logo/shim.c"
+  },
+  "xboxkrnl_resolver.o": {
+   "source": "shims/shared/xboxkrnl_resolver.c"
+  }
+ },
+ "tests/goldens/xbr_editor.json": {
+  "xbr_editor:config.xbr:armor_properties/no_armor_1/Type=hide": {
+   "edits": [
+    [
+     "armor_properties",
+     "no_armor_1",
+     "Type",
+     "hide"
+    ]
+   ],
+   "file": "config.xbr"
+  },
+  "xbr_editor:config.xbr:critters_damage/water_elemental/hitPoints=777.0": {
+   "edits": [
+    [
+     "critters_damage",
+     "water_elemental",
+     "hitPoints",
+     777.0
+    ]
+   ],
+   "file": "config.xbr"
+  }
+ }
+}

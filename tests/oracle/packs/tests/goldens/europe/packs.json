@@ -1,0 +1,84 @@
+{
+ "enemy_scaling": {
+  "default.xbe": "72e0cf6af079a4024886d9e94812d87d4a35c177135b6196d215abe138866eab"
+ },
+ "enemy_scaling:boss_health_scale=2,boss_damage_dealt_scale=3,boss_attack_speed_scale=2,boss_move_speed_scale=0.5,boss_size_scale=1.5": {
+  "config.xbr": "0517e5a84a0a66afe121c355efc48369ea722ffad85172c676cfa56948ab7820",
+  "default.xbe": "4cefe308f06dafca668c285b65d3e418c977ef4e9d1e0e653ccf517a3dd57d4c"
+ },
+ "enemy_scaling:enemy_health_scale=0.3,enemy_damage_dealt_scale=-1,enemy_attack_speed_scale=0,enemy_move_speed_scale=3,enemy_size_scale=0.5": {
+  "config.xbr": "11981388e3ee8244a1bfc085088d8270a3d39f6bdf32397065f723e032388948",
+  "default.xbe": "dcdbce82016d87e7214902c509dbfa4d43135d467b249080c6e20c454799d66f"
+ },
+ "enemy_scaling:enemy_health_scale=2,enemy_damage_dealt_scale=0.5,enemy_attack_speed_scale=1.5,enemy_move_speed_scale=0.75,enemy_size_scale=1.25": {
+  "config.xbr": "3f7e9c3e6304a4f5a1bbbe7cae72b5f583f281951a7184bdc3c08156db906ba4",
+  "default.xbe": "c0dc7faac645369c49fc5d8066eb80fe83c3e38b1aeb446ad06a93c1ce068922"
+ },
+ "fps_unlock": {
+  "default.xbe": "022d274ecea8721dc872c82dc01c565fa706754b11b09bfa47a6fd9df3e00435"
+ },
+ "player_physics": {
+  "default.xbe": "72e0cf6af079a4024886d9e94812d87d4a35c177135b6196d215abe138866eab"
+ },
+ "player_physics:climb_speed_scale=2": {
+  "default.xbe": "537c2128d1f8d350466761ab05eeb65e84e7b497f773cd1280c1ee768ba9f59f"
+ },
+ "player_physics:gravity=0,walk_speed_scale=0,swim_speed_scale=0,jump_speed_scale=0,air_control_scale=0,flap_height_scale=0,flap_below_peak_scale=0,wing_flap_ceiling_scale=0,flap_descent_fuel_cost_scale=0,flap_entry_fuel_cost_scale=0": {
+  "config.xbr": "89b23c00cb34adf15bfca1a9a57ba1123fb9d2b6a961c97390fa44917484dcc4",
+  "default.xbe": "5cbe6bc23e2e396e16d74c64039a44e6cebfe9f9347d299f2f994890dd06aa50"
+ },
+ "player_physics:gravity=19.6,walk_speed_scale=0.5,swim_speed_scale=12,jump_speed_scale=7.5,air_control_scale=0.25,flap_height_scale=0.5,flap_below_peak_scale=4,wing_flap_ceiling_scale=30,flap_descent_fuel_cost_scale=-0.5,flap_entry_fuel_cost_scale=-1": {
+  "config.xbr": "ea4b86f5fa97cda1c4df2f6c35146d0392793c728d69638f622af6564d5a6bf2",
+  "default.xbe": "e09eba144e7f150d6a915a091b0598f39556656eaebc6391375489e97510fc67"
+ },
+ "player_physics:gravity=4.9,walk_speed_scale=2,swim_speed_scale=2,jump_speed_scale=1.5,air_control_scale=2,flap_height_scale=2,flap_below_peak_scale=2,wing_flap_ceiling_scale=5,flap_descent_fuel_cost_scale=0.01,flap_entry_fuel_cost_scale=0.5": {
+  "config.xbr": "1ec7b64b5878e982f44a940ca2f668ce95a61ccacdf0b2d387c6d97a22553183",
+  "default.xbe": "a13c7a1a6c4b243428d798d67e4d061b57ae32abcd533b21f26ca35c970757ce"
+ },
+ "player_physics:roll_speed_scale=2": {
+  "default.xbe": "df6608e938006fe47328b4222f149249b3658389235147710bd0ea6aa50778fb"
+ },
+ "player_physics:roll_time_scale=2": {
+  "default.xbe": "0a6f551bba744fb52017a5b2a8d119c1cdc12c88f80dc38cc7074fc0389f8b89"
+ },
+ "player_physics:walk_speed_scale=2,roll_time_scale=2,climb_speed_scale=2,toggle_walk_speed_scale=1,toggle_roll_time_scale=1,toggle_climb_speed_scale=1": {
+  "config.xbr": "1ec7b64b5878e982f44a940ca2f668ce95a61ccacdf0b2d387c6d97a22553183",
+  "default.xbe": "51bba54721a30b6290359273de58480767e2f9e301919218f7ec63bb87d30862"
+ },
+ "qol_alloc_race": {
+  "default.xbe": "ea8b64a07d8720b5da878b0b6d9ccd4a689acbdade166c603e0ea653c75cc076"
+ },
+ "qol_gem_popups": {
+  "default.xbe": "9bc7b3220ab89b82959c0844c108a1ea0090e163a4972d79b87ef4ce8db7ecf1"
+ },
+ "qol_memory_budget": {
+  "default.xbe": "482e16a2f4163f6d256ec0058589a37c4a73d1b26f8efec067c4df95e0a7e566"
+ },
+ "qol_memory_upper256": {
+  "default.xbe": "49feb4601485df99554c3ada9cb34fb86989e18246668f9feb97f0f1dfcc67ef"
+ },
+ "qol_memory_upper64": {
+  "default.xbe": "f7f5076dd05397d472cde7ab67e93ee72df7b61778a9e70fac3fc54c9788bea7"
+ },
+ "qol_memory_upper64_gpu": {
+  "default.xbe": "80b53fb316347ac9b88eca01b5ef433265719e026c6c453dcb22d119ab3ebe18"
+ },
+ "qol_other_popups": {
+  "default.xbe": "81b89a498ba70ba3a43619ec648b88e787952da14f1fe0eb6c478770ac133818"
+ },
+ "qol_photo_mode": {
+  "default.xbe": "718aaebc1ad03fd34c555a73f82e0882b42fb6edc07b502ad8a471bd59058dd7"
+ },
+ "qol_photo_mode:fly_speed=2": {
+  "default.xbe": "3ccc71102153b0151350dc4a6a897799969871d265cda761afbb249822db6ff5"
+ },
+ "qol_pickup_anims": {
+  "default.xbe": "ceccaaa2c4b154eefd3f5e5b13c656f74fc616ce503764a8f6d6cfa23f602180"
+ },
+ "qol_save_warp": {
+  "default.xbe": "0d6527464883c1c35d50c56bd9bbb2c4edfbdb969d3191687b232d0d1782f254"
+ },
+ "qol_skip_logo": {
+  "default.xbe": "2eb2c556ed7627ff9f0e46cc13256db6b378b229239fa5b4efc8f8a72509f322"
+ }
+}

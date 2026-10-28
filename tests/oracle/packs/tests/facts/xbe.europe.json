@@ -1,0 +1,3305 @@
+{
+ "_about": "Facts about the vanilla Azurik (Europe) default.xbe and the patches built from it (REORG_PLAN Step 2.4; Step RG.4a, at Europe's own VAs, for the packs that list Europe). Written only by scripts/gen_facts.py --region europe --update-facts; a protected path: the owner reviews every diff. No game bytes: vanilla spans are sha256s; patch_sites.*.new holds each build's bytes over the site, for the builds that change it, so a declared span may include vanilla bytes its pack already declares (Q67). Legacy sites (AZURIK_NO_SHIMS bytes) have no new: no build writes them.",
+ "cases": [
+  "enemy_scaling",
+  "enemy_scaling:boss_attack_speed_scale=2",
+  "enemy_scaling:boss_damage_dealt_scale=2",
+  "enemy_scaling:enemy_damage_dealt_scale=2",
+  "fps_unlock",
+  "fps_unlock:target_fps=120",
+  "player_physics",
+  "player_physics:air_control_scale=2",
+  "player_physics:climb_speed_scale=2",
+  "player_physics:flap_below_peak_scale=2",
+  "player_physics:flap_descent_fuel_cost_scale=2",
+  "player_physics:flap_entry_fuel_cost_scale=2",
+  "player_physics:flap_height_scale=2",
+  "player_physics:gravity=19.6",
+  "player_physics:jump_speed_scale=2",
+  "player_physics:roll_speed_scale=2",
+  "player_physics:roll_time_scale=2",
+  "player_physics:swim_speed_scale=2",
+  "player_physics:wing_flap_ceiling_scale=2",
+  "qol_alloc_race",
+  "qol_gem_popups",
+  "qol_memory_budget",
+  "qol_memory_budget:budget_mib=84",
+  "qol_memory_upper256",
+  "qol_memory_upper64",
+  "qol_memory_upper64_gpu",
+  "qol_other_popups",
+  "qol_photo_mode",
+  "qol_photo_mode:fly_speed=2",
+  "qol_pickup_anims",
+  "qol_save_warp",
+  "qol_skip_logo"
+ ],
+ "kernel_thunks": {
+  "ordinals": [
+   187,
+   207,
+   202,
+   289,
+   197,
+   161,
+   129,
+   65,
+   14,
+   145,
+   159,
+   113,
+   107,
+   74,
+   178,
+   165,
+   164,
+   171,
+   301,
+   49,
+   215,
+   203,
+   218,
+   236,
+   40,
+   219,
+   67,
+   69,
+   200,
+   226,
+   210,
+   37,
+   35,
+   184,
+   199,
+   204,
+   217,
+   181,
+   126,
+   127,
+   189,
+   243,
+   16,
+   225,
+   186,
+   205,
+   193,
+   30,
+   222,
+   192,
+   22,
+   221,
+   234,
+   230,
+   235,
+   99,
+   194,
+   31,
+   229,
+   185,
+   24,
+   356,
+   190,
+   211,
+   172,
+   167,
+   233,
+   198,
+   232,
+   196,
+   220,
+   237,
+   128,
+   336,
+   335,
+   337,
+   323,
+   325,
+   354,
+   191,
+   227,
+   223,
+   17,
+   83,
+   87,
+   81,
+   182,
+   179,
+   359,
+   358,
+   149,
+   125,
+   97,
+   322,
+   294,
+   285,
+   277,
+   269,
+   268,
+   291,
+   302,
+   250,
+   143,
+   246,
+   259,
+   124,
+   144,
+   231,
+   224,
+   206,
+   238,
+   258,
+   157,
+   255,
+   44,
+   160,
+   47,
+   98,
+   109,
+   151,
+   279,
+   327,
+   328,
+   360,
+   173,
+   175,
+   119,
+   176,
+   95,
+   312,
+   166,
+   180,
+   305,
+   156,
+   304,
+   286,
+   308,
+   290,
+   1,
+   2,
+   3,
+   4,
+   8,
+   46,
+   100,
+   168,
+   142,
+   139,
+   23,
+   15,
+   137,
+   153,
+   260
+  ],
+  "va": "0x00191520"
+ },
+ "patch_sites": {
+  "0x0002A0BC": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "1e61949a9239d62bc241825e38d31b7f141808dfab3b6e940ab3ab772260d163",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "1e61949a9239d62bc241825e38d31b7f141808dfab3b6e940ab3ab772260d163",
+     "size": 4
+    }
+   },
+   "original_sha256": "af3de80a7ceb90220f4ee4366026ba4df19a41a3311d9064b3fe1dea102af70e",
+   "size": 4
+  },
+  "0x0002A0CD": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "1e61949a9239d62bc241825e38d31b7f141808dfab3b6e940ab3ab772260d163",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "1e61949a9239d62bc241825e38d31b7f141808dfab3b6e940ab3ab772260d163",
+     "size": 4
+    }
+   },
+   "original_sha256": "af3de80a7ceb90220f4ee4366026ba4df19a41a3311d9064b3fe1dea102af70e",
+   "size": 4
+  },
+  "0x0002BB55": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "a8e0c508c6ac24ce4b87d016c09a7c46c5e0aee7c5b4348bba22bd5374b78b75",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "a8e0c508c6ac24ce4b87d016c09a7c46c5e0aee7c5b4348bba22bd5374b78b75",
+     "size": 4
+    }
+   },
+   "original_sha256": "2f168207fce6f640dc148c5ce9156b6c3870c61279f90b3d8ed365ff3cabfeb4",
+   "size": 4
+  },
+  "0x0002C7E2": {
+   "new": {
+    "enemy_scaling:boss_attack_speed_scale=2": {
+     "sha256": "c3f23d6c7df9f36b5847810495058828b5ebe2de50cba3b0758a22654461ac97",
+     "size": 4
+    }
+   },
+   "original_sha256": "9df6b6f0b01453dbfaefb36b8bca9ced1331dc89433b09c43798c062df2e5ed6",
+   "size": 4
+  },
+  "0x0002C7E7": {
+   "new": {
+    "enemy_scaling:boss_attack_speed_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+   "size": 1
+  },
+  "0x00030940": {
+   "new": {
+    "enemy_scaling:boss_attack_speed_scale=2": {
+     "sha256": "4c401e2d7d55ec2d1ceeebe5bfac57ae23f85adb1b697aff269adabbafbfddae",
+     "size": 9
+    }
+   },
+   "original_sha256": "e9db133d956971ed8a98315aceaf2600e05c0f1c1777c084af034b73ab3d3e47",
+   "size": 9
+  },
+  "0x0003EBD5": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    }
+   },
+   "original_sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x000413EE": {
+   "new": {
+    "qol_pickup_anims": {
+     "sha256": "41bedce406fdcfa75ee58351494a17bf07f0df422e6d739c9be176f102054424",
+     "size": 5
+    }
+   },
+   "original_sha256": "29dcf1c9ac7739bc2ac8695b9017918c9e0ffc3b85f0b8a6959d5a71b93596a5",
+   "size": 5
+  },
+  "0x000429F7": {
+   "new": {
+    "enemy_scaling:boss_attack_speed_scale=2": {
+     "sha256": "8f5bed40dd7e9ef561eef958f2623728f269ea1ec81c31d8851f1472913a3927",
+     "size": 8
+    }
+   },
+   "original_sha256": "68514d94ea2a24b5920f19879c49a56668ab4165be5984564d8f1622c7488335",
+   "size": 8
+  },
+  "0x00047BC6": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "182003d5c37dc5253d84cc5156ca9f93aab75e72e395d157748de67cc20f4f76",
+     "size": 2
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "182003d5c37dc5253d84cc5156ca9f93aab75e72e395d157748de67cc20f4f76",
+     "size": 2
+    }
+   },
+   "original_sha256": "8db598bd71d9d6f8e46c057884f2d8c64a058325e11481e7fa0dbb6f601da55c",
+   "size": 2
+  },
+  "0x00047CF3": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "182003d5c37dc5253d84cc5156ca9f93aab75e72e395d157748de67cc20f4f76",
+     "size": 2
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "182003d5c37dc5253d84cc5156ca9f93aab75e72e395d157748de67cc20f4f76",
+     "size": 2
+    }
+   },
+   "original_sha256": "8db598bd71d9d6f8e46c057884f2d8c64a058325e11481e7fa0dbb6f601da55c",
+   "size": 2
+  },
+  "0x00047EEF": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "e52d9c508c502347344d8c07ad91cbd6068afc75ff6292f062a09ca381c89e71",
+     "size": 1
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "beead77994cf573341ec17b58bbf7eb34d2711c993c1d976b128b3188dc1829a",
+     "size": 1
+    }
+   },
+   "original_sha256": "dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986",
+   "size": 1
+  },
+  "0x0004E9D9": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    }
+   },
+   "original_sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x000548E3": {
+   "new": {
+    "qol_photo_mode": {
+     "sha256": "ad744a05f53c9973076ad9f8e2d9a1f9a733ce96917fb00f13bc08f12807b100",
+     "size": 9
+    },
+    "qol_photo_mode:fly_speed=2": {
+     "sha256": "ad744a05f53c9973076ad9f8e2d9a1f9a733ce96917fb00f13bc08f12807b100",
+     "size": 9
+    }
+   },
+   "original_sha256": "dcb2c097529bf05ceaac0a189055a1186aeb742b4e6ee08e9d3de4483acc8a37",
+   "size": 9
+  },
+  "0x00055BB9": {
+   "new": {
+    "qol_photo_mode": {
+     "sha256": "0db2385e59061a617047ef7ccbfa5bc0bf228662aca19343cc63c2db968a6276",
+     "size": 5
+    },
+    "qol_photo_mode:fly_speed=2": {
+     "sha256": "0db2385e59061a617047ef7ccbfa5bc0bf228662aca19343cc63c2db968a6276",
+     "size": 5
+    }
+   },
+   "original_sha256": "ae1d9e1902721151d272484f44d8c53430abd6026fb600e048e93eb660b85cf5",
+   "size": 5
+  },
+  "0x00055F80": {
+   "new": {
+    "qol_save_warp": {
+     "sha256": "682de1e9e2ecef568f92f614ac8569a2f63475c77324958cc300b5602bd50fbf",
+     "size": 5
+    }
+   },
+   "original_sha256": "fe3a4880a5855c6437c52e7d387cb8bffea4f36cd178e9cf3f5ea55cd6c5441b",
+   "size": 5
+  },
+  "0x0005970C": {
+   "new": {
+    "qol_memory_budget": {
+     "sha256": "dc86b7935fb467c4e87f8b75f3714d7b1dc5ace87f93f189f3f94bf767fad3bf",
+     "size": 4
+    },
+    "qol_memory_budget:budget_mib=84": {
+     "sha256": "673ea05ff8e0547f65f9fe491146f238f4e2e3b41dbcb518a6ff8846042c9f2e",
+     "size": 4
+    }
+   },
+   "original_sha256": "6527919125dd56629d7a4d77771ad05eb5a14f2178337925cc70d554e52fe448",
+   "size": 4
+  },
+  "0x00059AB5": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "7eb3e78599b4ec538854f413f134cadb1a0f0b95709292aeb20fc53410eafeb0",
+     "size": 58
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "156a29c708eddd0b2824fc736adc2ca1149fd5e37e19c4ef01ecdd7ff5da4fa5",
+     "size": 58
+    }
+   },
+   "original_sha256": "7a2e64adbd4084309bc5fb0c980f394f246a4188544f80f38f03478e473f6a11",
+   "size": 58
+  },
+  "0x00059AEF": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "7dcff968f175ffdb5a72ebf45623d6a0670e4d3fc294c8c75d93603d009adac3",
+     "size": 30
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "b752e312ae92ffa8c93bc2b1d6cb71a53bbcb0edc7a605ff5ab7cfb8ad62d548",
+     "size": 30
+    }
+   },
+   "original_sha256": "5cecee68add809701cfe546d8046c91f98ecbbc7d125a36acf9d8418be7e6ca4",
+   "size": 30
+  },
+  "0x0005F690": {
+   "original_sha256": "5a63ca0d25e9ecd3787cfbc1edca1e8644795b35e3bb03e510f7447a8a567f54",
+   "size": 10
+  },
+  "0x0005F695": {
+   "new": {
+    "qol_skip_logo": {
+     "sha256": "d825c41c972827287b860ffd4eb0cbee14a7027a7a6b7bd5460e876ec81d2706",
+     "size": 5
+    }
+   },
+   "original_sha256": "1b09471411918d91b69ad92632ca1deee2c90118070bfccde8b70a5873cefaa9",
+   "size": 5
+  },
+  "0x00083F5E": {
+   "new": {
+    "player_physics:air_control_scale=2": {
+     "sha256": "e4ff5e7d7a7f08e9800a3e25cb774533cb20040df30b6ba10f956f9acd0eb3f7",
+     "size": 1
+    }
+   },
+   "original_sha256": "c3641f8544d7c02f3580b07c0f9887f0c6a27ff5ab1d4a3e29caf197cfc299ae",
+   "size": 1
+  },
+  "0x00083F80": {
+   "new": {
+    "player_physics:air_control_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00084E85": {
+   "new": {
+    "player_physics:air_control_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00085686": {
+   "new": {
+    "player_physics:air_control_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00086112": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "e7dd46c9c612e863476cccbf597b2d18493b2e831549141954b0e6c81df2d8f4",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "e7dd46c9c612e863476cccbf597b2d18493b2e831549141954b0e6c81df2d8f4",
+     "size": 4
+    }
+   },
+   "original_sha256": "273c78ec933569d64e7e1f0781a1faa8f01a711fa5ed56e4aefec782ba955aaf",
+   "size": 4
+  },
+  "0x00086D46": {
+   "new": {
+    "player_physics:climb_speed_scale=2": {
+     "sha256": "ddc677fa053134db91113f3a099681f51c953771fecf1f775033db7474dd7e22",
+     "size": 4
+    }
+   },
+   "original_sha256": "79b9735430c1167a6b0204ef9dbdb55e0e21c00ee82997b37a875301cf4dc954",
+   "size": 4
+  },
+  "0x0008709E": {
+   "new": {
+    "player_physics:climb_speed_scale=2": {
+     "sha256": "a059e41ae230adbae02e33c452313d0043aa4f570002f7dbbdb70aaef9d30a3d",
+     "size": 6
+    }
+   },
+   "original_sha256": "c35cfc520902df098380fc1a60c43bc11c75a53e7c6a5cf4816032bdde43651c",
+   "size": 6
+  },
+  "0x000873EB": {
+   "new": {
+    "player_physics:climb_speed_scale=2": {
+     "sha256": "04780d9d84195d668f8170a7def16ea4778f8c77b95c5cc0dd217a3ce70c4f76",
+     "size": 6
+    }
+   },
+   "original_sha256": "c35cfc520902df098380fc1a60c43bc11c75a53e7c6a5cf4816032bdde43651c",
+   "size": 6
+  },
+  "0x000878D0": {
+   "new": {
+    "player_physics:climb_speed_scale=2": {
+     "sha256": "f9d7e7f9a0208f3fe73538fdc68f131a4b91edd5f94c96904a36f855cdba21b2",
+     "size": 6
+    }
+   },
+   "original_sha256": "c35cfc520902df098380fc1a60c43bc11c75a53e7c6a5cf4816032bdde43651c",
+   "size": 6
+  },
+  "0x00087EFC": {
+   "new": {
+    "player_physics:climb_speed_scale=2": {
+     "sha256": "1116ba852f456573e1ed33b311b718a051485fa83d328f753b09221faef16c21",
+     "size": 6
+    }
+   },
+   "original_sha256": "88910733ba58a65e1308892938422805b7f0efb4a506aecef58024a37c328e75",
+   "size": 6
+  },
+  "0x00087F57": {
+   "new": {
+    "player_physics:climb_speed_scale=2": {
+     "sha256": "548039bccd3c861aeacf6f1230aabf0b7209813f9495518acecfe98602aba2b8",
+     "size": 6
+    }
+   },
+   "original_sha256": "6be41aba9eb5e88d4d1e26421e924b76f64a3c48610eb9cc18805c32f0b51c59",
+   "size": 6
+  },
+  "0x00088307": {
+   "new": {
+    "player_physics:climb_speed_scale=2": {
+     "sha256": "36030d6728d7bfce4c823e0629c18f0a5aca920f5607c8013ad8c8bb407ac61e",
+     "size": 6
+    }
+   },
+   "original_sha256": "6be41aba9eb5e88d4d1e26421e924b76f64a3c48610eb9cc18805c32f0b51c59",
+   "size": 6
+  },
+  "0x0008896B": {
+   "new": {
+    "player_physics:roll_time_scale=2": {
+     "sha256": "b28e0e36bf24b124d29066fe1a95a806b4a935d8258d817bd9b41f3e3a4d214a",
+     "size": 4
+    }
+   },
+   "original_sha256": "43b8eb0d682cc7d2f921bcea804b79f5a3345f1daa12a21f42e6cc94accd3db6",
+   "size": 4
+  },
+  "0x00088970": {
+   "new": {
+    "player_physics:roll_time_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+   "size": 1
+  },
+  "0x0008909C": {
+   "new": {
+    "player_physics:air_control_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x000890D8": {
+   "new": {
+    "player_physics:air_control_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x00089104": {
+   "new": {
+    "player_physics:wing_flap_ceiling_scale=2": {
+     "sha256": "ef2057aea58cb7571f6029dc8881c77bd0083c465bd93ed08ecdb4b7f4c6a099",
+     "size": 4
+    }
+   },
+   "original_sha256": "0b46bde5ee2279568da37f4f9eccb02737311f1c22888cf294574f4ad14b5c94",
+   "size": 4
+  },
+  "0x00089109": {
+   "new": {
+    "player_physics:wing_flap_ceiling_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+   "size": 1
+  },
+  "0x00089112": {
+   "new": {
+    "player_physics:jump_speed_scale=2": {
+     "sha256": "09bc914f81ea65f0c8fee4fd7918e57252ecb0ef000cb9a65dfd45d821335239",
+     "size": 3
+    }
+   },
+   "original_sha256": "bc960421fc4f3e6b3ae239a8ef1864f8ef3837b38c7d08ad27234a0313738d11",
+   "size": 3
+  },
+  "0x00089300": {
+   "new": {
+    "player_physics:flap_entry_fuel_cost_scale=2": {
+     "sha256": "b8811852747cfa3620c3dd2af5d59498c240f208e689b4052bac934c29faf094",
+     "size": 2
+    }
+   },
+   "original_sha256": "b9c205bdac187f20bf876cea369cb6032ad1bf69043b31d716b36b8defbffdf2",
+   "size": 2
+  },
+  "0x00089360": {
+   "new": {
+    "player_physics:flap_height_scale=2": {
+     "sha256": "09bc914f81ea65f0c8fee4fd7918e57252ecb0ef000cb9a65dfd45d821335239",
+     "size": 3
+    }
+   },
+   "original_sha256": "bc960421fc4f3e6b3ae239a8ef1864f8ef3837b38c7d08ad27234a0313738d11",
+   "size": 3
+  },
+  "0x00089380": {
+   "new": {
+    "player_physics:flap_descent_fuel_cost_scale=2": {
+     "sha256": "616e8cc2cc762815bce92ba8e817da87e92c98b3e3e5c42697caaa76e18c6129",
+     "size": 2
+    }
+   },
+   "original_sha256": "cb27a4e93dc6ec4eb88bac69f35b90881c9ba233e75aaa75ab9af31680edcf17",
+   "size": 2
+  },
+  "0x0008938F": {
+   "new": {
+    "player_physics:flap_below_peak_scale=2": {
+     "sha256": "09bc914f81ea65f0c8fee4fd7918e57252ecb0ef000cb9a65dfd45d821335239",
+     "size": 3
+    }
+   },
+   "original_sha256": "dec6eda5813fcd92eea8f8d1ae39186b7835f4d40d801b128a2a3bcfda65d720",
+   "size": 3
+  },
+  "0x00089A5C": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    }
+   },
+   "original_sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x0008B771": {
+   "new": {
+    "player_physics:swim_speed_scale=2": {
+     "sha256": "09bc914f81ea65f0c8fee4fd7918e57252ecb0ef000cb9a65dfd45d821335239",
+     "size": 3
+    }
+   },
+   "original_sha256": "9f15ce64455ec5a8fcfd1d7e551b8653cd616e2f6409cb0117e26b7efe4a8729",
+   "size": 3
+  },
+  "0x0008C29C": {
+   "new": {
+    "qol_save_warp": {
+     "sha256": "ae8bc4c02e7962209c19dc3bd2a95217e7b6314cddb430327fd29c4e987b860c",
+     "size": 5
+    }
+   },
+   "original_sha256": "d189f274f20166241d096900c5ce0f34aa025e22239413d018306994b6425fda",
+   "size": 5
+  },
+  "0x0008C6F6": {
+   "new": {
+    "player_physics:roll_speed_scale=2": {
+     "sha256": "7c95e519f3bac10818b9a5b006cdb9c139d0bbeeed19cbcb232b0197d640e2cd",
+     "size": 4
+    }
+   },
+   "original_sha256": "a35777eff125d3424a045c7851c0a25cac154ad6ee371f468a3eae961405937a",
+   "size": 4
+  },
+  "0x0008D2D4": {
+   "new": {
+    "player_physics:air_control_scale=2": {
+     "sha256": "9e076ceaf246b6003d9c2680a2b4cf0bffd069805902b0b5edeebf49039fe4bd",
+     "size": 1
+    }
+   },
+   "original_sha256": "c555eab45d08845ae9f10d452a99bfcb06f74a50b988fe7e48dd323789b88ee3",
+   "size": 1
+  },
+  "0x0008D5F9": {
+   "new": {
+    "enemy_scaling:boss_damage_dealt_scale=2": {
+     "sha256": "17c96f3fb821cbac7ed087f605a71dfa9aacd8ac6ea0aa5282c65bc5fb2ae233",
+     "size": 4
+    },
+    "enemy_scaling:enemy_damage_dealt_scale=2": {
+     "sha256": "17c96f3fb821cbac7ed087f605a71dfa9aacd8ac6ea0aa5282c65bc5fb2ae233",
+     "size": 4
+    }
+   },
+   "original_sha256": "a0327a22e8c42a97fc5d319b50bb50970cb3c8301dde4f0ea1dda43c0fe17a6c",
+   "size": 4
+  },
+  "0x0008FDD9": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "4864a8f1f83ffbf207d632e60a60dc797505cc65992f17de8e04e89e093d4391",
+     "size": 3
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "4864a8f1f83ffbf207d632e60a60dc797505cc65992f17de8e04e89e093d4391",
+     "size": 3
+    }
+   },
+   "original_sha256": "673d9fad9ab7f6ad8b0102ed11a5ec94d9e4fc9c83c1236126e971315c824a03",
+   "size": 3
+  },
+  "0x000A4A57": {
+   "new": {
+    "qol_memory_upper256": {
+     "sha256": "9c03d2de2e58580717147b62f37d743d83162722da72a3eb56ecdc23378e7c04",
+     "size": 6
+    }
+   },
+   "original_sha256": "bcfc68bbde222bd9e1e06b5f504130ea7818f3ba8cacf077b11735a704ef0df2",
+   "size": 6
+  },
+  "0x000A4A5D": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "442b37606afaa36c7c99ba7ee1ba8d4873bb9208b78156a0ac9075bca4170e27",
+     "size": 6
+    }
+   },
+   "original_sha256": "20ac471da3b1c87924ee21950322f1054098162c32b5ccf4e1a55fb854812daa",
+   "size": 6
+  },
+  "0x000A4A7A": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e8942e4badc970164a079a96766f0047c2f8829fea9beab3d815a1d42e471a22",
+     "size": 5
+    }
+   },
+   "original_sha256": "af0b8a2d84f8fba184ae761292d2c3010f5a602422eab6403901e700df041a34",
+   "size": 5
+  },
+  "0x000A4A8C": {
+   "new": {
+    "qol_memory_upper64": {
+     "sha256": "83df1bea30aa25f3b14bb70b47b7d8b2b5ee835e5244aac47939d442ed013d6a",
+     "size": 5
+    }
+   },
+   "original_sha256": "32803fcddeee397596ae2378dd0c1049b42bc4be5de110f850b0f792fb0bd65c",
+   "size": 5
+  },
+  "0x000AE8EC": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "564078deb567e7cc1445b6895a2402f4a015f649946c8f74e9e5221a34b8bc25",
+     "size": 13
+    }
+   },
+   "original_sha256": "86bb5ab92dc66901e2573da91a164da5bb4a4b6331bc4fd329ec145484bf6b62",
+   "size": 13
+  },
+  "0x000AF4A2": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "6b3638593290263c8f9c63d94fd15a4bad3113b2827ae4614990da04407a9e04",
+     "size": 29
+    }
+   },
+   "original_sha256": "ecb528988884cef5186fee65a9aa2cfc394201dc8579ffb6230dcf544cc7f92c",
+   "size": 29
+  },
+  "0x000AF530": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "ea3c7fc868cdb320801a3cf82855d5097a54eccf702ee035d5ebac2bd471975e",
+     "size": 29
+    }
+   },
+   "original_sha256": "b8980bf9c969c224969d61993929e6867bf21d9e7e1b3c56382f88451cad63f2",
+   "size": 29
+  },
+  "0x000B5E6D": {
+   "new": {
+    "qol_memory_budget": {
+     "sha256": "4bc22b004050aae0adcc1e5e09e54c72927fb095acd43e3d3a75a5a5f715a7a3",
+     "size": 5
+    },
+    "qol_memory_budget:budget_mib=84": {
+     "sha256": "4bc22b004050aae0adcc1e5e09e54c72927fb095acd43e3d3a75a5a5f715a7a3",
+     "size": 5
+    }
+   },
+   "original_sha256": "2fc4b80157e43f30f1be774241dd152b9e756a946f9adb39f389ed2257fda32a",
+   "size": 5
+  },
+  "0x000BAEC6": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "d8d2ee7758b9d3b4473b7ecc0724d2e8b7528901b9a14f93accee05f607a233e",
+     "size": 5
+    }
+   },
+   "original_sha256": "43ef709041e642ad24fd0b7f1a12df0c04bce521f38684eeb79a91d9a34e96bc",
+   "size": 5
+  },
+  "0x000BAED5": {
+   "new": {
+    "qol_memory_upper64": {
+     "sha256": "6c8c45531b2188b24f24035ff35ff311a3bd70b4468a02375d2b78b7c0b444f2",
+     "size": 5
+    }
+   },
+   "original_sha256": "7991c3cac30ca2f18f6bd50bb5fcbf4353e5af2bb1e5651a8964aa34b64a3485",
+   "size": 5
+  },
+  "0x000FB848": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    }
+   },
+   "original_sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x000FB938": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "166637ce5f91397fb9c87f41b7d12459b6af7bebc79e2c0ef75e5a8efab239c0",
+     "size": 4
+    }
+   },
+   "original_sha256": "4929cd24a8db45691bcdebb5990be7d9e44139bca0420c0df2204cf9e9a5beb9",
+   "size": 4
+  },
+  "0x0011E320": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0011E434": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001203D8": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "2cc6fed6e380630f28c35640f4c7c1f7ece952e8d13d490024834e109be0af73",
+     "size": 6
+    }
+   },
+   "original_sha256": "b2bb4ae277c555630f2a6049be9433aaedac1879189a2fa54ebeb3f946e55205",
+   "size": 6
+  },
+  "0x00122010": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001220CE": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00122BA9": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "182003d5c37dc5253d84cc5156ca9f93aab75e72e395d157748de67cc20f4f76",
+     "size": 2
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "182003d5c37dc5253d84cc5156ca9f93aab75e72e395d157748de67cc20f4f76",
+     "size": 2
+    }
+   },
+   "original_sha256": "608aa931e63de1eacbc8cf15780393212dd62677929bfbfb3f5c31b63e62a4df",
+   "size": 2
+  },
+  "0x00122CB2": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "f8d20e598df20877e4d826246fc31ffb4615cbc059aec9ec8e5b28951d844a3f",
+     "size": 1
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "f8d20e598df20877e4d826246fc31ffb4615cbc059aec9ec8e5b28951d844a3f",
+     "size": 1
+    }
+   },
+   "original_sha256": "e3b98a4da31a127d4bde6e43033f66ba274cab0eb7eb1c70ec41402bf6273dd8",
+   "size": 1
+  },
+  "0x00122D02": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "f8d20e598df20877e4d826246fc31ffb4615cbc059aec9ec8e5b28951d844a3f",
+     "size": 1
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "f8d20e598df20877e4d826246fc31ffb4615cbc059aec9ec8e5b28951d844a3f",
+     "size": 1
+    }
+   },
+   "original_sha256": "e3b98a4da31a127d4bde6e43033f66ba274cab0eb7eb1c70ec41402bf6273dd8",
+   "size": 1
+  },
+  "0x00125980": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001259D5": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125A1C": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "30b6843e5518d11f59f7bb752442b48b36a8baba753c367fea5a10a2a7caed6e",
+     "size": 6
+    }
+   },
+   "original_sha256": "cb5b577e08540f14b73c878f82001b579e14ec0cd60588275012a8a077cff772",
+   "size": 6
+  },
+  "0x00125AA8": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125B35": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "2cc6fed6e380630f28c35640f4c7c1f7ece952e8d13d490024834e109be0af73",
+     "size": 6
+    }
+   },
+   "original_sha256": "b2bb4ae277c555630f2a6049be9433aaedac1879189a2fa54ebeb3f946e55205",
+   "size": 6
+  },
+  "0x00125BC3": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125DB0": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125E60": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00125F51": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00126130": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001264AD": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00126BF0": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00128D90": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x00128EAA": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x001290C8": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "2cc6fed6e380630f28c35640f4c7c1f7ece952e8d13d490024834e109be0af73",
+     "size": 6
+    }
+   },
+   "original_sha256": "b2bb4ae277c555630f2a6049be9433aaedac1879189a2fa54ebeb3f946e55205",
+   "size": 6
+  },
+  "0x00129111": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0012C1B0": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0012C525": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "e12c054761808ec62492da3f39c35ad8b864b07cfb48b2072c30b38c1da49156",
+     "size": 5
+    }
+   },
+   "original_sha256": "2ce3b30e669b3c8c25966cd1fc4e56ed86018ec9539b0ca04290e851dca32daf",
+   "size": 5
+  },
+  "0x0012C5D7": {
+   "new": {
+    "qol_memory_upper64_gpu": {
+     "sha256": "40aa760e03c5e7c5a7b9118b5c35ebbc4d288299314d6ca2e10c730397d29788",
+     "size": 9
+    }
+   },
+   "original_sha256": "69a8afd001911faff006f76da8060b31f0efcaae87fbdee3446e11569e88f5ab",
+   "size": 9
+  },
+  "0x0019A248": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A250": {
+   "new": {
+    "player_physics:gravity=19.6": {
+     "sha256": "28d155dbcd150c0409eea30b320f03b60fb191cb726dbaa9c0d83994ad12ee5d",
+     "size": 4
+    }
+   },
+   "original_sha256": "3bd25052bd76c700a87d0d0a490a491798c422df2bd728dd33876d4a20e570e3",
+   "size": 4
+  },
+  "0x0019A2C8": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A2E0": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A360": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A370": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A388": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A398": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A3D0": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A590": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A5B8": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A708": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A728": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A760": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A778": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A7D0": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A808": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A830": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A890": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A8A8": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A8E4": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A900": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019A930": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AB10": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AB50": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AB70": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019ABE0": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AC58": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019AE40": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x0019DFD0": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0CD4": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0CEC": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D14": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D30": {
+   "new": {
+    "qol_gem_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D58": {
+   "new": {
+    "qol_gem_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D78": {
+   "new": {
+    "qol_gem_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0D94": {
+   "new": {
+    "qol_gem_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0DB0": {
+   "new": {
+    "qol_gem_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0DCC": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0DF0": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0E10": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A0E30": {
+   "new": {
+    "qol_other_popups": {
+     "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+     "size": 1
+    }
+   },
+   "original_sha256": "acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0",
+   "size": 1
+  },
+  "0x001A48F8": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "fb7614b89815f3ebaaba34a1cbd1fe490c839c39571d6a45e3a3cff5fcb1383c",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "814e223b91cb65a962256b15f351f22ac7bcbb3c2b82d2a4b3ecf174db8de764",
+     "size": 4
+    }
+   },
+   "original_sha256": "409303c5035263c102682239f8d654e7e194daae6235aff347c036576a261d96",
+   "size": 4
+  },
+  "0x001A4934": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "0b9d79ff0fc4d0a77ef398763bbe45c445501e826219f2b6a1aa709411ab631d",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "2bf14e785577603fda60476e5e5cfd313b95b39166647c4fa6b0b00fcd6d46b3",
+     "size": 4
+    }
+   },
+   "original_sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+   "size": 4
+  },
+  "0x001A49AC": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "82470dc9f85862238207a4be0f29196c3fb10cc5d7b6e26a9ab2884ed9d21939",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "912d7010c4c68a876d0a039ac4999341c000e73249ee804074646ac47e6f7ff9",
+     "size": 4
+    }
+   },
+   "original_sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+   "size": 4
+  },
+  "0x001A49CC": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "17fe77f5beaaf468d1ef0bcc83fb694dfa10556badc2580641d9b58f23f1b55e",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "9f7ac66faa1e0b5fdffb018ebd10af906739b5043dba34680fc3f35b314891bf",
+     "size": 4
+    }
+   },
+   "original_sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+   "size": 4
+  },
+  "0x001A49E8": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "8b28d83cb5ddc0a51f24f23094cbfa145fee5d22bd205753291d42ccfef0ccc9",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "d4c416901d43509af84d01d9b93a6862c7a404721e2321d442d33ed01594c38f",
+     "size": 4
+    }
+   },
+   "original_sha256": "c5fd575aaff8d1a1afc8a3410d0e195364aef9d29ec13f623d0c37506f183b2b",
+   "size": 4
+  },
+  "0x001A49F8": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "c6c9a57771f2313713756c05b0b8a1413e5ef99d747cabf716952b4f6137f34b",
+     "size": 8
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "c3db71f2a0d1a6669c64c3469dc3059eb3058ff1d5fd66ce1ec4847112e09127",
+     "size": 8
+    }
+   },
+   "original_sha256": "9986f3768d0dbf92b44320840835188181810a1681e0d2ad00ede9dc7ffaabc2",
+   "size": 8
+  },
+  "0x001A4B70": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "e39fe0de715a254739f2fbe0a728301100c99ce75fc20c3fa22a49eb772f3b5f",
+     "size": 8
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "3b7cdd401052e6c3ae3506416b03c004c9ae96b1c5adce0bacb2367f5876b370",
+     "size": 8
+    }
+   },
+   "original_sha256": "a6eb657cf3aab7d4083b6f0eca93d6e4726d1db995b090f29decf45f2376682d",
+   "size": 8
+  },
+  "0x001AC1B8": {
+   "new": {
+    "fps_unlock": {
+     "sha256": "a9354cb88a60330a1b2fa595e556bc765743d814b0117d54dc1ac52b34543f9b",
+     "size": 4
+    },
+    "fps_unlock:target_fps=120": {
+     "sha256": "6f5ccf38c3b1baa621d8d8a3f823e978ddfb06e3a0c14cf8951ceb38e688cbbc",
+     "size": 4
+    }
+   },
+   "original_sha256": "0835a5c87ba00a93f8d84fb3bdf20866024a13fc710fc1225e3d67073543bba0",
+   "size": 4
+  }
+ },
+ "sections": [
+  {
+   "flags": "0x00000036",
+   "name": ".text",
+   "raw": "0x00001000",
+   "raw_size": "0x000EF500",
+   "sha256": "5c34a2824647aa38937c7318b702a3d896855ec517ba9878f9b74d0bf7719c39",
+   "va": "0x00011000",
+   "vsize": "0x000EF500"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK",
+   "raw": "0x000F1000",
+   "raw_size": "0x00016080",
+   "sha256": "8f952876f75bafdf9f60df02ea6c7489e35f394f0a42767101de581fef1272b0",
+   "va": "0x00100500",
+   "vsize": "0x00016080"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK32",
+   "raw": "0x00108000",
+   "raw_size": "0x00001264",
+   "sha256": "884a678c3d244b2735eaa123e9c33a62de5d0f3443e18097839812eaf51b975a",
+   "va": "0x00116580",
+   "vsize": "0x00001265"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK32A",
+   "raw": "0x0010A000",
+   "raw_size": "0x00001578",
+   "sha256": "c9829d0df887275d62b3844e3fe26fb55af1c926c615cc57b07a4a0f3c3ecc82",
+   "va": "0x00117800",
+   "vsize": "0x00001579"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK16",
+   "raw": "0x0010C000",
+   "raw_size": "0x0000131C",
+   "sha256": "1bb784f73761f535718564055c6d19b5b660805a651b6ebcada5710cd8a246fd",
+   "va": "0x00118D80",
+   "vsize": "0x0000131C"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK4444",
+   "raw": "0x0010E000",
+   "raw_size": "0x000015A0",
+   "sha256": "d3bbbd4cb300c457b254c91f31f198cdd1b98d2db255474d719676a1600dc465",
+   "va": "0x0011A0A0",
+   "vsize": "0x000015A0"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK5551",
+   "raw": "0x00110000",
+   "raw_size": "0x00001134",
+   "sha256": "0c515bf905c521f30fb95669be2d8cfa9e3c01b486085e8c18f0e61f2e5430b6",
+   "va": "0x0011B640",
+   "vsize": "0x00001134"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK16MX",
+   "raw": "0x00112000",
+   "raw_size": "0x00000130",
+   "sha256": "36a45054c1d4827547104ab02c116e31b5c4d2adf8eaec92100fef63f12a04d4",
+   "va": "0x0011C780",
+   "vsize": "0x00000130"
+  },
+  {
+   "flags": "0x00000036",
+   "name": "BINK16X2",
+   "raw": "0x00113000",
+   "raw_size": "0x00000558",
+   "sha256": "0ac99adff3151cb26fcbf6c276b33af379b9364c895d7cfc0808b1dfc9544a1b",
+   "va": "0x0011C8C0",
+   "vsize": "0x00000558"
+  },
+  {
+   "flags": "0x00000016",
+   "name": "BINK16M",
+   "raw": "0x00114000",
+   "raw_size": "0x000001F8",
+   "sha256": "ee14ba2ebec8b348848b198fcc1b5fed7a052278525e6f05dfe8104d1acddbc6",
+   "va": "0x0011CE20",
+   "vsize": "0x000001F8"
+  },
+  {
+   "flags": "0x00000006",
+   "name": "BINK32MX",
+   "raw": "0x00115000",
+   "raw_size": "0x000001BC",
+   "sha256": "a7b1215e8291ee6bc0454435a8dfbdddc9bea79afdabd7ba6a5aa103511b8d3b",
+   "va": "0x0011D020",
+   "vsize": "0x000001BC"
+  },
+  {
+   "flags": "0x00000006",
+   "name": "BINK32X2",
+   "raw": "0x00116000",
+   "raw_size": "0x0000058C",
+   "sha256": "9cbcc420a8e5d843ccbba27368e6658091d5e1866be4d1397321ee3a3bf1a10c",
+   "va": "0x0011D1E0",
+   "vsize": "0x0000058C"
+  },
+  {
+   "flags": "0x00000006",
+   "name": "BINK32M",
+   "raw": "0x00117000",
+   "raw_size": "0x0000014C",
+   "sha256": "e479634ec4d04e8921cd79a7ad5c922f0b6c496de09f84cc5ea0c41eacb993d7",
+   "va": "0x0011D780",
+   "vsize": "0x0000014C"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "D3D",
+   "raw": "0x00118000",
+   "raw_size": "0x00014BBC",
+   "sha256": "b7c7708fc8f85ec43f432d6d291eeb8e8a868864bb1b6d6393deba67806aab8a",
+   "va": "0x0011D8E0",
+   "vsize": "0x00017EA0"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "DSOUND",
+   "raw": "0x0012D000",
+   "raw_size": "0x000203E4",
+   "sha256": "b723db6802c38b1c94cfb0a56d1e04d12473b9265cd1873a965867b9c0539bef",
+   "va": "0x00135780",
+   "vsize": "0x000205C4"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "XGRPH",
+   "raw": "0x0014E000",
+   "raw_size": "0x00014004",
+   "sha256": "89bf28cff99c3647e5d96574086a56e8ef834dd1dde2abb3042056969f65571b",
+   "va": "0x00155D60",
+   "vsize": "0x00014C78"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "D3DX",
+   "raw": "0x00163000",
+   "raw_size": "0x0001F3B8",
+   "sha256": "5f752b44941cfca1cdca4cf2919059e54d486af328bf9725f5274c47af80f1ec",
+   "va": "0x0016A9E0",
+   "vsize": "0x0001F3C0"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "XPP",
+   "raw": "0x00183000",
+   "raw_size": "0x00007764",
+   "sha256": "fae4205bafcf88d1f74ffb86212f36ca3c010d2a3e7174e58f14de9699046551",
+   "va": "0x00189DA0",
+   "vsize": "0x00007764"
+  },
+  {
+   "flags": "0x00000006",
+   "name": ".rdata",
+   "raw": "0x0018B000",
+   "raw_size": "0x00013718",
+   "sha256": "6bfbf463339e0a3025786c1d2593cc21830e5c42752b68d3c7876e6ee209ea95",
+   "va": "0x00191520",
+   "vsize": "0x00013718"
+  },
+  {
+   "flags": "0x00000007",
+   "name": ".data",
+   "raw": "0x0019F000",
+   "raw_size": "0x00008010",
+   "sha256": "509e15a1ada81590d8006ca6e6bc9df768a656a1b6fc8d677da342adce641054",
+   "va": "0x001A4C40",
+   "vsize": "0x001EE19C"
+  },
+  {
+   "flags": "0x00000007",
+   "name": "BINKDATA",
+   "raw": "0x001A8000",
+   "raw_size": "0x00004250",
+   "sha256": "366aa9c7f51f9e0f0fcbaba97ea2da64a34b3eee6a09385eb22a1a49606ab03d",
+   "va": "0x00392DE0",
+   "vsize": "0x00004250"
+  },
+  {
+   "flags": "0x00000026",
+   "name": "DOLBY",
+   "raw": "0x001AD000",
+   "raw_size": "0x00006D84",
+   "sha256": "c493eb6f8390ec48cde2da2995c114662059f7790f99d68adbda76a63b4b46ae",
+   "va": "0x00397040",
+   "vsize": "0x00006D98"
+  },
+  {
+   "flags": "0x00000038",
+   "name": "$$XTIMAGE",
+   "raw": "0x001B4000",
+   "raw_size": "0x00002800",
+   "sha256": "f3fc6df730009b51240ff0c613c54f161201cf2a56f19a6312c47dd269d80cea",
+   "va": "0x0039DDE0",
+   "vsize": "0x00002800"
+  }
+ ],
+ "symbols": {
+  "CreateEventA": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E0FA3"
+  },
+  "CreateMutexA": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E119B"
+  },
+  "CreateThread": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x000E7AF7"
+  },
+  "GetExitCodeThread": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E7928"
+  },
+  "GetLastError": {
+   "arg_bytes": 0,
+   "convention": "stdcall",
+   "va": "0x000E30F8"
+  },
+  "GetOverlappedResult": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E3291"
+  },
+  "GetThreadPriority": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E7756"
+  },
+  "GetTimeZoneInformation": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F56F1"
+  },
+  "MoveFileA": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E09B4"
+  },
+  "OpenEventA": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E1004"
+  },
+  "OutputDebugStringA": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F5978"
+  },
+  "OutputDebugStringW": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F59AA"
+  },
+  "PulseEvent": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E109E"
+  },
+  "RaiseException": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E787D"
+  },
+  "ResetEvent": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E1080"
+  },
+  "SetEvent": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E1060"
+  },
+  "SetLastError": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E3120"
+  },
+  "SetThreadPriority": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E7704"
+  },
+  "SetThreadPriorityBoost": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E77AA"
+  },
+  "SignalObjectAndWait": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E12B3"
+  },
+  "Sleep": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E1518"
+  },
+  "UnhandledExceptionFilter": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E76E7"
+  },
+  "VirtualFree": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E0E48"
+  },
+  "XAutoPowerDownResetTimer": {
+   "arg_bytes": 0,
+   "convention": "stdcall",
+   "va": "0x000E7DEA"
+  },
+  "XCalculateSignatureBegin": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E2FBB"
+  },
+  "XGSetTextureHeader": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x001605F5"
+  },
+  "XGSwizzleRect": {
+   "arg_bytes": 32,
+   "convention": "stdcall",
+   "va": "0x0015F04B"
+  },
+  "XGUnswizzleBox": {
+   "arg_bytes": 40,
+   "convention": "stdcall",
+   "va": "0x0016010E"
+  },
+  "XGWriteSurfaceOrTextureToXPR": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000F5A37"
+  },
+  "XGetLaunchInfo": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000DFC48"
+  },
+  "XGetSectionSize": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E7DE0"
+  },
+  "XInitDevices": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0018A087"
+  },
+  "XLaunchNewImageA": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000DFD10"
+  },
+  "XMUNameFromDriveLetter": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E0766"
+  },
+  "XMountAlternateTitleA": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E046A"
+  },
+  "XMountUtilityDrive": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E037F"
+  },
+  "XPhysicalAlloc": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000F51D0"
+  },
+  "XRegisterThreadNotifyRoutine": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E7A0F"
+  },
+  "XUnmountAlternateTitleA": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E05CF"
+  },
+  "XapiBootToDash": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E6D7E"
+  },
+  "XapiCallThreadNotifyRoutines": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E76AF"
+  },
+  "XapiFormatObjectAttributes": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E73AF"
+  },
+  "XapiInitProcess": {
+   "arg_bytes": 0,
+   "convention": "stdcall",
+   "va": "0x000E6DE3"
+  },
+  "XapiMapLetterToDirectory": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x000E69F5"
+  },
+  "XapiSelectCachePartition": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E017B"
+  },
+  "XapiSetLastNTError": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E314E"
+  },
+  "_CopyMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F38D9"
+  },
+  "_IncMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F381A"
+  },
+  "_IsZeroMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3900"
+  },
+  "_RoundMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3867"
+  },
+  "_SEH_epilog": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ECFB1"
+  },
+  "_ShrMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3919"
+  },
+  "_ZeroTail": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F37E8"
+  },
+  "__add_12": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F4883"
+  },
+  "__addl": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F4862"
+  },
+  "__dtold": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F4534"
+  },
+  "__onexitinit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB618"
+  },
+  "__shl_12": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F48E1"
+  },
+  "__shr_12": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F490F"
+  },
+  "_abstract_cw": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EBFAE"
+  },
+  "_alldiv": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ED320"
+  },
+  "_allmul": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ECC00"
+  },
+  "_allshr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED2B0"
+  },
+  "_aulldiv": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ED240"
+  },
+  "_aullrem": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ED0E0"
+  },
+  "_aullshr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED0C0"
+  },
+  "_cfltcvt": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1EFE"
+  },
+  "_chgsign": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC5C9"
+  },
+  "_cintrindisp1": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6342"
+  },
+  "_cintrindisp2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6304"
+  },
+  "_close": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEE8D"
+  },
+  "_control87": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC12C"
+  },
+  "_controlfp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC15E"
+  },
+  "_copysign": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC5A8"
+  },
+  "_ctrandisp1": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6515"
+  },
+  "_ctrandisp2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F637F"
+  },
+  "_ctrlfp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0A85"
+  },
+  "_dosmaperr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC4B0"
+  },
+  "_errcode": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F05EE"
+  },
+  "_fassign": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1C0E"
+  },
+  "_fclose_lk": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB7B5"
+  },
+  "_fflush_lk": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEFB0"
+  },
+  "_filbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0B02"
+  },
+  "_fload": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6548"
+  },
+  "_fload_withFB": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F21B5"
+  },
+  "_flsbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDCB7"
+  },
+  "_flswbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F473A"
+  },
+  "_flush": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEF53"
+  },
+  "_flushall": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF103"
+  },
+  "_forcdecpt": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1B51"
+  },
+  "_freebuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEF28"
+  },
+  "_fsopen": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC3BF"
+  },
+  "_ftbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0EDF"
+  },
+  "_get_osfhandle": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2BD5"
+  },
+  "_getbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F284B"
+  },
+  "_getstream": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F17FC"
+  },
+  "_global_unwind2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ECFC4"
+  },
+  "_handle_qnan1": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F06B9"
+  },
+  "_handle_qnan2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F070C"
+  },
+  "_hextodec": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF50B"
+  },
+  "_hw_cw": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC040"
+  },
+  "_inc": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF53D"
+  },
+  "_isatty": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F288F"
+  },
+  "_itoa": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F5E13"
+  },
+  "_ld12cvt": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3994"
+  },
+  "_ld12told": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3B18"
+  },
+  "_local_unwind2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED006"
+  },
+  "_lock_file": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF1CF"
+  },
+  "_lock_file2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF1FE"
+  },
+  "_lseek": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2718"
+  },
+  "_ltoa": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F5E3D"
+  },
+  "_math_exit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F221B"
+  },
+  "_onexit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB640"
+  },
+  "_onexit_lk": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB598"
+  },
+  "_openfile": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1694"
+  },
+  "_read": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0DAC"
+  },
+  "_set_bexp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0938"
+  },
+  "_set_exp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F08CF"
+  },
+  "_setjmp3": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F5FB4"
+  },
+  "_sopen": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F442B"
+  },
+  "_sptype": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F095D"
+  },
+  "_startOneArgErrorHandling": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2133"
+  },
+  "_stbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0E57"
+  },
+  "_stricmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED2D1"
+  },
+  "_strnicmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB881"
+  },
+  "_umatherr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F061B"
+  },
+  "_unlock_fhandle": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2C89"
+  },
+  "_unlock_file": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF221"
+  },
+  "_unlock_file2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF250"
+  },
+  "_wcsdup": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC523"
+  },
+  "_wcsicmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED3CA"
+  },
+  "_write": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1094"
+  },
+  "active_controller_state": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000A3150"
+  },
+  "ai_hit_handler": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x00038C60"
+  },
+  "aligned_node_offset": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000402E0"
+  },
+  "anim_apply_translation": {
+   "arg_bytes": 16,
+   "convention": "thiscall",
+   "va": "0x00042E40"
+  },
+  "anim_bind_clip_tracks": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000CB200"
+  },
+  "anim_bone_matrix": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000CA5F0"
+  },
+  "anim_change": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00042910"
+  },
+  "anim_change_aligned": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x00042430"
+  },
+  "anim_change_at_node": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x00042750"
+  },
+  "anim_layer_fraction": {
+   "arg_bytes": 4,
+   "convention": "fastcall",
+   "va": "0x000CB1A0"
+  },
+  "anim_marker_box": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x000CA510"
+  },
+  "anim_marker_position": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000CB420"
+  },
+  "anim_node_by_name": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000CA350"
+  },
+  "anim_node_transform": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x000CCF70"
+  },
+  "anim_play_clip": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000CAEC0"
+  },
+  "anim_root_motion_delta": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000CAE50"
+  },
+  "anim_sample_markers": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000CBE00"
+  },
+  "apply_damage": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00044640"
+  },
+  "armor_reset_out_of_fuel": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00083750"
+  },
+  "asset_find": {
+   "arg_bytes": 8,
+   "convention": "thiscall",
+   "va": "0x000A5E20"
+  },
+  "atexit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB678"
+  },
+  "atol": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC174"
+  },
+  "attack_anim_record_copy": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0007F1A0"
+  },
+  "attack_target_find": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x0007EB60"
+  },
+  "attack_transition_search": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x0007EEC0"
+  },
+  "boot_state_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0005F5D0"
+  },
+  "button_pressed_once": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000A3250"
+  },
+  "calculate_save_signature": {
+   "arg_bytes": 0,
+   "convention": "thiscall",
+   "va": "0x0005C8D0"
+  },
+  "camera_reach": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00081D60"
+  },
+  "camera_water_push": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00081DC0"
+  },
+  "cheat_owner_action": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00016610"
+  },
+  "cheat_owner_tick": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00015DA0"
+  },
+  "cinit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000E762E"
+  },
+  "collision_sweep": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x00060820"
+  },
+  "config_cell_value": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000D1820"
+  },
+  "config_name_lookup": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000D1720"
+  },
+  "consume_fuel": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x00084280"
+  },
+  "critter_model_matrix": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00042200"
+  },
+  "critter_play_fx": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000440F0"
+  },
+  "critter_spawn": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00045C10"
+  },
+  "cvar_get_double": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x0005E5D0"
+  },
+  "dev_menu_flag_check": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00052F50"
+  },
+  "entity_lookup": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x0004B510"
+  },
+  "fall_damage_dispatch": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0008AB20"
+  },
+  "fall_death_dispatch": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008BDB0"
+  },
+  "fclose": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB801"
+  },
+  "flsall": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEFDE"
+  },
+  "font_draw_text": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000D1060"
+  },
+  "free_camera_update": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x00082790"
+  },
+  "fx_instance_detach": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00063460"
+  },
+  "fx_instantiate": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x00064990"
+  },
+  "glide_origin": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00042070"
+  },
+  "global_var_find_or_create": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0005E640"
+  },
+  "gravity_integrate_raw": {
+   "arg_bytes": 12,
+   "convention": "fastcall",
+   "va": "0x000856B0"
+  },
+  "hit_send": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000460B0"
+  },
+  "hud_anchor": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000D0B30"
+  },
+  "hud_font": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000D0CE0"
+  },
+  "hud_list_draw": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0001B110"
+  },
+  "isalnum": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED7E2"
+  },
+  "isalpha": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED6B9"
+  },
+  "isdigit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED739"
+  },
+  "isspace": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED790"
+  },
+  "level_teleport_helper": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00052950"
+  },
+  "load_armor_properties_config": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x0003C700"
+  },
+  "load_asset_by_fourcc": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000A6920"
+  },
+  "load_critters_config": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00049480"
+  },
+  "load_level_from_path": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x00053750"
+  },
+  "mark_armor_feature_used": {
+   "arg_bytes": 12,
+   "convention": "fastcall",
+   "va": "0x00084680"
+  },
+  "matrix_to_quat": {
+   "arg_bytes": 0,
+   "convention": "thiscall",
+   "va": "0x000A07A0"
+  },
+  "move_query_clear": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000307E0"
+  },
+  "play_movie_fn": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00018980"
+  },
+  "player_ai_factory": {
+   "arg_bytes": 0,
+   "convention": "thiscall",
+   "va": "0x0008D700"
+  },
+  "player_air_attack_start": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00088E20"
+  },
+  "player_airborne_reinit": {
+   "arg_bytes": 4,
+   "convention": "fastcall",
+   "va": "0x00083F40"
+  },
+  "player_airborne_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00089430"
+  },
+  "player_armor_state_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00083D30"
+  },
+  "player_climb_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00087F30"
+  },
+  "player_ground_attack_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008C780"
+  },
+  "player_ground_land_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00088A30"
+  },
+  "player_hard_land": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x0008B0B0"
+  },
+  "player_input_tick": {
+   "arg_bytes": 4,
+   "convention": "fastcall",
+   "va": "0x000848F0"
+  },
+  "player_jump_init": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00089010"
+  },
+  "player_land_classify": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000858D0"
+  },
+  "player_landing": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0008C030"
+  },
+  "player_move_fx": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008C400"
+  },
+  "player_move_offsets_init": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000849F0"
+  },
+  "player_physics_state_machine": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008CC70"
+  },
+  "player_slope_slide_tick": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00089A20"
+  },
+  "player_staff_wall_check": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008C850"
+  },
+  "player_swim_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008B6B0"
+  },
+  "player_walk_state": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00085F00"
+  },
+  "poll_movie": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00018D30"
+  },
+  "quat_from_euler": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x0004FF10"
+  },
+  "quat_rotate": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000A15A0"
+  },
+  "rt_probe_read4": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F602F"
+  },
+  "rtinit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000E7686"
+  },
+  "run_pages_alloc": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000BACE0"
+  },
+  "scene_state_tick": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00055AB0"
+  },
+  "seh_longjmp_unwind": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000ED9E9"
+  },
+  "sound_play_at": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000A27B0"
+  },
+  "species_bind_clip_sounds": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0004B680"
+  },
+  "species_clip_lookup": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0004B600"
+  },
+  "species_get_by_name": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x00045E30"
+  },
+  "strncmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB560"
+  },
+  "strncpy": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EBAE0"
+  },
+  "strrchr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB6E0"
+  },
+  "strstr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED600"
+  },
+  "volume_query": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x00060B80"
+  },
+  "wcscmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED206"
+  },
+  "wcscpy": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED47C"
+  },
+  "wcsncpy": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED155"
+  },
+  "wcsstr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED192"
+  },
+  "wing_flap": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000892B0"
+  },
+  "world_text_clear": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00050950"
+  },
+  "write_char": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDDD0"
+  },
+  "write_multi_char": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDE03"
+  },
+  "write_string": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDE27"
+  },
+  "xcalculate_signature_begin": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E2FBB"
+  },
+  "xcalculate_signature_end": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E2F5E"
+  }
+ },
+ "xbe": {
+  "base": "0x00010000",
+  "entry_point": "0x000E338A",
+  "headers_size": "0x00000C80",
+  "image_size": "0x003905E0",
+  "sha256": "72e0cf6af079a4024886d9e94812d87d4a35c177135b6196d215abe138866eab",
+  "size": 1798144
+ }
+}

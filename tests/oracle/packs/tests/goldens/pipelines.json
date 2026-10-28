@@ -1,0 +1,38 @@
+{
+ "apply-physics:zero-scales": {
+  "ISO": "19173ee2dd66ba1ec12e394da1106e9bd812c922361e7a14bb411fc31ee373b3",
+  "default.xbe": "5b7b54b1cfc79fa162bce1d77b62dfda018fe5217de8f492b5e2cd6840391dda",
+  "filelist.txt": "53cd42a5820f594282013ab9bc14f5422e1f6b3923c766b1c49d3b531cca14e2",
+  "gamedata/config.xbr": "89b23c00cb34adf15bfca1a9a57ba1123fb9d2b6a961c97390fa44917484dcc4"
+ },
+ "pack_build_iso:starting_hp=500": {
+  "ISO": "cfbad70dfa49820d32b294b6133cdb23bc036ce22276777b9f2081d87908bbe5",
+  "default.xbe": "2bd27ee4655f66a813134942003a336431403ecf4037d0406b0499b3bc9c8b0d",
+  "filelist.txt": "fa5b6763542a081d912afb079d826427ff54c93cbb63ad72ee088fac2da40e33",
+  "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
+  "gamedata/config.xbr": "7aafefd1fd4df286d01a0606f33347d5bfc05ab99536a977e65e9d0cb824a60c",
+  "gamedata/training_room.xbr": "fcdf6f210f01f2a2cd75978b1afe983feb0a3718bd35c2b9e94a6dc71e1cd23d"
+ },
+ "patch:config-mod": {
+  "ISO": "524a181eea783c2553c5ae41a7d52d7028fe66d1e0d0ee3bbfc87854d97d565c",
+  "default.xbe": "e80c78aebef72184612d5de197ecdb98caf41017c511b4f0ed37ea2a3bd8e8ae",
+  "filelist.txt": "88486b8a70b9d0891a0d957e4581e00d830db235a546d0367f5e8f980d3995fe",
+  "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
+  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881",
+  "gamedata/training_room.xbr": "fcdf6f210f01f2a2cd75978b1afe983feb0a3718bd35c2b9e94a6dc71e1cd23d"
+ },
+ "randomize-full:config-mod": {
+  "ISO": "524a181eea783c2553c5ae41a7d52d7028fe66d1e0d0ee3bbfc87854d97d565c",
+  "default.xbe": "e80c78aebef72184612d5de197ecdb98caf41017c511b4f0ed37ea2a3bd8e8ae",
+  "filelist.txt": "88486b8a70b9d0891a0d957e4581e00d830db235a546d0367f5e8f980d3995fe",
+  "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
+  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881",
+  "gamedata/training_room.xbr": "fcdf6f210f01f2a2cd75978b1afe983feb0a3718bd35c2b9e94a6dc71e1cd23d"
+ },
+ "randomize-full:zero-scales": {
+  "ISO": "129e063f7b917949bbca7e09b2024a6a79bf6caa47988a9075f5fb8cc5eac7be",
+  "default.xbe": "206eac963923161723310c879411dff3ba1a7dbfeff2cf2853c421b63add3d4b",
+  "filelist.txt": "53cd42a5820f594282013ab9bc14f5422e1f6b3923c766b1c49d3b531cca14e2",
+  "gamedata/config.xbr": "89b23c00cb34adf15bfca1a9a57ba1123fb9d2b6a961c97390fa44917484dcc4"
+ }
+}

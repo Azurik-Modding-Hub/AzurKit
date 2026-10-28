@@ -1,0 +1,51 @@
+{
+ "commit": "8875cdaf4a9a424be4d998093bd8089ea1e6419d",
+ "dirty": false,
+ "family": "packs",
+ "files": {
+  "cases.json": {
+   "sha256": "7524ad0fbb97063cd6ee0f39f52bd6c21ac2c8c9d6cb5df23b7e95614fa4c05f",
+   "size": 34585
+  },
+  "tests/facts/xbe.europe.json": {
+   "sha256": "c30efbe66fe9e8708b6bf183c4d410157a0bcfede629f6a67369819d2da7518a",
+   "size": 61121
+  },
+  "tests/facts/xbe.json": {
+   "sha256": "b5b7d51a70f149854c0ba52074fe11f4aa22d7dcf397af825e5602528d82f06e",
+   "size": 72655
+  },
+  "tests/goldens/europe/packs.json": {
+   "sha256": "36e0d14d6476e7bc5137921cd01577103c86db4f0b40ac02cf58c92319051951",
+   "size": 4583
+  },
+  "tests/goldens/gui.json": {
+   "sha256": "80f1571ad3690a3cb112152b836e8d6f1360f7a92560dd479b4bd8b2f8aa5ee1",
+   "size": 899
+  },
+  "tests/goldens/packs.json": {
+   "sha256": "5e006f2503ed1f1050f52776b4a06bfa96d6815ec9d8bab901ca2bb26af1f8c5",
+   "size": 7017
+  },
+  "tests/goldens/pipelines.json": {
+   "sha256": "504b23ba20fa602c6edb94f6f5fa84e2600b937f097a66ae8d35fa3c92c64911",
+   "size": 2447
+  },
+  "tests/goldens/shims.json": {
+   "sha256": "5101ee769d338838938055b33eb288393928249a8203ab8c0c6264c884e5ee1f",
+   "size": 1193
+  },
+  "tests/goldens/xbr_editor.json": {
+   "sha256": "449534358518ddeffa593c35c94c6f14fa76d16925898c5d67458324262a30cd",
+   "size": 319
+  }
+ },
+ "format": "azurik-oracle/1",
+ "same_as": {},
+ "tag": "oracle-packs-1",
+ "toolchain": {
+  "capstone": "5.0.9",
+  "numpy": "2.5.4",
+  "ziglang": "0.16.0"
+ }
+}

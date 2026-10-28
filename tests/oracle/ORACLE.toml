@@ -1,0 +1,34 @@
+# Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of
+# tests/oracle/<family>/ against its sha256 here; <family>.exported holds a facts file's sha256
+# as Modkit exported it, before its build spans became sha256 and size.
+
+[core]
+tag = "oracle-core-1"
+commit = "8875cdaf4a9a424be4d998093bd8089ea1e6419d"
+
+[core.files]
+"azurik_mod/assets/europe_manifest.json" = "67adfc1c841f8e677695852667f70cba805836afbcb395382c9c4d7e000a4140"
+"azurik_mod/assets/region_europe.json" = "7854df87e24b1b4d7d0ec8ed078c73aeee3a4fc2e6f1d11f783e4b2bd300c33a"
+"azurik_mod/assets/vanilla_manifest.json" = "383ad0c8d6c655c4cdc81107303a0c34b1fee7faacd360e5b4746d21cbf96a97"
+"cases.json" = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+"oracle.json" = "45f24f85566a28a62dd1479d541c11549e018f29949207786a018152207c71ab"
+
+[packs]
+tag = "oracle-packs-1"
+commit = "8875cdaf4a9a424be4d998093bd8089ea1e6419d"
+
+[packs.files]
+"cases.json" = "7524ad0fbb97063cd6ee0f39f52bd6c21ac2c8c9d6cb5df23b7e95614fa4c05f"
+"oracle.json" = "0639408eb0c21249761158b30301bcef45a9e828e41d21faec1a068b74e921fd"
+"tests/facts/xbe.europe.json" = "5921f6224a1dd8ebe5e325eca09821fda32ae88c75fb65b3fd439f515567de95"
+"tests/facts/xbe.json" = "abf31943c8e730f9332da2f6aac55f0c3c8707c0916fc5112ad4f76b50f62f80"
+"tests/goldens/europe/packs.json" = "36e0d14d6476e7bc5137921cd01577103c86db4f0b40ac02cf58c92319051951"
+"tests/goldens/gui.json" = "80f1571ad3690a3cb112152b836e8d6f1360f7a92560dd479b4bd8b2f8aa5ee1"
+"tests/goldens/packs.json" = "5e006f2503ed1f1050f52776b4a06bfa96d6815ec9d8bab901ca2bb26af1f8c5"
+"tests/goldens/pipelines.json" = "504b23ba20fa602c6edb94f6f5fa84e2600b937f097a66ae8d35fa3c92c64911"
+"tests/goldens/shims.json" = "5101ee769d338838938055b33eb288393928249a8203ab8c0c6264c884e5ee1f"
+"tests/goldens/xbr_editor.json" = "449534358518ddeffa593c35c94c6f14fa76d16925898c5d67458324262a30cd"
+
+[packs.exported]
+"tests/facts/xbe.europe.json" = "c30efbe66fe9e8708b6bf183c4d410157a0bcfede629f6a67369819d2da7518a"
+"tests/facts/xbe.json" = "b5b7d51a70f149854c0ba52074fe11f4aa22d7dcf397af825e5602528d82f06e"
