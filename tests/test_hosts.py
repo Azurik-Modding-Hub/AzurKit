@@ -18,7 +18,11 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time
+import types
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -351,3 +355,61 @@ def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
     finally:
         server.close()
         second.close()
+
+
+def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monkeypatch, usa_iso):
+    """Quitting while a save writes cancels it and waits until it has
+    removed its part file, before the app can exit (D35): when ``serve``'s
+    input ends (the way out of the window and the browser fallback too), and
+    when the window's closing event fires (its close button, and Cmd-Q,
+    after which no ``finally`` runs). Nothing is left where it saved."""
+    import webview
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers the image
+    out = tmp_path / "out"
+    out.mkdir()
+    recipe = {"iso": str(usa_iso), "packs": {"fps_unlock": {}}}
+
+    def save_until_writing(url: str, name: str) -> None:
+        """POST a save to the page's server at ``url`` and return once it writes."""
+        host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"   # the token
+
+        def post() -> None:
+            request = urllib.request.Request(
+                f"http://{host}/api/save{query}", json.dumps({"recipe": recipe, "out": str(out / name)}).encode(),
+                {"Origin": f"http://{host}", "Content-Type": "application/json"})
+            with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=120) as reply:
+                reply.read()   # the app may quit before it answers
+        threading.Thread(target=post, daemon=True).start()
+        end = time.monotonic() + 120
+        while True:
+            with urllib.request.urlopen(f"http://{host}/api/progress{query}", timeout=10) as reply:
+                if json.load(reply)["done"]:
+                    return
+            assert time.monotonic() < end, "the save never started writing"
+            time.sleep(0.05)
+
+    with subprocess.Popen([sys.executable, "-m", "azurkit", "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True, env=os.environ | {"HOME": str(tmp_path / "home")}) as served:
+        try:
+            save_until_writing(served.stdout.readline().strip(), "served.iso")
+        except BaseException:
+            served.kill()
+            raise
+        served.stdin.close()
+        assert (served.wait(60), served.stderr.read()) == (0, "")
+    assert list(out.iterdir()) == []
+
+    server, left = app.serve(), []
+
+    def start(**kwargs) -> None:   # the window: a save writes, then the window closes
+        save_until_writing(server.url, "window.iso")
+        assert server.window.events.closing.set() is False   # the close goes ahead
+        left.extend(out.iterdir())
+    window = types.SimpleNamespace(events=types.SimpleNamespace(closing=webview.event.Event(None, True)))
+    monkeypatch.setattr(webview, "create_window", lambda **kwargs: window)
+    monkeypatch.setattr(webview, "start", start)
+    try:
+        assert app._window(server)
+    finally:
+        server.close()
+    assert left == []
