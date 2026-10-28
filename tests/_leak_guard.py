@@ -29,16 +29,17 @@ committed and deleted again is caught too. Refused:
 
 One more rule needs the game itself, so the vanilla tier runs it
 (``tests/test_leak_guard.py``, with both releases' ``default.xbe`` read from
-the images) and neither the hook nor the command line does: no byte or hex
-literal in a source file (:data:`SOURCE_DIRS`) holds :data:`VANILLA_RUN` or
-more bytes in a row of a vanilla ``default.xbe`` (:func:`vanilla_runs`). Such
-a run is read from the player's image at its address instead. The literals
-(:func:`byte_literals`) are a Python file's bytes literals, ``bytes.fromhex``
-and hex strings, lists of byte-sized ints and the concatenations and repeats
-of these, and in any text file runs of hex byte pairs, ``\\xNN`` escapes or
-``0xNN, ...`` or decimal lists. A run of one byte value repeated isn't
-counted, nor is text (a str that isn't hex): a format's marker, a save's
-``fileversion=`` say, is written as text.
+the images), and so does ``scripts/land.py`` over every commit it lands
+(:func:`vanilla_runs_in_commits`), but neither the hook nor the command line:
+no byte or hex literal in a source file (:data:`SOURCE_DIRS`) holds
+:data:`VANILLA_RUN` or more bytes in a row of a vanilla ``default.xbe``
+(:func:`vanilla_runs`). Such a run is read from the player's image at its
+address instead. The literals (:func:`byte_literals`) are a Python file's
+bytes literals, ``bytes.fromhex`` and hex strings, lists of byte-sized ints
+and the concatenations and repeats of these, and in any text file runs of
+hex byte pairs, ``\\xNN`` escapes or ``0xNN, ...`` or decimal lists. A run
+of one byte value repeated isn't counted, nor is text (a str that isn't
+hex): a format's marker, a save's ``fileversion=`` say, is written as text.
 """
 
 from __future__ import annotations
@@ -302,6 +303,28 @@ def _longest(data: bytes, haystack: bytes) -> int:
     return best
 
 
+def _held(literals: list[tuple[str, bytes]], xbes: Mapping[str, bytes]) -> list[str]:
+    """``"<where>: a <n> B literal holds <m> B in a row of the <release>
+    default.xbe"`` for each ``(where, literal)`` that holds
+    :data:`VANILLA_RUN` or more bytes in a row of one of ``xbes``
+    (``{release label: its vanilla default.xbe}``), in the literals' order.
+    Lengths only, never the bytes."""
+    wanted = {w for _, data in literals for w in _windows(data)}
+    held: dict[str, set[int]] = {}
+    for label, xbe in xbes.items():
+        held[label] = set()
+        for k in range(VANILLA_RUN):   # every window of the XBE, as ints, VANILLA_RUN at a time
+            words = array("Q")
+            words.frombytes(xbe[k:k + (len(xbe) - k) // 8 * 8])
+            held[label] |= wanted.intersection(words)
+    problems = []
+    for where, data in literals:
+        for label, xbe in xbes.items():
+            if not held[label].isdisjoint(_windows(data)) and (run := _longest(data, xbe)):
+                problems.append(f"{where}: a {len(data)} B literal holds {run} B in a row of the {label} default.xbe")
+    return list(dict.fromkeys(problems))
+
+
 def vanilla_runs(root: Path, xbes: Mapping[str, bytes]) -> list[str]:
     """``"<path>:<line>: a <n> B literal holds <m> B in a row of the <release>
     default.xbe"`` for each literal (:func:`byte_literals`) in a source file
@@ -311,39 +334,21 @@ def vanilla_runs(root: Path, xbes: Mapping[str, bytes]) -> list[str]:
     literals = []
     for rel in _listed(root):
         if rel.startswith(SOURCE_DIRS) and (text := _text((root / rel).read_bytes()[:MAX_TEXT])) is not None:
-            literals += [(rel, line, data) for line, data in byte_literals(rel, text)]
-    wanted = {w for *_, data in literals for w in _windows(data)}
-    held: dict[str, set[int]] = {}
-    for label, xbe in xbes.items():
-        held[label] = set()
-        for k in range(VANILLA_RUN):   # every window of the XBE, as ints, VANILLA_RUN at a time
-            words = array("Q")
-            words.frombytes(xbe[k:k + (len(xbe) - k) // 8 * 8])
-            held[label] |= wanted.intersection(words)
-    problems = []
-    for rel, line, data in literals:
-        for label, xbe in xbes.items():
-            if not held[label].isdisjoint(_windows(data)) and (run := _longest(data, xbe)):
-                problems.append(f"{rel}:{line}: a {len(data)} B literal holds {run} B in a row of the {label} "
-                                f"default.xbe")
-    return sorted(set(problems))
+            literals += [(f"{rel}:{line}", data) for line, data in byte_literals(rel, text)]
+    return sorted(_held(literals, xbes))
 
 
-def scan_push(root: Path, remote: str, updates: str) -> list[str]:
-    """``"<path> in <commit>: <why>"`` for every file a commit being pushed
-    adds or changes that :func:`check_bytes` refuses, named with the first
-    such commit. ``remote`` and ``updates`` are a ``pre-push`` hook's first
-    argument and stdin; the commits are those the pushed oids reach and no
-    ``refs/remotes/<remote>/`` ref does."""
-    def git(*args: str, stdin: bytes = b"") -> bytes:
-        return subprocess.run(["git", "-C", str(root), *args], input=stdin, capture_output=True, check=True,
-                              timeout=600).stdout
-    tips = [oid for oid in (line.split()[1] for line in updates.splitlines() if line.strip()) if oid.strip("0")]
-    if not tips:   # only deletions
-        return []
-    commits = git("rev-list", "--reverse", *tips, "--not", f"--remotes={remote}")
-    raw = git("diff-tree", "--stdin", "-r", "-m", "--root", "--no-renames", "-z", stdin=commits)
-    first: dict[tuple[str, str], str] = {}   # (path, blob) -> the first commit adding it
+def _git(root: Path, *args: str, stdin: bytes = b"") -> bytes:
+    return subprocess.run(["git", "-C", str(root), *args], input=stdin, capture_output=True, check=True,
+                          timeout=600).stdout
+
+
+def _added(root: Path, revs: list[str]) -> dict[tuple[str, str], str]:
+    """``{(path, blob): the first commit adding it}`` for every regular file
+    a commit of ``git rev-list revs`` adds or changes, oldest commit first."""
+    commits = _git(root, "rev-list", "--reverse", *revs)
+    raw = _git(root, "diff-tree", "--stdin", "-r", "-m", "--root", "--no-renames", "-z", stdin=commits)
+    first: dict[tuple[str, str], str] = {}
     commit, fields = "", iter(raw.split(b"\0"))
     for field in fields:
         if field.startswith(b":"):
@@ -353,17 +358,52 @@ def scan_push(root: Path, remote: str, updates: str) -> list[str]:
                 first.setdefault((path, blob), commit)
         elif field:
             commit = field.decode()
-    problems = []
+    return first
+
+
+def _blobs(root: Path, blobs: list[str]) -> Iterator[bytes]:
+    """Each blob's content, in order."""
     with subprocess.Popen(["git", "-C", str(root), "cat-file", "--batch"], stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE) as cat:
-        for (path, blob), added in first.items():
+        for blob in blobs:
             cat.stdin.write(f"{blob}\n".encode())
             cat.stdin.flush()
             size = int(cat.stdout.readline().split()[2])   # "<oid> blob <size>\n<content>\n"
-            data = cat.stdout.read(size + 1)[:size]
-            if why := check_bytes(path, data):
-                problems.append(f"{path} in {added[:12]}: {why}")
+            yield cat.stdout.read(size + 1)[:size]
         cat.stdin.close()
+
+
+def vanilla_runs_in_commits(root: Path, revs: list[str], xbes: Mapping[str, bytes]) -> list[str]:
+    """:func:`vanilla_runs` over history: ``"<path>:<line> in <commit>: a <n>
+    B literal holds <m> B in a row of the <release> default.xbe"`` for each
+    literal in a source file under :data:`SOURCE_DIRS` that a commit of
+    ``git rev-list revs`` (``[top, "--not", base]``, say) adds or changes,
+    named with the first commit adding it, oldest first. A run that a later
+    commit removes again is still named: it stays in the history. Lengths
+    only, never the bytes."""
+    added = [(path, blob, commit) for (path, blob), commit in _added(root, revs).items()
+             if path.startswith(SOURCE_DIRS)]
+    literals = []
+    for (path, _, commit), data in zip(added, _blobs(root, [blob for _, blob, _ in added]), strict=True):
+        if (text := _text(data[:MAX_TEXT])) is not None:
+            literals += [(f"{path}:{line} in {commit[:12]}", lit) for line, lit in byte_literals(path, text)]
+    return _held(literals, xbes)
+
+
+def scan_push(root: Path, remote: str, updates: str) -> list[str]:
+    """``"<path> in <commit>: <why>"`` for every file a commit being pushed
+    adds or changes that :func:`check_bytes` refuses, named with the first
+    such commit. ``remote`` and ``updates`` are a ``pre-push`` hook's first
+    argument and stdin; the commits are those the pushed oids reach and no
+    ``refs/remotes/<remote>/`` ref does."""
+    tips = [oid for oid in (line.split()[1] for line in updates.splitlines() if line.strip()) if oid.strip("0")]
+    if not tips:   # only deletions
+        return []
+    added = list(_added(root, [*tips, "--not", f"--remotes={remote}"]).items())
+    problems = []
+    for ((path, _), commit), data in zip(added, _blobs(root, [blob for (_, blob), _ in added]), strict=True):
+        if why := check_bytes(path, data):
+            problems.append(f"{path} in {commit[:12]}: {why}")
     return problems
 
 

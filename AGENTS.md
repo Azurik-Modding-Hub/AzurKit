@@ -57,7 +57,9 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   the player's image at its address. The vanilla tier refuses a literal under
   `src/`, `tests/`, `scripts/` or `web/` holding 8 or more bytes in a row of
   either release's `default.xbe`, by file, line and length
-  (`tests/test_leak_guard.py`).
+  (`tests/test_leak_guard.py`), and `scripts/land.py` refuses a stack any of
+  whose commits adds one, even when a later commit removes it again: the
+  history keeps it. Rewrite the commit that adds it.
 - Never print game bytes in logs, commits or chat: print lengths and
   `sha256[:12]`. Failure output is redacted (`tests/_byte_safe.py`).
 - Recorded results are hashes and names. The facts hold sha256 and length,
@@ -150,7 +152,8 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   result; exit 3 means it is still running, so issue the same command again.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
-  and `europe: M run`, N and M at least 1 (D26). There is no remote
+  and `europe: M run`, N and M at least 1 (D26), and no commit it lands adds
+  a vanilla run (by commit, file, line and length). There is no remote
   until AzurKit goes public (D137, D91: Azurik-Modding-Hub at 4.4).
 
 ## Environment
