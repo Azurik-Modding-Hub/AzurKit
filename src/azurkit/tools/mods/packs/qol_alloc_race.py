@@ -80,11 +80,12 @@ def _copy_buffer(read: Callable[[int, int], bytes]) -> PatchSpec:
     Kept from vanilla: the size's load and the lock's first try (17 bytes),
     the spin's sleep (7, in place), the release, the buffer's store and its
     test (14, from 0x30), and the eviction, moved 10 bytes on: its expired
-    list's call (10, from 0x40), the result's test (5, from 0x4E), the
-    wheel's first slot (5, from 0x54), the slot walk's test and pushes (7,
-    from 0x60) and its step to the next slot (13, from 0x6B). They carry the
-    release's own addresses; the calls placed here are relocated by the
-    engine (``rel32``)."""
+    list's call (10, from 0x40), the result's test (5, from 0x4E) and the
+    wheel's first slot (5, from 0x54); then, 3 bytes on with vanilla's
+    padding dropped, the slot walk's test and pushes (7, from 0x60) and its
+    step to the next slot (13, from 0x6B). They carry the release's own
+    addresses; the calls placed here are relocated by the engine
+    (``rel32``)."""
     at, old = COPY_LOOP, read(COPY_LOOP, COPY_SIZE)
     patch = (old[0x00:0x11] + _short(0x74, at + 0x11, at + 0x1C)   # took the lock: on to the alloc
              + old[0x13:0x1A] + _short(0xEB, at + 0x1A, at + 0x03)   # slept: try the lock again
