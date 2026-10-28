@@ -10,7 +10,7 @@ import json
 import pytest
 
 from azurkit.core import iso
-from scripts.oracle_sync import FACTS, ORACLE, read_index, tree_hashes
+from scripts.oracle_sync import FACTS, ORACLE, PATHS, read_index, tree_hashes
 
 
 def test_every_oracle_file_is_the_one_the_sync_installed():
@@ -35,6 +35,16 @@ def test_every_oracle_file_is_the_one_the_sync_installed():
             sites = json.loads((ORACLE / family / rel).read_text(encoding="utf-8"))["patch_sites"].values()
             spans = [span for site in sites for span in site.get("new", {}).values()]
             assert spans and all(set(span) == {"sha256", "size"} for span in spans), rel
+
+
+def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
+    """Each file a family bundles from Modkit lies on one of the family's
+    paths (``oracle_sync.PATHS``), so a Modkit commit that touches only it
+    is on the next tag bump's to-do list."""
+    off = [f"{family}: {rel}" for family, entry in read_index().items() for rel in entry["files"]
+           if rel not in ("cases.json", "oracle.json")
+           and not any(rel == p or rel.startswith(p + "/") for p in PATHS[family])]
+    assert off == []
 
 
 @pytest.mark.parametrize("release", [pytest.param("usa", marks=pytest.mark.vanilla),

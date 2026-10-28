@@ -37,11 +37,13 @@ ORACLE = ROOT / "tests" / "oracle"
 FAMILIES = ("core", "packs", "rando", "models")
 FACTS = ("tests/facts/xbe.json", "tests/facts/xbe.europe.json")   # their build spans are installed as digests
 PATHS = {   # where each family's code and records live in Modkit (its tag bump's commit list)
-    "core": ("azurik_mod/iso", "azurik_mod/assets/vanilla.py", "azurik_mod/assets/vanilla_manifest.json",
-             "azurik_mod/assets/europe_manifest.json", "azurik_mod/assets/region_europe.json"),
+    "core": ("azurik_mod/iso", "azurik_mod/assets/vanilla.py", "azurik_mod/assets/filelist.py",
+             "azurik_mod/assets/vanilla_manifest.json", "azurik_mod/assets/europe_manifest.json",
+             "azurik_mod/assets/region_europe.json"),
     "packs": ("azurik_mod/patches", "azurik_mod/patching", "azurik_mod/xbe_tools", "azurik_mod/xbr",
               "azurik_mod/config", "shims", "tests/facts", "tests/goldens/packs.json",
-              "tests/goldens/europe/packs.json", "tests/goldens/shims.json", "tests/goldens/xbr_editor.json"),
+              "tests/goldens/europe/packs.json", "tests/goldens/shims.json", "tests/goldens/xbr_editor.json",
+              "tests/goldens/pipelines.json", "tests/goldens/gui.json"),
     "rando": ("azurik_mod/randomizer", "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json"),
     "models": ("azurik_mod/patches/player_model", "azurik_mod/patches/_player_character.py", "azurik_mod/assets"),
 }
