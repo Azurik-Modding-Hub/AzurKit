@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 import bootstrap
+from azurkit.core import facts, gate, iso
 from tests import _leak_guard
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -35,7 +36,8 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
         "part.000": bytes(0x10000) + b"MICROSOFT*XBOX*MEDIA" + bytes(0x7EC),
         "azurik.iso.007": bytes(64), "europe.xiso": bytes(64),
         "default.bin": b"XBEH" + bytes(60), "level.dat": b"xobx" + bytes(60),
-        "slot.dat": b"fileversion=1\n", "SaveMeta.dat": b"\xff\xfe" + "Name=Slot\r\n".encode("utf-16-le"),
+        "slot.dat": _leak_guard._SAVE_HEADERS[0] + b"1\n",
+        "SaveMeta.dat": b"\xff\xfe" + "Name=Slot\r\n".encode("utf-16-le"),
         "hdd.img": b"QFI\xfb" + bytes(60), "xemu_eeprom.bin": bytes(256), "w1.snap": b"AZL3SNAP" + bytes(56),
         "deploy": b"-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n",
         "trailing.c": _listing("    0x01, 0x02,  // mov eax, [esp+4]", "    0x03,  /* push eax */",
@@ -56,7 +58,7 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
         "three.md": _listing("push ebp", "mov ebp, esp", "sub esp, 0x10", "", "ret").encode(),
         "comments.c": _listing("a += 4;  // add 4 more", "if (a) return;  /* test it */", "b = a; c = b;",
                                "x = 1  # or move it").encode(),
-        "picture.png": b"\x89PNG\r\n\x1a\n" + bytes(56),
+        "picture.gif": b"GIF89a" + bytes(58),
     }
     for name, data in (files | allowed).items():
         (tmp_path / name).write_bytes(data)
@@ -119,3 +121,40 @@ def test_bootstrap_writes_the_hook_the_global_hook_hands_a_push_to(tmp_path):
 
 def test_the_checkout_holds_nothing_the_guard_refuses():
     assert _leak_guard.scan(ROOT) == []
+
+
+def test_no_source_literal_holds_a_run_of_a_vanilla_xbe(tmp_path, usa_iso, europe_iso):
+    """A byte or hex literal under src/, tests/, scripts/ or web/ that holds
+    8 or more bytes in a row of either release's vanilla default.xbe is
+    named by file, line and lengths, never its bytes: in each form, planted
+    here with the 13 vanilla bytes 4.1c's fps_unlock once held (read from the
+    image now). A run of one repeated byte, a hash and a file outside those
+    folders pass. The checkout holds none."""
+    xbes = {}
+    for label, path in (("USA", usa_iso), ("Europe", europe_iso)):
+        with iso.Reader(path) as r:
+            xbes[label] = r.read("default.xbe")
+    usa = facts.of(gate.USA)
+    run = xbes["USA"][usa.offset(0x059B37, 30):][17:30]
+    escaped = "".join(f"\\x{b:02x}" for b in run)
+    plants = {
+        "src/a.py": f'X = b"{escaped}"\n',
+        "tests/b.py": f'X = bytes.fromhex("{run.hex(" ")}")\n',
+        "scripts/c.py": f"X = {list(run)}\n",
+        "src/d.py": f"X = (bytes.fromhex('{run[:6].hex()}')\n     + bytes([{', '.join(map(str, run[6:]))}, cap]))\n",
+        "web/e.js": (f"const a = [{', '.join(f'0x{b:02x}' for b in run)}];\n// {run.hex(' ')}\n"
+                     f'const s = "{escaped}";\n'),
+        "src/ok.py": f'N = b"\\x90" * 32\nH = "{hashlib.sha256(run).hexdigest()}"\n',
+        "docs/out.py": f'X = b"{escaped}"\n',
+    }
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    for rel, text in plants.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text, encoding="utf-8")
+    found = _leak_guard.vanilla_runs(tmp_path, xbes)
+    assert found == sorted(f"{at}: a 13 B literal holds 13 B in a row of the {label} default.xbe"
+                           for at in ("src/a.py:1", "tests/b.py:1", "scripts/c.py:1", "src/d.py:1",
+                                      "web/e.js:1", "web/e.js:2", "web/e.js:3")
+                           for label in xbes if run in xbes[label])
+    assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run)))
+    assert _leak_guard.vanilla_runs(ROOT, xbes) == []

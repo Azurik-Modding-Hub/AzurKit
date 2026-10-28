@@ -45,6 +45,12 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   - `tests/_leak_guard.py` refuses them in the suite and on every push. Its
     rules have no allow-list.
   - Never weaken them to get green.
+- Never write a run of vanilla bytes as a literal in code or tests (a bytes
+  literal, `bytes.fromhex`, a hex string, a list of byte values): read it from
+  the player's image at its address. The vanilla tier refuses a literal under
+  `src/`, `tests/`, `scripts/` or `web/` holding 8 or more bytes in a row of
+  either release's `default.xbe`, by file, line and length
+  (`tests/test_leak_guard.py`).
 - Never print game bytes in logs, commits or chat: print lengths and
   `sha256[:12]`. Failure output is redacted (`tests/_byte_safe.py`).
 - Recorded results are hashes and names. The facts hold sha256 and length,

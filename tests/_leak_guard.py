@@ -26,16 +26,33 @@ committed and deleted again is caught too. Refused:
 - a disassembly listing: 4 or more consecutive lines of x86 instructions in a
   text file, each at its line's start or in its trailing comment (after
   ``#``, ``//``, ``/*`` or ``;``).
+
+One more rule needs the game itself, so the vanilla tier runs it
+(``tests/test_leak_guard.py``, with both releases' ``default.xbe`` read from
+the images) and neither the hook nor the command line does: no byte or hex
+literal in a source file (:data:`SOURCE_DIRS`) holds :data:`VANILLA_RUN` or
+more bytes in a row of a vanilla ``default.xbe`` (:func:`vanilla_runs`). Such
+a run is read from the player's image at its address instead. The literals
+(:func:`byte_literals`) are a Python file's bytes literals, ``bytes.fromhex``
+and hex strings, lists of byte-sized ints and the concatenations and repeats
+of these, and in any text file runs of hex byte pairs, ``\\xNN`` escapes or
+``0xNN, ...`` lists. A run of one byte value repeated isn't counted, nor is
+text (a str that isn't hex): a format's marker, a save's ``fileversion=``
+say, is written as text.
 """
 
 from __future__ import annotations
 
+import ast
+import bisect
 import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+from array import array
+from collections.abc import Iterator, Mapping
 from functools import cache
 from pathlib import Path
 
@@ -48,7 +65,7 @@ MAX_TEXT = 16 << 20      # a text file past this is read for its head only
 DISASSEMBLY_RUN = 4
 _ISO_NAME = re.compile(r"\.x?iso(\.\d+)?$")
 _SAVE_NAMES = (".sav", ".xbx")
-_SAVE_HEADERS = (b"fileversion=", b"\xff\xfe" + "Name=".encode("utf-16-le"))
+_SAVE_HEADERS = ("fileversion=".encode("ascii"), b"\xff\xfe" + "Name=".encode("utf-16-le"))   # markers, as text
 _PRIVATE_KEY = re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\r?\n")
 
 # One line of an x86 listing, Intel or AT&T syntax: an optional comment leader,
@@ -156,16 +173,20 @@ def check(root: Path, rel: str) -> str | None:
     return check_blob(rel, head, size, sha, None)
 
 
+def _listed(root: Path) -> list[str]:
+    """Every tracked or untracked, not ignored, regular file under ``root``
+    (a link's target isn't committed)."""
+    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                            capture_output=True, check=True, timeout=60).stdout.decode()
+    return [rel for rel in sorted(set(filter(None, listed.split("\0"))))
+            if not (root / rel).is_symlink() and (root / rel).is_file()]
+
+
 def scan(root: Path = ROOT) -> list[str]:
     """``"<path>: <why>"`` for every tracked or untracked, not ignored,
     regular file under ``root`` that :func:`check` refuses."""
-    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-                            capture_output=True, check=True, timeout=60).stdout.decode()
     problems = []
-    for rel in sorted(set(filter(None, listed.split("\0")))):
-        path = root / rel
-        if path.is_symlink() or not path.is_file():   # a link's target isn't committed
-            continue
+    for rel in _listed(root):
         try:
             why = check(root, rel)
         except FileNotFoundError:   # removed since the listing
@@ -173,6 +194,136 @@ def scan(root: Path = ROOT) -> list[str]:
         if why:
             problems.append(f"{rel}: {why}")
     return problems
+
+
+SOURCE_DIRS = ("src/", "tests/", "scripts/", "web/")
+VANILLA_RUN = 8   # bytes in a row of a vanilla default.xbe that a literal may not hold
+_HEX_TEXT = re.compile(r"(?<![0-9A-Za-z_])(?:[0-9A-Fa-f]{2})+(?:[ \t]+(?:[0-9A-Fa-f]{2})+)*(?![0-9A-Za-z_])")
+_ESCAPES = re.compile(r"(?:\\x[0-9A-Fa-f]{2})+")
+_BYTE_LIST = re.compile(r"(?<![\w.])0x[0-9A-Fa-f]{1,2}(?:\s*,\s*0x[0-9A-Fa-f]{1,2})+(?![\w.])")
+_HEX_STRING = re.compile(r"\s*(?:[0-9A-Fa-f]{2}\s*)+")
+
+
+def _byte(node: ast.expr) -> bool:
+    return isinstance(node, ast.Constant) and type(node.value) is int and 0 <= node.value <= 0xFF
+
+
+def _pieces(node: ast.AST) -> list[bytes | None] | None:
+    """The bytes a Python expression makes from literals, as the literal
+    runs between the parts that come from elsewhere (``None``), or ``None``
+    when it makes no bytes from a literal."""
+    match node:
+        case ast.Constant(value=bytes() as value):
+            return [value]
+        case ast.Constant(value=str() as value) if _HEX_STRING.fullmatch(value):
+            return [bytes.fromhex(value)]
+        case ast.Call(func=ast.Attribute(value=ast.Name(id="bytes" | "bytearray"), attr="fromhex"),
+                      args=[ast.Constant(value=str() as value)]):
+            try:
+                return [bytes.fromhex(value)]
+            except ValueError:
+                return None
+        case ast.Call(func=ast.Name(id="bytes" | "bytearray"), args=[ast.List() | ast.Tuple() as seq]):
+            return [bytes([e.value]) if _byte(e) else None for e in seq.elts] or None
+        case ast.List() | ast.Tuple() | ast.Set() if len(node.elts) > 1 and all(map(_byte, node.elts)):
+            return [bytes(e.value for e in node.elts)]
+        case ast.BinOp(op=ast.Add()):
+            left, right = _pieces(node.left), _pieces(node.right)
+            return None if left is None and right is None else (left or [None]) + (right or [None])
+        case ast.BinOp(op=ast.Mult(), left=left, right=ast.Constant(value=int() as times)) if 0 < times <= 1 << 16:
+            made = _pieces(left)
+            return [made[0] * times] if made and len(made) == 1 and made[0] is not None else None
+    return None
+
+
+def _runs(pieces: list[bytes | None]) -> Iterator[bytes]:
+    run = b""
+    for piece in [*pieces, None]:
+        if piece is None:
+            if run:
+                yield run
+            run = b""
+        else:
+            run += piece
+
+
+def byte_literals(rel: str, text: str) -> list[tuple[int, bytes]]:
+    """``(line, bytes)`` for each byte or hex literal in the source file
+    ``rel``: in Python, each literal expression's bytes (a bytes literal, a
+    ``bytes.fromhex`` or hex string, a list of byte-sized ints, and their
+    ``+`` and ``*``), the runs a part from elsewhere splits; in any file,
+    each run of hex byte pairs, ``\\xNN`` escapes or ``0xNN`` items. A
+    literal of fewer than :data:`VANILLA_RUN` bytes isn't listed."""
+    found = []
+    if rel.endswith(".py"):
+        def visit(node: ast.AST, folded: bool) -> None:
+            pieces = _pieces(node)
+            if pieces is not None and not folded:
+                found.extend((node.lineno, run) for run in _runs(pieces))
+            for child in ast.iter_child_nodes(node):
+                visit(child, pieces is not None)
+        try:
+            visit(ast.parse(text), False)
+        except SyntaxError:
+            pass
+    lines = [0, *(m.end() for m in re.finditer("\n", text))]
+    for pattern, value in ((_HEX_TEXT, lambda s: bytes.fromhex(s)),
+                           (_ESCAPES, lambda s: bytes.fromhex(s.replace("\\x", ""))),
+                           (_BYTE_LIST, lambda s: bytes(int(x, 16) for x in s.split(",")))):
+        for m in pattern.finditer(text):
+            found.append((bisect.bisect_right(lines, m.start()), value(m.group())))
+    return [(line, data) for line, data in found if len(data) >= VANILLA_RUN]
+
+
+def _windows(data: bytes) -> Iterator[int]:
+    """Each :data:`VANILLA_RUN`-byte window of ``data`` as an int, but a
+    window of one byte value repeated."""
+    for i in range(len(data) - VANILLA_RUN + 1):
+        window = data[i:i + VANILLA_RUN]
+        if window.count(window[0]) != VANILLA_RUN:
+            yield int.from_bytes(window, sys.byteorder)
+
+
+def _longest(data: bytes, haystack: bytes) -> int:
+    """The longest run of ``data`` (one byte value repeated aside) that
+    ``haystack`` holds, when it is :data:`VANILLA_RUN` bytes or more; else 0."""
+    best = 0
+    for i in range(len(data) - VANILLA_RUN + 1):
+        window = data[i:i + VANILLA_RUN]
+        if window.count(window[0]) == VANILLA_RUN or window not in haystack:
+            continue
+        end = i + VANILLA_RUN
+        while end < len(data) and data[i:end + 1] in haystack:
+            end += 1
+        best = max(best, end - i)
+    return best
+
+
+def vanilla_runs(root: Path, xbes: Mapping[str, bytes]) -> list[str]:
+    """``"<path>:<line>: a <n> B literal holds <m> B in a row of the <release>
+    default.xbe"`` for each literal (:func:`byte_literals`) in a source file
+    under :data:`SOURCE_DIRS` that holds :data:`VANILLA_RUN` or more bytes
+    in a row of one of ``xbes`` (``{release label: its vanilla
+    default.xbe}``). Lengths only, never the bytes."""
+    literals = []
+    for rel in _listed(root):
+        if rel.startswith(SOURCE_DIRS) and (text := _text((root / rel).read_bytes()[:MAX_TEXT])) is not None:
+            literals += [(rel, line, data) for line, data in byte_literals(rel, text)]
+    wanted = {w for *_, data in literals for w in _windows(data)}
+    held: dict[str, set[int]] = {}
+    for label, xbe in xbes.items():
+        held[label] = set()
+        for k in range(VANILLA_RUN):   # every window of the XBE, as ints, VANILLA_RUN at a time
+            words = array("Q")
+            words.frombytes(xbe[k:k + (len(xbe) - k) // 8 * 8])
+            held[label] |= wanted.intersection(words)
+    problems = []
+    for rel, line, data in literals:
+        for label, xbe in xbes.items():
+            if not held[label].isdisjoint(_windows(data)) and (run := _longest(data, xbe)):
+                problems.append(f"{rel}:{line}: a {len(data)} B literal holds {run} B in a row of the {label} "
+                                f"default.xbe")
+    return sorted(set(problems))
 
 
 def scan_push(root: Path, remote: str, updates: str) -> list[str]:
