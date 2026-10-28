@@ -10,12 +10,13 @@
   anything, with one message that says why. Otherwise the summary prints
   ``vanilla: N run`` and ``europe: M run``.
 - A test that runs under Pyodide on Node takes the ``pyodide`` fixture, and
-  one that drives the site in headless Chromium the ``chromium`` fixture
-  (either becomes ``web``). Like the images, what they run on (Pyodide, Node
-  for the first, Chromium for the second; ``uv run bootstrap.py`` fetches
-  Pyodide and Chromium) is needed by a run that selects one, which otherwise
-  stops with one message; ``-m "not web"`` opts out. The summary prints
-  ``web: K run``.
+  one that drives the page in a browser the ``browser`` fixture, which runs
+  it in headless Chromium and again in WebKit (Safari's engine; Step 4.1d3);
+  either becomes ``web``. Like the images, what they run on (Pyodide, Node
+  for the first, each browser for the second; ``uv run bootstrap.py``
+  fetches Pyodide and both browsers) is needed by a run that selects one,
+  which otherwise stops with one message naming what is missing; ``-m "not
+  web"`` opts out. The summary prints ``web: K run``.
 - A skip or an xfail fails the run unless ``tests/skip_allowlist.toml`` lists
   its test id with a regex its reason matches. The list starts empty (Q277).
 - Failure output is byte-safe (``tests/_byte_safe.py``).
@@ -116,7 +117,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.europe)
         if names & {"usa_iso", "europe_iso"}:
             item.add_marker(pytest.mark.vanilla)
-        if names & {"pyodide", "chromium"}:
+        if names & {"pyodide", "browser"}:
             item.add_marker(pytest.mark.web)
         if item.get_closest_marker("europe") and not item.get_closest_marker("vanilla"):
             raise pytest.UsageError(f"{item.nodeid}: a europe test is vanilla too (use the europe_iso fixture)")
@@ -137,7 +138,9 @@ def pytest_collection_finish(session):
         _images[release.name] = found
     uses = {name for item in session.items if item.get_closest_marker("web")
             for name in getattr(item, "fixturenames", ())}
-    if uses & {"pyodide", "chromium"}:
+    engines = {item.callspec.params["browser"] for item in session.items
+               if "browser" in getattr(item, "fixturenames", ())}
+    if uses & {"pyodide", "browser"}:
         if "pyodide" in uses and shutil.which("node") is None:
             pytest.exit('web tests need Node (24 or newer) on PATH, or run `pytest -m "not web"`',
                         returncode=pytest.ExitCode.USAGE_ERROR)
@@ -145,9 +148,11 @@ def pytest_collection_finish(session):
             pytest.exit(f"web tests need Pyodide {web_tools.VERSION} in {web_tools.pyodide_dir(ROOT)} (it lacks "
                         f"{', '.join(lost)}): run `uv run bootstrap.py`, or `pytest -m \"not web\"`",
                         returncode=pytest.ExitCode.USAGE_ERROR)
-        if "chromium" in uses and web_tools.chromium_missing(ROOT):
-            pytest.exit(f"web tests need Chromium in {web_tools.chromium_dir(ROOT)}: run `uv run bootstrap.py`, "
-                        f'or `pytest -m "not web"`', returncode=pytest.ExitCode.USAGE_ERROR)
+        for engine in sorted(engines, key=list(web_tools.BROWSERS).index):
+            if web_tools.browser_missing(engine, ROOT):
+                pytest.exit(f"web tests need {web_tools.BROWSERS[engine][1]} in {web_tools.browser_dir(engine, ROOT)}: "
+                            f'run `uv run bootstrap.py`, or `pytest -m "not web"`',
+                            returncode=pytest.ExitCode.USAGE_ERROR)
     _gated = True
 
 
@@ -171,17 +176,20 @@ def pyodide(tmp_path_factory) -> Callable[..., dict]:
     return lambda *argv: _pyodide.run(list(argv), wheel)
 
 
-@pytest.fixture(scope="session")
-def chromium(tmp_path_factory):
-    """Headless Chromium (Playwright's headless shell from the main
-    checkout's ``.tools/``; the test is ``web``): no window opens."""
+@pytest.fixture(scope="module", params=list(web_tools.BROWSERS))
+def browser(request, tmp_path_factory):
+    """Each browser in turn, headless (Playwright's, from the main checkout's
+    ``.tools/``; the test is ``web``): Chromium's headless shell, then
+    WebKit, Safari's engine. No window opens. Module-scoped, so a module's
+    tests stay together and its other fixtures are made once."""
     from playwright.sync_api import sync_playwright
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir(ROOT)))   # read as its driver starts
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(downloads_path=str(tmp_path_factory.mktemp("downloads")))
-            yield browser
-            browser.close()
+            launched = getattr(playwright, request.param).launch(
+                downloads_path=str(tmp_path_factory.mktemp("downloads")))
+            yield launched
+            launched.close()
 
 
 def _fail_unlisted_skip(report):

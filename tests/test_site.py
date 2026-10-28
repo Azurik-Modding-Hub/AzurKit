@@ -1,6 +1,7 @@
 """The site (Step 4.1d1, D866): the page in ``web/`` runs the wheel under
 Pyodide 314 in a module worker, unpacked without its dependencies (WEB §3,
-§6.3), here in headless Chromium, served from the site folder
+§6.3), here in headless Chromium and in WebKit (Safari's engine, Step
+4.1d3), served from the site folder
 ``scripts/web_tools.py`` assembles. Each ported pack's G1 case builds its
 golden on both releases, and the page's build is CPython's: the same report,
 and the same segments, so the Blob it saves is the image ``sdk.image`` makes;
@@ -51,6 +52,8 @@ class Site:
         self.context.route("**/*", self._serve)
 
     def _serve(self, route, request) -> None:
+        if request.url.startswith(f"blob:{ORIGIN}/"):   # the page's own blob: (WebKit routes them; Chromium doesn't)
+            return route.continue_()
         url = urllib.parse.urlsplit(request.url)
         self.requests.append((request.method, request.url, request.post_data_buffer))
         file = (self.root / (urllib.parse.unquote(url.path).lstrip("/") or "index.html")).resolve()
@@ -87,7 +90,7 @@ def _signature(made: iso.Image) -> list[list]:
 
 
 @pytest.mark.parametrize("release", RELEASES)
-def test_each_ported_pack_builds_its_g1_golden_in_chromium(release, chromium, site, request):
+def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser, site, request):
     """One page per pack, and one with fps_unlock's slider typed to 120
     FPS, built at once: each page's report and segments are CPython's for
     the values it sent, and the packs at their defaults hold the G1
@@ -98,7 +101,7 @@ def test_each_ported_pack_builds_its_g1_golden_in_chromium(release, chromium, si
     path = request.getfixturevalue(f"{release.name}_iso")
     golden = _page.golden(release)
     cases = [(name, {}) for name in mods.PACKS] + [("fps_unlock", {"target_fps": "120"})]
-    served = Site(chromium, site)
+    served = Site(browser, site)
     try:
         pages = [served.open() for _ in cases]
         assert _page.slide(pages[-1], "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
@@ -119,10 +122,10 @@ def test_each_ported_pack_builds_its_g1_golden_in_chromium(release, chromium, si
         served.close()
 
 
-def test_the_saved_file_is_the_image_cpython_builds(chromium, site, usa_iso):
+def test_the_saved_file_is_the_image_cpython_builds(browser, site, usa_iso):
     """All five packs on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe."""
-    served = Site(chromium, site)
+    served = Site(browser, site)
     try:
         page = served.open()
         page.set_input_files("#iso", str(usa_iso))

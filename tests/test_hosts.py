@@ -215,10 +215,11 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
 
 
 def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpythons_image(
-        frozen_app, tmp_path, monkeypatch, chromium, usa_iso, europe_iso):
+        frozen_app, tmp_path, monkeypatch, browser, usa_iso, europe_iso):
     """``AzurKit serve`` from the frozen app (read-only, in a fresh HOME,
     TMPDIR and empty folder, in the tests' no-window mode) serves the page
-    with the app's engine, here driven in headless Chromium: each ported
+    with the app's engine, here driven in headless Chromium and in WebKit
+    (the macOS window's engine): each ported
     pack builds its G1 case on both releases with CPython's report, and Save
     (offered in the Downloads folder) writes the USA build of all five packs
     where the page names, CPython's image byte for byte, but never over a
@@ -231,7 +232,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     box = Sandbox(tmp_path, monkeypatch)
     out = tmp_path / "out" / f"{usa_iso.stem} (AzurKit).iso"
     out.parent.mkdir()
-    context, requests = chromium.new_context(), []
+    context, requests = browser.new_context(), []
     context.on("request", lambda request: requests.append(request.url))
     try:
         with box.serving(app_path) as url:

@@ -27,14 +27,16 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
     `usa.iso` and `europe.iso` in the user data folder (`src/azurkit/core/gate.py`).
 - **The web tier:** a test that runs under Pyodide on Node (the site's
   runtime) takes the `pyodide` fixture (`tests/_pyodide.py` runs the
-  `azurkit` command from the wheel alone), and one that drives the site in
-  headless Chromium takes the `chromium` fixture (`tests/test_site.py`);
-  either becomes `web`. A run that selects one needs Pyodide's pinned core,
-  Node on PATH for the first and Playwright's headless Chromium for the
-  second, which `uv run bootstrap.py` puts in the main checkout's `.tools/`
-  for every lane (`scripts/web_tools.py`; `PLAYWRIGHT_BROWSERS_PATH`, never
-  the user's cache). Without them the run stops with one message; the
-  opt-out is `-m "not web"`. The summary prints `web: K run`.
+  `azurkit` command from the wheel alone), and one that drives the page in
+  a browser takes the `browser` fixture (`tests/test_site.py`), which runs
+  it in Playwright's headless Chromium and again in its WebKit, Safari's
+  engine (Step 4.1d3: Safari failed where Chromium passed); either becomes
+  `web`. A run that selects one needs Pyodide's pinned core, Node on PATH
+  for the first and both browsers for the second, which `uv run
+  bootstrap.py` puts in the main checkout's `.tools/` for every lane
+  (`scripts/web_tools.py`; `PLAYWRIGHT_BROWSERS_PATH`, never the user's
+  cache). Without one the run stops with one message naming it; the opt-out
+  is `-m "not web"`. The summary prints `web: K run`.
   - Chromium's headless shell never fires `requestAnimationFrame` here, so
     Playwright's actionability waits hang and `wait_for_function` needs eval,
     which the page's CSP refuses: drive the page through the DOM
@@ -139,7 +141,13 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes, and Save downloads it.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
-  `tests/test_site.py` the packs' G1 cases and a save in Chromium.
+  `tests/test_site.py` the packs' G1 cases and a save in Chromium and
+  WebKit.
+  - The worker holds one PyProxy, its engine function, which hands back
+    plain JS values: a PyProxy it dropped would be freed by Pyodide's
+    FinalizationRegistry, which needs the GIL, and WebKit runs that cleanup
+    inside WORKERFS's read of the image, where CPython has released the GIL
+    (`NoGilError`, Step 4.1d3).
 - **The app** (D732) is `python -m azurkit` (`src/azurkit/__main__.py`): with
   no arguments the page in a pywebview window, else in the default browser;
   `serve` serves it without opening either (the tests' way in); any other
@@ -157,7 +165,7 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   player saves to. It carries no Unicorn, zig, capstone or GPL code;
   `tests/test_hosts.py` checks each name in it and its licence, and builds
   the packs' G1 cases and a save through its page (`AzurKit serve` in
-  headless Chromium).
+  headless Chromium and WebKit).
 
 ## Commits and landing
 

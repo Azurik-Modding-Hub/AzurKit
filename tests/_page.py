@@ -1,5 +1,5 @@
-"""Driving the page (``web/``) in headless Chromium, for the site's tests
-(``tests/test_site.py``) and the app's (``tests/test_hosts.py``).
+"""Driving the page (``web/``) in headless Chromium and WebKit, for the
+site's tests (``tests/test_site.py``) and the app's (``tests/test_hosts.py``).
 
 Chromium's headless shell never fires ``requestAnimationFrame`` on this
 machine (sandboxed or not), so Playwright's actionability waits never end,

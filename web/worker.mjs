@@ -5,6 +5,11 @@
 // byte: the page gets the build as segments (WEB §3.4), spans of the image ("copy"), the bytes the build writes
 // ("bytes") and zeros past the image's end ("zero"), which it joins into a Blob.
 //
+// One PyProxy only (Step 4.1d3): ENGINE's function, kept for the worker's life. It hands back plain JS values, so this
+// file never drops a PyProxy for Pyodide's FinalizationRegistry to free later. That cleanup needs the GIL, and WebKit
+// runs it inside FileReaderSync, under WORKERFS's read of the image, while CPython has released the GIL around read():
+// Safari's build stopped with NoGilError there. Chromium runs it only between tasks.
+//
 // In:  {type: "build", file, packs: {name: {parameter: value}}}
 // Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
@@ -15,6 +20,35 @@ self.addEventListener("securitypolicyviolation", (e) =>
   post({ type: "csp", directive: e.violatedDirective, blocked: e.blockedURI }));
 
 const lastLine = (error) => String(error?.message ?? error).trim().split("\n").at(-1);
+
+// engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
+// ValueError or OSError, by its message); anything else raises. to_js copies each piece's bytes into its own buffer.
+const ENGINE = `
+from js import Object
+from pyodide.ffi import to_js
+
+import azurkit
+from azurkit import sdk
+from azurkit.core import iso
+
+
+def engine(request):
+    def js(value):
+        return to_js(value, dict_converter=Object.fromEntries, create_pyproxies=False)
+
+    if request.type == "catalog":
+        return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
+    try:
+        image, report = sdk.image(request.recipe.to_py())
+    except (OSError, ValueError) as exc:
+        return js({"refused": str(exc)})
+    pieces = [{"kind": "copy", "offset": p.offset, "size": p.size} if isinstance(p, iso.Copy)
+              else {"kind": "zero", "size": p.size} if isinstance(p, iso.Zero)
+              else {"kind": "bytes", "size": p.size, "data": p.data} for p in image.segments()]
+    return js({"report": report, "size": image.size, "segments": pieces})
+
+
+engine`;
 
 async function load() {
   const site = await (await fetch(new URL("host.json", base))).json();
@@ -28,61 +62,28 @@ async function load() {
   if (!wheel.ok) throw new Error(`${site.wheel}: HTTP ${wheel.status}`);
   py.unpackArchive(await wheel.arrayBuffer(), "wheel",
                    { extractDir: py.runPython("import site; site.getsitepackages()[0]") });
-  // A refusal (ValueError, OSError) comes back as its message; anything else is a failure.
-  const call = py.runPython(`
-def call(fn, *args):
-    try:
-        return fn(*args), None
-    except (OSError, ValueError) as exc:
-        return None, str(exc)
-call`);
-  return { py, call, sdk: py.pyimport("azurkit.sdk"), version: py.pyimport("azurkit").__version__ };
+  return { py, engine: py.runPython(ENGINE) };
 }
 
-const plain = (proxy) => proxy.toJs({ dict_converter: Object.fromEntries, create_pyproxies: false });
-
-function segments(image) {
-  const out = [], transfer = [];
-  for (const piece of image.segments()) {
-    if (piece.type === "Copy") {
-      out.push({ kind: "copy", offset: piece.offset, size: piece.size });
-    } else if (piece.type === "Zero") {
-      out.push({ kind: "zero", size: piece.size });
-    } else {
-      const view = piece.data.getBuffer("u8");
-      const data = view.data.slice();
-      view.release();
-      out.push({ kind: "bytes", size: data.length, data });
-      transfer.push(data.buffer);
-    }
-    piece.destroy();
-  }
-  return [out, transfer];
-}
-
-function build(engine, file, packs) {
-  const { py, call, sdk } = engine;
+function build({ py, engine }, file, packs) {
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
-  const recipe = py.toPy({ iso: `/in/${file.name}`, packs });
-  const [made, refused] = call(sdk.image, recipe).toJs({ depth: 1 });
-  if (refused !== undefined) return post({ type: "refused", message: refused });
-  const [image, report] = made.toJs({ depth: 1 });
-  const [pieces, transfer] = segments(image);
-  post({ type: "built", report: plain(report), size: image.size, segments: pieces }, transfer);
+  const made = engine({ type: "build", recipe: { iso: `/in/${file.name}`, packs } });
+  if ("refused" in made) return post({ type: "refused", message: made.refused });
+  post({ type: "built", ...made }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
 }
 
 try {
-  const engine = await load();
+  const loaded = await load();
   self.onmessage = ({ data }) => {
     if (data?.type !== "build") return;
     try {
-      build(engine, data.file, data.packs);
+      build(loaded, data.file, data.packs);
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });
     }
   };
-  post({ type: "ready", catalog: plain(engine.sdk.catalog()), version: engine.version });
+  post({ type: "ready", ...loaded.engine({ type: "catalog" }) });
 } catch (error) {
   post({ type: "failed", message: `AzurKit didn't load: ${lastLine(error)}` });
 }

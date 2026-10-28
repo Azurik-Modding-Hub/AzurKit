@@ -51,7 +51,7 @@ You need [uv](https://docs.astral.sh/uv/) 0.12 or newer, which provides Python
 3.14.
 
 ```bash
-uv run bootstrap.py                  # uv sync --locked, the leak guard's pre-push hook, Pyodide and Chromium
+uv run bootstrap.py                  # uv sync --locked, the leak guard's pre-push hook, Pyodide and the browsers
 uv run --locked pytest               # the suite
 uv run --locked pytest -m "not vanilla"   # only the tests that need no game data
 uv run --locked azurkit verify [--iso PATH]              # is it vanilla USA or Europe, every file of it?
@@ -67,9 +67,10 @@ The vanilla tests read the two images, found by `AZURKIT_ISO` (USA) and
 `AZURKIT_ISO_EUROPE`, or as `usa.iso` and `europe.iso` in the user data folder
 (on macOS, `~/Library/Application Support/AzurKit/`). A run that selects one
 of these tests without its image stops with one message: no test is quietly
-skipped. The `web` tests run AzurKit under Pyodide on Node, and the site in
-headless Chromium; they need Node, and the Pyodide and Chromium that `uv run
-bootstrap.py` fetches into `.tools/` (`-m "not web"` leaves them out).
+skipped. The `web` tests run AzurKit under Pyodide on Node, and the page in
+headless Chromium and in WebKit (Safari's engine); they need Node, and the
+Pyodide, Chromium and WebKit that `uv run bootstrap.py` fetches into `.tools/`
+(`-m "not web"` leaves them out).
 
 Contributors and agents start at [`AGENTS.md`](AGENTS.md).
 

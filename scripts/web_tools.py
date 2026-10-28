@@ -1,15 +1,17 @@
 """The site and its tools: Pyodide's core, pinned by URL, size and sha256
-(WEB §6.3), and Chromium for the ``web`` tests, both in the main checkout's
-``.tools/`` (git-ignored, shared by every lane); and the site itself
-(:func:`site`), the folder a static host serves.
+(WEB §6.3), and the browsers the ``web`` tests drive the page in (Chromium
+and WebKit, :data:`BROWSERS`), all in the main checkout's ``.tools/``
+(git-ignored, shared by every lane); and the site itself (:func:`site`), the
+folder a static host serves.
 
-    uv run --locked python scripts/web_tools.py               # fetch both (uv run bootstrap.py does too)
+    uv run --locked python scripts/web_tools.py               # fetch them all (uv run bootstrap.py does too)
     uv run --locked python scripts/web_tools.py --site DIR    # the site, in DIR (a new folder)
 
-Only the five files the runtime loads are kept (:data:`FILES`). Chromium is
-Playwright's headless shell at the revision the locked ``playwright`` names,
-in ``.tools/playwright`` (``PLAYWRIGHT_BROWSERS_PATH``), never the user's
-cache; its installer (the ``playwright`` package's) runs on the ``node``
+Only the five files the runtime loads are kept (:data:`FILES`). Each
+browser is Playwright's build at the revision the locked ``playwright``
+names (Chromium's headless shell; WebKit, Safari's engine), in
+``.tools/playwright`` (``PLAYWRIGHT_BROWSERS_PATH``), never the user's
+cache; their installer (the ``playwright`` package's) runs on the ``node``
 on PATH. Stdlib only.
 """
 
@@ -21,6 +23,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -35,7 +38,9 @@ URL = f"https://github.com/pyodide/pyodide/releases/download/{VERSION}/pyodide-c
 SIZE = 6_757_104
 SHA256 = "2abdcc2e35208af406e07724cffa85bc582ced97e9028383ecf5462541393f95"
 FILES = ("pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json")
-SHELL = "chromium-headless-shell"
+# The web tests' engines (Step 4.1d3): each test that takes the ``browser`` fixture runs in both. Each one's name in
+# Playwright's browsers.json, and its label.
+BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit")}
 
 
 def _tools(root: Path) -> Path:
@@ -88,29 +93,46 @@ def browsers_dir(root: Path = ROOT) -> Path:
     return _tools(root) / "playwright"
 
 
-def chromium_dir(root: Path = ROOT) -> Path:
-    """The headless shell's folder, at the revision the locked playwright names."""
+def _mac_host() -> str:
+    """Playwright's host key on macOS 11 and later (its ``hostPlatform.ts``):
+    ``mac<major>``, the major ``Darwin - 9`` up to Darwin 24 and
+    ``min(Darwin + 1, 26)`` from Darwin 25, with ``-arm64`` on Apple silicon."""
+    darwin = int(platform.release().split(".")[0])
+    major = darwin - 9 if darwin < 25 else min(darwin + 1, 26)
+    return f"mac{major}{'-arm64' if platform.machine() == 'arm64' else ''}"
+
+
+def browser_dir(engine: str, root: Path = ROOT) -> Path:
+    """The folder playwright installs ``engine`` (a :data:`BROWSERS` key) in
+    on this machine: ``<name>-<revision>``, or for a host its
+    ``revisionOverrides`` names (macOS 14's WebKit)
+    ``<name>_<host>_special-<revision>``, dashes in the name made ``_``."""
     spec = importlib.util.find_spec("playwright")
     if spec is None or spec.origin is None:
         raise SystemExit("the playwright package isn't installed: uv sync --locked")
     browsers = json.loads((Path(spec.origin).parent / "driver/package/browsers.json").read_text(encoding="utf-8"))
-    revision = next(b["revision"] for b in browsers["browsers"] if b["name"] == SHELL)
-    return browsers_dir(root) / f"{SHELL.replace('-', '_')}-{revision}"
+    name = BROWSERS[engine][0]
+    entry = next(b for b in browsers["browsers"] if b["name"] == name)
+    host = _mac_host() if sys.platform == "darwin" else ""
+    override = entry.get("revisionOverrides", {}).get(host)
+    prefix = f"{name}_{host}_special" if override else name
+    return browsers_dir(root) / f"{prefix.replace('-', '_')}-{override or entry['revision']}"
 
 
-def chromium_missing(root: Path = ROOT) -> bool:
-    return not (chromium_dir(root) / "INSTALLATION_COMPLETE").is_file()
+def browser_missing(engine: str, root: Path = ROOT) -> bool:
+    return not (browser_dir(engine, root) / "INSTALLATION_COMPLETE").is_file()
 
 
-def fetch_chromium(root: Path = ROOT) -> Path:
-    """Install the headless shell with playwright's own installer, run on
-    the ``node`` on PATH, into :func:`browsers_dir`."""
-    if chromium_missing(root):
+def fetch_browser(engine: str, root: Path = ROOT) -> Path:
+    """Install ``engine`` (Chromium's headless shell, or WebKit) with
+    playwright's own installer, run on the ``node`` on PATH, into
+    :func:`browsers_dir`."""
+    if browser_missing(engine, root):
         spec = importlib.util.find_spec("playwright")
         cli = Path(spec.origin).parent / "driver/package/cli.js"
-        subprocess.run(["node", str(cli), "install", "--only-shell", "chromium"], check=True, timeout=900,
-                       env=os.environ | {"PLAYWRIGHT_BROWSERS_PATH": str(browsers_dir(root))})
-    return chromium_dir(root)
+        subprocess.run(["node", str(cli), "install", *(["--only-shell"] if engine == "chromium" else []), engine],
+                       check=True, timeout=900, env=os.environ | {"PLAYWRIGHT_BROWSERS_PATH": str(browsers_dir(root))})
+    return browser_dir(engine, root)
 
 
 def wheel(out: Path, root: Path = ROOT) -> Path:
@@ -146,5 +168,6 @@ if __name__ == "__main__":
         print(f"the site: {site(args.site)}")
     else:
         print(f"Pyodide {VERSION}: {fetch()}")
-        print(f"Chromium (the web tests'): {fetch_chromium()}")
+        for engine, (_, label) in BROWSERS.items():
+            print(f"{label} (the web tests'): {fetch_browser(engine)}")
     sys.exit(0)
