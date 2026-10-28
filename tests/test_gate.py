@@ -1,0 +1,71 @@
+"""The gate (``azurkit.core.gate.verify``, D27) and ``azurkit verify``: an
+image is a release's vanilla one when its files match that release's
+manifest, and otherwise the first file that differs is named. These run on
+synthetic images and releases (``tests/_xiso.py``: no game bytes); the
+vanilla images go through the gate in ``tests/test_oracle.py``."""
+
+from __future__ import annotations
+
+import dataclasses
+import hashlib
+import json
+
+import pytest
+
+from azurkit import cli
+from azurkit.core import gate
+from tests._xiso import fill, image
+
+VANILLA = {"default.xbe": fill("xbe", 3000), "gamedata/a.xbr": fill("a", 100), "gamedata/b.xbr": fill("b", 5000),
+           "movies/m.bik": fill("m", 70)}
+
+
+def _release(tmp_path, name: str, files: dict[str, bytes]) -> gate.Release:
+    manifest = tmp_path / f"{name}.json"
+    manifest.write_text(json.dumps({"dirs": ["gamedata", "movies"], "files": {
+        p: [len(data), hashlib.sha256(data).hexdigest()] for p, data in files.items()}}), encoding="utf-8")
+    return dataclasses.replace(gate.USA, name=name, label=name.title(), manifest=manifest)
+
+
+def test_the_gate_names_the_release_or_the_first_file_that_differs(tmp_path):
+    """The release is the one whose ``default.xbe`` the image holds; a
+    missing, extra, resized or changed file is named, the first in path
+    order; a stamp for a build checks only the files a build reads."""
+    other = _release(tmp_path, "other", VANILLA | {"default.xbe": fill("XBE", 3000)})
+    test = _release(tmp_path, "test", VANILLA)
+    src = tmp_path / "in.iso"
+
+    def verify(files: dict[str, bytes], whole: bool = True) -> gate.Stamp:
+        src.write_bytes(image(files))
+        return gate.verify(src, whole=whole, releases=(other, test))
+
+    stamp = verify(VANILLA)
+    assert (stamp.release, stamp.path, stamp.size, stamp.whole) == (test, src, src.stat().st_size, True)
+    assert verify(VANILLA | {"movies/m.bik": fill("M", 70)}, whole=False).release == test
+    gamedata = {p: d for p, d in VANILLA.items() if p != "gamedata/a.xbr"}
+    for files, why in (
+            (VANILLA | {"gamedata/b.xbr": fill("B", 5000), "movies/m.bik": fill("M", 70)},
+             "Test image: gamedata/b.xbr: its contents differ"),
+            (VANILLA | {"movies/m.bik": fill("M", 70)}, "Test image: movies/m.bik: its contents differ"),
+            (VANILLA | {"gamedata/a.xbr": fill("a", 101)}, "Test image: gamedata/a.xbr: 101 B, where vanilla has 100 B"),
+            (gamedata, "Test image: gamedata/a.xbr: missing"),
+            (VANILLA | {"gamedata/c.xbr": b"c"}, "Test image: gamedata/c.xbr: not in the vanilla image"),
+            (VANILLA | {"default.xbe": fill("x", 3000)}, "Other image: default.xbe: its contents differ")):
+        with pytest.raises(gate.NotVanillaError) as refused:
+            verify(files)
+        assert str(refused.value) == f"{src} is not the vanilla {why}"
+
+
+def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path, capsys):
+    """``azurkit verify`` and ``azurkit build`` name why an image isn't a
+    release's vanilla one in one line and exit 1; the build writes
+    nothing (D27, D35)."""
+    src, out = tmp_path / "in.iso", tmp_path / "out.iso"
+    src.write_bytes(image({"default.xbe": fill("x", 20)}))
+    assert cli.main(["verify", "--iso", str(src)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith(f"azurkit: {src} is not the vanilla USA image: ") and err.count("\n") == 1
+    assert cli.main(["build", "--iso", str(src), "--out", str(out)]) == 1
+    assert capsys.readouterr().err == (f"azurkit: {src} is not the vanilla USA image: default.xbe: 20 B, where "
+                                       f"vanilla has {gate.USA.files['default.xbe'][0]:,} B\n")
+    assert not out.exists()

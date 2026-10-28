@@ -9,8 +9,8 @@ step is checked against Modkit's recorded outputs: per-file sha256s,
 copied into [`tests/oracle/`](tests/oracle/). AzurKit never imports Modkit's
 code.
 
-**Status:** this is the scaffold (step 4.1a), so there is nothing to play yet.
-Version 1 will carry the web page, the 17 patch packs and their sliders on
+**Status:** AzurKit reads and checks your image and packs it back unchanged
+(step 4.1b1), so there is nothing to play yet. Version 1 will carry the web page, the 17 patch packs and their sliders on
 both releases (USA and Europe), character swaps and variants, and the
 randomizer. Players will get a web page and a download-and-run app;
 developers will get `uv tool install azurkit`.
@@ -47,6 +47,8 @@ You need [uv](https://docs.astral.sh/uv/) 0.12 or newer, which provides Python
 uv run bootstrap.py                  # uv sync --locked, and the leak guard's pre-push hook
 uv run --locked pytest               # the suite
 uv run --locked pytest -m "not vanilla"   # only the tests that need no game data
+uv run --locked azurkit verify [--iso PATH]              # is it vanilla USA or Europe, every file of it?
+uv run --locked azurkit build --iso PATH --out PATH     # the identity build: the image, no edits yet
 ```
 
 The vanilla tests read the two images, found by `AZURKIT_ISO` (USA) and

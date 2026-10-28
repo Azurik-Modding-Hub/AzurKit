@@ -1,64 +1,382 @@
-"""Reading an XISO (XDVDFS) image's directory tree.
+"""The game's image, an XISO (XDVDFS): reading it, and packing it with some
+of its files replaced.
 
-The volume descriptor sits at sector 32 with ``MICROSOFT*XBOX*MEDIA`` at
-both ends; each directory is a table of records forming a binary tree
-(left and right offsets in dwords, then the start sector, size,
-attributes, name length and name).
+    read(path)          the image as it is, an :class:`Image`
+    read(path, files)   the image with ``files`` ({path: new bytes}) in place of the files of those names
+    Image.segments()    the image as :class:`Copy`, :class:`Bytes` and :class:`Zero` pieces, in order
+    pack(image, out)    writes the image; returns its sha256
+    Reader(path|Image)  its entries, a lookup, and a file's bytes, streamed
+
+The volume descriptor sits at sector 32 of the game partition (at 0 in an
+XISO, further in on a whole disc image), ``MICROSOFT*XBOX*MEDIA`` at both of
+its ends, and names the root folder's table. A folder's table is a binary
+search tree of records in the kernel's order (names compared with ``a-z``
+upper-cased): left and right child offsets in dwords, the start sector, the
+size, the attributes, the name's length and the name. Nothing here starts a
+thread or a process, so the web page's worker runs it as it is.
 """
 
 from __future__ import annotations
 
+import bisect
+import hashlib
+import io
+import itertools
+import os
 import struct
-from collections.abc import Iterator
-from dataclasses import dataclass
-from typing import BinaryIO
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from azurkit.core import filelist
 
 SECTOR = 2048
+CHUNK = 8 << 20                       # every read of a file's bytes, and every write of an image
 MAGIC = b"MICROSOFT*XBOX*MEDIA"
 _VD_SECTOR = 32
-_RECORD = struct.Struct("<HHIIBB")
+_PARTITIONS = (0, 0x18300000, 0xFD90000, 0x2080000)   # where the game partition starts: an XISO, then disc images
+_RECORD = struct.Struct("<HHIIBB")    # left, right, sector, size, attributes, name length
 _DIRECTORY = 0x10
+_PAD = 32                             # an image a moved file ends is padded to 64 KiB (32 sectors), as vanilla's is
+_UPPER = {c: c - 32 for c in range(ord("a"), ord("z") + 1)}
+
+
+def key(path: str) -> str:
+    """``path`` in the kernel's case-blind order (``a-z`` upper-cased)."""
+    return path.strip("/").translate(_UPPER)
+
+
+def _sectors(size: int) -> int:
+    return -(-size // SECTOR)
 
 
 @dataclass(frozen=True)
 class Entry:
-    path: str    # posix, from the image's root
+    path: str      # posix, from the image's root
     sector: int
     size: int
     is_dir: bool
+    record: int    # where its record sits, from the partition's start
 
 
-def entries(f: BinaryIO) -> Iterator[Entry]:
-    """Every file and directory of the image open in ``f``, parents first;
-    ``ValueError`` when it has no volume descriptor, a table runs past its
-    end or a directory repeats."""
-    f.seek(_VD_SECTOR * SECTOR)
-    vd = f.read(SECTOR)
-    if vd[:20] != MAGIC or vd[0x7EC:0x800] != MAGIC:
-        raise ValueError("no XDVDFS volume descriptor at sector 32")
-    root = struct.unpack_from("<II", vd, 20)
-    stack, seen = [("", *root)], {root[0]}
-    while stack:
-        prefix, sector, size = stack.pop()
-        if not size:
-            continue
-        f.seek(sector * SECTOR)
-        table = f.read(size)
-        if len(table) < size:
-            raise ValueError(f"the directory table at sector {sector} runs past the image's end")
-        todo, done = [0], set()
+class Reader:
+    """An open image: a file, or an :class:`Image`. Use it in a ``with``."""
+
+    def __init__(self, source: str | os.PathLike | Image):
+        self._f = source.open() if isinstance(source, Image) else open(source, "rb")
+        self._index: dict[str, Entry] | None = None
+        for base in _PARTITIONS:
+            vd = self._read(base + _VD_SECTOR * SECTOR, SECTOR)
+            if vd[:20] == MAGIC and vd[0x7EC:0x800] == MAGIC:
+                self.base = base
+                self._root = struct.unpack_from("<II", vd, 20)
+                return
+        self._f.close()
+        raise ValueError(f"{source}: no XDVDFS volume descriptor")
+
+    def __enter__(self) -> Reader:
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._f.close()
+
+    def _read(self, at: int, n: int) -> bytes:
+        self._f.seek(at)
+        return self._f.read(n)
+
+    def entries(self) -> Iterator[Entry]:
+        """Every file and folder, parents first. ``ValueError`` names the
+        first thing the kernel would trip on: a table cut off by the end of
+        the image, a link out of its table or back into it, a record across
+        a sector's end, names out of order, a name that is empty, ``.``,
+        ``..`` or holds ``/``, or a folder whose table another one has."""
+        todo, seen = [("", *self._root)], {self._root[0]}
         while todo:
-            at = todo.pop()
-            if at in done or at + _RECORD.size > size or table[at:at + 2] == b"\xff\xff":
-                continue
-            done.add(at)
-            left, right, start, length, attributes, name_length = _RECORD.unpack_from(table, at)
-            name = table[at + _RECORD.size:at + _RECORD.size + name_length].decode("cp1252")
-            entry = Entry(prefix + name, start, length, bool(attributes & _DIRECTORY))
-            yield entry
+            prefix, sector, size = todo.pop()
+            for entry in self._table(prefix, sector, size):
+                yield entry
+                if entry.is_dir and entry.size:
+                    if entry.sector in seen:
+                        raise ValueError(f"{entry.path}: a folder cycle (its table is another folder's)")
+                    seen.add(entry.sector)
+                    todo.append((entry.path + "/", entry.sector, entry.size))
+
+    def _table(self, prefix: str, sector: int, size: int) -> list[Entry]:
+        where = prefix.rstrip("/") or "/"
+        table = self._read(self.base + sector * SECTOR, size)
+        if len(table) < size:
+            raise ValueError(f"{where}: its table runs past the end of the image")
+        if not size or table[:2] == b"\xff\xff":       # an empty folder's table is all 0xFF
+            return []
+        out, todo, seen = [], [(0, None, None)], set()
+        while todo:
+            at, low, high = todo.pop()
+            if at in seen or at + _RECORD.size > size:
+                raise ValueError(f"{where}: a link {'back to' if at in seen else 'past the end of its table at'} "
+                                 f"record {at}")
+            seen.add(at)
+            left, right, start, length, attributes, n = _RECORD.unpack_from(table, at)
+            if at // SECTOR != (at + _RECORD.size + n - 1) // SECTOR:
+                raise ValueError(f"{where}: record {at} crosses a sector's end")
+            name = table[at + _RECORD.size:at + _RECORD.size + n].decode("latin-1")
+            if name in ("", ".", "..") or "/" in name:
+                raise ValueError(f"{where}: an entry named {name!r}")
+            k = key(name)
+            if (low is not None and k <= low) or (high is not None and k >= high):
+                raise ValueError(f"{where}: {name!r} is out of the kernel's name order")
+            out.append(Entry(prefix + name, start, length, bool(attributes & _DIRECTORY), sector * SECTOR + at))
+            todo += [(link * 4, *bounds) for link, bounds in ((right, (k, high)), (left, (low, k))) if link]
+        return out
+
+    def find(self, path: str) -> Entry:
+        """The entry at ``path``, case-blind; ``FileNotFoundError`` when there is none."""
+        if self._index is None:
+            self._index = {key(e.path): e for e in self.entries()}
+        try:
+            return self._index[key(path)]
+        except KeyError:
+            raise FileNotFoundError(path) from None
+
+    def chunks(self, entry: Entry) -> Iterator[bytes]:
+        """A file's bytes, :data:`CHUNK` at a time."""
+        at, left = self.base + entry.sector * SECTOR, entry.size
+        while left:
+            data = self._read(at, min(CHUNK, left))
+            if not data:
+                raise ValueError(f"{entry.path}: it runs past the end of the image")
+            at, left = at + len(data), left - len(data)
+            yield data
+
+    def read(self, path: str | Entry) -> bytes:
+        """A whole file's bytes."""
+        return b"".join(self.chunks(path if isinstance(path, Entry) else self.find(path)))
+
+
+@dataclass(frozen=True)
+class Copy:
+    """A span of the input image, at the same offset in the output."""
+    offset: int
+    size: int
+
+
+@dataclass(frozen=True)
+class Bytes:
+    """Bytes a build writes."""
+    data: bytes | memoryview = field(repr=False)
+
+    @property
+    def size(self) -> int:
+        return len(self.data)
+
+
+@dataclass(frozen=True)
+class Zero:
+    """Zeros past the input's end."""
+    size: int
+
+
+@dataclass(frozen=True)
+class Image:
+    """An image a build makes, unwritten until :func:`pack` writes it: the
+    input ``source`` with ``writes`` (``(offset, bytes)``, each laid over
+    those before it) applied, zero-filled up to ``size``. It reads
+    ``source`` and the writes' buffers when it is read, so neither may
+    change before then."""
+    source: Path
+    writes: tuple[tuple[int, bytes], ...] = field(repr=False)
+    size: int
+
+    def segments(self) -> list[Copy | Bytes | Zero]:
+        """The image as pieces that cover it once, in order, each as large
+        as it can be: what the web page joins into a Blob (a :class:`Copy`
+        is a slice of the player's file), and what :meth:`open` and
+        :func:`pack` read."""
+        have = os.path.getsize(self.source)
+        ends = (x for at, data in self.writes for x in (at, at + len(data)))
+        cuts = sorted({0, self.size, min(have, self.size), *(min(x, self.size) for x in ends)})
+        runs: list[list] = []                       # [start, end, the index of the write on top | "copy" | "zero"]
+        for a, b in itertools.pairwise(cuts):
+            top = next((i for i in reversed(range(len(self.writes)))
+                        if self.writes[i][0] <= a and b <= self.writes[i][0] + len(self.writes[i][1])),
+                       "copy" if a < have else "zero")
+            if runs and runs[-1][2] == top:
+                runs[-1][1] = b
+            else:
+                runs.append([a, b, top])
+        out: list[Copy | Bytes | Zero] = []
+        for a, b, top in runs:
+            if top == "copy":
+                out.append(Copy(a, b - a))
+            elif top == "zero":
+                out.append(Zero(b - a))
+            else:
+                at, data = self.writes[top]
+                out.append(Bytes(memoryview(data)[a - at:b - at]))
+        return out
+
+    def open(self) -> io.RawIOBase:
+        """The image as a read-only binary file."""
+        return _ImageFile(self)
+
+    def sha256(self) -> str:
+        with self.open() as f:
+            return hashlib.file_digest(f, "sha256").hexdigest()
+
+
+class _ImageFile(io.RawIOBase):
+    """An open :class:`Image`, read through its segments."""
+
+    def __init__(self, image: Image):
+        super().__init__()
+        self._pieces = image.segments()
+        self._starts = list(itertools.accumulate((p.size for p in self._pieces), initial=0))
+        self._size, self._pos = image.size, 0
+        self._source = open(image.source, "rb")
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def seek(self, offset: int, whence: int = os.SEEK_SET) -> int:
+        self._pos = (0, self._pos, self._size)[whence] + offset
+        return self._pos
+
+    def tell(self) -> int:
+        return self._pos
+
+    def readinto(self, buffer) -> int:
+        view = memoryview(buffer).cast("B")
+        n = max(0, min(len(view), self._size - self._pos))
+        done, i = 0, bisect.bisect_right(self._starts, self._pos) - 1
+        while done < n:
+            piece, skip = self._pieces[i], self._pos + done - self._starts[i]
+            take = min(piece.size - skip, n - done)
+            part = view[done:done + take]
+            if isinstance(piece, Copy):
+                self._source.seek(piece.offset + skip)
+                if self._source.readinto(part) != take:
+                    raise OSError("the input image got shorter while the build read it")
+            elif isinstance(piece, Bytes):
+                part[:] = piece.data[skip:skip + take]
+            else:
+                part[:] = bytes(take)
+            done, i = done + take, i + 1
+        self._pos += n
+        return n
+
+    def close(self) -> None:
+        if not self.closed:
+            self._source.close()
+        super().close()
+
+
+def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None) -> Image:
+    """The image at ``path``, with ``files`` (``{path: new bytes}``, matched
+    case-blind) in place of the files of those names. With no ``files`` it
+    is the input, byte for byte. Otherwise its layout is kept:
+
+    - a file that still fits its sectors is written in place (the bytes past
+      its new end stay as they were); one that outgrows them moves past the
+      end of the image, the moved files in path order, and the image is then
+      padded to 64 KiB;
+    - each changed file's record gets its sector and size, and every other
+      byte stays where it was;
+    - ``filelist.txt`` (one in ``files``, else the image's) gets the md5 and
+      size of each changed file it lists, and of each it lists at a size
+      other than the file's own (vanilla Europe's ``index.xbr``,
+      ``French.xbr`` and ``German.xbr`` lines).
+
+    ``ValueError`` names what the kernel would trip on in the image it makes
+    (a truncated input, say), and ``FileNotFoundError`` a name the image
+    doesn't have, before anything is written (D35)."""
+    path = Path(path)
+    have = os.path.getsize(path)
+    writes: list[tuple[int, bytes]] = []
+    with Reader(path) as r:
+        files = dict(files or {})
+        if files:
+            files.update(_listing(r, files))
+        base, end = r.base, _sectors(have - r.base)    # the first sector past the image
+        first, records = end, set()
+        for name in sorted(files, key=key):
+            entry, data = r.find(name), files[name]
             if entry.is_dir:
-                if start in seen:
-                    raise ValueError(f"directory cycle at {entry.path}")
-                seen.add(start)
-                stack.append((entry.path + "/", start, length))
-            todo += [offset * 4 for offset in (right, left) if offset]
+                raise IsADirectoryError(f"{name}: a folder, not a file")
+            if entry.record in records:
+                raise ValueError(f"{name}: the same file is replaced twice")
+            records.add(entry.record)
+            sector = entry.sector
+            if len(data) > _sectors(entry.size) * SECTOR:
+                sector, end = end, end + max(1, _sectors(len(data)))
+            writes += [(base + sector * SECTOR, data), (base + entry.record + 4, struct.pack("<II", sector, len(data)))]
+    size = max([have, *(at + len(data) for at, data in writes)])
+    if end > first:
+        size = base + -(-end // _PAD) * _PAD * SECTOR
+    image = Image(path, tuple(writes), size)
+    try:
+        _check(image)
+    except ValueError as exc:
+        raise ValueError(f"{path}: not an image the kernel can read: {exc}") from None
+    return image
+
+
+def _listing(r: Reader, files: Mapping[str, bytes]) -> dict[str, bytes]:
+    """``{name: bytes}`` of the ``filelist.txt`` the image with ``files``
+    gets (:func:`read`); empty when it has none."""
+    name = next((p for p in files if key(p) == "FILELIST.TXT"), "filelist.txt")
+    try:
+        text = files[name] if name in files else r.read(name)
+    except FileNotFoundError:
+        return {}
+    replaced, stale = {key(p) for p in files}, {}
+    for row in filelist.rows(text):
+        try:
+            entry = r.find(row.path)
+        except FileNotFoundError:
+            continue
+        if not entry.is_dir and entry.size != row.size and key(row.path) not in replaced:
+            stale[row.path] = r.read(entry)
+    return {name: filelist.rewrite(text, stale | dict(files))}
+
+
+def _check(image: Image) -> None:
+    """``ValueError`` naming the first thing the kernel would trip on in
+    ``image``: its tables (:meth:`Reader.entries`), a file past its end, or
+    two files that share a sector."""
+    with Reader(image) as r:
+        end, spans, entries = image.size - r.base, [], list(r.entries())
+        for e in entries:
+            if e.sector * SECTOR + e.size > end:
+                raise ValueError(f"{e.path}: it runs past the end of the image")
+            if e.size:
+                spans.append((e.sector, e.sector + _sectors(e.size), e.path))
+    spans.sort()
+    for (_, a_end, a), (b_start, _, b) in itertools.pairwise(spans):
+        if b_start < a_end:
+            raise ValueError(f"{a} and {b} share a sector")
+
+
+def pack(image: Image, out: str | os.PathLike) -> str:
+    """Write ``image`` to ``out`` and return its sha256, hashed as it is
+    written. ``out`` appears only once it is whole and on the disk (a fresh
+    ``.part`` beside it, fsynced, then renamed into place; D35), and it may
+    not be the image's input (D36)."""
+    out = Path(out)
+    if out.exists() and out.samefile(image.source):
+        raise ValueError(f"{out}: it is the build's input, which a build never writes over")
+    part = out.with_name(f"{out.name}.{os.urandom(4).hex()}.part")
+    digest, dst = hashlib.sha256(), open(part, "xb")
+    try:
+        with dst, image.open() as src:
+            while data := src.read(CHUNK):
+                digest.update(data)
+                dst.write(data)
+            dst.flush()
+            os.fsync(dst.fileno())
+        os.replace(part, out)
+    except BaseException:
+        part.unlink(missing_ok=True)
+        raise
+    return digest.hexdigest()

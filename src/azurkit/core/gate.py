@@ -1,21 +1,37 @@
-"""The two releases AzurKit builds from, USA and Europe: what each vanilla
-image is, and where the player keeps it.
+"""The two releases AzurKit builds from, USA and Europe: where the player
+keeps each one's image, and the gate that says whether an image is one of
+them, unchanged.
 
 Each image is the file its release's variable names (``AZURKIT_ISO``,
 ``AZURKIT_ISO_EUROPE``), or when that is unset, ``usa.iso`` or
 ``europe.iso`` in the user data folder (``platformdirs``'
-``user_data_dir("AzurKit")``). The identity check that gives a stamp comes
-with the ISO reader's step; until then the tests check an image by its
-size and sha256.
+``user_data_dir("AzurKit")``).
+
+:func:`verify` is the gate (D27). It tells the release by the sha256 of the
+image's ``default.xbe``, then checks the image's files against that
+release's manifest (``manifests/<release>.json``: each folder, and each
+file's size and sha256, a copy of the oracle's), one :data:`iso.CHUNK` read
+at a time on the caller's thread, and names the first file (in path order)
+that differs. A dump that isn't the whole vanilla image (another trim, or a
+whole disc) passes when its files match. It returns a :class:`Stamp`; it
+writes nothing.
 """
 
 from __future__ import annotations
 
+import functools
+import hashlib
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from platformdirs import user_data_path
+
+from azurkit.core import iso
+
+_MANIFESTS = Path(__file__).with_name("manifests")
+BUILD_FILES = ("default.xbe", "gamedata/")   # what a build reads: the files a stamp for a build vouches for
 
 
 @dataclass(frozen=True)
@@ -25,13 +41,43 @@ class Release:
     iso_sha256: str  # the whole vanilla image
     iso_size: int
     env: str         # the variable that names its image
+    manifest: Path   # each folder of its image, and each file's [size, sha256]
+
+    @property
+    def files(self) -> dict[str, list]:
+        return _manifest(self.manifest)["files"]
+
+    @property
+    def dirs(self) -> list[str]:
+        return _manifest(self.manifest)["dirs"]
 
 
 USA = Release("usa", "USA", "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
-              2_747_006_976, "AZURKIT_ISO")
+              2_747_006_976, "AZURKIT_ISO", _MANIFESTS / "usa.json")
 EUROPE = Release("europe", "Europe", "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
-                 2_313_027_584, "AZURKIT_ISO_EUROPE")
+                 2_313_027_584, "AZURKIT_ISO_EUROPE", _MANIFESTS / "europe.json")
 RELEASES = (USA, EUROPE)
+
+
+@functools.cache
+def _manifest(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+class NotVanillaError(ValueError):
+    """The image isn't a release's vanilla image."""
+
+
+@dataclass(frozen=True)
+class Stamp:
+    """What :func:`verify` found: the release, and the image it checked as
+    that image was then (its size and modification time). ``whole``: every
+    file was checked; else only :data:`BUILD_FILES`."""
+    release: Release
+    path: Path
+    size: int
+    mtime_ns: int
+    whole: bool
 
 
 def data_path(release: Release) -> Path:
@@ -44,3 +90,55 @@ def find(release: Release) -> Path | None:
     in the user data folder; ``None`` when that isn't a file."""
     path = Path(os.environ.get(release.env) or data_path(release))
     return path if path.is_file() else None
+
+
+def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Release, ...] = RELEASES) -> Stamp:
+    """The :class:`Stamp` of the image at ``path`` when it is one of
+    ``releases``' vanilla images: every file of it (``whole``), or every one
+    a build reads (:data:`BUILD_FILES`; the rest of the image is copied as it
+    is). :class:`NotVanillaError` names the first file, in path order, that
+    is missing, extra, or has another size or sha256, checked against the
+    release whose ``default.xbe`` the image holds, else the first of
+    ``releases``. It reads only on the caller's thread."""
+    path = Path(path)
+    stat = path.stat()
+    with iso.Reader(path) as r:
+        have = {e.path: e for e in r.entries()}
+        release = _release(r, have.get("default.xbe"), releases)
+        if why := _first_difference(r, have, release, whole):
+            raise NotVanillaError(f"{path} is not the vanilla {release.label} image: {why}")
+    return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole)
+
+
+def _sha256(r: iso.Reader, entry: iso.Entry) -> str:
+    digest = hashlib.sha256()
+    for data in r.chunks(entry):
+        digest.update(data)
+    return digest.hexdigest()
+
+
+def _release(r: iso.Reader, xbe: iso.Entry | None, releases: tuple[Release, ...]) -> Release:
+    """The release whose ``default.xbe`` the image holds, else the first."""
+    sha = _sha256(r, xbe) if xbe and not xbe.is_dir else None
+    return next((rel for rel in releases if rel.files.get("default.xbe", [0, ""])[1] == sha), releases[0])
+
+
+def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Release, whole: bool) -> str | None:
+    files, dirs = release.files, set(release.dirs)
+    checked = sorted(p for p in files.keys() | dirs | have.keys() if whole or p.startswith(BUILD_FILES))
+    for path in checked:
+        entry = have.get(path)
+        if entry is None:
+            return f"{path}: missing"
+        if path in dirs:
+            if not entry.is_dir:
+                return f"{path}: a file, where vanilla has a folder"
+            continue
+        if path not in files:
+            return f"{path}: not in the vanilla image"
+        size, sha = files[path]
+        if entry.is_dir or entry.size != size:
+            return f"{path}: {'a folder' if entry.is_dir else f'{entry.size:,} B'}, where vanilla has {size:,} B"
+        if _sha256(r, entry) != sha:
+            return f"{path}: its contents differ"
+    return None

@@ -1,15 +1,14 @@
 """``tests/oracle/``, the bundle Modkit's ``scripts/export_oracle.py`` writes:
 every file is the one ``scripts/oracle_sync.py`` installed, and both vanilla
-images match the core family's manifests file by file."""
+images match the core family's manifests file by file, through the gate."""
 
 from __future__ import annotations
 
-import hashlib
 import json
 
 import pytest
 
-from azurkit.core import iso
+from azurkit.core import gate
 from scripts.oracle_sync import FACTS, ORACLE, PATHS, read_index, tree_hashes
 
 
@@ -47,25 +46,13 @@ def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
     assert off == []
 
 
-@pytest.mark.parametrize("release", [pytest.param("usa", marks=pytest.mark.vanilla),
-                                     pytest.param("europe", marks=[pytest.mark.vanilla, pytest.mark.europe])])
+@pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
+                                     pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
+                                                  id="europe")])
 def test_each_vanilla_image_matches_its_oracle_manifest(release, request):
-    """Every directory and file of the image, by path, size and sha256."""
-    image = request.getfixturevalue(f"{release}_iso")
-    name = {"usa": "vanilla_manifest.json", "europe": "europe_manifest.json"}[release]
-    manifest = json.loads((ORACLE / "core/azurik_mod/assets" / name).read_text(encoding="utf-8"))
-    dirs, files = [], {}
-    with open(image, "rb") as f:
-        for entry in list(iso.entries(f)):
-            if entry.is_dir:
-                dirs.append(entry.path)
-                continue
-            f.seek(entry.sector * iso.SECTOR)
-            digest, left = hashlib.sha256(), entry.size
-            while left:
-                left -= len(chunk := f.read(min(left, 1 << 20)))
-                digest.update(chunk)
-            files[entry.path] = [entry.size, digest.hexdigest()]
-    assert sorted(dirs) == sorted(manifest["dirs"])
-    assert sorted(p for p in files.keys() ^ manifest["files"].keys()) == []
-    assert sorted(p for p in files if files[p] != manifest["files"][p]) == []
+    """The gate's manifest is the oracle's, and every folder and file of the
+    image is in it, by path, size and sha256 (``gate.verify``)."""
+    name = {"usa": "vanilla_manifest.json", "europe": "europe_manifest.json"}[release.name]
+    assert release.manifest.read_bytes() == (ORACLE / "core/azurik_mod/assets" / name).read_bytes()
+    stamp = gate.verify(request.getfixturevalue(f"{release.name}_iso"))
+    assert (stamp.release, stamp.whole) == (release, True)
