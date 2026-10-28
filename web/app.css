@@ -1,0 +1,18 @@
+body { font: 15px/1.4 system-ui, sans-serif; max-width: 52rem; margin: 1rem auto; padding: 0 1rem; color: #1b1b1b; }
+h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
+h2 { margin: 1rem 0 .4rem; font-size: 1.1rem; }
+header p { margin: 0; }
+.note { color: #555; font-size: .9rem; margin: .3rem 0; }
+#packs label {
+  display: grid; grid-template-columns: auto 12rem 1fr; gap: .5rem; align-items: baseline; padding: .15rem 0;
+}
+#packs .name { font-family: ui-monospace, monospace; }
+#packs .releases { color: #555; font-size: .85rem; }
+.actions button { font-size: 1rem; padding: .35rem 1rem; margin-right: .4rem; }
+#status { min-height: 1.4em; font-weight: 600; }
+#status.error { color: #a40000; }
+@media (prefers-color-scheme: dark) {
+  body { background: #161616; color: #e8e8e8; }
+  .note, #packs .releases { color: #aaa; }
+  #status.error { color: #ff7b7b; }
+}

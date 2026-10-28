@@ -10,12 +10,14 @@ copied into [`tests/oracle/`](tests/oracle/). AzurKit never imports Modkit's
 code.
 
 **Status:** AzurKit checks your image and builds it with its first five
-packs (step 4.1c): fps_unlock, qol_alloc_race (on by default), qol_gem_popups,
+packs: fps_unlock, qol_alloc_race (on by default), qol_gem_popups,
 qol_other_popups and qol_pickup_anims, on both releases, from the command
-line only. Version 1 will carry the web page, the 17 patch packs and their sliders on
-both releases (USA and Europe), character swaps and variants, and the
-randomizer. Players will get a web page and a download-and-run app;
-developers will get `uv tool install azurkit`.
+line or in the web page (step 4.1d1: pick your image, choose packs, Build,
+then Save; it runs in your browser, and nothing is uploaded). The page isn't
+hosted yet, and the app's window gets it at step 4.1d2. Version 1 will carry
+the 17 patch packs and their sliders on both releases (USA and Europe),
+character swaps and variants, and the randomizer. Players will get a web page
+and a download-and-run app; developers will get `uv tool install azurkit`.
 
 ## xemu only
 
@@ -46,13 +48,14 @@ You need [uv](https://docs.astral.sh/uv/) 0.12 or newer, which provides Python
 3.14.
 
 ```bash
-uv run bootstrap.py                  # uv sync --locked, the leak guard's pre-push hook, and Pyodide
+uv run bootstrap.py                  # uv sync --locked, the leak guard's pre-push hook, Pyodide and Chromium
 uv run --locked pytest               # the suite
 uv run --locked pytest -m "not vanilla"   # only the tests that need no game data
 uv run --locked azurkit verify [--iso PATH]              # is it vanilla USA or Europe, every file of it?
 uv run --locked azurkit packs                            # the packs, and which a build applies by default
 uv run --locked azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
-uv run --locked python -m azurkit                        # the app: the page in a window (a placeholder until 4.1d)
+uv run --locked python scripts/web_tools.py --site DIR   # the site: the page, Pyodide and the wheel
+uv run --locked python -m azurkit                        # the app: the page in a window (its engine comes at 4.1d2)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit, a PyInstaller onedir
 ```
 
@@ -60,9 +63,9 @@ The vanilla tests read the two images, found by `AZURKIT_ISO` (USA) and
 `AZURKIT_ISO_EUROPE`, or as `usa.iso` and `europe.iso` in the user data folder
 (on macOS, `~/Library/Application Support/AzurKit/`). A run that selects one
 of these tests without its image stops with one message: no test is quietly
-skipped. The `web` tests run AzurKit under Pyodide on Node, as the web page
-will; they need Node and the Pyodide that `uv run bootstrap.py` fetches
-(`-m "not web"` leaves them out).
+skipped. The `web` tests run AzurKit under Pyodide on Node, and the site in
+headless Chromium; they need Node, and the Pyodide and Chromium that `uv run
+bootstrap.py` fetches into `.tools/` (`-m "not web"` leaves them out).
 
 Contributors and agents start at [`AGENTS.md`](AGENTS.md).
 

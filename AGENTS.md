@@ -26,12 +26,19 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   - The images are found by `AZURKIT_ISO` and `AZURKIT_ISO_EUROPE`, else as
     `usa.iso` and `europe.iso` in the user data folder (`src/azurkit/core/gate.py`).
 - **The web tier:** a test that runs under Pyodide on Node (the site's
-  runtime) takes the `pyodide` fixture (it becomes `web`; `tests/_pyodide.py`
-  runs the `azurkit` command from the wheel alone). A run that selects one
-  needs Node on PATH and Pyodide's pinned core, which `uv run bootstrap.py`
-  puts in the main checkout's `.tools/` for every lane
-  (`scripts/web_tools.py`). Without them the run stops with one message; the
+  runtime) takes the `pyodide` fixture (`tests/_pyodide.py` runs the
+  `azurkit` command from the wheel alone), and one that drives the site in
+  headless Chromium takes the `chromium` fixture (`tests/test_site.py`);
+  either becomes `web`. A run that selects one needs Pyodide's pinned core,
+  Node on PATH for the first and Playwright's headless Chromium for the
+  second, which `uv run bootstrap.py` puts in the main checkout's `.tools/`
+  for every lane (`scripts/web_tools.py`; `PLAYWRIGHT_BROWSERS_PATH`, never
+  the user's cache). Without them the run stops with one message; the
   opt-out is `-m "not web"`. The summary prints `web: K run`.
+  - Chromium's headless shell never fires `requestAnimationFrame` here, so
+    Playwright's actionability waits hang and `wait_for_function` needs eval,
+    which the page's CSP refuses: drive the page through the DOM
+    (`element.click()`) and poll with `page.evaluate`.
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
@@ -104,8 +111,19 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
 
 ## The two hosts (D866)
 
-- **The site** runs the wheel under Pyodide in a worker; `tests/test_hosts.py`
-  runs the gate there.
+- **The page** (`web/`): pick the image, choose packs, Build, then Save. One
+  page for both hosts. It decides no output byte: the engine (`azurkit.sdk`)
+  returns the build as segments (`iso.Image.segments`) and the page joins them
+  into a Blob of slices of the player's file and the bytes the build writes.
+  Its CSP has no `'unsafe-eval'` and it uses no eval: a webview host calls in
+  through a bridge (pywebview's `run_js` or `js_api`), never `evaluate_js`.
+  Text reaches it only through `textContent`.
+- **The site** is the page with Pyodide's core and the wheel
+  (`uv run --locked python scripts/web_tools.py --site DIR`). Its engine
+  runs the wheel, unpacked without its dependencies, under Pyodide in a module
+  worker started from a `blob:` URL (so the page's CSP holds there), one
+  worker per build; `tests/test_hosts.py` runs the gate under Pyodide on Node,
+  and `tests/test_site.py` the packs' G1 cases and a save in Chromium.
 - **The app** (D732) is `python -m azurkit` (`src/azurkit/__main__.py`): with
   arguments the `azurkit` command, with none the page (`web/`) in a
   pywebview window, else the default browser, served by `azurkit.app` on

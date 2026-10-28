@@ -15,14 +15,6 @@ from scripts import web_tools
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def wheel(out: Path) -> Path:
-    """This checkout's wheel, built into ``out``."""
-    subprocess.run(["uv", "build", "--offline", "--quiet", "--wheel", "--out-dir", str(out), str(ROOT)],
-                   check=True, capture_output=True, timeout=300)
-    (built,) = out.glob("azurkit-*.whl")
-    return built
-
-
 def run(argv: list[str], wheel: Path) -> dict:
     """``{"code", "stdout", "stderr", "platform", "python", "azurkit"}`` of
     ``azurkit *argv`` under Pyodide."""

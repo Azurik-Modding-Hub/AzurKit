@@ -1,15 +1,26 @@
-"""Pyodide for the ``web`` tests: its core, pinned by URL, size and sha256
-(WEB §6.3), in the main checkout's ``.tools/`` (git-ignored, shared by every
-lane).
+"""The site and its tools: Pyodide's core, pinned by URL, size and sha256
+(WEB §6.3), and Chromium for the ``web`` tests, both in the main checkout's
+``.tools/`` (git-ignored, shared by every lane); and the site itself
+(:func:`site`), the folder a static host serves.
 
-    uv run --locked python scripts/web_tools.py     # fetch it (uv run bootstrap.py does too)
+    uv run --locked python scripts/web_tools.py               # fetch both (uv run bootstrap.py does too)
+    uv run --locked python scripts/web_tools.py --site DIR    # the site, in DIR (a new folder)
 
-Only the five files the runtime loads are kept (:data:`FILES`). Stdlib only.
+Only the five files the runtime loads are kept (:data:`FILES`). Chromium is
+Playwright's headless shell at the revision the locked ``playwright`` names,
+in ``.tools/playwright`` (``PLAYWRIGHT_BROWSERS_PATH``), never the user's
+cache; its installer (the ``playwright`` package's) runs on the ``node``
+on PATH. Stdlib only.
 """
 
 from __future__ import annotations
 
+import argparse
+import base64
 import hashlib
+import importlib.util
+import json
+import os
 import shutil
 import subprocess
 import sys
@@ -24,15 +35,20 @@ URL = f"https://github.com/pyodide/pyodide/releases/download/{VERSION}/pyodide-c
 SIZE = 6_757_104
 SHA256 = "2abdcc2e35208af406e07724cffa85bc582ced97e9028383ecf5462541393f95"
 FILES = ("pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json")
+SHELL = "chromium-headless-shell"
+
+
+def _tools(root: Path) -> Path:
+    """``.tools`` in the main checkout of the repository ``root`` is in (a
+    lane's is its main checkout's)."""
+    common = subprocess.run(["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                            capture_output=True, text=True, check=True).stdout.strip()
+    return Path(common).parent / ".tools"
 
 
 def pyodide_dir(root: Path = ROOT) -> Path:
-    """Where Pyodide's core lives: ``.tools/pyodide-<version>`` in the main
-    checkout of the repository ``root`` is in (a lane's is its main
-    checkout's)."""
-    common = subprocess.run(["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                            capture_output=True, text=True, check=True).stdout.strip()
-    return Path(common).parent / ".tools" / f"pyodide-{VERSION}"
+    """Where Pyodide's core lives: ``.tools/pyodide-<version>``."""
+    return _tools(root) / f"pyodide-{VERSION}"
 
 
 def missing(root: Path = ROOT) -> list[str]:
@@ -67,6 +83,67 @@ def fetch(root: Path = ROOT) -> Path:
     return folder
 
 
+def browsers_dir(root: Path = ROOT) -> Path:
+    """``PLAYWRIGHT_BROWSERS_PATH`` for the tests: ``.tools/playwright``."""
+    return _tools(root) / "playwright"
+
+
+def chromium_dir(root: Path = ROOT) -> Path:
+    """The headless shell's folder, at the revision the locked playwright names."""
+    spec = importlib.util.find_spec("playwright")
+    if spec is None or spec.origin is None:
+        raise SystemExit("the playwright package isn't installed: uv sync --locked")
+    browsers = json.loads((Path(spec.origin).parent / "driver/package/browsers.json").read_text(encoding="utf-8"))
+    revision = next(b["revision"] for b in browsers["browsers"] if b["name"] == SHELL)
+    return browsers_dir(root) / f"{SHELL.replace('-', '_')}-{revision}"
+
+
+def chromium_missing(root: Path = ROOT) -> bool:
+    return not (chromium_dir(root) / "INSTALLATION_COMPLETE").is_file()
+
+
+def fetch_chromium(root: Path = ROOT) -> Path:
+    """Install the headless shell with playwright's own installer, run on
+    the ``node`` on PATH, into :func:`browsers_dir`."""
+    if chromium_missing(root):
+        spec = importlib.util.find_spec("playwright")
+        cli = Path(spec.origin).parent / "driver/package/cli.js"
+        subprocess.run(["node", str(cli), "install", "--only-shell", "chromium"], check=True, timeout=900,
+                       env=os.environ | {"PLAYWRIGHT_BROWSERS_PATH": str(browsers_dir(root))})
+    return chromium_dir(root)
+
+
+def wheel(out: Path, root: Path = ROOT) -> Path:
+    """The checkout's wheel, built into ``out``."""
+    subprocess.run(["uv", "build", "--offline", "--quiet", "--wheel", "--out-dir", str(out), str(root)],
+                   check=True, capture_output=True, timeout=300)
+    (built,) = out.glob("azurkit-*.whl")
+    return built
+
+
+def site(out: Path, root: Path = ROOT, built: Path | None = None) -> Path:
+    """The site in the new folder ``out``: ``web/``'s files, Pyodide's
+    core in ``pyodide/``, the wheel (``built``, else built now) and
+    ``site.json``, which names the wheel and its sha256 for the worker's
+    fetch (``integrity``)."""
+    shutil.copytree(root / "web", out)
+    if lost := missing(root):
+        raise SystemExit(f"Pyodide {VERSION} lacks {', '.join(lost)}: run `uv run bootstrap.py`")
+    shutil.copytree(pyodide_dir(root), out / "pyodide")
+    built = shutil.copy2(built, out) if built else wheel(out, root)
+    digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
+    (out / "site.json").write_text(json.dumps({"wheel": Path(built).name, "integrity": f"sha256-{digest}"}) + "\n",
+                                   encoding="utf-8")
+    return out
+
+
 if __name__ == "__main__":
-    print(f"Pyodide {VERSION}: {fetch()}")
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--site", type=Path, metavar="DIR", help="write the site to DIR (a new folder)")
+    args = ap.parse_args()
+    if args.site:
+        print(f"the site: {site(args.site)}")
+    else:
+        print(f"Pyodide {VERSION}: {fetch()}")
+        print(f"Chromium (the web tests'): {fetch_chromium()}")
     sys.exit(0)

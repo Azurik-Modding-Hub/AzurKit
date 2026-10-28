@@ -1,14 +1,14 @@
 """First setup: ``uv sync --locked``, the leak guard's ``pre-push`` hook,
-and Pyodide for the ``web`` tests.
+and Pyodide and Chromium for the site and the ``web`` tests.
 
     uv run bootstrap.py [--no-hooks] [--no-web]
 
 The hook (in the repository's common git dir, so every worktree shares it)
 runs ``tests/_leak_guard.py --pre-push`` over every file the pushed commits
-add or change, and refuses the push on a hit (Q273). Pyodide's core goes in
-the main checkout's ``.tools/`` (``scripts/web_tools.py``: pinned by sha256),
-which every lane uses. Run this in the main checkout, not in a lane. Stdlib
-only.
+add or change, and refuses the push on a hit (Q273). Pyodide's core (pinned
+by sha256) and Playwright's headless Chromium go in the main checkout's
+``.tools/`` (``scripts/web_tools.py``), which every lane uses. Run this in
+the main checkout, not in a lane. Stdlib only.
 """
 
 from __future__ import annotations
@@ -50,7 +50,8 @@ def install_hook(root: Path = ROOT) -> Path:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--no-hooks", action="store_true", help="leave the pre-push hook out")
-    ap.add_argument("--no-web", action="store_true", help="leave Pyodide out (then run pytest -m \"not web\")")
+    ap.add_argument("--no-web", action="store_true",
+                    help="leave Pyodide and Chromium out (then run pytest -m \"not web\")")
     args = ap.parse_args(argv)
     subprocess.run(["uv", "sync", "--locked"], cwd=ROOT, check=True)
     if not args.no_hooks:
@@ -58,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_web:
         from scripts import web_tools
         print(f"Pyodide {web_tools.VERSION}: {web_tools.fetch(ROOT)}")
+        print(f"Chromium (the web tests'): {web_tools.fetch_chromium(ROOT)}")
     return 0
 
 

@@ -9,11 +9,13 @@
   that release's vanilla image (size and sha256), stops before running
   anything, with one message that says why. Otherwise the summary prints
   ``vanilla: N run`` and ``europe: M run``.
-- A test that runs under Pyodide on Node takes the ``pyodide`` fixture (it
-  becomes ``web``). Like the images, Node and Pyodide (``uv run
-  bootstrap.py`` fetches it) are needed by a run that selects one, which
-  otherwise stops with one message; ``-m "not web"`` opts out. The summary
-  prints ``web: K run``.
+- A test that runs under Pyodide on Node takes the ``pyodide`` fixture, and
+  one that drives the site in headless Chromium the ``chromium`` fixture
+  (either becomes ``web``). Like the images, what they run on (Pyodide, Node
+  for the first, Chromium for the second; ``uv run bootstrap.py`` fetches
+  Pyodide and Chromium) is needed by a run that selects one, which otherwise
+  stops with one message; ``-m "not web"`` opts out. The summary prints
+  ``web: K run``.
 - A skip or an xfail fails the run unless ``tests/skip_allowlist.toml`` lists
   its test id with a regex its reason matches. The list starts empty (Q277).
 - Failure output is byte-safe (``tests/_byte_safe.py``).
@@ -114,7 +116,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.europe)
         if names & {"usa_iso", "europe_iso"}:
             item.add_marker(pytest.mark.vanilla)
-        if "pyodide" in names:
+        if names & {"pyodide", "chromium"}:
             item.add_marker(pytest.mark.web)
         if item.get_closest_marker("europe") and not item.get_closest_marker("vanilla"):
             raise pytest.UsageError(f"{item.nodeid}: a europe test is vanilla too (use the europe_iso fixture)")
@@ -133,14 +135,19 @@ def pytest_collection_finish(session):
         if isinstance(found, str):
             pytest.exit(found, returncode=pytest.ExitCode.USAGE_ERROR)
         _images[release.name] = found
-    if any(item.get_closest_marker("web") for item in session.items):
-        if shutil.which("node") is None:
+    uses = {name for item in session.items if item.get_closest_marker("web")
+            for name in getattr(item, "fixturenames", ())}
+    if uses & {"pyodide", "chromium"}:
+        if "pyodide" in uses and shutil.which("node") is None:
             pytest.exit('web tests need Node (24 or newer) on PATH, or run `pytest -m "not web"`',
                         returncode=pytest.ExitCode.USAGE_ERROR)
         if lost := web_tools.missing(ROOT):
             pytest.exit(f"web tests need Pyodide {web_tools.VERSION} in {web_tools.pyodide_dir(ROOT)} (it lacks "
                         f"{', '.join(lost)}): run `uv run bootstrap.py`, or `pytest -m \"not web\"`",
                         returncode=pytest.ExitCode.USAGE_ERROR)
+        if "chromium" in uses and web_tools.chromium_missing(ROOT):
+            pytest.exit(f"web tests need Chromium in {web_tools.chromium_dir(ROOT)}: run `uv run bootstrap.py`, "
+                        f'or `pytest -m "not web"`', returncode=pytest.ExitCode.USAGE_ERROR)
     _gated = True
 
 
@@ -160,8 +167,21 @@ def europe_iso() -> Path:
 def pyodide(tmp_path_factory) -> Callable[..., dict]:
     """``run(*argv)``: the ``azurkit`` command under Pyodide on Node, from
     this checkout's wheel alone (``tests/_pyodide.py``; the test is ``web``)."""
-    wheel = _pyodide.wheel(tmp_path_factory.mktemp("wheel"))
+    wheel = web_tools.wheel(tmp_path_factory.mktemp("wheel"))
     return lambda *argv: _pyodide.run(list(argv), wheel)
+
+
+@pytest.fixture(scope="session")
+def chromium(tmp_path_factory):
+    """Headless Chromium (Playwright's headless shell from the main
+    checkout's ``.tools/``; the test is ``web``): no window opens."""
+    from playwright.sync_api import sync_playwright
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir(ROOT)))   # read as its driver starts
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(downloads_path=str(tmp_path_factory.mktemp("downloads")))
+            yield browser
+            browser.close()
 
 
 def _fail_unlisted_skip(report):

@@ -1,12 +1,41 @@
 <!doctype html>
 <html lang="en">
 <head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AzurKit</title>
+<link rel="stylesheet" href="app.css">
+<script type="module" src="app.mjs"></script>
 </head>
 <body>
+<header>
 <h1>AzurKit</h1>
-<p>The page comes at step 4.1d: pick your image, choose packs, build and save.</p>
+<p>Mods for <i>Azurik: Rise of Perathia</i>, built in this page from your own copy of the game, USA or Europe.
+Your image never leaves this computer.</p>
+</header>
+<main>
+<section>
+<h2>1. Your image</h2>
+<input type="file" id="iso" accept=".iso,.xiso" disabled>
+<p id="picked" class="note">Pick the game's disc image (an .iso, about 2.3 to 2.7 GB).</p>
+</section>
+<section>
+<h2>2. Packs</h2>
+<div id="packs"><p class="note">Loading AzurKit…</p></div>
+</section>
+<section>
+<h2>3. Build, then save</h2>
+<p class="actions">
+<button id="build" type="button" disabled>Build</button>
+<button id="cancel" type="button" hidden>Cancel</button>
+<button id="save" type="button" disabled>Save ISO…</button>
+</p>
+<p id="status" role="status" aria-live="polite"></p>
+<p class="note">Keep the image where it is until the save finishes: the saved file is read from it.</p>
+</section>
+</main>
+<footer><p id="version" class="note"></p></footer>
+<noscript><p>AzurKit needs JavaScript and WebAssembly.</p></noscript>
 </body>
 </html>
