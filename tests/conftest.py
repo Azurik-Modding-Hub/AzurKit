@@ -17,6 +17,9 @@
 - A skip or an xfail fails the run unless ``tests/skip_allowlist.toml`` lists
   its test id with a regex its reason matches. The list starts empty (Q277).
 - Failure output is byte-safe (``tests/_byte_safe.py``).
+- The app opens no window or browser tab in a test, or in anything a test
+  starts: ``AZURKIT_NO_WINDOW`` is set for the whole run (``azurkit.app``;
+  D839: the owner works on this screen).
 - Git finds a repository by the cwd alone: the variables that point it at
   one (``GIT_DIR``, which ``git rebase -x`` exports, and the rest of ``git
   rev-parse --local-env-vars``) are dropped, so a test's scratch repo is its
@@ -45,6 +48,7 @@ for _var in ("GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAM
              "GIT_INDEX_FILE", "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX",
              "GIT_SHALLOW_FILE", "GIT_COMMON_DIR", "GIT_NAMESPACE"):
     os.environ.pop(_var, None)
+os.environ["AZURKIT_NO_WINDOW"] = "1"   # azurkit.app.NO_WINDOW, before anything imports the app
 
 from azurkit.core import gate  # noqa: E402
 from scripts import web_tools  # noqa: E402

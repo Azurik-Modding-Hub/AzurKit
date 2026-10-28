@@ -32,6 +32,7 @@ NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
 OURS = {"azurkit", "__main__", "web"}
 # The bootloader is under PyInstaller's Bootloader Exception; the loader and runtime hooks it bundles are Apache-2.0.
 PYINSTALLER_RUNTIME = ("pyimod", "pyiboot", "pyi_rth_", "_pyi_rth_utils")
+WINDOW_REFUSED = f"azurkit: no window while {app.NO_WINDOW} is set (the tests' mode)\n"
 
 
 def cpython(*argv: str) -> dict:
@@ -111,7 +112,8 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
     """The onedir holds no Unicorn, zig, capstone or GPL code (each name in
     it is Python's, PyInstaller's runtime, AzurKit's or a distribution's
     whose licence isn't GPL; the runtime's readline is editline). Run
-    read-only, with a fresh HOME and TMPDIR from an empty folder, it gives
+    read-only, with a fresh HOME and TMPDIR from an empty folder and the
+    tests' no-window mode, its window path exits 1 at once, and it gives
     CPython's verdicts, finds the images' folder through platformdirs under
     that HOME, and leaves itself, that folder, HOME and TMPDIR as they were
     but for platformdirs' folders."""
@@ -128,11 +130,11 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
     for folder in (home, tmp, cwd):
         folder.mkdir()
     env = {k: v for k, v in os.environ.items() if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE")}
-    env |= {"HOME": str(home), "TMPDIR": str(tmp)}
+    env |= {"HOME": str(home), "TMPDIR": str(tmp), app.NO_WINDOW: "1"}
 
-    def frozen(*argv: str) -> dict:
+    def frozen(*argv: str, timeout: int = 300) -> dict:
         done = subprocess.run([str(app_dir / freeze.NAME), *argv], capture_output=True, text=True, env=env, cwd=cwd,
-                              timeout=300)
+                              timeout=timeout)
         return {"code": done.returncode, "stdout": done.stdout, "stderr": done.stderr}
 
     writable = [p for p in [app_dir, *app_dir.rglob("*")] if not p.is_symlink()]
@@ -140,6 +142,7 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
         path.chmod(path.stat().st_mode & ~0o222)
     before = _tree(app_dir)
     try:
+        assert frozen(timeout=30) == {"code": 1, "stdout": "", "stderr": WINDOW_REFUSED}   # the window path
         assert frozen(*verify_argv) == verdicts
         monkeypatch.setenv("HOME", str(home))
         monkeypatch.delenv("AZURKIT_ISO", raising=False)
@@ -156,6 +159,23 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
     kept = [Path(getattr(dirs, f"user_{kind}_dir")) for kind in ("data", "config", "cache", "state", "log")]
     assert list(cwd.iterdir()) == []
     assert [p for p in [*home.rglob("*"), *tmp.rglob("*")] if p.is_file() and not any(map(p.is_relative_to, kept))] == []
+
+
+def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch):
+    """No test opens a window or a browser tab on the owner's screen (D839):
+    the run sets the no-window mode, under which ``python -m azurkit`` with
+    no arguments (the page) exits 1 within seconds, and ``app.main`` serves
+    nothing and never reaches the window or the browser."""
+    assert os.environ.get(app.NO_WINDOW)
+    done = subprocess.run([sys.executable, "-m", "azurkit"], capture_output=True, text=True, timeout=30)
+    assert (done.returncode, done.stdout, done.stderr) == (1, "", WINDOW_REFUSED)
+
+    def opened(*args, **kwargs):
+        raise AssertionError("the window path ran under the tests")
+    for name in ("serve", "_window"):
+        monkeypatch.setattr(app, name, opened)
+    monkeypatch.setattr(app.webbrowser, "open", opened)
+    assert app.main() == 1
 
 
 def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):

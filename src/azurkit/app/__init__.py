@@ -8,6 +8,10 @@ carries this launch's token: in its URL the first time, then in the cookie
 that answer sets. The cookie is named for the launch's port: browsers keep
 cookies by host, not port, so a second launch's never replaces the first's.
 The engine below never starts a thread; this host does, for the server.
+
+The tests run with :data:`NO_WINDOW` set (``tests/conftest.py``): the owner
+works on this screen (D839), so there :func:`main` refuses at once, before it
+serves anything or opens a window or a browser tab.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from __future__ import annotations
 import hmac
 import http.server
 import mimetypes
+import os
 import secrets
 import sys
 import threading
@@ -23,6 +28,7 @@ import webbrowser
 from pathlib import Path
 
 PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "web"   # the frozen app's, else the checkout's
+NO_WINDOW = "AZURKIT_NO_WINDOW"   # set: main() opens nothing (the tests' mode)
 
 
 class Server(http.server.ThreadingHTTPServer):
@@ -100,7 +106,11 @@ def _window(url: str) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Open the page: in a window, else in the default browser (served until Ctrl-C)."""
+    """Open the page: in a window, else in the default browser (served until
+    Ctrl-C); exit 1 at once when :data:`NO_WINDOW` is set."""
+    if os.environ.get(NO_WINDOW):
+        print(f"azurkit: no window while {NO_WINDOW} is set (the tests' mode)", file=sys.stderr)
+        return 1
     try:
         server = serve()
     except FileNotFoundError as exc:
