@@ -109,7 +109,7 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europ
             assert _sha256(r.read("default.xbe")) == _oracle(GOLDENS["europe"])["qol_alloc_race"]["default.xbe"]
     finally:
         out.unlink(missing_ok=True)
-    assert capsys.readouterr().out.splitlines()[0] == "pack qol_alloc_race: 3 sites, 71 B"
+    assert capsys.readouterr().out.splitlines()[0] == "pack qol_alloc_race: 4 sites, 204 B"
 
 
 def test_a_pack_that_cant_apply_names_each_site_and_why_never_its_bytes(monkeypatch):

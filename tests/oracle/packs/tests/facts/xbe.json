@@ -833,6 +833,16 @@
    "original_sha256": "63f3a6e25ad0b27bd9fa8b3b2ef1ef94f25863fa21a475f0bb4f897c9051a216",
    "size": 29
   },
+  "0x000B54D0": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "f02556ddc9630da34da6d00cea03d9fc4535f49d2c3d00832b34e4700e9dda97",
+     "size": 133
+    }
+   },
+   "original_sha256": "5d50dcd6b2a87cdb9cb8a429189116a98c20b30803522f15a16b3fc393de1e12",
+   "size": 133
+  },
   "0x000B5CED": {
    "new": {
     "qol_memory_budget": {

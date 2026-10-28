@@ -1,5 +1,5 @@
 {
- "commit": "8875cdaf4a9a424be4d998093bd8089ea1e6419d",
+ "commit": "4c75cf96267fd55988c5c6aa4ab4fd46afc6561b",
  "dirty": false,
  "family": "packs",
  "files": {
@@ -8,27 +8,27 @@
    "size": 34585
   },
   "tests/facts/xbe.europe.json": {
-   "sha256": "c30efbe66fe9e8708b6bf183c4d410157a0bcfede629f6a67369819d2da7518a",
-   "size": 61121
+   "sha256": "4e59d513cda30802f029fbad962bacae940a3230399cdcbae98003e4920ccfb7",
+   "size": 61558
   },
   "tests/facts/xbe.json": {
-   "sha256": "b5b7d51a70f149854c0ba52074fe11f4aa22d7dcf397af825e5602528d82f06e",
-   "size": 72655
+   "sha256": "9634f105b316b4c21978de40bddeb9d2a74c647106319d610a9b10664cb54721",
+   "size": 73092
   },
   "tests/goldens/europe/packs.json": {
-   "sha256": "36e0d14d6476e7bc5137921cd01577103c86db4f0b40ac02cf58c92319051951",
+   "sha256": "47455f00a0e54fdd1eadbc301dda819cba8405b64fb200d31990b01dd4a0e118",
    "size": 4583
   },
   "tests/goldens/gui.json": {
-   "sha256": "80f1571ad3690a3cb112152b836e8d6f1360f7a92560dd479b4bd8b2f8aa5ee1",
+   "sha256": "2d57beed28065177d5459c374eb0c19037c81b30fc8e8410b9da8904784f0a90",
    "size": 899
   },
   "tests/goldens/packs.json": {
-   "sha256": "5e006f2503ed1f1050f52776b4a06bfa96d6815ec9d8bab901ca2bb26af1f8c5",
+   "sha256": "8a3ca6c69e4e6055cf2b2aa4c09ec8e4ffb37fc2d2009a4d01b5d7c6573b756b",
    "size": 7017
   },
   "tests/goldens/pipelines.json": {
-   "sha256": "504b23ba20fa602c6edb94f6f5fa84e2600b937f097a66ae8d35fa3c92c64911",
+   "sha256": "945b7cba1703edcc06dc6908a3ceeb2d6230b587a702e6452e1471c7daa63d4c",
    "size": 2447
   },
   "tests/goldens/shims.json": {
@@ -42,7 +42,7 @@
  },
  "format": "azurik-oracle/1",
  "same_as": {},
- "tag": "oracle-packs-1",
+ "tag": "oracle-packs-2",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",
