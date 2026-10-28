@@ -1,5 +1,5 @@
 {
- "_about": "Written by scripts/gen_facts.py from tests/oracle/ (Modkit's facts and Europe's address map), never by hand. Hashes, sizes and addresses only: a site's vanilla bytes are their sha256 and size.",
+ "_about": "Written by scripts/gen_facts.py from tests/oracle/ (Modkit's facts and Europe's address map), never by hand. Hashes, sizes, names and addresses only: a site's vanilla bytes are their sha256 and size.",
  "absent": {
   "0x001001D0": "USA's .text slack before BINK, where small shims and slider values land: Europe's .text has none, so they land in SHIMS",
   "0x0011D5D0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
@@ -756,6 +756,1267 @@
   "0x0038D320": "0x0038F2C8",
   "0x0038DC50": "0x0038FBF8",
   "0x0039014C": "0x00392100"
+ },
+ "functions": {
+  "CreateEventA": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E0FA3"
+  },
+  "CreateMutexA": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E119B"
+  },
+  "CreateThread": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x000E7AF7"
+  },
+  "GetExitCodeThread": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E7928"
+  },
+  "GetLastError": {
+   "arg_bytes": 0,
+   "convention": "stdcall",
+   "va": "0x000E30F8"
+  },
+  "GetOverlappedResult": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E3291"
+  },
+  "GetThreadPriority": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E7756"
+  },
+  "GetTimeZoneInformation": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F56F1"
+  },
+  "MoveFileA": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E09B4"
+  },
+  "OpenEventA": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E1004"
+  },
+  "OutputDebugStringA": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F5978"
+  },
+  "OutputDebugStringW": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F59AA"
+  },
+  "PulseEvent": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E109E"
+  },
+  "RaiseException": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E787D"
+  },
+  "ResetEvent": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E1080"
+  },
+  "SetEvent": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E1060"
+  },
+  "SetLastError": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E3120"
+  },
+  "SetThreadPriority": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E7704"
+  },
+  "SetThreadPriorityBoost": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E77AA"
+  },
+  "SignalObjectAndWait": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000E12B3"
+  },
+  "Sleep": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E1518"
+  },
+  "UnhandledExceptionFilter": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E76E7"
+  },
+  "VirtualFree": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E0E48"
+  },
+  "XAutoPowerDownResetTimer": {
+   "arg_bytes": 0,
+   "convention": "stdcall",
+   "va": "0x000E7DEA"
+  },
+  "XCalculateSignatureBegin": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E2FBB"
+  },
+  "XGSetTextureHeader": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x001605F5"
+  },
+  "XGSwizzleRect": {
+   "arg_bytes": 32,
+   "convention": "stdcall",
+   "va": "0x0015F04B"
+  },
+  "XGUnswizzleBox": {
+   "arg_bytes": 40,
+   "convention": "stdcall",
+   "va": "0x0016010E"
+  },
+  "XGWriteSurfaceOrTextureToXPR": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000F5A37"
+  },
+  "XGetLaunchInfo": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000DFC48"
+  },
+  "XGetSectionSize": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E7DE0"
+  },
+  "XInitDevices": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0018A087"
+  },
+  "XLaunchNewImageA": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000DFD10"
+  },
+  "XMUNameFromDriveLetter": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E0766"
+  },
+  "XMountAlternateTitleA": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E046A"
+  },
+  "XMountUtilityDrive": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E037F"
+  },
+  "XPhysicalAlloc": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000F51D0"
+  },
+  "XRegisterThreadNotifyRoutine": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E7A0F"
+  },
+  "XUnmountAlternateTitleA": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E05CF"
+  },
+  "XapiBootToDash": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E6D7E"
+  },
+  "XapiCallThreadNotifyRoutines": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E76AF"
+  },
+  "XapiFormatObjectAttributes": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E73AF"
+  },
+  "XapiInitProcess": {
+   "arg_bytes": 0,
+   "convention": "stdcall",
+   "va": "0x000E6DE3"
+  },
+  "XapiMapLetterToDirectory": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x000E69F5"
+  },
+  "XapiSelectCachePartition": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000E017B"
+  },
+  "XapiSetLastNTError": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E314E"
+  },
+  "_CopyMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F38D9"
+  },
+  "_IncMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F381A"
+  },
+  "_IsZeroMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3900"
+  },
+  "_RoundMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3867"
+  },
+  "_SEH_epilog": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ECFB1"
+  },
+  "_ShrMan": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3919"
+  },
+  "_ZeroTail": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F37E8"
+  },
+  "__add_12": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F4883"
+  },
+  "__addl": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F4862"
+  },
+  "__dtold": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F4534"
+  },
+  "__onexitinit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB618"
+  },
+  "__shl_12": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F48E1"
+  },
+  "__shr_12": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F490F"
+  },
+  "_abstract_cw": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EBFAE"
+  },
+  "_alldiv": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ED320"
+  },
+  "_allmul": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ECC00"
+  },
+  "_allshr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED2B0"
+  },
+  "_aulldiv": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ED240"
+  },
+  "_aullrem": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "undecorated": true,
+   "va": "0x000ED0E0"
+  },
+  "_aullshr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED0C0"
+  },
+  "_cfltcvt": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1EFE"
+  },
+  "_chgsign": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC5C9"
+  },
+  "_cintrindisp1": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6342"
+  },
+  "_cintrindisp2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6304"
+  },
+  "_close": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEE8D"
+  },
+  "_control87": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC12C"
+  },
+  "_controlfp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC15E"
+  },
+  "_copysign": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC5A8"
+  },
+  "_ctrandisp1": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6515"
+  },
+  "_ctrandisp2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F637F"
+  },
+  "_ctrlfp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0A85"
+  },
+  "_dosmaperr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC4B0"
+  },
+  "_errcode": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F05EE"
+  },
+  "_fassign": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1C0E"
+  },
+  "_fclose_lk": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB7B5"
+  },
+  "_fflush_lk": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEFB0"
+  },
+  "_filbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0B02"
+  },
+  "_fload": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F6548"
+  },
+  "_fload_withFB": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F21B5"
+  },
+  "_flsbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDCB7"
+  },
+  "_flswbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F473A"
+  },
+  "_flush": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEF53"
+  },
+  "_flushall": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF103"
+  },
+  "_forcdecpt": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1B51"
+  },
+  "_freebuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEF28"
+  },
+  "_fsopen": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC3BF"
+  },
+  "_ftbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0EDF"
+  },
+  "_get_osfhandle": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2BD5"
+  },
+  "_getbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F284B"
+  },
+  "_getstream": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F17FC"
+  },
+  "_global_unwind2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ECFC4"
+  },
+  "_handle_qnan1": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F06B9"
+  },
+  "_handle_qnan2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F070C"
+  },
+  "_hextodec": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF50B"
+  },
+  "_hw_cw": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC040"
+  },
+  "_inc": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF53D"
+  },
+  "_isatty": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F288F"
+  },
+  "_itoa": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F5E13"
+  },
+  "_ld12cvt": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3994"
+  },
+  "_ld12told": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F3B18"
+  },
+  "_local_unwind2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED006"
+  },
+  "_lock_file": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF1CF"
+  },
+  "_lock_file2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF1FE"
+  },
+  "_lseek": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2718"
+  },
+  "_ltoa": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F5E3D"
+  },
+  "_math_exit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F221B"
+  },
+  "_onexit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB640"
+  },
+  "_onexit_lk": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB598"
+  },
+  "_openfile": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1694"
+  },
+  "_read": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0DAC"
+  },
+  "_set_bexp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0938"
+  },
+  "_set_exp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F08CF"
+  },
+  "_setjmp3": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F5FB4"
+  },
+  "_sopen": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F442B"
+  },
+  "_sptype": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F095D"
+  },
+  "_startOneArgErrorHandling": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2133"
+  },
+  "_stbuf": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F0E57"
+  },
+  "_stricmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED2D1"
+  },
+  "_strnicmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB881"
+  },
+  "_umatherr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F061B"
+  },
+  "_unlock_fhandle": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F2C89"
+  },
+  "_unlock_file": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF221"
+  },
+  "_unlock_file2": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EF250"
+  },
+  "_wcsdup": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC523"
+  },
+  "_wcsicmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED3CA"
+  },
+  "_write": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000F1094"
+  },
+  "active_controller_state": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000A3150"
+  },
+  "ai_hit_handler": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x00038C60"
+  },
+  "aligned_node_offset": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000402E0"
+  },
+  "anim_apply_translation": {
+   "arg_bytes": 16,
+   "convention": "thiscall",
+   "va": "0x00042E40"
+  },
+  "anim_bind_clip_tracks": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000CB200"
+  },
+  "anim_bone_matrix": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000CA5F0"
+  },
+  "anim_change": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00042910"
+  },
+  "anim_change_aligned": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x00042430"
+  },
+  "anim_change_at_node": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x00042750"
+  },
+  "anim_layer_fraction": {
+   "arg_bytes": 4,
+   "convention": "fastcall",
+   "va": "0x000CB1A0"
+  },
+  "anim_marker_box": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x000CA510"
+  },
+  "anim_marker_position": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000CB420"
+  },
+  "anim_node_by_name": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000CA350"
+  },
+  "anim_node_transform": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x000CCF70"
+  },
+  "anim_play_clip": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000CAEC0"
+  },
+  "anim_root_motion_delta": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000CAE50"
+  },
+  "anim_sample_markers": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000CBE00"
+  },
+  "apply_damage": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00044640"
+  },
+  "armor_reset_out_of_fuel": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00083750"
+  },
+  "asset_find": {
+   "arg_bytes": 8,
+   "convention": "thiscall",
+   "va": "0x000A5E20"
+  },
+  "atexit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB678"
+  },
+  "atol": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EC174"
+  },
+  "attack_anim_record_copy": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0007F1A0"
+  },
+  "attack_target_find": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x0007EB60"
+  },
+  "attack_transition_search": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x0007EEC0"
+  },
+  "boot_state_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0005F5D0"
+  },
+  "button_pressed_once": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000A3250"
+  },
+  "calculate_save_signature": {
+   "arg_bytes": 0,
+   "convention": "thiscall",
+   "va": "0x0005C8D0"
+  },
+  "camera_reach": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00081D60"
+  },
+  "camera_water_push": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00081DC0"
+  },
+  "cheat_owner_action": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00016610"
+  },
+  "cheat_owner_tick": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00015DA0"
+  },
+  "cinit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000E762E"
+  },
+  "collision_sweep": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x00060820"
+  },
+  "config_cell_value": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x000D1820"
+  },
+  "config_name_lookup": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000D1720"
+  },
+  "consume_fuel": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x00084280"
+  },
+  "critter_model_matrix": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00042200"
+  },
+  "critter_play_fx": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x000440F0"
+  },
+  "critter_spawn": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00045C10"
+  },
+  "entity_lookup": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x0004B510"
+  },
+  "fall_damage_dispatch": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0008AB20"
+  },
+  "fall_death_dispatch": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008BDB0"
+  },
+  "fclose": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB801"
+  },
+  "flsall": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EEFDE"
+  },
+  "font_draw_text": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000D1060"
+  },
+  "free_camera_update": {
+   "arg_bytes": 4,
+   "convention": "thiscall",
+   "va": "0x00082790"
+  },
+  "fx_instance_detach": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00063460"
+  },
+  "fx_instantiate": {
+   "arg_bytes": 36,
+   "convention": "stdcall",
+   "va": "0x00064990"
+  },
+  "game_start_setup": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x00052F50"
+  },
+  "glide_origin": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00042070"
+  },
+  "global_var_find_or_create": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0005E640"
+  },
+  "gravity_integrate_raw": {
+   "arg_bytes": 12,
+   "convention": "fastcall",
+   "va": "0x000856B0"
+  },
+  "hit_send": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000460B0"
+  },
+  "hud_anchor": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000D0B30"
+  },
+  "hud_font": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000D0CE0"
+  },
+  "hud_list_draw": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0001B110"
+  },
+  "isalnum": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED7E2"
+  },
+  "isalpha": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED6B9"
+  },
+  "isdigit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED739"
+  },
+  "isspace": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED790"
+  },
+  "level_teleport_helper": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00052950"
+  },
+  "load_armor_properties_config": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x0003C700"
+  },
+  "load_asset_by_fourcc": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000A6920"
+  },
+  "load_critters_config": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00049480"
+  },
+  "load_level_from_path": {
+   "arg_bytes": 16,
+   "convention": "stdcall",
+   "va": "0x00053750"
+  },
+  "mark_armor_feature_used": {
+   "arg_bytes": 12,
+   "convention": "fastcall",
+   "va": "0x00084680"
+  },
+  "matrix_to_quat": {
+   "arg_bytes": 0,
+   "convention": "thiscall",
+   "va": "0x000A07A0"
+  },
+  "move_query_clear": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000307E0"
+  },
+  "play_movie_fn": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00018980"
+  },
+  "player_ai_factory": {
+   "arg_bytes": 0,
+   "convention": "thiscall",
+   "va": "0x0008D700"
+  },
+  "player_air_attack_start": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00088E20"
+  },
+  "player_airborne_reinit": {
+   "arg_bytes": 4,
+   "convention": "fastcall",
+   "va": "0x00083F40"
+  },
+  "player_airborne_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00089430"
+  },
+  "player_armor_state_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00083D30"
+  },
+  "player_climb_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00087F30"
+  },
+  "player_ground_attack_start": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00088A30"
+  },
+  "player_ground_attack_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008C780"
+  },
+  "player_hard_land": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x0008B0B0"
+  },
+  "player_input_tick": {
+   "arg_bytes": 4,
+   "convention": "fastcall",
+   "va": "0x000848F0"
+  },
+  "player_jump_init": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00089010"
+  },
+  "player_land_classify": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000858D0"
+  },
+  "player_landing": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0008C030"
+  },
+  "player_move_fx": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008C400"
+  },
+  "player_move_offsets_init": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000849F0"
+  },
+  "player_physics_state_machine": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008CC70"
+  },
+  "player_slope_slide_tick": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00089A20"
+  },
+  "player_staff_wall_check": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008C850"
+  },
+  "player_swim_tick": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0008B6B0"
+  },
+  "player_walk_state": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00085F00"
+  },
+  "poll_movie": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x00018D30"
+  },
+  "quat_from_euler": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x0004FF10"
+  },
+  "quat_rotate": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000A15A0"
+  },
+  "rt_probe_read4": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000F602F"
+  },
+  "rtinit": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000E7686"
+  },
+  "run_pages_alloc": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000BACE0"
+  },
+  "scene_state_tick": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x00055AB0"
+  },
+  "seh_longjmp_unwind": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000ED9E9"
+  },
+  "settings_get_double": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x0005E5D0"
+  },
+  "sound_play_at": {
+   "arg_bytes": 12,
+   "convention": "stdcall",
+   "va": "0x000A27B0"
+  },
+  "species_bind_clip_sounds": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x0004B680"
+  },
+  "species_clip_lookup": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x0004B600"
+  },
+  "species_get_by_name": {
+   "arg_bytes": 8,
+   "convention": "fastcall",
+   "va": "0x00045E30"
+  },
+  "strncmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB560"
+  },
+  "strncpy": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EBAE0"
+  },
+  "strrchr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EB6E0"
+  },
+  "strstr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED600"
+  },
+  "volume_query": {
+   "arg_bytes": 24,
+   "convention": "stdcall",
+   "va": "0x00060B80"
+  },
+  "wcscmp": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED206"
+  },
+  "wcscpy": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED47C"
+  },
+  "wcsncpy": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED155"
+  },
+  "wcsstr": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000ED192"
+  },
+  "wing_flap": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000892B0"
+  },
+  "world_text_clear": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x00050950"
+  },
+  "write_char": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDDD0"
+  },
+  "write_multi_char": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDE03"
+  },
+  "write_string": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000EDE27"
+  },
+  "xcalculate_signature_begin": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "va": "0x000E2FBB"
+  },
+  "xcalculate_signature_end": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000E2F5E"
+  }
  },
  "release": "europe",
  "sections": [

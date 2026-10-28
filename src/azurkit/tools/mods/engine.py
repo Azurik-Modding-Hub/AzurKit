@@ -18,6 +18,13 @@ A slider over config.xbr (:class:`XbrParametricEdit`) writes keyed cells
 there (``core.xbr``): its value into one number cell, or as a multiplier of
 the cells its pack picks from the vanilla tables.
 
+A trampoline (:class:`TrampolinePatch`) hooks a site with a CALL or JMP
+rel32 into a C shim: the pack's prebuilt object (``shims/<name>.o``, which
+``shimkit`` builds from ``<name>.c`` beside it, so no host needs a compiler,
+AZ-045), laid out by ``core.coff`` where the carve allocator
+(``core.xbe.Carver``) gives it room, past every claim of the layers before
+it; its placements are the layer's claims (one group with the hook).
+
 A pack writes its sites in order, or its ``custom_apply(xbe, **values)``
 writes through the :class:`Xbe` it is given, only inside the ``footprint``
 it declares (AZ-097). :func:`plan` makes a pack's layer (one group per
@@ -28,19 +35,23 @@ address or cell, never its bytes (D35).
 
 from __future__ import annotations
 
+import functools
 import hashlib
+import importlib.resources
 import inspect
 import math
 import struct
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
+from azurkit.core import coff
 from azurkit.core import facts as facts_
+from azurkit.core import xbe as xbe_
 from azurkit.core.gate import Release
 from azurkit.core.xbr import Document, edits
 from azurkit.core.xbr.keyed import Table
-from azurkit.edits.layer import Change, Layer
+from azurkit.edits.layer import Change, Claim, Layer
 
 XBE = "default.xbe"
 CONFIG = "gamedata/config.xbr"
@@ -85,6 +96,23 @@ class PatchSpec(Place):
             target = (self.va + k + 4 + struct.unpack_from("<i", out, k)[0]) & 0xFFFFFFFF
             struct.pack_into("<i", out, k, facts.va(target) - (va + k + 4))
         return bytes(out)
+
+
+@dataclass(frozen=True, kw_only=True)
+class TrampolinePatch(Place):
+    """A CALL (``mode`` ``call``) or JMP rel32 at the site :attr:`va` to the
+    symbol :attr:`symbol` of the prebuilt shim :attr:`shim`, the rest of the
+    site's bytes no-ops."""
+    label: str
+    shim: str      # its object: shims/<shim>.o
+    symbol: str    # its entry, as C mangles it ("_c_skip_logo")
+    mode: Literal["call", "jmp"] = "call"
+
+
+@functools.cache
+def shim(name: str) -> coff.Coff:
+    """The prebuilt shim object ``shims/<name>.o``, parsed."""
+    return coff.parse(importlib.resources.files(__package__).joinpath("shims", f"{name}.o").read_bytes())
 
 
 def f32(value: float) -> bytes:
@@ -222,7 +250,7 @@ class XbrParametricEdit(Slider):
 class Pack:
     name: str
     description: str
-    sites: tuple[PatchSpec | ParametricPatch | XbrParametricEdit, ...] = ()
+    sites: tuple[PatchSpec | ParametricPatch | TrampolinePatch | XbrParametricEdit, ...] = ()
     custom_apply: Callable[..., None] | None = None   # (xbe: Xbe, **values); it writes only by Xbe.patch
     footprint: tuple[Place, ...] = ()                   # every place custom_apply may write
     default_on: bool = False                            # every build applies it unless told not to (D528)
@@ -271,10 +299,13 @@ class Xbe:
     """A release's vanilla ``default.xbe`` as a pack plans against it: what
     it reads there, and the sites it writes."""
 
-    def __init__(self, facts: facts_.Facts, vanilla: bytes, pack: Pack):
+    def __init__(self, facts: facts_.Facts, vanilla: bytes, pack: Pack, occupied: Sequence[Claim] = ()):
         self.release = facts.release.name
         self._facts, self._vanilla, self._pack = facts, vanilla, pack
+        self._occupied = [(c.offset, c.size) for c in occupied if c.file == XBE]
+        self._carver: xbe_.Carver | None = None
         self.changes: list[Change] = []
+        self.claims: list[Claim] = []
         self.failures: list[str] = []
         self._written: set[int] = set()
         self._allowed: set[int] | None = None
@@ -292,7 +323,31 @@ class Xbe:
         offset = self._facts.offset(self._facts.va(usa_va), size)
         return self._vanilla[offset:offset + size]
 
-    def patch(self, spec: PatchSpec | ParametricPatch, value: float | int | None = None) -> None:
+    def _shim(self, spec: TrampolinePatch, va: int, size: int, group: str) -> tuple[bytes, list[Change]]:
+        """The hook at ``va`` (``size`` bytes) and the changes that land
+        its shim, each placement claimed; ``LookupError`` or ``ValueError``
+        says why it can't land, its claims given back."""
+        if size < 5:
+            raise ValueError(f"the facts' site is {size} B, too small for a rel32 {spec.mode}")
+        if self._carver is None:
+            self._carver = xbe_.Carver(self._vanilla, self._occupied)
+        claims, taken = [], len(self._carver.taken)
+
+        def allocate(n: int, align: int, writable: bool) -> tuple[int, int]:
+            at, held, offset, address = self._carver.place(n, align, writable)
+            claims.append(Claim(XBE, at, held, f"shim:{self._pack.name}", writable))
+            return offset, address
+        try:
+            placed, entry = coff.layout(shim(spec.shim), spec.symbol, allocate, self._facts.mangled())
+            hook = bytes([0xE8 if spec.mode == "call" else 0xE9]) + struct.pack("<i", entry - (va + 5))
+        except (LookupError, ValueError, struct.error) as exc:
+            del self._carver.taken[taken:]
+            raise ValueError(f"its shim {spec.shim!r}: {exc}") from None
+        self.claims += claims
+        return hook + b"\x90" * (size - 5), [Change(XBE, p.offset, hashlib.sha256(bytes(len(p.data))).hexdigest(),
+                                                   p.data, group) for p in placed]
+
+    def patch(self, spec: PatchSpec | ParametricPatch | TrampolinePatch, value: float | int | None = None) -> None:
         """Write ``spec`` (a slider: ``value`` encoded; nothing when it isn't
         one of this release's), or record why it can't be written."""
         if not spec.on(self.release):
@@ -302,32 +357,41 @@ class Xbe:
             va = spec.own(self._facts)
             where += f" ({self._facts.release.label} 0x{va:08X})" if va != spec.va else ""
             site = self._facts.site(va)
-            data = spec.encode(value) if isinstance(spec, ParametricPatch) else spec.placed(self._facts, va)
             offset = self._facts.offset(va, site.size)
+            data = (spec.encode(value) if isinstance(spec, ParametricPatch)
+                    else b"" if isinstance(spec, TrampolinePatch) else spec.placed(self._facts, va))
         except (LookupError, ValueError, struct.error) as exc:
             self.failures.append(f"{where}: {exc}")
             return
-        held = self._vanilla[offset:offset + site.size]
+        held, group = self._vanilla[offset:offset + site.size], f"{self._pack.name} 0x{va:08X} ({spec.label})"
         if self._allowed is not None and va not in self._allowed:
             why = "it is outside the pack's declared footprint"
         elif va in self._written:
             why = "the pack writes it twice"
-        elif len(data) != site.size:
+        elif not isinstance(spec, TrampolinePatch) and len(data) != site.size:
             why = f"the patch is {len(data)} B, the facts' site {site.size} B"
         elif hashlib.sha256(held).hexdigest() != site.sha256:
             why = f"default.xbe holds {digest(held)} there, not the facts' <{site.size} B, sha256 {site.sha256[:12]}>"
         else:
-            self._written.add(va)
-            self.changes.append(Change(XBE, offset, site.sha256, data, f"{self._pack.name} 0x{va:08X} ({spec.label})"))
-            return
+            try:
+                data, landed = (self._shim(spec, va, site.size, group) if isinstance(spec, TrampolinePatch)
+                                else (data, []))
+            except ValueError as exc:
+                why = str(exc)
+            else:
+                self._written.add(va)
+                self.changes += [*landed, Change(XBE, offset, site.sha256, data, group)]
+                return
         self.failures.append(f"{where}: {why}")
 
 
-def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mapping[str, object] | None = None
-         ) -> Layer:
+def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mapping[str, object] | None = None,
+         occupied: Sequence[Claim] = ()) -> Layer:
     """``pack``'s layer on ``release``, planned against its vanilla files
     (``base``: each of :meth:`Pack.files`, by its path in the image) with
-    ``params``; :class:`PackError` names each reason it can't be (D35)."""
+    ``params``, its shims placed past every claim in ``occupied`` (the
+    layers before it); :class:`PackError` names each reason it can't be
+    (D35)."""
     params = dict(params or {})
     if release.name not in pack.releases:
         raise PackError(f"pack {pack.name!r} is not available on the {release.label} release "
@@ -338,9 +402,9 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
         size, sha256 = (facts_.of(release).size, facts_.of(release).sha256) if name == XBE else release.files[name]
         if len(data) != size or hashlib.sha256(data).hexdigest() != sha256:
             raise PackError(f"pack {pack.name!r}: {name} {digest(data)} is not the vanilla {release.label} one")
-    changes, failures = [], []
+    changes, failures, claims = [], [], []
     if XBE in pack.files():
-        xbe = Xbe(facts_.of(release), base[XBE], pack)
+        xbe = Xbe(facts_.of(release), base[XBE], pack, occupied)
         if pack.custom_apply is None:
             for spec in pack.sites:
                 if not isinstance(spec, XbrParametricEdit):
@@ -350,7 +414,7 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
                 pack.custom_apply(xbe, **values)
             except (LookupError, ValueError) as exc:
                 raise PackError(f"pack {pack.name!r}: {exc}") from None
-        changes, failures = xbe.changes, xbe.failures
+        changes, failures, claims = xbe.changes, xbe.failures, xbe.claims
     documents: dict[str, Document] = {}
     for spec in pack.sites:
         if isinstance(spec, XbrParametricEdit):
@@ -365,4 +429,5 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
                 failures.append(f"{spec.label}: {exc}")
     if failures:
         raise PackError(f"pack {pack.name!r}: {len(failures)} site(s) failed: " + "; ".join(failures))
-    return Layer(f"pack {pack.name}", "mods", "packs", {"pack": pack.name, "params": params}, tuple(changes))
+    return Layer(f"pack {pack.name}", "mods", "packs", {"pack": pack.name, "params": params}, tuple(changes),
+                 tuple(claims))

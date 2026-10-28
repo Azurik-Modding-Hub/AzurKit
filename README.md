@@ -9,9 +9,11 @@ step is checked against Modkit's recorded outputs: per-file sha256s,
 copied into [`tests/oracle/`](tests/oracle/). AzurKit never imports Modkit's
 code.
 
-**Status:** AzurKit checks your image and builds it with its first eight
+**Status:** AzurKit checks your image and builds it with its first nine
 packs: fps_unlock (with its frame-rate slider), qol_alloc_race (on by
-default), qol_gem_popups, qol_other_popups, qol_pickup_anims, and the
+default), qol_gem_popups, qol_other_popups, qol_pickup_anims, qol_skip_logo
+(the first with a C shim, which ships prebuilt: nothing compiles on your
+computer), and the
 game-data packs player_max_hp (Starting HP, the health bar's scale),
 air_shield_flaps (each air shield's flaps) and enemy_damage (the damage
 enemies take), each with its sliders, on both releases, from the command
@@ -64,6 +66,7 @@ uv run --locked azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack
 uv run --locked python scripts/web_tools.py --site DIR   # the site: the page, Pyodide and the wheel
 uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS
+uv run --locked python -m shimkit [--check]              # rebuild the prebuilt shim objects (zig, dev only)
 ```
 
 The vanilla tests read the two images, found by `AZURKIT_ISO` (USA) and

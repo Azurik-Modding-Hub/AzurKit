@@ -75,7 +75,7 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer]]:
     layers, failed = [], []
     for name, pack in chosen.items():
         try:
-            layers.append(mods.plan(pack, stamp.release, base, packs[name]))
+            layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims]))
         except mods.PackError as exc:
             failed.append(str(exc))
     if failed:

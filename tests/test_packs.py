@@ -1,7 +1,7 @@
 """The packs (Step 4.1c: fps_unlock, qol_alloc_race, qol_gem_popups,
 qol_other_popups, qol_pickup_anims; Step 4.1e2: player_max_hp,
-air_shield_flaps and enemy_damage, config.xbr's) against the oracle at its
-packs tag.
+air_shield_flaps and enemy_damage, config.xbr's; Step 4.1f1: qol_skip_logo,
+a shim's) against the oracle at its packs tag.
 
 The facts AzurKit ships are the oracle's, and each release's vanilla XBE has
 their section table (AZ-316). Every case the oracle's facts record for a
@@ -27,7 +27,7 @@ import pytest
 from azurkit import __version__, cli, sdk
 from azurkit.core import facts, gate, iso, xbe
 from azurkit.edits import preset
-from azurkit.edits.layer import compose
+from azurkit.edits.layer import claimed, compose
 from azurkit.tools import mods
 from azurkit.tools.mods import engine
 from scripts import gen_facts
@@ -62,33 +62,34 @@ def test_each_ported_case_writes_the_facts_bytes_site_by_site_and_nothing_else(r
     """The release's XBE has the facts' sections and sha256. For each case
     of a ported pack in the oracle's facts (``fps_unlock:target_fps=120``
     too), each site holds the case's recorded bytes (by sha256), or vanilla's
-    when the case leaves it, and no byte outside the case's sites changed."""
+    when the case leaves it (USA's ``.text`` slack among them, where a shim
+    lands; a legacy site, which no build writes, isn't read), and no byte
+    changed outside the case's sites, its shims' claims and the header state
+    they derive."""
     vanilla = _vanilla_xbe(request.getfixturevalue(f"{release.name}_iso"))
     known = facts.of(release)
     assert (xbe.sections(vanilla), _sha256(vanilla)) == (known.sections, known.sha256)
     oracle, recipes = _oracle(FACTS[release.name]), _oracle("cases.json")[FACTS[release.name]]
     cases = [case for case in oracle["cases"] if recipes[case]["pack"] in mods.PACKS]
     xbe_packs = {name for name, pack in mods.PACKS.items() if engine.XBE in pack.files()}
-    assert {recipes[case]["pack"] for case in cases} == xbe_packs and len(cases) == 6
+    assert {recipes[case]["pack"] for case in cases} == xbe_packs and len(cases) == 7
     for case in cases:
         recipe = recipes[case]
         params = mods.normalize({recipe["pack"]: recipe["params"]})[recipe["pack"]]
         layer = mods.plan(mods.PACKS[recipe["pack"]], release, {engine.XBE: vanilla}, params)
         built = compose({"default.xbe": vanilla}, [layer])[0]["default.xbe"]
+        derived = bytearray(claimed({"default.xbe": vanilla}, [layer]).get("default.xbe", vanilla))
         drift, masked = [], bytearray(built)
-        for va, site in ((int(va, 16), site) for va, site in oracle["patch_sites"].items()):
-            new = site.get("new", {})
-            try:
-                at = known.offset(va, site["size"])
-            except ValueError:   # USA's .text slack: no file bytes until a shim pack grows .text
-                assert case not in new
-                continue
-            want = new.get(case, {"sha256": site["original_sha256"]})["sha256"]
+        for va, site in ((int(va, 16), site) for va, site in oracle["patch_sites"].items() if site.get("new")):
+            s = max((s for s in known.sections if s.va <= va), key=lambda s: s.va)   # the slack is its section's
+            at, want = s.raw + va - s.va, site.get("new", {}).get(case, {"sha256": site["original_sha256"]})["sha256"]
             if _sha256(built[at:at + site["size"]]) != want:
                 drift.append(f"0x{va:08X}")
-            masked[at:at + site["size"]] = vanilla[at:at + site["size"]]
+            masked[at:at + site["size"]] = derived[at:at + site["size"]]
+        for claim in layer.claims:
+            masked[claim.offset:claim.offset + claim.size] = derived[claim.offset:claim.offset + claim.size]
         assert drift == [], case
-        assert _sha256(masked) == known.sha256, f"{case}: bytes outside its sites changed"
+        assert masked == derived, f"{case}: bytes outside its sites, claims and derived state changed"
 
 
 def _names_numbers_and_hashes(value: object, names: set[str]) -> bool:

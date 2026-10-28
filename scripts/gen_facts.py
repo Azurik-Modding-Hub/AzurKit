@@ -1,8 +1,11 @@
 """Write AzurKit's facts, ``src/azurkit/core/facts.<release>.json``, from the
 oracle (``tests/oracle/``): each release's ``default.xbe`` sha256, size and
 base, its section table, every patch site (its address, size and the sha256
-of its vanilla bytes) and, for Europe, the address map's USA -> Europe
-addresses and its named absences. Hashes, sizes and addresses only (D3).
+of its vanilla bytes), the game's functions a shim may call (each one's
+address, calling convention and argument bytes; AZ-116's three names
+corrected, as Ghidra names them since D94) and, for Europe, the address map's
+USA -> Europe addresses and its named absences. Hashes, sizes, names and
+addresses only (D3).
 
     uv run --locked python scripts/gen_facts.py [--check]
 
@@ -24,7 +27,11 @@ SOURCES = {"usa": ORACLE / "packs/tests/facts/xbe.json", "europe": ORACLE / "pac
 ADDRESS_MAP = ORACLE / "core/azurik_mod/assets/region_europe.json"
 OUT = ROOT / "src" / "azurkit" / "core"
 ABOUT = ("Written by scripts/gen_facts.py from tests/oracle/ (Modkit's facts and Europe's address map), never by "
-         "hand. Hashes, sizes and addresses only: a site's vanilla bytes are their sha256 and size.")
+         "hand. Hashes, sizes, names and addresses only: a site's vanilla bytes are their sha256 and size.")
+# AZ-116: Modkit's facts keep three names its RE refuted (D68's renames wait for parity there); Ghidra's since D94.
+# No shim calls them, so no shim object's G2 hash depends on the old names.
+RENAMED = {"player_ground_land_tick": "player_ground_attack_start", "cvar_get_double": "settings_get_double",
+           "dev_menu_flag_check": "game_start_setup"}
 
 
 def derive(release: str) -> dict:
@@ -37,6 +44,7 @@ def derive(release: str) -> dict:
         "sections": [{k: s[k] for k in ("name", "va", "vsize", "raw", "raw_size", "flags", "sha256")}
                      for s in facts["sections"]],
         "sites": {va: {"size": s["size"], "sha256": s["original_sha256"]} for va, s in facts["patch_sites"].items()},
+        "functions": {RENAMED.get(name, name): f for name, f in facts["symbols"].items()},
     }
     if release == "europe":
         amap = json.loads(ADDRESS_MAP.read_text(encoding="utf-8"))

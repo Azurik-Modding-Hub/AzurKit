@@ -12,6 +12,7 @@ uv run --locked pytest -q <files>           # targeted tests while you work
 uv run --locked pytest                      # the whole suite
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
 uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
+uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
 ```
 
 - Use `uv run --locked` for everything. Never a bare `pip`, `python` or
@@ -123,6 +124,31 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
 - **Presets** (`edits/preset.py`, `sdk.preset_encode` and `preset_decode`)
   carry a recipe as a link's `#p=` fragment: names, numbers and hashes only,
   never an image path or a byte (Q174), capped as untrusted input.
+- **Shims** (Step 4.1f1): a `TrampolinePatch` hooks a site with a CALL or
+  JMP rel32 into a C shim. A shim's source and its prebuilt object sit side
+  by side in `src/azurkit/tools/mods/shims/` (`<name>.c`, `<name>.o`), both
+  committed, so no host compiles one: neither the site nor the app needs
+  zig (AZ-045).
+  - `uv run --locked python -m shimkit` builds every object with the pinned
+    zig (`ziglang` 0.16.0, the dev group) and Modkit's flags: the same
+    bytes on any machine, whose normalized sha256 is the oracle's G2 record
+    (`tests/test_shims.py` holds both). Rebuild after editing a source;
+    `--check` writes nothing.
+  - A shim includes only `azurik_vanilla.h`, which shimkit writes from the
+    facts' functions (each one's name, convention and argument bytes) at
+    every compile; `--headers DIR` writes it out to read. The repo tracks no
+    header, so nothing vendored (GPL) reaches a shim (AZ-099, Q85).
+  - `core/coff.py` lays an object out: its sections where the carve
+    allocator (`core/xbe.py`'s `Carver`) gives room, its DIR32 and REL32
+    relocations resolved to its own symbols and the facts' functions. The
+    allocator places a shim in `.text`'s gap (USA: 16 bytes before BINK),
+    else in `SHIMS`, a section appended past the last (Europe: always),
+    past every claim of the layers before it. Each placement is a `Claim`
+    of its layer, kept in the manifest; the header state claims derive
+    (`.text`'s sizes, the appended section) is laid down by `compose`,
+    never written by a layer.
+  - Kernel imports (the thunk stubs, and the stubs that call the shared
+    `xboxkrnl_resolver`) come with Step 4.1f2's packs.
 - Describe patch bytes in prose: four or more comment lines that read as
   x86 instructions are a disassembly listing to the leak guard.
 - A port is done when its cases match the oracle: the facts site by site,

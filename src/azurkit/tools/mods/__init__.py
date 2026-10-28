@@ -9,11 +9,11 @@ from collections.abc import Mapping
 
 from azurkit.tools.mods.engine import Pack, PackError, ParametricPatch, XbrParametricEdit, plan
 from azurkit.tools.mods.packs import (air_shield_flaps, enemy_damage, fps_unlock, player_max_hp, qol_alloc_race,
-                                      qol_pickup_anims, qol_popups)
+                                      qol_pickup_anims, qol_popups, qol_skip_logo)
 
 PACKS: dict[str, Pack] = {pack.name: pack for pack in (
-    fps_unlock.PACK, qol_popups.GEM_POPUPS, qol_popups.OTHER_POPUPS, qol_pickup_anims.PACK, player_max_hp.PACK,
-    air_shield_flaps.PACK, enemy_damage.PACK, qol_alloc_race.PACK)}
+    fps_unlock.PACK, qol_popups.GEM_POPUPS, qol_popups.OTHER_POPUPS, qol_pickup_anims.PACK, qol_skip_logo.PACK,
+    player_max_hp.PACK, air_shield_flaps.PACK, enemy_damage.PACK, qol_alloc_race.PACK)}
 
 
 def normalize(packs: object) -> dict[str, dict[str, float | int]]:

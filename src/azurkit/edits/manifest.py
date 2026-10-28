@@ -5,8 +5,9 @@
 change from the input (a release's vanilla image, which the caller's gate
 stamp vouches for, D27), stacks the layers over them (:func:`layer.compose`,
 D28) and returns the image unwritten, with its manifest: the base, each
-layer and its changes, the sha256 of every file that differs from the base,
-and every conflict. Nothing is written until :func:`build` writes the whole
+layer and its changes and claims (the carve allocator's room, which a
+re-planned layer keeps clear of), the sha256 of every file that differs from
+the base, and every conflict. Nothing is written until :func:`build` writes the whole
 image (D35), never over its input (D36).
 """
 
@@ -44,7 +45,9 @@ class Manifest:
             "schema_version": SCHEMA_VERSION,
             "base": recipe["base"] | {"files": _sha256(self.release.manifest.read_bytes())},
             "layers": [r | {"changes": [{"file": c.file, "offset": c.offset, "size": len(c.after), "before": c.before,
-                                         "after": c.after.hex(), "group": c.group} for c in la.changes]}
+                                         "after": c.after.hex(), "group": c.group} for c in la.changes],
+                             "claims": [{"file": c.file, "offset": c.offset, "size": c.size, "owner": c.owner,
+                                         "writable": c.writable} for c in la.claims]}
                        for r, la in zip(recipe["layers"], self.layers)],
             "recipe_sha256": _sha256(json.dumps(recipe, sort_keys=True, separators=(",", ":")).encode()),
             "result": dict(sorted(self.result.items())),
@@ -63,7 +66,7 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     unwritten, and its manifest. ``base`` holds files already read from it
     (the rest are read here). The image's ``filelist.txt`` is derived state
     (:func:`iso.read`), in the result when it differs."""
-    names = sorted({c.file for la in layers for c in la.changes})
+    names = sorted({c.file for la in layers for c in (*la.changes, *la.claims)})
     base = dict(base or {})
     with iso.Reader(stamp.path) as r:
         base |= {name: r.read(name) for name in names if name not in base}

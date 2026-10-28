@@ -9,6 +9,13 @@ group is dropped whole, each of its other bytes back to vanilla unless another
 group wrote the same value there, so a site never lands half, and a
 :class:`Conflict` names both layers and the dropped group. A later layer that
 writes the value a byte already holds overwrites nothing.
+
+A layer's :class:`Claim` s are the room the carve allocator gave it in a
+file (``core.xbe.Carver``: a shim's bytes, which its changes then write);
+the manifest keeps them, and no two layers' claims meet. The header state
+they derive (``.text``'s sizes, an appended section: ``core.xbe.grown``) is
+laid down first, never written by a layer, so a layer's changes are planned
+against the vanilla file with it.
 """
 
 from __future__ import annotations
@@ -16,6 +23,10 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+
+from azurkit.core import xbe
+
+DERIVED = {"default.xbe": xbe.grown}   # a file a layer may claim room in -> its derived header state
 
 
 @dataclass(frozen=True)
@@ -28,12 +39,22 @@ class Change:
 
 
 @dataclass(frozen=True)
+class Claim:
+    file: str
+    offset: int
+    size: int
+    owner: str      # e.g. "shim:qol_skip_logo"
+    writable: bool = False
+
+
+@dataclass(frozen=True)
 class Layer:
     id: str         # e.g. "pack fps_unlock"
     tool: str       # e.g. "mods"
     kind: str       # e.g. "packs"
     recipe: Mapping   # what the tool planned it from (JSON)
     changes: tuple[Change, ...]
+    claims: tuple[Claim, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -51,11 +72,29 @@ class Conflict:
                 f"{self.overwrote}, whose group {self.dropped} is dropped whole")
 
 
+def claimed(base: Mapping[str, bytes], layers: Sequence[Layer]) -> dict[str, bytes]:
+    """Each file the layers claim room in, its derived header state laid
+    over ``base``; ``ValueError`` names two layers' claims that meet, or a
+    claim in a file nothing derives."""
+    out = {}
+    for file in sorted({c.file for la in layers for c in la.claims}):
+        if file not in DERIVED or file not in base:
+            raise ValueError(f"a claim in {file}, where nothing is carved")
+        claims = sorted((c for la in layers for c in la.claims if c.file == file), key=lambda c: c.offset)
+        for a, b in zip(claims, claims[1:]):
+            if b.offset < a.offset + a.size:
+                raise ValueError(f"{file}: {b.owner}'s claim at 0x{b.offset:X} meets {a.owner}'s at 0x{a.offset:X}")
+        out[file] = DERIVED[file](base[file], [(c.offset, c.size, c.writable) for c in claims])
+    return out
+
+
 def compose(base: Mapping[str, bytes], layers: Sequence[Layer]) -> tuple[dict[str, bytearray], list[Conflict]]:
-    """Each file a change names, as ``layers`` leave it over ``base`` (its
-    vanilla bytes), and every conflict. ``ValueError`` names a change
+    """Each file a change or claim names, as ``layers`` leave it over
+    ``base`` (its vanilla bytes) with the claims' derived state
+    (:func:`claimed`), and every conflict. ``ValueError`` names a change
     outside its file or planned against other bytes (D35)."""
-    files: dict[str, bytearray] = {}
+    base = {**base, **claimed(base, layers)}
+    files: dict[str, bytearray] = {file: bytearray(base[file]) for file in {c.file for la in layers for c in la.claims}}
     writers: dict[tuple[str, int], list[tuple[int, str]]] = {}   # a byte -> the groups holding its value
     members: dict[tuple[int, str], list[Change]] = {}
     conflicts: list[Conflict] = []

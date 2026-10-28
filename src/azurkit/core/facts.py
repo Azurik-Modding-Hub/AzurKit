@@ -1,7 +1,9 @@
 """The facts about each release's vanilla ``default.xbe``: its sha256 and
 size, its section table (:mod:`azurkit.core.xbe`), every patch site a pack
 writes as the sha256 and size of its vanilla bytes (never the bytes, D3),
-and Europe's address map: each USA address the packs name, at its Europe
+the game's functions a shim may call (:class:`Function`: the one source of
+their names, addresses and ABIs, from which ``shimkit`` writes the header a
+shim includes, AZ-099), and Europe's address map: each USA address the packs name, at its Europe
 address, or why it has none. USA's addresses are the canonical ones, by
 which every pack names its sites.
 
@@ -15,7 +17,7 @@ from __future__ import annotations
 import functools
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from azurkit.core import xbe
@@ -30,6 +32,23 @@ class Site:
 
 
 @dataclass(frozen=True)
+class Function:
+    """A game function a shim may call, at the release's own address."""
+    name: str
+    va: int
+    convention: str     # cdecl, stdcall, fastcall or thiscall
+    arg_bytes: int      # what it pops (thiscall: past ECX's this); fastcall: its @N, ECX's and EDX's 8 too
+    undecorated: bool = False   # stdcall named without its @N (MSVC's 64-bit helpers, _allmul ...)
+
+    @property
+    def mangled(self) -> str:
+        """Its name in an object's symbol table, as clang mangles C for i386 Windows."""
+        if self.convention == "stdcall" and not self.undecorated:
+            return f"_{self.name}@{self.arg_bytes}"
+        return f"@{self.name}@{self.arg_bytes}" if self.convention == "fastcall" else f"_{self.name}"
+
+
+@dataclass(frozen=True)
 class Facts:
     release: Release
     sha256: str                        # the vanilla default.xbe's
@@ -38,6 +57,7 @@ class Facts:
     sites: Mapping[int, Site]          # by the release's own address
     addresses: Mapping[int, int] | None   # USA address -> this release's; None: USA's own
     absent: Mapping[int, str]          # USA address -> why this release has none
+    functions: Mapping[str, Function] = field(default_factory=dict)   # by name
 
     def va(self, usa_va: int) -> int:
         """``usa_va``'s address in this release; ``LookupError`` says why
@@ -61,6 +81,10 @@ class Facts:
         """The file offset of ``size`` bytes at this release's ``va``."""
         return xbe.offset(self.sections, va, size)
 
+    def mangled(self) -> dict[str, int]:
+        """Each function's address by its mangled name (``coff.layout``'s ``vanilla``)."""
+        return {f.mangled: f.va for f in self.functions.values()}
+
 
 def path(release: Release) -> Path:
     return Path(__file__).with_name(f"facts.{release.name}.json")
@@ -77,4 +101,6 @@ def of(release: Release) -> Facts:
               for s in raw["sections"]),
         {va: Site(va, s["size"], s["sha256"]) for va, s in hexed(raw["sites"]).items()},
         {va: int(to, 16) for va, to in hexed(raw["addresses"]).items()} if "addresses" in raw else None,
-        hexed(raw.get("absent", {})))
+        hexed(raw.get("absent", {})),
+        {name: Function(name, int(f["va"], 16), f["convention"], f["arg_bytes"], f.get("undecorated", False))
+         for name, f in raw["functions"].items()})
