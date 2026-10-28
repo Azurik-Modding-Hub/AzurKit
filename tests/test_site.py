@@ -6,8 +6,8 @@ Pyodide 314 in a module worker, unpacked without its dependencies (WEB §3,
 golden on both releases, and the page's build is CPython's: the same report,
 and the same segments, so the Blob it saves is the image ``sdk.image`` makes;
 so is a build with a slider set on the page (Step 4.1e1), whose track holds
-its vanilla value and widens, never clamps; the saved file of all five
-packs is that image, byte for byte. Under the
+its vanilla value and widens, never clamps, and one of config.xbr's cells
+(Step 4.1e2); the saved file of every pack is that image, byte for byte. Under the
 page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a
 GET of one of the site's own files: the image never leaves the page. The
 page is driven as ``tests/_page.py`` says."""
@@ -25,7 +25,7 @@ from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from scripts import web_tools
-from tests import _page
+from tests import _g1, _page
 
 ORIGIN = "https://azurkit.test"
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
@@ -89,32 +89,37 @@ def _signature(made: iso.Image) -> list[list]:
             else ["bytes", p.size, hashlib.sha256(p.data).hexdigest()] for p in made.segments()]
 
 
+SLID = "enemy_damage:enemy_damage_neutral=2,enemy_damage_weakness=0.5,enemy_damage_immune=-1"   # a G1 slider case
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser, site, request):
-    """One page per pack, and one with fps_unlock's slider typed to 120
-    FPS, built at once: each page's report and segments are CPython's for
-    the values it sent, and the packs at their defaults hold the G1
-    golden's files (and only ``filelist.txt`` besides). The slider's track
-    holds its default and vanilla value, and a value typed past its hints
-    widens it (D23, D42). No CSP violation, no request but GETs of the
-    site's files."""
+    """One page per pack, one with fps_unlock's slider typed to 120 FPS
+    and one with enemy_damage's sliders at a G1 case's values (config.xbr's
+    cells), built at once: each page's report and segments are CPython's
+    for the values it sent, and the packs at their defaults and the slider
+    case hold their G1 golden's files (and only ``filelist.txt`` besides).
+    The slider's track holds its default and vanilla value, and a value
+    typed past its hints widens it (D23, D42). No CSP violation, no request
+    but GETs of the site's files."""
     path = request.getfixturevalue(f"{release.name}_iso")
-    golden = _page.golden(release)
-    cases = [(name, {}) for name in mods.PACKS] + [("fps_unlock", {"target_fps": "120"})]
+    golden = _g1.cases(release)
+    cases = ([(name, {}, name) for name in mods.PACKS] + [("fps_unlock", {"target_fps": "120"}, None)]
+             + [("enemy_damage", {k: str(v) for k, v in golden[SLID].params.items()}, SLID)])
     served = Site(browser, site)
     try:
         pages = [served.open() for _ in cases]
-        assert _page.slide(pages[-1], "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
-        assert _page.slide(pages[-1], "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
-        for (name, values), page in zip(cases, pages):
+        assert _page.slide(pages[-2], "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
+        assert _page.slide(pages[-2], "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
+        for (name, values, _), page in zip(cases, pages):
             page.set_input_files("#iso", str(path))
             _page.build(page, [name], {name: values})
-        for (name, values), page in zip(cases, pages):
+        for (name, values, case), page in zip(cases, pages):
             built, sent = _built(page), page.evaluate("() => azurkit.sent")
             assert sent == {name: {s.name: float(values.get(s.name, s.default)) for s in mods.PACKS[name].sliders()}}
             made, report = sdk.image({"iso": str(path), "packs": sent})
-            if not values:
-                _page.check_g1(built["report"]["result"], golden, name)
+            if case:
+                _g1.check(built["report"]["result"], golden[case], case)
             assert (built["report"], built["segments"]) == (report, _signature(made)), (name, values)
             _page.check_csp(page)
         assert served.stray() == []
@@ -123,7 +128,7 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
 
 
 def test_the_saved_file_is_the_image_cpython_builds(browser, site, usa_iso):
-    """All five packs on the USA image: Save downloads ``<stem> (AzurKit).iso``,
+    """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe."""
     served = Site(browser, site)
     try:

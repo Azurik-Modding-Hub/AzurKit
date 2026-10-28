@@ -14,12 +14,16 @@ number (D23), its track's ends display hints only; a slider at a site writes
 its value there, a virtual one hands it to the pack's ``custom_apply``.
 :meth:`Pack.values` takes a pack's parameters or names each it refuses.
 
+A slider over config.xbr (:class:`XbrParametricEdit`) writes keyed cells
+there (``core.xbr``): its value into one number cell, or as a multiplier of
+the cells its pack picks from the vanilla tables.
+
 A pack writes its sites in order, or its ``custom_apply(xbe, **values)``
 writes through the :class:`Xbe` it is given, only inside the ``footprint``
 it declares (AZ-097). :func:`plan` makes a pack's layer (one group per
-site), planned against the release's vanilla XBE, or raises
+site or cell), planned against the release's vanilla files, or raises
 :class:`PackError` naming every site that failed and why: by its label and
-address, never its bytes (D35).
+address or cell, never its bytes (D35).
 """
 
 from __future__ import annotations
@@ -28,14 +32,19 @@ import hashlib
 import inspect
 import math
 import struct
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from typing import Literal
 
 from azurkit.core import facts as facts_
 from azurkit.core.gate import Release
+from azurkit.core.xbr import Document, edits
+from azurkit.core.xbr.keyed import Table
 from azurkit.edits.layer import Change, Layer
 
 XBE = "default.xbe"
+CONFIG = "gamedata/config.xbr"
+INT32 = (-2**31, 2**31 - 1)
 
 
 class PackError(ValueError):
@@ -92,17 +101,12 @@ def from_f32(data: bytes) -> float:
 
 
 @dataclass(frozen=True, kw_only=True)
-class ParametricPatch(Place):
-    """A slider: the pack's parameter :attr:`name`, any finite number (D23).
+class Slider:
+    """A pack's parameter :attr:`name`: any finite number (D23).
     ``slider_min`` and ``slider_max`` are its track's ends, display hints
     that never clamp, and the track holds :attr:`default` and the vanilla
-    value (D42). One at a site (:attr:`va` not 0) writes ``encode(value)``
-    there, the facts' site's size, and its vanilla value is the image's own
-    (``decode``, read there: Q174); a virtual one (:attr:`va` 0) hands its
-    value to the pack's ``custom_apply`` and names :attr:`vanilla`.
-    :attr:`whole` takes only whole numbers in that range, its encoding's
-    limit (D45, named by :attr:`why`), never a cap."""
-    va: int = 0
+    value (D42). :attr:`whole` takes only whole numbers in that range, its
+    encoding's limit (D45, named by :attr:`why`), never a cap."""
     name: str
     label: str
     default: float
@@ -114,26 +118,14 @@ class ParametricPatch(Place):
     vanilla: float | None = None
     whole: tuple[int, int] | None = None
     why: str = ""
-    encode: Callable[[float], bytes] = f32
-    decode: Callable[[bytes], float] = from_f32
-
-    @property
-    def virtual(self) -> bool:
-        return self.va == 0
 
     def value(self, given: object) -> float | int:
         """``given`` as this slider takes it; ``ValueError`` (naming the
         slider) for anything but a finite number, or, for a :attr:`whole`
         one, a whole number its encoding holds. Never clamped."""
-        try:
-            finite = not isinstance(given, bool) and isinstance(given, (int, float)) and math.isfinite(given)
-        except OverflowError:   # an int past a double's range
-            finite = False
-        if not finite:
-            shown = repr(given)
-            raise ValueError(f"{self.name}: {shown if len(shown) <= 40 else shown[:37] + '...'} is not a finite number")
+        value = edits.finite(given, self.name)
         if self.whole is None:
-            return float(given)
+            return value
         low, high = self.whole
         if given != int(given) or not low <= given <= high:
             raise ValueError(f"{self.name}: {given:g} is not a whole number from {low} to {high} ({self.why})")
@@ -146,11 +138,91 @@ class ParametricPatch(Place):
                 "whole": list(self.whole) if self.whole else None}
 
 
+@dataclass(frozen=True, kw_only=True)
+class ParametricPatch(Place, Slider):
+    """A slider in default.xbe. One at a site (:attr:`va` not 0) writes
+    ``encode(value)`` there, the facts' site's size, and its vanilla value
+    is the image's own (``decode``, read there: Q174); a virtual one
+    (:attr:`va` 0) hands its value to the pack's ``custom_apply`` and names
+    :attr:`vanilla`."""
+    va: int = 0
+    encode: Callable[[float], bytes] = f32
+    decode: Callable[[bytes], float] = from_f32
+
+    @property
+    def virtual(self) -> bool:
+        return self.va == 0
+
+
+_TO_INT32 = {"round": round, "trunc": math.trunc}   # an x87 FISTP rounds half to even; 0xF5A40 truncates
+
+
+@dataclass(frozen=True, kw_only=True)
+class XbrParametricEdit(Slider):
+    """A slider in config.xbr's keyed table :attr:`table` (``core.xbr``).
+    Without :attr:`cells` its value goes into the number cell
+    :attr:`entity`/:attr:`prop`. With them it is a multiplier k: each cell
+    ``cells(tables)`` picks from the vanilla tables, ``(entity, column,
+    prop, base)``, becomes k x base (an empty one filled), and at its
+    default it writes nothing; :attr:`entity` and :attr:`prop` then only
+    say what the cells are. Where the game reads the cell as an int32
+    (:attr:`int32`: it rounds or truncates), a value it can't hold is
+    refused, by the slider or by the cell (D45), and a multiplied cell is
+    written as the game keeps it. The vanilla value is the default, which
+    writes what vanilla holds (``tests/test_packs.py`` reads it from the
+    image)."""
+    table: str
+    entity: str
+    prop: str
+    file: str = CONFIG
+    int32: Literal["round", "trunc"] | None = None
+    cells: Callable[[Mapping[str, Table]], Iterable[tuple[str, int, str, float]]] | None = None
+
+    virtual = False   # its pack writes it; a custom_apply never takes it
+
+    def _int32(self, value: float, what: str) -> int:
+        whole = _TO_INT32[self.int32](value)
+        if not INT32[0] <= whole <= INT32[1]:
+            raise ValueError(f"{what}: {value:g} doesn't fit the game's 32-bit integer once "
+                             f"{'rounded' if self.int32 == 'round' else 'truncated'} ({INT32[0]}..{INT32[1]})")
+        return whole
+
+    def value(self, given: object) -> float:
+        value = super().value(given)
+        if self.int32 is not None and self.cells is None:
+            self._int32(value, self.name)
+        return value
+
+    def catalog(self) -> dict:
+        return super().catalog() | {"vanilla": self.default}
+
+    def writes(self, tables: Mapping[str, Table], value: float) -> list[tuple[str, int, bytes]]:
+        """Each cell the slider at ``value`` writes, ``(table/entity/prop,
+        file offset, bytes)``; ``LookupError`` or ``ValueError`` names a
+        cell it can't write and why."""
+        if (table := tables.get(self.table)) is None:
+            raise LookupError(f"{self.file} has no keyed table {self.table!r}")
+        if self.cells is None:
+            picked = [(self.entity, table.column(self.entity), self.prop, value)]
+        elif value == self.default:
+            return []
+        else:
+            picked = []
+            for entity, col, prop, base in self.cells(tables):
+                written = value * base
+                if self.int32 is not None:
+                    written = float(self._int32(written, f"{self.table} {entity}/{prop}"))
+                picked.append((entity, col, prop, written))
+        return [(f"{self.table}/{entity}/{prop}" + (f" (column {col})" if table.cols.count(entity) > 1 else ""),
+                 at, data) for entity, col, prop, written in picked
+                for at, data in edits.set_number(table, entity, prop, written, col=col, fill=self.cells is not None)]
+
+
 @dataclass(frozen=True)
 class Pack:
     name: str
     description: str
-    sites: tuple[PatchSpec | ParametricPatch, ...] = ()
+    sites: tuple[PatchSpec | ParametricPatch | XbrParametricEdit, ...] = ()
     custom_apply: Callable[..., None] | None = None   # (xbe: Xbe, **values); it writes only by Xbe.patch
     footprint: tuple[Place, ...] = ()                   # every place custom_apply may write
     default_on: bool = False                            # every build applies it unless told not to (D528)
@@ -164,8 +236,13 @@ class Pack:
             if takes != [s.name for s in self.sliders()] or not all(s.virtual for s in self.sliders()):
                 raise TypeError(f"pack {self.name!r}: custom_apply takes {takes}, not its sliders, all virtual")
 
-    def sliders(self) -> tuple[ParametricPatch, ...]:
-        return tuple(s for s in self.sites if isinstance(s, ParametricPatch))
+    def sliders(self) -> tuple[ParametricPatch | XbrParametricEdit, ...]:
+        return tuple(s for s in self.sites if isinstance(s, Slider))
+
+    def files(self) -> tuple[str, ...]:
+        """The image's files the pack writes (and reads to plan)."""
+        xbe = self.custom_apply is not None or any(not isinstance(s, XbrParametricEdit) for s in self.sites)
+        return tuple(dict.fromkeys([XBE] * xbe + [s.file for s in self.sites if isinstance(s, XbrParametricEdit)]))
 
     def values(self, params: Mapping[str, object]) -> dict[str, float | int]:
         """Every slider's value: ``params``' (:meth:`ParametricPatch.value`),
@@ -246,27 +323,46 @@ class Xbe:
         self.failures.append(f"{where}: {why}")
 
 
-def plan(pack: Pack, release: Release, vanilla: bytes, params: Mapping[str, object] | None = None) -> Layer:
-    """``pack``'s layer on ``release``, planned against its vanilla
-    ``default.xbe`` (``vanilla``) with ``params``; :class:`PackError` names
-    each reason it can't be (D35)."""
+def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mapping[str, object] | None = None
+         ) -> Layer:
+    """``pack``'s layer on ``release``, planned against its vanilla files
+    (``base``: each of :meth:`Pack.files`, by its path in the image) with
+    ``params``; :class:`PackError` names each reason it can't be (D35)."""
     params = dict(params or {})
     if release.name not in pack.releases:
         raise PackError(f"pack {pack.name!r} is not available on the {release.label} release "
                         f"(it supports {', '.join(pack.releases)})")
     values = pack.values(params)
-    facts = facts_.of(release)
-    if len(vanilla) != facts.size or hashlib.sha256(vanilla).hexdigest() != facts.sha256:
-        raise PackError(f"pack {pack.name!r}: default.xbe {digest(vanilla)} is not the vanilla {release.label} one")
-    xbe = Xbe(facts, vanilla, pack)
-    if pack.custom_apply is None:
-        for spec in pack.sites:
-            xbe.patch(spec, values.get(spec.name) if isinstance(spec, ParametricPatch) else None)
-    else:
-        try:
-            pack.custom_apply(xbe, **values)
-        except (LookupError, ValueError) as exc:
-            raise PackError(f"pack {pack.name!r}: {exc}") from None
-    if xbe.failures:
-        raise PackError(f"pack {pack.name!r}: {len(xbe.failures)} site(s) failed: " + "; ".join(xbe.failures))
-    return Layer(f"pack {pack.name}", "mods", "packs", {"pack": pack.name, "params": params}, tuple(xbe.changes))
+    for name in pack.files():
+        data = base[name]
+        size, sha256 = (facts_.of(release).size, facts_.of(release).sha256) if name == XBE else release.files[name]
+        if len(data) != size or hashlib.sha256(data).hexdigest() != sha256:
+            raise PackError(f"pack {pack.name!r}: {name} {digest(data)} is not the vanilla {release.label} one")
+    changes, failures = [], []
+    if XBE in pack.files():
+        xbe = Xbe(facts_.of(release), base[XBE], pack)
+        if pack.custom_apply is None:
+            for spec in pack.sites:
+                if not isinstance(spec, XbrParametricEdit):
+                    xbe.patch(spec, values.get(spec.name) if isinstance(spec, ParametricPatch) else None)
+        else:
+            try:
+                pack.custom_apply(xbe, **values)
+            except (LookupError, ValueError) as exc:
+                raise PackError(f"pack {pack.name!r}: {exc}") from None
+        changes, failures = xbe.changes, xbe.failures
+    documents: dict[str, Document] = {}
+    for spec in pack.sites:
+        if isinstance(spec, XbrParametricEdit):
+            data = base[spec.file]
+            try:
+                if spec.file not in documents:
+                    documents[spec.file] = Document(data)
+                for what, at, after in spec.writes(documents[spec.file].tables, values[spec.name]):
+                    before = hashlib.sha256(data[at:at + len(after)]).hexdigest()
+                    changes.append(Change(spec.file, at, before, after, f"{pack.name} {what}"))
+            except (LookupError, ValueError) as exc:
+                failures.append(f"{spec.label}: {exc}")
+    if failures:
+        raise PackError(f"pack {pack.name!r}: {len(failures)} site(s) failed: " + "; ".join(failures))
+    return Layer(f"pack {pack.name}", "mods", "packs", {"pack": pack.name, "params": params}, tuple(changes))

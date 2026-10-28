@@ -102,16 +102,31 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   (D42). Only an encoding's limit refuses a value (`whole`, D45).
   - A slider at a site writes `encode(value)` there. A virtual one hands its
     value to `custom_apply`, which takes exactly the pack's sliders.
+  - A config.xbr slider (`XbrParametricEdit`) writes a keyed cell: its
+    value into one number cell, or as a multiplier of the cells its pack
+    picks from the vanilla tables (nothing at its default). Where the game
+    reads the cell as an int32, a value it can't hold once rounded or
+    truncated is refused (D45). Its default writes what vanilla holds, so it
+    is the vanilla value the page shows.
   - `mods.normalize` is every host's one check of a recipe's packs. Unknown
     packs and sliders, NaN and inf are refused by name. A value equal to its
     default is dropped.
+- **XBR** (`core/xbr/`): `Document` parses an archive's header, TOC and
+  trailer, and config.xbr's keyed tables (`keyed.py`), and `dumps()` writes
+  them back (every vanilla XBR round-trips, `tests/test_xbr.py`). An edit
+  (`edits.py`) is the writes `[(offset, bytes)]` that make it, planned
+  against the file as parsed; every cell is 16 bytes, so nothing grows.
+  The keyed cells are written new from the format, never from the code
+  NOTICE.md credits (AZ-212, D95).
 - **Presets** (`edits/preset.py`, `sdk.preset_encode` and `preset_decode`)
   carry a recipe as a link's `#p=` fragment: names, numbers and hashes only,
   never an image path or a byte (Q174), capped as untrusted input.
 - Describe patch bytes in prose: four or more comment lines that read as
   x86 instructions are a disassembly listing to the leak guard.
 - A port is done when its cases match the oracle: the facts site by site,
-  then G1 per file on both releases (`tests/test_packs.py`).
+  then G1 per file on both releases (`tests/test_packs.py`; `tests/_g1.py`
+  reads G1, whose Europe half has no case for a config.xbr-only pack: the
+  file is the same in both releases, so its USA cases stand for it).
 
 ## The engine's contracts
 

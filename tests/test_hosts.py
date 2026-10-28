@@ -35,7 +35,7 @@ from azurkit import app, cli, sdk
 from azurkit.core import gate
 from azurkit.tools import mods
 from scripts import freeze
-from tests import _page
+from tests import _g1, _page
 from tests._xiso import fill, image
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -221,7 +221,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     with the app's engine, here driven in headless Chromium and in WebKit
     (the macOS window's engine): each ported
     pack builds its G1 case on both releases with CPython's report, and Save
-    (offered in the Downloads folder) writes the USA build of all five packs
+    (offered in the Downloads folder) writes the USA build of every pack
     where the page names, CPython's image byte for byte, but never over a
     file that is there. The next
     launch starts from the image the last build read (remembered in
@@ -241,12 +241,12 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
             _page.until(page, "() => globalThis.azurkit?.ready", 60)
             assert page.evaluate("() => [azurkit.app, azurkit.dialogs]") == [True, False]
             for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
-                cases = _page.golden(release)
+                cases = _g1.cases(release)
                 _page.fill(page, "iso-path", str(path))
                 for name in mods.PACKS:
                     _page.build(page, [name])
                     report = _page.built(page)
-                    _page.check_g1(report["result"], cases, name)
+                    _g1.check(report["result"], cases[name], name)
                     assert report == sdk.image({"iso": str(path), "packs": {name: {}}})[1], name
             _page.fill(page, "iso-path", str(usa_iso))
             _page.build(page, list(mods.PACKS))

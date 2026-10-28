@@ -9,27 +9,7 @@ handlers) and poll with ``page.evaluate``."""
 
 from __future__ import annotations
 
-import json
 import time
-
-from azurkit.core import gate
-from scripts import gen_facts
-
-GOLDENS = {"usa": "tests/goldens/packs.json", "europe": "tests/goldens/europe/packs.json"}
-
-
-def golden(release: gate.Release) -> dict[str, dict[str, str]]:
-    """The release's G1 cases: each pack's files and their sha256."""
-    return json.loads((gen_facts.ORACLE / "packs" / GOLDENS[release.name]).read_text(encoding="utf-8"))
-
-
-def check_g1(result: dict[str, str], cases: dict[str, dict[str, str]], pack: str) -> None:
-    """A build of ``pack`` alone (its ``result``: each file it changed and
-    its sha256) holds the pack's G1 files (``cases``: :func:`golden`) and no
-    other file but ``filelist.txt``."""
-    assert {file: result.get(file) for file in cases[pack]} == cases[pack], pack
-    assert result.keys() - {"filelist.txt"} == cases[pack].keys(), pack
-
 
 def until(page, js: str, timeout: float = 600):
     """``js``'s value once it is truthy."""

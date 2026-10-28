@@ -1,5 +1,7 @@
 """The packs (Step 4.1c: fps_unlock, qol_alloc_race, qol_gem_popups,
-qol_other_popups, qol_pickup_anims) against the oracle at its packs tag.
+qol_other_popups, qol_pickup_anims; Step 4.1e2: player_max_hp,
+air_shield_flaps and enemy_damage, config.xbr's) against the oracle at its
+packs tag.
 
 The facts AzurKit ships are the oracle's, and each release's vanilla XBE has
 their section table (AZ-316). Every case the oracle's facts record for a
@@ -29,10 +31,10 @@ from azurkit.edits.layer import compose
 from azurkit.tools import mods
 from azurkit.tools.mods import engine
 from scripts import gen_facts
+from tests import _g1
 
 ORACLE = gen_facts.ORACLE / "packs"
 FACTS = {"usa": "tests/facts/xbe.json", "europe": "tests/facts/xbe.europe.json"}
-GOLDENS = {"usa": "tests/goldens/packs.json", "europe": "tests/goldens/europe/packs.json"}
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
 
@@ -66,11 +68,12 @@ def test_each_ported_case_writes_the_facts_bytes_site_by_site_and_nothing_else(r
     assert (xbe.sections(vanilla), _sha256(vanilla)) == (known.sections, known.sha256)
     oracle, recipes = _oracle(FACTS[release.name]), _oracle("cases.json")[FACTS[release.name]]
     cases = [case for case in oracle["cases"] if recipes[case]["pack"] in mods.PACKS]
-    assert {recipes[case]["pack"] for case in cases} == set(mods.PACKS) and len(cases) == 6
+    xbe_packs = {name for name, pack in mods.PACKS.items() if engine.XBE in pack.files()}
+    assert {recipes[case]["pack"] for case in cases} == xbe_packs and len(cases) == 6
     for case in cases:
         recipe = recipes[case]
         params = mods.normalize({recipe["pack"]: recipe["params"]})[recipe["pack"]]
-        layer = mods.plan(mods.PACKS[recipe["pack"]], release, vanilla, params)
+        layer = mods.plan(mods.PACKS[recipe["pack"]], release, {engine.XBE: vanilla}, params)
         built = compose({"default.xbe": vanilla}, [layer])[0]["default.xbe"]
         drift, masked = [], bytearray(built)
         for va, site in ((int(va, 16), site) for va, site in oracle["patch_sites"].items()):
@@ -101,29 +104,33 @@ def _names_numbers_and_hashes(value: object, names: set[str]) -> bool:
 
 @pytest.mark.parametrize("release", RELEASES)
 def test_each_g1_case_of_a_ported_pack_builds_its_golden_and_its_preset_carries_it_back(release, request):
-    """``sdk.image`` with each G1 case of a ported pack, its sliders at the
-    case's values: each file the golden records reads back from the image
+    """``sdk.image`` with each G1 case of a ported pack (``tests/_g1.py``:
+    Europe's config.xbr packs take their USA cases), its sliders at the
+    case's values: each file the case changes reads back from the image
     with its sha256, and no other file differs from vanilla but
-    ``filelist.txt`` (derived state). The case's preset (with the build's
-    report) decodes to its normalized recipe, the release and the result,
-    and holds only names, numbers and hashes: no image path, no game byte."""
+    ``filelist.txt`` (derived state). A config.xbr slider's vanilla value
+    is its default: its pack's default case changes no XBR. The case's
+    preset (with the build's report) decodes to its normalized recipe, the
+    release and the result, and holds only names, numbers and hashes: no
+    image path, no game byte."""
     path = request.getfixturevalue(f"{release.name}_iso")
-    golden, recipes = _oracle(GOLDENS[release.name]), _oracle("cases.json")[GOLDENS[release.name]]
-    cases = {case: recipes[case] for case in golden if recipes[case]["pack"] in mods.PACKS}
-    assert {recipe["pack"] for recipe in cases.values()} == set(mods.PACKS)
+    cases = _g1.cases(release)
+    assert {case.pack for case in cases.values()} == set(mods.PACKS)
     names = {*preset.KEYS, *preset.LAYER_KEYS, "kind", "release", "iso_sha256", preset.FORMAT, __version__, "mods",
              "packs", "vanilla", release.name, *mods.PACKS, *(s.name for p in mods.PACKS.values() for s in p.sliders())}
-    for case, recipe in cases.items():
-        packs = {recipe["pack"]: recipe["params"]}
+    for name, case in cases.items():
+        packs = {case.pack: case.params}
         made, report = sdk.image({"iso": str(path), "packs": packs})
         with iso.Reader(made) as r:
-            assert {file: _sha256(r.read(file)) for file in golden[case]} == golden[case], case
-        assert report["result"].keys() - {"filelist.txt"} == golden[case].keys(), case
-        assert [layer["id"] for layer in report["layers"]] == [f"pack {recipe['pack']}"] and report["conflicts"] == []
+            assert {file: _sha256(r.read(file)) for file in case.files} == case.files, name
+        _g1.check(report["result"], case, name)
+        assert [layer["id"] for layer in report["layers"]] == [f"pack {case.pack}"] and report["conflicts"] == []
         shared = sdk.preset_decode(sdk.preset_encode({"iso": str(path), "packs": packs}, report))
         assert (shared["base"]["release"], shared["layers"][0]["recipe"], shared["result"]) == (
-            release.name, mods.normalize(packs), report["result"]), case
-        assert _names_numbers_and_hashes(shared, names | report["result"].keys()), case
+            release.name, mods.normalize(packs), report["result"]), name
+        assert _names_numbers_and_hashes(shared, names | report["result"].keys()), name
+    for name, pack in mods.PACKS.items():
+        assert not cases[name].files.keys() & {s.file for s in pack.sliders() if isinstance(s, mods.XbrParametricEdit)}
 
 
 def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europe_iso, tmp_path, capsys):
@@ -147,7 +154,7 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europ
     try:
         assert cli.main(["build", "--iso", str(europe_iso), "--out", str(out)]) == 0
         with iso.Reader(out) as r:
-            assert _sha256(r.read("default.xbe")) == _oracle(GOLDENS["europe"])["qol_alloc_race"]["default.xbe"]
+            assert _sha256(r.read("default.xbe")) == _g1.cases(gate.EUROPE)["qol_alloc_race"].files["default.xbe"]
     finally:
         out.unlink(missing_ok=True)
     assert capsys.readouterr().out.splitlines()[0] == "pack qol_alloc_race: 4 sites, 204 B"
@@ -186,7 +193,7 @@ def test_a_pack_that_cant_apply_names_each_site_and_why_never_its_bytes(monkeypa
 
     def refused(pack, release=gate.USA, xbe_bytes=vanilla, **params) -> str:
         with pytest.raises(mods.PackError) as caught:
-            engine.plan(pack, release, xbe_bytes, params)
+            engine.plan(pack, release, {engine.XBE: xbe_bytes}, params)
         assert held.hex() not in str(caught.value) and repr(held) not in str(caught.value)
         return str(caught.value)
 
@@ -212,7 +219,7 @@ def test_a_pack_that_cant_apply_names_each_site_and_why_never_its_bytes(monkeypa
         "pack 'c' is not available on the Europe release (it supports usa)")
     assert refused(custom, xbe_bytes=vanilla[::-1]) == (
         f"pack 'c': default.xbe <256 B, sha256 {_sha256(vanilla[::-1])[:12]}> is not the vanilla USA one")
-    layer = engine.plan(engine.Pack("q", "", sites=(site(0x1010, b"ok!!", "fine"),)), gate.USA, vanilla)
+    layer = engine.plan(engine.Pack("q", "", sites=(site(0x1010, b"ok!!", "fine"),)), gate.USA, {engine.XBE: vanilla})
     assert [(c.offset, c.after, c.group) for c in layer.changes] == [(0x10, b"ok!!", "q 0x00001010 (fine)")]
 
 
@@ -226,17 +233,18 @@ def test_a_slider_writes_any_finite_value_at_its_site_and_a_virtual_one_reaches_
     exactly its pack's sliders is refused when the pack is made."""
     _synthetic(monkeypatch)
     pack = engine.Pack("s", "", sites=(_slider("speed", 0x1010),))
-    written = {value: engine.plan(pack, gate.USA, VANILLA, {} if value is None else {"speed": value}).changes[0].after
+    written = {value: engine.plan(pack, gate.USA, {engine.XBE: VANILLA}, {} if value is None else {"speed": value})
+               .changes[0].after
                for value in (None, 1e30, -7.5, 1e39, -1e39)}
     assert written == {None: struct.pack("<f", 1.0), 1e30: struct.pack("<f", 1e30), -7.5: struct.pack("<f", -7.5),
                        1e39: struct.pack("<f", math.inf), -1e39: struct.pack("<f", -math.inf)}
     for bad in (math.nan, math.inf, "2", True, None):
         with pytest.raises(mods.PackError, match=re.escape(f"pack 's': speed: {bad!r} is not a finite number")):
-            engine.plan(pack, gate.USA, VANILLA, {"speed": bad})
+            engine.plan(pack, gate.USA, {engine.XBE: VANILLA}, {"speed": bad})
     got = []
     whole = engine.Pack("w", "", sites=(_slider("count", whole=(0, 9), why="a digit"),),
                         custom_apply=lambda xbe_view, count: got.append(count))
-    assert engine.plan(whole, gate.USA, VANILLA, {"count": 7.0}).changes == () and got == [7]
+    assert engine.plan(whole, gate.USA, {engine.XBE: VANILLA}, {"count": 7.0}).changes == () and got == [7]
     assert type(got[0]) is int
     with pytest.raises(TypeError, match="custom_apply takes"):
         engine.Pack("x", "", sites=(_slider("speed", 0x1010),), custom_apply=lambda xbe_view, speed: None)
@@ -249,8 +257,10 @@ def test_normalize_names_every_unknown_pack_parameter_and_refused_value_and_neve
     encoding holds kept, far past the track's hints (D23), and in one
     message every pack no pack has, every parameter a pack doesn't take and
     every value that is no finite number, or for a whole slider no whole
-    number its encoding holds (D45), each by name. Every slider's track
-    holds its default and its vanilla value (D42)."""
+    number its encoding holds (D45), each by name; a config.xbr cell the
+    game reads as an int32 takes a fraction, but no value that int32 can't
+    hold once rounded or truncated as the game does (D45). Every slider's
+    track holds its default and its vanilla value (D42)."""
     assert list(mods.normalize({"qol_alloc_race": {}, "fps_unlock": {"target_fps": 60.0}})) == [
         "fps_unlock", "qol_alloc_race"]
     assert mods.normalize({"fps_unlock": {"target_fps": 60.0}}) == {"fps_unlock": {}}
@@ -269,8 +279,18 @@ def test_normalize_names_every_unknown_pack_parameter_and_refused_value_and_neve
         f"recipe: no pack 'nope' (the packs: {', '.join(mods.PACKS)}); pack 'fps_unlock': no parameter 'speed'; "
         "target_fps: inf is not a finite number (its parameters: target_fps); "
         "pack 'qol_gem_popups': no parameter 'x' (its parameters: none)")
+    hp = "starting_hp: {} doesn't fit the game's 32-bit integer once rounded (-2147483648..2147483647)"
+    for given, why in ((2147483647.5, hp.format("2.14748e+09")), (-1e30, hp.format("-1e+30"))):
+        with pytest.raises(ValueError, match=re.escape(f"pack 'player_max_hp': {why} (its parameters")):
+            mods.normalize({"player_max_hp": {"starting_hp": given}})
+    assert mods.normalize({"player_max_hp": {"starting_hp": -2147483648.4, "health_bar_full_scale": 1e300},
+                           "air_shield_flaps": {"air_shield_1_flaps": 2.7}}) == {
+        "player_max_hp": {"starting_hp": -2147483648.4, "health_bar_full_scale": 1e300},
+        "air_shield_flaps": {"air_shield_1_flaps": 2.7}}
     for pack in mods.PACKS.values():
         for s in pack.sliders():
-            held = [s.default] + ([s.vanilla] if s.vanilla is not None else [])
+            vanilla = s.catalog()["vanilla"]
+            held = [s.default] + ([vanilla] if vanilla is not None else [])
             assert all(s.slider_min <= v <= s.slider_max for v in held), (pack.name, s.name)
-            assert s.virtual == (s.vanilla is not None), (pack.name, s.name)   # a site's vanilla is the image's
+            assert (vanilla is None) == (isinstance(s, engine.ParametricPatch) and not s.virtual), (
+                pack.name, s.name)   # an XBE site's vanilla is the image's

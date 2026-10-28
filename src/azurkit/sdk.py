@@ -39,7 +39,7 @@ def catalog() -> dict:
     starts with it (D528), the releases it supports and its sliders, in the
     canonical order. A slider: its name, label, default, track (``min``,
     ``max`` and ``step``, display hints only), unit, description, vanilla
-    value (``None`` where the image holds it) and ``whole`` (the range of
+    value (``None`` where the image's XBE holds it) and ``whole`` (the range of
     whole numbers it takes, its encoding's, or ``None``)."""
     return {"packs": [{"name": p.name, "description": p.description, "category": p.category,
                        "default_on": p.default_on, "releases": list(p.releases),
@@ -69,15 +69,15 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer]]:
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
     stamp = gate.verify(recipe["iso"], whole=False)
+    chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
     with iso.Reader(stamp.path) as r:
-        base = {mods.engine.XBE: r.read(mods.engine.XBE)}
+        base = {file: r.read(file) for file in dict.fromkeys(f for pack in chosen.values() for f in pack.files())}
     layers, failed = [], []
-    for name, pack in mods.PACKS.items():
-        if name in packs:
-            try:
-                layers.append(mods.plan(pack, stamp.release, base[mods.engine.XBE], packs[name]))
-            except mods.PackError as exc:
-                failed.append(str(exc))
+    for name, pack in chosen.items():
+        try:
+            layers.append(mods.plan(pack, stamp.release, base, packs[name]))
+        except mods.PackError as exc:
+            failed.append(str(exc))
     if failed:
         raise ValueError("; ".join(failed))
     return stamp, base, layers

@@ -9,10 +9,13 @@ step is checked against Modkit's recorded outputs: per-file sha256s,
 copied into [`tests/oracle/`](tests/oracle/). AzurKit never imports Modkit's
 code.
 
-**Status:** AzurKit checks your image and builds it with its first five
+**Status:** AzurKit checks your image and builds it with its first eight
 packs: fps_unlock (with its frame-rate slider), qol_alloc_race (on by
-default), qol_gem_popups, qol_other_popups and qol_pickup_anims, on both
-releases, from the command line, in the web page (pick your image, choose
+default), qol_gem_popups, qol_other_popups, qol_pickup_anims, and the
+game-data packs player_max_hp (Starting HP, the health bar's scale),
+air_shield_flaps (each air shield's flaps) and enemy_damage (the damage
+enemies take), each with its sliders, on both releases, from the command
+line, in the web page (pick your image, choose
 packs and set their sliders, Build, then Save; it
 runs in your browser, and nothing is uploaded) or in the app, which shows the
 same page in its own window and writes the build where you save it. The page
