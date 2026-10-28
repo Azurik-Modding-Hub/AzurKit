@@ -163,12 +163,11 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
 
 def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch):
     """No test opens a window or a browser tab on the owner's screen (D839):
-    the run sets the no-window mode, under which ``python -m azurkit`` with
-    no arguments (the page) exits 1 within seconds, and ``app.main`` serves
-    nothing and never reaches the window or the browser."""
+    the run sets the no-window mode, under which ``app.main`` serves nothing
+    and never reaches the window or the browser (checked in-process first,
+    with all three planted to raise), and ``python -m azurkit`` with no
+    arguments (the page) exits 1 within seconds."""
     assert os.environ.get(app.NO_WINDOW)
-    done = subprocess.run([sys.executable, "-m", "azurkit"], capture_output=True, text=True, timeout=30)
-    assert (done.returncode, done.stdout, done.stderr) == (1, "", WINDOW_REFUSED)
 
     def opened(*args, **kwargs):
         raise AssertionError("the window path ran under the tests")
@@ -176,6 +175,9 @@ def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch):
         monkeypatch.setattr(app, name, opened)
     monkeypatch.setattr(app.webbrowser, "open", opened)
     assert app.main() == 1
+
+    done = subprocess.run([sys.executable, "-m", "azurkit"], capture_output=True, text=True, timeout=30)
+    assert (done.returncode, done.stdout, done.stderr) == (1, "", WINDOW_REFUSED)
 
 
 def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):

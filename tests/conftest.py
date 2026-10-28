@@ -19,7 +19,9 @@
 - Failure output is byte-safe (``tests/_byte_safe.py``).
 - The app opens no window or browser tab in a test, or in anything a test
   starts: ``AZURKIT_NO_WINDOW`` is set for the whole run (``azurkit.app``;
-  D839: the owner works on this screen).
+  D839: the owner works on this screen). The session checks the mode first,
+  in-process with the server, window and browser planted to raise, and
+  stops before any test (any process) runs when it doesn't hold.
 - Git finds a repository by the cwd alone: the variables that point it at
   one (``GIT_DIR``, which ``git rebase -x`` exports, and the rest of ``git
   rev-parse --local-env-vars``) are dropped, so a test's scratch repo is its
@@ -28,7 +30,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import os
 import re
 import shutil
@@ -50,6 +54,7 @@ for _var in ("GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAM
     os.environ.pop(_var, None)
 os.environ["AZURKIT_NO_WINDOW"] = "1"   # azurkit.app.NO_WINDOW, before anything imports the app
 
+from azurkit import app  # noqa: E402
 from azurkit.core import gate  # noqa: E402
 from scripts import web_tools  # noqa: E402
 from tests import _pyodide  # noqa: E402
@@ -75,6 +80,30 @@ def _verify(release: gate.Release) -> Path | str:
             return path
     return (f"{path} is not the vanilla {release.label} image (size {size}, want {release.iso_size}; "
             f"sha256 checked only on a size match)")
+
+
+class _Opened(Exception):
+    """The window path ran: the server, the window or the browser."""
+
+
+def pytest_sessionstart(session):
+    """The no-window mode holds before a test starts anything (D839):
+    ``app.main()`` returns 1 without reaching its planted server, window or
+    browser, else the run stops here."""
+    def opened(*args, **kwargs):
+        raise _Opened
+
+    with pytest.MonkeyPatch.context() as mp, contextlib.redirect_stderr(io.StringIO()):
+        for name in ("serve", "_window"):
+            mp.setattr(app, name, opened)
+        mp.setattr(app.webbrowser, "open", opened)
+        try:
+            code = app.main()
+        except _Opened:
+            code = "the window path"
+    if code != 1:
+        pytest.exit(f"{app.NO_WINDOW} doesn't keep azurkit.app's window shut (app.main() gave {code}, want 1): "
+                    "no test runs (D839)", returncode=pytest.ExitCode.USAGE_ERROR)
 
 
 @pytest.hookimpl(tryfirst=True)   # before -m deselects
