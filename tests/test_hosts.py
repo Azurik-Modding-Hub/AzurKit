@@ -22,6 +22,7 @@ from pathlib import Path
 import platformdirs
 import pytest
 
+from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli
 from scripts import freeze
 from tests._xiso import fill, image
@@ -110,10 +111,10 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
     """The onedir holds no Unicorn, zig, capstone or GPL code (each name in
     it is Python's, PyInstaller's runtime, AzurKit's or a distribution's
     whose licence isn't GPL; the runtime's readline is editline). Run
-    read-only, with a fresh HOME and TMPDIR, it gives CPython's verdicts,
-    finds the images' folder through platformdirs under that HOME, and
-    leaves itself, HOME and TMPDIR as they were but for platformdirs'
-    folders."""
+    read-only, with a fresh HOME and TMPDIR from an empty folder, it gives
+    CPython's verdicts, finds the images' folder through platformdirs under
+    that HOME, and leaves itself, that folder, HOME and TMPDIR as they were
+    but for platformdirs' folders."""
     built = subprocess.run([sys.executable, str(ROOT / "scripts" / "freeze.py"), "--dist", str(tmp_path / "dist"),
                             "--work", str(tmp_path / "work")], capture_output=True, text=True, timeout=900)
     assert built.returncode == 0, built.stderr[-3000:]
@@ -123,14 +124,15 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
     assert {name: owner for name, owner in owners.items() if "GPL" in owner or owner == "unknown"} == {}
     assert "readline" not in sys.builtin_module_names or __import__("readline").backend == "editline"
 
-    home, tmp = tmp_path / "home", tmp_path / "tmp"
-    home.mkdir()
-    tmp.mkdir()
+    home, tmp, cwd = tmp_path / "home", tmp_path / "tmp", tmp_path / "cwd"
+    for folder in (home, tmp, cwd):
+        folder.mkdir()
     env = {k: v for k, v in os.environ.items() if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE")}
     env |= {"HOME": str(home), "TMPDIR": str(tmp)}
 
     def frozen(*argv: str) -> dict:
-        done = subprocess.run([str(app_dir / freeze.NAME), *argv], capture_output=True, text=True, env=env, timeout=300)
+        done = subprocess.run([str(app_dir / freeze.NAME), *argv], capture_output=True, text=True, env=env, cwd=cwd,
+                              timeout=300)
         return {"code": done.returncode, "stdout": done.stdout, "stderr": done.stderr}
 
     writable = [p for p in [app_dir, *app_dir.rglob("*")] if not p.is_symlink()]
@@ -152,21 +154,23 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(tmp_path, ver
         for path in writable:
             path.chmod(path.stat().st_mode | 0o200)
     kept = [Path(getattr(dirs, f"user_{kind}_dir")) for kind in ("data", "config", "cache", "state", "log")]
+    assert list(cwd.iterdir()) == []
     assert [p for p in [*home.rglob("*"), *tmp.rglob("*")] if p.is_file() and not any(map(p.is_relative_to, kept))] == []
 
 
 def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
     """The first request carries the token in its URL and gets it back as
-    a cookie; later ones carry the cookie. Without either, with another
-    host named, or outside the page's folder, the server refuses."""
+    a cookie; later ones carry the cookie, which a second launch's leaves
+    alone. Without either, with another host named, or outside the page's
+    folder, the server refuses."""
     page = tmp_path / "page"
     page.mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
     (tmp_path / "secret.txt").write_text("s", encoding="utf-8")
-    server = app.serve(page)
+    server, second = app.serve(page), app.serve(page)
 
-    def get(path: str, **headers: str) -> tuple[int, str | None, bytes]:
-        request = urllib.request.Request(f"http://{server.host}{path}", headers=headers)
+    def get(path: str, to: app.Server | None = None, **headers: str) -> tuple[int, str | None, bytes]:
+        request = urllib.request.Request(f"http://{(to or server).host}{path}", headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
                 return response.status, response.headers.get("Set-Cookie"), response.read()
@@ -177,14 +181,17 @@ def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
         assert server.url == f"http://127.0.0.1:{server.server_port}/?token={server.token}"
         status, cookie, body = get(f"/?token={server.token}")
         assert (status, body) == (200, b"<title>t</title>")
-        assert cookie == f"{app.COOKIE}={server.token}; Path=/; HttpOnly; SameSite=Strict"
-        sent = {"Cookie": f"{app.COOKIE}={server.token}"}
+        assert cookie == f"{server.cookie}={server.token}; Path=/; HttpOnly; SameSite=Strict"
+        sent = {"Cookie": f"{server.cookie}={server.token}"}
         assert get("/index.html", **sent)[:2] == (200, None)
+        jar = dict(c.partition(";")[0].split("=", 1) for c in (cookie, get(f"/?token={second.token}", second)[1]))
+        assert get("/", Cookie="; ".join(f"{k}={v}" for k, v in jar.items()))[0] == 200   # a browser's jar, by host
         assert [get(path, **headers)[0] for path, headers in (
-            ("/", {}), ("/?token=x", {}), ("/", {"Cookie": f"{app.COOKIE}=x"}),
+            ("/", {}), ("/?token=x", {}), ("/", {"Cookie": f"{server.cookie}=x"}),
             ("/", sent | {"Host": f"rebound.example:{server.server_port}"}),
             ("/?token=%C3%A9", {}), ("/../secret.txt", sent), ("/%2e%2e/secret.txt", sent), ("/a%00b", sent),
             ("/none.js", sent))] == [
             403, 403, 403, 403, 403, 404, 404, 404, 404]
     finally:
         server.close()
+        second.close()

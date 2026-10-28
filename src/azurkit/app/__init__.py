@@ -5,8 +5,9 @@ in the default browser.
 Either way the page comes from a server on 127.0.0.1 (:func:`serve`) that
 answers only a request that names it as the host (no DNS rebinding) and
 carries this launch's token: in its URL the first time, then in the cookie
-that answer sets. The engine below never starts a thread; this host does, for
-the server.
+that answer sets. The cookie is named for the launch's port: browsers keep
+cookies by host, not port, so a second launch's never replaces the first's.
+The engine below never starts a thread; this host does, for the server.
 """
 
 from __future__ import annotations
@@ -22,7 +23,6 @@ import webbrowser
 from pathlib import Path
 
 PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "web"   # the frozen app's, else the checkout's
-COOKIE = "azurkit-token"
 
 
 class Server(http.server.ThreadingHTTPServer):
@@ -33,7 +33,7 @@ class Server(http.server.ThreadingHTTPServer):
     def __init__(self, page: Path):
         super().__init__(("127.0.0.1", 0), _Handler)
         self.page, self.token = page.resolve(), secrets.token_urlsafe(32)
-        self.host = f"127.0.0.1:{self.server_port}"
+        self.host, self.cookie = f"127.0.0.1:{self.server_port}", f"azurkit-token-{self.server_port}"
         self.url = f"http://{self.host}/?token={self.token}"
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
@@ -49,7 +49,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         url = urllib.parse.urlsplit(self.path)
         given = urllib.parse.parse_qs(url.query).get("token", [""])[0]
         cookie = next((v for k, _, v in (c.strip().partition("=") for c in self.headers.get("Cookie", "").split(";"))
-                       if k == COOKIE), "")
+                       if k == self.server.cookie), "")
         token = self.server.token.encode()
         if self.headers.get("Host") != self.server.host or not (
                 hmac.compare_digest(given.encode(), token) or hmac.compare_digest(cookie.encode(), token)):
@@ -66,7 +66,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         if given:
-            self.send_header("Set-Cookie", f"{COOKIE}={self.server.token}; Path=/; HttpOnly; SameSite=Strict")
+            self.send_header("Set-Cookie",
+                             f"{self.server.cookie}={self.server.token}; Path=/; HttpOnly; SameSite=Strict")
         self.end_headers()
         self.wfile.write(data)
 
