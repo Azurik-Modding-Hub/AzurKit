@@ -18,11 +18,15 @@ data-area offset of a field that holds a TOC index), the 12-byte records,
 the named rows (``u32`` TOC index, ``u32`` offset into the pool), and the
 pool of NUL-terminated names.
 
-A file of the header alone (no TOC entry and no trailer) is a stub.
-:meth:`Document.dumps` writes every structure parsed here, and a keyed
-table's (:mod:`.keyed`), from its fields over the file's bytes, so a
-round trip of every vanilla archive giving its own bytes back checks the
-parse.
+A file of the header alone (no TOC entry and no trailer) is a stub. No
+vanilla archive holds a 12-byte record, so only their table's place is
+checked.
+
+:meth:`Document.dumps` writes the archive from zeros: each payload's
+bytes, then every structure parsed here, and a keyed table's
+(:mod:`.keyed`), from its fields. Nothing else of the file is copied, so
+a round trip of every vanilla archive giving its own bytes back checks
+that the parse covers each file.
 """
 
 from __future__ import annotations
@@ -144,10 +148,13 @@ class Document:
         return out
 
     def dumps(self) -> bytes:
-        """The archive written from what was parsed (the header, the TOC,
-        the trailer's tables, the names and every keyed table) over its
-        bytes: its own bytes, when the parse is whole."""
-        out = bytearray(self.data)
+        """The archive written from what was parsed: on zeros, each TOC
+        entry's payload, then the header, the TOC, the trailer's tables,
+        the names and every keyed table: its own bytes, when the parse is
+        whole."""
+        out = bytearray(len(self.data))
+        for e in self.entries:
+            out[e.start:e.start + e.size] = self.payload(e)
         h = self.header
         HEADER.pack_into(out, 0, MAGIC, *(getattr(h, f) for f in Header.__dataclass_fields__))
         for e in self.entries:

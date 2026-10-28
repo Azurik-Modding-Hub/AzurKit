@@ -36,7 +36,8 @@ def _sha256(data) -> str:
 def test_every_vanilla_xbr_round_trips_to_its_manifest_hash(release, request):
     """Each ``.xbr`` of the release's manifest (42 USA, 44 Europe) parses
     (its header, TOC, trailer and names, and config.xbr's 18 keyed tables)
-    and, written back from what was parsed, is its own sha256."""
+    and, written back from what was parsed (on zeros: nothing but each
+    payload is copied), is its own sha256."""
     files = {path: sha for path, (_, sha) in release.files.items() if path.endswith(".xbr")}
     assert len(files) == {"usa": 42, "europe": 44}[release.name]
     with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
@@ -121,13 +122,15 @@ def test_a_cell_edit_writes_only_its_cell_and_refuses_by_name():
     number cell takes any finite value; an empty one only with ``fill``,
     and not in a row of strings; a name finds its last column, an index
     another; a text the table holds is pointed at, a new one rewrites an
-    unshared string in place if it fits; and every refusal names the
-    table, cell and why. A file that isn't an archive, or whose TOC or
-    trailer runs off it, is refused by what runs off."""
+    unshared string in place if it fits (its NULs counted only up to its
+    table's payload end, not into the zeros after the last table); and
+    every refusal names the table, cell and why. A file that isn't an
+    archive, or whose TOC or trailer runs off it, is refused by what runs
+    off."""
     data = _archive(TABLES, ROWS)
     doc = Document(data)
     assert doc.dumps() == data and list(doc.tables) == ["t", "u"] and doc.tables["t"].cols == ("a", "b", "b")
-    t = doc.tables["t"]
+    t, u = doc.tables["t"], doc.tables["u"]
 
     def after(writes) -> Document:
         made = _apply(data, writes)
@@ -154,6 +157,8 @@ def test_a_cell_edit_writes_only_its_cell_and_refuses_by_name():
             (lambda: edits.set_number(t, "a", "mp", 1), "config table t has no row 'mp'"),
             (lambda: edits.set_text(t, data, "a", "note", "a longer text"),
              "config table t a/note: 'a longer text' needs 14 B, and its string's slot holds 6 B"),
+            (lambda: edits.set_text(u, data, "d", "name", "dragon"),
+             "config table u d/name: 'dragon' needs 7 B, and its string's slot holds 6 B"),
             (lambda: edits.set_text(t, data, "a", "kind", "ash"),
              "config table t a/kind: its string is shared with 1 other reference(s)"),
             (lambda: edits.set_text(t, data, "b", "note", "new", col=1, fill=True),

@@ -89,8 +89,8 @@ def test_land_refuses_a_vanilla_run_a_later_commit_of_the_stack_removes(tmp_path
     whose second removes it again has a clean head and a passing receipt,
     and land still refuses it: it names the first commit, the file, the
     line and the lengths, never the bytes, and moves nothing."""
-    xbes = land.vanilla_xbes()
-    run = xbes["USA"][facts.of(gate.USA).offset(0x059B37, 30):][17:30]
+    files = land.vanilla_files()
+    run = files["USA default.xbe"][facts.of(gate.USA).offset(0x059B37, 30):][17:30]
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     (lane / "src").mkdir()
     (lane / "src" / "a.py").write_text(f'N = 1\nX = bytes.fromhex("{run.hex()}")\n', encoding="utf-8")
@@ -103,7 +103,7 @@ def test_land_refuses_a_vanilla_run_a_later_commit_of_the_stack_removes(tmp_path
     _receipt(receipts, top, mode="changed", base=base)
     code, why = land.land(repo, "p2/x")
     assert code == 1 and why.splitlines()[1:] == [
-        f"src/a.py:2 in {planted[:12]}: a 13 B literal holds 13 B in a row of the {label} default.xbe"
-        for label, xbe in xbes.items() if run in xbe]
+        f"src/a.py:2 in {planted[:12]}: a 13 B literal holds 13 B in a row of the {name}"
+        for name, data in files.items() if run in data]
     assert not any(form in why.lower() for form in (run.hex(), run.hex(" "), repr(run).lower()))
     assert (_git(repo, "rev-parse", "main"), _git(lane, "rev-parse", "HEAD")) == (base, top)

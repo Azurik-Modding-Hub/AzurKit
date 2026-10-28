@@ -58,7 +58,9 @@ uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/Azur
   literal, `bytes.fromhex`, a hex string, a list of byte values): read it from
   the player's image at its address. The vanilla tier refuses a literal under
   `src/`, `tests/`, `scripts/` or `web/` holding 8 or more bytes in a row of
-  either release's `default.xbe`, by file, line and length
+  either release's `default.xbe` or `gamedata/config.xbr` (its
+  `VANILLA_FILES`: add a game file there once the code reads its bytes),
+  by file, line and length
   (`tests/test_leak_guard.py`), and `scripts/land.py` refuses a stack any of
   whose commits adds one, even when a later commit removes it again: the
   history keeps it. Rewrite the commit that adds it.

@@ -10,7 +10,8 @@ cell and why, never the file's bytes.
 - :func:`set_text`: a string cell takes the text by pointing at the first
   string of its table (column by column) that holds it; else, when no
   other reference shares its string, the string is rewritten in place if
-  the text fits its slot (its length and the NULs after it), NUL-padded.
+  the text fits its slot (its length and the NULs after it, inside its
+  table's payload), NUL-padded.
 
 With ``fill``, an empty cell becomes a number or a string cell, unless
 its row holds only the other kind (no vanilla row mixes them).
@@ -63,11 +64,12 @@ def set_number(table: Table, entity: str, prop: str, value: float, *, col: int |
     raise ValueError(f"{_where(table, entity, prop)} is {KINDS[cell.kind]} cell, not a number")
 
 
-def _slot(data: bytes, at: int, length: int) -> int:
+def _slot(data: bytes, at: int, length: int, limit: int) -> int:
     """The bytes a string at ``at`` may fill: its length and the NULs after
-    it (an earlier rewrite's padding), at least its length and one NUL."""
+    it (an earlier rewrite's padding) up to ``limit``, its table's payload
+    end, at least its length and one NUL."""
     end = at + length
-    while end < len(data) and data[end] == 0:
+    while end < limit and data[end] == 0:
         end += 1
     return max(length + 1, end - at)
 
@@ -95,7 +97,7 @@ def set_text(table: Table, data: bytes, entity: str, prop: str, text: str, *, co
         return writes
     if cell.kind == EMPTY:
         raise ValueError(f"{where}: no cell of the table holds {text!r}, and a new string needs the table to grow")
-    slot = _slot(data, cell.text_at, len(cell.value))
+    slot = _slot(data, cell.text_at, len(cell.value), table.start + table.size)
     if len(raw) + 1 > slot:
         raise ValueError(f"{where}: {text!r} needs {len(raw) + 1} B, and its string's slot holds {slot} B "
                          "(a longer string needs the table to grow)")

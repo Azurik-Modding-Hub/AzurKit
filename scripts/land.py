@@ -5,11 +5,12 @@ covers its head (the twin of Modkit's ``land``).
 
 It refuses unless BRANCH's head fast-forwards from main (an unborn main takes
 any head), and when a commit it would land adds a byte literal holding a run
-of either release's vanilla ``default.xbe`` (``tests/_leak_guard.py``'s
-vanilla-run rule, run over each commit, not only the head: a run a later
-commit removes stays in the history), naming the commit, file, line and
-lengths, never the bytes. It reads both releases' ``default.xbe`` from their
-images (``AZURKIT_ISO``, ``AZURKIT_ISO_EUROPE`` or the user data folder). It
+of either release's vanilla ``default.xbe`` or ``gamedata/config.xbr``
+(``tests/_leak_guard.py``'s vanilla-run rule, run over each commit, not only
+the head: a run a later commit removes stays in the history), naming the
+commit, file, line and lengths, never the bytes. It reads both releases'
+files from their images (``AZURKIT_ISO``, ``AZURKIT_ISO_EUROPE`` or the user
+data folder). It
 also needs a passing ``scripts/fullsuite.py`` receipt for that head's clean
 tree, in which at least one vanilla and one europe test ran (D26): either a
 whole-suite run, or a changed-area run whose base is main's head.
@@ -52,20 +53,22 @@ def receipt_for(folder: Path, head: str, main: str | None) -> dict | None:
     return max(found, key=lambda m: m.get("finished_at") or "", default=None)
 
 
-def vanilla_xbes() -> dict[str, bytes]:
-    """``{release label: its vanilla default.xbe}``, read from each release's
-    image; ``ValueError`` or ``OSError`` says which is missing or not vanilla."""
+def vanilla_files() -> dict[str, bytes]:
+    """Each release's vanilla ``tests/_leak_guard.py`` ``VANILLA_FILES``, read
+    from its image and named by ``vanilla_named``; ``ValueError`` or
+    ``OSError`` says which is missing or not vanilla."""
     from azurkit.core import gate, iso
-    xbes = {}
+    files = {}
     for release in gate.RELEASES:
         if (path := gate.find(release)) is None:
             raise ValueError(f"no {release.label} image: {gate.missing(release)}")
         with iso.Reader(path) as r:
-            xbe = r.read("default.xbe")
-        if [len(xbe), hashlib.sha256(xbe).hexdigest()] != release.files["default.xbe"]:
-            raise ValueError(f"{path}'s default.xbe isn't the vanilla {release.label} one")
-        xbes[release.label] = xbe
-    return xbes
+            for rel in _leak_guard.VANILLA_FILES:
+                data = r.read(rel)
+                if [len(data), hashlib.sha256(data).hexdigest()] != release.files[rel]:
+                    raise ValueError(f"{path}'s {rel} isn't the vanilla {release.label} one")
+                files[release.label, rel] = data
+    return _leak_guard.vanilla_named(files)
 
 
 def worktrees(repo: Path) -> list[tuple[Path, str | None]]:
@@ -89,7 +92,7 @@ def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
     if main and fs.git(repo, "merge-base", main, top, check=False).strip() != main:
         return 1, f"land: {branch} ({top[:12]}) doesn't fast-forward from main ({main[:12]}): rebase it onto main"
     try:
-        runs = _leak_guard.vanilla_runs_in_commits(repo, [top, *(("--not", main) if main else ())], vanilla_xbes())
+        runs = _leak_guard.vanilla_runs_in_commits(repo, [top, *(("--not", main) if main else ())], vanilla_files())
     except (OSError, ValueError) as exc:
         return 1, f"land: the vanilla-run guard needs both images: {exc}"
     if runs:

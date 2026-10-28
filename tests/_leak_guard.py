@@ -28,13 +28,13 @@ committed and deleted again is caught too. Refused:
   ``#``, ``//``, ``/*`` or ``;``).
 
 One more rule needs the game itself, so the vanilla tier runs it
-(``tests/test_leak_guard.py``, with both releases' ``default.xbe`` read from
-the images), and so does ``scripts/land.py`` over every commit it lands
-(:func:`vanilla_runs_in_commits`), but neither the hook nor the command line:
-no byte or hex literal in a source file (:data:`SOURCE_DIRS`) holds
-:data:`VANILLA_RUN` or more bytes in a row of a vanilla ``default.xbe``
-(:func:`vanilla_runs`). Such a run is read from the player's image at its
-address instead. The literals (:func:`byte_literals`) are a Python file's
+(``tests/test_leak_guard.py``, with both releases' :data:`VANILLA_FILES`
+read from the images), and so does ``scripts/land.py`` over every commit it
+lands (:func:`vanilla_runs_in_commits`), but neither the hook nor the
+command line: no byte or hex literal in a source file (:data:`SOURCE_DIRS`)
+holds :data:`VANILLA_RUN` or more bytes in a row of a vanilla
+``default.xbe`` or ``gamedata/config.xbr`` (:func:`vanilla_runs`). Such a
+run is read from the player's image at its address instead. The literals (:func:`byte_literals`) are a Python file's
 bytes literals, ``bytes.fromhex`` and hex strings, lists of byte-sized ints
 and the concatenations and repeats of these, and in any text file runs of
 hex byte pairs, ``\\xNN`` escapes or ``0xNN, ...`` or decimal lists. A run
@@ -198,7 +198,8 @@ def scan(root: Path = ROOT) -> list[str]:
 
 
 SOURCE_DIRS = ("src/", "tests/", "scripts/", "web/")
-VANILLA_RUN = 8   # bytes in a row of a vanilla default.xbe that a literal may not hold
+VANILLA_FILES = ("default.xbe", "gamedata/config.xbr")   # the game files the code reads bytes of
+VANILLA_RUN = 8   # bytes in a row of one of them that a literal may not hold
 _HEX_TEXT = re.compile(r"(?<![0-9A-Za-z_])(?:[0-9A-Fa-f]{2})+(?:[ \t]+(?:[0-9A-Fa-f]{2})+)*(?![0-9A-Za-z_])")
 _ESCAPES = re.compile(r"(?:\\x[0-9A-Fa-f]{2})+")
 _BYTE_LIST = re.compile(r"(?<![\w.])0x[0-9A-Fa-f]{1,2}(?:\s*,\s*0x[0-9A-Fa-f]{1,2})+(?![\w.])")
@@ -303,39 +304,49 @@ def _longest(data: bytes, haystack: bytes) -> int:
     return best
 
 
-def _held(literals: list[tuple[str, bytes]], xbes: Mapping[str, bytes]) -> list[str]:
-    """``"<where>: a <n> B literal holds <m> B in a row of the <release>
-    default.xbe"`` for each ``(where, literal)`` that holds
-    :data:`VANILLA_RUN` or more bytes in a row of one of ``xbes``
-    (``{release label: its vanilla default.xbe}``), in the literals' order.
-    Lengths only, never the bytes."""
+def vanilla_named(files: Mapping[tuple[str, str], bytes]) -> dict[str, bytes]:
+    """``{name: bytes}``, the files a literal is checked against, from
+    ``{(release label, path): its vanilla bytes}`` (each release's
+    :data:`VANILLA_FILES`): named ``"<release> <path>"``, or by the path
+    alone, once, when every release holds the same file (config.xbr)."""
+    out = {}
+    for (label, path), data in files.items():
+        out[path if all(d == data for (_, p), d in files.items() if p == path) else f"{label} {path}"] = data
+    return out
+
+
+def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes]) -> list[str]:
+    """``"<where>: a <n> B literal holds <m> B in a row of the <file>"`` for
+    each ``(where, literal)`` that holds :data:`VANILLA_RUN` or more bytes
+    in a row of one of ``files`` (:func:`vanilla_named`), in the literals'
+    order. Lengths only, never the bytes."""
     wanted = {w for _, data in literals for w in _windows(data)}
     held: dict[str, set[int]] = {}
-    for label, xbe in xbes.items():
-        held[label] = set()
-        for k in range(VANILLA_RUN):   # every window of the XBE, as ints, VANILLA_RUN at a time
+    for name, haystack in files.items():
+        held[name] = set()
+        for k in range(VANILLA_RUN):   # every window of the file, as ints, VANILLA_RUN at a time
             words = array("Q")
-            words.frombytes(xbe[k:k + (len(xbe) - k) // 8 * 8])
-            held[label] |= wanted.intersection(words)
+            words.frombytes(haystack[k:k + (len(haystack) - k) // 8 * 8])
+            held[name] |= wanted.intersection(words)
     problems = []
     for where, data in literals:
-        for label, xbe in xbes.items():
-            if not held[label].isdisjoint(_windows(data)) and (run := _longest(data, xbe)):
-                problems.append(f"{where}: a {len(data)} B literal holds {run} B in a row of the {label} default.xbe")
+        for name, haystack in files.items():
+            if not held[name].isdisjoint(_windows(data)) and (run := _longest(data, haystack)):
+                problems.append(f"{where}: a {len(data)} B literal holds {run} B in a row of the {name}")
     return list(dict.fromkeys(problems))
 
 
-def vanilla_runs(root: Path, xbes: Mapping[str, bytes]) -> list[str]:
-    """``"<path>:<line>: a <n> B literal holds <m> B in a row of the <release>
-    default.xbe"`` for each literal (:func:`byte_literals`) in a source file
+def vanilla_runs(root: Path, files: Mapping[str, bytes]) -> list[str]:
+    """``"<path>:<line>: a <n> B literal holds <m> B in a row of the
+    <file>"`` for each literal (:func:`byte_literals`) in a source file
     under :data:`SOURCE_DIRS` that holds :data:`VANILLA_RUN` or more bytes
-    in a row of one of ``xbes`` (``{release label: its vanilla
-    default.xbe}``). Lengths only, never the bytes."""
+    in a row of one of ``files`` (:func:`vanilla_named`). Lengths only,
+    never the bytes."""
     literals = []
     for rel in _listed(root):
         if rel.startswith(SOURCE_DIRS) and (text := _text((root / rel).read_bytes()[:MAX_TEXT])) is not None:
             literals += [(f"{rel}:{line}", data) for line, data in byte_literals(rel, text)]
-    return sorted(_held(literals, xbes))
+    return sorted(_held(literals, files))
 
 
 def _git(root: Path, *args: str, stdin: bytes = b"") -> bytes:
@@ -373,9 +384,9 @@ def _blobs(root: Path, blobs: list[str]) -> Iterator[bytes]:
         cat.stdin.close()
 
 
-def vanilla_runs_in_commits(root: Path, revs: list[str], xbes: Mapping[str, bytes]) -> list[str]:
+def vanilla_runs_in_commits(root: Path, revs: list[str], files: Mapping[str, bytes]) -> list[str]:
     """:func:`vanilla_runs` over history: ``"<path>:<line> in <commit>: a <n>
-    B literal holds <m> B in a row of the <release> default.xbe"`` for each
+    B literal holds <m> B in a row of the <file>"`` for each
     literal in a source file under :data:`SOURCE_DIRS` that a commit of
     ``git rev-list revs`` (``[top, "--not", base]``, say) adds or changes,
     named with the first commit adding it, oldest first. A run that a later
@@ -387,7 +398,7 @@ def vanilla_runs_in_commits(root: Path, revs: list[str], xbes: Mapping[str, byte
     for (path, _, commit), data in zip(added, _blobs(root, [blob for _, blob, _ in added]), strict=True):
         if (text := _text(data[:MAX_TEXT])) is not None:
             literals += [(f"{path}:{line} in {commit[:12]}", lit) for line, lit in byte_literals(path, text)]
-    return _held(literals, xbes)
+    return _held(literals, files)
 
 
 def scan_push(root: Path, remote: str, updates: str) -> list[str]:

@@ -12,6 +12,7 @@ import pytest
 
 import bootstrap
 from azurkit.core import facts, gate, iso
+from azurkit.core.xbr import Document
 from tests import _leak_guard
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -123,19 +124,25 @@ def test_the_checkout_holds_nothing_the_guard_refuses():
     assert _leak_guard.scan(ROOT) == []
 
 
-def test_no_source_literal_holds_a_run_of_a_vanilla_xbe(tmp_path, usa_iso, europe_iso):
+def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, europe_iso):
     """A byte or hex literal under src/, tests/, scripts/ or web/ that holds
-    8 or more bytes in a row of either release's vanilla default.xbe is
-    named by file, line and lengths, never its bytes: in each form, planted
-    here with the 13 vanilla bytes 4.1c's fps_unlock once held (read from the
-    image now). A run of one repeated byte, a hash and a file outside those
+    8 or more bytes in a row of either release's vanilla default.xbe or
+    config.xbr (the same file in both, named once) is named by file, line
+    and lengths, never its bytes: in each form, planted here with the 13
+    vanilla bytes 4.1c's fps_unlock once held, and once with 24 bytes of
+    config.xbr's armor_properties row headers (each read from the image
+    now). A run of one repeated byte, a hash and a file outside those
     folders pass. The checkout holds none."""
-    xbes = {}
+    read = {}
     for label, path in (("USA", usa_iso), ("Europe", europe_iso)):
         with iso.Reader(path) as r:
-            xbes[label] = r.read("default.xbe")
+            read |= {(label, rel): r.read(rel) for rel in _leak_guard.VANILLA_FILES}
+    files = _leak_guard.vanilla_named(read)
+    assert sorted(files) == ["Europe default.xbe", "USA default.xbe", "gamedata/config.xbr"]
     usa = facts.of(gate.USA)
-    run = xbes["USA"][usa.offset(0x059B37, 30):][17:30]
+    run = files["USA default.xbe"][usa.offset(0x059B37, 30):][17:30]
+    config = files["gamedata/config.xbr"]
+    rows = config[Document(config).tables["armor_properties"].start + 0x14:][:24]
     escaped = "".join(f"\\x{b:02x}" for b in run)
     plants = {
         "src/a.py": f'X = b"{escaped}"\n',
@@ -146,15 +153,18 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_xbe(tmp_path, usa_iso, europ
                      f'const s = "{escaped}";\nconst d = new Uint8Array([{", ".join(map(str, run))}]);\n'),
         "src/ok.py": f'N = b"\\x90" * 32\nH = "{hashlib.sha256(run).hexdigest()}"\n',
         "docs/out.py": f'X = b"{escaped}"\n',
+        "tests/f.py": f'X = bytes.fromhex("{rows.hex()}")\n',
     }
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     for rel, text in plants.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text(text, encoding="utf-8")
-    found = _leak_guard.vanilla_runs(tmp_path, xbes)
-    assert found == sorted(f"{at}: a 13 B literal holds 13 B in a row of the {label} default.xbe"
-                           for at in ("src/a.py:1", "tests/b.py:1", "scripts/c.py:1", "src/d.py:1",
-                                      "web/e.js:1", "web/e.js:2", "web/e.js:3", "web/e.js:4")
-                           for label in xbes if run in xbes[label])
-    assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run)))
-    assert _leak_guard.vanilla_runs(ROOT, xbes) == []
+    found = _leak_guard.vanilla_runs(tmp_path, files)
+    assert found == sorted([f"{at}: a 13 B literal holds 13 B in a row of the {name}"
+                            for at in ("src/a.py:1", "tests/b.py:1", "scripts/c.py:1", "src/d.py:1",
+                                       "web/e.js:1", "web/e.js:2", "web/e.js:3", "web/e.js:4")
+                            for name, data in files.items() if run in data]
+                           + ["tests/f.py:1: a 24 B literal holds 24 B in a row of the gamedata/config.xbr"])
+    assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run),
+                                                               rows.hex()))
+    assert _leak_guard.vanilla_runs(ROOT, files) == []
