@@ -93,7 +93,7 @@ _MNEMONIC = (r"(?:mov(?:zx|sx|sxd|s[sd]|ap[sd]|up[sd]|[dq]|s[bwdq])?|lea|push|po
              r"n?[gl]e|e?cxz|p[eo])|cmp|test|add|adc|sub|sbb|inc|dec|and|or|xor|not|neg|sh[lr]d?|sa[lr]|ro[lr]|rc[lr]|"
              r"i?mul|i?div|xchg|cmov\w{1,3}|set\w{1,3}|f\w{2,7}|(?:add|sub|mul|div|min|max|sqrt|cmp|and|or|xor|ucomi|"
              r"comi|cvt\w{3,8}|unpck\w{2,4}|shuf)(?:p[sd]|s[sd])?|pxor|por|pand|movd|stos[bwd]?|lods[bwd]?|"
-             r"scas[bwd]?|cmps[bwd]?|loop\w{0,2}|bt[src]?|bs[fr]|bswap|enter|int)[lbwq]?")
+             r"scas[bwd]?|cmps[bwd]?|loop\w{0,2}|bt[src]?|bs[fr]|bswap|enter|int|ret[nf]?)[lbwq]?")
 _IMMEDIATE = r"\$?[-+]?(?:0x[0-9a-f]+|[0-9a-f]+h|\d+|(?=[0-9a-f]*\d)[0-9a-f]{4,})(?=\s*(?:,|\(|$|[;#]|\*/))"
 _MEMORY = rf"(?:[c-gs]s:)?\[\s*(?:{_REG}\b|0x[0-9a-f]+|[0-9a-f]+h\b|\w+_[0-9a-f]+)"
 _LABEL = r"(?:(?:short|near|far)\s+)?(?:sub|loc|off|unk|byte|word|dword|j|fun|lab|dat|thunk_fun|ptr)_[0-9a-f]+\b"

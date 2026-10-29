@@ -178,7 +178,8 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
     ``sdk.preset_encode``'s fragment of its ticks and sliders, which the
     page's own address takes too. A page opened with that link loads it once
     its engine is ready: exactly those packs ticked, their sliders set, each
-    tick and value it changed marked ●, and no build. A link with config.xbr
+    tick and value it changed marked ● (an L3 toggle's left of its pill, so
+    its row's columns line up with the others'), and no build. A link with config.xbr
     cells (``set``) loads them for the build and copies back the same link,
     and one that isn't a link is refused by name. No CSP violation, no
     request but GETs of the site's files."""
@@ -205,6 +206,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         assert sorted(_page.marked(loaded)) == sorted([
             "fps_unlock", "fps_unlock.target_fps", "player_physics", "player_physics.gravity",
             "player_physics.toggle_gravity", "qol_memory_upper64", "qol_memory_upper64_gpu", "qol_alloc_race"])
+        assert loaded.evaluate(COLUMNS, "player_physics") == [[1, 1, 1, 1], [True]]   # a marked L3's row lines up
         assert _locks(loaded)["fps_unlock"] == [True, "open"]   # the link's ticks unlock their settings (D907)
         assert loaded.evaluate("() => [azurkit.build, document.querySelector('#status').textContent]") == [
             None, f"Loaded the link's recipe (made with AzurKit {__version__}): 3 packs, marked ●. "
@@ -248,6 +250,19 @@ ROWS = """(pack) => [...document.querySelectorAll(`#packs .pack[data-pack="${pac
             l3 && [l3.querySelector("input").dataset.slider, l3.textContent, l3.title,
                    l3.getBoundingClientRect().left >= row.querySelector(".unit").getBoundingClientRect().right]];
 })"""
+# A pack's settings, opened: how many places each column of its rows (each row a grid of its own) takes, and for each
+# ● in an L3 toggle, whether it sits left of the pill, on the row's ground.
+COLUMNS = """(pack) => {
+    const item = document.querySelector(`#packs .pack[data-pack="${pack}"]`);
+    if (!item.classList.contains("open")) item.querySelector(".toggle").click();
+    const rows = [...item.querySelectorAll(".slider")];
+    return [["input[type=range]", "input[type=text]", ".unit", ".l3"].map((part) => new Set(rows.map((row) => {
+                const box = row.querySelector(part).getBoundingClientRect();
+                return `${Math.round(box.left)} ${Math.round(box.right)}`;
+            })).size),
+            [...item.querySelectorAll(".l3 .mark:not(:empty)")].map((mark) =>
+                mark.getBoundingClientRect().right <= mark.parentElement.getBoundingClientRect().left)];
+}"""
 # Every visible text drawn in --faint, and its contrast with the ground it sits on (WCAG's ratio): [what, ratio].
 FAINT = """() => {
     const rgb = (text) => text.match(/[\\d.]+/g).slice(0, 3).map(Number);

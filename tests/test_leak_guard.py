@@ -29,7 +29,8 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
     manifest), the ISO or its parts, an XBE, an XBR, a save, an xemu disk, an
     EEPROM, a guest RAM snapshot, a private key, and 4 or more consecutive
     x86 instruction lines in any text file (Ghidra's, objdump's, IDA's, a
-    comment's or trailing comments' after bytes in code). Snippets, prose and
+    comment's, one ending in a stdcall's ``ret N``, or trailing comments'
+    after bytes in code). Snippets, prose and
     code that merely name instructions pass."""
     game_file = bytes(range(64)) * 4
     monkeypatch.setattr(_leak_guard, "_whole_files", lambda: {
@@ -51,6 +52,7 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
                                 "   12349:\te8 10 00 00 00\tcall   12360", "   1234e:\tc3\tret").encode(),
         "ida.py": _listing("    # mov     eax, [esp+4]", "    # test    eax, eax", "    # jz      short loc_1234",
                            "    # fld     dword ptr [eax+10h]").encode(),
+        "stdcall.js": _listing("// mov eax, [esp+4]", "// push eax", "// call sub_12360", "// ret 4").encode(),
     }
     allowed = {
         "notes.md": (" ".join(f"{b:02x}" for b in range(256)) * 4 + "\n").encode(),
@@ -79,6 +81,7 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
         "objdump.txt": "x86 disassembly: 4 or more instruction lines from line 1",
         "ida.py": "x86 disassembly: 4 or more instruction lines from line 1",
         "trailing.c": "x86 disassembly: 4 or more instruction lines from line 1",
+        "stdcall.js": "x86 disassembly: 4 or more instruction lines from line 1",
         **dict.fromkeys(allowed)}
 
 
