@@ -23,11 +23,21 @@ rel32 into a C shim: the pack's prebuilt object (``shims/<name>.o``, which
 ``shimkit`` builds from ``<name>.c`` beside it, so no host needs a compiler,
 AZ-045), laid out by ``core.coff`` where the carve allocator
 (``core.xbe.Carver``) gives it room, past every claim of the layers before
-it; its placements are the layer's claims (one group with the hook).
+it; its placements are the layer's claims (one group with the hook). Each
+hook lands its own copy of the object. A shim's calls of the game's
+functions go to their addresses in the facts, a kernel function's to a
+6-byte stub that jumps through the game's thunk slot for it (one a pack),
+and a kernel variable is read through its slot; its parameters
+(:class:`FloatParam`, :class:`BytesParam`) are written into its landed
+``.rdata``.
 
 A pack writes its sites in order, or its ``custom_apply(xbe, **values)``
 writes through the :class:`Xbe` it is given, only inside the ``footprint``
-it declares (AZ-097). :func:`plan` makes a pack's layer (one group per
+it declares (AZ-097): a facts site, or a span the footprint gives with its
+size (``Place.size``), which the facts may cover only in part (theirs are
+the bytes Modkit's cases changed). It may also carve bytes of its own
+(:meth:`Xbe.carve`: a float a rewritten instruction reads, a hand-written
+shim) and hook a site to them (:class:`Hook`). :func:`plan` makes a pack's layer (one group per
 site or cell), planned against the release's vanilla files, or raises
 :class:`PackError` naming every site that failed and why: by its label and
 address or cell, never its bytes (D35).
@@ -65,9 +75,12 @@ class PackError(ValueError):
 @dataclass(frozen=True, kw_only=True)
 class Place:
     """An address a pack may write: a USA one, or (``releases`` without USA)
-    those releases' own. ``releases`` empty: every release the pack lists."""
+    those releases' own. ``releases`` empty: every release the pack lists.
+    In a footprint, ``size`` makes it a span a ``custom_apply`` may write
+    whole, whether or not the facts list a site there."""
     va: int
     releases: tuple[str, ...] = ()
+    size: int = 0
 
     def on(self, release: str) -> bool:
         return not self.releases or release in self.releases
@@ -87,26 +100,72 @@ class PatchSpec(Place):
 
     def placed(self, facts: facts_.Facts, va: int) -> bytes:
         """The patch at ``va``, its address in the release of ``facts``."""
-        if facts.addresses is None or (self.releases and "usa" not in self.releases):
+        if self.releases and "usa" not in self.releases:
             return self.patch
-        out = bytearray(self.patch)
-        for k in self.abs32:
-            struct.pack_into("<I", out, k, facts.va(struct.unpack_from("<I", out, k)[0]))
-        for k in self.rel32:
-            target = (self.va + k + 4 + struct.unpack_from("<i", out, k)[0]) & 0xFFFFFFFF
-            struct.pack_into("<i", out, k, facts.va(target) - (va + k + 4))
-        return bytes(out)
+        return moved(facts, self.patch, self.va, va, self.abs32, self.rel32)
+
+
+def moved(facts: facts_.Facts, data: bytes, usa_at: int, at: int, abs32=(), rel32=()) -> bytes:
+    """``data``, written for USA at ``usa_at``, at ``at`` in the release of
+    ``facts``: the USA address at each ``abs32`` offset, and the target of
+    the rel32 branch at each ``rel32`` offset, moved to the release's."""
+    if facts.addresses is None:
+        return data
+    out = bytearray(data)
+    for k in abs32:
+        struct.pack_into("<I", out, k, facts.va(struct.unpack_from("<I", out, k)[0]))
+    for k in rel32:
+        target = (usa_at + k + 4 + struct.unpack_from("<i", out, k)[0]) & 0xFFFFFFFF
+        struct.pack_into("<i", out, k, facts.va(target) - (at + k + 4))
+    return bytes(out)
+
+
+@dataclass(frozen=True)
+class FloatParam:
+    """A shim's float the build writes from the value named :attr:`name`
+    (a slider's): its symbol :attr:`symbol` (``AZURIK_FLOAT_PARAM``)."""
+    name: str
+    symbol: str
+
+
+@dataclass(frozen=True)
+class BytesParam:
+    """A shim's table of :attr:`size` bytes the build writes from the bytes
+    named :attr:`name`, zero-filled (``AZURIK_BYTES_PARAM``); none: zeros."""
+    name: str
+    symbol: str
+    size: int
 
 
 @dataclass(frozen=True, kw_only=True)
 class TrampolinePatch(Place):
     """A CALL (``mode`` ``call``) or JMP rel32 at the site :attr:`va` to the
     symbol :attr:`symbol` of the prebuilt shim :attr:`shim`, the rest of the
-    site's bytes no-ops."""
+    site's bytes no-ops; its parameters written into its landing."""
     label: str
     shim: str      # its object: shims/<shim>.o
     symbol: str    # its entry, as C mangles it ("_c_skip_logo")
     mode: Literal["call", "jmp"] = "call"
+    floats: tuple[FloatParam, ...] = ()
+    tables: tuple[BytesParam, ...] = ()
+
+
+@dataclass(frozen=True, kw_only=True)
+class Hook(Place):
+    """A CALL or JMP rel32 at the site :attr:`va` to :attr:`target`, an
+    address the pack carved in this build (:meth:`Xbe.carve`), the rest of
+    the site's bytes no-ops."""
+    label: str
+    target: int
+    mode: Literal["call", "jmp"] = "call"
+
+
+def jump(mode: str, va: int, target: int, size: int) -> bytes:
+    """A CALL (``mode`` ``call``) or JMP rel32 at ``va`` to ``target``, NOPs
+    to ``size`` bytes; ``ValueError`` when ``size`` is under 5."""
+    if size < 5:
+        raise ValueError(f"the site is {size} B, too small for a rel32 {mode}")
+    return bytes([0xE8 if mode == "call" else 0xE9]) + struct.pack("<i", target - (va + 5)) + b"\x90" * (size - 5)
 
 
 @functools.cache
@@ -117,11 +176,19 @@ def shim(name: str) -> coff.Coff:
 
 def f32(value: float) -> bytes:
     """``value`` as a little-endian float32; past its range, the infinity a
-    C ``(float)`` cast gives (D23, Q110: saturated, never refused)."""
+    C ``(float)`` cast gives (D23, Q110: saturated, never refused; a plan
+    notes it, :meth:`Xbe.f32`)."""
     try:
         return struct.pack("<f", value)
     except OverflowError:
         return struct.pack("<f", math.copysign(math.inf, value))
+
+
+def saturated(value: float, data: bytes) -> str | None:
+    """Q110's note when the finite ``value`` became an infinity as ``data``, its float32."""
+    if math.isfinite(value) and math.isinf(from_f32(data)):
+        return f"{value:g} is past float32's range: written as {from_f32(data):g} (Q110)"
+    return None
 
 
 def from_f32(data: bytes) -> float:
@@ -170,9 +237,10 @@ class Slider:
 class ParametricPatch(Place, Slider):
     """A slider in default.xbe. One at a site (:attr:`va` not 0) writes
     ``encode(value)`` there, the facts' site's size, and its vanilla value
-    is the image's own (``decode``, read there: Q174); a virtual one
-    (:attr:`va` 0) hands its value to the pack's ``custom_apply`` and names
-    :attr:`vanilla`."""
+    is the image's own (``decode``, read there: Q174, ``sdk.vanilla``); a
+    virtual one (:attr:`va` 0) hands its value to the pack's
+    ``custom_apply``, or to a shim's :class:`FloatParam` of its name, and
+    names :attr:`vanilla`."""
     va: int = 0
     encode: Callable[[float], bytes] = f32
     decode: Callable[[bytes], float] = from_f32
@@ -182,7 +250,8 @@ class ParametricPatch(Place, Slider):
         return self.va == 0
 
 
-_TO_INT32 = {"round": round, "trunc": math.trunc}   # an x87 FISTP rounds half to even; 0xF5A40 truncates
+_TO_INT32 = {"round": round, "trunc": math.trunc, "ceil": math.ceil}   # an x87 FISTP rounds half to even;
+                                                                          # 0xF5A40 truncates; a pack rounds up
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -191,10 +260,11 @@ class XbrParametricEdit(Slider):
     Without :attr:`cells` its value goes into the number cell
     :attr:`entity`/:attr:`prop`. With them it is a multiplier k: each cell
     ``cells(tables)`` picks from the vanilla tables, ``(entity, column,
-    prop, base)``, becomes k x base (an empty one filled), and at its
+    prop, base)`` in :attr:`table` or ``(entity, column, prop, base,
+    table)`` in another, becomes k x base (an empty one filled), and at its
     default it writes nothing; :attr:`entity` and :attr:`prop` then only
     say what the cells are. Where the game reads the cell as an int32
-    (:attr:`int32`: it rounds or truncates), a value it can't hold is
+    (:attr:`int32`: it rounds or truncates; a pack may round up), a value it can't hold is
     refused, by the slider or by the cell (D45), and a multiplied cell is
     written as the game keeps it. The vanilla value is the default, which
     writes what vanilla holds (``tests/test_packs.py`` reads it from the
@@ -203,16 +273,17 @@ class XbrParametricEdit(Slider):
     entity: str
     prop: str
     file: str = CONFIG
-    int32: Literal["round", "trunc"] | None = None
-    cells: Callable[[Mapping[str, Table]], Iterable[tuple[str, int, str, float]]] | None = None
+    int32: Literal["round", "trunc", "ceil"] | None = None
+    cells: Callable[[Mapping[str, Table]], Iterable[tuple]] | None = None
 
-    virtual = False   # its pack writes it; a custom_apply never takes it
+    virtual = False   # its pack writes it; a custom_apply is handed its value too
 
     def _int32(self, value: float, what: str) -> int:
-        whole = _TO_INT32[self.int32](value)
-        if not INT32[0] <= whole <= INT32[1]:
-            raise ValueError(f"{what}: {value:g} doesn't fit the game's 32-bit integer once "
-                             f"{'rounded' if self.int32 == 'round' else 'truncated'} ({INT32[0]}..{INT32[1]})")
+        how = {"round": "rounded", "trunc": "truncated", "ceil": "rounded up"}[self.int32]
+        whole = _TO_INT32[self.int32](value) if math.isfinite(value) else None
+        if whole is None or not INT32[0] <= whole <= INT32[1]:
+            raise ValueError(f"{what}: {value:g} doesn't fit the game's 32-bit integer once {how} "
+                             f"({INT32[0]}..{INT32[1]})")
         return whole
 
     def value(self, given: object) -> float:
@@ -228,22 +299,24 @@ class XbrParametricEdit(Slider):
         """Each cell the slider at ``value`` writes, ``(table/entity/prop,
         file offset, bytes)``; ``LookupError`` or ``ValueError`` names a
         cell it can't write and why."""
-        if (table := tables.get(self.table)) is None:
+        if self.table not in tables:
             raise LookupError(f"{self.file} has no keyed table {self.table!r}")
         if self.cells is None:
-            picked = [(self.entity, table.column(self.entity), self.prop, value)]
+            picked = [(self.entity, tables[self.table].column(self.entity), self.prop, value, self.table)]
         elif value == self.default:
             return []
         else:
             picked = []
-            for entity, col, prop, base in self.cells(tables):
+            for entity, col, prop, base, *other in self.cells(tables):
+                name = other[0] if other else self.table
                 written = value * base
                 if self.int32 is not None:
-                    written = float(self._int32(written, f"{self.table} {entity}/{prop}"))
-                picked.append((entity, col, prop, written))
-        return [(f"{self.table}/{entity}/{prop}" + (f" (column {col})" if table.cols.count(entity) > 1 else ""),
-                 at, data) for entity, col, prop, written in picked
-                for at, data in edits.set_number(table, entity, prop, written, col=col, fill=self.cells is not None)]
+                    written = float(self._int32(written, f"{name} {entity}/{prop}"))
+                picked.append((entity, col, prop, written, name))
+        return [(f"{name}/{entity}/{prop}" + (f" (column {col})" if tables[name].cols.count(entity) > 1 else ""),
+                 at, data) for entity, col, prop, written, name in picked
+                for at, data in edits.set_number(tables[name], entity, prop, written, col=col,
+                                                 fill=self.cells is not None)]
 
 
 @dataclass(frozen=True)
@@ -258,11 +331,18 @@ class Pack:
     releases: tuple[str, ...] = ("usa", "europe")
 
     def __post_init__(self) -> None:
-        """A ``custom_apply`` takes the pack's sliders, every one virtual (it writes their sites itself)."""
+        """A ``custom_apply`` takes the pack's sliders (it writes their XBE
+        sites itself; a config.xbr one's cells are the engine's, its value
+        handed over too). Without one, a virtual slider is a shim's
+        :class:`FloatParam` of its name."""
         if self.custom_apply is not None:
             takes = list(inspect.signature(self.custom_apply).parameters)[1:]
-            if takes != [s.name for s in self.sliders()] or not all(s.virtual for s in self.sliders()):
-                raise TypeError(f"pack {self.name!r}: custom_apply takes {takes}, not its sliders, all virtual")
+            if takes != [s.name for s in self.sliders()]:
+                raise TypeError(f"pack {self.name!r}: custom_apply takes {takes}, not its sliders")
+            return
+        floats = {f.name for s in self.sites if isinstance(s, TrampolinePatch) for f in s.floats}
+        if loose := [s.name for s in self.sliders() if s.virtual and s.name not in floats]:
+            raise TypeError(f"pack {self.name!r}: no custom_apply or shim takes its virtual sliders {loose}")
 
     def sliders(self) -> tuple[ParametricPatch | XbrParametricEdit, ...]:
         return tuple(s for s in self.sites if isinstance(s, Slider))
@@ -304,83 +384,196 @@ class Xbe:
         self._facts, self._vanilla, self._pack = facts, vanilla, pack
         self._occupied = [(c.offset, c.size) for c in occupied if c.file == XBE]
         self._carver: xbe_.Carver | None = None
+        self._stubs: dict[str, int] = {}   # a kernel import's mangled name -> its stub (or slot), one a pack
+        self._kernel = {k.mangled: k for k in facts.kernel.values()}
         self.changes: list[Change] = []
         self.claims: list[Claim] = []
         self.failures: list[str] = []
+        self.notes: list[str] = []
+        self.landed: dict[str, dict[str, int]] = {}   # a trampoline's label -> its shim's symbols' addresses
+        self.tables: Mapping[str, Table] = {}           # config.xbr's vanilla keyed tables, for a pack that reads it
         self._written: set[int] = set()
         self._allowed: set[int] | None = None
+        self._spans: dict[int, int] = {}
         if pack.custom_apply is not None:
             self._allowed = set()
             for place in pack.footprint:
                 if place.on(self.release):
                     try:
-                        self._allowed.add(place.own(facts))
+                        self._allowed.add(own := place.own(facts))
                     except LookupError as exc:
                         self.failures.append(f"its footprint at 0x{place.va:08X}: {exc}")
+                        continue
+                    if place.size:
+                        self._spans[own] = place.size
 
-    def read(self, usa_va: int, size: int) -> bytes:
-        """The vanilla bytes at ``usa_va`` in this release."""
-        offset = self._facts.offset(self._facts.va(usa_va), size)
+    def va(self, usa_va: int) -> int:
+        """``usa_va``'s address in this release (``LookupError`` says why there is none)."""
+        return self._facts.va(usa_va)
+
+    def read(self, usa_va: int, size: int, *, own: bool = False) -> bytes:
+        """The vanilla bytes at ``usa_va`` in this release (``own``: at this release's own address)."""
+        offset = self._facts.offset(usa_va if own else self._facts.va(usa_va), size)
         return self._vanilla[offset:offset + size]
 
-    def _shim(self, spec: TrampolinePatch, va: int, size: int, group: str) -> tuple[bytes, list[Change]]:
+    def moved(self, data: bytes, at: int, abs32=(), rel32=()) -> bytes:
+        """``data`` (code written for USA at ``at``, an address in this
+        build) with the USA addresses at its ``abs32`` offsets and the
+        targets of its ``rel32`` branches moved to this release's."""
+        return moved(self._facts, data, at, at, abs32, rel32)
+
+    def f32(self, value: float, what: str) -> bytes:
+        """:func:`f32`, noting a value past float32's range (Q110)."""
+        data = f32(value)
+        if note := saturated(value, data):
+            self.notes.append(f"{self._pack.name} {what}: {note}")
+        return data
+
+    def _place(self, size: int, align: int, writable: bool) -> tuple[int, int]:
+        """Room for ``size`` bytes from the carve allocator, claimed: ``(file offset, address)``."""
+        if self._carver is None:
+            self._carver = xbe_.Carver(self._vanilla, self._occupied)
+        at, held, offset, address = self._carver.place(size, align, writable)
+        self.claims.append(Claim(XBE, at, held, f"shim:{self._pack.name}", writable))
+        return offset, address
+
+    def carve(self, data: bytes | Callable[[int], bytes], label: str, *, size: int = 0,
+              writable: bool = False) -> int:
+        """Land ``data`` (or ``data(address)``, ``size`` bytes) where the
+        carve allocator gives room, writable if asked; its address."""
+        size = len(data) if isinstance(data, bytes) else size
+        offset, address = self._place(size, 1, writable)
+        body = data if isinstance(data, bytes) else data(address)
+        if len(body) != size:
+            raise ValueError(f"{label}: {len(body)} B, not the {size} B carved")
+        self.changes.append(Change(XBE, offset, hashlib.sha256(bytes(size)).hexdigest(), body,
+                                   f"{self._pack.name} {label}"))
+        return address
+
+    def write(self, usa_va: int, label: str, data: bytes) -> None:
+        """Write ``data`` at ``usa_va``'s site or span as it is (an address in
+        it is this build's own): :meth:`patch` of a :class:`PatchSpec`."""
+        self.patch(PatchSpec(label=label, va=usa_va, patch=data))
+
+    def _extern(self, landed: list[Change]) -> coff.Extern:
+        """A shim's kernel imports: a variable's slot, or a function's stub
+        (``jmp [slot]``), one a pack, its change added to ``landed``."""
+        def resolve(name: str) -> int | None:
+            if (k := self._kernel.get(name)) is None:
+                return None
+            if name not in self._stubs:
+                if k.slot is None:
+                    raise LookupError(f"the shim's kernel import {k.name!r} has no slot in the "
+                                      f"{self._facts.release.label} XBE's thunk table")
+                if k.convention == "data":
+                    return k.slot
+                offset, address = self._place(6, 1, False)
+                landed.append(Change(XBE, offset, hashlib.sha256(bytes(6)).hexdigest(),
+                                     b"\xFF\x25" + struct.pack("<I", k.slot), ""))
+                self._stubs[name] = address
+            return self._stubs[name]
+        return resolve
+
+    def _shim(self, spec: TrampolinePatch, va: int, size: int, group: str,
+              params: Mapping[str, object]) -> tuple[bytes, list[Change]]:
         """The hook at ``va`` (``size`` bytes) and the changes that land
-        its shim, each placement claimed; ``LookupError`` or ``ValueError``
-        says why it can't land, its claims given back."""
+        its shim, its parameters written, each placement claimed;
+        ``LookupError`` or ``ValueError`` says why it can't land, its
+        claims and stubs given back."""
         if size < 5:
             raise ValueError(f"the facts' site is {size} B, too small for a rel32 {spec.mode}")
         if self._carver is None:
             self._carver = xbe_.Carver(self._vanilla, self._occupied)
-        claims, taken = [], len(self._carver.taken)
-
-        def allocate(n: int, align: int, writable: bool) -> tuple[int, int]:
-            at, held, offset, address = self._carver.place(n, align, writable)
-            claims.append(Claim(XBE, at, held, f"shim:{self._pack.name}", writable))
-            return offset, address
+        taken, claimed, stubs, notes = len(self._carver.taken), len(self.claims), dict(self._stubs), len(self.notes)
+        obj, landed = shim(spec.shim), []
         try:
-            placed, entry = coff.layout(shim(spec.shim), spec.symbol, allocate, self._facts.mangled())
-            hook = bytes([0xE8 if spec.mode == "call" else 0xE9]) + struct.pack("<i", entry - (va + 5))
+            placed, entry = coff.layout(obj, spec.symbol, self._place, self._facts.mangled(), self._extern(landed))
+            data = {p.index: bytearray(p.data) for p in placed}
+            for param in (*spec.tables, *spec.floats):
+                symbol = obj.symbol(param.symbol)
+                if symbol.section - 1 not in data:
+                    raise ValueError(f"its parameter {param.name!r} ({param.symbol}) is in no section it lands")
+                if isinstance(param, FloatParam):
+                    if param.name not in params:
+                        raise ValueError(f"no value for its parameter {param.name!r}")
+                    value = self.f32(params[param.name], param.name)
+                else:
+                    value = params.get(param.name, b"")
+                    if not isinstance(value, bytes) or len(value) > param.size:
+                        raise ValueError(f"its parameter {param.name!r} takes bytes, at most {param.size}")
+                    value = value.ljust(param.size, b"\0")
+                if symbol.value + len(value) > len(data[symbol.section - 1]):
+                    raise ValueError(f"its parameter {param.name!r} runs past its landed section")
+                data[symbol.section - 1][symbol.value:symbol.value + len(value)] = value
+            hook = jump(spec.mode, va, entry, size)
         except (LookupError, ValueError, struct.error) as exc:
-            del self._carver.taken[taken:]
+            del self._carver.taken[taken:], self.claims[claimed:], self.notes[notes:]
+            self._stubs = stubs
             raise ValueError(f"its shim {spec.shim!r}: {exc}") from None
-        self.claims += claims
-        return hook + b"\x90" * (size - 5), [Change(XBE, p.offset, hashlib.sha256(bytes(len(p.data))).hexdigest(),
-                                                   p.data, group) for p in placed]
+        at = {p.index: p.va for p in placed}
+        self.landed[spec.label] = {s.name: at[s.section - 1] + s.value for s in obj.symbols
+                                   if s.storage == coff.EXTERNAL and s.section - 1 in at}
+        return hook, [Change(XBE, p.offset, hashlib.sha256(bytes(len(p.data))).hexdigest(), bytes(data[p.index]),
+                             group) for p in placed] + [c.__class__(c.file, c.offset, c.before, c.after, group)
+                                                        for c in landed]
 
-    def patch(self, spec: PatchSpec | ParametricPatch | TrampolinePatch, value: float | int | None = None) -> None:
-        """Write ``spec`` (a slider: ``value`` encoded; nothing when it isn't
-        one of this release's), or record why it can't be written."""
+    def _site(self, va: int) -> tuple[int, list[facts_.Site]]:
+        """The size of what a pack writes at this release's ``va`` and the
+        facts' sites that hold it: a footprint's span, with every facts
+        site wholly inside it, or the facts' site there."""
+        if (size := self._spans.get(va)) is not None:
+            return size, [s for s in self._facts.sites.values() if va <= s.va and s.va + s.size <= va + size]
+        site = self._facts.site(va)
+        return site.size, [site]
+
+    def patch(self, spec: PatchSpec | ParametricPatch | TrampolinePatch | Hook, value: float | int | None = None,
+              params: Mapping[str, object] | None = None) -> None:
+        """Write ``spec`` (a slider: ``value`` encoded; a trampoline: its
+        shim, with ``params``, the values its parameters take; nothing when
+        it isn't one of this release's), or record why it can't be written."""
         if not spec.on(self.release):
             return
         where = f"{spec.label} at 0x{spec.va:08X}"
         try:
             va = spec.own(self._facts)
             where += f" ({self._facts.release.label} 0x{va:08X})" if va != spec.va else ""
-            site = self._facts.site(va)
-            offset = self._facts.offset(va, site.size)
-            data = (spec.encode(value) if isinstance(spec, ParametricPatch)
-                    else b"" if isinstance(spec, TrampolinePatch) else spec.placed(self._facts, va))
+            size, sites = self._site(va)
+            offset = self._facts.offset(va, size)
+            if isinstance(spec, ParametricPatch):
+                data = spec.encode(value)
+                if spec.encode is f32 and (note := saturated(value, data)):
+                    self.notes.append(f"{self._pack.name} {spec.name}: {note}")
+            elif isinstance(spec, Hook):
+                data = jump(spec.mode, va, spec.target, size)
+            else:
+                data = b"" if isinstance(spec, TrampolinePatch) else spec.placed(self._facts, va)
         except (LookupError, ValueError, struct.error) as exc:
             self.failures.append(f"{where}: {exc}")
             return
-        held, group = self._vanilla[offset:offset + site.size], f"{self._pack.name} 0x{va:08X} ({spec.label})"
+        group = f"{self._pack.name} 0x{va:08X} ({spec.label})"
+        held = next((s for s in sites if hashlib.sha256(self._vanilla[(o := self._facts.offset(s.va, s.size)):
+                                                                      o + s.size]).hexdigest() != s.sha256), None)
         if self._allowed is not None and va not in self._allowed:
             why = "it is outside the pack's declared footprint"
         elif va in self._written:
             why = "the pack writes it twice"
-        elif not isinstance(spec, TrampolinePatch) and len(data) != site.size:
-            why = f"the patch is {len(data)} B, the facts' site {site.size} B"
-        elif hashlib.sha256(held).hexdigest() != site.sha256:
-            why = f"default.xbe holds {digest(held)} there, not the facts' <{site.size} B, sha256 {site.sha256[:12]}>"
+        elif not isinstance(spec, TrampolinePatch) and len(data) != size:
+            why = f"the patch is {len(data)} B, the {'span' if va in self._spans else "facts' site"} {size} B"
+        elif held is not None:
+            at = self._facts.offset(held.va, held.size)
+            there = "there" if held.va == va else f"at 0x{held.va:08X}"
+            why = (f"default.xbe holds {digest(self._vanilla[at:at + held.size])} {there}, "
+                   f"not the facts' <{held.size} B, sha256 {held.sha256[:12]}>")
         else:
             try:
-                data, landed = (self._shim(spec, va, site.size, group) if isinstance(spec, TrampolinePatch)
+                data, landed = (self._shim(spec, va, size, group, params or {}) if isinstance(spec, TrampolinePatch)
                                 else (data, []))
             except ValueError as exc:
                 why = str(exc)
             else:
                 self._written.add(va)
-                self.changes += [*landed, Change(XBE, offset, site.sha256, data, group)]
+                self.changes += [*landed, Change(XBE, offset, hashlib.sha256(self._vanilla[offset:offset + size])
+                                                 .hexdigest(), data, group)]
                 return
         self.failures.append(f"{where}: {why}")
 
@@ -402,20 +595,27 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
         size, sha256 = (facts_.of(release).size, facts_.of(release).sha256) if name == XBE else release.files[name]
         if len(data) != size or hashlib.sha256(data).hexdigest() != sha256:
             raise PackError(f"pack {pack.name!r}: {name} {digest(data)} is not the vanilla {release.label} one")
-    changes, failures, claims = [], [], []
+    changes, failures, claims, notes = [], [], [], []
+    documents: dict[str, Document] = {}
     if XBE in pack.files():
         xbe = Xbe(facts_.of(release), base[XBE], pack, occupied)
+        if CONFIG in pack.files():
+            try:
+                xbe.tables = (documents := {CONFIG: Document(base[CONFIG])})[CONFIG].tables
+            except ValueError as exc:
+                raise PackError(f"pack {pack.name!r}: {CONFIG}: {exc}") from None
         if pack.custom_apply is None:
             for spec in pack.sites:
+                if isinstance(spec, ParametricPatch) and spec.virtual:
+                    continue   # a shim's FloatParam takes it
                 if not isinstance(spec, XbrParametricEdit):
-                    xbe.patch(spec, values.get(spec.name) if isinstance(spec, ParametricPatch) else None)
+                    xbe.patch(spec, values.get(spec.name) if isinstance(spec, ParametricPatch) else None, values)
         else:
             try:
                 pack.custom_apply(xbe, **values)
             except (LookupError, ValueError) as exc:
                 raise PackError(f"pack {pack.name!r}: {exc}") from None
-        changes, failures, claims = xbe.changes, xbe.failures, xbe.claims
-    documents: dict[str, Document] = {}
+        changes, failures, claims, notes = xbe.changes, xbe.failures, xbe.claims, xbe.notes
     for spec in pack.sites:
         if isinstance(spec, XbrParametricEdit):
             data = base[spec.file]
@@ -430,4 +630,4 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
     if failures:
         raise PackError(f"pack {pack.name!r}: {len(failures)} site(s) failed: " + "; ".join(failures))
     return Layer(f"pack {pack.name}", "mods", "packs", {"pack": pack.name, "params": params}, tuple(changes),
-                 tuple(claims))
+                 tuple(claims), tuple(dict.fromkeys(notes)))

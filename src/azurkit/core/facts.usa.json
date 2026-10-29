@@ -1761,6 +1761,20 @@
    "va": "0x000E2C21"
   }
  },
+ "kernel": {
+  "KeTickCount": {
+   "arg_bytes": 0,
+   "convention": "data",
+   "ordinal": 156,
+   "slot": "0x0018F5B0"
+  },
+  "MmFreeContiguousMemory": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "ordinal": 171,
+   "slot": "0x0018F3E4"
+  }
+ },
  "release": "usa",
  "sections": [
   {

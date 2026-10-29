@@ -3,9 +3,11 @@ oracle (``tests/oracle/``): each release's ``default.xbe`` sha256, size and
 base, its section table, every patch site (its address, size and the sha256
 of its vanilla bytes), the game's functions a shim may call (each one's
 address, calling convention and argument bytes; AZ-116's three names
-corrected, as Ghidra names them since D94) and, for Europe, the address map's
-USA -> Europe addresses and its named absences. Hashes, sizes, names and
-addresses only (D3).
+corrected, as Ghidra names them since D94), the kernel exports a shim may
+use (:data:`KERNEL`: each one's ordinal, its convention and argument bytes or
+that it is data, and its slot in the release's kernel thunk table, from the
+oracle's ordinals) and, for Europe, the address map's USA -> Europe addresses
+and its named absences. Hashes, sizes, names and addresses only (D3).
 
     uv run --locked python scripts/gen_facts.py [--check]
 
@@ -32,6 +34,10 @@ ABOUT = ("Written by scripts/gen_facts.py from tests/oracle/ (Modkit's facts and
 # No shim calls them, so no shim object's G2 hash depends on the old names.
 RENAMED = {"player_ground_land_tick": "player_ground_attack_start", "cvar_get_double": "settings_get_double",
            "dev_menu_flag_check": "game_start_setup"}
+# The kernel exports AzurKit's shims use: name -> (ordinal, convention, argument bytes), or (ordinal, "data") for
+# a variable (read through its slot). Xbox kernel ordinals are the kernel's own export numbers; a shim reaches
+# one only through the game's thunk table, which the oracle's facts list by ordinal, slot by slot.
+KERNEL = {"KeTickCount": (156, "data", 0), "MmFreeContiguousMemory": (171, "stdcall", 4)}
 
 
 def derive(release: str) -> dict:
@@ -45,6 +51,10 @@ def derive(release: str) -> dict:
                      for s in facts["sections"]],
         "sites": {va: {"size": s["size"], "sha256": s["original_sha256"]} for va, s in facts["patch_sites"].items()},
         "functions": {RENAMED.get(name, name): f for name, f in facts["symbols"].items()},
+        "kernel": {name: {"ordinal": ordinal, "convention": convention, "arg_bytes": arg_bytes}
+                   | ({"slot": f"0x{int(thunks['va'], 16) + 4 * thunks['ordinals'].index(ordinal):08X}"}
+                      if ordinal in (thunks := facts["kernel_thunks"])["ordinals"] else {})
+                   for name, (ordinal, convention, arg_bytes) in KERNEL.items()},
     }
     if release == "europe":
         amap = json.loads(ADDRESS_MAP.read_text(encoding="utf-8"))

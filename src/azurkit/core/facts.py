@@ -3,7 +3,9 @@ size, its section table (:mod:`azurkit.core.xbe`), every patch site a pack
 writes as the sha256 and size of its vanilla bytes (never the bytes, D3),
 the game's functions a shim may call (:class:`Function`: the one source of
 their names, addresses and ABIs, from which ``shimkit`` writes the header a
-shim includes, AZ-099), and Europe's address map: each USA address the packs name, at its Europe
+shim includes, AZ-099), the kernel exports a shim may use (:class:`Kernel`:
+their ordinals and slots in the release's thunk table, from which ``shimkit``
+writes ``azurik_kernel.h``, Q85), and Europe's address map: each USA address the packs name, at its Europe
 address, or why it has none. USA's addresses are the canonical ones, by
 which every pack names its sites.
 
@@ -49,6 +51,25 @@ class Function:
 
 
 @dataclass(frozen=True)
+class Kernel:
+    """A kernel export a shim may use: a function, called through a stub
+    that jumps through its slot, or a variable (``data``), read through its
+    slot (``__declspec(dllimport)``)."""
+    name: str
+    ordinal: int
+    convention: str     # stdcall or fastcall; "data" for a variable
+    arg_bytes: int
+    slot: int | None    # its slot's address in the release's kernel thunk table; None: the game doesn't import it
+
+    @property
+    def mangled(self) -> str:
+        """The symbol a shim's reference to it is, as clang mangles C for i386 Windows."""
+        if self.convention == "data":
+            return f"__imp__{self.name}"
+        return f"@{self.name}@{self.arg_bytes}" if self.convention == "fastcall" else f"_{self.name}@{self.arg_bytes}"
+
+
+@dataclass(frozen=True)
 class Facts:
     release: Release
     sha256: str                        # the vanilla default.xbe's
@@ -58,6 +79,7 @@ class Facts:
     addresses: Mapping[int, int] | None   # USA address -> this release's; None: USA's own
     absent: Mapping[int, str]          # USA address -> why this release has none
     functions: Mapping[str, Function] = field(default_factory=dict)   # by name
+    kernel: Mapping[str, Kernel] = field(default_factory=dict)        # by name
 
     def va(self, usa_va: int) -> int:
         """``usa_va``'s address in this release; ``LookupError`` says why
@@ -103,4 +125,6 @@ def of(release: Release) -> Facts:
         {va: int(to, 16) for va, to in hexed(raw["addresses"]).items()} if "addresses" in raw else None,
         hexed(raw.get("absent", {})),
         {name: Function(name, int(f["va"], 16), f["convention"], f["arg_bytes"], f.get("undecorated", False))
-         for name, f in raw["functions"].items()})
+         for name, f in raw["functions"].items()},
+        {name: Kernel(name, k["ordinal"], k["convention"], k["arg_bytes"], int(k["slot"], 16) if "slot" in k else None)
+         for name, k in raw["kernel"].items()})

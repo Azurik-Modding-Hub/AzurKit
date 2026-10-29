@@ -8,7 +8,8 @@
 // 'unsafe-eval', and no host evaluates script in the page (4.1b2).
 const $ = (id) => document.getElementById(id);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
-                packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [] };
+                packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
+                vanilla: null, asked: null };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 function say(text, error = false) {
@@ -24,7 +25,7 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
-function siteEngine({ ready, built, refused, failed }) {
+function siteEngine({ ready, built, refused, failed, vanilla }) {
   let worker = null, loaded = false;
   const start = () => {
     loaded = false;
@@ -36,6 +37,9 @@ function siteEngine({ ready, built, refused, failed }) {
         URL.revokeObjectURL(url);
         loaded = true;
         ready(data.catalog, data.version);
+      } else if (data.type === "vanilla") {
+        const { type, ...read } = data;
+        vanilla(read);
       } else if (data.type === "built" || data.type === "refused") {
         restart();
         (data.type === "built" ? built : refused)(data);
@@ -60,6 +64,7 @@ function siteEngine({ ready, built, refused, failed }) {
   start();
   return {
     build: (file, packs) => worker.postMessage({ type: "build", file, packs }),
+    vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
     cancel: restart,
   };
 }
@@ -67,7 +72,7 @@ function siteEngine({ ready, built, refused, failed }) {
 // The app's engine: azurkit.sdk on CPython behind this launch's server (azurkit.app), the same in the app's window
 // and in a browser. The page posts JSON to it, and a refusal comes back as {refused}. A build's reply that arrives
 // after Cancel is dropped; a save's is awaited, since the server says whether it wrote anything.
-function appEngine(host, { ready, built, refused, failed, saved }) {
+function appEngine(host, { ready, built, refused, failed, saved, vanilla }) {
   let ticket = 0;
   const post = async (path, body) => {
     const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -89,6 +94,7 @@ function appEngine(host, { ready, built, refused, failed, saved }) {
   setTimeout(() => ready(host.catalog, host.version));
   return {
     build: (iso, packs) => run("api/build", { iso, packs }, built),
+    vanilla: (iso) => post("api/vanilla", { iso }).then((read) => "refused" in read || vanilla(read)).catch(() => {}),
     save: (recipe, out) => run("api/save", { recipe, out }, saved),
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
@@ -113,7 +119,9 @@ function sliderRow(pack, slider) {
   const box = Object.assign(document.createElement("input"), {
     type: "text", id, value: String(slider.default), inputMode: "decimal", spellcheck: false, autocomplete: "off" });
   box.dataset.slider = slider.name;
+  const unit = Object.assign(document.createElement("span"), { className: "unit" });
   const fit = () => {
+    unit.textContent = slider.unit + (slider.vanilla === null ? "" : ` · vanilla ${slider.vanilla}`);
     const value = typed(box.value), ends = [slider.min, slider.max, slider.default, slider.vanilla, value];
     const held = ends.filter((v) => typeof v === "number");
     track.min = String(Math.min(...held));
@@ -127,11 +135,32 @@ function sliderRow(pack, slider) {
   });
   box.addEventListener("input", fit);
   const label = Object.assign(document.createElement("label"), { htmlFor: id, textContent: slider.label });
-  const unit = Object.assign(document.createElement("span"), { className: "unit", textContent:
-    slider.unit + (slider.vanilla === null ? "" : ` · vanilla ${slider.vanilla}`) });
   row.append(label, track, box, unit);
   fit();
+  row.fit = fit;
   return row;
+}
+
+// The picked image's own value of each slider at its XBE's sites (the catalog has none: the wheel holds no game
+// constant), shown beside it and held by its track (D42). A reply for an image no longer picked is dropped.
+function vanilla(read) {
+  if (state.asked !== state.file) return;
+  state.vanilla = read;
+  for (const pack of state.packs?.packs ?? []) {
+    for (const slider of pack.sliders) {
+      const value = read.packs[pack.name]?.[slider.name];
+      if (value === undefined) continue;
+      slider.vanilla = value;
+      document.getElementById(`${pack.name}.${slider.name}`)?.parentElement.fit();
+    }
+  }
+}
+
+// Ask the engine for the picked image's values once it is ready (the site's is replaced after each build).
+function askVanilla() {
+  if (!state.ready || !state.file || state.asked === state.file || state.building) return;
+  state.asked = state.file;
+  state.engine.vanilla(state.file);
 }
 
 function renderPacks(catalog) {
@@ -194,6 +223,7 @@ function ready(catalog, version) {
     $("version").textContent = `AzurKit ${version}`;
   }
   busy(state.building);
+  askVanilla();
 }
 
 function report(text, error = false) {
@@ -218,7 +248,7 @@ function built(reply) {
   }
   const changed = Object.keys(made.result);
   report(`Ready · ${made.label} · ${bytes(size)} · changed: ${changed.length ? changed.join(", ") : "nothing"}`
-         + made.conflicts.map((c) => ` · conflict: ${c}`).join(""));
+         + made.conflicts.map((c) => ` · conflict: ${c}`).join("") + made.notes.map((n) => ` · note: ${n}`).join(""));
 }
 
 function saved({ saved: done }) {
@@ -257,6 +287,7 @@ function pickInApp(host) {
       : "Type the image's full path: a browser can't tell AzurKit where a file is.";
     say("");
     busy(false);
+    askVanilla();
   };
   picked();
   $("iso-path").addEventListener("input", picked);
@@ -284,7 +315,7 @@ async function main() {
   } catch (error) {
     return say(`AzurKit didn't load: ${error.message}`, true);
   }
-  const callbacks = { ready, built, saved, refused: ({ message }) => report(message, true),
+  const callbacks = { ready, built, saved, vanilla, refused: ({ message }) => report(message, true),
                       failed: (message) => report(message, true) };
   if (host.engine === "app") {
     state.engine = appEngine(host, callbacks);
@@ -299,6 +330,7 @@ async function main() {
       $("picked").textContent = state.file ? `${state.file.name} · ${bytes(state.file.size)}` : "";
       say("");
       busy(false);
+      askVanilla();
     });
   }
 

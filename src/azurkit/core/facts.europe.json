@@ -2018,6 +2018,20 @@
    "va": "0x000E2F5E"
   }
  },
+ "kernel": {
+  "KeTickCount": {
+   "arg_bytes": 0,
+   "convention": "data",
+   "ordinal": 156,
+   "slot": "0x00191734"
+  },
+  "MmFreeContiguousMemory": {
+   "arg_bytes": 4,
+   "convention": "stdcall",
+   "ordinal": 171,
+   "slot": "0x00191564"
+  }
+ },
  "release": "europe",
  "sections": [
   {

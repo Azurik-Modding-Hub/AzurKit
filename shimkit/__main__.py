@@ -10,7 +10,8 @@ ap.add_argument("--headers", type=Path, metavar="DIR", help="write the headers a
 args = ap.parse_args()
 if args.headers:
     args.headers.mkdir(parents=True, exist_ok=True)
-    (args.headers / "azurik_vanilla.h").write_text(shimkit.header(), encoding="utf-8")
+    for name, write in shimkit.HEADERS.items():
+        (args.headers / name).write_text(write(), encoding="utf-8")
     sys.exit(0)
 stale = shimkit.build(check=args.check)
 for obj in stale:

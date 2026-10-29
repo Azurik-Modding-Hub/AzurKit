@@ -10,8 +10,9 @@
 // runs it inside FileReaderSync, under WORKERFS's read of the image, while CPython has released the GIL around read():
 // Safari's build stopped with NoGilError there. Chromium runs it only between tasks.
 //
-// In:  {type: "build", file, packs: {name: {parameter: value}}}
-// Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
+// In:  {type: "build", file, packs: {name: {parameter: value}}}, {type: "vanilla", file}
+// Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message},
+//      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE)
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "csp", directive, blocked}
 const base = new URL("./", import.meta.url);
@@ -38,6 +39,11 @@ def engine(request):
 
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
+    if request.type == "vanilla":
+        try:
+            return js(sdk.vanilla(request.recipe.iso))
+        except (OSError, ValueError) as exc:
+            return js({"refused": str(exc)})
     try:
         image, report = sdk.image(request.recipe.to_py())
     except (OSError, ValueError) as exc:
@@ -65,6 +71,19 @@ async function load() {
   return { py, engine: py.runPython(ENGINE) };
 }
 
+// The image's own values of the sliders at its XBE's sites, the image mounted only for the read: a build mounts it
+// again, then this worker is replaced.
+function vanilla({ py, engine }, file) {
+  py.FS.mkdirTree("/in");
+  py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
+  try {
+    const read = engine({ type: "vanilla", recipe: { iso: `/in/${file.name}` } });
+    if (!("refused" in read)) post({ type: "vanilla", ...read });
+  } finally {
+    py.FS.unmount("/in");
+  }
+}
+
 function build({ py, engine }, file, packs) {
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
@@ -76,8 +95,9 @@ function build({ py, engine }, file, packs) {
 try {
   const loaded = await load();
   self.onmessage = ({ data }) => {
-    if (data?.type !== "build") return;
+    if (data?.type !== "build" && data?.type !== "vanilla") return;
     try {
+      if (data.type === "vanilla") return vanilla(loaded, data.file);
       build(loaded, data.file, data.packs);
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });

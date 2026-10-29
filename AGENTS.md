@@ -139,10 +139,16 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
     bytes on any machine, whose normalized sha256 is the oracle's G2 record
     (`tests/test_shims.py` holds both). Rebuild after editing a source;
     `--check` writes nothing.
-  - A shim includes only `azurik_vanilla.h`, which shimkit writes from the
-    facts' functions (each one's name, convention and argument bytes) at
-    every compile; `--headers DIR` writes it out to read. The repo tracks no
-    header, so nothing vendored (GPL) reaches a shim (AZ-099, Q85).
+  - A shim includes only the headers shimkit writes from the facts at every
+    compile (`--headers DIR` writes them out to read), or one of its own
+    beside it in `shims/` (`qol_memory_heap.h`): `azurik_vanilla.h`, the
+    facts' functions (each one's name, convention and argument bytes, as
+    32-bit words or the C types shimkit's `TYPES` gives one a shim calls
+    otherwise), the types and the active pad's record, and the parameter
+    macros; and `azurik_kernel.h`, the facts' kernel exports (their
+    ordinals; a variable as an import). Nothing vendored (GPL) reaches a
+    shim (AZ-099, Q85). A typed prototype the facts' argument bytes don't
+    match mangles to a name the layout refuses.
   - `core/coff.py` lays an object out: its sections where the carve
     allocator (`core/xbe.py`'s `Carver`) gives room, its DIR32 and REL32
     relocations resolved to its own symbols and the facts' functions. The
@@ -152,8 +158,24 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
     of its layer, kept in the manifest; the header state claims derive
     (`.text`'s sizes, the appended section) is laid down by `compose`,
     never written by a layer.
-  - Kernel imports (the thunk stubs, and the stubs that call the shared
-    `xboxkrnl_resolver`) come with Step 4.1f2's packs.
+  - A shim's kernel function lands as a 6-byte stub that jumps through the
+    game's thunk slot for it (one a pack), a kernel variable is read
+    through its slot; one the game doesn't import (no slot) is refused by
+    name: no ported shim calls one, so the resolving stubs that would call
+    the committed `xboxkrnl_resolver` aren't ported yet.
+  - Each hook lands its own copy of its shim. A `TrampolinePatch`'s
+    `floats` (`FloatParam`: a slider's value) and `tables` (`BytesParam`:
+    bytes the pack makes) are written into that copy's `.rdata` at their
+    symbols; a value past float32's range is written as the infinity it
+    saturates to, with a note in the build's report (Q110).
+  - A `custom_apply` may carve bytes of its own (`Xbe.carve`: a float a
+    rewritten load reads, a hand-written shim with its data), hook a site
+    to them (`Hook`) and write a span its footprint declares with a size
+    (`Place(size=)`), which the facts may cover only in part (the facts'
+    sites are where Modkit's cases changed bytes).
+- A slider at a site of the XBE has no vanilla value in the catalog (the
+  wheel holds no game constant, Q174): `sdk.vanilla` reads it from the
+  player's image, and the page shows it once the image is picked (D42).
 - Describe patch bytes in prose: four or more comment lines that read as
   x86 instructions are a disassembly listing to the leak guard.
 - A port is done when its cases match the oracle: the facts site by site,

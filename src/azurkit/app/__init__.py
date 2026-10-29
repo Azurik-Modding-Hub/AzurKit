@@ -18,6 +18,8 @@ report, the size, and where to save it: the Downloads folder, under the
 site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
 (``sdk.build``), never over an existing file but the one the save dialog
 chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
+``POST api/vanilla`` ``{"iso"}`` reads the image's own values of the
+sliders at its XBE's sites (``sdk.vanilla``).
 ``POST api/choose`` ``{"kind": "iso" | "out", "path"}`` opens the window's
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
@@ -232,6 +234,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 f"http://{self.server.host}") or self.headers.get_content_type() != "application/json":
             return self.send_error(403)
         call = {"/api/build": self.server.build, "/api/save": self.server.save,
+                "/api/vanilla": lambda body: sdk.vanilla(str(_path(body.get("iso"), "image"))),
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

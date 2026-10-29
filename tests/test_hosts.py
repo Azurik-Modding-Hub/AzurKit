@@ -219,7 +219,8 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     """``AzurKit serve`` from the frozen app (read-only, in a fresh HOME,
     TMPDIR and empty folder, in the tests' no-window mode) serves the page
     with the app's engine, here driven in headless Chromium and in WebKit
-    (the macOS window's engine): each ported
+    (the macOS window's engine): the page reads each image's own vanilla
+    values of the sliders at its XBE's sites (``api/vanilla``), each ported
     pack builds its G1 case on both releases with CPython's report, and Save
     (offered in the Downloads folder) writes the USA build of every pack
     where the page names, CPython's image byte for byte, but never over a
@@ -243,6 +244,8 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
             for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
                 cases = _g1.cases(release)
                 _page.fill(page, "iso-path", str(path))
+                assert _page.until(page, f"() => azurkit.vanilla?.release === '{release.name}' && azurkit.vanilla"
+                                   ) == sdk.vanilla(str(path))
                 for name in mods.PACKS:
                     _page.build(page, [name])
                     report = _page.built(page)

@@ -9,21 +9,21 @@ step is checked against Modkit's recorded outputs: per-file sha256s,
 copied into [`tests/oracle/`](tests/oracle/). AzurKit never imports Modkit's
 code.
 
-**Status:** AzurKit checks your image and builds it with its first nine
-packs: fps_unlock (with its frame-rate slider), qol_alloc_race (on by
-default), qol_gem_popups, qol_other_popups, qol_pickup_anims, qol_skip_logo
-(the first with a C shim, which ships prebuilt: nothing compiles on your
-computer), and the
-game-data packs player_max_hp (Starting HP, the health bar's scale),
-air_shield_flaps (each air shield's flaps) and enemy_damage (the damage
-enemies take), each with its sliders, on both releases, from the command
-line, in the web page (pick your image, choose
+**Status:** AzurKit checks your image and builds it with all 17 patch packs,
+each with its sliders, on both releases: fps_unlock (with its frame-rate
+slider), player_physics (gravity and the player's movement, with a left-stick
+toggle), qol_gem_popups, qol_other_popups, qol_pickup_anims, qol_skip_logo,
+player_max_hp, air_shield_flaps, enemy_damage, enemy_scaling (enemies' and
+bosses' health, damage, speed and size), qol_save_warp, qol_photo_mode, the
+four memory packs (the load budget, and RAM past 64 MiB in xemu) and
+qol_alloc_race. Those on by default (qol_alloc_race, the load budget and the
+two upper-64 MiB packs) start ticked. The C shims ship prebuilt: nothing
+compiles on your computer. It builds from the command line, in the web page (pick your image, choose
 packs and set their sliders, Build, then Save; it
 runs in your browser, and nothing is uploaded) or in the app, which shows the
 same page in its own window and writes the build where you save it. The page
 isn't hosted and the app isn't released yet: on macOS you build the app
-yourself (below). Version 1 will carry the 17 patch packs and their sliders
-on both releases (USA and Europe), character swaps and variants, and the
+yourself (below). Version 1 will add character swaps and variants, and the
 randomizer. Players will get a web page and a download-and-run app;
 developers will get `uv tool install azurkit`.
 

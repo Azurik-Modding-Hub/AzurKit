@@ -1,6 +1,7 @@
-"""The one surface a UI calls: :func:`catalog`, :func:`verify`, :func:`image`,
-:func:`build`, :func:`preset_encode` and :func:`preset_decode` (spoiler and
-art come with their steps). JSON in and out: a recipe is a JSON object and each call returns one; :func:`image`
+"""The one surface a UI calls: :func:`catalog`, :func:`verify`,
+:func:`vanilla`, :func:`image`, :func:`build`, :func:`preset_encode` and
+:func:`preset_decode` (spoiler and art come with their steps). JSON in and
+out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``). A refusal is a ``ValueError`` or ``OSError`` whose
 message names what it refuses and why, never game bytes; a build that fails
@@ -53,6 +54,17 @@ def verify(path: str) -> dict:
     return {"iso": str(stamp.path), "release": stamp.release.name, "label": stamp.release.label}
 
 
+def vanilla(path: str) -> dict:
+    """The vanilla values the image at ``path`` holds for every slider at a
+    site of its XBE (``catalog`` gives those ``None``: the wheel holds no
+    game constant, Q174), ``{"release", "label", "packs": {pack: {slider:
+    value}}}``, so a UI's track can hold them (D42)."""
+    stamp = gate.verify(path, whole=False)
+    with iso.Reader(stamp.path) as r:
+        xbe = r.read("default.xbe")
+    return {"release": stamp.release.name, "label": stamp.release.label, "packs": mods.vanilla(stamp.release, xbe)}
+
+
 def _packs(recipe: object) -> dict[str, dict]:
     """The recipe's packs, normalized (``mods.normalize``); every refusal named."""
     if not isinstance(recipe, Mapping):
@@ -87,13 +99,15 @@ def _report(made: edits.Manifest) -> dict:
     return {"release": made.release.name, "label": made.release.label,
             "layers": [{"id": la.id, "sites": len({c.group for c in la.changes}),
                         "bytes": sum(len(c.after) for c in la.changes)} for la in made.layers],
-            "result": dict(made.result), "conflicts": [str(c) for c in made.conflicts]}
+            "result": dict(made.result), "conflicts": [str(c) for c in made.conflicts],
+            "notes": [note for la in made.layers for note in la.notes]}
 
 
 def image(recipe: Mapping) -> tuple[iso.Image, dict]:
     """The image ``recipe`` builds, unwritten, and its report: the release,
     each layer's sites and bytes, the sha256 of each file that differs from
-    vanilla, and every conflict (D28)."""
+    vanilla, every conflict (D28) and each layer's notes (a slider value
+    past float32's range, written as the infinity it saturates to, Q110)."""
     stamp, base, layers = _plan(recipe)
     made, manifest = edits.image(stamp, layers, base)
     return made, _report(manifest)

@@ -1,13 +1,13 @@
-"""The shim engine (Step 4.1f1): the prebuilt objects (AZ-045) are their
-sources' builds and hold the oracle's G2 hashes; the one header a shim
-includes is written from the facts (AZ-099, Q85: no vendored header), and a
-shim built against it lands with each call at the facts' address
-(``core.coff``); the carve allocator places a shim past every claim the
-layers before it hold, in ``.text``'s gap or an appended section, and the
-claims, kept in the manifest, derive the header's state
-(``core.xbe.Carver``, ``grown``). qol_skip_logo's G1 cases are
-``tests/test_packs.py``'s, ``tests/test_site.py``'s and
-``tests/test_hosts.py``'s."""
+"""The shim engine (Steps 4.1f1, 4.1f2): the prebuilt objects (AZ-045) are
+their sources' builds and hold the oracle's G2 hashes, all ten of its
+non-model objects; the headers a shim includes are written from the facts
+(AZ-099, Q85: no vendored header), and a shim built against them lands with
+each call at the facts' address (``core.coff``); the carve allocator places
+a shim past every claim the layers before it hold, in ``.text``'s gap or an
+appended section, and the claims, kept in the manifest, derive the header's
+state (``core.xbe.Carver``, ``grown``). The shim packs' G1 cases (their
+kernel stubs, parameters and carves) are ``tests/test_packs.py``'s,
+``tests/test_site.py``'s and ``tests/test_hosts.py``'s."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ import json
 import re
 import struct
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -33,10 +34,12 @@ G2 = json.loads((gen_facts.ORACLE / "packs/tests/goldens/shims.json").read_text(
 def test_each_prebuilt_shim_is_its_sources_build_and_holds_its_g2_hash():
     """Every ``shims/<name>.c`` has its object beside it, which zig builds
     from it byte for byte (``shimkit --check``), and whose normalized
-    sha256 is the oracle's G2 record of Modkit's build: qol_skip_logo's and
-    the shared kernel-export resolver's."""
+    sha256 is the oracle's G2 record of Modkit's build: each of G2's ten
+    objects that isn't a player model's (the packs', and the shared
+    kernel-export resolver's)."""
     sources = {p.stem for p in shimkit.SHIMS.glob("*.c")}
-    assert sources == {p.stem for p in shimkit.SHIMS.glob("*.o")} == {"qol_skip_logo", "xboxkrnl_resolver"}
+    assert sources == {p.stem for p in shimkit.SHIMS.glob("*.o")} == {
+        name.removesuffix(".o") for name in G2 if not name.startswith("player_model")}
     assert shimkit.build(check=True) == []
     for name in sorted(sources):
         held = coff.normalized_sha256((shimkit.SHIMS / f"{name}.o").read_bytes())
@@ -49,8 +52,11 @@ def test_a_shim_built_against_the_facts_header_lands_with_each_call_at_its_facts
     are exactly the facts' functions as C mangles them, and laid out
     (``coff.layout``) each word of its table holds that function's address
     and the call's rel32 reaches it; its table, in .data, lands writable,
-    its code not. The repo tracks no header: the facts are the only source
-    (no GPL vendor header, Q85), and they carry AZ-116's corrected names."""
+    its code not. The repo tracks no header but a shim's own beside it, and a
+    shim includes only those and the two shimkit writes from the facts (no
+    GPL vendor header, Q85: ``azurik_kernel.h`` names the facts' kernel
+    exports, a variable as an import); the facts carry AZ-116's corrected
+    names."""
     functions = sorted(facts.of(gate.USA).functions.values(), key=lambda f: f.name)
     called = next(f for f in functions if f.convention == "stdcall" and f.arg_bytes == 8)
     source = tmp_path / "every.c"
@@ -73,9 +79,16 @@ def test_a_shim_built_against_the_facts_header_lands_with_each_call_at_its_facts
     assert called.va in calls and entry == text.va + shim.symbol("_c_entry").value
     assert sorted(given) == [False, True] and len(placed) == 2
     tracked = subprocess.run(["git", "-C", str(shimkit.ROOT), "ls-files", "*.h"], capture_output=True, text=True,
-                             check=True).stdout
-    included = {h for p in shimkit.SHIMS.glob("*.c") for h in re.findall(r'#include\s*[<"]([^>"]+)', p.read_text())}
-    assert tracked == "" and included <= {"azurik_vanilla.h"}
+                             check=True).stdout.split()
+    own = {Path(h).name for h in tracked}
+    included = {h for p in shimkit.SHIMS.glob("*.[ch]") for h in re.findall(r'#include\s*[<"]([^>"]+)', p.read_text())}
+    assert all(Path(h).parent == shimkit.SHIMS.relative_to(shimkit.ROOT) for h in tracked)
+    assert included <= {*shimkit.HEADERS, *own} and not own & set(shimkit.HEADERS)
+    kernel = facts.of(gate.USA).kernel
+    assert [line.split("/*")[0].strip() for line in shimkit.kernel_header().splitlines() if "/* ordinal" in line] == [
+        "__declspec(dllimport) extern unsigned int KeTickCount;",
+        "__attribute__((stdcall)) unsigned int MmFreeContiguousMemory(unsigned int);"]
+    assert {k.mangled for k in kernel.values()} == {"__imp__KeTickCount", "_MmFreeContiguousMemory@4"}
     names = {f.name for f in functions}
     assert {"player_ground_attack_start", "settings_get_double", "game_start_setup"} <= names
     assert not {"player_ground_land_tick", "cvar_get_double", "dev_menu_flag_check"} & names

@@ -149,27 +149,31 @@ class Placed:
     offset: int    # in default.xbe
     va: int
     data: bytes    # relocated
+    index: int = 0   # the section's, in the object (several share a name)
 
 
 Allocate = Callable[[int, int, bool], tuple[int, int]]   # (size, align, writable) -> (file offset, address)
+Extern = Callable[[str], int | None]   # an external's mangled name -> its address, or None: not one it knows
 
 
-def layout(coff: Coff, entry: str, allocate: Allocate, vanilla: Mapping[str, int]
+def layout(coff: Coff, entry: str, allocate: Allocate, vanilla: Mapping[str, int], extern: Extern | None = None
            ) -> tuple[list[Placed], int]:
     """Each section of ``coff`` placed where ``allocate`` says, relocated,
     and the address of its symbol ``entry``. A shim whose ``.text`` has no
     relocations lands its ``.text`` alone, unaligned; any other lands each
     section it has bytes in, at its alignment, writable for ``.data`` and
     ``.bss``. A relocation's symbol is one of its own, or an external
-    ``vanilla`` maps (a function's name as C mangles it -> its address);
-    ``LookupError`` or ``ValueError`` names what it can't place or resolve."""
+    ``vanilla`` maps (a function's name as C mangles it -> its address), or
+    one ``extern`` resolves (a kernel import, which may allocate its stub
+    then, at the first relocation that names it); ``LookupError`` or
+    ``ValueError`` names what it can't place or resolve."""
     text = next((s for s in coff.sections if s.name == ".text"), None)
     symbol = coff.symbol(entry)
     if text is not None and not text.relocations:
         if symbol.section < 1 or coff.sections[symbol.section - 1] is not text:
             raise LookupError(f"the shim's {entry!r} is not in its .text")
         offset, va = allocate(len(text.data), 1, False)
-        return [Placed(".text", offset, va, text.data)], va + symbol.value
+        return [Placed(".text", offset, va, text.data, coff.sections.index(text))], va + symbol.value
     places = {i: allocate(len(s.data), s.align, s.writable) for i, s in enumerate(coff.sections) if s.landed}
     if not places:
         raise ValueError("the shim has no section to land")
@@ -181,7 +185,9 @@ def layout(coff: Coff, entry: str, allocate: Allocate, vanilla: Mapping[str, int
             return places[s.section - 1][1] + s.value
         if s.name in vanilla:
             return vanilla[s.name]
-        raise LookupError(f"the shim's external {s.name!r} is no vanilla function the facts name")
+        if extern is not None and (va := extern(s.name)) is not None:
+            return va
+        raise LookupError(f"the shim's external {s.name!r} is no vanilla function or kernel export the facts name")
 
     placed = []
     for i, (offset, va) in places.items():
@@ -200,5 +206,5 @@ def layout(coff: Coff, entry: str, allocate: Allocate, vanilla: Mapping[str, int
             else:
                 raise ValueError(f"relocation type 0x{r.type:04X} at {section.name}+0x{r.offset:X} "
                                  "(AzurKit lands DIR32 and REL32)")
-        placed.append(Placed(section.name, offset, va, bytes(data)))
+        placed.append(Placed(section.name, offset, va, bytes(data), i))
     return placed, address(symbol)

@@ -55,6 +55,7 @@ class Layer:
     recipe: Mapping   # what the tool planned it from (JSON)
     changes: tuple[Change, ...]
     claims: tuple[Claim, ...] = ()
+    notes: tuple[str, ...] = ()   # what its plan tells the player (a slider past float32's range, Q110)
 
 
 @dataclass(frozen=True)

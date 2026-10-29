@@ -60,24 +60,25 @@ def test_the_shipped_facts_are_the_ones_gen_facts_derives_from_the_oracle():
 @pytest.mark.parametrize("release", RELEASES)
 def test_each_ported_case_writes_the_facts_bytes_site_by_site_and_nothing_else(release, request):
     """The release's XBE has the facts' sections and sha256. For each case
-    of a ported pack in the oracle's facts (``fps_unlock:target_fps=120``
+    in the oracle's facts, every pack's (``fps_unlock:target_fps=120``
     too), each site holds the case's recorded bytes (by sha256), or vanilla's
     when the case leaves it (USA's ``.text`` slack among them, where a shim
     lands; a legacy site, which no build writes, isn't read), and no byte
     changed outside the case's sites, its shims' claims and the header state
     they derive."""
-    vanilla = _vanilla_xbe(request.getfixturevalue(f"{release.name}_iso"))
+    with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
+        vanilla, config = r.read(engine.XBE), r.read(engine.CONFIG)
     known = facts.of(release)
     assert (xbe.sections(vanilla), _sha256(vanilla)) == (known.sections, known.sha256)
     oracle, recipes = _oracle(FACTS[release.name]), _oracle("cases.json")[FACTS[release.name]]
-    cases = [case for case in oracle["cases"] if recipes[case]["pack"] in mods.PACKS]
+    cases = oracle["cases"]
     xbe_packs = {name for name, pack in mods.PACKS.items() if engine.XBE in pack.files()}
-    assert {recipes[case]["pack"] for case in cases} == xbe_packs and len(cases) == 7
+    assert {recipes[case]["pack"] for case in cases} == xbe_packs and len(cases) == 32
     for case in cases:
         recipe = recipes[case]
         params = mods.normalize({recipe["pack"]: recipe["params"]})[recipe["pack"]]
-        layer = mods.plan(mods.PACKS[recipe["pack"]], release, {engine.XBE: vanilla}, params)
-        built = compose({"default.xbe": vanilla}, [layer])[0]["default.xbe"]
+        layer = mods.plan(mods.PACKS[recipe["pack"]], release, {engine.XBE: vanilla, engine.CONFIG: config}, params)
+        built = compose({"default.xbe": vanilla, engine.CONFIG: config}, [layer])[0].get("default.xbe", vanilla)
         derived = bytearray(claimed({"default.xbe": vanilla}, [layer]).get("default.xbe", vanilla))
         drift, masked = [], bytearray(built)
         for va, site in ((int(va, 16), site) for va, site in oracle["patch_sites"].items() if site.get("new")):
@@ -137,15 +138,18 @@ def test_each_g1_case_of_a_ported_pack_builds_its_golden_and_its_preset_carries_
 def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europe_iso, tmp_path, capsys):
     """``azurkit packs`` lists the packs in the order a build applies them,
     with their sliders; ``azurkit build`` with none named applies those on
-    by default (D528): qol_alloc_race, whose golden the written image's XBE
-    holds. ``--pack-param PACK.SLIDER=VALUE`` sets a slider of a pack the
-    build applies, and is refused by name otherwise."""
+    by default (D528, D571, D588): the load budget, the two upper-64 MiB
+    packs and qol_alloc_race; less the three memory packs (``--no-pack``),
+    the written image's XBE holds qol_alloc_race's golden.
+    ``--pack-param PACK.SLIDER=VALUE`` sets a slider of a pack the build
+    applies, and is refused by name otherwise."""
     assert cli.main(["packs"]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert [line.split()[:2] for line in lines] == [[name, "on" if p.default_on else "off"] for name, p in mods.PACKS.items()]
     assert lines[0].startswith("fps_unlock") and lines[0].endswith(" [target_fps=60]")
     assert cli.recipe("x.iso", ["fps_unlock"], [], True, ["fps_unlock.target_fps=120"])["packs"] == {
-        "fps_unlock": {"target_fps": 120.0}, "qol_alloc_race": {}}
+        "fps_unlock": {"target_fps": 120.0}, "qol_memory_budget": {}, "qol_memory_upper64": {},
+        "qol_memory_upper64_gpu": {}, "qol_alloc_race": {}}
     for given, refused in (("fps_unlock.target_fps=fast", "not PACK.SLIDER=NUMBER"),
                            ("fps_unlock=120", "not PACK.SLIDER=NUMBER"),
                            ("qol_gem_popups.x=1", "the build doesn't apply 'qol_gem_popups'")):
@@ -153,7 +157,9 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europ
             cli.recipe("x.iso", ["fps_unlock"], [], True, [given])
     out = tmp_path / "europe.iso"
     try:
-        assert cli.main(["build", "--iso", str(europe_iso), "--out", str(out)]) == 0
+        memory = ("qol_memory_budget", "qol_memory_upper64", "qol_memory_upper64_gpu")
+        assert cli.main(["build", "--iso", str(europe_iso), "--out", str(out),
+                         *(arg for name in memory for arg in ("--no-pack", name))]) == 0
         with iso.Reader(out) as r:
             assert _sha256(r.read("default.xbe")) == _g1.cases(gate.EUROPE)["qol_alloc_race"].files["default.xbe"]
     finally:
@@ -248,7 +254,7 @@ def test_a_slider_writes_any_finite_value_at_its_site_and_a_virtual_one_reaches_
     assert engine.plan(whole, gate.USA, {engine.XBE: VANILLA}, {"count": 7.0}).changes == () and got == [7]
     assert type(got[0]) is int
     with pytest.raises(TypeError, match="custom_apply takes"):
-        engine.Pack("x", "", sites=(_slider("speed", 0x1010),), custom_apply=lambda xbe_view, speed: None)
+        engine.Pack("x", "", sites=(_slider("speed", 0x1010),), custom_apply=lambda xbe_view, sped: None)
 
 
 def test_normalize_names_every_unknown_pack_parameter_and_refused_value_and_never_clamps():
