@@ -430,8 +430,8 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
     page, and ``api/restore`` gives back what of it still applies, the rest
     named (``sdk.restore``). ``null`` forgets it, and a setup holding
     anything but pack and setting names, numbers and config.xbr ``set``
-    cells, anywhere in it (an image's path, a ``replace_bytes``), is refused
-    by name, the config as it was."""
+    cells (an image's path as a pack or setting name, a ``replace_bytes``)
+    is refused by name, the config as it was."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
     (page := tmp_path / "page").mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")

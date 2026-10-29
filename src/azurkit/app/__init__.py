@@ -152,9 +152,12 @@ def _set_theme(body: dict) -> dict:
 
 def _set_setup(body: dict) -> dict:
     """``api/setup``: remember the page's setup (D915), or forget it
-    (``null``): pack and setting names, their numbers and config.xbr ``set``
-    operations only, so never an image's path or a ``replace_bytes``' bytes
-    (D3), anywhere in it."""
+    (``null``): pack and setting names (identifiers, so never a path), their
+    numbers and config.xbr ``set`` operations only, so never a
+    ``replace_bytes``' bytes (D3). A ``set``'s table, entity, prop and text
+    value are free strings (config.xbr's names hold spaces; text cells hold
+    text), checked by :func:`xbr.normalize` alone: the page fills them from
+    the catalog and never puts the image's path in one."""
     if (setup := body.get("setup")) is not None:
         if not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
             raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")

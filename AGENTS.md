@@ -309,7 +309,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     names and numbers, never the image, its path or anything read from it
     (D3). The site keeps it in the browser's storage (`azurkit.setup`), the
     app in its config (`host.json`'s `setup`; `api/setup` refuses by name a
-    setup with anything else anywhere in it, a path, say); at the defaults
+    setup with anything else: a pack or setting name that isn't an
+    identifier, a path say, or a `replace_bytes`; a `set`'s names and text
+    value are free strings that only `xbr.normalize` checks); at the defaults
     nothing is kept. A page opens with it before an image is
     picked, through `sdk.restore` (the site's worker, the app's
     `api/restore`), which leaves out and names in the status line what no
