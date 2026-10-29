@@ -16,7 +16,10 @@ release's own image), whether there are file dialogs (the window's), the
 site's address, which its share links name (:data:`SITE`, D884), and the
 theme the player last picked (dark until they pick light, D897; ``POST
 api/theme`` ``{"theme"}`` remembers it there too: the page's address, and
-so its storage, is new each launch).
+so its storage, is new each launch). The page's ``theme.js``, which sets
+the theme before its first paint, is the server's own (:func:`_theme_js`),
+and the window opens on that theme's ground (:data:`GROUNDS`), so a player
+who picked light never sees a dark first frame.
 ``POST api/build`` ``{"iso", "packs", "xbr"}`` plans the build (``sdk.image``: the
 report, the size, and where to save it: the Downloads folder, under the
 site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
@@ -68,10 +71,12 @@ PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "we
 NO_WINDOW = "AZURKIT_NO_WINDOW"   # set: main() opens nothing (the tests' mode)
 MAX_BODY = 1 << 20
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
-# text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses;
-# background_color: the page's dark ground (D897), which the window shows until the page draws
-WINDOW = {"title": "AzurKit", "width": 1100, "height": 820, "text_select": True, "background_color": "#0d1117"}
-THEMES = ("dark", "light")   # the page's (D897): dark until the player picks light, which the app remembers
+# text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses
+WINDOW = {"title": "AzurKit", "width": 1100, "height": 820, "text_select": True}
+# The page's themes (D897: dark until the player picks light, which the app remembers) and each one's ground
+# (web/app.css's --bg), which the window shows until the page draws
+GROUNDS = {"dark": "#0d1117", "light": "#e8ecf1"}
+THEMES = tuple(GROUNDS)
 QUIT_WAIT = 1.5   # seconds a close waits, in all, for a cancelled save to remove its part file (AZ-823)
 QUITTING = "AzurKit is quitting: nothing was written"
 
@@ -105,6 +110,12 @@ def _start_image() -> str:
 def _theme() -> str:
     """The theme the player last picked, else dark (D897)."""
     return theme if (theme := _kept().get("theme")) in THEMES else THEMES[0]
+
+
+def _theme_js() -> bytes:
+    """The app's ``theme.js`` (the site's reads the browser's storage): it
+    sets the remembered theme before the page's first paint."""
+    return f'document.documentElement.dataset.theme = "{_theme()}";\n'.encode()
 
 
 def _remember(**kept: str) -> None:
@@ -272,6 +283,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             return self.send_error(403)
         if url.path == "/host.json":
             return self._json(self.server.host_info())
+        if url.path == "/theme.js":
+            return self._send(_theme_js(), "text/javascript")
         if url.path == "/api/progress":
             done, total = self.server.progress
             return self._json({"done": done, "total": total})
@@ -344,7 +357,7 @@ def _window(server: Server) -> bool:
     except ImportError:
         return False
     try:
-        server.window = webview.create_window(url=server.url, **WINDOW)
+        server.window = webview.create_window(url=server.url, **WINDOW, background_color=GROUNDS[_theme()])
         server.window.events.closing += server.quit
         webview.start(private_mode=True)
     except WebViewException:

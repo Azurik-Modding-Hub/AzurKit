@@ -3,7 +3,8 @@
    left, the open pack's settings in a column on the right; tight 22 px rows, small type), and Build and Save in a
    bar along the window's bottom, always in view. Dark by default whatever the system's setting, light by the
    toolbar's toggle (app.mjs remembers it). Colours: the app icon's azure tile for the accent and its four element
-   bands for meaning (water blue the accent's family, earth green Save, fire red errors, air gold the ● marks). */
+   bands for meaning (water blue the accent's family, earth green Save, fire red errors, air gold the ● marks).
+   theme.js sets the remembered theme on the root before the first paint. */
 :root {
   color-scheme: dark;
   --air: #c49a3c; --water: #2f6aae; --fire: #b23a24; --earth: #3f7c36;
@@ -19,7 +20,7 @@
   color-scheme: light;
   --bg: #e8ecf1; --pane: #ffffff; --bar: #dde3ea; --zebra: #f4f6f9; --hover: #e8f0fb; --sel: #d6e5fb;
   --line: #c6ced8; --soft: #e2e7ed;
-  --text: #151a21; --muted: #586272; --faint: #8b94a1;
+  --text: #151a21; --muted: #586272; --faint: #5a6472;   /* faint: at least 4.5:1 on every light ground */
   --accent: #0b4fc4; --ring: #4aa3ff; --on: #ffffff; --field: #ffffff;
   --go: #2f6b29; --mark: #8f6200; --error: #b23a24;
 }
@@ -147,7 +148,9 @@ button:disabled { color: var(--faint); background: transparent; }
 #packs .pack > label > span:last-child { font-size: 11.5px; color: var(--muted); }
 #packs .releases { position: absolute; top: 3px; right: 4px; font-size: 10px; color: var(--faint); white-space: nowrap; }
 #packs .pack:has(> label input:not(:checked)) > label { color: var(--muted); }
-#packs .pack:has(> label input:not(:checked)) .slider { opacity: .55; }
+/* An unticked pack's settings are locked (D907): greyed and still readable; its settings' header says why. */
+#packs .pack:has(> label input:not(:checked)) .slider { color: var(--muted); }
+#packs .pack:has(> label input:not(:checked)) > .sliders::before { content: attr(aria-label) " · locked: tick it to change these"; }
 #packs .mark { color: var(--mark); margin-right: 3px; }
 #packs .mark:empty { display: none; }
 /* The Settings opener, with the pack's count of settings, one width for every pack; gold when a value in it is
@@ -171,7 +174,7 @@ button:disabled { color: var(--faint); background: transparent; }
   background: var(--bar); border-bottom: 1px solid var(--line); box-shadow: inset 3px 0 var(--accent);
 }
 #packs .slider {
-  display: grid; grid-template-columns: minmax(7rem, 14rem) minmax(3rem, 1fr) 4.5rem minmax(4.5rem, 8.5rem);
+  display: grid; grid-template-columns: minmax(7rem, 14rem) minmax(3rem, 1fr) 4.5rem minmax(4.5rem, 8.5rem) auto;
   gap: 0 8px; align-items: center; min-height: var(--row); padding: 1px 10px; border-bottom: 1px solid var(--soft);
 }
 #packs .slider:nth-child(even) { background: var(--zebra); }
@@ -179,7 +182,21 @@ button:disabled { color: var(--faint); background: transparent; }
 #packs .slider input[type="text"] { width: 100%; height: 18px; text-align: right; font-variant-numeric: tabular-nums; }
 #packs .slider input.changed { font-weight: 700; color: var(--accent); border-color: var(--ring); }
 #packs .unit { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#packs input:disabled { opacity: .6; }
+#packs .pack > label input:disabled { opacity: .6; }
+#packs .slider input[type="text"]:disabled { color: var(--muted); background: transparent; border-style: dashed; }
+#packs input[type="range"]:disabled::-webkit-slider-thumb { background: var(--muted); }
+#packs input[type="range"]:disabled::-moz-range-thumb { background: var(--muted); }
+/* An L3 toggle (D909), at the end of its setting's row: lit when a left-stick click flips that setting in game. */
+#packs .l3 {
+  position: relative; display: inline-flex; align-items: center; height: 16px; padding: 0 5px;
+  font: 700 10px/14px var(--mono); color: var(--muted); background: var(--field); border: 1px solid var(--line);
+  border-radius: 3px; cursor: default; user-select: none; -webkit-user-select: none;
+}
+#packs .l3 input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; }
+#packs .l3:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 1px; }
+#packs .l3:has(input:checked) { color: var(--on); background: var(--accent); border-color: var(--accent); }
+#packs .l3:has(input:disabled) { border-style: dashed; }
+#packs .l3:has(input:disabled:checked) { color: var(--accent); background: transparent; border-color: var(--accent); }
 #packs input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; margin: 0; background: none; }
 #packs input[type="range"]::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--line); }
 #packs input[type="range"]::-webkit-slider-thumb {

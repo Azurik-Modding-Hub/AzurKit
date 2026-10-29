@@ -17,6 +17,7 @@ import io
 import json
 import os
 import plistlib
+import re
 import subprocess
 import sys
 import threading
@@ -233,8 +234,9 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     as the image, offers its recipe (``sdk.open_build``), which ticks every
     pack again. The page opens dark (D897), and its toggle picks light. The
     next launch starts from the image the last build read and opens in the
-    theme the page picked (both remembered in platformdirs' config folder:
-    the page's address, and so its storage, is new each launch). No CSP violation, no request but to the
+    theme the page picked, from its first paint (the app's own theme.js;
+    both remembered in platformdirs' config folder: the page's address, and
+    so its storage, is new each launch). No CSP violation, no request but to the
     app's own server, and the app, the folder, HOME and TMPDIR are as they
     were but for platformdirs' folders and the saved build."""
     app_path, before = frozen_app
@@ -294,8 +296,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
                 host = json.load(reply)
             assert [host["iso"], host["theme"]] == [str(usa_iso), "light"]
             page = context.new_page()
-            page.goto(url)
-            _page.until(page, "() => globalThis.azurkit?.ready", 60)
+            assert _page.first_paint(page, url) == ["light", "rgb(232, 236, 241)"]
             assert page.evaluate("() => [azurkit.theme, document.documentElement.dataset.theme]") == ["light"] * 2
     finally:
         context.close()
@@ -336,6 +337,32 @@ def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch):
 
     done = subprocess.run([sys.executable, "-m", "azurkit"], capture_output=True, text=True, timeout=30)
     assert (done.returncode, done.stdout, done.stderr) == (1, "", WINDOW_REFUSED)
+
+
+def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
+    """The window shows the remembered theme's ground (``web/app.css``'s
+    ``--bg``) until the page draws, so a player who picked light never
+    sees a dark first frame (D897); a stand-in pywebview records the
+    window, so none opens (D839)."""
+    grounds = re.findall(r"--bg: (#[0-9a-f]{6})", (_page.WEB / "app.css").read_text(encoding="utf-8"))
+    opened = []
+
+    class Closing:
+        def __iadd__(self, handler):
+            return self
+
+    webview, errors = types.ModuleType("webview"), types.ModuleType("webview.errors")
+    errors.WebViewException = type("WebViewException", (Exception,), {})
+    webview.errors = errors
+    webview.create_window = lambda **window: opened.append(window) or types.SimpleNamespace(
+        events=types.SimpleNamespace(closing=Closing()))
+    webview.start = lambda **options: None
+    monkeypatch.setitem(sys.modules, "webview", webview)
+    monkeypatch.setitem(sys.modules, "webview.errors", errors)
+    for theme in app.THEMES:
+        monkeypatch.setattr(app, "_kept", lambda: {"theme": theme})
+        assert app._window(types.SimpleNamespace(url="http://127.0.0.1:1/", quit=None, window=None))
+    assert [window["background_color"] for window in opened] == grounds == ["#0d1117", "#e8ecf1"]
 
 
 def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):

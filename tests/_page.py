@@ -35,10 +35,12 @@ def fill(page, field: str, text: str) -> None:
 
 
 def slide(page, pack: str, slider: str, text: str) -> list[str]:
-    """Type ``text`` into ``pack``'s ``slider`` box; its track's min, max
-    and value, and the box's value."""
+    """Type ``text`` into ``pack``'s ``slider`` box, which its pack's tick
+    has unlocked (D907); its track's min, max and value, and the box's
+    value."""
     return page.evaluate("""([id, text]) => {
         const box = document.getElementById(id), track = box.previousElementSibling;
+        if (box.disabled) throw new Error(`${id} is locked`);
         box.value = text;
         box.dispatchEvent(new Event("input", { bubbles: true }));
         return [track.min, track.max, track.value, box.value];
@@ -46,17 +48,27 @@ def slide(page, pack: str, slider: str, text: str) -> list[str]:
 
 
 def tick(page, packs: list[str], values: dict[str, dict[str, str]] | None = None) -> None:
-    """Tick exactly ``packs`` (a pack's tick links tick or untick others)
-    and type each of ``values`` (``{pack: {slider: text}}``) into its
-    slider's box."""
-    for pack, sliders in (values or {}).items():
-        for slider, text in sliders.items():
-            slide(page, pack, slider, text)
+    """Tick exactly ``packs`` (a pack's tick links tick or untick others),
+    which unlocks their settings (D907), then set each of ``values``
+    (``{pack: {slider: text}}``): type it into its slider's box, or for an
+    L3 toggle (D909), ``"1"`` turns it on and ``"0"`` off."""
     page.evaluate("""(packs) => {
         for (const box of document.querySelectorAll("#packs input[data-pack]")) {
             if (box.checked !== packs.includes(box.dataset.pack)) box.click();
         }
     }""", packs)
+    for pack, sliders in (values or {}).items():
+        for slider, text in sliders.items():
+            page.evaluate("""([id, text]) => {
+                const box = document.getElementById(id);
+                if (box.disabled) throw new Error(`${id} is locked`);
+                if (box.type !== "checkbox") {
+                    box.value = text;
+                    box.dispatchEvent(new Event("input", { bubbles: true }));
+                } else if (box.checked !== (text === "1")) {
+                    box.click();
+                }
+            }""", [f"{pack}.{slider}", text])
 
 
 def build(page, packs: list[str], values: dict[str, dict[str, str]] | None = None) -> None:
@@ -72,21 +84,21 @@ def click(page, button: str) -> None:
 
 def ticked(page) -> dict[str, dict[str, str]]:
     """Each ticked pack in the catalog's order (the page groups them by
-    category, Step 4.1h), with its sliders' boxes as they read."""
+    category, Step 4.1h), with its sliders' boxes as they read (an L3
+    toggle's ``"1"`` on, ``"0"`` off)."""
     return page.evaluate("""() => {
         const rows = Object.fromEntries([...document.querySelectorAll("#packs .pack")].map((i) => [i.dataset.pack, i]));
         return Object.fromEntries(azurkit.packs.packs.map((pack) => rows[pack.name])
             .filter((item) => item.querySelector("input[data-pack]").checked)
             .map((item) => [item.dataset.pack, Object.fromEntries([...item.querySelectorAll("input[data-slider]")]
-                .map((box) => [box.dataset.slider, box.value]))]));
+                .map((box) => [box.dataset.slider, box.type === "checkbox" ? String(Number(box.checked)) : box.value]))]));
     }""")
 
 
 def marked(page) -> list[str]:
     """What the page marks ● (``pack`` for a tick, ``pack.slider`` for a value)."""
     return page.evaluate("""() => [...document.querySelectorAll("#packs .mark")].filter((m) => m.textContent === "●")
-        .map((m) => m.closest(".slider") ? m.closest(".slider").querySelector("input[data-slider]").id
-                                         : m.closest(".pack").dataset.pack)""")
+        .map((m) => m.closest(".l3, .slider")?.querySelector("input[data-slider]").id ?? m.closest(".pack").dataset.pack)""")
 
 
 def built(page) -> dict:
@@ -95,6 +107,32 @@ def built(page) -> dict:
                                && document.querySelector("#status").textContent""")
     assert done == "built", done
     return page.evaluate("() => azurkit.build.report")
+
+
+# The page as it first paints, once parsed to its foot and styled: whether app.mjs has yet to run, whether theme.js is
+# a classic script in the head (so the parser runs it before it reaches the body), the theme and the ground.
+FIRST = """() => {
+    const ground = document.body && getComputedStyle(document.body).backgroundColor;
+    return document.querySelector("footer") && ground !== "rgba(0, 0, 0, 0)" && [globalThis.azurkit === undefined,
+        document.head.querySelector('script[src="theme.js"]:not([type]):not([async]):not([defer])') !== null,
+        document.documentElement.dataset.theme, ground];
+}"""
+
+
+def first_paint(page, url: str) -> list[str]:
+    """Open ``url`` in ``page`` with app.mjs held back: the theme and the
+    ground the page has before its module runs, set by theme.js in the
+    head, which is how it first paints (D897: a player who picked light
+    never sees a dark first frame); then let app.mjs run and wait for the
+    engine."""
+    held = []
+    page.route("**/app.mjs", lambda route: held.append(route))
+    page.goto(url, wait_until="commit")
+    unrun, classic, *shown = until(page, FIRST, 120)
+    assert (unrun, classic, len(held)) == (True, True, 1)
+    held[0].fallback()
+    until(page, "() => globalThis.azurkit?.ready", 120)
+    return shown
 
 
 def check_csp(page) -> None:

@@ -12,8 +12,10 @@ opens back into its recipe. A share link carries the page's recipe and loads
 it into a page it opens (Step 4.1g), and the site serves the favicon the page
 links (Step 4.1g2). The page is design A with the owner's changes (Step 4.1h): dark
 first, its areas' tabs, the packs in their categories' groups, Build always in
-view, and an About tab. Under the page's CSP (no ``'unsafe-eval'``) nothing is
-refused, and every request is a GET of one of the site's own files: the image
+view, and an About tab; and with the owner's answers (Step 4.1i): a pack's
+settings locked until it is ticked (D907), the L3 toggles in their settings'
+rows (D909), light's faint text readable and a light first frame. Under the
+page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a GET of one of the site's own files: the image
 never leaves the page. The page is driven as
 ``tests/_page.py`` says."""
 
@@ -102,6 +104,9 @@ def _signature(made: iso.Image) -> list[list]:
 
 
 SLID = "enemy_damage:enemy_damage_neutral=2,enemy_damage_weakness=0.5,enemy_damage_immune=-1"   # a G1 slider case
+FPS = ("fps_unlock", {"target_fps": "120"}, None)
+# player_physics' jump height and two of its L3 toggles (D909), the toggles from the page's checkboxes
+FLIPPED = ("player_physics", {"jump_speed_scale": "1.5", "toggle_jump_speed_scale": "1", "toggle_gravity": "1"}, None)
 UNIT = """(id) => document.getElementById(id).parentElement.querySelector(".unit").textContent"""
 TRACK = """(id) => [document.getElementById(id).previousElementSibling.min,
                     document.getElementById(id).previousElementSibling.max]"""
@@ -115,8 +120,9 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
     at once: each page's report and segments are CPython's for the values
     it sent, and the packs at their defaults and the slider case hold their
     G1 golden's files (and only ``filelist.txt`` besides); the fly speed
-    is written as infinity with Q110's note, which the page shows. The
-    slider's track holds its default and vanilla value, and a value typed
+    is written as infinity with Q110's note, which the page shows, and one
+    with player_physics' jump height at 1.5 and two of its L3 toggles on
+    (D909). The slider's track holds its default and vanilla value, and a value typed
     past its hints widens it (D23, D42); once the image is picked, a slider
     at a site of the XBE shows the image's own vanilla value
     (``sdk.vanilla``), which its track holds too. No CSP violation, no
@@ -126,14 +132,15 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
     path = request.getfixturevalue(f"{release.name}_iso")
     golden = _g1.cases(release)
     cases = ([(name, {}, None if pack.requires else name) for name, pack in mods.PACKS.items()]
-             + [("fps_unlock", {"target_fps": "120"}, None)]
-             + [("enemy_damage", {k: str(v) for k, v in golden[SLID].params.items()}, SLID)]
-             + [("qol_photo_mode", {"fly_speed": "1e39"}, None)])
+             + [FPS, ("enemy_damage", {k: str(v) for k, v in golden[SLID].params.items()}, SLID)]
+             + [("qol_photo_mode", {"fly_speed": "1e39"}, None), FLIPPED])
     served = Site(browser, site)
     try:
         pages = [served.open() for _ in cases]
-        assert _page.slide(pages[-3], "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
-        assert _page.slide(pages[-3], "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
+        fps = pages[cases.index(FPS)]
+        _page.tick(fps, ["fps_unlock"])   # which unlocks its settings (D907)
+        assert _page.slide(fps, "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
+        assert _page.slide(fps, "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
         read = sdk.vanilla(str(path))
         assert {pack: set(sliders) for pack, sliders in read["packs"].items()} == {
             name: {s.name for s in pack.sliders() if s.catalog()["vanilla"] is None and release.name in pack.releases}
@@ -180,10 +187,11 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
     try:
         page = served.open()
         _page.tick(page, ["fps_unlock", "player_physics", "qol_memory_budget"],
-                   {"fps_unlock": {"target_fps": "120"}, "player_physics": {"gravity": "4.9"}})
+                   {"fps_unlock": {"target_fps": "120"}, "player_physics": {"gravity": "4.9", "toggle_gravity": "1"}})
         _page.click(page, "share")
         link = _page.until(page, "() => azurkit.link")
-        fragment = sdk.preset_encode({"packs": {"fps_unlock": {"target_fps": 120}, "player_physics": {"gravity": 4.9},
+        fragment = sdk.preset_encode({"packs": {"fps_unlock": {"target_fps": 120},
+                                                "player_physics": {"gravity": 4.9, "toggle_gravity": 1},
                                                 "qol_memory_budget": {}}})
         assert (link, page.evaluate("() => location.hash")) == (f"{ORIGIN}/{fragment}", fragment)
         assert page.evaluate("() => document.querySelector('#link').value") == link
@@ -192,11 +200,12 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         _page.until(loaded, "() => globalThis.azurkit?.loaded")
         assert _page.ticked(loaded) == _page.ticked(page)
         assert list(_page.ticked(loaded)) == ["fps_unlock", "player_physics", "qol_memory_budget"]
-        assert (_page.ticked(loaded)["fps_unlock"]["target_fps"], _page.ticked(loaded)["player_physics"]["gravity"]
-                ) == ("120", "4.9")
+        assert (_page.ticked(loaded)["fps_unlock"]["target_fps"], _page.ticked(loaded)["player_physics"]["gravity"],
+                _page.ticked(loaded)["player_physics"]["toggle_gravity"]) == ("120", "4.9", "1")
         assert sorted(_page.marked(loaded)) == sorted([
-            "fps_unlock", "fps_unlock.target_fps", "player_physics", "player_physics.gravity", "qol_memory_upper64",
-            "qol_memory_upper64_gpu", "qol_alloc_race"])
+            "fps_unlock", "fps_unlock.target_fps", "player_physics", "player_physics.gravity",
+            "player_physics.toggle_gravity", "qol_memory_upper64", "qol_memory_upper64_gpu", "qol_alloc_race"])
+        assert _locks(loaded)["fps_unlock"] == [True, "open"]   # the link's ticks unlock their settings (D907)
         assert loaded.evaluate("() => [azurkit.build, document.querySelector('#status').textContent]") == [
             None, f"Loaded the link's recipe (made with AzurKit {__version__}): 3 packs, marked ●. "
                   "Pick your vanilla image, then Build."]
@@ -208,6 +217,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         _page.until(again, "() => globalThis.azurkit?.loaded")
         assert again.evaluate("() => [azurkit.xbr, document.querySelector('#xbr-note').textContent]") == [
             [cell], "The loaded recipe also sets 1 config.xbr value, which each build applies."]
+        assert _locks(again)["fps_unlock"] == [False, "locked"]
         _page.click(again, "share")
         assert _page.until(again, "() => azurkit.link") == with_cell
         bad = served.context.new_page()
@@ -224,6 +234,59 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
 
 GROUND = "() => [azurkit.theme, getComputedStyle(document.body).backgroundColor]"   # app.css's ground, each theme
 DARK, LIGHT = ["dark", "rgb(13, 17, 23)"], ["light", "rgb(232, 236, 241)"]
+# Each pack with settings: [ticked, its settings' fields "locked" (all disabled), "open" (none) or "mixed"] (D907).
+LOCKS = """() => Object.fromEntries([...document.querySelectorAll("#packs .pack:has(.slider)")].map((item) => {
+    const off = [...item.querySelectorAll(".sliders input")].map((field) => field.disabled);
+    return [item.dataset.pack, [item.querySelector("input[data-pack]").checked,
+                                off.every(Boolean) ? "locked" : off.some(Boolean) ? "mixed" : "open"]];
+}))"""
+# A pack's setting rows (D909): each one's setting, label, and its row's last cell if that is an L3 toggle: the
+# toggle's setting, text and tooltip, and whether it sits right of the row's unit.
+ROWS = """(pack) => [...document.querySelectorAll(`#packs .pack[data-pack="${pack}"] .slider`)].map((row) => {
+    const l3 = row.lastElementChild.matches(".l3") ? row.lastElementChild : null;
+    return [row.querySelector("input[data-slider]").dataset.slider, row.querySelector("label").textContent,
+            l3 && [l3.querySelector("input").dataset.slider, l3.textContent, l3.title,
+                   l3.getBoundingClientRect().left >= row.querySelector(".unit").getBoundingClientRect().right]];
+})"""
+# Every visible text drawn in --faint, and its contrast with the ground it sits on (WCAG's ratio): [what, ratio].
+FAINT = """() => {
+    const rgb = (text) => text.match(/[\\d.]+/g).slice(0, 3).map(Number);
+    const hex = getComputedStyle(document.documentElement).getPropertyValue("--faint").trim();
+    const faint = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const lum = (c) => c.map((v) => v / 255).map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, v, i) => sum + [0.2126, 0.7152, 0.0722][i] * v, 0);
+    const ground = (el) => {
+        for (; el; el = el.parentElement) {
+            const bg = getComputedStyle(el).backgroundColor;
+            if (bg !== "transparent" && !/^rgba\\(.*, 0\\)$/.test(bg)) return rgb(bg);
+        }
+    };
+    return [...document.querySelectorAll("body *")].filter((el) => el.checkVisibility()
+            && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+            && rgb(getComputedStyle(el).color).join() === faint.join())
+        .map((el) => {
+            const [hi, lo] = [lum(faint), lum(ground(el))].sort((a, b) => b - a);
+            return [`${el.closest(".pack.open") ? "open " : ""}${el.className || el.id}`, (hi + 0.05) / (lo + 0.05)];
+        });
+}"""
+
+
+def _locks(page) -> dict[str, list]:
+    """:data:`LOCKS`, once it holds that every pack's settings are locked
+    exactly when it is unticked (D907)."""
+    locks = page.evaluate(LOCKS)
+    assert {name: state for name, (on, state) in locks.items() if state != ("open" if on else "locked")} == {}
+    return locks
+
+
+def _rows(pack: mods.Pack) -> list[tuple]:
+    """The rows the page shows ``pack``'s settings in, each slider with the
+    L3 toggle that sits in its row (D909: a whole 0-or-1 setting named
+    ``toggle_<other>`` pairs with ``<other>``), else ``None``."""
+    names = {s.name for s in pack.sliders()}
+    toggles = {s.name.removeprefix("toggle_"): s for s in pack.sliders()
+               if s.name.startswith("toggle_") and s.name.removeprefix("toggle_") in names and s.whole == (0, 1)}
+    return [(s, toggles.get(s.name)) for s in pack.sliders() if s not in toggles.values()]
 SHOWN = """() => [...document.querySelectorAll("#packs .pack")].filter((item) => item.checkVisibility()
     && item.querySelector(".sliders").checkVisibility()).map((item) => {
         const settings = item.querySelector(".sliders").getBoundingClientRect(), row = item.getBoundingClientRect();
@@ -257,12 +320,15 @@ BAR = """() => {
 def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_always_in_view(browser, site):
     """Design A with the owner's changes (Step 4.1h, D897-D903), on a
     system set to light: the page opens dark (D897), and its toggle picks
-    light, which a page opened later in the same browser keeps, until
-    toggled back. The toolbar's tabs are the catalog's, in D901's order and
+    light, which a page opened later in the same browser keeps from its
+    first paint (theme.js sets it before the body, app.mjs held back here),
+    until toggled back; light's faint text reads at least 4.5:1 on every
+    ground it sits on. The toolbar's tabs are the catalog's, in D901's order and
     only those whose area works (D902): Patches, then About. The Patches tab
     groups the packs by Modkit's categories, in the catalog's order, each
     group folding and counting its packs ticked; a pack with settings has a
-    Settings opener with their count, which shows them beside the list and
+    Settings opener with the count of their rows (an L3 toggle sits in its
+    setting's, D909), which shows them beside the list and
     closes the one open before (the first with settings opens first), and
     one without has none; the settings start beside their pack's row, in
     view however far the list is scrolled, the releases line up, and a
@@ -280,7 +346,8 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         page = served.open()
         assert page.evaluate(GROUND) == DARK
         _page.click(page, "theme")
-        later = served.open()
+        later = served.context.new_page()
+        assert _page.first_paint(later, f"{ORIGIN}/") == LIGHT
         assert [page.evaluate(GROUND), later.evaluate(GROUND)] == [LIGHT, LIGHT]
         _page.click(later, "theme")
         assert [later.evaluate(GROUND), served.open().evaluate(GROUND)] == [DARK, DARK]
@@ -295,7 +362,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert page.evaluate("""() => [...document.querySelectorAll("#packs .group")].map((group) =>
             [group.querySelector("summary b").textContent, [...group.querySelectorAll(".pack")].map((item) =>
                 [item.dataset.pack, item.querySelector(".toggle").hidden ? null : item.querySelector(".toggle").textContent])])
-            """) == [[c["title"], [[p.name, f"Settings · {len(p.sliders())}" if p.sliders() else None] for p in packs]]
+            """) == [[c["title"], [[p.name, f"Settings · {len(_rows(p))}" if p.sliders() else None] for p in packs]]
                      for c, packs in zip(catalog["categories"], grouped)]
         on = [[True, f"{sum(p.default_on for p in packs)} of {len(packs)} on", len(packs)] for packs in grouped]
         assert page.evaluate(GROUPS, "Quality of Life") == [*on[:2], [False, on[2][1], 0]]
@@ -303,6 +370,9 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         _page.tick(page, ["fps_unlock"])
         assert [tally for _, tally, _ in page.evaluate(GROUPS, None)] == ["0 of 3 on", "0 of 2 on", "1 of 12 on"]
         assert page.evaluate(SHOWN) == [["player_physics", "true", True, True]]
+        faint = page.evaluate(FAINT)   # the page is light here
+        assert {"line", "releases", "open releases", "version"} <= {what for what, _ in faint}
+        assert [(what, round(ratio, 2)) for what, ratio in faint if ratio < 4.5] == []
         page.evaluate("""() => document.querySelector('#packs .pack[data-pack="enemy_damage"] .toggle').click()""")
         assert page.evaluate(SHOWN) == [["enemy_damage", "true", True, True]]
         assert page.evaluate(RELEASES) == 1
@@ -334,6 +404,51 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert version == f"This is AzurKit {__version__}."
         for each in served.context.pages:
             _page.check_csp(each)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+def test_a_packs_settings_lock_until_it_is_ticked_and_its_l3_toggles_sit_in_their_rows(browser, site):
+    """The owner's answers (Step 4.1i). D907: a pack's settings are locked
+    (each field disabled, its value still shown) until its pack is ticked;
+    ticking unlocks them with their values, unticking locks them again and
+    keeps the values for later, and a build runs only with the ticked
+    packs' (a link and a build's recipe set ticks and values together:
+    test_a_share_link's). D909: each whole 0-or-1 setting named
+    ``toggle_<other>`` shows as a small L3 toggle at the end of
+    ``<other>``'s row, with a tooltip that says what it does, in place of
+    a row of its own: player_physics shows its 13 sliders, each with its L3,
+    and a toggle turned on is sent as 1. No CSP violation, no request but
+    GETs of the site's files."""
+    physics = mods.PACKS["player_physics"]
+    rows = _rows(physics)
+    assert (len(rows), sum(toggle is not None for _, toggle in rows), len(physics.sliders())) == (13, 13, 26)
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        assert page.evaluate(ROWS, "player_physics") == [
+            [s.name, s.label, toggle and [toggle.name, "L3", f"On: in game, a left-stick click (L3) flips {s.label} to "
+                                                              "vanilla and back", True]] for s, toggle in rows]
+        assert [rows for name, rows in ((p, page.evaluate(ROWS, p)) for p in mods.PACKS if p != "player_physics")
+                if any(l3 for _, _, l3 in rows)] == []
+        assert _locks(page)["player_physics"] == [False, "locked"]
+        values = {"jump_speed_scale": "1.5", "toggle_jump_speed_scale": "1", "toggle_gravity": "1"}
+        _page.tick(page, ["player_physics"], {"player_physics": values})
+        assert _locks(page)["player_physics"] == [True, "open"]
+        typed = _page.ticked(page)["player_physics"]
+        assert {name: typed[name] for name in values} == values
+        _page.click(page, "share")   # what the page would build: only the ticked packs, the toggles as 1
+        assert _page.until(page, "() => azurkit.link").endswith(sdk.preset_encode(
+            {"packs": {"player_physics": {"jump_speed_scale": 1.5, "toggle_jump_speed_scale": 1, "toggle_gravity": 1}}}))
+        _page.tick(page, ["fps_unlock"])
+        assert [_locks(page)[name] for name in ("player_physics", "fps_unlock")] == [[False, "locked"], [True, "open"]]
+        assert page.evaluate("""() => [...document.querySelectorAll('#packs .pack[data-pack="player_physics"] input[data-slider]')]
+            .map((field) => field.type === "checkbox" ? String(Number(field.checked)) : field.value)""") == [
+            typed[x.name] for s, toggle in rows for x in (s, toggle) if x]
+        _page.tick(page, ["player_physics"])
+        assert _page.ticked(page)["player_physics"] == typed
+        _page.check_csp(page)
         assert served.stray() == []
     finally:
         served.close()

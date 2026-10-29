@@ -239,12 +239,19 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     flip its flag in the step that makes it work, with a panel in
     `index.html`); the Patches tab groups the packs by their category
     (`mods.CATEGORIES`, Modkit's), each group folding, and a pack's
-    Settings opener (with their count) shows its sliders beside the list;
-    Build and Save sit in a bar along the window's bottom (D903). It is
-    dark whatever the system's setting until the toolbar's toggle picks
-    light (D897), remembered by the site in the browser's storage and by
-    the app in its config (`host.json`'s `theme`, `api/theme`: its page's
-    address is new each launch). The About tab's licence and credits
+    Settings opener (with the count of their rows) shows its sliders beside
+    the list; a pack's settings are locked (disabled, still readable) until
+    its pack is ticked, keeping their values while it is unticked (D907);
+    a whole 0-or-1 setting named `toggle_<other>` shows as a small L3
+    toggle at the end of `<other>`'s row, not a row of its own (D909: the
+    page pairs them from the catalog, never by pack). Build and Save sit in
+    a bar along the window's bottom (D903). It is dark whatever the
+    system's setting until the toolbar's toggle picks light (D897),
+    remembered by the site in the browser's storage and by the app in its
+    config (`host.json`'s `theme`, `api/theme`: its page's address is new
+    each launch). `theme.js`, a classic script in the head, sets it before
+    the first paint: the site's reads the storage, and the app serves its
+    own from its config and opens its window on that theme's ground. The About tab's licence and credits
     restate `LICENSE` and `NOTICE.md` (`tests/test_site.py` holds them
     to those files); its privacy line says only that AzurKit collects
     nothing and that the image never leaves the computer (D883).

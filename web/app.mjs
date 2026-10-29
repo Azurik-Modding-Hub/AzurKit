@@ -16,6 +16,8 @@
 // D901, D902); the Patches tab groups the packs by the catalog's categories, each group folding, and each pack with
 // settings has a Settings opener with their count (D903), which shows them beside the list; Build and Save sit in a
 // bar along the window's bottom. Dark whatever the system's setting, until the toolbar's toggle picks light (D897).
+// A pack's settings are locked until its pack is ticked (D907), and a setting that only picks whether a left-stick
+// click flips another in game shows as a small L3 toggle at the end of that one's row (D909).
 const $ = (id) => document.getElementById(id);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
                 packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
@@ -25,6 +27,7 @@ globalThis.azurkit = state;   // the last build and save, for the tests and the 
 
 // The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
 // storage, by the app in its settings (host.json's theme; api/theme), since its page has a new address each launch.
+// theme.js, a classic script in the head, sets the remembered one before the first paint; this module runs after it.
 const THEME = "azurkit.theme";
 function theme(name, keep = false) {
   const light = name === "light";
@@ -36,14 +39,6 @@ function theme(name, keep = false) {
   try {
     localStorage.setItem(THEME, state.theme);
   } catch {}   // storage refused (a private window, say): the theme lasts this visit
-}
-
-function remembered() {
-  try {
-    return localStorage.getItem(THEME);
-  } catch {
-    return null;
-  }
 }
 
 function say(text, error = false) {
@@ -159,10 +154,23 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 // What a slider's box holds, as the engine gets it: a number, or the text as typed, which the engine refuses by name.
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
+// A setting's field as the engine gets it (an L3 toggle's tick as 1 or 0), and as the page shows it.
+const given = (field) => field.type === "checkbox" ? Number(field.checked) : typed(field.value);
+const shown = (field) => field.type === "checkbox" ? String(Number(field.checked)) : field.value;
 
-// One slider, inline: its label, its track, its box and unit. The box holds the value (any finite number, D23); the
-// track's ends are hints that widen to hold the vanilla value (D42) and whatever the box holds, so nothing clamps.
-function sliderRow(pack, slider) {
+// The L3 toggles (D909), from the catalog: a whole 0-or-1 setting named toggle_<other> picks whether a left-stick
+// click (L3) flips <other>, a setting of the same pack, to vanilla and back in game (player_physics' speed toggle,
+// D713). It shows as a small L3 toggle at the end of <other>'s row, not as a row of its own. {other: the toggle}
+function flips(pack) {
+  const names = new Set(pack.sliders.map((slider) => slider.name));
+  return new Map(pack.sliders.filter(({ name, whole }) => name.startsWith("toggle_") && names.has(name.slice(7))
+    && whole?.[0] === 0 && whole?.[1] === 1).map((toggle) => [toggle.name.slice(7), toggle]));
+}
+
+// One slider, inline: its label, its track, its box and unit, and its L3 toggle if it has one (flip). The box holds
+// the value (any finite number, D23); the track's ends are hints that widen to hold the vanilla value (D42) and
+// whatever the box holds, so nothing clamps.
+function sliderRow(pack, slider, flip) {
   const row = Object.assign(document.createElement("div"), { className: "slider", title: slider.description });
   const mark = Object.assign(document.createElement("span"), { className: "mark" });
   const id = `${pack.name}.${slider.name}`;
@@ -172,6 +180,9 @@ function sliderRow(pack, slider) {
     type: "text", id, value: String(slider.default), inputMode: "decimal", spellcheck: false, autocomplete: "off" });
   box.dataset.slider = slider.name;
   const unit = Object.assign(document.createElement("span"), { className: "unit" });
+  const l3 = flip && Object.assign(document.createElement("input"), {
+    type: "checkbox", id: `${pack.name}.${flip.name}`, checked: flip.default === 1,
+    ariaLabel: `L3: a left-stick click flips ${slider.label} to vanilla and back` });
   const fit = () => {
     unit.textContent = slider.unit + (slider.vanilla == null ? "" : ` · vanilla ${slider.vanilla}`);
     const value = typed(box.value), ends = [slider.min, slider.max, slider.default, slider.vanilla, value];
@@ -180,6 +191,7 @@ function sliderRow(pack, slider) {
     track.max = String(Math.max(...held));
     if (typeof value === "number") track.value = String(value);
     box.classList.toggle("changed", value !== slider.default);
+    l3?.classList.toggle("changed", given(l3) !== flip.default);
   };
   track.addEventListener("input", () => {
     box.value = track.value;
@@ -189,6 +201,14 @@ function sliderRow(pack, slider) {
   const label = Object.assign(document.createElement("label"), { htmlFor: id, textContent: slider.label });
   label.prepend(mark);
   row.append(label, track, box, unit);
+  if (l3) {
+    l3.dataset.slider = flip.name;
+    l3.addEventListener("change", fit);
+    const toggle = Object.assign(document.createElement("label"), {
+      className: "l3", title: `On: in game, a left-stick click (L3) flips ${slider.label} to vanilla and back` });
+    toggle.append(Object.assign(document.createElement("span"), { className: "mark" }), l3, "L3");
+    row.append(toggle);
+  }
   fit();
   row.fit = fit;
   return row;
@@ -204,7 +224,7 @@ function vanilla(read) {
       const value = read.packs[pack.name]?.[slider.name];
       if (value === undefined) continue;
       slider.vanilla = value;
-      document.getElementById(`${pack.name}.${slider.name}`)?.parentElement.fit();
+      document.getElementById(`${pack.name}.${slider.name}`)?.closest(".slider").fit();
     }
   }
 }
@@ -234,8 +254,9 @@ function linked(changed) {
   }
 }
 
-// One pack's row: its tick, name, description and releases; with settings, its Settings opener (their count) and
-// the settings themselves, which show beside the list while the pack is open.
+// One pack's row: its tick, name, description and releases; with settings, its Settings opener (the count of their
+// rows: an L3 toggle sits in its setting's) and the settings themselves, which show beside the list while the pack
+// is open.
 function packRow(pack) {
   const item = Object.assign(document.createElement("div"), { className: "pack" });
   item.dataset.pack = pack.name;
@@ -253,10 +274,13 @@ function packRow(pack) {
   const sliders = Object.assign(document.createElement("div"), { className: "sliders", id: `${pack.name}-settings` });
   sliders.setAttribute("role", "group");
   sliders.setAttribute("aria-label", pack.name);
-  sliders.append(...pack.sliders.map((slider) => sliderRow(pack, slider)));
+  const flipped = flips(pack), toggles = new Set(flipped.values());
+  const rows = pack.sliders.filter((slider) => !toggles.has(slider))
+    .map((slider) => sliderRow(pack, slider, flipped.get(slider.name)));
+  sliders.append(...rows);
   const opener = Object.assign(document.createElement("button"), {
-    type: "button", className: "toggle", textContent: `Settings · ${pack.sliders.length}`,
-    title: `${pack.name}'s settings`, hidden: !pack.sliders.length });
+    type: "button", className: "toggle", textContent: `Settings · ${rows.length}`,
+    title: `${pack.name}'s settings`, hidden: !rows.length });
   opener.setAttribute("aria-expanded", "false");
   opener.setAttribute("aria-controls", sliders.id);
   opener.addEventListener("click", () => show(item));
@@ -282,6 +306,7 @@ function renderPacks(catalog) {
     list.append(group);
   }
   tally();
+  lock();
   show(list.querySelector(".pack:has(.slider)"));
 }
 
@@ -300,6 +325,17 @@ function show(item) {
 function place() {
   const item = $("packs").querySelector(".pack.open");
   if (item?.offsetParent) item.querySelector(".sliders").style.top = `${item.offsetTop}px`;
+}
+
+// A pack's settings are locked (greyed, still readable, not editable) until its pack is ticked, and every field while
+// a build runs (D907): ticking a pack unlocks its settings with their values as they were, and unticking it locks them
+// again, the values kept for later. A share link or a build's recipe sets the ticks and the values together.
+function lock() {
+  for (const item of $("packs").querySelectorAll(".pack")) {
+    const box = item.querySelector("input[data-pack]");
+    box.disabled = state.building;
+    for (const field of item.querySelectorAll(".sliders input")) field.disabled = state.building || !box.checked;
+  }
 }
 
 // Each group's count of its packs ticked, which a folded group still shows.
@@ -340,7 +376,7 @@ function chosen() {
   for (const item of $("packs").querySelectorAll(".pack")) {
     if (!item.querySelector("input[data-pack]").checked) continue;
     packs[item.dataset.pack] = Object.fromEntries(
-      [...item.querySelectorAll("input[data-slider]")].map((box) => [box.dataset.slider, typed(box.value)]));
+      [...item.querySelectorAll("input[data-slider]")].map((field) => [field.dataset.slider, given(field)]));
   }
   return packs;
 }
@@ -353,7 +389,7 @@ function busy(on) {
   for (const id of ["iso-path", "iso-choose", "out-path"]) $(id).disabled = on;
   $("save").disabled = on || !state.build;
   $("cancel").hidden = !on;
-  for (const box of $("packs").querySelectorAll("input")) box.disabled = on;
+  lock();
   if (!on) {
     clearInterval(state.poll);
     state.saving = false;
@@ -369,7 +405,8 @@ function forget() {
 
 // Load a recipe (a share link's, or an AzurKit build's: a preset, already checked by the engine) into the page:
 // tick exactly its packs, set their sliders (the others to their defaults), keep its config.xbr cells for the build,
-// and mark ● each tick and value it changed. It never starts a build.
+// and mark ● each tick and value it changed; its packs' settings unlock, the others' lock (D907). It never starts a
+// build.
 function load(preset, from) {
   const packs = preset.layers.find((layer) => layer.tool === "mods")?.recipe;
   const mark = (element, on) => {
@@ -386,12 +423,14 @@ function load(preset, from) {
     for (const field of item.querySelectorAll("input[data-slider]")) {
       const slider = pack.sliders.find((s) => s.name === field.dataset.slider);
       const value = String(packs?.[pack.name]?.[slider.name] ?? slider.default);
-      mark(field.parentElement.querySelector(".mark"), field.value !== value);
-      field.value = value;
-      field.parentElement.fit();
+      mark(field.closest(".l3, .slider").querySelector(".mark"), shown(field) !== value);
+      if (field.type === "checkbox") field.checked = value === "1";
+      else field.value = value;
+      field.closest(".slider").fit();
     }
   }
   tally();
+  lock();
   pick("patches");
   state.xbr = preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [];
   state.loaded = preset;
@@ -533,7 +572,7 @@ function pickInApp(host) {
 async function main() {
   if (window.top !== window.self) return stop("AzurKit doesn't run inside another page: open it on its own.");
   if (navigator.serviceWorker?.controller) return stop("A service worker controls this page: AzurKit won't run.");
-  theme(remembered());
+  theme(document.documentElement.dataset.theme);   // theme.js's
   $("theme").addEventListener("click", () => theme(state.theme === "light" ? "dark" : "light", true));
   document.addEventListener("securitypolicyviolation", (e) => {
     state.violations.push(`page: ${e.violatedDirective} ${e.blockedURI}`);
@@ -573,6 +612,7 @@ async function main() {
   $("packs").addEventListener("change", () => {
     forget();
     tally();
+    lock();
   });
   $("packs").addEventListener("input", forget);
   $("packs").addEventListener("toggle", place, true);   // a group's fold: "toggle" doesn't bubble
