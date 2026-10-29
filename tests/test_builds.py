@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import struct
 
 import pytest
 
@@ -226,3 +227,22 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
     bent = iso.Image(built.source, (*built.writes, (blob.sector * iso.SECTOR, flip)), built.size)
     with pytest.raises(ValueError, match=r"/azurkit\.bin's blob [0-9a-f]{12} isn't the bytes its sha256 names"):
         sdk.open_build(bent)
+
+
+def test_a_conflict_on_a_config_cell_names_the_cell_on_both_sides(usa_iso):
+    """AZ-130: a pack's config.xbr cell (player_max_hp's Starting HP) that
+    a mods file's ``set`` rewrites (named in D51's spellings) is a D28
+    conflict naming the cell on both sides, by table, entity and prop, at
+    the bytes the two values differ in; the later layer's value lands."""
+    initial = {"op": "set", "file": CONFIG, "table": "settings_foo", "entity": "Initial_HP", "prop": "value",
+               "value": 321}
+    made, report = sdk.image({"iso": str(usa_iso), "packs": {"player_max_hp": {"starting_hp": 500}},
+                              "xbr": [initial]})
+    with iso.Reader(made) as r:
+        table = Document(r.read(CONFIG)).tables["settings_foo"]
+    differ = [k for k, (a, b) in enumerate(zip(struct.pack("<d", 500.0), struct.pack("<d", 321.0))) if a != b]
+    assert table.number("initial hp", "Value") == 321.0 and differ == list(range(differ[0], differ[-1] + 1))
+    assert report["conflicts"] == [
+        f"{CONFIG} 0x{table.find('initial hp', 'Value').at + 8 + differ[0]:X} ({len(differ)} B): data xbr "
+        "(#1 set settings_foo/initial hp/Value) overwrote pack player_max_hp, whose group "
+        "player_max_hp settings_foo/initial hp/Value is dropped whole"]
