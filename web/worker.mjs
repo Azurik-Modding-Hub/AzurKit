@@ -1,9 +1,9 @@
 // The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, one worker per build (WEB §3.6). The page
 // starts it from a blob: URL that imports this file, so the page's CSP holds here too (WEB §6.4). Pyodide comes from
 // this site alone; the wheel, fetched with the integrity host.json gives, is unpacked without its dependencies
-// (WEB §6.3). The player's image is mounted read-only (WORKERFS) and azurkit.sdk reads it and decides every output
-// byte: the page gets the build as segments (WEB §3.4), spans of the image ("copy"), the bytes the build writes
-// ("bytes") and zeros past the image's end ("zero"), which it joins into a Blob.
+// (WEB §6.3). The player's image is mounted read-only (WORKERFS, read in blocks: readInBlocks) and azurkit.sdk reads
+// it and decides every output byte: the page gets the build as segments (WEB §3.4), spans of the image ("copy"), the
+// bytes the build writes ("bytes") and zeros past the image's end ("zero"), which it joins into a Blob.
 //
 // One PyProxy only (Step 4.1d3): ENGINE's function, kept for the worker's life. It hands back plain JS values, so this
 // file never drops a PyProxy for Pyodide's FinalizationRegistry to free later. That cleanup needs the GIL, and WebKit
@@ -66,6 +66,42 @@ def engine(request):
 
 engine`;
 
+// The image is read in blocks (Step 4.1g2). WebKit answers each read of a File's slice after about 200 ms, whatever
+// its size (2 KiB and 64 MiB alike), and a build read the image about 650 times through WORKERFS (the folders'
+// tables, which every iso.Reader reads again, and a 4 KiB read after each 8 MiB one): 131 s a build, 4 s in
+// Chromium. So each read is served from what a File's blocks already hold, else from a block read for it: a 1 MiB
+// page for a read under 1 MiB (the tables), else a 64 MiB block (a file's bytes); the last PAGES pages and BLOCKS
+// blocks of each File are kept (160 MiB at most). Each message brings its own File object, so nothing outlives the
+// message that read it.
+const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 32, BLOCKS = 2;
+function readInBlocks(WORKERFS) {
+  const kept = new WeakMap();   // File -> its unit -> index -> bytes, the least recently used first
+  const units = [[BLOCK, BLOCKS], [PAGE, PAGES]];
+  WORKERFS.stream_ops.read = (stream, buffer, offset, length, position) => {
+    const file = stream.node.contents, end = Math.min(position + length, file.size);
+    if (!(position < end)) return 0;
+    if (!kept.has(file)) kept.set(file, new Map(units.map(([unit]) => [unit, new Map()])));
+    const caches = kept.get(file);
+    for (let at = position; at < end;) {
+      const [unit, keep] = units.find(([u]) => caches.get(u).has(Math.floor(at / u))) ?? units[length < PAGE ? 1 : 0];
+      const cache = caches.get(unit), index = Math.floor(at / unit);
+      let data = cache.get(index);
+      if (data) {
+        cache.delete(index);   // used last now
+      } else {
+        data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));
+        if (cache.size >= keep) cache.delete(cache.keys().next().value);
+      }
+      cache.set(index, data);
+      const from = at - index * unit, n = Math.min(end - at, data.length - from);
+      if (!(n > 0)) throw new Error("the image got shorter while the engine read it");
+      buffer.set(data.subarray(from, from + n), offset + (at - position));
+      at += n;
+    }
+    return end - position;
+  };
+}
+
 async function load() {
   const site = await (await fetch(new URL("host.json", base))).json();
   const pyodide = new URL("pyodide/", base).href;
@@ -74,6 +110,7 @@ async function load() {
     indexURL: pyodide, lockFileURL: new URL("pyodide-lock.json", pyodide).href, packageBaseUrl: pyodide,
     stdout: () => {}, stderr: () => {},
   });
+  readInBlocks(py.FS.filesystems.WORKERFS);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });
   if (!wheel.ok) throw new Error(`${site.wheel}: HTTP ${wheel.status}`);
   py.unpackArchive(await wheel.arrayBuffer(), "wheel",

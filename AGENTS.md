@@ -251,7 +251,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in
   a module worker started from a `blob:` URL (so the page's CSP holds there),
-  one worker per build. It returns the build as segments
+  one worker per build, which reads the image in blocks (WebKit takes about
+  200 ms for each read of a File, whatever its size). It returns the build as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes, and Save downloads it.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
@@ -301,8 +302,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
   with the oracle's USA and Europe test (or the whole suite) in the background
-  under a lock, and prints a key and a receipt path. `--wait 540` waits for the
-  result; exit 3 means it is still running, so issue the same command again.
+  under a lock, and prints a key and a receipt path. A run is killed past its
+  cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
+  ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
+  it is still running, so issue the same command again.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and no commit it lands adds

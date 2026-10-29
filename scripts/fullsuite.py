@@ -7,8 +7,9 @@ background, with a receipt (the twin of Modkit's ``fullsuite``).
 It first runs the lint files (:data:`LINT`) in the foreground. A failure
 prints their output and queues nothing (no receipt, exit 1). The run then
 detaches: it waits for the lock (``<receipts>/lock``), runs ``nice -n 10 uv
-run --locked pytest`` in the worktree, killed after :data:`CAP` seconds, and
-writes ``<receipts>/suite-<key>.meta`` (JSON) and ``.log``. The script prints
+run --locked pytest`` in the worktree, killed after :func:`cap` seconds
+(:data:`CAP`, more on a loaded host), and writes ``<receipts>/suite-<key>.meta``
+(JSON) and ``.log``, whose tail lists the slowest tests. The script prints
 the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 ``--wait SECS`` waits up to SECS seconds. Its exit codes: 0 passed, 1 failed,
 3 still running. On 3, issue the same command again: it rejoins the run.
@@ -45,7 +46,9 @@ from pathlib import Path
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py", "tests/test_provenance.py")
 SMOKE = (*LINT, "tests/test_oracle.py")   # every changed-area run's; test_oracle reads both images
-CAP = 1800
+CAP = 1800        # a run's cap on a host whose load is at most its CPU count (cap())
+CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
+DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
 FINAL = {"done", "capped", "error"}
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
 SESSION = {"tests.conftest", "tests._byte_safe"}   # loaded by every run: a change to what they import is whole
@@ -118,6 +121,15 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     return sorted(picked)
 
 
+def cap(load5: float | None = None, cpus: int | None = None) -> int:
+    """A run's cap in seconds: :data:`CAP` scaled by the host's 5-minute load
+    per CPU as it starts, x1 to x:data:`CAP_SCALE` (Modkit's Step X.82b).
+    The page tests in WebKit are most of the whole suite, and they slow down
+    as the host's load rises (Step 4.1g2)."""
+    load5 = os.getloadavg()[1] if load5 is None else load5
+    return round(CAP * min(CAP_SCALE, max(1.0, load5 / (cpus or os.cpu_count() or 1))))
+
+
 def now() -> str:
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -156,7 +168,8 @@ def describe(m: dict, meta: Path) -> str:
     line += f" [{m['subject']}, {m['mode']}{', ' + str(len(m['pytest_args'])) + ' files' if m['pytest_args'] else ''}]"
     if m.get("summary") is not None or state(m) in FINAL:
         line += (f"\n  {m.get('summary') or 'no summary line'}; vanilla: {m.get('vanilla_run')} run; "
-                 f"europe: {m.get('europe_run')} run; wall {m.get('wall_s')} s")
+                 f"europe: {m.get('europe_run')} run; wall {m.get('wall_s')} s of its cap {m.get('cap_s')} s "
+                 f"(load {m.get('load')})")
     return line + f"\n  meta {meta}\n  log {meta.with_suffix('.log')}"
 
 
@@ -200,15 +213,16 @@ def runner(meta: Path) -> int:
         time.sleep(0.05)
     with open(meta.parent / "lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        m |= {"state": "running", "started_at": now()}
+        load5 = os.getloadavg()[1]
+        m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5)}
         save(meta, m)
         t0, capped = time.time(), False
         with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
-            proc = subprocess.Popen(["nice", "-n", "10", "uv", "run", "--locked", "pytest", *m["pytest_args"]],
-                                    cwd=m["worktree"], stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
-                                    env=_env())
+            proc = subprocess.Popen(["nice", "-n", "10", "uv", "run", "--locked", "pytest", *m["pytest_args"],
+                                     DURATIONS], cwd=m["worktree"], stdout=log, stderr=subprocess.STDOUT,
+                                    start_new_session=True, env=_env())
             try:
-                code = proc.wait(timeout=CAP)
+                code = proc.wait(timeout=m["cap_s"])
             except subprocess.TimeoutExpired:
                 os.killpg(proc.pid, signal.SIGKILL)
                 code, capped = proc.wait(), True
