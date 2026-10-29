@@ -20,10 +20,13 @@ each such file's sha256 as exported, which Modkit's ``oracle.json`` lists.
 
 A family's sync also installs the Modkit source it ports as it is
 (:data:`SOURCES`): the randomizer's data (and the movement tiers' margins),
-copied verbatim, and its planner, writer, physics, movement and layer, each
-module through :func:`port` (:data:`REWRITES`' imports, and the statements
-:data:`DROPS` names taken out: what AzurKit's engine can't hold, a process
-pool, Modkit's build objects). ORACLE.toml's ``source`` table keeps each installed file's
+copied verbatim, and its planner, writer, physics, movement, layer and
+tracker, and Live's game reads, events and link to xemu (with the guest's
+page tables and RAM layout they read through, Modkit's ``sim/pages.py`` and
+``sim/recipes.py``), each module through :func:`port` (:data:`REWRITES`'
+imports, and the statements :data:`DROPS` names taken out: what AzurKit's
+engine can't hold, a process pool, Modkit's build objects, a file beside
+the ISO). ORACLE.toml's ``source`` table keeps each installed file's
 sha256, so a later Modkit fix arrives by the same sync, never by hand. A
 module that still imports Modkit after its rewrites, or a statement DROPS
 names that is gone, stops the sync before anything is written.
@@ -56,22 +59,39 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
               "azurik_mod/config", "shims", "tests/facts", "tests/goldens/packs.json",
               "tests/goldens/europe/packs.json", "tests/goldens/shims.json", "tests/goldens/xbr_editor.json",
               "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
-    "rando": ("azurik_mod/randomizer", "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json",
+    "rando": ("azurik_mod/randomizer", "azurik_mod/sim/pages.py", "azurik_mod/sim/recipes.py",
+              "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json",
               "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
     "models": ("azurik_mod/patches/player_model", "azurik_mod/patches/_player_character.py", "azurik_mod/assets"),
 }
 
 
 RANDO = "src/azurkit/tools/randomizer"
+LIVE = f"{RANDO}/live"   # the app's Live tracker (its link reads a running xemu): the contracts' app-only folder
 SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's folder or file, AzurKit's, through port())
     "rando": (("azurik_mod/randomizer/data", f"{RANDO}/data", False),
               ("azurik_mod/randomizer/planner", f"{RANDO}/planner", True),
               *((f"azurik_mod/randomizer/{name}.py", f"{RANDO}/{name}.py", True)
-                for name in ("writer", "physics", "movement", "layer")),
-              ("azurik_mod/randomizer/draft/tiers.toml", f"{RANDO}/draft/tiers.toml", False)),   # physics reads it
+                for name in ("writer", "physics", "movement", "layer", "tracker")),
+              ("azurik_mod/randomizer/draft/tiers.toml", f"{RANDO}/draft/tiers.toml", False),   # physics reads it
+              # Live (Step 4.2c2): the game's reads and the events (live.py), the link to xemu and the guest's
+              # page tables and RAM layout it reads through
+              ("azurik_mod/randomizer/live.py", f"{LIVE}/game.py", True),
+              ("azurik_mod/randomizer/live_link.py", f"{LIVE}/link.py", True),
+              *((f"azurik_mod/sim/{name}.py", f"{LIVE}/{name}.py", True) for name in ("pages", "recipes"))),
 }
 OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py"})   # AzurKit's own instead: tools/randomizer/dbcache.py
 REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.tools.randomizer import dbcache"),
+            # the tracker reads Live's events only: the site imports it, never the link
+            ("from azurik_mod.randomizer.live import EPS,", "from azurkit.tools.randomizer.live.game import EPS,"),
+            ("from azurik_mod.randomizer import live_link, writer", "from azurkit.tools.randomizer import writer"),
+            ("from azurik_mod.randomizer.live_link import LiveError",
+             "from azurkit.tools.randomizer.live.errors import LiveError"),
+            ("from azurik_mod.sim import pages",
+             "from azurkit.tools.randomizer.live import pages\nfrom azurkit.tools.randomizer.live.errors import LiveError"),
+            ("from azurik_mod.sim import recipes", "from azurkit.tools.randomizer.live import recipes"),
+            ("from azurik_mod.assets.vanilla import REGIONS, Region, UnmappedAddressError",
+             "from azurkit.tools.randomizer.live.regions import REGIONS, Region, UnmappedAddressError"),
             ("azurik_mod.randomizer.", "azurkit.tools.randomizer."),
             ("from azurik_mod.xbr.nodes import", "from azurkit.core.xbr.nodes import"),
             ("from azurik_mod.xbr.toc_scan import", "from azurkit.core.xbr.nodes import"),
@@ -87,6 +107,12 @@ DROPS = {   # top-level statements a ported module loses, by the names they bind
     # generator layer (tools/randomizer/generator.py) writes, reads back and checks the movement in their place
     "azurik_mod/randomizer/layer.py": ("check_args", "write_layer", "check_movement", "movement_reasons", "judge",
                                        "outputs", "write_outputs"),
+    # a build's placement file beside its ISO: the page hands the tracker the plan itself
+    "azurik_mod/randomizer/tracker.py": ("json", "Path", "placements", "plan_doc"),
+    # Live's session opens its link in the app (azurkit.app's feed), so the events need no socket on the site
+    "azurik_mod/randomizer/live.py": ("connect",),
+    # one LiveError, live/errors.py's, which the events raise too (the rewrite above imports it here)
+    "azurik_mod/randomizer/live_link.py": ("LiveError",),
 }
 
 

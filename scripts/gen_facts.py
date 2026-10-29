@@ -1,6 +1,7 @@
 """Write AzurKit's facts, ``src/azurkit/core/facts.<release>.json``, from the
-oracle (``tests/oracle/``): each release's ``default.xbe`` sha256, size and
-base, its section table, every patch site (its address, size and the sha256
+oracle (``tests/oracle/``): each release's ``default.xbe`` sha256, size,
+base and kernel thunk table's address (Live tells the release a running
+xemu booted by it), its section table, every patch site (its address, size and the sha256
 of its vanilla bytes), the game's functions a shim may call (each one's
 address, calling convention and argument bytes; AZ-116's three names
 corrected, as Ghidra names them since D94), the kernel exports a shim may
@@ -46,7 +47,8 @@ def derive(release: str) -> dict:
     out = {
         "_about": ABOUT,
         "release": release,
-        "xbe": {"base": facts["xbe"]["base"], "sha256": facts["xbe"]["sha256"], "size": facts["xbe"]["size"]},
+        "xbe": {"base": facts["xbe"]["base"], "sha256": facts["xbe"]["sha256"], "size": facts["xbe"]["size"],
+                "thunks": facts["kernel_thunks"]["va"]},
         "sections": [{k: s[k] for k in ("name", "va", "vsize", "raw", "raw_size", "flags", "sha256")}
                      for s in facts["sections"]],
         "sites": {va: {"size": s["size"], "sha256": s["original_sha256"]} for va, s in facts["patch_sites"].items()},

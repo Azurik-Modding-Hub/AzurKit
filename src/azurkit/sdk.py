@@ -1,8 +1,9 @@
 """The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
-randomizer's :func:`plan`, :func:`spoiler` and :func:`randomizer_settings`
-(its tab's), and :func:`restore` (art comes with its step). JSON in and
+randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
+(its tab's) and :func:`tracker` (the item tracker's), and :func:`restore`
+(art comes with its step). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``). A refusal is a
@@ -60,10 +61,10 @@ from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import mods, randomizer
-from azurkit.tools.randomizer import generator
+from azurkit.tools.randomizer import generator, tracking
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
-           "preset_decode", "plan", "spoiler", "randomizer_settings", "restore"]
+           "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "restore"]
 RECIPE = ("iso", "packs", "xbr", "randomizer")
 SETUP = ("ticked", "values", "xbr", "randomizer")   # a UI's remembered setup (D915, :func:`restore`)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
@@ -175,7 +176,8 @@ def _report(made: edits.Manifest, prepared: generator.Prepared | None) -> dict:
            "notes": [note for la in made.layers for note in la.notes]}
     if prepared is not None:
         verdict = made.verdicts[generator.TOOL]
-        out |= {"randomizer": verdict, "spoiler": generator.spoiler(prepared, verdict)}
+        tracking.prime(prepared.plan.doc, prepared.logic)
+        out |= {"randomizer": verdict, "spoiler": generator.spoiler(prepared, verdict), "plan": prepared.plan.doc}
     return out
 
 
@@ -188,7 +190,8 @@ def image(recipe: Mapping) -> tuple[iso.Image, dict]:
     settings, plan sha256, the movement sliders it stands on,
     ``logic_verified`` with each reason it is false, ``why_not``, and the
     placements a later layer changed, ``conflicts``) and its spoiler
-    (``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file)."""
+    (``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file) and
+    its plan (``plan``: the plan file's object, which :func:`tracker` reads)."""
     stamp, base, layers, judge, prepared = _plan(recipe)
     made, manifest = edits.image(stamp, layers, base, judge=judge)
     return made, _report(manifest, prepared)
@@ -337,6 +340,28 @@ def randomizer_settings(given: Mapping) -> dict:
     packs = _packs({"packs": given.get("packs", {})})
     view = randomizer.tab({k: v for k, v in given.items() if k != "packs"}, generator.sliders(packs))
     return view | {"why_not": generator.movement_reasons(packs, catalog()["packs"]) + view["why_not"]}
+
+
+def tracker(given: Mapping) -> dict:
+    """What the item tracker shows (D189, D249) for ``given``: ``plan`` (a
+    plan file's object: :func:`plan`'s, or a randomized build's report's),
+    ``marks`` (the spots collected: ``{"collected": [spot], "live": {spot:
+    day clock or null}, "veto": [spot], "slot": a save slot or null}``, a
+    live mark one the app's Live saw, a veto one a click took off), ``kit``
+    (the element levels Live reads the game holding, which the reach holds
+    past the marks, R1.41), ``held`` (Live's inventory, the Table's In game
+    column), ``spoiler``, and ``toggle`` (a spot to mark or unmark) or
+    ``reset``: the marks after it, the head line (the seed, share string,
+    settings and skips on), the counter row (``status``: collected,
+    reachable now, of how many, the sphere, victory in reach, the levels
+    reached now and how many spots only a skip reaches), each spot's level,
+    class, state (``got``, ``live``, ``near``, ``skip``: only with a skip,
+    or ``far``) and item (once collected, or with ``spoiler``), and the
+    Table's two trees (``table``: the items by kind and the spots by level,
+    each row's collected, reachable now, left, total, where and the game's
+    count). Modkit's tracker, the same verdicts on every host
+    (``tools.randomizer.tracking``); a refusal names what it refuses."""
+    return tracking.view(given)
 
 
 def restore(setup: object) -> dict:

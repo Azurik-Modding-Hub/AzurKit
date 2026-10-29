@@ -3,8 +3,9 @@
 The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
-randomizer's :func:`plan`, :func:`spoiler` and :func:`randomizer_settings`
-(its tab's), and :func:`restore` (art comes with its step). JSON in and
+randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
+(its tab's) and :func:`tracker` (the item tracker's), and :func:`restore`
+(art comes with its step). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``). A refusal is a
@@ -92,7 +93,8 @@ with a randomizer, its verdict (``randomizer``: the seed, share string,
 settings, plan sha256, the movement sliders it stands on,
 ``logic_verified`` with each reason it is false, ``why_not``, and the
 placements a later layer changed, ``conflicts``) and its spoiler
-(``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file).
+(``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file) and
+its plan (``plan``: the plan file's object, which :func:`tracker` reads).
 
 
 def build(recipe: 'Mapping', out: 'str', *, progress: 'Callable[[int, int], object] | None' = None) -> 'dict':
@@ -182,6 +184,28 @@ floor, D83(c), a roll a skip on was proven at, an obsidian cost above
 vanilla's) and the preflight's refusal (``preflight``, AZ-454; ``None``).
 ``tools.randomizer.tab``; a refusal names the setting, the share string
 or the pack.
+
+
+def tracker(given: 'Mapping') -> 'dict':
+
+What the item tracker shows (D189, D249) for ``given``: ``plan`` (a
+plan file's object: :func:`plan`'s, or a randomized build's report's),
+``marks`` (the spots collected: ``{"collected": [spot], "live": {spot:
+day clock or null}, "veto": [spot], "slot": a save slot or null}``, a
+live mark one the app's Live saw, a veto one a click took off), ``kit``
+(the element levels Live reads the game holding, which the reach holds
+past the marks, R1.41), ``held`` (Live's inventory, the Table's In game
+column), ``spoiler``, and ``toggle`` (a spot to mark or unmark) or
+``reset``: the marks after it, the head line (the seed, share string,
+settings and skips on), the counter row (``status``: collected,
+reachable now, of how many, the sphere, victory in reach, the levels
+reached now and how many spots only a skip reaches), each spot's level,
+class, state (``got``, ``live``, ``near``, ``skip``: only with a skip,
+or ``far``) and item (once collected, or with ``spoiler``), and the
+Table's two trees (``table``: the items by kind and the spots by level,
+each row's collected, reachable now, left, total, where and the game's
+count). Modkit's tracker, the same verdicts on every host
+(``tools.randomizer.tracking``); a refusal names what it refuses.
 
 
 def restore(setup: 'object') -> 'dict':

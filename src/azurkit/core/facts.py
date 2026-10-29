@@ -1,7 +1,7 @@
 """The facts about each release's vanilla ``default.xbe``: its sha256 and
 size, its section table (:mod:`azurkit.core.xbe`), every patch site a pack
 writes as the sha256 and size of its vanilla bytes (never the bytes, D3),
-the game's functions a shim may call (:class:`Function`: the one source of
+the kernel thunk table's address, the game's functions a shim may call (:class:`Function`: the one source of
 their names, addresses and ABIs, from which ``shimkit`` writes the header a
 shim includes, AZ-099), the kernel exports a shim may use (:class:`Kernel`:
 their ordinals and slots in the release's thunk table, from which ``shimkit``
@@ -80,6 +80,7 @@ class Facts:
     absent: Mapping[int, str]          # USA address -> why this release has none
     functions: Mapping[str, Function] = field(default_factory=dict)   # by name
     kernel: Mapping[str, Kernel] = field(default_factory=dict)        # by name
+    thunks: int = 0                    # the kernel thunk table's address (a booted XBE's header holds it)
 
     def va(self, usa_va: int) -> int:
         """``usa_va``'s address in this release; ``LookupError`` says why
@@ -127,4 +128,5 @@ def of(release: Release) -> Facts:
         {name: Function(name, int(f["va"], 16), f["convention"], f["arg_bytes"], f.get("undecorated", False))
          for name, f in raw["functions"].items()},
         {name: Kernel(name, k["ordinal"], k["convention"], k["arg_bytes"], int(k["slot"], 16) if "slot" in k else None)
-         for name, k in raw["kernel"].items()})
+         for name, k in raw["kernel"].items()},
+        int(raw["xbe"]["thunks"], 16))

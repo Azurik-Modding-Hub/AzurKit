@@ -7,10 +7,12 @@ and image on both releases (``pipelines.json``, ``rando_iso.json``) and the
 default case's spoiler is Modkit's ``--spoiler`` file of its plan, a
 later layer over a placement is a conflict and any other difference a
 failure, and movement sliders plan on the logic re-checked under them;
-the Randomizer tab's settings (Step 4.2c1)."""
+the Randomizer tab's settings (Step 4.2c1); the item tracker's verdicts
+(Step 4.2c2), Modkit's at several states."""
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import math
@@ -21,7 +23,7 @@ import pytest
 from azurkit import cli, sdk
 from azurkit.core import iso
 from azurkit.tools import mods, randomizer
-from azurkit.tools.randomizer import generator, layer, writer
+from azurkit.tools.randomizer import generator, layer, tracking, writer
 from azurkit.tools.randomizer.planner.fill import settings_table
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import (
@@ -49,6 +51,12 @@ def _recipe(case: dict) -> dict:
         frozenset(st["exclude_categories"]), st["sliders"]))}
 
 
+@functools.cache
+def _profile(name: str) -> dict:
+    """Seed 2's plan file's object under the oracle's ``name`` settings (strict, default or max)."""
+    return sdk.plan(_recipe(CASES["tests/goldens/rando_plans.json"][name]))
+
+
 def _share(sliders: dict) -> str:
     skips = {sid: s for sid, (_, s) in kept_logic().db.skips.items()}
     return share_encode(Settings(0, "standard", 1, {}, sliders=sliders), skips)
@@ -57,8 +65,8 @@ def _share(sliders: dict) -> str:
 def test_seed_2s_plan_under_each_profile_is_modkits_and_the_default_plan_file_byte_for_byte(capsys):
     cases = CASES["tests/goldens/rando_plans.json"]
     assert sorted(cases) == ["default", "max", "strict"] and PLANS["seed"] == "2"
-    for name, case in cases.items():
-        doc = sdk.plan(_recipe(case))
+    for name in cases:
+        doc = _profile(name)
         assert (doc["attempt"], doc["sha256"]) == (PLANS[name]["attempt"], PLANS[name]["sha256"]), name
     assert cli.main(["plan", "--seed", "2"]) == 0        # the database's defaults are the default profile's
     assert capsys.readouterr().out == DEFAULT_PLAN
@@ -174,7 +182,8 @@ def test_g3s_seed_cases_build_modkits_files_and_image_and_open_back_into_their_r
     no other (Europe's golden names its own files; its XBRs are the USA
     case's), the image less its root entries is Modkit's (``rando_iso``:
     the recorded default plan's), the image reads back to the plan with
-    its logic verified, and the build opens back into its recipe."""
+    its logic verified, its report carrying the plan (the tracker's), and
+    the build opens back into its recipe."""
     path = request.getfixturevalue(f"{release}_iso")
     args = CASES[G3[release]][case]["args"]
     options = {k: args[k] for k in ("skip_ceiling", "movement_tier", "dark_fire") if args[k] is not None}
@@ -194,6 +203,7 @@ def test_g3s_seed_cases_build_modkits_files_and_image_and_open_back_into_their_r
                                                                  for k in ("plan", "usa")}
         lines = sdk.spoiler(PLANS["default"]["plan"])["lines"]   # Modkit's default plan file: its --spoiler file
         assert report["spoiler"] == "\n".join([lines[0], "logic_verified: true", *lines[1:]]) + "\n"
+        assert report["plan"] == PLANS["default"]["plan"]   # the tracker's (Step 4.2c2)
     found = sdk.read_mods(sdk.open_build(made, whole=False))
     assert found == {"packs": mods.normalize({n: {} for n, p in mods.PACKS.items() if p.default_on}),
                      "randomizer": {"seed": "2", "share": plan["share"]}}
@@ -239,3 +249,82 @@ def test_the_default_plan_file_is_modkits_byte_for_byte_under_pyodide(pyodide):
     got = pyodide("plan", "--seed", "2")
     assert (got["code"], got["stderr"]) == (0, ""), got["stderr"][-2000:]
     assert got["stdout"] == DEFAULT_PLAN
+
+
+# Modkit 3befd6336's tracker on seed 2's default and max plans, each state with the spoiler off and on: the
+# sha256[:32] of each view (tracking.digest: the marks, the counter row, each spot's state and item, the Table),
+# from $EV/azurkit-4.2c2-2026-10-29/verdicts.py on Modkit's own Tracker (results/verdicts-modkit.json)
+TRACKER = {
+    "default/kit/plain": "ce3571fe88c962f21c7e09d138dac973",
+    "default/kit/spoiler": "bf87656a7108cee3227c030710b11feb",
+    "default/mid/plain": "855469adebcf58a4d0e99376cf684d07",
+    "default/mid/spoiler": "fafe347a9ba2ca1c664f2cd939e516b0",
+    "default/none/plain": "41630c81ddcd3ff9c0b1a9955fb979a1",
+    "default/none/spoiler": "99feb6f24dc6f54118e0a99c1ebe8cb8",
+    "default/powers/plain": "ff16075ece7b8e4ccebe2c341fb1c3c6",
+    "default/powers/spoiler": "6ba1171bab858407a9cf0fc226c67517",
+    "max/kit/plain": "2a4d9249a20132ded813953bbb9b461b",
+    "max/kit/spoiler": "44e5c5bafc8404762f3f772539117991",
+    "max/mid/plain": "76d678657e5911f31cfa1f7e182c86c5",
+    "max/mid/spoiler": "405647d58558dfc66092980d4350287b",
+    "max/none/plain": "cf52424a1d9faa63de7be95f307dec2a",
+    "max/none/spoiler": "6d9496c6c8698564fe23472f4877c33e",
+    "max/powers/plain": "6dd4c7184fe0aaa17f7c4ca6cbbad22b",
+    "max/powers/spoiler": "106b13abcc619b74194430a5a1b8f6e4",
+}
+KIT = {"air": 3, "water": 3, "fire": 3, "earth": 3}
+
+
+def tracker_states(view, doc: dict):
+    """(state, marks, kit) of :data:`TRACKER`'s states for ``doc``, through
+    ``view(doc, marks, spoiler)`` (a host's tracker): none, no mark; mid,
+    three rounds of marking every spot reachable now; powers, every spot the
+    plan put a power at; kit, no mark and Live's kit at air, water, fire and
+    earth 3."""
+    mid = []
+    for _ in range(3):
+        spots = view(doc, {"collected": mid}, False)["spots"]
+        mid = sorted(set(mid) | {loc for loc, s in spots.items() if s["state"] in ("near", "skip")})
+    powers = sorted(loc for loc, s in view(doc, None, True)["spots"].items() if s["item"].startswith("power_"))
+    return [("none", None, None), ("mid", {"collected": mid}, None), ("powers", {"collected": powers}, None),
+            ("kit", None, KIT)]
+
+
+def test_the_trackers_verdicts_are_modkits_at_each_state_and_a_click_marks_what_it_names():
+    """Step 4.2c2 (D189, D249): the item tracker (Modkit's ``Tracker``,
+    installed by the oracle sync) on seed 2's default and max plans gives
+    Modkit's verdicts (:data:`TRACKER`) with nothing marked, after three
+    rounds of marking every spot reachable now, with every power marked
+    and with Live's kit at every element 3 (R1.41: the reach holds the
+    levels the game holds), the spoiler off (no item a spot holds is given
+    until it is collected) and on. A click marks a spot and a second takes
+    it off; a click on a live mark vetoes it (Live won't mark it again);
+    Reset clears both; a spot or plan it doesn't know, or a kit it can't
+    hold, is refused by name."""
+    def view(doc, marks, spoiler, kit=None):
+        return sdk.tracker({"plan": doc, "marks": marks, "kit": kit, "spoiler": spoiler})
+
+    for name in ("default", "max"):
+        doc = _profile(name)
+        for state, marks, kit in tracker_states(view, doc):
+            for spoiler in (False, True):
+                key = f"{name}/{state}/{'spoiler' if spoiler else 'plain'}"
+                got = hashlib.sha256(tracking.digest(view(doc, marks, spoiler, kit)).encode()).hexdigest()
+                assert got[:32] == TRACKER[key], key
+    doc = _profile("default")
+    plain = view(doc, None, False)
+    assert {s["item"] for s in plain["spots"].values()} == {None}
+    assert plain["head"]["text"].startswith(f"Seed 2 · {doc['share']} · skips None, movement standard")
+    near = sorted(loc for loc, s in plain["spots"].items() if s["state"] == "near")[0]
+    marked = sdk.tracker({"plan": doc, "toggle": near})
+    assert (marked["marks"], marked["spots"][near]["state"], marked["spots"][near]["item"]) == (
+        {"collected": [near]}, "got", doc["placement"].get(near) or kept_logic().vanilla[near][0])
+    assert sdk.tracker({"plan": doc, "marks": marked["marks"], "toggle": near})["marks"] == {"collected": []}
+    live = sdk.tracker({"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}, "toggle": near})
+    assert live["marks"] == {"collected": [], "veto": [near]}
+    assert sdk.tracker({"plan": doc, "marks": live["marks"], "reset": True})["marks"] == {"collected": []}
+    for given, why in (({"plan": doc, "toggle": "w1/g0/r1"}, "'w1/g0/r1' is no spot"),
+                       ({"plan": doc | {"seed": "3"}}, "edited plan"), ({"plan": doc, "kit": {"air": -1}}, "kit is"),
+                       ({"plan": doc, "marks": {"collected": [1]}}, "by their ids"), ({"plan": doc, "x": 1}, "no key 'x'")):
+        with pytest.raises(ValueError, match=why):
+            sdk.tracker(given)

@@ -240,10 +240,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   fill reads, AZ-383), and returns Modkit's plan file's object;
   `spoiler(doc)` reads one back. The sdk's `plan` and `spoiler` and the CLI's
   `azurkit plan` and `azurkit spoiler` call them. A plan needs no image.
-  - `planner/`, `data/`, `writer.py`, `physics.py`, `movement.py` and
-    `layer.py` are Modkit's, installed by the sync (above): never edit them
-    by hand. `generator.py`, `ports.py` and `dbcache.py` (no cache on disk:
-    a pickle read back from a writable folder runs its code) are ours.
+  - `planner/`, `data/`, `writer.py`, `physics.py`, `movement.py`,
+    `layer.py`, `tracker.py` and `live/`'s `game.py`, `link.py`, `pages.py`
+    and `recipes.py` are Modkit's, installed by the sync (above): never edit
+    them by hand. `generator.py`, `tracking.py`, `ports.py`, `dbcache.py`
+    (no cache on disk: a pickle read back from a writable folder runs its
+    code) and `live/`'s `errors.py` and `regions.py` are ours.
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's
@@ -263,14 +265,34 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   a randomized build's mods file replays its seed and share string.
   - Not ported: Modkit's `db-extract` (`levels.py`, the generated data's
     extractor: the data comes by the sync), the player-model swap's
-    movement reasons (with the models, Step 4.3), the slider tracks'
-    safe ranges, D258's skip groups and settings files (Load/Save
-    settings), and the tracker (Step 4.2c2).
+    movement reasons (with the models, Step 4.3) and the slider tracks'
+    safe ranges.
   - `tests/test_randomizer.py` holds it to the oracle: `rando_plans.json`
     (seed 2's attempt and plan sha256 under the strict, default and max
     settings, and the default plan file byte for byte, on CPython and under
     Pyodide), G3's seed cases file by file and whole image on both releases
     and `rando_iso.json`.
+- **The tracker** (Step 4.2c2, D189, D249; `tracking.py`, `sdk.tracker`):
+  Modkit's `Tracker` on a plan file's object (a randomized build's report
+  carries its plan, `plan`), the marks the page keeps (Modkit's state:
+  `collected`, `live`, `veto`, `slot`) and, with Live on, the element
+  levels the game holds (`kit`, R1.41): the marks after a `toggle` or a
+  `reset`, the head line, the counter row, each spot's state (`got`,
+  `live`, `near`, `skip`: only with a skip, R1.41, `far`) and its item
+  only once collected or with `spoiler`, and the Table's two trees. The
+  process keeps the last few trackers, so a click costs one reach.
+  `tests/test_randomizer.py` holds its verdicts to Modkit's on seed 2's
+  default and max plans at four states (none marked, three rounds of
+  marking what is reachable, every power, Live's kit at 3), each digest
+  from Modkit's own `Tracker`.
+  - **Live** (`live/`, the app's alone, D882): `game.py`'s reads of a
+    running game and its events (Took, Level, Held, Reload), `link.py`'s
+    link to xemu (the fork's shared guest RAM, or QMP; never a gdbstub,
+    D257), `pages.py` and `recipes.py` (the guest's page tables and RAM
+    layout); `regions.py` gives each release's addresses from the facts
+    (`facts.<release>.json`'s `xbe.thunks`, the kernel thunk table's, tells
+    the release a running xemu booted). The tracker imports only the
+    events, so the site never loads the link.
 
 ## The engine's contracts
 

@@ -2550,6 +2550,7 @@
  "xbe": {
   "base": "0x00010000",
   "sha256": "7d1fb519f53d1f3bece5bc927bbf0e84dcb5ca7898a405b5d4b3b7aa3f23fdd5",
-  "size": 1785856
+  "size": 1785856,
+  "thunks": "0x0018F3A0"
  }
 }
