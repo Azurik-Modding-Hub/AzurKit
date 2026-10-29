@@ -12,14 +12,16 @@
 //
 // In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer}, {type: "vanilla", file},
 //      {type: "preset", recipe: {packs, xbr, randomizer}, report}, {type: "decode", text}, {type: "restore", setup},
-//      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings)
+//      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings),
+//      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan)
 // Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
-//      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "csp", directive, blocked}
+//      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "reply", call, reply}
+//      (a tracker's or plan's answer: the view, {plan}, or {refused}), {type: "csp", directive, blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
@@ -46,10 +48,14 @@ def engine(request):
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
     if request.type == "restore":
         return js(sdk.restore(request.setup.to_py() if hasattr(request.setup, "to_py") else request.setup))
-    if request.type in ("vanilla", "open", "preset", "decode", "randomizer"):
+    if request.type in ("vanilla", "open", "preset", "decode", "randomizer", "tracker", "plan"):
         try:
             if request.type == "randomizer":
                 return js(sdk.randomizer_settings(request.given.to_py()))
+            if request.type == "tracker":
+                return js(sdk.tracker(request.given.to_py()))
+            if request.type == "plan":
+                return js({"plan": sdk.plan(request.recipe.to_py())})
             if request.type == "vanilla":
                 return js(sdk.vanilla(request.recipe.iso))
             if request.type == "open":
@@ -152,9 +158,18 @@ function build({ py, engine }, file, packs, xbr, randomizer) {
 try {
   const loaded = await load();
   self.onmessage = ({ data }) => {
-    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer"].includes(data?.type)) return;
+    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan"].includes(data?.type)) return;
     try {
       if (data.type === "vanilla") return vanilla(loaded, data.file);
+      if (data.type === "tracker" || data.type === "plan") {   // answered whatever happens: the page waits on it
+        let reply;
+        try {
+          reply = loaded.engine(data);
+        } catch (error) {
+          reply = { refused: lastLine(error) };
+        }
+        return post({ type: "reply", call: data.call, reply });
+      }
       if (data.type === "randomizer") return post({ type: "rando", ticket: data.ticket, reply: loaded.engine(data) });
       if (data.type === "restore") return post({ type: "restored", ...loaded.engine(data) });
       if (data.type === "preset" || data.type === "decode") {

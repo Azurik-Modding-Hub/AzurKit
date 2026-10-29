@@ -33,6 +33,17 @@ chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
 ``POST api/spoiler`` ``{"out"}`` writes the last randomized build's spoiler
 there, on the same terms. ``POST api/randomizer`` ``{"given"}`` gives what
 the Randomizer tab shows (``sdk.randomizer_settings``).
+``POST api/tracker`` ``{"given"}`` gives what the item tracker shows
+(``sdk.tracker``); with Live on for its plan, it first merges what Live
+read since the last ask (:mod:`.live`: the spots the game shows taken, the
+element levels it holds) and gives Live's status and where it saw the
+player (``live``). ``POST api/live`` ``{"on", "plan", "marks",
+"endpoints"}`` turns Live on for a plan (reading the first of the
+endpoints that answers as xemu: the fork's shared RAM, or QMP; Modkit's
+grammar, empty for the defaults) or off. ``POST api/plan`` ``{"recipe"}`` plans a seed to track
+(``sdk.plan``), and ``POST api/tracked`` ``{"tracker"}`` remembers the
+plan last tracked and the marks of the last plans (``host.json``'s
+``tracker``: the randomizer's names and numbers, never the image's).
 ``POST api/vanilla`` ``{"iso"}`` reads the image's own values of the
 sliders at its XBE's sites (``sdk.vanilla``), or, when the image is an
 AzurKit build, ``{"opened": its recipe}`` (``sdk.open_build`` of the files
@@ -75,6 +86,10 @@ from azurkit import __version__, sdk
 from azurkit.core import gate
 from azurkit.edits import xbr
 from azurkit.tools import randomizer
+from azurkit.tools.randomizer import tracking
+from azurkit.tools.randomizer.live import link
+
+from . import live
 
 SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
 
@@ -185,6 +200,34 @@ def _set_setup(body: dict) -> dict:
     return {}
 
 
+TRACKED = 20   # the plans whose marks the app keeps (the page's KEEP)
+
+
+def _set_tracked(body: dict) -> dict:
+    """``api/tracked``: remember the tracker's plan last tracked (a plan
+    file's object: the randomizer's names and numbers) and the marks of
+    the last :data:`TRACKED` plans (``{sha256: marks}``), or forget them
+    (``null``); marks the tracker can't read are refused by name."""
+    if (kept := body.get("tracker")) is not None:
+        if not (isinstance(kept, dict) and set(kept) <= {"plan", "marks", "endpoints"}):
+            raise ValueError("tracker: an object of plan, marks and endpoints only, or null")
+        if not isinstance(endpoints := kept.get("endpoints", ""), str):
+            raise ValueError("tracker: endpoints is a list's text")
+        try:
+            link.parse(endpoints)
+        except ValueError as exc:
+            raise ValueError(f"tracker: endpoints: {exc}") from None
+        plan, marks = kept.get("plan"), kept.get("marks", {})
+        if not (plan is None or (isinstance(plan, dict) and isinstance(plan.get("sha256"), str))):
+            raise ValueError("tracker: plan is a plan file's object")
+        if not (isinstance(marks, dict) and len(marks) <= TRACKED and all(isinstance(k, str) for k in marks)):
+            raise ValueError(f"tracker: marks is {{plan sha256: marks}} of at most {TRACKED} plans")
+        for each in marks.values():
+            tracking.marks_of(each)
+    _remember(tracker=kept)
+    return {}
+
+
 def _named(name: object) -> bool:
     """``name`` is a pack's or a setting's name (an identifier: never a path)."""
     return isinstance(name, str) and name.isidentifier()
@@ -227,6 +270,8 @@ class Server(http.server.ThreadingHTTPServer):
         self.chosen: Path | None = None     # the save dialog's last answer, which it asked before replacing
         self.spoiler: str | None = None     # the last randomized build's spoiler (api/spoiler)
         self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
+        self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
+        self.feed: live.Feed | None = None  # Live, while it is on
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
@@ -242,6 +287,8 @@ class Server(http.server.ThreadingHTTPServer):
         ``quitting``, before its part file is made and after each chunk."""
         self.quitting = True
         self.cancelled.set()
+        if (feed := self.feed) is not None:
+            feed.stop()
         self.deadline = self.deadline or time.monotonic() + QUIT_WAIT
         if self.writing.acquire(timeout=max(0.0, self.deadline - time.monotonic())):
             self.writing.release()
@@ -258,7 +305,7 @@ class Server(http.server.ThreadingHTTPServer):
     def host_info(self) -> dict:
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
-                "setup": _kept().get("setup")}
+                "setup": _kept().get("setup"), "tracker": _kept().get("tracker")}
 
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
@@ -295,6 +342,42 @@ class Server(http.server.ThreadingHTTPServer):
                 return {"saved": sdk.build(recipe, str(out), progress=progress)}
             except Cancelled:
                 raise ValueError("Cancelled: nothing was written") from None
+
+    def track(self, body: dict) -> dict:
+        """``api/tracker``: what the tracker shows (``sdk.tracker``), one ask
+        at a time; with Live on for its plan, Live's events since the last
+        ask merged into its marks, the reach holding the element levels the
+        game holds, and Live's status (``live``)."""
+        given = body.get("given")
+        with self.tracking:
+            feed = self.feed
+            plan = given.get("plan") if isinstance(given, dict) else None
+            if feed is None or not isinstance(plan, dict) or plan.get("sha256") != feed.sha256:
+                return sdk.tracker(given)
+            events, seen = feed.take()
+            out = tracking.view({**given, "kit": seen.pop("kit"), "held": seen.pop("held")}, events)
+            return out | {"live": seen}
+
+    def live(self, body: dict) -> dict:
+        """``api/live``: Live on for ``plan`` (its marks the journal a
+        first settle checks the game against), reading the first of
+        ``endpoints`` that answers (empty: the defaults), or off."""
+        with self.tracking:
+            if self.feed is not None:
+                self.feed.stop()
+                self.feed = None
+            if body.get("on"):
+                if self.quitting:
+                    raise ValueError(QUITTING)
+                endpoints = body.get("endpoints") or ""
+                if not isinstance(endpoints, str):
+                    raise ValueError("live: endpoints is a list's text, as Endpoints… takes it")
+                try:
+                    link.parse(endpoints)
+                except ValueError as exc:
+                    raise ValueError(f"Endpoints: {exc}") from None
+                self.feed = live.Feed(body.get("plan"), body.get("marks"), endpoints).start()
+        return {}
 
     def save_spoiler(self, body: dict) -> dict:
         """``api/spoiler``: write the last randomized build's spoiler to
@@ -393,6 +476,9 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/theme": _set_theme, "/api/setup": _set_setup,
                 "/api/restore": lambda body: sdk.restore(body.get("setup")),
                 "/api/randomizer": lambda body: sdk.randomizer_settings(body.get("given")),
+                "/api/tracker": self.server.track,
+                "/api/plan": lambda body: {"plan": sdk.plan(body.get("recipe"))},
+                "/api/tracked": _set_tracked, "/api/live": self.server.live,
                 "/api/spoiler": self.server.save_spoiler,
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:

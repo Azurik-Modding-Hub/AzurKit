@@ -355,6 +355,28 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     saves (the site's download, the app's `api/spoiler`). The tab's setup
     is remembered too (`randomizer`: on, seed, settings, cost) and Reset
     unticks it.
+  - **The Tracker view** (Step 4.2c2, `web/tracker.mjs`): the Randomizer
+    tab's second view (Settings · Tracker). It opens on a randomized
+    build's plan (the report's `plan`), Track this seed (the Settings
+    view's seed and share string, planned by the engine: `sdk.plan`, the
+    site's worker, the app's `api/plan`) or a plan file, and asks the
+    engine (`sdk.tracker`: the worker's `tracker` call, the app's
+    `api/tracker`) what it shows, one ask at a time, each click one: the
+    head line, the counter row, the world map (`tracking.GRID`, each level
+    with its spots reachable now, amber when only a skip reaches them), a
+    level's spots as chips (a click marks one; a spot not shown is told by
+    the item vanilla puts there), and the Table. The page keeps the plan
+    last tracked and the marks of the last 20 plans (the site's storage
+    `azurkit.tracker`, the app's `api/tracked`, `host.json`'s `tracker`):
+    names and numbers, never the image. **Live** is the app's alone (D882):
+    `api/live` starts `azurkit.app.live`'s feed (a thread) for the plan,
+    and each `api/tracker` ask merges its events and the element levels the
+    game holds and returns `live` (the status, where it saw the player),
+    which the page asks for every 0.7 s; Follow shows the player's level,
+    Find me (key F) shows it once. The level maps and item icons drawn from
+    the player's image wait for P3's node-type names table (a spot's place
+    needs its record's transform); the icons are the page's own drawings
+    (D3) until then.
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,

@@ -34,10 +34,12 @@ same page in its own window and writes the build where you save it. The page
 isn't hosted and the app isn't released yet: on macOS you build the app
 yourself (below). The randomizer is the page's Randomizer tab (tick
 Randomize, pick a seed and the options, Build; it shows the spoiler, and a
-link carries the seed) and runs from the command line too: `azurkit plan
---seed 2` prints a plan, `azurkit spoiler PLAN` its spoiler, and `azurkit
-build --iso PATH --out PATH --seed 2` builds a randomized image. Version 1
-will add the item tracker, and character swaps and variants. Players will
+link carries the seed), with its item tracker beside it (Tracker: what you
+collected, what you can reach now, by level and in a table; in the app, Live
+marks what a running xemu shows you take) and runs from the command line
+too: `azurkit plan --seed 2` prints a plan, `azurkit spoiler PLAN` its
+spoiler, and `azurkit build --iso PATH --out PATH --seed 2` builds a
+randomized image. Version 1 will add character swaps and variants. Players will
 get a web page and a download-and-run app;
 developers will get `uv tool install azurkit`.
 

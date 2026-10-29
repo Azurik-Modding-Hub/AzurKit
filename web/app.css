@@ -255,6 +255,97 @@ button:disabled { color: var(--faint); background: transparent; }
   white-space: pre-wrap; color: var(--text); background: var(--field); border: 1px solid var(--line); border-radius: 3px;
 }
 
+/* The Randomizer tab's views (its settings, the tracker), as small tabs in its caption. */
+.rando > h2 { display: flex; align-items: center; gap: 12px; }
+.views { display: inline-flex; gap: 2px; text-transform: none; letter-spacing: 0; }
+.views button { height: 18px; padding: 0 10px; font-size: 11px; color: var(--muted); background: transparent; }
+.views button[aria-selected="true"] { color: var(--on); background: var(--accent); border-color: var(--accent); }
+p.views { margin: 0; padding: 2px 10px; }
+
+/* The tracker (Step 4.2c2): its bar, the head line, the counter row and the levels reached now, then the world map
+   (each level a cell in the grid, its spots reachable now in a badge), a level's spots as chips ringed by their
+   state, or the Table. The states' colours are Modkit's tracker's: green reachable now, amber only with a skip
+   (R1.41), grey not yet, blue a live mark and the player. */
+.tracker {
+  --near: #3fb950; --skip: #ff8800; --far: #6e7681; --live: #58a6ff;
+}
+:root[data-theme="light"] .tracker { --near: #1a7f37; --skip: #b35900; --far: #57606a; --live: #0969da; }
+.tracker > p, #track-body > p { margin: 0; }
+.tracker .open { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.tracker .open input { max-width: 13rem; }
+#track-head, #track-levels { padding: 2px 10px; }
+#track-levels.other { color: var(--error); }
+.tracker .count { padding: 2px 10px; font-weight: 700; font-size: 12.5px; }
+#track-status { font-family: var(--mono); }
+#track-endpoints { width: 14rem; }
+#track-dot { font-size: 11px; }
+#track-dot.live { color: var(--near); } #track-dot.warn, #track-dot.lost { color: var(--air); }
+#track-dot.other { color: var(--error); }
+#track-line { max-width: 40rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.world {
+  display: grid; grid-template-columns: repeat(6, minmax(5.5rem, 9rem)); grid-auto-rows: 3.4rem; gap: 6px;
+  padding: 6px 10px 10px;
+}
+.world .cell {
+  position: relative; height: auto; display: grid; align-content: center; justify-items: start; gap: 2px;
+  padding: 4px 8px; text-align: left; background: var(--field); border-radius: 4px; color: var(--muted);
+}
+.world .cell.reached { color: var(--text); border-color: var(--far); }
+.world .cell.here { box-shadow: 0 0 0 2px var(--live); }
+.world .cell b { font: 700 12px var(--mono); }
+.world .cell .tally { font: 10.5px var(--mono); color: var(--muted); }
+.world .badge {
+  position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px;
+  font: 700 10.5px/18px var(--mono); text-align: center; color: #fff; background: var(--soft);
+}
+.world .badge:empty { display: none; }
+.world .badge.near { background: var(--near); } .world .badge.skip { background: var(--skip); }
+.level { padding: 0 10px 10px; }
+.level .rando-row { padding: 4px 0; }
+.level .you { color: var(--live); font-weight: 700; }
+.level h4 { margin: 6px 0 3px; font-size: 11px; color: var(--muted); font-weight: 600; }
+.level .spots { display: flex; flex-wrap: wrap; gap: 4px; }
+.level .spots h4 { flex-basis: 100%; }
+.tracker .spot {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px 0 4px; font: 11px var(--mono);
+  color: var(--muted); background: var(--field); border: 1.5px solid var(--far); border-radius: 11px;
+}
+.tracker .spot.near { color: var(--text); border: 2.5px solid var(--near); }
+.tracker .spot.skip { color: var(--text); border: 2.5px solid var(--skip); }
+.tracker .spot.got, .tracker .spot.live { color: var(--text); border-color: var(--near); background: var(--sel); }
+.tracker .spot .check { font-weight: 700; color: var(--near); }
+.tracker .spot.live .check { color: var(--live); }
+/* An item's icon: AzurKit's own drawing (D3: never the game's art), an element's colour on a shape for its kind. */
+.glyph { display: inline-block; width: 12px; height: 12px; flex: none; }
+.glyph.dot { width: 7px; height: 7px; margin: 0 2px; border-radius: 50%; background: var(--far); }
+.spot.near .glyph.dot { background: var(--near); } .spot.skip .glyph.dot { background: var(--skip); }
+.glyph[class*="frag_"] { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.glyph[class*="power_"] { border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .35); }
+.glyph.frag_air, .glyph.power_air { background: var(--air); }
+.glyph.frag_water, .glyph.power_water { background: var(--water); }
+.glyph.frag_fire, .glyph.power_fire { background: var(--fire); }
+.glyph.frag_earth, .glyph.power_earth { background: var(--earth); }
+.glyph.frag_life, .glyph.power_life { background: #d65c9a; }
+.glyph.power_staff1, .glyph.power_staff2 { background: #9a7cd6; border-radius: 2px; }
+.glyph.power_ammo { background: #c9d1d9; border-radius: 2px; }
+.glyph.key { background: #ffe8a3; clip-path: polygon(0 35%, 60% 35%, 60% 0, 100% 0, 100% 100%, 60% 100%, 60% 65%, 0 65%); }
+.glyph.obsidian { background: #2a2140; box-shadow: inset 0 0 0 2px #8f7cc0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.glyph.fuel { background: #f0883e; border-radius: 2px 2px 6px 6px; }
+.glyph.health { background: #e5534b; clip-path: polygon(35% 0, 65% 0, 65% 35%, 100% 35%, 100% 65%, 65% 65%, 65% 100%, 35% 100%, 35% 65%, 0 65%, 0 35%, 35% 35%); }
+.glyph[class*="gem_"] { clip-path: polygon(50% 0, 100% 40%, 50% 100%, 0 40%); }
+.glyph.gem_diamond { background: #e6edf3; } .glyph.gem_emerald { background: #3fb950; }
+.glyph.gem_ruby { background: #e5534b; } .glyph.gem_sapphire { background: #4493f8; }
+.tables { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 6px 10px 10px; }
+.tables table { border-collapse: collapse; font: 11px var(--mono); }
+.tables th, .tables td { height: 20px; padding: 0 6px; border-bottom: 1px solid var(--soft); white-space: nowrap; }
+.tables thead th { position: sticky; top: 0; color: var(--muted); background: var(--bar); font-weight: 600; text-align: right; }
+.tables thead th:first-child, .tables tbody th { text-align: left; }
+.tables tbody th { font-weight: 400; }
+.tables tr.group th, .tables tr.sum th, .tables tr.sum td { font-weight: 700; }
+.tables td { text-align: right; font-variant-numeric: tabular-nums; }
+.tables td.where { text-align: left; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+#track-places tbody tr:hover { background: var(--hover); cursor: default; }
+
 /* The About tab: a readable column. */
 .about { padding: 10px 16px 24px; background: var(--pane); font-size: 12.5px; line-height: 1.5; }
 .about > * { max-width: 46rem; }
@@ -285,4 +376,6 @@ button:disabled { color: var(--faint); background: transparent; }
   #packs .pack.open > .sliders { position: static; flex-basis: 100%; }
   #packs .sliders::before { display: none; }
   .rando-cols { grid-template-columns: minmax(0, 1fr); }
+  .world { grid-template-columns: repeat(3, minmax(5rem, 1fr)); }
+  .world .cell { grid-column: auto !important; grid-row: auto !important; }
 }

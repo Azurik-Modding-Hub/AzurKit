@@ -34,12 +34,15 @@ import pytest
 
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli, sdk
+from azurkit.app import live as live_app
 from azurkit.core import gate, iso
 from azurkit.tools import mods
+from azurkit.tools.randomizer import tracking
 from scripts import freeze
 from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
 from tests._xiso import fill, image
+from tests.test_randomizer import TRACKER, _profile, tracker_states
 
 ROOT = Path(__file__).resolve().parent.parent
 NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
@@ -639,6 +642,101 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
                  "randomizer": {"on": True, "seed": "2", "settings": defaults}}
         assert call("api/setup", {"setup": setup}) == {}
         assert json.loads(app._config().read_text(encoding="utf-8"))["setup"] == setup
+
+        def view(doc, marks, spoiler, kit=None):   # Step 4.2c2: the tracker from the app's api
+            return call("api/tracker", {"given": {"plan": doc, "marks": marks, "spoiler": spoiler, "kit": kit}})
+
+        assert report["plan"] == _profile("default")
+        for name in ("default", "max"):
+            doc = _profile(name)
+            for state, marks, kit in tracker_states(view, doc):
+                for spoiler in (False, True):
+                    key = f"{name}/{state}/{'spoiler' if spoiler else 'plain'}"
+                    got = hashlib.sha256(tracking.digest(view(doc, marks, spoiler, kit)).encode()).hexdigest()
+                    assert got[:32] == TRACKER[key], key
+        tracked = {"plan": report["plan"], "marks": {report["plan"]["sha256"]: {"collected": ["w1/g0/r1717"]}}}
+        assert call("api/tracked", {"tracker": tracked}) == {}
+        assert call("api/tracked", {"tracker": tracked | {"iso": str(usa_iso)}}) == {
+            "refused": "tracker: an object of plan, marks and endpoints only, or null"}
+        assert call("api/tracked", {"tracker": tracked | {"endpoints": "gdb:1234"}})["refused"].startswith(
+            "tracker: endpoints: 'gdb:1234': Live reads no gdbstub")
+        assert app.Server.host_info(server)["tracker"] == tracked
+    finally:
+        server.close()
+
+
+def test_live_in_the_app_marks_what_the_game_shows_taken_and_follows_the_player(tmp_path, monkeypatch):
+    """Step 4.2c2 (D249; the app's alone, D882): ``api/live`` turns Live on
+    for a plan, and each ``api/tracker`` ask merges what Live read since:
+    a take marks its spot live, the reach holds the element levels the game
+    holds (R1.41), and ``live`` says where Live saw the player and its
+    status. A lost link says so and keeps the marks; another seed's game is
+    named; Live off gives the marks' tracker again. Endpoints Live can't
+    read (a gdbstub, D257) are refused by name. The game here is a scripted
+    session (Modkit's ``live.Session``'s updates); Modkit's own Follower and
+    reads, installed by the sync, give the events (R1.41b's recordings
+    replayed through them mark what Modkit's mark: the step's evidence)."""
+    from azurkit.tools.randomizer.live import game, link
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    doc = _profile("default")
+    near = sorted(loc for loc, s in sdk.tracker({"plan": doc})["spots"].items() if s["state"] == "near")[0]
+    region, kit = game.REGIONS[0], {"air": 0, "water": 1, "fire": 1, "earth": 0}
+    at = game.Reading("running", region, level="w1", settle=1, at=(1.0, 2.0, 3.0), yaw=0.5,
+                      inv={"level.water": 1, "level.fire": 1, "obsi": 2})
+    script = [game.Update(at, (game.Took(near, 0.5),)), game.Update(at), game.Update(game.Reading(
+        "running", region, level="w1", settle=1, mismatch=True))]
+    played = threading.Event()
+
+    class Session:   # a running game, scripted: its updates, then the link lost
+        period = 0.01
+
+        def __init__(self, opened, spots, journal):
+            assert (opened, journal) == ("xemu", {"slot": None, "newest": None})
+            self.left = list(script)
+
+        def describe(self) -> str:
+            return "xemu, scripted"
+
+        def poll(self):
+            if self.left:
+                return self.left.pop(0)
+            played.wait(10)
+            raise link.LinkLost("the scripted game ended")
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(game, "Session", Session)
+    monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
+    server, replies = app.serve(_page.WEB), []
+
+    def call(path: str, body: dict) -> dict:
+        replies.clear()
+        _post(server.url, path, body, replies)
+        return replies[0]
+
+    try:
+        assert call("api/live", {"on": True, "plan": doc, "marks": {}, "endpoints": "gdb:1234"})["refused"].startswith(
+            "Endpoints: 'gdb:1234': Live reads no gdbstub")
+        assert call("api/live", {"on": True, "plan": doc, "marks": {}, "endpoints": ""}) == {}
+        end, marks = time.monotonic() + 10, {}
+        while (got := call("api/tracker", {"given": {"plan": doc, "marks": marks}}))["live"]["status"] != "other":
+            assert time.monotonic() < end, got["live"]
+            marks = got["marks"]   # the page sends the marks the last answer gave
+            time.sleep(0.05)
+        marked = sdk.tracker({"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}, "kit": kit})
+        assert {k: got[k] for k in ("marks", "status", "spots")} == {k: marked[k] for k in ("marks", "status", "spots")}
+        assert got["live"] == {"status": "other", "text": live_app.OTHER_SEED, "unpaired": 0, "here": False,
+                               "seen": {"level": "w1", "at": [1.0, 2.0, 3.0], "yaw": 0.5}}
+        played.set()
+        while (got := call("api/tracker", {"given": {"plan": doc, "marks": got["marks"]}}))["live"]["status"] != "lost":
+            assert time.monotonic() < end, got["live"]
+            time.sleep(0.05)
+        assert got["marks"] == marked["marks"] and got["live"]["text"].endswith("Live reconnects by itself when it's back.")
+        assert call("api/live", {"on": False}) == {}
+        assert call("api/tracker", {"given": {"plan": doc, "marks": got["marks"]}}) == sdk.tracker(
+            {"plan": doc, "marks": got["marks"]})
     finally:
         server.close()
 

@@ -15,14 +15,17 @@ process, the last :data:`KEEP` plans, so a click costs one reach.
 
 A spot's ``state``: ``got`` (collected by hand), ``live`` (marked by Live),
 ``near`` (reachable now), ``skip`` (reachable now only with a skip on,
-R1.41) or ``far`` (not yet).
+R1.41) or ``far`` (not yet); ``vanilla`` names the item the base game puts
+there, which tells the spot without telling what the seed put there.
 """
 
 from __future__ import annotations
 
+import functools
 import json
+import re
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from azurkit.tools.randomizer.movement import logic_of
 from azurkit.tools.randomizer.planner.loader import kept_logic
@@ -33,6 +36,13 @@ from azurkit.tools.randomizer.tracker import ELEMENTS, Row, Tracker, held_counts
 KEEP = 3                     # the plans whose trackers the process keeps
 GIVEN = ("plan", "marks", "kit", "held", "spoiler", "toggle", "reset")
 RATINGS = ("None", "Safe", "Standard", "Hard", "Frame-perfect")   # the skip ceiling's names (Modkit's head line)
+#: The world map's grid (Modkit's ``render_level_maps.GRID``): each level's (column, row), neighbours where the
+#: game links them; training_room, never part of a seed, has none (D194).
+GRID = {"airship": (0, 0), "a3": (1, 0), "a5": (2, 0), "a6": (3, 0), "a1": (4, 0), "e6": (5, 0),
+        "w3": (0, 1), "w1": (1, 1), "town": (2, 1), "life": (3, 1), "e2": (4, 1), "e7": (5, 1),
+        "w4": (0, 2), "w2": (1, 2), "d1": (2, 2), "f1": (3, 2), "e5": (4, 2), "f2": (5, 2),
+        "f3": (1, 3), "d2": (2, 3), "f6": (3, 3), "f4": (4, 3)}
+SPOT = {"major": "Item spot", "obsidian": "Obsidian spot", "consumable": "Fuel or health spot"}
 _KEPT: OrderedDict[str, Tracker] = OrderedDict()
 _LOGIC: dict[str, object] = {}   # a build's plan sha256 -> the logic it was planned on (:func:`prime`)
 
@@ -44,7 +54,43 @@ def prime(doc: Mapping, logic) -> None:
         _LOGIC.pop(next(iter(_LOGIC)))
 
 
-def _tracker(doc: Mapping) -> Tracker:
+def item_name(item: str) -> str:
+    """An item as the tracker names it (Modkit's): ``frag_air_1`` "Air disc fragment 1", ``power_water`` "Water
+    power", ``key_life1`` "Key: life1", ``all_fuel`` "All fuel"."""
+    if m := re.fullmatch(r"frag_([a-z]+)_(\d)", item):
+        return f"{m[1].capitalize()} disc fragment {m[2]}"
+    if item.startswith("key_"):
+        return f"Key: {item[4:]}"
+    if not item.startswith("power_"):     # an obsidian, a gem, fuel or health
+        return item.replace("_", " ").capitalize()
+    word = re.sub(r"(\D)(\d)", r"\1 \2", item.removeprefix("power_").split("_a3")[0])
+    return f"{word.capitalize()} power"
+
+
+def icon(item: str) -> str:
+    """An item's icon on the page (Modkit's ``item_icon`` names, the page's own drawings, never the game's): a
+    fragment or a power by its element (``frag_air``, ``power_water``), the other powers by their own, any key
+    ``key``, ``obsidian``, ``fuel``, ``health`` or a gem's (``gem_ruby``)."""
+    if m := re.fullmatch(r"frag_([a-z]+)_\d", item):
+        return f"frag_{m[1]}"
+    if item.startswith("key_"):
+        return "key"
+    return {"all_fuel": "fuel", "all_health": "health", "power_water_a3": "power_water"}.get(
+        item, f"gem_{item}" if item in ("diamond", "emerald", "ruby", "sapphire") else item)
+
+
+@functools.cache
+def world() -> dict:
+    """The world map's levels (:data:`GRID`) and where each one's exits lead (the vanilla data's live exits, in
+    order, each level once): the same for every plan, as exits stay vanilla in v1."""
+    db = kept_logic().db
+    exits = {lv: list(dict.fromkeys(e["dest_level"] for e in db.generated[lv]["exits"]
+                                    if e["kind"] == "exit" and e["live"] and e["dest_level"] in GRID
+                                    and e["dest_level"] != lv)) for lv in GRID if lv in db.generated}
+    return {"grid": {lv: list(at) for lv, at in GRID.items()}, "exits": exits}
+
+
+def tracker_of(doc: Mapping) -> Tracker:
     """The tracker of the plan file's object ``doc`` (``ValueError`` naming
     a plan this database can't read), kept for the process."""
     if not isinstance(doc, Mapping) or not isinstance(doc.get("sha256"), str):
@@ -66,7 +112,7 @@ def _tracker(doc: Mapping) -> Tracker:
     return made
 
 
-def _marks(given: object) -> dict:
+def marks_of(given: object) -> dict:
     """The page's marks, checked: Modkit's state (``collected``, ``live``,
     ``veto``, ``slot``), or a bare list of spots; ``ValueError`` otherwise."""
     if given is None:
@@ -111,20 +157,23 @@ def head(t: Tracker) -> dict:
             "skips": on}
 
 
-def view(given: Mapping) -> dict:
+def view(given: Mapping, events: Sequence = ()) -> dict:
     """What the tracker shows for ``given``: ``plan`` (a plan file's
     object), ``marks`` (as :func:`.tracker.marks` reads them; none: no
     mark), ``kit`` (Live's element levels, ``{element: level}``; none: the
     marks' alone), ``held`` (Live's inventory, for the Table's In game
     column), ``spoiler``, and ``toggle`` (a spot to mark or unmark: a live
     mark taken off is vetoed, so Live doesn't mark it again) or ``reset``
-    (no mark and no veto). ``ValueError`` names what it refuses."""
+    (no mark and no veto); ``events``, Live's (the app's feed:
+    :mod:`.live.game`'s Took, Level, Held and Reload), are merged into the
+    marks first (``Tracker.apply``: a hand mark never dropped, a veto never
+    marked). ``ValueError`` names what it refuses."""
     if not isinstance(given, Mapping):
         raise ValueError(f"tracker: a JSON object, not {type(given).__name__}")
     if unknown := sorted(set(given) - set(GIVEN), key=str):
         raise ValueError(f"tracker: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(GIVEN)})")
-    t = _tracker(given.get("plan"))
-    m, spoiler = _marks(given.get("marks")), bool(given.get("spoiler"))
+    t = tracker_of(given.get("plan"))
+    m, spoiler = marks_of(given.get("marks")), bool(given.get("spoiler"))
     held = given.get("held") or {}
     if not (isinstance(held, Mapping) and all(type(v) is int for v in held.values())):
         raise ValueError("tracker: held is the game's inventory, {field: count}")
@@ -135,6 +184,8 @@ def view(given: Mapping) -> dict:
         t.live = {loc: c for loc, c in live.items() if loc in collected}
         t.update()
     t.set_kit(_kit(given.get("kit")))
+    if events:
+        t.apply(events)
     if given.get("reset"):
         t.reset()
     elif (loc := given.get("toggle")) is not None:
@@ -147,15 +198,20 @@ def view(given: Mapping) -> dict:
         got, near = loc in t.collected, loc in t.reachable
         state = ("live" if t.is_live(loc) else "got") if got else ("skip" if loc not in t.plain else "near") \
             if near else "far"
-        spots[loc] = {"level": t.logic.pool[loc], "class": t.spot_class[loc], "state": state,
-                      "item": t.item(loc) if got or spoiler else None}
+        item = t.item(loc) if got or spoiler else None
+        spots[loc] = {"level": t.logic.pool[loc], "class": t.spot_class[loc], "state": state, "item": item,
+                      "name": item_name(item) if item else SPOT[t.spot_class[loc]], "icon": icon(item) if item else None,
+                      "vanilla": item_name(t.logic.vanilla[loc][0])}
     items, levels = t.table(spoiler, held_counts(held) if held else None)
-    return {"head": head(t), "marks": t.state(),
+    return {"head": head(t), "world": world(), "marks": t.state(),
             "status": {"collected": s.collected, "reachable": s.reachable, "total": s.total, "sphere": s.sphere,
                        "victory": s.victory, "levels": list(s.levels), "skipped": s.skipped},
             "spots": spots, "table": {"items": [_row(r) for r in items], "levels": [_row(r) for r in levels]}}
 
 
 def digest(out: Mapping) -> str:
-    """A view's verdicts as one canonical JSON text (the tests' and the evidence's), the head aside."""
-    return json.dumps({k: v for k, v in out.items() if k != "head"}, sort_keys=True, separators=(",", ":"))
+    """A view's verdicts as one canonical JSON text (the tests' and the evidence's): the marks, the counter row,
+    each spot's level, class, state and item, and the Table."""
+    spots = {loc: {k: s[k] for k in ("level", "class", "state", "item")} for loc, s in out["spots"].items()}
+    return json.dumps({"marks": out["marks"], "status": out["status"], "spots": spots, "table": out["table"]},
+                      sort_keys=True, separators=(",", ":"))

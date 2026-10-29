@@ -35,7 +35,10 @@ aria-label="The image's full path"> <button id="iso-choose" type="button" hidden
 <p id="xbr-note" class="note"></p>
 </section>
 <section id="randomizer" class="rando" role="tabpanel" data-tab="randomizer" aria-label="Randomizer" hidden>
-<h2>2. Randomize</h2>
+<h2>2. Randomize <span class="views" role="tablist" aria-label="The Randomizer tab's views"><button
+id="rando-view-settings" type="button" role="tab" aria-selected="true">Settings</button><button id="rando-view-tracker"
+type="button" role="tab" aria-selected="false">Tracker</button></span></h2>
+<div id="rando-settings">
 <div class="rando-top">
 <label class="on"><span class="mark"></span><input type="checkbox" id="rando-on"> Randomize</label>
 <label class="field">Seed <input type="text" id="rando-seed" spellcheck="false" autocomplete="off"></label>
@@ -63,6 +66,32 @@ spellcheck="false" autocomplete="off"> <button id="rando-clear" type="button">Cl
 <button id="spoiler-save" type="button" disabled>Save…</button>
 <span id="spoiler-note" class="note">Build with Randomize ticked to see its spoiler.</span></p>
 <pre id="spoiler" hidden></pre>
+</div>
+<div id="tracker" class="tracker" hidden>
+<p class="rando-row"><button id="track-seed" type="button" title="Plan the seed and settings of the Settings view and track it"
+>Track this seed</button> <label class="open">Open a plan file… <input type="file" id="track-open"
+accept=".json,application/json"></label> <span id="track-empty" class="note">Build with Randomize ticked, track the
+seed you set, or open a plan file (azurkit plan's).</span></p>
+<div id="track-body" hidden>
+<p class="rando-row"><label class="on"><input type="checkbox" id="track-spoiler"> Spoiler</label>
+<button id="track-reset" type="button" title="No spot marked collected">Reset</button>
+<span id="track-live-bar" hidden><label class="on"><input type="checkbox" id="track-live"> Live</label>
+<label class="on" id="track-follow-box" hidden><input type="checkbox" id="track-follow" checked> Follow</label>
+<button id="track-find" type="button" disabled>Find me</button>
+<input type="text" id="track-endpoints" spellcheck="false" autocomplete="off" aria-label="Live's endpoints"
+title="Where Live looks for xemu, in order (empty: the defaults)">
+<span id="track-dot" aria-hidden="true"></span><span id="track-line" class="note"></span></span>
+<span id="track-status" class="note"></span></p>
+<p id="track-head" class="note"></p>
+<p id="track-count" class="count"></p>
+<p id="track-levels" class="note"></p>
+<p class="views" role="tablist" aria-label="The tracker's views"><button id="track-map" type="button" role="tab"
+aria-selected="true">Map</button><button id="track-table" type="button" role="tab" aria-selected="false">Table</button></p>
+<div id="track-world" class="world"></div>
+<div id="track-level" class="level" hidden></div>
+<div id="track-tables" class="tables" hidden><table id="track-items"></table><table id="track-places"></table></div>
+</div>
+</div>
 </section>
 <section id="about" class="about" role="tabpanel" data-tab="about" aria-label="About" hidden>
 <h2>About AzurKit</h2>

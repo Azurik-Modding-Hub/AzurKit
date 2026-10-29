@@ -40,9 +40,11 @@ import pytest
 from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import mods
+from azurkit.tools.randomizer import tracking
 from scripts import web_tools
 from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
+from tests.test_randomizer import TRACKER, _profile, tracker_states
 
 ORIGIN = "https://azurkit.test"
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
@@ -637,7 +639,7 @@ SEEDED = "randomize-full:seed=2,default"   # G3's seed case: the packs on by def
 # The Randomizer tab: [Randomize ticked, the seed, whether each of its settings' fields is disabled] (the rows that stay
 # vanilla in v1 and the spoiler's buttons aside)
 TAB = """() => [document.getElementById("rando-on").checked, document.getElementById("rando-seed").value,
-    [...document.querySelectorAll("#randomizer :is(input, select, button)")].filter((f) => !f.id.startsWith("spoiler")
+    [...document.querySelectorAll("#rando-settings :is(input, select, button)")].filter((f) => !f.id.startsWith("spoiler")
         && f.id !== "rando-on" && !f.dataset.vanilla).map((f) => f.disabled)]"""
 
 
@@ -780,6 +782,95 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
                                                 "Pick your vanilla image, then Build.")
         for each in (page, loaded):
             _page.check_csp(each)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+TRACKED = "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length && azurkit.tracker.state.view"
+# The Tracker view as it reads: the counter row, the level shown (null: the world map) and its spot chips' states
+SHOWN_TRACKER = """() => [document.getElementById("track-count").textContent, azurkit.tracker.state.level,
+    Object.fromEntries([...document.querySelectorAll("#track-level .spot")].map((b) => [b.dataset.loc, b.className]))]"""
+
+
+def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(browser, site, tmp_path):
+    """Step 4.2c2 (D189, D249): the Randomizer tab's Tracker view opens a
+    plan file (seed 2's default and max plans) and the engine under
+    Pyodide gives Modkit's verdicts at each state (test_randomizer's
+    :data:`TRACKER`; Live's kit is the app's, D882), the spoiler off and on.
+    On the world map a level's badge counts its spots reachable now; a
+    click on the level shows its spots, and a click on a spot reachable now
+    marks it collected (the counter row and the chip say so), a second
+    takes it off. The Table sums each kind and level (its All rows). The
+    page keeps the plan and its marks, and opens on them after a reload. No
+    CSP violation, no request but GETs of the site's files."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        assert page.evaluate("() => [document.getElementById('rando-settings').hidden, "
+                             "document.getElementById('tracker').hidden]") == [True, False]
+        for name in ("default", "max"):
+            doc = _profile(name)
+            (tmp_path / f"{name}.json").write_text(json.dumps(doc), encoding="utf-8")
+            page.set_input_files("#track-open", str(tmp_path / f"{name}.json"))
+            _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
+                              f" && ({TRACKED})()", 300)
+
+            def view(doc, marks, spoiler):
+                return page.evaluate("""async ([marks, spoiler]) => {
+                    const t = azurkit.tracker.state;
+                    t.marks = marks ?? {};
+                    t.spoiler = spoiler;
+                    await azurkit.tracker.ask();
+                    return t.view;
+                }""", [marks, spoiler])
+
+            for state, marks, kit in tracker_states(view, doc):
+                if kit:
+                    continue
+                for spoiler in (False, True):
+                    key = f"{name}/{state}/{'spoiler' if spoiler else 'plain'}"
+                    shown = view(doc, marks, spoiler)
+                    assert hashlib.sha256(tracking.digest(shown).encode()).hexdigest()[:32] == TRACKER[key], key
+        view(doc, None, False)   # max, nothing marked
+        world = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll("#track-world .cell")].map(
+            (c) => [c.dataset.level, c.querySelector(".badge").textContent]))""")
+        cpython = sdk.tracker({"plan": doc})
+        reached = {lv: str(sum(s["level"] == lv and s["state"] in ("near", "skip") for s in cpython["spots"].values()))
+                   for lv in cpython["status"]["levels"]}
+        assert {lv: n for lv, n in world.items() if n} == reached
+        near = sorted(loc for loc, s in cpython["spots"].items() if s["state"] == "near")[0]
+        level = cpython["spots"][near]["level"]
+        page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
+        count, shown, chips = page.evaluate(SHOWN_TRACKER)
+        assert (shown, chips[near], set(chips) == {loc for loc, s in cpython["spots"].items() if s["level"] == level}) == (
+            level, "spot near", True)
+        assert count.startswith(f"Collected 0 of {cpython['status']['total']}")
+        page.evaluate("(loc) => document.querySelector(`#track-level .spot[data-loc='${loc}']`).click()", near)
+        _page.until(page, f"() => ({TRACKED})() && azurkit.tracker.state.marks.collected?.length === 1")
+        count, _, chips = page.evaluate(SHOWN_TRACKER)
+        assert (count.startswith("Collected 1 of"), chips[near]) == (True, "spot got")
+        assert sdk.tracker({"plan": doc, "toggle": near})["status"]["reachable"] == page.evaluate(
+            "() => azurkit.tracker.state.view.status.reachable")
+        _page.click(page, "track-table")
+        sums = page.evaluate("""() => [...document.querySelectorAll(".tables tr.sum")].map((r) => [...r.children]
+            .map((c) => c.textContent))""")
+        assert sums == [["All", "1", str(cpython["status"]["total"] - 1), str(cpython["status"]["total"])],
+                        ["All", "1", str(page.evaluate("() => azurkit.tracker.state.view.status.reachable")),
+                         str(cpython["status"]["total"] - 1), str(cpython["status"]["total"])]]
+
+        _reload(page)
+        _page.until(page, f"() => azurkit.tracker?.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
+                          f" && ({TRACKED})()", 300)
+        assert page.evaluate("() => azurkit.tracker.state.marks") == {"collected": [near]}
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
+        page.evaluate("(loc) => document.querySelector(`#track-level .spot[data-loc='${loc}']`).click()", near)
+        _page.until(page, f"() => ({TRACKED})() && !azurkit.tracker.state.marks.collected?.length")
+        _page.check_csp(page)
         assert served.stray() == []
     finally:
         served.close()

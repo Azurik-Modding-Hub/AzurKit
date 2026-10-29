@@ -28,13 +28,18 @@
 // (each a category it shuffles) and the skips a setting can turn on, and the spoiler of the last randomized build. The
 // engine reads the settings (sdk.randomizer_settings) and gives back what the tab shows; Build and Save are the
 // bottom bar's, which build the randomizer's plan first (Modkit's order). A link and a build's recipe carry it.
+//
+// Its Tracker view (Step 4.2c2, tracker.mjs): the item tracker of a randomized build, of the seed the Settings view
+// holds, or of a plan file, in both hosts; Live, which reads a running xemu, in the app alone (D882).
+import { tracker } from "./tracker.mjs";
+
 const $ = (id) => document.getElementById(id);
 const R = (id) => $(`rando-${id}`);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
                 packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
-                later: null, spoiler: null,
+                later: null, spoiler: null, tracker: null, call: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
@@ -119,7 +124,9 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
-  let worker = null, loaded = false;
+  let worker = null, loaded = false, calls = 0;
+  const pending = new Map();   // the tracker's asks in flight (call id -> its message and answer), sent again to a
+                               // worker that replaces one stopped before it answered
   const start = () => {
     loaded = false;
     const entry = new URL("worker.mjs", location.href).href;
@@ -129,7 +136,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       if (data.type === "ready") {
         URL.revokeObjectURL(url);
         loaded = true;
+        for (const [, { message }] of pending) worker.postMessage(message);
         ready(data.catalog, data.version);
+      } else if (data.type === "reply") {
+        pending.get(data.call)?.done(data.reply);
+        pending.delete(data.call);
       } else if (data.type === "vanilla") {
         const { type, ...read } = data;
         vanilla(read);
@@ -175,6 +186,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
     decode: (text) => worker.postMessage({ type: "decode", text }),
     restore: (setup) => worker.postMessage({ type: "restore", setup }),
+    call: (type, body) => new Promise((done) => {
+      const message = { type, call: ++calls, ...body };
+      pending.set(message.call, { message, done });
+      if (loaded) worker.postMessage(message);
+    }),
     cancel: restart,
   };
 }
@@ -220,6 +236,9 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
     theme: (name) => post("api/theme", { theme: name }).catch(() => {}),   // remembering is a convenience
+    call: (type, body) => post(`api/${type}`, body)
+      .catch((error) => ({ refused: `The app's engine didn't answer (${error.message}): restart AzurKit` })),
+    tracked: (kept) => post("api/tracked", { tracker: kept }, true).catch(() => {}),   // remembering is a convenience
     cancel: () => {
       if (!state.saving) ticket++;
       post("api/cancel", {}).catch(() => {});
@@ -610,6 +629,7 @@ function ready(catalog, version) {
     renderTabs(catalog.tabs);
     renderPacks(catalog);
     renderRando(catalog.randomizer);
+    state.tracker = tracker({ call: state.engine.call, app: state.app, say, kept: state.tracked, keep: keepTracked });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -655,6 +675,7 @@ function built(reply) {
          + made.notes.map((n) => ` · note: ${n}`).join("")
          + ` · changed: ${changed.length ? changed.join(", ") : "nothing"}`);   // the file list last: it runs long
   spoiler(made.spoiler ?? null);
+  if (made.plan) state.tracker.open(made.plan);   // the Tracker view tracks the build's seed
 }
 
 function saved({ saved: done }) {
@@ -943,7 +964,48 @@ async function saveSpoiler() {
   state.engine.spoiler(out);
 }
 
+// What the tracker keeps (its plan last tracked and the marks of the last plans): the site in this browser's storage,
+// the app in its config (api/tracked). Its plans are the randomizer's own (names and numbers), never the image's.
+const TRACKED = "azurkit.tracker";
+function keepTracked(kept) {
+  if (state.app) return state.engine.tracked(kept);
+  try {
+    localStorage.setItem(TRACKED, JSON.stringify(kept));
+  } catch {}   // storage refused (a private window, say): the marks last this visit
+}
+
+function storedTracked() {
+  try {
+    const kept = JSON.parse(localStorage.getItem(TRACKED));
+    return kept && typeof kept === "object" && kept.marks && typeof kept.marks === "object" ? kept : null;
+  } catch {
+    return null;
+  }
+}
+
+// The Randomizer tab's two views: its settings, and the tracker.
+function randoPane(view) {
+  for (const id of ["settings", "tracker"]) $(`rando-view-${id}`).setAttribute("aria-selected", String(id === view));
+  $("rando-settings").hidden = view !== "settings";
+  $("tracker").hidden = view !== "tracker";
+}
+
+// Track this seed: the Settings view's seed and settings (their share string, with the Patches tab's movement
+// sliders, so the plan is the one a build of them makes) planned by the engine, then tracked.
+async function trackSeed() {
+  const seed = R("seed").value.trim(), share = state.rando.view?.share;
+  if (!seed || !share) return say("Set a seed on the Randomizer tab's Settings first", true);
+  $("track-seed").disabled = true;
+  say(`Planning seed ${seed} to track it…`);
+  const reply = await state.engine.call("plan", { recipe: { seed, share } });
+  $("track-seed").disabled = false;
+  if ("refused" in reply) return say(reply.refused, true);
+  state.tracker.open(reply.plan, `seed ${seed}`);
+}
+
 function randoEvents(changed) {
+  for (const view of ["settings", "tracker"]) $(`rando-view-${view}`).addEventListener("click", () => randoPane(view));
+  $("track-seed").addEventListener("click", trackSeed);
   const edited = () => {
     changed();
     state.rando.note = null;
@@ -1021,6 +1083,7 @@ async function main() {
     state.engine = appEngine(host, callbacks);
     state.remembered = host.setup ?? null;
     state.kept = state.remembered && JSON.stringify(state.remembered);
+    state.tracked = host.tracker ?? null;
     pickInApp(host);
     theme(host.theme);
   } else if (!("WebAssembly" in window) || !("Worker" in window)) {
@@ -1028,6 +1091,7 @@ async function main() {
   } else {
     state.engine = siteEngine(callbacks);
     state.remembered = stored();
+    state.tracked = storedTracked();
     $("iso").addEventListener("change", () => {
       forget();
       unopen();
