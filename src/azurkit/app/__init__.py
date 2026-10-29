@@ -16,7 +16,12 @@ release's own image), whether there are file dialogs (the window's), the
 site's address, which its share links name (:data:`SITE`, D884), and the
 theme the player last picked (dark until they pick light, D897; ``POST
 api/theme`` ``{"theme"}`` remembers it there too: the page's address, and
-so its storage, is new each launch). The page's ``theme.js``, which sets
+so its storage, is new each launch) and the page's setup as it was last
+left (D915: the packs ticked, the settings changed and a loaded recipe's
+config.xbr cells, never the image or anything read from it; ``POST
+api/setup`` ``{"setup"}`` remembers it, ``null`` forgets it, and ``POST
+api/restore`` ``{"setup"}`` gives back what still applies,
+``sdk.restore``). The page's ``theme.js``, which sets
 the theme before its first paint, is the server's own (:func:`_theme_js`),
 and the window opens on that theme's ground (:data:`GROUNDS`), so a player
 who picked light never sees a dark first frame.
@@ -91,7 +96,7 @@ def _config() -> Path:
 
 
 def _kept() -> dict:
-    """What the app remembers (``{"iso", "theme"}``), else nothing."""
+    """What the app remembers (``{"iso", "theme", "setup"}``), else nothing."""
     try:
         kept = json.loads(_config().read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -118,10 +123,19 @@ def _theme_js() -> bytes:
     return f'document.documentElement.dataset.theme = "{_theme()}";\n'.encode()
 
 
-def _remember(**kept: str) -> None:
+_REMEMBERING = threading.Lock()   # a build's thread and the page's calls each remember a part of the config
+
+
+def _remember(**kept: object) -> None:
+    """Remember ``kept`` beside what the config holds (``None`` forgets a
+    key), written whole or not at all."""
     try:
-        _config().parent.mkdir(parents=True, exist_ok=True)
-        _config().write_text(json.dumps(_kept() | kept) + "\n", encoding="utf-8")
+        with _REMEMBERING:
+            _config().parent.mkdir(parents=True, exist_ok=True)
+            part = _config().with_suffix(".json.part")
+            part.write_text(json.dumps({k: v for k, v in (_kept() | kept).items() if v is not None}) + "\n",
+                            encoding="utf-8")
+            part.replace(_config())
     except OSError:   # remembering is a convenience: a build doesn't fail for it
         pass
 
@@ -131,6 +145,15 @@ def _set_theme(body: dict) -> dict:
     if (theme := body.get("theme")) not in THEMES:
         raise ValueError(f"theme: {theme!r} is none of {', '.join(THEMES)}")
     _remember(theme=theme)
+    return {}
+
+
+def _set_setup(body: dict) -> dict:
+    """``api/setup``: remember the page's setup (D915), or forget it
+    (``null``): its packs, settings and config.xbr cells only."""
+    if (setup := body.get("setup")) is not None and not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
+        raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
+    _remember(setup=setup)
     return {}
 
 
@@ -193,7 +216,8 @@ class Server(http.server.ThreadingHTTPServer):
 
     def host_info(self) -> dict:
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
-                "dialogs": self.window is not None, "site": SITE, "theme": _theme()}
+                "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
+                "setup": _kept().get("setup")}
 
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
@@ -305,7 +329,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         call = {"/api/build": self.server.build, "/api/save": self.server.save, "/api/vanilla": _vanilla,
                 "/api/preset": lambda body: {"fragment": sdk.preset_encode(body.get("recipe"), body.get("report"))},
                 "/api/decode": lambda body: {"preset": sdk.preset_decode(body.get("text"))},
-                "/api/theme": _set_theme,
+                "/api/theme": _set_theme, "/api/setup": _set_setup,
+                "/api/restore": lambda body: sdk.restore(body.get("setup")),
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

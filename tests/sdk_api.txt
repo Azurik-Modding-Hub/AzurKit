@@ -2,9 +2,9 @@
 
 The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
-:func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, and the
-randomizer's :func:`plan` and :func:`spoiler` (art comes with its step).
-JSON in and out: a recipe is a JSON object
+:func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
+randomizer's :func:`plan` and :func:`spoiler`, and :func:`restore` (art
+comes with its step). JSON in and out: a recipe is a JSON object
 and each call returns one; :func:`image` also returns the image, unwritten, which the web
 page joins into a Blob (``iso.Image.segments``). A refusal is a
 ``ValueError`` or ``OSError`` whose message names what it refuses and why,
@@ -137,3 +137,16 @@ def spoiler(plan: 'Mapping') -> 'dict':
 settings, the spheres with each progression item's obtain and return
 paths, the traps and the rest. A plan from another database, format or
 generator, or an edited one, is refused by name.
+
+
+def restore(setup: 'object') -> 'dict':
+
+A UI's remembered setup (D915: the packs it had ticked, each setting
+it had changed, its pack ticked or not, and a loaded recipe's config.xbr
+``set`` operations, ``{"ticked": [pack], "values": {pack: {slider:
+value}}, "xbr": [operation]}``; never an image, its path or anything
+read from one), as the UI applies it, with ``dropped``: what no longer
+normalizes (a pack renamed or retired, a setting gone, a value its
+slider refuses, a pack without one it requires, an operation a link
+couldn't carry), each left out and named, never applied. It never
+refuses: a setup it can't read is dropped whole, by name.

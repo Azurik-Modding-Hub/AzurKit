@@ -18,11 +18,16 @@
 // bar along the window's bottom. Dark whatever the system's setting, until the toolbar's toggle picks light (D897).
 // A pack's settings are locked until its pack is ticked (D907), and a setting that only picks whether a left-stick
 // click flips another in game shows as a small L3 toggle at the end of that one's row (D909).
+//
+// The page remembers its setup between visits (D915): the site in this browser's storage, the app in its config. It
+// comes back when the page opens, before you pick an image, less whatever no longer applies (named in the status
+// line); a share link, or a build's recipe you load, takes its place; Reset to defaults forgets it.
 const $ = (id) => document.getElementById(id);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
                 packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
-                site: null, theme: "dark", tab: null };
+                site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
+                later: null };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 // The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
@@ -41,6 +46,54 @@ function theme(name, keep = false) {
   } catch {}   // storage refused (a private window, say): the theme lasts this visit
 }
 
+// The setup the page remembers (D915): the packs ticked, each setting whose value differs from its default (its pack
+// ticked or not: an unticked pack keeps its values, D907; a value that isn't a number isn't kept) and a loaded recipe's
+// config.xbr cells (set: names and numbers, Q174). Never the image, its path or anything read from it (D3): the site
+// keeps it in this browser's storage, the app in its config (api/setup), and the page at its defaults keeps nothing.
+const SETUP = "azurkit.setup";
+function setup() {
+  const values = {};
+  for (const pack of state.packs.packs) {
+    for (const slider of pack.sliders) {
+      const value = given(document.getElementById(`${pack.name}.${slider.name}`));
+      if (typeof value === "number" && value !== slider.default) (values[pack.name] ??= {})[slider.name] = value;
+    }
+  }
+  const ticked = state.packs.packs.filter((pack) => $("packs").querySelector(`input[data-pack="${pack.name}"]`).checked)
+    .map((pack) => pack.name);
+  return { ticked, values, xbr: state.xbr.filter((op) => op.op === "set") };
+}
+
+// Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
+function remember() {
+  clearTimeout(state.later);
+  if (!state.packs || state.restoring) return;
+  const kept = setup(), defaults = state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name);
+  state.plain = !kept.xbr.length && !Object.keys(kept.values).length && kept.ticked.join() === defaults.join();
+  $("reset").disabled = state.building || state.plain;
+  const text = state.plain ? null : JSON.stringify(kept);
+  if (text === state.kept) return;
+  state.kept = text;
+  if (state.app) return state.engine.setup(state.plain ? null : kept);
+  try {
+    if (state.plain) localStorage.removeItem(SETUP);
+    else localStorage.setItem(SETUP, text);
+  } catch {}   // storage refused (a private window, say): the setup lasts this visit
+}
+
+// What the site's storage holds (the app's comes in host.json): the setup to restore, as the engine reads it.
+function stored() {
+  try {
+    state.kept = localStorage.getItem(SETUP);
+  } catch {}
+  if (state.kept == null) return null;
+  try {
+    return JSON.parse(state.kept);
+  } catch {
+    return state.kept;   // the engine names it unreadable
+  }
+}
+
 function say(text, error = false) {
   $("status").textContent = text;
   $("status").classList.toggle("error", error);
@@ -54,7 +107,7 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
-function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded }) {
+function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored }) {
   let worker = null, loaded = false;
   const start = () => {
     loaded = false;
@@ -75,6 +128,9 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
         shared(data.fragment);
       } else if (data.type === "decoded") {
         decoded(data.preset);
+      } else if (data.type === "restored") {
+        const { type, ...setup } = data;
+        restored(setup);
       } else if (data.type === "refused" && data.quiet) {
         failed(data.message);
       } else if (data.type === "built" || data.type === "refused") {
@@ -104,6 +160,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
     preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
     decode: (text) => worker.postMessage({ type: "decode", text }),
+    restore: (setup) => worker.postMessage({ type: "restore", setup }),
     cancel: restart,
   };
 }
@@ -111,11 +168,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
 // The app's engine: azurkit.sdk on CPython behind this launch's server (azurkit.app), the same in the app's window
 // and in a browser. The page posts JSON to it, and a refusal comes back as {refused}. A build's reply that arrives
 // after Cancel is dropped; a save's is awaited, since the server says whether it wrote anything.
-function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened, shared, decoded }) {
+function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened, shared, decoded, restored }) {
   let ticket = 0;
-  const post = async (path, body) => {
+  const post = async (path, body, keepalive = false) => {
     const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify(body) });
+                                      body: JSON.stringify(body), keepalive });
     if (!reply.ok) throw new Error(`${path}: HTTP ${reply.status}`);
     return reply.json();
   };
@@ -140,6 +197,8 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
       || ("opened" in read ? opened(read.opened) : vanilla(read))).catch(() => {}),
     preset: (recipe, report) => ask("api/preset", { recipe, report }, (reply) => shared(reply.fragment)),
     decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
+    restore: (setup) => ask("api/restore", { setup }, restored),
+    setup: (setup) => post("api/setup", { setup }, true).catch(() => {}),   // remembering is a convenience
     save: (recipe, out) => run("api/save", { recipe, out }, saved),
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
@@ -385,6 +444,7 @@ function busy(on) {
   state.building = on;
   $("build").disabled = on || !state.file || !state.ready;
   $("share").disabled = on || !state.packs;
+  $("reset").disabled = on || state.plain;
   $("iso").disabled = on || !state.packs;
   for (const id of ["iso-path", "iso-choose", "out-path"]) $(id).disabled = on;
   $("save").disabled = on || !state.build;
@@ -403,26 +463,23 @@ function forget() {
   $("out-row").hidden = true;
 }
 
-// Load a recipe (a share link's, or an AzurKit build's: a preset, already checked by the engine) into the page:
-// tick exactly its packs, set their sliders (the others to their defaults), keep its config.xbr cells for the build,
-// and mark ● each tick and value it changed; its packs' settings unlock, the others' lock (D907). It never starts a
-// build.
-function load(preset, from) {
-  const packs = preset.layers.find((layer) => layer.tool === "mods")?.recipe;
-  const mark = (element, on) => {
-    element.textContent = on ? "●" : "";
-    element.title = on ? `Changed by ${from}` : "";
+// Set the page to a recipe: tick exactly the packs `on` names, set each setting to `values`' value, else its default,
+// and keep the config.xbr cells `xbr` for the build; the ticked packs' settings unlock, the others' lock (D907). With
+// `from` (a link, a build) each tick and value it changed is marked ●, without it every mark is cleared. Never a build.
+function setTo(on, values, xbr, from = null) {
+  const mark = (element, changed) => {
+    element.textContent = from && changed ? "●" : "";
+    element.title = from && changed ? `Changed by ${from}` : "";
   };
   forget();
   for (const item of $("packs").querySelectorAll(".pack")) {
     const box = item.querySelector("input[data-pack]");
     const pack = state.packs.packs.find((p) => p.name === item.dataset.pack);
-    const on = packs ? pack.name in packs : box.checked;
-    mark(item.querySelector(".name .mark"), box.checked !== on);
-    box.checked = on;
+    mark(item.querySelector(".name .mark"), box.checked !== on.has(pack.name));
+    box.checked = on.has(pack.name);
     for (const field of item.querySelectorAll("input[data-slider]")) {
       const slider = pack.sliders.find((s) => s.name === field.dataset.slider);
-      const value = String(packs?.[pack.name]?.[slider.name] ?? slider.default);
+      const value = String(values[pack.name]?.[slider.name] ?? slider.default);
       mark(field.closest(".l3, .slider").querySelector(".mark"), shown(field) !== value);
       if (field.type === "checkbox") field.checked = value === "1";
       else field.value = value;
@@ -431,15 +488,50 @@ function load(preset, from) {
   }
   tally();
   lock();
+  state.xbr = xbr;
+  $("xbr-note").textContent = xbr.length ? `The loaded recipe also sets ${xbr.length} config.xbr `
+    + `value${xbr.length > 1 ? "s" : ""}, which each build applies.` : "";
+}
+
+// Load a recipe (a share link's, or an AzurKit build's: a preset, already checked by the engine) into the page, marked,
+// in place of the remembered setup, which it becomes (D915). Without a packs layer, the ticks stay as they are.
+function load(preset, from) {
+  const packs = preset.layers.find((layer) => layer.tool === "mods")?.recipe;
+  const ticked = [...$("packs").querySelectorAll("input[data-pack]:checked")].map((box) => box.dataset.pack);
+  setTo(new Set(packs ? Object.keys(packs) : ticked), packs ?? {},
+        preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [], from);
   pick("patches");
-  state.xbr = preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [];
   state.loaded = preset;
+  remember();
   const made = preset.azurkit ? ` (made with AzurKit ${preset.azurkit})` : "";
   const cells = state.xbr.length ? ` and ${state.xbr.length} config.xbr edit${state.xbr.length > 1 ? "s" : ""}` : "";
-  $("xbr-note").textContent = state.xbr.length ? `The loaded recipe also sets ${state.xbr.length} config.xbr `
-    + `value${state.xbr.length > 1 ? "s" : ""}, which each build applies.` : "";
   say(`Loaded ${from}'s recipe${made}: ${packs ? Object.keys(packs).length : 0} packs${cells}, marked ●. `
       + "Pick your vanilla image, then Build.");
+}
+
+// The remembered setup, as the engine gives it back (sdk.restore): what still applies, and what doesn't, by name.
+function restored({ ticked, values, xbr, dropped }) {
+  state.restoring = false;
+  setTo(new Set(ticked), values, xbr);
+  say(dropped.length ? `Restored your last setup, without ${dropped.join("; ")}`
+    : `Restored your last setup: ${ticked.length} pack${ticked.length === 1 ? "" : "s"} on. Reset to defaults clears it.`);
+  remember();   // what is left of it
+  start();
+}
+
+// Reset to defaults: the packs on by default, every setting at its default, no config.xbr cell; nothing remembered.
+function reset() {
+  setTo(new Set(state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name)), {}, []);
+  state.loaded = null;
+  unlinked();
+  pick("patches");
+  remember();
+  say("Reset to the defaults: the packs on by default, every setting at its default. Nothing is remembered.");
+}
+
+// The page's address drops a link's #p= once the page no longer holds that recipe, so a reload restores the setup.
+function unlinked() {
+  if (!state.app && location.hash) history.replaceState(null, "", location.pathname + location.search);
 }
 
 // The share link: the engine makes the fragment of what the page holds (with the build's hashes when it is the
@@ -480,15 +572,25 @@ function unopen() {
   $("load-build").hidden = true;
 }
 
+// The engine is ready (the site's again after each build). The first time, the page draws the catalog and asks for the
+// remembered setup back, unless a link brought a recipe (D915: the link wins); it is ready once that is back.
 function ready(catalog, version) {
-  state.ready = true;
   if (!state.packs) {
     state.packs = catalog;
     renderTabs(catalog.tabs);
     renderPacks(catalog);
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
+    if (!state.pending && state.remembered != null) {
+      state.restoring = true;
+      return state.engine.restore(state.remembered);
+    }
   }
+  start();
+}
+
+function start() {
+  state.ready = true;
   busy(state.building);
   if (state.pending) state.engine.decode(state.pending);
   askVanilla();
@@ -586,18 +688,21 @@ async function main() {
   } catch (error) {
     return say(`AzurKit didn't load: ${error.message}`, true);
   }
-  const callbacks = { ready, built, saved, vanilla, opened, shared, decoded,
+  const callbacks = { ready, built, saved, vanilla, opened, shared, decoded, restored,
                       refused: ({ message }) => report(message, true), failed: (message) => report(message, true) };
   if (location.hash.startsWith("#p=")) state.pending = location.hash;
   state.site = host.site ?? null;
   if (host.engine === "app") {
     state.engine = appEngine(host, callbacks);
+    state.remembered = host.setup ?? null;
+    state.kept = state.remembered && JSON.stringify(state.remembered);
     pickInApp(host);
     theme(host.theme);
   } else if (!("WebAssembly" in window) || !("Worker" in window)) {
     return stop("This browser can't run AzurKit (it needs WebAssembly and workers): use the desktop app.");
   } else {
     state.engine = siteEngine(callbacks);
+    state.remembered = stored();
     $("iso").addEventListener("change", () => {
       forget();
       unopen();
@@ -609,12 +714,20 @@ async function main() {
     });
   }
 
-  $("packs").addEventListener("change", () => {
+  const changed = () => {
     forget();
+    unlinked();
+    clearTimeout(state.later);
+    state.later = setTimeout(remember, 250);
+  };
+  $("packs").addEventListener("change", () => {
+    changed();
     tally();
     lock();
   });
-  $("packs").addEventListener("input", forget);
+  $("packs").addEventListener("input", changed);
+  addEventListener("pagehide", remember);
+  $("reset").addEventListener("click", reset);
   $("packs").addEventListener("toggle", place, true);   // a group's fold: "toggle" doesn't bubble
   addEventListener("resize", place);
   $("share").addEventListener("click", share);

@@ -344,3 +344,32 @@ def test_normalize_names_every_unknown_pack_parameter_and_refused_value_and_neve
             assert all(s.slider_min <= v <= s.slider_max for v in held), (pack.name, s.name)
             assert (vanilla is None) == (isinstance(s, engine.ParametricPatch) and not s.virtual), (
                 pack.name, s.name)   # an XBE site's vanilla is the image's
+
+
+def test_a_remembered_setup_keeps_what_still_normalizes_and_names_each_part_it_drops():
+    """``sdk.restore``, a UI's remembered setup back (D915): its ticked
+    packs in their canonical order, each setting normalized (a value equal
+    to its default left out) and its config.xbr ``set`` cells; a pack
+    renamed or retired, a setting gone, a value its slider refuses, a pack
+    without one it requires and a cell a link couldn't carry are left out
+    and named, never applied, and a setup it can't read is dropped whole,
+    by name, never refused."""
+    cell = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+            "prop": "hitPoints", "value": 321}
+    hp = next(s for s in mods.PACKS["player_max_hp"].sliders() if s.name == "starting_hp")
+    assert sdk.restore({"ticked": ["qol_retired", "player_physics", "fps_unlock", "qol_memory_upper64_gpu"],
+                        "values": {"qol_retired": {"x": 1}, "fps_unlock": {"target_fps": 120, "speed": 2},
+                                   "player_physics": {"jump_speed_scale": 1.5, "toggle_gravity": 2, "gravity": "4"},
+                                   "player_max_hp": {"starting_hp": hp.default}},
+                        "xbr": [cell, {"op": "replace_bytes"}, {"op": "set", "file": "gamedata/config.xbr"}]}) == {
+        "ticked": ["fps_unlock", "player_physics"],
+        "values": {"fps_unlock": {"target_fps": 120}, "player_physics": {"jump_speed_scale": 1.5}},
+        "xbr": [cell],
+        "dropped": ["qol_retired (no such pack)", "qol_memory_upper64_gpu (needs qol_memory_upper64)",
+                    "fps_unlock.speed (no such setting)",
+                    "player_physics.toggle_gravity: 2 is not a whole number from 0 to 1 (1 picks it, 0 doesn't)",
+                    "player_physics.gravity: '4' is not a finite number",
+                    "config.xbr value 2 (a setup holds set operations only, Q174)",
+                    "config.xbr value 3 (no table, entity, prop, value)"]}
+    unread = {"ticked": [], "values": {}, "xbr": [], "dropped": ["your last setup (not one AzurKit reads)"]}
+    assert [sdk.restore(given) for given in ("{", None, {"ticked": [], "iso": "a.iso"})] == [unread] * 3

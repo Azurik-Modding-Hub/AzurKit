@@ -3,8 +3,10 @@
 :data:`PACKS` holds them in their canonical order, Modkit's registry order,
 which every build applies them in (AZ-024); a pack ported later takes its
 place there. :func:`normalize` is the one check of the packs a recipe names
-and their slider values, for every host (WEB §4.2), and :func:`missing`
-names a pack a build applies without one it requires (``Pack.requires``);
+and their slider values, for every host (WEB §4.2), :func:`salvage` keeps
+what it takes of a remembered setup's and names the rest (D915), and
+:func:`missing` names a pack a build applies without one it requires
+(``Pack.requires``);
 :func:`vanilla` reads a site slider's vanilla value from the player's own
 XBE (D42, Q174)."""
 
@@ -51,6 +53,33 @@ def normalize(packs: object) -> dict[str, dict[str, float | int]]:
     return out
 
 
+def salvage(packs: object) -> tuple[dict[str, dict[str, float | int]], list[str]]:
+    """``packs`` (``{pack: {slider: value}}``) as :func:`normalize` gives
+    them, less what it would refuse, and each part left out, named: a pack
+    no pack has, a parameter its pack doesn't take, a value its slider
+    refuses (a remembered setup's, D915: dropped by name, never applied)."""
+    if not isinstance(packs, Mapping):
+        return {}, ["the settings (not {pack: {setting: value}})"]
+    kept, dropped = {}, []
+    for name, params in packs.items():
+        if name not in PACKS:
+            dropped.append(f"{name} (no such pack)")
+        elif not isinstance(params, Mapping):
+            dropped.append(f"{name}'s settings (not {{setting: value}})")
+        else:
+            sliders, kept[name] = {s.name: s for s in PACKS[name].sliders()}, {}
+            for key, value in params.items():
+                try:
+                    if key not in sliders:
+                        raise ValueError(f"{key} (no such setting)")
+                    sliders[key].value(value)
+                except ValueError as exc:   # the slider's message starts with its name
+                    dropped.append(f"{name}.{exc}")
+                else:
+                    kept[name][key] = value
+    return normalize(kept), dropped
+
+
 def missing(packs: object) -> list[str]:
     """Each pack of ``packs`` (names) that requires one ``packs`` leaves
     out, and what: ``"pack 'x' needs 'y' in the same build"`` (Modkit's
@@ -78,4 +107,4 @@ def vanilla(release: Release, xbe: bytes) -> dict[str, dict[str, float]]:
 
 
 __all__ = ["CATEGORIES", "PACKS", "Pack", "PackError", "ParametricPatch", "XbrParametricEdit", "missing", "normalize",
-           "plan", "vanilla"]
+           "plan", "salvage", "vanilla"]

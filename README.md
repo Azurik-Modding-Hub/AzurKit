@@ -28,7 +28,8 @@ opens: `azurkit open` reads a build back into its recipe, a mods file that
 build as the image) (it can also set config.xbr's cells by
 name and replace bytes in an XBR file). It builds from the command line, in the web page (pick your image, choose
 packs and set their sliders, Build, then Save, and Copy link shares the
-recipe; it runs in your browser, and nothing is uploaded) or in the app, which shows the
+recipe; it remembers your packs and settings until you Reset to defaults, never
+your image; it runs in your browser, and nothing is uploaded) or in the app, which shows the
 same page in its own window and writes the build where you save it. The page
 isn't hosted and the app isn't released yet: on macOS you build the app
 yourself (below). The randomizer's planner runs from the command line

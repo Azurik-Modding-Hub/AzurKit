@@ -14,7 +14,9 @@ links (Step 4.1g2). The page is design A with the owner's changes (Step 4.1h): d
 first, its areas' tabs, the packs in their categories' groups, Build always in
 view, and an About tab; and with the owner's answers (Step 4.1i): a pack's
 settings locked until it is ticked (D907), the L3 toggles in their settings'
-rows (D909), light's faint text readable and a light first frame. Under the
+rows (D909), light's faint text readable and a light first frame; and it
+remembers its setup between visits until Reset to defaults (Step 4.1j, D915),
+its faint text readable in dark too. Under the
 page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a GET of one of the site's own files: the image
 never leaves the page. The page is driven as
 ``tests/_page.py`` says."""
@@ -29,6 +31,7 @@ import json
 import mimetypes
 import re
 import threading
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -337,8 +340,8 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
     system set to light: the page opens dark (D897), and its toggle picks
     light, which a page opened later in the same browser keeps from its
     first paint (theme.js sets it before the body, app.mjs held back here),
-    until toggled back; light's faint text reads at least 4.5:1 on every
-    ground it sits on. The toolbar's tabs are the catalog's, in D901's order and
+    until toggled back; faint text reads at least 4.5:1 on every ground it
+    sits on, in light and in dark. The toolbar's tabs are the catalog's, in D901's order and
     only those whose area works (D902): Patches, then About. The Patches tab
     groups the packs by Modkit's categories, in the catalog's order, each
     group folding and counting its packs ticked; a pack with settings has a
@@ -385,9 +388,12 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         _page.tick(page, ["fps_unlock"])
         assert [tally for _, tally, _ in page.evaluate(GROUPS, None)] == ["0 of 3 on", "0 of 2 on", "1 of 12 on"]
         assert page.evaluate(SHOWN) == [["player_physics", "true", True, True]]
-        faint = page.evaluate(FAINT)   # the page is light here
-        assert {"line", "releases", "open releases", "version"} <= {what for what, _ in faint}
-        assert [(what, round(ratio, 2)) for what, ratio in faint if ratio < 4.5] == []
+        for theme in ("light", "dark"):   # the page is light here, then dark, then light again
+            faint = page.evaluate(FAINT)
+            assert {"line", "releases", "open releases", "version"} <= {what for what, _ in faint}, theme
+            assert [(what, round(ratio, 2)) for what, ratio in faint if ratio < 4.5] == [], theme
+            _page.click(page, "theme")
+        assert page.evaluate(GROUND) == LIGHT
         page.evaluate("""() => document.querySelector('#packs .pack[data-pack="enemy_damage"] .toggle').click()""")
         assert page.evaluate(SHOWN) == [["enemy_damage", "true", True, True]]
         assert page.evaluate(RELEASES) == 1
@@ -464,6 +470,95 @@ def test_a_packs_settings_lock_until_it_is_ticked_and_its_l3_toggles_sit_in_thei
         _page.tick(page, ["player_physics"])
         assert _page.ticked(page)["player_physics"] == typed
         _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+STORED = "() => JSON.parse(localStorage.getItem('azurkit.setup'))"   # the site's remembered setup (D915)
+STATUS = "() => document.querySelector('#status').textContent"
+RESET = "() => document.getElementById('reset').disabled"
+# A pack's settings as their fields read: {setting: its box's text, or an L3 toggle's "1" on, "0" off}.
+FIELDS = """(pack) => Object.fromEntries([...document.querySelectorAll(`#packs .pack[data-pack="${pack}"] input[data-slider]`)]
+    .map((field) => [field.dataset.slider, field.type === "checkbox" ? String(Number(field.checked)) : field.value]))"""
+
+
+def _remembered(page, setup: dict | None) -> None:
+    """Wait for the page's storage to hold ``setup`` (``None``: nothing)."""
+    end = time.monotonic() + 10
+    while (got := page.evaluate(STORED)) != setup:
+        assert time.monotonic() < end, got
+        time.sleep(0.1)
+
+
+def _reload(page) -> None:
+    page.reload()
+    _page.until(page, "() => globalThis.azurkit?.ready", 120)
+
+
+def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browser, site):
+    """D915: the page keeps its ticks and settings in the browser's storage
+    (each setting changed from its default, an unticked pack's too, D907:
+    names and numbers, nothing of the image), and a reload brings them back
+    before an image is picked, unmarked and locked as they were, and says
+    so. Reset to defaults, in the bottom bar and off while the page is at
+    them, ticks the packs on by default, sets every setting to its default
+    and forgets the setup, so a reload opens at the defaults. A remembered
+    pack or setting the catalog no longer has is dropped and named in the
+    status line, the rest restored. A share link wins over the remembered
+    setup and becomes it; once the page changes, the address drops the link
+    and a reload restores the change. No CSP violation, no request but GETs
+    of the site's files."""
+    defaults = [name for name, pack in mods.PACKS.items() if pack.default_on]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        assert [page.evaluate(STORED), page.evaluate(STATUS), page.evaluate(RESET)] == [None, "", True]
+        fresh = page.evaluate(FIELDS, "player_physics")
+        values = {"jump_speed_scale": "1.5", "toggle_gravity": "1"}
+        _page.tick(page, ["fps_unlock", "player_physics"],
+                   {"fps_unlock": {"target_fps": "120"}, "player_physics": values})
+        _page.tick(page, ["fps_unlock"])   # player_physics' settings lock, their values kept (D907)
+        _remembered(page, {"ticked": ["fps_unlock"], "values": {
+            "fps_unlock": {"target_fps": 120}, "player_physics": {"jump_speed_scale": 1.5, "toggle_gravity": 1}},
+            "xbr": []})
+        shown = [_page.ticked(page), page.evaluate(FIELDS, "player_physics")]
+        assert fresh | values == shown[1] != fresh
+        _reload(page)
+        assert [_page.ticked(page), page.evaluate(FIELDS, "player_physics")] == shown
+        assert [page.evaluate(STATUS), _page.marked(page), page.evaluate(RESET)] == [
+            "Restored your last setup: 1 pack on. Reset to defaults clears it.", [], False]
+        assert [_locks(page)[name] for name in ("fps_unlock", "player_physics")] == [[True, "open"], [False, "locked"]]
+
+        _page.click(page, "reset")
+        assert [list(_page.ticked(page)), page.evaluate(FIELDS, "player_physics"), page.evaluate(RESET)] == [
+            defaults, fresh, True]
+        _remembered(page, None)
+        _reload(page)
+        assert [list(_page.ticked(page)), page.evaluate(STATUS)] == [defaults, ""]
+
+        stale = {"ticked": ["qol_retired", "fps_unlock"],
+                 "values": {"player_physics": {"gone_setting": 2, "jump_speed_scale": 1.25}}, "xbr": []}
+        page.evaluate("(text) => localStorage.setItem('azurkit.setup', text)", json.dumps(stale))
+        _reload(page)
+        assert [page.evaluate(STATUS), list(_page.ticked(page)), page.evaluate(FIELDS, "player_physics") == fresh | {
+            "jump_speed_scale": "1.25"}] == ["Restored your last setup, without qol_retired (no such pack); "
+                                             "player_physics.gone_setting (no such setting)", ["fps_unlock"], True]
+        _remembered(page, {"ticked": ["fps_unlock"], "values": {"player_physics": {"jump_speed_scale": 1.25}},
+                           "xbr": []})
+
+        linked = served.context.new_page()
+        linked.goto(f"{ORIGIN}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}})}")
+        _page.until(linked, "() => globalThis.azurkit?.loaded")
+        assert list(_page.ticked(linked)) == ["qol_alloc_race"]
+        _remembered(linked, {"ticked": ["qol_alloc_race"], "values": {}, "xbr": []})
+        _page.tick(linked, ["fps_unlock", "qol_alloc_race"])
+        _remembered(linked, {"ticked": ["fps_unlock", "qol_alloc_race"], "values": {}, "xbr": []})
+        assert linked.evaluate("() => location.hash") == ""
+        _reload(linked)
+        assert list(_page.ticked(linked)) == ["fps_unlock", "qol_alloc_race"]
+        for each in (page, linked):
+            _page.check_csp(each)
         assert served.stray() == []
     finally:
         served.close()

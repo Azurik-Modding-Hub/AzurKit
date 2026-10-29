@@ -303,6 +303,21 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     checked: reading all 2.6 GB takes minutes in WebKit's worker), and the
     page shows "◆ AzurKit build" with Load its recipe, which loads it as a
     link's, to build again from a vanilla image.
+  - **The remembered setup** (D915): the page keeps its ticks, each
+    setting that differs from its default (an unticked pack's too) and a
+    loaded recipe's config.xbr `set` cells, `{"ticked", "values", "xbr"}`:
+    names and numbers, never the image, its path or anything read from it
+    (D3). The site keeps it in the browser's storage (`azurkit.setup`), the
+    app in its config (`host.json`'s `setup`, `api/setup`); at the
+    defaults nothing is kept. A page opens with it before an image is
+    picked, through `sdk.restore` (the site's worker, the app's
+    `api/restore`), which leaves out and names in the status line what no
+    longer normalizes (a pack renamed or retired, a setting gone, a value
+    refused, a pack without one it requires); the page is ready once it is
+    back. A share link or Load its recipe wins and becomes the remembered
+    setup; once the page changes, its address drops the link's `#p=`.
+    Reset to defaults, in the bottom bar (off at the defaults), ticks the
+    packs on by default, sets every setting to its default and forgets it.
 - **The site** is the page with Pyodide's core, the wheel and its
   `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in

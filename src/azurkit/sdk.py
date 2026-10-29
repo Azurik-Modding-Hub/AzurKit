@@ -1,8 +1,8 @@
 """The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
-:func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, and the
-randomizer's :func:`plan` and :func:`spoiler` (art comes with its step).
-JSON in and out: a recipe is a JSON object
+:func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
+randomizer's :func:`plan` and :func:`spoiler`, and :func:`restore` (art
+comes with its step). JSON in and out: a recipe is a JSON object
 and each call returns one; :func:`image` also returns the image, unwritten, which the web
 page joins into a Blob (``iso.Image.segments``). A refusal is a
 ``ValueError`` or ``OSError`` whose message names what it refuses and why,
@@ -48,8 +48,9 @@ from azurkit.edits.layer import Layer
 from azurkit.tools import mods, randomizer
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
-           "preset_decode", "plan", "spoiler"]
+           "preset_decode", "plan", "spoiler", "restore"]
 RECIPE = ("iso", "packs", "xbr")
+SETUP = ("ticked", "values", "xbr")   # a UI's remembered setup (D915, :func:`restore`)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
 TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", False), ("characters", "Characters", False),
@@ -262,3 +263,38 @@ def spoiler(plan: Mapping) -> dict:
     paths, the traps and the rest. A plan from another database, format or
     generator, or an edited one, is refused by name."""
     return {"lines": randomizer.spoiler(plan)}
+
+
+def restore(setup: object) -> dict:
+    """A UI's remembered setup (D915: the packs it had ticked, each setting
+    it had changed, its pack ticked or not, and a loaded recipe's config.xbr
+    ``set`` operations, ``{"ticked": [pack], "values": {pack: {slider:
+    value}}, "xbr": [operation]}``; never an image, its path or anything
+    read from one), as the UI applies it, with ``dropped``: what no longer
+    normalizes (a pack renamed or retired, a setting gone, a value its
+    slider refuses, a pack without one it requires, an operation a link
+    couldn't carry), each left out and named, never applied. It never
+    refuses: a setup it can't read is dropped whole, by name."""
+    if not isinstance(setup, Mapping) or not set(setup) <= set(SETUP):
+        return {"ticked": [], "values": {}, "xbr": [], "dropped": ["your last setup (not one AzurKit reads)"]}
+    ticked, dropped = setup.get("ticked", []), []
+    if not isinstance(ticked, list):
+        ticked, dropped = [], ["the ticked packs (not a list of names)"]
+    dropped += [f"{name} (no such pack)" for name in ticked if not (isinstance(name, str) and name in mods.PACKS)]
+    on = [name for name in mods.PACKS if name in ticked]
+    while lost := [name for name in on if not set(mods.PACKS[name].requires) <= set(on)]:
+        dropped += [f"{name} (needs {', '.join(r for r in mods.PACKS[name].requires if r not in on)})" for name in lost]
+        on = [name for name in on if name not in lost]
+    values, why = mods.salvage(setup.get("values", {}))
+    ops, kept = setup.get("xbr", []), []
+    if not isinstance(ops, list):
+        ops, why = [], [*why, "the config.xbr values (not a list)"]
+    for k, op in enumerate(ops, 1):
+        try:
+            if not (isinstance(op, Mapping) and op.get("op") == "set"):
+                raise ValueError("a setup holds set operations only, Q174")
+            kept += xbr.normalize([op])
+        except ValueError as exc:
+            why.append(f"config.xbr value {k} ({str(exc).replace('xbr op 1 (set): ', '')})")
+    return {"ticked": on, "values": {name: v for name, v in values.items() if v}, "xbr": kept,
+            "dropped": list(dict.fromkeys(dropped + why))}

@@ -10,7 +10,7 @@
   --air: #c49a3c; --water: #2f6aae; --fire: #b23a24; --earth: #3f7c36;
   --bg: #0d1117; --pane: #141920; --bar: #1a2029; --zebra: #171c24; --hover: #1b2736; --sel: #16314f;
   --line: #2b3440; --soft: #1f2630;
-  --text: #e1e6ed; --muted: #8f9aaa; --faint: #616d7e;
+  --text: #e1e6ed; --muted: #8f9aaa; --faint: #8d99aa;   /* faint: at least 4.5:1 on every dark ground */
   --accent: #3b8cf0; --ring: #4aa3ff; --on: #ffffff; --field: #0e1218;
   --go: #3a8a33; --mark: #e2b552; --error: #ff7a66;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;

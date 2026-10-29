@@ -233,11 +233,12 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     recipe and hashes (``sdk.preset_encode``), and the saved build, typed
     as the image, offers its recipe (``sdk.open_build``), which ticks every
     pack again. The page opens dark (D897), and its toggle picks light. The
-    next launch starts from the image the last build read and opens in the
-    theme the page picked, from its first paint (the app's own theme.js;
-    both remembered in platformdirs' config folder: the page's address, and
-    so its storage, is new each launch). No CSP violation, no request but to the
-    app's own server, and the app, the folder, HOME and TMPDIR are as they
+    next launch starts from the image the last build read, opens in the
+    theme the page picked, from its first paint (the app's own theme.js),
+    and with the page's setup as it was left: every pack ticked (D915; all
+    three remembered in platformdirs' config folder: the page's address, and
+    so its storage, is new each launch). No CSP violation, no request but to
+    the app's own server, and the app, the folder, HOME and TMPDIR are as they
     were but for platformdirs' folders and the saved build."""
     app_path, before = frozen_app
     box = Sandbox(tmp_path, monkeypatch)
@@ -285,6 +286,9 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
             assert _page.until(page, "() => azurkit.opened") == json.loads(json.dumps(sdk.open_build(str(out))))
             _page.click(page, "load-build")
             assert list(_page.ticked(page)) == list(mods.PACKS)
+            setup = {"ticked": list(mods.PACKS), "values": {}, "xbr": []}   # the recipe loaded becomes it (D915)
+            assert _page.until(page, f"""async () => {{ const setup = (await (await fetch('host.json')).json()).setup;
+                return setup?.ticked.length === {len(mods.PACKS)} && setup; }}""") == setup
             assert page.evaluate("() => azurkit.theme") == "dark"
             _page.click(page, "theme")
             assert _page.until(page, "async () => (await (await fetch('host.json')).json()).theme === 'light'")
@@ -294,10 +298,12 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
         with box.serving(app_path) as url:
             with urllib.request.urlopen(url.replace("/?token=", "/host.json?token="), timeout=30) as reply:
                 host = json.load(reply)
-            assert [host["iso"], host["theme"]] == [str(usa_iso), "light"]
+            assert [host["iso"], host["theme"], host["setup"]] == [str(usa_iso), "light", setup]
             page = context.new_page()
             assert _page.first_paint(page, url) == ["light", "rgb(232, 236, 241)"]
             assert page.evaluate("() => [azurkit.theme, document.documentElement.dataset.theme]") == ["light"] * 2
+            assert [list(_page.ticked(page)), page.evaluate("() => document.querySelector('#status').textContent")] == [
+                list(mods.PACKS), f"Restored your last setup: {len(mods.PACKS)} packs on. Reset to defaults clears it."]
     finally:
         context.close()
         out.unlink(missing_ok=True)
@@ -416,6 +422,49 @@ def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
     finally:
         server.close()
         second.close()
+
+
+def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_path, monkeypatch):
+    """``api/setup`` remembers the page's setup (D915) in the app's config,
+    beside the theme, written whole; ``host.json`` gives it to the next
+    page, and ``api/restore`` gives back what of it still applies, the rest
+    named (``sdk.restore``). ``null`` forgets it, and a setup holding
+    anything but packs, settings and config.xbr cells (an image's path, say)
+    is refused by name, the config as it was."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
+    (page := tmp_path / "page").mkdir()
+    (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
+    server = app.serve(page)
+
+    def call(path: str, body: object = None) -> dict:
+        if body is None:
+            with urllib.request.urlopen(server.url.replace("/?", f"/{path}?"), timeout=10) as reply:
+                return json.load(reply)
+        replies = []
+        _post(server.url, path, body, replies)
+        return replies[0]
+
+    setup = {"ticked": ["fps_unlock", "qol_retired"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": []}
+
+    def kept() -> list:
+        """The config, and the files in its folder."""
+        return [json.loads(app._config().read_text(encoding="utf-8")),
+                sorted(p.name for p in app._config().parent.iterdir())]
+
+    try:
+        assert [call("api/theme", {"theme": "light"}), call("api/setup", {"setup": setup})] == [{}, {}]
+        assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
+        assert call("host.json")["setup"] == setup
+        assert call("api/restore", {"setup": setup}) == sdk.restore(setup) == {
+            "ticked": ["fps_unlock"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [],
+            "dropped": ["qol_retired (no such pack)"]}
+        assert call("api/setup", {"setup": {"ticked": [], "iso": "/a.iso"}}) == {
+            "refused": "setup: an object of ticked, values, xbr only, or null"}
+        assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
+        assert call("api/setup", {"setup": None}) == {}
+        assert [kept(), call("host.json")["setup"]] == [[{"theme": "light"}, ["app.json"]], None]
+    finally:
+        server.close()
 
 
 def _post(url: str, call: str, body: dict, replies: list) -> None:

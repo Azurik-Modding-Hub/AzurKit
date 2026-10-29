@@ -11,13 +11,14 @@
 // Safari's build stopped with NoGilError there. Chromium runs it only between tasks.
 //
 // In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation]}, {type: "vanilla", file},
-//      {type: "preset", recipe: {packs, xbr}, report}, {type: "decode", text}
+//      {type: "preset", recipe: {packs, xbr}, report}, {type: "decode", text}, {type: "restore", setup}
 // Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
-//      {type: "csp", directive, blocked}
+//      {type: "restored", ticked, values, xbr, dropped} (the remembered setup, sdk.restore), {type: "csp", directive,
+//      blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
@@ -42,6 +43,8 @@ def engine(request):
 
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
+    if request.type == "restore":
+        return js(sdk.restore(request.setup.to_py() if hasattr(request.setup, "to_py") else request.setup))
     if request.type in ("vanilla", "open", "preset", "decode"):
         try:
             if request.type == "vanilla":
@@ -145,9 +148,10 @@ function build({ py, engine }, file, packs, xbr) {
 try {
   const loaded = await load();
   self.onmessage = ({ data }) => {
-    if (!["build", "vanilla", "preset", "decode"].includes(data?.type)) return;
+    if (!["build", "vanilla", "preset", "decode", "restore"].includes(data?.type)) return;
     try {
       if (data.type === "vanilla") return vanilla(loaded, data.file);
+      if (data.type === "restore") return post({ type: "restored", ...loaded.engine(data) });
       if (data.type === "preset" || data.type === "decode") {
         const reply = loaded.engine(data);
         if ("refused" in reply) return post({ type: "refused", message: reply.refused, quiet: true });
