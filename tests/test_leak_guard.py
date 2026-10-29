@@ -146,32 +146,39 @@ def test_the_checkout_holds_nothing_the_guard_refuses():
 def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, europe_iso):
     """A byte or hex literal under src/, tests/, scripts/, web/ or assets/
     that holds 8 or more bytes in a row of either release's vanilla
-    default.xbe or XBR files (config.xbr, the levels the randomizer writes
-    and the rest; a file the same in both is named once) is named
+    default.xbe or XBR files (config.xbr, the levels the randomizer writes,
+    Europe's own French.xbr and German.xbr and the rest; each distinct
+    file read once, so a file the same in both is named once) is named
     by file, line and lengths, never its bytes: in each form, planted here with the 13
     vanilla bytes 4.1c's fps_unlock once held (also as a hex string in a
     gzipped JSON file, one whose trailer is damaged and one whose CRC
     alone is), once with 24 bytes of config.xbr's
-    armor_properties rows and once with 16 of a record of w1.xbr's
-    first node graph (each read from the image now). A run of
+    armor_properties rows, once with 16 of a record of w1.xbr's
+    first node graph and once with 16 from the middle of Europe's
+    French.xbr's largest entry (each read from the image now). A run of
     one repeated byte, a hash and a file outside those folders pass. The
     checkout holds none, in a literal or a shim object."""
+    reads = _leak_guard.vanilla_reads({release.label: release.files for release in gate.RELEASES})
     read = {}
-    for label, path in (("USA", usa_iso), ("Europe", europe_iso)):
+    for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
         with iso.Reader(path) as r:
-            read |= {(label, rel): r.read(rel) for rel in _leak_guard.VANILLA_FILES}
+            read |= {(release.label, rel): r.read(rel) for rel in reads[release.label]}
     files = _leak_guard.vanilla_named(read)
-    own = ("default.xbe", "gamedata/index/index.xbr")   # Europe's own; its other XBRs are the USA ones
+    own = ("default.xbe", "gamedata/index/index.xbr")   # differ by release; French.xbr and German.xbr are Europe's
+    assert reads["Europe"] == ["default.xbe", "gamedata/French.xbr", "gamedata/German.xbr", own[1]]
     assert {"gamedata/config.xbr", "gamedata/town.xbr", "gamedata/w1.xbr"} <= set(_leak_guard.VANILLA_FILES)
     assert sorted(files) == sorted([f"{label} {rel}" for label in ("USA", "Europe") for rel in own]
                                    + [rel for rel in _leak_guard.VANILLA_FILES if rel not in own])
     usa = facts.of(gate.USA)
     run = files["USA default.xbe"][usa.offset(0x059B37, 30):][17:30]
     config = files["gamedata/config.xbr"]
-    # two spans no other vanilla file holds 8 B of in a row: so each is named once, by its own file
+    # three spans no other vanilla file holds 8 B of in a row: so each is named once, by its own file
     rows = config[Document(config).tables["armor_properties"].start + 0x34:][:24]
     w1 = files["gamedata/w1.xbr"]
     level = w1[record_offsets(w1, next(e for e in parse_toc(w1) if e.tag == "node").file_offset)[1]:][:16]
+    french = files["gamedata/French.xbr"]
+    entry = max(parse_toc(french), key=lambda e: e.size)
+    europe_only = french[entry.file_offset + entry.size // 2:][:16]
     escaped = "".join(f"\\x{b:02x}" for b in run)
     json_gz = gzip.compress(f'{{"x": "{run.hex()}"}}\n'.encode())
     plants = {
@@ -185,6 +192,7 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, euro
         "docs/out.py": f'X = b"{escaped}"\n',
         "tests/f.py": f'X = bytes.fromhex("{rows.hex()}")\n',
         "src/k.py": f'X = bytes.fromhex("{level.hex()}")\n',
+        "src/l.py": f'X = bytes.fromhex("{europe_only.hex()}")\n',
         "assets/icon/g.py": f'X = b"{escaped}"\n',
         "src/h.json.gz": json_gz, "src/i.json.gz": json_gz[:-8] + bytes(8), "src/j.json.gz": _bad_crc(json_gz),
     }
@@ -200,9 +208,10 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, euro
                                        "src/j.json.gz (gzip):1")
                             for name, data in files.items() if run in data]
                            + ["tests/f.py:1: a 24 B literal holds 24 B in a row of the gamedata/config.xbr",
-                              "src/k.py:1: a 16 B literal holds 16 B in a row of the gamedata/w1.xbr"])
+                              "src/k.py:1: a 16 B literal holds 16 B in a row of the gamedata/w1.xbr",
+                              "src/l.py:1: a 16 B literal holds 16 B in a row of the gamedata/French.xbr"])
     assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run),
-                                                               rows.hex(), level.hex()))
+                                                               rows.hex(), level.hex(), europe_only.hex()))
     assert _leak_guard.vanilla_runs(ROOT, files) == []
 
 

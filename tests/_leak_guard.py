@@ -34,13 +34,13 @@ every rule here, the literal reader's below too, and named ``"<path>
 (gzip)"``.
 
 One more rule needs the game itself, so the vanilla tier runs it
-(``tests/test_leak_guard.py``, with both releases' :data:`VANILLA_FILES`
-read from the images), and so does ``scripts/land.py`` over every commit it
-lands (:func:`vanilla_runs_in_commits`), but neither the hook nor the
+(``tests/test_leak_guard.py``, with :data:`VANILLA_FILES` read from both
+images, :func:`vanilla_reads`), and so does ``scripts/land.py`` over every
+commit it lands (:func:`vanilla_runs_in_commits`), but neither the hook nor the
 command line: no byte or hex literal in a source file (:data:`SOURCE_DIRS`)
-holds :data:`VANILLA_RUN` or more bytes in a row of a vanilla
-``default.xbe`` or XBR file (``gamedata/config.xbr``, the levels and the
-rest, :func:`vanilla_runs`). Such a
+holds :data:`VANILLA_RUN` or more bytes in a row of either release's vanilla
+``default.xbe`` or XBR files (``gamedata/config.xbr``, the levels, Europe's
+French.xbr and German.xbr and the rest, :func:`vanilla_runs`). Such a
 run is read from the player's image at its address instead. The literals (:func:`byte_literals`) are a Python file's
 bytes literals, ``bytes.fromhex`` and hex strings, lists of byte-sized ints
 and the concatenations and repeats of these, and in any text file runs of
@@ -288,10 +288,11 @@ def scan(root: Path = ROOT) -> list[str]:
 
 
 SOURCE_DIRS = ("src/", "tests/", "scripts/", "web/", "assets/")
-#: The game files the code reads bytes of: the XBE and every XBR the USA manifest lists (config.xbr, the levels
-#: the randomizer writes and the rest; Europe's are the same files but index.xbr).
-VANILLA_FILES = ("default.xbe", *sorted(path for path in json.loads(MANIFESTS[0].read_text(encoding="utf-8"))["files"]
-                                        if path.endswith(".xbr")))
+#: The game files the code reads bytes of: the XBE and every XBR either release's manifest lists (config.xbr, the
+#: levels the randomizer writes, Europe's own French.xbr and German.xbr and the rest; :func:`vanilla_reads`).
+VANILLA_FILES = ("default.xbe", *sorted({path for manifest in MANIFESTS
+                                         for path in json.loads(manifest.read_text(encoding="utf-8"))["files"]
+                                         if path.endswith(".xbr")}))
 VANILLA_RUN = 8   # bytes in a row of one of them that a literal may not hold
 OBJECT_RUN = 32        # bytes in a row of one of them that a shim object's code, or the whole object, may not hold
 OBJECT_DATA_RUN = 16   # and that its other sections may not hold
@@ -440,11 +441,24 @@ def object_sections(data: bytes) -> list[tuple[str, bytes, bool]] | None:
         return None
 
 
+def vanilla_reads(releases: Mapping[str, Mapping[str, list]]) -> dict[str, list[str]]:
+    """``{release label: the VANILLA_FILES to read from its image}``
+    from ``{release label: its manifest's files}``: each file from the
+    releases whose manifest lists it, once for each distinct ``[size,
+    sha256]``, from the first release holding it (USA's default.xbe and
+    XBRs, then Europe's default.xbe, index.xbr, French.xbr and German.xbr)."""
+    reads, seen = {}, set()
+    for label, files in releases.items():
+        reads[label] = [rel for rel in VANILLA_FILES if rel in files and (rel, *files[rel]) not in seen]
+        seen.update((rel, *files[rel]) for rel in reads[label])
+    return reads
+
+
 def vanilla_named(files: Mapping[tuple[str, str], bytes]) -> dict[str, bytes]:
     """``{name: bytes}``, the files a literal is checked against, from
-    ``{(release label, path): its vanilla bytes}`` (each release's
-    :data:`VANILLA_FILES`): named ``"<release> <path>"``, or by the path
-    alone, once, when every release holds the same file (config.xbr)."""
+    ``{(release label, path): its vanilla bytes}`` (:func:`vanilla_reads`):
+    named ``"<release> <path>"``, or by the path alone, once, when every
+    release read holds the same file (config.xbr; French.xbr, Europe's alone)."""
     out = {}
     for (label, path), data in files.items():
         out[path if all(d == data for (_, p), d in files.items() if p == path) else f"{label} {path}"] = data

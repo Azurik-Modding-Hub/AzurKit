@@ -62,8 +62,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   the player's image at its address. The vanilla tier refuses a literal under
   `src/`, `tests/`, `scripts/`, `web/` or `assets/` holding 8 or more bytes in a row of
   either release's `default.xbe` or XBR files (its `VANILLA_FILES`: the
-  XBE and every `.xbr`, config.xbr and the levels the randomizer writes
-  among them; add a game file there once the code reads its bytes),
+  XBE and every `.xbr` of either release, config.xbr, the levels the
+  randomizer writes and Europe's own French.xbr and German.xbr among them;
+  add a game file there once the code reads its bytes),
   by file, line and length
   (`tests/test_leak_guard.py`), and `scripts/land.py` refuses a stack any of
   whose commits adds one, even when a later commit removes it again: the

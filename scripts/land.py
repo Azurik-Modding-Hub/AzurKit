@@ -55,16 +55,17 @@ def receipt_for(folder: Path, head: str, main: str | None) -> dict | None:
 
 
 def vanilla_files() -> dict[str, bytes]:
-    """Each release's vanilla ``tests/_leak_guard.py`` ``VANILLA_FILES``, read
-    from its image and named by ``vanilla_named``; ``ValueError`` or
+    """``tests/_leak_guard.py``'s vanilla ``VANILLA_FILES``, each read once
+    for each distinct content from a release's image that holds it
+    (``vanilla_reads``) and named by ``vanilla_named``; ``ValueError`` or
     ``OSError`` says which is missing or not vanilla."""
     from azurkit.core import gate, iso
-    files = {}
+    files, reads = {}, _leak_guard.vanilla_reads({release.label: release.files for release in gate.RELEASES})
     for release in gate.RELEASES:
         if (path := gate.find(release)) is None:
             raise ValueError(f"no {release.label} image: {gate.missing(release)}")
         with iso.Reader(path) as r:
-            for rel in _leak_guard.VANILLA_FILES:
+            for rel in reads[release.label]:
                 data = r.read(rel)
                 if [len(data), hashlib.sha256(data).hexdigest()] != release.files[rel]:
                     raise ValueError(f"{path}'s {rel} isn't the vanilla {release.label} one")
