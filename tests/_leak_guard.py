@@ -397,18 +397,19 @@ def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes],
 
 
 def _read(rel: str, data: bytes, where: str) -> tuple[list[tuple[str, bytes]], list[tuple[str, bytes, str, int]]]:
-    """The literals (``"<rel>:<line><where>"``) of a source file ``rel``,
-    or the parts of a shim object (:func:`_held`): each section
+    """The literals (``"<rel>:<line><where>"``) of a text file ``rel``,
+    and the parts of a shim object (:func:`_held`): each section
     (``"<rel> (<section>)<where>"``), at :data:`OBJECT_RUN` for code and
     :data:`OBJECT_DATA_RUN` for the rest, and the whole file (``"<rel>
-    (file)<where>"``) at :data:`OBJECT_RUN`, parsed or not."""
+    (file)<where>"``) at :data:`OBJECT_RUN`, parsed or not. A text file
+    named ``.o`` gets both: its literals are read as any text file's."""
+    literals = ([(f"{rel}:{line}{where}", lit) for line, lit in byte_literals(rel, text)]
+                if (text := _text(data[:MAX_TEXT])) is not None else [])
     if rel.endswith(".o"):
-        return [], [*((f"{rel} ({name}){where}", body, "section", OBJECT_RUN if code else OBJECT_DATA_RUN)
-                      for name, body, code in object_sections(data) or ()),
-                    (f"{rel} (file){where}", data, "file", OBJECT_RUN)]
-    if (text := _text(data[:MAX_TEXT])) is not None:
-        return [(f"{rel}:{line}{where}", lit) for line, lit in byte_literals(rel, text)], []
-    return [], []
+        return literals, [*((f"{rel} ({name}){where}", body, "section", OBJECT_RUN if code else OBJECT_DATA_RUN)
+                            for name, body, code in object_sections(data) or ()),
+                          (f"{rel} (file){where}", data, "file", OBJECT_RUN)]
+    return literals, []
 
 
 def vanilla_runs(root: Path, files: Mapping[str, bytes]) -> list[str]:

@@ -193,7 +193,9 @@ def test_a_shim_object_holding_a_run_of_a_vanilla_file_is_named(tmp_path, usa_is
     runs, which compiled code and constants share with the game by chance,
     text, and a constant of at most 3 byte values (the identity matrix the
     save warp keeps, which the game holds too) pass; so does every object
-    the checkout commits."""
+    the checkout commits. A text file named ``.o`` is read for literals as
+    any text file is: one holding a hex run of 16 bytes is named at its
+    line."""
     read = {}
     for label, path in (("USA", usa_iso), ("Europe", europe_iso)):
         with iso.Reader(path) as r:
@@ -208,6 +210,7 @@ def test_a_shim_object_holding_a_run_of_a_vanilla_file_is_named(tmp_path, usa_is
     plants = {"src/a/held.o": _object(**{".text": code[:64], ".rdata": text + identity}),
               "src/a/floats.o": _object(**{".rdata": floats}),
               "src/a/tail.o": _object(**{".rdata": text}) + code[:64],
+              "src/a/hex.o": f'X = bytes.fromhex("{floats.hex()}")\n'.encode(),
               "src/a/short.o": _object(**{".text": code[:31] + bytes([code[31] ^ 0xFF]) + code[32:63],
                                           ".rdata": floats[:15]}),
               "docs/out.o": _object(**{".text": code[:64]})}
@@ -224,7 +227,8 @@ def test_a_shim_object_holding_a_run_of_a_vanilla_file_is_named(tmp_path, usa_is
              for part, size, what, run in (("held.o (.text)", 64, "section", code[:64]),
                                            ("held.o (file)", len(plants["src/a/held.o"]), "file", code[:64]),
                                            ("floats.o (.rdata)", 16, "section", floats),
-                                           ("tail.o (file)", len(plants["src/a/tail.o"]), "file", code[:64]))
+                                           ("tail.o (file)", len(plants["src/a/tail.o"]), "file", code[:64]),
+                                           ("hex.o:1", 16, "literal", floats))
              for name, data in files.items() if run in data]
     assert named and _leak_guard.vanilla_runs(tmp_path, files) == sorted(n.format("") for n in named)
     git("add", *plants)
