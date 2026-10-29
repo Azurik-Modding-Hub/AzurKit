@@ -28,8 +28,9 @@
 - Playwright launches only headless browsers: a launch (sync or async, of
   any browser) with ``headless`` other than unset (its default) or true, or
   that leaves out its ``--headless`` argument, is refused before it starts
-  anything, and ``PWDEBUG``, which opens a headed browser, is dropped. The
-  session checks this guard too, and stops when it doesn't hold.
+  anything, and ``PWDEBUG`` (or its npm forms), which opens a headed
+  browser, is dropped. The session checks this guard too, and stops when it
+  doesn't hold.
 - Git finds a repository by the cwd alone: the variables that point it at
   one (``GIT_DIR``, which ``git rebase -x`` exports, and the rest of ``git
   rev-parse --local-env-vars``) are dropped, so a test's scratch repo is its
@@ -63,7 +64,8 @@ for _var in ("GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAM
              "GIT_SHALLOW_FILE", "GIT_COMMON_DIR", "GIT_NAMESPACE"):
     os.environ.pop(_var, None)
 os.environ["AZURKIT_NO_WINDOW"] = "1"   # azurkit.app.NO_WINDOW, before anything imports the app
-os.environ.pop("PWDEBUG", None)          # Playwright's debug mode: a headed browser and its inspector
+for _var in ("PWDEBUG", "npm_config_pwdebug", "npm_package_config_pwdebug"):   # Playwright's debug mode
+    os.environ.pop(_var, None)          # (and its npm forms): a headed browser and its inspector
 
 from playwright._impl._browser_type import BrowserType as _BrowserType  # noqa: E402
 
