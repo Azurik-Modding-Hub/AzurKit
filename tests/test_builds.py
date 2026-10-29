@@ -201,7 +201,7 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
     shapes = [{"op": "rename"}, {"op": "set", "file": CONFIG}, golem | {"value": float("nan"), "x": 1},
               {"op": "replace_bytes", "file": "default.xbe", "offset": -1, "value": "abc", "expected": "ab"},
               {"op": "replace_bytes", "file": "gamedata/a1.xbr", "offset": 0, "value": "00" * 33,
-               "expected": "00" * 33}]
+               "expected": "00" * 33}, {"op": ["set"]}]
     with pytest.raises(ValueError) as caught:
         sdk.image({"iso": str(usa_iso), "xbr": shapes})
     assert str(caught.value) == (
@@ -210,8 +210,10 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
         "xbr op 4 (replace_bytes): file 'default.xbe' is no gamedata/<name>.xbr; xbr op 4 (replace_bytes): "
         "offset -1 is not a file offset (a whole number from 0); xbr op 4 (replace_bytes): value is not hex bytes; "
         "xbr op 5 (replace_bytes): expected is not the hex of the 33 B the value replaces (up to 32 B; past that "
-        "{sha256, size})")
+        "{sha256, size}); xbr op 6: not an operation (op: set | replace_bytes)")
     assert held.hex() not in str(caught.value)
+    with pytest.raises(ValueError, match=r"preset: a manifest's layers is a list of \{tool, kind, recipe\}"):
+        sdk.read_mods({"format": manifest.FORMAT, "layers": ["x"]})
     replace = {"op": "replace_bytes", "file": "gamedata/a1.xbr", "offset": 0x800, "value": "deadbeef",
                "expected": {"sha256": _sha256(held), "size": 4}}
     with pytest.raises(ValueError, match=re.escape("a share link carries packs and set only (Q174), not xbr op 2")):

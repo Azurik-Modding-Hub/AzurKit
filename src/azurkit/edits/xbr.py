@@ -52,7 +52,7 @@ def normalize(ops: object) -> list[dict]:
     failed = []
     for k, op in enumerate(ops, 1):
         where = f"xbr op {k}"
-        if not isinstance(op, Mapping) or op.get("op") not in KEYS:
+        if not isinstance(op, Mapping) or not isinstance(op.get("op"), str) or op["op"] not in KEYS:
             failed.append(f"{where}: not an operation (op: set | replace_bytes)")
             continue
         where, keys = f"{where} ({op['op']})", KEYS[op["op"]]

@@ -316,7 +316,7 @@ function decoded(preset) {
   load(preset, "the link");
 }
 
-// The picked image is an AzurKit build: offer its recipe (sdk.open_build checked every file against it).
+// The picked image is an AzurKit build: offer its recipe (sdk.open_build checked the files it changed against it).
 function opened(preset) {
   if (state.asked !== state.file) return;
   state.opened = preset;

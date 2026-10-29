@@ -129,8 +129,11 @@ def from_manifest(record: Mapping) -> dict:
     version, its result, and its layers' recipes, one layer a tool (each
     pack's ``{pack, params}`` into the ``mods`` tool's packs), :func:`check`
     ed; ``ValueError`` names a layer no mods file carries."""
+    layers = record.get("layers", [])
+    if not (isinstance(layers, list) and all(isinstance(layer, Mapping) for layer in layers)):
+        raise ValueError("preset: a manifest's layers is a list of {tool, kind, recipe}")
     packs, ops, failed = {}, None, []
-    for layer in record.get("layers", []):
+    for layer in layers:
         recipe, where = layer.get("recipe"), (layer.get("tool"), layer.get("kind"))
         if where == ("mods", "packs") and isinstance(recipe, Mapping) and isinstance(recipe.get("pack"), str) \
                 and isinstance(recipe.get("params"), Mapping) and recipe["pack"] not in packs:
