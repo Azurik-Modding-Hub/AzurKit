@@ -33,7 +33,7 @@ import pytest
 
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli, sdk
-from azurkit.core import gate
+from azurkit.core import gate, iso
 from azurkit.tools import mods
 from scripts import freeze
 from tests import _g1, _page
@@ -379,32 +379,33 @@ def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
         second.close()
 
 
+def _post(url: str, call: str, body: dict, replies: list) -> None:
+    """POST ``body`` to the engine's ``call`` (``api/save``, say) from the
+    page at ``url`` (its token in the query); its reply goes in ``replies``."""
+    host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"
+    request = urllib.request.Request(f"http://{host}/{call}{query}", json.dumps(body).encode(),
+                                     {"Origin": f"http://{host}", "Content-Type": "application/json"})
+    with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=120) as reply:
+        replies.append(json.load(reply))   # the app may quit before it answers
+
+
 def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monkeypatch, usa_iso):
     """Quitting while a save writes cancels it and waits until it has
     removed its part file, before the app can exit (D35): when ``serve``'s
     input ends (the way out of the window and the browser fallback too), and
     when the window's closing event fires (its close button, and Cmd-Q,
-    after which no ``finally`` runs). A save queued behind a build when the
-    app quits (a second tab's) is refused. Nothing is left where it saved."""
+    after which no ``finally`` runs). Nothing is left where it saved."""
     import webview
     monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers the image
     out = tmp_path / "out"
     out.mkdir()
     recipe = {"iso": str(usa_iso), "packs": {"fps_unlock": {}}}
 
-    def post(url: str, name: str, replies: list) -> None:
-        """POST a save to the page's server at ``url``; its reply goes in ``replies``."""
-        host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"   # the token
-        request = urllib.request.Request(
-            f"http://{host}/api/save{query}", json.dumps({"recipe": recipe, "out": str(out / name)}).encode(),
-            {"Origin": f"http://{host}", "Content-Type": "application/json"})
-        with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=120) as reply:
-            replies.append(json.load(reply))   # the app may quit before it answers
-
     def save_until_writing(url: str, name: str) -> None:
         """POST a save to the page's server at ``url`` and return once it writes."""
         host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"   # the token
-        threading.Thread(target=post, args=(url, name, []), daemon=True).start()
+        threading.Thread(target=_post, args=(url, "api/save", {"recipe": recipe, "out": str(out / name)}, []),
+                         daemon=True).start()
         end = time.monotonic() + 120
         while True:
             with urllib.request.urlopen(f"http://{host}/api/progress{query}", timeout=10) as reply:
@@ -439,18 +440,60 @@ def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monke
         server.close()
     assert left == []
 
-    server, replies = app.serve(), []
-    try:
-        with server.busy:   # a build runs; a save waits behind it, then the app quits
-            queued = threading.Thread(target=post, args=(server.url, "queued.iso", replies))
-            queued.start()
+
+def test_closing_the_app_during_a_long_build_returns_within_2_s_and_leaves_no_part_file(tmp_path, monkeypatch):
+    """Closing the app (``Server.quit``, the window's closing hook: its
+    close button and Cmd-Q) never waits on a build (AZ-823): mid-build it
+    returns at once, and the build's answer and a save queued behind it (a
+    second tab's) are refused. Mid-save it cancels the save and waits for it
+    to remove its part file, ``app.QUIT_WAIT`` in all; a save whose disk
+    stalls past that has its part file removed by the close (D35) and then
+    fails, so nothing is left where it saved, even if the app exits then."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    out, release = tmp_path / "out", threading.Event()
+    out.mkdir()
+    planning, stalled = threading.Event(), threading.Event()
+
+    def image(recipe):   # a long build
+        planning.set()
+        release.wait(60)
+        return types.SimpleNamespace(size=0), {}
+
+    class Disk(io.BytesIO):   # a save's image, whose next read after its first chunk stalls
+        def read(self, size=-1):
+            if self.tell():
+                stalled.set()
+                release.wait(60)
+            return super().read(size)
+    made = types.SimpleNamespace(source=tmp_path / "in.iso", size=2 * iso.CHUNK,
+                                 open=lambda: Disk(bytes(2 * iso.CHUNK)))
+    monkeypatch.setattr(sdk, "image", image)
+    monkeypatch.setattr(sdk, "build", lambda recipe, to, progress: {"sha256": iso.pack(made, to, progress=progress)})
+
+    def close(server: app.Server, started: threading.Event, *calls: tuple[str, dict]) -> tuple[float, list, list]:
+        """Make the first call, then the others (queued behind it) once it
+        has ``started``, and close: the seconds the close took, what was in
+        ``out`` once it returned, and the calls' replies."""
+        replies = [[] for _ in calls]
+        threads = [threading.Thread(target=_post, args=(server.url, *call, got)) for call, got in zip(calls, replies)]
+        threads[0].start()
+        assert started.wait(60)
+        for thread in threads[1:]:
+            thread.start()
             time.sleep(0.3)
-            quitting = threading.Thread(target=server.quit)
-            quitting.start()
-            time.sleep(0.3)
-        quitting.join(120)
-        queued.join(120)
-    finally:
+        began = time.monotonic()
+        server.quit()
+        took, left = time.monotonic() - began, sorted(p.name for p in out.iterdir())
+        release.set()
+        for thread in threads:
+            thread.join(120)
+        release.clear()
         server.close()
-    assert replies == [{"refused": "AzurKit is quitting: nothing was written"}]
+        return took, left, [reply for got in replies for reply in got]
+
+    save = ("api/save", {"recipe": {}, "out": str(out / "a.iso")})
+    took, left, replies = close(app.serve(), planning, ("api/build", {"iso": str(tmp_path / "in.iso")}), save)
+    assert (took < 0.5, left, replies) == (True, [], [{"refused": app.QUITTING}] * 2)
+    took, left, replies = close(app.serve(), stalled, save)
+    assert (took < 2, left, replies) == (True, [], [{"refused": "Cancelled: nothing was written"}])
     assert list(out.iterdir()) == []

@@ -29,7 +29,8 @@ it changed).
 ``POST api/choose`` ``{"kind": "iso" | "out", "path"}`` opens the window's
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
-time.
+time. Closing the app cancels either (:meth:`Server.quit`, AZ-823) and
+never waits on a build.
 
 The tests run with :data:`NO_WINDOW` set (``tests/conftest.py``): the owner
 works on this screen (D839), so there :func:`main` refuses at once, before it
@@ -40,6 +41,8 @@ mode: it prints the page's address and serves until its input ends.
 
 from __future__ import annotations
 
+import contextlib
+import glob
 import hmac
 import http.server
 import json
@@ -48,6 +51,7 @@ import os
 import secrets
 import sys
 import threading
+import time
 import urllib.parse
 import webbrowser
 from pathlib import Path
@@ -63,6 +67,8 @@ MAX_BODY = 1 << 20
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
 # text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses
 WINDOW = {"title": "AzurKit", "width": 1100, "height": 820, "text_select": True}
+QUIT_WAIT = 1.5   # seconds a close waits, in all, for a cancelled save to remove its part file (AZ-823)
+QUITTING = "AzurKit is quitting: nothing was written"
 
 
 class Cancelled(Exception):
@@ -115,23 +121,35 @@ class Server(http.server.ThreadingHTTPServer):
         self.url = f"http://{self.host}/?token={self.token}"
         self.window = None                  # the pywebview window, once there is one: its file dialogs
         self.busy = threading.Lock()        # one build or save at a time
+        self.writing = threading.Lock()     # held by a save, which quit() waits on (never a build)
+        self.out: Path | None = None        # where the save in flight writes
         self.progress = (0, 0)
         self.cancelled = threading.Event()
-        self.quitting = False               # set by quit(), before it cancels: no save starts after it
+        self.quitting = False               # set by quit(), before it cancels: no build or save starts after it
+        self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
         self.chosen: Path | None = None     # the save dialog's last answer, which it asked before replacing
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
-        """Cancel a save in flight and wait until it has removed its part
-        file (D35): its thread is a daemon, which the interpreter's exit
-        would kill mid-write. The window's closing hook (its close button,
-        and Cmd-Q, after which no ``finally`` runs) and :meth:`close`. A
-        save that takes ``busy`` after ``quitting`` is set refuses; one that
-        took it before sees ``cancelled``, set after ``quitting``."""
+        """Cancel a build or a save in flight, within :data:`QUIT_WAIT`
+        (AZ-823): the window's closing hook (its close button, and Cmd-Q,
+        after which no ``finally`` runs) and :meth:`close`. A build writes
+        nothing, so this never waits on one: its answer is refused. A save
+        is waited on until it has removed its part file (D35), as its thread
+        is a daemon, which the interpreter's exit would kill mid-write; if
+        it hasn't by then (a stalled disk), its part file is removed here.
+        A build or save that takes ``busy`` after ``quitting`` is set
+        refuses; a save that took it before sees ``cancelled``, set after
+        ``quitting``, before its part file is made and after each chunk."""
         self.quitting = True
         self.cancelled.set()
-        with self.busy:
-            pass
+        self.deadline = self.deadline or time.monotonic() + QUIT_WAIT
+        if self.writing.acquire(timeout=max(0.0, self.deadline - time.monotonic())):
+            self.writing.release()
+        elif (out := self.out) is not None:
+            for part in out.parent.glob(f"{glob.escape(out.name)}.*.part"):   # iso.pack's
+                with contextlib.suppress(OSError):   # still open on Windows: nothing more to do here
+                    part.unlink(missing_ok=True)
 
     def close(self) -> None:
         self.quit()
@@ -147,7 +165,11 @@ class Server(http.server.ThreadingHTTPServer):
         if body.get("xbr"):
             recipe["xbr"] = body["xbr"]
         with self.busy:
+            if self.quitting:
+                raise ValueError(QUITTING)
             made, report = sdk.image(recipe)
+        if self.quitting:   # closed while it built (AZ-823)
+            raise ValueError(QUITTING)
         _remember(recipe["iso"])
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
@@ -164,11 +186,11 @@ class Server(http.server.ThreadingHTTPServer):
             self.progress = (done, total)
             if self.cancelled.is_set():
                 raise Cancelled
-        with self.busy:
+        with self.busy, self.writing:
             self.cancelled.clear()   # before the check: a quit after it still cancels this save
             if self.quitting:
-                raise ValueError("AzurKit is quitting: nothing was written")
-            self.progress = (0, 0)
+                raise ValueError(QUITTING)
+            self.progress, self.out = (0, 0), out
             try:
                 return {"saved": sdk.build(recipe, str(out), progress=progress)}
             except Cancelled:

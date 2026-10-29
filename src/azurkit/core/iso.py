@@ -448,11 +448,13 @@ def pack(image: Image, out: str | os.PathLike, progress: Callable[[int, int], ob
     written. ``out`` appears only once it is whole and on the disk (a fresh
     ``.part`` beside it, fsynced, then renamed into place; D35), and it may
     not be the image's input (D36). ``progress(done, total)`` is called
-    after each :data:`CHUNK`; an exception it raises cancels the write, and
-    nothing is left behind."""
+    before the ``.part`` is made and after each :data:`CHUNK`; an exception
+    it raises cancels the write, and nothing is left behind."""
     out = Path(out)
     if out.exists() and out.samefile(image.source):
         raise ValueError(f"{out}: it is the build's input, which a build never writes over")
+    if progress is not None:
+        progress(0, image.size)
     part = out.with_name(f"{out.name}.{os.urandom(4).hex()}.part")
     digest, dst = hashlib.sha256(), open(part, "xb")
     try:

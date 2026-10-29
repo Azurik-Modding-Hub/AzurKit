@@ -34,8 +34,9 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     segments cover the image once, in order: the replaced bytes once each,
     the rest copied from the input or zeros past its end. A build never
     writes over its input (D36), and pack returns the sha256 of what it
-    wrote, reporting its progress; an exception the progress callback
-    raises cancels the write and leaves nothing behind."""
+    wrote, reporting its progress (first before it makes its part file);
+    an exception the progress callback raises cancels the write and leaves
+    nothing behind."""
     old = {"a.bin": fill("a", 90), "gamedata/big.xbr": fill("big", 3 * S), "gamedata/sub/c.xbr": fill("c", 100),
            "z.bin": fill("z", 10)}
     src = tmp_path / "in.iso"
@@ -48,7 +49,7 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     out = tmp_path / "out.iso"
     seen = []
     assert iso.pack(built, out, progress=lambda *done: seen.append(done)) == _sha256(out) == built.sha256()
-    assert seen[-1] == (built.size, built.size)
+    assert (seen[0], seen[-1]) == ((0, built.size), (built.size, built.size))   # the first before the .part
 
     def cancel(done, total):
         raise KeyboardInterrupt

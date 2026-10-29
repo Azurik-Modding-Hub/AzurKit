@@ -272,8 +272,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   CPython, only from the page's own origin. The page takes the image's path
   (remembered in platformdirs' config folder; the window adds file dialogs)
   and Save writes the build to a path, never over an existing file but one
-  the save dialog chose. The window sets pywebview's `text_select`, or
-  pywebview injects a `<style>` the CSP refuses. `scripts/freeze.py` builds
+  the save dialog chose. Closing the app (the window's close button, Cmd-Q,
+  `serve`'s input ending) cancels a build or a save: it never waits on a
+  build, and waits for a save to remove its part file `app.QUIT_WAIT`
+  (1.5 s) at most, then removes it itself (AZ-823, D35). The window sets
+  pywebview's `text_select`, or pywebview injects a `<style>` the CSP
+  refuses. `scripts/freeze.py` builds
   the app (`AzurKit.app` on macOS, a windowed onedir); pyinstaller and
   pywebview are the `app` dependency group, never the wheel's. The bundle is
   read-only: every write goes through platformdirs, or to the path the
