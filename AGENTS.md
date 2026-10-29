@@ -65,11 +65,12 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
   (`tests/test_leak_guard.py`), and `scripts/land.py` refuses a stack any of
   whose commits adds one, even when a later commit removes it again: the
   history keeps it. Rewrite the commit that adds it.
-  - Both read a committed shim object (`.o`) there too, section by
-    section, for 32 or more bytes in a row: compiled code and constants
-    share shorter runs with the game by chance (up to 20 B measured), and
-    its source is read at 8. Text, and a constant of at most 3 byte values,
-    aren't counted in an object.
+  - Both read a committed shim object (`.o`) there too, for 32 or more
+    bytes in a row in a code section or anywhere in the file, and 16 in a
+    data section: compiled code and constants share shorter runs with the
+    game by chance (up to 20 B and 10 B measured), and its source is read
+    at 8. Text, and a constant of at most 3 byte values, aren't counted in
+    an object.
 - Never print game bytes in logs, commits or chat: print lengths and
   `sha256[:12]`. Failure output is redacted (`tests/_byte_safe.py`).
 - Recorded results are hashes and names. The facts hold sha256 and length,
