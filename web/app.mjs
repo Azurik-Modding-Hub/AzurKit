@@ -35,7 +35,8 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, spoiler: null,
-                rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null } };
+                rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
+                         note: null } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 // The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
@@ -650,8 +651,9 @@ function built(reply) {
   const changed = Object.keys(made.result), rz = made.randomizer;
   const verdict = !rz ? "" : ` · seed ${rz.seed} · ${rz.share} · ${rz.logic_verified ? "logic verified"
     : `⚠ logic unverified: ${rz.why_not[0]}${rz.why_not.length > 1 ? ` (+${rz.why_not.length - 1} more)` : ""}`}`;
-  report(`Ready · ${made.label} · ${bytes(size)}${verdict} · changed: ${changed.length ? changed.join(", ") : "nothing"}`
-         + made.conflicts.map((c) => ` · conflict: ${c}`).join("") + made.notes.map((n) => ` · note: ${n}`).join(""));
+  report(`Ready · ${made.label} · ${bytes(size)}${verdict}` + made.conflicts.map((c) => ` · conflict: ${c}`).join("")
+         + made.notes.map((n) => ` · note: ${n}`).join("")
+         + ` · changed: ${changed.length ? changed.join(", ") : "nothing"}`);   // the file list last: it runs long
   spoiler(made.spoiler ?? null);
 }
 
@@ -734,7 +736,7 @@ function renderRando(options) {
   R("cost-note").textContent = `vanilla ${options.obsidian_cost}`;   // D910
   R("items").replaceChildren(...options.items.map(([category, label, note]) => {
     const row = Object.assign(document.createElement("label"), { className: "item" });
-    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: true });
+    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: Boolean(category) });
     if (category) box.dataset.category = category;
     else box.disabled = box.dataset.vanilla = true;
     row.append(box, Object.assign(document.createElement("span"), { textContent: label }),
@@ -783,6 +785,7 @@ function randoSetup() {
 // changed it; then ask the engine what they give.
 function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
   const before = JSON.stringify(randoSetup());
+  state.rando.note = null;
   R("on").checked = on;
   R("seed").value = seed;
   R("movement").value = settings.movement_tier;
@@ -812,7 +815,8 @@ function loadRando(rando, from) {
     return;
   }
   state.rando.load = { on: true, seed: rando.seed, obsidian_cost: rando.obsidian_cost, from };
-  askRando({ ...(rando.share !== undefined ? { share: rando.share } : { settings: rando.settings }),
+  askRando({ ...(rando.share !== undefined ? { share: rando.share }   // a seed alone: D144's defaults
+                 : { settings: rando.settings ?? randoOptions().defaults }),
              obsidian_cost: rando.obsidian_cost ?? randoOptions().obsidian_cost });
 }
 
@@ -845,7 +849,9 @@ function randoView(reply, ticket) {
   if (state.rando.load) {
     const { from, ...rest } = state.rando.load;
     state.rando.load = null;
-    return setRando({ ...rest, settings: reply.settings }, from);
+    setRando({ ...rest, settings: reply.settings }, from);
+    state.rando.note = reply.note;   // a loaded share's own (other movement sliders): warned until the tab is edited
+    return;
   }
   state.rando.view = reply;
   R("share").value = reply.share;
@@ -853,7 +859,8 @@ function randoView(reply, ticket) {
   R("facts").textContent = `Accessibility: full · Victory: Spideyzar · Excluded: lock 10 + full-clear · `
     + `${reply.forfeitable} forfeitable`;
   renderSkips();
-  warn([...(reply.preflight ? [`The build refuses: ${reply.preflight}`] : []), ...(reply.note ? [reply.note] : []),
+  const note = reply.note ?? state.rando.note;
+  warn([...(reply.preflight ? [`The build refuses: ${reply.preflight}`] : []), ...(note ? [note] : []),
         ...reply.why_not.map((why) => `Logic unverified (flagged, not refused): ${why}`)], Boolean(reply.preflight));
   remember();
 }
@@ -939,6 +946,7 @@ async function saveSpoiler() {
 function randoEvents(changed) {
   const edited = () => {
     changed();
+    state.rando.note = null;
     askRando();
   };
   R("on").addEventListener("change", () => {

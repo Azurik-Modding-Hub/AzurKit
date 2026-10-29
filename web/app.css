@@ -249,7 +249,6 @@ button:disabled { color: var(--faint); background: transparent; }
 .rando .item span:last-child, .rando .skip .rating, .rando .skip .by { color: var(--muted); font-size: 11px; }
 .rando .skip .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rando .skip.toggled .by { color: var(--mark); }
-#rando-skips { max-height: 18rem; overflow-y: auto; }
 #rando-facts { margin: 4px 10px 0; }
 #spoiler {
   margin: 4px 10px 10px; padding: 8px 10px; max-height: 24rem; overflow: auto; font: 11px/1.45 var(--mono);

@@ -169,7 +169,7 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
             if values.get("fly_speed") == "1e39":
                 note = "qol_photo_mode fly_speed: 1e+39 is past float32's range: written as inf (Q110)"
                 assert built["report"]["notes"] == [note]
-                assert page.evaluate("() => document.querySelector('#status').textContent").endswith(f"note: {note}")
+                assert f" · note: {note} · changed: " in page.evaluate(STATUS)   # before the files, which run long
             assert (built["report"], built["segments"]) == (report, _signature(made)), (name, values)
             _page.check_csp(page)
         assert served.stray() == []
@@ -728,6 +728,56 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         _page.click(page, "reset")
         assert page.evaluate(TAB)[:2] == [False, "2"]
         _remembered(page, None)
+        for each in (page, loaded):
+            _page.check_csp(each)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+# The tab's rows that stay vanilla in v1 ([ticked, greyed] each); "vanilla 10" beside its box ([right of it, on its
+# line]); the skip list's rows and whether it shows them all (no inner scroll).
+RANDO_SHOWN = """() => {
+    const box = document.getElementById("rando-cost").getBoundingClientRect(), skips = document.getElementById("rando-skips");
+    const note = document.getElementById("rando-cost-note").getBoundingClientRect();
+    return [[...document.querySelectorAll("#rando-items input[data-vanilla]")].map((b) => [b.checked, b.disabled]),
+            [note.left >= box.right, note.top < box.bottom && note.bottom > box.top],
+            [skips.querySelectorAll(".skip").length, skips.scrollHeight <= skips.clientHeight]];
+}"""
+SETTLED = "() => globalThis.azurkit?.ready && !azurkit.rando.load && !azurkit.rando.waiting && azurkit.rando.view"
+
+
+def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_link_holding_only_a_seed(browser, site):
+    """Step 4.2c1's review and looks: the rows that stay vanilla in v1 show
+    greyed and unticked under "ticked: shuffled" (Modkit's are off); at
+    1100 px "vanilla 10" stays beside its box and every skip shows; a share
+    string made with other movement sliders warns so (AZ-383) after the tab
+    reads it with its own; and a link whose randomizer is a seed alone
+    loads it at D144's defaults."""
+    on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+    other = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"],
+                                     "packs": on | {"player_physics": {"jump_speed_scale": 1.3}}})["share"]
+    note = sdk.randomizer_settings({"share": other, "packs": on})["note"]
+    kept = sum(not category for category, *_ in sdk.catalog()["randomizer"]["items"])
+    served = Site(browser, site, viewport={"width": 1100, "height": 700})
+    try:
+        page = served.open()
+        _page.click(page, "tab-randomizer")
+        view = _page.until(page, SETTLED, 120)
+        assert page.evaluate(RANDO_SHOWN) == [[[False, True]] * kept, [True, True], [len(view["skips"]), True]]
+        _page.click(page, "rando-on")
+        page.evaluate("""(text) => { const box = document.getElementById("rando-share");
+                                     box.value = text; box.dispatchEvent(new Event("change")); }""", other)
+        assert _page.until(page, SETTLED, 120)["share"] == "AZR-AAEA"   # read again with the page's sliders
+        assert f"⚠ {note}" in page.evaluate("() => document.getElementById('rando-warn').textContent").split("\n")
+
+        packs = mods.normalize(on)
+        loaded = served.context.new_page()
+        loaded.goto(f"{ORIGIN}/{sdk.preset_encode({'packs': packs, 'randomizer': {'seed': '7'}})}")
+        assert _page.until(loaded, SETTLED, 120)["share"] == "AZR-AAEA"
+        assert loaded.evaluate(TAB)[:2] == [True, "7"]
+        assert loaded.evaluate(STATUS).endswith(f": {len(packs)} packs and the randomizer (seed 7), marked ●. "
+                                                "Pick your vanilla image, then Build.")
         for each in (page, loaded):
             _page.check_csp(each)
         assert served.stray() == []
