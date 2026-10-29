@@ -25,6 +25,7 @@ import hashlib
 import http.server
 import json
 import mimetypes
+import re
 import threading
 import urllib.parse
 from pathlib import Path
@@ -224,9 +225,23 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
 GROUND = "() => [azurkit.theme, getComputedStyle(document.body).backgroundColor]"   # app.css's ground, each theme
 DARK, LIGHT = ["dark", "rgb(13, 17, 23)"], ["light", "rgb(232, 236, 241)"]
 SHOWN = """() => [...document.querySelectorAll("#packs .pack")].filter((item) => item.checkVisibility()
-    && item.querySelector(".sliders").checkVisibility()).map((item) => [item.dataset.pack,
-    item.querySelector(".toggle").getAttribute("aria-expanded"),
-    item.querySelector(".sliders").getBoundingClientRect().left >= item.getBoundingClientRect().right])"""
+    && item.querySelector(".sliders").checkVisibility()).map((item) => {
+        const settings = item.querySelector(".sliders").getBoundingClientRect(), row = item.getBoundingClientRect();
+        const caption = document.querySelector("#patches > h2").getBoundingClientRect();
+        return [item.dataset.pack, item.querySelector(".toggle").getAttribute("aria-expanded"), settings.left >= row.right,
+                Math.abs(settings.top - row.top) < 1 && settings.top >= caption.bottom
+                && settings.top < document.getElementById("patches").getBoundingClientRect().bottom];
+    })"""
+RELEASES = """() => new Set([...document.querySelectorAll("#packs .releases")].filter((r) => r.checkVisibility())
+    .map((r) => Math.round(r.getBoundingClientRect().right))).size"""
+LONG_READOUT = """() => {
+    const readout = document.getElementById("status");
+    readout.textContent = "a long refusal ".repeat(60);
+    const scrolls = readout.scrollHeight > readout.clientHeight;
+    const tall = document.querySelector("footer.build").getBoundingClientRect().height;
+    readout.textContent = "";
+    return [scrolls, tall < innerHeight / 5];
+}"""
 GROUPS = """(fold) => {
     [...document.querySelectorAll("#packs .group > summary")].find((s) => s.firstChild.textContent === fold)?.click();
     return [...document.querySelectorAll("#packs .group")].map((group) => [group.open,
@@ -249,13 +264,16 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
     group folding and counting its packs ticked; a pack with settings has a
     Settings opener with their count, which shows them beside the list and
     closes the one open before (the first with settings opens first), and
-    one without has none. Build and Save sit in a bar along the window's
-    bottom, there however far the packs scroll, and at a narrow window's
-    foot too. The About tab says what AzurKit is, that it collects nothing
-    and that the image never leaves the computer (and nothing about a
-    host's logs, D883), its licence (the checkout's LICENSE), its credits
-    (NOTICE.md's) and its version. No CSP violation, no request but GETs of
-    the site's files."""
+    one without has none; the settings start beside their pack's row, in
+    view however far the list is scrolled, the releases line up, and a
+    slider whose vanilla value is unread yet says nothing of it. Build and
+    Save sit in a bar along the window's bottom, there however far the packs
+    scroll, and at a narrow window's foot too; a long readout scrolls in it
+    rather than growing it. The About tab says what AzurKit is, that it
+    collects nothing and that the image never leaves the computer (and
+    nothing anywhere in it about a host's logs, D883), its licence (the
+    checkout's LICENSE), its credits (NOTICE.md's) and its version. No CSP
+    violation, no request but GETs of the site's files."""
     from azurkit import __version__
     served = Site(browser, site, color_scheme="light", viewport={"width": 1280, "height": 600})
     try:
@@ -284,22 +302,28 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert page.evaluate(GROUPS, "Quality of Life") == on
         _page.tick(page, ["fps_unlock"])
         assert [tally for _, tally, _ in page.evaluate(GROUPS, None)] == ["0 of 3 on", "0 of 2 on", "1 of 12 on"]
-        assert page.evaluate(SHOWN) == [["player_physics", "true", True]]
+        assert page.evaluate(SHOWN) == [["player_physics", "true", True, True]]
         page.evaluate("""() => document.querySelector('#packs .pack[data-pack="enemy_damage"] .toggle').click()""")
-        assert page.evaluate(SHOWN) == [["enemy_damage", "true", True]]
+        assert page.evaluate(SHOWN) == [["enemy_damage", "true", True, True]]
+        assert page.evaluate(RELEASES) == 1
+        assert "undefined" not in page.evaluate("() => document.getElementById('packs').textContent")
 
         assert page.evaluate(BAR) == [True, True]
         assert page.evaluate("() => { const tab = document.getElementById('patches'); tab.scrollTop = 1e6; "
                              "return tab.scrollTop; }") > 0
         assert page.evaluate(BAR) == [True, True]
+        page.evaluate("""() => document.querySelector('#packs .pack[data-pack="qol_memory_budget"] .toggle').click()""")
+        assert page.evaluate(SHOWN) == [["qol_memory_budget", "true", True, True]]
+        assert page.evaluate(LONG_READOUT) == [True, True]
         page.set_viewport_size({"width": 700, "height": 600})
         assert page.evaluate("() => { scrollTo(0, 0); return document.documentElement.scrollHeight > innerHeight; }")
         assert page.evaluate(BAR) == [True, True]
 
         _page.click(page, "tab-about")
         shown = page.evaluate("""() => [document.getElementById("patches").hidden, document.getElementById("about").hidden,
-            ...["privacy", "licence", "credits", "about-version"].map((id) => document.getElementById(id).textContent)]""")
+            ...["privacy", "licence", "credits", "about-version", "about"].map((id) => document.getElementById(id).textContent)]""")
         assert shown[:2] == [True, False]
+        assert not re.search(r"\bIP\b|visitor", shown.pop(), re.IGNORECASE)
         privacy, licence, credits, version = (" ".join(text.split()) for text in shown[2:])
         assert privacy == ("AzurKit collects nothing: it adds no logging, analytics or tracking. Your image never "
                            "leaves your computer: AzurKit reads it and builds right here.")

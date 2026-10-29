@@ -173,7 +173,7 @@ function sliderRow(pack, slider) {
   box.dataset.slider = slider.name;
   const unit = Object.assign(document.createElement("span"), { className: "unit" });
   const fit = () => {
-    unit.textContent = slider.unit + (slider.vanilla === null ? "" : ` · vanilla ${slider.vanilla}`);
+    unit.textContent = slider.unit + (slider.vanilla == null ? "" : ` · vanilla ${slider.vanilla}`);
     const value = typed(box.value), ends = [slider.min, slider.max, slider.default, slider.vanilla, value];
     const held = ends.filter((v) => typeof v === "number");
     track.min = String(Math.min(...held));
@@ -292,6 +292,14 @@ function show(item) {
     pack.classList.toggle("open", on && pack === item);
     pack.querySelector(".toggle").setAttribute("aria-expanded", String(on && pack === item));
   }
+  place();
+}
+
+// The open pack's settings start beside its row, so a pack low in a scrolled list shows them in view; placed again
+// when a group folds, the window's width moves the rows or the tab comes back (a hidden tab's rows have no place).
+function place() {
+  const item = $("packs").querySelector(".pack.open");
+  if (item?.offsetParent) item.querySelector(".sliders").style.top = `${item.offsetTop}px`;
 }
 
 // Each group's count of its packs ticked, which a folded group still shows.
@@ -323,6 +331,7 @@ function pick(id) {
   state.tab = id;
   for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
   for (const panel of document.querySelectorAll("[role=tabpanel]")) panel.hidden = panel.dataset.tab !== id;
+  place();
 }
 
 // The ticked packs, each with its sliders' values as typed: the engine normalizes them and names what it refuses.
@@ -566,6 +575,8 @@ async function main() {
     tally();
   });
   $("packs").addEventListener("input", forget);
+  $("packs").addEventListener("toggle", place, true);   // a group's fold: "toggle" doesn't bubble
+  addEventListener("resize", place);
   $("share").addEventListener("click", share);
   $("load-build").addEventListener("click", () => {
     $("load-build").hidden = true;
