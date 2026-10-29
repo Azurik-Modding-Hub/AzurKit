@@ -939,7 +939,7 @@ id = "w2.IceBlock_02"
 of = "w2/g0/r1474"
 destroy_from = ["w2_z006", "w2_z403", "w2_z488"]
 override_requires = "fire>=1 & water>=1 | skip:w2.pstorage_steam_iceblock02"
-override_reason = "the generated steam 1, or stored steam (w2.pstorage_steam_iceblock02, in logic: confirmed in xemu, skips-c E5b)"
+override_reason = "the generated steam 1, or stored steam (w2.pstorage_steam_iceblock02, in logic: the owner's X.92 demo, replayed at every element level 0 in Step X.92b, D871)"
 
 [[barrier]]  # firewall watr, generated requires water>=1, timed
 id = "w2.FireWall_03"
@@ -1008,7 +1008,7 @@ tricks = ["pstorage"]
 requires = "true"
 difficulty = 2
 status = "in_logic"
-confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-c/E5b:w2.pstorage_steam_iceblock02" }
+confirmed = { by = "xemu", ref = "x.92b-owner-demo-replay-2026-10-29/C08:w2.pstorage_steam_iceblock02" }
 gates = ["w2.IceBlock_02"]
 
 [[skip]]

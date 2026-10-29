@@ -933,7 +933,7 @@ id = "w1.IceBlock_01"
 of = "w1/g0/r1433"
 destroy_from = ["w1_z146", "w1_z416"]
 override_requires = "fire>=1 & water>=1 | skip:w1.pstorage_steam_iceblock01"
-override_reason = "the generated steam 1, or stored steam (w1.pstorage_steam_iceblock01, in logic: confirmed in xemu, skips-c E5)"
+override_reason = "the generated steam 1, or stored steam (w1.pstorage_steam_iceblock01, in logic: the owner's X.92 demo, replayed at every element level 0 in Step X.92b, D871)"
 
 [[button]]  # keylock, generated requires key.life1>=1
 id = "w1.water_keylock"
@@ -1011,7 +1011,7 @@ tricks = ["pstorage"]
 requires = "true"
 difficulty = 2
 status = "in_logic"
-confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-c/E5:w1.pstorage_steam_iceblock01" }
+confirmed = { by = "xemu", ref = "x.92b-owner-demo-replay-2026-10-29/C12:w1.pstorage_steam_iceblock01" }
 from = "w1_beach"
 to = "w1_ocean"
 gates = ["w1.IceBlock_01"]
