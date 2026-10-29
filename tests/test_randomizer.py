@@ -104,11 +104,22 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
     the logic doesn't model and an obsidian cost above vanilla's leave a
     build unverified (D83(c)). A share link carries the randomizer and a
     page's remembered setup keeps it (D915), each refused by name when a
-    setting is."""
+    setting is. Step 4.2c2: each item row counts what the base game places
+    (Modkit 3befd6336's ``rando_view.base_counts``, the step's evidence);
+    every skip of the database has its D258 group (a new one needs its
+    group, Modkit's ``SKIP_GROUP``); the tab's settings file (D144's Save
+    settings) loads back to its settings, and a file that isn't one is
+    refused by name."""
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
     options = sdk.catalog()["randomizer"]
     assert options["defaults"] == randomizer.literal(logic.db.defaults)
+    assert [row[3] for row in options["items"]] == [20, 12, 8, 39, 1215, 100, 22, 34, 42, 23, 3, 6]
+    assert set(randomizer.SKIP_GROUP) == set(skips) and set(randomizer.SKIP_GROUP.values()) == set(randomizer.SKIP_GROUPS)
+    saved = sdk.randomizer_settings({"settings": options["defaults"] | {"skip_ceiling": 3}})
+    assert sdk.randomizer_settings({"file": saved["file"]})["settings"] == saved["settings"]
+    with pytest.raises(ValueError, match="settings file: not TOML"):
+        sdk.randomizer_settings({"file": "skip_ceiling = ["})
     view = sdk.randomizer_settings({"settings": options["defaults"]})
     assert (view["settings"], view["share"], view["preflight"], view["why_not"], view["note"]) == (
         options["defaults"], share_encode(logic.db.defaults, skips), None, [], None)

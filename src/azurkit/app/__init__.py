@@ -33,6 +33,10 @@ chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
 ``POST api/spoiler`` ``{"out"}`` writes the last randomized build's spoiler
 there, on the same terms. ``POST api/randomizer`` ``{"given"}`` gives what
 the Randomizer tab shows (``sdk.randomizer_settings``).
+``POST api/settings_file`` ``{"out", "settings"}`` writes the Randomizer
+tab's settings as a settings file (D144; ``out`` null: ``settings.toml``
+in the Downloads folder), never over an existing file but one the save
+dialog chose.
 ``POST api/tracker`` ``{"given"}`` gives what the item tracker shows
 (``sdk.tracker``); with Live on for its plan, it first merges what Live
 read since the last ask (:mod:`.live`: the spots the game shows taken, the
@@ -398,20 +402,35 @@ class Server(http.server.ThreadingHTTPServer):
         part.replace(out)
         return {"spoiler": {"out": str(out), "size": len(data)}}
 
+    def settings_file(self, body: dict) -> dict:
+        """``api/settings_file``: the Randomizer tab's ``settings`` (a
+        settings table, checked as a build checks it) written as a settings
+        file (Modkit's ``--save-settings`` file) to ``out``, never over an
+        existing file but the one the save dialog chose; whole or not at all."""
+        from platformdirs import user_downloads_path
+        out = _path(body["out"], "settings file") if body.get("out") else user_downloads_path() / "settings.toml"
+        if out.exists() and out != self.chosen:
+            raise ValueError(f"{out} exists: choose another name, or delete it first")
+        data = randomizer.settings_file(body.get("settings")).encode("utf-8")
+        part = out.with_name(f"{out.name}.part")
+        part.write_bytes(data)
+        part.replace(out)
+        return {"saved": {"out": str(out), "size": len(data)}}
+
     def choose(self, body: dict) -> dict:
         """The window's file dialog: an image to read, or where to save one
-        (``out``) or the spoiler (``spoiler``)."""
+        (``out``), the spoiler (``spoiler``) or the settings (``settings``)."""
         import webview
         given = Path(body["path"]).expanduser() if isinstance(body.get("path"), str) and body["path"] else None
         folder = str(given.parent) if given else ""
-        if body.get("kind") in ("out", "spoiler"):
+        if body.get("kind") in ("out", "spoiler", "settings"):
             picked = self.window.create_file_dialog(webview.FileDialog.SAVE, directory=folder,
                                                     save_filename=given.name if given else "")
         else:
             picked = self.window.create_file_dialog(webview.FileDialog.OPEN, directory=folder, file_types=IMAGES)
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
-        if picked and body.get("kind") in ("out", "spoiler"):
+        if picked and body.get("kind") in ("out", "spoiler", "settings"):
             self.chosen = Path(str(picked))
         return {"path": str(picked) if picked else None}
 
@@ -479,6 +498,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/tracker": self.server.track,
                 "/api/plan": lambda body: {"plan": sdk.plan(body.get("recipe"))},
                 "/api/tracked": _set_tracked, "/api/live": self.server.live,
+                "/api/settings_file": self.server.settings_file,
                 "/api/spoiler": self.server.save_spoiler,
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:

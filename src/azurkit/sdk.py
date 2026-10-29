@@ -322,7 +322,8 @@ def spoiler(plan: Mapping) -> dict:
 
 def randomizer_settings(given: Mapping) -> dict:
     """What the Randomizer tab shows for ``given``: its ``settings`` (a
-    settings file's table) or ``share`` (a share string), its
+    settings file's table), ``share`` (a share string) or ``file`` (a
+    settings file's text, D144's Load settings), its
     ``obsidian_cost`` (vanilla's when not given) and the build's ``packs``
     (``{pack: {slider: value}}``, normalized): the settings as the tab
     holds them (format /2: its categories as they are), their share string
@@ -332,9 +333,12 @@ def randomizer_settings(given: Mapping) -> dict:
     picks held and the forfeitable locations, what a build would leave
     unverified so far (``why_not``: the packs' movement past their logic
     floor, D83(c), a roll a skip on was proven at, an obsidian cost above
-    vanilla's) and the preflight's refusal (``preflight``, AZ-454; ``None``).
-    ``tools.randomizer.tab``; a refusal names the setting, the share string
-    or the pack."""
+    vanilla's), the preflight's refusal (``preflight``, AZ-454; ``None``),
+    the settings file of the settings (``file``, Save settings') and the
+    skip groups (``groups``, D258: each group's picks with their variants'
+    ratings, which a page compares with the Movement tier, ``tiers``).
+    ``tools.randomizer.tab``; a refusal names the setting, the share string,
+    the settings file or the pack."""
     if not isinstance(given, Mapping):
         raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
     packs = _packs({"packs": given.get("packs", {})})

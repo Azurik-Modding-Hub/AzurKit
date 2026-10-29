@@ -34,6 +34,9 @@ keeps (D915).
 
 from __future__ import annotations
 
+import collections
+import functools
+import json
 import math
 import tomllib
 from collections.abc import Mapping
@@ -45,7 +48,8 @@ from azurkit.tools.randomizer.planner.fill import fill, starved
 from azurkit.tools.randomizer.planner.loader import DATA_DIR, kept_logic
 from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc, spoiler_lines
 from azurkit.tools.randomizer.planner.settings import (
-    CATEGORIES, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table, share_decode, share_encode, turnable)
+    CATEGORIES, MOVEMENT_TIERS, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table,
+    share_decode, share_encode, turnable)
 
 RECIPE = ("seed", "settings", "share")
 #: The tab's offers (§5.5): Movement's three tiers (D261; a loaded safe shows as its own), the skip ceiling's none and
@@ -60,17 +64,51 @@ MOVEMENT_TIP = ("How tight the jumps and flaps the logic may ask for are. Standa
 CEILING_TIP = "Turns on every skip rated at or below it; a skip's own toggle wins over it."
 RATINGS = ("Unrated", "Safe", "Standard", "Hard", "Frame-perfect")   # a skip's difficulty 1-4 (the ceiling's names)
 BARRIERS = "Stay vanilla in v1 (R2.2)."
-#: The item rows (Modkit's Randomize page): each its category, ticked to shuffle it, or None, greyed: it stays vanilla.
-ITEMS = (("fragments", "Disc fragments", "Guardians keep their 4th."),
-         ("powers", "Elemental powers", "Air, water, fire and earth."),
-         ("upgrades", "Upgrades", "Swap among the 8 town vaults."),
-         (None, "Keys", "Stay vanilla (I-9)."),
-         ("gems", "Gems", "Clusters keep their yield."),
-         ("obsidians", "Obsidians", "Each lock stays reachable."),
-         ("consumables", "Fuel pickups", "Town's health and fuel dispensers stay."),
-         (None, "Fire barriers", BARRIERS), (None, "Ice blocks", BARRIERS), (None, "Acid blocks", BARRIERS),
-         (None, "Smash walls", BARRIERS), (None, "Earth crystals", "Tree-song switches, vanilla in v1."))
-TAB = ("settings", "share", "obsidian_cost")
+#: The item rows (Modkit's Randomize page): each its category, ticked to shuffle it, or None, greyed: it stays vanilla;
+#: its label and note, the kind its base-game count counts (:func:`base_counts`) and its icons (the page's own drawings,
+#: Modkit's icon names: never the game's art, D3).
+ITEMS = (("fragments", "Disc fragments", "Guardians keep their 4th.", "disc_fragment",
+          ("frag_air", "frag_water", "frag_fire", "frag_earth", "frag_life")),
+         ("powers", "Elemental powers", "Air, water, fire and earth.", "power",
+          ("power_air", "power_water", "power_fire", "power_earth")),
+         ("upgrades", "Upgrades", "Swap among the 8 town vaults.", "upgrade",
+          ("power_life", "power_staff1", "power_staff2", "power_ammo")),
+         (None, "Keys", "Stay vanilla (I-9).", "key", ("key",)),
+         ("gems", "Gems", "Clusters keep their yield.", "gem", ("gem_diamond", "gem_emerald", "gem_ruby", "gem_sapphire")),
+         ("obsidians", "Obsidians", "Each lock stays reachable.", "obsidian", ("obsidian",)),
+         ("consumables", "Fuel pickups", "Town's health and fuel dispensers stay.", "consumable", ("fuel",)),
+         (None, "Fire barriers", BARRIERS, "firewall", ("fire_barrier",)),
+         (None, "Ice blocks", BARRIERS, "iceblock", ("ice_block",)),
+         (None, "Acid blocks", BARRIERS, "acidblock", ("acid_block",)),
+         (None, "Smash walls", BARRIERS, "smashwall", ("smash_wall",)),
+         (None, "Earth crystals", "Tree-song switches, vanilla in v1.", "crystal", ("crystal",)))
+#: A barrier group the vanilla data names for no kind that has a requirement takes the kind its damage gives
+#: (Modkit's ``render_level_maps.DAMAGE_KINDS``, M17, AZ-463).
+DAMAGE_KINDS = {"watr": "firewall", "stem": "iceblock", "acid": "acidblock", "smsh": "smashwall"}
+UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")
+#: D258: the skip groups (Modkit's ``gui/rando_view.SKIP_GROUPS``, our own data): a ticked group turns on each of its
+#: picks rated at or below the Movement tier (a batch, D275, once every in-logic variant is), unticked by default.
+SKIP_GROUPS = {"storage": "Power storage", "movement": "Roll jumps and flap tricks", "barriers": "Barrier skips",
+               "dark": "Dark rooms without light", "bounds": "Out of bounds and super jumps"}
+#: Each skip's group (Modkit's ``SKIP_GROUP``): every [[skip]] of tricks.toml, held ones too, by its tricks.
+SKIP_GROUP = {
+    **dict.fromkeys(("w1.pstorage_electric_arch", "w1.pstorage_steam_iceblock01", "w1.pstorage_water_firewall01",
+                     "w2.pstorage_steam_iceblock02", "w3.pstorage_smash_shield", "f2.pstorage_air_flap",
+                     "f3.pstorage_acid_acidblock01", "w4.pstorage_air_flap"), "storage"),
+    **dict.fromkeys(("w4.rjump_leaves", "w4.rjump_frag_earth1", "a5.one_island_air2", "a6.rjump_platforms",
+                     "f2.rjump_interior", "f6.rjump_terraces", "f6.rjump_terraces_air1", "f6.mound_climb_air1",
+                     "life.rjump_second_switch", "w3.iceclimb_frag_fire1", "e6.slide_flight",
+                     "e6.upper_ring_flutter_air1", "e6.upper_ring_flutter_air2"), "movement"),
+    **dict.fromkeys(("w1.firewall01_air1_beach_town", "w1.firewall01_air1_town_beach", "w1.firewall01_air2_beach_town",
+                     "w2.firewall02_air3", "town.firewall02_air1", "f1.flamespout6_air1", "f2.acidblock04_fly_around",
+                     "e2.steam_group_air1", "e2.steam_group_air2", "e5.frag_fire3_earth1", "e6.acidblock02_air1",
+                     "e6.acidblock02_air2", "w3.ice_island_steam_block"), "barriers"),
+    **dict.fromkeys(("w1.dark_cave_nolight", "e7.dark_room_nolight"), "dark"),
+    **dict.fromkeys(("w1.torpedo_skip", "w1.hidden_airship", "w1.hidden_airship_saveanywhere",
+                     "w1.shoreline_rollthrough", "f4.ledgepop", "e6.tree_song_skip", "w3.water_guardian_no_seal",
+                     "d1.elevator_bounce", "d1.elevator_bounce_f10"), "bounds"),
+}
+TAB = ("settings", "share", "file", "obsidian_cost")
 SEED_MAX = 256   # a remembered seed's length (D915; any string builds)
 
 
@@ -130,6 +168,40 @@ def literal(settings: Settings) -> dict:
             "skip_override": dict(sorted(settings.skip_override.items()))}
 
 
+def _kind(item: str) -> str:
+    """An item's row kind (Modkit's ``rando_view._kind``)."""
+    if item.startswith("frag_"):
+        return "disc_fragment"
+    if item in UPGRADES:
+        return "upgrade"
+    if item.startswith("power_"):
+        return "power"
+    if item.startswith("key_"):
+        return "key"
+    if item in ("all_fuel", "all_health"):
+        return "consumable"
+    return "gem" if item in ("diamond", "emerald", "ruby", "sapphire") else item
+
+
+@functools.cache
+def base_counts() -> dict[str, int]:
+    """How many of each item row's kind the base game places (Modkit's
+    ``base_counts``): the pool locations of the vanilla data but town's two
+    endless dispensers, which never move, and the barrier groups of each
+    kind its maps show (a group named for no kind that gates the logic takes
+    its damage's kind; training_room, never part of a seed, D194, has no
+    map)."""
+    n: collections.Counter = collections.Counter()
+    for path in sorted((DATA_DIR / "generated").glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        n.update(_kind(loc["item"]) for loc in data["locations"]
+                 if loc["pool"] and not loc["dead"] and not loc["unbounded"])
+        if path.stem != "training_room":
+            n.update(b["kind"] if b["kind"] != "other" or b["requires"] is None
+                     else DAMAGE_KINDS.get(b["damage"], "other") for b in data["barriers"])
+    return {kind: n[kind] for *_, kind, _ in ITEMS}
+
+
 def options() -> dict:
     """What the Randomizer tab offers, read without the database: D144's
     defaults (``data/settings/defaults.toml``, :func:`literal`), Movement's
@@ -137,11 +209,14 @@ def options() -> dict:
     (``loaded``: those offered only when a loaded setting holds them), the
     item rows (each ``[category or None, label, note]``) and the categories
     in the order a settings table lists them, the vanilla
-    obsidian cost (D910) and the tips."""
+    obsidian cost (D910) and the tips. An item row is ``[category or None,
+    label, note, its base-game count, its icons]`` (:func:`base_counts`)."""
     table = tomllib.loads((DATA_DIR / "settings" / "defaults.toml").read_text(encoding="utf-8"))
+    counts = base_counts()
     return {"defaults": literal(settings_from_table(table, {}, "settings/defaults.toml")),
             "movement": [list(m) for m in MOVEMENT], "ceilings": [list(c) for c in CEILINGS], "loaded": LOADED,
-            "dark_fire": [1, 2, 3], "items": [list(row) for row in ITEMS], "categories": list(CATEGORIES),
+            "dark_fire": [1, 2, 3], "categories": list(CATEGORIES),
+            "items": [[category, label, note, counts[kind], list(icons)] for category, label, note, kind, icons in ITEMS],
             "obsidian_cost": layer.OBSIDIAN_COST_VANILLA, "tips": {"movement": MOVEMENT_TIP, "ceiling": CEILING_TIP}}
 
 
@@ -165,7 +240,8 @@ def _cost(given: Mapping) -> float | None:
 
 def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]]) -> dict:
     """What the tab shows for ``given`` (``settings``, a settings file's
-    table, or ``share``, a share string; and ``obsidian_cost``) on a build's
+    table, ``share``, a share string, or ``file``, a settings file's text,
+    D144's Load settings; and ``obsidian_cost``) on a build's
     movement ``sliders`` (``physics.slider_values``): the settings
     (:func:`literal`), their share string with those sliders (AZ-383), a
     ``note`` when a given share string holds other sliders, each skip a
@@ -175,14 +251,18 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]]) -> dict:
     held (no toggle turns one on, D144), the forfeitable locations, what a
     build of them leaves unverified (``why_not``: a roll a skip on was
     proven at, an obsidian cost above vanilla's) and the preflight's
-    refusal (``preflight``: too few proven spots, AZ-454). ``ValueError``
-    names a key, setting or share string refused."""
+    refusal (``preflight``: too few proven spots, AZ-454), the settings
+    file of them (``file``: Save settings' text, Modkit's ``--save-settings``
+    file) and the skip groups (``groups``, D258: each group's picks a
+    setting can turn on, each with its in-logic variants' ratings, which
+    the page compares with the Movement tier). ``ValueError`` names a key,
+    setting, share string or settings file refused."""
     if not isinstance(given, Mapping):
         raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
     if unknown := sorted(set(given) - set(TAB), key=str):
         raise ValueError(f"randomizer: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(TAB)})")
-    if ("settings" in given) == ("share" in given):
-        raise ValueError("randomizer: give settings or share")
+    if sum(key in given for key in ("settings", "share", "file")) != 1:
+        raise ValueError("randomizer: give settings, share or file")
     logic = kept_logic()
     skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
     note = None
@@ -191,24 +271,47 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]]) -> dict:
         if st.sliders and st.sliders != sliders and st.sliders != run_floor(sliders):
             note = (f"the share string was made with the movement sliders {layer.sliders_text(st.sliders)}: set "
                     "them on the Patches tab for the same plan")
+    elif "file" in given:
+        if not isinstance(given["file"], str):
+            raise ValueError("randomizer: file is a settings file's text")
+        try:
+            table = tomllib.loads(given["file"])
+        except tomllib.TOMLDecodeError as exc:
+            raise ValueError(f"settings file: not TOML ({exc})") from None
+        st = settings_from_table(table, skips, "settings file")
     elif isinstance(given["settings"], Mapping):
         st = settings_from_table(given["settings"], skips, "settings")
     else:
         raise ValueError("randomizer: settings is a settings file's table")
     cost = _cost(given)
     st = replace(st, sliders={pack: dict(values) for pack, values in sliders.items()})
-    every, rows = picks(skips), []
+    every, rows, groups = picks(skips), [], {key: [] for key in SKIP_GROUPS}
     for pid, ids in every.items():
         if live := [skips[v] for v in ids if turnable(skips[v])]:
             n = sum(s.get("difficulty", len(RATINGS)) <= st.skip_ceiling for s in live)
             rows.append({"id": pid, "name": live[0].get("batch_name") or live[0].get("name", pid),
                          "rating": _rating(live), "ceiling": None if 0 < n < len(live) else n == len(live),
                          "toggle": st.skip_override.get(pid)})
+            if (group := SKIP_GROUP.get(live[0]["id"])) in groups:
+                groups[group].append({"id": pid, "name": rows[-1]["name"], "rating": rows[-1]["rating"],
+                                      "levels": [s.get("difficulty", len(RATINGS)) for s in live]})
     refused = starved(logic, st)
     why = layer.roll_reasons(st, logic.db, sliders) + [r for r in [layer.obsidian_reason(cost)] if r]
     return {"settings": literal(st), "share": share_encode(st, skips), "note": note, "skips": rows,
             "held": len(every) - len(rows), "forfeitable": len(logic.forfeitable), "why_not": why,
-            "preflight": refused.reason if refused else None}
+            "preflight": refused.reason if refused else None, "file": layer.settings_text(st),
+            "groups": [{"id": key, "label": label, "picks": groups[key]} for key, label in SKIP_GROUPS.items()],
+            "tiers": list(MOVEMENT_TIERS)}
+
+
+def settings_file(table: object) -> str:
+    """The settings file of a settings table (D144's Save settings:
+    Modkit's ``--save-settings`` file, which loads back to the same
+    settings); ``ValueError`` names a setting refused."""
+    if not isinstance(table, Mapping):
+        raise ValueError("settings is a settings file's table")
+    return layer.settings_text(settings_from_table(table, {sid: s for sid, (_, s) in kept_logic().db.skips.items()},
+                                                   "settings"))
 
 
 def remembered(given: object) -> dict:

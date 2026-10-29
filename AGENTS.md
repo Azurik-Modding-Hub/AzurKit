@@ -341,14 +341,24 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     D907), the seed (any text; New draws 0-999999), Movement, the skip
     ceiling, the fire dark areas need and the obsidian cost (vanilla 10,
     D910), with D144's defaults (`sdk.catalog`'s `randomizer`), the share
-    string (editable, Copy), the item rows (each a category it shuffles;
-    keys and barriers stay vanilla) and the skips a setting can turn on (a
-    click toggles one against the ceiling). The page holds the settings as
+    string (editable, Copy), Load settings… and Save settings… (D144:
+    a settings file, read and written by the engine: `randomizer_settings`'
+    `file`, the app's `api/settings_file`), the item rows (each a category
+    it shuffles, its icons, the page's own drawings, and how many the base
+    game places, `tools.randomizer.base_counts`; keys and barriers stay
+    vanilla), the skip groups (D258, `tools.randomizer.SKIP_GROUP`, every
+    skip of the database in one: a ticked group turns on its picks rated at
+    or below the Movement tier, as toggles the page adds where the ceiling
+    doesn't; a loaded setting shows them as toggles, the groups unticked)
+    and the skips a setting can turn on (a click toggles one against the
+    ceiling and the groups). The page holds the settings as
     a settings table in format /2 (each category as it is) and asks the
     engine what they give (`sdk.randomizer_settings`; the site's worker,
     the app's `api/randomizer`): the share string with the Patches tab's
     movement sliders, the skips, and a ⚠ line for the preflight's refusal
-    and what a build would leave unverified. With Randomize ticked, Build
+    and what a build would leave unverified (a loaded share string's note
+    of other sliders stays until the tab is edited or the Patches tab's
+    sliders give that share string). With Randomize ticked, Build
     sends the build's `randomizer` (seed, settings, a cost other than
     vanilla's), planned and written first; its report carries the verdict
     and the spoiler (Modkit's `--spoiler` file), which the tab shows and

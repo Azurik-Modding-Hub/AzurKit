@@ -51,12 +51,16 @@ autocomplete="off"><span id="rando-cost-note" class="unit"></span></label>
 </div>
 <p class="rando-row"><label class="field">Share string <input type="text" id="rando-share" spellcheck="false"
 autocomplete="off"></label> <button id="rando-copy" type="button">Copy</button>
+<label class="file" id="rando-load-box" title="Take a settings file's settings (Modkit's and AzurKit's .toml)">Load
+settings… <input type="file" id="rando-load" accept=".toml,text/plain"></label>
+<button id="rando-save" type="button" title="Write these settings to a settings file">Save settings…</button>
 <span id="rando-locked" class="note">Tick Randomize to change these.</span></p>
 <p id="rando-warn" class="warn" hidden></p>
 <div class="rando-cols">
 <div><h3>Items <span class="note">ticked: shuffled; unticked: its items stay vanilla</span></h3>
 <div id="rando-items"></div></div>
 <div><h3>Skips <span id="rando-held" class="note"></span></h3>
+<p id="rando-groups" class="rando-row groups" title="A ticked group turns on its skips rated at or below the Movement tier"></p>
 <p class="rando-row"><input type="search" id="rando-filter" placeholder="Filter the skips" aria-label="Filter the skips"
 spellcheck="false" autocomplete="off"> <button id="rando-clear" type="button">Clear toggles</button></p>
 <div id="rando-skips"><p class="note">Loading the randomizer's database…</p></div></div>

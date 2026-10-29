@@ -747,15 +747,21 @@ RANDO_SHOWN = """() => {
             [skips.querySelectorAll(".skip").length, skips.scrollHeight <= skips.clientHeight]];
 }"""
 SETTLED = "() => globalThis.azurkit?.ready && !azurkit.rando.load && !azurkit.rando.waiting && azurkit.rando.view"
+WARNED = "() => document.getElementById('rando-warn').textContent.split('\\n')"
 
 
-def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_link_holding_only_a_seed(browser, site):
+def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_link_holding_only_a_seed(
+        browser, site, tmp_path):
     """Step 4.2c1's review and looks: the rows that stay vanilla in v1 show
     greyed and unticked under "ticked: shuffled" (Modkit's are off); at
     1100 px "vanilla 10" stays beside its box and every skip shows; a share
     string made with other movement sliders warns so (AZ-383) after the tab
-    reads it with its own; and a link whose randomizer is a seed alone
-    loads it at D144's defaults."""
+    reads it with its own, until the Patches tab's sliders give that share
+    string (4.2c1's late review); and a link whose randomizer is a seed
+    alone loads it at D144's defaults. Step 4.2c2: each item row counts
+    what the base game places (Modkit's); a ticked skip group turns on its
+    skips rated at or below the Movement tier (D258), and Load settings…
+    takes a settings file's settings (D144)."""
     on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     other = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"],
                                      "packs": on | {"player_physics": {"jump_speed_scale": 1.3}}})["share"]
@@ -771,7 +777,29 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         page.evaluate("""(text) => { const box = document.getElementById("rando-share");
                                      box.value = text; box.dispatchEvent(new Event("change")); }""", other)
         assert _page.until(page, SETTLED, 120)["share"] == "AZR-AAEA"   # read again with the page's sliders
-        assert f"⚠ {note}" in page.evaluate("() => document.getElementById('rando-warn').textContent").split("\n")
+        assert f"⚠ {note}" in page.evaluate(WARNED)
+        _page.click(page, "tab-patches")
+        _page.tick(page, [*on, "player_physics"], {"player_physics": {"jump_speed_scale": "1.3"}})
+        _page.click(page, "tab-randomizer")
+        assert _page.until(page, SETTLED, 120)["share"] == other and f"⚠ {note}" not in page.evaluate(WARNED)
+        _page.tick(page, list(on))
+
+        assert page.evaluate("() => [...document.querySelectorAll('#rando-items .count')].map((c) => c.textContent)") == [
+            f"{row[3]:,}" for row in sdk.catalog()["randomizer"]["items"]]
+        page.evaluate("() => document.querySelector('#rando-groups input[data-group=storage]').click()")
+        view = _page.until(page, SETTLED, 120)
+        storage = {p["id"] for g in view["groups"] if g["id"] == "storage" for p in g["picks"] if max(p["levels"]) <= 2}
+        defaults = sdk.catalog()["randomizer"]["defaults"]
+        assert storage and view["settings"] == defaults | {"skip_override": dict.fromkeys(sorted(storage), True)}
+        assert view["share"] == sdk.randomizer_settings({"settings": view["settings"], "packs": mods.normalize(on)})["share"]
+        assert page.evaluate("""() => [...document.querySelectorAll("#rando-skips .skip")]
+            .filter((r) => r.querySelector(".by").textContent === "group").map((r) => r.querySelector("input").dataset.skip)
+            .sort()""") == sorted(storage)
+        given = defaults | {"skip_ceiling": 3, "movement_tier": "hard", "exclude_categories": ["gems"]}
+        (tmp_path / "settings.toml").write_text(sdk.randomizer_settings({"settings": given})["file"], encoding="utf-8")
+        page.set_input_files("#rando-load", str(tmp_path / "settings.toml"))
+        _page.until(page, "() => !azurkit.rando.load && document.getElementById('rando-ceiling').value === '3'", 120)
+        assert _page.until(page, SETTLED, 120)["settings"] == given
 
         packs = mods.normalize(on)
         loaded = served.context.new_page()

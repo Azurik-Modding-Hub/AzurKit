@@ -610,7 +610,12 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
     with the tab's randomizer (seed 2, D144's defaults) and the packs on by
     default makes G3's seed case file by file, its logic verified, with its
     spoiler; ``api/spoiler`` writes that spoiler where the page names, never
-    over a file that is there; ``api/setup`` keeps the tab's setup (D915)."""
+    over a file that is there, and ``api/settings_file`` the tab's settings
+    file (D144); ``api/setup`` keeps the tab's setup (D915). Step 4.2c2:
+    ``api/tracker`` gives Modkit's tracker verdicts at each state, Live's
+    kit too, on the build's plan (its report's) and the max plan, and
+    ``api/tracked`` remembers the plan and its marks, refusing anything
+    else by name."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
     server = app.serve(_page.WEB)
     defaults = sdk.catalog()["randomizer"]["defaults"]
@@ -638,6 +643,12 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         assert out.read_text(encoding="utf-8") == report["spoiler"]
         assert call("api/spoiler", {"out": str(out)}) == {
             "refused": f"{out} exists: choose another name, or delete it first"}
+        saved = tmp_path / "settings.toml"   # Step 4.2c2: Save settings (D144)
+        assert call("api/settings_file", {"out": str(saved), "settings": defaults}) == {"saved": {
+            "out": str(saved), "size": len(sdk.randomizer_settings({"settings": defaults})["file"].encode())}}
+        assert sdk.randomizer_settings({"file": saved.read_text(encoding="utf-8")})["settings"] == defaults
+        assert call("api/settings_file", {"out": str(saved), "settings": defaults}) == {
+            "refused": f"{saved} exists: choose another name, or delete it first"}
         setup = {"ticked": list(packs), "values": {}, "xbr": [],
                  "randomizer": {"on": True, "seed": "2", "settings": defaults}}
         assert call("api/setup", {"setup": setup}) == {}

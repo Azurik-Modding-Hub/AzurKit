@@ -41,7 +41,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, spoiler: null, tracker: null, call: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
-                         note: null } };
+                         note: null, noted: null, asked: null, groups: new Set() } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 // The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
@@ -755,12 +755,17 @@ function renderRando(options) {
   choices(R("ceiling"), options.ceilings, options.tips.ceiling);
   choices(R("dark"), options.dark_fire.map((level) => [level, `Fire ${level}`]));
   R("cost-note").textContent = `vanilla ${options.obsidian_cost}`;   // D910
-  R("items").replaceChildren(...options.items.map(([category, label, note]) => {
+  // Each item row: its box, its icons (the page's own drawings, D3), its name, how many the base game places, its note
+  R("items").replaceChildren(...options.items.map(([category, label, note, count, icons]) => {
     const row = Object.assign(document.createElement("label"), { className: "item" });
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: Boolean(category) });
     if (category) box.dataset.category = category;
     else box.disabled = box.dataset.vanilla = true;
-    row.append(box, Object.assign(document.createElement("span"), { textContent: label }),
+    const strip = Object.assign(document.createElement("span"), { className: "icons" });
+    strip.append(...icons.map((icon) => Object.assign(document.createElement("span"), { className: `glyph ${icon}` })));
+    row.append(box, strip, Object.assign(document.createElement("span"), { textContent: label }),
+               Object.assign(document.createElement("span"), { className: "count", textContent: count.toLocaleString("en-US"),
+                                                               title: "How many the base game places" }),
                Object.assign(document.createElement("span"), { textContent: note }));
     return row;
   }));
@@ -771,14 +776,45 @@ function randoDefaults() {
   return { on: false, seed: R("seed").value || draw(), settings: randoOptions().defaults };
 }
 
-// The tab's settings as the build reads them: a settings file's table, its categories in the database's order.
+// The tab's settings as the build reads them: a settings file's table, its categories in the database's order, its
+// toggles the skip list's picks and, for each pick a ticked skip group turns on that the ceiling doesn't, a true one
+// (D258, Modkit's).
 function randoSettings() {
   const { defaults, categories } = randoOptions();
   const kept = new Set([...R("items").querySelectorAll("input[data-category]")].filter((box) => !box.checked)
     .map((box) => box.dataset.category));
-  return { format: defaults.format, skip_ceiling: Number(R("ceiling").value), movement_tier: R("movement").value,
+  const ceiling = Number(R("ceiling").value), overrides = { ...state.rando.overrides };
+  for (const pick of byGroup()) {
+    if (!(pick.id in overrides) && !pick.levels.every((level) => level <= ceiling)) overrides[pick.id] = true;
+  }
+  return { format: defaults.format, skip_ceiling: ceiling, movement_tier: R("movement").value,
            dark_fire: Number(R("dark").value), exclude_categories: categories.filter((c) => kept.has(c)),
-           skip_override: Object.fromEntries(Object.entries(state.rando.overrides).sort()) };
+           skip_override: Object.fromEntries(Object.entries(overrides).sort()) };
+}
+
+// D258: the picks the ticked skip groups turn on at the Movement tier: each of theirs rated at or below it (a batch,
+// D275, once each of its in-logic variants is); none before the engine has given the groups.
+function byGroup() {
+  const level = (state.rando.view?.tiers ?? []).indexOf(R("movement").value) + 1;
+  return (state.rando.view?.groups ?? []).filter((group) => state.rando.groups.has(group.id))
+    .flatMap((group) => group.picks).filter((pick) => pick.levels.every((l) => l <= level));
+}
+
+// The skip groups' boxes (unticked by default), each with how many of its picks the Movement tier takes in.
+function renderGroups() {
+  const view = state.rando.view, level = (view?.tiers ?? []).indexOf(R("movement").value) + 1;
+  R("groups").replaceChildren(...(view?.groups ?? []).map((group) => {
+    const taken = group.picks.filter((pick) => pick.levels.every((l) => l <= level));
+    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: state.rando.groups.has(group.id),
+                                                                 disabled: state.building || !R("on").checked });
+    box.dataset.group = group.id;
+    const row = Object.assign(document.createElement("label"), { className: "group", title: [
+      `${taken.length} of these ${group.picks.length} at ${R("movement").selectedOptions[0]?.textContent ?? ""}:`,
+      ...group.picks.map((p) => `${taken.includes(p) ? "☑" : "☐"} ${p.name}: ${p.rating}`)].join("\n") });
+    row.append(box, group.label, Object.assign(document.createElement("span"), { className: "note",
+                                                                                textContent: `${taken.length} of ${group.picks.length}` }));
+    return row;
+  }));
 }
 
 // The obsidian cost as the engine gets it: none at vanilla's (or an empty box), else the number or the text typed.
@@ -807,6 +843,7 @@ function randoSetup() {
 function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
   const before = JSON.stringify(randoSetup());
   state.rando.note = null;
+  state.rando.groups.clear();   // shown exactly: its toggles the skip list's picks, no group ticked (Modkit's)
   R("on").checked = on;
   R("seed").value = seed;
   R("movement").value = settings.movement_tier;
@@ -848,6 +885,7 @@ function askRando(given = null) {
   clearTimeout(state.rando.later);
   const ticket = ++state.rando.ticket;
   if (given) state.rando.given = given;
+  if (given) state.rando.asked = given.share ?? null;   // a share string loaded: its AZ-383 note's own
   if (!state.rando.given && state.tab !== "randomizer") return;
   state.rando.waiting = true;
   if (!state.ready || state.building) return;
@@ -871,15 +909,18 @@ function randoView(reply, ticket) {
     const { from, ...rest } = state.rando.load;
     state.rando.load = null;
     setRando({ ...rest, settings: reply.settings }, from);
-    state.rando.note = reply.note;   // a loaded share's own (other movement sliders): warned until the tab is edited
+    state.rando.note = reply.note;   // a loaded share's own (other movement sliders): warned until the tab is edited,
+    state.rando.noted = state.rando.asked;   // or until the Patches tab's sliders give that share string again
     return;
   }
+  if (state.rando.note && reply.share === state.rando.noted) state.rando.note = null;
   state.rando.view = reply;
   R("share").value = reply.share;
   R("held").textContent = `${reply.skips.length} turnable · ${reply.held} held (no setting turns one on)`;
   R("facts").textContent = `Accessibility: full · Victory: Spideyzar · Excluded: lock 10 + full-clear · `
     + `${reply.forfeitable} forfeitable`;
   renderSkips();
+  renderGroups();
   const note = reply.note ?? state.rando.note;
   warn([...(reply.preflight ? [`The build refuses: ${reply.preflight}`] : []), ...(note ? [note] : []),
         ...reply.why_not.map((why) => `Logic unverified (flagged, not refused): ${why}`)], Boolean(reply.preflight));
@@ -898,8 +939,9 @@ function renderSkips() {
   const filter = R("filter").value.trim().toLowerCase();
   const rows = (state.rando.view?.skips ?? []).filter((s) => !filter || `${s.name} ${s.id} ${s.rating}`.toLowerCase()
     .includes(filter));
+  const grouped = new Set(byGroup().map((pick) => pick.id));
   R("skips").replaceChildren(...rows.map((skip) => {
-    const toggle = state.rando.overrides[skip.id] ?? null, on = toggle ?? skip.ceiling;
+    const toggle = state.rando.overrides[skip.id] ?? null, on = toggle ?? (grouped.has(skip.id) || skip.ceiling);
     const row = Object.assign(document.createElement("label"), { className: `skip${toggle === null ? "" : " toggled"}`,
                                                                  title: `${skip.name} (${skip.id}): ${skip.rating}` });
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: on === true,
@@ -908,15 +950,16 @@ function renderSkips() {
     box.disabled = state.building || !R("on").checked;
     row.append(box, Object.assign(document.createElement("span"), { className: "name", textContent: skip.name }),
                Object.assign(document.createElement("span"), { className: "rating", textContent: skip.rating }),
-               Object.assign(document.createElement("span"), { className: "by",
-                                                               textContent: toggle === null ? "ceiling" : "toggle" }));
+               Object.assign(document.createElement("span"), { className: "by", textContent: toggle !== null
+                                                                 ? "toggle" : grouped.has(skip.id) ? "group" : "ceiling" }));
     return row;
   }));
 }
 
 // A click turns a skip (a batch whole) the other way: by a toggle, or by none when the ceiling now gives that.
 function toggleSkip(id) {
-  const skip = state.rando.view.skips.find((s) => s.id === id), def = skip.ceiling;
+  const skip = state.rando.view.skips.find((s) => s.id === id);
+  const def = byGroup().some((pick) => pick.id === id) || skip.ceiling;
   const toggle = state.rando.overrides[id] ?? null, turned = (toggle === null ? def : toggle) !== true;
   if (turned === def || (def === null && toggle === false)) delete state.rando.overrides[id];
   else state.rando.overrides[id] = turned;
@@ -927,9 +970,43 @@ function lockRando() {
   const off = state.building || !R("on").checked;
   R("on").disabled = state.building || !state.packs;
   for (const field of $("randomizer").querySelectorAll(".rando-top :is(input, select, button), #rando-share, "
-    + "#rando-copy, #rando-filter, #rando-clear, #rando-items input[data-category], #rando-skips input")) {
+    + "#rando-copy, #rando-filter, #rando-clear, #rando-items input[data-category], #rando-skips input, "
+    + "#rando-groups input, #rando-load, #rando-save")) {
     if (field !== R("on")) field.disabled = off;
   }
+}
+
+// D144's settings files: Load settings… takes a file's settings (the engine reads it and names what it refuses);
+// Save settings… writes the tab's (Modkit's --save-settings file): the site's download, the app's dialog or Downloads.
+async function loadSettings() {
+  const file = R("load").files[0];
+  R("load").value = "";
+  if (!file) return;
+  state.rando.load = { on: R("on").checked, seed: R("seed").value, obsidian_cost: randoCost().obsidian_cost,
+                       from: file.name };
+  askRando({ file: await file.text() });
+}
+
+async function saveSettings() {
+  const view = state.rando.view;
+  if (!view) return;
+  if (!state.app) {
+    const url = URL.createObjectURL(new Blob([view.file], { type: "text/plain" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: "settings.toml" });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return say("Saving settings.toml: your browser's download shows it");
+  }
+  let out = null;
+  if (state.dialogs) {
+    out = await state.engine.choose("settings", "settings.toml").catch((error) => say(error.message, true));
+    if (!out) return;
+  }
+  const reply = await state.engine.call("settings_file", { out, settings: randoSettings() });
+  if ("refused" in reply) return say(reply.refused, true);
+  say(`Saved the settings: ${reply.saved.out}`);
 }
 
 // The last randomized build's spoiler (Modkit's --spoiler file), viewed in the tab and saved as a text file: the
@@ -1019,10 +1096,21 @@ function randoEvents(changed) {
   for (const id of ["movement", "ceiling", "dark"]) {
     R(id).addEventListener("change", () => {
       offered();
+      renderGroups();
+      renderSkips();
       edited();
     });
   }
   R("items").addEventListener("change", edited);
+  R("groups").addEventListener("change", (e) => {
+    const id = e.target.dataset.group;
+    if (e.target.checked) state.rando.groups.add(id);
+    else state.rando.groups.delete(id);
+    renderSkips();
+    edited();
+  });
+  R("load").addEventListener("change", loadSettings);
+  R("save").addEventListener("click", saveSettings);
   R("seed").addEventListener("input", changed);
   R("cost").addEventListener("input", edited);
   R("new").addEventListener("click", () => {
