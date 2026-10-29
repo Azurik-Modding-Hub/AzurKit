@@ -238,7 +238,8 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     theme: (name) => post("api/theme", { theme: name }).catch(() => {}),   // remembering is a convenience
     call: (type, body) => post(`api/${type}`, body)
       .catch((error) => ({ refused: `The app's engine didn't answer (${error.message}): restart AzurKit` })),
-    tracked: (kept) => post("api/tracked", { tracker: kept }, true).catch(() => {}),   // remembering is a convenience
+    // remembering is a convenience; not keepalive: a plan and its marks may pass keepalive's 64 KiB
+    tracked: (kept) => post("api/tracked", { tracker: kept }).catch(() => {}),
     cancel: () => {
       if (!state.saving) ticket++;
       post("api/cancel", {}).catch(() => {});

@@ -83,7 +83,8 @@ seed you set, or open a plan file (azurkit plan's).</span></p>
 <label class="on" id="track-follow-box" hidden><input type="checkbox" id="track-follow" checked> Follow</label>
 <button id="track-find" type="button" disabled>Find me</button>
 <input type="text" id="track-endpoints" spellcheck="false" autocomplete="off" aria-label="Live's endpoints"
-title="Where Live looks for xemu, in order (empty: the defaults)">
+placeholder="Endpoints: shared RAM, then QMP :4444" title="Where Live looks for xemu, in order: shm:NAME,
+qmp:HOST:PORT or qmp:unix:PATH, comma-separated (empty: the fork's shared RAM, then QMP on 127.0.0.1:4444)">
 <span id="track-dot" aria-hidden="true"></span><span id="track-line" class="note"></span></span>
 <span id="track-status" class="note"></span></p>
 <p id="track-head" class="note"></p>

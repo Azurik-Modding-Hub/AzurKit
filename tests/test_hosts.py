@@ -34,7 +34,6 @@ import pytest
 
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli, sdk
-from azurkit.app import live as live_app
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
@@ -676,35 +675,37 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         server.close()
 
 
-def test_live_in_the_app_marks_what_the_game_shows_taken_and_follows_the_player(tmp_path, monkeypatch):
-    """Step 4.2c2 (D249; the app's alone, D882): ``api/live`` turns Live on
-    for a plan, and each ``api/tracker`` ask merges what Live read since:
-    a take marks its spot live, the reach holds the element levels the game
-    holds (R1.41), and ``live`` says where Live saw the player and its
-    status. A lost link says so and keeps the marks; another seed's game is
-    named; Live off gives the marks' tracker again. Endpoints Live can't
-    read (a gdbstub, D257) are refused by name. The game here is a scripted
-    session (Modkit's ``live.Session``'s updates); Modkit's own Follower and
-    reads, installed by the sync, give the events (R1.41b's recordings
-    replayed through them mark what Modkit's mark: the step's evidence)."""
+def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_player(browser, tmp_path, monkeypatch):
+    """Step 4.2c2 (D249; the app's alone, D882): in the app's page (its
+    server in-process, headless), Live on for the tracked plan merges what
+    the game shows into each tracker ask: a take marks its spot live (a
+    blue check), the reach holds the element levels the game holds (R1.41:
+    Modkit's verdicts with that kit), the status line names the level and
+    the last take, Follow shows the player's level with "you are here" and
+    Find me shows it again; another seed's game is named (red), a lost link
+    says so and keeps the marks, and Live off gives the marks' tracker
+    again. Endpoints Live can't read (a gdbstub, D257) are refused by name.
+    The game is a scripted session (Modkit's ``live.Session``'s updates);
+    Modkit's own Follower and reads, installed by the sync, give the events
+    (R1.41b's two recordings replayed through them mark what Modkit's mark:
+    the step's evidence)."""
     from azurkit.tools.randomizer.live import game, link
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     doc = _profile("default")
+    (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     near = sorted(loc for loc, s in sdk.tracker({"plan": doc})["spots"].items() if s["state"] == "near")[0]
-    region, kit = game.REGIONS[0], {"air": 0, "water": 1, "fire": 1, "earth": 0}
-    at = game.Reading("running", region, level="w1", settle=1, at=(1.0, 2.0, 3.0), yaw=0.5,
+    level, kit = sdk.tracker({"plan": doc})["spots"][near]["level"], {"air": 0, "water": 1, "fire": 1, "earth": 0}
+    at = game.Reading("running", game.REGIONS[0], level=level, settle=1, at=(1.0, 2.0, 3.0), yaw=0.5,
                       inv={"level.water": 1, "level.fire": 1, "obsi": 2})
-    script = [game.Update(at, (game.Took(near, 0.5),)), game.Update(at), game.Update(game.Reading(
-        "running", region, level="w1", settle=1, mismatch=True))]
-    played = threading.Event()
+    gates = {"other": threading.Event(), "lost": threading.Event()}
 
-    class Session:   # a running game, scripted: its updates, then the link lost
-        period = 0.01
+    class Session:   # a running game, scripted: a take, the player standing, another seed's level, the link lost
+        period = 0.02
 
         def __init__(self, opened, spots, journal):
             assert (opened, journal) == ("xemu", {"slot": None, "newest": None})
-            self.left = list(script)
+            self.left = [game.Update(at, (game.Took(near, 0.5),))]
 
         def describe(self) -> str:
             return "xemu, scripted"
@@ -712,42 +713,65 @@ def test_live_in_the_app_marks_what_the_game_shows_taken_and_follows_the_player(
         def poll(self):
             if self.left:
                 return self.left.pop(0)
-            played.wait(10)
-            raise link.LinkLost("the scripted game ended")
+            if gates["lost"].is_set():
+                raise link.LinkLost("the scripted game ended")
+            if gates["other"].is_set():
+                return game.Update(game.Reading("running", game.REGIONS[0], level=level, settle=2, mismatch=True))
+            return game.Update(at)
 
         def close(self) -> None:
             pass
 
     monkeypatch.setattr(game, "Session", Session)
     monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
-    server, replies = app.serve(_page.WEB), []
-
-    def call(path: str, body: dict) -> dict:
-        replies.clear()
-        _post(server.url, path, body, replies)
-        return replies[0]
-
+    server = app.serve(_page.WEB)
+    shown = """() => [document.getElementById("track-dot").textContent, document.getElementById("track-dot").className,
+                      document.getElementById("track-line").textContent, azurkit.tracker.state.level,
+                      document.querySelector("#track-level .you")?.textContent ?? null]"""
     try:
-        assert call("api/live", {"on": True, "plan": doc, "marks": {}, "endpoints": "gdb:1234"})["refused"].startswith(
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+        _page.fill(page, "track-endpoints", "gdb:1234")
+        page.evaluate("() => document.getElementById('track-endpoints').dispatchEvent(new Event('change'))")
+        _page.click(page, "track-live")
+        _page.until(page, "() => !document.getElementById('track-live').checked")
+        assert page.evaluate("() => document.getElementById('status').textContent").startswith(
             "Endpoints: 'gdb:1234': Live reads no gdbstub")
-        assert call("api/live", {"on": True, "plan": doc, "marks": {}, "endpoints": ""}) == {}
-        end, marks = time.monotonic() + 10, {}
-        while (got := call("api/tracker", {"given": {"plan": doc, "marks": marks}}))["live"]["status"] != "other":
-            assert time.monotonic() < end, got["live"]
-            marks = got["marks"]   # the page sends the marks the last answer gave
-            time.sleep(0.05)
-        marked = sdk.tracker({"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}, "kit": kit})
-        assert {k: got[k] for k in ("marks", "status", "spots")} == {k: marked[k] for k in ("marks", "status", "spots")}
-        assert got["live"] == {"status": "other", "text": live_app.OTHER_SEED, "unpaired": 0, "here": False,
-                               "seen": {"level": "w1", "at": [1.0, 2.0, 3.0], "yaw": 0.5}}
-        played.set()
-        while (got := call("api/tracker", {"given": {"plan": doc, "marks": got["marks"]}}))["live"]["status"] != "lost":
-            assert time.monotonic() < end, got["live"]
-            time.sleep(0.05)
-        assert got["marks"] == marked["marks"] and got["live"]["text"].endswith("Live reconnects by itself when it's back.")
-        assert call("api/live", {"on": False}) == {}
-        assert call("api/tracker", {"given": {"plan": doc, "marks": got["marks"]}}) == sdk.tracker(
-            {"plan": doc, "marks": got["marks"]})
+        _page.fill(page, "track-endpoints", "")
+        page.evaluate("() => document.getElementById('track-endpoints').dispatchEvent(new Event('change'))")
+        _page.click(page, "track-live")
+        _page.until(page, "() => azurkit.tracker.state.live?.here && azurkit.tracker.state.marks.live")
+        view = page.evaluate("() => azurkit.tracker.state.view")
+        assert tracking.digest(view) == tracking.digest(sdk.tracker(
+            {"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}, "kit": kit, "held": dict(at.inv)}))
+        dot, state, line, follows, you = page.evaluate(shown)
+        assert (dot, state, follows, you) == ("●", "live", level, "● you are here")
+        item = sdk.tracker({"plan": doc, "spoiler": True})["spots"][near]["name"]
+        assert line.startswith(f"{level} · USA · xemu, scripted · last: {item} ({level}), 0:0")
+        assert page.evaluate(f"() => document.querySelector(`#track-level .spot[data-loc='{near}']`).className") == "spot live"
+        page.evaluate("() => document.querySelector('#track-level .back').click()")   # by hand: Follow goes off
+        assert page.evaluate("() => [azurkit.tracker.state.level, document.getElementById('track-follow').checked]") == [
+            None, False]
+        _page.click(page, "track-find")
+        assert page.evaluate("() => azurkit.tracker.state.level") == level
+        gates["other"].set()
+        _page.until(page, "() => document.getElementById('track-dot').className === 'other'")
+        assert page.evaluate("() => document.getElementById('track-levels').textContent").startswith(
+            "xemu runs another seed or build")
+        gates["lost"].set()
+        _page.until(page, "() => document.getElementById('track-dot').className === 'lost'")
+        assert page.evaluate("() => azurkit.tracker.state.marks") == {"collected": [near], "live": {near: 0.5}}
+        _page.click(page, "track-live")
+        _page.until(page, "() => !azurkit.tracker.state.live && !azurkit.tracker.state.running")
+        assert tracking.digest(page.evaluate("() => azurkit.tracker.state.view")) == tracking.digest(
+            sdk.tracker({"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}}))
+        _page.check_csp(page)
+        page.close()
     finally:
         server.close()
 

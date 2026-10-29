@@ -39,8 +39,7 @@ export function tracker({ call, app, say, kept, keep }) {
         const { plan, extra: next } = t.queue.shift();
         if (plan !== t.plan) continue;
         $("track-status").textContent = "…";
-        const reply = await call("tracker", { given: { plan, marks: t.marks, spoiler: t.spoiler,
-                                                         ...(t.live?.given() ?? {}), ...next } });
+        const reply = await call("tracker", { given: { plan, marks: t.marks, spoiler: t.spoiler, ...next } });
         $("track-status").textContent = "";
         if (plan !== t.plan) continue;
         if ("refused" in reply) {
@@ -158,7 +157,7 @@ export function tracker({ call, app, say, kept, keep }) {
                                   title: `${shown ? s.name : SPOT[s.class]}: ${STATES[s.state]} (${where})` });
     button.dataset.loc = loc;
     button.append(el("span", { className: shown ? `glyph ${s.icon}` : "glyph dot" }),
-                  el("span", { className: "name", textContent: shown ? s.name : `${s.vanilla} · ${loc.split("/").at(-1)}` }));
+                  el("span", { className: "name", textContent: shown ? s.name : `vanilla: ${s.vanilla} · ${loc.split("/").at(-1)}` }));
     if (got) button.append(el("span", { className: "check", textContent: "✓" }));
     return button;
   };

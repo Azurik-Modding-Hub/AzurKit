@@ -35,9 +35,9 @@ class Feed:
     """One plan's Live: :meth:`start` its thread, :meth:`take` what it read since, :meth:`stop` it."""
 
     def __init__(self, plan: Mapping, marks: Mapping | None, endpoints: str = ""):
-        self.sha256 = plan["sha256"]
+        tracking.view({"plan": plan, "marks": marks})   # the plan and marks checked; the journal is the marks'
         t = tracking.tracker_of(plan)
-        tracking.view({"plan": plan, "marks": marks})   # the journal is the page's marks'
+        self.sha256 = plan["sha256"]
         self.spots, self.journal = game.spot_table(t), t.journal()
         self.items = {loc: t.item(loc) for loc in t.spots}
         self.pool = t.logic.pool
