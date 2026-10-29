@@ -232,6 +232,14 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
   output byte. Its CSP has no `'unsafe-eval'` and it uses no eval, and no
   host evaluates script in it (pywebview's `evaluate_js` would need eval).
   Text reaches it only through `textContent`.
+  - **Share links** (WEB §4.1): Copy link asks the engine for
+    `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders and a
+    loaded recipe's config.xbr cells (with the build's hashes when it is
+    current), after the site's address (the app's `host.json` names the
+    site's, D884). A page opened with one loads it once its engine is ready
+    (`sdk.preset_decode`): exactly its packs ticked, its sliders set, each
+    tick and value it changed marked ●, and no build. Ticking a pack ticks
+    the packs it requires; unticking one unticks those that require it.
 - **The site** is the page with Pyodide's core, the wheel and its
   `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in

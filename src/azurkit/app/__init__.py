@@ -12,14 +12,18 @@ The engine below never starts a thread; this host does, for the server.
 The server is the page's engine too. ``host.json`` tells the page it is in
 the app, with the catalog, AzurKit's version, the image to start from (the
 one the last build read, remembered in platformdirs' config folder, else a
-release's own image) and whether there are file dialogs (the window's).
-``POST api/build`` ``{"iso", "packs"}`` plans the build (``sdk.image``: the
+release's own image), whether there are file dialogs (the window's) and the
+site's address, which its share links name (:data:`SITE`, D884).
+``POST api/build`` ``{"iso", "packs", "xbr"}`` plans the build (``sdk.image``: the
 report, the size, and where to save it: the Downloads folder, under the
 site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
 (``sdk.build``), never over an existing file but the one the save dialog
 chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
 ``POST api/vanilla`` ``{"iso"}`` reads the image's own values of the
 sliders at its XBE's sites (``sdk.vanilla``).
+``POST api/preset`` ``{"recipe", "report"}`` makes a share link's fragment
+(``sdk.preset_encode``) and ``POST api/decode`` ``{"text"}`` reads one
+(``sdk.preset_decode``).
 ``POST api/choose`` ``{"kind": "iso" | "out", "path"}`` opens the window's
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
@@ -48,6 +52,8 @@ from pathlib import Path
 
 from azurkit import __version__, sdk
 from azurkit.core import gate
+
+SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
 
 PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "web"   # the frozen app's, else the checkout's
 NO_WINDOW = "AZURKIT_NO_WINDOW"   # set: main() opens nothing (the tests' mode)
@@ -132,10 +138,12 @@ class Server(http.server.ThreadingHTTPServer):
 
     def host_info(self) -> dict:
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
-                "dialogs": self.window is not None}
+                "dialogs": self.window is not None, "site": SITE}
 
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
+        if body.get("xbr"):
+            recipe["xbr"] = body["xbr"]
         with self.busy:
             made, report = sdk.image(recipe)
         _remember(recipe["iso"])
@@ -235,6 +243,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             return self.send_error(403)
         call = {"/api/build": self.server.build, "/api/save": self.server.save,
                 "/api/vanilla": lambda body: sdk.vanilla(str(_path(body.get("iso"), "image"))),
+                "/api/preset": lambda body: {"fragment": sdk.preset_encode(body.get("recipe"), body.get("report"))},
+                "/api/decode": lambda body: {"preset": sdk.preset_decode(body.get("text"))},
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

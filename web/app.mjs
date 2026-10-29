@@ -6,10 +6,14 @@
 // own server on 127.0.0.1 (azurkit.app), in its window or a browser alike: it reads the image at the path you give
 // and writes the build where you save it. Text reaches the page only through textContent. No eval: the CSP has no
 // 'unsafe-eval', and no host evaluates script in the page (4.1b2).
+//
+// A recipe travels as a share link (WEB §4.1, §4.2): Copy link asks the engine for the #p=… fragment of the packs,
+// their sliders and the config.xbr cells a loaded recipe set (sdk.preset_encode), and a page opened with one loads
+// it (sdk.preset_decode): the packs ticked, the sliders set, each value it changed marked ●, never a build.
 const $ = (id) => document.getElementById(id);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
                 packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
-                vanilla: null, asked: null };
+                vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, site: null };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 function say(text, error = false) {
@@ -25,7 +29,7 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
-function siteEngine({ ready, built, refused, failed, vanilla }) {
+function siteEngine({ ready, built, refused, failed, vanilla, shared, decoded }) {
   let worker = null, loaded = false;
   const start = () => {
     loaded = false;
@@ -40,6 +44,12 @@ function siteEngine({ ready, built, refused, failed, vanilla }) {
       } else if (data.type === "vanilla") {
         const { type, ...read } = data;
         vanilla(read);
+      } else if (data.type === "preset") {
+        shared(data.fragment);
+      } else if (data.type === "decoded") {
+        decoded(data.preset);
+      } else if (data.type === "refused" && data.quiet) {
+        failed(data.message);
       } else if (data.type === "built" || data.type === "refused") {
         restart();
         (data.type === "built" ? built : refused)(data);
@@ -63,8 +73,10 @@ function siteEngine({ ready, built, refused, failed, vanilla }) {
   };
   start();
   return {
-    build: (file, packs) => worker.postMessage({ type: "build", file, packs }),
+    build: (file, packs, xbr) => worker.postMessage({ type: "build", file, packs, xbr }),
     vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
+    preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
+    decode: (text) => worker.postMessage({ type: "decode", text }),
     cancel: restart,
   };
 }
@@ -72,7 +84,7 @@ function siteEngine({ ready, built, refused, failed, vanilla }) {
 // The app's engine: azurkit.sdk on CPython behind this launch's server (azurkit.app), the same in the app's window
 // and in a browser. The page posts JSON to it, and a refusal comes back as {refused}. A build's reply that arrives
 // after Cancel is dropped; a save's is awaited, since the server says whether it wrote anything.
-function appEngine(host, { ready, built, refused, failed, saved, vanilla }) {
+function appEngine(host, { ready, built, refused, failed, saved, vanilla, shared, decoded }) {
   let ticket = 0;
   const post = async (path, body) => {
     const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -92,9 +104,14 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla }) {
     }
   };
   setTimeout(() => ready(host.catalog, host.version));
+  const ask = (path, body, done) => post(path, body)
+    .then((reply) => "refused" in reply ? failed(reply.refused) : done(reply))
+    .catch((error) => failed(`The app's engine didn't answer (${error.message}): restart AzurKit`));
   return {
-    build: (iso, packs) => run("api/build", { iso, packs }, built),
+    build: (iso, packs, xbr) => run("api/build", { iso, packs, xbr }, built),
     vanilla: (iso) => post("api/vanilla", { iso }).then((read) => "refused" in read || vanilla(read)).catch(() => {}),
+    preset: (recipe, report) => ask("api/preset", { recipe, report }, (reply) => shared(reply.fragment)),
+    decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
     save: (recipe, out) => run("api/save", { recipe, out }, saved),
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
@@ -113,6 +130,7 @@ const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)
 // track's ends are hints that widen to hold the vanilla value (D42) and whatever the box holds, so nothing clamps.
 function sliderRow(pack, slider) {
   const row = Object.assign(document.createElement("div"), { className: "slider", title: slider.description });
+  const mark = Object.assign(document.createElement("span"), { className: "mark" });
   const id = `${pack.name}.${slider.name}`;
   const track = Object.assign(document.createElement("input"), {
     type: "range", step: slider.whole ? Math.max(1, slider.step) : slider.step, ariaLabel: `${slider.label} (track)` });
@@ -135,6 +153,7 @@ function sliderRow(pack, slider) {
   });
   box.addEventListener("input", fit);
   const label = Object.assign(document.createElement("label"), { htmlFor: id, textContent: slider.label });
+  label.prepend(mark);
   row.append(label, track, box, unit);
   fit();
   row.fit = fit;
@@ -192,6 +211,7 @@ function renderPacks(catalog) {
     box.dataset.pack = pack.name;
     box.addEventListener("change", () => linked(box));
     const name = Object.assign(document.createElement("span"), { className: "name", textContent: pack.name });
+    name.prepend(Object.assign(document.createElement("span"), { className: "mark" }));
     const what = Object.assign(document.createElement("span"), { textContent: pack.description });
     const where = Object.assign(document.createElement("span"), {
       className: "releases", textContent: ` ${pack.releases.map((r) => r === "usa" ? "USA" : "Europe").join(", ")}` });
@@ -216,6 +236,7 @@ function chosen() {
 function busy(on) {
   state.building = on;
   $("build").disabled = on || !state.file || !state.ready;
+  $("share").disabled = on || !state.packs;
   $("iso").disabled = on || !state.packs;
   for (const id of ["iso-path", "iso-choose", "out-path"]) $(id).disabled = on;
   $("save").disabled = on || !state.build;
@@ -234,6 +255,62 @@ function forget() {
   $("out-row").hidden = true;
 }
 
+// Load a recipe (a share link's: a preset, already checked by the engine) into the page:
+// tick exactly its packs, set their sliders (the others to their defaults), keep its config.xbr cells for the build,
+// and mark ● each tick and value it changed. It never starts a build.
+function load(preset, from) {
+  const packs = preset.layers.find((layer) => layer.tool === "mods")?.recipe;
+  const mark = (element, on) => {
+    element.textContent = on ? "●" : "";
+    element.title = on ? `Changed by ${from}` : "";
+  };
+  forget();
+  for (const item of $("packs").querySelectorAll(".pack")) {
+    const box = item.querySelector("input[data-pack]");
+    const pack = state.packs.packs.find((p) => p.name === item.dataset.pack);
+    const on = packs ? pack.name in packs : box.checked;
+    mark(item.querySelector(".name .mark"), box.checked !== on);
+    box.checked = on;
+    for (const field of item.querySelectorAll("input[data-slider]")) {
+      const slider = pack.sliders.find((s) => s.name === field.dataset.slider);
+      const value = String(packs?.[pack.name]?.[slider.name] ?? slider.default);
+      mark(field.parentElement.querySelector(".mark"), field.value !== value);
+      field.value = value;
+      field.parentElement.fit();
+    }
+  }
+  state.xbr = preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [];
+  state.loaded = preset;
+  const made = preset.azurkit ? ` (made with AzurKit ${preset.azurkit})` : "";
+  const cells = state.xbr.length ? ` and ${state.xbr.length} config.xbr edit${state.xbr.length > 1 ? "s" : ""}` : "";
+  $("xbr-note").textContent = state.xbr.length ? `The loaded recipe also sets ${state.xbr.length} config.xbr `
+    + `value${state.xbr.length > 1 ? "s" : ""}, which each build applies.` : "";
+  say(`Loaded ${from}'s recipe${made}: ${packs ? Object.keys(packs).length : 0} packs${cells}, marked ●. `
+      + "Pick your vanilla image, then Build.");
+}
+
+// The share link: the engine makes the fragment of what the page holds (with the build's hashes when it is the
+// page's current build); the link is shown, and copied where the browser lets it.
+function share() {
+  if (!state.ready) return say("AzurKit is still loading: try again in a moment", true);
+  state.engine.preset({ packs: chosen(), xbr: state.xbr }, state.build?.report ?? null);
+}
+
+function shared(fragment) {
+  state.link = `${state.site ?? location.href.split("#")[0].split("?")[0]}${fragment}`;
+  $("link").value = state.link;
+  $("link-row").hidden = false;
+  if (!state.app) history.replaceState(null, "", fragment);
+  const copied = navigator.clipboard?.writeText(state.link);
+  (copied ?? Promise.reject()).then(() => say("Link copied: it holds the recipe, never your image"),
+                                    () => say("Copy the link below: it holds the recipe, never your image"));
+}
+
+function decoded(preset) {
+  state.pending = null;
+  load(preset, "the link");
+}
+
 function ready(catalog, version) {
   state.ready = true;
   if (!state.packs) {
@@ -242,6 +319,7 @@ function ready(catalog, version) {
     $("version").textContent = `AzurKit ${version}`;
   }
   busy(state.building);
+  if (state.pending) state.engine.decode(state.pending);
   askVanilla();
 }
 
@@ -334,8 +412,10 @@ async function main() {
   } catch (error) {
     return say(`AzurKit didn't load: ${error.message}`, true);
   }
-  const callbacks = { ready, built, saved, vanilla, refused: ({ message }) => report(message, true),
-                      failed: (message) => report(message, true) };
+  const callbacks = { ready, built, saved, vanilla, shared, decoded,
+                      refused: ({ message }) => report(message, true), failed: (message) => report(message, true) };
+  if (location.hash.startsWith("#p=")) state.pending = location.hash;
+  state.site = host.site ?? null;
   if (host.engine === "app") {
     state.engine = appEngine(host, callbacks);
     pickInApp(host);
@@ -355,13 +435,14 @@ async function main() {
 
   $("packs").addEventListener("change", forget);
   $("packs").addEventListener("input", forget);
+  $("share").addEventListener("click", share);
   $("build").addEventListener("click", () => {
     forget();
     if (!state.app) state.ready = false;   // the site's engine is replaced after each build
     busy(true);
     say("Checking your image and building…");
     state.sent = chosen();
-    state.engine.build(state.file, state.sent);
+    state.engine.build(state.file, state.sent, state.xbr);
   });
   $("cancel").addEventListener("click", () => {
     if (!state.app) state.ready = false;

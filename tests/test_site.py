@@ -7,10 +7,11 @@ golden on both releases, and the page's build is CPython's: the same report,
 and the same segments, so the Blob it saves is the image ``sdk.image`` makes;
 so is a build with a slider set on the page (Step 4.1e1), whose track holds
 its vanilla value and widens, never clamps, and one of config.xbr's cells
-(Step 4.1e2); the saved file of every pack is that image, byte for byte. Under the
-page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a
-GET of one of the site's own files: the image never leaves the page. The
-page is driven as ``tests/_page.py`` says."""
+(Step 4.1e2); the saved file of every pack is that image, byte for byte. A
+share link carries the page's recipe and loads it into a page it opens
+(Step 4.1g). Under the page's CSP (no ``'unsafe-eval'``) nothing is refused,
+and every request is a GET of one of the site's own files: the image never
+leaves the page. The page is driven as ``tests/_page.py`` says."""
 
 from __future__ import annotations
 
@@ -71,7 +72,8 @@ class Site:
     def stray(self) -> list[str]:
         """Each request that isn't a GET of a site file, with no body, at :data:`ORIGIN`."""
         files = {f"{ORIGIN}/{p.relative_to(self.root).as_posix()}" for p in self.root.rglob("*") if p.is_file()}
-        return [f"{method} {url}" for method, url, body in self.requests
+        bare = ((method, url.partition("#")[0], body) for method, url, body in self.requests)   # a link's fragment
+        return [f"{method} {url}" for method, url, body in bare
                 if method != "GET" or body or (url if url != f"{ORIGIN}/" else f"{ORIGIN}/index.html") not in files]
 
     def close(self) -> None:
@@ -149,6 +151,62 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
                 assert page.evaluate("() => document.querySelector('#status').textContent").endswith(f"note: {note}")
             assert (built["report"], built["segments"]) == (report, _signature(made)), (name, values)
             _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_marked(browser, site):
+    """Copy link (no image needed) gives the page's address with
+    ``sdk.preset_encode``'s fragment of its ticks and sliders, which the
+    page's own address takes too. A page opened with that link loads it once
+    its engine is ready: exactly those packs ticked, their sliders set, each
+    tick and value it changed marked ●, and no build. A link with config.xbr
+    cells (``set``) loads them for the build and copies back the same link,
+    and one that isn't a link is refused by name. No CSP violation, no
+    request but GETs of the site's files."""
+    from azurkit import __version__
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.tick(page, ["fps_unlock", "player_physics", "qol_memory_budget"],
+                   {"fps_unlock": {"target_fps": "120"}, "player_physics": {"gravity": "4.9"}})
+        _page.click(page, "share")
+        link = _page.until(page, "() => azurkit.link")
+        fragment = sdk.preset_encode({"packs": {"fps_unlock": {"target_fps": 120}, "player_physics": {"gravity": 4.9},
+                                                "qol_memory_budget": {}}})
+        assert (link, page.evaluate("() => location.hash")) == (f"{ORIGIN}/{fragment}", fragment)
+        assert page.evaluate("() => document.querySelector('#link').value") == link
+        loaded = served.context.new_page()
+        loaded.goto(link)
+        _page.until(loaded, "() => globalThis.azurkit?.loaded")
+        assert _page.ticked(loaded) == _page.ticked(page)
+        assert list(_page.ticked(loaded)) == ["fps_unlock", "player_physics", "qol_memory_budget"]
+        assert (_page.ticked(loaded)["fps_unlock"]["target_fps"], _page.ticked(loaded)["player_physics"]["gravity"]
+                ) == ("120", "4.9")
+        assert sorted(_page.marked(loaded)) == sorted([
+            "fps_unlock", "fps_unlock.target_fps", "player_physics", "player_physics.gravity", "qol_memory_upper64",
+            "qol_memory_upper64_gpu", "qol_alloc_race"])
+        assert loaded.evaluate("() => [azurkit.build, document.querySelector('#status').textContent]") == [
+            None, f"Loaded the link's recipe (made with AzurKit {__version__}): 3 packs, marked ●. "
+                  "Pick your vanilla image, then Build."]
+        cell = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+                "prop": "hitPoints", "value": 321}
+        with_cell = f"{ORIGIN}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}, 'xbr': [cell]})}"
+        again = served.context.new_page()
+        again.goto(with_cell)
+        _page.until(again, "() => globalThis.azurkit?.loaded")
+        assert again.evaluate("() => [azurkit.xbr, document.querySelector('#xbr-note').textContent]") == [
+            [cell], "The loaded recipe also sets 1 config.xbr value, which each build applies."]
+        _page.click(again, "share")
+        assert _page.until(again, "() => azurkit.link") == with_cell
+        bad = served.context.new_page()
+        bad.goto(f"{ORIGIN}/#p=@@")
+        assert _page.until(bad, """() => document.querySelector("#status").classList.contains("error")
+                                   && document.querySelector("#status").textContent""").startswith(
+            "preset: no #p= and base64url")
+        for each in (page, loaded, again, bad):
+            _page.check_csp(each)
         assert served.stray() == []
     finally:
         served.close()

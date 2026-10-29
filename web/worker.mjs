@@ -10,10 +10,12 @@
 // runs it inside FileReaderSync, under WORKERFS's read of the image, while CPython has released the GIL around read():
 // Safari's build stopped with NoGilError there. Chromium runs it only between tasks.
 //
-// In:  {type: "build", file, packs: {name: {parameter: value}}}, {type: "vanilla", file}
-// Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message},
-//      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE)
+// In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation]}, {type: "vanilla", file},
+//      {type: "preset", recipe: {packs, xbr}, report}, {type: "decode", text}
+// Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
+//      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
+//      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "csp", directive, blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
@@ -39,9 +41,14 @@ def engine(request):
 
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
-    if request.type == "vanilla":
+    if request.type in ("vanilla", "preset", "decode"):
         try:
-            return js(sdk.vanilla(request.recipe.iso))
+            if request.type == "vanilla":
+                return js(sdk.vanilla(request.recipe.iso))
+            if request.type == "preset":
+                report = request.report.to_py() if request.report else None
+                return js({"fragment": sdk.preset_encode(request.recipe.to_py(), report)})
+            return js({"preset": sdk.preset_decode(request.text)})
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     try:
@@ -84,10 +91,10 @@ function vanilla({ py, engine }, file) {
   }
 }
 
-function build({ py, engine }, file, packs) {
+function build({ py, engine }, file, packs, xbr) {
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
-  const made = engine({ type: "build", recipe: { iso: `/in/${file.name}`, packs } });
+  const made = engine({ type: "build", recipe: { iso: `/in/${file.name}`, packs, xbr } });
   if ("refused" in made) return post({ type: "refused", message: made.refused });
   post({ type: "built", ...made }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
 }
@@ -95,10 +102,16 @@ function build({ py, engine }, file, packs) {
 try {
   const loaded = await load();
   self.onmessage = ({ data }) => {
-    if (data?.type !== "build" && data?.type !== "vanilla") return;
+    if (!["build", "vanilla", "preset", "decode"].includes(data?.type)) return;
     try {
       if (data.type === "vanilla") return vanilla(loaded, data.file);
-      build(loaded, data.file, data.packs);
+      if (data.type === "preset" || data.type === "decode") {
+        const reply = loaded.engine(data);
+        if ("refused" in reply) return post({ type: "refused", message: reply.refused, quiet: true });
+        return post(data.type === "preset" ? { type: "preset", fragment: reply.fragment }
+          : { type: "decoded", preset: reply.preset });
+      }
+      build(loaded, data.file, data.packs, data.xbr);
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });
     }

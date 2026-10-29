@@ -15,6 +15,8 @@ header p { margin: 0; }
 #packs .slider input[type="range"] { width: 100%; margin: 0; }
 #packs .slider input[type="text"] { font: .9rem ui-monospace, monospace; padding: .05rem .3rem; min-width: 0; }
 #packs .slider input.changed { font-weight: 700; }
+#packs .mark { color: #b35c00; margin-right: .2rem; }
+#packs .mark:empty { display: none; }
 #packs .pack:has(> label input:not(:checked)) .slider { opacity: .55; }
 .path { display: flex; gap: .5rem; align-items: baseline; margin: .3rem 0; }
 .path[hidden] { display: none; }
@@ -25,5 +27,6 @@ header p { margin: 0; }
 @media (prefers-color-scheme: dark) {
   body { background: #161616; color: #e8e8e8; }
   .note, #packs .releases, #packs .unit { color: #aaa; }
+  #packs .mark { color: #ffb05c; }
   #status.error { color: #ff7b7b; }
 }

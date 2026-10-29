@@ -23,8 +23,8 @@ the image's root, `/azurkit.json` and `/azurkit.bin`, which the game never
 opens: `azurkit open` reads a build back into its recipe, a mods file that
 `azurkit build --mods` builds again (it can also set config.xbr's cells by
 name and replace bytes in an XBR file). It builds from the command line, in the web page (pick your image, choose
-packs and set their sliders, Build, then Save; it
-runs in your browser, and nothing is uploaded) or in the app, which shows the
+packs and set their sliders, Build, then Save, and Copy link shares the
+recipe; it runs in your browser, and nothing is uploaded) or in the app, which shows the
 same page in its own window and writes the build where you save it. The page
 isn't hosted and the app isn't released yet: on macOS you build the app
 yourself (below). Version 1 will add character swaps and variants, and the

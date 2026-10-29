@@ -40,9 +40,10 @@ def slide(page, pack: str, slider: str, text: str) -> list[str]:
     }""", [f"{pack}.{slider}", text])
 
 
-def build(page, packs: list[str], values: dict[str, dict[str, str]] | None = None) -> None:
-    """Tick exactly ``packs``, type each of ``values`` (``{pack: {slider:
-    text}}``) into its slider's box, and click Build (the image is picked)."""
+def tick(page, packs: list[str], values: dict[str, dict[str, str]] | None = None) -> None:
+    """Tick exactly ``packs`` (a pack's tick links tick or untick others)
+    and type each of ``values`` (``{pack: {slider: text}}``) into its
+    slider's box."""
     for pack, sliders in (values or {}).items():
         for slider, text in sliders.items():
             slide(page, pack, slider, text)
@@ -50,8 +51,33 @@ def build(page, packs: list[str], values: dict[str, dict[str, str]] | None = Non
         for (const box of document.querySelectorAll("#packs input[data-pack]")) {
             if (box.checked !== packs.includes(box.dataset.pack)) box.click();
         }
-        document.querySelector("#build").click();
     }""", packs)
+
+
+def build(page, packs: list[str], values: dict[str, dict[str, str]] | None = None) -> None:
+    """:func:`tick`, then click Build (the image is picked)."""
+    tick(page, packs, values)
+    page.evaluate("() => document.querySelector('#build').click()")
+
+
+def click(page, button: str) -> None:
+    """Click the page's button ``#<button>``."""
+    page.evaluate("(id) => document.getElementById(id).click()", button)
+
+
+def ticked(page) -> dict[str, dict[str, str]]:
+    """Each ticked pack, with its sliders' boxes as they read."""
+    return page.evaluate("""() => Object.fromEntries([...document.querySelectorAll("#packs .pack")]
+        .filter((item) => item.querySelector("input[data-pack]").checked)
+        .map((item) => [item.dataset.pack, Object.fromEntries([...item.querySelectorAll("input[data-slider]")]
+            .map((box) => [box.dataset.slider, box.value]))]))""")
+
+
+def marked(page) -> list[str]:
+    """What the page marks ● (``pack`` for a tick, ``pack.slider`` for a value)."""
+    return page.evaluate("""() => [...document.querySelectorAll("#packs .mark")].filter((m) => m.textContent === "●")
+        .map((m) => m.closest(".slider") ? m.closest(".slider").querySelector("input[data-slider]").id
+                                         : m.closest(".pack").dataset.pack)""")
 
 
 def built(page) -> dict:
