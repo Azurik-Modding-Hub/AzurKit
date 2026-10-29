@@ -226,6 +226,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
         self.chosen: Path | None = None     # the save dialog's last answer, which it asked before replacing
         self.spoiler: str | None = None     # the last randomized build's spoiler (api/spoiler)
+        self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
@@ -268,7 +269,7 @@ class Server(http.server.ThreadingHTTPServer):
             made, report = sdk.image(recipe)
         if self.quitting:   # closed while it built (AZ-823)
             raise ValueError(QUITTING)
-        self.spoiler = report.get("spoiler")
+        self.spoiler, self.source = report.get("spoiler"), Path(recipe["iso"])
         _remember(iso=recipe["iso"])
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
@@ -298,13 +299,15 @@ class Server(http.server.ThreadingHTTPServer):
     def save_spoiler(self, body: dict) -> dict:
         """``api/spoiler``: write the last randomized build's spoiler to
         ``out``, never over an existing file but the one the save dialog
-        chose, nor a vanilla image (D36); whole or not at all."""
+        chose, nor a vanilla image or the image it was built from (D36);
+        whole or not at all."""
         out = _path(body.get("out"), "spoiler")
         if self.spoiler is None:
             raise ValueError("No spoiler: build with Randomize ticked first")
         if out.exists() and out != self.chosen:
             raise ValueError(f"{out} exists: choose another name, or delete it first")
-        if any((found := gate.find(r)) and out.exists() and out.samefile(found) for r in gate.RELEASES):
+        if out.exists() and any(image and image.exists() and out.samefile(image)
+                                for image in (self.source, *map(gate.find, gate.RELEASES))):
             raise ValueError(f"{out}: it is a vanilla image, which AzurKit never writes over")
         data = self.spoiler.encode("utf-8")
         part = out.with_name(f"{out.name}.part")

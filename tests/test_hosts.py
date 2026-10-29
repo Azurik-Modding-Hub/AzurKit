@@ -641,3 +641,22 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         assert json.loads(app._config().read_text(encoding="utf-8"))["setup"] == setup
     finally:
         server.close()
+
+
+def test_the_apps_spoiler_never_replaces_the_image_its_build_read(tmp_path, monkeypatch):
+    """``api/spoiler`` refuses the image the randomized build read (D36),
+    also one outside the data folder that the save dialog chose (its Replace
+    confirmed), and leaves it as it was."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    picked = tmp_path / "picked.iso"
+    picked.write_bytes(bytes(64))
+    monkeypatch.setattr(sdk, "image", lambda recipe: (types.SimpleNamespace(size=64), {"spoiler": "seed 2"}))
+    server, replies = app.serve(_page.WEB), []
+    try:
+        _post(server.url, "api/build", {"iso": str(picked)}, replies)
+        server.chosen = picked   # the save dialog's answer
+        _post(server.url, "api/spoiler", {"out": str(picked)}, replies)
+    finally:
+        server.close()
+    assert (replies[1], picked.read_bytes()) == (
+        {"refused": f"{picked}: it is a vanilla image, which AzurKit never writes over"}, bytes(64))
