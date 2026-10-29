@@ -1,0 +1,1580 @@
+# levels/e5.toml: written by `azurik-mod rando author e5` (Step R1.8) from generated/e5.json,
+# derived/e5.json.gz, tricks.toml and draft/authoring/e5.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "e5"
+status = "authored"
+known_traps = []
+route = ["e5/g0/r4271", "e5/g0/r4266", "e5/g0/r4927", "e5/g0/r5258", "e5/g0/r5262", "e5/g0/r5266", "e5/g0/r5069", "e5/g0/r5176", "e5/g0/r4260", "e5/g0/r4263", "e5/g0/r5255", "e5/g0/r3294", "e5/g0/r4268"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "e5_arena"
+anchors = ["zone:e5.Z001"]
+
+[[node]]
+id = "e5_boss_floor"
+anchors = ["zone:e5.Z037"]
+locations = ["e5/g0/r3294"]
+
+[[node]]
+id = "e5_dock"
+anchors = ["zone:e5.Z007"]
+
+[[node]]
+id = "e5_z005"
+anchors = ["zone:e5.Z005"]
+
+[[node]]
+id = "e5_z006"
+anchors = ["zone:e5.Z006"]
+locations = ["e5/g0/r4764", "e5/g0/r4766", "e5/g0/r4779", "e5/g0/r4782", "e5/g0/r4785", "e5/g0/r4814", "e5/g0/r4817", "e5/g0/r4820"]
+
+[[node]]
+id = "e5_z009"
+anchors = ["zone:e5.Z009"]
+
+[[node]]
+id = "e5_z010"
+anchors = ["zone:e5.Z010"]
+
+[[node]]
+id = "e5_z012"
+anchors = ["zone:e5.Z012"]
+
+[[node]]
+id = "e5_z014"
+anchors = ["zone:e5.Z014"]
+locations = ["e5/g0/r4263", "e5/g0/r4266", "e5/g0/r4268", "e5/g0/r4758", "e5/g0/r4760", "e5/g0/r4762", "e5/g0/r4849", "e5/g0/r4852", "e5/g0/r4855"]
+
+[[node]]
+id = "e5_z017"
+anchors = ["zone:e5.Z017"]
+
+[[node]]
+id = "e5_z018"
+anchors = ["zone:e5.Z018"]
+
+[[node]]
+id = "e5_z021"
+anchors = ["zone:e5.Z021"]
+
+[[node]]
+id = "e5_z024"
+anchors = ["zone:e5.Z024"]
+
+[[node]]
+id = "e5_z035"
+anchors = ["zone:e5.Z035"]
+
+[[node]]
+id = "e5_z042"
+anchors = ["zone:e5.Z042"]
+
+[[node]]
+id = "e5_z044"
+anchors = ["zone:e5.Z044"]
+
+[[node]]
+id = "e5_z050"
+anchors = ["zone:e5.Z050"]
+
+[[node]]
+id = "e5_z056"
+anchors = ["zone:e5.Z056"]
+
+[[node]]
+id = "e5_z059"
+anchors = ["zone:e5.Z059"]
+
+[[node]]
+id = "e5_z062"
+anchors = ["zone:e5.Z062"]
+
+[[node]]
+id = "e5_z085"
+anchors = ["zone:e5.Z085"]
+
+[[node]]
+id = "e5_z086"
+anchors = ["zone:e5.Z086"]
+
+[[node]]
+id = "e5_z091"
+anchors = ["zone:e5.Z091"]
+
+[[node]]
+id = "e5_z099"
+anchors = ["zone:e5.Z099"]
+
+[[node]]
+id = "e5_z102"
+anchors = ["zone:e5.Z102"]
+
+[[node]]
+id = "e5_z1098"
+anchors = ["zone:e5.Z1099"]
+
+[[node]]
+id = "e5_z1123"
+anchors = ["zone:e5.Z1124"]
+
+[[node]]
+id = "e5_z114"
+anchors = ["zone:e5.Z114"]
+
+[[node]]
+id = "e5_z115"
+anchors = ["zone:e5.Z115"]
+
+[[node]]
+id = "e5_z121"
+anchors = ["zone:e5.Z121"]
+
+[[node]]
+id = "e5_z122"
+anchors = ["zone:e5.Z122"]
+
+[[node]]
+id = "e5_z1290"
+anchors = ["zone:e5.Z1290"]
+
+[[node]]
+id = "e5_z143"
+anchors = ["zone:e5.Z143"]
+
+[[node]]
+id = "e5_z148"
+anchors = ["zone:e5.Z148"]
+
+[[node]]
+id = "e5_z154"
+anchors = ["zone:e5.Z154"]
+
+[[node]]
+id = "e5_z197"
+anchors = ["zone:e5.Z197"]
+
+[[node]]
+id = "e5_z226"
+anchors = ["zone:e5.Z226"]
+
+[[node]]
+id = "e5_z315"
+anchors = ["zone:e5.Z315"]
+
+[[node]]
+id = "e5_z316"
+anchors = ["zone:e5.Z316"]
+
+[[node]]
+id = "e5_z374"
+anchors = ["zone:e5.Z374"]
+
+[[node]]
+id = "e5_z376"
+anchors = ["zone:e5.Z376"]
+
+[[node]]
+id = "e5_z448"
+anchors = ["zone:e5.Z448"]
+
+[[node]]
+id = "e5_z612"
+anchors = ["zone:e5.Z614"]
+
+[[node]]
+id = "e5_z613"
+anchors = ["zone:e5.Z615"]
+
+[[node]]
+id = "e5_z723"
+anchors = ["zone:e5.Z725"]
+
+[[node]]
+id = "e5_z849"
+anchors = ["zone:e5.Z849"]
+
+[[node]]
+id = "e5_z918"
+anchors = ["zone:e5.Z920"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "e5_arena"
+to = "e5_boss_floor"
+kind = "walk"
+requires = "event:e5.guard_earth.killed"
+confidence = "data"
+
+[[edge]]
+from = "e5_arena"
+to = "e5_z009"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_arena"
+to = "e5_z085"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_arena"
+to = "e5_z122"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_arena"
+to = "e5_z1290"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_arena"
+to = "e5_z316"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e5_arena"
+to = "e5_z918"
+kind = "walk"
+requires = "flag:e5.AcidBlock_07.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e5_boss_floor"
+to = "e5_arena"
+kind = "walk"
+requires = "event:e5.guard_earth.killed"
+confidence = "data"
+
+[[edge]]
+from = "e5_dock"
+to = "e5_z009"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_dock"
+to = "e5_z010"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_dock"
+to = "e5_z021"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_dock"
+to = "e5_z315"
+kind = "walk"
+requires = "button:e5.earth_keylock7"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_dock"
+to = "e5_z448"
+kind = "walk"
+requires = "button:e5.earth_keylock6"
+confidence = "data"
+
+[[edge]]
+from = "e5_z005"
+to = "e5_z010"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z005"
+to = "e5_z017"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z005"
+to = "e5_z017"
+kind = "walk"
+requires = "event:e5.Teleporters_ResetShape1.touch & event:e5.Teleporters_ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "e5_z006"
+to = "e5_z010"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z006"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z006"
+to = "e5_z115"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z006"
+to = "e5_z197"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z009"
+to = "e5_dock"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z009"
+to = "e5_dock"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e5_z009"
+to = "e5_z010"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z009"
+to = "e5_z024"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z009"
+to = "e5_z024"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z009"
+to = "e5_z035"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z005"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z009"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z035"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z050"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z316"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z010"
+to = "e5_z316"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z012"
+to = "e5_z115"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z012"
+to = "e5_z197"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z014"
+to = "e5_z018"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z014"
+to = "e5_z121"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z017"
+to = "e5_arena"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z017"
+to = "e5_z005"
+kind = "walk"
+requires = "event:e5.Teleporters_ResetShape1.touch & event:e5.Teleporters_ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "e5_z017"
+to = "e5_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z017"
+to = "e5_z018"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z017"
+to = "e5_z018"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z017"
+to = "e5_z122"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z018"
+to = "e5_z005"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z018"
+to = "e5_z014"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z021"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z009"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z050"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z056"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z056"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z1290"
+kind = "walk"
+requires = "air>=1 & flag:e5.AcidBlock_02.destroyed & flag:e5.AcidBlock_03.destroyed"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z1290"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z143"
+kind = "walk"
+requires = "air>=3 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z374"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z024"
+to = "e5_z849"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z035"
+to = "e5_z010"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z035"
+to = "e5_z010"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z035"
+to = "e5_z148"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z035"
+to = "e5_z148"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z042"
+to = "e5_z056"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z042"
+to = "e5_z723"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z042"
+to = "e5_z723"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z042"
+to = "e5_z723"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z044"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z044"
+to = "e5_z021"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z044"
+to = "e5_z099"
+kind = "walk"
+requires = "(air>=1 & button:e5.earth_keylock4 & button:e5.earth_keylock5) | air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z044"
+to = "e5_z099"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z044"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z099"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z099"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=1 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z1290"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z143"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z143"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z374"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z050"
+to = "e5_z613"
+kind = "walk"
+requires = "flag:e5.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e5_z056"
+to = "e5_z018"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z056"
+to = "e5_z018"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z056"
+to = "e5_z042"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z059"
+to = "e5_z448"
+kind = "walk"
+requires = "button:e5.earth_keylock6"
+confidence = "data"
+
+[[edge]]
+from = "e5_z062"
+to = "e5_z009"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z062"
+to = "e5_z085"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z062"
+to = "e5_z114"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z085"
+to = "e5_z062"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z085"
+to = "e5_z143"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z086"
+to = "e5_z006"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z086"
+to = "e5_z006"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z086"
+to = "e5_z006"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "e5_z086"
+to = "e5_z010"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z086"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=1 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z086"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z086"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e5_z091"
+to = "e5_z115"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z091"
+to = "e5_z197"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z091"
+to = "e5_z197"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z099"
+to = "e5_dock"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z099"
+to = "e5_z035"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z099"
+to = "e5_z044"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z102"
+to = "e5_z006"
+kind = "walk"
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z102"
+to = "e5_z010"
+kind = "walk"
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z102"
+to = "e5_z010"
+kind = "walk"
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z102"
+to = "e5_z012"
+kind = "walk"
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z102"
+to = "e5_z012"
+kind = "walk"
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z102"
+to = "e5_z086"
+kind = "walk"
+requires = "air>=3 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e5_z102"
+to = "e5_z115"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z114"
+to = "e5_z017"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z114"
+to = "e5_z062"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z114"
+to = "e5_z062"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z114"
+to = "e5_z849"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z115"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=3 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z115"
+to = "e5_z197"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z121"
+to = "e5_z056"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z122"
+to = "e5_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z122"
+to = "e5_z017"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z1290"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z1290"
+to = "e5_z050"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z1290"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z143"
+to = "e5_z009"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z143"
+to = "e5_z035"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z143"
+to = "e5_z085"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z143"
+to = "e5_z085"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e5_z143"
+to = "e5_z148"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z148"
+to = "e5_z010"
+kind = "walk"
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z148"
+to = "e5_z035"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z148"
+to = "e5_z035"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z148"
+to = "e5_z035"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e5_z154"
+to = "e5_z376"
+kind = "walk"
+requires = "flag:e5.AcidBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e5_z197"
+to = "e5_z115"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z226"
+to = "e5_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z226"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z226"
+to = "e5_z102"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z315"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z316"
+to = "e5_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z374"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z374"
+to = "e5_dock"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e5_z376"
+to = "e5_z154"
+kind = "walk"
+requires = "flag:e5.AcidBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e5_z448"
+to = "e5_dock"
+kind = "walk"
+requires = "button:e5.earth_keylock6"
+confidence = "data"
+
+[[edge]]
+from = "e5_z448"
+to = "e5_z059"
+kind = "walk"
+requires = "button:e5.earth_keylock6"
+confidence = "data"
+
+[[edge]]
+from = "e5_z612"
+to = "e5_z154"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z613"
+to = "e5_z050"
+kind = "walk"
+requires = "flag:e5.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e5_z723"
+to = "e5_z042"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e5_z849"
+to = "e5_z114"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e5_z918"
+to = "e5_arena"
+kind = "walk"
+requires = "flag:e5.AcidBlock_07.destroyed"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # E5_E2 -> e2 (spot); the gear-room fall into the turning gear's exit (the owner's demo, X.78, D722 row 03: from the E2_E5 arrival he stood in e5.Z014 about 2.2 min at kit 0, then fell 46 ticks straight into the exit trigger and e2 loaded by E5_E2 at E5b_E2b, with no tick on e5.Z581 [verified xemu, the owner's real input: $EV/x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt 18:18]). The derive's switch zone e5.Z121, reached only over e5.Z581 by the hand edge e5.Z581 > Z121 (inferred from the vanilla route) until Step R1.24b, was on no route the demo or Step X.78's placed reads took
+from = "e5_z014"
+to = "e2_z156"
+kind = "exit"
+exit = "e5/g0/r5684"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # levelSwitch2 -> e2 (spot); RANDOMIZER_PLAN 2.10 v1: the gondola stays out of logic (its side bit makes e2's dock a lethal drop while the bucket is away [verified xemu, placed: rz-b2 I-10]); the ride back brings the e2 bucket home to its dock beside e2.Z000 [verified xemu, placed: rz-b2]
+from = "e5_z374"
+to = "e2_core"
+kind = "cart"
+exit = "e5/g0/r5709"
+lock = "minecart_e2e5"
+logic = false
+requires = "true"
+confidence = "data"
+
+[[edge]]  # DiskReplaced_levelSwitch -> town (spot); and(nand(global[earth_disk_placed]), gs[earth fragments]>=4) [verified data; verified xemu, placed: rz-b2 I-7]; the 4th fragment is the guardian slot on the boss floor
+from = "e5_boss_floor"
+to = "town_z020"
+kind = "teleport"
+exit = "e5/g0/r5713"
+disc = "earth"
+requires = "disce>=4"
+confidence = "data"
+
+[[edge]]  # levelSwitch3 -> f2 (spot); its arrival E5_F2 is a spot the derive places on no floor; the probes sitting stood it 8.7 m from F2_E5, on f2's entrance f2.Z003 [verified xemu, $EV/xemu-oracle-2026-10-12-probes exits-oneway.json]
+from = "e5_z059"
+to = "f2_entrance"
+kind = "exit"
+exit = "e5/g0/r5714"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # firewall watr, generated requires water>=2, timed
+id = "e5.FireWall_02"
+of = "e5/g0/r21"
+destroy_from = ["e5_z017", "e5_z114", "e5_z849"]
+
+[[barrier]]  # crystal wind, generated requires earth>=1 & air>=1, mixed
+id = "e5.crystal"
+of = "e5/g0/r2304"
+destroy_from = ["e5_z723"]
+
+[[barrier]]  # crystal smsh, generated requires earth>=1 & air>=1 & fire>=1, mixed
+id = "e5.crystal1"
+of = "e5/g0/r2400"
+destroy_from = ["e5_z315"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "e5.AcidBlock_07"
+of = "e5/g0/r2522"
+destroy_from = ["e5_arena", "e5_z918"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "e5.AcidBlock_06"
+of = "e5/g0/r2604"
+destroy_from = ["e5_arena", "e5_z1098"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "e5.AcidBlock_04"
+of = "e5/g0/r2685"
+destroy_from = ["e5_arena"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "e5.AcidBlock_05"
+of = "e5/g0/r2766"
+destroy_from = ["e5_arena", "e5_z1123"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "e5.AcidBlock_02"
+of = "e5/g0/r3717"
+destroy_from = ["e5_z154", "e5_z376", "e5_z612", "e5_z613"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "e5.AcidBlock_03"
+of = "e5/g0/r5286"
+destroy_from = ["e5_z050", "e5_z1290", "e5_z154", "e5_z376", "e5_z612", "e5_z613"]
+
+[[button]]  # keylock, generated requires key.fuse>=1
+id = "e5.earth_keylock4"
+of = "e5/g0/r115"
+at = "e5_z024"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.fuse>=1
+id = "e5.earth_keylock5"
+of = "e5/g0/r122"
+at = "e5_z024"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.battery>=1
+id = "e5.earth_keylock6"
+of = "e5/g0/r1067"
+at = "e5_dock"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.battery>=1
+id = "e5.earth_keylock7"
+of = "e5/g0/r4469"
+at = "e5_dock"
+mode = "latch"
+
+[[button]]  # seal, generated requires disce>=3
+id = "e5.seal"
+of = "e5/g0/r2125"
+at = "e5_z017"
+mode = "latch"
+
+[[event]]  # the kill needs magic >= 2 on a shape of each of the four arena acid blocks (their melt toggles feed the vents' count) [verified data]; that acid (earth + water) at power level 2 gives it is [inferred, static] (R0.3b §6; the route's kit there); default taken under D115
+id = "e5.guard_earth.killed"
+of = "e5/g0/r2847"
+at = "e5_arena"
+requires = "earth>=2 & water>=2"
+
+[[event]]  # SongRoomCrystal1's crystal (damage wind = earth + air) latches Crystal_Whirlwind4_Hit_latch, e6's SongWhirlwind4_hit, on any non-zero magic: level 1 suffices [verified xemu, placed: rz-b2 I-3]
+id = "e5.crystal_whirlwind.hit"
+at = "e5_z723"
+requires = "earth>=1 & air>=1"
+
+[[event]]  # SongRoomCrystal's crystal (damage smsh = earth + air + fire) latches Crystal_Smash2_Hit_latch, e6's SongSmash2_hit, on any non-zero magic: level 1 suffices [verified data; verified xemu for the wind crystal, rz-b2 I-3]
+id = "e5.crystal_pulse.hit"
+at = "e5_z315"
+requires = "earth>=1 & air>=1 & fire>=1"
+
+[[event]]  # derived: hit of DiamondStone1:DiamondStoneShape
+id = "e5.DiamondStone1_DiamondStoneShape.hit"
+at = "e5_z006"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone2:DiamondStoneShape
+id = "e5.DiamondStone2_DiamondStoneShape.hit"
+at = "e5_z012"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone3:DiamondStoneShape
+id = "e5.DiamondStone3_DiamondStoneShape.hit"
+at = "e5_z009"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone:DiamondStoneShape
+id = "e5.DiamondStone_DiamondStoneShape.hit"
+at = "e5_z006"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone1:EmeraldStone1:WindRockShape
+id = "e5.EmeraldStone1_EmeraldStone1_WindRockShape.hit"
+at = "e5_z021"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone2:EmeraldStone1:WindRockShape
+id = "e5.EmeraldStone2_EmeraldStone1_WindRockShape.hit"
+at = "e5_dock"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone3:EmeraldStone1:WindRockShape
+id = "e5.EmeraldStone3_EmeraldStone1_WindRockShape.hit"
+at = "e5_z010"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone:EmeraldStone1:WindRockShape
+id = "e5.EmeraldStone_EmeraldStone1_WindRockShape.hit"
+at = "e5_dock"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone:RubyStone1Shape
+id = "e5.RubyStone_RubyStone1Shape.hit"
+at = "e5_z005"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone1:SaphiresShape
+id = "e5.SapphireStone1_SaphiresShape.hit"
+at = "e5_z018"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone2:SaphiresShape
+id = "e5.SapphireStone2_SaphiresShape.hit"
+at = "e5_z010"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone3:SaphiresShape
+id = "e5.SapphireStone3_SaphiresShape.hit"
+at = "e5_dock"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone4:SaphiresShape
+id = "e5.SapphireStone4_SaphiresShape.hit"
+at = "e5_dock"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone:SaphiresShape
+id = "e5.SapphireStone_SaphiresShape.hit"
+at = "e5_z014"
+requires = "true"
+
+[[event]]  # derived: touch of Teleporters:ResetShape1
+id = "e5.Teleporters_ResetShape1.touch"
+at = "e5_z017"
+requires = "true"
+
+[[event]]  # derived: touch of Teleporters:ResetShape2
+id = "e5.Teleporters_ResetShape2.touch"
+at = "e5_z005"
+requires = "true"
+
+[[location]]
+id = "e5/g0/r4263"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 | water>=2 & fire>=2 & air>=2 & skip:e5.frag_fire3_earth1 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115); or that kit with earth 1 by e5.frag_fire3_earth1 (its own requires: earth 1 & water 2), the pocket reached round AcidBlock_02 and AcidBlock_03 unmelted (AZ-512, Step R1.30)"
+
+[[location]]
+id = "e5/g0/r4266"
+requires = "water>=2 & fire>=2 & air>=1 & earth>=1"
+note = "the conservative-kit rule: the derive reaches the second fuse key's perch (e5.Z102) only past SolidCubeHack, which both fuse locks remove, so in the derive the two locks need a key found only behind them; the vanilla run takes both keys before the locks (route.toml), so the key is taken from the arrival with the kit the run holds when it collects it [computed: route.toml] (default taken under D115; the realm's probe sitting owes the way up)"
+
+[[location]]
+id = "e5/g0/r4271"
+proven = { by = "data", ref = "rando author: derived/e5.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e5/g0/r4758"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4760"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4762"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "diamond on e5.Z226, whose ways in the derive holds as barrier bypasses since Step X.16 (the gate sides moved with the re-derive): the conservative-kit rule (off the route: the level's last route step, e5/g0/r4268, and the route's e5 actions before it)"
+
+[[location]]
+id = "e5/g0/r4764"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4766"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4779"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4782"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4785"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4814"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4817"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4820"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4849"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4852"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4855"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5 & button:e5.earth_keylock6 & button:e5.earth_keylock7 & button:e5.seal"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "e5/g0/r4927"
+proven = { by = "data", ref = "rando author: derived/e5.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e5/g0/r5069"
+proven = { by = "data", ref = "rando author: derived/e5.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e5/g0/r5176"
+proven = { by = "data", ref = "rando author: derived/e5.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e5/g0/r5262"
+proven = { by = "data", ref = "rando author: derived/e5.json.gz, safe-tier data and physics edges both ways" }
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "e5.frag_fire3_earth1"
+name = "e5 frag_fire_3 with earth 1"
+tricks = ["bskip"]
+requires = "earth>=1 & water>=2"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "l3", ref = "r18g/8cdbde141518@7ef84c97d498" }
+gates = ["e5.AcidBlock_02", "e5.AcidBlock_03"]

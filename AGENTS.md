@@ -88,6 +88,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - Only `scripts/oracle_sync.py` changes these files; never edit them by hand.
   - A tag bump prints Modkit's commits since the last sync. That list is the
     port's to-do.
+  - **Modkit's source a sync installs** (`oracle_sync.SOURCES`): the rando
+    family's sync also installs the randomizer's database
+    (`src/azurkit/tools/randomizer/data/`, our own logic data, copied
+    verbatim) and its planner (`.../randomizer/planner/`, each module through
+    `port()`: `REWRITES`' imports, and the top-level statements `DROPS` names
+    taken out, such as the seed roll's process pool). ORACLE.toml's `source`
+    table holds each installed file's sha256 and `tests/test_oracle.py`
+    refuses a hand edit: a Modkit fix arrives by the next sync. A module
+    that still imports Modkit after the rewrites, or a statement `DROPS`
+    names that is gone, stops the sync by name before anything is written:
+    port what it imports into an AzurKit module, then add a rewrite.
 - AzurKit never imports Modkit, and nothing NOTICE.md credits to JTCPP is
   ported (D95). `tests/test_provenance.py` checks that.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
@@ -212,6 +223,28 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   then G1 per file on both releases (`tests/test_packs.py`; `tests/_g1.py`
   reads G1, whose Europe half has no case for a config.xbr-only pack: the
   file is the same in both releases, so its USA cases stand for it).
+
+## The randomizer
+
+- **The planner** (Step 4.2a; `src/azurkit/tools/randomizer/`): `plan(recipe)`
+  fills the database's authored levels for a seed (any string) under the
+  database's default settings (D144), a settings file's table (`settings`)
+  or a share string (`share`), and returns Modkit's plan file's object;
+  `spoiler(doc)` reads one back. The sdk's `plan` and `spoiler` and the CLI's
+  `azurkit plan` and `azurkit spoiler` call them. A plan needs no image.
+  - `planner/` and `data/` are Modkit's, installed by the sync (above):
+    never edit them by hand. `writer.py` (the string rules the fill reads:
+    Modkit's writer up to `layout`, which Step 4.2b extends with the writes
+    and the read-back) and `dbcache.py` (no cache on disk: a pickle read
+    back from a writable folder runs its code) are ours.
+  - The fill runs in the caller's thread: Modkit's seed roll in a process
+    pool (`roll_seed`) isn't ported. Settings with movement sliders (a share
+    string's) are refused by name until Step 4.2b ports the logic's re-check
+    under them (physics and movement).
+  - `tests/test_randomizer.py` holds it to the oracle's `rando_plans.json`:
+    seed 2's attempt and plan sha256 under the strict, default and max
+    settings, and the default plan file byte for byte, on CPython and under
+    Pyodide. The page's Randomizer tab stays hidden until Step 4.2c (D902).
 
 ## The engine's contracts
 

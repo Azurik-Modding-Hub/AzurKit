@@ -1,0 +1,37 @@
+# levels/airship.toml: written by `azurik-mod rando author airship` (Step R1.8) from generated/airship.json,
+# derived/airship.json.gz, tricks.toml and draft/authoring/airship.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "airship"
+status = "authored"
+known_traps = []
+route = []
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "airship_deck"
+anchors = ["zone:airship.Z001"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # EndFight_levelSwitch -> a3 (startspot); AZ-289's rule: the airship -> a3 edge needs the Balthazar kill (the switch's numDead gate, kept), and the writer never rewrites EndFight (fired while he lives it hangs the game on the airship_docking movie, sitting skips-h)
+from = "airship_deck"
+to = "a3_hub"
+kind = "exit"
+exit = "airship/g0/r611"
+requires = "flag:airship.balthazar.killed"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[event]]  # Balthazar is on his generator's list at the first player tick after the arrival and comes to the player; plain-staff hits are never blocked by his adaptive armor, so no element is needed [verified xemu, placed: $EV/balthazar-armor-2026-10-12/REPORT.md, fight start 13 of 13 and 74 of 74 contacts; the static RE's 'plain-staff hits are never blocked']
+id = "airship.balthazar.killed"
+of = "airship/g0/r11"
+at = "airship_deck"
+requires = "true"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------

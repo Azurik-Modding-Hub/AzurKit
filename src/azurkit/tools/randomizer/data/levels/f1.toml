@@ -1,0 +1,2544 @@
+# levels/f1.toml: written by `azurik-mod rando author f1` (Step R1.8) from generated/f1.json,
+# derived/f1.json.gz, tricks.toml and draft/authoring/f1.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "f1"
+status = "authored"
+known_traps = []
+route = ["f1/g0/r1399", "f1/g0/r1401", "f1/g0/r1403", "f1/g0/r1687", "f1/g0/r1691", "f1/g0/r2017", "f1/g0/r1698", "f1/g0/r1689", "f1/g0/r1693", "f1/g0/r1695", "f1/g0/r2176"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "f1_core"
+anchors = ["zone:f1.Z000", "zone:f1.Z230"]
+
+[[node]]
+id = "f1_f3_side"
+anchors = ["zone:f1.Z009"]
+
+[[node]]
+id = "f1_f6_side"
+anchors = ["zone:f1.Z004"]
+
+[[node]]
+id = "f1_keylocks"
+anchors = ["zone:f1.Z002"]
+
+[[node]]
+id = "f1_lava_tubes"
+anchors = ["zone:f1.Z016", "zone:f1.Z449"]
+
+[[node]]
+id = "f1_town_side"
+anchors = ["zone:f1.Z008"]
+
+[[node]]
+id = "f1_z001"
+anchors = ["zone:f1.Z001"]
+
+[[node]]
+id = "f1_z003"
+anchors = ["zone:f1.Z003"]
+
+[[node]]
+id = "f1_z006"
+anchors = ["zone:f1.Z006"]
+
+[[node]]
+id = "f1_z010"
+anchors = ["zone:f1.Z010", "zone:f1.Z059"]
+
+[[node]]
+id = "f1_z011"
+anchors = ["zone:f1.Z011"]
+
+[[node]]
+id = "f1_z013"
+anchors = ["zone:f1.Z013"]
+
+[[node]]
+id = "f1_z015"
+anchors = ["zone:f1.Z015"]
+
+[[node]]
+id = "f1_z017"
+anchors = ["zone:f1.Z017"]
+
+[[node]]
+id = "f1_z020"
+anchors = ["zone:f1.Z020"]
+
+[[node]]
+id = "f1_z021"
+anchors = ["zone:f1.Z021"]
+
+[[node]]
+id = "f1_z025"
+anchors = ["zone:f1.Z025"]
+
+[[node]]
+id = "f1_z026"
+anchors = ["zone:f1.Z026"]
+
+[[node]]
+id = "f1_z028"
+anchors = ["zone:f1.Z028"]
+
+[[node]]
+id = "f1_z031"
+anchors = ["zone:f1.Z031"]
+
+[[node]]
+id = "f1_z033"
+anchors = ["zone:f1.Z033"]
+
+[[node]]
+id = "f1_z040"
+anchors = ["zone:f1.Z040"]
+
+[[node]]
+id = "f1_z046"
+anchors = ["zone:f1.Z046"]
+
+[[node]]
+id = "f1_z050"
+anchors = ["zone:f1.Z050"]
+
+[[node]]
+id = "f1_z072"
+anchors = ["zone:f1.Z072"]
+
+[[node]]
+id = "f1_z077"
+anchors = ["zone:f1.Z077"]
+
+[[node]]
+id = "f1_z107"
+anchors = ["zone:f1.Z106"]
+
+[[node]]
+id = "f1_z117"
+anchors = ["zone:f1.Z117"]
+
+[[node]]
+id = "f1_z122"
+anchors = ["zone:f1.Z122"]
+
+[[node]]
+id = "f1_z144"
+anchors = ["zone:f1.Z144"]
+
+[[node]]
+id = "f1_z150"
+anchors = ["zone:f1.Z150"]
+
+[[node]]
+id = "f1_z166"
+anchors = ["zone:f1.Z166"]
+
+[[node]]
+id = "f1_z170"
+anchors = ["zone:f1.Z170"]
+
+[[node]]
+id = "f1_z175"
+anchors = ["zone:f1.Z175"]
+
+[[node]]
+id = "f1_z198"
+anchors = ["zone:f1.Z198"]
+
+[[node]]
+id = "f1_z200"
+anchors = ["zone:f1.Z200"]
+
+[[node]]
+id = "f1_z213"
+anchors = ["zone:f1.Z213"]
+
+[[node]]
+id = "f1_z221"
+anchors = ["zone:f1.Z221"]
+
+[[node]]
+id = "f1_z222"
+anchors = ["zone:f1.Z222"]
+
+[[node]]
+id = "f1_z272"
+anchors = ["zone:f1.Z271"]
+
+[[node]]
+id = "f1_z285"
+anchors = ["zone:f1.Z284"]
+
+[[node]]
+id = "f1_z297"
+anchors = ["zone:f1.Z297"]
+
+[[node]]
+id = "f1_z305"
+anchors = ["zone:f1.Z305"]
+
+[[node]]
+id = "f1_z368"
+anchors = ["zone:f1.Z369"]
+
+[[node]]
+id = "f1_z378"
+anchors = ["zone:f1.Z379"]
+
+[[node]]
+id = "f1_z438"
+anchors = ["zone:f1.Z440"]
+
+[[node]]
+id = "f1_z442"
+anchors = ["zone:f1.Z444"]
+
+[[node]]
+id = "f1_z462"
+anchors = ["zone:f1.Z464"]
+
+[[node]]
+id = "f1_z463"
+anchors = ["zone:f1.Z465"]
+
+[[node]]
+id = "f1_z478"
+anchors = ["zone:f1.Z480"]
+
+[[node]]
+id = "f1_z482"
+anchors = ["zone:f1.Z484"]
+
+[[node]]
+id = "f1_z488"
+anchors = ["zone:f1.Z490"]
+
+[[node]]
+id = "f1_z489"
+anchors = ["zone:f1.Z491"]
+
+[[node]]
+id = "f1_z511"
+anchors = ["zone:f1.Z513"]
+
+[[node]]
+id = "f1_z512"
+anchors = ["zone:f1.Z514"]
+
+[[node]]
+id = "f1_z542"
+anchors = ["zone:f1.Z544"]
+
+[[node]]
+id = "f1_z550"
+anchors = ["zone:f1.Z552"]
+
+[[node]]
+id = "f1_z613"
+anchors = ["zone:f1.Z615"]
+
+[[node]]
+id = "f1_z614"
+anchors = ["zone:f1.Z616"]
+
+[[node]]
+id = "f1_z618"
+anchors = ["zone:f1.Z620"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "f1_core"
+to = "f1_f3_side"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_core"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout13"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z003"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout13"]
+confidence = "data"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z011"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "data"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z026"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z046"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout13"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z117"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z144"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z166"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z170"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z297"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z305"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z305"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout13"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z305"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z462"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z463"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z478"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z488"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z489"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout13"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z511"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "data"
+
+[[edge]]
+from = "f1_core"
+to = "f1_z542"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_f3_side"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_f6_side"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_f6_side"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_f6_side"
+to = "f1_z200"
+kind = "walk"
+requires = "flag:f1.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f1_f6_side"
+to = "f1_z305"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout11"]
+confidence = "data"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout12"]
+confidence = "data"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z003"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout11"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z003"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z046"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z117"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z117"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f1_keylocks"
+to = "f1_z489"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_lava_tubes"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_lava_tubes"
+to = "f1_f6_side"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_lava_tubes"
+to = "f1_f6_side"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_lava_tubes"
+to = "f1_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_lava_tubes"
+to = "f1_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_lava_tubes"
+to = "f1_z025"
+kind = "walk"
+requires = "flag:f1.polySurfaceShape2.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_f6_side"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_f6_side"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_lava_tubes"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z013"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z025"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z050"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z077"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z077"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z122"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z272"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_town_side"
+to = "f1_z272"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout11"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout12"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z015"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout3"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z017"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout8"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z040"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout5"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z117"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout11"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z213"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z618"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z001"
+to = "f1_z618"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout8"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z003"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout13"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z006"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z006"
+to = "f1_z015"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z006"
+to = "f1_z028"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout1"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z010"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z010"
+to = "f1_z026"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z010"
+to = "f1_z026"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z010"
+to = "f1_z050"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z010"
+to = "f1_z122"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z011"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z011"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z011"
+to = "f1_z026"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z011"
+to = "f1_z050"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z011"
+to = "f1_z170"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z011"
+to = "f1_z511"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_core"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout1", "f1.flameSpout9"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout1"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_core"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout1", "f1.flameSpout9"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_f6_side"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_z010"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_z026"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_z050"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_z050"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_z072"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout1"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_z107"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout1"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z013"
+to = "f1_z150"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout1", "f1.flameSpout17"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z015"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout3"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z015"
+to = "f1_z006"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z015"
+to = "f1_z021"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout6"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z015"
+to = "f1_z021"
+kind = "walk"
+requires = "skip:f1.flamespout6_air1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z015"
+to = "f1_z031"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout2"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z015"
+to = "f1_z368"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout6"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z015"
+to = "f1_z550"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout6"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z017"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout8"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z017"
+to = "f1_z020"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout10"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z017"
+to = "f1_z028"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout17"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z020"
+to = "f1_z017"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout10"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z020"
+to = "f1_z028"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout9"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z021"
+to = "f1_z015"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout6"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z021"
+to = "f1_z442"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z021"
+to = "f1_z442"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z021"
+to = "f1_z550"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z025"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z025"
+to = "f1_lava_tubes"
+kind = "walk"
+requires = "flag:f1.polySurfaceShape2.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f1_z025"
+to = "f1_z285"
+kind = "walk"
+requires = "flag:f1.polySurfaceShape2.destroyed"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z025"
+to = "f1_z285"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z025"
+to = "f1_z512"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z026"
+to = "f1_z010"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z026"
+to = "f1_z010"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z026"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f1_z028"
+to = "f1_z006"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout1"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z028"
+to = "f1_z017"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout17"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z028"
+to = "f1_z020"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout9"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z031"
+to = "f1_z015"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout2"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z031"
+to = "f1_z040"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout14"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z010"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout15"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z011"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z011"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z013"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z025"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z050"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z050"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout15"]
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z077"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z150"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z170"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z175"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z198"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z221"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z221"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z221"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z221"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout15"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z222"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z033"
+to = "f1_z222"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z040"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout5"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z040"
+to = "f1_z031"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout14"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z046"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z046"
+to = "f1_z489"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z050"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z050"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z050"
+to = "f1_z026"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z072"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z072"
+to = "f1_z010"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z072"
+to = "f1_z107"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z077"
+to = "f1_town_side"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z077"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z077"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f1_z077"
+to = "f1_z175"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z077"
+to = "f1_z175"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z077"
+to = "f1_z198"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z077"
+to = "f1_z221"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z107"
+to = "f1_z072"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z107"
+to = "f1_z462"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z117"
+to = "f1_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z117"
+to = "f1_core"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f1_z117"
+to = "f1_keylocks"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z117"
+to = "f1_keylocks"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z117"
+to = "f1_z001"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z117"
+to = "f1_z003"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z117"
+to = "f1_z305"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z122"
+to = "f1_z006"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z122"
+to = "f1_z006"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z144"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z144"
+to = "f1_z166"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z144"
+to = "f1_z297"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z150"
+to = "f1_z072"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z150"
+to = "f1_z107"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z150"
+to = "f1_z170"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z166"
+to = "f1_z006"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z166"
+to = "f1_z144"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z170"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z170"
+to = "f1_z010"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z170"
+to = "f1_z011"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z175"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z175"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z175"
+to = "f1_z013"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z175"
+to = "f1_z013"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z175"
+to = "f1_z221"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z198"
+to = "f1_lava_tubes"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f1_z198"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z198"
+to = "f1_z033"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z198"
+to = "f1_z072"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z198"
+to = "f1_z077"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z198"
+to = "f1_z221"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z200"
+to = "f1_f6_side"
+kind = "walk"
+requires = "flag:f1.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f1_z213"
+to = "f1_z438"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z213"
+to = "f1_z438"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z011"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z013"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z050"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z107"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z150"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z170"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z175"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z221"
+to = "f1_z175"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z222"
+to = "f1_z011"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z222"
+to = "f1_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z222"
+to = "f1_z025"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z222"
+to = "f1_z050"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z222"
+to = "f1_z150"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z222"
+to = "f1_z198"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z222"
+to = "f1_z221"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z272"
+to = "f1_f6_side"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z272"
+to = "f1_f6_side"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z272"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z272"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z285"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z285"
+to = "f1_town_side"
+kind = "walk"
+requires = "air>=3 & earth>=1 & fire>=1 & flag:f1.polySurfaceShape2.destroyed"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z285"
+to = "f1_z025"
+kind = "walk"
+requires = "air>=1 | (air>=1 & flag:f1.polySurfaceShape2.destroyed)"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z285"
+to = "f1_z025"
+kind = "walk"
+requires = "flag:f1.polySurfaceShape2.destroyed"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z285"
+to = "f1_z222"
+kind = "walk"
+requires = "air>=3 & earth>=1 & fire>=1 & flag:f1.polySurfaceShape2.destroyed"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z285"
+to = "f1_z305"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z285"
+to = "f1_z512"
+kind = "walk"
+requires = "air>=1 | air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z297"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z297"
+to = "f1_z144"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z297"
+to = "f1_z488"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z305"
+to = "f1_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z305"
+to = "f1_keylocks"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z368"
+to = "f1_z021"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z378"
+to = "f1_z001"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout8"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z378"
+to = "f1_z213"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout8"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z378"
+to = "f1_z438"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout8"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z378"
+to = "f1_z438"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout8"]
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z378"
+to = "f1_z618"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z438"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z438"
+to = "f1_z213"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z442"
+to = "f1_z021"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z442"
+to = "f1_z482"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z442"
+to = "f1_z550"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z462"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z462"
+to = "f1_z463"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z463"
+to = "f1_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z463"
+to = "f1_z462"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z478"
+to = "f1_core"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z478"
+to = "f1_core"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout10"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z478"
+to = "f1_z462"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout10"]
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f1_z478"
+to = "f1_z462"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout10"]
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f1_z478"
+to = "f1_z463"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout10"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z478"
+to = "f1_z542"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z482"
+to = "f1_z021"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z488"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z488"
+to = "f1_z006"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout3"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z488"
+to = "f1_z144"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout3"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z488"
+to = "f1_z144"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout3"]
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f1_z488"
+to = "f1_z166"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout3"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z488"
+to = "f1_z297"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z489"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z489"
+to = "f1_z046"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z511"
+to = "f1_core"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z511"
+to = "f1_z011"
+kind = "walk"
+requires = "true"
+through = ["f1.flameSpout15"]
+confidence = "data"
+
+[[edge]]
+from = "f1_z512"
+to = "f1_core"
+kind = "walk"
+requires = "air>=1 | air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z512"
+to = "f1_z213"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout8"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z512"
+to = "f1_z438"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout8"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z512"
+to = "f1_z438"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout8"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z512"
+to = "f1_z618"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z542"
+to = "f1_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z542"
+to = "f1_core"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout10"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z542"
+to = "f1_z462"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout10"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z542"
+to = "f1_z463"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout10"]
+confidence = "physics"
+
+[[edge]]
+from = "f1_z542"
+to = "f1_z478"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z550"
+to = "f1_z021"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f1_z550"
+to = "f1_z368"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z550"
+to = "f1_z368"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z550"
+to = "f1_z482"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z613"
+to = "f1_z614"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z614"
+to = "f1_z613"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z618"
+to = "f1_z001"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z618"
+to = "f1_z001"
+kind = "walk"
+requires = "air>=1"
+through = ["f1.flameSpout8"]
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z618"
+to = "f1_z213"
+kind = "walk"
+requires = "air>=3"
+through = ["f1.flameSpout8"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z618"
+to = "f1_z213"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout8"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z618"
+to = "f1_z378"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f1_z618"
+to = "f1_z378"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f1_z618"
+to = "f1_z438"
+kind = "walk"
+requires = "air>=2"
+through = ["f1.flameSpout8"]
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # LevelSwitch_F1_F6 -> f6 (spot)
+from = "f1_f6_side"
+to = "f6_entrance"
+kind = "exit"
+exit = "f1/g0/r2455"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # LevelSwitch_F1_Town -> town (spot+Shape)
+from = "f1_town_side"
+to = "town_z016"
+kind = "exit"
+exit = "f1/g0/r2456"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # LevelSwitch_F1_F3 -> f3 (spot)
+from = "f1_f3_side"
+to = "f3_z052"
+kind = "exit"
+exit = "f1/g0/r2461"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # other smsh, generated requires earth>=1 & air>=1 & fire>=1, permanent
+id = "f1.polySurfaceShape2"
+of = "f1/g0/r265"
+destroy_from = ["f1_lava_tubes", "f1_z025", "f1_z285"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed; doused with water 1 from the ledge the flight to Z118 leaves from, before the flight [inferred] (default taken under D115)
+id = "f1.flameSpout"
+of = "f1/g0/r362"
+destroy_from = ["f1_z006", "f1_z015", "f1_z272"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed; doused from the tunnel room before the flap to the obsidian ledge Z072 [inferred] (default taken under D115)
+id = "f1.flameSpout1"
+of = "f1/g0/r423"
+destroy_from = ["f1_z006", "f1_z013", "f1_z028"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout2"
+of = "f1/g0/r484"
+destroy_from = ["f1_z015", "f1_z031"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout3"
+of = "f1/g0/r545"
+destroy_from = ["f1_z001", "f1_z015", "f1_z297", "f1_z488"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout5"
+of = "f1/g0/r606"
+destroy_from = ["f1_z001", "f1_z040"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout6"
+of = "f1/g0/r667"
+destroy_from = ["f1_z015", "f1_z021", "f1_z442", "f1_z482"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout7"
+of = "f1/g0/r728"
+destroy_from = ["f1_z001"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout8"
+of = "f1/g0/r789"
+destroy_from = ["f1_z001", "f1_z017", "f1_z378", "f1_z512", "f1_z618"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout9"
+of = "f1/g0/r850"
+destroy_from = ["f1_z020", "f1_z028"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout10"
+of = "f1/g0/r911"
+destroy_from = ["f1_z017", "f1_z020", "f1_z478", "f1_z542"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout14"
+of = "f1/g0/r972"
+destroy_from = ["f1_z031", "f1_z040"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed; doused from the ledge the jump into the tunnel room (Z013) leaves from [inferred] (default taken under D115)
+id = "f1.flameSpout15"
+of = "f1/g0/r1033"
+destroy_from = ["f1_core", "f1_z011", "f1_z033", "f1_z511", "f1_z613", "f1_z614"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout17"
+of = "f1/g0/r1094"
+destroy_from = ["f1_z017", "f1_z028"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout13"
+of = "f1/g0/r1507"
+destroy_from = ["f1_core", "f1_z003"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout11"
+of = "f1/g0/r1568"
+destroy_from = ["f1_keylocks", "f1_z001"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f1.flameSpout12"
+of = "f1/g0/r1629"
+destroy_from = ["f1_keylocks", "f1_z001"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=3 & water>=3, permanent
+id = "f1.AcidBlock_03"
+of = "f1/g0/r2181"
+destroy_from = ["f1_f6_side", "f1_z200"]
+
+[[button]]  # keylock, generated requires key.fire1>=1
+id = "f1.fire_keylock"
+of = "f1/g0/r207"
+at = "f1_keylocks"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.fire1>=1
+id = "f1.fire_keylock1"
+of = "f1/g0/r212"
+at = "f1_keylocks"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.fire1>=1
+id = "f1.fire_keylock2"
+of = "f1/g0/r217"
+at = "f1_keylocks"
+mode = "latch"
+
+[[event]]  # derived: hit of DiamondStone1:DiamondStoneShape
+id = "f1.DiamondStone1_DiamondStoneShape.hit"
+at = "f1_z003"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone2:DiamondStoneShape
+id = "f1.DiamondStone2_DiamondStoneShape.hit"
+at = "f1_z001"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone:DiamondStoneShape
+id = "f1.DiamondStone_DiamondStoneShape.hit"
+at = "f1_core"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone:RubyStone1Shape
+id = "f1.RubyStone_RubyStone1Shape.hit"
+at = "f1_z001"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone:SaphiresShape
+id = "f1.SapphireStone_SaphiresShape.hit"
+at = "f1_z001"
+requires = "true"
+
+[[location]]
+id = "f1/g0/r1403"
+proven = { by = "l3", ref = "r129b3/cc519f5aaef1@97095da745cc" }
+note = "Step R1.29b: an L3 input string of 104 ticks (robustness 1.00 under jitter) from f1.Z000 (R6 onto a floor sample of f1.Z000; placed: R7 hop, R2 kit k0) touches it and comes back; xemu replayed it tick for tick (sitting r129b3), taking its item (key0; start 1-3 m away)"
+
+[[location]]
+id = "f1/g0/r1687"
+requires = "water>=1"
+proven = { by = "l3", ref = "r129f3/afb4a4a88e3e@97095da745cc" }
+note = "requires the proof's kit (Step R1.29f, default taken under D115). Its way back douses f1.flameSpout13 on f1_z003>f1_core #66, the route graph's way, an edge named by hand (the evidence folder's scripts/r129f_douse_back.py replaces l3_certify.crossing on leg 1: plan --spots' way back crosses nothing); at kit 0 the way back ran out of steps in all 4 seeds (certify-r129f-f1k), and the planner's kit-0 way back by f1_z489 (#36, #255, both assumed) has no walked string. Step R1.29f: an L3 input string of 2256 ticks (robustness 0.00 under jitter) from f1.Z000 (R6 onto a floor sample of f1.Z000; placed: R7 hop, R2 kit water1) touches it and comes back; xemu replayed it tick for tick (sitting r129f3), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "f1/g0/r1693"
+requires = "water>=1"
+proven = { by = "l3", ref = "r129f1/dda0cf4fd63f@97095da745cc" }
+note = "requires the proof's kit (Step R1.29g, AZ-543, default taken under D115): the logic also collects it at water 0 holding air 2, a way no string walked. Step R1.29e: an L3 input string of 876 ticks (robustness 0.06 under jitter) from f1.Z000 (R6 onto a floor sample of f1.Z000; placed: R7 hop, R2 kit water1) touches it and comes back; xemu replayed it tick for tick (sitting r129f1), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "f1/g0/r2176"
+proven = { by = "data", ref = "rando author: derived/f1.json.gz, safe-tier data and physics edges both ways" }
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "f1.flamespout6_air1"
+name = "f1 flameSpout6 to key_fire1 (air 1)"
+tricks = ["bskip"]
+requires = "air>=1"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-d/G7:f1.flamespout6_air1" }
+gates = ["f1.flameSpout6"]

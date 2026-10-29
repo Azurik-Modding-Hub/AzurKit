@@ -1,0 +1,375 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "azurik-mod rando db-extract",
+  "source": {
+   "file": "gamedata/training_room.xbr",
+   "sha256_12": "b99cfa8b85f3",
+   "size": 4618688
+  }
+ },
+ "barriers": [
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "training_room/g2/r117",
+   "kind": "other",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Vase08Shape",
+   "near_locations": [],
+   "persist": "timed",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "training_room/g2/r117"
+   ],
+   "switches": [
+    "training_room/g2/r118"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "training_room/g2/r122",
+   "kind": "other",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Vase10Shape",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "training_room/g2/r122"
+   ],
+   "switches": [
+    "training_room/g2/r123"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "training_room/g2/r127",
+   "kind": "other",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Vase09Shape",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "training_room/g2/r127"
+   ],
+   "switches": [
+    "training_room/g2/r128"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "training_room/g2/r132",
+   "kind": "other",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Vase07Shape",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "training_room/g2/r132"
+   ],
+   "switches": [
+    "training_room/g2/r133"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "training_room/g2/r137",
+   "kind": "other",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Vase06Shape",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "training_room/g2/r137"
+   ],
+   "switches": [
+    "training_room/g2/r138"
+   ]
+  }
+ ],
+ "bosses": [],
+ "cells": [
+  "Training_RoomCellShape",
+  "default cell"
+ ],
+ "counts": {
+  "barriers": 5,
+  "bosses": 0,
+  "exits": 1,
+  "game_states": 1,
+  "geodes": 0,
+  "keylocks": 0,
+  "keylords": 0,
+  "latches": 0,
+  "locations_in_pool": {},
+  "locations_not_in_pool": 4,
+  "obsidian_locks": 0,
+  "save_points": 1,
+  "seals": 0,
+  "spots": 1,
+  "teleporters": 0
+ },
+ "exits": [
+  {
+   "arrival": null,
+   "arrival_by": null,
+   "arrival_graph_known": null,
+   "dest": "start-playing",
+   "dest_level": null,
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "or(actionButton(DoorShape), switch[T6_finish_toggle]{on=numDead(sleeth_x@DifficultCritter_critterGeneratorShape)}.output)",
+   "id": "training_room/g2/r242",
+   "kind": "start",
+   "live": true,
+   "movie": "bink:training.bik;possessed.bik;disksdestroyed.bik",
+   "name": "EndTutorial_levelSwitch",
+   "spot": "startspot"
+  }
+ ],
+ "game_states": [
+  {
+   "id": "training_room/g2/r82",
+   "links": [
+    {
+     "to": "AirFuel_andCombiner.inputs[0]",
+     "var": "air fuel",
+     "when": "<=4"
+    },
+    {
+     "to": "EarthFuel_andCombiner.inputs[0]",
+     "var": "earth fuel",
+     "when": "<=4"
+    },
+    {
+     "to": "FireFuel_andCombiner.inputs[0]",
+     "var": "fire fuel",
+     "when": "<=4"
+    },
+    {
+     "to": "WaterFuel_andCombiner.inputs[0]",
+     "var": "water fuel",
+     "when": "<=4"
+    },
+    {
+     "to": "T3_check_andCombiner.inputs[1]",
+     "var": "damage type",
+     "when": "in{3}"
+    },
+    {
+     "to": "T2_check_andCombiner.inputs[1]",
+     "var": "armor type",
+     "when": "in{1}"
+    },
+    {
+     "to": "T4p_check_andCombiner.inputs[1]",
+     "var": "damage type",
+     "when": "in{8}"
+    }
+   ],
+   "name": "ArmorAndWeaponCheck_gameState",
+   "vars": [
+    "air fuel",
+    "armor type",
+    "damage type",
+    "earth fuel",
+    "fire fuel",
+    "water fuel"
+   ]
+  }
+ ],
+ "geodes": [],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 127,
+   "ndbg_toc_index": 44,
+   "padding_after": 1192,
+   "records": 46,
+   "saved_nodes": 0,
+   "toc_index": 49
+  },
+  {
+   "g": 1,
+   "links": 127,
+   "ndbg_toc_index": 92,
+   "padding_after": 5288,
+   "records": 46,
+   "saved_nodes": 0,
+   "toc_index": 93
+  },
+  {
+   "g": 2,
+   "links": 200,
+   "ndbg_toc_index": 322,
+   "padding_after": 2264,
+   "records": 277,
+   "saved_nodes": 24,
+   "toc_index": 323
+  }
+ ],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "tutorial",
+ "latches": [],
+ "level": "training_room",
+ "locations": [
+  {
+   "cell": "Training_RoomCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [
+    "training_room/g2/r229 AirFuel_andCombiner.output"
+   ],
+   "gated_by": [],
+   "id": "training_room/g2/r230",
+   "item": "large_air_fuel",
+   "name": "AirFuel_generatorShape",
+   "name_ref": {
+    "field": 4094788,
+    "length": 14,
+    "string": 4114708
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "AirFuel_generator",
+   "points": 1,
+   "pool": false,
+   "saved": false,
+   "template": "large_air_fuel",
+   "unbounded": true,
+   "yield": null
+  },
+  {
+   "cell": "Training_RoomCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [
+    "training_room/g2/r232 EarthFuel_andCombiner.output"
+   ],
+   "gated_by": [],
+   "id": "training_room/g2/r233",
+   "item": "large_earth_fuel",
+   "name": "EarthFuel_generatorShape",
+   "name_ref": {
+    "field": 4094996,
+    "length": 16,
+    "string": 4114932
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "EarthFuel_generator",
+   "points": 1,
+   "pool": false,
+   "saved": false,
+   "template": "large_earth_fuel",
+   "unbounded": true,
+   "yield": null
+  },
+  {
+   "cell": "Training_RoomCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [
+    "training_room/g2/r235 FireFuel_andCombiner.output"
+   ],
+   "gated_by": [],
+   "id": "training_room/g2/r236",
+   "item": "large_fire_fuel",
+   "name": "FireFuel_generatorShape",
+   "name_ref": {
+    "field": 4095204,
+    "length": 15,
+    "string": 4115160
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "FireFuel_generator",
+   "points": 1,
+   "pool": false,
+   "saved": false,
+   "template": "large_fire_fuel",
+   "unbounded": true,
+   "yield": null
+  },
+  {
+   "cell": "Training_RoomCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [
+    "training_room/g2/r238 WaterFuel_andCombiner.output"
+   ],
+   "gated_by": [],
+   "id": "training_room/g2/r239",
+   "item": "large_water_fuel",
+   "name": "WaterFuel_generatorShape",
+   "name_ref": {
+    "field": 4095412,
+    "length": 16,
+    "string": 4115384
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "WaterFuel_generator",
+   "points": 1,
+   "pool": false,
+   "saved": false,
+   "template": "large_water_fuel",
+   "unbounded": true,
+   "yield": null
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [
+  {
+   "do_save": "and(switch[T4_finish_toggle]{on=nor(0, switch[Vase_toggle06]{off=magic(Vase06Shape)}.goal, switch[Vase_toggle07]{off=magic(Vase07Shape)}.goal, switch[Vase_toggle08]{off=magic(Vase08Shape)}.goal, switch[Vase_toggle09]{off=magic(Vase09Shape)}.goal, switch[Vase_toggle10]{off=magic(Vase10Shape)}.goal)}.output, nand(gameSaveControl:BattleDie_gameSaveControlShape.restored))",
+   "id": "training_room/g2/r226",
+   "name": "BattleDie_gameSaveControlShape",
+   "save_id": "Training",
+   "saved": false
+  }
+ ],
+ "seals": [],
+ "spots": [
+  {
+   "id": "training_room/g2/r81",
+   "name": "startspot",
+   "teleport_gate": null
+  }
+ ],
+ "teleporters": []
+}

@@ -1,0 +1,156 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "azurik-mod rando db-extract",
+  "source": {
+   "file": "gamedata/airship.xbr",
+   "sha256_12": "6bdbfae530e7",
+   "size": 10159755
+  }
+ },
+ "barriers": [],
+ "bosses": [
+  {
+   "critter": "balthazar",
+   "enabled_by": null,
+   "event": "airship.balthazar.killed",
+   "id": "airship/g0/r11",
+   "name": "balthazarGeneratorShape",
+   "num_dead_drives": [
+    "AirshipBalthazaarKilled_toggle.turnOn"
+   ],
+   "on_load": true,
+   "saved": true
+  }
+ ],
+ "cells": [
+  "MASTER_CELLShape",
+  "default cell",
+  "Air_cube_nice:skyCellShape"
+ ],
+ "counts": {
+  "barriers": 0,
+  "bosses": 1,
+  "exits": 1,
+  "game_states": 1,
+  "geodes": 0,
+  "keylocks": 0,
+  "keylords": 0,
+  "latches": 1,
+  "locations_in_pool": {},
+  "locations_not_in_pool": 0,
+  "obsidian_locks": 0,
+  "save_points": 0,
+  "seals": 0,
+  "spots": 1,
+  "teleporters": 0
+ },
+ "exits": [
+  {
+   "arrival": "a3/g0/r2124",
+   "arrival_by": "startspot",
+   "arrival_graph_known": true,
+   "dest": "levels/air/a3",
+   "dest_level": "a3",
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "switch[AirshipBalthazaarKilled_toggle]{on=numDead(balthazar@balthazarGeneratorShape)}.output",
+   "id": "airship/g0/r611",
+   "kind": "exit",
+   "live": true,
+   "movie": "movies/scenes/airship_docking",
+   "name": "EndFight_levelSwitch",
+   "spot": "W1_A3"
+  }
+ ],
+ "game_states": [
+  {
+   "id": "airship/g0/r25",
+   "links": [
+    {
+     "to": "Air_cube_nice:day_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:night_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:StarfieldShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:GasplanetShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    }
+   ],
+   "name": "Air_cube_nice:gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  }
+ ],
+ "geodes": [],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 265,
+   "ndbg_toc_index": 915,
+   "padding_after": 1364,
+   "records": 613,
+   "saved_nodes": 2,
+   "toc_index": 916
+  }
+ ],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "boss",
+ "latches": [
+  {
+   "global": "AirshipBalthazaar_killed",
+   "id": "airship/g0/r43",
+   "input": null,
+   "name": "AirshipBalthazaarKilled_latch",
+   "saved": false,
+   "update": "switch[AirshipBalthazaarKilled_toggle]{on=numDead(balthazar@balthazarGeneratorShape)}.goal"
+  }
+ ],
+ "level": "airship",
+ "locations": [],
+ "obsidian_locks": [],
+ "save_points": [],
+ "seals": [],
+ "spots": [
+  {
+   "id": "airship/g0/r9",
+   "name": "startspotShape",
+   "teleport_gate": null
+  }
+ ],
+ "teleporters": []
+}

@@ -1,0 +1,3393 @@
+# levels/e2.toml: written by `azurik-mod rando author e2` (Step R1.8) from generated/e2.json,
+# derived/e2.json.gz, tricks.toml and draft/authoring/e2.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "e2"
+status = "authored"
+known_traps = []
+route = ["e2/g0/r733", "e2/g0/r735", "e2/g0/r737", "e2/g0/r739", "e2/g0/r4778", "e2/g0/r4415", "e2/g0/r3960", "e2/g0/r4419", "e2/g0/r2955", "e2/g0/r4373", "e2/g0/r4402", "e2/g0/r4376", "e2/g0/r4398"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "e2_canyon"
+anchors = ["zone:e2.Z015"]
+
+[[node]]
+id = "e2_core"
+anchors = ["zone:e2.Z000"]
+locations = ["e2/g0/r4357", "e2/g0/r4373", "e2/g0/r4431"]
+
+[[node]]
+id = "e2_z001"
+anchors = ["zone:e2.Z001"]
+
+[[node]]
+id = "e2_z002"
+anchors = ["zone:e2.Z002"]
+
+[[node]]
+id = "e2_z003"
+anchors = ["zone:e2.Z003"]
+locations = ["e2/g0/r4778"]
+
+[[node]]
+id = "e2_z005"
+anchors = ["zone:e2.Z005", "zone:e2.Z171"]
+
+[[node]]
+id = "e2_z006"
+anchors = ["zone:e2.Z006"]
+
+[[node]]
+id = "e2_z007"
+anchors = ["zone:e2.Z007"]
+
+[[node]]
+id = "e2_z009"
+anchors = ["zone:e2.Z008"]
+
+[[node]]
+id = "e2_z012"
+anchors = ["zone:e2.Z012"]
+
+[[node]]
+id = "e2_z013"
+anchors = ["zone:e2.Z013"]
+
+[[node]]
+id = "e2_z024"
+anchors = ["zone:e2.Z024"]
+
+[[node]]
+id = "e2_z027"
+anchors = ["zone:e2.Z027"]
+
+[[node]]
+id = "e2_z028"
+anchors = ["zone:e2.Z028"]
+
+[[node]]
+id = "e2_z035"
+anchors = ["zone:e2.Z035"]
+
+[[node]]
+id = "e2_z038"
+anchors = ["zone:e2.Z038", "zone:e2.Z483"]
+
+[[node]]
+id = "e2_z039"
+anchors = ["zone:e2.Z039"]
+
+[[node]]
+id = "e2_z040"
+anchors = ["zone:e2.Z040"]
+
+[[node]]
+id = "e2_z043"
+anchors = ["zone:e2.Z043"]
+
+[[node]]
+id = "e2_z046"
+anchors = ["zone:e2.Z046"]
+
+[[node]]
+id = "e2_z052"
+anchors = ["zone:e2.Z052"]
+
+[[node]]
+id = "e2_z065"
+anchors = ["zone:e2.Z065"]
+
+[[node]]
+id = "e2_z071"
+anchors = ["zone:e2.Z072"]
+
+[[node]]
+id = "e2_z075"
+anchors = ["zone:e2.Z076"]
+
+[[node]]
+id = "e2_z086"
+anchors = ["zone:e2.Z087"]
+
+[[node]]
+id = "e2_z087"
+anchors = ["zone:e2.Z088"]
+
+[[node]]
+id = "e2_z088"
+anchors = ["zone:e2.Z089"]
+
+[[node]]
+id = "e2_z094"
+anchors = ["zone:e2.Z095"]
+
+[[node]]
+id = "e2_z096"
+anchors = ["zone:e2.Z097"]
+
+[[node]]
+id = "e2_z1051"
+anchors = ["zone:e2.Z1053"]
+
+[[node]]
+id = "e2_z1053"
+anchors = ["zone:e2.Z1055"]
+
+[[node]]
+id = "e2_z1054"
+anchors = ["zone:e2.Z1056"]
+
+[[node]]
+id = "e2_z1163"
+anchors = ["zone:e2.Z1165"]
+
+[[node]]
+id = "e2_z1175"
+anchors = ["zone:e2.Z1177"]
+
+[[node]]
+id = "e2_z1243"
+anchors = ["zone:e2.Z1245"]
+
+[[node]]
+id = "e2_z1255"
+anchors = ["zone:e2.Z1257"]
+
+[[node]]
+id = "e2_z1260"
+anchors = ["zone:e2.Z1262"]
+
+[[node]]
+id = "e2_z1423"
+anchors = ["zone:e2.Z1425"]
+
+[[node]]
+id = "e2_z148"
+anchors = ["zone:e2.Z149", "zone:e2.Z279"]
+
+[[node]]
+id = "e2_z156"
+anchors = ["zone:e2.Z157"]
+
+[[node]]
+id = "e2_z1576"
+anchors = ["zone:e2.Z1579"]
+
+[[node]]
+id = "e2_z1580"
+anchors = ["zone:e2.Z1583"]
+
+[[node]]
+id = "e2_z1592"
+anchors = ["zone:e2.Z1595"]
+
+[[node]]
+id = "e2_z160"
+anchors = ["zone:e2.Z161"]
+
+[[node]]
+id = "e2_z172"
+anchors = ["zone:e2.Z173"]
+
+[[node]]
+id = "e2_z1799"
+anchors = ["zone:e2.Z1802"]
+
+[[node]]
+id = "e2_z181"
+anchors = ["zone:e2.Z182"]
+
+[[node]]
+id = "e2_z1812"
+anchors = ["zone:e2.Z1815"]
+
+[[node]]
+id = "e2_z1815"
+anchors = ["zone:e2.Z1818"]
+
+[[node]]
+id = "e2_z1818"
+anchors = ["zone:e2.Z1821"]
+
+[[node]]
+id = "e2_z1824"
+anchors = ["zone:e2.Z1827"]
+
+[[node]]
+id = "e2_z201"
+anchors = ["zone:e2.Z202"]
+
+[[node]]
+id = "e2_z210"
+anchors = ["zone:e2.Z211"]
+
+[[node]]
+id = "e2_z213"
+anchors = ["zone:e2.Z214"]
+
+[[node]]
+id = "e2_z250"
+anchors = ["zone:e2.Z251"]
+
+[[node]]
+id = "e2_z287"
+anchors = ["zone:e2.Z288"]
+
+[[node]]
+id = "e2_z303"
+anchors = ["zone:e2.Z304"]
+
+[[node]]
+id = "e2_z318"
+anchors = ["zone:e2.Z319"]
+
+[[node]]
+id = "e2_z337"
+anchors = ["zone:e2.Z338"]
+
+[[node]]
+id = "e2_z381"
+anchors = ["zone:e2.Z382"]
+
+[[node]]
+id = "e2_z383"
+anchors = ["zone:e2.Z384"]
+
+[[node]]
+id = "e2_z399"
+anchors = ["zone:e2.Z400"]
+
+[[node]]
+id = "e2_z414"
+anchors = ["zone:e2.Z414"]
+
+[[node]]
+id = "e2_z449"
+anchors = ["zone:e2.Z450", "zone:e2.Z938"]
+
+[[node]]
+id = "e2_z506"
+anchors = ["zone:e2.Z506"]
+
+[[node]]
+id = "e2_z517"
+anchors = ["zone:e2.Z517"]
+
+[[node]]
+id = "e2_z532"
+anchors = ["zone:e2.Z532"]
+
+[[node]]
+id = "e2_z546"
+anchors = ["zone:e2.Z547"]
+
+[[node]]
+id = "e2_z633"
+anchors = ["zone:e2.Z634"]
+
+[[node]]
+id = "e2_z639"
+anchors = ["zone:e2.Z640"]
+
+[[node]]
+id = "e2_z640"
+anchors = ["zone:e2.Z641"]
+
+[[node]]
+id = "e2_z663"
+anchors = ["zone:e2.Z664"]
+
+[[node]]
+id = "e2_z694"
+anchors = ["zone:e2.Z695"]
+
+[[node]]
+id = "e2_z713"
+anchors = ["zone:e2.Z714"]
+
+[[node]]
+id = "e2_z715"
+anchors = ["zone:e2.Z716"]
+
+[[node]]
+id = "e2_z728"
+anchors = ["zone:e2.Z729"]
+
+[[node]]
+id = "e2_z746"
+anchors = ["zone:e2.Z747"]
+
+[[node]]
+id = "e2_z895"
+anchors = ["zone:e2.Z897"]
+
+[[node]]
+id = "e2_z934"
+anchors = ["zone:e2.Z936"]
+
+[[node]]
+id = "e2_z989"
+anchors = ["zone:e2.Z991"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "e2_canyon"
+to = "e2_core"
+kind = "walk"
+requires = "event:e2.ResetShape1.touch & event:e2.ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "e2_canyon"
+to = "e2_z006"
+kind = "walk"
+requires = "(water>=1 & event:e2.StepShape1Shape.touch) | (water>=1 & event:e2.StepShape2Shape.touch) | (water>=1 & event:e2.arenaruins_baseShape9.touch) | (water>=1 & event:e2.arenaruins_pCylinderShape80.touch)"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_canyon"
+to = "e2_z024"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_canyon"
+to = "e2_z399"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_canyon"
+kind = "walk"
+requires = "event:e2.ResetShape1.touch & event:e2.ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z003"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z005"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z006"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z012"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z024"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z027"
+kind = "walk"
+requires = "air>=1 | water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z027"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z040"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z040"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z052"
+kind = "walk"
+requires = "air>=1 | event:e2.el2Shape.touch"
+confidence = "physics"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z096"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z201"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z210"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z303"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z381"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z399"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_core"
+to = "e2_z694"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z001"
+to = "e2_core"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z001"
+to = "e2_z096"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z001"
+to = "e2_z096"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z001"
+to = "e2_z096"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z001"
+to = "e2_z096"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e2_z002"
+to = "e2_z038"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z003"
+to = "e2_core"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_core"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z012"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z012"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z035"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "data"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z038"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z038"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z039"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z039"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z071"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z075"
+kind = "walk"
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z075"
+kind = "walk"
+requires = "skip:e2.steam_group_air1 | skip:e2.steam_group_air2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z087"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z087"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z088"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z094"
+kind = "walk"
+requires = "air>=1 | (button:e2.earth_keylock & button:e2.earth_keylock1)"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1051"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1163"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1255"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z148"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1580"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1580"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z160"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z181"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1812"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1812"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1815"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1815"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1818"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z1818"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z250"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z250"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z414"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z414"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z414"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z506"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z633"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z633"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z663"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z715"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z715"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z728"
+kind = "walk"
+requires = "flag:e2.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z895"
+kind = "walk"
+requires = "flag:e2.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z005"
+to = "e2_z989"
+kind = "walk"
+requires = "fire>=1 & water>=1"
+confidence = "data"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_canyon"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_canyon"
+kind = "walk"
+requires = "event:e2.StepShape1Shape.touch | event:e2.StepShape2Shape.touch | event:e2.arenaruins_baseShape9.touch | event:e2.arenaruins_pCylinderShape80.touch"
+confidence = "data"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_core"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z007"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+confidence = "data"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z086"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_03"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z1053"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z213"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z546"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z546"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z546"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z006"
+to = "e2_z639"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z006"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+confidence = "data"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z043"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z043"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z043"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z086"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z287"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z287"
+kind = "walk"
+requires = "air>=3 | event:e2.EntranceGear6_PusherShape.touch"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z287"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z517"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z532"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z532"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z532"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z532"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z546"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z007"
+to = "e2_z546"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_03"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z009"
+to = "e2_z028"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z009"
+to = "e2_z028"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z009"
+to = "e2_z052"
+kind = "walk"
+requires = "air>=1 & button:e2.earth_keylock2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z009"
+to = "e2_z096"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z009"
+to = "e2_z096"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z012"
+to = "e2_core"
+kind = "walk"
+requires = "water>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z012"
+to = "e2_z002"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z012"
+to = "e2_z038"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z012"
+to = "e2_z087"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z012"
+to = "e2_z381"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z012"
+to = "e2_z414"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z006"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z007"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z1053"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z1054"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z1243"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_03"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z1824"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z213"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z337"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z337"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z399"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z399"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z517"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z546"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z546"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+confidence = "physics"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z639"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z639"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z024"
+to = "e2_z694"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z027"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z027"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z027"
+to = "e2_z005"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z028"
+to = "e2_z001"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z028"
+to = "e2_z001"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z028"
+to = "e2_z001"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "data"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z088"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z1163"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z1255"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z1576"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_01"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z1580"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z160"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z1799"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z181"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z1812"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z1818"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z449"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z633"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z640"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z715"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z746"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z035"
+to = "e2_z746"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e2_z038"
+to = "e2_z002"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z038"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "e2_z038"
+to = "e2_z071"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_02"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z038"
+to = "e2_z1815"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_02"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z039"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z039"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z040"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z040"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z040"
+to = "e2_z303"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z043"
+to = "e2_z007"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z043"
+to = "e2_z046"
+kind = "walk"
+requires = "event:e2.doorShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "e2_z046"
+to = "e2_z043"
+kind = "walk"
+requires = "event:e2.doorShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "e2_z052"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z052"
+to = "e2_z001"
+kind = "walk"
+requires = "button:e2.earth_keylock2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z052"
+to = "e2_z001"
+kind = "walk"
+requires = "button:e2.earth_keylock2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z052"
+to = "e2_z065"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z052"
+to = "e2_z210"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z052"
+to = "e2_z381"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z088"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z094"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z1576"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z1576"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z1818"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z414"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z449"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z449"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z640"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z640"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z663"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z065"
+to = "e2_z715"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z071"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z071"
+to = "e2_z1051"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z075"
+to = "e2_z728"
+kind = "walk"
+requires = "flag:e2.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z075"
+to = "e2_z895"
+kind = "walk"
+requires = "flag:e2.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z075"
+to = "e2_z989"
+kind = "walk"
+requires = "fire>=1 & water>=1"
+confidence = "data"
+
+[[edge]]
+from = "e2_z086"
+to = "e2_z1243"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z086"
+to = "e2_z517"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z086"
+to = "e2_z546"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z086"
+to = "e2_z546"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e2_z087"
+to = "e2_z002"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z087"
+to = "e2_z012"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z087"
+to = "e2_z039"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z088"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z088"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "physics"
+
+[[edge]]
+from = "e2_z088"
+to = "e2_z035"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z088"
+to = "e2_z071"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z088"
+to = "e2_z1163"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z088"
+to = "e2_z1255"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z094"
+to = "e2_z012"
+kind = "walk"
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z094"
+to = "e2_z027"
+kind = "walk"
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z094"
+to = "e2_z039"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z094"
+to = "e2_z065"
+kind = "walk"
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z094"
+to = "e2_z414"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z096"
+to = "e2_z001"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z096"
+to = "e2_z009"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z096"
+to = "e2_z009"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z096"
+to = "e2_z028"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e2_z096"
+to = "e2_z052"
+kind = "walk"
+requires = "air>=2 & button:e2.earth_keylock2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1051"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1051"
+to = "e2_z071"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1053"
+to = "e2_z639"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1053"
+to = "e2_z694"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1054"
+to = "e2_z007"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z1054"
+to = "e2_z1824"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1163"
+to = "e2_z1255"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1175"
+to = "e2_z337"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1175"
+to = "e2_z337"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1175"
+to = "e2_z546"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1243"
+to = "e2_z1054"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1243"
+to = "e2_z1824"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1243"
+to = "e2_z694"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1243"
+to = "e2_z694"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1255"
+to = "e2_z1163"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1260"
+to = "e2_z181"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1260"
+to = "e2_z181"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1423"
+to = "e2_z1255"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1423"
+to = "e2_z181"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z148"
+to = "e2_z1799"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z148"
+to = "e2_z181"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z148"
+to = "e2_z934"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z156"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 18:18, rows 01-04 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+
+[[edge]]
+from = "e2_z1576"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z1580"
+to = "e2_z005"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1580"
+to = "e2_z160"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1580"
+to = "e2_z1818"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1580"
+to = "e2_z633"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1580"
+to = "e2_z715"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z005"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z035"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z1580"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z1580"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z1812"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z1812"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z1818"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z633"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z160"
+to = "e2_z633"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1799"
+to = "e2_z035"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z039"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z071"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z075"
+kind = "walk"
+requires = "air>=3 & fire>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z088"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z094"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z1051"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z1255"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z1260"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z1423"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z148"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z1576"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z1576"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z160"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z1818"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z250"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z318"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z414"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z449"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z506"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z633"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z640"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z640"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z663"
+kind = "walk"
+requires = "air>=3"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z715"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z746"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z181"
+to = "e2_z934"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1812"
+to = "e2_z633"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1815"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z1818"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z1818"
+to = "e2_z005"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1818"
+to = "e2_z039"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z1824"
+to = "e2_z007"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z1824"
+to = "e2_z1054"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z210"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z210"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z210"
+to = "e2_z052"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z213"
+to = "e2_z006"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z213"
+to = "e2_z006"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z213"
+to = "e2_z006"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z213"
+to = "e2_z639"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z250"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z250"
+to = "e2_z088"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z250"
+to = "e2_z318"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z250"
+to = "e2_z318"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z250"
+to = "e2_z318"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z250"
+to = "e2_z506"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z287"
+to = "e2_z007"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z303"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z303"
+to = "e2_z040"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z318"
+to = "e2_z1576"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z318"
+to = "e2_z1576"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z318"
+to = "e2_z1576"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z318"
+to = "e2_z250"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z318"
+to = "e2_z506"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z337"
+to = "e2_z694"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z381"
+to = "e2_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z383"
+to = "e2_z713"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z399"
+to = "e2_z006"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+confidence = "physics"
+
+[[edge]]
+from = "e2_z399"
+to = "e2_z024"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z399"
+to = "e2_z024"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z399"
+to = "e2_z1175"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z399"
+to = "e2_z337"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z399"
+to = "e2_z639"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z399"
+to = "e2_z694"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z414"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z414"
+to = "e2_z065"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z414"
+to = "e2_z065"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "e2_z414"
+to = "e2_z071"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z414"
+to = "e2_z094"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "physics"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z035"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1163"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1255"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1255"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1260"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1423"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1423"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z148"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1580"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z160"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1799"
+kind = "walk"
+requires = "air>=2"
+through = ["e2.FireWall_01"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z181"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z1812"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z633"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z640"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z640"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z746"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z449"
+to = "e2_z934"
+kind = "walk"
+requires = "air>=1"
+through = ["e2.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z506"
+to = "e2_z071"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z506"
+to = "e2_z088"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z517"
+to = "e2_z007"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z517"
+to = "e2_z1824"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z517"
+to = "e2_z1824"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e2_z517"
+to = "e2_z532"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z517"
+to = "e2_z694"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z532"
+to = "e2_z007"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z546"
+to = "e2_z024"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z546"
+to = "e2_z1175"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z546"
+to = "e2_z1175"
+kind = "walk"
+requires = "true"
+through = ["e2.FireWall_03"]
+confidence = "physics"
+
+[[edge]]
+from = "e2_z633"
+to = "e2_z1580"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z633"
+to = "e2_z1812"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z639"
+to = "e2_z1053"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z639"
+to = "e2_z694"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z640"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z640"
+to = "e2_z449"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z640"
+to = "e2_z663"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z663"
+to = "e2_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z663"
+to = "e2_z065"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z663"
+to = "e2_z1818"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z663"
+to = "e2_z640"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z663"
+to = "e2_z715"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z694"
+to = "e2_z1053"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z694"
+to = "e2_z546"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z713"
+to = "e2_z383"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z715"
+to = "e2_z088"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z715"
+to = "e2_z160"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z715"
+to = "e2_z633"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "e2_z728"
+to = "e2_z005"
+kind = "walk"
+requires = "flag:e2.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z728"
+to = "e2_z005"
+kind = "walk"
+requires = "skip:e2.steam_group_air1 | skip:e2.steam_group_air2"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z728"
+to = "e2_z075"
+kind = "walk"
+requires = "flag:e2.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z746"
+to = "e2_z035"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z895"
+to = "e2_z005"
+kind = "walk"
+requires = "flag:e2.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z895"
+to = "e2_z075"
+kind = "walk"
+requires = "flag:e2.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e2_z934"
+to = "e2_z035"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e2_z934"
+to = "e2_z148"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e2_z989"
+to = "e2_z005"
+kind = "walk"
+requires = "fire>=1 & water>=1"
+confidence = "data"
+
+[[edge]]
+from = "e2_z989"
+to = "e2_z075"
+kind = "walk"
+requires = "fire>=1 & water>=1"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # transferstuff:levelSwitch1 -> town (spot+Shape)
+from = "e2_canyon"
+to = "town_e2_pocket"
+kind = "exit"
+exit = "e2/g0/r4899"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # E2_E6 -> e6 (spot); and(toggle19, toggle18, toggle17: the three gear locks' LockToggles) and a touch [verified data]; its arrival E2_E6 settles on e6's garden e6.Z001, 16 m under the spot [verified xemu, placed: sitting r111c, arrival(1)]
+from = "e2_z210"
+to = "e6_core"
+kind = "exit"
+exit = "e2/g0/r4902"
+requires = "button:e2.earth_keylock3 & button:e2.earth_keylock4 & button:e2.earth_keylock5"
+confidence = "data"
+
+[[edge]]  # E2_E5 -> e5 (spot); as E2_E6 [verified data]; its arrival E2_E5 rides e5's turning entrance gear and falls into e5.Z014, standing there from tick 227 at rest [verified L3, whole steps, and xemu, placed: TD.2's sitting A, S7 (h22-k0's replay); AZ-585, Step R1.34]; e5.Z581 is a static floor 18.0 m under the arrival point (AZ-538), and the player-tick read with the gear still that put it there ($EV/x16-derive-fixes-2026-10-14/logs/arrival_e5_r1052.log) doesn't hold
+from = "e2_z303"
+to = "e5_z014"
+kind = "exit"
+exit = "e2/g0/r4905"
+requires = "button:e2.earth_keylock3 & button:e2.earth_keylock4 & button:e2.earth_keylock5"
+confidence = "data"
+
+[[edge]]  # SwitchE5a -> e5 (spot); RANDOMIZER_PLAN 2.10 v1: the gondola stays out of logic (its side bit makes the dock a lethal drop while the bucket is away [verified xemu, placed: rz-b2 I-10]); the walk-through pair E2_E5 / E5_E2 carries e5's logic. Topcartoggle1 needs both circuitboard locks [verified data; verified xemu, placed]
+from = "e2_core"
+to = "e5_dock"
+kind = "cart"
+exit = "e2/g0/r4907"
+lock = "minecart_e2e5"
+logic = false
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+confidence = "data"
+
+[[edge]]  # SwitchE5a1 -> e7 (spot); Topcartoggle2 (MineCar2's LockMove) needs both circuitboard locks [verified data; as MineCar's, verified xemu, placed: rz-b2]; e7's only exit is the ride back, which resets the side bit, so the lock is harmless (world.toml) [inferred]; e7's arrival elevator lowers the bucket onto e7.Z000 [inferred] (the probe sitting)
+from = "e2_core"
+to = "e7_core"
+kind = "cart"
+exit = "e2/g0/r4909"
+lock = "minecart_e2e7"
+requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
+confidence = "data"
+
+[[edge]]  # levelSwitch5 -> w2 (spot); its trigger hangs 22 m over e2.Z013 and 12-16 m over the nearest floors (two slippery slopes, no zone since Step X.16, AZ-359), and the derive places no zone at it; the vanilla route never takes it, so it stays out of logic until the probe sitting finds its approach (default taken under D115). Its arrival E2_W2 stands on w2's ice: the player slides 219 m across and 132 m down it and stands in w2.Z006 after 39 s, HP 200 [verified L3, player tick, snapshot x7-w2-k0: $EV/x16-derive-fixes-2026-10-14/logs/arrival_r708_long.log]
+from = "e2_z013"
+to = "w2_z006"
+kind = "exit"
+exit = "e2/g0/r4910"
+requires = "false"
+confidence = "data"
+
+[[edge]]  # catalisks_levelSwitch -> e2 (spot); and(touch(cataliskEncounter_fieldShape), the movie toggle, gs[water level]>=2) [verified data]: a same-level teleport inside the canyon
+from = "e2_canyon"
+to = "e2_canyon"
+kind = "teleport"
+exit = "e2/g0/r4926"
+requires = "water>=2"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # crystal litn, generated requires air>=1 & fire>=1 & water>=1, mixed
+id = "e2.CrystalOutsideShape"
+of = "e2/g0/r3036"
+destroy_from = ["e2_z046"]
+
+[[barrier]]  # crystal litn, generated requires air>=1 & fire>=1 & water>=1, mixed
+id = "e2.CrystalInsideShape"
+of = "e2/g0/r3038"
+destroy_from = ["e2_z046"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "e2.FireWall_01"
+of = "e2/g0/r3423"
+destroy_from = ["e2_z005", "e2_z035", "e2_z088", "e2_z1580", "e2_z160", "e2_z181", "e2_z449"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "e2.FireWall_02"
+of = "e2/g0/r3484"
+destroy_from = ["e2_z005", "e2_z038"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "e2.IceBlock_01"
+of = "e2/g0/r3544"
+destroy_from = ["e2_z005", "e2_z075", "e2_z728", "e2_z895"]
+
+[[barrier]]  # other stem, generated requires fire>=1 & water>=1, permanent
+id = "e2.all"
+of = "e2/g0/r3561"
+destroy_from = ["e2_z005", "e2_z075", "e2_z1592", "e2_z250", "e2_z383", "e2_z713", "e2_z728", "e2_z895", "e2_z989"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "e2.FireWall_03"
+of = "e2/g0/r3609"
+destroy_from = ["e2_z006", "e2_z007", "e2_z024", "e2_z399", "e2_z546"]
+
+[[button]]  # keylock, generated requires key.gear>=1
+id = "e2.earth_keylock5"
+of = "e2/g0/r901"
+at = "e2_core"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.gear>=1
+id = "e2.earth_keylock4"
+of = "e2/g0/r908"
+at = "e2_core"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.gear>=1
+id = "e2.earth_keylock3"
+of = "e2/g0/r915"
+at = "e2_core"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.circuitboard>=1
+id = "e2.earth_keylock"
+of = "e2/g0/r1184"
+at = "e2_z012"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.circuitboard>=1
+id = "e2.earth_keylock1"
+of = "e2/g0/r1190"
+at = "e2_z012"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.battery>=1
+id = "e2.earth_keylock2"
+of = "e2/g0/r3337"
+at = "e2_z052"
+mode = "latch"
+
+[[event]]  # tricks.toml's db_change e2-lightning-crystal-event, applied: the crystal room's crystal (CrystalOutsideShape / CrystalInsideShape, damage litn = air + fire + water) latches Crystal_Lightning3_Hit_latch, e6's SongLightning3_hit, on any non-zero magic: level 1 suffices [verified data; verified xemu for the wind crystal, rz-b2 I-3]
+id = "e2.crystal_lightning.hit"
+at = "e2_z046"
+requires = "air>=1 & fire>=1 & water>=1"
+
+[[event]]  # derived: touch of EntranceGear6:PusherShape
+id = "e2.EntranceGear6_PusherShape.touch"
+at = "e2_z287"
+requires = "true"
+
+[[event]]  # derived: touch of PusherShape
+id = "e2.PusherShape_g0r2415.touch"
+at = "e2_core"
+requires = "true"
+
+[[event]]  # derived: touch of PusherShape
+id = "e2.PusherShape_g0r2695.touch"
+at = "e2_z201"
+requires = "true"
+
+[[event]]  # derived: touch of ResetShape1
+id = "e2.ResetShape1.touch"
+at = "e2_canyon"
+requires = "true"
+
+[[event]]  # derived: touch of ResetShape2
+id = "e2.ResetShape2.touch"
+at = "e2_core"
+requires = "true"
+
+[[event]]  # derived: touch of StepShape1Shape
+id = "e2.StepShape1Shape.touch"
+at = "e2_canyon"
+requires = "true"
+
+[[event]]  # derived: touch of StepShape2Shape
+id = "e2.StepShape2Shape.touch"
+at = "e2_canyon"
+requires = "true"
+
+[[event]]  # derived: touch of arenaruins:baseShape9
+id = "e2.arenaruins_baseShape9.touch"
+at = "e2_canyon"
+requires = "true"
+
+[[event]]  # derived: touch of arenaruins:pCylinderShape80
+id = "e2.arenaruins_pCylinderShape80.touch"
+at = "e2_canyon"
+requires = "true"
+
+[[event]]  # derived: touch of doorShape
+id = "e2.doorShape.touch"
+at = "e2_z043"
+requires = "true"
+
+[[event]]  # derived: touch of el2Shape
+id = "e2.el2Shape.touch"
+at = "e2_core"
+requires = "true"
+
+[[event]]  # derived: touch of el4Shape
+id = "e2.el4Shape.touch"
+at = "e2_core"
+requires = "true"
+
+[[location]]
+id = "e2/g0/r733"
+proven = { by = "route", ref = "rando author: route.toml step 11, its kit within the logic's requirement both ways" }
+
+[[location]]
+id = "e2/g0/r735"
+proven = { by = "data", ref = "rando author: derived/e2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e2/g0/r4357"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "on a gear beside e2.Z000: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4362"
+proven = { by = "data", ref = "rando author: derived/e2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e2/g0/r4366"
+proven = { by = "data", ref = "rando author: derived/e2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e2/g0/r4373"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "frag_air_3 on e2.Z173, an island the derive joins to nothing: the conservative-kit rule (the route's e2/g0/r4402)"
+
+[[location]]
+id = "e2/g0/r4390"
+proven = { by = "data", ref = "rando author: derived/e2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e2/g0/r4395"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "a diamond cluster the derive holds over e2.Z002 (on no floor, spring or updraft it models): the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4415"
+proven = { by = "data", ref = "rando author: derived/e2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "e2/g0/r4431"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "29 m over e2.Z001 on a rig: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4486"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "an emerald the derive holds over e2.Z028: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4488"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "an emerald the derive holds over e2.Z028: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4490"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "an emerald the derive holds over e2.Z028: the conservative-kit rule (off the route: e2's last route step, e2/g0/r4398)"
+
+[[location]]
+id = "e2/g0/r4778"
+requires = "water>=1"
+note = "key_gear on no floor near e2.Z003: the conservative-kit rule (the route's e2/g0/r4778, after power_fire moved past the circuitboard locks)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "e2.steam_group_air2"
+name = "e2 steam group 'all' (air 2)"
+tricks = ["bskip"]
+requires = "air>=2"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "l3", ref = "r18g/1a76f47c4c48@1642dd4cc8bd" }
+gates = ["e2.all"]
+batch = "e2.steam_group"
+batch_name = "e2 steam group 'all'"
+
+[[skip]]
+id = "e2.steam_group_air1"
+name = "e2 steam group 'all' (air 1)"
+tricks = ["bskip"]
+requires = "air>=1"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "l3", ref = "x15a/942316acc98f@63ae7dbaf82d" }
+gates = ["e2.all"]
+batch = "e2.steam_group"
+batch_name = "e2 steam group 'all'"

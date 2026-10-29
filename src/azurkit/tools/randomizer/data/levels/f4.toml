@@ -1,0 +1,1061 @@
+# levels/f4.toml: written by `azurik-mod rando author f4` (Step R1.8) from generated/f4.json,
+# derived/f4.json.gz, tricks.toml and draft/authoring/f4.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "f4"
+status = "authored"
+known_traps = []
+route = ["f4/g0/r1289", "f4/g0/r2355", "f4/g0/r1531", "f4/g0/r1533", "f4/g0/r1535", "f4/g0/r1609", "f4/g0/r1542", "f4/g0/r1538", "f4/g0/r1540"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "f4_battle_platform"
+anchors = ["zone:f4.Z162"]
+locations = ["f4/g0/r2355"]
+
+[[node]]
+id = "f4_cliffside"
+anchors = ["zone:f4.Z015"]
+
+[[node]]
+id = "f4_lava_river"
+anchors = ["zone:f4.Z000"]
+
+[[node]]
+id = "f4_z004"
+anchors = ["zone:f4.Z004"]
+
+[[node]]
+id = "f4_z005"
+anchors = ["zone:f4.Z005"]
+
+[[node]]
+id = "f4_z006"
+anchors = ["zone:f4.Z006"]
+
+[[node]]
+id = "f4_z008"
+anchors = ["zone:f4.Z008"]
+
+[[node]]
+id = "f4_z010"
+anchors = ["zone:f4.Z010"]
+
+[[node]]
+id = "f4_z011"
+anchors = ["zone:f4.Z011"]
+
+[[node]]
+id = "f4_z012"
+anchors = ["zone:f4.Z012"]
+
+[[node]]
+id = "f4_z013"
+anchors = ["zone:f4.Z013"]
+
+[[node]]
+id = "f4_z016"
+anchors = ["zone:f4.Z016"]
+
+[[node]]
+id = "f4_z029"
+anchors = ["zone:f4.Z029"]
+
+[[node]]
+id = "f4_z031"
+anchors = ["zone:f4.Z031"]
+
+[[node]]
+id = "f4_z034"
+anchors = ["zone:f4.Z034"]
+
+[[node]]
+id = "f4_z041"
+anchors = ["zone:f4.Z041"]
+
+[[node]]
+id = "f4_z042"
+anchors = ["zone:f4.Z042"]
+
+[[node]]
+id = "f4_z048"
+anchors = ["zone:f4.Z048"]
+
+[[node]]
+id = "f4_z054"
+anchors = ["zone:f4.Z054"]
+
+[[node]]
+id = "f4_z1128"
+anchors = ["zone:f4.Z1134"]
+
+[[node]]
+id = "f4_z113"
+anchors = ["zone:f4.Z113"]
+
+[[node]]
+id = "f4_z133"
+anchors = ["zone:f4.Z133"]
+
+[[node]]
+id = "f4_z134"
+anchors = ["zone:f4.Z134"]
+
+[[node]]
+id = "f4_z138"
+anchors = ["zone:f4.Z138"]
+
+[[node]]
+id = "f4_z203"
+anchors = ["zone:f4.Z203"]
+
+[[node]]
+id = "f4_z226"
+anchors = ["zone:f4.Z226"]
+
+[[node]]
+id = "f4_z273"
+anchors = ["zone:f4.Z273"]
+
+[[node]]
+id = "f4_z288"
+anchors = ["zone:f4.Z288"]
+
+[[node]]
+id = "f4_z312"
+anchors = ["zone:f4.Z312"]
+
+[[node]]
+id = "f4_z334"
+anchors = ["zone:f4.Z334"]
+
+[[node]]
+id = "f4_z436"
+anchors = ["zone:f4.Z436"]
+
+[[node]]
+id = "f4_z465"
+anchors = ["zone:f4.Z465"]
+
+[[node]]
+id = "f4_z853"
+anchors = ["zone:f4.Z853"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "f4_battle_platform"
+to = "f4_cliffside"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_cliffside"
+to = "f4_battle_platform"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_cliffside"
+to = "f4_z013"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_cliffside"
+to = "f4_z034"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_cliffside"
+to = "f4_z133"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f4_cliffside"
+to = "f4_z133"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f4_cliffside"
+to = "f4_z134"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_lava_river"
+to = "f4_battle_platform"
+kind = "walk"
+requires = "air>=2 & water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_lava_river"
+to = "f4_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z004"
+to = "f4_z005"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z004"
+to = "f4_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z004"
+to = "f4_z011"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z005"
+to = "f4_z041"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z005"
+to = "f4_z203"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z005"
+to = "f4_z203"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z005"
+to = "f4_z436"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z005"
+to = "f4_z465"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f4_z006"
+to = "f4_z004"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z006"
+to = "f4_z004"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z006"
+to = "f4_z010"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z006"
+to = "f4_z011"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z006"
+to = "f4_z011"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z006"
+to = "f4_z012"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z006"
+to = "f4_z013"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f4_z008"
+to = "f4_z005"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z008"
+to = "f4_z005"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z008"
+to = "f4_z012"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z008"
+to = "f4_z012"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z008"
+to = "f4_z029"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z008"
+to = "f4_z041"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z008"
+to = "f4_z054"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z010"
+to = "f4_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z010"
+to = "f4_z006"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z010"
+to = "f4_z054"
+kind = "walk"
+requires = "true"
+through = ["f4.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "f4_z010"
+to = "f4_z312"
+kind = "walk"
+requires = "air>=3"
+through = ["f4.FireWall_02"]
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z011"
+to = "f4_z004"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_battle_platform"
+kind = "walk"
+requires = "skip:f4.ledgepop"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_z006"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_z008"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_z013"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_z273"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_z273"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_z288"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z012"
+to = "f4_z288"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_cliffside"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_lava_river"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_z006"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_z012"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_z012"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_z133"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_z133"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f4_z013"
+to = "f4_z134"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z016"
+to = "f4_z041"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z016"
+to = "f4_z042"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z029"
+to = "f4_z031"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f4_z029"
+to = "f4_z034"
+kind = "walk"
+requires = "air>=2 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z029"
+to = "f4_z134"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z031"
+to = "f4_cliffside"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z031"
+to = "f4_z008"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z031"
+to = "f4_z029"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z031"
+to = "f4_z034"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z034"
+to = "f4_z031"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z041"
+to = "f4_z008"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z042"
+to = "f4_z016"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f4_z042"
+to = "f4_z048"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z048"
+to = "f4_z008"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z054"
+to = "f4_z010"
+kind = "walk"
+requires = "true"
+through = ["f4.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "f4_z1128"
+to = "f4_z226"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z1128"
+to = "f4_z226"
+kind = "walk"
+requires = "true"
+through = ["f4.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "f4_z113"
+to = "f4_cliffside"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z113"
+to = "f4_z133"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z113"
+to = "f4_z133"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f4_z113"
+to = "f4_z134"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z113"
+to = "f4_z138"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z113"
+to = "f4_z138"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f4_z133"
+to = "f4_cliffside"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f4_z133"
+to = "f4_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z133"
+to = "f4_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z133"
+to = "f4_z113"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z134"
+to = "f4_z008"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z134"
+to = "f4_z029"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z134"
+to = "f4_z034"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z138"
+to = "f4_z006"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z138"
+to = "f4_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z138"
+to = "f4_z113"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f4_z203"
+to = "f4_z005"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z203"
+to = "f4_z005"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z226"
+to = "f4_z1128"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z226"
+to = "f4_z1128"
+kind = "walk"
+requires = "true"
+through = ["f4.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "f4_z273"
+to = "f4_z034"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z273"
+to = "f4_z034"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z288"
+to = "f4_z013"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z288"
+to = "f4_z034"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z312"
+to = "f4_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z312"
+to = "f4_z008"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z334"
+to = "f4_z853"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f4_z334"
+to = "f4_z853"
+kind = "walk"
+requires = "air>=1"
+through = ["f4.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "f4_z436"
+to = "f4_z031"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z436"
+to = "f4_z034"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f4_z465"
+to = "f4_z016"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f4_z853"
+to = "f4_z334"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f4_z853"
+to = "f4_z334"
+kind = "walk"
+requires = "air>=1"
+through = ["f4.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "f4_z853"
+to = "f4_z334"
+kind = "walk"
+requires = "air>=2"
+through = ["f4.FireWall_02"]
+difficulty = 3
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # F4_F2_levelSwitch -> f2 (spot)
+from = "f4_cliffside"
+to = "f2_f4_side"
+kind = "exit"
+exit = "f4/g0/r3222"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "f4.FireWall_02"
+of = "f4/g0/r2215"
+destroy_from = ["f4_z010", "f4_z054", "f4_z1128", "f4_z226", "f4_z334", "f4_z853"]
+
+[[event]]  # derived: hit of DiamondStone:DiamondStoneShape
+id = "f4.DiamondStone_DiamondStoneShape.hit"
+at = "f4_z012"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone1:EmeraldStone1:WindRockShape
+id = "f4.EmeraldStone1_EmeraldStone1_WindRockShape.hit"
+at = "f4_z029"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone2:EmeraldStone1:WindRockShape
+id = "f4.EmeraldStone2_EmeraldStone1_WindRockShape.hit"
+at = "f4_z006"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone3:EmeraldStone1:WindRockShape
+id = "f4.EmeraldStone3_EmeraldStone1_WindRockShape.hit"
+at = "f4_z006"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone:EmeraldStone1:WindRockShape
+id = "f4.EmeraldStone_EmeraldStone1_WindRockShape.hit"
+at = "f4_z008"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone1:RubyStone1Shape
+id = "f4.RubyStone1_RubyStone1Shape.hit"
+at = "f4_z011"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone3:RubyStone1Shape
+id = "f4.RubyStone3_RubyStone1Shape.hit"
+at = "f4_z012"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone4:RubyStone1Shape
+id = "f4.RubyStone4_RubyStone1Shape.hit"
+at = "f4_z203"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone1:SaphiresShape
+id = "f4.SapphireStone1_SaphiresShape.hit"
+at = "f4_z016"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone:SaphiresShape
+id = "f4.SapphireStone_SaphiresShape.hit"
+at = "f4_z005"
+requires = "true"
+
+[[event]]  # derived: touch of elevatorMvmtFieldShape
+id = "f4.elevatorMvmtFieldShape_g0r2702.touch"
+at = "f4_z010"
+requires = "true"
+
+[[event]]  # derived: touch of elevatorMvmtFieldShape
+id = "f4.elevatorMvmtFieldShape_g0r2938.touch"
+at = "f4_z004"
+requires = "true"
+
+[[event]]  # derived: touch of elevatorTopFieldShape
+id = "f4.elevatorTopFieldShape_g0r2706.touch"
+at = "f4_z010"
+requires = "true"
+
+[[event]]  # derived: touch of elevatorTopFieldShape
+id = "f4.elevatorTopFieldShape_g0r2942.touch"
+at = "f4_z004"
+requires = "true"
+
+[[location]]
+id = "f4/g0/r1531"
+proven = { by = "data", ref = "rando author: derived/f4.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f4/g0/r1533"
+proven = { by = "data", ref = "rando author: derived/f4.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f4/g0/r1535"
+proven = { by = "data", ref = "rando author: derived/f4.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f4/g0/r1538"
+proven = { by = "data", ref = "rando author: derived/f4.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f4/g0/r1546"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1548"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1550"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1554"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1592"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1594"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1596"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1600"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1602"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1604"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "f4/g0/r1606"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "f4.ledgepop"
+name = "f4 ledge pop to the battle platform"
+tricks = ["ledgepop", "flutter"]
+requires = "air>=1"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x67/S14b:f4.ledgepop" }
+from = "f4_z012"
+to = "f4_battle_platform"

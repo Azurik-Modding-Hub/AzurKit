@@ -1,0 +1,876 @@
+# levels/d1.toml: written by `azurik-mod rando author d1` (Step R1.8) from generated/d1.json,
+# derived/d1.json.gz, tricks.toml and draft/authoring/d1.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "d1"
+status = "authored"
+known_traps = []
+route = ["d1/g0/r2147", "d1/g0/r2169", "d1/g0/r2193", "d1/g0/r1104", "d1/g0/r1624"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "d1_core"
+anchors = ["zone:d1.Z031"]
+
+[[node]]
+id = "d1_floor1"
+anchors = ["zone:d1.Z015"]
+locations = ["d1/g0/r1019", "d1/g0/r1022", "d1/g0/r1029", "d1/g0/r1035", "d1/g0/r1042", "d1/g0/r1045", "d1/g0/r1056", "d1/g0/r1058", "d1/g0/r1060", "d1/g0/r1063", "d1/g0/r1065", "d1/g0/r1067", "d1/g0/r1071", "d1/g0/r1073", "d1/g0/r1075", "d1/g0/r1079", "d1/g0/r1081", "d1/g0/r1083", "d1/g0/r1096", "d1/g0/r1624", "d1/g0/r2193"]
+
+[[node]]
+id = "d1_floor11"
+anchors = ["zone:d1.Z016"]
+
+[[node]]
+id = "d1_floor9"
+anchors = ["zone:d1.Z005"]
+
+[[node]]
+id = "d1_z000"
+anchors = ["zone:d1.Z000", "zone:d1.Z032"]
+
+[[node]]
+id = "d1_z002"
+anchors = ["zone:d1.Z002"]
+
+[[node]]
+id = "d1_z003"
+anchors = ["zone:d1.Z003"]
+
+[[node]]
+id = "d1_z004"
+anchors = ["zone:d1.Z004"]
+
+[[node]]
+id = "d1_z006"
+anchors = ["zone:d1.Z006"]
+
+[[node]]
+id = "d1_z007"
+anchors = ["zone:d1.Z007"]
+
+[[node]]
+id = "d1_z008"
+anchors = ["zone:d1.Z008"]
+
+[[node]]
+id = "d1_z009"
+anchors = ["zone:d1.Z009"]
+
+[[node]]
+id = "d1_z010"
+anchors = ["zone:d1.Z010"]
+
+[[node]]
+id = "d1_z011"
+anchors = ["zone:d1.Z011"]
+
+[[node]]
+id = "d1_z017"
+anchors = ["zone:d1.Z017", "zone:d1.Z040"]
+
+[[node]]
+id = "d1_z018"
+anchors = ["zone:d1.Z018"]
+
+[[node]]
+id = "d1_z025"
+anchors = ["zone:d1.Z025"]
+
+[[node]]
+id = "d1_z036"
+anchors = ["zone:d1.Z036"]
+
+[[node]]
+id = "d1_z038"
+anchors = ["zone:d1.Z038"]
+
+[[node]]
+id = "d1_z041"
+anchors = ["zone:d1.Z041"]
+
+[[node]]
+id = "d1_z056"
+anchors = ["zone:d1.Z056"]
+
+[[node]]
+id = "d1_z079"
+anchors = ["zone:d1.Z079"]
+
+[[node]]
+id = "d1_z081"
+anchors = ["zone:d1.Z081"]
+
+[[node]]
+id = "d1_z121"
+anchors = ["zone:d1.Z121"]
+
+[[node]]
+id = "d1_z125"
+anchors = ["zone:d1.Z125"]
+
+[[node]]
+id = "d1_z202"
+anchors = ["zone:d1.Z202"]
+
+[[node]]
+id = "d1_z219"
+anchors = ["zone:d1.Z218"]
+
+[[node]]
+id = "d1_z230"
+anchors = ["zone:d1.Z230"]
+
+[[node]]
+id = "d1_z262"
+anchors = ["zone:d1.Z262"]
+
+[[node]]
+id = "d1_z267"
+anchors = ["zone:d1.Z267"]
+
+[[node]]
+id = "d1_z277"
+anchors = ["zone:d1.Z277"]
+
+[[node]]
+id = "d1_z283"
+anchors = ["zone:d1.Z283"]
+
+[[node]]
+id = "d1_z428"
+anchors = ["zone:d1.Z428"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "d1_core"
+to = "d1_z056"
+kind = "walk"
+requires = "button:d1.seal"
+confidence = "data"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_floor11"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_floor9"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z000"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z002"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z003"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z004"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z079"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z081"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:d1.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z125"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor1"
+to = "d1_z125"
+kind = "walk"
+requires = "event:d1.DeathLevelTransition_LevelDoor2_public_DoorFieldShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_floor11"
+to = "d1_floor1"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor9"
+to = "d1_floor1"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_floor9"
+to = "d1_z038"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z000"
+to = "d1_floor1"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z000"
+to = "d1_z283"
+kind = "walk"
+requires = "flag:d1.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "d1_z002"
+to = "d1_floor1"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z003"
+to = "d1_floor1"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z004"
+to = "d1_floor1"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z017"
+to = "d1_z018"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "d1_z017"
+to = "d1_z079"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z017"
+to = "d1_z262"
+kind = "walk"
+requires = "flag:d1.AcidBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "d1_z017"
+to = "d1_z277"
+kind = "walk"
+requires = "flag:d1.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "d1_z017"
+to = "d1_z428"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z018"
+to = "d1_floor9"
+kind = "walk"
+requires = "skip:d1.elevator_bounce"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z018"
+to = "d1_z017"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z018"
+to = "d1_z017"
+kind = "walk"
+requires = "event:d1.ElevatorFieldShape_g0r1520.touch | event:d1.ElevatorFieldShape_g0r1526.touch | event:d1.ElevatorFieldShape_g0r1540.touch | event:d1.ElevatorFieldShape_g0r1543.touch | event:d1.ElevatorFieldShape_g0r1557.touch | event:d1.ElevatorFieldShape_g0r1560.touch"
+confidence = "physics"
+
+[[edge]]
+from = "d1_z018"
+to = "d1_z025"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "d1_z025"
+to = "d1_z056"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r451.touch | event:d1.walkwayGenerator1_BaseShape.touch | event:d1.walkwayGenerator1_PressurePlateShape.touch | event:d1.walkwayGenerator2_BaseShape.touch | event:d1.walkwayGenerator2_PressurePlateShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_z025"
+to = "d1_z079"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r523.touch | event:d1.walkwayGenerator3_BaseShape.touch | event:d1.walkwayGenerator3_PressurePlateShape.touch | event:d1.walkwayGenerator4_BaseShape.touch | event:d1.walkwayGenerator4_PressurePlateShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_z036"
+to = "d1_z121"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r558.touch | event:d1.walkwayGenerator5_BaseShape.touch | event:d1.walkwayGenerator5_PressurePlateShape.touch | event:d1.walkwayGenerator6_BaseShape.touch | event:d1.walkwayGenerator6_PressurePlateShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_z038"
+to = "d1_floor9"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z041"
+to = "d1_z081"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r491.touch | event:d1.walkwayGenerator7_BaseShape.touch | event:d1.walkwayGenerator7_PressurePlateShape.touch | event:d1.walkwayGenerator_BaseShape.touch | event:d1.walkwayGenerator_PressurePlateShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_z056"
+to = "d1_core"
+kind = "walk"
+requires = "button:d1.seal"
+confidence = "data"
+
+[[edge]]
+from = "d1_z056"
+to = "d1_z025"
+kind = "walk"
+requires = "(air>=3 & event:d1.walkwayGenerator2_BaseShape.touch & flag:d2.lab.reached) | (air>=3 & event:d1.walkwayGenerator2_PressurePlateShape.touch & flag:d2.lab.reached)"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z056"
+to = "d1_z025"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r451.touch | event:d1.walkwayGenerator1_BaseShape.touch | event:d1.walkwayGenerator1_PressurePlateShape.touch | event:d1.walkwayGenerator2_BaseShape.touch | event:d1.walkwayGenerator2_PressurePlateShape.touch"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "d1_z079"
+to = "d1_z000"
+kind = "walk"
+requires = "skip:d1.elevator_bounce_f10"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z079"
+to = "d1_z018"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z079"
+to = "d1_z025"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r523.touch | event:d1.walkwayGenerator3_BaseShape.touch | event:d1.walkwayGenerator3_PressurePlateShape.touch | event:d1.walkwayGenerator4_BaseShape.touch | event:d1.walkwayGenerator4_PressurePlateShape.touch"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "d1_z079"
+to = "d1_z121"
+kind = "walk"
+requires = "button:d1.death_keylock"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z079"
+to = "d1_z121"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "d1_z081"
+to = "d1_floor1"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z081"
+to = "d1_z041"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r491.touch | event:d1.walkwayGenerator7_BaseShape.touch | event:d1.walkwayGenerator7_PressurePlateShape.touch | event:d1.walkwayGenerator_BaseShape.touch | event:d1.walkwayGenerator_PressurePlateShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_z121"
+to = "d1_z036"
+kind = "walk"
+requires = "event:d1.BeamShape_g0r558.touch | event:d1.walkwayGenerator5_BaseShape.touch | event:d1.walkwayGenerator5_PressurePlateShape.touch | event:d1.walkwayGenerator6_BaseShape.touch | event:d1.walkwayGenerator6_PressurePlateShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_z121"
+to = "d1_z079"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z125"
+to = "d1_floor1"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z125"
+to = "d1_floor1"
+kind = "walk"
+requires = "event:d1.DeathLevelTransition_LevelDoor2_public_DoorFieldShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "d1_z219"
+to = "d1_z267"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z219"
+to = "d1_z267"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "d1_z262"
+to = "d1_z017"
+kind = "walk"
+requires = "flag:d1.AcidBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "d1_z267"
+to = "d1_z219"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d1_z277"
+to = "d1_z017"
+kind = "walk"
+requires = "flag:d1.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "d1_z283"
+to = "d1_z000"
+kind = "walk"
+requires = "flag:d1.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "d1_z428"
+to = "d1_z017"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d1_z428"
+to = "d1_z025"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # D1_Town_levelSwitch -> town (spot+Shape); touch(D1_Town_ExitFieldShape) [verified data]; the derive places neither its field nor the arrival on a floor: the arrival rides the grate elevator down into the seal's chamber (d1.Z031) [verified xemu, placed: sitting r111d], and the exit field is taken as the same elevator's way back up (default taken under D115); its arrival, D1_TownShape, stands on town's own grate elevator by the temple's death door, which the derive leaves without a floor: the temple's zone town.Z021, where toD1_levelSwitch leaves from (default taken under D115)
+from = "d1_core"
+to = "town_z020"
+kind = "exit"
+exit = "d1/g0/r2265"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # D1_D2_levelSwitch -> d2 (spot); touch(DeathLevelTransition:LevelDoor3:public_DoorFieldShape) [verified data]
+from = "d1_z125"
+to = "d2_door"
+kind = "exit"
+exit = "d1/g0/r2266"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # D2_movie_levelSwitch -> d2 (spot); the walk from walkway generator 2 (d1.Z056) onto the beam walkway past the bridge-end field fires it at kit 0, 5 of 5 in xemu and in the owner's demo (X.78, D722 row 10), so it leaves from there once walkway generator 2 (its plate beside d1.Z056) has raised the walkway (Step R1.24b; the derive's field zone is the walkway, d1.Z025). and(DeathMovie_disable_toggle, touch(DeathMovieFieldShape)) [verified data]: one shot (the touch turns the toggle off), harmless since the lab's only way out is the lens-locked door, after which the d1/d2 door pair stays open (default taken under D115); it lands the player from D1_D2_Fall alive on the lab floor d2.Z015 [verified xemu, placed: sitting r111d]
+from = "d1_z056"
+to = "d2_core"
+kind = "exit"
+exit = "d1/g0/r2271"
+requires = "event:d1.walkwayGenerator2_PressurePlateShape.touch | event:d1.walkwayGenerator2_BaseShape.touch"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # acidblock acid, generated requires earth>=3 & water>=3, permanent
+id = "d1.AcidBlock_03"
+of = "d1/g0/r2132"
+destroy_from = ["d1_z017", "d1_z038", "d1_z219", "d1_z262", "d1_z267", "d1_z277", "d1_z428"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=3 & water>=3, permanent
+id = "d1.AcidBlock_04"
+of = "d1/g0/r2153"
+destroy_from = ["d1_z017", "d1_z038", "d1_z230", "d1_z262", "d1_z277", "d1_z428"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "d1.IceBlock_03"
+of = "d1/g0/r2174"
+destroy_from = ["d1_z000", "d1_z202", "d1_z283"]
+
+[[button]]  # keylock, generated requires key.diamondbattery>=1
+id = "d1.death_keylock1"
+of = "d1/g0/r656"
+at = "d1_z018"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.diamondbattery>=1
+id = "d1.death_keylock"
+of = "d1/g0/r669"
+at = "d1_z041"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.diamondbattery>=1
+id = "d1.death_keylock2"
+of = "d1/g0/r719"
+at = "d1_floor11"
+mode = "latch"
+
+[[button]]  # seal, generated requires disca>=4 & disce>=4 & discf>=4 & discl>=4 & discw>=4
+id = "d1.seal"
+of = "d1/g0/r390"
+at = "d1_core"
+mode = "latch"
+
+[[event]]  # Spideyzar, in his room on floor 9 (the migrated requirement kept, default taken under D115); the kill ends the game (D76, victory; RANDOMIZER_PLAN 2.7 [verified data])
+id = "d1.spideyzar.killed"
+of = "d1/g0/r799"
+at = "d1_floor9"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+terminal = true
+
+[[event]]  # derived: touch of BeamShape
+id = "d1.BeamShape_g0r451.touch"
+at = "d1_z025"
+requires = "true"
+
+[[event]]  # derived: touch of BeamShape
+id = "d1.BeamShape_g0r491.touch"
+at = "d1_z041"
+requires = "true"
+
+[[event]]  # derived: touch of BeamShape
+id = "d1.BeamShape_g0r523.touch"
+at = "d1_z025"
+requires = "true"
+
+[[event]]  # derived: touch of BeamShape
+id = "d1.BeamShape_g0r558.touch"
+at = "d1_z036"
+requires = "true"
+
+[[event]]  # derived: touch of DeathLevelTransition:LevelDoor2:public_DoorFieldShape
+id = "d1.DeathLevelTransition_LevelDoor2_public_DoorFieldShape.touch"
+at = "d1_floor1"
+requires = "true"
+
+[[event]]  # derived: touch of ElevatorFieldShape
+id = "d1.ElevatorFieldShape_g0r1520.touch"
+at = "d1_z017"
+requires = "true"
+
+[[event]]  # derived: touch of ElevatorFieldShape
+id = "d1.ElevatorFieldShape_g0r1526.touch"
+at = "d1_z017"
+requires = "true"
+
+[[event]]  # derived: touch of ElevatorFieldShape
+id = "d1.ElevatorFieldShape_g0r1540.touch"
+at = "d1_z017"
+requires = "true"
+
+[[event]]  # derived: touch of ElevatorFieldShape
+id = "d1.ElevatorFieldShape_g0r1543.touch"
+at = "d1_z017"
+requires = "true"
+
+[[event]]  # derived: touch of ElevatorFieldShape
+id = "d1.ElevatorFieldShape_g0r1557.touch"
+at = "d1_z017"
+requires = "true"
+
+[[event]]  # derived: touch of ElevatorFieldShape
+id = "d1.ElevatorFieldShape_g0r1560.touch"
+at = "d1_z017"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator1:BaseShape
+id = "d1.walkwayGenerator1_BaseShape.touch"
+at = "d1_z025"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator1:PressurePlateShape
+id = "d1.walkwayGenerator1_PressurePlateShape.touch"
+at = "d1_z025"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator2:BaseShape
+id = "d1.walkwayGenerator2_BaseShape.touch"
+at = "d1_z056"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator2:PressurePlateShape
+id = "d1.walkwayGenerator2_PressurePlateShape.touch"
+at = "d1_z056"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator3:BaseShape
+id = "d1.walkwayGenerator3_BaseShape.touch"
+at = "d1_z025"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator3:PressurePlateShape
+id = "d1.walkwayGenerator3_PressurePlateShape.touch"
+at = "d1_z025"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator4:BaseShape
+id = "d1.walkwayGenerator4_BaseShape.touch"
+at = "d1_z079"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator4:PressurePlateShape
+id = "d1.walkwayGenerator4_PressurePlateShape.touch"
+at = "d1_z079"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator5:BaseShape
+id = "d1.walkwayGenerator5_BaseShape.touch"
+at = "d1_z036"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator5:PressurePlateShape
+id = "d1.walkwayGenerator5_PressurePlateShape.touch"
+at = "d1_z036"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator6:BaseShape
+id = "d1.walkwayGenerator6_BaseShape.touch"
+at = "d1_z121"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator6:PressurePlateShape
+id = "d1.walkwayGenerator6_PressurePlateShape.touch"
+at = "d1_z121"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator7:BaseShape
+id = "d1.walkwayGenerator7_BaseShape.touch"
+at = "d1_z041"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator7:PressurePlateShape
+id = "d1.walkwayGenerator7_PressurePlateShape.touch"
+at = "d1_z041"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator:BaseShape
+id = "d1.walkwayGenerator_BaseShape.touch"
+at = "d1_z081"
+requires = "true"
+
+[[event]]  # derived: touch of walkwayGenerator:PressurePlateShape
+id = "d1.walkwayGenerator_PressurePlateShape.touch"
+at = "d1_z081"
+requires = "true"
+
+[[location]]
+id = "d1/g0/r1012"
+proven = { by = "data", ref = "rando author: derived/d1.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "d1/g0/r1019"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby on d1.Z010, a lift floor (LiftShape) the derive reaches in no rung: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1022"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond on d1.Z007, a lift floor (LiftShape) the derive reaches in no rung: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1029"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond on d1.Z006, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1035"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire on d1.Z011, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1042"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald on d1.Z008, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1045"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby on d1.Z009, a tower floor the derive reached only by guessed rides on LiftShape until Step X.16 (AZ-353: the lifts' decoded rides join d1.Z018 and d1.Z017 only): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1056"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1058"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1060"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1063"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1065"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1067"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "ruby which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1071"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1073"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1075"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "emerald which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1079"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1081"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1083"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "diamond high above any floor (the derive holds it over its zone): the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1096"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal & button:d1.death_keylock & button:d1.death_keylock1 & button:d1.death_keylock2"
+note = "sapphire which the derive places on no floor: the conservative-kit rule, joined to floor 1 (off the route: the level's last step, flag:d1.spideyzar.killed, and the route's d1 actions before it)"
+
+[[location]]
+id = "d1/g0/r1624"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
+note = "all_fuel walled on (static level mesh): the conservative-kit rule, joined to floor 1 (the route's d1/g0/r1624)"
+
+[[location]]
+id = "d1/g0/r2193"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:d1.seal"
+note = "key_diamondbattery in a damage volume (the electric fields), removed from the logic walk: the conservative-kit rule, joined to floor 1 (the route's d1/g0/r2193)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "d1.elevator_bounce"
+name = "d1 elevator bounce"
+tricks = ["elevbounce"]
+requires = "true"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "r217c-det-k0/W1:d1.elevator_bounce" }
+from = "d1_z018"
+to = "d1_floor9"
+
+[[skip]]
+id = "d1.elevator_bounce_f10"
+name = "d1 elevator bounce to floor 10"
+tricks = ["elevbounce"]
+requires = "true"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "r217c-det-k0/W4:d1.elevator_bounce_f10" }
+from = "d1_z079"
+to = "d1_z000"

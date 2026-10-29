@@ -1,0 +1,606 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "azurik-mod rando db-extract",
+  "source": {
+   "file": "gamedata/a3.xbr",
+   "sha256_12": "f7f12a059d58",
+   "size": 30721030
+  }
+ },
+ "barriers": [],
+ "bosses": [],
+ "cells": [
+  "Air_cube_nice:skyCellShape",
+  "MainCellShape",
+  "ShipCellShape",
+  "default cell"
+ ],
+ "counts": {
+  "barriers": 0,
+  "bosses": 0,
+  "exits": 1,
+  "game_states": 2,
+  "geodes": 0,
+  "keylocks": 0,
+  "keylords": 0,
+  "latches": 2,
+  "locations_in_pool": {
+   "cluster": 8,
+   "consumable": 1,
+   "major": 2,
+   "obsidian": 5
+  },
+  "locations_not_in_pool": 0,
+  "obsidian_locks": 0,
+  "save_points": 2,
+  "seals": 0,
+  "spots": 6,
+  "teleporters": 0
+ },
+ "exits": [
+  {
+   "arrival": "a5/g0/r740",
+   "arrival_by": "startspot",
+   "arrival_graph_known": true,
+   "dest": "levels/air/a5",
+   "dest_level": "a5",
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "actionButton(airshipShip1:Switch_PlatformShape)",
+   "id": "a3/g0/r2981",
+   "kind": "exit",
+   "live": true,
+   "movie": "movies/scenes/airship_trans",
+   "name": "A3_A5_levelSwitch",
+   "spot": "A3_A5"
+  }
+ ],
+ "game_states": [
+  {
+   "id": "a3/g0/r2",
+   "links": [
+    {
+     "to": "Air_cube_nice:day_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:night_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:StarfieldShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:GasplanetShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    }
+   ],
+   "name": "Air_cube_nice:gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  },
+  {
+   "id": "a3/g0/r2604",
+   "links": [
+    {
+     "to": "night_lightShape.colorR",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "night_lightShape.colorG",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "night_lightShape.colorB",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    }
+   ],
+   "name": "gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  }
+ ],
+ "geodes": [],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 1178,
+   "ndbg_toc_index": 3380,
+   "padding_after": 2270,
+   "records": 2990,
+   "saved_nodes": 80,
+   "toc_index": 3381
+  }
+ ],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "realm",
+ "latches": [
+  {
+   "global": "airshipTransStartSky",
+   "id": "a3/g0/r1492",
+   "input": null,
+   "name": "airshipTransStartSky_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "airshipTransEndSky",
+   "id": "a3/g0/r1493",
+   "input": null,
+   "name": "airshipTransEndSky_latch",
+   "saved": false,
+   "update": null
+  }
+ ],
+ "level": "a3",
+ "locations": [
+  {
+   "cell": "MainCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r1498",
+   "item": "frag_life_2",
+   "name": "LifeFragment_generatorShape",
+   "name_ref": {
+    "field": 27777176,
+    "length": 11,
+    "string": 28033944
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "LifeFragment_generator",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "frag_life_2",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r1500",
+   "item": "power_water_a3",
+   "name": "WaterPower_generatorShape",
+   "name_ref": {
+    "field": 27777352,
+    "length": 14,
+    "string": 28034068
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "WaterPower_generator",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_water_a3",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2563",
+   "item": "diamond",
+   "name": "G:critterGeneratorShape1",
+   "name_ref": {
+    "field": 27877428,
+    "length": 7,
+    "string": 28111212
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator1",
+   "points": 21,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 21
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2566",
+   "item": "emerald",
+   "name": "G:critterGeneratorShape6",
+   "name_ref": {
+    "field": 27877724,
+    "length": 7,
+    "string": 28111616
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator6",
+   "points": 5,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 5
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2569",
+   "item": "emerald",
+   "name": "G:critterGeneratorShape7",
+   "name_ref": {
+    "field": 27878020,
+    "length": 7,
+    "string": 28111616
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator7",
+   "points": 4,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 4
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2572",
+   "item": "sapphire",
+   "name": "G:critterGeneratorShape8",
+   "name_ref": {
+    "field": 27878316,
+    "length": 8,
+    "string": 28112020
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator8",
+   "points": 11,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 11
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2575",
+   "item": "sapphire",
+   "name": "G:critterGeneratorShape9",
+   "name_ref": {
+    "field": 27878612,
+    "length": 8,
+    "string": 28112020
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator9",
+   "points": 4,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 4
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2578",
+   "item": "diamond",
+   "name": "G:critterGeneratorShape10",
+   "name_ref": {
+    "field": 27878908,
+    "length": 7,
+    "string": 28111212
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator10",
+   "points": 4,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 4
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2581",
+   "item": "emerald",
+   "name": "G:critterGeneratorShape11",
+   "name_ref": {
+    "field": 27879204,
+    "length": 7,
+    "string": 28111616
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator11",
+   "points": 6,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 6
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2584",
+   "item": "ruby",
+   "name": "G:critterGeneratorShape12",
+   "name_ref": {
+    "field": 27879500,
+    "length": 4,
+    "string": 28112908
+   },
+   "namespace": "G",
+   "on_load": true,
+   "parent": "G:critterGenerator12",
+   "points": 20,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 20
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2587",
+   "item": "obsidian",
+   "name": "critterGeneratorShape24",
+   "name_ref": {
+    "field": 27879796,
+    "length": 8,
+    "string": 28113316
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator24",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2589",
+   "item": "obsidian",
+   "name": "critterGeneratorShape25",
+   "name_ref": {
+    "field": 27879972,
+    "length": 8,
+    "string": 28113316
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator25",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2591",
+   "item": "obsidian",
+   "name": "critterGeneratorShape26",
+   "name_ref": {
+    "field": 27880148,
+    "length": 8,
+    "string": 28113316
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator26",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2593",
+   "item": "obsidian",
+   "name": "critterGeneratorShape27",
+   "name_ref": {
+    "field": 27880324,
+    "length": 8,
+    "string": 28113316
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator27",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2595",
+   "item": "obsidian",
+   "name": "critterGeneratorShape28",
+   "name_ref": {
+    "field": 27880500,
+    "length": 8,
+    "string": 28113316
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator28",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "ShipCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "a3/g0/r2599",
+   "item": "all_fuel",
+   "name": "critterGeneratorShape23",
+   "name_ref": {
+    "field": 27880916,
+    "length": 8,
+    "string": 28113976
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator23",
+   "points": 1,
+   "pool": true,
+   "saved": false,
+   "template": "all_fuel",
+   "unbounded": false,
+   "yield": 1
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [
+  {
+   "do_save": "and(switch[SavePlatform1:Save_timeBuffer_toggle]{on=touch(SavePlatform1:GlassShape); off=const}.output, timer[SavePlatform1:LoadDisable_timer](stored).currentTime)",
+   "id": "a3/g0/r716",
+   "name": "SavePlatform1:public_gameSaveControlShape",
+   "save_id": "A3_2",
+   "saved": false
+  },
+  {
+   "do_save": "and(switch[SavePlatform:Save_timeBuffer_toggle]{on=touch(SavePlatform:GlassShape); off=const}.output, timer[SavePlatform:LoadDisable_timer](stored).currentTime)",
+   "id": "a3/g0/r2117",
+   "name": "SavePlatform:public_gameSaveControlShape",
+   "save_id": "A3_1",
+   "saved": false
+  }
+ ],
+ "seals": [],
+ "spots": [
+  {
+   "id": "a3/g0/r21",
+   "name": "Hub01",
+   "teleport_gate": null
+  },
+  {
+   "id": "a3/g0/r23",
+   "name": "Hub02",
+   "teleport_gate": null
+  },
+  {
+   "id": "a3/g0/r25",
+   "name": "Hub03",
+   "teleport_gate": null
+  },
+  {
+   "id": "a3/g0/r27",
+   "name": "Tub",
+   "teleport_gate": null
+  },
+  {
+   "id": "a3/g0/r2124",
+   "name": "startspotShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "a3/g0/r2126",
+   "name": "A5_A3",
+   "teleport_gate": null
+  }
+ ],
+ "teleporters": []
+}

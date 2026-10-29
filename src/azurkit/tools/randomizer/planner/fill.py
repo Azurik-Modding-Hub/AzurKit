@@ -1,0 +1,652 @@
+"""The fill (RANDOMIZER_PLAN §3.3, §3.5; Step R1.9): a seed and D144's
+options in, a verified placement of every authored level's pool location
+out (a stub keeps its vanilla items, docs/RANDOMIZER_DB.md §4.1, so the
+fill covers the realms authored so far and grows with them).
+
+The passes, each drawing from its own named stream:
+
+1. **Pre-fill** (no draw): the guardian slots keep their vanilla 4th
+   fragments (D81), the keys stay vanilla (I-9: the key-slot cap), an
+   unbounded generator (maxGenerated 0, town's two dispensers) keeps its
+   item, since anything placed there would come back endlessly, and so
+   does every location whose vanilla item's category the settings'
+   ``exclude_categories`` name (Step R1.10b).
+2. **Progression** (``progression``), by assumed fill: the progression
+   items in a shuffled order, each removed from the assumed set (every
+   unplaced item the logic reads, held from the start) and put on an
+   empty spot the solver collects with the rest, which is proven (D122,
+   D143), neither excluded nor forfeitable (D81) and not a vault. A spot the
+   item opens by lying there comes first (Step R1.8m): one at a node the
+   reach gets to but can't leave without the item, collected once it lies
+   there (its escape picks it up, as vanilla's water in w2's hose pool; the
+   reach without the item never collects it). An item with no spot trades
+   places with one placed before it (Step R1.8m): it takes that one's spot,
+   collected with it there and the other assumed, and the other goes on a
+   spot of the reach with it there. Then the counted items (obsidians) as
+   blocks: the reach is computed once per threshold band, with the band's
+   lowest count assumed, and each copy of the band goes on a safe spot of
+   that reach (a subset of each copy's own, so the assumed fill's rule
+   holds). **The trap gate's repair** (Step R1.8m): the solve of that
+   placement (what the later passes add is read by no logic) is checked as
+   the verify checks it; when only the trap gate refuses it, the first
+   sphere with new trick-free traps and the first one free of them again
+   give a swap (:meth:`_Slots.repairs`: an item collected just before they
+   free, the way out, for one collected last before they start, the way in,
+   or for a spot at a trap when they are there from the start), the
+   obsidians are placed again and it is checked again, up to
+   :data:`MAX_REPAIRS` swaps; a swap that breaks the placement goes back.
+3. **Useful** (``useful``): the vaults first, the most restricted spots
+   (Q290: a vault, a spot an obsidian lock's force field closes, holds
+   only ``power_life``, ``power_staff*`` or ``power_ammo``), then the rest,
+   weighted toward major spots; each on a safe spot, as above.
+4. **Filler** (``filler``): a plain random fill of what is left, by class:
+   non-gem items on the non-gem spots, single gems on single-gem spots
+   (D77) and each cluster on a cluster of the same yield (D78).
+5. **Verify:** an independent solve of the whole placement: victory, every
+   location that isn't forfeitable collected (``full``), and the trap gate
+   (D83(b), plan §2.13): no trick-free trap that isn't a known one
+   (:func:`known_traps`: vanilla's own under the same options, and the
+   level files' ``known_traps``), the traps after completion aside.
+
+Every pass keeps each node graph's new strings within its budget, the
+writer's own numbers (:class:`~azurkit.tools.randomizer.writer.Names`,
+:func:`~azurkit.tools.randomizer.writer.string_cost`), and the result passes
+the writer's :func:`~azurkit.tools.randomizer.writer.layout`. An attempt that
+gets stuck or fails the verify (its repairs too) is retried with the next
+attempt's streams, up to 20 attempts; then :class:`FillError` names the progression items
+that found no safe proven spot and the proven spots (D35), and nothing is
+filled arbitrarily (AZ-161).
+
+**The preflight** (Step R1.27, AZ-454): each progression item needs a proven
+spot of its own, so settings that leave fewer proven spots open to one
+(:meth:`_Slots.open_proven`, less those ``exclude_categories`` keeps
+vanilla) than the progression items left to place are refused before any
+attempt, by a :class:`Starved` naming the categories that hold them, the
+counts and what to shuffle (:meth:`_Slots.starved`); any other settings
+fill as before. :func:`roll` finds no seed for them at once, and the
+Randomize page names them (:func:`starved`).
+
+**Streams** (plan §3.5): ``sub_seed(name)`` is the first 8 bytes of the
+sha256 of ``seed``, ``name`` and :func:`settings_digest`, NUL-separated;
+attempt k > 0 names its streams ``attempt<k>/<pass>``. Only
+``random.Random(int).random()`` is drawn (:class:`Rng`), and every choice
+iterates sorted ids, so a plan is the same in every process and on every
+CPython. The database digest is no input to the streams.
+"""
+
+from __future__ import annotations
+
+import collections
+import hashlib
+import json
+import random
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+
+from azurkit.tools.randomizer.planner.grammar import atoms, parse
+from azurkit.tools.randomizer.planner.settings import Settings, category, category_table, pick_of, skips_on
+from azurkit.tools.randomizer.planner.solver import Logic, Reach
+from azurkit.tools.randomizer.writer import Names, graph_of, layout, string_cost
+
+GENERATOR = "azurik-rando-fill/4"     # the fill's version: bumped when the same inputs give another placement
+#                                       (/2, Step R1.12: the trap gate; /3, Step R1.8m: own spots, trades, repairs;
+#                                       /4, Step R1.37: no progression or obsidian on an unsaved spot, AZ-467)
+MAX_ATTEMPTS = 20
+MAX_REPAIRS = 8                       # the trap gate's repairs in one attempt (Step R1.8m)
+VAULT_ITEMS = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # Q290: the items a closed field blocks
+USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward major spots, 3 to 1
+_DIGEST_DROP = frozenset({"_meta", "note", "description",   # RANDOMIZER_DB §9: no comments, display names or hints
+                          "gate_hint", "do_save", "teleport_gate", "enabled_by", "update", "input"})
+_TWO53 = 1 << 53
+
+
+class Rng:
+    """One named stream: only ``random.Random(int).random()`` is drawn
+    (CPython keeps its sequence across versions; plan §3.5), and the
+    integer, shuffle and choice helpers are built on it."""
+
+    def __init__(self, seed: int) -> None:
+        self._random = random.Random(seed).random
+
+    def below(self, n: int) -> int:
+        """Uniform in [0, n): the draw's 53 bits, by rejection."""
+        limit = _TWO53 - _TWO53 % n
+        while True:
+            x = int(self._random() * _TWO53)
+            if x < limit:
+                return x % n
+
+    def shuffle(self, xs: list) -> list:
+        for i in range(len(xs) - 1, 0, -1):
+            j = self.below(i + 1)
+            xs[i], xs[j] = xs[j], xs[i]
+        return xs
+
+    def choice(self, xs: Sequence):
+        return xs[self.below(len(xs))]
+
+    def weighted(self, xs: Sequence, weights: Sequence[int]):
+        r = self.below(sum(weights))
+        for x, w in zip(xs, weights):
+            if r < w:
+                return x
+            r -= w
+        raise AssertionError("unreachable")
+
+
+def canonical(obj) -> bytes:
+    """The canonical JSON every digest hashes: sorted keys, no spaces, ASCII."""
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+
+
+def settings_table(settings: Settings) -> dict:
+    """The options as a settings file holds them (RANDOMIZER_DB §7.2):
+    D144's, and ``exclude_categories`` only when it names one, so a
+    setting without it keeps its digest (and both powers rows kept are
+    format /1's ``powers``, so an old setting's too, Step 2.90a)."""
+    form, kept = category_table(settings.exclude_categories)
+    table = {"format": form, "skip_ceiling": settings.skip_ceiling,
+             "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire,
+             "skip_override": dict(sorted(settings.skip_override.items()))}
+    if kept:
+        table["exclude_categories"] = kept
+    return table
+
+
+def settings_digest(settings: Settings) -> str:
+    return hashlib.sha256(canonical(settings_table(settings))).hexdigest()
+
+
+def _strip(x):
+    if isinstance(x, dict):
+        return {k: _strip(v) for k, v in x.items() if k not in _DIGEST_DROP and not (k == "name" and "id" in x)}
+    if isinstance(x, list):
+        return [_strip(v) for v in x]
+    return x
+
+
+def db_digest(db) -> str:
+    """Plan §3.5: the sha256 of the canonical database: what the solver and
+    the fill read (the generated and level files, items, world and each
+    location's node), without ``_meta``, notes, descriptions, hints or the
+    display name of anything that has an id. TOML comments never load."""
+    from azurkit.tools.randomizer.planner.loader import VERSION
+    return hashlib.sha256(canonical(_strip({
+        "format": VERSION, "generated": db.generated, "levels": db.levels, "items": db.items,
+        "world": db.world, "node_of": db.node_of}))).hexdigest()
+
+
+def stream(seed: str, name: str, settings_hex: str) -> Rng:
+    """The named stream ``name``: sub_seed = the first 8 bytes of
+    sha256(seed NUL name NUL settings_digest)."""
+    return Rng(int.from_bytes(hashlib.sha256(f"{seed}\0{name}\0{settings_hex}".encode()).digest()[:8], "big"))
+
+
+class FillError(ValueError):
+    """No verified placement (D35): ``reason``; ``items``, the progression
+    items with no safe proven spot; ``proven``, the proven spots a
+    progression item may take; ``attempts``, each failed attempt's reason."""
+
+    ITEMS = "Progression items with no safe proven spot"
+
+    def __init__(self, reason: str, items: list[str], proven: list[str], attempts: Sequence[str] = ()) -> None:
+        self.reason, self.items, self.proven, self.attempts = reason, items, proven, list(attempts)
+        super().__init__(
+            f"no plan (D35): {reason}. {self.ITEMS} (D122, D143): "
+            f"{', '.join(items) or 'none'}. The proven spots a progression item may take ({len(proven)}): "
+            f"{', '.join(proven) or 'none'}")
+
+
+class Starved(FillError):
+    """The preflight's :class:`FillError` (Step R1.27, AZ-454): the
+    settings leave fewer proven spots open than progression items, so no
+    attempt is made (``attempts`` is empty); ``items``, every progression
+    item the plan places, competes for ``proven``, the spots left."""
+
+    ITEMS = "Progression items competing for those spots"
+
+
+class _Stuck(Exception):
+    """An attempt that gets stuck: ``item``, a progression item with no
+    safe proven spot, and ``got``, what its reach collected."""
+
+    def __init__(self, reason: str, item: str | None = None, got: frozenset[str] = frozenset()) -> None:
+        super().__init__(reason)
+        self.item, self.got = item, got
+
+
+@dataclass(frozen=True)
+class Fill:
+    """A verified placement: every authored pool location -> its item;
+    ``failed``, the reason each attempt before it failed (the trap gate's
+    retry rate, §10.2b P4); ``repaired``, each trap-gate refusal the
+    passing attempt repaired (Step R1.8m)."""
+    seed: str
+    settings: Settings
+    attempt: int
+    placement: dict[str, str]
+    failed: tuple[str, ...] = ()
+    repaired: tuple[str, ...] = ()
+
+
+class _Budget:
+    """Each graph's new strings so far, against the writer's budget."""
+
+    def __init__(self, names: Names) -> None:
+        self.names, self.new, self.used = names, collections.defaultdict(set), collections.Counter()
+
+    def _cost(self, lid: str, item: str) -> tuple[str, str | None, int]:
+        name, g = self.names.target(lid, item), graph_of(lid)
+        if name is None or name in self.names.have.get(g, ()) or name in self.new[g]:
+            return g, None, 0
+        return g, name, string_cost(name)
+
+    def fits(self, lid: str, item: str) -> bool:
+        g, name, cost = self._cost(lid, item)
+        return name is None or (g in self.names.graphs and self.used[g] + cost <= self.names.budget(g))
+
+    def take(self, lid: str, item: str) -> None:
+        g, name, cost = self._cost(lid, item)
+        if name is not None:
+            self.new[g].add(name)
+            self.used[g] += cost
+
+
+def excluded_locations(logic: Logic) -> frozenset[str]:
+    """The authored pool locations that take no progression and no obsidian
+    (plan §3.3, §5.4; RQ-5, D81): those a level file marks ``exclude``,
+    those an obsidian lock needing a full clear gates (lock 10: the whole
+    pool's 100 obsidians, stubs included), the forfeitable ones and the
+    unsaved ones (AZ-467): a generator on no save list (``saved``, the
+    graph's list a load restores, 0x65E50) comes back from its record on
+    every visit, so its item respawns (seen in xemu: f4's r1540 taken
+    twice); a prefilled one keeps its own item."""
+    db, rows = logic.db, logic.location_rows
+    locks = {gid: o for gid, (_, kind, o) in db.generated_objects.items() if kind == "obsidian_locks"}
+    supply = collections.Counter()
+    for loc in logic.pool:
+        item, n = logic.vanilla[loc]
+        for c, inc in logic.items[item].items():
+            supply[c] += inc * n
+    full = {gid for gid, o in locks.items()
+            if any(a[0] == "counter" and a[2] >= supply[a[1]] for a in atoms(parse(o["requires"])))}
+    unsaved = {loc["id"] for doc in db.generated.values() for loc in doc["locations"]
+               if loc["pool"] and not loc.get("saved", True) and loc["id"] not in logic.prefilled}
+    return frozenset(loc for loc, lvl in logic.pool.items() if lvl not in db.stubs and (
+        rows.get(loc, {}).get("exclude") or set(logic.gated_by[loc]) & full or loc in logic.forfeitable
+        or loc in unsaved))
+
+
+class _Slots:
+    """The fill's facts about a database's authored pool under one set of
+    options (the database's defaults when None), read once."""
+
+    def __init__(self, logic: Logic, settings: Settings | None = None) -> None:
+        db = logic.db
+        self.logic, self.names = logic, Names(db)
+        self.cls = {name: it["class"] for name, it in self.names.items.items()}
+        locs = self.names.locations
+        self.pool = sorted(loc for loc, lvl in logic.pool.items() if lvl not in db.stubs)
+        self.vanilla = {loc: locs[loc]["item"] for loc in self.pool}
+        rows = logic.location_rows
+        on = {pick_of(sid, logic.skip_tables) for sid in skips_on(settings or db.defaults, logic.skip_tables)}
+        marks = {loc: rows[loc]["proven"] for loc in self.pool if "proven" in rows.get(loc, {})}
+        # AZ-725: a route mark that a skip these options turn on outdoes holds then only for its ``only`` items
+        self.only = {loc: frozenset(pv.get("only", ())) for loc, pv in marks.items() if on & set(pv.get("unless", ()))}
+        self.proven = frozenset(loc for loc in marks if self.only.get(loc, True))
+        locks = {gid for gid, (_, kind, _) in db.generated_objects.items() if kind == "obsidian_locks"}
+        self.vault = frozenset(loc for loc in self.pool if set(locs[loc].get("gated_by", ())) & locks)
+        self.excluded = excluded_locations(logic)
+        self.prefilled = {loc: self.vanilla[loc] for loc in self.pool if loc in logic.prefilled}
+        self.kind = {loc: ("cluster", locs[loc]["yield"]) if locs[loc]["class"] == "cluster"
+                     else locs[loc]["class"] if locs[loc]["class"] == "gem" else "nongem" for loc in self.pool}
+        self.major = frozenset(loc for loc in self.pool if locs[loc]["class"] == "major")
+
+    def holds(self, loc: str, item: str) -> bool:
+        """Whether ``loc``'s proven mark holds for ``item`` under these options."""
+        return loc in self.proven and item in self.only.get(loc, (item,))
+
+    def open_proven(self) -> list[str]:
+        """The proven spots a progression item may take."""
+        return [loc for loc in self.pool if loc in self.proven and self.kind[loc] == "nongem" and loc not in
+                self.excluded and loc not in self.prefilled and loc not in self.vault]
+
+    def kept(self, settings: Settings) -> dict[str, str]:
+        """The spots ``settings``' ``exclude_categories`` keep on their vanilla items (Step R1.10b)."""
+        return {loc: item for loc, item in self.vanilla.items()
+                if category(self.names.base[item]) in settings.exclude_categories}
+
+    def starved(self, settings: Settings) -> Starved | None:
+        """The preflight (Step R1.27, AZ-454): a :class:`Starved` when the
+        proven spots open to a progression item under ``settings`` are fewer
+        than the progression items the plan places, each needing one of its
+        own (D122, D143), so no attempt can fill, naming the categories that
+        keep open spots vanilla, the counts and what to shuffle; None
+        otherwise."""
+        kept, spots = self.kept(settings), self.open_proven()
+        free = [loc for loc in spots if loc not in kept]
+        items = sorted(item for loc, item in self.vanilla.items() if loc not in self.prefilled and loc not in kept
+                       and self.kind[loc] == "nongem" and self.cls[item] == "progression")
+        if len(free) >= len(items):
+            return None
+        held = collections.Counter(category(self.names.base[kept[loc]]) for loc in spots if loc in kept)
+        if held:
+            cats = sorted(held, key=lambda c: (-held[c], c))
+            by = ", ".join(f"{c} {held[c]}" for c in cats)
+            why = (f"exclude_categories keeps {len(spots) - len(free)} of the {len(spots)} proven spots a "
+                   f"progression item may take on their vanilla items ({by}), which leaves {len(free)} for the "
+                   f"{len(items)} progression items the plan places")
+            fix = (f"shuffle {cats[0]} (tick its row on the Randomize page, or leave it out of exclude_categories)"
+                   if len(cats) == 1 else f"shuffle some of {', '.join(cats)} (tick their rows on the Randomize "
+                   f"page, or leave them out of exclude_categories)")
+        else:
+            why = (f"the database has {len(spots)} proven spots a progression item may take for the {len(items)} "
+                   f"progression items the plan places")
+            fix = "it needs more proven spots"
+        return Starved(f"{why}, one each (D122, D143), so no attempt can fill and none is made: {fix}", items, free)
+
+    def ok(self, loc: str, item: str, budget: _Budget) -> bool:
+        """The item rules (plan §3.3) for a spot of the right class."""
+        cls = self.cls[item]
+        if cls in ("progression", "progression_counted") and loc in self.excluded:
+            return False
+        if cls == "progression" and not self.holds(loc, item):
+            return False
+        if loc in self.vault and item not in VAULT_ITEMS and item != self.vanilla[loc]:
+            return False
+        return budget.fits(loc, item)
+
+    def repairs(self, settings: Settings, placement: Mapping[str, str], r: Reach, trace: Sequence,
+                prog: Mapping[str, str], known: frozenset[str], nongem: Sequence[str]) -> list[tuple[str, str]]:
+        """The trap gate's repair (Step R1.8m): the first sphere ``t`` whose state has new trick-free traps, and
+        the first later sphere ``u`` at whose state none of those is one any more. A progression item collected
+        in the sphere before ``u`` (the way out) swaps spots with one collected in the sphere before ``t`` (the
+        way in), or, when the traps are there from the start, with whatever lies on a spot at a trap node (its
+        escape picks the item up there, as vanilla's water in w2's hose pool): each pair (the way out's spot, the
+        other), sorted."""
+        new = [sp.free_traps - r.after_completion - known for sp in trace]
+        t = next((i for i, n in enumerate(new) if n), None)
+        u = None if t is None else next((i for i in range(t + 1, len(trace)) if not new[i] & new[t]), None)
+        if u is None:
+            return []
+        outs, got = sorted(trace[u - 1].locations & prog.keys()), trace[t].got
+        back = next((i for i in range(t - 1, -1, -1) if trace[i].locations & prog.keys()), None)
+
+        def clears(collected: Iterable[str]) -> bool:   # a collected guardian slot from its round, as the tracker
+            return not self.logic.reach(settings, placement, collected=collected, replay=True).free_traps & new[t]
+        if back is not None:        # the way in: the last items before t, those without which the traps aren't first
+            ins = sorted(trace[back].locations & prog.keys())
+            ins = [b for b in ins if clears(got - {b})] or ins
+        else:                       # none: the spots at the traps, and first the ways out that free them there
+            node = self.logic.db.node_of
+            ins = [loc for loc in nongem if node[loc] in new[t] and loc in self.proven and loc not in self.excluded
+                   and loc not in self.vault]
+            outs = [a for a in outs if clears(got | {a})] or outs
+        return [(a, b) for a in outs for b in ins if a != b and self.holds(b, prog[a])
+                and (b not in prog or self.holds(a, prog[b]))]
+
+    @staticmethod
+    def floor(k: int, counters: Mapping[str, int], reads: Mapping[str, frozenset[int]]) -> int:
+        """The lowest count of an item whose copies cross the thresholds k
+        copies cross: the bottom of k's band."""
+        f = 0
+        for c, inc in counters.items():
+            t = max((t for t in reads.get(c, ()) if t <= k * inc), default=0)
+            f = max(f, -(-t // inc))
+        return f
+
+    def attempt(self, settings: Settings, reads: Mapping[str, frozenset[int]], streams: Callable[[str], Rng],
+                known: frozenset[str], repaired: list[str] | None = None) -> dict[str, str]:
+        """One attempt's placement, or :class:`_Stuck`; ``repaired`` gets
+        each trap-gate refusal it went on to repair."""
+        lg = self.logic
+        placed, budget = dict(self.prefilled), _Budget(self.names)
+        placed.update(self.kept(settings))
+        read = {name for name, cs in lg.items.items() if cs.keys() & reads.keys()}
+        todo = [loc for loc in self.pool if loc not in placed]
+        nongem = [loc for loc in todo if self.kind[loc] == "nongem"]
+        by_class = collections.defaultdict(list)
+        for loc in nongem:
+            by_class[self.cls[self.vanilla[loc]]].append(self.vanilla[loc])
+        assumed = collections.Counter(self.vanilla[loc] for loc in todo if self.vanilla[loc] in read)
+
+        def reach(at: Mapping[str, str] | None = None) -> Reach:
+            return lg.reach(settings, {**placed, **(at or {})}, sorted(assumed.elements()), traps=False)
+
+        def put(loc: str, item: str) -> None:
+            placed[loc] = item
+            budget.take(loc, item)
+
+        def safe(item: str, got: frozenset[str]) -> list[str]:
+            return [loc for loc in nongem if loc not in placed and loc in got and self.ok(loc, item, budget)]
+
+        def own(item: str, r: Reach) -> list[str]:
+            """The spots ``item`` opens by lying there: at a node reached but not safe without it, collected once it
+            lies there (its escape picks it up: vanilla's water in w2's hose pool)."""
+            return [loc for loc in nongem if loc not in placed and loc not in r.locations and node[loc] in r.nodes
+                    and node[loc] not in r.safe and self.ok(loc, item, budget) and loc in reach({loc: item}).locations]
+
+        def spots_for(item: str, r: Reach | None = None) -> list[str]:
+            r = r or reach()
+            return own(item, r) or safe(item, r.locations)
+
+        def rebudget(prog: Mapping[str, str]) -> bool:
+            """``placed`` and the budget again from ``base`` and ``prog``; False when over a budget."""
+            nonlocal placed, budget
+            placed, budget = dict(base), _Budget(self.names)
+            for loc, item in sorted(prog.items()):
+                if not budget.fits(loc, item):
+                    return False
+                put(loc, item)
+            return True
+
+        def trade(item: str, r: Reach) -> bool:
+            """No spot for ``item`` in its reach ``r``: it takes the spot of a progression item placed before it
+            whose node the reach gets to, the spot collected with ``item`` there and the other item assumed, and the
+            other item moves to a spot of the reach with ``item`` there (Step R1.8m)."""
+            prog = {loc: x for loc, x in placed.items() if loc not in base}
+            for loc in rng.shuffle(sorted(loc for loc in prog if node[loc] in r.nodes)):
+                if not self.holds(loc, item):      # AZ-725: a spot whose mark holds for its own item alone
+                    continue
+                other = prog[loc]
+                assumed[other] += other in read
+                if loc in reach({loc: item}).locations:
+                    assumed[other] -= other in read
+                    if rebudget({**prog, loc: item}) and (spots := spots_for(other)):
+                        put(rng.choice(spots), other)
+                        return True
+                else:
+                    assumed[other] -= other in read
+                rebudget(prog)
+            return False
+
+        node, base = lg.db.node_of, dict(placed)
+        rng = streams("progression")
+        for item in rng.shuffle(sorted(by_class["progression"])):
+            assumed[item] -= item in read
+            if spots := spots_for(item, r := reach()):
+                put(rng.choice(spots), item)
+            elif not trade(item, r):
+                raise _Stuck(f"no safe proven spot for {item}", item, r.locations)
+        prog = {loc: item for loc, item in placed.items() if loc not in base}
+        good, pairs = None, []      # the last placement only the trap gate refused, and its untried repairs
+        for fix in range(MAX_REPAIRS + 1):
+            try:
+                if fix:
+                    a, b = pairs.pop(rng.below(len(pairs)))
+                    prog = {**good, b: good[a]}
+                    if b in good:
+                        prog[a] = good[b]
+                    else:
+                        del prog[a]
+                    if not rebudget(prog):
+                        raise _Stuck(f"the repair puts {prog[b]} on {b} over its graph's string budget")
+                for item, k in sorted(collections.Counter(by_class["progression_counted"]).items()):
+                    while k:       # one reach per threshold band, the band's lowest count assumed
+                        low = self.floor(k - 1, lg.items[item], reads) if item in read else 0
+                        assumed[item] = low
+                        got = reach().locations
+                        for _ in range(k - low):
+                            spots = safe(item, got)
+                            if not spots:
+                                raise _Stuck(f"no safe spot for {item} ({k} left)")
+                            put(rng.choice(spots), item)
+                            k -= 1
+                trace: list = []
+                r = lg.reach(settings, placed, trace=trace)
+                if not (problems := _problems(lg, r, known)):
+                    break
+                if len(problems) > 1 or not new_traps(r, known):
+                    raise _Stuck("the verify: " + "; ".join(problems))
+                good, pairs = prog, self.repairs(settings, placed, r, trace, prog, known, nongem)
+                why = _Stuck("the verify: " + "; ".join(problems))
+                if pairs and repaired is not None:
+                    repaired.append(str(why))
+            except _Stuck as exc:       # a repair that breaks the placement goes back to the last one
+                if good is None:
+                    raise
+                why = exc
+            if not pairs:
+                raise why
+        else:
+            raise why
+
+        rng = streams("useful")
+        items = rng.shuffle(sorted(by_class["useful"]))
+        for vault in rng.shuffle([loc for loc in nongem if loc in self.vault and loc not in placed]):
+            fits = [item for item in items if self.ok(vault, item, budget)]
+            if not fits:
+                raise _Stuck(f"no useful item may go into the vault {vault} (Q290)")
+            item = rng.choice(fits)
+            items.remove(item)
+            assumed[item] -= item in read
+            if vault not in reach().locations:
+                raise _Stuck(f"the vault {vault} is not safe without {item}")
+            put(vault, item)
+        for item in items:
+            assumed[item] -= item in read
+            spots = safe(item, reach().locations)
+            if not spots:
+                raise _Stuck(f"no safe spot for {item}")
+            put(rng.weighted(spots, [USEFUL_MAJOR_WEIGHT if loc in self.major else 1 for loc in spots]), item)
+
+        rng = streams("filler")
+        groups = [("non-gem", [loc for loc in nongem if loc not in placed], by_class["filler"])]
+        for kind in sorted({k for k in self.kind.values() if k != "nongem"}, key=str):
+            spots = [loc for loc in todo if self.kind[loc] == kind]
+            groups.append((kind if kind == "gem" else f"yield-{kind[1]} cluster", spots,
+                           [self.vanilla[loc] for loc in spots]))
+        for what, spots, items in groups:
+            items = rng.shuffle(sorted(items))
+            for loc in rng.shuffle(sorted(spots)):
+                j = next((j for j, item in enumerate(items) if self.ok(loc, item, budget)), None)
+                if j is None:
+                    raise _Stuck(f"no {what} item may go on {loc}")
+                put(loc, items.pop(j))
+
+        if problems := verify(lg, settings, placed, known):
+            raise _Stuck("the verify: " + "; ".join(problems))
+        return dict(sorted(placed.items()))
+
+
+def known_traps(logic: Logic, settings: Settings) -> frozenset[str]:
+    """The traps the trap gate lets a plan have (plan §2.13, D83(b)): the
+    level files' ``known_traps`` (owner-signed) and vanilla's own, every
+    trap of the vanilla placement under the same options or under the
+    database's defaults, however it is entered (default taken under D115:
+    D83(b) re-rolls a seed for *new* trick-free traps, vanilla's are
+    computed rather than listed by hand, and a node vanilla traps a player
+    in, such as f4's lava river or town's pits a skip gets into early, is
+    vanilla's whatever the options)."""
+    signed = {t["node"] for doc in logic.db.levels.values() for t in doc.get("known_traps", ())}
+    vanilla = logic.vanilla_placement()
+    return frozenset(signed).union(*(logic.reach(st, vanilla).traps for st in (settings, logic.db.defaults)))
+
+
+def new_traps(reach, known: frozenset[str]) -> list[str]:
+    """The trick-free traps of ``reach`` the trap gate refuses: not known,
+    and not a trap after completion (§2.9: a region left by its teleport)."""
+    return sorted(reach.free_traps - reach.after_completion - known)
+
+
+def verify(logic: Logic, settings: Settings, placement: Mapping[str, str],
+           known: frozenset[str] | None = None) -> list[str]:
+    """The independent solve (plan §3.3 step 5): victory under ``settings``,
+    every authored pool location collected except the forfeitable ones
+    (``full``), and the trap gate: no new trick-free trap (``known``:
+    :func:`known_traps`, computed when None). Empty when it passes."""
+    return _problems(logic, logic.reach(settings, placement), known_traps(logic, settings) if known is None else known)
+
+
+def _problems(logic: Logic, r: Reach, known: frozenset[str]) -> list[str]:
+    """:func:`verify`'s problems with a placement's reach ``r``."""
+    out = [] if r.victory else [f"victory ({logic.db.world['victory']}) does not hold"]
+    missed = [loc for loc, lvl in sorted(logic.pool.items())
+              if lvl not in logic.db.stubs and loc not in r.locations and loc not in logic.forfeitable]
+    if missed:
+        out.append(f"{len(missed)} locations are never collected ({', '.join(missed[:8])}"
+                   f"{', ...' if len(missed) > 8 else ''})")
+    if new := new_traps(r, known):
+        out.append(f"the trap gate (D83(b)): {len(new)} new trick-free traps ({', '.join(new[:8])}"
+                   f"{', ...' if len(new) > 8 else ''})")
+    return out
+
+
+def _streams(seed: str, k: int, digest: str) -> Callable[[str], Rng]:
+    """Attempt k's named streams."""
+    return lambda name: stream(str(seed), name if k == 0 else f"attempt{k}/{name}", digest)
+
+
+def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
+    """A verified placement for ``seed`` under ``settings`` (the database's
+    defaults when None), from the first of :data:`MAX_ATTEMPTS` attempts
+    that passes; :class:`FillError` otherwise, before any attempt when the
+    settings starve it (:meth:`_Slots.starved`). The same inputs give the
+    same placement in any process."""
+    st = settings if settings is not None else logic.db.defaults
+    slots = _Slots(logic, st)
+    if (refused := slots.starved(st)) is not None:
+        raise refused
+    digest, reads, known = settings_digest(st), logic.reads(st), known_traps(logic, st)
+    reasons, stuck = [], set()
+    for k in range(MAX_ATTEMPTS):
+        repaired: list[str] = []
+        try:
+            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired)
+        except _Stuck as exc:
+            reasons.append(f"attempt {k}: {exc}")
+            if exc.item is not None:
+                stuck.add(exc.item)
+            continue
+        layout(placement, logic.db)     # the writer's own check (never over a budget): a WriteError is a bug
+        return Fill(str(seed), st, k, placement, tuple(reasons), tuple(f"attempt {k}: {r}" for r in repaired))
+    raise FillError(f"{MAX_ATTEMPTS} attempts failed; the last: {reasons[-1]}", sorted(stuck), slots.open_proven(),
+                    reasons)
+
+
+def starved(logic: Logic, settings: Settings | None = None) -> Starved | None:
+    """The preflight's refusal of ``settings`` (the database's defaults when
+    None) on ``logic`` (:meth:`_Slots.starved`), None when an attempt may
+    fill: what the Randomize page names before a roll or a build."""
+    st = settings if settings is not None else logic.db.defaults
+    return _Slots(logic, st).starved(st)
+
+
+def roll(logic: Logic, seeds: Iterable[str], settings: Settings | None = None) -> str | None:
+    """The first of ``seeds`` whose first attempt passes under ``settings``
+    (the database's defaults when None), so that its fill is that attempt
+    (D185: the GUI starts on such a seed, which fills and plans at once);
+    None when none does, at once when the preflight refuses the settings
+    (:meth:`_Slots.starved`)."""
+    st = settings if settings is not None else logic.db.defaults
+    slots = _Slots(logic, st)
+    if slots.starved(st) is not None:
+        return None
+    digest, reads, known = settings_digest(st), logic.reads(st), known_traps(logic, st)
+    for seed in seeds:
+        try:
+            slots.attempt(st, reads, _streams(seed, 0, digest), known)
+        except _Stuck:
+            continue
+        return str(seed)
+    return None

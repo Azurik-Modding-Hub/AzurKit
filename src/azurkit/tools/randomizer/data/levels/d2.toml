@@ -1,0 +1,716 @@
+# levels/d2.toml: written by `azurik-mod rando author d2` (Step R1.8) from generated/d2.json,
+# derived/d2.json.gz, tricks.toml and draft/authoring/d2.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "d2"
+status = "authored"
+known_traps = []
+route = ["d2/g0/r3045", "d2/g0/r3047", "d2/g0/r3049", "d2/g0/r3051", "d2/g0/r3053", "d2/g0/r3055", "d2/g0/r3660", "d2/g0/r3662", "d2/g0/r3664"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "d2_core"
+anchors = ["zone:d2.Z015"]
+locations = ["d2/g0/r3045", "d2/g0/r3047", "d2/g0/r3049", "d2/g0/r3051", "d2/g0/r3053", "d2/g0/r3055", "d2/g0/r3600", "d2/g0/r3602", "d2/g0/r3604", "d2/g0/r3606", "d2/g0/r3609", "d2/g0/r3611", "d2/g0/r3613", "d2/g0/r3615", "d2/g0/r3617", "d2/g0/r3620", "d2/g0/r3622", "d2/g0/r3624", "d2/g0/r3626", "d2/g0/r3628", "d2/g0/r3630", "d2/g0/r3632", "d2/g0/r3634", "d2/g0/r3636", "d2/g0/r3638", "d2/g0/r3641", "d2/g0/r3643", "d2/g0/r3645", "d2/g0/r3647", "d2/g0/r3649", "d2/g0/r3651", "d2/g0/r3653", "d2/g0/r3655", "d2/g0/r3657", "d2/g0/r3660", "d2/g0/r3662", "d2/g0/r3664", "d2/g0/r3774", "d2/g0/r3777", "d2/g0/r3780"]
+
+[[node]]
+id = "d2_door"
+anchors = ["zone:d2.Z135"]
+
+[[node]]
+id = "d2_lock_room"
+anchors = ["zone:d2.Z008"]
+
+[[node]]
+id = "d2_z006"
+anchors = ["zone:d2.Z006"]
+
+[[node]]
+id = "d2_z007"
+anchors = ["zone:d2.Z007"]
+
+[[node]]
+id = "d2_z009"
+anchors = ["zone:d2.Z009"]
+
+[[node]]
+id = "d2_z011"
+anchors = ["zone:d2.Z011"]
+
+[[node]]
+id = "d2_z012"
+anchors = ["zone:d2.Z012"]
+
+[[node]]
+id = "d2_z013"
+anchors = ["zone:d2.Z013"]
+
+[[node]]
+id = "d2_z014"
+anchors = ["zone:d2.Z014"]
+
+[[node]]
+id = "d2_z020"
+anchors = ["zone:d2.Z020"]
+
+[[node]]
+id = "d2_z024"
+anchors = ["zone:d2.Z024"]
+
+[[node]]
+id = "d2_z029"
+anchors = ["zone:d2.Z029"]
+
+[[node]]
+id = "d2_z037"
+anchors = ["zone:d2.Z036"]
+
+[[node]]
+id = "d2_z040"
+anchors = ["zone:d2.Z039"]
+
+[[node]]
+id = "d2_z060"
+anchors = ["zone:d2.Z057"]
+
+[[node]]
+id = "d2_z077"
+anchors = ["zone:d2.Z071"]
+
+[[node]]
+id = "d2_z093"
+anchors = ["zone:d2.Z087"]
+
+[[node]]
+id = "d2_z127"
+anchors = ["zone:d2.Z121"]
+
+[[node]]
+id = "d2_z216"
+anchors = ["zone:d2.Z198"]
+
+[[node]]
+id = "d2_z217"
+anchors = ["zone:d2.Z199"]
+
+[[node]]
+id = "d2_z231"
+anchors = ["zone:d2.Z212"]
+
+[[node]]
+id = "d2_z249"
+anchors = ["zone:d2.Z230"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "d2_core"
+to = "d2_lock_room"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_core"
+to = "d2_z020"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "d2_core"
+to = "d2_z077"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d2_door"
+to = "d2_lock_room"
+kind = "walk"
+requires = "button:d2.death_keylock & button:d2.death_keylock1 & button:d2.death_keylock2 & button:d2.death_keylock3 & button:d2.death_keylock4 & button:d2.death_keylock5"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_lock_room"
+to = "d2_core"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_lock_room"
+to = "d2_door"
+kind = "walk"
+requires = "button:d2.death_keylock & button:d2.death_keylock1 & button:d2.death_keylock2 & button:d2.death_keylock3 & button:d2.death_keylock4 & button:d2.death_keylock5"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_lock_room"
+to = "d2_z060"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z006"
+to = "d2_z216"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z007"
+to = "d2_z020"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z007"
+to = "d2_z040"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d2_z007"
+to = "d2_z077"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z007"
+to = "d2_z077"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z007"
+to = "d2_z077"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "d2_z009"
+to = "d2_z014"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z009"
+to = "d2_z014"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z011"
+to = "d2_z037"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z011"
+to = "d2_z037"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z012"
+to = "d2_z014"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d2_z012"
+to = "d2_z037"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z012"
+to = "d2_z127"
+kind = "walk"
+requires = "event:d2.Toggle_FieldShape_g0r2459.touch | event:d2.Toggle_FieldShape_g0r2470.touch | event:d2.Up_FieldShape_g0r2457.touch | event:d2.Up_FieldShape_g0r2466.touch"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z013"
+to = "d2_z040"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d2_z013"
+to = "d2_z093"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d2_z014"
+to = "d2_z009"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z014"
+to = "d2_z013"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d2_z014"
+to = "d2_z024"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z014"
+to = "d2_z024"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z020"
+to = "d2_z007"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z020"
+to = "d2_z012"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z020"
+to = "d2_z012"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z020"
+to = "d2_z012"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "d2_z024"
+to = "d2_z014"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z024"
+to = "d2_z014"
+kind = "walk"
+requires = "event:d2.CallUpFieldShape_g0r2276.touch | event:d2.CallUpFieldShape_g0r2288.touch | event:d2.ToggleFieldShape_g0r2278.touch | event:d2.ToggleFieldShape_g0r2290.touch"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z037"
+to = "d2_z011"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z037"
+to = "d2_z012"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "d2_z037"
+to = "d2_z127"
+kind = "walk"
+requires = "air>=3 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z040"
+to = "d2_z011"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z040"
+to = "d2_z077"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z060"
+to = "d2_lock_room"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z077"
+to = "d2_z011"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "d2_z093"
+to = "d2_z013"
+kind = "walk"
+requires = "event:d2.CallUpFieldShape_g0r2088.touch | event:d2.CallUpFieldShape_g0r2096.touch | event:d2.ToggleFieldShape_g0r2084.touch | event:d2.ToggleFieldShape_g0r2100.touch"
+confidence = "physics"
+
+[[edge]]
+from = "d2_z127"
+to = "d2_z012"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # D2_D1_levelSwitch -> d1 (spot); Step R1.24b (D722, the owner's demo, X.78): going back into d1 by this door needs the death keys (the owner, verbatim: "you cant go back into d1 without the keys", which: "d1's death keys"); the door's wiring holds no keylock (touch(DeathLevelTransition1:LevelDoor2:public_DoorFieldShape) fires D2_D1_levelSwitch, and the iris toggle has no input in d2 [verified data: logic_dump.py d2]), and d1's three death keylocks are used after this door (the route's button:d1.death_keylock to button:d1.death_keylock2): gating it on any of them leaves the vanilla placement unbeatable (71 locations and the victory lost, $EV/r1.24b-owner-logic-calls-2026-10-25/results/d2-door-gate-vanilla.txt), so it asks the death keylocks of d2's lock room, the six lens keylocks the vanilla route uses before it (button:d2.death_keylock to button:d2.death_keylock5; default taken under D115). touch(DeathLevelTransition1:LevelDoor2:public_DoorFieldShape) [verified data]
+from = "d2_door"
+to = "d1_z125"
+kind = "exit"
+exit = "d2/g0/r3840"
+requires = "button:d2.death_keylock & button:d2.death_keylock1 & button:d2.death_keylock2 & button:d2.death_keylock3 & button:d2.death_keylock4 & button:d2.death_keylock5"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[button]]  # keylock, generated requires key.lens>=1
+id = "d2.death_keylock5"
+of = "d2/g0/r53"
+at = "d2_lock_room"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.lens>=1
+id = "d2.death_keylock"
+of = "d2/g0/r58"
+at = "d2_lock_room"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.lens>=1
+id = "d2.death_keylock1"
+of = "d2/g0/r63"
+at = "d2_lock_room"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.lens>=1
+id = "d2.death_keylock4"
+of = "d2/g0/r68"
+at = "d2_lock_room"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.lens>=1
+id = "d2.death_keylock3"
+of = "d2/g0/r73"
+at = "d2_lock_room"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.lens>=1
+id = "d2.death_keylock2"
+of = "d2/g0/r78"
+at = "d2_lock_room"
+mode = "latch"
+
+[[event]]  # d2's lab floor (d2_core) is entered only by d1's bridge-end cutscene (D2_movie_levelSwitch, its D1_D2_Fall arrival [verified xemu, placed: sitting r111d]; d2's other arrival, D1_D2, is the door pair's), whose field's touch turns DeathMovie_disable_toggle off for good [verified data]: being here means the cutscene has fired, which d1's walk onto the beam walkway reads
+id = "d2.lab.reached"
+at = "d2_core"
+requires = "true"
+
+[[event]]  # derived: touch of CallUpFieldShape
+id = "d2.CallUpFieldShape_g0r2088.touch"
+at = "d2_z013"
+requires = "true"
+
+[[event]]  # derived: touch of CallUpFieldShape
+id = "d2.CallUpFieldShape_g0r2096.touch"
+at = "d2_z013"
+requires = "true"
+
+[[event]]  # derived: touch of CallUpFieldShape
+id = "d2.CallUpFieldShape_g0r2276.touch"
+at = "d2_z014"
+requires = "true"
+
+[[event]]  # derived: touch of CallUpFieldShape
+id = "d2.CallUpFieldShape_g0r2288.touch"
+at = "d2_z014"
+requires = "true"
+
+[[event]]  # derived: touch of DeathLevelTransition1:LevelDoor3:public_DoorFieldShape
+id = "d2.DeathLevelTransition1_LevelDoor3_public_DoorFieldShape.touch"
+at = "d2_z060"
+requires = "true"
+
+[[event]]  # derived: touch of ToggleFieldShape
+id = "d2.ToggleFieldShape_g0r2084.touch"
+at = "d2_z013"
+requires = "true"
+
+[[event]]  # derived: touch of ToggleFieldShape
+id = "d2.ToggleFieldShape_g0r2100.touch"
+at = "d2_z013"
+requires = "true"
+
+[[event]]  # derived: touch of ToggleFieldShape
+id = "d2.ToggleFieldShape_g0r2278.touch"
+at = "d2_z014"
+requires = "true"
+
+[[event]]  # derived: touch of ToggleFieldShape
+id = "d2.ToggleFieldShape_g0r2290.touch"
+at = "d2_z014"
+requires = "true"
+
+[[event]]  # derived: touch of Toggle_FieldShape
+id = "d2.Toggle_FieldShape_g0r2459.touch"
+at = "d2_z012"
+requires = "true"
+
+[[event]]  # derived: touch of Toggle_FieldShape
+id = "d2.Toggle_FieldShape_g0r2470.touch"
+at = "d2_z012"
+requires = "true"
+
+[[event]]  # derived: touch of Up_FieldShape
+id = "d2.Up_FieldShape_g0r2457.touch"
+at = "d2_z127"
+requires = "true"
+
+[[event]]  # derived: touch of Up_FieldShape
+id = "d2.Up_FieldShape_g0r2466.touch"
+at = "d2_z127"
+requires = "true"
+
+[[location]]
+id = "d2/g0/r3045"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z009, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3045)"
+
+[[location]]
+id = "d2/g0/r3047"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z029, which the derive reaches in no rung from the arrival: the conservative-kit rule (the route's d2/g0/r3047)"
+
+[[location]]
+id = "d2/g0/r3049"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z087, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3049)"
+
+[[location]]
+id = "d2/g0/r3051"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z024, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3051)"
+
+[[location]]
+id = "d2/g0/r3053"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z121, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3053)"
+
+[[location]]
+id = "d2/g0/r3055"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_lens on d2.Z230, which the derive reaches in no rung from the arrival: the conservative-kit rule (the route's d2/g0/r3055)"
+
+[[location]]
+id = "d2/g0/r3600"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z071, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3602"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3604"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3606"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z020, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3609"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z007, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3611"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3613"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3615"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3617"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3620"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z039, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3622"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z039, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3624"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3626"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3628"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3630"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z036, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3632"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3634"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3636"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3638"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire on d2.Z013, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3641"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3643"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3645"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3647"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3649"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3651"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3653"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3655"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3657"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z014, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3660"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "all_fuel on d2.Z011, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3660)"
+
+[[location]]
+id = "d2/g0/r3662"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "all_fuel on d2.Z011, whose node the derive reaches but gives no way back to an exit (the conveyors, lifts and scoops it doesn't follow): the conservative-kit rule (the route's d2/g0/r3662)"
+
+[[location]]
+id = "d2/g0/r3664"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "all_fuel on d2.Z006, which the derive reaches in no rung from the arrival: the conservative-kit rule (the route's d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3774"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond on d2.Z212, which the derive reaches in no rung from the arrival: the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3777"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby on d2.Z198, which the derive reaches in no rung from the arrival: the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+[[location]]
+id = "d2/g0/r3780"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald on d2.Z199, which the derive reaches in no rung from the arrival: the conservative-kit rule (off the route: the level's last location step, d2/g0/r3664)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------

@@ -1,0 +1,1902 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "azurik-mod rando db-extract",
+  "source": {
+   "file": "gamedata/e6.xbr",
+   "sha256_12": "1aa194153ec2",
+   "size": 36012468
+  }
+ },
+ "barriers": [
+  {
+   "contains": [],
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "e6/g0/r759",
+   "kind": "other",
+   "level": null,
+   "levels_seen": [],
+   "name": "Detect_fireShape1",
+   "near_locations": [],
+   "persist": "unknown",
+   "requires": null,
+   "shapes": [
+    "e6/g0/r759"
+   ],
+   "switches": []
+  },
+  {
+   "contains": [],
+   "damage": "wind",
+   "damage_mix": null,
+   "elements": "EA",
+   "id": "e6/g0/r761",
+   "kind": "other",
+   "level": null,
+   "levels_seen": [],
+   "name": "Detect_windShape4",
+   "near_locations": [],
+   "persist": "unknown",
+   "requires": null,
+   "shapes": [
+    "e6/g0/r761"
+   ],
+   "switches": []
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "e6/g0/r767",
+   "kind": "other",
+   "level": null,
+   "levels_seen": [],
+   "name": "Detect_smshShape2",
+   "near_locations": [],
+   "persist": "unknown",
+   "requires": null,
+   "shapes": [
+    "e6/g0/r767"
+   ],
+   "switches": []
+  },
+  {
+   "contains": [],
+   "damage": "litn",
+   "damage_mix": null,
+   "elements": "AFW",
+   "id": "e6/g0/r771",
+   "kind": "other",
+   "level": null,
+   "levels_seen": [],
+   "name": "Detect_litnShape3",
+   "near_locations": [],
+   "persist": "unknown",
+   "requires": null,
+   "shapes": [
+    "e6/g0/r771"
+   ],
+   "switches": []
+  },
+  {
+   "contains": [],
+   "damage": "acid",
+   "damage_mix": null,
+   "elements": "EW",
+   "id": "e6/g0/r2393",
+   "kind": "acidblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "AcidBlock_01",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & water>=1",
+   "shapes": [
+    "e6/g0/r2393",
+    "e6/g0/r2395",
+    "e6/g0/r2397"
+   ],
+   "switches": [
+    "e6/g0/r2399"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "acid",
+   "damage_mix": null,
+   "elements": "EW",
+   "id": "e6/g0/r2408",
+   "kind": "acidblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "AcidBlock_02",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & water>=1",
+   "shapes": [
+    "e6/g0/r2408",
+    "e6/g0/r2410",
+    "e6/g0/r2412"
+   ],
+   "switches": [
+    "e6/g0/r2414"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "acid",
+   "damage_mix": null,
+   "elements": "EW",
+   "id": "e6/g0/r2423",
+   "kind": "acidblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "AcidBlock_03",
+   "near_locations": [
+    "e6/g0/r2730"
+   ],
+   "persist": "permanent",
+   "requires": "earth>=1 & water>=1",
+   "shapes": [
+    "e6/g0/r2423",
+    "e6/g0/r2425",
+    "e6/g0/r2427"
+   ],
+   "switches": [
+    "e6/g0/r2429"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "watr",
+   "damage_mix": null,
+   "elements": "W",
+   "id": "e6/g0/r2438",
+   "kind": "firewall",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "FireWall_01",
+   "near_locations": [],
+   "persist": "timed",
+   "requires": "water>=1",
+   "shapes": [
+    "e6/g0/r2438"
+   ],
+   "switches": [
+    "e6/g0/r2439"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "watr",
+   "damage_mix": null,
+   "elements": "W",
+   "id": "e6/g0/r2499",
+   "kind": "firewall",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "FireWall_02",
+   "near_locations": [],
+   "persist": "timed",
+   "requires": "water>=1",
+   "shapes": [
+    "e6/g0/r2499"
+   ],
+   "switches": [
+    "e6/g0/r2500"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "watr",
+   "damage_mix": null,
+   "elements": "W",
+   "id": "e6/g0/r2560",
+   "kind": "firewall",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "FireWall_03",
+   "near_locations": [],
+   "persist": "timed",
+   "requires": "water>=1",
+   "shapes": [
+    "e6/g0/r2560"
+   ],
+   "switches": [
+    "e6/g0/r2561"
+   ]
+  }
+ ],
+ "bosses": [],
+ "cells": [
+  "Air_cube_nice:skyCellShape",
+  "GearCellShape",
+  "default cell",
+  "LavaCellShape",
+  "RedMachine1CellShape",
+  "EntranceCellShape",
+  "RedMachine2CellShape",
+  "LavaHallCellShape",
+  "MainCellShape",
+  "MirrorCellShape",
+  "MirrorCell1Shape",
+  "MirrorCell2Shape",
+  "MirrorCell4Shape",
+  "MirrorCell3Shape",
+  "UnderWaterCellShape",
+  "ClimbCaveCellShape",
+  "HallCellShape",
+  "CrystalCaveCellShape",
+  "InsideTreeCellShape"
+ ],
+ "counts": {
+  "barriers": 10,
+  "bosses": 0,
+  "exits": 3,
+  "game_states": 2,
+  "geodes": 1,
+  "keylocks": 0,
+  "keylords": 0,
+  "latches": 11,
+  "locations_in_pool": {
+   "cluster": 7,
+   "gem": 40,
+   "major": 1,
+   "obsidian": 5
+  },
+  "locations_not_in_pool": 0,
+  "obsidian_locks": 0,
+  "save_points": 2,
+  "seals": 0,
+  "spots": 5,
+  "teleporters": 0
+ },
+ "exits": [
+  {
+   "arrival": "e2/g0/r2962",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/earth/e2",
+   "dest_level": "e2",
+   "dest_string_shared_by": 2,
+   "disc_teleport": null,
+   "gate_hint": "touch(E6_E2bShape)",
+   "id": "e6/g0/r3466",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "levelSwitch1",
+   "spot": "E6_E2b"
+  },
+  {
+   "arrival": "a1/g0/r765",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/air/a1",
+   "dest_level": "a1",
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "switch[ExitToggle]{on=and(nand(teleported(spot A1_E6)), touch(ExitTriggerShape)); off=teleported(spot A1_E6)}.output",
+   "id": "e6/g0/r3467",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "E6_A1_levelSwitch",
+   "spot": "E6_A1"
+  },
+  {
+   "arrival": "e2/g0/r2407",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/earth/e2",
+   "dest_level": "e2",
+   "dest_string_shared_by": 2,
+   "disc_teleport": null,
+   "gate_hint": "touch(EntranceGear2:LevelSwitchShape)",
+   "id": "e6/g0/r3471",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "EntranceGear2:levelSwitch1",
+   "spot": "E6_E2"
+  }
+ ],
+ "game_states": [
+  {
+   "id": "e6/g0/r2",
+   "links": [
+    {
+     "to": "Air_cube_nice:day_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:night_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:StarfieldShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:GasplanetShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    }
+   ],
+   "name": "Air_cube_nice:gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  },
+  {
+   "id": "e6/g0/r485",
+   "links": [
+    {
+     "to": "sfxambi1.frequencyMultiplier",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "sfxambi2.frequencyMultiplier",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "sfxambi3.frequencyMultiplier",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "sfxambi4.frequencyMultiplier",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "timesComb_day.inputs[0]",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "timesComb_night.inputs[1]",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "timesCombiner3.inputs[2]",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "timesCombiner2.inputs[2]",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "timesCombiner4.inputs[2]",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "timesCombiner5.inputs[2]",
+     "var": "day night timer",
+     "when": "always"
+    }
+   ],
+   "name": "gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  }
+ ],
+ "geodes": [
+  {
+   "contents": {
+    "ruby": 3
+   },
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "e6/g0/r2696",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "e6/g0/r2700",
+    "e6/g0/r2703",
+    "e6/g0/r2706"
+   ],
+   "name": "RubyStone",
+   "persist": "permanent",
+   "requires": "earth>=1 & fire>=1",
+   "shapes": [
+    "e6/g0/r2696"
+   ],
+   "switches": [
+    "e6/g0/r2694",
+    "e6/g0/r2697"
+   ],
+   "variant": "RubyStone"
+  }
+ ],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 1721,
+   "ndbg_toc_index": 3463,
+   "padding_after": 608,
+   "records": 3498,
+   "saved_nodes": 175,
+   "toc_index": 3464
+  }
+ ],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "realm",
+ "latches": [
+  {
+   "global": "SongWhirlwind4_hit",
+   "id": "e6/g0/r762",
+   "input": null,
+   "name": "SongWhirlwind4_hit_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "SongFire1_hit",
+   "id": "e6/g0/r764",
+   "input": null,
+   "name": "SongFire1_hit_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "SongSmash2_hit",
+   "id": "e6/g0/r768",
+   "input": null,
+   "name": "SongSmash2_hit_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "SongLightning3_hit",
+   "id": "e6/g0/r772",
+   "input": null,
+   "name": "SongLightning3_hit_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": null,
+   "id": "e6/g0/r775",
+   "input": "max(0.1, and(magic(Detect_fireShape1), global[SongFire1_hit]), and(magic(Detect_smshShape2), global[SongSmash2_hit]), and(magic(Detect_litnShape3), global[SongLightning3_hit]), and(magic(Detect_windShape4), global[SongWhirlwind4_hit]), whack(Detect_fireShape1))",
+   "name": "Tone02_hit_latch",
+   "saved": false,
+   "update": "timer[AdvanceTone_timer](stored).currentTime"
+  },
+  {
+   "global": null,
+   "id": "e6/g0/r776",
+   "input": "max(0.1, and(magic(Detect_fireShape1), global[SongFire1_hit]), and(magic(Detect_smshShape2), global[SongSmash2_hit]), and(magic(Detect_litnShape3), global[SongLightning3_hit]), and(magic(Detect_windShape4), global[SongWhirlwind4_hit]), whack(Detect_fireShape1))",
+   "name": "Tone03_hit_latch",
+   "saved": false,
+   "update": "timer[AdvanceTone_timer](stored).currentTime"
+  },
+  {
+   "global": null,
+   "id": "e6/g0/r777",
+   "input": "max(0.1, and(magic(Detect_fireShape1), global[SongFire1_hit]), and(magic(Detect_smshShape2), global[SongSmash2_hit]), and(magic(Detect_litnShape3), global[SongLightning3_hit]), and(magic(Detect_windShape4), global[SongWhirlwind4_hit]), whack(Detect_fireShape1))",
+   "name": "Tone04_hit_latch",
+   "saved": false,
+   "update": "timer[AdvanceTone_timer](stored).currentTime"
+  },
+  {
+   "global": null,
+   "id": "e6/g0/r778",
+   "input": "max(0.1, and(magic(Detect_fireShape1), global[SongFire1_hit]), and(magic(Detect_smshShape2), global[SongSmash2_hit]), and(magic(Detect_litnShape3), global[SongLightning3_hit]), and(magic(Detect_windShape4), global[SongWhirlwind4_hit]), whack(Detect_fireShape1))",
+   "name": "Tone05_hit_latch",
+   "saved": false,
+   "update": "timer[AdvanceTone_timer](stored).currentTime"
+  },
+  {
+   "global": null,
+   "id": "e6/g0/r779",
+   "input": "max(0.1, and(magic(Detect_fireShape1), global[SongFire1_hit]), and(magic(Detect_smshShape2), global[SongSmash2_hit]), and(magic(Detect_litnShape3), global[SongLightning3_hit]), and(magic(Detect_windShape4), global[SongWhirlwind4_hit]), whack(Detect_fireShape1))",
+   "name": "Tone06_hit_latch",
+   "saved": false,
+   "update": "timer[AdvanceTone_timer](stored).currentTime"
+  },
+  {
+   "global": null,
+   "id": "e6/g0/r780",
+   "input": "max(0.1, and(magic(Detect_fireShape1), global[SongFire1_hit]), and(magic(Detect_smshShape2), global[SongSmash2_hit]), and(magic(Detect_litnShape3), global[SongLightning3_hit]), and(magic(Detect_windShape4), global[SongWhirlwind4_hit]), whack(Detect_fireShape1))",
+   "name": "Tone07_hit_latch",
+   "saved": false,
+   "update": "timer[AdvanceTone_timer](stored).currentTime"
+  },
+  {
+   "global": null,
+   "id": "e6/g0/r783",
+   "input": "max(0.1, and(magic(Detect_fireShape1), global[SongFire1_hit]), and(magic(Detect_smshShape2), global[SongSmash2_hit]), and(magic(Detect_litnShape3), global[SongLightning3_hit]), and(magic(Detect_windShape4), global[SongWhirlwind4_hit]), whack(Detect_fireShape1))",
+   "name": "Tone01_hit_latch",
+   "saved": false,
+   "update": "timer[AdvanceTone_timer](stored).currentTime"
+  }
+ ],
+ "level": "e6",
+ "locations": [
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2632",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape24",
+   "name_ref": {
+    "field": 33161104,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator24",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2634",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape25",
+   "name_ref": {
+    "field": 33161280,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator25",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2636",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape27",
+   "name_ref": {
+    "field": 33161456,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator27",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2638",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape28",
+   "name_ref": {
+    "field": 33161632,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator28",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2640",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape29",
+   "name_ref": {
+    "field": 33161808,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator29",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2642",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape30",
+   "name_ref": {
+    "field": 33161984,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator30",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2644",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape31",
+   "name_ref": {
+    "field": 33162160,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator31",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2646",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape33",
+   "name_ref": {
+    "field": 33162336,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator33",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2648",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape35",
+   "name_ref": {
+    "field": 33162512,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator35",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2651",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape22",
+   "name_ref": {
+    "field": 33162808,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator22",
+   "points": 5,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 5
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2653",
+   "item": "emerald",
+   "name": "critters2:critterGeneratorShape82",
+   "name_ref": {
+    "field": 33162984,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator82",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2656",
+   "item": "diamond",
+   "name": "critters:critterGeneratorShape54",
+   "name_ref": {
+    "field": 33163280,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator54",
+   "points": 4,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 4
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2659",
+   "item": "sapphire",
+   "name": "sapphireShape",
+   "name_ref": {
+    "field": 33163576,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapphire",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2661",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape26",
+   "name_ref": {
+    "field": 33163752,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator26",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2663",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape36",
+   "name_ref": {
+    "field": 33163928,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator36",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2665",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape37",
+   "name_ref": {
+    "field": 33164104,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator37",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2667",
+   "item": "sapphire",
+   "name": "critterGeneratorShape83",
+   "name_ref": {
+    "field": 33164280,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator83",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2669",
+   "item": "sapphire",
+   "name": "critterGeneratorShape82",
+   "name_ref": {
+    "field": 33164456,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator82",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2671",
+   "item": "sapphire",
+   "name": "critterGeneratorShape81",
+   "name_ref": {
+    "field": 33164632,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator81",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2673",
+   "item": "sapphire",
+   "name": "critterGeneratorShape37",
+   "name_ref": {
+    "field": 33164808,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator37",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2675",
+   "item": "sapphire",
+   "name": "critterGeneratorShape80",
+   "name_ref": {
+    "field": 33164984,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator80",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaHallCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2679",
+   "item": "ruby",
+   "name": "critterGeneratorShape63",
+   "name_ref": {
+    "field": 33165400,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator63",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaHallCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2681",
+   "item": "ruby",
+   "name": "critters:critterGeneratorShape63",
+   "name_ref": {
+    "field": 33165576,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator63",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2685",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape38",
+   "name_ref": {
+    "field": 33165992,
+    "length": 8,
+    "string": 33449840
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator38",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2687",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape57",
+   "name_ref": {
+    "field": 33166168,
+    "length": 8,
+    "string": 33449840
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator57",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "e6/g0/r2696 RubyStone:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "e6/g0/r2696"
+   ],
+   "geode": "e6/g0/r2696",
+   "id": "e6/g0/r2700",
+   "item": "ruby",
+   "name": "RubyStone:critterGeneratorShape2",
+   "name_ref": {
+    "field": 33167168,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": "RubyStone",
+   "on_load": false,
+   "parent": "RubyStone:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "e6/g0/r2696 RubyStone:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "e6/g0/r2696"
+   ],
+   "geode": "e6/g0/r2696",
+   "id": "e6/g0/r2703",
+   "item": "ruby",
+   "name": "RubyStone:critterGeneratorShape2",
+   "name_ref": {
+    "field": 33167464,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": "RubyStone",
+   "on_load": false,
+   "parent": "RubyStone:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "e6/g0/r2696 RubyStone:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "e6/g0/r2696"
+   ],
+   "geode": "e6/g0/r2696",
+   "id": "e6/g0/r2706",
+   "item": "ruby",
+   "name": "RubyStone:critterGeneratorShape2",
+   "name_ref": {
+    "field": 33167760,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": "RubyStone",
+   "on_load": false,
+   "parent": "RubyStone:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2724",
+   "item": "ruby",
+   "name": "critterGeneratorShape56",
+   "name_ref": {
+    "field": 33169220,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator56",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "LavaCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2726",
+   "item": "ruby",
+   "name": "critterGeneratorShape84",
+   "name_ref": {
+    "field": 33169396,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator84",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MirrorCell2Shape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2730",
+   "item": "ruby",
+   "name": "critters:critterGeneratorShape54",
+   "name_ref": {
+    "field": 33169812,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator54",
+   "points": 5,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 5
+  },
+  {
+   "cell": "MirrorCell2Shape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2732",
+   "item": "ruby",
+   "name": "critters:critterGeneratorShape55",
+   "name_ref": {
+    "field": 33169988,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator55",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MirrorCell2Shape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2734",
+   "item": "ruby",
+   "name": "critters2:critterGeneratorShape91",
+   "name_ref": {
+    "field": 33170164,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator91",
+   "points": 3,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 3
+  },
+  {
+   "cell": "MirrorCell2Shape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2736",
+   "item": "ruby",
+   "name": "critterGeneratorShape56",
+   "name_ref": {
+    "field": 33170340,
+    "length": 4,
+    "string": 33449504
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator56",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "InsideTreeCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2740",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape42",
+   "name_ref": {
+    "field": 33170756,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator42",
+   "points": 6,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 6
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2744",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape39",
+   "name_ref": {
+    "field": 33171172,
+    "length": 8,
+    "string": 33446904
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator39",
+   "points": 7,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 7
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2747",
+   "item": "obsidian",
+   "name": "critterGeneratorShape3",
+   "name_ref": {
+    "field": 33171468,
+    "length": 8,
+    "string": 33449840
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator3",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "HallCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2751",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape15",
+   "name_ref": {
+    "field": 33171884,
+    "length": 8,
+    "string": 33449840
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator15",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "GearCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2755",
+   "item": "frag_earth_3",
+   "name": "critterGeneratorShape2",
+   "name_ref": {
+    "field": 33172300,
+    "length": 12,
+    "string": 33455020
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "frag_earth_3",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MirrorCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2759",
+   "item": "diamond",
+   "name": "critters2:critterGeneratorShape92",
+   "name_ref": {
+    "field": 33172716,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator92",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MirrorCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2761",
+   "item": "diamond",
+   "name": "critters2:critterGeneratorShape93",
+   "name_ref": {
+    "field": 33172892,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator93",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MirrorCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2763",
+   "item": "diamond",
+   "name": "critterGeneratorShape92",
+   "name_ref": {
+    "field": 33173068,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator92",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "RedMachine1CellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2767",
+   "item": "diamond",
+   "name": "critters2:critterGeneratorShape61",
+   "name_ref": {
+    "field": 33173484,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator61",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "RedMachine1CellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2769",
+   "item": "diamond",
+   "name": "critters2:critterGeneratorShape88",
+   "name_ref": {
+    "field": 33173660,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator88",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "RedMachine1CellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2771",
+   "item": "diamond",
+   "name": "critterGeneratorShape88",
+   "name_ref": {
+    "field": 33173836,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator88",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "RedMachine1CellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2773",
+   "item": "diamond",
+   "name": "critterGeneratorShape61",
+   "name_ref": {
+    "field": 33174012,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator61",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "RedMachine1CellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2775",
+   "item": "diamond",
+   "name": "critters:critterGeneratorShape61",
+   "name_ref": {
+    "field": 33174188,
+    "length": 7,
+    "string": 33448172
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator61",
+   "points": 5,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 5
+  },
+  {
+   "cell": "ClimbCaveCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2779",
+   "item": "emerald",
+   "name": "critters2:critterGeneratorShape84",
+   "name_ref": {
+    "field": 33174604,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator84",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "ClimbCaveCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2781",
+   "item": "emerald",
+   "name": "critters2:critterGeneratorShape85",
+   "name_ref": {
+    "field": 33174780,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": "critters2",
+   "on_load": true,
+   "parent": "critters2:critterGenerator85",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "GearCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2785",
+   "item": "emerald",
+   "name": "critterGeneratorShape93",
+   "name_ref": {
+    "field": 33175196,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator93",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "GearCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2787",
+   "item": "emerald",
+   "name": "critterGeneratorShape1",
+   "name_ref": {
+    "field": 33175372,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator1",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "GearCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2789",
+   "item": "obsidian",
+   "name": "obsidianShape",
+   "name_ref": {
+    "field": 33175548,
+    "length": 8,
+    "string": 33449840
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "EntranceCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "e6/g0/r2792",
+   "item": "emerald",
+   "name": "critterGeneratorShape4",
+   "name_ref": {
+    "field": 33175844,
+    "length": 7,
+    "string": 33446784
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator4",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [
+  {
+   "do_save": "and(switch[SavePlatform1:Save_timeBuffer_toggle]{on=touch(SavePlatform1:GlassShape); off=const}.output, timer[SavePlatform1:LoadDisable_timer](stored).currentTime)",
+   "id": "e6/g0/r3136",
+   "name": "SavePlatform1:public_gameSaveControlShape",
+   "save_id": "e6_1",
+   "saved": false
+  },
+  {
+   "do_save": "and(switch[SavePlatform2:Save_timeBuffer_toggle]{on=touch(SavePlatform2:GlassShape); off=const}.output, timer[SavePlatform2:LoadDisable_timer](stored).currentTime)",
+   "id": "e6/g0/r3447",
+   "name": "SavePlatform2:public_gameSaveControlShape",
+   "save_id": "E6_2",
+   "saved": false
+  }
+ ],
+ "seals": [],
+ "spots": [
+  {
+   "id": "e6/g0/r21",
+   "name": "startspot",
+   "teleport_gate": null
+  },
+  {
+   "id": "e6/g0/r23",
+   "name": "DefaultCell",
+   "teleport_gate": null
+  },
+  {
+   "id": "e6/g0/r1741",
+   "name": "E2_E6",
+   "teleport_gate": null
+  },
+  {
+   "id": "e6/g0/r1749",
+   "name": "A1_E6",
+   "teleport_gate": null
+  },
+  {
+   "id": "e6/g0/r2061",
+   "name": "TopofBottomlessPitShape",
+   "teleport_gate": null
+  }
+ ],
+ "teleporters": []
+}

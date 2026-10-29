@@ -1,0 +1,865 @@
+# levels/e7.toml: written by `azurik-mod rando author e7` (Step R1.8) from generated/e7.json,
+# derived/e7.json.gz, tricks.toml and draft/authoring/e7.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "e7"
+status = "authored"
+known_traps = []
+route = ["e7/g0/r271", "e7/g0/r296", "e7/g0/r321", "e7/g0/r346", "e7/g0/r371", "e7/g0/r396", "e7/g0/r1917", "e7/g0/r1045", "e7/g0/r1047", "e7/g0/r1050", "e7/g0/r562", "e7/g0/r1040", "e7/g0/r1042"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "e7_core"
+anchors = ["zone:e7.Z000"]
+
+[[node]]
+id = "e7_dark_room"
+anchors = ["zone:e7.Z002"]
+dark = "e7.dark_room_nolight"
+locations = ["e7/g0/r1047", "e7/g0/r1787", "e7/g0/r1790", "e7/g0/r1793", "e7/g0/r1822", "e7/g0/r1825", "e7/g0/r1828", "e7/g0/r1857", "e7/g0/r1860", "e7/g0/r1863", "e7/g0/r1892", "e7/g0/r1895", "e7/g0/r1898"]
+
+[[node]]
+id = "e7_z001"
+anchors = ["zone:e7.Z001"]
+locations = ["e7/g0/r1050"]
+
+[[node]]
+id = "e7_z003"
+anchors = ["zone:e7.Z003"]
+
+[[node]]
+id = "e7_z004"
+anchors = ["zone:e7.Z004"]
+
+[[node]]
+id = "e7_z007"
+anchors = ["zone:e7.Z007"]
+
+[[node]]
+id = "e7_z013"
+anchors = ["zone:e7.Z013"]
+
+[[node]]
+id = "e7_z014"
+anchors = ["zone:e7.Z014"]
+
+[[node]]
+id = "e7_z016"
+anchors = ["zone:e7.Z016"]
+
+[[node]]
+id = "e7_z018"
+anchors = ["zone:e7.Z018"]
+
+[[node]]
+id = "e7_z039"
+anchors = ["zone:e7.Z039"]
+
+[[node]]
+id = "e7_z047"
+anchors = ["zone:e7.Z047"]
+
+[[node]]
+id = "e7_z049"
+anchors = ["zone:e7.Z049"]
+
+[[node]]
+id = "e7_z050"
+anchors = ["zone:e7.Z050"]
+
+[[node]]
+id = "e7_z051"
+anchors = ["zone:e7.Z051"]
+
+[[node]]
+id = "e7_z058"
+anchors = ["zone:e7.Z058"]
+
+[[node]]
+id = "e7_z059"
+anchors = ["zone:e7.Z059"]
+
+[[node]]
+id = "e7_z060"
+anchors = ["zone:e7.Z060"]
+
+[[node]]
+id = "e7_z069"
+anchors = ["zone:e7.Z069"]
+
+[[node]]
+id = "e7_z075"
+anchors = ["zone:e7.Z075"]
+
+[[node]]
+id = "e7_z078"
+anchors = ["zone:e7.Z078"]
+
+[[node]]
+id = "e7_z087"
+anchors = ["zone:e7.Z087"]
+
+[[node]]
+id = "e7_z092"
+anchors = ["zone:e7.Z092"]
+
+[[node]]
+id = "e7_z166"
+anchors = ["zone:e7.Z166"]
+
+[[node]]
+id = "e7_z208"
+anchors = ["zone:e7.Z208"]
+
+[[node]]
+id = "e7_z220"
+anchors = ["zone:e7.Z220"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "e7_core"
+to = "e7_dark_room"
+kind = "walk"
+requires = "button:e7.earth_keylock2"
+confidence = "data"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z001"
+kind = "walk"
+requires = "button:e7.earth_keylock1"
+confidence = "data"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z014"
+kind = "walk"
+requires = "button:e7.earth_keylock"
+confidence = "data"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z039"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z039"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z047"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z047"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z049"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z049"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z050"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z050"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z050"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z051"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z051"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z058"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z058"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z058"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z069"
+kind = "walk"
+requires = "flag:e7.AcidBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z087"
+kind = "walk"
+requires = "flag:e7.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z092"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_core"
+to = "e7_z092"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e7_dark_room"
+to = "e7_core"
+kind = "walk"
+requires = "button:e7.earth_keylock2"
+confidence = "data"
+
+[[edge]]
+from = "e7_z001"
+to = "e7_core"
+kind = "walk"
+requires = "button:e7.earth_keylock1"
+confidence = "data"
+
+[[edge]]
+from = "e7_z001"
+to = "e7_z003"
+kind = "walk"
+requires = "true"
+through = ["e7.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "e7_z001"
+to = "e7_z059"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "e7_z001"
+to = "e7_z060"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "e7_z003"
+to = "e7_z001"
+kind = "walk"
+requires = "true"
+through = ["e7.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "e7_z003"
+to = "e7_z016"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z013"
+to = "e7_z016"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z014"
+to = "e7_core"
+kind = "walk"
+requires = "button:e7.earth_keylock"
+confidence = "data"
+
+[[edge]]
+from = "e7_z016"
+to = "e7_z003"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z016"
+to = "e7_z013"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z016"
+to = "e7_z208"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z018"
+to = "e7_z075"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z018"
+to = "e7_z078"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z039"
+to = "e7_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z047"
+to = "e7_core"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "l3", ref = "x7/2fce20d00647@ae280b4e3547" }
+
+[[edge]]
+from = "e7_z049"
+to = "e7_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z050"
+to = "e7_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z051"
+to = "e7_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z058"
+to = "e7_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z059"
+to = "e7_z001"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z059"
+to = "e7_z060"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e7_z060"
+to = "e7_z001"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z060"
+to = "e7_z059"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e7_z069"
+to = "e7_core"
+kind = "walk"
+requires = "flag:e7.AcidBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e7_z075"
+to = "e7_z001"
+kind = "walk"
+requires = "air>=1"
+through = ["e7.FireWall_02"]
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z075"
+to = "e7_z001"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z075"
+to = "e7_z001"
+kind = "walk"
+requires = "true"
+through = ["e7.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "e7_z075"
+to = "e7_z060"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e7_z075"
+to = "e7_z078"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z078"
+to = "e7_z001"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z078"
+to = "e7_z001"
+kind = "walk"
+requires = "true"
+through = ["e7.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "e7_z078"
+to = "e7_z018"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z078"
+to = "e7_z059"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "e7_z078"
+to = "e7_z059"
+kind = "walk"
+requires = "true"
+through = ["e7.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "e7_z078"
+to = "e7_z060"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z078"
+to = "e7_z075"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "e7_z087"
+to = "e7_core"
+kind = "walk"
+requires = "flag:e7.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "e7_z092"
+to = "e7_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z166"
+to = "e7_z220"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "e7_z208"
+to = "e7_z016"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "e7_z220"
+to = "e7_z166"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # E7_E2_switch -> e2 (spot); the bucket's GoTriggerFieldShape raises the elevator to ExitFieldTriggerShape [verified data]; the gondola rides back to its dock beside e2.Z000 (rz-b2: a gondola ride back brings the e2 bucket home [verified xemu, placed, for MineCar]); E7_E2's composed spot hangs over the dock (25 m off e2.Z000) [inferred]
+from = "e7_core"
+to = "e2_core"
+kind = "cart"
+exit = "e7/g0/r1944"
+lock = "minecart_e2e7"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "e7.AcidBlock_02"
+of = "e7/g0/r4"
+destroy_from = ["e7_core", "e7_z069"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=2 & water>=2, permanent
+id = "e7.IceBlock_02"
+of = "e7/g0/r19"
+destroy_from = ["e7_core", "e7_z087", "e7_z092", "e7_z166", "e7_z220"]
+
+[[barrier]]  # firewall watr, generated requires water>=2, timed
+id = "e7.FireWall_02"
+of = "e7/g0/r612"
+destroy_from = ["e7_z001", "e7_z003", "e7_z013", "e7_z016", "e7_z059", "e7_z060", "e7_z075", "e7_z078", "e7_z208"]
+
+[[barrier]]  # crystal fire, generated requires earth>=1 & fire>=1, mixed
+id = "e7.CrystalOutsideShape"
+of = "e7/g0/r708"
+destroy_from = ["e7_z004"]
+
+[[barrier]]  # crystal fire, generated requires earth>=1 & fire>=1, mixed
+id = "e7.CrystalInsideShape"
+of = "e7/g0/r710"
+destroy_from = ["e7_z004"]
+
+[[button]]  # keylock, generated requires key.battery>=1
+id = "e7.earth_keylock1"
+of = "e7/g0/r113"
+at = "e7_z051"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.battery>=1
+id = "e7.earth_keylock2"
+of = "e7/g0/r139"
+at = "e7_z047"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.battery>=1
+id = "e7.earth_keylock"
+of = "e7/g0/r165"
+at = "e7_z049"
+mode = "latch"
+
+[[event]]  # a keylord is fought in the hall with the staff (w1's keylord's rule, default taken under D115); its kill opens the cage (toggle2) over its key_battery [verified xemu, placed: rz-b2 I-18]
+id = "e7.keylordSystem6.killed"
+of = "e7/g0/r264"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # as keylordSystem6
+id = "e7.keylordSystem7.killed"
+of = "e7/g0/r289"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # as keylordSystem6
+id = "e7.keylordSystem8.killed"
+of = "e7/g0/r314"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # as keylordSystem6
+id = "e7.keylordSystem10.killed"
+of = "e7/g0/r339"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # as keylordSystem6
+id = "e7.keylordSystem11.killed"
+of = "e7/g0/r364"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # as keylordSystem6
+id = "e7.keylordSystem12.killed"
+of = "e7/g0/r389"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # the song room's crystal (CrystalInsideShape, damage fire = earth + fire) latches Crystal_Fire1_Hit_latch, e6's SongFire1_hit, on any non-zero magic: level 1 of the staff suffices [verified data; verified xemu for the wind crystal, rz-b2 I-3]. The song room (e7.Z004, e7.Z007, DarkRoomCellShape [verified data]) is an island the derive joins to nothing (its doors, SongDoorToggle on PressurePlateShape, are a rig it doesn't follow): it is credited in the dark room's node (light) with the kit the vanilla run holds there, the route's flag:e2.crystal_lightning.hit (the conservative-kit rule, default taken under D115)
+id = "e7.crystal_fire.hit"
+at = "e7_dark_room"
+requires = "air>=1 & water>=2 & fire>=2 & earth>=1"
+
+[[event]]  # derived: hit of DiamondStone5:DiamondStoneShape
+id = "e7.DiamondStone5_DiamondStoneShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone6:DiamondStoneShape
+id = "e7.DiamondStone6_DiamondStoneShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone7:DiamondStoneShape
+id = "e7.DiamondStone7_DiamondStoneShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone8:DiamondStoneShape
+id = "e7.DiamondStone8_DiamondStoneShape.hit"
+at = "e7_z001"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone9:DiamondStoneShape
+id = "e7.DiamondStone9_DiamondStoneShape.hit"
+at = "e7_z004"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone10:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone10_EmeraldStone1_WindRockShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone11:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone11_EmeraldStone1_WindRockShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone12:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone12_EmeraldStone1_WindRockShape.hit"
+at = "e7_z003"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone13:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone13_EmeraldStone1_WindRockShape.hit"
+at = "e7_z001"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone14:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone14_EmeraldStone1_WindRockShape.hit"
+at = "e7_z001"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone15:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone15_EmeraldStone1_WindRockShape.hit"
+at = "e7_z004"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone8:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone8_EmeraldStone1_WindRockShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone9:EmeraldStone1:WindRockShape
+id = "e7.EmeraldStone9_EmeraldStone1_WindRockShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone5:RubyStone1Shape
+id = "e7.RubyStone5_RubyStone1Shape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone6:RubyStone1Shape
+id = "e7.RubyStone6_RubyStone1Shape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone7:RubyStone1Shape
+id = "e7.RubyStone7_RubyStone1Shape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone8:RubyStone1Shape
+id = "e7.RubyStone8_RubyStone1Shape.hit"
+at = "e7_z001"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone9:RubyStone1Shape
+id = "e7.RubyStone9_RubyStone1Shape.hit"
+at = "e7_z007"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone10:SaphiresShape
+id = "e7.SapphireStone10_SaphiresShape.hit"
+at = "e7_z001"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone11:SaphiresShape
+id = "e7.SapphireStone11_SaphiresShape.hit"
+at = "e7_z004"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone6:SaphiresShape
+id = "e7.SapphireStone6_SaphiresShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone7:SaphiresShape
+id = "e7.SapphireStone7_SaphiresShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone8:SaphiresShape
+id = "e7.SapphireStone8_SaphiresShape.hit"
+at = "e7_core"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone9:SaphiresShape
+id = "e7.SapphireStone9_SaphiresShape.hit"
+at = "e7_z003"
+requires = "true"
+
+[[location]]
+id = "e7/g0/r1050"
+requires = "water>=1 & fire>=1"
+note = "on the lobby ledge e7.Z018, an island the derive joins to nothing: the conservative-kit rule (the route's e7/g0/r1050; the route source: the community climbs the walls above FireWall_02)"
+
+[[location]]
+id = "e7/g0/r1787"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1790"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1793"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1822"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1825"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1828"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1857"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1860"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1863"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1892"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1895"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+[[location]]
+id = "e7/g0/r1898"
+requires = "air>=2 & water>=2 & fire>=2 & earth>=2"
+note = "a song room geode gem: the conservative-kit rule (off the route: e7's last route step, e7/g0/r1042)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "e7.dark_room_nolight"
+name = "e7 dark room without light"
+tricks = ["nolight"]
+requires = "true"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "owner", ref = "The owner's trick list (2026-10-11, in chat, verbatim)" }

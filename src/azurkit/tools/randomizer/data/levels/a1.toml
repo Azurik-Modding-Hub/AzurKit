@@ -1,0 +1,1213 @@
+# levels/a1.toml: written by `azurik-mod rando author a1` (Step R1.8) from generated/a1.json,
+# derived/a1.json.gz, tricks.toml and draft/authoring/a1.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "a1"
+status = "authored"
+known_traps = []
+route = ["a1/g0/r1859", "a1/g0/r1851", "a1/g0/r1843", "a1/g0/r1102", "a1/g0/r2132", "a1/g0/r2136", "a1/g0/r2138", "a1/g0/r2140", "a1/g0/r2350", "a1/g0/r2134"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "a1_save"
+anchors = ["zone:a1.Z167"]
+
+[[node]]
+id = "a1_seal"
+anchors = ["zone:a1.Z003"]
+
+[[node]]
+id = "a1_tree_top"
+anchors = ["zone:a1.Z013"]
+locations = ["a1/g0/r1102", "a1/g0/r1843", "a1/g0/r1851", "a1/g0/r1859", "a1/g0/r2116", "a1/g0/r2118", "a1/g0/r2120", "a1/g0/r2126", "a1/g0/r2129", "a1/g0/r2132", "a1/g0/r2134", "a1/g0/r2136", "a1/g0/r2138", "a1/g0/r2144", "a1/g0/r2146", "a1/g0/r2148", "a1/g0/r2151", "a1/g0/r2153", "a1/g0/r2155", "a1/g0/r2158", "a1/g0/r2160", "a1/g0/r2162", "a1/g0/r2164", "a1/g0/r2166", "a1/g0/r2168", "a1/g0/r2170", "a1/g0/r2172", "a1/g0/r2176", "a1/g0/r2190", "a1/g0/r2192", "a1/g0/r2194", "a1/g0/r2196", "a1/g0/r2198", "a1/g0/r2200", "a1/g0/r2202", "a1/g0/r2204", "a1/g0/r2206", "a1/g0/r2350", "a1/g0/r587", "a1/g0/r589", "a1/g0/r591", "a1/g0/r603", "a1/g0/r605", "a1/g0/r607"]
+
+[[node]]
+id = "a1_z000"
+anchors = ["zone:a1.Z000"]
+
+[[node]]
+id = "a1_z002"
+anchors = ["zone:a1.Z002"]
+
+[[node]]
+id = "a1_z008"
+anchors = ["zone:a1.Z008"]
+
+[[node]]
+id = "a1_z009"
+anchors = ["zone:a1.Z009"]
+
+[[node]]
+id = "a1_z010"
+anchors = ["zone:a1.Z010"]
+
+[[node]]
+id = "a1_z011"
+anchors = ["zone:a1.Z011"]
+
+[[node]]
+id = "a1_z015"
+anchors = ["zone:a1.Z015"]
+
+[[node]]
+id = "a1_z020"
+anchors = ["zone:a1.Z020"]
+
+[[node]]
+id = "a1_z023"
+anchors = ["zone:a1.Z023"]
+
+[[node]]
+id = "a1_z051"
+anchors = ["zone:a1.Z051"]
+
+[[node]]
+id = "a1_z057"
+anchors = ["zone:a1.Z057"]
+
+[[node]]
+id = "a1_z058"
+anchors = ["zone:a1.Z058"]
+
+[[node]]
+id = "a1_z068"
+anchors = ["zone:a1.Z068"]
+
+[[node]]
+id = "a1_z083"
+anchors = ["zone:a1.Z083"]
+
+[[node]]
+id = "a1_z086"
+anchors = ["zone:a1.Z086"]
+
+[[node]]
+id = "a1_z099"
+anchors = ["zone:a1.Z099"]
+
+[[node]]
+id = "a1_z104"
+anchors = ["zone:a1.Z104"]
+
+[[node]]
+id = "a1_z109"
+anchors = ["zone:a1.Z109"]
+
+[[node]]
+id = "a1_z112"
+anchors = ["zone:a1.Z112"]
+
+[[node]]
+id = "a1_z117"
+anchors = ["zone:a1.Z117"]
+
+[[node]]
+id = "a1_z128"
+anchors = ["zone:a1.Z128"]
+
+[[node]]
+id = "a1_z135"
+anchors = ["zone:a1.Z135"]
+
+[[node]]
+id = "a1_z146"
+anchors = ["zone:a1.Z146"]
+
+[[node]]
+id = "a1_z164"
+anchors = ["zone:a1.Z164"]
+
+[[node]]
+id = "a1_z166"
+anchors = ["zone:a1.Z166"]
+
+[[node]]
+id = "a1_z275"
+anchors = ["zone:a1.Z275"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "a1_save"
+to = "a1_tree_top"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_save"
+to = "a1_z146"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_save"
+to = "a1_z146"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z010"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z023"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z057"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z068"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z109"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_seal"
+to = "a1_z109"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_tree_top"
+to = "a1_save"
+kind = "walk"
+requires = "button:a1.air_keylock | button:a1.air_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_tree_top"
+to = "a1_z000"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_tree_top"
+to = "a1_z146"
+kind = "walk"
+requires = "button:a1.air_keylock2"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z000"
+to = "a1_tree_top"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z000"
+to = "a1_z057"
+kind = "walk"
+requires = "air>=3 & earth>=2 & fire>=3 & water>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & event:a1.Teleporters_ResetShape2.touch"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z000"
+to = "a1_z057"
+kind = "walk"
+requires = "event:a1.Teleporters_ResetShape1.touch & event:a1.Teleporters_ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "a1_z000"
+to = "a1_z146"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z002"
+to = "a1_z009"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z002"
+to = "a1_z009"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z002"
+to = "a1_z020"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z008"
+to = "a1_z011"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z008"
+to = "a1_z011"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z008"
+to = "a1_z112"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z008"
+to = "a1_z117"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z008"
+to = "a1_z166"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z008"
+to = "a1_z166"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z009"
+to = "a1_z002"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z009"
+to = "a1_z008"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z009"
+to = "a1_z166"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z002"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z009"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a1_z010"
+to = "a1_z104"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z011"
+to = "a1_z008"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z011"
+to = "a1_z008"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z011"
+to = "a1_z112"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z011"
+to = "a1_z112"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z015"
+to = "a1_z011"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z015"
+to = "a1_z020"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "a1_z015"
+to = "a1_z051"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z020"
+to = "a1_z015"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z020"
+to = "a1_z015"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z020"
+to = "a1_z023"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z020"
+to = "a1_z164"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z020"
+to = "a1_z275"
+kind = "walk"
+requires = "flag:a1.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a1_z051"
+to = "a1_z011"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z051"
+to = "a1_z011"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z051"
+to = "a1_z015"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_seal"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_z000"
+kind = "walk"
+requires = "event:a1.Teleporters_ResetShape1.touch & event:a1.Teleporters_ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_z010"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_z023"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_z068"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_z068"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a1_z057"
+to = "a1_z068"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z058"
+to = "a1_z086"
+kind = "walk"
+requires = "air>=2 | air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z058"
+to = "a1_z086"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z058"
+to = "a1_z086"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z068"
+to = "a1_z010"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z068"
+to = "a1_z010"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a1_z068"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z083"
+to = "a1_z086"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z083"
+to = "a1_z104"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z086"
+to = "a1_z002"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z086"
+to = "a1_z083"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z086"
+to = "a1_z083"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a1_z099"
+to = "a1_z112"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z099"
+to = "a1_z166"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z099"
+to = "a1_z166"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z099"
+to = "a1_z166"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z104"
+to = "a1_z083"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z104"
+to = "a1_z135"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z104"
+to = "a1_z135"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z109"
+to = "a1_seal"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z109"
+to = "a1_z010"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z109"
+to = "a1_z023"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z109"
+to = "a1_z058"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z109"
+to = "a1_z068"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z109"
+to = "a1_z068"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z112"
+to = "a1_z117"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z112"
+to = "a1_z166"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z117"
+to = "a1_z112"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z135"
+to = "a1_z104"
+kind = "walk"
+requires = "air>=1 | air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z146"
+to = "a1_save"
+kind = "walk"
+requires = "air>=1 | button:a1.air_keylock2"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z146"
+to = "a1_save"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z146"
+to = "a1_save"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a1_z146"
+to = "a1_tree_top"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "a1_z164"
+to = "a1_z020"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z164"
+to = "a1_z020"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z166"
+to = "a1_z008"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z166"
+to = "a1_z008"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a1_z166"
+to = "a1_z008"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z166"
+to = "a1_z146"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "a1_z275"
+to = "a1_z020"
+kind = "walk"
+requires = "flag:a1.AcidBlock_03.destroyed"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # A1toA6 -> a6 (spot+Shape); the air seal (a touch with 3 air fragments) moves BridgeShape2 [verified data: the derive's ride], the way to the final lift Tree_elev4 (decoded at +1,465 m, READINESS) whose ride ends at A1toA6's trigger, 1.5 km over the seal's zone; that the bridge leads to the lift and the lift to the trigger is [inferred] (probe sitting; default taken under D115)
+from = "a1_seal"
+to = "a6_lift_top"
+kind = "exit"
+exit = "a1/g0/r2654"
+requires = "button:a1.seal"
+confidence = "data"
+
+[[edge]]  # levelSwitch1 -> e6 (spot); its arrival A1_E6 falls 123 m down the great tree's tube onto no floor the derive models [verified xemu, placed: sitting r111c, arrival(2)]; the tube stands in the garden's lake (e6.Z001), where the Tree Song Skip enters it [inferred] (Step R1.11c)
+from = "a1_tree_top"
+to = "e6_core"
+kind = "exit"
+exit = "a1/g0/r2655"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # acidblock acid, generated requires earth>=3 & water>=3, permanent
+id = "a1.AcidBlock_03"
+of = "a1/g0/r2356"
+destroy_from = ["a1_z020", "a1_z275"]
+
+[[button]]  # keylock, generated requires key.air1>=1
+id = "a1.air_keylock"
+of = "a1/g0/r1792"
+at = "a1_tree_top"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.air2>=1
+id = "a1.air_keylock1"
+of = "a1/g0/r1801"
+at = "a1_tree_top"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.air3>=1
+id = "a1.air_keylock2"
+of = "a1/g0/r1810"
+at = "a1_tree_top"
+mode = "latch"
+
+[[button]]  # seal, generated requires disca>=3
+id = "a1.seal"
+of = "a1/g0/r1994"
+at = "a1_seal"
+mode = "latch"
+
+[[event]]  # derived: hit of DiamondStone1:DiamondStoneShape
+id = "a1.DiamondStone1_DiamondStoneShape.hit"
+at = "a1_z000"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone:DiamondStoneShape
+id = "a1.DiamondStone_DiamondStoneShape.hit"
+at = "a1_z000"
+requires = "true"
+
+[[event]]  # derived: touch of Elevator1Shape
+id = "a1.Elevator1Shape.touch"
+at = "a1_z146"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone1:EmeraldStone1:WindRockShape
+id = "a1.EmeraldStone1_EmeraldStone1_WindRockShape.hit"
+at = "a1_z000"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone:EmeraldStone1:WindRockShape
+id = "a1.EmeraldStone_EmeraldStone1_WindRockShape.hit"
+at = "a1_z000"
+requires = "true"
+
+[[event]]  # derived: touch of PlatformBase1Shape
+id = "a1.PlatformBase1Shape.touch"
+at = "a1_save"
+requires = "true"
+
+[[event]]  # derived: touch of SavePlatform:GlassShape
+id = "a1.SavePlatform_GlassShape.touch"
+at = "a1_save"
+requires = "true"
+
+[[event]]  # derived: touch of Teleporters:ResetShape1
+id = "a1.Teleporters_ResetShape1.touch"
+at = "a1_z057"
+requires = "true"
+
+[[event]]  # derived: touch of Teleporters:ResetShape2
+id = "a1.Teleporters_ResetShape2.touch"
+at = "a1_z000"
+requires = "true"
+
+[[event]]  # derived: touch of pCubeShape57
+id = "a1.pCubeShape57.touch"
+at = "a1_z058"
+requires = "true"
+
+[[event]]  # derived: touch of pCubeShape58
+id = "a1.pCubeShape58.touch"
+at = "a1_z058"
+requires = "true"
+
+[[event]]  # derived: touch of pCubeShape59
+id = "a1.pCubeShape59.touch"
+at = "a1_z058"
+requires = "true"
+
+[[event]]  # derived: touch of pCubeShape60
+id = "a1.pCubeShape60.touch"
+at = "a1_z058"
+requires = "true"
+
+[[event]]  # derived: touch of pCubeShape61
+id = "a1.pCubeShape61.touch"
+at = "a1_z058"
+requires = "true"
+
+[[event]]  # derived: touch of pCubeShape62
+id = "a1.pCubeShape62.touch"
+at = "a1_z058"
+requires = "true"
+
+[[event]]  # derived: touch of pCubeShape82
+id = "a1.pCubeShape82.touch"
+at = "a1_save"
+requires = "true"
+
+[[event]]  # derived: touch of pTorusShape36
+id = "a1.pTorusShape36.touch"
+at = "a1_z058"
+requires = "true"
+
+[[location]]
+id = "a1/g0/r587"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on RingShape's always-rotating rings (a rig whose motion the derive doesn't follow): the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r589"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on RingShape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r591"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on RingShape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r603"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on Ring2Shape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r605"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on Ring2Shape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r607"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on Ring2Shape's rings: the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r1102"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "frag_air_1 floats 8.5 m over a1.Z128 with no floor under it (held, probe class float), and the derive gives a1.Z128 no way back to an exit; the route takes it right after the three air keylocks, whose T1-T3 switch on the Vac1-3 tubes (pushZ 30) [verified data]; the conservative-kit rule (the route's a1/g0/r1102) and the three locks"
+
+[[location]]
+id = "a1/g0/r1843"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "key_air3, in Flower3 (Switch3Toggle) [verified data]; the conservative-kit rule (the route's a1/g0/r1843)"
+
+[[location]]
+id = "a1/g0/r1851"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "key_air2, in Flower2 (FlowerToggle1, turned on by AirSwitch1's action button) [verified data]; reached as key_air1 is: the conservative-kit rule (the route's a1/g0/r1851)"
+
+[[location]]
+id = "a1/g0/r1859"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "key_air1 sits on its flower's SolidShape (gone once collected) inside Flower1, which Switch2Toggle opens; Flower1_teleShape's touch returns the player to the save platform [verified data: logic_dump a1 '^Flower.*']; how the flower is reached is not decoded: the conservative-kit rule (the route's a1/g0/r1859)"
+
+[[location]]
+id = "a1/g0/r2116"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z068, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2118"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z011, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2120"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "the conservative-kit rule (off the route: a1's last visit, at a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2126"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z011, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2129"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "diamond on a1.Z104, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2132"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "obsidian on a1.Z023, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2132)"
+
+[[location]]
+id = "a1/g0/r2134"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "obsidian on a1.Z275 behind AcidBlock_03 (earth 3, water 3), on the far side: the conservative-kit rule (the route's a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2136"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "obsidian on a1.Z166, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2136)"
+
+[[location]]
+id = "a1/g0/r2138"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "obsidian on a1.Z135, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2138)"
+
+[[location]]
+id = "a1/g0/r2144"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "on a1.Z099, which the derive reaches in no rung (not even physically): the conservative-kit rule (off the route: a1's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2146"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "emerald on a1.Z008, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2148"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "emerald on a1.Z008, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2151"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z009, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2153"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z009, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2155"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "the conservative-kit rule (off the route: a1's last visit, at a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2158"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2160"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2162"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2164"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2166"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2168"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2170"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z002, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2172"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z020, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2176"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "ruby on a1.Z020, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2190"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z086, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2192"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z083, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2194"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z112, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2196"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z117, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2198"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z015, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2200"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z015, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2202"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z051, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2204"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "the conservative-kit rule (off the route: a1's last visit, at a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2206"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2 & button:a1.seal"
+note = "sapphire on a1.Z010, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (off the route: the level's last route step, a1/g0/r2134)"
+
+[[location]]
+id = "a1/g0/r2350"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2 & button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+note = "all_fuel on a1.Z164, on the far side, which the derive gives no way back but the seal's A1toA6 into a6 (the Flower and Filter teleports land in the air, so it drops their edges): the conservative-kit rule (the route's a1/g0/r2350)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------

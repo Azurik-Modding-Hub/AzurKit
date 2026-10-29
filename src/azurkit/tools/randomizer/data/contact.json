@@ -1,0 +1,509 @@
+{
+ "flights": [
+  {
+   "cert": {
+    "dh": 0.24,
+    "flaps": 0,
+    "gap": 1.92,
+    "headroom": 3.98,
+    "rank": 0,
+    "room_start": 0.96,
+    "run": true,
+    "runup": 1.32
+   },
+   "edge": [
+    "a3.Z240",
+    "a3.Z332"
+   ],
+   "evidence": {
+    "jump_scale": "l3:x21-roof-rule-2026-10-14/results/a3.z242.fly:player_physics.jump_speed_scale@191d63f83ad8/above:a1ea2b1bf934"
+   },
+   "hop": "a3_z155 > a3_z165",
+   "kit": {
+    "air": 0
+   },
+   "level": "a3",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      4.0
+     ],
+     "standard": [
+      null,
+      1.023438
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": 0.37,
+    "gap": 5.32,
+    "rank": 0,
+    "run": true,
+    "runup": 0.36
+   },
+   "edge": [
+    "e2.Z024",
+    "e2.Z400"
+   ],
+   "evidence": {
+    "jump_scale": "l3:x18-contact-2026-10-14/results/e2.z024.fly:player_physics.jump_speed_scale@36e70efbd3ae/below:9be88c616aa7"
+   },
+   "hop": "e2_z024 > e2_z399",
+   "kit": {
+    "air": 0
+   },
+   "level": "e2",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      0.25,
+      null
+     ],
+     "standard": [
+      0.824219,
+      null
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": -13.19,
+    "flaps": 0,
+    "gap": 7.4,
+    "rank": 0,
+    "run": true,
+    "runup": 0.37
+   },
+   "edge": [
+    "f1.Z016",
+    "f1.Z179"
+   ],
+   "evidence": {
+    "jump_scale": "l3:r1.39-l3-proof-tooling-2026-10-28/l3/f1.lava_tubes.fly:player_physics.jump_speed_scale@56fb35575000/above:747e32d2a13c"
+   },
+   "hop": "f1_lava_tubes > f1_core",
+   "kit": {
+    "air": 0
+   },
+   "level": "f1",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      4.0
+     ],
+     "standard": [
+      null,
+      4.0
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": 2.24,
+    "gap": 29.32,
+    "rank": 3,
+    "run": true,
+    "runup": 0.37
+   },
+   "edge": [
+    "f2.Z158",
+    "f2.Z097"
+   ],
+   "evidence": {
+    "flap_ceiling_scale": "l3:x18-contact-2026-10-14/results/f2.z153.fly:player_physics.wing_flap_ceiling_scale@b2491e2526a6/below:29660b25b2e4",
+    "flap_scale": "l3:x18-contact-2026-10-14/results/f2.z153.fly:player_physics.flap_height_scale@b2491e2526a6/below:63ce5d00e052"
+   },
+   "hop": "f2_z158 > f2_z097",
+   "kit": {
+    "air": 3
+   },
+   "level": "f2",
+   "ranges": {
+    "flap_ceiling_scale": {
+     "frame_perfect": [
+      0.25,
+      null
+     ]
+    },
+    "flap_scale": {
+     "frame_perfect": [
+      0.25,
+      null
+     ],
+     "standard": [
+      0.53125,
+      null
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": -1.85,
+    "flaps": 0,
+    "gap": 8.45,
+    "rank": 0,
+    "run": true,
+    "runup": 0.37
+   },
+   "edge": [
+    "f4.Z135",
+    "f4.Z017"
+   ],
+   "evidence": {
+    "jump_scale": "l3:x18-contact-2026-10-14/results/f4.cliffside.fly:player_physics.jump_speed_scale@0ef19cf82f40/below:922989955c84"
+   },
+   "hop": "f4_cliffside > f4_z034",
+   "kit": {
+    "air": 0
+   },
+   "level": "f4",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      0.478516,
+      null
+     ],
+     "standard": [
+      0.777344,
+      null
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": -0.03,
+    "gap": 7.5,
+    "headroom": 5.58,
+    "rank": 1,
+    "room_end": 1.65,
+    "run": true,
+    "runup": 0.12
+   },
+   "edge": [
+    "e5.Z017",
+    "e5.Z122"
+   ],
+   "evidence": {
+    "jump_scale": "l3:r1.24a-logic-defaults-2026-10-25/certify/l3-hi/r124a.e5.z017:player_physics.jump_speed_scale@74df706b992e/above:983faa454cd1"
+   },
+   "hop": "e5_z017 > e5_z122",
+   "kit": {
+    "air": 1
+   },
+   "level": "e5",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      1.4
+     ],
+     "standard": [
+      null,
+      1.4
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": -3.98,
+    "flaps": 0,
+    "gap": 3.94,
+    "headroom": 5.18,
+    "rank": 0,
+    "room_end": 2.16,
+    "room_start": 2.94,
+    "run": true,
+    "runup": 0.37
+   },
+   "edge": [
+    "e6.Z054",
+    "e6.Z055"
+   ],
+   "evidence": {
+    "jump_scale": "l3:r1.24a-logic-defaults-2026-10-25/certify/l3-hi/r124a.e6.z049:player_physics.jump_speed_scale@9102603ede34/above:a6c0054b0fed"
+   },
+   "hop": "e6_z049 > e6_z047",
+   "kit": {
+    "air": 0
+   },
+   "level": "e6",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      1.4
+     ],
+     "standard": [
+      null,
+      1.4
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": -2.05,
+    "flaps": 0,
+    "gap": 7.46,
+    "headroom": 3.34,
+    "rank": 0,
+    "room_start": 0.32,
+    "run": true,
+    "runup": 0.37
+   },
+   "edge": [
+    "f1.Z220",
+    "f1.Z008"
+   ],
+   "evidence": {
+    "jump_scale": "l3:r1.24a-logic-defaults-2026-10-25/certify/l3-hi/r124a.f1.z220:player_physics.jump_speed_scale@56fb35575000/above:4f412e581b7d"
+   },
+   "hop": "f1_z077 > f1_town_side",
+   "kit": {
+    "air": 0
+   },
+   "level": "f1",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      1.4
+     ],
+     "standard": [
+      null,
+      1.4
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": -1.07,
+    "flaps": 0,
+    "gap": 5.44,
+    "headroom": 3.91,
+    "rank": 0,
+    "room_end": 0.88,
+    "room_start": 3.53,
+    "run": true,
+    "runup": 0.37
+   },
+   "edge": [
+    "f2.Z189",
+    "f2.Z052"
+   ],
+   "evidence": {
+    "jump_scale": "l3:r1.24a-logic-defaults-2026-10-25/certify/l3-hi/r124a.f2.z189:player_physics.jump_speed_scale@e6bc8150f9dd/above:d57745e40a26"
+   },
+   "hop": "f2_z103 > f2_z052",
+   "kit": {
+    "air": 0
+   },
+   "level": "f2",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      1.4
+     ],
+     "standard": [
+      null,
+      1.4
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": 1.97,
+    "flaps": 3,
+    "gap": 12.11,
+    "headroom": 4.49,
+    "rank": 3,
+    "room_start": 0.17,
+    "run": false,
+    "runup": 0.86
+   },
+   "edge": [
+    "f6.Z876",
+    "f6.Z507"
+   ],
+   "evidence": {
+    "jump_scale": "l3:r1.24a-logic-defaults-2026-10-25/certify/l3-hi/r124a.f6.z876:player_physics.jump_speed_scale@6d066b0dc18a/above:b70092da0300"
+   },
+   "hop": "f6_z877 > f6_z093",
+   "kit": {
+    "air": 3
+   },
+   "level": "f6",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      1.4
+     ],
+     "standard": [
+      null,
+      1.4
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": -7.72,
+    "gap": 39.77,
+    "headroom": 5.04,
+    "rank": 3,
+    "room_end": 0.73,
+    "run": true,
+    "runup": 0.37
+   },
+   "edge": [
+    "w3.Z076",
+    "w3.Z099"
+   ],
+   "evidence": {
+    "jump_scale": "l3:r1.24a-logic-defaults-2026-10-25/certify/l3-hi/r124a.w3.z076:player_physics.jump_speed_scale@cc3dd1318866/above:0a87b1aaa1b9"
+   },
+   "hop": "w3_z076 > w3_z099",
+   "kit": {
+    "air": 3
+   },
+   "level": "w3",
+   "ranges": {
+    "jump_scale": {
+     "frame_perfect": [
+      null,
+      1.4
+     ],
+     "standard": [
+      null,
+      1.025
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": 2.69,
+    "gap": 3.09,
+    "rank": 1,
+    "run": true,
+    "runup": 0.36
+   },
+   "edge": [
+    "town.Z010",
+    "town.Z031"
+   ],
+   "evidence": {
+    "flap_scale": "l3:x18-contact-2026-10-14/results/town.z010.fly:player_physics.flap_height_scale@5c66f15cc1f3/below:b177302ac9f0"
+   },
+   "hop": "town_z009 > town_z016",
+   "kit": {
+    "air": 1
+   },
+   "level": "town",
+   "ranges": {
+    "flap_scale": {
+     "frame_perfect": [
+      0.25,
+      null
+     ],
+     "standard": [
+      0.25,
+      null
+     ]
+    }
+   }
+  },
+  {
+   "cert": {
+    "dh": 1.98,
+    "gap": 4.0,
+    "rank": 1,
+    "run": true,
+    "runup": 0.12
+   },
+   "edge": [
+    "w1.Z009",
+    "w1.Z439"
+   ],
+   "evidence": {
+    "flap_scale": "l3:x11-parametric-l3-2026-10-14/results/w1.cove.fly:player_physics.flap_height_scale@096ccbb9a26c/below:10096b533a23",
+    "flaps1": "l3:x11-parametric-l3-2026-10-14/results/w1.cove.fly:air_shield_flaps.air_shield_1_flaps@096ccbb9a26c/below:10096b533a23",
+    "fps": "l3:x11-parametric-l3-2026-10-14/results/w1.cove.fly:fps_unlock.target_fps@096ccbb9a26c/above:efbd6e8e3403",
+    "gravity": "l3:x11-parametric-l3-2026-10-14/results/w1.cove.fly:player_physics.gravity@096ccbb9a26c/below:6dfd915858f6/above:10096b533a23",
+    "jump_scale": "l3:x11-parametric-l3-2026-10-14/results/w1.cove.fly:player_physics.jump_speed_scale@096ccbb9a26c/below:767f1dfc64cf/above:88c6cd57a913"
+   },
+   "hop": "w1_cove > w1_z062",
+   "kit": {
+    "air": 1
+   },
+   "level": "w1",
+   "ranges": {
+    "flap_scale": {
+     "frame_perfect": [
+      0.25,
+      null
+     ],
+     "standard": [
+      0.25,
+      null
+     ]
+    },
+    "flaps1": {
+     "frame_perfect": [
+      0.0,
+      null
+     ],
+     "standard": [
+      0.0,
+      null
+     ]
+    },
+    "fps": {
+     "frame_perfect": [
+      null,
+      120.0
+     ],
+     "standard": [
+      null,
+      120.0
+     ]
+    },
+    "gravity": {
+     "frame_perfect": [
+      2.45,
+      39.2
+     ],
+     "standard": [
+      2.45,
+      39.2
+     ]
+    },
+    "jump_scale": {
+     "frame_perfect": [
+      0.25,
+      4.0
+     ],
+     "standard": [
+      0.25,
+      4.0
+     ]
+    }
+   }
+  }
+ ],
+ "format": "azurik-rando-contact/1",
+ "free": {}
+}

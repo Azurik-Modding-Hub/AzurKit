@@ -1,0 +1,37 @@
+{
+ "commit": "633bc3cfc971539c4418aed01613aa18e1e53cf8",
+ "dirty": false,
+ "family": "rando",
+ "files": {
+  "cases.json": {
+   "sha256": "470635b0cded0e03386de8e319080709b3d5bde5ec246a52593fc738d4cd6faa",
+   "size": 9397
+  },
+  "tests/goldens/europe/pipelines.json": {
+   "sha256": "d169cfd94136e1eefbda20ba6b871d7bb1a747f7c9a1e7906ee20ba3207c5690",
+   "size": 290
+  },
+  "tests/goldens/pipelines.json": {
+   "sha256": "52e00aaf33951c8b4993a04a13f2b4380874a7bf9610c1514ad6a3c905106f11",
+   "size": 4324
+  },
+  "tests/goldens/rando_iso.json": {
+   "sha256": "efb7dc459b9779eae3cf1a1cb6fc0de15eae0aab67790c9e062942ddfc39a9ea",
+   "size": 221
+  },
+  "tests/goldens/rando_plans.json": {
+   "sha256": "6f797425c3755b097b08cbca1a114eb9a82be108779dfe70e82af8d3edf9cfd1",
+   "size": 43490
+  }
+ },
+ "format": "azurik-oracle/1",
+ "same_as": {
+  "tests/goldens/gui.json: run_randomizer:randomize": "tests/goldens/pipelines.json: randomize-full:seed=2,default"
+ },
+ "tag": "oracle-rando-1",
+ "toolchain": {
+  "capstone": "5.0.9",
+  "numpy": "2.5.4",
+  "ziglang": "0.16.0"
+ }
+}

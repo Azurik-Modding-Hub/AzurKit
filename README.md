@@ -31,8 +31,10 @@ packs and set their sliders, Build, then Save, and Copy link shares the
 recipe; it runs in your browser, and nothing is uploaded) or in the app, which shows the
 same page in its own window and writes the build where you save it. The page
 isn't hosted and the app isn't released yet: on macOS you build the app
-yourself (below). Version 1 will add character swaps and variants, and the
-randomizer. Players will get a web page and a download-and-run app;
+yourself (below). The randomizer's planner runs from the command line
+(`azurkit plan --seed 2` prints a plan, `azurkit spoiler PLAN` its spoiler);
+building a randomized image comes next. Version 1 will add that, and
+character swaps and variants. Players will get a web page and a download-and-run app;
 developers will get `uv tool install azurkit`.
 
 ## xemu only

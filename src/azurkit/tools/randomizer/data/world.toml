@@ -1,0 +1,368 @@
+# Imported at Step R1.4 from the R0 evidence repo @ 4b8f3f3 (db-draft/world.toml), re-imported at Step R1.4b @ 7530b0b (D145, rjc5), format keys /1; R0's scripts stay there.
+# Below, FORMAT is docs/RANDOMIZER_DB.md, db-draft/ is azurik_mod/randomizer/data/, and R0's checks (db_check.py,
+# tricks_check.py) are `azurik-mod rando check`.
+# world.toml: start, hub, victory, the trick families and the non-monotone mechanisms (DRAFT, R0.6, 2026-10-11;
+# trick families revised 2026-10-12 for D113; six added for D120).
+# Spec: db-draft/FORMAT.md section 7.
+
+format = "azurik-rando-world/1"  # prefilled
+start = "w1_beach"  # migrated, unverified (starting_node; the owner's notes agree)
+hub = "town_central"  # prefilled (RANDOMIZER_PLAN section 2.3; logic_db's town_core)
+victory = "flag:d1.spideyzar.killed"  # prefilled (D76 / RQ-1; replaces logic_db's discs + placement events)
+starting_items = []  # migrated, unverified
+# logic_db victory_condition was: {"type":"all_of","items":["disc_air","disc_water","disc_fire","disc_earth","disc_life","event_place_disc_air","event_place_disc_water","event_place_disc_fire","event_place_disc_earth","event_place_disc_life"]}  # migrated, unverified
+
+# Trick families (D113, 2026-10-12): a trick has no tier; difficulty sits on each skip, in the levels' [[skip]]
+# lists (FORMAT 4.8). Drafted from tricks/tricks.toml, whose `name` and `description` project here (tricks_check).
+# Before D113 each entry also carried default_tier (bskip 2, pstorage 3, saveanywhere 5, rjump 3, tjump 3, itrig 3,
+# nolight 1; prefilled proposals).
+
+[[trick]]  # drafted (D113)
+name = "bskip"  # prefilled (OWNER_NOTES)
+description = "barrier skips: a general term for skipping any barrier, such as the fire barrier between w1 and town (e.g. around it with air power 2)"  # drafted from tricks/tricks.toml (the owner's words, shortened)
+
+[[trick]]  # drafted (D113)
+name = "pstorage"  # prefilled (OWNER_NOTES)
+description = "power storage: in the tutorial select powers with LT held but don't evoke them, load another save, then release LT: the power is evoked even if that save has no access to it (e.g. an air flap with no air levels)"  # drafted from tricks/tricks.toml (the owner's words, shortened)
+
+[[trick]]  # drafted (D113)
+name = "saveanywhere"  # prefilled (OWNER_NOTES)
+description = "save anywhere: the in-game cheat White, Up, Down, A, B, right-stick press saves anywhere; saving and reloading allows falling infinitely, resets fall damage, or rarely clips through geometry"  # drafted from tricks/tricks.toml (the owner's words, shortened)
+
+[[trick]]  # drafted (D113)
+name = "rjump"  # prefilled (OWNER_NOTES)
+description = "roll jump: chain rolls off a ledge and jump on the frame a roll ends; the fall is cancelled and air flaps work again; limited by deaths after free falling too long"  # drafted from tricks/tricks.toml (the owner's words, shortened)
+
+[[trick]]  # drafted (D113)
+name = "tjump"  # prefilled (OWNER_NOTES)
+description = "tree jump: hold up and press jump repeatedly on a ladder against certain geometry, with no air shield worn, to charge jump velocity, released as a super jump at the top; mostly used to skip the puzzle that opens the Great Tree to the air realm, with no powers"  # drafted from tricks/tricks.toml (the owner's words, shortened)
+
+[[trick]]  # drafted (D113)
+name = "itrig"  # prefilled (OWNER_NOTES)
+description = "invisible triggers: clip through the level geometry in a few rare places and activate a trigger such as a level-loading zone; mostly in w1, to skip the dark cave and reach the alternate route to town where a water disc fragment is"  # drafted from tricks/tricks.toml (the owner's words, shortened)
+
+[[trick]]  # drafted (D113)
+name = "nolight"  # prefilled (OWNER_NOTES)
+description = "no light: doing a dark room or maze without the fire power; possible but inconvenient"  # drafted from tricks/tricks.toml (the owner's words, shortened)
+
+# D120 (owner, 2026-10-12): the six video moves become families, each its own and with no tier; their skips stay
+# held until xemu or the owner confirms them (D114).
+
+[[trick]]  # D120 (owner, 2026-10-12)
+name = "elevbounce"  # D120
+description = "elevator bounce: land on the moving d1 central-spire elevator at the right moment and spot (holding forward, steadied with flaps) and bounce past most or all of its puzzle"  # drafted from tricks/tricks.toml (VIDEO_CATALOGUE 1.2, in plain words)
+
+[[trick]]  # D120 (owner, 2026-10-12)
+name = "iceclimb"  # D120
+description = "ice climb: get up slippery ice, or a slide meant for coming down, by hopping up its centre line or flying it with flaps (w3's ice jet or bridge to frag_fire_1 without the frost switch; the e6 slide)"  # drafted from tricks/tricks.toml (VIDEO_CATALOGUE 1.2, in plain words)
+
+[[trick]]  # D120 (owner, 2026-10-12)
+name = "ledgepop"  # D120
+description = "ledge pop: from high ground, drop off one ledge just right and Azurik pops up the wall; in f4 it skips most of the level and the Blaze Sentinel fight on the way to the battle platform, and needs a lot of air fuel"  # drafted from tricks/tricks.toml (VIDEO_CATALOGUE 1.2, in plain words)
+
+[[trick]]  # D120 (owner, 2026-10-12)
+name = "elevjump"  # D120
+description = "lift jump: jump at the top of a rising lift, or touch a moving platform while moving, and keep its speed for extra height (f3's lifts, e2's tower lift, e5's moving platform)"  # drafted from tricks/tricks.toml (VIDEO_CATALOGUE 1.2, in plain words)
+
+[[trick]]  # D120 (owner, 2026-10-12)
+name = "botstep"  # D120
+description = "bot step: draw enemies' attention and use their invisible hitboxes as steps (w3, over the icebergs); how it is done is not known"  # drafted from tricks/tricks.toml (VIDEO_CATALOGUE 1.2, in plain words)
+
+[[trick]]  # D120 (owner, 2026-10-12)
+name = "flipcancel"  # D120
+description = "flip cancel: a little flip on landing after a roll jump cancels momentum that would otherwise kill (a5's monolith); the input is not known"  # drafted from tricks/tricks.toml (VIDEO_CATALOGUE 1.2, in plain words)
+
+[[trick]]  # D630 (owner, 2026-10-24, Step R2.18)
+name = "flutter"  # D630: the owner's name, "air fluttering"
+description = "air fluttering: in mid-air, cast the air armor again (LT+Y) once its flaps are spent, for another flap, at 2 air fuel a cast; a flight is bounded by the air fuel, not the armor's flap count"  # drafted from tricks/tricks.toml (the owner's X.67 demo, D630)
+
+# Time-savers (D145, owner 2026-10-12, verbatim: "keep in mind some of the tricks you saw in the speedrun video are
+# not skips, bur rather just meant to save time."): each goes where plain movement with the same kit already goes,
+# only faster, so it is never in logic. Listed here (id, name, level, tricks; projected from tricks/tricks.toml
+# [[time_saver]], which tricks_check checks) for the spoiler's routing notes and so the loader can refuse one in
+# logic: no expression may name skip:<its id>, no level file may hold it, and no settings toggle may name it
+# (FORMAT 4.9). The level files never name one.
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "w1.rjump_teleporter_island"
+name = "w1 teleporter-island roll jump"
+level = "w1"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "f3.rjump_earth_frag"
+name = "f3 roll jump to frag_earth_2"
+level = "f3"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "f3.rjump_earth_power"
+name = "f3 roll jump to the earth power 1 platform"
+level = "f3"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.rjump_lethal_drop"
+name = "e2 four-roll lethal drop"
+level = "e2"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.rjump_entrance_tree"
+name = "e2 four-roll jump into the tree"
+level = "e2"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.rjump_gondola_key_slope"
+name = "e2 roll jump down the slope (second gondola key)"
+level = "e2"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.rjump_drill_room_drop"
+name = "e2 drill-room roll jump"
+level = "e2"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.rjump_bridge"
+name = "e2 three-roll jump onto the bridge"
+level = "e2"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.rjump_excavator"
+name = "e2 roll jump to the excavator"
+level = "e2"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e5.rjump_conveyor_ladder"
+name = "e5 conveyor roll jump to the ladder (air 2)"
+level = "e5"
+tricks = ["rjump"]
+
+[[time_saver]]  # Step R1.31b (2026-10-19, the owner's X.35 C3)
+id = "e5.rjump_conveyor_ladder_air1"
+name = "e5 conveyor roll jump to the ladder (air 1)"
+level = "e5"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e5.rjump_five_roll_drop"
+name = "e5 five-roll drop (air 2)"
+level = "e5"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e5.double_rjump_earth_power2"
+name = "e5 double roll jump to earth power 2"
+level = "e5"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e6.rjump_entrance_drop"
+name = "e6 three-roll drop after the entrance"
+level = "e6"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a1.rjump_branches"
+name = "a1 branch-to-branch roll jump"
+level = "a1"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a1.pipe_flight"
+name = "a1 pipe flight to the tree top"
+level = "a1"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a5.monolith_flipcancel"
+name = "a5 monolith roll jump with a flip cancel"
+level = "a5"
+tricks = ["rjump", "flipcancel"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "town.towerfall_centre"
+name = "town centre towerfall (five-roll jump)"
+level = "town"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "d1.spires"
+name = "d1 spires (skips d2)"
+level = "d1"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a6.rjump_platforms_green"
+name = "a6 roll jumps to the green key"
+level = "a6"
+tricks = ["rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a6.iceblock010_air2"
+name = "a6 IceBlock_010 round the end (air 2)"
+level = "a6"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a6.iceblock012_air2"
+name = "a6 IceBlock_012 round the end (air 2)"
+level = "a6"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e6.firewall01_air1"
+name = "e6 FireWall_01 (air 1)"
+level = "e6"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "w2.iceblock01_air3"
+name = "w2 IceBlock_01 (air 3)"
+level = "w2"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "w3.iceblock016_air2"
+name = "w3 IceBlock_016 (air 2)"
+level = "w3"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "w3.iceblock024_air1"
+name = "w3 IceBlock_024 (air 1)"
+level = "w3"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "w3.iceblock024_no_air"
+name = "w3 IceBlock_024 (no air)"
+level = "w3"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "w3.iceblock026_air2"
+name = "w3 IceBlock_026 (air 2)"
+level = "w3"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a6.acid_fly_around"
+name = "a6 level-3 acid fly-around (a key)"
+level = "a6"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.firewall_walkthrough"
+name = "e2 lit fire wall walk-through (fire power 1)"
+level = "e2"
+tricks = ["bskip"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e6.vine_launch_upper"
+name = "e6 vine launch to the upper section"
+level = "e6"
+tricks = ["tjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "a1.air_tube_oob"
+name = "a1 out-of-bounds to the air tubes"
+level = "a1"
+tricks = ["itrig", "rjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e5.dark_interior_nolight"
+name = "e5 frag_fire_3 interior without light"
+level = "e5"
+tricks = ["nolight"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "f3.elevjump_earth_frag"
+name = "f3 lift boost to frag_earth_2"
+level = "f3"
+tricks = ["elevjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e2.elevjump_excavator_key1"
+name = "e2 tower lift jump to excavator key 1"
+level = "e2"
+tricks = ["elevjump"]
+
+[[time_saver]]  # D145 (2026-10-12)
+id = "e5.elevjump_earth_power2"
+name = "e5 moving-platform jump to earth power 2"
+level = "e5"
+tricks = ["elevjump"]
+
+[[time_saver]]  # Step R2.17b (2026-10-24, the owner's D657)
+id = "w3.botstep_icebergs"
+name = "w3 bot steps over the icebergs"
+level = "w3"
+tricks = ["botstep"]
+
+[[time_saver]]  # Step R2.18 (2026-10-24, the owner's X.67 demo, D655)
+id = "f6.seal_skip"
+name = "fire power 3 / fire disc 4 skip (f6 seal)"
+level = "f6"
+tricks = ["bskip"]
+
+[[time_saver]]  # Step R2.18 (2026-10-24, the owner's X.67 demo, D656)
+id = "a5.rings_air_power3"
+name = "a5 ring roll jump to air power 3"
+level = "a5"
+tricks = ["rjump"]
+# Non-monotone mechanisms (RANDOMIZER_PLAN section 3.1): the loader refuses a database that uses one without
+# declaring it here. Handling: forfeitable | product_bit | out_of_logic | harmless | keys_vanilla.
+
+[[mechanism]]  # prefilled
+id = "disc_teleport"  # prefilled
+kind = "one_shot_teleport"  # prefilled
+handling = "forfeitable"  # prefilled (RQ-4 / D81)
+note = "a6, w3, f6, e5: count >= 4 AND the town has not placed the disc; w1 BossDefeated: water >= 4 and a touch, no placed check; life: none (thresholds/disc_chains.txt). Level-triggered [inferred, static: the gameState is refreshed every frame, 0x711C0]; TODO(R0.4b-ii) I-7(a,d,e)"  # prefilled
+
+[[mechanism]]  # prefilled
+id = "timed_barriers"  # prefilled
+kind = "respawn"  # prefilled
+handling = "harmless"  # prefilled proposal
+note = "barriers with persist timed or level_reset are re-checked on every crossing; the 32 FireWall OpenNCloseToggles are unsaved with a stored turnOff (thresholds/barrier_levels.txt) [inferred, static]; TODO(R0.4b-i) I-8, I-15"  # prefilled
+
+[[mechanism]]  # prefilled
+id = "toggles"  # prefilled
+kind = "toggle"  # prefilled
+handling = "out_of_logic"  # prefilled proposal
+note = "a toggle whose off state gates an edge is a load error until modelled (RANDOMIZER_PLAN 2.5)"  # prefilled
+
+[[mechanism]]  # prefilled
+id = "key_slot_cap"  # prefilled
+kind = "capacity"  # prefilled
+handling = "keys_vanilla"  # prefilled proposal
+note = "5 key slots, a 6th type is refused [verified static, RAM_RECIPES section 4: 0x58090, 0x587B0]; TODO(R0.4a) confirm in xemu, then RANDOMIZER_PLAN risk 4 applies"  # prefilled
+
+[[mechanism]]  # prefilled
+id = "w4_daynight"  # prefilled
+kind = "cycle"  # prefilled
+handling = "harmless"  # prefilled proposal
+note = "the 5 fan platforms unfold while day night timer is in [0.25,0.75) (generated/w4.json; thresholds/w4_daynight.txt); no clock-driven node is saved (wiring/saved_nodes.json), so nothing latches on the clock [inferred]: a wait, not a flag; TODO(owner, R0.7) I-19"  # prefilled
+
+[[mechanism]]  # prefilled
+id = "gem_fuel_upgrade"  # prefilled
+kind = "spend"  # prefilled
+handling = "out_of_logic"  # prefilled proposal
+note = "a gem pickup can run the fuel-cap upgrade, which subtracts gems from the slot (0x58639-0x58642) and raises a fuel cap (0x586BB) [verified static, ramdis.py dis 0x585f0:70; RAM_RECIPES section 2.1]; the gem counters count items collected, not the in-game value, so a data gate on the in-game gem counters is non-monotone; gems stay out of v1 logic (plan 2.8)"  # prefilled
+
+[[mechanism]]  # prefilled
+id = "minecart_e2e5"  # prefilled
+kind = "cart"  # prefilled
+handling = "out_of_logic"  # prefilled proposal
+note = "e2-side one-bit state DownToggle (saved), set by riding SwitchE5a and cleared only by arriving at E5a_E2a and touching TriggerShape (logic_dump.py e2); e5's MineCarToggle is e5's side [inferred, static]; both e2 gondolas need the 2 key_circuitboard locks [inferred, physical]; TODO(R0.4b-ii) I-10"  # prefilled
+
+[[mechanism]]  # prefilled
+id = "minecart_e2e7"  # prefilled
+kind = "cart"  # prefilled
+handling = "harmless"  # prefilled proposal
+note = "e2-side one-bit state DownToggle1 (saved), cleared by arriving at E7_E2 and touching Trigger2Shape; e7's only exit E7_E2_switch lands at E7_E2 (generated/e7.json), so the round trip resets it [inferred, static]; SwitchE5a1 is the only exit into e7 (generated), so it stays in logic, with both circuitboard locks [inferred, physical]; TODO(R0.4b-ii)"  # prefilled

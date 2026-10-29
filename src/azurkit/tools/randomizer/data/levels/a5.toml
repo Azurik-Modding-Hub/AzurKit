@@ -1,0 +1,1397 @@
+# levels/a5.toml: written by `azurik-mod rando author a5` (Step R1.8) from generated/a5.json,
+# derived/a5.json.gz, tricks.toml and draft/authoring/a5.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "a5"
+status = "authored"
+known_traps = []
+route = ["a5/g0/r733", "a5/g0/r735", "a5/g0/r1773", "a5/g0/r1770", "a5/g0/r2128", "a5/g0/r2445", "a5/g0/r2626", "a5/g0/r1776"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "a5_dock"
+anchors = ["zone:a5.Z006"]
+locations = ["a5/g0/r1683", "a5/g0/r1685", "a5/g0/r1688", "a5/g0/r1690", "a5/g0/r1692", "a5/g0/r1695", "a5/g0/r1697", "a5/g0/r1700", "a5/g0/r1702", "a5/g0/r1704", "a5/g0/r1706", "a5/g0/r1708", "a5/g0/r1711", "a5/g0/r1713", "a5/g0/r1715", "a5/g0/r1718", "a5/g0/r1720", "a5/g0/r1722", "a5/g0/r1724", "a5/g0/r1728", "a5/g0/r1730", "a5/g0/r1732", "a5/g0/r1734", "a5/g0/r1740", "a5/g0/r1742", "a5/g0/r1745", "a5/g0/r1747", "a5/g0/r1749", "a5/g0/r1751", "a5/g0/r1754", "a5/g0/r1756", "a5/g0/r1758", "a5/g0/r1760", "a5/g0/r1762", "a5/g0/r1765", "a5/g0/r1767", "a5/g0/r1770", "a5/g0/r1776", "a5/g0/r2095", "a5/g0/r2097", "a5/g0/r2099", "a5/g0/r2101", "a5/g0/r2128", "a5/g0/r2167", "a5/g0/r2169", "a5/g0/r2171", "a5/g0/r2173", "a5/g0/r2235", "a5/g0/r2237", "a5/g0/r2239", "a5/g0/r2241", "a5/g0/r2350", "a5/g0/r2352", "a5/g0/r2354", "a5/g0/r2356", "a5/g0/r2414", "a5/g0/r2416", "a5/g0/r2418", "a5/g0/r2420", "a5/g0/r2445", "a5/g0/r2480", "a5/g0/r2482", "a5/g0/r2484", "a5/g0/r2486", "a5/g0/r2595", "a5/g0/r2597", "a5/g0/r2599", "a5/g0/r2601", "a5/g0/r2626", "a5/g0/r2661", "a5/g0/r2663", "a5/g0/r2665", "a5/g0/r2667", "a5/g0/r2722", "a5/g0/r2724", "a5/g0/r2726", "a5/g0/r2728", "a5/g0/r733"]
+
+[[node]]
+id = "a5_z000"
+anchors = ["zone:a5.Z000"]
+
+[[node]]
+id = "a5_z003"
+anchors = ["zone:a5.Z003"]
+
+[[node]]
+id = "a5_z004"
+anchors = ["zone:a5.Z004"]
+
+[[node]]
+id = "a5_z005"
+anchors = ["zone:a5.Z005"]
+
+[[node]]
+id = "a5_z009"
+anchors = ["zone:a5.Z009"]
+
+[[node]]
+id = "a5_z010"
+anchors = ["zone:a5.Z010"]
+
+[[node]]
+id = "a5_z011"
+anchors = ["zone:a5.Z011"]
+
+[[node]]
+id = "a5_z012"
+anchors = ["zone:a5.Z012"]
+
+[[node]]
+id = "a5_z017"
+anchors = ["zone:a5.Z017"]
+
+[[node]]
+id = "a5_z020"
+anchors = ["zone:a5.Z020"]
+
+[[node]]
+id = "a5_z021"
+anchors = ["zone:a5.Z021"]
+
+[[node]]
+id = "a5_z022"
+anchors = ["zone:a5.Z022"]
+
+[[node]]
+id = "a5_z023"
+anchors = ["zone:a5.Z023"]
+
+[[node]]
+id = "a5_z024"
+anchors = ["zone:a5.Z024"]
+
+[[node]]
+id = "a5_z025"
+anchors = ["zone:a5.Z025"]
+
+[[node]]
+id = "a5_z026"
+anchors = ["zone:a5.Z026"]
+
+[[node]]
+id = "a5_z027"
+anchors = ["zone:a5.Z027"]
+
+[[node]]
+id = "a5_z028"
+anchors = ["zone:a5.Z028"]
+
+[[node]]
+id = "a5_z033"
+anchors = ["zone:a5.Z033"]
+
+[[node]]
+id = "a5_z034"
+anchors = ["zone:a5.Z034"]
+
+[[node]]
+id = "a5_z043"
+anchors = ["zone:a5.Z043"]
+
+[[node]]
+id = "a5_z046"
+anchors = ["zone:a5.Z046"]
+
+[[node]]
+id = "a5_z047"
+anchors = ["zone:a5.Z047"]
+
+[[node]]
+id = "a5_z048"
+anchors = ["zone:a5.Z048"]
+
+[[node]]
+id = "a5_z052"
+anchors = ["zone:a5.Z052"]
+
+[[node]]
+id = "a5_z070"
+anchors = ["zone:a5.Z070"]
+
+[[node]]
+id = "a5_z087"
+anchors = ["zone:a5.Z087"]
+
+[[node]]
+id = "a5_z098"
+anchors = ["zone:a5.Z098"]
+
+[[node]]
+id = "a5_z101"
+anchors = ["zone:a5.Z101"]
+
+[[node]]
+id = "a5_z107"
+anchors = ["zone:a5.Z107"]
+
+[[node]]
+id = "a5_z110"
+anchors = ["zone:a5.Z110"]
+
+[[node]]
+id = "a5_z111"
+anchors = ["zone:a5.Z111"]
+
+[[node]]
+id = "a5_z129"
+anchors = ["zone:a5.Z129"]
+
+[[node]]
+id = "a5_z144"
+anchors = ["zone:a5.Z144"]
+
+[[node]]
+id = "a5_z225"
+anchors = ["zone:a5.Z225"]
+
+[[node]]
+id = "a5_z232"
+anchors = ["zone:a5.Z232"]
+
+[[node]]
+id = "a5_z233"
+anchors = ["zone:a5.Z233"]
+
+[[node]]
+id = "a5_z257"
+anchors = ["zone:a5.Z257"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z000"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z000"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z020"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z020"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z028"
+kind = "walk"
+requires = "air>=2 & earth>=2 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z033"
+kind = "walk"
+requires = "air>=2 & earth>=2 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z034"
+kind = "walk"
+requires = "air>=2 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_dock"
+to = "a5_z052"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z000"
+to = "a5_dock"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z000"
+to = "a5_z020"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z000"
+to = "a5_z020"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z000"
+to = "a5_z020"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z000"
+to = "a5_z020"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a5_z000"
+to = "a5_z144"
+kind = "walk"
+requires = "event:a5.airshipShip_domeDoor1_MotionDetectorShape.touch | event:a5.airshipShip_domeDoor3_MotionDetectorShape.touch | event:a5.airshipShip_domeDoor7_MotionDetectorShape.touch | event:a5.airshipShip_domeDoor_MotionDetectorShape.touch"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z003"
+to = "a5_z028"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z004"
+to = "a5_z034"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z005"
+to = "a5_z033"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z009"
+to = "a5_z024"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z009"
+to = "a5_z025"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z010"
+to = "a5_z023"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z010"
+to = "a5_z026"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z011"
+to = "a5_z022"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z011"
+to = "a5_z027"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z012"
+to = "a5_z052"
+kind = "walk"
+requires = "water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z012"
+to = "a5_z052"
+kind = "walk"
+requires = "air>=1"
+through = ["a5.Damage_FieldShape"]
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z017"
+to = "a5_z070"
+kind = "walk"
+requires = "(air>=1 & water>=2) | air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z017"
+to = "a5_z070"
+kind = "walk"
+requires = "fire>=3 & water>=3 & event:a5.IceBlock_03_Iceblock_0Shape3.hit & event:a5.Iceblock_0Shape3_g0r757.hit & event:a5.Iceblock_0Shape3_g0r858.hit"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z017"
+to = "a5_z070"
+kind = "walk"
+requires = "air>=3 & water>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z017"
+to = "a5_z129"
+kind = "walk"
+requires = "air>=2 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z020"
+to = "a5_dock"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z021"
+to = "a5_z129"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z028"
+to = "a5_dock"
+kind = "walk"
+requires = "air>=2 & earth>=2 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z028"
+to = "a5_z003"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z028"
+to = "a5_z003"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z028"
+to = "a5_z232"
+kind = "walk"
+requires = "fire>=3 & water>=3"
+confidence = "data"
+
+[[edge]]
+from = "a5_z033"
+to = "a5_dock"
+kind = "walk"
+requires = "air>=2 & earth>=2 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z033"
+to = "a5_z005"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z033"
+to = "a5_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z033"
+to = "a5_z257"
+kind = "walk"
+requires = "flag:a5.Iceblock_0Shape3.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a5_z034"
+to = "a5_dock"
+kind = "walk"
+requires = "air>=2 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z034"
+to = "a5_z004"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z034"
+to = "a5_z004"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z034"
+to = "a5_z233"
+kind = "walk"
+requires = "flag:a5.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a5_z043"
+to = "a5_z052"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z046"
+to = "a5_z011"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a5_z046"
+to = "a5_z011"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z046"
+to = "a5_z047"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a5_z046"
+to = "a5_z048"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z047"
+to = "a5_z009"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a5_z047"
+to = "a5_z009"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z047"
+to = "a5_z046"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a5_z047"
+to = "a5_z048"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z047"
+to = "a5_z048"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a5_z047"
+to = "a5_z087"
+kind = "walk"
+requires = "air>=3 & water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z047"
+to = "a5_z129"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z048"
+to = "a5_z010"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z048"
+to = "a5_z010"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z048"
+to = "a5_z046"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z048"
+to = "a5_z047"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z048"
+to = "a5_z087"
+kind = "walk"
+requires = "air>=3 & water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z048"
+to = "a5_z129"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z052"
+to = "a5_dock"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z052"
+to = "a5_z012"
+kind = "walk"
+requires = "water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z052"
+to = "a5_z020"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z052"
+to = "a5_z043"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z052"
+to = "a5_z098"
+kind = "walk"
+requires = "true"
+through = ["a5.Damage_FieldShape"]
+confidence = "data"
+
+[[edge]]
+from = "a5_z052"
+to = "a5_z101"
+kind = "walk"
+requires = "true"
+through = ["a5.Damage_FieldShape"]
+confidence = "data"
+
+[[edge]]
+from = "a5_z052"
+to = "a5_z107"
+kind = "walk"
+requires = "water>=2"
+confidence = "data"
+
+[[edge]]
+from = "a5_z070"
+to = "a5_z129"
+kind = "walk"
+requires = "fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z087"
+to = "a5_z021"
+kind = "walk"
+requires = "event:a5.Top1Shape.touch"
+confidence = "physics"
+
+[[edge]]
+from = "a5_z087"
+to = "a5_z047"
+kind = "walk"
+requires = "air>=3 & water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z087"
+to = "a5_z048"
+kind = "walk"
+requires = "air>=3 & water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z087"
+to = "a5_z129"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z098"
+to = "a5_z052"
+kind = "walk"
+requires = "true"
+through = ["a5.Damage_FieldShape"]
+confidence = "data"
+
+[[edge]]
+from = "a5_z098"
+to = "a5_z101"
+kind = "walk"
+requires = "true"
+through = ["a5.Damage_FieldShape"]
+confidence = "data"
+
+[[edge]]
+from = "a5_z098"
+to = "a5_z107"
+kind = "walk"
+requires = "water>=2"
+confidence = "data"
+
+[[edge]]
+from = "a5_z098"
+to = "a5_z129"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z101"
+to = "a5_z052"
+kind = "walk"
+requires = "true"
+through = ["a5.Damage_FieldShape"]
+confidence = "data"
+
+[[edge]]
+from = "a5_z101"
+to = "a5_z098"
+kind = "walk"
+requires = "true"
+through = ["a5.Damage_FieldShape"]
+confidence = "data"
+
+[[edge]]
+from = "a5_z101"
+to = "a5_z107"
+kind = "walk"
+requires = "water>=2"
+confidence = "data"
+
+[[edge]]
+from = "a5_z101"
+to = "a5_z129"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z107"
+to = "a5_z052"
+kind = "walk"
+requires = "water>=2"
+confidence = "data"
+
+[[edge]]
+from = "a5_z107"
+to = "a5_z098"
+kind = "walk"
+requires = "water>=2"
+confidence = "data"
+
+[[edge]]
+from = "a5_z107"
+to = "a5_z101"
+kind = "walk"
+requires = "water>=2"
+confidence = "data"
+
+[[edge]]
+from = "a5_z107"
+to = "a5_z129"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z110"
+to = "a5_z129"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z111"
+to = "a5_z129"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z129"
+to = "a5_z021"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z129"
+to = "a5_z047"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z129"
+to = "a5_z048"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z129"
+to = "a5_z070"
+kind = "walk"
+requires = "fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z129"
+to = "a5_z087"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z129"
+to = "a5_z110"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z129"
+to = "a5_z111"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z144"
+to = "a5_z000"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a5_z144"
+to = "a5_z000"
+kind = "walk"
+requires = "event:a5.airshipShip_domeDoor1_MotionDetectorShape.touch | event:a5.airshipShip_domeDoor3_MotionDetectorShape.touch | event:a5.airshipShip_domeDoor7_MotionDetectorShape.touch | event:a5.airshipShip_domeDoor_MotionDetectorShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "a5_z225"
+to = "a5_z233"
+kind = "walk"
+requires = "flag:a5.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a5_z232"
+to = "a5_z028"
+kind = "walk"
+requires = "fire>=3 & water>=3"
+confidence = "data"
+
+[[edge]]
+from = "a5_z233"
+to = "a5_z034"
+kind = "walk"
+requires = "flag:a5.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a5_z233"
+to = "a5_z225"
+kind = "walk"
+requires = "flag:a5.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a5_z257"
+to = "a5_z033"
+kind = "walk"
+requires = "flag:a5.Iceblock_0Shape3.destroyed"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # A5_W1_levelSwitch -> w1 (spot)
+from = "a5_z144"
+to = "w1_z028"
+kind = "exit"
+exit = "a5/g0/r2994"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # other stem, generated requires fire>=3 & water>=3, permanent
+id = "a5.all"
+of = "a5/g0/r711"
+destroy_from = ["a5_z087"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a5.Iceblock_0Shape3"
+of = "a5/g0/r757"
+destroy_from = ["a5_z028", "a5_z033", "a5_z232", "a5_z257"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a5.IceBlock_03"
+of = "a5/g0/r809"
+destroy_from = ["a5_z034", "a5_z225", "a5_z233"]
+
+[[barrier]]  # other watr, generated requires water>=2, timed
+id = "a5.Damage_FieldShape"
+of = "a5/g0/r1793"
+destroy_from = ["a5_z012", "a5_z052", "a5_z098", "a5_z101", "a5_z107", "a5_z110", "a5_z111", "a5_z129"]
+
+[[event]]  # the +y island's steam block (Iceblock_0Shape3 g0/r858): a steam-3 hit (its magic >= 3) turns IceMelt_toggle1 on, which melts the block, swings that island's big arm out (Public_Big_Arm_timer4: TranY and its jumper fan Fan1_tran), makes its purple path solid (PurpleShape) and feeds andCombiner1 [verified data: $RP r0/tools/logic_dump.py a5 '^(IceMelt_toggle[12]|IceBlock_03:IceMelt_toggle|andCombiner1|FinalFan_toggle|Public_Big_Arm_timer[234])$']. The derive's barrier a5.Iceblock_0Shape3 holds two islands' blocks (g0/r757 and g0/r858, one name), so each island is its own event here
+id = "a5.ice_block1.melted"
+at = "a5_z033"
+requires = "fire>=3 & water>=3"
+
+[[event]]  # the -150 degree island's steam block (Iceblock_0Shape3 g0/r757): IceMelt_toggle2, its arm Public_Big_Arm_timer2, as a5.ice_block1.melted
+id = "a5.ice_block2.melted"
+at = "a5_z028"
+requires = "fire>=3 & water>=3"
+
+[[event]]  # the -30 degree island's steam block (IceBlock_03:Iceblock_0Shape3): IceBlock_03:IceMelt_toggle, its arm Public_Big_Arm_timer3, as a5.ice_block1.melted
+id = "a5.ice_block3.melted"
+at = "a5_z034"
+requires = "fire>=3 & water>=3"
+
+[[event]]  # the owner (2026-10-14): "we must complete all three islands, and then the big fan under the air power turns on and lifts us up so we can collect it". andCombiner1 ANDs the three IceMelt toggles -> FinalFan_toggle (lock), which makes the big fan's jump pad solid (Big_Float_Fan1:Public_Jump_padShape) and its updraft on (Public_Air_fieldShape pushEnable, 74-103 m) and turns the axis field's push from -3 to +3 (toggle9, off again once power_air is taken) [verified data]. Bound at the dock with the islands' kit (the conservative-kit rule)
+id = "a5.final_fan.on"
+at = "a5_dock"
+requires = "event:a5.ice_block1.melted & event:a5.ice_block2.melted & event:a5.ice_block3.melted"
+
+[[event]]  # derived: hit of IceBlock_03:Iceblock_0Shape3
+id = "a5.IceBlock_03_Iceblock_0Shape3.hit"
+at = "a5_z034"
+requires = "true"
+
+[[event]]  # derived: hit of Iceblock_0Shape3
+id = "a5.Iceblock_0Shape3_g0r757.hit"
+at = "a5_z028"
+requires = "true"
+
+[[event]]  # derived: hit of Iceblock_0Shape3
+id = "a5.Iceblock_0Shape3_g0r858.hit"
+at = "a5_z033"
+requires = "true"
+
+[[event]]  # derived: touch of Top1Shape
+id = "a5.Top1Shape.touch"
+at = "a5_z087"
+requires = "true"
+
+[[event]]  # derived: touch of airshipShip:domeDoor1:MotionDetectorShape
+id = "a5.airshipShip_domeDoor1_MotionDetectorShape.touch"
+at = "a5_z000"
+requires = "true"
+
+[[event]]  # derived: touch of airshipShip:domeDoor3:MotionDetectorShape
+id = "a5.airshipShip_domeDoor3_MotionDetectorShape.touch"
+at = "a5_z000"
+requires = "true"
+
+[[event]]  # derived: touch of airshipShip:domeDoor7:MotionDetectorShape
+id = "a5.airshipShip_domeDoor7_MotionDetectorShape.touch"
+at = "a5_z000"
+requires = "true"
+
+[[event]]  # derived: touch of airshipShip:domeDoor:MotionDetectorShape
+id = "a5.airshipShip_domeDoor_MotionDetectorShape.touch"
+at = "a5_z000"
+requires = "true"
+
+[[location]]
+id = "a5/g0/r733"
+requires = "event:a5.final_fan.on | (skip:a5.one_island_air2 & (event:a5.ice_block1.melted | event:a5.ice_block2.melted | event:a5.ice_block3.melted))"
+note = "power_air on a5.Z070 (the hub over the big fan), which the derive reaches only physically (+probe:float): the big fan, on once the three islands' steam blocks are melted (a5.final_fan.on), lifts the player to it (the owner, 2026-10-14); or the owner's one-island skip with air 2 (tricks.toml a5.one_island_air2: confirmed, X.35 C1, where the owner took it after the -30 degree island alone; held, as no kit in logic melts one island's block without the other two: a5 is entered only from a3's hub, which asks earth 2, the one kit term the islands' ways in differ by). Its kit is the islands' (the conservative-kit rule: the route's a5/g0/r733). Sitting r18j (Step R1.8j): each island's block melted by a real steam cast from a placed start on its top (3 of 3; a5-island1-melt-4, a5-three-islands-1), and then FinalFan_toggle, the pad's solid and the updraft were on; the updraft lifted a jump from the hub 29.8 m (a5-fan-lift-3), but the pickup was not taken in seven placed tries (the axis's own down-push field, 7.9 m round it, holds a player there) and the islands' way out (the cannon's platforms, the tubes) was not run: no proof mark (default taken under D115). Sitting x35 (X.35 C1, 2026-10-16) took it by the one-island skip, not the fan"
+
+[[location]]
+id = "a5/g0/r735"
+proven = { by = "l3", ref = "x54-s1/bda66ca8877e@64265e168d9e" }
+note = "Step X.54: an L3 input string of 1065 ticks (robustness 0.00 under jitter) from a5.Z006 (R6 onto a floor sample of a5.Z006; placed: R7 hop, R2 kit air3) touches it and comes back; xemu replayed it tick for tick (sitting x54-s1), taking its item (fga2; start >10 m away)"
+
+[[location]]
+id = "a5/g0/r1683"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z022, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1685"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z027, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1688"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z009, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1690"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z009, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1692"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z009, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1695"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a5.Z025, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1697"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a5.Z024, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1700"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a5.Z011, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1702"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a5.Z011, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1704"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a5.Z011, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1706"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a5.Z003, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1708"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a5.Z003, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1711"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a5.Z026, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1713"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a5.Z023, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1715"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a5.Z010, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1718"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced: the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1720"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced: the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1722"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced: the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1724"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a5.Z004, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1728"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a5.Z004, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1730"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a5.Z047, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (off the route: the level's last route step, a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1732"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a5.Z046, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (off the route: the level's last route step, a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1734"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a5.Z048, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (off the route: the level's last route step, a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1740"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a5.Z003, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1742"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a5.Z005, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1745"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a5.Z010, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1747"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a5.Z010, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1749"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a5.Z005, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1751"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a5.Z005, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1754"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z003, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1756"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z003, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1758"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z004, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1760"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z005, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1762"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z005, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1765"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z004, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1767"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a5.Z004, which the derive reaches only physically (R_phys only): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r1770"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "obsidian on a5.Z017, which the derive reaches only physically (+probe:bskip): the conservative-kit rule (the route's a5/g0/r1770 to a5/g0/r2626)"
+
+[[location]]
+id = "a5/g0/r1776"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "all_fuel on a5.Z021, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2095"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2097"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2099"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2101"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2128"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "obsidian unplaced on Sub_Main:Smokestack:Stack:pCylinderShape5 (a rig): the conservative-kit rule (the route's a5/g0/r1770 to a5/g0/r2626)"
+
+[[location]]
+id = "a5/g0/r2167"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2169"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2171"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2173"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2235"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2237"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2239"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2241"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2350"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main1:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2352"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main1:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2354"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main1:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2356"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main1:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2414"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main1:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2416"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main1:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2418"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main1:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2420"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main1:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2445"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "obsidian unplaced on Sub_Main1:Smokestack4:Stack:pCylinderShape5 (a rig): the conservative-kit rule (the route's a5/g0/r1770 to a5/g0/r2626)"
+
+[[location]]
+id = "a5/g0/r2480"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main1:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2482"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main1:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2484"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main1:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2486"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald unplaced on Sub_Main1:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2595"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main2:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2597"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main2:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2599"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main2:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2601"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby unplaced on Sub_Main2:Smokestack:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2626"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "obsidian unplaced on Sub_Main2:Smokestack:Stack:pCylinderShape5 (a rig): the conservative-kit rule (the route's a5/g0/r1770 to a5/g0/r2626)"
+
+[[location]]
+id = "a5/g0/r2661"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main2:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2663"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main2:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2665"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main2:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2667"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire unplaced on Sub_Main2:Smokestack4:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2722"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main2:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2724"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main2:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2726"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main2:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+[[location]]
+id = "a5/g0/r2728"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond unplaced on Sub_Main2:Smokestack5:Stack:pCylinderShape4 (a rig): the conservative-kit rule (off the route: a5's last visit, at a5/g0/r1776)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "a5.one_island_air2"
+name = "a5 air power 3 after one island, with air 2"
+tricks = ["rjump"]
+requires = "air>=2"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x35/C1:a5.one_island_air2" }
+from = ""
+to = ""

@@ -1,0 +1,344 @@
+# levels/a3.toml: written by `azurik-mod rando author a3` (Step R1.8) from generated/a3.json,
+# derived/a3.json.gz, tricks.toml and draft/authoring/a3.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "a3"
+status = "authored"
+known_traps = []
+route = ["a3/g0/r1500", "a3/g0/r1498", "a3/g0/r2591", "a3/g0/r2593", "a3/g0/r2599", "a3/g0/r2587", "a3/g0/r2589", "a3/g0/r2595"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "a3_hub"
+anchors = ["zone:a3.Z003"]
+locations = ["a3/g0/r1498", "a3/g0/r1500", "a3/g0/r2563", "a3/g0/r2566", "a3/g0/r2572", "a3/g0/r2575", "a3/g0/r2578", "a3/g0/r2584", "a3/g0/r2587", "a3/g0/r2591", "a3/g0/r2593", "a3/g0/r2595"]
+
+[[node]]
+id = "a3_z001"
+anchors = ["zone:a3.Z001"]
+
+[[node]]
+id = "a3_z002"
+anchors = ["zone:a3.Z002"]
+
+[[node]]
+id = "a3_z004"
+anchors = ["zone:a3.Z004"]
+
+[[node]]
+id = "a3_z005"
+anchors = ["zone:a3.Z005"]
+
+[[node]]
+id = "a3_z015"
+anchors = ["zone:a3.Z015"]
+
+[[node]]
+id = "a3_z018"
+anchors = ["zone:a3.Z018"]
+
+[[node]]
+id = "a3_z079"
+anchors = ["zone:a3.Z079"]
+
+[[node]]
+id = "a3_z083"
+anchors = ["zone:a3.Z083"]
+
+[[node]]
+id = "a3_z095"
+anchors = ["zone:a3.Z095"]
+
+[[node]]
+id = "a3_z155"
+anchors = ["zone:a3.Z155"]
+
+[[node]]
+id = "a3_z157"
+anchors = ["zone:a3.Z157"]
+
+[[node]]
+id = "a3_z162"
+anchors = ["zone:a3.Z162"]
+
+[[node]]
+id = "a3_z165"
+anchors = ["zone:a3.Z165"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "a3_hub"
+to = "a3_z005"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_hub"
+to = "a3_z005"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a3_hub"
+to = "a3_z018"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_hub"
+to = "a3_z018"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a3_hub"
+to = "a3_z079"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a3_hub"
+to = "a3_z079"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "a3_hub"
+to = "a3_z157"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z002"
+to = "a3_z083"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a3_z005"
+to = "a3_hub"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a3_z005"
+to = "a3_z015"
+kind = "walk"
+requires = "event:a3.airshipShip1_domeDoor3_MotionDetectorShape.touch"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z005"
+to = "a3_z018"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z005"
+to = "a3_z018"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a3_z005"
+to = "a3_z018"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a3_z015"
+to = "a3_z005"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z015"
+to = "a3_z005"
+kind = "walk"
+requires = "event:a3.airshipShip1_domeDoor3_MotionDetectorShape.touch"
+confidence = "data"
+
+[[edge]]
+from = "a3_z018"
+to = "a3_hub"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z018"
+to = "a3_z002"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a3_z018"
+to = "a3_z083"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z079"
+to = "a3_hub"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a3_z083"
+to = "a3_z002"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a3_z155"
+to = "a3_z165"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z155"
+to = "a3_z165"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a3_z157"
+to = "a3_hub"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z157"
+to = "a3_hub"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a3_z165"
+to = "a3_z155"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a3_z165"
+to = "a3_z155"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # A3_A5_levelSwitch -> a5 (startspot); the switch is on the docked ship by the hub the player arrives at; the derive joins its 3 m2 platform (a3.Z015) to the hub one way only (the ship's control lift and dome doors are rigs it doesn't follow) [inferred] (probe sitting; default taken under D115)
+from = "a3_hub"
+to = "a5_dock"
+kind = "exit"
+exit = "a3/g0/r2981"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[event]]  # derived: touch of airshipShip1:domeDoor3:MotionDetectorShape
+id = "a3.airshipShip1_domeDoor3_MotionDetectorShape.touch"
+at = "a3_z005"
+requires = "true"
+
+[[location]]
+id = "a3/g0/r1498"
+requires = "air>=2 & water>=3 & fire>=3 & earth>=2"
+note = "frag_life_2 unplaced: the conservative-kit rule (the route's a3/g0/r1498)"
+
+[[location]]
+id = "a3/g0/r1500"
+requires = "air>=2 & water>=2 & fire>=3 & earth>=2"
+note = "power_water_a3 on a slippery slope (no zone since Step X.16, AZ-359), which the derive reaches only physically (R_phys only): the conservative-kit rule (the route's a3/g0/r1500)"
+
+[[location]]
+id = "a3/g0/r2563"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a3.Z155, the roofed hop's takeoff, which since Step X.16 the derive reaches from no zone the arrival reaches: its old ways crossed icy slopes (a3.Z015, Z023, Z042, 5,900 m2 in a3), now one-way slides with no takeoff (AZ-359, AZ-374); an L3 search from the arrival with air 3 (16 seeds, 60,000 steps) ran out of budget, which refutes nothing: the conservative-kit rule (off the route: the level's last route step, a3/g0/r2595)"
+
+[[location]]
+id = "a3/g0/r2566"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "emerald on a3.Z095, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (off the route: the level's last route step, a3/g0/r2595)"
+
+[[location]]
+id = "a3/g0/r2569"
+proven = { by = "data", ref = "rando author: derived/a3.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "a3/g0/r2572"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a3.Z162, what is left of the docked ship's 608 m2 icy platform, which since Step X.16 the derive reaches from no zone the arrival reaches: its old ways crossed icy slopes (a3.Z015, Z023, Z042, 5,900 m2 in a3), now one-way slides with no takeoff (AZ-359, AZ-374); an L3 search from the arrival with air 3 (16 seeds, 60,000 steps) ran out of budget, which refutes nothing: the conservative-kit rule (off the route: the level's last route step, a3/g0/r2595)"
+
+[[location]]
+id = "a3/g0/r2575"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on a3.Z001, which the derive reaches in no rung: the conservative-kit rule (off the route: a3's last visit, at a3/g0/r2595)"
+
+[[location]]
+id = "a3/g0/r2578"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "diamond on a3.Z004, which the derive reaches in no rung: the conservative-kit rule (off the route: a3's last visit, at a3/g0/r2595)"
+
+[[location]]
+id = "a3/g0/r2581"
+proven = { by = "data", ref = "rando author: derived/a3.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "a3/g0/r2584"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "ruby on a3.Z002, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (off the route: the level's last route step, a3/g0/r2595)"
+
+[[location]]
+id = "a3/g0/r2587"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "obsidian walled on (static level mesh) (a static): the conservative-kit rule (the route's a3/g0/r2587)"
+
+[[location]]
+id = "a3/g0/r2591"
+requires = "air>=2 & water>=3 & fire>=3 & earth>=2"
+proven = { by = "l3", ref = "x54-s2/576772f0a922@73e31c382560" }
+note = "obsidian on a3.Z079, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a3/g0/r2591). Step X.54: an L3 input string of 1265 ticks (robustness 0.00 under jitter) from a3.Z003 (R6 onto a floor sample of a3.Z003; placed: R7 hop, R2 kit air2-earth2-fire3-water3) touches it and comes back; xemu replayed it tick for tick (sitting x54-s2), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "a3/g0/r2593"
+requires = "air>=2 & water>=3 & fire>=3 & earth>=2"
+note = "obsidian on a3.Z083, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a3/g0/r2593)"
+
+[[location]]
+id = "a3/g0/r2595"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "obsidian on a3.Z165, the roofed hop's landing, which since Step X.16 the derive reaches from no zone the arrival reaches: its old ways crossed icy slopes (a3.Z015, Z023, Z042, 5,900 m2 in a3), now one-way slides with no takeoff (AZ-359, AZ-374); an L3 search from the arrival with air 3 (16 seeds, 60,000 steps) ran out of budget, which refutes nothing: the conservative-kit rule (the route's a3/g0/r2595)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------

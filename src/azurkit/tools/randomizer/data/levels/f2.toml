@@ -1,0 +1,1590 @@
+# levels/f2.toml: written by `azurik-mod rando author f2` (Step R1.8) from generated/f2.json,
+# derived/f2.json.gz, tricks.toml and draft/authoring/f2.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "f2"
+status = "authored"
+known_traps = []
+route = ["f2/g0/r1831", "f2/g0/r2458", "f2/g0/r2461", "f2/g0/r2322", "f2/g0/r2324", "f2/g0/r2326", "f2/g0/r2328", "f2/g0/r2330"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "f2_core"
+anchors = ["zone:f2.Z056"]
+
+[[node]]
+id = "f2_entrance"
+anchors = ["zone:f2.Z003", "zone:f2.Z020"]
+locations = ["f2/g0/r1831", "f2/g0/r2297", "f2/g0/r2299", "f2/g0/r2301", "f2/g0/r2303", "f2/g0/r2305", "f2/g0/r2307", "f2/g0/r2309", "f2/g0/r2311", "f2/g0/r2313", "f2/g0/r2315", "f2/g0/r2317", "f2/g0/r2319", "f2/g0/r2322", "f2/g0/r2324", "f2/g0/r2326", "f2/g0/r2328", "f2/g0/r2330", "f2/g0/r2339", "f2/g0/r2341", "f2/g0/r2343", "f2/g0/r2345", "f2/g0/r2347", "f2/g0/r2349", "f2/g0/r2351", "f2/g0/r2353", "f2/g0/r2355", "f2/g0/r2358", "f2/g0/r2360", "f2/g0/r2362", "f2/g0/r2364", "f2/g0/r2366", "f2/g0/r2368", "f2/g0/r2370", "f2/g0/r2372", "f2/g0/r2374", "f2/g0/r2376", "f2/g0/r2378", "f2/g0/r2381", "f2/g0/r2383", "f2/g0/r2385", "f2/g0/r2387", "f2/g0/r2389", "f2/g0/r2391", "f2/g0/r2393", "f2/g0/r2395", "f2/g0/r2397", "f2/g0/r2399", "f2/g0/r2401", "f2/g0/r2403", "f2/g0/r2405", "f2/g0/r2407", "f2/g0/r2410", "f2/g0/r2412", "f2/g0/r2414", "f2/g0/r2418", "f2/g0/r2422", "f2/g0/r2424", "f2/g0/r2427", "f2/g0/r2429", "f2/g0/r2432", "f2/g0/r2435", "f2/g0/r2438", "f2/g0/r2441", "f2/g0/r2443", "f2/g0/r2445", "f2/g0/r2448", "f2/g0/r2450", "f2/g0/r2453", "f2/g0/r2455", "f2/g0/r2458", "f2/g0/r2461", "f2/g0/r2465", "f2/g0/r2467", "f2/g0/r2470"]
+
+[[node]]
+id = "f2_f4_side"
+anchors = ["zone:f2.Z001"]
+
+[[node]]
+id = "f2_life_frag"
+anchors = ["zone:f2.Z007"]
+
+[[node]]
+id = "f2_z000"
+anchors = ["zone:f2.Z000"]
+
+[[node]]
+id = "f2_z002"
+anchors = ["zone:f2.Z002"]
+
+[[node]]
+id = "f2_z005"
+anchors = ["zone:f2.Z005"]
+
+[[node]]
+id = "f2_z006"
+anchors = ["zone:f2.Z006", "zone:f2.Z048"]
+
+[[node]]
+id = "f2_z011"
+anchors = ["zone:f2.Z011"]
+
+[[node]]
+id = "f2_z013"
+anchors = ["zone:f2.Z013"]
+
+[[node]]
+id = "f2_z014"
+anchors = ["zone:f2.Z014"]
+
+[[node]]
+id = "f2_z022"
+anchors = ["zone:f2.Z022"]
+
+[[node]]
+id = "f2_z024"
+anchors = ["zone:f2.Z024"]
+
+[[node]]
+id = "f2_z028"
+anchors = ["zone:f2.Z028"]
+
+[[node]]
+id = "f2_z029"
+anchors = ["zone:f2.Z029"]
+
+[[node]]
+id = "f2_z035"
+anchors = ["zone:f2.Z035"]
+
+[[node]]
+id = "f2_z036"
+anchors = ["zone:f2.Z036"]
+
+[[node]]
+id = "f2_z040"
+anchors = ["zone:f2.Z040"]
+
+[[node]]
+id = "f2_z049"
+anchors = ["zone:f2.Z049"]
+
+[[node]]
+id = "f2_z052"
+anchors = ["zone:f2.Z052"]
+
+[[node]]
+id = "f2_z053"
+anchors = ["zone:f2.Z053"]
+
+[[node]]
+id = "f2_z067"
+anchors = ["zone:f2.Z067"]
+
+[[node]]
+id = "f2_z076"
+anchors = ["zone:f2.Z076"]
+
+[[node]]
+id = "f2_z084"
+anchors = ["zone:f2.Z084"]
+
+[[node]]
+id = "f2_z087"
+anchors = ["zone:f2.Z087"]
+
+[[node]]
+id = "f2_z092"
+anchors = ["zone:f2.Z092"]
+
+[[node]]
+id = "f2_z096"
+anchors = ["zone:f2.Z096"]
+
+[[node]]
+id = "f2_z097"
+anchors = ["zone:f2.Z097"]
+
+[[node]]
+id = "f2_z103"
+anchors = ["zone:f2.Z103"]
+
+[[node]]
+id = "f2_z153"
+anchors = ["zone:f2.Z153"]
+
+[[node]]
+id = "f2_z158"
+anchors = ["zone:f2.Z158"]
+
+[[node]]
+id = "f2_z167"
+anchors = ["zone:f2.Z167"]
+
+[[node]]
+id = "f2_z180"
+anchors = ["zone:f2.Z180"]
+
+[[node]]
+id = "f2_z253"
+anchors = ["zone:f2.Z253"]
+
+[[node]]
+id = "f2_z254"
+anchors = ["zone:f2.Z254"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "f2_core"
+to = "f2_life_frag"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_core"
+to = "f2_z014"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_core"
+to = "f2_z076"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_core"
+to = "f2_z096"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f2_core"
+to = "f2_z153"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_core"
+to = "f2_z180"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_entrance"
+to = "f2_z000"
+kind = "walk"
+requires = "event:f2.Teleporters_ResetShape1.touch & event:f2.Teleporters_ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "f2_entrance"
+to = "f2_z097"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_f4_side"
+to = "f2_entrance"
+kind = "walk"
+requires = "air>=2 & earth>=1 & fire>=2 & water>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_f4_side"
+to = "f2_z000"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_f4_side"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f2_f4_side"
+to = "f2_z180"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_life_frag"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_life_frag"
+to = "f2_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_life_frag"
+to = "f2_z014"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_life_frag"
+to = "f2_z067"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_life_frag"
+to = "f2_z103"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_life_frag"
+to = "f2_z103"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_life_frag"
+to = "f2_z253"
+kind = "walk"
+requires = "flag:f2.AcidBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f2_z000"
+to = "f2_entrance"
+kind = "walk"
+requires = "event:f2.Teleporters_ResetShape1.touch & event:f2.Teleporters_ResetShape2.touch"
+confidence = "data"
+
+[[edge]]
+from = "f2_z000"
+to = "f2_f4_side"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z000"
+to = "f2_z013"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z000"
+to = "f2_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z000"
+to = "f2_z076"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z000"
+to = "f2_z180"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z000"
+to = "f2_z253"
+kind = "walk"
+requires = "flag:f2.AcidBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z005"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z011"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z011"
+kind = "walk"
+requires = "event:f2.LightShape_g0r161.action"
+confidence = "data"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z024"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z036"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z036"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z036"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z084"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z084"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z002"
+to = "f2_z096"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f2_z005"
+to = "f2_z011"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z005"
+to = "f2_z067"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z005"
+to = "f2_z067"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z005"
+to = "f2_z067"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_entrance"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_z002"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_z096"
+kind = "walk"
+requires = "air>=2 | air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_z096"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_z103"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_z103"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_z158"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z006"
+to = "f2_z158"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z011"
+to = "f2_entrance"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z011"
+to = "f2_z002"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z011"
+to = "f2_z002"
+kind = "walk"
+requires = "event:f2.LightShape_g0r161.action"
+confidence = "data"
+
+[[edge]]
+from = "f2_z011"
+to = "f2_z254"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z013"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z013"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z024"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z024"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z036"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z087"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z092"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z180"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z014"
+to = "f2_z254"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z022"
+to = "f2_z029"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z022"
+to = "f2_z029"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z022"
+to = "f2_z254"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z024"
+to = "f2_z002"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z024"
+to = "f2_z022"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z024"
+to = "f2_z029"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z024"
+to = "f2_z087"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z028"
+to = "f2_life_frag"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z029"
+to = "f2_z022"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z035"
+to = "f2_z049"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z036"
+to = "f2_z002"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z036"
+to = "f2_z005"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z036"
+to = "f2_z005"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f2_z036"
+to = "f2_z014"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f2_z036"
+to = "f2_z153"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z036"
+to = "f2_z153"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z040"
+to = "f2_z084"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z040"
+to = "f2_z084"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z040"
+to = "f2_z084"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f2_z049"
+to = "f2_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z049"
+to = "f2_z014"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f2_z049"
+to = "f2_z036"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z049"
+to = "f2_z092"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z049"
+to = "f2_z096"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z052"
+to = "f2_z028"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z052"
+to = "f2_z053"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z052"
+to = "f2_z053"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z053"
+to = "f2_z028"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z053"
+to = "f2_z028"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z053"
+to = "f2_z052"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z053"
+to = "f2_z052"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z067"
+to = "f2_z005"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z067"
+to = "f2_z005"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z067"
+to = "f2_z028"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z067"
+to = "f2_z103"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z076"
+to = "f2_f4_side"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z076"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z084"
+to = "f2_z002"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z084"
+to = "f2_z029"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z084"
+to = "f2_z040"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z087"
+to = "f2_z022"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z087"
+to = "f2_z024"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z087"
+to = "f2_z092"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z092"
+to = "f2_z000"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z092"
+to = "f2_z022"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z092"
+to = "f2_z029"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z092"
+to = "f2_z087"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z092"
+to = "f2_z087"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f2_z092"
+to = "f2_z254"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z096"
+to = "f2_core"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z096"
+to = "f2_z002"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f2_z096"
+to = "f2_z049"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z096"
+to = "f2_z049"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z096"
+to = "f2_z153"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z097"
+to = "f2_entrance"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z103"
+to = "f2_z006"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z103"
+to = "f2_z028"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z103"
+to = "f2_z052"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z103"
+to = "f2_z053"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z103"
+to = "f2_z067"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z153"
+to = "f2_z024"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z153"
+to = "f2_z029"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z158"
+to = "f2_entrance"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f2_z158"
+to = "f2_z097"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z158"
+to = "f2_z097"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z158"
+to = "f2_z097"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z180"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z180"
+to = "f2_z000"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f2_z253"
+to = "f2_life_frag"
+kind = "walk"
+requires = "flag:f2.AcidBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f2_z253"
+to = "f2_z000"
+kind = "walk"
+requires = "flag:f2.AcidBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f2_z254"
+to = "f2_z011"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f2_z254"
+to = "f2_z028"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # levelSwitch1 -> e5 (spot)
+from = "f2_entrance"
+to = "e5_z448"
+kind = "exit"
+exit = "f2/g0/r2912"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # levelSwitch3 -> f4 (spot); Step R2.18: or the owner's kit-0 way on to f4 (D648): f2.Z000 > Z001 > f4.Z015 with the armor off, after f2.rjump_interior's roll jumps [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 294724-295630, kit 0]. Before: the conservative-kit rule (the header): the derive doesn't join f2.Z001 to the arrival, so the exit leaves from the arrival with the kit the vanilla run holds when it goes on to f4 (the route's f4/g0/r1531) [computed: route.toml] (default taken under D115)
+from = "f2_entrance"
+to = "f4_cliffside"
+kind = "exit"
+exit = "f2/g0/r2913"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=1 | skip:f2.rjump_interior"
+confidence = "data"
+
+[[edge]]  # F2_F4a -> f4 (spot); as levelSwitch3 (the conservative-kit rule) (default taken under D115)
+from = "f2_entrance"
+to = "f4_lava_river"
+kind = "exit"
+exit = "f2/g0/r2918"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=1"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # acidblock acid, generated requires earth>=3 & water>=3, permanent
+id = "f2.AcidBlock_04"
+of = "f2/g0/r2115"
+destroy_from = ["f2_life_frag", "f2_z000", "f2_z253"]
+
+[[event]]  # derived: action of LightShape
+id = "f2.LightShape_g0r161.action"
+at = "f2_z087"
+requires = "true"
+
+[[event]]  # derived: touch of Teleporters:ResetShape1
+id = "f2.Teleporters_ResetShape1.touch"
+at = "f2_entrance"
+requires = "true"
+
+[[event]]  # derived: touch of Teleporters:ResetShape2
+id = "f2.Teleporters_ResetShape2.touch"
+at = "f2_z000"
+requires = "true"
+
+[[event]]  # derived: touch of pCylinderShape87
+id = "f2.pCylinderShape87.touch"
+at = "f2_z167"
+requires = "true"
+
+[[location]]
+id = "f2/g0/r1831"
+requires = "water>=2 & fire>=2 & air>=1 & earth>=1 | skip:f2.rjump_interior"
+note = "power_air taken at kit 0 (n 272751) in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2297"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2299"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2301"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2303"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2305"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2307"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2309"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2311"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2313"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2315"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2317"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2319"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2322"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2324"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2326"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2328"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+proven = { by = "l3", ref = "r129/60d519a9241b@083415649d2b" }
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115). Step R1.29: an L3 input string of 999 ticks (robustness 0.00 under jitter) from f2.Z003 (R6 onto a floor sample of f2.Z003; placed: R7 hop, R2 kit air3-earth3-fire3-water3) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "f2/g0/r2330"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2339"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2341"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2343"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2345"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2347"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2349"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2351"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2353"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2355"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2358"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2360"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2362"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2364"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2366"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2368"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2370"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2372"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2374"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2376"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2378"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2381"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2383"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2385"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2387"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2389"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2391"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2393"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2395"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2397"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2399"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2401"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2403"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2405"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2407"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2410"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2412"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2414"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2418"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2422"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2424"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2427"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2429"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2432"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2435"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2438"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2441"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2443"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2445"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2448"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2450"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2453"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2455"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2458"
+requires = "water>=2 & fire>=2 & air>=2 & earth>=1"
+note = "the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2461"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior & skip:f2.acidblock04_fly_around"
+note = "frag_life_3 taken at air 1 (D649, Step R2.18): from f2.Z000, reached on foot by f2.rjump_interior, one flight of 10 flaps (1 + 9 mid-air casts) by f2.Z278 round AcidBlock_04 to f2.Z007 (f2.acidblock04_fly_around) [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 317345-318005, air 1]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2465"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3"
+note = "the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2467"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+[[location]]
+id = "f2/g0/r2470"
+requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "f2.pstorage_air_flap"
+name = "f2 stored air flap into the core"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "held"
+confirmed = "no"
+from = "f2_entrance"
+to = "f2_core"
+
+[[skip]]
+id = "f2.acidblock04_fly_around"
+name = "f2 AcidBlock_04 fly-around (frag_life_3)"
+tricks = ["bskip", "flutter"]
+requires = "air>=1"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x67/S12f:f2.acidblock04_fly_around" }
+from = "f2_entrance"
+to = "f2_life_frag"
+gates = ["f2.AcidBlock_04"]
+
+[[skip]]
+id = "f2.rjump_interior"
+name = "f2 roll jumps through the interior (no powers)"
+tricks = ["rjump"]
+requires = "true"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x67/S12:f2.rjump_interior" }
+from = "f2_entrance"
+to = "f2_f4_side"

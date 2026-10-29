@@ -17,11 +17,21 @@ The facts' build spans (``patch_sites.<va>.new.<case>``, a build's bytes over
 a site, vanilla code included where the pack leaves it) are installed as their
 sha256 and size (:func:`digest_spans`); ORACLE.toml's ``exported`` table keeps
 each such file's sha256 as exported, which Modkit's ``oracle.json`` lists.
+
+A family's sync also installs the Modkit source it ports as it is
+(:data:`SOURCES`): the randomizer's data, copied verbatim, and its planner,
+each module through :func:`port` (:data:`REWRITES`' imports, and the
+statements :data:`DROPS` names taken out: what AzurKit's engine can't hold,
+a process pool). ORACLE.toml's ``source`` table keeps each installed file's
+sha256, so a later Modkit fix arrives by the same sync, never by hand. A
+module that still imports Modkit after its rewrites, or a statement DROPS
+names that is gone, stops the sync before anything is written.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -43,9 +53,23 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
     "packs": ("azurik_mod/patches", "azurik_mod/patching", "azurik_mod/xbe_tools", "azurik_mod/xbr",
               "azurik_mod/config", "shims", "tests/facts", "tests/goldens/packs.json",
               "tests/goldens/europe/packs.json", "tests/goldens/shims.json", "tests/goldens/xbr_editor.json",
-              "tests/goldens/pipelines.json", "tests/goldens/gui.json"),
-    "rando": ("azurik_mod/randomizer", "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json"),
+              "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
+    "rando": ("azurik_mod/randomizer", "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json",
+              "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
     "models": ("azurik_mod/patches/player_model", "azurik_mod/patches/_player_character.py", "azurik_mod/assets"),
+}
+
+
+SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's folder, AzurKit's, ported by port())
+    "rando": (("azurik_mod/randomizer/data", "src/azurkit/tools/randomizer/data", False),
+              ("azurik_mod/randomizer/planner", "src/azurkit/tools/randomizer/planner", True)),
+}
+OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py"})   # AzurKit's own instead: tools/randomizer/dbcache.py
+REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.tools.randomizer import dbcache"),
+            ("azurik_mod.randomizer.planner", "azurkit.tools.randomizer.planner"),
+            ("azurik_mod.randomizer.writer", "azurkit.tools.randomizer.writer"))
+DROPS = {   # top-level statements a ported module loses, by the names they bind
+    "azurik_mod/randomizer/planner/fill.py": ("threading", "_ROLL_LOGIC", "_roll_chunk", "roll_seed"),   # the pool
 }
 
 
@@ -58,15 +82,17 @@ def read_index(path: Path = ORACLE / "ORACLE.toml") -> dict[str, dict]:
 def write_index(index: dict[str, dict], path: Path = ORACLE / "ORACLE.toml") -> None:
     lines = ["# Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of",
              "# tests/oracle/<family>/ against its sha256 here; <family>.exported holds a facts file's sha256",
-             "# as Modkit exported it, before its build spans became sha256 and size."]
+             "# as Modkit exported it, before its build spans became sha256 and size; <family>.source each",
+             "# file the sync installed in AzurKit's source (scripts/oracle_sync.py's SOURCES)."]
     for family in sorted(index):
         entry = index[family]
         lines += ["", f"[{family}]", f"tag = {json.dumps(entry['tag'])}", f"commit = {json.dumps(entry['commit'])}",
                   "", f"[{family}.files]"]
         lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(entry["files"].items())]
-        if exported := entry.get("exported"):
-            lines += ["", f"[{family}.exported]"]
-            lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(exported.items())]
+        for table in ("exported", "source"):
+            if rows := entry.get(table):
+                lines += ["", f"[{family}.{table}]"]
+                lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(rows.items())]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -74,6 +100,69 @@ def tree_hashes(folder: Path) -> dict[str, str]:
     """``{posix path: sha256}`` of every file under ``folder``."""
     return {p.relative_to(folder).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(folder.rglob("*")) if p.is_file()}
+
+
+def source_hashes(family: str, root: Path = ROOT) -> dict[str, str]:
+    """``{repository path: sha256}`` of every file under the family's
+    :data:`SOURCES` folders in ``root`` (Python's ``__pycache__`` aside)."""
+    return {f"{dst}/{rel}": sha for _, dst, _ in SOURCES.get(family, ()) for rel, sha in tree_hashes(root / dst).items()
+            if "__pycache__" not in rel.split("/")}
+
+
+def _binds(node: ast.stmt) -> set[str]:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return {node.name}
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        return {alias.asname or alias.name.split(".")[0] for alias in node.names}
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+    return {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+
+
+def port(rel: str, text: str) -> str:
+    """Modkit's module ``rel`` as AzurKit holds it: each top-level statement
+    :data:`DROPS` names for it taken out with the blank lines after it, then
+    :data:`REWRITES`. ValueError naming a statement DROPS names that isn't
+    there (or binds more than it names) and each import of Modkit left."""
+    drop, lines, cut = set(DROPS.get(rel, ())), text.splitlines(keepends=True), set()
+    for node in ast.parse(text).body:
+        if not (names := _binds(node)) & drop:
+            continue
+        if names - drop:
+            raise ValueError(f"{rel}:{node.lineno}: a statement DROPS takes out also binds {sorted(names - drop)}")
+        drop -= names
+        first = min([node.lineno, *(d.lineno for d in getattr(node, "decorator_list", ()))]) - 1
+        end = node.end_lineno
+        while end < len(lines) and not lines[end].strip():
+            end += 1
+        cut.update(range(first, end))
+    if drop:
+        raise ValueError(f"{rel}: no top-level statement binds {sorted(drop)} (DROPS names them): update DROPS")
+    out = "".join(line for i, line in enumerate(lines) if i not in cut).rstrip("\n") + "\n"
+    for old, new in REWRITES:
+        out = out.replace(old, new)
+    left = [f"{rel}:{node.lineno} imports {name}" for node in ast.walk(ast.parse(out))
+            for name in ([a.name for a in node.names] if isinstance(node, ast.Import) else
+                         [node.module or ""] if isinstance(node, ast.ImportFrom) else [])
+            if name.split(".")[0] == "azurik_mod"]
+    if left:
+        raise ValueError("Modkit is still imported after REWRITES (port it, or add a rewrite): " + "; ".join(left))
+    return out
+
+
+def sources(clone: Path, family: str) -> dict[str, bytes]:
+    """``{repository path: bytes}``: the files of the family's
+    :data:`SOURCES` as AzurKit installs them, from Modkit's tracked files in
+    ``clone`` (:data:`OWN` aside); ValueError from :func:`port`."""
+    out = {}
+    for src, dst, ported in SOURCES.get(family, ()):
+        for rel in sorted(filter(None, _git(clone, "ls-files", "-z", "--", src).split("\0"))):
+            if rel in OWN:
+                continue
+            data = (clone / rel).read_bytes()
+            if ported and rel.endswith(".py"):
+                data = port(rel, data.decode("utf-8")).encode("utf-8")
+            out[dst + rel.removeprefix(src)] = data
+    return out
 
 
 def digest_spans(path: Path) -> str:
@@ -106,6 +195,10 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
         argv = ["uv", "run", "--locked", "--directory", str(clone), "python", "scripts/export_oracle.py", str(bundle),
                 "--tag", tag, *(a for f in families for a in ("--family", f))]
         subprocess.run(argv, check=True, env=env)
+        try:
+            ported = {family: sources(clone, family) for family in families}
+        except ValueError as exc:
+            raise SystemExit(f"nothing written: {exc}") from None
         for family in families:
             meta = json.loads((bundle / family / "oracle.json").read_text(encoding="utf-8"))
             if meta["commit"] != commit or meta["dirty"]:
@@ -117,8 +210,14 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             shutil.rmtree(ORACLE / family, ignore_errors=True)
             shutil.copytree(bundle / family, ORACLE / family)
             exported = {rel: digest_spans(ORACLE / family / rel) for rel in FACTS if (ORACLE / family / rel).exists()}
+            for _, dst, _ in SOURCES.get(family, ()):
+                shutil.rmtree(ROOT / dst, ignore_errors=True)
+            for rel, data in ported[family].items():
+                (ROOT / rel).parent.mkdir(parents=True, exist_ok=True)
+                (ROOT / rel).write_bytes(data)
             index[family] = {"tag": tag, "commit": commit, "files": tree_hashes(ORACLE / family)}
             index[family] |= {"exported": exported} if exported else {}
+            index[family] |= {"source": source_hashes(family)} if family in SOURCES else {}
             out.append(f"{family}: {len(index[family]['files'])} files at {tag} ({commit[:12]})")
     write_index(index)
     return out

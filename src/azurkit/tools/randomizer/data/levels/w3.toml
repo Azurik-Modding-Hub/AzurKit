@@ -1,0 +1,1735 @@
+# levels/w3.toml: written by `azurik-mod rando author w3` (Step R1.8) from generated/w3.json,
+# derived/w3.json.gz, tricks.toml and draft/authoring/w3.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "w3"
+status = "authored"
+known_traps = []
+route = ["w3/g1/r2021", "w3/g1/r2006", "w3/g1/r2002", "w3/g1/r2018", "w3/g1/r2000", "w3/g1/r1160", "w3/g1/r2004", "w3/g1/r2008", "w3/g1/r2024"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "w3_core"
+anchors = ["zone:w3.Z000"]
+locations = ["w3/g1/r1618"]
+
+[[node]]
+id = "w3_sealed"
+anchors = ["zone:w3.Z133"]
+locations = ["w3/g1/r1160"]
+
+[[node]]
+id = "w3_z003"
+anchors = ["zone:w3.Z003"]
+
+[[node]]
+id = "w3_z005"
+anchors = ["zone:w3.Z005"]
+
+[[node]]
+id = "w3_z007"
+anchors = ["zone:w3.Z007"]
+
+[[node]]
+id = "w3_z009"
+anchors = ["zone:w3.Z009"]
+
+[[node]]
+id = "w3_z010"
+anchors = ["zone:w3.Z010"]
+
+[[node]]
+id = "w3_z012"
+anchors = ["zone:w3.Z012"]
+
+[[node]]
+id = "w3_z016"
+anchors = ["zone:w3.Z016"]
+
+[[node]]
+id = "w3_z027"
+anchors = ["zone:w3.Z027"]
+
+[[node]]
+id = "w3_z038"
+anchors = ["zone:w3.Z038"]
+
+[[node]]
+id = "w3_z045"
+anchors = ["zone:w3.Z045"]
+
+[[node]]
+id = "w3_z052"
+anchors = ["zone:w3.Z052"]
+
+[[node]]
+id = "w3_z055"
+anchors = ["zone:w3.Z055"]
+
+[[node]]
+id = "w3_z060"
+anchors = ["zone:w3.Z060"]
+
+[[node]]
+id = "w3_z061"
+anchors = ["zone:w3.Z061"]
+
+[[node]]
+id = "w3_z062"
+anchors = ["zone:w3.Z062"]
+
+[[node]]
+id = "w3_z072"
+anchors = ["zone:w3.Z072"]
+
+[[node]]
+id = "w3_z073"
+anchors = ["zone:w3.Z073"]
+
+[[node]]
+id = "w3_z074"
+anchors = ["zone:w3.Z074"]
+
+[[node]]
+id = "w3_z075"
+anchors = ["zone:w3.Z075"]
+
+[[node]]
+id = "w3_z076"
+anchors = ["zone:w3.Z076"]
+
+[[node]]
+id = "w3_z077"
+anchors = ["zone:w3.Z077"]
+
+[[node]]
+id = "w3_z078"
+anchors = ["zone:w3.Z078"]
+
+[[node]]
+id = "w3_z079"
+anchors = ["zone:w3.Z079"]
+
+[[node]]
+id = "w3_z080"
+anchors = ["zone:w3.Z080"]
+
+[[node]]
+id = "w3_z086"
+anchors = ["zone:w3.Z086"]
+
+[[node]]
+id = "w3_z087"
+anchors = ["zone:w3.Z087"]
+
+[[node]]
+id = "w3_z088"
+anchors = ["zone:w3.Z088"]
+
+[[node]]
+id = "w3_z092"
+anchors = ["zone:w3.Z092"]
+
+[[node]]
+id = "w3_z095"
+anchors = ["zone:w3.Z095"]
+
+[[node]]
+id = "w3_z096"
+anchors = ["zone:w3.Z096"]
+
+[[node]]
+id = "w3_z099"
+anchors = ["zone:w3.Z099"]
+
+[[node]]
+id = "w3_z109"
+anchors = ["zone:w3.Z109"]
+
+[[node]]
+id = "w3_z113"
+anchors = ["zone:w3.Z113"]
+
+[[node]]
+id = "w3_z116"
+anchors = ["zone:w3.Z116"]
+
+[[node]]
+id = "w3_z124"
+anchors = ["zone:w3.Z124"]
+
+[[node]]
+id = "w3_z127"
+anchors = ["zone:w3.Z127"]
+
+[[node]]
+id = "w3_z130"
+anchors = ["zone:w3.Z130"]
+
+[[node]]
+id = "w3_z134"
+anchors = ["zone:w3.Z134"]
+
+[[node]]
+id = "w3_z135"
+anchors = ["zone:w3.Z135"]
+
+[[node]]
+id = "w3_z136"
+anchors = ["zone:w3.Z136"]
+
+[[node]]
+id = "w3_z150"
+anchors = ["zone:w3.Z150"]
+
+[[node]]
+id = "w3_z151"
+anchors = ["zone:w3.Z151"]
+
+[[node]]
+id = "w3_z176"
+anchors = ["zone:w3.Z176"]
+
+[[node]]
+id = "w3_z194"
+anchors = ["zone:w3.Z195"]
+
+[[node]]
+id = "w3_z208"
+anchors = ["zone:w3.Z209"]
+
+[[node]]
+id = "w3_z213"
+anchors = ["zone:w3.Z214"]
+
+[[node]]
+id = "w3_z231"
+anchors = ["zone:w3.Z231"]
+
+[[node]]
+id = "w3_z258"
+anchors = ["zone:w3.Z257"]
+
+[[node]]
+id = "w3_z259"
+anchors = ["zone:w3.Z258"]
+
+[[node]]
+id = "w3_z290"
+anchors = ["zone:w3.Z291", "zone:w3.Z400"]
+
+[[node]]
+id = "w3_z298"
+anchors = ["zone:w3.Z300"]
+
+[[node]]
+id = "w3_z317"
+anchors = ["zone:w3.Z320"]
+
+[[node]]
+id = "w3_z318"
+anchors = ["zone:w3.Z321"]
+
+[[node]]
+id = "w3_z351"
+anchors = ["zone:w3.Z356"]
+
+[[node]]
+id = "w3_z363"
+anchors = ["zone:w3.Z369"]
+
+[[node]]
+id = "w3_z442"
+anchors = ["zone:w3.Z456"]
+
+[[node]]
+id = "w3_z472"
+anchors = ["zone:w3.Z486"]
+
+[[node]]
+id = "w3_z529"
+anchors = ["zone:w3.Z548"]
+
+[[node]]
+id = "w3_z535"
+anchors = ["zone:w3.Z554"]
+
+[[node]]
+id = "w3_z536"
+anchors = ["zone:w3.Z555"]
+
+[[node]]
+id = "w3_z537"
+anchors = ["zone:w3.Z556"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "w3_core"
+to = "w3_z003"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_core"
+to = "w3_z005"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_core"
+to = "w3_z007"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_core"
+to = "w3_z010"
+kind = "walk"
+requires = "skip:w3.ice_island_steam_block"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_core"
+to = "w3_z045"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_core"
+to = "w3_z055"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_core"
+to = "w3_z208"
+kind = "walk"
+requires = "flag:w3.IceBlock_025.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z009"
+to = "w3_z318"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z010"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z010"
+to = "w3_z009"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z010"
+to = "w3_z045"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z010"
+to = "w3_z072"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z010"
+to = "w3_z072"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "w3_z010"
+to = "w3_z290"
+kind = "walk"
+requires = "flag:w3.IceBlock_014.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z010"
+to = "w3_z536"
+kind = "walk"
+requires = "flag:w3.IceBlock_027.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z012"
+to = "w3_z016"
+kind = "walk"
+requires = "event:w3.LightShape_g1r93.action & event:w3.LightShape_g1r98.action"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z012"
+to = "w3_z078"
+kind = "walk"
+requires = "skip:w3.iceclimb_frag_fire1"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z012"
+to = "w3_z078"
+kind = "walk"
+requires = "event:w3.LightShape_g1r23.action & event:w3.LightShape_g1r29.action & event:w3.snow_blowers.on"
+confidence = "data"
+
+[[edge]]
+from = "w3_z012"
+to = "w3_z136"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z016"
+to = "w3_z012"
+kind = "walk"
+requires = "event:w3.LightShape_g1r93.action & event:w3.LightShape_g1r98.action"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z016"
+to = "w3_z077"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z016"
+to = "w3_z077"
+kind = "walk"
+requires = "air>=3 & flag:w3.IceBlock_02.destroyed"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z016"
+to = "w3_z095"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z027"
+to = "w3_z087"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z027"
+to = "w3_z317"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z027"
+to = "w3_z363"
+kind = "walk"
+requires = "flag:w3.IceBlock_024.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z027"
+to = "w3_z535"
+kind = "walk"
+requires = "flag:w3.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z038"
+to = "w3_z113"
+kind = "walk"
+requires = "flag:w3.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z038"
+to = "w3_z130"
+kind = "walk"
+requires = "flag:w3.IceBlock_05.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z045"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z045"
+to = "w3_z010"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w3_z045"
+to = "w3_z073"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z045"
+to = "w3_z231"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z045"
+to = "w3_z537"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z052"
+to = "w3_z113"
+kind = "walk"
+requires = "flag:w3.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z052"
+to = "w3_z134"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z052"
+to = "w3_z363"
+kind = "walk"
+requires = "flag:w3.IceBlock_024.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z055"
+to = "w3_z074"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z055"
+to = "w3_z095"
+kind = "walk"
+requires = "flag:w3.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z060"
+to = "w3_z062"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z060"
+to = "w3_z062"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z061"
+to = "w3_z062"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z061"
+to = "w3_z062"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_sealed"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_sealed"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_z060"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_z060"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_z061"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z062"
+to = "w3_z061"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z072"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z072"
+to = "w3_z010"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w3_z073"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z073"
+to = "w3_z045"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z073"
+to = "w3_z045"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "w3_z074"
+to = "w3_z027"
+kind = "walk"
+requires = "air>=3 & flag:w3.IceBlock_02.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z074"
+to = "w3_z055"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z075"
+to = "w3_z092"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z027"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z052"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z080"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z080"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z099"
+kind = "walk"
+requires = "air>=3 & flag:w3.IceBlock_019.destroyed & flag:w3.IceBlock_08.destroyed"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z151"
+kind = "walk"
+requires = "air>=3 & flag:w3.IceBlock_016.destroyed & flag:w3.IceBlock_021.destroyed"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z213"
+kind = "walk"
+requires = "(air>=1 & flag:w3.IceBlock_026.destroyed) | air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z259"
+kind = "walk"
+requires = "flag:w3.IceBlock_026.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z076"
+to = "w3_z298"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z077"
+to = "w3_z016"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z077"
+to = "w3_z075"
+kind = "walk"
+requires = "flag:w3.Smash_wall1_plane1.destroyed & flag:w3.polySurfaceShape1.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z077"
+to = "w3_z127"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z078"
+to = "w3_z012"
+kind = "walk"
+requires = "event:w3.LightShape_g1r23.action & event:w3.LightShape_g1r29.action & event:w3.snow_blowers.on"
+confidence = "data"
+
+[[edge]]
+from = "w3_z079"
+to = "w3_z016"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z079"
+to = "w3_z077"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z079"
+to = "w3_z116"
+kind = "walk"
+requires = "air>=3"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z080"
+to = "w3_z038"
+kind = "walk"
+requires = "air>=3 & flag:w3.IceBlock_016.destroyed & flag:w3.IceBlock_024.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z080"
+to = "w3_z194"
+kind = "walk"
+requires = "flag:w3.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z080"
+to = "w3_z298"
+kind = "walk"
+requires = "flag:w3.IceBlock_021.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z086"
+to = "w3_z095"
+kind = "walk"
+requires = "flag:w3.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z086"
+to = "w3_z124"
+kind = "walk"
+requires = "flag:w3.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z086"
+to = "w3_z130"
+kind = "walk"
+requires = "flag:w3.IceBlock_05.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z086"
+to = "w3_z472"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z086"
+to = "w3_z535"
+kind = "walk"
+requires = "flag:w3.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z087"
+to = "w3_z027"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z087"
+to = "w3_z124"
+kind = "walk"
+requires = "flag:w3.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z087"
+to = "w3_z194"
+kind = "walk"
+requires = "flag:w3.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z088"
+to = "w3_z536"
+kind = "walk"
+requires = "flag:w3.IceBlock_027.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z092"
+to = "w3_z075"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z092"
+to = "w3_z318"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z095"
+to = "w3_z016"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z095"
+to = "w3_z055"
+kind = "walk"
+requires = "flag:w3.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z095"
+to = "w3_z086"
+kind = "walk"
+requires = "flag:w3.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z096"
+to = "w3_z127"
+kind = "walk"
+requires = "flag:w3.polySurfaceShape1.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z096"
+to = "w3_z150"
+kind = "walk"
+requires = "flag:w3.Smash_wall1_plane1.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z099"
+to = "w3_z038"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z099"
+to = "w3_z086"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z099"
+to = "w3_z134"
+kind = "walk"
+requires = "air>=1 & flag:w3.IceBlock_08.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z099"
+to = "w3_z151"
+kind = "walk"
+requires = "air>=3"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z099"
+to = "w3_z317"
+kind = "walk"
+requires = "air>=2"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z109"
+to = "w3_z363"
+kind = "walk"
+requires = "flag:w3.IceBlock_024.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z113"
+to = "w3_z038"
+kind = "walk"
+requires = "flag:w3.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z113"
+to = "w3_z052"
+kind = "walk"
+requires = "flag:w3.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z116"
+to = "w3_z127"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z116"
+to = "w3_z135"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z116"
+to = "w3_z150"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z124"
+to = "w3_z086"
+kind = "walk"
+requires = "flag:w3.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z124"
+to = "w3_z087"
+kind = "walk"
+requires = "flag:w3.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z127"
+to = "w3_z077"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z127"
+to = "w3_z096"
+kind = "walk"
+requires = "flag:w3.polySurfaceShape1.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z130"
+to = "w3_z038"
+kind = "walk"
+requires = "flag:w3.IceBlock_05.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z130"
+to = "w3_z086"
+kind = "walk"
+requires = "flag:w3.IceBlock_05.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z134"
+to = "w3_z038"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z134"
+to = "w3_z052"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z134"
+to = "w3_z087"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z134"
+to = "w3_z317"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z135"
+to = "w3_z077"
+kind = "walk"
+requires = "flag:w3.polySurfaceShape1.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z135"
+to = "w3_z116"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z135"
+to = "w3_z318"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z135"
+to = "w3_z442"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z136"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z150"
+to = "w3_z096"
+kind = "walk"
+requires = "flag:w3.Smash_wall1_plane1.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z151"
+to = "w3_z038"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z151"
+to = "w3_z099"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z176"
+to = "w3_z535"
+kind = "walk"
+requires = "flag:w3.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z194"
+to = "w3_z080"
+kind = "walk"
+requires = "flag:w3.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z194"
+to = "w3_z087"
+kind = "walk"
+requires = "flag:w3.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z208"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z208"
+to = "w3_z136"
+kind = "walk"
+requires = "flag:w3.IceBlock_025.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_core"
+kind = "walk"
+requires = "air>=3 & flag:w3.IceBlock_02.destroyed"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z027"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z055"
+kind = "walk"
+requires = "flag:w3.IceBlock_02.destroyed"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z076"
+kind = "walk"
+requires = "(air>=2 & flag:w3.IceBlock_026.destroyed) | air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z076"
+kind = "walk"
+requires = "air>=1 & flag:w3.IceBlock_026.destroyed"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z076"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z080"
+kind = "walk"
+requires = "air>=1"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z099"
+kind = "walk"
+requires = "air>=1"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z151"
+kind = "walk"
+requires = "(air>=3 & flag:w3.IceBlock_016.destroyed & flag:w3.IceBlock_024.destroyed) | (air>=3 & flag:w3.IceBlock_016.destroyed & flag:w3.IceBlock_08.destroyed)"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z213"
+to = "w3_z472"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w3_z231"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z231"
+to = "w3_z536"
+kind = "walk"
+requires = "flag:w3.IceBlock_027.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z259"
+to = "w3_z076"
+kind = "walk"
+requires = "flag:w3.IceBlock_026.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z290"
+to = "w3_z010"
+kind = "walk"
+requires = "flag:w3.IceBlock_014.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z298"
+to = "w3_z076"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z298"
+to = "w3_z080"
+kind = "walk"
+requires = "flag:w3.IceBlock_021.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z317"
+to = "w3_z027"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z317"
+to = "w3_z134"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z317"
+to = "w3_z472"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z318"
+to = "w3_z009"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z318"
+to = "w3_z092"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z318"
+to = "w3_z135"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z351"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z363"
+to = "w3_z027"
+kind = "walk"
+requires = "flag:w3.IceBlock_024.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z363"
+to = "w3_z052"
+kind = "walk"
+requires = "flag:w3.IceBlock_024.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z363"
+to = "w3_z109"
+kind = "walk"
+requires = "flag:w3.IceBlock_024.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z442"
+to = "w3_z135"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z442"
+to = "w3_z135"
+kind = "walk"
+requires = "true"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "w3_z472"
+to = "w3_z086"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w3_z529"
+to = "w3_z113"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z535"
+to = "w3_z027"
+kind = "walk"
+requires = "flag:w3.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z535"
+to = "w3_z086"
+kind = "walk"
+requires = "flag:w3.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z535"
+to = "w3_z176"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z536"
+to = "w3_z010"
+kind = "walk"
+requires = "flag:w3.IceBlock_027.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z536"
+to = "w3_z231"
+kind = "walk"
+requires = "flag:w3.IceBlock_027.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z536"
+to = "w3_z537"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w3_z537"
+to = "w3_z088"
+kind = "walk"
+requires = "flag:w3.IceBlock_027.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w3_z537"
+to = "w3_z536"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # levelSwitch1 -> w1 (spot)
+from = "w3_z007"
+to = "w1_bay"
+kind = "exit"
+exit = "w3/g1/r2214"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # levelSwitch2 -> w1 (spot)
+from = "w3_z005"
+to = "w1_bay"
+kind = "exit"
+exit = "w3/g1/r2215"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # levelSwitch3 -> w1 (spot)
+from = "w3_z003"
+to = "w1_bay"
+kind = "exit"
+exit = "w3/g1/r2216"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # levelSwitch4 -> w1 (spot)
+from = "w3_z007"
+to = "w1_bay"
+kind = "exit"
+exit = "w3/g1/r2217"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # PlaceWaterDisk_levelSwitch -> town (spot)
+from = "w3_sealed"
+to = "town_z020"
+kind = "teleport"
+exit = "w3/g1/r2224"
+disc = "water"
+requires = "discw>=4"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # trap smsh, generated requires earth>=1 & air>=1 & fire>=1, level_reset
+id = "w3.BubbleTrapShape"
+of = "w3/g0/r7"
+destroy_from = ["w3_core"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=2 & water>=2, permanent
+id = "w3.IceBlock_014"
+of = "w3/g1/r78"
+destroy_from = ["w3_z010", "w3_z290"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_02"
+of = "w3/g1/r723"
+destroy_from = ["w3_z055", "w3_z086", "w3_z095", "w3_z176", "w3_z213", "w3_z258"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_05"
+of = "w3/g1/r740"
+destroy_from = ["w3_z038", "w3_z086", "w3_z099", "w3_z124", "w3_z130", "w3_z134"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_08"
+of = "w3/g1/r757"
+destroy_from = ["w3_z027", "w3_z086", "w3_z087", "w3_z124", "w3_z130", "w3_z134", "w3_z317", "w3_z472"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_012"
+of = "w3/g1/r774"
+destroy_from = ["w3_z027", "w3_z086", "w3_z095", "w3_z176", "w3_z213", "w3_z317", "w3_z472", "w3_z535"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_016"
+of = "w3/g1/r804"
+destroy_from = ["w3_z038", "w3_z052", "w3_z113", "w3_z134", "w3_z151", "w3_z529"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_019"
+of = "w3/g1/r821"
+destroy_from = ["w3_z027", "w3_z052", "w3_z080", "w3_z087", "w3_z109", "w3_z134", "w3_z194", "w3_z363"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_021"
+of = "w3/g1/r838"
+destroy_from = ["w3_z080", "w3_z298", "w3_z351"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_024"
+of = "w3/g1/r855"
+destroy_from = ["w3_z027", "w3_z052", "w3_z076", "w3_z080", "w3_z087", "w3_z109", "w3_z134", "w3_z194", "w3_z363"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_025"
+of = "w3/g1/r872"
+destroy_from = ["w3_core", "w3_z136", "w3_z208"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w3.IceBlock_027"
+of = "w3/g1/r889"
+destroy_from = ["w3_z010", "w3_z045", "w3_z088", "w3_z231", "w3_z536", "w3_z537"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=2 & water>=2, permanent
+id = "w3.IceBlock_026"
+of = "w3/g1/r1024"
+destroy_from = ["w3_z076", "w3_z259"]
+
+[[barrier]]  # trap smsh, generated requires earth>=1 & air>=1 & fire>=1, level_reset
+id = "w3.Trap3Shape"
+of = "w3/g1/r1348"
+destroy_from = ["w3_z061"]
+
+[[barrier]]  # trap smsh, generated requires earth>=1 & air>=1 & fire>=1, level_reset; xemu (sitting r18, Step R1.8b; placed on its platform, then real input): 150 ticks standing on it and 4 plain staff swings neither lift nor hold the player nor change it (gameSolid 1, invisible; its pop timer and touch combiner stay 0); smash 1 unseen (the staff selection did not register); it separates no zones and holds nothing, so logic does not depend on it
+id = "w3.Trap1Shape"
+of = "w3/g1/r1356"
+destroy_from = ["w3_z060"]
+
+[[barrier]]  # trap smsh, generated requires earth>=1 & air>=1 & fire>=1, level_reset
+id = "w3.Trap2Shape"
+of = "w3/g1/r1363"
+destroy_from = ["w3_z062"]
+
+[[barrier]]  # other smsh, generated requires earth>=1 & air>=1 & fire>=1, permanent
+id = "w3.polySurfaceShape1"
+of = "w3/g1/r2030"
+destroy_from = ["w3_z096", "w3_z116", "w3_z127"]
+override_requires = "earth>=1 & air>=1 & fire>=1 | skip:w3.pstorage_smash_shield"
+override_reason = "the generated smash requirement (earth, air and fire 1), or w3's in-logic skip w3.pstorage_smash_shield: from w3_2's save (w3.Z127) with LT held, a 3 m walk to the ledge's end, LT let go (the stored smash casts, staff mask 7) and A, B, A turn this wall non-solid; the cast staff walked in (w3.Z096) then breaks Smash_wall1_plane1 from inside [verified xemu, real input from w3_2's load: $EV/r1.40b-w3-shield-walk-2026-10-28/sitting, rows S1 (earth/air/fire/water 0/3/3/3) and S2 (3/0/3/3), and $EV/r1.40d-w3-shield-near-wall-2026-10-28/sitting, rows e0-S and a0-S again and k0-S at 0/0/0/0; controls with no store (C1, C2, e0-C, a0-C, k0-C): the wall stays solid]. Seen at 0/0/0/0, so at any kit, as the shield's own override (that no level stops the store is [inferred]) (Step R1.40d)"
+
+[[barrier]]  # other smsh, generated requires earth>=1 & air>=1 & fire>=1, permanent
+id = "w3.Smash_wall1_plane1"
+of = "w3/g1/r2037"
+destroy_from = ["w3_z096", "w3_z135", "w3_z150", "w3_z442"]
+override_requires = "earth>=1 & air>=1 & fire>=1 | skip:w3.pstorage_smash_shield"
+override_reason = "the generated smash requirement (earth, air and fire 1), or w3's in-logic skip w3.pstorage_smash_shield (a stored smash cast breaks the level-1 shield round w3's water power; confirmed in xemu, skips-c E5b, and from w3_2's save by real input at 0/3/3/3 and 3/0/3/3, Step R1.40b)"
+
+[[event]]  # the water guardian, in its arena: the owner (D639, Step R2.18, verbatim: "beating the water guardian herself takes water 1 and fire 1"); was the migrated water 1, air 1, earth 1 and fire 1
+id = "w3.guard_water.killed"
+of = "w3/g1/r1157"
+at = "w3_sealed"
+requires = "water>=1 & fire>=1"
+
+[[event]]  # the frost switch: Light1Shape (beside IceBlock_014, on w3.Z400) turns the snow blowers on once IceBlock_014 is melted at steam level 2 (andComb's two inputs; the blowers are a toggle, taken as latched since a second press only turns them off, default taken under D115)
+id = "w3.snow_blowers.on"
+at = "w3_z290"
+requires = "flag:w3.IceBlock_014.destroyed"
+
+[[event]]  # derived: hit of DiamondStone1:DiamondStoneShape
+id = "w3.DiamondStone1_DiamondStoneShape.hit"
+at = "w3_z010"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone3:EmeraldStone1:WindRockShape
+id = "w3.EmeraldStone3_EmeraldStone1_WindRockShape.hit"
+at = "w3_z027"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone4:EmeraldStone1:WindRockShape
+id = "w3.EmeraldStone4_EmeraldStone1_WindRockShape.hit"
+at = "w3_z010"
+requires = "true"
+
+[[event]]  # derived: action of LightShape
+id = "w3.LightShape_g1r23.action"
+at = "w3_z009"
+requires = "true"
+
+[[event]]  # derived: action of LightShape
+id = "w3.LightShape_g1r29.action"
+at = "w3_z012"
+requires = "true"
+
+[[event]]  # derived: action of LightShape
+id = "w3.LightShape_g1r93.action"
+at = "w3_z027"
+requires = "true"
+
+[[event]]  # derived: action of LightShape
+id = "w3.LightShape_g1r98.action"
+at = "w3_z016"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone3:RubyStone1Shape
+id = "w3.RubyStone3_RubyStone1Shape.hit"
+at = "w3_z012"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone4:RubyStone1Shape
+id = "w3.RubyStone4_RubyStone1Shape.hit"
+at = "w3_z012"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone5:RubyStone1Shape
+id = "w3.RubyStone5_RubyStone1Shape.hit"
+at = "w3_z012"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone6:RubyStone1Shape
+id = "w3.RubyStone6_RubyStone1Shape.hit"
+at = "w3_z038"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone7:RubyStone1Shape
+id = "w3.RubyStone7_RubyStone1Shape.hit"
+at = "w3_z010"
+requires = "true"
+
+[[event]]  # derived: hit of RubyStone8:RubyStone1Shape
+id = "w3.RubyStone8_RubyStone1Shape.hit"
+at = "w3_z027"
+requires = "true"
+
+[[event]]  # derived: hit of SapphireStone1:SaphiresShape
+id = "w3.SapphireStone1_SaphiresShape.hit"
+at = "w3_z052"
+requires = "true"
+
+[[location]]
+id = "w3/g1/r1618"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w3.Z079, what is left of a 640 m2 icy floor since Step X.16 (AZ-359: its slopes are slides), whose ways in the derive holds as barrier bypasses: the conservative-kit rule, joined to the lake (off the route: the level's last route step, w3/g1/r2024)"
+
+[[location]]
+id = "w3/g1/r2002"
+proven = { by = "data", ref = "rando author: derived/w3.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "w3/g1/r2006"
+proven = { by = "l3", ref = "r129/e92550c08544@0492929e6a76" }
+note = "Step R1.29: an L3 input string of 149 ticks (robustness 0.62 under jitter) from w3.Z000 (R6 onto a water sample of w3.Z000; placed: R7 hop, R2 kit k0) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start 1-3 m away)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "w3.pstorage_smash_shield"
+name = "w3 stored smash on the water-power shield"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "r1.40b-w3-shield-walk-2026-10-28/S1:w3.pstorage_smash_shield" }
+gates = ["w3.Smash_wall1_plane1", "w3.polySurfaceShape1"]
+
+[[skip]]
+id = "w3.ice_island_steam_block"
+name = "w3 sliding ice island over a steam block"
+tricks = ["bskip", "flutter", "rjump"]
+requires = "air>=1"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x67/S05i:w3.ice_island_steam_block" }
+from = "w3_core"
+to = "w3_z010"
+
+[[skip]]
+id = "w3.water_guardian_no_seal"
+name = "water guardian without the seal (save anywhere)"
+tricks = ["saveanywhere"]
+requires = "true"
+difficulty = 2
+status = "manual"
+confirmed = { by = "xemu", ref = "x67/S08c:w3.water_guardian_no_seal" }
+from = "w1_bay"
+to = "w1_z015"
+gates = ["w1.seal"]
+
+[[skip]]
+id = "w3.iceclimb_frag_fire1"
+name = "w3 ice climb to frag_fire_1"
+tricks = ["iceclimb", "flutter"]
+requires = "air>=1"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x67/S05:w3.iceclimb_frag_fire1" }
+from = "w3_z012"
+to = "w3_z078"

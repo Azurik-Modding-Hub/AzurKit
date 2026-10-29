@@ -1,0 +1,1100 @@
+# levels/f6.toml: written by `azurik-mod rando author f6` (Step R1.8) from generated/f6.json,
+# derived/f6.json.gz, tricks.toml and draft/authoring/f6.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "f6"
+status = "authored"
+known_traps = []
+route = ["f6/g0/r865", "characters/g21/r154", "f6/g0/r400", "f6/g0/r402", "f6/g0/r404", "f6/g0/r407", "f6/g0/r410"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "f6_boss1"
+anchors = ["zone:f6.Z010"]
+
+[[node]]
+id = "f6_boss2"
+anchors = ["zone:f6.Z009"]
+
+[[node]]
+id = "f6_core"
+anchors = ["zone:f6.Z154"]
+locations = ["f6/g0/r865"]
+
+[[node]]
+id = "f6_entrance"
+anchors = ["zone:f6.Z002"]
+
+[[node]]
+id = "f6_inner"
+anchors = ["zone:f6.Z018"]
+locations = ["characters/g21/r154"]
+
+[[node]]
+id = "f6_seal"
+anchors = ["zone:f6.Z005"]
+
+[[node]]
+id = "f6_walkway"
+anchors = ["zone:f6.Z011"]
+
+[[node]]
+id = "f6_z006"
+anchors = ["zone:f6.Z006"]
+locations = ["f6/g0/r410"]
+
+[[node]]
+id = "f6_z007"
+anchors = ["zone:f6.Z007", "zone:f6.Z506"]
+
+[[node]]
+id = "f6_z012"
+anchors = ["zone:f6.Z012"]
+
+[[node]]
+id = "f6_z013"
+anchors = ["zone:f6.Z013"]
+
+[[node]]
+id = "f6_z026"
+anchors = ["zone:f6.Z026"]
+
+[[node]]
+id = "f6_z028"
+anchors = ["zone:f6.Z028", "zone:f6.Z073"]
+
+[[node]]
+id = "f6_z040"
+anchors = ["zone:f6.Z040"]
+
+[[node]]
+id = "f6_z074"
+anchors = ["zone:f6.Z074"]
+
+[[node]]
+id = "f6_z078"
+anchors = ["zone:f6.Z078"]
+
+[[node]]
+id = "f6_z091"
+anchors = ["zone:f6.Z091", "zone:f6.Z112"]
+
+[[node]]
+id = "f6_z093"
+anchors = ["zone:f6.Z093"]
+
+[[node]]
+id = "f6_z114"
+anchors = ["zone:f6.Z114"]
+
+[[node]]
+id = "f6_z115"
+anchors = ["zone:f6.Z115"]
+
+[[node]]
+id = "f6_z121"
+anchors = ["zone:f6.Z121"]
+
+[[node]]
+id = "f6_z184"
+anchors = ["zone:f6.Z184"]
+
+[[node]]
+id = "f6_z189"
+anchors = ["zone:f6.Z189"]
+
+[[node]]
+id = "f6_z414"
+anchors = ["zone:f6.Z414"]
+
+[[node]]
+id = "f6_z478"
+anchors = ["zone:f6.Z478"]
+
+[[node]]
+id = "f6_z486"
+anchors = ["zone:f6.Z486"]
+
+[[node]]
+id = "f6_z528"
+anchors = ["zone:f6.Z528", "zone:f6.Z969"]
+
+[[node]]
+id = "f6_z533"
+anchors = ["zone:f6.Z533"]
+
+[[node]]
+id = "f6_z534"
+anchors = ["zone:f6.Z534", "zone:f6.Z873"]
+
+[[node]]
+id = "f6_z551"
+anchors = ["zone:f6.Z551", "zone:f6.Z874"]
+
+[[node]]
+id = "f6_z552"
+anchors = ["zone:f6.Z552"]
+
+[[node]]
+id = "f6_z561"
+anchors = ["zone:f6.Z561"]
+
+[[node]]
+id = "f6_z582"
+anchors = ["zone:f6.Z582"]
+
+[[node]]
+id = "f6_z768"
+anchors = ["zone:f6.Z768"]
+
+[[node]]
+id = "f6_z787"
+anchors = ["zone:f6.Z787"]
+
+[[node]]
+id = "f6_z873"
+anchors = ["zone:f6.Z872"]
+
+[[node]]
+id = "f6_z876"
+anchors = ["zone:f6.Z875"]
+
+[[node]]
+id = "f6_z877"
+anchors = ["zone:f6.Z876"]
+
+[[node]]
+id = "f6_z970"
+anchors = ["zone:f6.Z970"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "f6_boss1"
+to = "f6_seal"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_boss2"
+to = "f6_inner"
+kind = "walk"
+requires = "event:f6.guard_fire2.killed"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_boss2"
+to = "f6_z013"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_core"
+to = "f6_z013"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_walkway"
+kind = "walk"
+requires = "skip:f6.rjump_terraces | skip:f6.rjump_terraces_air1"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z028"
+kind = "walk"
+requires = "air>=3"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z091"
+kind = "walk"
+requires = "skip:f6.mound_climb_air1"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z528"
+kind = "walk"
+requires = "flag:f6.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z533"
+kind = "walk"
+requires = "flag:f6.AcidBlock_011.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z534"
+kind = "walk"
+requires = "flag:f6.AcidBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z551"
+kind = "walk"
+requires = "flag:f6.AcidBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z552"
+kind = "walk"
+requires = "flag:f6.AcidBlock_010.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_entrance"
+to = "f6_z582"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_inner"
+to = "f6_boss1"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_seal"
+to = "f6_boss1"
+kind = "walk"
+requires = "button:f6.seal"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_seal"
+to = "f6_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_seal"
+to = "f6_z877"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f6_walkway"
+to = "f6_z006"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_walkway"
+to = "f6_z006"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f6_walkway"
+to = "f6_z040"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z006"
+to = "f6_seal"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z006"
+to = "f6_z013"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_seal"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_z013"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_z028"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_z478"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_z561"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_z787"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z007"
+to = "f6_z787"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f6_z012"
+to = "f6_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z012"
+to = "f6_walkway"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z012"
+to = "f6_z006"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z012"
+to = "f6_z007"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z012"
+to = "f6_z026"
+kind = "walk"
+requires = "air>=3 & flag:f6.AcidBlock_08.destroyed"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_z012"
+to = "f6_z040"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z012"
+to = "f6_z121"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z013"
+to = "f6_boss2"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_z013"
+to = "f6_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z013"
+to = "f6_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_z013"
+to = "f6_z006"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z013"
+to = "f6_z012"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f6_z026"
+to = "f6_z007"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z026"
+to = "f6_z013"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "data"
+
+[[edge]]
+from = "f6_z026"
+to = "f6_z114"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z026"
+to = "f6_z115"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z026"
+to = "f6_z121"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z028"
+to = "f6_z528"
+kind = "walk"
+requires = "flag:f6.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z040"
+to = "f6_walkway"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z040"
+to = "f6_z013"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z074"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z074"
+to = "f6_z091"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f6_z074"
+to = "f6_z093"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z078"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z078"
+to = "f6_z093"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z091"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z091"
+to = "f6_z074"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f6_z091"
+to = "f6_z093"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z091"
+to = "f6_z093"
+kind = "walk"
+requires = "air>=1"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z093"
+to = "f6_z074"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z093"
+to = "f6_z078"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z093"
+to = "f6_z091"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z093"
+to = "f6_z091"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f6_z093"
+to = "f6_z121"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z114"
+to = "f6_z007"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z114"
+to = "f6_z873"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f6_z114"
+to = "f6_z877"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f6_z115"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z115"
+to = "f6_z007"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z115"
+to = "f6_z013"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z115"
+to = "f6_z093"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z115"
+to = "f6_z121"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z115"
+to = "f6_z486"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z121"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z121"
+to = "f6_z013"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z121"
+to = "f6_z093"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f6_z184"
+to = "f6_z189"
+kind = "walk"
+requires = "air>=1 & flag:f6.AcidBlock_010.destroyed & flag:f6.AcidBlock_011.destroyed & flag:f6.AcidBlock_012.destroyed & flag:f6.AcidBlock_08.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z189"
+to = "f6_z184"
+kind = "walk"
+requires = "air>=1 & flag:f6.AcidBlock_010.destroyed & flag:f6.AcidBlock_011.destroyed & flag:f6.AcidBlock_012.destroyed & flag:f6.AcidBlock_08.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z478"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z478"
+to = "f6_z007"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z486"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z528"
+to = "f6_entrance"
+kind = "walk"
+requires = "flag:f6.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z528"
+to = "f6_z028"
+kind = "walk"
+requires = "flag:f6.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z528"
+to = "f6_z768"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z533"
+to = "f6_z007"
+kind = "walk"
+requires = "flag:f6.AcidBlock_011.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z534"
+to = "f6_z007"
+kind = "walk"
+requires = "flag:f6.AcidBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z534"
+to = "f6_z486"
+kind = "walk"
+requires = "flag:f6.AcidBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z551"
+to = "f6_z007"
+kind = "walk"
+requires = "flag:f6.AcidBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z551"
+to = "f6_z478"
+kind = "walk"
+requires = "flag:f6.AcidBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z552"
+to = "f6_z007"
+kind = "walk"
+requires = "flag:f6.AcidBlock_010.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f6_z561"
+to = "f6_z028"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z582"
+to = "f6_entrance"
+kind = "walk"
+requires = "air>=2"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z582"
+to = "f6_z007"
+kind = "walk"
+requires = "air>=1 & flag:f6.AcidBlock_012.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z768"
+to = "f6_z528"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z787"
+to = "f6_z114"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z787"
+to = "f6_z561"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z787"
+to = "f6_z873"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z787"
+to = "f6_z877"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z873"
+to = "f6_entrance"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f6_z873"
+to = "f6_z478"
+kind = "walk"
+requires = "air>=3"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z873"
+to = "f6_z877"
+kind = "walk"
+requires = "air>=1 & flag:f6.IceBlock_02.destroyed"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f6_z877"
+to = "f6_z093"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z877"
+to = "f6_z115"
+kind = "walk"
+requires = "air>=3 & flag:f6.AcidBlock_08.destroyed"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f6_z877"
+to = "f6_z561"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z877"
+to = "f6_z787"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f6_z877"
+to = "f6_z787"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # F6_F1 -> f1 (spot)
+from = "f6_entrance"
+to = "f1_f6_side"
+kind = "exit"
+exit = "f6/g0/r1306"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # PlaceFireDisk_levelSwitch -> town (spot); fires once 4 fire fragments are held (gs[fire fragments]>=4, no touch): taken where the 4th is picked up
+from = "f6_inner"
+to = "town_z020"
+kind = "teleport"
+exit = "f6/g0/r1310"
+disc = "fire"
+requires = "discf>=4"
+confidence = "data"
+
+[[edge]]  # BackToTown_levelSwitch -> town (spot); touch(BackToTownFieldShape) and global fire_disk_placed: the field is in no derived zone; by the disc's place [inferred] (default taken under D115)
+from = "f6_inner"
+to = "town_z020"
+kind = "exit"
+exit = "f6/g0/r1312"
+requires = "flag:town.disc_fire.placed"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "f6.AcidBlock_08"
+of = "f6/g0/r470"
+destroy_from = ["f6_entrance", "f6_z007", "f6_z189", "f6_z486", "f6_z534", "f6_z552"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "f6.AcidBlock_010"
+of = "f6/g0/r487"
+destroy_from = ["f6_entrance", "f6_z007", "f6_z533", "f6_z534", "f6_z552"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "f6.AcidBlock_011"
+of = "f6/g0/r504"
+destroy_from = ["f6_entrance", "f6_z007", "f6_z478", "f6_z533", "f6_z551", "f6_z552"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=2 & water>=2, permanent
+id = "f6.AcidBlock_012"
+of = "f6/g0/r521"
+destroy_from = ["f6_entrance", "f6_z007", "f6_z184", "f6_z478", "f6_z533", "f6_z551", "f6_z582"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=2 & water>=2, permanent
+id = "f6.IceBlock_02"
+of = "f6/g0/r729"
+destroy_from = ["f6_entrance", "f6_z028", "f6_z414", "f6_z528", "f6_z561", "f6_z768", "f6_z787", "f6_z873", "f6_z876", "f6_z877", "f6_z970"]
+
+[[button]]  # seal, generated requires discf>=3
+id = "f6.seal"
+of = "f6/g0/r103"
+at = "f6_seal"
+mode = "latch"
+
+[[event]]  # the fire guardian's first phase: the migrated fight requirement (power_fire 2 and power_earth 2) kept for the whole fight (default taken under D115)
+id = "f6.guard_fire1.killed"
+of = "f6/g0/r113"
+at = "f6_boss1"
+requires = "fire>=2 & earth>=2"
+
+[[event]]  # the second phase spawns when the first dies (andCombiner1) [verified static]
+id = "f6.guard_fire2.killed"
+of = "f6/g0/r118"
+at = "f6_boss2"
+requires = "event:f6.guard_fire1.killed"
+
+[[event]]  # the third phase spawns when the second dies (andCombiner2) [verified static]; its numDead sets FireBossDead
+id = "f6.guard_fire3.killed"
+of = "f6/g0/r123"
+at = "f6_inner"
+requires = "event:f6.guard_fire2.killed"
+
+[[event]]  # derived: touch of DiscTrigga_Life:SealShape
+id = "f6.DiscTrigga_Life_SealShape.touch"
+at = "f6_seal"
+requires = "true"
+
+[[event]]  # derived: touch of PressurePlateShape
+id = "f6.PressurePlateShape.touch"
+at = "f6_z007"
+requires = "true"
+
+[[location]]
+id = "f6/g0/r259"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r262"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r268"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r272"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r275"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r278"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r281"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r400"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f6/g0/r404"
+proven = { by = "data", ref = "rando author: derived/f6.json.gz, safe-tier data and physics edges both ways" }
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "f6.rjump_terraces"
+name = "f6 terrace roll jumps to the fire guardian (air 2)"
+tricks = ["rjump"]
+requires = "air>=2"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x35/C2:f6.rjump_terraces" }
+from = "f6_entrance"
+to = "f6_walkway"
+batch = "f6.terraces"
+batch_name = "f6 terrace roll jumps to the fire guardian"
+
+[[skip]]
+id = "f6.mound_climb_air1"
+name = "f6 courtyard up the mound on single flaps (air 1)"
+tricks = ["flutter"]
+requires = "air>=1"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x35/C2b:f6.mound_climb_air1" }
+from = "f6_entrance"
+to = "f6_z091"
+
+[[skip]]
+id = "f6.rjump_terraces_air1"
+name = "f6 terrace roll jumps to the fire guardian (air 1)"
+tricks = ["rjump"]
+requires = "air>=1"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x35/C2b:f6.rjump_terraces_air1" }
+from = "f6_entrance"
+to = "f6_walkway"
+batch = "f6.terraces"
+batch_name = "f6 terrace roll jumps to the fire guardian"

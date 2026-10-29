@@ -1,0 +1,1139 @@
+# levels/town.toml: written by `azurik-mod rando author town` (Step R1.8) from generated/town.json,
+# derived/town.json.gz, tricks.toml and draft/authoring/town.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "town"
+status = "authored"
+known_traps = []
+route = ["town/g1/r1617", "town/g1/r1611", "town/g1/r1687", "town/g1/r1689", "town/g1/r1691", "town/g1/r1695", "town/g1/r1693", "town/g1/r1750", "town/g1/r1608", "town/g1/r1615", "town/g1/r1738", "town/g1/r1740", "town/g1/r1742", "town/g1/r1744", "town/g1/r1746", "town/g1/r15", "town/g1/r40", "town/g1/r1430", "town/g1/r65", "town/g1/r90", "town/g1/r1613", "town/g1/r115", "town/g1/r140", "town/g1/r1403", "town/g1/r165", "town/g1/r190", "town/g1/r215", "town/g1/r240"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "town_central"
+anchors = ["zone:town.Z004", "zone:town.Z054"]
+hub = true
+
+[[node]]
+id = "town_e2_pocket"
+anchors = ["zone:town.Z012"]
+
+[[node]]
+id = "town_z003"
+anchors = ["zone:town.Z003"]
+
+[[node]]
+id = "town_z009"
+anchors = ["zone:town.Z010"]
+
+[[node]]
+id = "town_z015"
+anchors = ["zone:town.Z016"]
+
+[[node]]
+id = "town_z016"
+anchors = ["zone:town.Z017"]
+
+[[node]]
+id = "town_z017"
+anchors = ["zone:town.Z018"]
+
+[[node]]
+id = "town_z020"
+anchors = ["zone:town.Z021"]
+
+[[node]]
+id = "town_z023"
+anchors = ["zone:town.Z024"]
+
+[[node]]
+id = "town_z045"
+anchors = ["zone:town.Z046"]
+
+[[node]]
+id = "town_z046"
+anchors = ["zone:town.Z047"]
+
+[[node]]
+id = "town_z048"
+anchors = ["zone:town.Z049"]
+
+[[node]]
+id = "town_z055"
+anchors = ["zone:town.Z056"]
+
+[[node]]
+id = "town_z068"
+anchors = ["zone:town.Z069"]
+
+[[node]]
+id = "town_z069"
+anchors = ["zone:town.Z070"]
+
+[[node]]
+id = "town_z072"
+anchors = ["zone:town.Z073"]
+
+[[node]]
+id = "town_z075"
+anchors = ["zone:town.Z076"]
+
+[[node]]
+id = "town_z078"
+anchors = ["zone:town.Z079"]
+
+[[node]]
+id = "town_z094"
+anchors = ["zone:town.Z096"]
+
+[[node]]
+id = "town_z1028"
+anchors = ["zone:town.Z1030"]
+
+[[node]]
+id = "town_z1029"
+anchors = ["zone:town.Z1031"]
+
+[[node]]
+id = "town_z106"
+anchors = ["zone:town.Z108"]
+
+[[node]]
+id = "town_z107"
+anchors = ["zone:town.Z109"]
+
+[[node]]
+id = "town_z108"
+anchors = ["zone:town.Z110"]
+
+[[node]]
+id = "town_z111"
+anchors = ["zone:town.Z113"]
+
+[[node]]
+id = "town_z112"
+anchors = ["zone:town.Z114"]
+
+[[node]]
+id = "town_z116"
+anchors = ["zone:town.Z117"]
+
+[[node]]
+id = "town_z117"
+anchors = ["zone:town.Z118"]
+
+[[node]]
+id = "town_z126"
+anchors = ["zone:town.Z127"]
+
+[[node]]
+id = "town_z133"
+anchors = ["zone:town.Z134"]
+
+[[node]]
+id = "town_z152"
+anchors = ["zone:town.Z153"]
+
+[[node]]
+id = "town_z215"
+anchors = ["zone:town.Z216"]
+
+[[node]]
+id = "town_z296"
+anchors = ["zone:town.Z300"]
+
+[[node]]
+id = "town_z340"
+anchors = ["zone:town.Z345"]
+
+[[node]]
+id = "town_z446"
+anchors = ["zone:town.Z451"]
+
+[[node]]
+id = "town_z475"
+anchors = ["zone:town.Z480"]
+
+[[node]]
+id = "town_z612"
+anchors = ["zone:town.Z617"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "town_central"
+to = "town_e2_pocket"
+kind = "walk"
+requires = "true"
+through = ["town.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z003"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "town_central"
+to = "town_z009"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "town_central"
+to = "town_z023"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "town_central"
+to = "town_z023"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "town_central"
+to = "town_z048"
+kind = "walk"
+requires = "button:town.life_keylock"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z055"
+kind = "walk"
+requires = "event:town.balthazaar_DoorShape.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z068"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2439.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z069"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2410.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z072"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2381.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z075"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2244.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z078"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2473.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z094"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2352.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z106"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2170.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z108"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2282.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z111"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2212.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z112"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2318.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z117"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2096.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z126"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "town_central"
+to = "town_z126"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "town_central"
+to = "town_z133"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2132.action"
+confidence = "data"
+
+[[edge]]
+from = "town_central"
+to = "town_z215"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_central"
+to = "town_z340"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_central"
+to = "town_z612"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_central"
+to = "town_z612"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "town_e2_pocket"
+to = "town_central"
+kind = "walk"
+requires = "true"
+through = ["town.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "town_e2_pocket"
+to = "town_central"
+kind = "walk"
+requires = "skip:town.firewall02_air1"
+confidence = "physics"
+
+[[edge]]
+from = "town_e2_pocket"
+to = "town_z215"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_e2_pocket"
+to = "town_z475"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "town_e2_pocket"
+to = "town_z475"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "town_z003"
+to = "town_central"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z009"
+to = "town_central"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "town_z009"
+to = "town_z003"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z009"
+to = "town_z016"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z015"
+to = "town_z017"
+kind = "walk"
+requires = "event:town.temple_OffFieldShape_g1r412.touch | event:town.temple_ToggleFieldShape_g1r414.touch"
+confidence = "physics"
+
+[[edge]]
+from = "town_z015"
+to = "town_z020"
+kind = "walk"
+requires = "event:town.temple_OnFieldShape_g1r374.touch | event:town.temple_ToggleFieldShape_g1r378.touch"
+confidence = "physics"
+
+[[edge]]
+from = "town_z015"
+to = "town_z340"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z016"
+to = "town_z009"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "town_z017"
+to = "town_z340"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "town_z020"
+to = "town_z015"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "town_z023"
+to = "town_z046"
+kind = "walk"
+requires = "button:town.life_keylock1"
+confidence = "data"
+
+[[edge]]
+from = "town_z023"
+to = "town_z152"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z023"
+to = "town_z152"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "town_z045"
+to = "town_central"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "town_z045"
+to = "town_z003"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z046"
+to = "town_z023"
+kind = "walk"
+requires = "button:town.life_keylock1"
+confidence = "data"
+
+[[edge]]
+from = "town_z048"
+to = "town_central"
+kind = "walk"
+requires = "button:town.life_keylock"
+confidence = "data"
+
+[[edge]]
+from = "town_z055"
+to = "town_central"
+kind = "walk"
+requires = "event:town.balthazaar_DoorShape.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z055"
+to = "town_z107"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z068"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2439.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z069"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2410.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z072"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2381.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z075"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2244.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z078"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2473.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z094"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2352.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z1028"
+to = "town_z1029"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z1028"
+to = "town_z296"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "town_z1029"
+to = "town_z1028"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z1029"
+to = "town_z296"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z106"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2170.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z107"
+to = "town_z055"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "town_z108"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2282.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z111"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2212.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z112"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2318.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z116"
+to = "town_z612"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2050.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z117"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2096.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z126"
+to = "town_central"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z126"
+to = "town_central"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "town_z133"
+to = "town_central"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2132.action"
+confidence = "data"
+
+[[edge]]
+from = "town_z133"
+to = "town_z446"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z133"
+to = "town_z446"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "town_z152"
+to = "town_central"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "town_z152"
+to = "town_z003"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z152"
+to = "town_z003"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "town_z152"
+to = "town_z023"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "town_z215"
+to = "town_z296"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z296"
+to = "town_e2_pocket"
+kind = "walk"
+requires = "air>=2"
+through = ["town.FireWall_02"]
+confidence = "assumed"
+
+[[edge]]
+from = "town_z296"
+to = "town_z1029"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z296"
+to = "town_z215"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z340"
+to = "town_central"
+kind = "walk"
+requires = "true | true"
+confidence = "probed"
+proven = { by = "l3", ref = "x7/1bc0f6407f19@a30862f5eb3f" }
+
+[[edge]]
+from = "town_z340"
+to = "town_z009"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "town_z340"
+to = "town_z017"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z340"
+to = "town_z020"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z446"
+to = "town_z133"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z446"
+to = "town_z133"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "town_z475"
+to = "town_e2_pocket"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "town_z475"
+to = "town_z126"
+kind = "walk"
+requires = "air>=3"
+through = ["town.FireWall_02"]
+confidence = "physics"
+
+[[edge]]
+from = "town_z612"
+to = "town_central"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "town_z612"
+to = "town_z003"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "town_z612"
+to = "town_z116"
+kind = "walk"
+requires = "event:town.Town_Houses_DoorShape_g1r2050.action"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # temple:Town_L1_levelSwitch -> life (startspot); the temple's life door (migrated requirement kept)
+from = "town_central"
+to = "life_core"
+kind = "exit"
+exit = "town/g1/r2973"
+requires = "discl>=3"
+confidence = "data"
+
+[[edge]]  # toE2_levelSwitch -> e2 (spot)
+from = "town_e2_pocket"
+to = "e2_canyon"
+kind = "exit"
+exit = "town/g1/r3057"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # toF1_levelSwitch -> f1 (spot)
+from = "town_z016"
+to = "f1_town_side"
+kind = "exit"
+exit = "town/g1/r3058"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # toD1_levelSwitch -> d1 (startspot); migrated requirement kept (default taken under D115); it arrives at d1's startspot on the grate elevator, which the derive leaves without a floor; the elevator takes the player down into the death seal's chamber, d1.Z031 [verified xemu, placed: sitting r111d]
+from = "town_z020"
+to = "d1_core"
+kind = "exit"
+exit = "town/g1/r3059"
+requires = "disca>=4 & disce>=4 & discf>=4 & discw>=4 & fire>=3 & water>=3 & air>=3 & earth>=3"
+confidence = "data"
+
+[[edge]]  # toW1_levelSwitch -> w1 (spot)
+from = "town_central"
+to = "w1_town_side"
+kind = "exit"
+exit = "town/g1/r3060"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # Town_W1_Falls_levelSwitch -> w1 (spot)
+from = "town_z045"
+to = "w1_dark_cave"
+kind = "exit"
+exit = "town/g1/r3061"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "town.FireWall_02"
+of = "town/g1/r1461"
+destroy_from = ["town_central", "town_e2_pocket", "town_z1028", "town_z1029", "town_z215", "town_z296", "town_z475"]
+
+[[button]]  # keylock, generated requires key.obsidian2>=1
+id = "town.life_keylock1"
+of = "town/g1/r1387"
+at = "town_z023"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.obsidian1>=1
+id = "town.life_keylock"
+of = "town/g1/r1413"
+at = "town_central"
+mode = "latch"
+
+[[button]]  # seal, generated requires discl>=3
+id = "town.seal"
+of = "town/g1/r291"
+at = "town_central"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=10
+id = "town.obsidian_lock1"
+of = "town/g1/r11"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=20
+id = "town.obsidian_lock2"
+of = "town/g1/r36"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=30
+id = "town.obsidian_lock3"
+of = "town/g1/r61"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=40
+id = "town.obsidian_lock4"
+of = "town/g1/r86"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=50
+id = "town.obsidian_lock5"
+of = "town/g1/r111"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=60
+id = "town.obsidian_lock6"
+of = "town/g1/r136"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=70
+id = "town.obsidian_lock7"
+of = "town/g1/r161"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=80
+id = "town.obsidian_lock8"
+of = "town/g1/r186"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=90
+id = "town.obsidian_lock9"
+of = "town/g1/r211"
+at = "town_z017"
+mode = "latch"
+
+[[button]]  # obsidian_lock, generated requires obsidian>=100
+id = "town.obsidian_lock10"
+of = "town/g1/r236"
+at = "town_z017"
+mode = "latch"
+
+[[event]]  # the temple's disc cubbies (the *_disk_loc arrivals)
+id = "town.disc_air.placed"
+at = "town_z020"
+requires = "disca>=4"
+
+[[event]]
+id = "town.disc_water.placed"
+at = "town_z020"
+requires = "discw>=4"
+
+[[event]]
+id = "town.disc_fire.placed"
+at = "town_z020"
+requires = "discf>=4"
+
+[[event]]
+id = "town.disc_earth.placed"
+at = "town_z020"
+requires = "disce>=4"
+
+[[event]]  # the derive sets it at the house's inside (Z117) and the doorstep (Z617); the door it opens separates exactly those two, so it is pressed from the doorstep (the lowest-numbered zone, Z117, would put the button behind its own door)
+id = "town.Town_Houses_DoorShape_g1r2050.action"
+at = "town_z612"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2096.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2132.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2170.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2212.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2244.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2282.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2318.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2352.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2381.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2410.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2439.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of Town_Houses:DoorShape
+id = "town.Town_Houses_DoorShape_g1r2473.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: action of balthazaar:DoorShape
+id = "town.balthazaar_DoorShape.action"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: touch of temple:OffField01Shape
+id = "town.temple_OffField01Shape.touch"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: touch of temple:OffField02Shape
+id = "town.temple_OffField02Shape.touch"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: touch of temple:OffFieldShape
+id = "town.temple_OffFieldShape_g1r412.touch"
+at = "town_z017"
+requires = "true"
+
+[[event]]  # derived: touch of temple:OnFieldShape
+id = "town.temple_OnFieldShape_g1r374.touch"
+at = "town_z020"
+requires = "true"
+
+[[event]]  # derived: touch of temple:ToggleField01Shape
+id = "town.temple_ToggleField01Shape.touch"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: touch of temple:ToggleField02Shape
+id = "town.temple_ToggleField02Shape.touch"
+at = "town_central"
+requires = "true"
+
+[[event]]  # derived: touch of temple:ToggleFieldShape
+id = "town.temple_ToggleFieldShape_g1r378.touch"
+at = "town_z015"
+requires = "true"
+
+[[event]]  # derived: touch of temple:ToggleFieldShape
+id = "town.temple_ToggleFieldShape_g1r414.touch"
+at = "town_z015"
+requires = "true"
+
+[[event]]  # derived: action of training:DoorShape
+id = "town.training_DoorShape.action"
+at = "town_central"
+requires = "true"
+
+[[location]]
+id = "town/g1/r1403"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1430"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1577"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1580"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1592"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1608"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1611"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1613"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1615"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1617"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1687"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1691"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1693"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "town/g1/r1695"
+proven = { by = "data", ref = "rando author: derived/town.json.gz, safe-tier data and physics edges both ways" }
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "town.firewall02_air1"
+name = "town FireWall_02 from the e2-exit pocket (air 1)"
+tricks = ["bskip"]
+requires = "air>=1"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-b/G7:town.firewall02_air1" }
+from = "town_e2_pocket"
+to = "town_central"
+gates = ["town.FireWall_02"]

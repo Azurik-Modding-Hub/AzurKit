@@ -1,0 +1,1024 @@
+# levels/w2.toml: written by `azurik-mod rando author w2` (Step R1.8) from generated/w2.json,
+# derived/w2.json.gz, tricks.toml and draft/authoring/w2.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "w2"
+status = "authored"
+known_traps = []
+route = ["w2/g0/r1346", "w2/g0/r1355", "w2/g0/r1364", "w2/g0/r1351", "w2/g0/r1359", "w2/g0/r1361", "w2/g0/r1357"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "w2_core"
+anchors = ["zone:w2.Z035"]
+locations = ["w2/g0/r1752", "w2/g0/r1754", "w2/g0/r1756"]
+
+[[node]]
+id = "w2_z000"
+anchors = ["zone:w2.Z000"]
+
+[[node]]
+id = "w2_z003"
+anchors = ["zone:w2.Z003"]
+locations = ["w2/g0/r1346"]
+
+[[node]]
+id = "w2_z006"
+anchors = ["zone:w2.Z006"]
+
+[[node]]
+id = "w2_z011"
+anchors = ["zone:w2.Z011"]
+
+[[node]]
+id = "w2_z013"
+anchors = ["zone:w2.Z013"]
+
+[[node]]
+id = "w2_z019"
+anchors = ["zone:w2.Z020", "zone:w2.Z055"]
+
+[[node]]
+id = "w2_z021"
+anchors = ["zone:w2.Z022"]
+
+[[node]]
+id = "w2_z022"
+anchors = ["zone:w2.Z023"]
+
+[[node]]
+id = "w2_z032"
+anchors = ["zone:w2.Z031"]
+
+[[node]]
+id = "w2_z034"
+anchors = ["zone:w2.Z033"]
+
+[[node]]
+id = "w2_z035"
+anchors = ["zone:w2.Z034"]
+
+[[node]]
+id = "w2_z044"
+anchors = ["zone:w2.Z043"]
+locations = ["w2/g0/r1798", "w2/g0/r1859"]
+
+[[node]]
+id = "w2_z047"
+anchors = ["zone:w2.Z046"]
+
+[[node]]
+id = "w2_z048"
+anchors = ["zone:w2.Z047"]
+
+[[node]]
+id = "w2_z071"
+anchors = ["zone:w2.Z070"]
+
+[[node]]
+id = "w2_z078"
+anchors = ["zone:w2.Z077"]
+
+[[node]]
+id = "w2_z1035"
+anchors = ["zone:w2.Z1030"]
+
+[[node]]
+id = "w2_z1045"
+anchors = ["zone:w2.Z1041"]
+
+[[node]]
+id = "w2_z105"
+anchors = ["zone:w2.Z104"]
+
+[[node]]
+id = "w2_z112"
+anchors = ["zone:w2.Z111"]
+
+[[node]]
+id = "w2_z230"
+anchors = ["zone:w2.Z227"]
+
+[[node]]
+id = "w2_z250"
+anchors = ["zone:w2.Z247"]
+
+[[node]]
+id = "w2_z403"
+anchors = ["zone:w2.Z400"]
+
+[[node]]
+id = "w2_z408"
+anchors = ["zone:w2.Z405"]
+
+[[node]]
+id = "w2_z484"
+anchors = ["zone:w2.Z481"]
+
+[[node]]
+id = "w2_z488"
+anchors = ["zone:w2.Z485"]
+
+[[node]]
+id = "w2_z489"
+anchors = ["zone:w2.Z486"]
+
+[[node]]
+id = "w2_z574"
+anchors = ["zone:w2.Z571"]
+
+[[node]]
+id = "w2_z702"
+anchors = ["zone:w2.Z697"]
+
+[[node]]
+id = "w2_z814"
+anchors = ["zone:w2.Z809"]
+
+[[node]]
+id = "w2_z906"
+anchors = ["zone:w2.Z899"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "w2_core"
+to = "w2_z011"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_core"
+to = "w2_z034"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w2_core"
+to = "w2_z034"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "w2_z000"
+to = "w2_core"
+kind = "walk"
+requires = "skip:w2.firewall02_air3"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z000"
+to = "w2_z021"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z000"
+to = "w2_z044"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z000"
+to = "w2_z044"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "w2_z000"
+to = "w2_z044"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z003"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z003"
+to = "w2_z006"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z003"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z019"
+kind = "walk"
+requires = "air>=2 | true"
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o/results/runs.jsonl: leg-0" }
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z021"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z034"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z047"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_03"]
+confidence = "data"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z1045"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z230"
+kind = "walk"
+requires = "air>=3"
+through = ["w2.FireWall_02"]
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z250"
+kind = "walk"
+requires = "air>=2"
+through = ["w2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z250"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z408"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z488"
+kind = "walk"
+requires = "flag:w2.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z702"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z814"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z814"
+kind = "walk"
+requires = "air>=1"
+through = ["w2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z906"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z006"
+to = "w2_z906"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z013"
+to = "w2_z021"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z013"
+to = "w2_z112"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z019"
+to = "w2_z078"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o/results/runs.jsonl: leg-1" }
+
+[[edge]]
+from = "w2_z019"
+to = "w2_z489"
+kind = "walk"
+requires = "flag:w2.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w2_z021"
+to = "w2_z003"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-6" }
+
+[[edge]]
+from = "w2_z021"
+to = "w2_z013"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z021"
+to = "w2_z019"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z021"
+to = "w2_z019"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w2_z021"
+to = "w2_z019"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "w2_z021"
+to = "w2_z112"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z022"
+to = "w2_z013"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z022"
+to = "w2_z021"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-4" }
+
+[[edge]]
+from = "w2_z032"
+to = "w2_z000"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w2_z032"
+to = "w2_z078"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_core"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_02"]
+confidence = "data"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_z011"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_02"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_z011"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_z230"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_z702"
+kind = "walk"
+requires = "air>=2"
+through = ["w2.FireWall_02"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z034"
+to = "w2_z702"
+kind = "walk"
+requires = "air>=1"
+through = ["w2.FireWall_02"]
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z035"
+to = "w2_z105"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z035"
+to = "w2_z105"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z035"
+to = "w2_z105"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w2_z044"
+to = "w2_z000"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z044"
+to = "w2_z021"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z044"
+to = "w2_z021"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z044"
+to = "w2_z112"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z044"
+to = "w2_z112"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z047"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_03"]
+confidence = "data"
+
+[[edge]]
+from = "w2_z048"
+to = "w2_z078"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z071"
+to = "w2_z019"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z071"
+to = "w2_z032"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z071"
+to = "w2_z048"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z071"
+to = "w2_z078"
+kind = "walk"
+requires = "air>=3 | true"
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-3, leg-4" }
+
+[[edge]]
+from = "w2_z071"
+to = "w2_z078"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-3, leg-4" }
+
+[[edge]]
+from = "w2_z078"
+to = "w2_z019"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z078"
+to = "w2_z022"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o3/results/runs.jsonl: leg-4" }
+
+[[edge]]
+from = "w2_z078"
+to = "w2_z071"
+kind = "walk"
+requires = "air>=3 | true"
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o/results/runs.jsonl: leg-1" }
+
+[[edge]]
+from = "w2_z078"
+to = "w2_z071"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "probed"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-15-r18o/results/runs.jsonl: leg-1" }
+
+[[edge]]
+from = "w2_z1045"
+to = "w2_z003"
+kind = "walk"
+requires = "air>=1"
+through = ["w2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z1045"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z1045"
+to = "w2_z408"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_03"]
+confidence = "physics"
+
+[[edge]]
+from = "w2_z1045"
+to = "w2_z906"
+kind = "walk"
+requires = "air>=1"
+through = ["w2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z105"
+to = "w2_z000"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z105"
+to = "w2_z000"
+kind = "walk"
+requires = "air>=1"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z105"
+to = "w2_z000"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w2_z105"
+to = "w2_z035"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z105"
+to = "w2_z044"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z105"
+to = "w2_z112"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z112"
+to = "w2_z000"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z112"
+to = "w2_z013"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z230"
+to = "w2_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z230"
+to = "w2_core"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z230"
+to = "w2_z034"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z250"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z250"
+to = "w2_z814"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z250"
+to = "w2_z906"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z250"
+to = "w2_z906"
+kind = "walk"
+requires = "true"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "w2_z403"
+to = "w2_z488"
+kind = "walk"
+requires = "flag:w2.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w2_z408"
+to = "w2_z1045"
+kind = "walk"
+requires = "true"
+through = ["w2.FireWall_03"]
+confidence = "physics"
+
+[[edge]]
+from = "w2_z408"
+to = "w2_z906"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z488"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z488"
+to = "w2_z403"
+kind = "walk"
+requires = "flag:w2.IceBlock_02.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w2_z489"
+to = "w2_z019"
+kind = "walk"
+requires = "flag:w2.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w2_z574"
+to = "w2_z003"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z702"
+to = "w2_z003"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z814"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w2_z814"
+to = "w2_z250"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z906"
+to = "w2_z006"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w2_z906"
+to = "w2_z1045"
+kind = "walk"
+requires = "air>=1"
+through = ["w2.FireWall_03"]
+confidence = "assumed"
+
+[[edge]]
+from = "w2_z906"
+to = "w2_z408"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # transferstuff:levelSwitch1 -> w1 (spot)
+from = "w2_core"
+to = "w1_z062"
+kind = "exit"
+exit = "w2/g0/r2301"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # levelSwitch1 -> w1 (spot); its arrival W2_W1b stands in the stream's water over w1's cove, where the waterfall ledge it climbed out on is a slippery slope since Step X.16 (AZ-359) and the stream's fall into the cove is not modelled; the player swims and falls down the stream into w1.Z009 in 5 s, HP 200 [verified L3, player tick, untainted, snapshot x7-w1-k0: $EV/x16-derive-fixes-2026-10-14/logs/arrival_w1_r2178.log]
+from = "w2_z011"
+to = "w1_cove"
+kind = "exit"
+exit = "w2/g0/r2303"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # other stem, generated requires fire>=1 & water>=1, permanent
+id = "w2.all"
+of = "w2/g0/r70"
+destroy_from = ["w2_z022", "w2_z484"]
+
+[[barrier]]  # other watr, generated requires water>=1, timed
+id = "w2.Damage_FieldShape"
+of = "w2/g0/r479"
+destroy_from = ["w2_z1035", "w2_z574"]
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "w2.FireWall_01"
+of = "w2/g0/r529"
+destroy_from = ["w2_z003"]
+
+[[barrier]]  # other watr, generated requires None, unknown
+id = "w2.HoseStuff"
+of = "w2/g0/r800"
+destroy_from = ["w2_z003"]
+override_requires = "false"
+override_reason = "the hose machine has no magic link: no attack breaks it (generated persist unknown); nothing in logic crosses it"
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "w2.FireWall_02"
+of = "w2/g0/r1370"
+destroy_from = ["w2_z006", "w2_z034"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w2.IceBlock_01"
+of = "w2/g0/r1458"
+destroy_from = ["w2_z019", "w2_z489"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w2.IceBlock_02"
+of = "w2/g0/r1474"
+destroy_from = ["w2_z006", "w2_z403", "w2_z488"]
+override_requires = "fire>=1 & water>=1 | skip:w2.pstorage_steam_iceblock02"
+override_reason = "the generated steam 1, or stored steam (w2.pstorage_steam_iceblock02, in logic: confirmed in xemu, skips-c E5b)"
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "w2.FireWall_03"
+of = "w2/g0/r1492"
+destroy_from = ["w2_z006", "w2_z047", "w2_z1045", "w2_z408", "w2_z906"]
+
+[[event]]  # X at the console (LightShape, on the round platform w2.Z070) latches HoseStuff:toggle10, which turns the hose on (keyToggle) [verified data: the gate's comment above]; no item. Sittings r18o2 and r18o3: X there after the replayed way in from the pool latched toggle10 [verified xemu]
+id = "w2.hose.on"
+at = "w2_z071"
+requires = "true"
+
+[[event]]  # the joystick (HoseStuff:PublicJoystickShape, at the north end of the fountain path w2.Z022) aims the running hose; the six fires put out within about 8 s of each other latch hosetoggle (saved), which drops nandCombiner1's blocker round power_water [verified data: the gate's comment above]. It needs the hose on (the console first) and no item; a miss is retried. Sitting r18o3: at the joystick after the replayed way from the console, xemu_minigames' hose solver (real input) put all six fires out in one round and hosetoggle latched [verified xemu]
+id = "w2.hose.won"
+at = "w2_z021"
+requires = "event:w2.hose.on"
+
+[[location]]
+id = "w2/g0/r1346"
+requires = "event:w2.hose.won"
+proven = { by = "route", ref = "rando author: route.toml step 1, its kit within the logic's requirement both ways", unless = ["w2.firewall02_air3"], only = ["power_water", "power_water_a3"] }
+note = "power_water behind the hose: the hose minigame (w2.hose.won, after w2.hose.on at the console) drops the blocker round it (Step R1.8o, AZ-375; the [members] zone alone made it free). Seen in xemu (Step R1.8f, xemu-oracle-2026-10-13-r18f/results/runs.jsonl: hose-1, hose-2): from a new game in w2 with every element 0, placed at the console and then on the joystick, scripts/xemu_minigames.py's hose solver put the six fires out with real input (one round each), and the route pilot walked from the joystick to the altar's trigger and the power: taken 2 of 2. Its proven mark is R1.8e's by-route one (D169), which this sitting stands beside (default taken under D115: one mark a spot, and the same proven set either way)"
+
+[[location]]
+id = "w2/g0/r1351"
+proven = { by = "data", ref = "rando author: derived/w2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "w2/g0/r1355"
+proven = { by = "data", ref = "rando author: derived/w2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "w2/g0/r1357"
+requires = "air>=3"
+note = "AZ-350 (Step R1.8k): the derive's one modelled way to the fountain path (w2.Z022, whose pool holds the spot) is the air-3 flight from the plaza (34 m, safe tier); its cheaper ways rest on moves xemu refuted: air 1 takes off high on the ice ramp (w2.Z507 -> Z050 -> Z022), which the body can't climb (AZ-359), and air 2 climbs the 16 m face above WaterfallView (Z020 -> Z077, probe class climb), stuck 4 of 4 in sitting r18e. L3's air-3 search from the plaza ran out of its budget (6 x 150,000 steps, 10 s short, tainted read: inconclusive), so the spot stays unproven (default taken under D115). Step R1.8o (AZ-375) climbed that face in xemu with nothing (the stick held toward it) and walks the fountain path with nothing to the hose's joystick; this spot in the path's pool was not searched, so the hand requirement stays (default taken under D115)"
+
+[[location]]
+id = "w2/g0/r1359"
+proven = { by = "data", ref = "rando author: derived/w2.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "w2/g0/r1364"
+proven = { by = "xemu", ref = "xemu-oracle-2026-10-13-r18/results/runs.jsonl: r1364 attempts 0-2" }
+note = "under the ice stairs: from the W1_W2_Fall arrival with every element 0, swum out of the hose pool onto the plaza, along the ice-cave corridor and into the pool, taken 3 of 3 with no damage (Step R1.8b)"
+
+[[location]]
+id = "w2/g0/r1752"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w2.Z034, what is left since Step X.16 (AZ-359: the icy slope is a slide) of the 2,255 m2 floor by the E2_W2 arrival's slide, which the derive reaches from no zone the arrival reaches: the conservative-kit rule, joined to the arrival (off the route: the level's last route step, w2/g0/r1357)"
+
+[[location]]
+id = "w2/g0/r1754"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w2.Z034, what is left since Step X.16 (AZ-359: the icy slope is a slide) of the 2,255 m2 floor by the E2_W2 arrival's slide, which the derive reaches from no zone the arrival reaches: the conservative-kit rule, joined to the arrival (off the route: the level's last route step, w2/g0/r1357)"
+
+[[location]]
+id = "w2/g0/r1756"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=2"
+note = "sapphire on w2.Z104, what is left since Step X.16 (AZ-359: the icy slope is a slide) of the 2,255 m2 floor by the E2_W2 arrival's slide, which the derive reaches from no zone the arrival reaches: the conservative-kit rule, joined to the arrival (off the route: the level's last route step, w2/g0/r1357)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "w2.pstorage_steam_iceblock02"
+name = "w2 stored steam on the frag_water_1 block"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-c/E5b:w2.pstorage_steam_iceblock02" }
+gates = ["w2.IceBlock_02"]
+
+[[skip]]
+id = "w2.firewall02_air3"
+name = "w2 FireWall_02 (air 3)"
+tricks = ["bskip", "rjump"]
+requires = "air>=3"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x67/S03:w2.firewall02_air3" }
+from = "w2_z000"
+to = "w2_core"
+gates = ["w2.FireWall_02"]

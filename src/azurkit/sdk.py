@@ -1,7 +1,8 @@
 """The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
-:func:`read_mods`, :func:`preset_encode` and :func:`preset_decode` (spoiler
-and art come with their steps). JSON in and out: a recipe is a JSON object
+:func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, and the
+randomizer's :func:`plan` and :func:`spoiler` (art comes with its step).
+JSON in and out: a recipe is a JSON object
 and each call returns one; :func:`image` also returns the image, unwritten, which the web
 page joins into a Blob (``iso.Image.segments``). A refusal is a
 ``ValueError`` or ``OSError`` whose message names what it refuses and why,
@@ -29,6 +30,9 @@ sliders, and the packs each requires in the same build, without which a
 recipe is refused by name. A slider takes any finite number (D23; a whole
 one its encoding holds where it takes only those, D45): its track's ends
 are hints, never limits, and nothing is clamped (``mods.normalize``).
+
+A randomizer plan needs no image: :func:`plan` takes a seed and its
+settings (``tools.randomizer``'s recipe) and returns Modkit's plan file.
 """
 
 from __future__ import annotations
@@ -41,10 +45,10 @@ from azurkit.core import gate, iso
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
-from azurkit.tools import mods
+from azurkit.tools import mods, randomizer
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
-           "preset_decode"]
+           "preset_decode", "plan", "spoiler"]
 RECIPE = ("iso", "packs", "xbr")
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
@@ -238,3 +242,23 @@ def preset_decode(text: str) -> dict:
             raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} "
                              "(AzurKit's: mods with packs, data with xbr)")
     return found
+
+
+def plan(recipe: Mapping) -> dict:
+    """A randomizer plan: the fill of ``recipe``'s seed (any string) under
+    the database's default settings (D144), a settings file's table
+    (``settings``) or a share string (``share``), as Modkit's plan file's
+    object (its format and generator, the seed, the attempt that passed,
+    the settings, their share string and digest, the database's digest,
+    every authored pool location's item, and the sha256 of the rest). The
+    same recipe gives the same plan on every host. A refusal names the
+    setting, or the progression items no attempt found a safe spot for."""
+    return randomizer.plan(recipe)
+
+
+def spoiler(plan: Mapping) -> dict:
+    """``{"lines": [...]}``, the spoiler of a plan file's object: its
+    settings, the spheres with each progression item's obtain and return
+    paths, the traps and the rest. A plan from another database, format or
+    generator, or an edited one, is refused by name."""
+    return {"lines": randomizer.spoiler(plan)}

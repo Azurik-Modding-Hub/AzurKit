@@ -1,0 +1,1131 @@
+# levels/w1.toml: written by `azurik-mod rando author w1` (Step R1.8) from generated/w1.json,
+# derived/w1.json.gz, tricks.toml and draft/authoring/w1.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "w1"
+status = "authored"
+known_traps = []
+route = ["w1/g0/r1717", "w1/g0/r2241", "w1/g0/r2078", "w1/g0/r2080", "w1/g0/r2074", "w1/g0/r2076"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "w1_beach"
+anchors = ["zone:w1.Z004"]
+start = true
+locations = ["w1/g0/r1996"]
+
+[[node]]
+id = "w1_bay"
+anchors = ["zone:w1.Z001"]
+locations = ["w1/g0/r2080"]
+
+[[node]]
+id = "w1_cove"
+anchors = ["zone:w1.Z009", "zone:w1.Z120"]
+
+[[node]]
+id = "w1_dark_cave"
+anchors = ["zone:w1.Z034"]
+dark = "w1.dark_cave_nolight"
+
+[[node]]
+id = "w1_ocean"
+anchors = ["zone:w1.Z000"]
+
+[[node]]
+id = "w1_station"
+anchors = ["zone:w1.Z026"]
+
+[[node]]
+id = "w1_stone2"
+anchors = ["zone:w1.Z124"]
+
+[[node]]
+id = "w1_town_side"
+anchors = ["zone:w1.Z043"]
+
+[[node]]
+id = "w1_z005"
+anchors = ["zone:w1.Z005"]
+
+[[node]]
+id = "w1_z015"
+anchors = ["zone:w1.Z015"]
+
+[[node]]
+id = "w1_z022"
+anchors = ["zone:w1.Z022"]
+
+[[node]]
+id = "w1_z027"
+anchors = ["zone:w1.Z027", "zone:w1.Z066"]
+
+[[node]]
+id = "w1_z028"
+anchors = ["zone:w1.Z028"]
+
+[[node]]
+id = "w1_z037"
+anchors = ["zone:w1.Z037"]
+
+[[node]]
+id = "w1_z048"
+anchors = ["zone:w1.Z048"]
+
+[[node]]
+id = "w1_z062"
+anchors = ["zone:w1.Z062"]
+
+[[node]]
+id = "w1_z063"
+anchors = ["zone:w1.Z063"]
+
+[[node]]
+id = "w1_z090"
+anchors = ["zone:w1.Z090"]
+
+[[node]]
+id = "w1_z110"
+anchors = ["zone:w1.Z117", "zone:w1.Z157"]
+
+[[node]]
+id = "w1_z122"
+anchors = ["zone:w1.Z122"]
+
+[[node]]
+id = "w1_z128"
+anchors = ["zone:w1.Z128"]
+
+[[node]]
+id = "w1_z132"
+anchors = ["zone:w1.Z132"]
+
+[[node]]
+id = "w1_z146"
+anchors = ["zone:w1.Z146"]
+
+[[node]]
+id = "w1_z162"
+anchors = ["zone:w1.Z162"]
+
+[[node]]
+id = "w1_z169"
+anchors = ["zone:w1.Z169"]
+
+[[node]]
+id = "w1_z218"
+anchors = ["zone:w1.Z218"]
+
+[[node]]
+id = "w1_z244"
+anchors = ["zone:w1.Z244"]
+
+[[node]]
+id = "w1_z262"
+anchors = ["zone:w1.Z262"]
+
+[[node]]
+id = "w1_z361"
+anchors = ["zone:w1.Z361"]
+
+[[node]]
+id = "w1_z380"
+anchors = ["zone:w1.Z380"]
+
+[[node]]
+id = "w1_z416"
+anchors = ["zone:w1.Z416"]
+
+[[node]]
+id = "w1_z703"
+anchors = ["zone:w1.Z705"]
+
+[[node]]
+id = "w1_z803"
+anchors = ["zone:w1.Z806"]
+
+[[node]]
+id = "w1_z996"
+anchors = ["zone:w1.Z1000"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "w1_bay"
+to = "w1_cove"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_bay"
+to = "w1_dark_cave"
+kind = "walk"
+requires = "event:w1.torpedo_tower.toppled"
+confidence = "probed"
+proven = { by = "xemu", ref = "x28-owner-demos-2026-10-15/trace.jsonl: spot 3 run 3, n 66210-66642 (the owner's real input, kit 0; replayed to n 66642 within 0.001 m, r1.8q-demo-intake-2026-10-15/replays.jsonl)" }
+
+[[edge]]
+from = "w1_bay"
+to = "w1_stone2"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_bay"
+to = "w1_z015"
+kind = "walk"
+requires = "button:w1.seal | skip:w3.water_guardian_no_seal"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_bay"
+to = "w1_z022"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_bay"
+to = "w1_z022"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_bay"
+to = "w1_z037"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_bay"
+to = "w1_z090"
+kind = "walk"
+requires = "(air>=1 & fire>=1) | skip:w1.pstorage_electric_arch"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_bay"
+to = "w1_z110"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_dark_cave"
+kind = "walk"
+requires = "skip:w1.torpedo_skip"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_town_side"
+kind = "walk"
+requires = "true"
+through = ["w1.FireWall_01"]
+confidence = "data"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_town_side"
+kind = "walk"
+requires = "skip:w1.firewall01_air1_beach_town | skip:w1.firewall01_air2_beach_town"
+confidence = "physics"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z005"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z027"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z027"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z062"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z063"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z132"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z169"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z218"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z244"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_beach"
+to = "w1_z380"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w1_cove"
+to = "w1_bay"
+kind = "walk"
+requires = "skip:w1.shoreline_rollthrough"
+confidence = "physics"
+
+[[edge]]
+from = "w1_cove"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_cove"
+to = "w1_z062"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_cove"
+to = "w1_z062"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_dark_cave"
+to = "w1_bay"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_dark_cave"
+to = "w1_z022"
+kind = "walk"
+requires = "event:w1.torpedo_tower.toppled"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_station"
+to = "w1_z090"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_station"
+to = "w1_z803"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_station"
+to = "w1_z803"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_stone2"
+to = "w1_bay"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_stone2"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_stone2"
+to = "w1_z128"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+through = ["w1.FireWall_01"]
+confidence = "data"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_beach"
+kind = "walk"
+requires = "skip:w1.firewall01_air1_town_beach"
+confidence = "physics"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_z218"
+kind = "walk"
+requires = "air>=1"
+through = ["w1.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_z361"
+kind = "walk"
+requires = "air>=3"
+through = ["w1.FireWall_01"]
+confidence = "physics"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_z380"
+kind = "walk"
+requires = "air>=1 & skip:w1.firewall01_air1_town_beach"
+confidence = "physics"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_z380"
+kind = "walk"
+requires = "air>=2"
+through = ["w1.FireWall_01"]
+confidence = "physics"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_z380"
+kind = "walk"
+requires = "skip:w1.firewall01_air1_town_beach"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_z703"
+kind = "walk"
+requires = "air>=3"
+through = ["w1.FireWall_01"]
+confidence = "assumed"
+
+[[edge]]
+from = "w1_town_side"
+to = "w1_z703"
+kind = "walk"
+requires = "air>=2"
+through = ["w1.FireWall_01"]
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z005"
+to = "w1_cove"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z005"
+to = "w1_z062"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z015"
+to = "w1_bay"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z022"
+to = "w1_bay"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z027"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z027"
+to = "w1_z048"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z028"
+to = "w1_bay"
+kind = "walk"
+requires = "flag:w3.guard_water.killed"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z048"
+to = "w1_z122"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z048"
+to = "w1_z132"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z048"
+to = "w1_z146"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z048"
+to = "w1_z169"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z062"
+to = "w1_cove"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z062"
+to = "w1_z162"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z062"
+to = "w1_z996"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z062"
+to = "w1_z996"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z063"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z090"
+to = "w1_bay"
+kind = "walk"
+requires = "(air>=1 & fire>=1) | skip:w1.pstorage_electric_arch"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z090"
+to = "w1_z803"
+kind = "walk"
+requires = "button:w1.water_keylock"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z110"
+to = "w1_bay"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z122"
+to = "w1_bay"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z122"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z128"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z128"
+to = "w1_stone2"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z132"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z132"
+to = "w1_z048"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z146"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z146"
+to = "w1_z416"
+kind = "walk"
+requires = "flag:w1.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w1_z169"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z218"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z218"
+to = "w1_cove"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z218"
+to = "w1_z122"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z218"
+to = "w1_z380"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z244"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z361"
+to = "w1_z380"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z380"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z380"
+to = "w1_town_side"
+kind = "walk"
+requires = "true"
+through = ["w1.FireWall_01"]
+confidence = "physics"
+
+[[edge]]
+from = "w1_z380"
+to = "w1_z005"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z380"
+to = "w1_z361"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z380"
+to = "w1_z361"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z380"
+to = "w1_z703"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z416"
+to = "w1_z128"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z416"
+to = "w1_z146"
+kind = "walk"
+requires = "flag:w1.IceBlock_01.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "w1_z703"
+to = "w1_beach"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z703"
+to = "w1_z218"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w1_z703"
+to = "w1_z380"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z803"
+to = "w1_station"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w1_z996"
+to = "w1_bay"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "w1_z996"
+to = "w1_cove"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # W1_W2_levelSwitch -> w2 (spot)
+from = "w1_z062"
+to = "w2_core"
+kind = "exit"
+exit = "w1/g0/r3335"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W3a_levelSwitch -> w3 (spot)
+from = "w1_z037"
+to = "w3_core"
+kind = "exit"
+exit = "w1/g0/r3338"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W4a -> w4 (spot)
+from = "w1_bay"
+to = "w4_core"
+kind = "exit"
+exit = "w1/g0/r3340"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_Town -> town (spot+Shape)
+from = "w1_dark_cave"
+to = "town_z045"
+kind = "exit"
+exit = "w1/g0/r3341"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W3b_levelSwitch2 -> w3 (spot)
+from = "w1_z037"
+to = "w3_core"
+kind = "exit"
+exit = "w1/g0/r3342"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W3c_levelSwitch -> w3 (spot)
+from = "w1_ocean"
+to = "w3_core"
+kind = "exit"
+exit = "w1/g0/r3343"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W3d_levelSwitch -> w3 (spot)
+from = "w1_z037"
+to = "w3_core"
+kind = "exit"
+exit = "w1/g0/r3344"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W2_Fall -> w2 (spot); the owner (2026-10-14): 'for getting to w2 from w1, we are supposed to jump into a water spout by going along the rocks above the water'. The spout is SpoutPush1Shape, a push volume (pushZ 150 along its axis, 29 deg off vertical, 84 m long) rising out of the water beside the beach, switched by water_spout_particles_timer3 (on 0.67-4 s of every 8 s, repeating; touching it or HoverShape makes BlockerShape, a cylinder on the same axis, solid) [verified static: logic_dump.py w1 '^SpoutPush1Shape$']; the rock w1.Z169 (4-10 m over the water) stands in its foot (124 walk samples with the body inside it, the only zone that has any) [verified data]. Its push hands the body to a chain of push cylinders (pCylinderShape68-73, pushZ 100; 85, 50; 86, 20) whose axes follow an arc about 460 m long, rising then falling, that ends about 370 m away; the last, pCylinderShape86, lies inside pCubeShape327, W1_W2_Fall's touch trigger (which also covers w1.Z032, inside 86, and 89 samples of w1.Z005, the zone the derive anchored the exit to) [verified data: the volumes' meshes]. So the exit is taken from the rock in the spout's foot, not from Z005 (R1.8's hand edge beach -> Z005 is gone). The ride, played: from Z169 an L3 string in whole steps (the spout's timer is scene-side) walks onto the spout's foot and jumps every 8 ticks; the spout lifts the body 179 m along the cylinders into the trigger at tick 156 (robustness 1.0), replayed in xemu tick for tick, and w2 loaded [verified xemu: $EV/x15-l3-coverage-2026-10-14/REPORT.txt, sitting x15a]
+from = "w1_z169"
+to = "w2_z003"
+kind = "exit"
+exit = "w1/g0/r3352"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_Town_levelSwitch2 -> town (spot+Shape)
+from = "w1_town_side"
+to = "town_central"
+kind = "exit"
+exit = "w1/g0/r3353"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W3Boss_levelSwitch -> w3 (spot)
+from = "w1_z015"
+to = "w3_sealed"
+kind = "exit"
+exit = "w1/g0/r3354"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # W1_W4Bonus -> w4 (spot)
+from = "w1_bay"
+to = "w4_z483"
+kind = "exit"
+exit = "w1/g0/r3355"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # AirshipFight_levelSwitch -> airship (spot+Shape); the ship descends with EarthRealm_fixed and WaterRealm_fixed (tricks.toml db_change w1-airship-gate, applied); or the hidden airship (D630, D632, Step R2.18): out of bounds from the beach with air 2 and air fluttering, under the geometry onto the ship that sits under the map, whose switch loads the fight (with save anywhere, or frame-perfect without it) [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 21991-72940 (the airship at n 69842), air 2, save anywhere]
+from = "w1_beach"
+to = "airship_deck"
+kind = "exit"
+exit = "w1/g0/r3363"
+requires = "flag:w3.guard_water.killed & flag:e5.guard_earth.killed | skip:w1.hidden_airship | skip:w1.hidden_airship_saveanywhere"
+confidence = "data"
+
+[[edge]]  # W1_A3_levelSwitch -> a3 (startspot); the ship leaves for a3 once Balthazar is dead (AZ-289's rule)
+from = "w1_beach"
+to = "a3_hub"
+kind = "exit"
+exit = "w1/g0/r3380"
+requires = "flag:airship.balthazar.killed"
+confidence = "data"
+
+[[edge]]  # BossDefeated_levelSwitch -> town (spot); gs[water fragments]>=4 and a touch of the tube's push field (no placed check)
+from = "w1_z015"
+to = "town_z020"
+kind = "teleport"
+exit = "w1/g0/r3382"
+disc = "water"
+requires = "discw>=4"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # firewall watr, generated requires water>=1, timed
+id = "w1.FireWall_01"
+of = "w1/g0/r1373"
+destroy_from = ["w1_beach", "w1_town_side", "w1_z262", "w1_z380", "w1_z703"]
+override_requires = "water>=1 | skip:w1.pstorage_water_firewall01"
+override_reason = "the generated water 1, or stored water (w1.pstorage_water_firewall01, in logic: confirmed in xemu, skips-c E5)"
+
+[[barrier]]  # iceblock stem, generated requires fire>=1 & water>=1, permanent
+id = "w1.IceBlock_01"
+of = "w1/g0/r1433"
+destroy_from = ["w1_z146", "w1_z416"]
+override_requires = "fire>=1 & water>=1 | skip:w1.pstorage_steam_iceblock01"
+override_reason = "the generated steam 1, or stored steam (w1.pstorage_steam_iceblock01, in logic: confirmed in xemu, skips-c E5)"
+
+[[button]]  # keylock, generated requires key.life1>=1
+id = "w1.water_keylock"
+of = "w1/g0/r1507"
+at = "w1_z090"
+mode = "latch"
+
+[[button]]  # seal, generated requires discw>=3
+id = "w1.seal"
+of = "w1/g0/r465"
+at = "w1_bay"
+mode = "latch"
+
+[[event]]  # the keylord is fought in the bay with the staff (migrated requirement kept, default taken under D115)
+id = "w1.keylordSystem.killed"
+of = "w1/g0/r321"
+at = "w1_bay"
+requires = "true"
+
+[[event]]  # the periscope stands at the top of the underwater station's spiral stairs (walked in sitting r18c with nothing), but the station's upper floor is entered only from its hall, behind the ElectricArch (AZ-391), up the water keylock's stairs (timer45), and the keylock takes the key_life1 the bay's keylord drops; its joystick also needs the station's two overlords killed (andCombiner5) [verified static: logic_dump.py w1]. The keylock is the torpedo's requirement (Step R1.8l: the key rule, AZ-345, opens it with the bay key alone, life's two key_life1 lying in life ahead of its two locks)
+id = "w1.pCubeShape7.joystick"
+at = "w1_z803"
+requires = "button:w1.water_keylock"
+
+[[event]]  # the owner (2026-10-13): aim the torpedo toward the dark cave to hit the tower beside it, which topples into the cave and opens its entrance. The wiring: the joystick's stick x sets PeriscopeTimer's rate (0.1 x the stick; a 4 s cycle turns the periscope's Camera a full turn); getting off the joystick launches the torpedo (CombineToggle & nandCombiner1 -> andCombiner1 -> LaunchToggle: Tor1 flies it, Tor2 times it); it blows up where maxCombiner1's bearing curve (the distance along the periscope's heading, against Tor2 x 15) says it hits (ExplodeToggle); StatueCombiner ANDs the blast with StatueRotToggle, on while the periscope points within a 2-degree window at the tower; StatueToggle (lock, saved) runs StatueTimer (saved), which topples the tower (StatueAnim) and clears the wall in front of the cave 3 s in. A miss: ExplodeTimer resets the periscope 24 s after the blast, so the torpedo is fired again (no lockout) [verified static: $RP r0/tools/logic_dump.py w1 '^(StatueRotToggle|maxCombiner1|StatueCombiner|ExplodeTimer)$' and the curves of their links]. No item aims it; the joystick event carries the station's overlords and the water keylock (AZ-344). Sitting r18h (xemu-oracle-2026-10-13-r18h/results/runs.jsonl, torpedo-1..3): scripts/xemu_minigames.py's torpedo solver turned the periscope into the window and fired, and the tower fell at the first launch 3 of 3, the wall's three solids off after [verified xemu, placed: PeriscopeHelpToggle latched for the overlords, the player put on the periscope's platform]
+id = "w1.torpedo_tower.toppled"
+at = "w1_z803"
+requires = "event:w1.pCubeShape7.joystick"
+
+[[location]]
+id = "w1/g0/r2012"
+requires = "air>=3"
+note = "6.5 m over the bay (w1.Z001) with no floor, spring or updraft under it the derive models (held, probe class float): a flight with air 3 [inferred; conservative, default taken under D115]"
+
+[[location]]
+id = "w1/g0/r2014"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "w1/g0/r2018"
+requires = "air>=3"
+note = "7.0 m over the bay (w1.Z001), held as w1/g0/r2012 is: a flight with air 3 [inferred; conservative, default taken under D115]"
+
+[[location]]
+id = "w1/g0/r2020"
+requires = "air>=3"
+note = "7.1 m over the bay (w1.Z001), held as w1/g0/r2012 is: a flight with air 3 [inferred; conservative, default taken under D115]"
+
+[[location]]
+id = "w1/g0/r2074"
+proven = { by = "data", ref = "rando author: derived/w1.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "w1/g0/r2078"
+requires = "air>=1"
+proven = { by = "l3", ref = "r129/f30f08847e74@aeaa29f85d3b" }
+note = "AZ-347, AZ-348 (Step R1.2b): the ledge (w1.Z1000) is reached from the waterfall ledge w1.Z162, a slippery floor (0x8051) the body slides on (state 3) and can only jump from with the slope's projected v0: 0 of 29 real running jumps reached it (xemu r113 and r12b; L3 X.5 agrees on the slide), while the derive still models a running jump from a flatter sample of Z162. With air 1 a standing flap from Z162 is modelled and reaches it, so the spot needs air 1 (default taken under D115; the hand requirement drops the data proof). Step R1.29: an L3 input string of 331 ticks (robustness 0.06 under jitter) from w1.Z009 (R6 onto a floor sample of w1.Z009; placed: R7 hop, R2 kit air1) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start 3-10 m away)"
+
+[[location]]
+id = "w1/g0/r2080"
+requires = "flag:w3.guard_water.killed"
+note = "the whirlpool (WaterRealmFixed_latch's push and kill fields) holds it until the water guardian dies (derived gate w1.gate.WaterRealmFixed_latch)"
+
+[[location]]
+id = "w1/g0/r2241"
+proven = { by = "data", ref = "rando author: derived/w1.json.gz, safe-tier data and physics edges both ways" }
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "w1.pstorage_steam_iceblock01"
+name = "w1 stored steam on IceBlock_01"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-c/E5:w1.pstorage_steam_iceblock01" }
+from = "w1_beach"
+to = "w1_ocean"
+gates = ["w1.IceBlock_01"]
+
+[[skip]]
+id = "w1.pstorage_water_firewall01"
+name = "w1 stored water on FireWall_01"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-c/E5:w1.pstorage_water_firewall01" }
+from = "w1_beach"
+to = "w1_town_side"
+gates = ["w1.FireWall_01"]
+
+[[skip]]
+id = "w1.pstorage_electric_arch"
+name = "w1 stored electric shield through the ElectricArch"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "r1.38b-pstorage-arch-kits-2026-10-28/H1:w1.pstorage_electric_arch" }
+
+[[skip]]
+id = "w1.firewall01_air2_beach_town"
+name = "w1 fire wall, air 2 round the end (beach -> town)"
+tricks = ["bskip"]
+requires = "air>=2"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "owner", ref = "Owner answers to the demo questions (2026-10-11, in chat, verbatim)" }
+from = "w1_beach"
+to = "w1_town_side"
+gates = ["w1.FireWall_01"]
+batch = "w1.firewall01_beach_town"
+batch_name = "w1 fire wall (beach -> town)"
+
+[[skip]]
+id = "w1.firewall01_air1_beach_town"
+name = "w1 fire wall with air 1 (beach -> town)"
+tricks = ["bskip"]
+requires = "air>=1"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-d/G1m:w1.firewall01_air1_beach_town" }
+from = "w1_beach"
+to = "w1_town_side"
+gates = ["w1.FireWall_01"]
+batch = "w1.firewall01_beach_town"
+batch_name = "w1 fire wall (beach -> town)"
+
+[[skip]]
+id = "w1.firewall01_air1_town_beach"
+name = "w1 fire wall with air 1 (town -> beach)"
+tricks = ["bskip"]
+requires = "air>=1"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-d/G1m:w1.firewall01_air1_town_beach" }
+from = "w1_town_side"
+to = "w1_beach"
+gates = ["w1.FireWall_01"]
+
+[[skip]]
+id = "w1.shoreline_rollthrough"
+name = "w1 shoreline rollthrough"
+tricks = ["bskip"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-h/S1:w1.shoreline_rollthrough" }
+from = "w1_cove"
+to = "w1_bay"
+
+[[skip]]
+id = "w1.torpedo_skip"
+name = "Torpedo Skip"
+tricks = ["itrig", "rjump"]
+requires = "air>=2"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "owner", ref = "Owner confirmations (2026-10-12, in chat, verbatim)" }
+from = "w1_beach"
+to = "w1_dark_cave"
+
+[[skip]]
+id = "w1.hidden_airship"
+name = "w1 hidden airship (air 2)"
+tricks = ["itrig", "flutter"]
+requires = "air>=2"
+difficulty = 4
+status = "in_logic"
+confirmed = { by = "owner", ref = "Owner at the X.67 skip demo (2026-10-24, in chat, verbatim; orchestrator PROGRAM.md D628-D656)" }
+from = "w1_beach"
+to = "airship_deck"
+
+[[skip]]
+id = "w1.hidden_airship_saveanywhere"
+name = "w1 hidden airship (air 2, save anywhere)"
+tricks = ["itrig", "flutter", "saveanywhere"]
+requires = "air>=2"
+difficulty = 3
+status = "manual"
+confirmed = { by = "xemu", ref = "x67/S02:w1.hidden_airship_saveanywhere" }
+from = "w1_beach"
+to = "airship_deck"
+
+[[skip]]
+id = "w1.dark_cave_nolight"
+name = "w1 dark cave without light"
+tricks = ["nolight"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "owner", ref = "The owner's trick list (2026-10-11, in chat, verbatim)" }

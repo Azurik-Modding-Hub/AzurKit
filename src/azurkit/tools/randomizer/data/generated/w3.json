@@ -1,0 +1,2964 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "azurik-mod rando db-extract",
+  "source": {
+   "file": "gamedata/w3.xbr",
+   "sha256_12": "1e3505c63b21",
+   "size": 28930025
+  }
+ },
+ "barriers": [
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "w3/g0/r7",
+   "kind": "trap",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "BubbleTrapShape",
+   "near_locations": [],
+   "persist": "level_reset",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "w3/g0/r7"
+   ],
+   "switches": [
+    "w3/g0/r5"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r78",
+   "kind": "iceblock",
+   "level": 2,
+   "levels_seen": [
+    2
+   ],
+   "name": "IceBlock_014",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=2 & water>=2",
+   "shapes": [
+    "w3/g1/r78"
+   ],
+   "switches": [
+    "w3/g1/r79"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r723",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_02",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r723"
+   ],
+   "switches": [
+    "w3/g1/r724"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r740",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_05",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r740"
+   ],
+   "switches": [
+    "w3/g1/r741"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r757",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_08",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r757"
+   ],
+   "switches": [
+    "w3/g1/r758"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r774",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_012",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r774"
+   ],
+   "switches": [
+    "w3/g1/r775"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r804",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_016",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r804"
+   ],
+   "switches": [
+    "w3/g1/r805"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r821",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_019",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r821"
+   ],
+   "switches": [
+    "w3/g1/r822"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r838",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_021",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r838"
+   ],
+   "switches": [
+    "w3/g1/r839"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r855",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_024",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r855"
+   ],
+   "switches": [
+    "w3/g1/r856"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r872",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_025",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r872"
+   ],
+   "switches": [
+    "w3/g1/r873"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r889",
+   "kind": "iceblock",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "IceBlock_027",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r889"
+   ],
+   "switches": [
+    "w3/g1/r890"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "stem",
+   "damage_mix": null,
+   "elements": "FW",
+   "id": "w3/g1/r1024",
+   "kind": "iceblock",
+   "level": 2,
+   "levels_seen": [
+    2
+   ],
+   "name": "IceBlock_026",
+   "near_locations": [
+    "w3/g1/r2000"
+   ],
+   "persist": "permanent",
+   "requires": "fire>=2 & water>=2",
+   "shapes": [
+    "w3/g1/r1024"
+   ],
+   "switches": [
+    "w3/g1/r1025"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "w3/g1/r1348",
+   "kind": "trap",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Trap3Shape",
+   "near_locations": [],
+   "persist": "level_reset",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1348"
+   ],
+   "switches": [
+    "w3/g1/r1342",
+    "w3/g1/r1368"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "w3/g1/r1356",
+   "kind": "trap",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Trap1Shape",
+   "near_locations": [],
+   "persist": "level_reset",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1356"
+   ],
+   "switches": [
+    "w3/g1/r1350",
+    "w3/g1/r1369"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "w3/g1/r1363",
+   "kind": "trap",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Trap2Shape",
+   "near_locations": [],
+   "persist": "level_reset",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1363"
+   ],
+   "switches": [
+    "w3/g1/r1358",
+    "w3/g1/r1370"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "w3/g1/r2030",
+   "kind": "other",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "polySurfaceShape1",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r2030"
+   ],
+   "switches": [
+    "w3/g1/r2031"
+   ]
+  },
+  {
+   "contains": [],
+   "damage": "smsh",
+   "damage_mix": null,
+   "elements": "EAF",
+   "id": "w3/g1/r2037",
+   "kind": "other",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "Smash_wall1_plane1",
+   "near_locations": [],
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r2037"
+   ],
+   "switches": [
+    "w3/g1/r2038"
+   ]
+  }
+ ],
+ "bosses": [
+  {
+   "critter": "guard_water",
+   "enabled_by": null,
+   "event": "w3.guard_water.killed",
+   "id": "w3/g1/r1157",
+   "name": "waterBossGeneratorShape",
+   "num_dead_drives": [
+    "StopBubbleToggle.turnOff",
+    "timer6.enable",
+    "waterFragGeneratorShape.enable"
+   ],
+   "on_load": true,
+   "saved": true
+  }
+ ],
+ "cells": [
+  "W3_cube:skyCellShape",
+  "default cell",
+  "UnderWaterCellShape",
+  "AquaDomeCellShape"
+ ],
+ "counts": {
+  "barriers": 18,
+  "bosses": 1,
+  "exits": 5,
+  "game_states": 3,
+  "geodes": 10,
+  "keylocks": 0,
+  "keylords": 0,
+  "latches": 2,
+  "locations_in_pool": {
+   "cluster": 1,
+   "consumable": 1,
+   "gem": 64,
+   "major": 3,
+   "obsidian": 5
+  },
+  "locations_not_in_pool": 0,
+  "obsidian_locks": 0,
+  "save_points": 2,
+  "seals": 0,
+  "spots": 9,
+  "teleporters": 0
+ },
+ "exits": [
+  {
+   "arrival": "w1/g0/r1769",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/water/w1",
+   "dest_level": "w1",
+   "dest_string_shared_by": 4,
+   "disc_teleport": null,
+   "gate_hint": "touch(Field_Level_Swtich_1Shape)",
+   "id": "w3/g1/r2214",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "levelSwitch1",
+   "spot": "W3_W1a"
+  },
+  {
+   "arrival": "w1/g0/r1771",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/water/w1",
+   "dest_level": "w1",
+   "dest_string_shared_by": 4,
+   "disc_teleport": null,
+   "gate_hint": "touch(Field_Level_Swtich_2Shape)",
+   "id": "w3/g1/r2215",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "levelSwitch2",
+   "spot": "W3_W1b"
+  },
+  {
+   "arrival": "w1/g0/r1767",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/water/w1",
+   "dest_level": "w1",
+   "dest_string_shared_by": 4,
+   "disc_teleport": null,
+   "gate_hint": "touch(Field_Level_Swtich_3Shape)",
+   "id": "w3/g1/r2216",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "levelSwitch3",
+   "spot": "W3_W1c"
+  },
+  {
+   "arrival": "w1/g0/r1765",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/water/w1",
+   "dest_level": "w1",
+   "dest_string_shared_by": 4,
+   "disc_teleport": null,
+   "gate_hint": "touch(Field_Level_Swtich_4Shape)",
+   "id": "w3/g1/r2217",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "levelSwitch4",
+   "spot": "W3_W1d"
+  },
+  {
+   "arrival": "town/g1/r1319",
+   "arrival_by": "spot",
+   "arrival_graph_known": false,
+   "dest": "levels/town",
+   "dest_level": "town",
+   "dest_string_shared_by": 1,
+   "disc_teleport": "water",
+   "gate_hint": "and(nand(global[water_disk_placed]), gs[water fragments]>=4)",
+   "id": "w3/g1/r2224",
+   "kind": "exit",
+   "live": true,
+   "movie": "movies/scenes/diskreplace_water",
+   "name": "PlaceWaterDisk_levelSwitch",
+   "spot": "water_disk_loc"
+  }
+ ],
+ "game_states": [
+  {
+   "id": "w3/g1/r2",
+   "links": [
+    {
+     "to": "W3_cube:day_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "W3_cube:daycloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "W3_cube:nightcloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "W3_cube:StarfieldShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Night_light2:ambientLightShape1.colorR",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "Night_light2:ambientLightShape1.colorG",
+     "var": "day night timer",
+     "when": "always"
+    },
+    {
+     "to": "Night_light2:ambientLightShape1.colorB",
+     "var": "day night timer",
+     "when": "always"
+    }
+   ],
+   "name": "W3_cube:gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  },
+  {
+   "id": "w3/g1/r13",
+   "links": [
+    {
+     "to": "W3_cube:Black_bottom:Black_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    }
+   ],
+   "name": "W3_cube:Black_bottom:gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  },
+  {
+   "id": "w3/g1/r902",
+   "links": [
+    {
+     "to": "WaterRealm_fixed_latch.update",
+     "var": "water fragments",
+     "when": ">=4"
+    },
+    {
+     "to": "LevelSwitch_and.inputs[1]",
+     "var": "water fragments",
+     "when": ">=4"
+    }
+   ],
+   "name": "WaterFragmentNumber_gameState",
+   "vars": [
+    "water fragments"
+   ]
+  }
+ ],
+ "geodes": [
+  {
+   "contents": {
+    "diamond": 3
+   },
+   "damage": "litn",
+   "damage_mix": null,
+   "elements": "AFW",
+   "id": "w3/g1/r1629",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1633",
+    "w3/g1/r1636",
+    "w3/g1/r1639"
+   ],
+   "name": "DiamondStone1",
+   "persist": "permanent",
+   "requires": "air>=1 & fire>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r1629"
+   ],
+   "switches": [
+    "w3/g1/r1627",
+    "w3/g1/r1630"
+   ],
+   "variant": "DiamondStone"
+  },
+  {
+   "contents": {
+    "emerald": 3
+   },
+   "damage": "wind",
+   "damage_mix": null,
+   "elements": "EA",
+   "id": "w3/g1/r1665",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1669",
+    "w3/g1/r1672",
+    "w3/g1/r1675"
+   ],
+   "name": "EmeraldStone3",
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1",
+   "shapes": [
+    "w3/g1/r1665"
+   ],
+   "switches": [
+    "w3/g1/r1663",
+    "w3/g1/r1666"
+   ],
+   "variant": "EmeraldStone"
+  },
+  {
+   "contents": {
+    "emerald": 3
+   },
+   "damage": "wind",
+   "damage_mix": null,
+   "elements": "EA",
+   "id": "w3/g1/r1700",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1704",
+    "w3/g1/r1707",
+    "w3/g1/r1710"
+   ],
+   "name": "EmeraldStone4",
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1",
+   "shapes": [
+    "w3/g1/r1700"
+   ],
+   "switches": [
+    "w3/g1/r1698",
+    "w3/g1/r1701"
+   ],
+   "variant": "EmeraldStone"
+  },
+  {
+   "contents": {
+    "sapphire": 3
+   },
+   "damage": "ice",
+   "damage_mix": null,
+   "elements": "EAW",
+   "id": "w3/g1/r1736",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1740",
+    "w3/g1/r1743",
+    "w3/g1/r1746"
+   ],
+   "name": "SapphireStone1",
+   "persist": "permanent",
+   "requires": "earth>=1 & air>=1 & water>=1",
+   "shapes": [
+    "w3/g1/r1736"
+   ],
+   "switches": [
+    "w3/g1/r1734",
+    "w3/g1/r1737"
+   ],
+   "variant": "SapphireStone"
+  },
+  {
+   "contents": {
+    "ruby": 3
+   },
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "w3/g1/r1772",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1776",
+    "w3/g1/r1779",
+    "w3/g1/r1782"
+   ],
+   "name": "RubyStone7",
+   "persist": "permanent",
+   "requires": "earth>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1772"
+   ],
+   "switches": [
+    "w3/g1/r1770",
+    "w3/g1/r1773"
+   ],
+   "variant": "RubyStone"
+  },
+  {
+   "contents": {
+    "ruby": 3
+   },
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "w3/g1/r1807",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1811",
+    "w3/g1/r1814",
+    "w3/g1/r1817"
+   ],
+   "name": "RubyStone8",
+   "persist": "permanent",
+   "requires": "earth>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1807"
+   ],
+   "switches": [
+    "w3/g1/r1805",
+    "w3/g1/r1808"
+   ],
+   "variant": "RubyStone"
+  },
+  {
+   "contents": {
+    "ruby": 3
+   },
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "w3/g1/r1841",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1845",
+    "w3/g1/r1848",
+    "w3/g1/r1851"
+   ],
+   "name": "RubyStone3",
+   "persist": "permanent",
+   "requires": "earth>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1841"
+   ],
+   "switches": [
+    "w3/g1/r1839",
+    "w3/g1/r1842"
+   ],
+   "variant": "RubyStone"
+  },
+  {
+   "contents": {
+    "ruby": 3
+   },
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "w3/g1/r1875",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1879",
+    "w3/g1/r1882",
+    "w3/g1/r1885"
+   ],
+   "name": "RubyStone4",
+   "persist": "permanent",
+   "requires": "earth>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1875"
+   ],
+   "switches": [
+    "w3/g1/r1873",
+    "w3/g1/r1876"
+   ],
+   "variant": "RubyStone"
+  },
+  {
+   "contents": {
+    "ruby": 3
+   },
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "w3/g1/r1909",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1913",
+    "w3/g1/r1916",
+    "w3/g1/r1919"
+   ],
+   "name": "RubyStone5",
+   "persist": "permanent",
+   "requires": "earth>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1909"
+   ],
+   "switches": [
+    "w3/g1/r1907",
+    "w3/g1/r1910"
+   ],
+   "variant": "RubyStone"
+  },
+  {
+   "contents": {
+    "ruby": 3
+   },
+   "damage": "fire",
+   "damage_mix": null,
+   "elements": "EF",
+   "id": "w3/g1/r1943",
+   "kind": "geode",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "locations": [
+    "w3/g1/r1947",
+    "w3/g1/r1950",
+    "w3/g1/r1953"
+   ],
+   "name": "RubyStone6",
+   "persist": "permanent",
+   "requires": "earth>=1 & fire>=1",
+   "shapes": [
+    "w3/g1/r1943"
+   ],
+   "switches": [
+    "w3/g1/r1941",
+    "w3/g1/r1944"
+   ],
+   "variant": "RubyStone"
+  }
+ ],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 12,
+   "ndbg_toc_index": 5,
+   "padding_after": 1812,
+   "records": 11,
+   "saved_nodes": 0,
+   "toc_index": 7
+  },
+  {
+   "g": 1,
+   "links": 1307,
+   "ndbg_toc_index": 2514,
+   "padding_after": 312,
+   "records": 2227,
+   "saved_nodes": 203,
+   "toc_index": 2515
+  }
+ ],
+ "keylocks": [],
+ "keylords": [],
+ "kind": "realm",
+ "latches": [
+  {
+   "global": "WaterRealm_fixed",
+   "id": "w3/g1/r903",
+   "input": null,
+   "name": "WaterRealm_fixed_latch",
+   "saved": false,
+   "update": "gs[water fragments]>=4"
+  },
+  {
+   "global": "water_disk_placed",
+   "id": "w3/g1/r2221",
+   "input": null,
+   "name": "WaterDiskPlaced_latch",
+   "saved": false,
+   "update": null
+  }
+ ],
+ "level": "w3",
+ "locations": [
+  {
+   "cell": "AquaDomeCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1157 waterBossGeneratorShape.numDead"
+   ],
+   "gated_by": [
+    "w3/g1/r1157"
+   ],
+   "guardian_slot": true,
+   "id": "w3/g1/r1160",
+   "item": "frag_water_4",
+   "name": "waterFragGeneratorShape",
+   "name_ref": {
+    "field": 27201780,
+    "length": 12,
+    "string": 27377260
+   },
+   "namespace": null,
+   "on_load": false,
+   "parent": "waterFragGenerator",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "frag_water_4",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1576",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape4",
+   "name_ref": {
+    "field": 27237096,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator4",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1578",
+   "item": "sapphire",
+   "name": "critterGeneratorShape4",
+   "name_ref": {
+    "field": 27237272,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator4",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1580",
+   "item": "sapphire",
+   "name": "critterGeneratorShape27",
+   "name_ref": {
+    "field": 27237448,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator27",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1582",
+   "item": "sapphire",
+   "name": "critterGeneratorShape28",
+   "name_ref": {
+    "field": 27237624,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator28",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1584",
+   "item": "sapphire",
+   "name": "critterGeneratorShape29",
+   "name_ref": {
+    "field": 27237800,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator29",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1586",
+   "item": "sapphire",
+   "name": "critterGeneratorShape30",
+   "name_ref": {
+    "field": 27237976,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator30",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1588",
+   "item": "sapphire",
+   "name": "critterGeneratorShape32",
+   "name_ref": {
+    "field": 27238152,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator32",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1590",
+   "item": "sapphire",
+   "name": "critterGeneratorShape33",
+   "name_ref": {
+    "field": 27238328,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator33",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1592",
+   "item": "sapphire",
+   "name": "critterGeneratorShape34",
+   "name_ref": {
+    "field": 27238504,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator34",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1594",
+   "item": "sapphire",
+   "name": "critterGeneratorShape43",
+   "name_ref": {
+    "field": 27238680,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator43",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1596",
+   "item": "sapphire",
+   "name": "critterGeneratorShape44",
+   "name_ref": {
+    "field": 27238856,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator44",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1598",
+   "item": "sapphire",
+   "name": "critterGeneratorShape45",
+   "name_ref": {
+    "field": 27239032,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator45",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1600",
+   "item": "sapphire",
+   "name": "critterGeneratorShape46",
+   "name_ref": {
+    "field": 27239208,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator46",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1602",
+   "item": "sapphire",
+   "name": "critterGeneratorShape36",
+   "name_ref": {
+    "field": 27239384,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator36",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1604",
+   "item": "sapphire",
+   "name": "critterGeneratorShape37",
+   "name_ref": {
+    "field": 27239560,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator37",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1606",
+   "item": "sapphire",
+   "name": "critterGeneratorShape40",
+   "name_ref": {
+    "field": 27239736,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator40",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1608",
+   "item": "sapphire",
+   "name": "critterGeneratorShape41",
+   "name_ref": {
+    "field": 27239912,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator41",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1610",
+   "item": "sapphire",
+   "name": "critterGeneratorShape42",
+   "name_ref": {
+    "field": 27240088,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator42",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1612",
+   "item": "sapphire",
+   "name": "critterGeneratorShape35",
+   "name_ref": {
+    "field": 27240264,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator35",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1614",
+   "item": "sapphire",
+   "name": "critterGeneratorShape64",
+   "name_ref": {
+    "field": 27240440,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator64",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1616",
+   "item": "sapphire",
+   "name": "critterGeneratorShape65",
+   "name_ref": {
+    "field": 27240616,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator65",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1618",
+   "item": "sapphire",
+   "name": "critterGeneratorShape66",
+   "name_ref": {
+    "field": 27240792,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator66",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1629 DiamondStone1:DiamondStoneShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1629"
+   ],
+   "geode": "w3/g1/r1629",
+   "id": "w3/g1/r1633",
+   "item": "diamond",
+   "name": "DiamondStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27242032,
+    "length": 7,
+    "string": 27412544
+   },
+   "namespace": "DiamondStone1",
+   "on_load": false,
+   "parent": "DiamondStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1629 DiamondStone1:DiamondStoneShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1629"
+   ],
+   "geode": "w3/g1/r1629",
+   "id": "w3/g1/r1636",
+   "item": "diamond",
+   "name": "DiamondStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27242328,
+    "length": 7,
+    "string": 27412544
+   },
+   "namespace": "DiamondStone1",
+   "on_load": false,
+   "parent": "DiamondStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1629 DiamondStone1:DiamondStoneShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1629"
+   ],
+   "geode": "w3/g1/r1629",
+   "id": "w3/g1/r1639",
+   "item": "diamond",
+   "name": "DiamondStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27242624,
+    "length": 7,
+    "string": 27412544
+   },
+   "namespace": "DiamondStone1",
+   "on_load": false,
+   "parent": "DiamondStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1665 EmeraldStone3:EmeraldStone1:WindRockShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1665"
+   ],
+   "geode": "w3/g1/r1665",
+   "id": "w3/g1/r1669",
+   "item": "emerald",
+   "name": "EmeraldStone3:EmeraldStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27245028,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "EmeraldStone3:EmeraldStone1",
+   "on_load": false,
+   "parent": "EmeraldStone3:EmeraldStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1665 EmeraldStone3:EmeraldStone1:WindRockShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1665"
+   ],
+   "geode": "w3/g1/r1665",
+   "id": "w3/g1/r1672",
+   "item": "emerald",
+   "name": "EmeraldStone3:EmeraldStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27245324,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "EmeraldStone3:EmeraldStone1",
+   "on_load": false,
+   "parent": "EmeraldStone3:EmeraldStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1665 EmeraldStone3:EmeraldStone1:WindRockShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1665"
+   ],
+   "geode": "w3/g1/r1665",
+   "id": "w3/g1/r1675",
+   "item": "emerald",
+   "name": "EmeraldStone3:EmeraldStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27245620,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "EmeraldStone3:EmeraldStone1",
+   "on_load": false,
+   "parent": "EmeraldStone3:EmeraldStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1700 EmeraldStone4:EmeraldStone1:WindRockShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1700"
+   ],
+   "geode": "w3/g1/r1700",
+   "id": "w3/g1/r1704",
+   "item": "emerald",
+   "name": "EmeraldStone4:EmeraldStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27247904,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "EmeraldStone4:EmeraldStone1",
+   "on_load": false,
+   "parent": "EmeraldStone4:EmeraldStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1700 EmeraldStone4:EmeraldStone1:WindRockShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1700"
+   ],
+   "geode": "w3/g1/r1700",
+   "id": "w3/g1/r1707",
+   "item": "emerald",
+   "name": "EmeraldStone4:EmeraldStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27248200,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "EmeraldStone4:EmeraldStone1",
+   "on_load": false,
+   "parent": "EmeraldStone4:EmeraldStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1700 EmeraldStone4:EmeraldStone1:WindRockShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1700"
+   ],
+   "geode": "w3/g1/r1700",
+   "id": "w3/g1/r1710",
+   "item": "emerald",
+   "name": "EmeraldStone4:EmeraldStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27248496,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "EmeraldStone4:EmeraldStone1",
+   "on_load": false,
+   "parent": "EmeraldStone4:EmeraldStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1736 SapphireStone1:SaphiresShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1736"
+   ],
+   "geode": "w3/g1/r1736",
+   "id": "w3/g1/r1740",
+   "item": "sapphire",
+   "name": "SapphireStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27250900,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": "SapphireStone1",
+   "on_load": false,
+   "parent": "SapphireStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1736 SapphireStone1:SaphiresShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1736"
+   ],
+   "geode": "w3/g1/r1736",
+   "id": "w3/g1/r1743",
+   "item": "sapphire",
+   "name": "SapphireStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27251196,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": "SapphireStone1",
+   "on_load": false,
+   "parent": "SapphireStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1736 SapphireStone1:SaphiresShape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1736"
+   ],
+   "geode": "w3/g1/r1736",
+   "id": "w3/g1/r1746",
+   "item": "sapphire",
+   "name": "SapphireStone1:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27251492,
+    "length": 8,
+    "string": 27408620
+   },
+   "namespace": "SapphireStone1",
+   "on_load": false,
+   "parent": "SapphireStone1:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1772 RubyStone7:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1772"
+   ],
+   "geode": "w3/g1/r1772",
+   "id": "w3/g1/r1776",
+   "item": "ruby",
+   "name": "RubyStone7:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27253896,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone7",
+   "on_load": false,
+   "parent": "RubyStone7:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1772 RubyStone7:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1772"
+   ],
+   "geode": "w3/g1/r1772",
+   "id": "w3/g1/r1779",
+   "item": "ruby",
+   "name": "RubyStone7:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27254192,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone7",
+   "on_load": false,
+   "parent": "RubyStone7:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1772 RubyStone7:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1772"
+   ],
+   "geode": "w3/g1/r1772",
+   "id": "w3/g1/r1782",
+   "item": "ruby",
+   "name": "RubyStone7:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27254488,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone7",
+   "on_load": false,
+   "parent": "RubyStone7:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1807 RubyStone8:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1807"
+   ],
+   "geode": "w3/g1/r1807",
+   "id": "w3/g1/r1811",
+   "item": "ruby",
+   "name": "RubyStone8:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27256772,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone8",
+   "on_load": false,
+   "parent": "RubyStone8:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1807 RubyStone8:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1807"
+   ],
+   "geode": "w3/g1/r1807",
+   "id": "w3/g1/r1814",
+   "item": "ruby",
+   "name": "RubyStone8:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27257068,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone8",
+   "on_load": false,
+   "parent": "RubyStone8:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1807 RubyStone8:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1807"
+   ],
+   "geode": "w3/g1/r1807",
+   "id": "w3/g1/r1817",
+   "item": "ruby",
+   "name": "RubyStone8:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27257364,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone8",
+   "on_load": false,
+   "parent": "RubyStone8:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1841 RubyStone3:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1841"
+   ],
+   "geode": "w3/g1/r1841",
+   "id": "w3/g1/r1845",
+   "item": "ruby",
+   "name": "RubyStone3:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27259528,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone3",
+   "on_load": false,
+   "parent": "RubyStone3:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1841 RubyStone3:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1841"
+   ],
+   "geode": "w3/g1/r1841",
+   "id": "w3/g1/r1848",
+   "item": "ruby",
+   "name": "RubyStone3:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27259824,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone3",
+   "on_load": false,
+   "parent": "RubyStone3:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1841 RubyStone3:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1841"
+   ],
+   "geode": "w3/g1/r1841",
+   "id": "w3/g1/r1851",
+   "item": "ruby",
+   "name": "RubyStone3:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27260120,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone3",
+   "on_load": false,
+   "parent": "RubyStone3:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1875 RubyStone4:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1875"
+   ],
+   "geode": "w3/g1/r1875",
+   "id": "w3/g1/r1879",
+   "item": "ruby",
+   "name": "RubyStone4:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27262284,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone4",
+   "on_load": false,
+   "parent": "RubyStone4:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1875 RubyStone4:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1875"
+   ],
+   "geode": "w3/g1/r1875",
+   "id": "w3/g1/r1882",
+   "item": "ruby",
+   "name": "RubyStone4:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27262580,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone4",
+   "on_load": false,
+   "parent": "RubyStone4:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1875 RubyStone4:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1875"
+   ],
+   "geode": "w3/g1/r1875",
+   "id": "w3/g1/r1885",
+   "item": "ruby",
+   "name": "RubyStone4:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27262876,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone4",
+   "on_load": false,
+   "parent": "RubyStone4:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1909 RubyStone5:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1909"
+   ],
+   "geode": "w3/g1/r1909",
+   "id": "w3/g1/r1913",
+   "item": "ruby",
+   "name": "RubyStone5:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27265040,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone5",
+   "on_load": false,
+   "parent": "RubyStone5:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1909 RubyStone5:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1909"
+   ],
+   "geode": "w3/g1/r1909",
+   "id": "w3/g1/r1916",
+   "item": "ruby",
+   "name": "RubyStone5:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27265336,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone5",
+   "on_load": false,
+   "parent": "RubyStone5:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1909 RubyStone5:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1909"
+   ],
+   "geode": "w3/g1/r1909",
+   "id": "w3/g1/r1919",
+   "item": "ruby",
+   "name": "RubyStone5:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27265632,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone5",
+   "on_load": false,
+   "parent": "RubyStone5:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1943 RubyStone6:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1943"
+   ],
+   "geode": "w3/g1/r1943",
+   "id": "w3/g1/r1947",
+   "item": "ruby",
+   "name": "RubyStone6:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27267796,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone6",
+   "on_load": false,
+   "parent": "RubyStone6:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1943 RubyStone6:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1943"
+   ],
+   "geode": "w3/g1/r1943",
+   "id": "w3/g1/r1950",
+   "item": "ruby",
+   "name": "RubyStone6:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27268092,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone6",
+   "on_load": false,
+   "parent": "RubyStone6:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [
+    "w3/g1/r1943 RubyStone6:RubyStone1Shape.magic"
+   ],
+   "gated_by": [
+    "w3/g1/r1943"
+   ],
+   "geode": "w3/g1/r1943",
+   "id": "w3/g1/r1953",
+   "item": "ruby",
+   "name": "RubyStone6:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27268388,
+    "length": 4,
+    "string": 27425192
+   },
+   "namespace": "RubyStone6",
+   "on_load": false,
+   "parent": "RubyStone6:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1972",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape50",
+   "name_ref": {
+    "field": 27269968,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator50",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1974",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape51",
+   "name_ref": {
+    "field": 27270144,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator51",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1976",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape52",
+   "name_ref": {
+    "field": 27270320,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator52",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1978",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape53",
+   "name_ref": {
+    "field": 27270496,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator53",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1980",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape11",
+   "name_ref": {
+    "field": 27270672,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator11",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1982",
+   "item": "emerald",
+   "name": "critterGeneratorShape11",
+   "name_ref": {
+    "field": 27270848,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator11",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1984",
+   "item": "emerald",
+   "name": "critterGeneratorShape75",
+   "name_ref": {
+    "field": 27271024,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator75",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1986",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape14",
+   "name_ref": {
+    "field": 27271200,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator14",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1988",
+   "item": "emerald",
+   "name": "critterGeneratorShape14",
+   "name_ref": {
+    "field": 27271376,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator14",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1990",
+   "item": "emerald",
+   "name": "critterGeneratorShape76",
+   "name_ref": {
+    "field": 27271552,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator76",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1992",
+   "item": "emerald",
+   "name": "critterGeneratorShape77",
+   "name_ref": {
+    "field": 27271728,
+    "length": 7,
+    "string": 27415704
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator77",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1995",
+   "item": "diamond",
+   "name": "critters:critterGeneratorShape37",
+   "name_ref": {
+    "field": 27272024,
+    "length": 7,
+    "string": 27412544
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator37",
+   "points": 11,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 11
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r1997",
+   "item": "diamond",
+   "name": "critterGeneratorShape37",
+   "name_ref": {
+    "field": 27272200,
+    "length": 7,
+    "string": 27412544
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator37",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2000",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape10",
+   "name_ref": {
+    "field": 27272496,
+    "length": 8,
+    "string": 27444208
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator10",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2002",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape30",
+   "name_ref": {
+    "field": 27272672,
+    "length": 8,
+    "string": 27444208
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator30",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2004",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape31",
+   "name_ref": {
+    "field": 27272848,
+    "length": 8,
+    "string": 27444208
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator31",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2006",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape32",
+   "name_ref": {
+    "field": 27273024,
+    "length": 8,
+    "string": 27444208
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator32",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2008",
+   "item": "obsidian",
+   "name": "critters:critterGeneratorShape33",
+   "name_ref": {
+    "field": 27273200,
+    "length": 8,
+    "string": 27444208
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator33",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2018",
+   "item": "frag_fire_1",
+   "name": "critters:critterGeneratorShape2",
+   "name_ref": {
+    "field": 27274144,
+    "length": 11,
+    "string": 27445224
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "frag_fire_1",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2021",
+   "item": "power_water",
+   "name": "critterGeneratorShape2",
+   "name_ref": {
+    "field": 27274440,
+    "length": 11,
+    "string": 27445392
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_water",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "UnderWaterCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "w3/g1/r2024",
+   "item": "all_fuel",
+   "name": "critterGeneratorShape32",
+   "name_ref": {
+    "field": 27274736,
+    "length": 8,
+    "string": 27445560
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator32",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "all_fuel",
+   "unbounded": false,
+   "yield": 1
+  }
+ ],
+ "obsidian_locks": [],
+ "save_points": [
+  {
+   "do_save": "and(switch[SavePlatform:Save_timeBuffer_toggle]{on=touch(SavePlatform:GlassShape); off=const}.output, timer[SavePlatform:LoadDisable_timer](stored).currentTime)",
+   "id": "w3/g1/r1567",
+   "name": "SavePlatform:public_gameSaveControlShape",
+   "save_id": "w3_save1",
+   "saved": false
+  },
+  {
+   "do_save": "and(switch[SavePlatform1:Save_timeBuffer_toggle]{on=touch(SavePlatform1:GlassShape); off=const}.output, timer[SavePlatform1:LoadDisable_timer](stored).currentTime)",
+   "id": "w3/g1/r2138",
+   "name": "SavePlatform1:public_gameSaveControlShape",
+   "save_id": "w3_2",
+   "saved": false
+  }
+ ],
+ "seals": [],
+ "spots": [
+  {
+   "id": "w3/g1/r228",
+   "name": "playerLocationShape2",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r680",
+   "name": "W1_W3b",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r682",
+   "name": "W1_W3a",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r684",
+   "name": "W1_W3d",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r686",
+   "name": "W1_W3c",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r688",
+   "name": "startspot",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r1263",
+   "name": "W1_W3_Boss",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r1551",
+   "name": "AquaDome",
+   "teleport_gate": null
+  },
+  {
+   "id": "w3/g1/r2126",
+   "name": "AHoseShape1",
+   "teleport_gate": null
+  }
+ ],
+ "teleporters": []
+}

@@ -1,0 +1,60 @@
+{
+ "format": "azurik-rando-movement/1",
+ "level": "d1",
+ "certs": [
+  {"dh": -0.1, "gap": 0.71, "rank": 0, "run": true, "runup": 0.35},
+  {"dh": -1.03, "gap": 0.25, "rank": 0, "run": true, "runup": 0.12, "walk_off": true},
+  {"dh": -1.24, "gap": 0.25, "rank": 0, "run": true, "runup": 0.12, "walk_off": true},
+  {"dh": -1.6, "gap": 0.12, "rank": 0, "run": false, "runup": 0.38, "walk_off": true},
+  {"dh": -1.6, "gap": 16.1, "rank": 3, "run": false, "runup": 0.87},
+  {"dh": -1.6, "gap": 30.58, "rank": 3, "run": true, "runup": 0.87},
+  {"dh": -1.71, "gap": 0.9, "rank": 0, "run": false, "runup": 0.34},
+  {"dh": -1.83, "gap": 0.71, "rank": 0, "run": true, "runup": 0.35},
+  {"dh": -10.69, "gap": 0.5, "rank": 0, "run": true, "runup": 0.88},
+  {"dh": -10.8, "gap": 6.94, "rank": 0, "run": false, "runup": 0.37, "walk_off": true},
+  {"dh": -11.02, "gap": 0.25, "rank": 0, "run": true, "runup": 0.35, "walk_off": true},
+  {"dh": -11.6, "gap": 8.2, "rank": 0, "run": true, "runup": 0.37},
+  {"dh": -15.27, "gap": 9.99, "rank": 1, "run": false, "runup": 0.37},
+  {"dh": -16.12, "gap": 55.69, "headroom": 422.98, "rank": 3, "room_end": 447.45, "room_start": 418.86, "run": true, "runup": 0.37},
+  {"dh": -16.16, "gap": 52.69, "rank": 3, "run": true, "runup": 0.37},
+  {"dh": -4.57, "gap": 4.5, "rank": 0, "run": true, "runup": 0.12},
+  {"dh": -6.65, "gap": 5.25, "rank": 0, "run": true, "runup": 2.62, "walk_off": true},
+  {"dh": -6.89, "gap": 0.12, "rank": 0, "run": true, "runup": 0.38, "slope": 0.06, "walk_off": true},
+  {"dh": -8.5, "flaps": 0, "gap": 12.68, "headroom": 32.86, "rank": 0, "room_end": 34.26, "room_start": 29.83, "run": true, "runup": 1.62},
+  {"dh": -9.03, "gap": 8.78, "rank": 0, "run": true, "runup": 0.37},
+  {"dh": -9.65, "gap": 0.0, "rank": 0, "run": true, "runup": 0.5},
+  {"dh": -9.89, "gap": 2.8, "rank": 0, "run": false, "runup": 0.36, "slope": 0.27, "walk_off": true},
+  {"dh": 0.0, "gap": 0.5, "rank": 0, "run": true, "runup": 0.38},
+  {"dh": 0.53, "flaps": 0, "gap": 0.0, "headroom": 9.16, "rank": 0, "rim": 0.5, "room_end": 6.14, "room_start": 7.78, "run": true, "runup": 0.38},
+  {"dh": 0.7, "flaps": 0, "gap": 0.0, "headroom": 375.58, "rank": 0, "rim": 0.5, "room_end": 373.28, "room_start": 372.56, "run": true, "runup": 0.38},
+  {"dh": 0.89, "gap": 0.5, "rank": 0, "run": false, "runup": 0.38},
+  {"dh": 1.6, "gap": 0.9, "headroom": 4.69, "rank": 1, "room_end": 1.52, "room_start": 0.45, "run": true, "runup": 0.34},
+  {"dh": 1.6, "gap": 1.9, "rank": 1, "run": true, "runup": 1.54},
+  {"dh": 1.6, "gap": 16.46, "rank": 3, "run": false, "runup": 0.37},
+  {"dh": 1.71, "gap": 0.9, "rank": 1, "run": true, "runup": 0.34},
+  {"dh": 2.22, "gap": 9.37, "rank": 3, "run": false, "runup": 0.37}
+ ],
+ "edges": [
+  {"from": "d1_floor9", "to": "d1_z038", "difficulty": 1, "confidence": "assumed", "terms": [["true", [25]]]},
+  {"from": "d1_z017", "to": "d1_z018", "difficulty": 1, "confidence": "physics", "terms": [["true", [9, 16, 21]]]},
+  {"from": "d1_z017", "to": "d1_z079", "difficulty": 1, "confidence": "assumed", "terms": [["true", [15]]]},
+  {"from": "d1_z017", "to": "d1_z428", "difficulty": 1, "confidence": "assumed", "terms": [["air>=1", [29]]]},
+  {"from": "d1_z018", "to": "d1_z017", "difficulty": 1, "confidence": "assumed", "terms": [["true", [8, 17]]]},
+  {"from": "d1_z018", "to": "d1_z025", "difficulty": 1, "confidence": "physics", "terms": [["air>=3", [10, 13, 18]]]},
+  {"from": "d1_z038", "to": "d1_floor9", "difficulty": 1, "confidence": "assumed", "terms": [["true", [7]]]},
+  {"from": "d1_z079", "to": "d1_z018", "difficulty": 1, "confidence": "assumed", "terms": [["true", [0]]]},
+  {"from": "d1_z121", "to": "d1_z079", "difficulty": 1, "confidence": "assumed", "terms": [["true", [22]]]},
+  {"from": "d1_z219", "to": "d1_z267", "difficulty": 1, "confidence": "assumed", "terms": [["air>=1", [27]]]},
+  {"from": "d1_z219", "to": "d1_z267", "difficulty": 1, "confidence": "physics", "terms": [["air>=1", [26]]]},
+  {"from": "d1_z267", "to": "d1_z219", "difficulty": 1, "confidence": "data", "terms": [["true", [3]]]},
+  {"from": "d1_z428", "to": "d1_z017", "difficulty": 1, "confidence": "assumed", "terms": [["true", [6]]]},
+  {"from": "d1_z428", "to": "d1_z025", "difficulty": 1, "confidence": "assumed", "terms": [["air>=3", [4, 5, 11, 12, 14, 19, 20, 28, 30]]]}
+ ],
+ "nodes": {
+  "d1_z000": [1, 23],
+  "d1_z017": [2, 24]
+ },
+ "jumps": {
+  "d1/g0/r1090": 0.8
+ }
+}

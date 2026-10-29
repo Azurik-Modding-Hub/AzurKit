@@ -1,0 +1,3555 @@
+{
+ "_meta": {
+  "date": "2026-10-12",
+  "format": "azurik-rando-generated/1",
+  "generator": "azurik-mod rando db-extract",
+  "source": {
+   "file": "gamedata/town.xbr",
+   "sha256_12": "0431404edf76",
+   "size": 63224342
+  }
+ },
+ "barriers": [
+  {
+   "contains": [],
+   "damage": "watr",
+   "damage_mix": null,
+   "elements": "W",
+   "id": "town/g1/r1461",
+   "kind": "firewall",
+   "level": 1,
+   "levels_seen": [
+    1
+   ],
+   "name": "FireWall_02",
+   "near_locations": [],
+   "persist": "timed",
+   "requires": "water>=1",
+   "shapes": [
+    "town/g1/r1461"
+   ],
+   "switches": [
+    "town/g1/r1462"
+   ]
+  }
+ ],
+ "bosses": [],
+ "cells": [
+  "TempleCellShape",
+  "MainCellShape",
+  "TrainingRmCellShape",
+  "default cell",
+  "Air_cube_nice:skyCellShape",
+  "SewerCellShape",
+  "PowerDispenserCellShape",
+  "LifeRoomCellShape"
+ ],
+ "counts": {
+  "barriers": 1,
+  "bosses": 0,
+  "exits": 6,
+  "game_states": 5,
+  "geodes": 0,
+  "keylocks": 2,
+  "keylords": 0,
+  "latches": 18,
+  "locations_in_pool": {
+   "cluster": 3,
+   "consumable": 2,
+   "gem": 64,
+   "major": 11,
+   "obsidian": 15
+  },
+  "locations_not_in_pool": 0,
+  "obsidian_locks": 10,
+  "save_points": 1,
+  "seals": 1,
+  "spots": 16,
+  "teleporters": 0
+ },
+ "exits": [
+  {
+   "arrival": "life/g0/r213",
+   "arrival_by": "startspot",
+   "arrival_graph_known": true,
+   "dest": "levels/life",
+   "dest_level": "life",
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "mul(switch[temple:ToLifeField_touch_toggle]{on=touch(temple:ToLifeFieldShape); off=const}.output{w=0.0666667,f=1}, switch[temple:DiscTrigga_Life:Seal_toggle]{on=and(touch(temple:DiscTrigga_Life:SealShape), gs[life fragments]>=3)}.output{w=0.0666667,f=1})",
+   "id": "town/g1/r2973",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "temple:Town_L1_levelSwitch",
+   "spot": "Town_L1"
+  },
+  {
+   "arrival": "e2/g0/r29",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/earth/e2",
+   "dest_level": "e2",
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "touch(MountainExitFieldShape)",
+   "id": "town/g1/r3057",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "toE2_levelSwitch",
+   "spot": "Town_E2"
+  },
+  {
+   "arrival": "f1/g0/r1489",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/fire/f1",
+   "dest_level": "f1",
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "touch(FireExitFieldShape)",
+   "id": "town/g1/r3058",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "toF1_levelSwitch",
+   "spot": "Town_F1"
+  },
+  {
+   "arrival": "d1/g0/r764",
+   "arrival_by": "startspot",
+   "arrival_graph_known": true,
+   "dest": "levels/death/d1",
+   "dest_level": "d1",
+   "dest_string_shared_by": 1,
+   "disc_teleport": null,
+   "gate_hint": "touch(TownExitFieldShape)",
+   "id": "town/g1/r3059",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "toD1_levelSwitch",
+   "spot": "Town_D1"
+  },
+  {
+   "arrival": "w1/g0/r297",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/water/w1",
+   "dest_level": "w1",
+   "dest_string_shared_by": 2,
+   "disc_teleport": null,
+   "gate_hint": "touch(BeachExitFieldShape)",
+   "id": "town/g1/r3060",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "toW1_levelSwitch",
+   "spot": "Town_W1"
+  },
+  {
+   "arrival": "w1/g0/r2238",
+   "arrival_by": "spot",
+   "arrival_graph_known": true,
+   "dest": "levels/water/w1",
+   "dest_level": "w1",
+   "dest_string_shared_by": 2,
+   "disc_teleport": null,
+   "gate_hint": "touch(Town_W1_Falls_levelSwitchFieldShape)",
+   "id": "town/g1/r3061",
+   "kind": "exit",
+   "live": true,
+   "movie": null,
+   "name": "Town_W1_Falls_levelSwitch",
+   "spot": "Town_W1_Waterfall"
+  }
+ ],
+ "game_states": [
+  {
+   "id": "town/g1/r10",
+   "links": [
+    {
+     "to": "temple:templeObsidianLocks:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=9"
+    },
+    {
+     "to": "temple:templeObsidianLocks1:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=19"
+    },
+    {
+     "to": "temple:templeObsidianLocks2:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=29"
+    },
+    {
+     "to": "temple:templeObsidianLocks3:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=39"
+    },
+    {
+     "to": "temple:templeObsidianLocks4:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=49"
+    },
+    {
+     "to": "temple:templeObsidianLocks5:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=59"
+    },
+    {
+     "to": "temple:templeObsidianLocks6:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=69"
+    },
+    {
+     "to": "temple:templeObsidianLocks7:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=79"
+    },
+    {
+     "to": "temple:templeObsidianLocks8:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=89"
+    },
+    {
+     "to": "temple:templeObsidianLocks9:public_LockedLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": "<=99"
+    },
+    {
+     "to": "temple:templeObsidianLocks:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=10"
+    },
+    {
+     "to": "temple:templeObsidianLocks1:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=20"
+    },
+    {
+     "to": "temple:templeObsidianLocks2:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=30"
+    },
+    {
+     "to": "temple:templeObsidianLocks3:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=40"
+    },
+    {
+     "to": "temple:templeObsidianLocks4:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=50"
+    },
+    {
+     "to": "temple:templeObsidianLocks5:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=60"
+    },
+    {
+     "to": "temple:templeObsidianLocks6:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=70"
+    },
+    {
+     "to": "temple:templeObsidianLocks7:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=80"
+    },
+    {
+     "to": "temple:templeObsidianLocks8:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=90"
+    },
+    {
+     "to": "temple:templeObsidianLocks9:public_OpenLock_andCombiner.inputs[1]",
+     "var": "Obsidians",
+     "when": ">=100"
+    }
+   ],
+   "name": "temple:ObsidianCounter_gameState",
+   "vars": [
+    "Obsidians"
+   ]
+  },
+  {
+   "id": "town/g1/r289",
+   "links": [
+    {
+     "to": "temple:SealHelp_andCombiner.inputs[1]",
+     "var": "life fragments",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:DiscTrigga_Life:SealActivate_andCombiner.inputs[1]",
+     "var": "life fragments",
+     "when": ">=3"
+    }
+   ],
+   "name": "temple:DiscTrigga_Life:SealFragmentNumber_gameState",
+   "vars": [
+    "life fragments"
+   ]
+  },
+  {
+   "id": "town/g1/r1086",
+   "links": [
+    {
+     "to": "Air_cube_nice:day_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:daycloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "(0.217,0.75)"
+    },
+    {
+     "to": "Air_cube_nice:night_cubeShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_topShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:nightcloud_bottomShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:StarfieldShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "Air_cube_nice:GasplanetShape.gameVisible",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "night_lightShape.colorR",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "night_lightShape.colorG",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    },
+    {
+     "to": "night_lightShape.colorB",
+     "var": "day night timer",
+     "when": "[0,0.25)|(0.717,1)"
+    }
+   ],
+   "name": "Air_cube_nice:gameState1",
+   "vars": [
+    "day night timer"
+   ]
+  },
+  {
+   "id": "town/g1/r1303",
+   "links": [
+    {
+     "to": "LifeDiskPlaced_latch.update",
+     "var": "life fragments",
+     "when": ">=4"
+    }
+   ],
+   "name": "LifeRealmFixed_gameState",
+   "vars": [
+    "life fragments"
+   ]
+  },
+  {
+   "id": "town/g1/r2979",
+   "links": [
+    {
+     "to": "temple:hint_andCombiner1.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_andCombiner2.inputs[1]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_andCombiner3.inputs[1]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_andCombiner4.inputs[1]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_andCombiner5.inputs[1]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_andCombiner6.inputs[1]",
+     "var": "air level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_andCombiner7.inputs[1]",
+     "var": "earth level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_andCombiner8.inputs[1]",
+     "var": "fire level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_andCombiner9.inputs[1]",
+     "var": "water level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_andCombiner10.inputs[1]",
+     "var": "air level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_andCombiner11.inputs[1]",
+     "var": "earth level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner1.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner2.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner2.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner3.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner3.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner3.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner4.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner4.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner4.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner4.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner5.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner5.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner5.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner5.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner5.inputs[5]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner6.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner6.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner6.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner6.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner6.inputs[5]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner6.inputs[6]",
+     "var": "air level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner7.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner7.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner7.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner7.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner7.inputs[5]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner7.inputs[6]",
+     "var": "air level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner7.inputs[7]",
+     "var": "earth level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[5]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[6]",
+     "var": "air level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[7]",
+     "var": "earth level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner8.inputs[8]",
+     "var": "fire level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[5]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[6]",
+     "var": "air level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[7]",
+     "var": "earth level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[8]",
+     "var": "fire level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner9.inputs[9]",
+     "var": "water level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[5]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[6]",
+     "var": "air level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[7]",
+     "var": "earth level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[8]",
+     "var": "fire level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[9]",
+     "var": "water level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner10.inputs[10]",
+     "var": "air level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[1]",
+     "var": "fire level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[2]",
+     "var": "air level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[3]",
+     "var": "earth level",
+     "when": "<=0"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[4]",
+     "var": "water level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[5]",
+     "var": "fire level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[6]",
+     "var": "air level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[7]",
+     "var": "earth level",
+     "when": "<=1"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[8]",
+     "var": "fire level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[9]",
+     "var": "water level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[10]",
+     "var": "air level",
+     "when": "<=2"
+    },
+    {
+     "to": "temple:hint_norCombiner11.inputs[11]",
+     "var": "earth level",
+     "when": "<=2"
+    }
+   ],
+   "name": "temple:WhichHint_gameState",
+   "vars": [
+    "air level",
+    "earth level",
+    "fire level",
+    "water level"
+   ]
+  }
+ ],
+ "geodes": [],
+ "graphs": [
+  {
+   "g": 0,
+   "links": 11,
+   "ndbg_toc_index": 3,
+   "padding_after": 6412,
+   "records": 32,
+   "saved_nodes": 0,
+   "toc_index": 7
+  },
+  {
+   "g": 1,
+   "links": 1101,
+   "ndbg_toc_index": 3408,
+   "padding_after": 3696,
+   "records": 3072,
+   "saved_nodes": 118,
+   "toc_index": 3409
+  }
+ ],
+ "keylocks": [
+  {
+   "coded": true,
+   "consumes": "key.obsidian2",
+   "drives": {
+    "motion": 2
+   },
+   "drives_out": [
+    "InfinitePower_toggle.turnOn"
+   ],
+   "id": "town/g1/r1387",
+   "key_fourcc": "t1k2",
+   "key_type": "key_obsidian2",
+   "lock_toggle": "town/g1/r1388",
+   "namespace": "life_keylock1",
+   "records": 14,
+   "requires": "key.obsidian2>=1",
+   "saved": true,
+   "trigger": "town/g1/r1387"
+  },
+  {
+   "coded": true,
+   "consumes": "key.obsidian1",
+   "drives": {
+    "motion": 2
+   },
+   "drives_out": [
+    "InfiniteHealth_toggle.turnOn"
+   ],
+   "id": "town/g1/r1413",
+   "key_fourcc": "t1k1",
+   "key_type": "key_obsidian1",
+   "lock_toggle": "town/g1/r1414",
+   "namespace": "life_keylock",
+   "records": 14,
+   "requires": "key.obsidian1>=1",
+   "saved": true,
+   "trigger": "town/g1/r1413"
+  }
+ ],
+ "keylords": [],
+ "kind": "hub",
+ "latches": [
+  {
+   "global": "AirRealm_fixed",
+   "id": "town/g1/r441",
+   "input": null,
+   "name": "temple:templeDiskCubbies:AirDiskRestored_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "EarthRealm_fixed",
+   "id": "town/g1/r484",
+   "input": null,
+   "name": "temple:templeDiskCubbies:EarthDiskRestored_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "FireRealm_fixed",
+   "id": "town/g1/r527",
+   "input": null,
+   "name": "temple:templeDiskCubbies:FireDiskRestored_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "WaterRealm_fixed",
+   "id": "town/g1/r570",
+   "input": null,
+   "name": "temple:templeDiskCubbies:WaterDiskRestored_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "LifeRealm_fixed",
+   "id": "town/g1/r613",
+   "input": null,
+   "name": "temple:templeDiskCubbies:LifeDiskRestored_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "DeathRealm_fixed",
+   "id": "town/g1/r656",
+   "input": null,
+   "name": "temple:templeDiskCubbies:DeathDiskRestored_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "StaffUpgrade2_pickup",
+   "id": "town/g1/r700",
+   "input": null,
+   "name": "temple:StaffUpgrade2_latch",
+   "saved": false,
+   "update": "numDead(power_staff2@temple:templeObsidianLocks7:public_keyShape)"
+  },
+  {
+   "global": "StaffUpgrade1_pickup",
+   "id": "town/g1/r701",
+   "input": null,
+   "name": "temple:StaffUpgrade1_latch",
+   "saved": false,
+   "update": "numDead(power_staff1@temple:templeObsidianLocks3:public_keyShape)"
+  },
+  {
+   "global": "LifeSeal_enable",
+   "id": "town/g1/r702",
+   "input": "switch[temple:DiscTrigga_Life:Seal_toggle]{on=and(touch(temple:DiscTrigga_Life:SealShape), gs[life fragments]>=3)}.goal",
+   "name": "temple:LifeSeal_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "EarthRealm_fixed",
+   "id": "town/g1/r1107",
+   "input": null,
+   "name": "earth1:EarthRealmFixed_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "FireRealm_fixed",
+   "id": "town/g1/r1177",
+   "input": null,
+   "name": "fire1:FireRealmFixed_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "AirRealm_fixed",
+   "id": "town/g1/r1189",
+   "input": null,
+   "name": "air1:AirRealmFixed_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "WaterRealm_fixed",
+   "id": "town/g1/r1222",
+   "input": null,
+   "name": "water2:WaterRealmFixed_latch",
+   "saved": false,
+   "update": null
+  },
+  {
+   "global": "air_disk_placed",
+   "id": "town/g1/r1299",
+   "input": null,
+   "name": "AirDiskPlaced_latch",
+   "saved": false,
+   "update": "global[AirRealm_fixed]"
+  },
+  {
+   "global": "water_disk_placed",
+   "id": "town/g1/r1300",
+   "input": null,
+   "name": "WaterDiskPlaced_latch",
+   "saved": false,
+   "update": "global[WaterRealm_fixed]"
+  },
+  {
+   "global": "fire_disk_placed",
+   "id": "town/g1/r1301",
+   "input": null,
+   "name": "FireDiskPlaced_latch",
+   "saved": false,
+   "update": "global[FireRealm_fixed]"
+  },
+  {
+   "global": "earth_disk_placed",
+   "id": "town/g1/r1302",
+   "input": null,
+   "name": "EarthDiskPlaced_latch",
+   "saved": false,
+   "update": "global[EarthRealm_fixed]"
+  },
+  {
+   "global": "life_disk_placed",
+   "id": "town/g1/r1304",
+   "input": null,
+   "name": "LifeDiskPlaced_latch",
+   "saved": false,
+   "update": "gs[life fragments]>=4"
+  }
+ ],
+ "level": "town",
+ "locations": [
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r11"
+   ],
+   "id": "town/g1/r15",
+   "item": "power_life",
+   "name": "temple:templeObsidianLocks:public_keyShape",
+   "name_ref": {
+    "field": 58591056,
+    "length": 10,
+    "string": 58861020
+   },
+   "namespace": "temple:templeObsidianLocks",
+   "obsidian_lock": "town/g1/r11",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_life",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r36"
+   ],
+   "id": "town/g1/r40",
+   "item": "key_obsidian1",
+   "name": "temple:templeObsidianLocks1:public_keyShape",
+   "name_ref": {
+    "field": 58593132,
+    "length": 13,
+    "string": 58862728
+   },
+   "namespace": "temple:templeObsidianLocks1",
+   "obsidian_lock": "town/g1/r36",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks1:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "key_obsidian1",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r61"
+   ],
+   "id": "town/g1/r65",
+   "item": "power_life",
+   "name": "temple:templeObsidianLocks2:public_keyShape",
+   "name_ref": {
+    "field": 58595208,
+    "length": 10,
+    "string": 58861020
+   },
+   "namespace": "temple:templeObsidianLocks2",
+   "obsidian_lock": "town/g1/r61",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks2:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_life",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r86"
+   ],
+   "id": "town/g1/r90",
+   "item": "power_staff1",
+   "name": "temple:templeObsidianLocks3:public_keyShape",
+   "name_ref": {
+    "field": 58597284,
+    "length": 12,
+    "string": 58866024
+   },
+   "namespace": "temple:templeObsidianLocks3",
+   "obsidian_lock": "town/g1/r86",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks3:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_staff1",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r111"
+   ],
+   "id": "town/g1/r115",
+   "item": "power_life",
+   "name": "temple:templeObsidianLocks4:public_keyShape",
+   "name_ref": {
+    "field": 58599360,
+    "length": 10,
+    "string": 58861020
+   },
+   "namespace": "temple:templeObsidianLocks4",
+   "obsidian_lock": "town/g1/r111",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks4:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_life",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r136"
+   ],
+   "id": "town/g1/r140",
+   "item": "key_obsidian2",
+   "name": "temple:templeObsidianLocks5:public_keyShape",
+   "name_ref": {
+    "field": 58601436,
+    "length": 13,
+    "string": 58869296
+   },
+   "namespace": "temple:templeObsidianLocks5",
+   "obsidian_lock": "town/g1/r136",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks5:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "key_obsidian2",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r161"
+   ],
+   "id": "town/g1/r165",
+   "item": "power_life",
+   "name": "temple:templeObsidianLocks6:public_keyShape",
+   "name_ref": {
+    "field": 58603512,
+    "length": 10,
+    "string": 58861020
+   },
+   "namespace": "temple:templeObsidianLocks6",
+   "obsidian_lock": "town/g1/r161",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks6:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_life",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r186"
+   ],
+   "id": "town/g1/r190",
+   "item": "power_staff2",
+   "name": "temple:templeObsidianLocks7:public_keyShape",
+   "name_ref": {
+    "field": 58605588,
+    "length": 12,
+    "string": 58872592
+   },
+   "namespace": "temple:templeObsidianLocks7",
+   "obsidian_lock": "town/g1/r186",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks7:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_staff2",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r211"
+   ],
+   "id": "town/g1/r215",
+   "item": "power_life",
+   "name": "temple:templeObsidianLocks8:public_keyShape",
+   "name_ref": {
+    "field": 58607664,
+    "length": 10,
+    "string": 58861020
+   },
+   "namespace": "temple:templeObsidianLocks8",
+   "obsidian_lock": "town/g1/r211",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks8:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_life",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [
+    "town/g1/r236"
+   ],
+   "id": "town/g1/r240",
+   "item": "power_ammo",
+   "name": "temple:templeObsidianLocks9:public_keyShape",
+   "name_ref": {
+    "field": 58609740,
+    "length": 10,
+    "string": 58875864
+   },
+   "namespace": "temple:templeObsidianLocks9",
+   "obsidian_lock": "town/g1/r236",
+   "on_load": true,
+   "parent": "temple:templeObsidianLocks9:public_key",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "power_ammo",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "PowerDispenserCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [
+    "town/g1/r1402 InfiniteChromatic_numDeadCounter_damper.output"
+   ],
+   "gated_by": [],
+   "id": "town/g1/r1403",
+   "item": "all_fuel",
+   "name": "InfiniteChromatic_GeneratorShape",
+   "name_ref": {
+    "field": 58707896,
+    "length": 8,
+    "string": 58953664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "InfiniteChromatic_Generator",
+   "points": 1,
+   "pool": true,
+   "saved": false,
+   "template": "all_fuel",
+   "unbounded": true,
+   "yield": null
+  },
+  {
+   "cell": "LifeRoomCellShape",
+   "class": "consumable",
+   "dead": false,
+   "enabled_by": [
+    "town/g1/r1429 InfiniteLife_numDeadCounter_damper.output"
+   ],
+   "gated_by": [],
+   "id": "town/g1/r1430",
+   "item": "all_health",
+   "name": "InfiniteLife_GeneratorShape",
+   "name_ref": {
+    "field": 58710344,
+    "length": 10,
+    "string": 58955892
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "InfiniteLife_Generator",
+   "points": 1,
+   "pool": true,
+   "saved": false,
+   "template": "all_health",
+   "unbounded": true,
+   "yield": null
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1557",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape3",
+   "name_ref": {
+    "field": 58721176,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator3",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1559",
+   "item": "emerald",
+   "name": "critterGeneratorShape3",
+   "name_ref": {
+    "field": 58721352,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator3",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1561",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape4",
+   "name_ref": {
+    "field": 58721528,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator4",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1563",
+   "item": "emerald",
+   "name": "critterGeneratorShape4",
+   "name_ref": {
+    "field": 58721704,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator4",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1565",
+   "item": "emerald",
+   "name": "critterGeneratorShape49",
+   "name_ref": {
+    "field": 58721880,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator49",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1567",
+   "item": "emerald",
+   "name": "critterGeneratorShape50",
+   "name_ref": {
+    "field": 58722056,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator50",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1569",
+   "item": "emerald",
+   "name": "critters:critterGeneratorShape2",
+   "name_ref": {
+    "field": 58722232,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1571",
+   "item": "emerald",
+   "name": "critterGeneratorShape2",
+   "name_ref": {
+    "field": 58722408,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1573",
+   "item": "emerald",
+   "name": "critterGeneratorShape51",
+   "name_ref": {
+    "field": 58722584,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator51",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1577",
+   "item": "ruby",
+   "name": "critters:critterGeneratorShape12",
+   "name_ref": {
+    "field": 58723000,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator12",
+   "points": 4,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 4
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1580",
+   "item": "ruby",
+   "name": "critters:critterGeneratorShape14",
+   "name_ref": {
+    "field": 58723296,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator14",
+   "points": 4,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 4
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1582",
+   "item": "ruby",
+   "name": "critters:critterGeneratorShape11",
+   "name_ref": {
+    "field": 58723472,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator11",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1584",
+   "item": "ruby",
+   "name": "critterGeneratorShape11",
+   "name_ref": {
+    "field": 58723648,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator11",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1586",
+   "item": "ruby",
+   "name": "critters:critterGeneratorShape10",
+   "name_ref": {
+    "field": 58723824,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator10",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1588",
+   "item": "ruby",
+   "name": "critterGeneratorShape10",
+   "name_ref": {
+    "field": 58724000,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator10",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "cluster",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1592",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape13",
+   "name_ref": {
+    "field": 58724416,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator13",
+   "points": 3,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 3
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1594",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape6",
+   "name_ref": {
+    "field": 58724592,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator6",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1596",
+   "item": "sapphire",
+   "name": "critterGeneratorShape6",
+   "name_ref": {
+    "field": 58724768,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator6",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1598",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape8",
+   "name_ref": {
+    "field": 58724944,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator8",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1600",
+   "item": "sapphire",
+   "name": "critterGeneratorShape8",
+   "name_ref": {
+    "field": 58725120,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator8",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1602",
+   "item": "sapphire",
+   "name": "critterGeneratorShape48",
+   "name_ref": {
+    "field": 58725296,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator48",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1604",
+   "item": "sapphire",
+   "name": "critters:critterGeneratorShape7",
+   "name_ref": {
+    "field": 58725472,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": "critters",
+   "on_load": true,
+   "parent": "critters:critterGenerator7",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1606",
+   "item": "sapphire",
+   "name": "critterGeneratorShape7",
+   "name_ref": {
+    "field": 58725648,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator7",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "major",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1608",
+   "item": "frag_water_2",
+   "name": "frag_water_Shape2",
+   "name_ref": {
+    "field": 58725824,
+    "length": 12,
+    "string": 58966508
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "frag_water_2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "frag_water_2",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1611",
+   "item": "obsidian",
+   "name": "obsidian5Shape",
+   "name_ref": {
+    "field": 58726120,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian5",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1613",
+   "item": "obsidian",
+   "name": "obsidian6Shape",
+   "name_ref": {
+    "field": 58726296,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian6",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1615",
+   "item": "obsidian",
+   "name": "obsidian7Shape",
+   "name_ref": {
+    "field": 58726472,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian7",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1617",
+   "item": "obsidian",
+   "name": "obsidian9Shape",
+   "name_ref": {
+    "field": 58726648,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian9",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1622",
+   "item": "sapphire",
+   "name": "sappShape",
+   "name_ref": {
+    "field": 58727184,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapp",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1624",
+   "item": "sapphire",
+   "name": "sapp1Shape",
+   "name_ref": {
+    "field": 58727360,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapp1",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1627",
+   "item": "sapphire",
+   "name": "sappShape",
+   "name_ref": {
+    "field": 58727656,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapp",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1629",
+   "item": "sapphire",
+   "name": "sapp2Shape",
+   "name_ref": {
+    "field": 58727832,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapp2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1632",
+   "item": "sapphire",
+   "name": "sapphireShape",
+   "name_ref": {
+    "field": 58728128,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapphire",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1634",
+   "item": "sapphire",
+   "name": "sappShape",
+   "name_ref": {
+    "field": 58728304,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapp",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1637",
+   "item": "sapphire",
+   "name": "sapphireShape",
+   "name_ref": {
+    "field": 58728600,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapphire",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1639",
+   "item": "sapphire",
+   "name": "sappShape",
+   "name_ref": {
+    "field": 58728776,
+    "length": 8,
+    "string": 58965576
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "sapp",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "sapphire",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1643",
+   "item": "emerald",
+   "name": "emerShape",
+   "name_ref": {
+    "field": 58729192,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emer",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1645",
+   "item": "emerald",
+   "name": "emeraldShape",
+   "name_ref": {
+    "field": 58729368,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emerald",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1648",
+   "item": "emerald",
+   "name": "emerShape",
+   "name_ref": {
+    "field": 58729664,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emer",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1650",
+   "item": "emerald",
+   "name": "emer1Shape",
+   "name_ref": {
+    "field": 58729840,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emer1",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1653",
+   "item": "emerald",
+   "name": "emer2Shape",
+   "name_ref": {
+    "field": 58730136,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emer2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1655",
+   "item": "emerald",
+   "name": "emerShape",
+   "name_ref": {
+    "field": 58730312,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emer",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1658",
+   "item": "emerald",
+   "name": "emeraldShape",
+   "name_ref": {
+    "field": 58730608,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emerald",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1660",
+   "item": "emerald",
+   "name": "emerald2Shape",
+   "name_ref": {
+    "field": 58730784,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emerald2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1663",
+   "item": "emerald",
+   "name": "emeraldShape",
+   "name_ref": {
+    "field": 58731080,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emerald",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1665",
+   "item": "emerald",
+   "name": "emerald3Shape",
+   "name_ref": {
+    "field": 58731256,
+    "length": 7,
+    "string": 58963540
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "emerald3",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "emerald",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1669",
+   "item": "ruby",
+   "name": "rubyShape",
+   "name_ref": {
+    "field": 58731672,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "ruby",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1671",
+   "item": "ruby",
+   "name": "ruby1Shape",
+   "name_ref": {
+    "field": 58731848,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "ruby1",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1674",
+   "item": "ruby",
+   "name": "rubyShape",
+   "name_ref": {
+    "field": 58732144,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "ruby",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1676",
+   "item": "ruby",
+   "name": "ruby2Shape",
+   "name_ref": {
+    "field": 58732320,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "ruby2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1679",
+   "item": "ruby",
+   "name": "rubyShape",
+   "name_ref": {
+    "field": 58732616,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "ruby",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1681",
+   "item": "ruby",
+   "name": "ruby3Shape",
+   "name_ref": {
+    "field": 58732792,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "ruby3",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1684",
+   "item": "ruby",
+   "name": "rubyShape",
+   "name_ref": {
+    "field": 58733088,
+    "length": 4,
+    "string": 58964664
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "ruby",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "ruby",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1687",
+   "item": "obsidian",
+   "name": "obsidianShape",
+   "name_ref": {
+    "field": 58733384,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1689",
+   "item": "obsidian",
+   "name": "obsidian1Shape",
+   "name_ref": {
+    "field": 58733560,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian1",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1691",
+   "item": "obsidian",
+   "name": "obsidian2Shape",
+   "name_ref": {
+    "field": 58733736,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian2",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1693",
+   "item": "obsidian",
+   "name": "obsidian3Shape",
+   "name_ref": {
+    "field": 58733912,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian3",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "MainCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1695",
+   "item": "obsidian",
+   "name": "obsidian4Shape",
+   "name_ref": {
+    "field": 58734088,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian4",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1699",
+   "item": "diamond",
+   "name": "critterGeneratorShape28",
+   "name_ref": {
+    "field": 58734504,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator28",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1701",
+   "item": "diamond",
+   "name": "critterGeneratorShape29",
+   "name_ref": {
+    "field": 58734680,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator29",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1703",
+   "item": "diamond",
+   "name": "critterGeneratorShape30",
+   "name_ref": {
+    "field": 58734856,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator30",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1705",
+   "item": "diamond",
+   "name": "critterGeneratorShape31",
+   "name_ref": {
+    "field": 58735032,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator31",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1707",
+   "item": "diamond",
+   "name": "critterGeneratorShape32",
+   "name_ref": {
+    "field": 58735208,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator32",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1709",
+   "item": "diamond",
+   "name": "critterGeneratorShape33",
+   "name_ref": {
+    "field": 58735384,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator33",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1711",
+   "item": "diamond",
+   "name": "critterGeneratorShape34",
+   "name_ref": {
+    "field": 58735560,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator34",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1713",
+   "item": "diamond",
+   "name": "critterGeneratorShape35",
+   "name_ref": {
+    "field": 58735736,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator35",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1715",
+   "item": "diamond",
+   "name": "critterGeneratorShape36",
+   "name_ref": {
+    "field": 58735912,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator36",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1717",
+   "item": "diamond",
+   "name": "critterGeneratorShape37",
+   "name_ref": {
+    "field": 58736088,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator37",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1719",
+   "item": "diamond",
+   "name": "critterGeneratorShape38",
+   "name_ref": {
+    "field": 58736264,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator38",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1721",
+   "item": "diamond",
+   "name": "critterGeneratorShape39",
+   "name_ref": {
+    "field": 58736440,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator39",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1723",
+   "item": "diamond",
+   "name": "critterGeneratorShape40",
+   "name_ref": {
+    "field": 58736616,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator40",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1725",
+   "item": "diamond",
+   "name": "critterGeneratorShape41",
+   "name_ref": {
+    "field": 58736792,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator41",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1727",
+   "item": "diamond",
+   "name": "critterGeneratorShape42",
+   "name_ref": {
+    "field": 58736968,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator42",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1729",
+   "item": "diamond",
+   "name": "critterGeneratorShape43",
+   "name_ref": {
+    "field": 58737144,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator43",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1731",
+   "item": "diamond",
+   "name": "critterGeneratorShape44",
+   "name_ref": {
+    "field": 58737320,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator44",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1733",
+   "item": "diamond",
+   "name": "critterGeneratorShape52",
+   "name_ref": {
+    "field": 58737496,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator52",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "gem",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1735",
+   "item": "diamond",
+   "name": "critterGeneratorShape53",
+   "name_ref": {
+    "field": 58737672,
+    "length": 7,
+    "string": 58971584
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator53",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "diamond",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1738",
+   "item": "obsidian",
+   "name": "critterGeneratorShape45",
+   "name_ref": {
+    "field": 58737968,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator45",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1740",
+   "item": "obsidian",
+   "name": "critterGeneratorShape46",
+   "name_ref": {
+    "field": 58738144,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator46",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1742",
+   "item": "obsidian",
+   "name": "critterGeneratorShape47",
+   "name_ref": {
+    "field": 58738320,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator47",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1744",
+   "item": "obsidian",
+   "name": "critterGeneratorShape62",
+   "name_ref": {
+    "field": 58738496,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator62",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "SewerCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1746",
+   "item": "obsidian",
+   "name": "critterGeneratorShape63",
+   "name_ref": {
+    "field": 58738672,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "critterGenerator63",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  },
+  {
+   "cell": "TempleCellShape",
+   "class": "obsidian",
+   "dead": false,
+   "enabled_by": [],
+   "gated_by": [],
+   "id": "town/g1/r1750",
+   "item": "obsidian",
+   "name": "obsidian8Shape",
+   "name_ref": {
+    "field": 58739088,
+    "length": 8,
+    "string": 58966692
+   },
+   "namespace": null,
+   "on_load": true,
+   "parent": "obsidian8",
+   "points": 1,
+   "pool": true,
+   "saved": true,
+   "template": "obsidian",
+   "unbounded": false,
+   "yield": 1
+  }
+ ],
+ "obsidian_locks": [
+  {
+   "id": "town/g1/r11",
+   "locations": [
+    "town/g1/r15"
+   ],
+   "lock": 1,
+   "lock_toggle": "town/g1/r12",
+   "namespace": "temple:templeObsidianLocks",
+   "open_combiner": "town/g1/r11",
+   "requires": "obsidian>=10",
+   "saved": true,
+   "threshold": 10
+  },
+  {
+   "id": "town/g1/r36",
+   "locations": [
+    "town/g1/r40"
+   ],
+   "lock": 2,
+   "lock_toggle": "town/g1/r37",
+   "namespace": "temple:templeObsidianLocks1",
+   "open_combiner": "town/g1/r36",
+   "requires": "obsidian>=20",
+   "saved": true,
+   "threshold": 20
+  },
+  {
+   "id": "town/g1/r61",
+   "locations": [
+    "town/g1/r65"
+   ],
+   "lock": 3,
+   "lock_toggle": "town/g1/r62",
+   "namespace": "temple:templeObsidianLocks2",
+   "open_combiner": "town/g1/r61",
+   "requires": "obsidian>=30",
+   "saved": true,
+   "threshold": 30
+  },
+  {
+   "id": "town/g1/r86",
+   "locations": [
+    "town/g1/r90"
+   ],
+   "lock": 4,
+   "lock_toggle": "town/g1/r87",
+   "namespace": "temple:templeObsidianLocks3",
+   "open_combiner": "town/g1/r86",
+   "requires": "obsidian>=40",
+   "saved": true,
+   "threshold": 40
+  },
+  {
+   "id": "town/g1/r111",
+   "locations": [
+    "town/g1/r115"
+   ],
+   "lock": 5,
+   "lock_toggle": "town/g1/r112",
+   "namespace": "temple:templeObsidianLocks4",
+   "open_combiner": "town/g1/r111",
+   "requires": "obsidian>=50",
+   "saved": true,
+   "threshold": 50
+  },
+  {
+   "id": "town/g1/r136",
+   "locations": [
+    "town/g1/r140"
+   ],
+   "lock": 6,
+   "lock_toggle": "town/g1/r137",
+   "namespace": "temple:templeObsidianLocks5",
+   "open_combiner": "town/g1/r136",
+   "requires": "obsidian>=60",
+   "saved": true,
+   "threshold": 60
+  },
+  {
+   "id": "town/g1/r161",
+   "locations": [
+    "town/g1/r165"
+   ],
+   "lock": 7,
+   "lock_toggle": "town/g1/r162",
+   "namespace": "temple:templeObsidianLocks6",
+   "open_combiner": "town/g1/r161",
+   "requires": "obsidian>=70",
+   "saved": true,
+   "threshold": 70
+  },
+  {
+   "id": "town/g1/r186",
+   "locations": [
+    "town/g1/r190"
+   ],
+   "lock": 8,
+   "lock_toggle": "town/g1/r187",
+   "namespace": "temple:templeObsidianLocks7",
+   "open_combiner": "town/g1/r186",
+   "requires": "obsidian>=80",
+   "saved": true,
+   "threshold": 80
+  },
+  {
+   "id": "town/g1/r211",
+   "locations": [
+    "town/g1/r215"
+   ],
+   "lock": 9,
+   "lock_toggle": "town/g1/r212",
+   "namespace": "temple:templeObsidianLocks8",
+   "open_combiner": "town/g1/r211",
+   "requires": "obsidian>=90",
+   "saved": true,
+   "threshold": 90
+  },
+  {
+   "id": "town/g1/r236",
+   "locations": [
+    "town/g1/r240"
+   ],
+   "lock": 10,
+   "lock_toggle": "town/g1/r237",
+   "namespace": "temple:templeObsidianLocks9",
+   "open_combiner": "town/g1/r236",
+   "requires": "obsidian>=100",
+   "saved": true,
+   "threshold": 100
+  }
+ ],
+ "save_points": [
+  {
+   "do_save": "and(switch[temple:SavePlatform:Save_timeBuffer_toggle]{on=touch(temple:SavePlatform:GlassShape); off=const}.output, timer[temple:SavePlatform:LoadDisable_timer](stored).currentTime)",
+   "id": "town/g1/r339",
+   "name": "temple:SavePlatform:public_gameSaveControlShape",
+   "save_id": "Temple",
+   "saved": false
+  }
+ ],
+ "seals": [
+  {
+   "activate": "town/g1/r290",
+   "activate_also_drives": [],
+   "drives": [
+    "temple:DiscTrigga_Life:SealShape.gameVisible",
+    "temple:DiscTrigga_Life:Smoke_pEmitter01Shape.emitRate",
+    "temple:DiscTrigga_Life:Smoke_pEmitter02Shape.emitRate",
+    "temple:DiscTrigga_Life:Smoke_pEmitter03Shape.emitRate",
+    "temple:DiscTrigga_Life:Smoke_pEmitter04Shape.emitRate",
+    "temple:DiscTrigga_Life:Smoke_pRendererShape_alpha1_timer.enable",
+    "temple:LifeGlow0Shape1.gameVisible",
+    "temple:LifeGlow0Shape2.gameVisible",
+    "temple:LifeGlow0Shape3.gameVisible",
+    "temple:LifeSeal_gameCameraShape.enable",
+    "temple:LifeSeal_latch.input",
+    "temple:ToLifeField_pushZ_timesCombiner.inputs[1]",
+    "temple:Town_L1_levelSwitch_timesCombiner.inputs[1]",
+    "temple:sfx_platform_bossShape.enable"
+   ],
+   "id": "town/g1/r291",
+   "name": "temple:DiscTrigga_Life:Seal_toggle",
+   "requires": "discl>=3",
+   "saved": true,
+   "sets_globals": [
+    "LifeSeal_enable"
+   ],
+   "touch": [
+    "town/g1/r288 temple:DiscTrigga_Life:SealShape.touch"
+   ]
+  }
+ ],
+ "spots": [
+  {
+   "id": "town/g1/r320",
+   "name": "L1_Town",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1274",
+   "name": "D1_TownShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1310",
+   "name": "air_disk_loc",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1313",
+   "name": "earth_disk_loc",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1316",
+   "name": "fire_disk_loc",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1319",
+   "name": "water_disk_loc",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1322",
+   "name": "life_disk_loc",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1325",
+   "name": "death_disk_loc",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1363",
+   "name": "LifeRoomShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1365",
+   "name": "PowerLocatorShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1367",
+   "name": "startspotShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1436",
+   "name": "W1_TownShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1438",
+   "name": "W1_Town_WaterfallShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1448",
+   "name": "E2_TownShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1519",
+   "name": "F1_TownShape",
+   "teleport_gate": null
+  },
+  {
+   "id": "town/g1/r1898",
+   "name": "TrainingRoomShape",
+   "teleport_gate": null
+  }
+ ],
+ "teleporters": []
+}

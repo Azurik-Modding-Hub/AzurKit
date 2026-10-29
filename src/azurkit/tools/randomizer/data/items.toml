@@ -1,0 +1,398 @@
+# Imported at Step R1.4 from the R0 evidence repo @ 4b8f3f3 (db-draft/items.toml), format keys /1; R0's scripts stay there.
+# Below, FORMAT is docs/RANDOMIZER_DB.md, db-draft/ is azurik_mod/randomizer/data/, and R0's checks (db_check.py,
+# tricks_check.py) are `azurik-mod rando check`.
+# items.toml: item -> counters and classes (DRAFT, R0.6, 2026-10-11). Spec: db-draft/FORMAT.md section 6.
+# Names: config.xbr critters_item_data (73 entries) [verified, census config.item_inv_types]; classes: RANDOMIZER_PLAN 3.3.
+# '_move' templates count as their base item (R0.3-prep). Placed counts are generated facts and appear only in comments.
+
+format = "azurik-rando-items/1"  # prefilled
+
+[counters]  # prefilled
+air = "air power level"  # prefilled
+water = "water power level"  # prefilled
+fire = "fire power level"  # prefilled
+earth = "earth power level"  # prefilled
+disca = "air fragments held"  # prefilled
+discw = "water fragments held"  # prefilled
+discf = "fire fragments held"  # prefilled
+disce = "earth fragments held"  # prefilled
+discl = "life fragments held"  # prefilled
+obsidian = "obsidians"  # prefilled
+sapphire = "sapphires"  # prefilled
+emerald = "emeralds"  # prefilled
+ruby = "rubies"  # prefilled
+diamond = "diamonds"  # prefilled
+life = "power_life upgrades"  # prefilled
+staff = "staff upgrades"  # prefilled
+ammo = "power_ammo upgrades"  # prefilled
+# key.<type> counters are implicit: one per key item, named after it without 'key_' (key.battery, key.life1, ...)
+
+[[item]]  # prefilled
+name = "all_fuel"  # prefilled: 23 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "all_health"  # prefilled: 1 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "diamond"  # prefilled: 273 pool location(s) in vanilla
+counters = {"diamond" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "diamond_move"  # prefilled: 12 pool location(s) in vanilla
+base = "diamond"  # prefilled
+counters = {"diamond" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "emerald"  # prefilled: 311 pool location(s) in vanilla
+counters = {"emerald" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "emerald_move"  # prefilled: 8 pool location(s) in vanilla
+base = "emerald"  # prefilled
+counters = {"emerald" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_air_1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disca" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_air_2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disca" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_air_3"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disca" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_air_4"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disca" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_earth_1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disce" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_earth_2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disce" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_earth_3"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disce" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_earth_4"  # prefilled: 1 pool location(s) in vanilla
+counters = {"disce" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_fire_1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discf" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_fire_2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discf" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_fire_3"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discf" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_fire_4"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discf" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_life_1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discl" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_life_2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discl" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_life_3"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discl" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_life_4"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discl" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_water_1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discw" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_water_2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discw" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_water_3"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discw" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "frag_water_4"  # prefilled: 1 pool location(s) in vanilla
+counters = {"discw" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_air1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.air1" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_air2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.air2" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_air3"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.air3" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_battery"  # prefilled: 6 pool location(s) in vanilla
+counters = {"key.battery" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_blue"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.blue" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_circuitboard"  # prefilled: 2 pool location(s) in vanilla
+counters = {"key.circuitboard" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_diamondbattery"  # prefilled: 3 pool location(s) in vanilla
+counters = {"key.diamondbattery" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_fire1"  # prefilled: 6 pool location(s) in vanilla
+counters = {"key.fire1" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_fire2"  # prefilled: 0 pool location(s) in vanilla
+counters = {"key.fire2" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_fire3"  # prefilled: 0 pool location(s) in vanilla
+counters = {"key.fire3" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_fuse"  # prefilled: 2 pool location(s) in vanilla
+counters = {"key.fuse" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_gear"  # prefilled: 3 pool location(s) in vanilla
+counters = {"key.gear" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_green"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.green" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_lens"  # prefilled: 6 pool location(s) in vanilla
+counters = {"key.lens" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_life1"  # prefilled: 3 pool location(s) in vanilla
+counters = {"key.life1" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_obsidian1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.obsidian1" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_obsidian2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.obsidian2" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_red"  # prefilled: 1 pool location(s) in vanilla
+counters = {"key.red" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_water1"  # prefilled: 0 pool location(s) in vanilla
+counters = {"key.water1" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "key_water2"  # prefilled: 0 pool location(s) in vanilla
+counters = {"key.water2" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "large_air_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "large_chromatic_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "large_earth_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "large_fire_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "large_health"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "large_water_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "obsidian"  # prefilled: 96 pool location(s) in vanilla
+counters = {"obsidian" = 1}  # prefilled
+class = "progression_counted"  # prefilled
+
+[[item]]  # prefilled
+name = "obsidian_move"  # prefilled: 4 pool location(s) in vanilla
+base = "obsidian"  # prefilled
+counters = {"obsidian" = 1}  # prefilled
+class = "progression_counted"  # prefilled
+
+[[item]]  # prefilled
+name = "power_air"  # prefilled: 3 pool location(s) in vanilla
+counters = {"air" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "power_ammo"  # prefilled: 1 pool location(s) in vanilla
+counters = {"ammo" = 1}  # prefilled
+class = "useful"  # prefilled
+
+[[item]]  # prefilled
+name = "power_earth"  # prefilled: 3 pool location(s) in vanilla
+counters = {"earth" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "power_fire"  # prefilled: 3 pool location(s) in vanilla
+counters = {"fire" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "power_life"  # prefilled: 5 pool location(s) in vanilla
+counters = {"life" = 1}  # prefilled
+class = "useful"  # prefilled
+
+[[item]]  # prefilled
+name = "power_staff1"  # prefilled: 1 pool location(s) in vanilla
+counters = {"staff" = 1}  # prefilled
+class = "useful"  # prefilled
+
+[[item]]  # prefilled
+name = "power_staff2"  # prefilled: 1 pool location(s) in vanilla
+counters = {"staff" = 1}  # prefilled
+class = "useful"  # prefilled
+
+[[item]]  # prefilled
+name = "power_water"  # prefilled: 2 pool location(s) in vanilla
+counters = {"water" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "power_water_a3"  # prefilled: 1 pool location(s) in vanilla
+counters = {"water" = 1}  # prefilled
+class = "progression"  # prefilled
+
+[[item]]  # prefilled
+name = "ruby"  # prefilled: 273 pool location(s) in vanilla
+counters = {"ruby" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "ruby_move"  # prefilled: 12 pool location(s) in vanilla
+base = "ruby"  # prefilled
+counters = {"ruby" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "sapphire"  # prefilled: 312 pool location(s) in vanilla
+counters = {"sapphire" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "sapphire_move"  # prefilled: 14 pool location(s) in vanilla
+base = "sapphire"  # prefilled
+counters = {"sapphire" = 1}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "small_air_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "small_chromatic_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "small_earth_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "small_fire_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "small_health"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled
+
+[[item]]  # prefilled
+name = "small_water_fuel"  # prefilled: 0 pool location(s) in vanilla
+counters = {}  # prefilled
+class = "filler"  # prefilled

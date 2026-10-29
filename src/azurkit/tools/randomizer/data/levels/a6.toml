@@ -1,0 +1,1263 @@
+# levels/a6.toml: written by `azurik-mod rando author a6` (Step R1.8) from generated/a6.json,
+# derived/a6.json.gz, tricks.toml and draft/authoring/a6.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "a6"
+status = "authored"
+known_traps = []
+route = ["a6/g0/r286", "a6/g0/r467", "a6/g0/r470", "a6/g0/r514", "a6/g0/r910", "a6/g0/r912", "a6/g0/r908", "a6/g0/r906", "a6/g0/r914", "a6/g0/r903", "characters/g16/r102"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "a6_arena"
+anchors = ["zone:a6.Z001"]
+locations = ["characters/g16/r102"]
+
+[[node]]
+id = "a6_blue_key"
+anchors = ["zone:a6.Z003"]
+
+[[node]]
+id = "a6_core"
+anchors = ["zone:a6.Z000"]
+
+[[node]]
+id = "a6_field_foot"
+anchors = ["zone:a6.Z004"]
+
+[[node]]
+id = "a6_lift_top"
+anchors = ["zone:a6.Z006"]
+locations = ["a6/g0/r467", "a6/g0/r470", "a6/g0/r514", "a6/g0/r906", "a6/g0/r908", "a6/g0/r914"]
+
+[[node]]
+id = "a6_p60"
+anchors = ["zone:a6.Z034"]
+
+[[node]]
+id = "a6_z005"
+anchors = ["zone:a6.Z005"]
+
+[[node]]
+id = "a6_z008"
+anchors = ["zone:a6.Z008"]
+
+[[node]]
+id = "a6_z010"
+anchors = ["zone:a6.Z010"]
+
+[[node]]
+id = "a6_z012"
+anchors = ["zone:a6.Z012"]
+
+[[node]]
+id = "a6_z013"
+anchors = ["zone:a6.Z013"]
+
+[[node]]
+id = "a6_z021"
+anchors = ["zone:a6.Z021"]
+
+[[node]]
+id = "a6_z022"
+anchors = ["zone:a6.Z022"]
+
+[[node]]
+id = "a6_z028"
+anchors = ["zone:a6.Z028"]
+
+[[node]]
+id = "a6_z030"
+anchors = ["zone:a6.Z030"]
+
+[[node]]
+id = "a6_z057"
+anchors = ["zone:a6.Z057"]
+
+[[node]]
+id = "a6_z079"
+anchors = ["zone:a6.Z079"]
+
+[[node]]
+id = "a6_z080"
+anchors = ["zone:a6.Z080"]
+
+[[node]]
+id = "a6_z082"
+anchors = ["zone:a6.Z082"]
+
+[[node]]
+id = "a6_z088"
+anchors = ["zone:a6.Z088"]
+
+[[node]]
+id = "a6_z089"
+anchors = ["zone:a6.Z089"]
+
+[[node]]
+id = "a6_z094"
+anchors = ["zone:a6.Z094"]
+
+[[node]]
+id = "a6_z095"
+anchors = ["zone:a6.Z095"]
+
+[[node]]
+id = "a6_z096"
+anchors = ["zone:a6.Z096"]
+
+[[node]]
+id = "a6_z101"
+anchors = ["zone:a6.Z101"]
+
+[[node]]
+id = "a6_z102"
+anchors = ["zone:a6.Z102"]
+
+[[node]]
+id = "a6_z103"
+anchors = ["zone:a6.Z103"]
+
+[[node]]
+id = "a6_z104"
+anchors = ["zone:a6.Z104"]
+
+[[node]]
+id = "a6_z107"
+anchors = ["zone:a6.Z107"]
+
+[[node]]
+id = "a6_z109"
+anchors = ["zone:a6.Z109"]
+
+[[node]]
+id = "a6_z110"
+anchors = ["zone:a6.Z110"]
+
+[[node]]
+id = "a6_z111"
+anchors = ["zone:a6.Z111"]
+
+[[node]]
+id = "a6_z112"
+anchors = ["zone:a6.Z112"]
+
+[[node]]
+id = "a6_z113"
+anchors = ["zone:a6.Z113"]
+
+[[node]]
+id = "a6_z118"
+anchors = ["zone:a6.Z118"]
+
+[[node]]
+id = "a6_z119"
+anchors = ["zone:a6.Z119"]
+
+[[node]]
+id = "a6_z123"
+anchors = ["zone:a6.Z123"]
+
+[[node]]
+id = "a6_z125"
+anchors = ["zone:a6.Z125"]
+
+[[node]]
+id = "a6_z205"
+anchors = ["zone:a6.Z205"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "a6_core"
+to = "a6_field_foot"
+kind = "walk"
+requires = "air>=3 & earth>=2 & fire>=3 & water>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z013"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z013"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z022"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z022"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z028"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z028"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z057"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z057"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z080"
+kind = "walk"
+requires = "flag:a6.IceBlock_013.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z082"
+kind = "walk"
+requires = "flag:a6.IceBlock_018.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z089"
+kind = "walk"
+requires = "flag:a6.IceBlock_021.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z094"
+kind = "walk"
+requires = "flag:a6.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z095"
+kind = "walk"
+requires = "flag:a6.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z096"
+kind = "walk"
+requires = "flag:a6.IceBlock_010.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z101"
+kind = "walk"
+requires = "flag:a6.IceBlock_017.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z102"
+kind = "walk"
+requires = "flag:a6.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z103"
+kind = "walk"
+requires = "flag:a6.IceBlock_014.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z104"
+kind = "walk"
+requires = "flag:a6.IceBlock_07.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z107"
+kind = "walk"
+requires = "flag:a6.IceBlock_020.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z109"
+kind = "walk"
+requires = "flag:a6.IceBlock_023.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z110"
+kind = "walk"
+requires = "flag:a6.IceBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z111"
+kind = "walk"
+requires = "flag:a6.IceBlock_011.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z112"
+kind = "walk"
+requires = "flag:a6.IceBlock_09.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z113"
+kind = "walk"
+requires = "flag:a6.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z118"
+kind = "walk"
+requires = "flag:a6.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_core"
+to = "a6_z119"
+kind = "walk"
+requires = "flag:a6.IceBlock_015.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_arena"
+kind = "walk"
+requires = "air>=3 & earth>=3 & fire>=3 & water>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_lift_top"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_p60"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_p60"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_z008"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_z008"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_z010"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_z010"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_z030"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_field_foot"
+to = "a6_z030"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_p60"
+kind = "walk"
+requires = "air>=3 & flag:a6.IceBlock_014.destroyed & flag:a6.IceBlock_015.destroyed & flag:a6.IceBlock_016.destroyed"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_p60"
+kind = "walk"
+requires = "air>=3 & flag:a6.IceBlock_013.destroyed & flag:a6.IceBlock_014.destroyed & flag:a6.IceBlock_015.destroyed"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z010"
+kind = "walk"
+requires = "(air>=3 & flag:a6.IceBlock_010.destroyed & flag:a6.IceBlock_011.destroyed & flag:a6.IceBlock_012.destroyed) | (air>=3 & flag:a6.IceBlock_010.destroyed & flag:a6.IceBlock_011.destroyed & flag:a6.IceBlock_09.destroyed)"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z010"
+kind = "walk"
+requires = "air>=3 & flag:a6.IceBlock_010.destroyed & flag:a6.IceBlock_08.destroyed & flag:a6.IceBlock_09.destroyed"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z030"
+kind = "walk"
+requires = "(air>=3 & flag:a6.IceBlock_019.destroyed & flag:a6.IceBlock_020.destroyed & flag:a6.IceBlock_021.destroyed) | (air>=3 & flag:a6.IceBlock_020.destroyed & flag:a6.IceBlock_021.destroyed & flag:a6.IceBlock_023.destroyed)"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z080"
+kind = "walk"
+requires = "flag:a6.IceBlock_013.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z082"
+kind = "walk"
+requires = "flag:a6.IceBlock_018.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z089"
+kind = "walk"
+requires = "flag:a6.IceBlock_021.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z094"
+kind = "walk"
+requires = "flag:a6.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z095"
+kind = "walk"
+requires = "flag:a6.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z096"
+kind = "walk"
+requires = "flag:a6.IceBlock_010.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z101"
+kind = "walk"
+requires = "flag:a6.IceBlock_017.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z102"
+kind = "walk"
+requires = "flag:a6.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z103"
+kind = "walk"
+requires = "flag:a6.IceBlock_014.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z104"
+kind = "walk"
+requires = "flag:a6.IceBlock_07.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z107"
+kind = "walk"
+requires = "flag:a6.IceBlock_020.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z109"
+kind = "walk"
+requires = "flag:a6.IceBlock_023.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z110"
+kind = "walk"
+requires = "flag:a6.IceBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z111"
+kind = "walk"
+requires = "flag:a6.IceBlock_011.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z112"
+kind = "walk"
+requires = "flag:a6.IceBlock_09.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z113"
+kind = "walk"
+requires = "flag:a6.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z118"
+kind = "walk"
+requires = "flag:a6.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_lift_top"
+to = "a6_z119"
+kind = "walk"
+requires = "flag:a6.IceBlock_015.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_p60"
+to = "a6_blue_key"
+kind = "walk"
+requires = "skip:a6.rjump_platforms"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_p60"
+to = "a6_blue_key"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_p60"
+to = "a6_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a6_p60"
+to = "a6_lift_top"
+kind = "walk"
+requires = "(air>=3 & flag:a6.IceBlock_013.destroyed & flag:a6.IceBlock_014.destroyed & flag:a6.IceBlock_015.destroyed) | (air>=3 & flag:a6.IceBlock_014.destroyed & flag:a6.IceBlock_015.destroyed & flag:a6.IceBlock_016.destroyed)"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_z005"
+to = "a6_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_z005"
+to = "a6_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a6_z008"
+to = "a6_z010"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_z010"
+to = "a6_z008"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_z012"
+to = "a6_z079"
+kind = "walk"
+requires = "flag:a6.AcidBlock_06.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z012"
+to = "a6_z088"
+kind = "walk"
+requires = "flag:a6.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z013"
+to = "a6_z079"
+kind = "walk"
+requires = "flag:a6.AcidBlock_06.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z013"
+to = "a6_z088"
+kind = "walk"
+requires = "flag:a6.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z021"
+to = "a6_z005"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "a6_z022"
+to = "a6_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_z028"
+to = "a6_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "a6_z028"
+to = "a6_core"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "a6_z028"
+to = "a6_z021"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "a6_z030"
+to = "a6_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "a6_z030"
+to = "a6_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "a6_z057"
+to = "a6_z012"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "a6_z079"
+to = "a6_z012"
+kind = "walk"
+requires = "flag:a6.AcidBlock_06.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z079"
+to = "a6_z013"
+kind = "walk"
+requires = "flag:a6.AcidBlock_06.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z079"
+to = "a6_z205"
+kind = "walk"
+requires = "flag:a6.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z080"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_013.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z080"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_013.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z082"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_018.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z082"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_018.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z088"
+to = "a6_z012"
+kind = "walk"
+requires = "flag:a6.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z088"
+to = "a6_z013"
+kind = "walk"
+requires = "flag:a6.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z088"
+to = "a6_z205"
+kind = "walk"
+requires = "flag:a6.AcidBlock_06.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z089"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_021.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z089"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_021.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z094"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z094"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z095"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z095"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_012.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z096"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_010.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z096"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_010.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z101"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_017.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z101"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_017.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z102"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z102"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_019.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z103"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_014.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z103"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_014.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z104"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_07.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z104"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_07.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z107"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_020.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z107"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_020.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z109"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_023.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z109"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_023.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z110"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z110"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_04.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z111"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_011.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z111"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_011.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z112"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_09.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z112"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_09.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z113"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z113"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_08.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z118"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z118"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_016.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z119"
+to = "a6_core"
+kind = "walk"
+requires = "flag:a6.IceBlock_015.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z119"
+to = "a6_lift_top"
+kind = "walk"
+requires = "flag:a6.IceBlock_015.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z205"
+to = "a6_z079"
+kind = "walk"
+requires = "flag:a6.AcidBlock_03.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "a6_z205"
+to = "a6_z088"
+kind = "walk"
+requires = "flag:a6.AcidBlock_06.destroyed"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # A6_A1_levelSwitch -> a1 (startspot); its activate input is 1 only while TreeElevatorToggle's output is 0, and the toggle (lock 1) turns on at the arrival and never off, so the switch is disarmed once the lift starts [verified data: logic_dump a6 TreeElevatorToggle]: a6 is entered one way and left by Killed_levelSwitch or the disc teleport (default taken under D115; the probe sitting owes a look)
+from = "a6_lift_top"
+to = "a1_tree_top"
+kind = "exit"
+exit = "a6/g0/r1567"
+requires = "false"
+confidence = "data"
+
+[[edge]]  # Killed_levelSwitch -> town (spot); and(KilledTouch_timer_toggle (a PushFieldShape touch), numDead(guard_air)) [verified data]
+from = "a6_arena"
+to = "town_z020"
+kind = "exit"
+exit = "a6/g0/r1572"
+requires = "flag:a6.guard_air.killed"
+confidence = "data"
+
+[[edge]]  # PlaceAirDisk_levelSwitch -> town (spot); gs[air fragments]>=4 and the disc not yet placed [verified data]; the 4th fragment is the guardian slot, collected in the arena
+from = "a6_arena"
+to = "town_z020"
+kind = "teleport"
+exit = "a6/g0/r1578"
+disc = "air"
+requires = "disca>=4"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # acidblock acid, generated requires earth>=3 & water>=3, permanent
+id = "a6.AcidBlock_03"
+of = "a6/g0/r476"
+destroy_from = ["a6_z012", "a6_z013", "a6_z079", "a6_z088", "a6_z125", "a6_z205"]
+
+[[barrier]]  # acidblock acid, generated requires earth>=3 & water>=3, permanent
+id = "a6.AcidBlock_06"
+of = "a6/g0/r495"
+destroy_from = ["a6_z012", "a6_z013", "a6_z057", "a6_z079", "a6_z088", "a6_z123", "a6_z205"]
+
+[[barrier]]  # firewall watr, generated requires water>=3, timed
+id = "a6.FireWall_03"
+of = "a6/g0/r520"
+destroy_from = ["a6_z008", "a6_z010"]
+
+[[barrier]]  # firewall watr, generated requires water>=3, timed
+id = "a6.FireWall_04"
+of = "a6/g0/r581"
+destroy_from = ["a6_z008", "a6_z010"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_03"
+of = "a6/g0/r920"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z094", "a6_z109", "a6_z110"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_04"
+of = "a6/g0/r941"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z094", "a6_z104", "a6_z110"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_07"
+of = "a6/g0/r962"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z104", "a6_z110", "a6_z113"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_08"
+of = "a6/g0/r983"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z104", "a6_z112", "a6_z113"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_09"
+of = "a6/g0/r1004"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z096", "a6_z112", "a6_z113"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_010"
+of = "a6/g0/r1025"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z096", "a6_z111", "a6_z112"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_011"
+of = "a6/g0/r1046"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z095", "a6_z096", "a6_z111"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_012"
+of = "a6/g0/r1067"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z080", "a6_z095", "a6_z111"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_013"
+of = "a6/g0/r1088"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z080", "a6_z095", "a6_z103"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_014"
+of = "a6/g0/r1109"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z080", "a6_z103", "a6_z119"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_015"
+of = "a6/g0/r1130"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z103", "a6_z118", "a6_z119"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_016"
+of = "a6/g0/r1151"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z101", "a6_z118", "a6_z119"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_017"
+of = "a6/g0/r1172"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z082", "a6_z101", "a6_z118"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_018"
+of = "a6/g0/r1193"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z082", "a6_z101", "a6_z102"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_019"
+of = "a6/g0/r1214"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z082", "a6_z102", "a6_z107"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_020"
+of = "a6/g0/r1235"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z089", "a6_z102", "a6_z107"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_021"
+of = "a6/g0/r1256"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z089", "a6_z107", "a6_z109"]
+
+[[barrier]]  # iceblock stem, generated requires fire>=3 & water>=3, permanent
+id = "a6.IceBlock_023"
+of = "a6/g0/r1277"
+destroy_from = ["a6_core", "a6_lift_top", "a6_z089", "a6_z094", "a6_z109"]
+
+[[button]]  # keylock, generated requires key.red>=1
+id = "a6.air_keylock2"
+of = "a6/g0/r9"
+at = "a6_core"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.blue>=1
+id = "a6.air_keylock1"
+of = "a6/g0/r31"
+at = "a6_core"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.green>=1
+id = "a6.air_keylock"
+of = "a6/g0/r53"
+at = "a6_core"
+mode = "latch"
+
+[[event]]  # the air guardian, in its arena (migrated requirement kept, default taken under D115; the guard_air probe in the sitting owes what damages it)
+id = "a6.guard_air.killed"
+of = "a6/g0/r1394"
+at = "a6_arena"
+requires = "air>=3 & fire>=3 & water>=3 & earth>=3"
+
+[[location]]
+id = "a6/g0/r467"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_blue on a6.Z003, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a6/g0/r467)"
+
+[[location]]
+id = "a6/g0/r470"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_green on a6.Z012, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a6/g0/r470)"
+
+[[location]]
+id = "a6/g0/r514"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "key_red on a6.Z008, whose node the derive reaches but gives no way back to an exit (an undecoded teleport, ride or slide): the conservative-kit rule (the route's a6/g0/r514)"
+
+[[location]]
+id = "a6/g0/r906"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
+note = "obsidian on a6.Z005, which the derive reaches in no rung at the hard tier: the conservative-kit rule (the route's a6/g0/r906)"
+
+[[location]]
+id = "a6/g0/r908"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
+note = "obsidian on a6.Z021, which the derive reaches in no rung at the hard tier: the conservative-kit rule (the route's a6/g0/r908)"
+
+[[location]]
+id = "a6/g0/r914"
+requires = "air>=3 & water>=3 & fire>=3 & earth>=3 & button:a6.air_keylock & button:a6.air_keylock1 & button:a6.air_keylock2"
+note = "obsidian on a6.Z079, which the derive reaches in no rung at the hard tier: the conservative-kit rule (the route's a6/g0/r914)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "a6.rjump_platforms"
+name = "a6 roll jumps down the platforms"
+tricks = ["rjump"]
+requires = "air>=2"
+difficulty = 3
+status = "in_logic"
+confirmed = { by = "xemu", ref = "rjc5/A6:a6.rjump_platforms" }
+from = "a6_p60"
+to = "a6_blue_key"
+tiers = ["hard", "frame_perfect"]

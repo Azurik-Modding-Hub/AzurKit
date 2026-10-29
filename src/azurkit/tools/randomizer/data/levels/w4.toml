@@ -1,0 +1,422 @@
+# levels/w4.toml: written by `azurik-mod rando author w4` (Step R1.8) from generated/w4.json,
+# derived/w4.json.gz, tricks.toml and draft/authoring/w4.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "w4"
+status = "authored"
+known_traps = []
+route = ["w4/g0/r642", "w4/g0/r645", "w4/g0/r865", "w4/g0/r867", "w4/g0/r869", "w4/g0/r871", "w4/g0/r2303", "w4/g0/r913"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "w4_air_power"
+anchors = ["zone:w4.Z143"]
+locations = ["w4/g0/r674", "w4/g0/r676", "w4/g0/r678"]
+
+[[node]]
+id = "w4_core"
+anchors = ["zone:w4.Z001"]
+locations = ["w4/g0/r2303", "w4/g0/r670", "w4/g0/r672"]
+
+[[node]]
+id = "w4_earth_frag"
+anchors = ["zone:w4.Z148"]
+
+[[node]]
+id = "w4_leaf_e"
+anchors = ["zone:w4.Z153"]
+
+[[node]]
+id = "w4_z006"
+anchors = ["zone:w4.Z006"]
+
+[[node]]
+id = "w4_z014"
+anchors = ["zone:w4.Z014"]
+
+[[node]]
+id = "w4_z036"
+anchors = ["zone:w4.Z036"]
+
+[[node]]
+id = "w4_z044"
+anchors = ["zone:w4.Z044"]
+
+[[node]]
+id = "w4_z051"
+anchors = ["zone:w4.Z051"]
+
+[[node]]
+id = "w4_z096"
+anchors = ["zone:w4.Z096"]
+
+[[node]]
+id = "w4_z151"
+anchors = ["zone:w4.Z149"]
+
+[[node]]
+id = "w4_z158"
+anchors = ["zone:w4.Z156"]
+
+[[node]]
+id = "w4_z160"
+anchors = ["zone:w4.Z158"]
+
+[[node]]
+id = "w4_z164"
+anchors = ["zone:w4.Z162"]
+
+[[node]]
+id = "w4_z483"
+anchors = ["zone:w4.Z475"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "w4_air_power"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_core"
+to = "w4_air_power"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w4_core"
+to = "w4_earth_frag"
+kind = "walk"
+requires = "air>=1 | skip:w4.rjump_frag_earth1"
+confidence = "assumed"
+
+[[edge]]
+from = "w4_core"
+to = "w4_z006"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w4_core"
+to = "w4_z014"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_core"
+to = "w4_z044"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "w4_core"
+to = "w4_z096"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_core"
+to = "w4_z158"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w4_earth_frag"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_leaf_e"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_leaf_e"
+to = "w4_z164"
+kind = "walk"
+requires = "skip:w4.rjump_leaves"
+confidence = "assumed"
+
+[[edge]]
+from = "w4_leaf_e"
+to = "w4_z164"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z006"
+to = "w4_leaf_e"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w4_z006"
+to = "w4_z051"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_z006"
+to = "w4_z151"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z006"
+to = "w4_z160"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z036"
+to = "w4_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "w4_z036"
+to = "w4_leaf_e"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z036"
+to = "w4_z006"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z044"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_z051"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_z051"
+to = "w4_earth_frag"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "w4_z051"
+to = "w4_z006"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z051"
+to = "w4_z036"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "w4_z096"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "w4_z151"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_z151"
+to = "w4_leaf_e"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z158"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_z158"
+to = "w4_z160"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z160"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_z160"
+to = "w4_z036"
+kind = "walk"
+requires = "air>=2"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "w4_z160"
+to = "w4_z151"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z164"
+to = "w4_air_power"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "w4_z164"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "w4_z483"
+to = "w4_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # Level_Switch_W4_F3 -> f3 (spot)
+from = "w4_core"
+to = "f3_z019"
+kind = "exit"
+exit = "w4/g0/r2516"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # LevelSwitch_W4_W1 -> w1 (spot)
+from = "w4_z014"
+to = "w1_bay"
+kind = "exit"
+exit = "w4/g0/r2518"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[event]]  # derived: hit of DiamondStone5:DiamondStoneShape
+id = "w4.DiamondStone5_DiamondStoneShape.hit"
+at = "w4_core"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone6:DiamondStoneShape
+id = "w4.DiamondStone6_DiamondStoneShape.hit"
+at = "w4_core"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone7:DiamondStoneShape
+id = "w4.DiamondStone7_DiamondStoneShape.hit"
+at = "w4_core"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone8:DiamondStoneShape
+id = "w4.DiamondStone8_DiamondStoneShape.hit"
+at = "w4_core"
+requires = "true"
+
+[[event]]  # derived: hit of DiamondStone9:DiamondStoneShape
+id = "w4.DiamondStone9_DiamondStoneShape.hit"
+at = "w4_z006"
+requires = "true"
+
+[[location]]
+id = "w4/g0/r642"
+proven = { by = "data", ref = "rando author: derived/w4.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "w4/g0/r656"
+requires = "air>=1"
+note = "derived: a jump from its zone's floor (how = jump)"
+
+[[location]]
+id = "w4/g0/r865"
+proven = { by = "l3", ref = "r129/c710e413eb55@36defa06abf4" }
+note = "Step R1.29: an L3 input string of 896 ticks (robustness 0.38 under jitter) from w4.Z001 (the snapshot's own spot; placed: R7 hop, R2 kit k0) touches it and comes back; xemu replayed it tick for tick (sitting r129), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "w4/g0/r2303"
+requires = "air>=1"
+note = "no floor within 12 m of it (the derive places it nowhere); the vanilla route takes it after power_air (the route's w4/g0/r913) [web]: air 1 is a default taken under D115 [inferred]"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "w4.rjump_leaves"
+name = "w4 leaf roll jumps to air power 1"
+tricks = ["rjump"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "rjc5/A6:w4.rjump_leaves" }
+from = "w4_leaf_e"
+to = "w4_air_power"
+
+[[skip]]
+id = "w4.pstorage_air_flap"
+name = "w4 stored air flap to frag_earth_1's edge"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "held"
+confirmed = "no"
+from = "w4_core"
+to = "w4_earth_frag"
+
+[[skip]]
+id = "w4.rjump_frag_earth1"
+name = "w4 roll jump to frag_earth_1's ledge (no powers)"
+tricks = ["rjump"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "x67/S04b:w4.rjump_frag_earth1" }
+from = "w4_core"
+to = "w4_earth_frag"

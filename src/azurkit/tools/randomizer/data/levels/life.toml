@@ -1,0 +1,571 @@
+# levels/life.toml: written by `azurik-mod rando author life` (Step R1.8) from generated/life.json,
+# derived/life.json.gz, tricks.toml and draft/authoring/life.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "life"
+status = "authored"
+known_traps = []
+route = ["life/g0/r332", "life/g0/r334", "life/g0/r259"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "life_core"
+anchors = ["zone:life.Z002"]
+locations = ["life/g0/r1067", "life/g0/r1069", "life/g0/r1071", "life/g0/r1073", "life/g0/r1075", "life/g0/r1078", "life/g0/r1080", "life/g0/r1082", "life/g0/r1084", "life/g0/r1086", "life/g0/r1090", "life/g0/r1092", "life/g0/r1094", "life/g0/r1096", "life/g0/r1098", "life/g0/r1101", "life/g0/r1103", "life/g0/r1105", "life/g0/r1107", "life/g0/r1109", "life/g0/r1113", "life/g0/r1115", "life/g0/r1117", "life/g0/r1119", "life/g0/r1121", "life/g0/r1124", "life/g0/r1126", "life/g0/r1128", "life/g0/r1130", "life/g0/r1132", "life/g0/r1136", "life/g0/r1138", "life/g0/r1140", "life/g0/r1142", "life/g0/r1144", "life/g0/r1147", "life/g0/r1149", "life/g0/r1151", "life/g0/r1153", "life/g0/r1155", "life/g0/r1159", "life/g0/r1161", "life/g0/r1163", "life/g0/r1165", "life/g0/r1167", "life/g0/r1170", "life/g0/r1172", "life/g0/r1174", "life/g0/r1176", "life/g0/r1178", "life/g0/r1182", "life/g0/r1185", "life/g0/r1188", "life/g0/r1191", "life/g0/r259", "life/g0/r283", "life/g0/r285", "life/g0/r287", "life/g0/r332", "life/g0/r334", "life/g0/r885", "life/g0/r887", "life/g0/r889", "life/g0/r891", "life/g0/r931", "life/g0/r933", "life/g0/r935", "life/g0/r937"]
+
+[[node]]
+id = "life_lock_a"
+anchors = ["zone:life.Z012"]
+
+[[node]]
+id = "life_lock_b"
+anchors = ["zone:life.Z013"]
+
+[[node]]
+id = "life_pad_a"
+anchors = ["zone:life.Z011"]
+
+[[node]]
+id = "life_pad_b"
+anchors = ["zone:life.Z010"]
+
+[[node]]
+id = "life_ring"
+anchors = ["zone:life.Z001"]
+
+[[node]]
+id = "life_z000"
+anchors = ["zone:life.Z000"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "life_core"
+to = "life_lock_a"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "life_core"
+to = "life_lock_b"
+kind = "walk"
+requires = "air>=2"
+confidence = "probed"
+proven = { by = "xemu", ref = "x28-owner-demos-2026-10-15/trace.jsonl: spot 5, n 88244-91061 (the owner's real input, kit 0)" }
+
+[[edge]]
+from = "life_core"
+to = "life_z000"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "x28-owner-demos-2026-10-15/trace.jsonl: spot 1, n 9255-10242 (the owner's real input, kit 0)" }
+
+[[edge]]
+from = "life_lock_a"
+to = "life_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "life_lock_a"
+to = "life_pad_a"
+kind = "walk"
+requires = "button:life.life_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "life_lock_b"
+to = "life_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "life_lock_b"
+to = "life_pad_b"
+kind = "walk"
+requires = "button:life.life_keylock"
+confidence = "probed"
+proven = { by = "xemu", ref = "x28-owner-demos-2026-10-15/trace.jsonl: spot 5, n 91061-92906 (the owner's real input, kit 0)" }
+
+[[edge]]
+from = "life_pad_a"
+to = "life_lock_a"
+kind = "walk"
+requires = "button:life.life_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "life_pad_a"
+to = "life_ring"
+kind = "walk"
+requires = "event:life.BlockerShape_g0r243.action"
+confidence = "assumed"
+
+[[edge]]
+from = "life_pad_b"
+to = "life_lock_b"
+kind = "walk"
+requires = "button:life.life_keylock"
+confidence = "assumed"
+
+[[edge]]
+from = "life_ring"
+to = "life_core"
+kind = "walk"
+requires = "event:life.Blocker2Shape.action & event:life.BlockerShape_g0r243.action"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "life_ring"
+to = "life_pad_a"
+kind = "walk"
+requires = "event:life.BlockerShape_g0r243.action"
+confidence = "assumed"
+
+[[edge]]
+from = "life_ring"
+to = "life_pad_a"
+kind = "walk"
+requires = "air>=3"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "life_ring"
+to = "life_pad_b"
+kind = "walk"
+requires = "skip:life.rjump_second_switch"
+confidence = "assumed"
+
+[[edge]]
+from = "life_ring"
+to = "life_pad_b"
+kind = "walk"
+requires = "air>=3"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "life_z000"
+to = "life_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # Movie_levelSwitch -> town (spot); and(nand(life_disk_placed), touch(ToTownFieldShape) after timer43, BeamToggle) [verified data]: the beam's field once the filament-core minigame is won (BeamToggle; life.filament_cores.won); with Town_levelSwitch exactly one of the two is armed, so each carries the same requirement (default taken under D115)
+from = "life_core"
+to = "town_z020"
+kind = "exit"
+exit = "life/g0/r1692"
+requires = "event:life.filament_cores.won"
+confidence = "data"
+
+[[edge]]  # Town_levelSwitch -> town (spot); and(life_disk_placed, touch(ToTownFieldShape) after timer43, BeamToggle) [verified data]; as Movie_levelSwitch
+from = "life_core"
+to = "town_z020"
+kind = "exit"
+exit = "life/g0/r1707"
+requires = "event:life.filament_cores.won"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[button]]  # keylock, generated requires key.life1>=1
+id = "life.life_keylock1"
+of = "life/g0/r30"
+at = "life_lock_a"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.life1>=1
+id = "life.life_keylock"
+of = "life/g0/r200"
+at = "life_lock_b"
+mode = "latch"
+
+[[event]]  # both top switches' goals arm the final joystick (FinalJoystickActivateCombiner = FinalSwitch1.goal & FinalSwitch2.goal -> JoysticPadTimer, which lowers the pad that carries the joystick and frag_life_4, LifeFrag4_generator under FinalJoystickPad) [verified data]; no power: the owner pressed a top switch (pad B, FinalSwitch2) with kit 0 and vouches for the other side (D209), and the pad is reached with kit 0 (X.28 spot5-prepad) [verified xemu, the owner's real input; pad A's side placed]
+id = "life.final_joystick.armed"
+at = "life_core"
+requires = "event:life.BlockerShape_g0r243.action & event:life.Blocker2Shape.action"
+
+[[event]]  # the final joystick's minigame [verified data: $RP r0/tools/logic_dump.py life '^(Xnor1|t1|s1|FinalMovieCombiner|BeamToggle|MovieTimer|andCombiner[235]|CrashToggle|LightResetToggle|ResetCombiner)$']: the stick steers the pilot ball (StearingTimer1, SpeedTimer) through the 20 filament cores (pSinks s1-s20 latch t1-t20), and all 20 (andCombiner2 & andCombiner3 -> FinalMovieCombiner) turn BeamToggle on (saved: the beam exits below) and run MovieTimer, which after 24 s takes away the solid ball (pSphereShape25/26, 3.5 m) that holds frag_life_4 on the pad [verified data: the fragment's generator point is inside the ball's mesh]. A touch of a stabilizer stream (pBoxSinks b1-b12), or letting go of the joystick, resets every core (ResetCombiner -> LightResetToggle) and greys the joystick for 5 s (CrashToggle, Xnor1); it is played again: no lockout. It needs nothing past the armed joystick: won with kit 0 too, then the beam's exit taken (Step R1.8n, cores-k0-1). Won in xemu (Step R1.8f, xemu-oracle-2026-10-13-r18f/results/runs.jsonl: cores-live-3, cores-live-4; Minigames.cores, real stick input, three crashes on the way): all 20 cores, BeamToggle on, MovieTimer ran out and the joystick let go; the walk on toward the fragment then ended in town (cores-reward-2; most likely the beam's field, the r1692 exit)
+id = "life.filament_cores.won"
+at = "life_core"
+requires = "event:life.final_joystick.armed"
+
+[[event]]  # derived: action of Blocker2Shape
+id = "life.Blocker2Shape.action"
+at = "life_pad_b"
+requires = "true"
+
+[[event]]  # derived: action of BlockerShape
+id = "life.BlockerShape_g0r243.action"
+at = "life_pad_a"
+requires = "true"
+
+[[event]]  # derived: action of BlockerShape
+id = "life.BlockerShape_g0r419.action"
+at = "life_z000"
+requires = "true"
+
+[[location]]
+id = "life/g0/r259"
+requires = "event:life.filament_cores.won & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "frag_life_4 inside the joystick pad's solid ball until the filament-core minigame is won (life.filament_cores.won; Step R1.8f): the conservative-kit rule after both top switches (the route's life/g0/r259: the vanilla run takes it with both keylocks used; the pads stand in for the locks so the confirmed skip counts). The owner (2026-10-14): \"you drop down onto the beam, and the beam pulls you down into it, and then you get teleported to town after collecting it\". Once the cores are won the beam's column (FieldShape, 2.5 m round the axis, pushEnable by BeamToggle, pushZ -5 [verified data]) runs from the top of the tower down to ToTownFieldShape, the beam exits' trigger (Movie_levelSwitch, Town_levelSwitch below), and the fragment is taken high in the column, over the lowered pad [inferred: it stays where the pad held it before it was lowered]: a drop into the column there carries the player down through it and into that field. In xemu (Step R1.8j, sitting r18j, fragl4-deckdrop-1, -2): from the deck round the pad's old seat at the top of the column, a run off its inner edge with a jump (one flap or none) into the beam took frag_life_4 (fgl4 0 -> 1) and then town, 2 of 2 [verified xemu, placed: the cores' 20 switches latched (Minigames.cores won them in R1.8f and R1.8h, 0 of 1 here at 19 of 20) and R6 onto the deck]; from the lowered pad, a jump and flaps into the column passed 0.5 m from the pad-moved generator point and went to town without it (fragl4-drop-3). So the fragment is collected on a one-way ride whose end is the town exit: it sits at the arrival's node, whose only way out is that exit, and the exit is its way back (the escape takes it). The way up to that deck is the conservative-kit rule's (not run; no demo showed it, so its kit stays when the rest of life drops to kit 0, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r283"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r285"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r287"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r332"
+requires = "air>=2"
+note = "key_life1 (the east key) unplaced, over its key stand at the east wing's end: air 2. The owner (D209): \"to get the keys, you need air power 2\" (the vanilla way: the bottom switches stop the key stands, then the circling platforms' ladder and air; D205). X.27 demo 1 and 2 [verified xemu, the owner's real input from a placed start on the east wing's frame: $EV/x27-owner-demo-2026-10-15/trace.jsonl]: from the frame up the wing's torus with hops (0 flaps), a 2-flap flight onto the key's floor (life.Z122) and a 1-flap hop takes the key (n 11962-12083 at air 3 worn, n 56866-56989 at air 2 worn); no button. At most 2 flaps a flight: air 2 (D183). The way onto the wing's frame from the keylock tier is the climb's (kit 0; not shown in the demo)"
+
+[[location]]
+id = "life/g0/r334"
+requires = "air>=2"
+note = "key_life1 (the west key) unplaced, over its key stand at the west wing's end: air 2, as life/g0/r332. X.27 demo 2 [verified xemu, the owner's real input at air 2, from a placed retry start on the east wing (demo2-key2) with the circling platforms frozen: $EV/x27-owner-demo-2026-10-15/trace.jsonl, n 65070-68023]: along the east wing, 2-flap flights onto the outer ring (life.Z043, Z012, Z280, Z254), a 2-flap flight onto the west wing's glass, its frame and torus, a 2-flap flight to the key's floor (life.Z121) and a 1-flap hop takes the key at n 68023; no button, at most 2 flaps a flight (D183)"
+
+[[location]]
+id = "life/g0/r885"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r887"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r889"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r891"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r931"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r933"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r935"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r937"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1067"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1069"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1071"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1073"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1075"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1078"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1080"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1082"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1084"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1086"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1090"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1092"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1094"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1096"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1098"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1101"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1103"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1105"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1107"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1109"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1113"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1115"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1117"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1119"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1121"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1124"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1126"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1128"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1130"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1132"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1136"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1138"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1140"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1142"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1144"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1147"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1149"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1151"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1153"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1155"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1159"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1161"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1163"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1165"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1167"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1170"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1172"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1174"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1176"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1178"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1182"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "sapphire unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1185"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "emerald unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1188"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "ruby unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+[[location]]
+id = "life/g0/r1191"
+requires = "event:life.final_joystick.armed & air>=3 & water>=3 & fire>=3 & earth>=3"
+note = "diamond unplaced: the conservative-kit rule (off the route: the level's last step, life/g0/r259, after both top switches; no demo showed it, Step R1.8q)"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "life.rjump_second_switch"
+name = "life roll jump to the second top-tier switch"
+tricks = ["rjump"]
+requires = "air>=3"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "rjc5/A6:life.rjump_second_switch" }
+from = "life_ring"
+to = "life_pad_b"
+gates = ["life.life_keylock"]

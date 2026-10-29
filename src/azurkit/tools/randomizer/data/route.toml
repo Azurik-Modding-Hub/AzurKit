@@ -1,0 +1,3627 @@
+# Imported at Step R1.4 from the R0 evidence repo @ 4b8f3f3 (route/vanilla_route.toml), format keys /1; R0's scripts stay there.
+# Below, FORMAT is docs/RANDOMIZER_DB.md, db-draft/ is azurik_mod/randomizer/data/, and R0's checks (db_check.py,
+# tricks_check.py) are `azurik-mod rando check`.
+# route/vanilla_route.toml: the draft vanilla non-gem route (AUTO_LOGIC action 5, desk half), 2026-10-11.
+# DRAFT for the owner's sign-off (RANDOMIZER_PLAN §4.3 Check 2). Written by route/build_route.py; edit the script, not this file.
+# Glitchless: no PSG, no tricks, no out-of-bounds. Powers follow the town temple's hint order.
+# Labels: [data ...] decoded gate (barrier levels [inferred, static] until R0.4b); [web: url] community, unverified (Q257);
+#         [landmark] route/landmarks.json name bands; [migrated] old logic_db edge; [temple]; [inferred]; [assumed] = no source.
+# `requires` uses db-draft/FORMAT.md §5; it is what the step needs locally, checked against the replayed inventory (`ok`).
+# No coordinates: ids, names, counts and requirement strings only (RANDOMIZER_PLAN §4.4).
+
+format = "azurik-rando-route/1"
+status = "draft"
+variant = "glitchless, no PSG"
+location_steps = 203
+action_steps = 74
+replay_problems = 0
+matches_temple_order = true
+power_order = ["water1", "fire1", "air1", "earth1", "water2", "fire2", "air2", "earth2", "fire3", "water3", "air3", "earth3"]
+
+[sources]
+obsidian_list = "https://www.speedrun.com/api/v2/GetGuide?id=a4ktv (SillyGoose, Obsidian% route, 2017-04; follows Rueake Any% (PSG))"
+rueake_notes = "https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU (routing notes, PSG route)"
+forum_100 = "https://www.speedrun.com/api/v2/GetThread?id=hcwpo (area names, gem vectors; Dendris 2021 debug-name route, uses OOB)"
+any_no_psg = "https://www.speedrun.com/api/v1/runs?game=m1m9px62&category=9kvj1gjk (1 run: Jettfighter 2:36:39, 2023-03-25; video has no chapters, no written route found)"
+
+[area_to_level]  # [web, unverified] names -> [inferred] level, with the evidence
+"Beach" = { level = "w1", evidence = "THREAD: How2BEpic names 'W1 (Beach)'; gem vector 25/18/17/(12->15) = w1" }
+"Ring of Fire" = { level = "w2", evidence = "THREAD: gem vector 25/18/17/15 = w2 exactly; Rueake WP1/WD1 'Water Realm intro' = w2 power_water/frag_water_1" }
+"Flower Pods" = { level = "w4", evidence = "Rueake 'Stormy Water Realm' AP1 + ED1 = w4 power_air/frag_earth_1; w4 flowers/fans in data" }
+"Frozen Islands" = { level = "w3", evidence = "Rueake 'Ice Islands' WP2 + FD1 = w3 power_water/frag_fire_1; ICEBREIDGE and Snow_Blower records in w3" }
+"Main Valley" = { level = "e2", evidence = "THREAD gem vector 18/24/16/14 ~ e2 18/25/16/16; ElectricArch L3 (entry 17 'Electro Shield 3') is in e2" }
+"Drill Area" = { level = "e7", evidence = "THREAD gem vector 18/25/16/16 = e7 exactly; DarkRoom cell holds 2 obsidians (entries 23/24)" }
+"Spotlight Area" = { level = "e6", evidence = "THREAD gem vector 17/24/17/16 ~ e6 17/25/17/16; Rueake ED3 'tree spotlights' = e6 frag_earth_3" }
+"Conveyor Belts" = { level = "e5", evidence = "THREAD gem vector 17/27/16/17 ~ e5; conveyor track and Earth Guardian are in e5" }
+"Volcano Area" = { level = "f2", evidence = "entry 38 'past Life Disk Fragment' + silver teleporter = f2 frag_life_3 + f2 Teleporters" }
+"Battle Platform" = { level = "f4", evidence = "THREAD gem vector 19/17/20/19 = f1 or f4; f4 Boss_Platform; Fire Caverns takes f1" }
+"Fire Caverns" = { level = "f1", evidence = "THREAD gem vector 19/17/20/20 ~ f1/f4; f1 Tunnel cells and 3 fire keys ('second key')" }
+"Tesla Trees" = { level = "f3", evidence = "Rueake 'Electrical Forest' ED2 + earth power = f3 frag_earth_2/power_earth; 'second key' = f3 keys" }
+"Guardian's Fortress (fire)" = { level = "f6", evidence = "the only level left with 5 obsidians; entries 49/50 name the Fire Guardian" }
+"Guardian's Fortress (air)" = { level = "a6", evidence = "entries 80/82 'near Earth Power 3', 'green key' = a6 Earth3_generator, key_green" }
+"Water Slides" = { level = "a3", evidence = "a3 SlipDown/SlipStraight/SlipCurve platforms; Rueake 'Rain Machine' slides = a3 power_water_a3/frag_life_2" }
+"Air Tubes" = { level = "a5", evidence = "entries 62/64/65 'smokestack top' = a5 Smokestack platforms; ShipDock cell (entry 61)" }
+"Great Tree" = { level = "a1", evidence = "entry 77 'Air Guardian's fortress entrance' = a1 (A1toA6 exit); a1 key/keylock 'tree' records" }
+"Town" = { level = "town", evidence = "15 obsidians, by name" }
+
+[[step]]
+step = 1
+leg = "w2 first visit"
+level = "w2"
+kind = "location"
+id = "w2/g0/r1346"
+item = "power_water"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Water Power 1: Water Realm intro, needs nothing']", "[data: Damage_FieldShape (watr L1, timed) and HoseStuff (no magic link) within 4: a hose puzzle, not a power, opens it [inferred]]"]
+
+[[step]]
+step = 2
+leg = "w2 first visit"
+level = "w2"
+kind = "location"
+id = "w2/g0/r1355"
+item = "obsidian"
+class = "obsidian"
+requires = "water>=1"
+ok = true
+community = 5
+match = "landmark: FireWall within 20"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #5 'cave behind fire barrier': Water 1]", "[landmark: FireWall within 20]"]
+
+[[step]]
+step = 3
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1617"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 15
+match = "landmark: LifeRoom (health room) within 40"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #15 'hill left of Health room': -]", "[landmark: LifeRoom (health room) within 40]"]
+
+[[step]]
+step = 4
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1611"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 16
+match = "by elimination (harvester, bots nearby)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #16 'left of Earth Realm entrance': -]", "[inferred: by elimination (harvester, bots nearby)]"]
+
+[[step]]
+step = 5
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1687"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 44
+match = "landmark: balthazaar:FrontDoor within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #44 'Balthazar's house, first floor': -]", "[landmark: balthazaar:FrontDoor within 4]"]
+
+[[step]]
+step = 6
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1689"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 45
+match = "landmark: BalthazaarHouse_Ref within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #45 'Balthazar's house, second floor': -]", "[landmark: BalthazaarHouse_Ref within 4]"]
+
+[[step]]
+step = 7
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1691"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 46
+match = "landmark: Town_Houses deck/ladder within 10 (weak)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #46 'third balcony, house near fire shrine path': -]", "[landmark: Town_Houses deck/ladder within 10 (weak)]"]
+
+[[step]]
+step = 8
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1695"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 47
+match = "landmark: Town_Houses door within 10 (weak)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #47 'townsperson's house': -]", "[landmark: Town_Houses door within 10 (weak)]"]
+
+[[step]]
+step = 9
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1693"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 84
+match = "landmark: training door within 40"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #84 'top balcony, house across from training room': -]", "[landmark: training door within 40]"]
+
+[[step]]
+step = 10
+leg = "town first visit"
+level = "town"
+kind = "location"
+id = "town/g1/r1750"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 83
+match = "cell TempleCellShape; temple lift within 20"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #83 'under elevator, temple floors 2-3': before the elevator to floor 3]", "[cell TempleCellShape; temple lift within 20]"]
+
+[[step]]
+step = 11
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r733"
+item = "key_circuitboard"
+class = "major"
+requires = "water>=1"
+ok = true
+sources = ["[landmark: FireWall / ICeBlocker within 20-40]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Earth Realm keys: nothing stated, can be got early']"]
+
+[[step]]
+step = 12
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r735"
+item = "key_circuitboard"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 13
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r737"
+item = "key_gear"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 14
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r739"
+item = "key_gear"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 15
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r4778"
+item = "key_gear"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed; landmark: Lift/Elevator_Midway within 4]"]
+
+[[step]]
+step = 16
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r4415"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 17
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r3960"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 20
+match = "cell TowerRoomCellShape"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #20 'slanted rock, tower bottom': -]", "[cell TowerRoomCellShape]"]
+
+[[step]]
+step = 18
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r4419"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 25
+match = "cell UndergroundForestCellShape ('grotto', weak)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #25 'tube by grotto entrance': -]", "[cell UndergroundForestCellShape ('grotto', weak)]"]
+
+[[step]]
+step = 19
+leg = "e2 Main Valley"
+level = "e2"
+kind = "action"
+action = "use_keylock"
+sets = "button:e2.earth_keylock"
+consumes = "key.circuitboard"
+requires = "key.circuitboard>=1"
+ok = true
+sources = ["[data: generated keylock, key circuitboard; a lock uses one key, 0x58AD0]", "[data: drives MineCarRide2:andCombiner1 (both gondola LockMoves)]"]
+
+[[step]]
+step = 20
+leg = "e2 Main Valley"
+level = "e2"
+kind = "action"
+action = "use_keylock"
+sets = "button:e2.earth_keylock1"
+consumes = "key.circuitboard"
+requires = "key.circuitboard>=1"
+ok = true
+sources = ["[data: generated keylock, key circuitboard; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 21
+leg = "e2 Main Valley"
+level = "e2"
+kind = "location"
+id = "e2/g0/r2955"
+item = "power_fire"
+class = "major"
+requires = "water>=1"
+ok = true
+note = "moved after the two circuitboard locks (Step R1.11c): the fire power lies past ice the player can't melt before it, and MineCarRide2, the ride to its room, runs only once both locks are in (MoveTog2 <- MineCarRide2:andCombiner1 [verified data])"
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Fire Power 1: Earth Realm, behind ice by the minecart: Water 1']", "[landmark: IceBlock within 10]", "[temple: fire1 first]"]
+
+[[step]]
+step = 22
+leg = "e2 Main Valley"
+level = "e2"
+kind = "action"
+action = "use_keylock"
+sets = "button:e2.earth_keylock4"
+consumes = "key.gear"
+requires = "key.gear>=1"
+ok = true
+sources = ["[data: generated keylock, key gear; a lock uses one key, 0x58AD0]", "[data: E2_E6 and E2_E5 exits read keylock4 AND keylock5]"]
+
+[[step]]
+step = 23
+leg = "e2 Main Valley"
+level = "e2"
+kind = "action"
+action = "use_keylock"
+sets = "button:e2.earth_keylock5"
+consumes = "key.gear"
+requires = "key.gear>=1"
+ok = true
+sources = ["[data: generated keylock, key gear; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 24
+leg = "e2 Main Valley"
+level = "e2"
+kind = "action"
+action = "use_keylock"
+sets = "button:e2.earth_keylock3"
+consumes = "key.gear"
+requires = "key.gear>=1"
+ok = true
+sources = ["[data: generated keylock, key gear; a lock uses one key, 0x58AD0]"]
+note = "drives toggle17; what it opens is not decoded"
+
+[[step]]
+step = 25
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "kill"
+sets = "flag:e7.keylordSystem6.killed"
+requires = "true"
+ok = true
+sources = ["[data: generated keylord]"]
+
+[[step]]
+step = 26
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r271"
+item = "key_battery"
+class = "major"
+requires = "flag:e7.keylordSystem6.killed"
+ok = true
+sources = ["[data: gated_by keylord]"]
+
+[[step]]
+step = 27
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "kill"
+sets = "flag:e7.keylordSystem7.killed"
+requires = "true"
+ok = true
+sources = ["[data: generated keylord]"]
+
+[[step]]
+step = 28
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r296"
+item = "key_battery"
+class = "major"
+requires = "flag:e7.keylordSystem7.killed"
+ok = true
+sources = ["[data: gated_by keylord]"]
+
+[[step]]
+step = 29
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "kill"
+sets = "flag:e7.keylordSystem8.killed"
+requires = "true"
+ok = true
+sources = ["[data: generated keylord]"]
+
+[[step]]
+step = 30
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r321"
+item = "key_battery"
+class = "major"
+requires = "flag:e7.keylordSystem8.killed"
+ok = true
+sources = ["[data: gated_by keylord]"]
+
+[[step]]
+step = 31
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "kill"
+sets = "flag:e7.keylordSystem10.killed"
+requires = "true"
+ok = true
+sources = ["[data: generated keylord]"]
+
+[[step]]
+step = 32
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r346"
+item = "key_battery"
+class = "major"
+requires = "flag:e7.keylordSystem10.killed"
+ok = true
+sources = ["[data: gated_by keylord]"]
+
+[[step]]
+step = 33
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "kill"
+sets = "flag:e7.keylordSystem11.killed"
+requires = "true"
+ok = true
+sources = ["[data: generated keylord]"]
+
+[[step]]
+step = 34
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r371"
+item = "key_battery"
+class = "major"
+requires = "flag:e7.keylordSystem11.killed"
+ok = true
+sources = ["[data: gated_by keylord]"]
+
+[[step]]
+step = 35
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "kill"
+sets = "flag:e7.keylordSystem12.killed"
+requires = "true"
+ok = true
+sources = ["[data: generated keylord]"]
+
+[[step]]
+step = 36
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r396"
+item = "key_battery"
+class = "major"
+requires = "flag:e7.keylordSystem12.killed"
+ok = true
+sources = ["[data: gated_by keylord]"]
+
+[[step]]
+step = 37
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "use_keylock"
+sets = "button:e7.earth_keylock"
+consumes = "key.battery"
+requires = "key.battery>=1"
+ok = true
+sources = ["[data: generated keylock, key battery; a lock uses one key, 0x58AD0]", "[data: drives Drill03_timer]"]
+
+[[step]]
+step = 38
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "use_keylock"
+sets = "button:e7.earth_keylock1"
+consumes = "key.battery"
+requires = "key.battery>=1"
+ok = true
+sources = ["[data: generated keylock, key battery; a lock uses one key, 0x58AD0]", "[data: drives Drill01_timer]"]
+
+[[step]]
+step = 39
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "action"
+action = "use_keylock"
+sets = "button:e7.earth_keylock2"
+consumes = "key.battery"
+requires = "key.battery>=1"
+ok = true
+sources = ["[data: generated keylock, key battery; a lock uses one key, 0x58AD0]", "[data: drives Drill02_timer]"]
+
+[[step]]
+step = 40
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r1917"
+item = "frag_life_1"
+class = "major"
+requires = "button:e7.earth_keylock & button:e7.earth_keylock1 & button:e7.earth_keylock2"
+ok = true
+sources = ["[migrated: e7_drill_area key.battery>=1]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Life Disc 1: Earth Realm drill']", "[landmark: tempRock/RockShard within 10]"]
+note = "which of the 3 drills frees it is not decoded; all three are required here"
+
+[[step]]
+step = 41
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r1045"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=1 & button:e7.earth_keylock & button:e7.earth_keylock1 & button:e7.earth_keylock2"
+ok = true
+community = 23
+match = "cell DarkRoomCellShape"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #23 'dark cave': drill active + Fire Shield 1]", "[cell DarkRoomCellShape]"]
+
+[[step]]
+step = 42
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r1047"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=1 & button:e7.earth_keylock & button:e7.earth_keylock1 & button:e7.earth_keylock2"
+ok = true
+community = 24
+match = "cell DarkRoomCellShape"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #24 'dark cave (same text as 23)': drill active + Fire Shield 1]", "[cell DarkRoomCellShape]"]
+
+[[step]]
+step = 43
+leg = "e7 by gondola (key farm, drills)"
+level = "e7"
+kind = "location"
+id = "e7/g0/r1050"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 21
+match = "cell TempleLobbyCellShape; FireWall within 20"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #21 'above temple entrance past fire barrier (climb walls)': -]", "[cell TempleLobbyCellShape; FireWall within 20]"]
+note = "data: e7 FireWall_02 (watr L2) is within 20; the community climbs the walls above it"
+
+[[step]]
+step = 44
+leg = "e2 drill"
+level = "e2"
+kind = "action"
+action = "use_keylock"
+sets = "button:e2.earth_keylock2"
+consumes = "key.battery"
+requires = "key.battery>=1"
+ok = true
+sources = ["[data: generated keylock, key battery; a lock uses one key, 0x58AD0]", "[data: drives DrillToggle]"]
+note = "what the e2 drill opens is not decoded (migrated: activate_diggers)"
+
+[[step]]
+step = 45
+leg = "w1 ocean, w2 revisit (steam 1)"
+level = "w2"
+kind = "location"
+id = "w2/g0/r1364"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 4
+match = "cell IceCaveCellShape ('ice stairs', weak)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #4 'under ice stairs': -]", "[cell IceCaveCellShape ('ice stairs', weak)]"]
+
+[[step]]
+step = 46
+leg = "w1 ocean, w2 revisit (steam 1)"
+level = "w2"
+kind = "location"
+id = "w2/g0/r1351"
+item = "frag_water_1"
+class = "major"
+requires = "fire>=1 & water>=1"
+ok = true
+sources = ["[data: IceBlock_02 (stem L1) within 4]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Water Disc 1' collected here with tutorial steam (PSG route)]"]
+
+[[step]]
+step = 47
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r642"
+item = "power_air"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Air Power 1: end of the switches; patience']", "[data: w4 fans unfold by day [0.25,0.75) - 'patience' is the day/night wait (I-19)]", "[temple: air1 second]"]
+
+[[step]]
+step = 48
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r645"
+item = "frag_earth_1"
+class = "major"
+requires = "air>=1"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Earth Disc 1: Air 1']", "[migrated: w4_earth_frag air>=1]"]
+
+[[step]]
+step = 49
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r865"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = [7, 8, 9, 10, 11]
+match = "set: all five state no need, so the id order doesn't matter"
+pool = "w4.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #7,8,9,10,11: under control hut (-); lower cage; secret tube entrance (pod launch) (-); under first spotlight generator (-); under first vent control (-); under central circular platform, high bridge (-)]"]
+
+[[step]]
+step = 50
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r867"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = [7, 8, 9, 10, 11]
+match = "set: all five state no need, so the id order doesn't matter"
+pool = "w4.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #7,8,9,10,11: under control hut (-); lower cage; secret tube entrance (pod launch) (-); under first spotlight generator (-); under first vent control (-); under central circular platform, high bridge (-)]"]
+
+[[step]]
+step = 51
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r869"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = [7, 8, 9, 10, 11]
+match = "set: all five state no need, so the id order doesn't matter"
+pool = "w4.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #7,8,9,10,11: under control hut (-); lower cage; secret tube entrance (pod launch) (-); under first spotlight generator (-); under first vent control (-); under central circular platform, high bridge (-)]"]
+
+[[step]]
+step = 52
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r871"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = [7, 8, 9, 10, 11]
+match = "set: all five state no need, so the id order doesn't matter"
+pool = "w4.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #7,8,9,10,11: under control hut (-); lower cage; secret tube entrance (pod launch) (-); under first spotlight generator (-); under first vent control (-); under central circular platform, high bridge (-)]"]
+
+[[step]]
+step = 53
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r2303"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = [7, 8, 9, 10, 11]
+match = "set: all five state no need, so the id order doesn't matter"
+pool = "w4.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #7,8,9,10,11: under control hut (-); lower cage; secret tube entrance (pod launch) (-); under first spotlight generator (-); under first vent control (-); under central circular platform, high bridge (-)]"]
+
+[[step]]
+step = 54
+leg = "w4 Flower Pods / Stormy Water"
+level = "w4"
+kind = "location"
+id = "w4/g0/r913"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 55
+leg = "w1 keylord and the torpedo lock"
+level = "w1"
+kind = "action"
+action = "kill"
+sets = "flag:w1.keylordSystem.killed"
+requires = "air>=1 & fire>=1"
+ok = true
+sources = ["[data: generated keylord]", "[inferred: w1 ElectricArch (elec L1) within 40 of the overlord generators]"]
+
+[[step]]
+step = 56
+leg = "w1 keylord and the torpedo lock"
+level = "w1"
+kind = "location"
+id = "w1/g0/r1717"
+item = "key_life1"
+class = "major"
+requires = "flag:w1.keylordSystem.killed"
+ok = true
+sources = ["[data: gated_by keylord w1/g0/r321]"]
+
+[[step]]
+step = 57
+leg = "w1 keylord and the torpedo lock"
+level = "w1"
+kind = "action"
+action = "use_keylock"
+sets = "button:w1.water_keylock"
+consumes = "key.life1"
+requires = "key.life1>=1"
+ok = true
+sources = ["[data: generated keylock, key life1; a lock uses one key, 0x58AD0]", "[data: drives timer45 and 13 transform motions]"]
+note = "Rueake's 'torpedo key' is this key_life1 [inferred]. The vanilla run uses it here, at the underwater station's door, before the torpedo (the route's w1/g0/r2241 and town/g1/r1608 behind it). Step R1.11d had moved it after life's two key_life1, as the worst-case key count (docs/RANDOMIZER_DB.md 5.5) counted life's two key_life1 locks; Step R1.8l's key rule (AZ-345) counts neither, since life's two keys lie in life ahead of them, so it is back after the bay key"
+
+[[step]]
+step = 58
+leg = "w1 keylord and the torpedo lock"
+level = "w1"
+kind = "location"
+id = "w1/g0/r2241"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=1"
+ok = true
+community = 54
+match = "cell DarkCaveCellShape"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #54 'dark cave, underwater dome': Fire Shield 1]", "[cell DarkCaveCellShape]"]
+note = "moved after the bay keylord's kill (Step R1.8d): the dark cave is behind the statue the periscope's torpedo breaks, and the periscope is reached only up the water keylock's stairs (AZ-344; Step R1.8l: after the keylock, button:w1.water_keylock)"
+
+[[step]]
+step = 59
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1608"
+item = "frag_water_2"
+class = "major"
+requires = "button:w1.water_keylock"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Water Disc: Town, torpedo water statue; needs the torpedo key']", "[landmark: W_Town_Waterfall arrival spot within 10]", "[migrated: town_central, no requirement]"]
+
+[[step]]
+step = 60
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1615"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = 48
+match = "landmark: FEntrance within 40"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #48 'right of Fire Realm entrance': Air 1]", "[landmark: FEntrance within 40]"]
+
+[[step]]
+step = 61
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1738"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [96, 97, 98, 99, 100]
+match = "set: cell SewerCellShape for all five; all state no need"
+pool = "town.sewers"
+note = "moved to the torpedo visit, after air 1 (Step R1.24d, D745): the sewer is left only with air 1, water 1 alone does not get out (the owner, 2026-10-26: \"you can get out of the sewer with air1\", \"No, air 1 only\"); the guide takes these five last (#96-100)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #96,97,98,99,100: sewers, outer ring (-); sewers, outer ring (-); sewers, near elevator (-); sewers, near elevator (-); sewers, near elevator (-)]"]
+
+[[step]]
+step = 62
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1740"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [96, 97, 98, 99, 100]
+match = "set: cell SewerCellShape for all five; all state no need"
+pool = "town.sewers"
+note = "moved to the torpedo visit, after air 1 (Step R1.24d, D745): the sewer is left only with air 1, water 1 alone does not get out (the owner, 2026-10-26: \"you can get out of the sewer with air1\", \"No, air 1 only\"); the guide takes these five last (#96-100)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #96,97,98,99,100: sewers, outer ring (-); sewers, outer ring (-); sewers, near elevator (-); sewers, near elevator (-); sewers, near elevator (-)]"]
+
+[[step]]
+step = 63
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1742"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [96, 97, 98, 99, 100]
+match = "set: cell SewerCellShape for all five; all state no need"
+pool = "town.sewers"
+note = "moved to the torpedo visit, after air 1 (Step R1.24d, D745): the sewer is left only with air 1, water 1 alone does not get out (the owner, 2026-10-26: \"you can get out of the sewer with air1\", \"No, air 1 only\"); the guide takes these five last (#96-100)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #96,97,98,99,100: sewers, outer ring (-); sewers, outer ring (-); sewers, near elevator (-); sewers, near elevator (-); sewers, near elevator (-)]"]
+
+[[step]]
+step = 64
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1744"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [96, 97, 98, 99, 100]
+match = "set: cell SewerCellShape for all five; all state no need"
+pool = "town.sewers"
+note = "moved to the torpedo visit, after air 1 (Step R1.24d, D745): the sewer is left only with air 1, water 1 alone does not get out (the owner, 2026-10-26: \"you can get out of the sewer with air1\", \"No, air 1 only\"); the guide takes these five last (#96-100)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #96,97,98,99,100: sewers, outer ring (-); sewers, outer ring (-); sewers, near elevator (-); sewers, near elevator (-); sewers, near elevator (-)]"]
+
+[[step]]
+step = 65
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1746"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [96, 97, 98, 99, 100]
+match = "set: cell SewerCellShape for all five; all state no need"
+pool = "town.sewers"
+note = "moved to the torpedo visit, after air 1 (Step R1.24d, D745): the sewer is left only with air 1, water 1 alone does not get out (the owner, 2026-10-26: \"you can get out of the sewer with air1\", \"No, air 1 only\"); the guide takes these five last (#96-100)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #96,97,98,99,100: sewers, outer ring (-); sewers, outer ring (-); sewers, near elevator (-); sewers, near elevator (-); sewers, near elevator (-)]"]
+
+[[step]]
+step = 66
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock1"
+requires = "obsidian>=10"
+ok = true
+note = "moved to the torpedo visit with the sewer's five obsidians (Step R1.24d, D745): the first town visit holds 9 obsidians without them"
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 67
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r15"
+item = "power_life"
+class = "major"
+requires = "button:town.obsidian_lock1"
+ok = true
+note = "moved to the torpedo visit with the sewer's five obsidians (Step R1.24d, D745): the first town visit holds 9 obsidians without them"
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 68
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock2"
+requires = "obsidian>=20"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 69
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r40"
+item = "key_obsidian1"
+class = "major"
+requires = "button:town.obsidian_lock2"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 70
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "action"
+action = "use_keylock"
+sets = "button:town.life_keylock"
+consumes = "key.obsidian1"
+requires = "key.obsidian1>=1"
+ok = true
+sources = ["[data: generated keylock, key obsidian1; a lock uses one key, 0x58AD0]", "[data: drives the Infinite generator room toggle]"]
+
+[[step]]
+step = 71
+leg = "town by the waterfall (torpedo)"
+level = "town"
+kind = "location"
+id = "town/g1/r1430"
+item = "all_health"
+class = "consumable"
+requires = "button:town.life_keylock"
+ok = true
+sources = ["[data: the room's toggle is this lock's output; enabled_by its numDead damper]", "[inferred]"]
+
+[[step]]
+step = 72
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2455"
+item = "power_earth"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Earth Power: end of Electrical Forest']", "[inferred: 'end of the forest' = past its three locks]", "[temple: earth1 third]"]
+note = "moved before the keys (Step R1.8d): the earth power stands in the main cavern (f3.Z002, the derive's floor), not past the three locks; the speedrun takes it 5 s after the earth fragment with no lock used [video: 1lWqk4C3kYw@07:38-07:43], and it is what makes the fire realm leavable (the acid block to w4)"
+
+[[step]]
+step = 73
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "location"
+id = "f3/g0/r1000"
+item = "key_fire1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 74
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "location"
+id = "f3/g0/r1002"
+item = "key_fire1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 75
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "location"
+id = "f3/g0/r1004"
+item = "key_fire1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed; cell InteriorLockAreaCellShape - may sit behind its own lock]"]
+
+[[step]]
+step = 76
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "action"
+action = "use_keylock"
+sets = "button:f3.fire_keylock"
+consumes = "key.fire1"
+requires = "key.fire1>=1"
+ok = true
+sources = ["[data: generated keylock, key fire1; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 77
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "action"
+action = "use_keylock"
+sets = "button:f3.fire_keylock1"
+consumes = "key.fire1"
+requires = "key.fire1>=1"
+ok = true
+sources = ["[data: generated keylock, key fire1; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 78
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "action"
+action = "use_keylock"
+sets = "button:f3.fire_keylock2"
+consumes = "key.fire1"
+requires = "key.fire1>=1"
+ok = true
+sources = ["[data: generated keylock, key fire1; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 79
+leg = "f3 Tesla Trees / Electrical Forest"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2535"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed; landmark key_fire_lock within 40]"]
+
+[[step]]
+step = 80
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1399"
+item = "key_fire1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 81
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1401"
+item = "key_fire1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 82
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1403"
+item = "key_fire1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 83
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "action"
+action = "use_keylock"
+sets = "button:f1.fire_keylock"
+consumes = "key.fire1"
+requires = "key.fire1>=1"
+ok = true
+sources = ["[data: generated keylock, key fire1; a lock uses one key, 0x58AD0]", "[data: blocker family f1.force_field: the field drops when all three are used]"]
+
+[[step]]
+step = 84
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "action"
+action = "use_keylock"
+sets = "button:f1.fire_keylock1"
+consumes = "key.fire1"
+requires = "key.fire1>=1"
+ok = true
+sources = ["[data: generated keylock, key fire1; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 85
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "action"
+action = "use_keylock"
+sets = "button:f1.fire_keylock2"
+consumes = "key.fire1"
+requires = "key.fire1>=1"
+ok = true
+sources = ["[data: generated keylock, key fire1; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 86
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1687"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 88
+match = "landmark: Fire_Key within 10 (f1 key r1401 is in the same cell)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #88 'ledge under second key': -]", "[landmark: Fire_Key within 10 (f1 key r1401 is in the same cell)]"]
+
+[[step]]
+step = 87
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1691"
+item = "all_fuel"
+class = "consumable"
+requires = "water>=1"
+ok = true
+sources = ["[landmark: FireWall within 20]"]
+
+[[step]]
+step = 88
+leg = "f1 Fire Caverns"
+level = "f1"
+kind = "location"
+id = "f1/g0/r2017"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 89
+leg = "w3 Frozen / Ice Islands, first visit"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2021"
+item = "power_water"
+class = "major"
+requires = "earth>=1 & air>=1 & fire>=1 & water>=1"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Water Power 2: Ice Islands: Earth 1, Water 1, Air 1, Fire 1']", "[data: Smash_wall1_plane1 (smsh = EAF, L1) within 10]", "[temple: water2 fourth]"]
+
+[[step]]
+step = 90
+leg = "w3 Frozen / Ice Islands, first visit"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2006"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 13
+match = "landmark: barnacle/fish (underwater, weak)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #13 'underwater cave, central island': -]", "[landmark: barnacle/fish (underwater, weak)]"]
+
+[[step]]
+step = 91
+leg = "w3 Frozen / Ice Islands, first visit"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2002"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=1 & water>=1"
+ok = true
+community = 68
+match = "landmark: IceBlock within 10"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #68 'behind ice block, end of second ice bridge': Steam 1]", "[landmark: IceBlock within 10]"]
+
+[[step]]
+step = 92
+leg = "e7 fire power 2"
+level = "e7"
+kind = "location"
+id = "e7/g0/r562"
+item = "power_fire"
+class = "major"
+requires = "water>=2"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Fire Power 2: drill, Earth Realm: Water 2']", "[migrated: e7_fire_power water>=2]", "[temple: fire2 fifth]"]
+
+[[step]]
+step = 93
+leg = "e7 fire power 2"
+level = "e7"
+kind = "location"
+id = "e7/g0/r1040"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=2 & water>=2"
+ok = true
+community = 22
+match = "data: IceBlock_02 (stem L2) within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #22 'ice block, main area': Steam 2]", "[data: IceBlock_02 (stem L2) within 4]"]
+
+[[step]]
+step = 94
+leg = "e7 fire power 2"
+level = "e7"
+kind = "action"
+action = "hit_crystal"
+sets = "flag:e7.crystal_fire.hit"
+requires = "earth>=1 & fire>=1"
+ok = true
+sources = ["[data: generated crystal barrier, level 1; any non-zero magic of the combination, verified rz-b2 I-3]"]
+
+[[step]]
+step = 95
+leg = "e2 crystal, then e5"
+level = "e2"
+kind = "action"
+action = "hit_crystal"
+sets = "flag:e2.crystal_lightning.hit"
+requires = "air>=1 & fire>=1 & water>=1"
+ok = true
+sources = ["[data: generated crystal barrier, level 1; any non-zero magic of the combination, verified rz-b2 I-3]"]
+
+[[step]]
+step = 96
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r4271"
+item = "key_fuse"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 97
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r4266"
+item = "key_fuse"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed; blocker family e5.conveyor_track within 20 - not behind it, or vanilla could not start the belts]"]
+
+[[step]]
+step = 98
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "action"
+action = "use_keylock"
+sets = "button:e5.earth_keylock4"
+consumes = "key.fuse"
+requires = "key.fuse>=1"
+ok = true
+sources = ["[data: generated keylock, key fuse; a lock uses one key, 0x58AD0]", "[data: blocker family e5.conveyor_track]"]
+
+[[step]]
+step = 99
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "action"
+action = "use_keylock"
+sets = "button:e5.earth_keylock5"
+consumes = "key.fuse"
+requires = "key.fuse>=1"
+ok = true
+sources = ["[data: generated keylock, key fuse; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 100
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "action"
+action = "use_keylock"
+sets = "button:e5.earth_keylock6"
+consumes = "key.battery"
+requires = "key.battery>=1"
+ok = true
+sources = ["[data: generated keylock, key battery; a lock uses one key, 0x58AD0]"]
+note = "drives timers (lifts?) - not decoded"
+
+[[step]]
+step = 101
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "action"
+action = "use_keylock"
+sets = "button:e5.earth_keylock7"
+consumes = "key.battery"
+requires = "key.battery>=1"
+ok = true
+sources = ["[data: generated keylock, key battery; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 102
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "action"
+action = "hit_crystal"
+sets = "flag:e5.crystal_whirlwind.hit"
+requires = "earth>=1 & air>=1"
+ok = true
+sources = ["[data: generated crystal barrier, level 1; any non-zero magic of the combination, verified rz-b2 I-3]"]
+
+[[step]]
+step = 103
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "action"
+action = "hit_crystal"
+sets = "flag:e5.crystal_pulse.hit"
+requires = "earth>=1 & air>=1 & fire>=1"
+ok = true
+sources = ["[data: generated crystal barrier, level 1; any non-zero magic of the combination, verified rz-b2 I-3]"]
+
+[[step]]
+step = 104
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r4927"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 42
+match = "landmark: EarthBossDoor/Seal within 40, cell SkyWalk"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #42 'behind pillar, Earth Guardian entrance': -]", "[landmark: EarthBossDoor/Seal within 40, cell SkyWalk]"]
+
+[[step]]
+step = 105
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r5258"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [39, 41, 43]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e5.three"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #39,41,43: back area, rock shard monsters (drop claw) (-); under stairs to Earth Power 2 (-); ledge above dark stairs (Air 1)]"]
+
+[[step]]
+step = 106
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r5262"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [39, 41, 43]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e5.three"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #39,41,43: back area, rock shard monsters (drop claw) (-); under stairs to Earth Power 2 (-); ledge above dark stairs (Air 1)]"]
+
+[[step]]
+step = 107
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r5266"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=1"
+ok = true
+community = [39, 41, 43]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e5.three"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #39,41,43: back area, rock shard monsters (drop claw) (-); under stairs to Earth Power 2 (-); ledge above dark stairs (Air 1)]"]
+
+[[step]]
+step = 108
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r5069"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 109
+leg = "e5 Conveyor Belts / Barren Desert, first visit"
+level = "e5"
+kind = "location"
+id = "e5/g0/r5176"
+item = "all_fuel"
+class = "consumable"
+requires = "button:e5.earth_keylock4 & button:e5.earth_keylock5"
+ok = true
+sources = ["[landmark: conveyor pieces within 10; blocker family e5.conveyor_track]", "[inferred]"]
+
+[[step]]
+step = 110
+leg = "f2 Volcano"
+level = "f2"
+kind = "location"
+id = "f2/g0/r1831"
+item = "power_air"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Air Power 2: might need nothing' (listed under 'Battle Platform', see open question)]", "[migrated: f2_entrance->f2_core air>=1]", "[temple: air2 sixth]"]
+
+[[step]]
+step = 111
+leg = "f2 Volcano"
+level = "f2"
+kind = "location"
+id = "f2/g0/r2458"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 112
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1289"
+item = "frag_fire_2"
+class = "major"
+requires = "air>=2 & water>=2"
+ok = true
+sources = ["[migrated: f4_lava_river->battle_platform air>=2 & water>=2]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Fire Disc: end of the volcano'; Dendris F4 [FD1] https://www.speedrun.com/api/v2/GetThread?id=hcwpo]"]
+note = "community: skipping the platform cutscene softlocks f4 [web, unverified]"
+
+[[step]]
+step = 113
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r2355"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 31
+match = "landmark: Boss_Platform within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #31 'on the platform': -]", "[landmark: Boss_Platform within 4]"]
+
+[[step]]
+step = 114
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1531"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2"
+ok = true
+community = [30, 32, 33, 34]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f4.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #30,32,33,34: near main entrance, Catalisk guards (-); ledge in maze (-); rock in lava river near start (Air 2); rock in lava river between two valleys (Air 2)]"]
+
+[[step]]
+step = 115
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1533"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2"
+ok = true
+community = [30, 32, 33, 34]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f4.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #30,32,33,34: near main entrance, Catalisk guards (-); ledge in maze (-); rock in lava river near start (Air 2); rock in lava river between two valleys (Air 2)]"]
+
+[[step]]
+step = 116
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1535"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2"
+ok = true
+community = [30, 32, 33, 34]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f4.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #30,32,33,34: near main entrance, Catalisk guards (-); ledge in maze (-); rock in lava river near start (Air 2); rock in lava river between two valleys (Air 2)]"]
+
+[[step]]
+step = 117
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1609"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2"
+ok = true
+community = [30, 32, 33, 34]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f4.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #30,32,33,34: near main entrance, Catalisk guards (-); ledge in maze (-); rock in lava river near start (Air 2); rock in lava river between two valleys (Air 2)]"]
+
+[[step]]
+step = 118
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1542"
+item = "all_fuel"
+class = "consumable"
+requires = "water>=1"
+ok = true
+sources = ["[landmark: FireWall within 10]"]
+
+[[step]]
+step = 119
+leg = "f3 and f1 again (air 2)"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2453"
+item = "frag_earth_2"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Earth Disc 2: Electrical Forest, down the elevator']"]
+note = "moved after air 2 (Step R1.8d): the derive reaches the earth fragment's ledge (f3.Z116) only with air 2; the [web] route takes it on the first visit by 'the steam vent, the vines and two zip lines' [video: deOODDGOQFQ, skipped-gate list], rides the derive doesn't follow (default taken under D115; the realm's probe sitting owes the mechanism)"
+
+[[step]]
+step = 120
+leg = "f3 and f1 again (air 2)"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1698"
+item = "frag_water_3"
+class = "major"
+requires = "earth>=1 & air>=1 & fire>=1"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Water Disc 4: top of Fire Realm, smash blade']", "[inferred: smash = EAF, f1 polySurfaceShape2 smsh L1]", "[migrated: f1_lava_tubes air>=1 & fire>=1 & water>=1]"]
+note = "moved after air 2 (Step R1.8d): the derive reaches the lava tubes (f1.Z449) only with air 2; the [web] route's smash blade at 'the top of the Fire Realm' with earth, air and fire 1 is left to the realm's probe sitting (default taken under D115)"
+
+[[step]]
+step = 121
+leg = "w1 seal"
+level = "w1"
+kind = "location"
+id = "w1/g0/r2078"
+item = "obsidian"
+class = "obsidian"
+requires = "water>=1"
+ok = true
+community = 6
+match = "landmark: FallSpray within 20, EntryScroll within 40"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #6 'rock by waterfall': after Water Power 1]", "[landmark: FallSpray within 20, EntryScroll within 40]"]
+note = "moved after air 2, before the w1 seal (Step R1.2b, AZ-347, AZ-348): the derive reaches the obsidian's ledge (w1.Z1000) from the waterfall ledge w1.Z162 only by a standing flap with air 1, as Z112 is a slippery floor the body slides on and no running jump from it is modelled (xemu r113 and r12b: 0 of 29 real jumps reached the ledge); the [web] route's 'rock by waterfall: after Water Power 1' is left to a probe sitting (default taken under D115)"
+
+
+[[step]]
+step = 122
+leg = "w1 seal"
+level = "w1"
+kind = "action"
+action = "touch_seal"
+sets = "button:w1.seal"
+requires = "discw>=3"
+ok = true
+sources = ["[data: generated seal (touch + disc count)]"]
+note = "moved after frag_water_3 (Step R1.8d), whose step moved after air 2"
+
+[[step]]
+step = 123
+leg = "e5 earth power, fire fragment, conveyor obsidian"
+level = "e5"
+kind = "location"
+id = "e5/g0/r4260"
+item = "power_earth"
+class = "major"
+requires = "air>=2 & fire>=2"
+ok = true
+sources = ["[inferred: e5 ElectricArch (elec L2) within 40; blocker family electric_arches]", "[migrated: e5_power_cache water>=2 & air>=2 & fire>=2]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Earth Power (desert): Air 1, Fire 1' - disagrees]", "[temple: earth2 seventh]"]
+
+[[step]]
+step = 124
+leg = "e5 earth power, fire fragment, conveyor obsidian"
+level = "e5"
+kind = "location"
+id = "e5/g0/r4263"
+item = "frag_fire_3"
+class = "major"
+requires = "earth>=2 & water>=2"
+ok = true
+sources = ["[data: AcidBlock_02 (acid L2) within 4]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Fire Disc: above Barren Desert: Water 2, Earth 1' - disagrees on earth]"]
+
+[[step]]
+step = 125
+leg = "e5 earth power, fire fragment, conveyor obsidian"
+level = "e5"
+kind = "location"
+id = "e5/g0/r5255"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2 & button:e5.earth_keylock4 & button:e5.earth_keylock5"
+ok = true
+community = 40
+match = "landmark: conveyor Guide/Push within 20, cell ConveyorDip"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #40 'conveyor belt near third obsidian': Air 2]", "[landmark: conveyor Guide/Push within 20, cell ConveyorDip]"]
+
+[[step]]
+step = 126
+leg = "e6 Spotlight Area"
+level = "e6"
+kind = "location"
+id = "e6/g0/r2755"
+item = "frag_earth_3"
+class = "major"
+requires = "air>=2"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Earth Disc 3: Earth Realm tree spotlights: Air 2']"]
+
+[[step]]
+step = 127
+leg = "e6 Spotlight Area"
+level = "e6"
+kind = "location"
+id = "e6/g0/r2747"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 26
+match = "cell UnderWaterCellShape"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #26 'in water under zip line': -]", "[cell UnderWaterCellShape]"]
+
+[[step]]
+step = 128
+leg = "e5 Earth Guardian"
+level = "e5"
+kind = "action"
+action = "touch_seal"
+sets = "button:e5.seal"
+requires = "disce>=3"
+ok = true
+sources = ["[data: generated seal (touch + disc count)]"]
+
+[[step]]
+step = 129
+leg = "e5 Earth Guardian"
+level = "e5"
+kind = "action"
+action = "kill"
+sets = "flag:e5.guard_earth.killed"
+requires = "earth>=2 & water>=2"
+ok = true
+sources = ["[data: thresholds/REPORT.md §6: guard_earth takes no damage; dies when the 4 acid blocks (magic >= 2) break]"]
+
+[[step]]
+step = 130
+leg = "e5 Earth Guardian"
+level = "e5"
+kind = "location"
+id = "e5/g0/r3294"
+item = "frag_earth_4"
+class = "major"
+requires = "flag:e5.guard_earth.killed & disce>=3"
+ok = true
+sources = ["[data: gated_by boss; guardian slot (RQ-4)]"]
+note = "the 4th earth fragment teleports to town (disc chain)"
+
+[[step]]
+step = 131
+leg = "town, then e7 acid obsidian"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock3"
+requires = "obsidian>=30"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+note = "moved to the town visit with 40 obsidians (Step R1.8d): the route holds 29 at the old place once WaterfallView's obsidian waits for air 2"
+
+[[step]]
+step = 132
+leg = "town, then e7 acid obsidian"
+level = "town"
+kind = "location"
+id = "town/g1/r65"
+item = "power_life"
+class = "major"
+requires = "button:town.obsidian_lock3"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 133
+leg = "town, then e7 acid obsidian"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock4"
+requires = "obsidian>=40"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 134
+leg = "town, then e7 acid obsidian"
+level = "town"
+kind = "location"
+id = "town/g1/r90"
+item = "power_staff1"
+class = "major"
+requires = "button:town.obsidian_lock4"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 135
+leg = "town, then e7 acid obsidian"
+level = "e7"
+kind = "location"
+id = "e7/g0/r1042"
+item = "obsidian"
+class = "obsidian"
+requires = "earth>=2 & water>=2"
+ok = true
+community = 71
+match = "data: AcidBlock_02 (acid L2) within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #71 'green rock, main area': Acid 2]", "[data: AcidBlock_02 (acid L2) within 4]"]
+
+[[step]]
+step = 136
+leg = "w3 second visit, Water Guardian"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2018"
+item = "frag_fire_1"
+class = "major"
+requires = "water>=2 & fire>=2"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Fire Disc 1: top of Ice Islands: Water 2, Fire 2']", "[landmark: Smashwall within 40]"]
+
+[[step]]
+step = 137
+leg = "w3 second visit, Water Guardian"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2000"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=2 & water>=2"
+ok = true
+community = 66
+match = "data: IceBlock_026 (stem L2) within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #66 'Ice Island, far side of first bridge': Steam 2]", "[data: IceBlock_026 (stem L2) within 4]"]
+
+[[step]]
+step = 138
+leg = "w3 second visit, Water Guardian"
+level = "w3"
+kind = "action"
+action = "kill"
+sets = "flag:w3.guard_water.killed"
+requires = "button:w1.seal & water>=1 & air>=1 & earth>=1 & fire>=1"
+ok = true
+sources = ["[data: guard_water takes no damage; dies by script (thresholds §6)]", "[migrated: event requires water/air/earth/fire >= 1]"]
+
+[[step]]
+step = 139
+leg = "w3 second visit, Water Guardian"
+level = "w3"
+kind = "location"
+id = "w3/g1/r1160"
+item = "frag_water_4"
+class = "major"
+requires = "flag:w3.guard_water.killed & discw>=3"
+ok = true
+sources = ["[data: gated_by boss; guardian slot (RQ-4)]"]
+note = "the 4th water fragment teleports to town"
+
+[[step]]
+step = 140
+leg = "w1 whirlpool"
+level = "w1"
+kind = "location"
+id = "w1/g0/r2080"
+item = "obsidian"
+class = "obsidian"
+requires = "flag:w3.guard_water.killed"
+ok = true
+community = 55
+match = "landmark + data: SlideShape within 4 (blocker family w1.whirlpool_slide)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #55 'under dock, whirlpool': calm whirlpool by defeating Water Guardian]", "[landmark + data: SlideShape within 4 (blocker family w1.whirlpool_slide)]"]
+
+[[step]]
+step = 141
+leg = "f6 Fire Guardian's fortress"
+level = "f6"
+kind = "location"
+id = "f6/g0/r865"
+item = "power_fire"
+class = "major"
+requires = "(fire>=2 & water>=2) | (earth>=2 & water>=2)"
+ok = true
+sources = ["[migrated: f6_entrance->f6_core]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Fire Power 3: Fire Realm stronghold, arm outside']", "[temple: fire3 eighth]"]
+
+[[step]]
+step = 142
+leg = "f6 Fire Guardian's fortress"
+level = "f6"
+kind = "action"
+action = "touch_seal"
+sets = "button:f6.seal"
+requires = "discf>=3"
+ok = true
+sources = ["[data: generated seal (touch + disc count)]"]
+
+[[step]]
+step = 143
+leg = "f6 Fire Guardian's fortress"
+level = "f6"
+kind = "action"
+action = "kill"
+sets = "flag:f6.guard_fire1.killed"
+requires = "true"
+ok = true
+sources = ["[data: boss]"]
+
+[[step]]
+step = 144
+leg = "f6 Fire Guardian's fortress"
+level = "f6"
+kind = "action"
+action = "kill"
+sets = "flag:f6.guard_fire2.killed"
+requires = "true"
+ok = true
+sources = ["[data: boss]"]
+
+[[step]]
+step = 145
+leg = "f6 Fire Guardian's fortress"
+level = "f6"
+kind = "action"
+action = "kill"
+sets = "flag:f6.guard_fire3.killed"
+requires = "fire>=2 & earth>=2"
+ok = true
+sources = ["[data: boss]", "[migrated: event fire>=2 & earth>=2]"]
+
+[[step]]
+step = 146
+leg = "f6 Fire Guardian's fortress"
+level = "f6"
+kind = "location"
+id = "characters/g21/r154"
+item = "frag_fire_4"
+class = "major"
+requires = "flag:f6.guard_fire3.killed & discf>=3"
+ok = true
+sources = ["[data: characters.xbr graph 21 spawns it; guardian slot]"]
+note = "the 4th fire fragment teleports to town; community: the arena can be left early [web, unverified]"
+
+[[step]]
+step = 147
+leg = "airship: Balthazar"
+level = "airship"
+kind = "action"
+action = "kill"
+sets = "flag:airship.balthazar.killed"
+requires = "true"
+ok = true
+sources = ["[data: config: the staff cells norm_1..3 are set; the staff always damages him]", "[verified static + xemu 2026-10-12: his armor follows the selected staff power ~2-2.8 s after a damaging hit; staff and EAFW never blocked; $EV/balthazar-armor-2026-10-12]"]
+
+[[step]]
+step = 148
+leg = "a3 Water Slides / Rain Machine"
+level = "a3"
+kind = "location"
+id = "a3/g0/r1500"
+item = "power_water_a3"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Water Power 3: Rain Machine, middle slide']", "[temple: water3 ninth]"]
+
+[[step]]
+step = 149
+leg = "a3 Water Slides / Rain Machine"
+level = "a3"
+kind = "location"
+id = "a3/g0/r1498"
+item = "frag_life_2"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Life Disc: Rain Machine, end of the last slide']", "[landmark: Valve/SlipDown within 4]"]
+
+[[step]]
+step = 150
+leg = "a3 Water Slides / Rain Machine"
+level = "a3"
+kind = "location"
+id = "a3/g0/r2591"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = [56, 58]
+match = "set: landmark: Fan / Air_jump_pad within 4 for both; both state no need"
+pool = "a3.vents"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #56,58: air vent, bottom of elevator (-); air vent, pool (-)]"]
+
+[[step]]
+step = 151
+leg = "a3 Water Slides / Rain Machine"
+level = "a3"
+kind = "location"
+id = "a3/g0/r2593"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = [56, 58]
+match = "set: landmark: Fan / Air_jump_pad within 4 for both; both state no need"
+pool = "a3.vents"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #56,58: air vent, bottom of elevator (-); air vent, pool (-)]"]
+
+[[step]]
+step = 152
+leg = "a3 Water Slides / Rain Machine"
+level = "a3"
+kind = "location"
+id = "a3/g0/r2599"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 153
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r733"
+item = "power_air"
+class = "major"
+requires = "fire>=3 & water>=3"
+ok = true
+sources = ["[data: blocker family a5.final_fan_pad: the jump pad within 20 needs three stem L3 ice blocks]", "[migrated: a5_dock->a5_air_power fire>=3 & water>=3]", "[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Air Power 3: end of Atmospheric Processor']", "[temple: air3 tenth]"]
+
+[[step]]
+step = 154
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r735"
+item = "frag_air_2"
+class = "major"
+requires = "air>=3"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Air Disc: start of Atmospheric Processor: 3 Air']", "[migrated: a5_frag_island air>=3]"]
+
+[[step]]
+step = 155
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r1773"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 61
+match = "cell ShipDockCellShape"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #61 'niche below Airship dock': -]", "[cell ShipDockCellShape]"]
+
+[[step]]
+step = 156
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r1770"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 63
+match = "landmark: Public_Air_field (fan) within 10"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #63 'above central fan': fly up in fan before Air Power 3]", "[landmark: Public_Air_field (fan) within 10]"]
+
+[[step]]
+step = 157
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r2128"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [62, 64, 65]
+match = "set: landmark: aMovingSmokestack/ice group; all three need Air 3"
+pool = "a5.smokestacks"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #62,64,65: smokestack top (Air 3); smokestack top (Air 3); smokestack top (Air 3)]"]
+
+[[step]]
+step = 158
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r2445"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [62, 64, 65]
+match = "set: landmark: aMovingSmokestack/ice group; all three need Air 3"
+pool = "a5.smokestacks"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #62,64,65: smokestack top (Air 3); smokestack top (Air 3); smokestack top (Air 3)]"]
+
+[[step]]
+step = 159
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r2626"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [62, 64, 65]
+match = "set: landmark: aMovingSmokestack/ice group; all three need Air 3"
+pool = "a5.smokestacks"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #62,64,65: smokestack top (Air 3); smokestack top (Air 3); smokestack top (Air 3)]"]
+
+[[step]]
+step = 160
+leg = "a5 Air Tubes / Atmospheric Processor"
+level = "a5"
+kind = "location"
+id = "a5/g0/r1776"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 161
+leg = "w1 air-3 obsidians"
+level = "w1"
+kind = "location"
+id = "w1/g0/r2074"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [14, 70]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "w1.atoll_waterspout"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #14,70: in water near atoll (-); island across from waterspout (Air 3)]"]
+
+[[step]]
+step = 162
+leg = "w1 air-3 obsidians"
+level = "w1"
+kind = "location"
+id = "w1/g0/r2076"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [14, 70]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "w1.atoll_waterspout"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #14,70: in water near atoll (-); island across from waterspout (Air 3)]"]
+
+[[step]]
+step = 163
+leg = "w2 waterfall top (air 3)"
+level = "w2"
+kind = "location"
+id = "w2/g0/r1359"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=1 & water>=1 & air>=2"
+ok = true
+community = 1
+match = "data: IceBlock_01 (stem L1) within 4 units"
+sources = ["[Step R1.8c: WaterfallView (w2.Z020) is reached from the plaza only with air 2 at the hard tier: D158's check failed the hand edge plaza -> WaterfallView, the zones' floors 17.0 m apart; moved after the w4 leg (air 1 there, air 2 with f2's stub)]", "[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #1 'frozen in ice block near vines': Steam 1]", "[data: IceBlock_01 (stem L1) within 4 units]"]
+note = "moved after air 2 (Step R1.8d): WaterfallView needs air 2 (Step R1.8c's D158 walk), which comes from f2"
+
+[[step]]
+step = 164
+leg = "w2 waterfall top (air 3)"
+level = "w2"
+kind = "location"
+id = "w2/g0/r1361"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = 2
+match = "landmark: waterfall_spray within 10, HangingVines within 10 (weak)"
+note = "moved by Step R1.8 from after w2/g0/r1359: the derive models no way up to the waterfall top (w2.Z047, 95 m) but air-3 flaps from the plateau w2.Z010; the guide's steam-1 way up is unlocated (default taken under D115)"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #2 'top of waterfall': Steam 1]", "[landmark: waterfall_spray within 10, HangingVines within 10 (weak)]"]
+
+[[step]]
+step = 165
+leg = "w2 waterfall top (air 3)"
+level = "w2"
+kind = "location"
+id = "w2/g0/r1357"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = 3
+match = "landmark: waterfall/saveplatform (weak)"
+sources = ["[Step R1.8k (AZ-350): the ice cave's stairs are a slippery ramp the body slides back down (xemu r18e, L3); the derive's one modelled way to the fountain path is the plaza's air-3 flight]", "[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #3 'rock in water near fountain path': -]", "[landmark: waterfall/saveplatform (weak)]"]
+note = "moved by Step R1.8k from the w2 first visit (after w2/g0/r1355): the hand edge up the ice stairs went (AZ-350), and its cheaper ways in the derive rest on refuted moves (the ramp, AZ-359; the climb above WaterfallView); the guide's needs-nothing way is unlocated (default taken under D115)"
+
+[[step]]
+step = 166
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1538"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+note = "moved by Step R1.11b from the battle-platform leg (after f4/g0/r1609), with f4/g0/r1540, to after air 3: the derive reaches these two fuel ledges only with air 3 (f4.Z138, f4.Z436), and the leg's placement of them is [assumed]"
+sources = ["[assumed]"]
+
+[[step]]
+step = 167
+leg = "f4 Battle Platform"
+level = "f4"
+kind = "location"
+id = "f4/g0/r1540"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 168
+leg = "a3 by the ship again"
+level = "a3"
+kind = "location"
+id = "a3/g0/r2587"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [57, 59, 60]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "a3.slides"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #57,59,60: hut over water slide (Air 3 from bottom of elevator); small ledge, highest water slide (-); left side, top water slide (-)]"]
+
+[[step]]
+step = 169
+leg = "a3 by the ship again"
+level = "a3"
+kind = "location"
+id = "a3/g0/r2589"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [57, 59, 60]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "a3.slides"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #57,59,60: hut over water slide (Air 3 from bottom of elevator); small ledge, highest water slide (-); left side, top water slide (-)]"]
+
+[[step]]
+step = 170
+leg = "a3 by the ship again"
+level = "a3"
+kind = "location"
+id = "a3/g0/r2595"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [57, 59, 60]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "a3.slides"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #57,59,60: hut over water slide (Air 3 from bottom of elevator); small ledge, highest water slide (-); left side, top water slide (-)]"]
+
+[[step]]
+step = 171
+leg = "air-3 sweep: town, f1, f6, f3, w3"
+level = "town"
+kind = "location"
+id = "town/g1/r1613"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = 95
+match = "landmark: InfiniteChromatic generator (fuel room) within 20"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #95 'behind rock left of Fuel room': Air 3]", "[landmark: InfiniteChromatic generator (fuel room) within 20]"]
+
+[[step]]
+step = 172
+leg = "air-3 sweep: town, f1, f6, f3, w3"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock5"
+requires = "obsidian>=50"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 173
+leg = "air-3 sweep: town, f1, f6, f3, w3"
+level = "town"
+kind = "location"
+id = "town/g1/r115"
+item = "power_life"
+class = "major"
+requires = "button:town.obsidian_lock5"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 174
+leg = "air-3 sweep: town, f1, f6, f3, w3"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock6"
+requires = "obsidian>=60"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 175
+leg = "air-3 sweep: town, f1, f6, f3, w3"
+level = "town"
+kind = "location"
+id = "town/g1/r140"
+item = "key_obsidian2"
+class = "major"
+requires = "button:town.obsidian_lock6"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 176
+leg = "air-3 sweep: town, f1, f6, f3, w3"
+level = "town"
+kind = "action"
+action = "use_keylock"
+sets = "button:town.life_keylock1"
+consumes = "key.obsidian2"
+requires = "key.obsidian2>=1"
+ok = true
+sources = ["[data: generated keylock, key obsidian2; a lock uses one key, 0x58AD0]", "[data: drives the Infinite generator room toggle]"]
+
+[[step]]
+step = 177
+leg = "air-3 sweep: town, f1, f6, f3, w3"
+level = "town"
+kind = "location"
+id = "town/g1/r1403"
+item = "all_fuel"
+class = "consumable"
+requires = "button:town.life_keylock1"
+ok = true
+sources = ["[data: the room's toggle is this lock's output; enabled_by its numDead damper]", "[inferred]"]
+
+[[step]]
+step = 178
+leg = "f1 air 3"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1689"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [86, 87, 89]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f1.three"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #86,87,89: above doorway, courtyard (Air 3 from first walkway); end of long ramp, rock shard monsters (-); initial caverns, winding stairs (-)]"]
+
+[[step]]
+step = 179
+leg = "f1 air 3"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1693"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [86, 87, 89]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f1.three"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #86,87,89: above doorway, courtyard (Air 3 from first walkway); end of long ramp, rock shard monsters (-); initial caverns, winding stairs (-)]"]
+
+[[step]]
+step = 180
+leg = "f1 air 3"
+level = "f1"
+kind = "location"
+id = "f1/g0/r1695"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [86, 87, 89]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f1.three"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #86,87,89: above doorway, courtyard (Air 3 from first walkway); end of long ramp, rock shard monsters (-); initial caverns, winding stairs (-)]"]
+
+[[step]]
+step = 181
+leg = "f6 obsidians"
+level = "f6"
+kind = "location"
+id = "f6/g0/r400"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [49, 50, 51, 52, 53]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f6.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #49,50,51,52,53: ledge above air car switch (jump from stairs to Fire Guardian) (-); top of fortress gate (from platform below Fire Guardian) (Air 3); right wall, entrance (Air 1); acid vat, large elevator (Air 1); broken wall left of entrance (-)]"]
+
+[[step]]
+step = 182
+leg = "f6 obsidians"
+level = "f6"
+kind = "location"
+id = "f6/g0/r402"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [49, 50, 51, 52, 53]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f6.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #49,50,51,52,53: ledge above air car switch (jump from stairs to Fire Guardian) (-); top of fortress gate (from platform below Fire Guardian) (Air 3); right wall, entrance (Air 1); acid vat, large elevator (Air 1); broken wall left of entrance (-)]"]
+
+[[step]]
+step = 183
+leg = "f6 obsidians"
+level = "f6"
+kind = "location"
+id = "f6/g0/r404"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [49, 50, 51, 52, 53]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f6.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #49,50,51,52,53: ledge above air car switch (jump from stairs to Fire Guardian) (-); top of fortress gate (from platform below Fire Guardian) (Air 3); right wall, entrance (Air 1); acid vat, large elevator (Air 1); broken wall left of entrance (-)]"]
+
+[[step]]
+step = 184
+leg = "f6 obsidians"
+level = "f6"
+kind = "location"
+id = "f6/g0/r407"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [49, 50, 51, 52, 53]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f6.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #49,50,51,52,53: ledge above air car switch (jump from stairs to Fire Guardian) (-); top of fortress gate (from platform below Fire Guardian) (Air 3); right wall, entrance (Air 1); acid vat, large elevator (Air 1); broken wall left of entrance (-)]"]
+
+[[step]]
+step = 185
+leg = "f6 obsidians"
+level = "f6"
+kind = "location"
+id = "f6/g0/r410"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [49, 50, 51, 52, 53]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f6.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #49,50,51,52,53: ledge above air car switch (jump from stairs to Fire Guardian) (-); top of fortress gate (from platform below Fire Guardian) (Air 3); right wall, entrance (Air 1); acid vat, large elevator (Air 1); broken wall left of entrance (-)]"]
+
+[[step]]
+step = 186
+leg = "f3 obsidians"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2388"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [12, 90, 91, 92, 93]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f3.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #12,90,91,92,93: top of climbable wall near waterfall (-); low ledge left of entrance (Air 1); behind first rising platform, Fire Elementals (-); above lava fall near entrance (Air 3 from second key); ledge right of path below first steam vent (Air 3)]"]
+
+[[step]]
+step = 187
+leg = "f3 obsidians"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2390"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [12, 90, 91, 92, 93]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f3.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #12,90,91,92,93: top of climbable wall near waterfall (-); low ledge left of entrance (Air 1); behind first rising platform, Fire Elementals (-); above lava fall near entrance (Air 3 from second key); ledge right of path below first steam vent (Air 3)]"]
+
+[[step]]
+step = 188
+leg = "f3 obsidians"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2443"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [12, 90, 91, 92, 93]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f3.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #12,90,91,92,93: top of climbable wall near waterfall (-); low ledge left of entrance (Air 1); behind first rising platform, Fire Elementals (-); above lava fall near entrance (Air 3 from second key); ledge right of path below first steam vent (Air 3)]"]
+
+[[step]]
+step = 189
+leg = "f3 obsidians"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2445"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [12, 90, 91, 92, 93]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f3.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #12,90,91,92,93: top of climbable wall near waterfall (-); low ledge left of entrance (Air 1); behind first rising platform, Fire Elementals (-); above lava fall near entrance (Air 3 from second key); ledge right of path below first steam vent (Air 3)]"]
+
+[[step]]
+step = 190
+leg = "f3 obsidians"
+level = "f3"
+kind = "location"
+id = "f3/g0/r2547"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [12, 90, 91, 92, 93]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f3.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #12,90,91,92,93: top of climbable wall near waterfall (-); low ledge left of entrance (Air 1); behind first rising platform, Fire Elementals (-); above lava fall near entrance (Air 3 from second key); ledge right of path below first steam vent (Air 3)]"]
+
+[[step]]
+step = 191
+leg = "w3 snow generators"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2004"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [67, 69]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "w3.snow_generators"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #67,69: snow generator left of first bridge (Air 2); snow generator, spiral island (Air 3)]"]
+note = "needs-probe blocker family w3.snow_bridge (snow platforms) sits next to these"
+
+[[step]]
+step = 192
+leg = "w3 snow generators"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2008"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [67, 69]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "w3.snow_generators"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #67,69: snow generator left of first bridge (Air 2); snow generator, spiral island (Air 3)]"]
+note = "needs-probe blocker family w3.snow_bridge (snow platforms) sits next to these"
+
+[[step]]
+step = 193
+leg = "w3 snow generators"
+level = "w3"
+kind = "location"
+id = "w3/g1/r2024"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[landmark: Snow_Blower_Steam within 4 - same spot as the snow-generator obsidians]", "[assumed]"]
+
+[[step]]
+step = 194
+leg = "e5 air-3 fuel"
+level = "e5"
+kind = "location"
+id = "e5/g0/r4268"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+note = "moved after air 3 (Step R1.8d): the derive reaches the fuel's ledge (e5.Z086) only with air 3 and the conveyors running; the route's 'true' was assumed"
+
+[[step]]
+step = 195
+leg = "e2 air 3 / elec 3"
+level = "e2"
+kind = "location"
+id = "e2/g0/r4373"
+item = "frag_air_3"
+class = "major"
+requires = "air>=3 & fire>=3"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Air Disc 1: Earth Realm ledge: Air 3, Fire 3']", "[data: e2 ElectricArch1 (elec L3) within 40; blocker family electric_arches]", "[migrated: e2_air_fragment air>=3 & fire>=3]"]
+
+[[step]]
+step = 196
+leg = "e2 air 3 / elec 3"
+level = "e2"
+kind = "location"
+id = "e2/g0/r4402"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = 19
+match = "landmark: IceCaveMineCar within 40, cell IceCaveBackRoom"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #19 'high ledge, ice cavern with first mine car': Air 3]", "[landmark: IceCaveMineCar within 40, cell IceCaveBackRoom]"]
+
+[[step]]
+step = 197
+leg = "e2 air 3 / elec 3"
+level = "e2"
+kind = "location"
+id = "e2/g0/r4376"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3 & fire>=3"
+ok = true
+community = [17, 18]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e2.cave_pair"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #17,18: pillar past first fire barrier (Electro Shield 3); island near Ice Island (Air 2)]"]
+
+[[step]]
+step = 198
+leg = "e2 air 3 / elec 3"
+level = "e2"
+kind = "location"
+id = "e2/g0/r4398"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3 & fire>=3"
+ok = true
+community = [17, 18]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e2.cave_pair"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #17,18: pillar past first fire barrier (Electro Shield 3); island near Ice Island (Air 2)]"]
+
+[[step]]
+step = 199
+leg = "e6 obsidians"
+level = "e6"
+kind = "location"
+id = "e6/g0/r2685"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3 & water>=1 & earth>=1"
+ok = true
+community = [27, 28, 72, 73]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e6.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #27,28,72,73: ledge between spotlights 2 and 3 (-); behind fire barrier, lava river (Air 2 + Water 1); behind green rock left of entrance (- (green rock = acid block)); high ledge near entrance (Air 3 from steam vent)]"]
+
+[[step]]
+step = 200
+leg = "e6 obsidians"
+level = "e6"
+kind = "location"
+id = "e6/g0/r2687"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3 & water>=1 & earth>=1"
+ok = true
+community = [27, 28, 72, 73]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e6.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #27,28,72,73: ledge between spotlights 2 and 3 (-); behind fire barrier, lava river (Air 2 + Water 1); behind green rock left of entrance (- (green rock = acid block)); high ledge near entrance (Air 3 from steam vent)]"]
+
+[[step]]
+step = 201
+leg = "e6 obsidians"
+level = "e6"
+kind = "location"
+id = "e6/g0/r2751"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3 & water>=1 & earth>=1"
+ok = true
+community = [27, 28, 72, 73]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e6.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #27,28,72,73: ledge between spotlights 2 and 3 (-); behind fire barrier, lava river (Air 2 + Water 1); behind green rock left of entrance (- (green rock = acid block)); high ledge near entrance (Air 3 from steam vent)]"]
+
+[[step]]
+step = 202
+leg = "e6 obsidians"
+level = "e6"
+kind = "location"
+id = "e6/g0/r2789"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3 & water>=1 & earth>=1"
+ok = true
+community = [27, 28, 72, 73]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "e6.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #27,28,72,73: ledge between spotlights 2 and 3 (-); behind fire barrier, lava river (Air 2 + Water 1); behind green rock left of entrance (- (green rock = acid block)); high ledge near entrance (Air 3 from steam vent)]"]
+
+[[step]]
+step = 203
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r1859"
+item = "key_air1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 204
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r1851"
+item = "key_air2"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 205
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r1843"
+item = "key_air3"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 206
+leg = "a1 Great Tree"
+level = "a1"
+kind = "action"
+action = "use_keylock"
+sets = "button:a1.air_keylock"
+consumes = "key.air1"
+requires = "key.air1>=1"
+ok = true
+sources = ["[data: generated keylock, key air1; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 207
+leg = "a1 Great Tree"
+level = "a1"
+kind = "action"
+action = "use_keylock"
+sets = "button:a1.air_keylock1"
+consumes = "key.air2"
+requires = "key.air2>=1"
+ok = true
+sources = ["[data: generated keylock, key air2; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 208
+leg = "a1 Great Tree"
+level = "a1"
+kind = "action"
+action = "use_keylock"
+sets = "button:a1.air_keylock2"
+consumes = "key.air3"
+requires = "key.air3>=1"
+ok = true
+sources = ["[data: generated keylock, key air3; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 209
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r1102"
+item = "frag_air_1"
+class = "major"
+requires = "button:a1.air_keylock & button:a1.air_keylock1 & button:a1.air_keylock2"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Air Disc 2: in the Tree']", "[inferred: the three locks drive T1..T3; landmark Door within 10]"]
+
+[[step]]
+step = 210
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r2132"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [74, 75, 76, 77]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "a1.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #74,75,76,77: ledge near first pool (Air 3); under dome, end of first transport tube (-); pool with zip line, second flower switch (-); behind dome, Air Guardian's fortress entrance (-)]"]
+
+[[step]]
+step = 211
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r2136"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [74, 75, 76, 77]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "a1.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #74,75,76,77: ledge near first pool (Air 3); under dome, end of first transport tube (-); pool with zip line, second flower switch (-); behind dome, Air Guardian's fortress entrance (-)]"]
+
+[[step]]
+step = 212
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r2138"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [74, 75, 76, 77]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "a1.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #74,75,76,77: ledge near first pool (Air 3); under dome, end of first transport tube (-); pool with zip line, second flower switch (-); behind dome, Air Guardian's fortress entrance (-)]"]
+
+[[step]]
+step = 213
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r2140"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = [74, 75, 76, 77]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "a1.four"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #74,75,76,77: ledge near first pool (Air 3); under dome, end of first transport tube (-); pool with zip line, second flower switch (-); behind dome, Air Guardian's fortress entrance (-)]"]
+
+[[step]]
+step = 214
+leg = "a1 Great Tree"
+level = "a1"
+kind = "location"
+id = "a1/g0/r2350"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 215
+leg = "a1 Great Tree"
+level = "a1"
+kind = "action"
+action = "touch_seal"
+sets = "button:a1.seal"
+requires = "disca>=3"
+ok = true
+sources = ["[data: generated seal (touch + disc count)]"]
+
+[[step]]
+step = 216
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r286"
+item = "power_earth"
+class = "major"
+requires = "fire>=3 & water>=3 & air>=3"
+ok = true
+sources = ["[migrated: a6_core->a6_earth_power]", "[temple: earth3 last]"]
+
+[[step]]
+step = 217
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r467"
+item = "key_blue"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed; landmark BlueKeyIsland]"]
+
+[[step]]
+step = 218
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r470"
+item = "key_green"
+class = "major"
+requires = "earth>=3 & water>=3"
+ok = true
+sources = ["[landmark: AcidBlock_03/06 (acid L3) within 10 of key_green]", "[inferred]"]
+
+[[step]]
+step = 219
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r514"
+item = "key_red"
+class = "major"
+requires = "water>=3"
+ok = true
+sources = ["[landmark: FireWall_03/04 (watr L3) within 10 of key_red]", "[inferred]"]
+
+[[step]]
+step = 220
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "action"
+action = "use_keylock"
+sets = "button:a6.air_keylock"
+consumes = "key.green"
+requires = "key.green>=1"
+ok = true
+sources = ["[data: generated keylock, key green; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 221
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "action"
+action = "use_keylock"
+sets = "button:a6.air_keylock1"
+consumes = "key.blue"
+requires = "key.blue>=1"
+ok = true
+sources = ["[data: generated keylock, key blue; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 222
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "action"
+action = "use_keylock"
+sets = "button:a6.air_keylock2"
+consumes = "key.red"
+requires = "key.red>=1"
+ok = true
+sources = ["[data: generated keylock, key red; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 223
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r910"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=3 & water>=3"
+ok = true
+community = 78
+match = "data: IceBlock_014/015 (stem L3) within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #78 'ice block near entrance': Steam 3]", "[data: IceBlock_014/015 (stem L3) within 4]"]
+
+[[step]]
+step = 224
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r912"
+item = "obsidian"
+class = "obsidian"
+requires = "fire>=3 & water>=3"
+ok = true
+community = 79
+match = "data: IceBlock_019/020/021 (stem L3) within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #79 'ice block near entrance (same text as 78)': Steam 3]", "[data: IceBlock_019/020/021 (stem L3) within 4]"]
+
+[[step]]
+step = 225
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r908"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=3"
+ok = true
+community = 80
+match = "by elimination"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #80 'floating island near Earth Power 3': Air 3]", "[inferred: by elimination]"]
+
+[[step]]
+step = 226
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r906"
+item = "obsidian"
+class = "obsidian"
+requires = "true"
+ok = true
+community = 81
+match = "landmark: Teleporter/TeleLocator within 10"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #81 'above green laser island': Gold Teleporter past 4th obsidian]", "[landmark: Teleporter/TeleLocator within 10]"]
+
+[[step]]
+step = 227
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r914"
+item = "obsidian"
+class = "obsidian"
+requires = "earth>=3 & water>=3"
+ok = true
+community = 82
+match = "data: AcidBlock_03/06 (acid L3) within 4; GreenKeyIsland within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #82 'rock, green key': Acid 3]", "[data: AcidBlock_03/06 (acid L3) within 4; GreenKeyIsland within 4]"]
+
+[[step]]
+step = 228
+leg = "a6 Air Guardian's fortress"
+level = "a6"
+kind = "location"
+id = "a6/g0/r903"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 229
+leg = "a1 acid obsidian"
+level = "a1"
+kind = "location"
+id = "a1/g0/r2134"
+item = "obsidian"
+class = "obsidian"
+requires = "earth>=3 & water>=3"
+ok = true
+community = 94
+match = "data: AcidBlock_03 (acid L3) within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #94 'rock near first flower switch': Acid 3]", "[data: AcidBlock_03 (acid L3) within 4]"]
+
+[[step]]
+step = 230
+leg = "a6 Air Guardian"
+level = "a6"
+kind = "action"
+action = "kill"
+sets = "flag:a6.guard_air.killed"
+requires = "air>=3 & fire>=3 & water>=3 & earth>=3"
+ok = true
+sources = ["[data: config: guard_air takes elemental damage only]", "[migrated: event needs all four at 3 (conservative)]"]
+
+[[step]]
+step = 231
+leg = "a6 Air Guardian"
+level = "a6"
+kind = "location"
+id = "characters/g16/r102"
+item = "frag_air_4"
+class = "major"
+requires = "flag:a6.guard_air.killed & disca>=3"
+ok = true
+sources = ["[data: characters.xbr graph 16 spawns it; guardian slot]"]
+note = "the 4th air fragment teleports to town"
+
+[[step]]
+step = 232
+leg = "acid-3 sweep: f1, f2"
+level = "f1"
+kind = "location"
+id = "f1/g0/r2176"
+item = "obsidian"
+class = "obsidian"
+requires = "earth>=3 & water>=3"
+ok = true
+community = 85
+match = "data: AcidBlock_03 (acid L3) within 4"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #85 'green rock near entrance': Acid 3]", "[data: AcidBlock_03 (acid L3) within 4]"]
+
+[[step]]
+step = 233
+leg = "f2 obsidians"
+level = "f2"
+kind = "location"
+id = "f2/g0/r2461"
+item = "frag_life_3"
+class = "major"
+requires = "earth>=3 & water>=3"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Life Disc: Volcano, after the 2nd teleport: 2 Air']", "[migrated: f2_life_frag earth>=3 - disagrees]"]
+note = "moved to the acid-3 visit (Step R1.8d): frag_life_3 lies behind AcidBlock_04, acid level 3 (earth 3 and water 3) [verified data: generated/f2.json; the derive's gate f2.AcidBlock_04]; the [web] 'after the 2nd teleport: 2 Air' and both speedruns fly around the block (a barrier skip, tricks/VIDEO_CATALOGUE.md)"
+
+[[step]]
+step = 234
+leg = "f2 obsidians"
+level = "f2"
+kind = "location"
+id = "f2/g0/r2322"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2 & water>=3 & earth>=3"
+ok = true
+community = [29, 35, 36, 37, 38]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f2.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #29,35,36,37,38: island in lava lake left of entrance (-); ledge by chasm, second silver teleporter (Air 2); ledge above volcanoes (Air 2); pipe above volcanoes (-); end of zip lines past Life Disk Fragment (Acid 3)]"]
+
+[[step]]
+step = 235
+leg = "f2 obsidians"
+level = "f2"
+kind = "location"
+id = "f2/g0/r2324"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2 & water>=3 & earth>=3"
+ok = true
+community = [29, 35, 36, 37, 38]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f2.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #29,35,36,37,38: island in lava lake left of entrance (-); ledge by chasm, second silver teleporter (Air 2); ledge above volcanoes (Air 2); pipe above volcanoes (-); end of zip lines past Life Disk Fragment (Acid 3)]"]
+
+[[step]]
+step = 236
+leg = "f2 obsidians"
+level = "f2"
+kind = "location"
+id = "f2/g0/r2326"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2 & water>=3 & earth>=3"
+ok = true
+community = [29, 35, 36, 37, 38]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f2.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #29,35,36,37,38: island in lava lake left of entrance (-); ledge by chasm, second silver teleporter (Air 2); ledge above volcanoes (Air 2); pipe above volcanoes (-); end of zip lines past Life Disk Fragment (Acid 3)]"]
+
+[[step]]
+step = 237
+leg = "f2 obsidians"
+level = "f2"
+kind = "location"
+id = "f2/g0/r2328"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2 & water>=3 & earth>=3"
+ok = true
+community = [29, 35, 36, 37, 38]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f2.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #29,35,36,37,38: island in lava lake left of entrance (-); ledge by chasm, second silver teleporter (Air 2); ledge above volcanoes (Air 2); pipe above volcanoes (-); end of zip lines past Life Disk Fragment (Acid 3)]"]
+
+[[step]]
+step = 238
+leg = "f2 obsidians"
+level = "f2"
+kind = "location"
+id = "f2/g0/r2330"
+item = "obsidian"
+class = "obsidian"
+requires = "air>=2 & water>=3 & earth>=3"
+ok = true
+community = [29, 35, 36, 37, 38]
+match = "set: entries can't be told apart; the strictest stated need is applied to all"
+pool = "f2.all"
+sources = ["[web: https://www.speedrun.com/api/v2/GetGuide?id=a4ktv #29,35,36,37,38: island in lava lake left of entrance (-); ledge by chasm, second silver teleporter (Air 2); ledge above volcanoes (Air 2); pipe above volcanoes (-); end of zip lines past Life Disk Fragment (Acid 3)]"]
+
+[[step]]
+step = 239
+leg = "town: last locks"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock7"
+requires = "obsidian>=70"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 240
+leg = "town: last locks"
+level = "town"
+kind = "location"
+id = "town/g1/r165"
+item = "power_life"
+class = "major"
+requires = "button:town.obsidian_lock7"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 241
+leg = "town: last locks"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock8"
+requires = "obsidian>=80"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 242
+leg = "town: last locks"
+level = "town"
+kind = "location"
+id = "town/g1/r190"
+item = "power_staff2"
+class = "major"
+requires = "button:town.obsidian_lock8"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 243
+leg = "town: last locks"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock9"
+requires = "obsidian>=90"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 244
+leg = "town: last locks"
+level = "town"
+kind = "location"
+id = "town/g1/r215"
+item = "power_life"
+class = "major"
+requires = "button:town.obsidian_lock9"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 245
+leg = "town: last locks"
+level = "town"
+kind = "action"
+action = "open_obsidian_lock"
+sets = "button:town.obsidian_lock10"
+requires = "obsidian>=100"
+ok = true
+sources = ["[data: generated obsidian lock; threshold from its curve, thresholds/obsidian_tables.txt]"]
+
+[[step]]
+step = 246
+leg = "town: last locks"
+level = "town"
+kind = "location"
+id = "town/g1/r240"
+item = "power_ammo"
+class = "major"
+requires = "button:town.obsidian_lock10"
+ok = true
+sources = ["[data: gated_by obsidian lock]"]
+
+[[step]]
+step = 247
+leg = "life"
+level = "life"
+kind = "action"
+action = "touch_seal"
+sets = "button:town.seal"
+requires = "discl>=3"
+ok = true
+sources = ["[data: generated seal (touch + disc count)]"]
+
+[[step]]
+step = 248
+leg = "life"
+level = "life"
+kind = "location"
+id = "life/g0/r332"
+item = "key_life1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed; landmark Key_B spot within 4]"]
+
+[[step]]
+step = 249
+leg = "life"
+level = "life"
+kind = "location"
+id = "life/g0/r334"
+item = "key_life1"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed; landmark Key_A spot within 4]"]
+
+[[step]]
+step = 250
+leg = "life"
+level = "life"
+kind = "action"
+action = "use_keylock"
+sets = "button:life.life_keylock"
+consumes = "key.life1"
+requires = "key.life1>=1"
+ok = true
+sources = ["[data: generated keylock, key life1; a lock uses one key, 0x58AD0]", "[data: blocker family life.big_arms (needs probe)]"]
+
+[[step]]
+step = 251
+leg = "life"
+level = "life"
+kind = "action"
+action = "use_keylock"
+sets = "button:life.life_keylock1"
+consumes = "key.life1"
+requires = "key.life1>=1"
+ok = true
+sources = ["[data: generated keylock, key life1; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 252
+leg = "life"
+level = "life"
+kind = "location"
+id = "life/g0/r259"
+item = "frag_life_4"
+class = "major"
+requires = "button:life.life_keylock & button:life.life_keylock1"
+ok = true
+sources = ["[web: https://docs.google.com/document/d/1UlTEjHD-KuCgLZceZJegdW6tKarr_ccaSWNMHEinQPU 'Life Disc 4: top of Life Realm']", "[inferred: the two locks drive the big arms; needs probe]"]
+note = "life has no count teleport; its exits read the beam puzzle and life_disk_placed (FORMAT §3.6)"
+
+[[step]]
+step = 253
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "action"
+action = "touch_seal"
+sets = "button:d1.seal"
+requires = "disca>=4 & discw>=4 & discf>=4 & disce>=4 & discl>=4"
+ok = true
+sources = ["[data: generated seal (touch + disc count)]"]
+
+[[step]]
+step = 254
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "location"
+id = "d1/g0/r2147"
+item = "key_diamondbattery"
+class = "major"
+requires = "earth>=3 & water>=3"
+ok = true
+sources = ["[data: AcidBlock_03/04 (acid L3) within 4]"]
+
+[[step]]
+step = 255
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "location"
+id = "d1/g0/r2169"
+item = "key_diamondbattery"
+class = "major"
+requires = "fire>=3 & water>=3"
+ok = true
+sources = ["[data: IceBlock_03 (stem L3) within 4]"]
+
+[[step]]
+step = 256
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "location"
+id = "d1/g0/r2193"
+item = "key_diamondbattery"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 257
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "location"
+id = "d1/g0/r1104"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 258
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "location"
+id = "d1/g0/r1624"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 259
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3045"
+item = "key_lens"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 260
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3047"
+item = "key_lens"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 261
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3049"
+item = "key_lens"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 262
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3051"
+item = "key_lens"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 263
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3053"
+item = "key_lens"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 264
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3055"
+item = "key_lens"
+class = "major"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 265
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3660"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 266
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3662"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 267
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "location"
+id = "d2/g0/r3664"
+item = "all_fuel"
+class = "consumable"
+requires = "true"
+ok = true
+sources = ["[assumed]"]
+
+[[step]]
+step = 268
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "action"
+action = "use_keylock"
+sets = "button:d2.death_keylock"
+consumes = "key.lens"
+requires = "key.lens>=1"
+ok = true
+sources = ["[data: generated keylock, key lens; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 269
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "action"
+action = "use_keylock"
+sets = "button:d2.death_keylock1"
+consumes = "key.lens"
+requires = "key.lens>=1"
+ok = true
+sources = ["[data: generated keylock, key lens; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 270
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "action"
+action = "use_keylock"
+sets = "button:d2.death_keylock2"
+consumes = "key.lens"
+requires = "key.lens>=1"
+ok = true
+sources = ["[data: generated keylock, key lens; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 271
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "action"
+action = "use_keylock"
+sets = "button:d2.death_keylock3"
+consumes = "key.lens"
+requires = "key.lens>=1"
+ok = true
+sources = ["[data: generated keylock, key lens; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 272
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "action"
+action = "use_keylock"
+sets = "button:d2.death_keylock4"
+consumes = "key.lens"
+requires = "key.lens>=1"
+ok = true
+sources = ["[data: generated keylock, key lens; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 273
+leg = "d1 / d2 death realm"
+level = "d2"
+kind = "action"
+action = "use_keylock"
+sets = "button:d2.death_keylock5"
+consumes = "key.lens"
+requires = "key.lens>=1"
+ok = true
+sources = ["[data: generated keylock, key lens; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 274
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "action"
+action = "use_keylock"
+sets = "button:d1.death_keylock"
+consumes = "key.diamondbattery"
+requires = "key.diamondbattery>=1"
+ok = true
+sources = ["[data: generated keylock, key diamondbattery; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 275
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "action"
+action = "use_keylock"
+sets = "button:d1.death_keylock1"
+consumes = "key.diamondbattery"
+requires = "key.diamondbattery>=1"
+ok = true
+sources = ["[data: generated keylock, key diamondbattery; a lock uses one key, 0x58AD0]"]
+
+[[step]]
+step = 276
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "action"
+action = "use_keylock"
+sets = "button:d1.death_keylock2"
+consumes = "key.diamondbattery"
+requires = "key.diamondbattery>=1"
+ok = true
+sources = ["[data: generated keylock, key diamondbattery; a lock uses one key, 0x58AD0]", "[data: keys elevator floor 9, where Spideyzar spawns (thresholds §5)]"]
+
+[[step]]
+step = 277
+leg = "d1 / d2 death realm"
+level = "d1"
+kind = "action"
+action = "kill"
+sets = "flag:d1.spideyzar.killed"
+requires = "button:d1.death_keylock2"
+ok = true
+sources = ["[data: victory D76; config: staff damage only]"]

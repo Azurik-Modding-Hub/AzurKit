@@ -6,6 +6,9 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
                   [--pack-param PACK.SLIDER=VALUE ...]
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
+    azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
+                                          a randomizer plan file (JSON on stdout, or written to FILE)
+    azurkit spoiler PLAN                  a plan file's spoiler
 
 ``build`` applies the packs on by default (D528) and each ``--pack``, less
 each ``--no-pack`` and each pack on by default that requires one left out
@@ -15,8 +18,10 @@ build). ``--mods FILE`` (Q268: a preset, an AzurKit build's manifest or a
 share link; what ``open`` prints) adds its xbr operations, and when it has
 a packs layer the build starts from its packs in place of those on by
 default. ``--pack-param`` sets a slider of a pack it applies, to
-any finite number (D23: never clamped). A refusal or failure is one
-``azurkit: ...`` line on stderr and exit 1.
+any finite number (D23: never clamped). ``plan`` fills the randomizer's
+authored levels for the seed under the default settings (D144), a settings
+file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.
+A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1.
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 from azurkit import __version__, sdk
@@ -117,6 +123,37 @@ def _open(args: argparse.Namespace) -> int:
     return 0
 
 
+def _plan(args: argparse.Namespace) -> int:
+    try:
+        given = {"seed": args.seed}
+        if args.settings:
+            given["settings"] = tomllib.loads(Path(args.settings).read_text(encoding="utf-8"))
+        elif args.share:
+            given["share"] = args.share
+        doc = sdk.plan(given)
+    except (OSError, ValueError) as exc:     # tomllib.TOMLDecodeError is a ValueError
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    text = json.dumps(doc, indent=1, sort_keys=True) + "\n"    # Modkit's plan file, byte for byte
+    if args.out is None:
+        sys.stdout.write(text)
+        return 0
+    Path(args.out).write_text(text, encoding="utf-8")
+    print(f"plan {doc['sha256'][:12]} written to {args.out}: {len(doc['placement'])} locations "
+          f"(attempt {doc['attempt']}, share {doc['share']})")
+    return 0
+
+
+def _spoiler(args: argparse.Namespace) -> int:
+    try:
+        lines = sdk.spoiler(json.loads(Path(args.plan).read_text(encoding="utf-8")))["lines"]
+    except (OSError, ValueError) as exc:     # json.JSONDecodeError is a ValueError
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    print("\n".join(lines))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="azurkit", description="Mods for Azurik: Rise of Perathia.")
     parser.add_argument("--version", action="version", version=f"azurkit {__version__}")
@@ -152,6 +189,22 @@ def main(argv: list[str] | None = None) -> int:
                                           "and print its recipe as a mods file (JSON), which build --mods takes.")
     opened.add_argument("build", metavar="BUILD", help="an image AzurKit built")
     opened.set_defaults(run=_open)
+    planned = verbs.add_parser("plan", help="fill the randomizer for a seed and print (or write) the plan file",
+                               description="Fill the randomizer's authored levels for --seed under the default "
+                                           "settings (D144), a settings file's or a share string's, and print the "
+                                           "plan file (JSON), or write it to --out. The same seed and settings "
+                                           "give the same plan.")
+    planned.add_argument("--seed", required=True, help="the seed: any string")
+    given = planned.add_mutually_exclusive_group()
+    given.add_argument("--settings", metavar="FILE", help="the settings as a settings file (TOML)")
+    given.add_argument("--share", metavar="STRING", help="the settings as a share string (AZR-...)")
+    planned.add_argument("--out", metavar="FILE", help="write the plan file here (default: print it)")
+    planned.set_defaults(run=_plan)
+    spoiled = verbs.add_parser("spoiler", help="print a plan file's spoiler",
+                               description="Print PLAN's settings, its spheres with each progression item's "
+                                           "obtain and return paths, the traps and the rest.")
+    spoiled.add_argument("plan", metavar="PLAN", help="a plan file (azurkit plan --out)")
+    spoiled.set_defaults(run=_spoiler)
     args = parser.parse_args(argv)
     if args.verb is None:
         parser.print_help()

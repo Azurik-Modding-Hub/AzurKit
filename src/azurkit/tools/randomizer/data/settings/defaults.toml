@@ -1,0 +1,16 @@
+# Imported at Step R1.4 from the R0 evidence repo @ 4b8f3f3 (db-draft/settings/defaults.toml), format keys /1; R0's scripts stay there.
+# Below, FORMAT is docs/RANDOMIZER_DB.md, db-draft/ is azurik_mod/randomizer/data/, and R0's checks (db_check.py,
+# tricks_check.py) are `azurik-mod rando check`.
+# settings/defaults.toml (DRAFT, 2026-10-12; new for D144): the randomizer's default options.
+# Spec: db-draft/FORMAT.md section 7 (7.1 the options, 7.2 this schema, 7.3 the share string).
+# D144 (owner, 2026-10-12, verbatim): "what if we get rid of presets, and just have skip and movement options that the
+# user sets themselves? With the default being no skips and hard movement." Follow-up answers: dark areas default to
+# "Fire 1"; "Yes, user-saved settings". There are no built-in presets: this file replaces presets/*.toml (D113, D118,
+# D129, D142; their option sets are in FORMAT 7.5 as a compatibility example). A user-saved settings file follows the
+# same schema and writes every option (FORMAT 7.2). Share string: AZR-AAIA (FORMAT 7.3).
+format = "azurik-rando-settings/1"  # D144
+skip_ceiling = 0  # D144: "the default being no skips". The in_logic skips rated at or below it are on (0 none; 2 standard, 3 hard, 4 frame-perfect; D259: no skip is rated 1, safe, so 1 turns on none)
+movement_tier = "standard"  # D186 (owner, 2026-10-13, amending D144's "hard movement" once Step R1.2b recalibrated the tiers): ordinary jumps and flaps use the standard tier's margins (safe | standard | hard | frame_perfect; draft/tiers.toml)
+dark_fire = 1  # D144 (follow-up): dark areas need "Fire 1" (fire >= this, 1..3); an enabled nolight skip lifts it for its dark area
+
+[skip_override]  # D144: skip id -> true (on whatever the ceiling) or false (off); a toggle never turns on a held or manual skip. Empty: the ceiling alone decides, so no skip is on

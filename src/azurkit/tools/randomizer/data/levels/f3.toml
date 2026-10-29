@@ -1,0 +1,1249 @@
+# levels/f3.toml: written by `azurik-mod rando author f3` (Step R1.8) from generated/f3.json,
+# derived/f3.json.gz, tricks.toml and draft/authoring/f3.toml (the realm step's hand decisions, each
+# with its reason). Edit those and re-run it, not this file (docs/RANDOMIZER_DB.md 4, 16).
+
+format = "azurik-rando-level/1"
+level = "f3"
+status = "authored"
+known_traps = []
+route = ["f3/g0/r2455", "f3/g0/r1000", "f3/g0/r1002", "f3/g0/r1004", "f3/g0/r2535", "f3/g0/r2453", "f3/g0/r2388", "f3/g0/r2390", "f3/g0/r2443", "f3/g0/r2445", "f3/g0/r2547"]
+
+# ---- nodes: the kept zones, joined where the safe tier walks both ways with no item --------------
+
+[[node]]
+id = "f3_core"
+anchors = ["zone:f3.Z002"]
+
+[[node]]
+id = "f3_z011"
+anchors = ["zone:f3.Z011"]
+
+[[node]]
+id = "f3_z012"
+anchors = ["zone:f3.Z012", "zone:f3.Z206"]
+
+[[node]]
+id = "f3_z019"
+anchors = ["zone:f3.Z018"]
+
+[[node]]
+id = "f3_z020"
+anchors = ["zone:f3.Z020"]
+
+[[node]]
+id = "f3_z024"
+anchors = ["zone:f3.Z024"]
+
+[[node]]
+id = "f3_z026"
+anchors = ["zone:f3.Z026"]
+
+[[node]]
+id = "f3_z028"
+anchors = ["zone:f3.Z028"]
+
+[[node]]
+id = "f3_z031"
+anchors = ["zone:f3.Z031"]
+
+[[node]]
+id = "f3_z033"
+anchors = ["zone:f3.Z033"]
+
+[[node]]
+id = "f3_z038"
+anchors = ["zone:f3.Z038"]
+
+[[node]]
+id = "f3_z042"
+anchors = ["zone:f3.Z042"]
+
+[[node]]
+id = "f3_z043"
+anchors = ["zone:f3.Z043"]
+
+[[node]]
+id = "f3_z046"
+anchors = ["zone:f3.Z046"]
+
+[[node]]
+id = "f3_z049"
+anchors = ["zone:f3.Z049"]
+
+[[node]]
+id = "f3_z052"
+anchors = ["zone:f3.Z052"]
+
+[[node]]
+id = "f3_z061"
+anchors = ["zone:f3.Z060"]
+
+[[node]]
+id = "f3_z062"
+anchors = ["zone:f3.Z061"]
+
+[[node]]
+id = "f3_z073"
+anchors = ["zone:f3.Z072"]
+
+[[node]]
+id = "f3_z101"
+anchors = ["zone:f3.Z100"]
+
+[[node]]
+id = "f3_z113"
+anchors = ["zone:f3.Z112"]
+
+[[node]]
+id = "f3_z117"
+anchors = ["zone:f3.Z116"]
+
+[[node]]
+id = "f3_z131"
+anchors = ["zone:f3.Z130"]
+
+[[node]]
+id = "f3_z133"
+anchors = ["zone:f3.Z132"]
+
+[[node]]
+id = "f3_z169"
+anchors = ["zone:f3.Z168"]
+
+[[node]]
+id = "f3_z172"
+anchors = ["zone:f3.Z171"]
+
+[[node]]
+id = "f3_z174"
+anchors = ["zone:f3.Z173"]
+
+[[node]]
+id = "f3_z176"
+anchors = ["zone:f3.Z175"]
+
+[[node]]
+id = "f3_z245"
+anchors = ["zone:f3.Z244"]
+
+[[node]]
+id = "f3_z250"
+anchors = ["zone:f3.Z249"]
+
+[[node]]
+id = "f3_z254"
+anchors = ["zone:f3.Z253"]
+
+[[node]]
+id = "f3_z261"
+anchors = ["zone:f3.Z260"]
+
+[[node]]
+id = "f3_z282"
+anchors = ["zone:f3.Z281"]
+
+[[node]]
+id = "f3_z284"
+anchors = ["zone:f3.Z283"]
+
+[[node]]
+id = "f3_z343"
+anchors = ["zone:f3.Z342"]
+
+[[node]]
+id = "f3_z615"
+anchors = ["zone:f3.Z615"]
+
+[[node]]
+id = "f3_z647"
+anchors = ["zone:f3.Z647"]
+
+[[node]]
+id = "f3_z932"
+anchors = ["zone:f3.Z933"]
+
+[[node]]
+id = "f3_z933"
+anchors = ["zone:f3.Z934"]
+
+# ---- edges: the zone graph contracted onto the nodes, one edge per tier and confidence -------------
+
+[[edge]]
+from = "f3_core"
+to = "f3_z019"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z020"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z020"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z020"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z024"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z026"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z026"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z028"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z043"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z046"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z052"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z061"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z062"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z101"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z101"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z250"
+kind = "walk"
+requires = "air>=1 | air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z282"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z282"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z284"
+kind = "walk"
+requires = "air>=1 | true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z284"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f3_core"
+to = "f3_z647"
+kind = "walk"
+requires = "flag:f3.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f3_z011"
+to = "f3_z131"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z011"
+to = "f3_z133"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z011"
+to = "f3_z133"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z012"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z012"
+to = "f3_z042"
+kind = "walk"
+requires = "button:f3.fire_keylock"
+confidence = "data"
+
+[[edge]]
+from = "f3_z012"
+to = "f3_z254"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z012"
+to = "f3_z254"
+kind = "walk"
+requires = "air>=2"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z012"
+to = "f3_z343"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z020"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z020"
+to = "f3_z046"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z020"
+to = "f3_z046"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z024"
+to = "f3_z038"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z024"
+to = "f3_z284"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z024"
+to = "f3_z284"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z024"
+to = "f3_z284"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z026"
+to = "f3_z024"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z026"
+to = "f3_z038"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z028"
+to = "f3_z012"
+kind = "walk"
+requires = "button:f3.fire_keylock1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z028"
+to = "f3_z031"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z028"
+to = "f3_z133"
+kind = "walk"
+requires = "air>=2"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f3_z028"
+to = "f3_z282"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z031"
+to = "f3_z038"
+kind = "walk"
+requires = "air>=2 | true"
+confidence = "probed"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 19:21, row 07 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+
+[[edge]]
+from = "f3_z031"
+to = "f3_z250"
+kind = "walk"
+requires = "true"
+logic = false
+confidence = "data"
+
+[[edge]]
+from = "f3_z033"
+to = "f3_z042"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z038"
+to = "f3_z028"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 19:21, row 07 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+
+[[edge]]
+from = "f3_z038"
+to = "f3_z031"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z042"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z042"
+to = "f3_z012"
+kind = "walk"
+requires = "button:f3.fire_keylock"
+confidence = "data"
+
+[[edge]]
+from = "f3_z042"
+to = "f3_z033"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z042"
+to = "f3_z261"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z043"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z043"
+to = "f3_z113"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z046"
+to = "f3_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z046"
+to = "f3_z026"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z049"
+to = "f3_z019"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z049"
+to = "f3_z615"
+kind = "walk"
+requires = "(earth>=1 & water>=1) | skip:f3.pstorage_acid_acidblock01"
+confidence = "data"
+
+[[edge]]
+from = "f3_z052"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z052"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z052"
+to = "f3_z046"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z061"
+to = "f3_z073"
+kind = "walk"
+requires = "true"
+confidence = "probed"
+proven = { by = "xemu", ref = "x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt: 20:40, row 08 (the owner's demo, X.78, D722: the owner's real input, kit 0)" }
+
+[[edge]]
+from = "f3_z061"
+to = "f3_z169"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z061"
+to = "f3_z172"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z061"
+to = "f3_z174"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z061"
+to = "f3_z176"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z061"
+to = "f3_z176"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z062"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z062"
+to = "f3_z117"
+kind = "walk"
+requires = "air>=3"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z012"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z012"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z033"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z062"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z117"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z117"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z117"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z174"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z245"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z245"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z073"
+to = "f3_z261"
+kind = "walk"
+requires = "air>=2"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z101"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z101"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z113"
+to = "f3_core"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z113"
+to = "f3_z043"
+kind = "walk"
+requires = "air>=3"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f3_z113"
+to = "f3_z062"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z117"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z117"
+to = "f3_z061"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z117"
+to = "f3_z062"
+kind = "walk"
+requires = "air>=1"
+difficulty = 4
+confidence = "physics"
+
+[[edge]]
+from = "f3_z131"
+to = "f3_z011"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z131"
+to = "f3_z133"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z133"
+to = "f3_z011"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z133"
+to = "f3_z011"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z133"
+to = "f3_z131"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z133"
+to = "f3_z284"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z169"
+to = "f3_z174"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z169"
+to = "f3_z176"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z172"
+to = "f3_z061"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z172"
+to = "f3_z176"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z174"
+to = "f3_z176"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z174"
+to = "f3_z176"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z176"
+to = "f3_z061"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z176"
+to = "f3_z172"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z245"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z245"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z245"
+to = "f3_z033"
+kind = "walk"
+requires = "air>=3"
+difficulty = 3
+confidence = "physics"
+
+[[edge]]
+from = "f3_z245"
+to = "f3_z261"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z250"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z250"
+to = "f3_z031"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z250"
+to = "f3_z046"
+kind = "walk"
+requires = "air>=2"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z254"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z254"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z254"
+to = "f3_z012"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z254"
+to = "f3_z012"
+kind = "walk"
+requires = "air>=2"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z254"
+to = "f3_z012"
+kind = "walk"
+requires = "air>=1"
+difficulty = 2
+confidence = "physics"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_core"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_z019"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_z019"
+kind = "walk"
+requires = "air>=3"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_z042"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_z042"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_z042"
+kind = "walk"
+requires = "air>=2"
+difficulty = 2
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_z133"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z261"
+to = "f3_z245"
+kind = "walk"
+requires = "air>=1"
+confidence = "physics"
+
+[[edge]]
+from = "f3_z282"
+to = "f3_core"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z282"
+to = "f3_z046"
+kind = "walk"
+requires = "air>=3"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z284"
+to = "f3_z024"
+kind = "walk"
+requires = "air>=1"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z343"
+to = "f3_z024"
+kind = "walk"
+requires = "true"
+confidence = "data"
+
+[[edge]]
+from = "f3_z615"
+to = "f3_z049"
+kind = "walk"
+requires = "(earth>=1 & water>=1) | skip:f3.pstorage_acid_acidblock01"
+confidence = "data"
+
+[[edge]]
+from = "f3_z615"
+to = "f3_z647"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z615"
+to = "f3_z932"
+kind = "walk"
+requires = "flag:f3.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f3_z647"
+to = "f3_core"
+kind = "walk"
+requires = "flag:f3.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f3_z647"
+to = "f3_z615"
+kind = "walk"
+requires = "true"
+confidence = "assumed"
+
+[[edge]]
+from = "f3_z647"
+to = "f3_z932"
+kind = "walk"
+requires = "(earth>=1 & water>=1) | skip:f3.pstorage_acid_acidblock01"
+confidence = "data"
+
+[[edge]]
+from = "f3_z932"
+to = "f3_z615"
+kind = "walk"
+requires = "flag:f3.all.destroyed"
+confidence = "data"
+
+[[edge]]
+from = "f3_z932"
+to = "f3_z647"
+kind = "walk"
+requires = "(earth>=1 & water>=1) | skip:f3.pstorage_acid_acidblock01"
+confidence = "data"
+
+# ---- exits ---------------------------------------------------------------------------------
+
+[[edge]]  # LevelSwitch_F3_F1 -> f1 (spot); F3_F1 is 7.4 m above the main cavern's floor (Z000, 2.7 m aside) with no floor under it within 3 m [computed: the derive's columns]; the probes sitting saw the arrival stand 17 ticks after the load [verified xemu, $EV/xemu-oracle-2026-10-12-probes row 35]: it lands in the cavern (default taken under D115)
+from = "f3_z052"
+to = "f1_core"
+kind = "exit"
+exit = "f3/g0/r2784"
+requires = "true"
+confidence = "data"
+
+[[edge]]  # LevelSwitch_F3_W4 -> w4 (spot)
+from = "f3_z019"
+to = "w4_z096"
+kind = "exit"
+exit = "f3/g0/r2786"
+requires = "true"
+confidence = "data"
+
+# ---- barriers, buttons, events and location overrides ----------------------------------------
+
+[[barrier]]  # other acid, generated requires earth>=1 & water>=1, permanent
+id = "f3.all"
+of = "f3/g0/r868"
+destroy_from = ["f3_core", "f3_z049", "f3_z615", "f3_z647", "f3_z932", "f3_z933"]
+override_requires = "earth>=1 & water>=1 | skip:f3.pstorage_acid_acidblock01"
+override_reason = "one acid hit melts both shape groups (the same AcidMelt switches, generated/f3.json), so the derive's crossings through f3.all (the Acid:* members between Z002 and Z647) are AcidBlock_01's: the generated earth 1 & water 1, or stored acid (f3.pstorage_acid_acidblock01, in logic: confirmed in xemu, skips-c E5b)"
+
+[[barrier]]  # acidblock acid, generated requires earth>=1 & water>=1, permanent
+id = "f3.Acid_AcidBlock_01"
+of = "f3/g0/r877"
+destroy_from = ["f3_core", "f3_z615", "f3_z647"]
+override_requires = "earth>=1 & water>=1 | skip:f3.pstorage_acid_acidblock01"
+override_reason = "the generated earth 1 & water 1, or stored acid (f3.pstorage_acid_acidblock01, in logic: confirmed in xemu, skips-c E5b); its crossings are f3.all's (above)"
+
+[[button]]  # keylock, generated requires key.fire1>=1
+id = "f3.fire_keylock2"
+of = "f3/g0/r146"
+at = "f3_z033"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.fire1>=1
+id = "f3.fire_keylock"
+of = "f3/g0/r825"
+at = "f3_z012"
+mode = "latch"
+
+[[button]]  # keylock, generated requires key.fire1>=1
+id = "f3.fire_keylock1"
+of = "f3/g0/r848"
+at = "f3_z028"
+mode = "latch"
+
+[[event]]  # derived: hit of DiamondStone:DiamondStoneShape
+id = "f3.DiamondStone_DiamondStoneShape.hit"
+at = "f3_z011"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone1:EmeraldStone1:WindRockShape
+id = "f3.EmeraldStone1_EmeraldStone1_WindRockShape.hit"
+at = "f3_core"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone2:EmeraldStone1:WindRockShape
+id = "f3.EmeraldStone2_EmeraldStone1_WindRockShape.hit"
+at = "f3_core"
+requires = "true"
+
+[[event]]  # derived: hit of EmeraldStone:EmeraldStone1:WindRockShape
+id = "f3.EmeraldStone_EmeraldStone1_WindRockShape.hit"
+at = "f3_core"
+requires = "true"
+
+[[location]]
+id = "f3/g0/r2390"
+proven = { by = "l3", ref = "r129b4/9cf955bb0c28@5547cca8af77" }
+note = "Step R1.29b: an L3 input string of 599 ticks (robustness 0.00 under jitter) from f3.Z002 (R6 onto a floor sample of f3.Z002; placed: R7 hop, R2 kit air1) touches it and comes back; xemu replayed it tick for tick (sitting r129b4), taking its item (obsi; start >10 m away)"
+
+[[location]]
+id = "f3/g0/r2443"
+proven = { by = "data", ref = "rando author: derived/f3.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f3/g0/r2453"
+proven = { by = "data", ref = "rando author: derived/f3.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f3/g0/r2455"
+proven = { by = "data", ref = "rando author: derived/f3.json.gz, safe-tier data and physics edges both ways" }
+
+[[location]]
+id = "f3/g0/r2500"
+requires = "air>=3"
+note = "5.4 m over the key area's floor (f3.Z012) with no spring, updraft or ledge under it the derive models (held, probe class float): a flight with air 3 [inferred; conservative, as R1.11a's w1 sapphires; default taken under D115]"
+
+[[location]]
+id = "f3/g0/r2502"
+requires = "air>=3"
+note = "5.0 m over the key area's floor (f3.Z012), held as f3/g0/r2500 is: a flight with air 3 [inferred; conservative, default taken under D115]"
+
+# ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
+
+[[skip]]
+id = "f3.pstorage_acid_acidblock01"
+name = "f3 stored acid on the w4-pipeline AcidBlock_01"
+tricks = ["pstorage"]
+requires = "true"
+difficulty = 2
+status = "in_logic"
+confirmed = { by = "xemu", ref = "xemu-oracle-2026-10-12-skips-c/E5b:f3.pstorage_acid_acidblock01" }
+gates = ["f3.Acid_AcidBlock_01"]
