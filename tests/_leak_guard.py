@@ -28,9 +28,10 @@ committed and deleted again is caught too. Refused:
   ``#``, ``//``, ``/*`` or ``;``).
 
 A gzip file (``1f 8b`` at 0) is refused for what it holds as well: its
-inner bytes (:func:`gunzip`), named as the file without its ``.gz``, are
-checked by every rule here, the literal reader's below too, and named
-``"<path> (gzip)"``.
+inner bytes (:func:`gunzip`: every member, past a bad CRC or size and up
+to a damaged spot), named as the file without its ``.gz``, are checked by
+every rule here, the literal reader's below too, and named ``"<path>
+(gzip)"``.
 
 One more rule needs the game itself, so the vanilla tier runs it
 (``tests/test_leak_guard.py``, with both releases' :data:`VANILLA_FILES`
@@ -175,28 +176,56 @@ def _text(data: bytes) -> str | None:
     return None if b"\0" in data[:8192] else data.decode("utf-8", errors="replace")
 
 
+def _deflate_at(data: bytes) -> int | None:
+    """Where the deflate data of the gzip member starting ``data`` begins,
+    past its header (RFC 1952: 10 bytes, then FEXTRA, FNAME, FCOMMENT and
+    FHCRC as its flags say), or ``None`` when the header is cut short."""
+    flags, at = data[3] if len(data) > 3 else 0, 10
+    if flags & 0x04:   # FEXTRA: its length, then its bytes
+        at += 2 + int.from_bytes(data[at:at + 2], "little")
+    for flag in (0x08, 0x10):   # FNAME, FCOMMENT: zero-terminated
+        if flags & flag and not (at := data.find(b"\0", at) + 1):
+            return None
+    at += 2 if flags & 0x02 else 0   # FHCRC
+    return at if at <= len(data) else None
+
+
 def gunzip(data: bytes) -> tuple[bytes, int, str] | None:
-    """What the gzip file ``data`` holds, every member and as much of a
-    truncated or damaged one as reads: its first :data:`MAX_TEXT` bytes,
-    its size and its sha256; ``None`` when ``data`` doesn't start with
-    :data:`GZIP`."""
+    """What the gzip file ``data`` holds: its first :data:`MAX_TEXT` bytes,
+    its size and its sha256, or ``None`` when ``data`` doesn't start with
+    :data:`GZIP`. Every member is read as raw deflate past its header, so
+    no header or trailer check (CRC or size) drops what it holds; a
+    truncated member is read to its end and a damaged one to the damaged
+    spot (the zlib call that fails is inflated again a byte at a time, as
+    zlib drops the output of a call that raises), where reading stops."""
     if not data.startswith(GZIP):
         return None
     head, size, sha = bytearray(), 0, hashlib.sha256()
-    while data.startswith(GZIP):
-        member = zlib.decompressobj(31)
-        try:
-            while not member.eof:
+
+    def keep(out: bytes) -> None:
+        nonlocal size
+        head.extend(out[:MAX_TEXT - len(head)])
+        size += len(out)
+        sha.update(out)
+
+    while data.startswith(GZIP) and (at := _deflate_at(data)) is not None:
+        member, data = zlib.decompressobj(-15), data[at:]
+        while not member.eof:
+            before = member.copy()
+            try:
                 out = member.decompress(data, 1 << 20)
-                data = member.unconsumed_tail
-                if not out and not data:   # truncated
-                    break
-                head += out[:MAX_TEXT - len(head)]
-                size += len(out)
-                sha.update(out)
-        except zlib.error:   # damaged: what read before it is checked
-            break
-        data = member.unused_data
+            except zlib.error:   # damaged
+                for i in range(len(data)):
+                    try:
+                        keep(before.decompress(data[i:i + 1]))
+                    except zlib.error:
+                        break
+                return bytes(head), size, sha.hexdigest()
+            data = member.unconsumed_tail
+            if not out and not data:   # truncated
+                break
+            keep(out)
+        data = member.unused_data[8:]   # past its trailer, unchecked
     return bytes(head), size, sha.hexdigest()
 
 
