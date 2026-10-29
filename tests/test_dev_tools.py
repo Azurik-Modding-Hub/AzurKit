@@ -38,7 +38,7 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
 def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
     """A run's cap is CAP while the host's 5-minute load is at most one per
     CPU, then grows with it, up to twice CAP (Step 4.1g2)."""
-    assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [1800, 1800, 2700, 3600, 3600]
+    assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [2700, 2700, 4050, 5400, 5400]
 
 
 def _git(cwd, *args):
