@@ -92,9 +92,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **Modkit's source a sync installs** (`oracle_sync.SOURCES`): the rando
     family's sync also installs the randomizer's database
     (`src/azurkit/tools/randomizer/data/`, our own logic data, copied
-    verbatim) and its planner (`.../randomizer/planner/`, each module through
-    `port()`: `REWRITES`' imports, and the top-level statements `DROPS` names
-    taken out, such as the seed roll's process pool). ORACLE.toml's `source`
+    verbatim, and `draft/tiers.toml`, the movement tiers' margins), its
+    planner (`.../randomizer/planner/`) and its `writer.py`, `physics.py`,
+    `movement.py` and `layer.py`, each module through `port()`: `REWRITES`'
+    imports (what they import of Modkit's engine points at ours:
+    `core/xbr/nodes.py`, `tools/randomizer/ports.py`), and the top-level
+    statements `DROPS` names taken out, such as the seed roll's process pool
+    and Modkit's build objects. ORACLE.toml's `source`
     table holds each installed file's sha256 and `tests/test_oracle.py`
     refuses a hand edit: a Modkit fix arrives by the next sync. A module
     that still imports Modkit after the rewrites, or a statement `DROPS`
@@ -230,22 +234,40 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The planner** (Step 4.2a; `src/azurkit/tools/randomizer/`): `plan(recipe)`
   fills the database's authored levels for a seed (any string) under the
   database's default settings (D144), a settings file's table (`settings`)
-  or a share string (`share`), and returns Modkit's plan file's object;
+  or a share string (`share`; its movement sliders re-check the logic the
+  fill reads, AZ-383), and returns Modkit's plan file's object;
   `spoiler(doc)` reads one back. The sdk's `plan` and `spoiler` and the CLI's
   `azurkit plan` and `azurkit spoiler` call them. A plan needs no image.
-  - `planner/` and `data/` are Modkit's, installed by the sync (above):
-    never edit them by hand. `writer.py` (the string rules the fill reads:
-    Modkit's writer up to `layout`, which Step 4.2b extends with the writes
-    and the read-back) and `dbcache.py` (no cache on disk: a pickle read
-    back from a writable folder runs its code) are ours.
+  - `planner/`, `data/`, `writer.py`, `physics.py`, `movement.py` and
+    `layer.py` are Modkit's, installed by the sync (above): never edit them
+    by hand. `generator.py`, `ports.py` and `dbcache.py` (no cache on disk:
+    a pickle read back from a writable folder runs its code) are ours.
   - The fill runs in the caller's thread: Modkit's seed roll in a process
-    pool (`roll_seed`) isn't ported. Settings with movement sliders (a share
-    string's) are refused by name until Step 4.2b ports the logic's re-check
-    under them (physics and movement).
-  - `tests/test_randomizer.py` holds it to the oracle's `rando_plans.json`:
-    seed 2's attempt and plan sha256 under the strict, default and max
+    pool (`roll_seed`) isn't ported.
+- **The generator layer** (Step 4.2b; `generator.py`): a build recipe's
+  `randomizer` (the planner's recipe and an `obsidian_cost`; `azurkit build
+  --seed`) is planned on the logic re-checked under the build's movement
+  sliders (Modkit's `layer.plan_for`: a run under garret4's falls back to
+  his, AZ-606) and written as the build's first layer, before the packs
+  (Modkit's `mod_apply` order): one group a node graph (its new strings,
+  TOC size and repointed name fields land whole) and one for the obsidian
+  locks. `edits.manifest.image`'s `judge` reads the image back against the
+  plan before anything is written: a difference a later layer explains (it
+  wrote the location's fields or string, or dropped its graph) is a
+  conflict and `logic_verified` false (D28), any other fails the build by
+  location (D35). The movement check reads the packs' catalog (each
+  slider's `logic_floor`, D83(c)); the tools never import each other. The
+  report's `randomizer` and the manifest's `verdicts` carry the verdict, and
+  a randomized build's mods file replays its seed and share string.
+  - Not ported: Modkit's `db-extract` (`levels.py`, the generated data's
+    extractor: the data comes by the sync), the player-model swap's
+    movement reasons (with the models, Step 4.3), the slider tracks'
+    safe ranges and the Randomizer tab (Step 4.2c, D902).
+  - `tests/test_randomizer.py` holds it to the oracle: `rando_plans.json`
+    (seed 2's attempt and plan sha256 under the strict, default and max
     settings, and the default plan file byte for byte, on CPython and under
-    Pyodide. The page's Randomizer tab stays hidden until Step 4.2c (D902).
+    Pyodide), G3's seed cases file by file and whole image on both releases
+    and `rando_iso.json`.
 
 ## The engine's contracts
 

@@ -49,23 +49,24 @@ from azurkit.tools.mods.engine import (BytesParam, Hook, Pack, ParametricPatch, 
                                        XbrParametricEdit, Xbe)
 
 GRAVITY = ParametricPatch(name="gravity", label="World gravity", va=0x001980A8, default=9.8, slider_min=0.0,
-                          slider_max=100.0, slider_step=0.1, unit="m/s^2",
+                          slider_max=100.0, slider_step=0.1, unit="m/s^2", logic_floor="max",
                           description="World gravity for every entity (Earth 9.8); jump and flap heights stay "
                                       "the same.")
 
 
-def _scale(name: str, label: str, lo: float, hi: float, step: float, description: str) -> ParametricPatch:
+def _scale(name: str, label: str, lo: float, hi: float, step: float, description: str,
+           floor: str | None = "min") -> ParametricPatch:
     return ParametricPatch(name=name, label=label, default=1.0, slider_min=lo, slider_max=hi, slider_step=step,
-                           unit="x", vanilla=1.0, description=description)
+                           unit="x", vanilla=1.0, description=description, logic_floor=floor)
 
 
 SCALES = (
     _scale("roll_speed_scale", "Roll distance", 0.0, 3.0, 0.05,
            "How far the roll goes; 0 rolls in place, negative rolls backwards."),
     _scale("roll_time_scale", "Roll speed", 0.25, 4.0, 0.05,
-           "How fast the roll plays: 2x takes half the time, the same distance from a run."),
+           "How fast the roll plays: 2x takes half the time, the same distance from a run.", None),
     _scale("climb_speed_scale", "Climb speed", 0.25, 4.0, 0.05,
-           "How fast the player climbs ladders and ledges, animation and movement together."),
+           "How fast the player climbs ladders and ledges, animation and movement together.", None),
     _scale("swim_speed_scale", "Player swim speed", 0.1, 10.0, 0.05,
            "Horizontal swim speed; diving and rising keep their 5 m/s."),
     _scale("jump_speed_scale", "Player jump height", 0.1, 5.0, 0.05,
@@ -79,13 +80,13 @@ SCALES = (
     _scale("wing_flap_ceiling_scale", "Wing-flap: altitude ceiling", 0.1, 20.0, 0.05,
            "Flaps lift to (K + 1) x 1.2 m above take-off; a k x jump needs K >= k^2 - 1."),
     _scale("flap_descent_fuel_cost_scale", "Wing-flap: descent penalty fuel", -0.05, 1.0, 0.001,
-           "Fuel of a flap far below the flap ceiling; vanilla's 100 empties the gauge."),
+           "Fuel of a flap far below the flap ceiling; vanilla's 100 empties the gauge.", None),
     _scale("flap_entry_fuel_cost_scale", "Wing-flap: fuel cost per flap", -5.0, 5.0, 0.1,
-           "Fuel each flap costs; 0 never drains the gauge, negative refunds."),
+           "Fuel each flap costs; 0 never drains the gauge, negative refunds.", "max"),
 )
 WALK = XbrParametricEdit(name="walk_speed_scale", label="Player walk speed", table="critters_critter_data",
                          entity="garret4", prop="runSpeed", default=1.0, slider_min=0.1, slider_max=10.0,
-                         slider_step=0.05, unit="x",
+                         slider_step=0.05, unit="x", logic_floor="min",
                          description="Walk speed at full stick (garret4's runSpeed in config.xbr).",
                          cells=lambda tables: [("garret4", tables["critters_critter_data"].column("garret4"),
                                                 "runSpeed", tables["critters_critter_data"].number("garret4",

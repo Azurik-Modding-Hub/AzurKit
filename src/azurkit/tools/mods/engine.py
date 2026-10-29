@@ -218,6 +218,8 @@ class Slider:
     vanilla: float | None = None
     whole: tuple[int, int] | None = None
     why: str = ""
+    logic_floor: str | None = None   # "min" or "max": the side of default where the randomizer's logic no longer
+                                     # holds and a build's logic_verified is false (D83(c)); never a limit
 
     def value(self, given: object) -> float | int:
         """``given`` as this slider takes it; ``ValueError`` (naming the
@@ -235,7 +237,7 @@ class Slider:
         return {"name": self.name, "label": self.label, "default": self.default, "min": self.slider_min,
                 "max": self.slider_max, "step": self.slider_step, "unit": self.unit,
                 "description": self.description, "vanilla": self.vanilla,
-                "whole": list(self.whole) if self.whole else None}
+                "whole": list(self.whole) if self.whole else None, "logic_floor": self.logic_floor}
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -5,6 +5,7 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit packs                         the packs: on by default or not, the releases, what each does, its sliders
     azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
                   [--pack-param PACK.SLIDER=VALUE ...]
+                  [--seed SEED [--settings FILE | --share STRING] [--obsidian-cost N]]
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
@@ -18,7 +19,13 @@ build). ``--mods FILE`` (Q268: a preset, an AzurKit build's manifest or a
 share link; what ``open`` prints) adds its xbr operations, and when it has
 a packs layer the build starts from its packs in place of those on by
 default. ``--pack-param`` sets a slider of a pack it applies, to
-any finite number (D23: never clamped). ``plan`` fills the randomizer's
+any finite number (D23: never clamped). ``--seed`` randomizes the build:
+the plan (the seed under the default settings, a settings file's or a share
+string's, on the logic re-checked under the build's movement sliders) is
+written first, the built image is read back against it before anything is
+written, and the build prints whether its logic still holds (and why not);
+``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). A mods file
+of a randomized build (``open``) replays its seed and share string. ``plan`` fills the randomizer's
 authored levels for the seed under the default settings (D144), a settings
 file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.
 A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1.
@@ -65,10 +72,11 @@ def _packs(args: argparse.Namespace) -> int:
 
 
 def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, params: list[str] = (),
-           mods: dict | None = None) -> dict:
+           mods: dict | None = None, randomizer: dict | None = None) -> dict:
     """``build``'s flags as the sdk's recipe, from ``mods`` (a mods file,
-    ``sdk.read_mods``) when given; ``ValueError`` names a pack no pack has,
-    one both added and taken away (no flag cancels another), and a
+    ``sdk.read_mods``) when given, with ``randomizer`` (the randomizer's
+    flags, in place of the mods file's); ``ValueError`` names a pack no pack
+    has, one both added and taken away (no flag cancels another), and a
     ``--pack-param`` that isn't ``PACK.SLIDER=NUMBER`` of a pack the build
     applies (the sdk names a slider or value it refuses)."""
     catalog = {p["name"]: p for p in sdk.catalog()["packs"]}
@@ -94,21 +102,42 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
         if pack not in built:
             raise ValueError(f"--pack-param {given}: the build doesn't apply {pack!r} (add --pack {pack})")
         built[pack][slider] = number
-    return {"iso": iso, "packs": built} | ({"xbr": mods["xbr"]} if mods and mods.get("xbr") else {})
+    randomizer = randomizer or (mods or {}).get("randomizer")
+    return {"iso": iso, "packs": built} | ({"xbr": mods["xbr"]} if mods and mods.get("xbr") else {}) | (
+        {"randomizer": randomizer} if randomizer else {})
+
+
+def _randomizer(args: argparse.Namespace) -> dict | None:
+    """The randomizer's flags as the sdk's recipe (``None`` without ``--seed``)."""
+    if args.seed is None:
+        if args.settings or args.share or args.obsidian_cost is not None:
+            raise ValueError("--settings, --share and --obsidian-cost randomize the build: give --seed")
+        return None
+    given = {"seed": args.seed}
+    if args.settings:
+        given["settings"] = tomllib.loads(Path(args.settings).read_text(encoding="utf-8"))
+    elif args.share:
+        given["share"] = args.share
+    return given | ({"obsidian_cost": args.obsidian_cost} if args.obsidian_cost is not None else {})
 
 
 def _build(args: argparse.Namespace) -> int:
     try:
         given = sdk.read_mods(Path(args.mods).read_bytes()) if args.mods else None
-        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given),
-                          args.out)
-    except (OSError, ValueError) as exc:
+        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given,
+                                 _randomizer(args)), args.out)
+    except (OSError, ValueError) as exc:    # tomllib.TOMLDecodeError is a ValueError
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
     for layer in built["layers"]:
         print(f"{layer['id']}: {layer['sites']} sites, {layer['bytes']} B")
     for conflict in built["conflicts"]:
         print(f"conflict: {conflict}")
+    if (plan := built.get("randomizer")) is not None:
+        print(f"randomizer: seed {plan['seed']!r}, share {plan['share']}, plan {plan['plan'][:12]}; the image "
+              f"holds the plan; logic_verified: {str(plan['logic_verified']).lower()}")
+        for line in plan["conflicts"] + plan["why_not"]:
+            print(f"  {line}")
     print(f"{Path(built['out'])}: {built['label']}, {built['size']:,} B, sha256 {built['sha256']}")
     return 0
 
@@ -183,6 +212,12 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--pack-param", action="append", default=[], metavar="PACK.SLIDER=VALUE",
                        help="set a slider of a pack the build applies: any finite number, never clamped "
                             "(repeatable; azurkit packs lists them)")
+    build.add_argument("--seed", help="randomize the build: the plan of this seed (any string), written first")
+    settled = build.add_mutually_exclusive_group()
+    settled.add_argument("--settings", metavar="FILE", help="the randomizer's settings as a settings file (TOML)")
+    settled.add_argument("--share", metavar="STRING", help="the randomizer's settings as a share string (AZR-...)")
+    build.add_argument("--obsidian-cost", type=float, metavar="N",
+                       help="the obsidian each lock costs (vanilla 10; any number, never clamped)")
     build.set_defaults(run=_build)
     opened = verbs.add_parser("open", help="print an AzurKit build's recipe as a mods file",
                               description="Read BUILD's /azurkit.json, check every file of the image against it, "

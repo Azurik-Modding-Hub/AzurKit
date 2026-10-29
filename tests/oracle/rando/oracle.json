@@ -1,5 +1,5 @@
 {
- "commit": "633bc3cfc971539c4418aed01613aa18e1e53cf8",
+ "commit": "7def1f6ddf43dd9e3064fe5d1b5e26f5323eb7a1",
  "dirty": false,
  "family": "rando",
  "files": {
@@ -28,7 +28,7 @@
  "same_as": {
   "tests/goldens/gui.json: run_randomizer:randomize": "tests/goldens/pipelines.json: randomize-full:seed=2,default"
  },
- "tag": "oracle-rando-1",
+ "tag": "oracle-rando-2",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",

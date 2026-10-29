@@ -28,7 +28,7 @@ import hashlib
 import json
 import os
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from azurkit import __version__
 from azurkit.core import gate, iso
@@ -48,7 +48,7 @@ class Manifest:
     layers: tuple[Layer, ...]
     result: Mapping[str, str]        # each file that differs from the base -> its sha256
     conflicts: tuple[Conflict, ...]
-    verdicts: Mapping = field(default_factory=dict)
+    verdicts: Mapping = field(default_factory=dict)   # a tool's verdict on the built image, by tool (judge)
 
     def recipe(self) -> dict:
         """The base and each layer's recipe: what replays the build."""
@@ -103,14 +103,18 @@ def _sha256(data: bytes) -> str:
 
 
 def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] | None = None, *,
-          root: bool = True) -> tuple[iso.Image, Manifest]:
+          root: bool = True, judge: Callable[[iso.Image, Manifest], Mapping] | None = None
+          ) -> tuple[iso.Image, Manifest]:
     """The image ``layers`` make of the vanilla image ``stamp`` checked,
     unwritten, and its manifest, which the image carries in its root
     (:func:`root_files`) when it has a layer and ``root`` (without them, it
     is Modkit's image of the same recipe, byte for byte). ``base`` holds
     files already read from it (the rest are read here). The image's
     ``filelist.txt`` is derived state (:func:`iso.read`), in the result when
-    it differs."""
+    it differs. ``judge`` reads the image without the root files back and
+    gives the manifest's verdicts (``{tool: verdict}``), or raises
+    ``ValueError`` naming why the build fails (D35: the randomizer's
+    read-back against its plan)."""
     names = sorted({c.file for la in layers for c in (*la.changes, *la.claims)})
     base = dict(base or {})
     with iso.Reader(stamp.path) as r:
@@ -130,6 +134,8 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
             if (new := r.read("filelist.txt")) != listing["filelist.txt"]:
                 result["filelist.txt"] = _sha256(new)
     manifest = Manifest(stamp.release, tuple(layers), result, tuple(conflicts))
+    if judge is not None:
+        manifest = replace(manifest, verdicts=dict(judge(made, manifest)))
     if root and layers:
         made = iso.read(stamp.path, changed, add=root_files(manifest))
     return made, manifest
@@ -206,9 +212,10 @@ def load(path: str | os.PathLike, *, whole: bool = True) -> tuple[gate.Release, 
 
 
 def build(stamp: gate.Stamp, layers: Sequence[Layer], out, *, base: Mapping[str, bytes] | None = None,
-          progress: Callable[[int, int], object] | None = None) -> tuple[str, Manifest]:
-    """Write the image (:func:`image`) to ``out``; its sha256 and manifest.
-    ``progress(done, total)`` follows the write, and an exception it raises
-    cancels it with nothing written (:func:`iso.pack`)."""
-    made, manifest = image(stamp, layers, base)
+          progress: Callable[[int, int], object] | None = None,
+          judge: Callable[[iso.Image, Manifest], Mapping] | None = None) -> tuple[str, Manifest]:
+    """Write the image (:func:`image`, with ``judge``) to ``out``; its
+    sha256 and manifest. ``progress(done, total)`` follows the write, and an
+    exception it raises cancels it with nothing written (:func:`iso.pack`)."""
+    made, manifest = image(stamp, layers, base, judge=judge)
     return iso.pack(made, out, progress=progress), manifest

@@ -118,12 +118,13 @@ def _cell_slider(name: str, label: str, description: str, table: str, prop: str,
                  step: float, int32=None) -> XbrParametricEdit:
     return XbrParametricEdit(name=name, label=label, table=table, entity="bosses" if ROWS[name][1] else "enemies",
                              prop=prop, default=1.0, slider_min=lo, slider_max=hi, slider_step=step, unit="x",
-                             description=description, int32=int32, cells=lambda tables: cells(name, tables))
+                             description=description, int32=int32, cells=lambda tables: cells(name, tables),
+                             logic_floor="max")   # stronger enemies than the logic assumes (D83(c))
 
 
 def _shim_slider(name: str, label: str, description: str, lo: float, hi: float, step: float) -> ParametricPatch:
     return ParametricPatch(name=name, label=label, default=1.0, slider_min=lo, slider_max=hi, slider_step=step,
-                           unit="x", vanilla=1.0, description=description)
+                           unit="x", vanilla=1.0, description=description, logic_floor="max")
 
 
 HEALTH = _cell_slider("enemy_health_scale", "Enemy health", "Every enemy's HP but the bosses', rounded up.",

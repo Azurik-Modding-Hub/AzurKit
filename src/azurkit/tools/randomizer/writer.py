@@ -1,23 +1,61 @@
-"""The writer's string rules, which the fill reads (Step 4.2a): Modkit's
-``azurik_mod/randomizer/writer.py`` up to :func:`layout`, as it is. The
-writes into the level files and the read-back of a build come with the
-generator layer (Step 4.2b).
+"""The randomizer's writer: a plan's placement into the level files, and
+the read-back that gates every build (RANDOMIZER_PLAN §5.2, path (b2);
+Step R1.10a).
 
 A placement maps pool location ids (``<file>/g<G>/r<R>``, the generated
-data's) to ``items.toml`` names. The writer never renames a string: it
-repoints each changed location's critter-name field at a string in the
-same node graph, an existing one (another location's template string in
-that graph) or a new one, NUL-terminated and 4-byte aligned, in the zero
-gap after the graph's ``node`` payload. Each graph's new strings must fit
-its gap: :func:`layout` refuses a placement whose distinct new names cost
-more (:func:`string_cost` each) than the gap holds, and the fill reads the
-same numbers (:class:`Names`). Pure: it reads the database only.
+data's) to ``items.toml`` names.  The writer never renames a string
+(the M3 lesson, §5.1): it repoints each changed location's critter-name
+field (record +0x1C length, +0x20 self-relative ref; the string sits at
+record + 0x20 + ref) at a string in the **same node graph**:
+
+* an existing one: another location's template string in that graph,
+  so gem and obsidian moves cost nothing where the graph holds them;
+* else a new one, NUL-terminated and 4-byte aligned, in the zero gap
+  after the graph's ``node`` payload, with that TOC entry's size (+4)
+  grown over it.  Nothing moves: every section starts on a 4 KiB
+  boundary.  A ``_move`` location keeps its suffix when the graph holds
+  the new item's ``_move`` string (§5.2 item 4).
+
+Every target is computed from vanilla: the generated data's
+``name_ref`` offsets and ``graphs[].padding_after``, each checked
+against the bytes before anything is written.  Each graph's new strings
+must fit its gap: :func:`layout` refuses a placement whose distinct new
+names cost more (:func:`string_cost` each) than the gap holds, and the
+fill (R1.9) reads the same numbers (:class:`Names`).  Only critter-name fields, the gap
+and the grown TOC sizes are written: never an exit's or a spot's string,
+since exits stay vanilla in v1 (§5.2 item 9).
+
+:func:`write_plan` makes one pass per level file, in place, on a
+``{filename: bytearray}`` view such as
+:class:`~azurik_mod.patching.xbr_staging.IsoStaging` (the build's first
+layer, before packs and mods).  :func:`read_back` decodes every location
+of every level file of a final image with the generic node readers
+(:mod:`azurik_mod.xbr.nodes`, :func:`~azurik_mod.xbr.toc_scan.parse_toc`),
+each section cut at its TOC size, and checks each level's
+``filelist.txt`` line; any difference from the plan is listed.
+``randomize-full`` (:mod:`azurkit.tools.randomizer.layer`, Step R1.10b) runs
+both: the writes as the build's first layer, the read-back on the final
+image (Europe's stale ``filelist.txt`` lines repaired by the packer)
+before it is written (D35).
+
+Pure stdlib at import (the planner's contract,
+``tests/test_import_isolation.py``).  Nothing here prints a game byte.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import hashlib
+import struct
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
+
+from azurkit.tools.randomizer.ports import listed
+from azurkit.core.xbr.nodes import lstr, record_offsets
+from azurkit.core.xbr.nodes import TOC_ROW_SIZE, TOC_START, parse_toc
+
+NAME_FIELD = 0x1C
+"""A critterGenerator record's (length, ref) critter-name field."""
+GENERATOR = "critterGenerator"
 
 
 class WriteError(ValueError):
@@ -135,3 +173,121 @@ def layout(placement: Mapping[str, str], db) -> dict[str, GraphEdit]:
     if problems:
         raise WriteError(problems)
     return edits
+
+
+@dataclass
+class WriteReport:
+    """What a write did: per graph its edit (``graphs``) and each written
+    file's sha256[:12] (``files``)."""
+    graphs: list[GraphEdit]
+    files: dict[str, str]
+
+
+def _level_writes(buf, stem: str, edits: list[GraphEdit], db) -> tuple[list[tuple[int, bytes]], list[str]]:
+    """The writes (file offset, bytes) one level file's graph edits make
+    on its vanilla bytes ``buf``, and the problems that stop them."""
+    locs = _locations(db)
+    toc = parse_toc(buf)
+    node_entries = [e for e in toc if e.tag == "node"]
+    starts = sorted({e.file_offset for e in toc} | {len(buf)})
+    problems, writes = [], []
+    for edit in edits:
+        where = f"{stem}.xbr {edit.key}"
+        if edit.g >= len(node_entries) or node_entries[edit.g].index != edit.toc_index:
+            problems.append(f"{where}: TOC entry {edit.toc_index} is not node section {edit.g}")
+            continue
+        entry = node_entries[edit.g]
+        lo, end = entry.file_offset, entry.file_offset + entry.size
+        gap_end = next(s for s in starts if s > lo)
+        at = end + (-end) % 4                          # the first aligned byte of the gap
+        if edit.new and (gap_end - at < edit.budget or any(buf[end:gap_end])):
+            problems.append(f"{where}: the gap after the section is not vanilla's zero bytes")
+        strings = {}
+        for lid, loc in sorted(locs.items()):
+            if lid.rsplit("/", 1)[0] == edit.key and loc["template"] not in strings:
+                s, n = loc["name_ref"]["string"], loc["name_ref"]["length"]
+                if bytes(buf[s:s + n + 1]) == loc["template"].encode("ascii") + b"\0":
+                    strings[loc["template"]] = s
+        for name in edit.new:
+            blob = name.encode("ascii").ljust(string_cost(name), b"\0")
+            writes.append((at, blob))
+            strings[name] = at
+            at += len(blob)
+        for lid, name in sorted(edit.repoint.items()):
+            loc = locs[lid]
+            fld = loc["name_ref"]["field"]
+            if not lo <= fld - NAME_FIELD < end or lstr(buf, fld - NAME_FIELD) != GENERATOR \
+                    or lstr(buf, fld) != loc["template"]:
+                problems.append(f"{where}: {lid} is not a vanilla {loc['template']} critterGenerator")
+            elif name not in strings:
+                problems.append(f"{where}: no vanilla {name!r} string to point {lid} at")
+            else:
+                writes.append((fld, struct.pack("<Ii", len(name), strings[name] - (fld + 4))))
+        if edit.new:
+            writes.append((TOC_START + TOC_ROW_SIZE * entry.index + 4, struct.pack("<I", at - lo)))
+    return writes, problems
+
+
+def write_plan(files: MutableMapping[str, bytearray], placement: Mapping[str, str], db) -> WriteReport:
+    """Write ``placement`` into ``files`` (``{"<level>.xbr": bytearray}``,
+    e.g. an :class:`~azurik_mod.patching.xbr_staging.IsoStaging` of a
+    vanilla ISO): one pass per level file records its writes, each
+    computed from its vanilla bytes, and they are applied only once every
+    file has passed.  :class:`WriteError` names every problem; then no
+    file is changed."""
+    edits = layout(placement, db)
+    by_file: dict[str, list[GraphEdit]] = {}
+    for key in sorted(edits):
+        by_file.setdefault(edits[key].file, []).append(edits[key])
+    planned, problems = {}, []
+    for stem, file_edits in sorted(by_file.items()):
+        planned[stem], found = _level_writes(files[f"{stem}.xbr"], stem, file_edits, db)
+        problems += found
+    if problems:
+        raise WriteError(problems)
+    shas = {}
+    for stem, writes in planned.items():
+        buf = files[f"{stem}.xbr"]
+        for off, data in writes:
+            buf[off:off + len(data)] = data
+        shas[stem] = hashlib.sha256(buf).hexdigest()[:12]
+    return WriteReport([edits[k] for k in sorted(edits)], shas)
+
+
+def read_back(image, placement: Mapping[str, str], db) -> list[str]:
+    """Every difference between ``image`` (an ISO path or an
+    :class:`~azurik_mod.iso.xiso.Image`) and ``placement``: each location
+    of the database decoded from its file in the image (its node section
+    cut at the TOC size, the record a critterGenerator, its item that of
+    the name it holds) against its planned item, else its vanilla one;
+    and each level file's ``filelist.txt`` line against the file's md5
+    and size.  Empty when the image holds the plan.  One file at a time."""
+    from azurkit.tools.randomizer.ports import XisoReader
+
+    base = {it["name"]: it.get("base", it["name"]) for it in db.items["item"]}
+    want: dict[str, dict[str, str]] = {}
+    for lid, loc in sorted(_locations(db).items()):
+        item = placement.get(lid, loc["item"])
+        want.setdefault(lid.split("/", 1)[0], {})[lid] = base.get(item, item)
+    out = []
+    with XisoReader(image) as r:
+        lines = {e.path.lower(): e for e in listed(r.read_file("filelist.txt"))}
+        for stem, locs in sorted(want.items()):
+            data = r.read_file(f"gamedata/{stem}.xbr")
+            line = lines.get(f"{stem}.xbr")
+            if line is None or (line.md5, line.size) != (hashlib.md5(data).hexdigest(), len(data)):
+                out.append(f"{stem}.xbr: its filelist.txt line doesn't name its md5 and size")
+            node_entries = [e for e in parse_toc(data) if e.tag == "node"]
+            sections: dict[int, tuple[memoryview, list]] = {}
+            for lid, item in locs.items():
+                g, rec = (int(part[1:]) for part in lid.split("/")[1:])
+                if g not in sections:
+                    e = node_entries[g]
+                    s = memoryview(data)[e.file_offset:e.file_offset + e.size]
+                    sections[g] = (s, record_offsets(s))
+                s, recs = sections[g]
+                ro = recs[rec] if rec < len(recs) else None
+                name = lstr(s, ro + NAME_FIELD) if ro is not None and lstr(s, ro) == GENERATOR else None
+                if base.get(name, name) != item:
+                    out.append(f"{lid}: the plan has {item}, the image {name or 'no critter name'}")
+    return out

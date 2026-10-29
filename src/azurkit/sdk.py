@@ -32,7 +32,16 @@ one its encoding holds where it takes only those, D45): its track's ends
 are hints, never limits, and nothing is clamped (``mods.normalize``).
 
 A randomizer plan needs no image: :func:`plan` takes a seed and its
-settings (``tools.randomizer``'s recipe) and returns Modkit's plan file.
+settings (``tools.randomizer``'s recipe) and returns Modkit's plan file. A
+build recipe's ``randomizer`` (that recipe, and an ``obsidian_cost``) plans
+it on the logic re-checked under the build's movement sliders and writes it
+as the build's first layer, before the packs (Modkit's ``mod_apply``
+order); the built image is read back against the plan before anything is
+written: a placement a later layer changed is a conflict that leaves the
+logic unverified (D28), any other difference fails the build (D35), and the
+report's ``randomizer`` gives the verdict (``tools.randomizer.generator``)::
+
+    {"iso": "<a vanilla image>", "packs": {...}, "randomizer": {"seed": "2", "share": "AZR-AAEA"}}
 """
 
 from __future__ import annotations
@@ -46,10 +55,11 @@ from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import mods, randomizer
+from azurkit.tools.randomizer import generator
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
            "preset_decode", "plan", "spoiler", "restore"]
-RECIPE = ("iso", "packs", "xbr")
+RECIPE = ("iso", "packs", "xbr", "randomizer")
 SETUP = ("ticked", "values", "xbr")   # a UI's remembered setup (D915, :func:`restore`)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
@@ -65,8 +75,10 @@ def catalog() -> dict:
     requires in the same build and its sliders, in the canonical order. A
     slider: its name, label, default, track (``min``, ``max`` and
     ``step``, display hints only), unit, description, vanilla value
-    (``None`` where the image's XBE holds it) and ``whole`` (the range of
-    whole numbers it takes, its encoding's, or ``None``)."""
+    (``None`` where the image's XBE holds it), ``whole`` (the range of
+    whole numbers it takes, its encoding's, or ``None``) and
+    ``logic_floor`` (``"min"`` or ``"max"``: the side of its default past
+    which a randomized build's logic is unverified, D83(c); ``None``)."""
     return {"tabs": [{"id": tab, "title": title} for tab, title, works in TABS if works],
             "categories": [{"id": category, "title": title, "description": line}
                            for category, (title, line) in mods.CATEGORIES.items()],
@@ -106,20 +118,31 @@ def _packs(recipe: object) -> dict[str, dict]:
     return packs
 
 
-def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer]]:
+def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None]:
     """The recipe's vanilla image (its build files checked, D27), the files
-    read from it, each pack's layer, then its xbr operations' (the Data
-    tool's, after the packs); every refusal named."""
+    read from it, its randomizer's layer (its plan written, the first), each
+    pack's layer, then its xbr operations' (the Data tool's, after the
+    packs), and the randomizer's read-back of the built image (``None``
+    without one); every refusal named."""
     packs = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
+    prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
     stamp = gate.verify(recipe["iso"], whole=False)
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
     with iso.Reader(stamp.path) as r:
         names = [f for pack in chosen.values() for f in pack.files()] + xbr.files(ops)
+        names += generator.files(prepared) if prepared else []
         base = {file: r.read(file) for file in dict.fromkeys(names) if file in stamp.release.files}
-    layers, failed = [], []
+    layers, failed, judge = [], [], None
+    if prepared is not None:
+        layers.append(generator.plan_layer(prepared, base))   # a WriteError or LayerError: nothing planned on
+        reasons = generator.movement_reasons(packs, catalog()["packs"])
+
+        def judge(made: iso.Image, manifest: edits.Manifest) -> dict:
+            return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
+                                                        reasons)}
     for name, pack in chosen.items():
         try:
             layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims]))
@@ -132,7 +155,7 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer]]:
             failed.append(str(exc))
     if failed:
         raise ValueError("; ".join(failed))
-    return stamp, base, layers
+    return stamp, base, layers, judge
 
 
 def _report(made: edits.Manifest) -> dict:
@@ -140,16 +163,21 @@ def _report(made: edits.Manifest) -> dict:
             "layers": [{"id": la.id, "sites": len({c.group for c in la.changes}),
                         "bytes": sum(len(c.after) for c in la.changes)} for la in made.layers],
             "result": dict(made.result), "conflicts": [str(c) for c in made.conflicts],
-            "notes": [note for la in made.layers for note in la.notes]}
+            "notes": [note for la in made.layers for note in la.notes]} | (
+        {"randomizer": made.verdicts[generator.TOOL]} if generator.TOOL in made.verdicts else {})
 
 
 def image(recipe: Mapping) -> tuple[iso.Image, dict]:
     """The image ``recipe`` builds, unwritten, and its report: the release,
     each layer's sites and bytes, the sha256 of each file that differs from
     vanilla, every conflict (D28) and each layer's notes (a slider value
-    past float32's range, written as the infinity it saturates to, Q110)."""
-    stamp, base, layers = _plan(recipe)
-    made, manifest = edits.image(stamp, layers, base)
+    past float32's range, written as the infinity it saturates to, Q110);
+    with a randomizer, its verdict (``randomizer``: the seed, share string,
+    settings, plan sha256, the movement sliders it stands on,
+    ``logic_verified`` with each reason it is false, ``why_not``, and the
+    placements a later layer changed, ``conflicts``)."""
+    stamp, base, layers, judge = _plan(recipe)
+    made, manifest = edits.image(stamp, layers, base, judge=judge)
     return made, _report(manifest)
 
 
@@ -158,12 +186,12 @@ def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] |
     vanilla image, D36); :func:`image`'s report with the output's path,
     size and sha256. ``progress(done, total)`` follows the write; an
     exception it raises cancels it, and nothing is written."""
-    stamp, base, layers = _plan(recipe)
+    stamp, base, layers, judge = _plan(recipe)
     target = Path(out)
     for release in gate.RELEASES:
         if (vanilla := gate.find(release)) and target.exists() and target.samefile(vanilla):
             raise ValueError(f"{target}: it is the vanilla {release.label} image, which a build never writes over")
-    sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress)
+    sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress, judge=judge)
     return _report(manifest) | {"out": str(target), "size": target.stat().st_size, "sha256": sha256}
 
 
@@ -184,8 +212,9 @@ def open_build(path: str, *, whole: bool = True) -> dict:
 def read_mods(given: str | bytes | Mapping) -> dict:
     """A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
     text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
-    normalized; ``packs`` only when it has a packs layer (a build's packs
-    are then its packs, and no others). Every refusal named."""
+    normalized, and ``randomizer`` (the seed and share string a randomized
+    build's plan replays from); ``packs`` only when it has a packs layer (a
+    build's packs are then its packs, and no others). Every refusal named."""
     found = preset.read(given)
     out: dict = {}
     for layer in found["layers"]:
@@ -193,9 +222,11 @@ def read_mods(given: str | bytes | Mapping) -> dict:
             out["packs"] = _packs({"packs": layer["recipe"]})
         elif (layer["tool"], layer["kind"]) == (xbr.TOOL, xbr.KIND) and set(layer["recipe"]) == {"ops"}:
             out["xbr"] = xbr.normalize(layer["recipe"]["ops"])
+        elif (layer["tool"], layer["kind"]) == (generator.TOOL, generator.KIND):
+            out["randomizer"] = generator.normalize(layer["recipe"])
         else:
             raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} "
-                             "(AzurKit's: mods with packs, data with xbr)")
+                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan)")
     return out
 
 
@@ -213,7 +244,12 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
     normalized, and its ``set`` operations, never its image's path; given
     its build's report (:func:`image`), with the release it was built from
     and the sha256 of each file it changed. Names, numbers and hashes only
-    (Q174): a recipe with a ``replace_bytes`` is refused by name."""
+    (Q174): a recipe with a ``replace_bytes`` is refused by name, as is
+    one with a ``randomizer`` (its link comes with the page's tab, which
+    reads it: Step 4.2c)."""
+    if isinstance(recipe, Mapping) and "randomizer" in recipe:
+        raise ValueError("preset: a share link doesn't carry a randomizer yet (its tab comes with Step 4.2c): "
+                         "share the seed and share string")
     made = {"format": preset.FORMAT, "schema_version": preset.SCHEMA_VERSION, "azurkit": __version__,
             "layers": [{"tool": "mods", "kind": "packs", "recipe": _packs(recipe)}]}
     if ops := _shared(xbr.normalize(recipe.get("xbr", []))):

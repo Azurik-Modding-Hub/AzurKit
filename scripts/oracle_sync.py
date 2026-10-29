@@ -19,10 +19,11 @@ sha256 and size (:func:`digest_spans`); ORACLE.toml's ``exported`` table keeps
 each such file's sha256 as exported, which Modkit's ``oracle.json`` lists.
 
 A family's sync also installs the Modkit source it ports as it is
-(:data:`SOURCES`): the randomizer's data, copied verbatim, and its planner,
-each module through :func:`port` (:data:`REWRITES`' imports, and the
-statements :data:`DROPS` names taken out: what AzurKit's engine can't hold,
-a process pool). ORACLE.toml's ``source`` table keeps each installed file's
+(:data:`SOURCES`): the randomizer's data (and the movement tiers' margins),
+copied verbatim, and its planner, writer, physics, movement and layer, each
+module through :func:`port` (:data:`REWRITES`' imports, and the statements
+:data:`DROPS` names taken out: what AzurKit's engine can't hold, a process
+pool, Modkit's build objects). ORACLE.toml's ``source`` table keeps each installed file's
 sha256, so a later Modkit fix arrives by the same sync, never by hand. A
 module that still imports Modkit after its rewrites, or a statement DROPS
 names that is gone, stops the sync before anything is written.
@@ -60,16 +61,31 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
 }
 
 
-SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's folder, AzurKit's, ported by port())
-    "rando": (("azurik_mod/randomizer/data", "src/azurkit/tools/randomizer/data", False),
-              ("azurik_mod/randomizer/planner", "src/azurkit/tools/randomizer/planner", True)),
+RANDO = "src/azurkit/tools/randomizer"
+SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's folder or file, AzurKit's, through port())
+    "rando": (("azurik_mod/randomizer/data", f"{RANDO}/data", False),
+              ("azurik_mod/randomizer/planner", f"{RANDO}/planner", True),
+              *((f"azurik_mod/randomizer/{name}.py", f"{RANDO}/{name}.py", True)
+                for name in ("writer", "physics", "movement", "layer")),
+              ("azurik_mod/randomizer/draft/tiers.toml", f"{RANDO}/draft/tiers.toml", False)),   # physics reads it
 }
 OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py"})   # AzurKit's own instead: tools/randomizer/dbcache.py
 REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.tools.randomizer import dbcache"),
-            ("azurik_mod.randomizer.planner", "azurkit.tools.randomizer.planner"),
-            ("azurik_mod.randomizer.writer", "azurkit.tools.randomizer.writer"))
+            ("azurik_mod.randomizer.", "azurkit.tools.randomizer."),
+            ("from azurik_mod.xbr.nodes import", "from azurkit.core.xbr.nodes import"),
+            ("from azurik_mod.xbr.toc_scan import", "from azurkit.core.xbr.nodes import"),
+            ("from azurik_mod.assets.filelist import listed", "from azurkit.tools.randomizer.ports import listed"),
+            ("from azurik_mod.iso.xiso import XisoReader", "from azurkit.tools.randomizer.ports import XisoReader"))
 DROPS = {   # top-level statements a ported module loses, by the names they bind
     "azurik_mod/randomizer/planner/fill.py": ("threading", "_ROLL_LOGIC", "_roll_chunk", "roll_seed"),   # the pool
+    # its own source's sha256, read at import (Modkit's draft flights' cache key): the frozen app holds no .py
+    "azurik_mod/randomizer/physics.py": ("hashlib", "SOURCE_SHA256"),
+    # the slider tracks' safe ranges (the packs' registry, a platformdirs cache): the Randomize tab's (Step 4.2c)
+    "azurik_mod/randomizer/movement.py": ("slider_ranges", "default_ranges"),
+    # Modkit's build objects (IsoStaging, LayerLog, the swap's modules, the files beside the ISO): AzurKit's
+    # generator layer (tools/randomizer/generator.py) writes, reads back and checks the movement in their place
+    "azurik_mod/randomizer/layer.py": ("check_args", "write_layer", "check_movement", "movement_reasons", "judge",
+                                       "outputs", "write_outputs"),
 }
 
 
@@ -97,7 +113,9 @@ def write_index(index: dict[str, dict], path: Path = ORACLE / "ORACLE.toml") -> 
 
 
 def tree_hashes(folder: Path) -> dict[str, str]:
-    """``{posix path: sha256}`` of every file under ``folder``."""
+    """``{posix path: sha256}`` of every file under ``folder`` (``{"": sha256}`` when it is a file)."""
+    if folder.is_file():
+        return {"": hashlib.sha256(folder.read_bytes()).hexdigest()}
     return {p.relative_to(folder).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(folder.rglob("*")) if p.is_file()}
 
@@ -105,8 +123,8 @@ def tree_hashes(folder: Path) -> dict[str, str]:
 def source_hashes(family: str, root: Path = ROOT) -> dict[str, str]:
     """``{repository path: sha256}`` of every file under the family's
     :data:`SOURCES` folders in ``root`` (Python's ``__pycache__`` aside)."""
-    return {f"{dst}/{rel}": sha for _, dst, _ in SOURCES.get(family, ()) for rel, sha in tree_hashes(root / dst).items()
-            if "__pycache__" not in rel.split("/")}
+    return {f"{dst}/{rel}".rstrip("/"): sha for _, dst, _ in SOURCES.get(family, ())
+            for rel, sha in tree_hashes(root / dst).items() if "__pycache__" not in rel.split("/")}
 
 
 def _binds(node: ast.stmt) -> set[str]:
@@ -120,7 +138,8 @@ def _binds(node: ast.stmt) -> set[str]:
 
 def port(rel: str, text: str) -> str:
     """Modkit's module ``rel`` as AzurKit holds it: each top-level statement
-    :data:`DROPS` names for it taken out with the blank lines after it, then
+    :data:`DROPS` names for it taken out with the comment lines right above
+    it and the blank lines after it, then
     :data:`REWRITES`. ValueError naming a statement DROPS names that isn't
     there (or binds more than it names) and each import of Modkit left."""
     drop, lines, cut = set(DROPS.get(rel, ())), text.splitlines(keepends=True), set()
@@ -131,6 +150,8 @@ def port(rel: str, text: str) -> str:
             raise ValueError(f"{rel}:{node.lineno}: a statement DROPS takes out also binds {sorted(names - drop)}")
         drop -= names
         first = min([node.lineno, *(d.lineno for d in getattr(node, "decorator_list", ()))]) - 1
+        while first and lines[first - 1].lstrip().startswith("#"):   # the comment that says what it is
+            first -= 1
         end = node.end_lineno
         while end < len(lines) and not lines[end].strip():
             end += 1
@@ -211,6 +232,8 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             shutil.copytree(bundle / family, ORACLE / family)
             exported = {rel: digest_spans(ORACLE / family / rel) for rel in FACTS if (ORACLE / family / rel).exists()}
             for _, dst, _ in SOURCES.get(family, ()):
+                if (ROOT / dst).is_file():
+                    (ROOT / dst).unlink()
                 shutil.rmtree(ROOT / dst, ignore_errors=True)
             for rel, data in ported[family].items():
                 (ROOT / rel).parent.mkdir(parents=True, exist_ok=True)

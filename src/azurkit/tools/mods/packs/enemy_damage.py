@@ -82,7 +82,8 @@ def _slider(name: str, label: str, default: float, unit: str, description: str) 
     return XbrParametricEdit(
         name=f"enemy_damage_{name}", label=label, table="critters_damage", entity="enemies", prop=name,
         default=default, slider_min=-2.0, slider_max=4.0, slider_step=0.05, unit=unit, int32="trunc",
-        description=description, cells=lambda tables: classes(tables)[name])
+        description=description, cells=lambda tables: classes(tables)[name],
+        logic_floor=None if name == "immune" else "min")   # less damage: what the logic needs killed may survive
 
 
 PACK = Pack(

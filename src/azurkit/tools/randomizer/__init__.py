@@ -1,15 +1,18 @@
-"""The randomizer: its planner (Step 4.2a); the writer's layer, the
-read-back and the tracker come with Steps 4.2b and 4.2c.
+"""The randomizer: its planner (Step 4.2a) and its generator layer, the
+plan written as a build's first layer and read back (Step 4.2b,
+:mod:`.generator`); the tracker comes with Step 4.2c.
 
 :func:`plan` fills the database's authored levels for a seed and returns
 the plan file's object, the same as Modkit's (``planner.plan.dumps`` writes
-its file byte for byte); :func:`spoiler` reads a plan back into its
-spoiler. The planner (``planner/``) and its database (``data/``, our own
-logic data, no game bytes) are Modkit's, which ``scripts/oracle_sync.py``
-installs as they are (the planner through its rewrites): never edit them
-by hand. ``writer.py`` (the string rules the fill reads) and
-``dbcache.py`` (no cache on disk) are AzurKit's. The fill runs in the
-calling thread: Modkit's seed roll in a process pool isn't ported.
+its file byte for byte), on the logic re-checked under a share string's
+movement sliders (AZ-383); :func:`spoiler` reads a plan back into its
+spoiler on the logic it was planned on. The planner (``planner/``), its
+database (``data/``, our own logic data, no game bytes), the writer,
+physics, movement and layer are Modkit's, which ``scripts/oracle_sync.py``
+installs as they are (the modules through its rewrites): never edit them by
+hand. ``generator.py``, ``ports.py`` (what they import of Modkit's engine,
+on ours) and ``dbcache.py`` (no cache on disk) are AzurKit's. The fill runs
+in the calling thread: Modkit's seed roll in a process pool isn't ported.
 
 A recipe names the seed (any string) and at most one of ``settings`` (a
 settings file's table, ``data/settings/defaults.toml``'s format) and
@@ -26,6 +29,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from azurkit.tools.randomizer.movement import logic_of
 from azurkit.tools.randomizer.planner.fill import fill
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc, spoiler_lines
@@ -34,22 +38,12 @@ from azurkit.tools.randomizer.planner.settings import Settings, settings_from_ta
 RECIPE = ("seed", "settings", "share")
 
 
-def _flat(settings: Settings) -> Settings:
-    """``settings``, refused by name when it holds movement sliders: the
-    logic's re-check under them (physics and movement) comes with Step 4.2b."""
-    if settings.sliders:
-        named = ", ".join(f"{pack}.{name}" for pack, values in sorted(settings.sliders.items()) for name in values)
-        raise ValueError(f"settings: movement sliders ({named}) need the logic re-checked under them, which "
-                         "AzurKit doesn't do yet (Step 4.2b)")
-    return settings
-
-
 def _settings(recipe: Mapping, db) -> Settings:
     """The settings ``recipe`` asks for on the database ``db``, checked as
     Modkit checks a settings file or a share string; ``ValueError`` names
     every refusal."""
     if "share" in recipe:
-        return _flat(share_decode(recipe["share"], {sid: s for sid, (_, s) in db.skips.items()}))
+        return share_decode(recipe["share"], {sid: s for sid, (_, s) in db.skips.items()})
     if "settings" in recipe:
         if not isinstance(recipe["settings"], Mapping):
             raise ValueError("recipe: settings is a settings file's table")
@@ -59,7 +53,8 @@ def _settings(recipe: Mapping, db) -> Settings:
 
 def plan(recipe: Mapping) -> dict:
     """The plan file's object for ``recipe``: the first of the fill's
-    attempts that passes the verify. ``ValueError`` names a recipe or a
+    attempts that passes the verify, on the logic re-checked under the share
+    string's movement sliders. ``ValueError`` names a recipe or a
     setting it refuses, or (a ``FillError``) the progression items with no
     safe proven spot when no attempt passes."""
     if not isinstance(recipe, Mapping):
@@ -71,7 +66,8 @@ def plan(recipe: Mapping) -> dict:
     if "settings" in recipe and "share" in recipe:
         raise ValueError("recipe: settings and share both give the settings: give one")
     logic = kept_logic()
-    return plan_doc(fill(logic, recipe["seed"], _settings(recipe, logic.db)), logic.db)
+    settings = _settings(recipe, logic.db)
+    return plan_doc(fill(logic_of(logic, settings), recipe["seed"], settings), logic.db)
 
 
 def spoiler(doc: Mapping) -> list[str]:
@@ -84,5 +80,4 @@ def spoiler(doc: Mapping) -> list[str]:
         raise ValueError(f"a plan file is a JSON object, not {type(doc).__name__}")
     logic = kept_logic()
     planned = load_plan(doc, logic.db)
-    _flat(planned.settings)
-    return spoiler_lines(planned, logic)
+    return spoiler_lines(planned, logic_of(logic, planned.settings))

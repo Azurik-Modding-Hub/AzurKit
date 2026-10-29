@@ -1,0 +1,97 @@
+# The movement difficulty tiers (D108 Q256, D156, D167): margins over the physics envelope
+# (azurik_mod/randomizer/physics.py; envelope.py beside this file reads them). A tier counts an edge-to-edge
+# gap up to cos(stick_deg) x (the jump alone + reach x what perfect flaps add - the run a press takeoff_window
+# ticks early loses) - landing_margin, at the landing dh + clearance, for the air rank (0 none, N air shield N)
+# whose envelope covers it (physics.tier_gap). Each margin lies between Step R1.2's safe margins (s = 0) and the
+# envelope (s = 1, frame_perfect): safe at s = 0.6 (D156: the least s at which every realm's route replays at
+# safe), standard and hard a third and two thirds of the way on. tests/test_movement_envelope.py checks the tiers;
+# the derive's stamp holds this file, so an edit makes every derived file stale (re-derive).
+#
+# A derived jump or flap edge carries a `difficulty`, the lowest tier whose margins it clears (1 safe ..
+# 4 frame_perfect; D113). The randomizer's `movement_tier` option (D144, default "hard") makes an edge usable
+# when its difficulty is at or below that tier's. R_phys (the trap check) always uses [phys] (difficulty 0:
+# never a player tier).
+#
+# Fields: reach, the share of the distance perfect flaps add to the jump alone that the tier counts;
+# takeoff_window, ticks of jump-press window before the edge (a running takeoff loses that much run, and the lip
+# lift's rows of takeoff room); stick_deg, off-axis stick error (the flight's cosine, and the landing room
+# across the flight line); clearance, feet above the far lip and every hurdle (m); landing_margin, body centre
+# past the far edge (m); lift_allowance, how far a plain
+# ledge's lip (a vertical face, a flat top) may stand above the rank's apex for the collision lip lift to mount
+# it (m); max_drop, the longest drop counted (m); slippery, may a takeoff or a landing be a slippery (0x8051)
+# floor.
+#
+# The lip lift [verified xemu, s6 §5 and calib §4, placed: the plain jump (no_shield) on one ledge; [inferred]
+# for the air kits, whose jump or flaps were not measured on a lip]. A lip up to 0.2343 m above the apex mounts
+# from 0.65-3.69 m before the face (s6). Above that the takeoff window narrows as the lip - apex deficit grows
+# (rows sampled 2 apart, so each edge is +/-1 row; row r takes off 0.65 + (31 - r) x 7/30 m before the face):
+#   0.4271 m: rows 22-28 mount (1.35-2.75 m), 20 and 30 fail (7-9 ticks)
+#   0.4745 m: rows 23-27 mount (1.58-2.52 m), 21 and 29 fail (5-7 ticks)
+#   0.4987 m: rows 25-27 mount (1.58-2.05 m), 23 fails (>= 3 ticks)
+#   0.5232 m: no odd row mounts
+# Each player tier's lift_allowance is the largest deficit measured to mount over at least max(takeoff_window,
+# 1) rows. The rule (envelope.py's lip_lift_window): a deficit up to the tier's allowance counts from the window
+# measured at the smallest deficit at or above it, whatever the tier, so the tiers nest; [phys] counts up to its
+# allowance from between s6's nearest failing takeoffs (0.42-4.39 m) [proposal]. The reach model (R1.3) also
+# owes the takeoff room: the floor must allow a takeoff over at least max(takeoff_window, 1) rows (7/30 m each)
+# of that window.
+
+[safe]
+difficulty = 1
+reach = 0.86
+takeoff_window = 2
+stick_deg = 4.0
+clearance = 0.06
+landing_margin = 0.2
+lift_allowance = 0.4987
+max_drop = 16.194
+slippery = false
+note = "everything vanilla's own route needs (D156): s = 0.6 of the way from Step R1.2's safe margins (6-tick press window, 10 deg, 0.15 m clearance, 0.5 m landing margin, 0.65 of the flaps' extra reach, 15 m drop) to the envelope, the least that replays every realm's route (fitted by Step R1.2b on probe derives at s = 0.25 to 0.75); lip lift to 0.4987 m (calib: >= 3 ticks)"
+
+[standard]
+difficulty = 2
+reach = 0.9067
+takeoff_window = 2
+stick_deg = 2.667
+clearance = 0.04
+landing_margin = 0.1333
+lift_allowance = 0.4987
+max_drop = 16.459
+slippery = false
+note = "a third of the way from safe to the envelope (s = 0.7333); lip lift to 0.4987 m"
+
+[hard]
+difficulty = 3
+reach = 0.9533
+takeoff_window = 1
+stick_deg = 1.333
+clearance = 0.02
+landing_margin = 0.0667
+lift_allowance = 0.4987
+max_drop = 16.725
+slippery = false
+note = "the default movement tier (D144): two thirds of the way from safe to the envelope (s = 0.8667); lip lift to 0.4987 m"
+
+[frame_perfect]
+difficulty = 4
+reach = 1.0
+takeoff_window = 0
+stick_deg = 0.0
+clearance = 0.0
+landing_margin = 0.0
+lift_allowance = 0.4987
+max_drop = 16.99
+slippery = false
+note = "the envelope itself: takeoff at the edge with the run-up phase controlled, the optimal flap ticks, a straight stick; lip lift to 0.4987 m, the largest deficit measured to mount (calib; 0.5232 m fails)"
+
+[phys]
+difficulty = 0
+reach = 1.0
+takeoff_window = 0
+stick_deg = 0.0
+clearance = 0.0
+landing_margin = -0.8
+lift_allowance = 0.69
+max_drop = 16.99
+slippery = true
+note = "R_phys only: frame-perfect plus each side's capsule overhang (0.4 m, [inferred] from nz > 0.6 on a 0.5 m sphere); lip lift to 0.69 m, the largest body rise seen above the plain apex on the s6 ledge, beyond calib's first failing deficit (0.5232 m), from between the nearest failing takeoffs (0.42-4.39 m, s6 §5) [proposal]"

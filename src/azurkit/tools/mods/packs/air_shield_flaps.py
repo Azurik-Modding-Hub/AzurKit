@@ -20,7 +20,7 @@ def _tier(tier: int, default: float) -> XbrParametricEdit:
     return XbrParametricEdit(
         name=f"air_shield_{tier}_flaps", label=f"Air Shield {tier} flaps", table="armor_properties",
         entity=f"air_shield_{tier}", prop="Flaps", default=default, slider_min=0.0, slider_max=20.0,
-        slider_step=1.0, unit="flaps", int32="trunc",
+        slider_step=1.0, unit="flaps", int32="trunc", logic_floor="min",
         description=f"Wing flaps Air Shield {tier} grants (config.xbr armor_properties).")
 
 

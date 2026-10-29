@@ -126,7 +126,7 @@ def apply(xbe: Xbe) -> None:
 
 PACK = Pack(
     name="qol_alloc_race",
-    description="Fixes a rare crash (0x1E) loading a level, and keeps the disc-copy thread off the run lists.",
+    description="Fixes rare crashes loading levels: the sound thread's (0x1E) and disc copy's.",
     custom_apply=apply,
     footprint=tuple(Place(va=s.va) for s in sites(lambda va, size: bytes(size))),
     default_on=True,
