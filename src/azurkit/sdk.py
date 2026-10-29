@@ -1,10 +1,11 @@
 """The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
-randomizer's :func:`plan` and :func:`spoiler`, and :func:`restore` (art
-comes with its step). JSON in and out: a recipe is a JSON object
-and each call returns one; :func:`image` also returns the image, unwritten, which the web
-page joins into a Blob (``iso.Image.segments``). A refusal is a
+randomizer's :func:`plan`, :func:`spoiler` and :func:`randomizer_settings`
+(its tab's), and :func:`restore` (art comes with its step). JSON in and
+out: a recipe is a JSON object and each call returns one; :func:`image`
+also returns the image, unwritten, which the web page joins into a Blob
+(``iso.Image.segments``). A refusal is a
 ``ValueError`` or ``OSError`` whose message names what it refuses and why,
 never game bytes; a build that fails writes nothing (D35).
 ``tests/sdk_api.txt`` is this surface's snapshot (``scripts/sdk_api.py``).
@@ -39,9 +40,13 @@ as the build's first layer, before the packs (Modkit's ``mod_apply``
 order); the built image is read back against the plan before anything is
 written: a placement a later layer changed is a conflict that leaves the
 logic unverified (D28), any other difference fails the build (D35), and the
-report's ``randomizer`` gives the verdict (``tools.randomizer.generator``)::
+report's ``randomizer`` gives the verdict (``tools.randomizer.generator``)
+and its ``spoiler`` the build's spoiler (Modkit's ``--spoiler`` file)::
 
     {"iso": "<a vanilla image>", "packs": {...}, "randomizer": {"seed": "2", "share": "AZR-AAEA"}}
+
+A share link carries a recipe's randomizer too (its seed, settings and
+obsidian cost), as an AzurKit build's mods file does.
 """
 
 from __future__ import annotations
@@ -58,12 +63,12 @@ from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import generator
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
-           "preset_decode", "plan", "spoiler", "restore"]
+           "preset_decode", "plan", "spoiler", "randomizer_settings", "restore"]
 RECIPE = ("iso", "packs", "xbr", "randomizer")
-SETUP = ("ticked", "values", "xbr")   # a UI's remembered setup (D915, :func:`restore`)
+SETUP = ("ticked", "values", "xbr", "randomizer")   # a UI's remembered setup (D915, :func:`restore`)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
-TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", False), ("characters", "Characters", False),
+TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", True), ("characters", "Characters", False),
         ("data", "Data", False), ("tools", "Tools", False), ("about", "About", True))
 
 
@@ -78,13 +83,16 @@ def catalog() -> dict:
     (``None`` where the image's XBE holds it), ``whole`` (the range of
     whole numbers it takes, its encoding's, or ``None``) and
     ``logic_floor`` (``"min"`` or ``"max"``: the side of its default past
-    which a randomized build's logic is unverified, D83(c); ``None``)."""
+    which a randomized build's logic is unverified, D83(c); ``None``).
+    ``randomizer``: what the Randomizer tab offers, with D144's defaults
+    (``tools.randomizer.options``)."""
     return {"tabs": [{"id": tab, "title": title} for tab, title, works in TABS if works],
             "categories": [{"id": category, "title": title, "description": line}
                            for category, (title, line) in mods.CATEGORIES.items()],
             "packs": [{"name": p.name, "description": p.description, "category": p.category,
                        "default_on": p.default_on, "releases": list(p.releases), "requires": list(p.requires),
-                       "sliders": [s.catalog() for s in p.sliders()]} for p in mods.PACKS.values()]}
+                       "sliders": [s.catalog() for s in p.sliders()]} for p in mods.PACKS.values()],
+            "randomizer": randomizer.options()}
 
 
 def verify(path: str) -> dict:
@@ -118,12 +126,13 @@ def _packs(recipe: object) -> dict[str, dict]:
     return packs
 
 
-def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None]:
+def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None,
+                                   generator.Prepared | None]:
     """The recipe's vanilla image (its build files checked, D27), the files
     read from it, its randomizer's layer (its plan written, the first), each
     pack's layer, then its xbr operations' (the Data tool's, after the
-    packs), and the randomizer's read-back of the built image (``None``
-    without one); every refusal named."""
+    packs), the randomizer's read-back of the built image and its plan
+    (``None`` without one); every refusal named."""
     packs = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     if not isinstance(recipe.get("iso"), str):
@@ -155,16 +164,19 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
             failed.append(str(exc))
     if failed:
         raise ValueError("; ".join(failed))
-    return stamp, base, layers, judge
+    return stamp, base, layers, judge, prepared
 
 
-def _report(made: edits.Manifest) -> dict:
-    return {"release": made.release.name, "label": made.release.label,
-            "layers": [{"id": la.id, "sites": len({c.group for c in la.changes}),
-                        "bytes": sum(len(c.after) for c in la.changes)} for la in made.layers],
-            "result": dict(made.result), "conflicts": [str(c) for c in made.conflicts],
-            "notes": [note for la in made.layers for note in la.notes]} | (
-        {"randomizer": made.verdicts[generator.TOOL]} if generator.TOOL in made.verdicts else {})
+def _report(made: edits.Manifest, prepared: generator.Prepared | None) -> dict:
+    out = {"release": made.release.name, "label": made.release.label,
+           "layers": [{"id": la.id, "sites": len({c.group for c in la.changes}),
+                       "bytes": sum(len(c.after) for c in la.changes)} for la in made.layers],
+           "result": dict(made.result), "conflicts": [str(c) for c in made.conflicts],
+           "notes": [note for la in made.layers for note in la.notes]}
+    if prepared is not None:
+        verdict = made.verdicts[generator.TOOL]
+        out |= {"randomizer": verdict, "spoiler": generator.spoiler(prepared, verdict)}
+    return out
 
 
 def image(recipe: Mapping) -> tuple[iso.Image, dict]:
@@ -175,10 +187,11 @@ def image(recipe: Mapping) -> tuple[iso.Image, dict]:
     with a randomizer, its verdict (``randomizer``: the seed, share string,
     settings, plan sha256, the movement sliders it stands on,
     ``logic_verified`` with each reason it is false, ``why_not``, and the
-    placements a later layer changed, ``conflicts``)."""
-    stamp, base, layers, judge = _plan(recipe)
+    placements a later layer changed, ``conflicts``) and its spoiler
+    (``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file)."""
+    stamp, base, layers, judge, prepared = _plan(recipe)
     made, manifest = edits.image(stamp, layers, base, judge=judge)
-    return made, _report(manifest)
+    return made, _report(manifest, prepared)
 
 
 def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] | None = None) -> dict:
@@ -186,13 +199,13 @@ def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] |
     vanilla image, D36); :func:`image`'s report with the output's path,
     size and sha256. ``progress(done, total)`` follows the write; an
     exception it raises cancels it, and nothing is written."""
-    stamp, base, layers, judge = _plan(recipe)
+    stamp, base, layers, judge, prepared = _plan(recipe)
     target = Path(out)
     for release in gate.RELEASES:
         if (vanilla := gate.find(release)) and target.exists() and target.samefile(vanilla):
             raise ValueError(f"{target}: it is the vanilla {release.label} image, which a build never writes over")
     sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress, judge=judge)
-    return _report(manifest) | {"out": str(target), "size": target.stat().st_size, "sha256": sha256}
+    return _report(manifest, prepared) | {"out": str(target), "size": target.stat().st_size, "sha256": sha256}
 
 
 def open_build(path: str, *, whole: bool = True) -> dict:
@@ -240,18 +253,18 @@ def _shared(ops: list[dict]) -> list[dict]:
 
 
 def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
-    """The share link's fragment (``#p=…``) for ``recipe``'s packs,
-    normalized, and its ``set`` operations, never its image's path; given
-    its build's report (:func:`image`), with the release it was built from
-    and the sha256 of each file it changed. Names, numbers and hashes only
-    (Q174): a recipe with a ``replace_bytes`` is refused by name, as is
-    one with a ``randomizer`` (its link comes with the page's tab, which
-    reads it: Step 4.2c)."""
-    if isinstance(recipe, Mapping) and "randomizer" in recipe:
-        raise ValueError("preset: a share link doesn't carry a randomizer yet (its tab comes with Step 4.2c): "
-                         "share the seed and share string")
+    """The share link's fragment (``#p=…``) for ``recipe``'s randomizer
+    (its seed, settings or share string and obsidian cost, checked as a
+    build checks them), packs, normalized, and its ``set`` operations, never
+    its image's path; given its build's report (:func:`image`), with the
+    release it was built from and the sha256 of each file it changed. Names,
+    numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
+    refused by name."""
+    packs = _packs(recipe)
     made = {"format": preset.FORMAT, "schema_version": preset.SCHEMA_VERSION, "azurkit": __version__,
-            "layers": [{"tool": "mods", "kind": "packs", "recipe": _packs(recipe)}]}
+            "layers": [{"tool": generator.TOOL, "kind": generator.KIND,
+                        "recipe": generator.check(recipe["randomizer"])}] if "randomizer" in recipe else []}
+    made["layers"].append({"tool": "mods", "kind": "packs", "recipe": packs})
     if ops := _shared(xbr.normalize(recipe.get("xbr", []))):
         made["layers"].append({"tool": xbr.TOOL, "kind": xbr.KIND, "recipe": {"ops": ops}})
     if report is not None:
@@ -266,18 +279,21 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
 
 def preset_decode(text: str) -> dict:
     """The preset in a link or its fragment (``preset.decode``), its packs
-    normalized (``mods.normalize``) and its ``set`` operations checked: a
-    tool or pack AzurKit doesn't have, a value a slider refuses or a
-    ``replace_bytes`` (Q174) is refused by name."""
+    normalized (``mods.normalize``), its ``set`` operations and its
+    randomizer checked: a tool or pack AzurKit doesn't have, a value a
+    slider refuses, a setting the randomizer refuses or a ``replace_bytes``
+    (Q174) is refused by name."""
     found = preset.decode(text)
     for layer in found["layers"]:
         if (layer["tool"], layer["kind"]) == ("mods", "packs"):
             layer["recipe"] = _packs({"packs": layer["recipe"]})
         elif (layer["tool"], layer["kind"]) == (xbr.TOOL, xbr.KIND) and set(layer["recipe"]) == {"ops"}:
             layer["recipe"] = {"ops": _shared(xbr.normalize(layer["recipe"]["ops"]))}
+        elif (layer["tool"], layer["kind"]) == (generator.TOOL, generator.KIND):
+            layer["recipe"] = generator.check(layer["recipe"])
         else:
             raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} "
-                             "(AzurKit's: mods with packs, data with xbr)")
+                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan)")
     return found
 
 
@@ -301,6 +317,28 @@ def spoiler(plan: Mapping) -> dict:
     return {"lines": randomizer.spoiler(plan)}
 
 
+def randomizer_settings(given: Mapping) -> dict:
+    """What the Randomizer tab shows for ``given``: its ``settings`` (a
+    settings file's table) or ``share`` (a share string), its
+    ``obsidian_cost`` (vanilla's when not given) and the build's ``packs``
+    (``{pack: {slider: value}}``, normalized): the settings as the tab
+    holds them (format /2: its categories as they are), their share string
+    with the packs' movement sliders, a ``note`` when a share string holds
+    other sliders, each skip a setting can turn on (``skips``: its pick's
+    id, name, rating, the ceiling's state and its toggle; D114, D275), the
+    picks held and the forfeitable locations, what a build would leave
+    unverified so far (``why_not``: the packs' movement past their logic
+    floor, D83(c), a roll a skip on was proven at, an obsidian cost above
+    vanilla's) and the preflight's refusal (``preflight``, AZ-454; ``None``).
+    ``tools.randomizer.tab``; a refusal names the setting, the share string
+    or the pack."""
+    if not isinstance(given, Mapping):
+        raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
+    packs = _packs({"packs": given.get("packs", {})})
+    view = randomizer.tab({k: v for k, v in given.items() if k != "packs"}, generator.sliders(packs))
+    return view | {"why_not": generator.movement_reasons(packs, catalog()["packs"]) + view["why_not"]}
+
+
 def restore(setup: object) -> dict:
     """A UI's remembered setup (D915: the packs it had ticked, each setting
     it had changed, its pack ticked or not, and a loaded recipe's config.xbr
@@ -309,8 +347,11 @@ def restore(setup: object) -> dict:
     read from one), as the UI applies it, with ``dropped``: what no longer
     normalizes (a pack renamed or retired, a setting gone, a value its
     slider refuses, a pack without one it requires, an operation a link
-    couldn't carry), each left out and named, never applied. It never
-    refuses: a setup it can't read is dropped whole, by name."""
+    couldn't carry), each left out and named, never applied. A setup's
+    ``randomizer`` (the tab's: ``on``, ``seed``, ``settings`` and
+    ``obsidian_cost``, ``tools.randomizer.remembered``) comes back
+    checked, or is dropped whole, by name. It never refuses: a setup it
+    can't read is dropped whole, by name."""
     if not isinstance(setup, Mapping) or not set(setup) <= set(SETUP):
         return {"ticked": [], "values": {}, "xbr": [], "dropped": ["your last setup (not one AzurKit reads)"]}
     ticked, dropped = setup.get("ticked", []), []
@@ -332,5 +373,11 @@ def restore(setup: object) -> dict:
             kept += xbr.normalize([op])
         except ValueError as exc:
             why.append(f"config.xbr value {k} ({str(exc).replace('xbr op 1 (set): ', '')})")
+    rando = {}
+    if "randomizer" in setup:
+        try:
+            rando = {"randomizer": randomizer.remembered(setup["randomizer"])}
+        except ValueError as exc:
+            why.append(f"the randomizer's settings ({exc})")
     return {"ticked": on, "values": {name: v for name, v in values.items() if v}, "xbr": kept,
-            "dropped": list(dict.fromkeys(dropped + why))}
+            "dropped": list(dict.fromkeys(dropped + why))} | rando

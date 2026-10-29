@@ -34,9 +34,40 @@ aria-label="The image's full path"> <button id="iso-choose" type="button" hidden
 <div id="packs"><p class="note">Loading AzurKit…</p></div>
 <p id="xbr-note" class="note"></p>
 </section>
+<section id="randomizer" class="rando" role="tabpanel" data-tab="randomizer" aria-label="Randomizer" hidden>
+<h2>2. Randomize</h2>
+<div class="rando-top">
+<label class="on"><span class="mark"></span><input type="checkbox" id="rando-on"> Randomize</label>
+<label class="field">Seed <input type="text" id="rando-seed" spellcheck="false" autocomplete="off"></label>
+<button id="rando-new" type="button" title="A new random seed">New</button>
+<label class="field">Movement <select id="rando-movement"></select></label>
+<label class="field">Skips <select id="rando-ceiling"></select></label>
+<label class="field">Dark areas need <select id="rando-dark"></select></label>
+<label class="field">Obsidian cost <input type="text" id="rando-cost" inputmode="decimal" spellcheck="false"
+autocomplete="off"></label><span id="rando-cost-note" class="unit"></span>
+</div>
+<p class="rando-row"><label class="field">Share string <input type="text" id="rando-share" spellcheck="false"
+autocomplete="off"></label> <button id="rando-copy" type="button">Copy</button>
+<span id="rando-locked" class="note">Tick Randomize to change these.</span></p>
+<p id="rando-warn" class="warn" hidden></p>
+<div class="rando-cols">
+<div><h3>Items <span class="note">ticked: shuffled; unticked: its items stay vanilla</span></h3>
+<div id="rando-items"></div></div>
+<div><h3>Skips <span id="rando-held" class="note"></span></h3>
+<p class="rando-row"><input type="search" id="rando-filter" placeholder="Filter the skips" aria-label="Filter the skips"
+spellcheck="false" autocomplete="off"> <button id="rando-clear" type="button">Clear toggles</button></p>
+<div id="rando-skips"><p class="note">Loading the randomizer's database…</p></div></div>
+</div>
+<p id="rando-facts" class="note"></p>
+<p class="rando-row">Spoiler <button id="spoiler-view" type="button" disabled>View</button>
+<button id="spoiler-save" type="button" disabled>Save…</button>
+<span id="spoiler-note" class="note">Build with Randomize ticked to see its spoiler.</span></p>
+<pre id="spoiler" hidden></pre>
+</section>
 <section id="about" class="about" role="tabpanel" data-tab="about" aria-label="About" hidden>
 <h2>About AzurKit</h2>
-<p>AzurKit makes mods for <i>Azurik: Rise of Perathia</i> (Xbox): patch packs and their settings, built from your
+<p>AzurKit makes mods for <i>Azurik: Rise of Perathia</i> (Xbox): patch packs and their settings, and randomized
+seeds, built from your
 own copy of the game, USA or Europe, into a new image you play in xemu. It holds no part of the game: everything it
 changes is read from your image. It is free and open source, the rewrite of Azurik_Modkit.</p>
 <p id="privacy">AzurKit collects nothing: it adds no logging, analytics or tracking. Your image never leaves your

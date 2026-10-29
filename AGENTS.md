@@ -264,7 +264,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - Not ported: Modkit's `db-extract` (`levels.py`, the generated data's
     extractor: the data comes by the sync), the player-model swap's
     movement reasons (with the models, Step 4.3), the slider tracks'
-    safe ranges and the Randomizer tab (Step 4.2c, D902).
+    safe ranges, D258's skip groups and settings files (Load/Save
+    settings), and the tracker (Step 4.2c2).
   - `tests/test_randomizer.py` holds it to the oracle: `rando_plans.json`
     (seed 2's attempt and plan sha256 under the strict, default and max
     settings, and the default plan file byte for byte, on CPython and under
@@ -313,14 +314,36 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     restate `LICENSE` and `NOTICE.md` (`tests/test_site.py` holds them
     to those files); its privacy line says only that AzurKit collects
     nothing and that the image never leaves the computer (D883).
+  - **The Randomizer tab** (Step 4.2c1, RANDOMIZER_PLAN §5.5): Randomize
+    (off by default, the tab's one switch, which unlocks its settings,
+    D907), the seed (any text; New draws 0-999999), Movement, the skip
+    ceiling, the fire dark areas need and the obsidian cost (vanilla 10,
+    D910), with D144's defaults (`sdk.catalog`'s `randomizer`), the share
+    string (editable, Copy), the item rows (each a category it shuffles;
+    keys and barriers stay vanilla) and the skips a setting can turn on (a
+    click toggles one against the ceiling). The page holds the settings as
+    a settings table in format /2 (each category as it is) and asks the
+    engine what they give (`sdk.randomizer_settings`; the site's worker,
+    the app's `api/randomizer`): the share string with the Patches tab's
+    movement sliders, the skips, and a ⚠ line for the preflight's refusal
+    and what a build would leave unverified. With Randomize ticked, Build
+    sends the build's `randomizer` (seed, settings, a cost other than
+    vanilla's), planned and written first; its report carries the verdict
+    and the spoiler (Modkit's `--spoiler` file), which the tab shows and
+    saves (the site's download, the app's `api/spoiler`). The tab's setup
+    is remembered too (`randomizer`: on, seed, settings, cost) and Reset
+    unticks it.
   - **Share links** (WEB §4.1): Copy link asks the engine for
-    `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders and a
-    loaded recipe's config.xbr cells (with the build's hashes when it is
-    current), after the site's address (the app's `host.json` names the
-    site's, D884). A page opened with one loads it once its engine is ready
-    (`sdk.preset_decode`): exactly its packs ticked, its sliders set, each
-    tick and value it changed marked ●, and no build. Ticking a pack ticks
-    the packs it requires; unticking one unticks those that require it.
+    `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
+    loaded recipe's config.xbr cells and, ticked, the randomizer's seed,
+    settings and cost (with the build's hashes when it is current), after
+    the site's address (the app's `host.json` names the site's, D884). A
+    page opened with one loads it once its engine is ready
+    (`sdk.preset_decode`): exactly its packs ticked, its sliders set, its
+    randomizer (Randomize ticked or not), each tick and value it changed
+    marked ●, and no build; a build's recipe loads its randomizer the same
+    way, from its share string. Ticking a pack ticks the packs it
+    requires; unticking one unticks those that require it.
   - **An AzurKit build as the image:** the engine's vanilla read (the
     site's worker, the app's `api/vanilla`) falls back to
     `sdk.open_build(whole=False)` (only the files the build changed are

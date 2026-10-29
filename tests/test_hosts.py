@@ -37,6 +37,7 @@ from azurkit import app, cli, sdk
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from scripts import freeze
+from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
 from tests._xiso import fill, image
 
@@ -449,13 +450,14 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
             "prop": "hitPoints", "value": 321}
     setup = {"ticked": ["fps_unlock", "qol_retired"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell]}
     refused = {   # a path or game bytes anywhere in a setup
-        "setup: an object of ticked, values, xbr only, or null": {"ticked": [], "iso": "/a.iso"},
+        "setup: an object of ticked, values, xbr, randomizer only, or null": {"ticked": [], "iso": "/a.iso"},
         "setup: ticked holds pack names only": {"ticked": ["/a.iso"]},
         "setup: values holds {pack: {setting: number}} only": {"values": {"fps_unlock": {"target_fps": "/a.iso"}}},
         "setup: xbr holds config.xbr set operations only (Q174)": {"xbr": [
             {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": 0, "value": "00", "expected": "00"}]},
         "xbr op 1 (set): no key 'expected' (its keys: op, file, table, entity, prop, value)": {
             "xbr": [cell | {"expected": "00"}]},
+        "setup: randomizer: not an object of on, seed, settings, obsidian_cost": {"randomizer": {"iso": "/a.iso"}},
     }
 
     def kept() -> list:
@@ -479,13 +481,13 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
         server.close()
 
 
-def _post(url: str, call: str, body: dict, replies: list) -> None:
+def _post(url: str, call: str, body: dict, replies: list, timeout: float = 120) -> None:
     """POST ``body`` to the engine's ``call`` (``api/save``, say) from the
     page at ``url`` (its token in the query); its reply goes in ``replies``."""
     host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"
     request = urllib.request.Request(f"http://{host}/{call}{query}", json.dumps(body).encode(),
                                      {"Origin": f"http://{host}", "Content-Type": "application/json"})
-    with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=120) as reply:
+    with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=timeout) as reply:
         replies.append(json.load(reply))   # the app may quit before it answers
 
 
@@ -597,3 +599,45 @@ def test_closing_the_app_during_a_long_build_returns_within_2_s_and_leaves_no_pa
     took, left, replies = close(app.serve(), stalled, save)
     assert (took < 2, left, replies) == (True, [], [{"refused": "Cancelled: nothing was written"}])
     assert list(out.iterdir()) == []
+
+
+def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_spoiler(tmp_path, monkeypatch, usa_iso):
+    """From the app's api in-process (Step 4.2c1): ``api/randomizer`` gives
+    the Randomizer tab's view (``sdk.randomizer_settings``); ``api/build``
+    with the tab's randomizer (seed 2, D144's defaults) and the packs on by
+    default makes G3's seed case file by file, its logic verified, with its
+    spoiler; ``api/spoiler`` writes that spoiler where the page names, never
+    over a file that is there; ``api/setup`` keeps the tab's setup (D915)."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
+    server = app.serve(_page.WEB)
+    defaults = sdk.catalog()["randomizer"]["defaults"]
+    packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+    golden = json.loads((ORACLE / "rando/tests/goldens/pipelines.json").read_text(encoding="utf-8"))[
+        "randomize-full:seed=2,default"]
+
+    def call(path: str, body: dict) -> dict:
+        replies = []
+        _post(server.url, path, body, replies, timeout=900)   # a randomized build plans and reads back 700 MB
+        return replies[0]
+
+    try:
+        assert call("api/randomizer", {"given": {"settings": defaults, "packs": packs}}) == sdk.randomizer_settings(
+            {"settings": defaults, "packs": packs})
+        built = call("api/build", {"iso": str(usa_iso), "packs": packs, "xbr": [],
+                                   "randomizer": {"seed": "2", "settings": defaults}})
+        report = built["report"]
+        assert report["result"] == {f: sha for f, sha in golden.items() if f != "ISO"}
+        assert (report["randomizer"]["seed"], report["randomizer"]["logic_verified"]) == ("2", True)
+        assert built["recipe"]["randomizer"] == {"seed": "2", "settings": defaults}
+        out = tmp_path / "seed 2 spoiler.txt"
+        assert call("api/spoiler", {"out": str(out)}) == {"spoiler": {"out": str(out), "size": len(
+            report["spoiler"].encode())}}
+        assert out.read_text(encoding="utf-8") == report["spoiler"]
+        assert call("api/spoiler", {"out": str(out)}) == {
+            "refused": f"{out} exists: choose another name, or delete it first"}
+        setup = {"ticked": list(packs), "values": {}, "xbr": [],
+                 "randomizer": {"on": True, "seed": "2", "settings": defaults}}
+        assert call("api/setup", {"setup": setup}) == {}
+        assert json.loads(app._config().read_text(encoding="utf-8"))["setup"] == setup
+    finally:
+        server.close()

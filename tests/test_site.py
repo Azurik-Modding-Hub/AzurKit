@@ -41,6 +41,7 @@ from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from scripts import web_tools
+from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
 
 ORIGIN = "https://azurkit.test"
@@ -342,7 +343,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
     first paint (theme.js sets it before the body, app.mjs held back here),
     until toggled back; faint text reads at least 4.5:1 on every ground it
     sits on, in light and in dark. The toolbar's tabs are the catalog's, in D901's order and
-    only those whose area works (D902): Patches, then About. The Patches tab
+    only those whose area works (D902): Patches, Randomizer, About. The Patches tab
     groups the packs by Modkit's categories, in the catalog's order, each
     group folding and counting its packs ticked; a pack with settings has a
     Settings opener with the count of their rows (an L3 toggle sits in its
@@ -371,10 +372,10 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert [later.evaluate(GROUND), served.open().evaluate(GROUND)] == [DARK, DARK]
 
         catalog = sdk.catalog()
-        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "About"]
+        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "Randomizer", "About"]
         assert page.evaluate("""() => [...document.querySelectorAll("#tabs [role=tab]")].map((tab) => [tab.textContent,
             tab.getAttribute("aria-selected"), document.getElementById(tab.getAttribute("aria-controls")).hidden])""") == [
-            ["Patches", "true", False], ["About", "false", True]]
+            ["Patches", "true", False], ["Randomizer", "false", True], ["About", "false", True]]
         assert [c["title"] for c in catalog["categories"]] == ["Player", "Enemies", "Quality of Life"]
         grouped = [[p for p in mods.PACKS.values() if p.category == c["id"]] for c in catalog["categories"]]
         assert page.evaluate("""() => [...document.querySelectorAll("#packs .group")].map((group) =>
@@ -534,8 +535,8 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
         assert [list(_page.ticked(page)), page.evaluate(FIELDS, "player_physics"), page.evaluate(RESET)] == [
             defaults, fresh, True]
         _remembered(page, None)
-        assert page.evaluate(STATUS) == ("Reset to the defaults: the packs on by default, every setting at its default; "
-                                         "the remembered setup is forgotten.")   # an event: a change is kept again
+        assert page.evaluate(STATUS) == ("Reset to the defaults: the packs on by default, every setting at its default, "
+                                         "Randomize off; the remembered setup is forgotten.")   # a change is kept again
         _reload(page)
         assert [list(_page.ticked(page)), page.evaluate(STATUS)] == [defaults, ""]
 
@@ -627,6 +628,108 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
             assert list(_page.ticked(page)) == list(mods.PACKS)
         finally:
             download.delete()
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+SEEDED = "randomize-full:seed=2,default"   # G3's seed case: the packs on by default and seed 2's plan (D144's defaults)
+# The Randomizer tab: [Randomize ticked, the seed, whether each of its settings' fields is disabled] (the rows that stay
+# vanilla in v1 and the spoiler's buttons aside)
+TAB = """() => [document.getElementById("rando-on").checked, document.getElementById("rando-seed").value,
+    [...document.querySelectorAll("#randomizer :is(input, select, button)")].filter((f) => !f.id.startsWith("spoiler")
+        && f.id !== "rando-on" && !f.dataset.vanilla).map((f) => f.disabled)]"""
+
+
+@functools.cache
+def _seeded(path: Path) -> tuple[dict, list]:
+    """CPython's report and segments of G3's seed case, as the tab sends it."""
+    packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+    made, report = sdk.image({"iso": str(path), "packs": packs,
+                              "randomizer": {"seed": "2", "settings": sdk.catalog()["randomizer"]["defaults"]}})
+    return report, _signature(made)
+
+
+def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_and_setup_carry_it(browser, site, usa_iso):
+    """Step 4.2c1 (RANDOMIZER_PLAN §5.5): the Randomizer tab shows after
+    Patches (D901, D902), at D144's defaults (Modkit's share string of them)
+    with its settings locked until Randomize is ticked (D907). Ticked, with
+    seed 2 and the packs on by default, Build makes G3's seed case file by
+    file with its logic verified, CPython's report and segments; the
+    spoiler it shows and Save downloads is the build's (Modkit's
+    ``--spoiler`` file, test_randomizer's). Copy link carries the
+    randomizer: a page opened with it holds Randomize ticked, the seed and
+    the settings, and copies back the same link; a randomized build's
+    recipe (Load its recipe) ticks it again with its seed and the settings
+    of its share string. The page remembers the tab (D915) until Reset to
+    defaults unticks it. No CSP violation, no request but GETs of the
+    site's files."""
+    defaults = sdk.catalog()["randomizer"]["defaults"]
+    report, segments = _seeded(usa_iso)
+    golden = json.loads((ORACLE / "rando/tests/goldens/pipelines.json").read_text(encoding="utf-8"))[SEEDED]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        assert page.evaluate("() => [...document.querySelectorAll('#tabs [role=tab]')].map((t) => t.textContent)") == [
+            "Patches", "Randomizer", "About"]
+        _page.click(page, "tab-randomizer")
+        view = _page.until(page, "() => azurkit.rando.view")
+        assert view == sdk.randomizer_settings({"settings": defaults, "packs": mods.normalize(
+            {name: {} for name, pack in mods.PACKS.items() if pack.default_on})})
+        assert page.evaluate("() => document.getElementById('rando-share').value") == view["share"] == "AZR-AAEA"
+        on, seed, locked = page.evaluate(TAB)
+        assert (on, bool(seed), set(locked)) == (False, True, {True})
+        _page.click(page, "rando-on")
+        _page.fill(page, "rando-seed", "2")
+        assert set(page.evaluate(TAB)[2]) == {False}
+        page.set_input_files("#iso", str(usa_iso))
+        page.evaluate("() => document.querySelector('#build').click()")
+        built = _built(page)
+        assert built["report"]["result"] == {f: s for f, s in golden.items() if f != "ISO"}
+        assert (built["report"], built["segments"]) == (report, segments)
+        assert built["report"]["randomizer"]["logic_verified"] is True
+        _page.click(page, "spoiler-view")
+        assert page.evaluate("() => document.getElementById('spoiler').textContent") == report["spoiler"]
+        with page.expect_download(timeout=60_000) as caught:
+            _page.click(page, "spoiler-save")
+        assert (caught.value.suggested_filename, Path(caught.value.path()).read_text(encoding="utf-8")) == (
+            f"{usa_iso.stem} (AzurKit) spoiler.txt", report["spoiler"])
+        caught.value.delete()
+
+        _page.until(page, "() => azurkit.ready", 120)   # the site's engine, replaced after the build
+        _page.click(page, "share")
+        link = _page.until(page, "() => azurkit.link")
+        recipe = {"packs": page.evaluate("() => azurkit.sent"), "randomizer": {"seed": "2", "settings": defaults}}
+        assert link == f"{ORIGIN}/{sdk.preset_encode(recipe, report)}"
+        loaded = served.context.new_page()
+        loaded.goto(link)
+        _page.until(loaded, "() => globalThis.azurkit?.loaded && !azurkit.rando.load && azurkit.rando.view")
+        assert loaded.evaluate(TAB)[:2] == [True, "2"]
+        assert loaded.evaluate("() => document.querySelector('#randomizer .on .mark').textContent") == "●"
+        _page.click(loaded, "share")
+        assert _page.until(loaded, "() => azurkit.link") == f"{ORIGIN}/{sdk.preset_encode(recipe)}"
+        _page.click(loaded, "reset")
+        _page.fill(loaded, "rando-seed", "x")
+        opened = {"format": "azurkit-preset", "schema_version": 1, "layers": [   # a randomized build's (sdk.open_build)
+            {"tool": "randomizer", "kind": "plan", "recipe": {"seed": "2", "share": report["randomizer"]["share"]}},
+            {"tool": "mods", "kind": "packs", "recipe": recipe["packs"]}]}
+        loaded.evaluate("(preset) => { azurkit.opened = preset; document.getElementById('load-build').click(); }", opened)
+        _page.until(loaded, "() => document.getElementById('rando-on').checked && azurkit.rando.view && !azurkit.rando.load")
+        assert [*loaded.evaluate(TAB)[:2], loaded.evaluate(STATUS)] == [True, "2", (
+            f"Loaded your build's recipe: {len(recipe['packs'])} packs and the randomizer (seed 2), marked ●. "
+            "Pick your vanilla image, then Build.")]
+
+        setup = {"on": True, "seed": "2", "settings": defaults}
+        _remembered(page, {"ticked": [name for name in mods.PACKS if name in recipe["packs"]], "values": {}, "xbr": [],
+                           "randomizer": setup})
+        page.evaluate("() => history.replaceState(null, '', location.pathname)")   # Copy link's #p= would win
+        _reload(page)
+        assert page.evaluate(TAB)[:2] == [True, "2"]
+        _page.click(page, "reset")
+        assert page.evaluate(TAB)[:2] == [False, "2"]
+        _remembered(page, None)
+        for each in (page, loaded):
+            _page.check_csp(each)
         assert served.stray() == []
     finally:
         served.close()

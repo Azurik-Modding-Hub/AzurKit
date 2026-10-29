@@ -3,10 +3,11 @@
 The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
-randomizer's :func:`plan` and :func:`spoiler`, and :func:`restore` (art
-comes with its step). JSON in and out: a recipe is a JSON object
-and each call returns one; :func:`image` also returns the image, unwritten, which the web
-page joins into a Blob (``iso.Image.segments``). A refusal is a
+randomizer's :func:`plan`, :func:`spoiler` and :func:`randomizer_settings`
+(its tab's), and :func:`restore` (art comes with its step). JSON in and
+out: a recipe is a JSON object and each call returns one; :func:`image`
+also returns the image, unwritten, which the web page joins into a Blob
+(``iso.Image.segments``). A refusal is a
 ``ValueError`` or ``OSError`` whose message names what it refuses and why,
 never game bytes; a build that fails writes nothing (D35).
 ``tests/sdk_api.txt`` is this surface's snapshot (``scripts/sdk_api.py``).
@@ -41,9 +42,13 @@ as the build's first layer, before the packs (Modkit's ``mod_apply``
 order); the built image is read back against the plan before anything is
 written: a placement a later layer changed is a conflict that leaves the
 logic unverified (D28), any other difference fails the build (D35), and the
-report's ``randomizer`` gives the verdict (``tools.randomizer.generator``)::
+report's ``randomizer`` gives the verdict (``tools.randomizer.generator``)
+and its ``spoiler`` the build's spoiler (Modkit's ``--spoiler`` file)::
 
     {"iso": "<a vanilla image>", "packs": {...}, "randomizer": {"seed": "2", "share": "AZR-AAEA"}}
+
+A share link carries a recipe's randomizer too (its seed, settings and
+obsidian cost), as an AzurKit build's mods file does.
 
 
 def catalog() -> 'dict':
@@ -59,6 +64,8 @@ slider: its name, label, default, track (``min``, ``max`` and
 whole numbers it takes, its encoding's, or ``None``) and
 ``logic_floor`` (``"min"`` or ``"max"``: the side of its default past
 which a randomized build's logic is unverified, D83(c); ``None``).
+``randomizer``: what the Randomizer tab offers, with D144's defaults
+(``tools.randomizer.options``).
 
 
 def verify(path: 'str') -> 'dict':
@@ -84,7 +91,8 @@ past float32's range, written as the infinity it saturates to, Q110);
 with a randomizer, its verdict (``randomizer``: the seed, share string,
 settings, plan sha256, the movement sliders it stands on,
 ``logic_verified`` with each reason it is false, ``why_not``, and the
-placements a later layer changed, ``conflicts``).
+placements a later layer changed, ``conflicts``) and its spoiler
+(``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file).
 
 
 def build(recipe: 'Mapping', out: 'str', *, progress: 'Callable[[int, int], object] | None' = None) -> 'dict':
@@ -120,21 +128,22 @@ build's packs are then its packs, and no others). Every refusal named.
 
 def preset_encode(recipe: 'Mapping', report: 'Mapping | None' = None) -> 'str':
 
-The share link's fragment (``#p=…``) for ``recipe``'s packs,
-normalized, and its ``set`` operations, never its image's path; given
-its build's report (:func:`image`), with the release it was built from
-and the sha256 of each file it changed. Names, numbers and hashes only
-(Q174): a recipe with a ``replace_bytes`` is refused by name, as is
-one with a ``randomizer`` (its link comes with the page's tab, which
-reads it: Step 4.2c).
+The share link's fragment (``#p=…``) for ``recipe``'s randomizer
+(its seed, settings or share string and obsidian cost, checked as a
+build checks them), packs, normalized, and its ``set`` operations, never
+its image's path; given its build's report (:func:`image`), with the
+release it was built from and the sha256 of each file it changed. Names,
+numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
+refused by name.
 
 
 def preset_decode(text: 'str') -> 'dict':
 
 The preset in a link or its fragment (``preset.decode``), its packs
-normalized (``mods.normalize``) and its ``set`` operations checked: a
-tool or pack AzurKit doesn't have, a value a slider refuses or a
-``replace_bytes`` (Q174) is refused by name.
+normalized (``mods.normalize``), its ``set`` operations and its
+randomizer checked: a tool or pack AzurKit doesn't have, a value a
+slider refuses, a setting the randomizer refuses or a ``replace_bytes``
+(Q174) is refused by name.
 
 
 def plan(recipe: 'Mapping') -> 'dict':
@@ -157,6 +166,24 @@ paths, the traps and the rest. A plan from another database, format or
 generator, or an edited one, is refused by name.
 
 
+def randomizer_settings(given: 'Mapping') -> 'dict':
+
+What the Randomizer tab shows for ``given``: its ``settings`` (a
+settings file's table) or ``share`` (a share string), its
+``obsidian_cost`` (vanilla's when not given) and the build's ``packs``
+(``{pack: {slider: value}}``, normalized): the settings as the tab
+holds them (format /2: its categories as they are), their share string
+with the packs' movement sliders, a ``note`` when a share string holds
+other sliders, each skip a setting can turn on (``skips``: its pick's
+id, name, rating, the ceiling's state and its toggle; D114, D275), the
+picks held and the forfeitable locations, what a build would leave
+unverified so far (``why_not``: the packs' movement past their logic
+floor, D83(c), a roll a skip on was proven at, an obsidian cost above
+vanilla's) and the preflight's refusal (``preflight``, AZ-454; ``None``).
+``tools.randomizer.tab``; a refusal names the setting, the share string
+or the pack.
+
+
 def restore(setup: 'object') -> 'dict':
 
 A UI's remembered setup (D915: the packs it had ticked, each setting
@@ -166,5 +193,8 @@ value}}, "xbr": [operation]}``; never an image, its path or anything
 read from one), as the UI applies it, with ``dropped``: what no longer
 normalizes (a pack renamed or retired, a setting gone, a value its
 slider refuses, a pack without one it requires, an operation a link
-couldn't carry), each left out and named, never applied. It never
-refuses: a setup it can't read is dropped whole, by name.
+couldn't carry), each left out and named, never applied. A setup's
+``randomizer`` (the tab's: ``on``, ``seed``, ``settings`` and
+``obsidian_cost``, ``tools.randomizer.remembered``) comes back
+checked, or is dropped whole, by name. It never refuses: a setup it
+can't read is dropped whole, by name.

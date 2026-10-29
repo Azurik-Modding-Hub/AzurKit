@@ -10,15 +10,16 @@
 // runs it inside FileReaderSync, under WORKERFS's read of the image, while CPython has released the GIL around read():
 // Safari's build stopped with NoGilError there. Chromium runs it only between tasks.
 //
-// In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation]}, {type: "vanilla", file},
-//      {type: "preset", recipe: {packs, xbr}, report}, {type: "decode", text}, {type: "restore", setup}
+// In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer}, {type: "vanilla", file},
+//      {type: "preset", recipe: {packs, xbr, randomizer}, report}, {type: "decode", text}, {type: "restore", setup},
+//      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings)
 // Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
-//      {type: "restored", ticked, values, xbr, dropped} (the remembered setup, sdk.restore), {type: "csp", directive,
-//      blocked}
+//      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
+//      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "csp", directive, blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
@@ -45,8 +46,10 @@ def engine(request):
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
     if request.type == "restore":
         return js(sdk.restore(request.setup.to_py() if hasattr(request.setup, "to_py") else request.setup))
-    if request.type in ("vanilla", "open", "preset", "decode"):
+    if request.type in ("vanilla", "open", "preset", "decode", "randomizer"):
         try:
+            if request.type == "randomizer":
+                return js(sdk.randomizer_settings(request.given.to_py()))
             if request.type == "vanilla":
                 return js(sdk.vanilla(request.recipe.iso))
             if request.type == "open":
@@ -137,10 +140,11 @@ function vanilla({ py, engine }, file) {
   }
 }
 
-function build({ py, engine }, file, packs, xbr) {
+function build({ py, engine }, file, packs, xbr, randomizer) {
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
-  const made = engine({ type: "build", recipe: { iso: `/in/${file.name}`, packs, xbr } });
+  const recipe = { iso: `/in/${file.name}`, packs, xbr, ...(randomizer ? { randomizer } : {}) };
+  const made = engine({ type: "build", recipe });
   if ("refused" in made) return post({ type: "refused", message: made.refused });
   post({ type: "built", ...made }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
 }
@@ -148,9 +152,10 @@ function build({ py, engine }, file, packs, xbr) {
 try {
   const loaded = await load();
   self.onmessage = ({ data }) => {
-    if (!["build", "vanilla", "preset", "decode", "restore"].includes(data?.type)) return;
+    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer"].includes(data?.type)) return;
     try {
       if (data.type === "vanilla") return vanilla(loaded, data.file);
+      if (data.type === "randomizer") return post({ type: "rando", ticket: data.ticket, reply: loaded.engine(data) });
       if (data.type === "restore") return post({ type: "restored", ...loaded.engine(data) });
       if (data.type === "preset" || data.type === "decode") {
         const reply = loaded.engine(data);
@@ -158,7 +163,7 @@ try {
         return post(data.type === "preset" ? { type: "preset", fragment: reply.fragment }
           : { type: "decoded", preset: reply.preset });
       }
-      build(loaded, data.file, data.packs, data.xbr);
+      build(loaded, data.file, data.packs, data.xbr, data.randomizer);
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });
     }

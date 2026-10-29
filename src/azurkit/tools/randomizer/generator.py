@@ -22,6 +22,8 @@ through the packs' catalog (D83(c)).
   their ``logic_floor`` (the catalog's), and the speed sliders at 0 or less
   whose move never ends: each leaves the logic unverified, never refused.
   A swapped body's (Modkit's player model) comes with the models (Step 4.3).
+- :func:`spoiler`: the build's spoiler, Modkit's ``--spoiler`` file (Step
+  4.2c1), and :func:`check`: a link's recipe checked before a page loads it.
 
 ``layer``, ``writer``, ``movement`` and ``physics`` are Modkit's, installed
 by the oracle sync; this module is AzurKit's. It never imports the packs
@@ -42,7 +44,7 @@ from azurkit.core import iso
 from azurkit.edits.layer import Change, Conflict, Layer
 from azurkit.tools.randomizer import layer, physics, writer
 from azurkit.tools.randomizer.planner.loader import kept_logic
-from azurkit.tools.randomizer.planner.settings import settings_from_table, share_encode
+from azurkit.tools.randomizer.planner.settings import settings_from_table, share_decode, share_encode
 
 TOOL, KIND = "randomizer", "plan"
 LAYER = layer.LAYER      # the layer's id, as Modkit names it in a conflict
@@ -96,6 +98,19 @@ def normalize(recipe: object) -> dict:
     return dict(recipe)
 
 
+def check(recipe: object) -> dict:
+    """:func:`normalize`'s ``recipe`` with its settings table or share
+    string checked as a build checks them (a link's, before its page loads
+    it); ``ValueError`` names the first refusal."""
+    recipe = normalize(recipe)
+    skips = _skips(kept_logic().db)
+    if "settings" in recipe:
+        settings_from_table(recipe["settings"], skips, "settings")
+    if "share" in recipe:
+        share_decode(recipe["share"], skips)
+    return recipe
+
+
 def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepared:
     """The plan :func:`normalize`'s ``recipe`` makes under the build's
     ``packs`` (``{pack: {slider: value}}``, normalized), on the logic
@@ -109,7 +124,7 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
         share = share_encode(settings_from_table(recipe["settings"], _skips(db), "settings"), _skips(db))
     args = SimpleNamespace(plan=None, seed=recipe["seed"], settings=None, share=share, skip_ceiling=None,
                            movement_tier=None, dark_fire=None, skip=None, no_skip=None, exclude_category=None)
-    plan, logic, _, why = layer.plan_for(args, db, physics.slider_values(packs, list(packs)))
+    plan, logic, _, why = layer.plan_for(args, db, sliders(packs))
     made = {"seed": plan.doc["seed"], "share": plan.doc["share"]}
     if "obsidian_cost" in recipe:
         made["obsidian_cost"] = recipe["obsidian_cost"]
@@ -224,3 +239,17 @@ def movement_reasons(packs: Mapping[str, Mapping[str, float]], catalog: Sequence
             if key in layer.UNKILLABLE and value <= 0:
                 why.append(f"{key[0]} {key[1]} {value:g} leaves enemies unkillable: {layer.UNKILLABLE[key]}")
     return why
+
+
+def sliders(packs: Mapping[str, Mapping[str, float]]) -> dict[str, dict[str, float]]:
+    """The movement sliders a build of ``packs`` (normalized) plans on, and
+    its share string records (``physics.slider_values``, AZ-383)."""
+    return physics.slider_values(packs, list(packs))
+
+
+def spoiler(prepared: Prepared, verdict: Mapping) -> str:
+    """The build's spoiler, as Modkit's ``randomize-full --spoiler`` writes
+    it: the plan's spheres and paths on the logic it stands on, with the
+    build's ``logic_verified`` and each reason it is false on its second
+    line (``layer.spoiler_text``)."""
+    return layer.spoiler_text(prepared.plan, prepared.logic, verdict["logic_verified"], verdict["why_not"])

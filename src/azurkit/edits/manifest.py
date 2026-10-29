@@ -120,7 +120,11 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     with iso.Reader(stamp.path) as r:
         base |= {name: r.read(name) for name in names if name not in base}
         files, conflicts = compose(base, layers)
-        changed = {name: bytes(data) for name, data in files.items() if data != base[name]}
+        changed = {}
+        for name in list(files):   # each file's copy freed as it is kept: a randomized build changes 700 MB of levels
+            if (data := files.pop(name)) != base[name]:
+                changed[name] = bytes(data)
+            del data
         made = iso.read(stamp.path, changed)
         listing = {}
         if changed:

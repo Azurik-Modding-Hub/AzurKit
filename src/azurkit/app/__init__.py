@@ -25,11 +25,14 @@ api/restore`` ``{"setup"}`` gives back what still applies,
 the theme before its first paint, is the server's own (:func:`_theme_js`),
 and the window opens on that theme's ground (:data:`GROUNDS`), so a player
 who picked light never sees a dark first frame.
-``POST api/build`` ``{"iso", "packs", "xbr"}`` plans the build (``sdk.image``: the
+``POST api/build`` ``{"iso", "packs", "xbr", "randomizer"}`` plans the build (``sdk.image``: the
 report, the size, and where to save it: the Downloads folder, under the
 site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
 (``sdk.build``), never over an existing file but the one the save dialog
 chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
+``POST api/spoiler`` ``{"out"}`` writes the last randomized build's spoiler
+there, on the same terms. ``POST api/randomizer`` ``{"given"}`` gives what
+the Randomizer tab shows (``sdk.randomizer_settings``).
 ``POST api/vanilla`` ``{"iso"}`` reads the image's own values of the
 sliders at its XBE's sites (``sdk.vanilla``), or, when the image is an
 AzurKit build, ``{"opened": its recipe}`` (``sdk.open_build`` of the files
@@ -71,6 +74,7 @@ from pathlib import Path
 from azurkit import __version__, sdk
 from azurkit.core import gate
 from azurkit.edits import xbr
+from azurkit.tools import randomizer
 
 SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
 
@@ -157,7 +161,10 @@ def _set_setup(body: dict) -> dict:
     ``replace_bytes``' bytes (D3). A ``set``'s table, entity, prop and text
     value are free strings (config.xbr's names hold spaces; text cells hold
     text), checked by :func:`xbr.normalize` alone: the page fills them from
-    the catalog and never puts the image's path in one."""
+    the catalog and never puts the image's path in one. The Randomizer
+    tab's (``randomizer``: on, the seed the player typed, the settings and
+    the obsidian cost) is checked as a build checks it
+    (``tools.randomizer.remembered``)."""
     if (setup := body.get("setup")) is not None:
         if not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
             raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
@@ -169,6 +176,11 @@ def _set_setup(body: dict) -> dict:
         if not (isinstance(ops, list) and all(isinstance(op, dict) and op.get("op") == "set" for op in ops)):
             raise ValueError("setup: xbr holds config.xbr set operations only (Q174)")
         xbr.normalize(ops)   # each set with exactly its keys, else refused by name
+        if "randomizer" in setup:
+            try:
+                randomizer.remembered(setup["randomizer"])
+            except ValueError as exc:
+                raise ValueError(f"setup: randomizer: {exc}") from None
     _remember(setup=setup)
     return {}
 
@@ -213,6 +225,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.quitting = False               # set by quit(), before it cancels: no build or save starts after it
         self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
         self.chosen: Path | None = None     # the save dialog's last answer, which it asked before replacing
+        self.spoiler: str | None = None     # the last randomized build's spoiler (api/spoiler)
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
@@ -248,14 +261,14 @@ class Server(http.server.ThreadingHTTPServer):
 
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
-        if body.get("xbr"):
-            recipe["xbr"] = body["xbr"]
+        recipe |= {key: body[key] for key in ("xbr", "randomizer") if body.get(key)}
         with self.busy:
             if self.quitting:
                 raise ValueError(QUITTING)
             made, report = sdk.image(recipe)
         if self.quitting:   # closed while it built (AZ-823)
             raise ValueError(QUITTING)
+        self.spoiler = report.get("spoiler")
         _remember(iso=recipe["iso"])
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
@@ -282,19 +295,37 @@ class Server(http.server.ThreadingHTTPServer):
             except Cancelled:
                 raise ValueError("Cancelled: nothing was written") from None
 
+    def save_spoiler(self, body: dict) -> dict:
+        """``api/spoiler``: write the last randomized build's spoiler to
+        ``out``, never over an existing file but the one the save dialog
+        chose, nor a vanilla image (D36); whole or not at all."""
+        out = _path(body.get("out"), "spoiler")
+        if self.spoiler is None:
+            raise ValueError("No spoiler: build with Randomize ticked first")
+        if out.exists() and out != self.chosen:
+            raise ValueError(f"{out} exists: choose another name, or delete it first")
+        if any((found := gate.find(r)) and out.exists() and out.samefile(found) for r in gate.RELEASES):
+            raise ValueError(f"{out}: it is a vanilla image, which AzurKit never writes over")
+        data = self.spoiler.encode("utf-8")
+        part = out.with_name(f"{out.name}.part")
+        part.write_bytes(data)
+        part.replace(out)
+        return {"spoiler": {"out": str(out), "size": len(data)}}
+
     def choose(self, body: dict) -> dict:
-        """The window's file dialog: an image to read, or where to save."""
+        """The window's file dialog: an image to read, or where to save one
+        (``out``) or the spoiler (``spoiler``)."""
         import webview
         given = Path(body["path"]).expanduser() if isinstance(body.get("path"), str) and body["path"] else None
         folder = str(given.parent) if given else ""
-        if body.get("kind") == "out":
+        if body.get("kind") in ("out", "spoiler"):
             picked = self.window.create_file_dialog(webview.FileDialog.SAVE, directory=folder,
                                                     save_filename=given.name if given else "")
         else:
             picked = self.window.create_file_dialog(webview.FileDialog.OPEN, directory=folder, file_types=IMAGES)
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
-        if picked and body.get("kind") == "out":
+        if picked and body.get("kind") in ("out", "spoiler"):
             self.chosen = Path(str(picked))
         return {"path": str(picked) if picked else None}
 
@@ -358,6 +389,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/decode": lambda body: {"preset": sdk.preset_decode(body.get("text"))},
                 "/api/theme": _set_theme, "/api/setup": _set_setup,
                 "/api/restore": lambda body: sdk.restore(body.get("setup")),
+                "/api/randomizer": lambda body: sdk.randomizer_settings(body.get("given")),
+                "/api/spoiler": self.server.save_spoiler,
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

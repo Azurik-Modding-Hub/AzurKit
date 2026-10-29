@@ -3,9 +3,11 @@
 settings gives Modkit's attempt and plan sha256, and the default plan file
 is Modkit's byte for byte, on CPython and under Pyodide, the site's runtime)
 and its generator layer (Step 4.2b): G3's seed cases build Modkit's files
-and image on both releases (``pipelines.json``, ``rando_iso.json``), a
+and image on both releases (``pipelines.json``, ``rando_iso.json``) and the
+default case's spoiler is Modkit's ``--spoiler`` file of its plan, a
 later layer over a placement is a conflict and any other difference a
-failure, and movement sliders plan on the logic re-checked under them."""
+failure, and movement sliders plan on the logic re-checked under them;
+the Randomizer tab's settings (Step 4.2c1)."""
 
 from __future__ import annotations
 
@@ -18,11 +20,12 @@ import pytest
 
 from azurkit import cli, sdk
 from azurkit.core import iso
-from azurkit.tools import mods
+from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import generator, layer, writer
 from azurkit.tools.randomizer.planner.fill import settings_table
 from azurkit.tools.randomizer.planner.loader import kept_logic
-from azurkit.tools.randomizer.planner.settings import Settings, share_encode
+from azurkit.tools.randomizer.planner.settings import (
+    Settings, picks, settings_from_table, share_decode, share_encode, turnable)
 from scripts.oracle_sync import ORACLE
 
 RANDO = ORACLE / "rando"
@@ -65,8 +68,7 @@ def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is
     """The default plan's spoiler names its share string and each sphere;
     an edited plan, a recipe with both settings and a share string, a build
     recipe's unknown key, settings with a share string, or an obsidian cost
-    whose thresholds a float32 can't hold, and a share link of a randomized
-    recipe (its tab reads one, Step 4.2c) are refused, each by name."""
+    whose thresholds a float32 can't hold are refused, each by name."""
     lines = sdk.spoiler(PLANS["default"]["plan"])["lines"]
     assert any(PLANS["default"]["plan"]["share"] in line for line in lines)
     assert any(line.lower().startswith("sphere") for line in lines)
@@ -81,8 +83,58 @@ def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is
                        ({"seed": "2", "obsidian_cost": 1e38}, "finite float32s")):
         with pytest.raises(ValueError, match=why):
             sdk.image({"iso": "x.iso", "randomizer": given})
-    with pytest.raises(ValueError, match="share link doesn't carry a randomizer"):
-        sdk.preset_encode({"packs": {}, "randomizer": {"seed": "2"}})
+
+
+def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_unverified_and_a_link_carries_it():
+    """Step 4.2c1: the Randomizer tab starts at D144's defaults (the
+    database's), whose share string is Modkit's; the settings it holds
+    (format /2: each category as it is) give back the same settings and a
+    share string that decodes to them, each skip a setting can turn on (by
+    pick, D275) with the ceiling's state and its toggle, and the picks held.
+    A share string made with other movement sliders is named; keeping the
+    obsidians vanilla is the preflight's refusal (AZ-454); a roll slider
+    the logic doesn't model and an obsidian cost above vanilla's leave a
+    build unverified (D83(c)). A share link carries the randomizer and a
+    page's remembered setup keeps it (D915), each refused by name when a
+    setting is."""
+    logic = kept_logic()
+    skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
+    options = sdk.catalog()["randomizer"]
+    assert options["defaults"] == randomizer.literal(logic.db.defaults)
+    view = sdk.randomizer_settings({"settings": options["defaults"]})
+    assert (view["settings"], view["share"], view["preflight"], view["why_not"], view["note"]) == (
+        options["defaults"], share_encode(logic.db.defaults, skips), None, [], None)
+    pick = view["skips"][0]["id"]
+    every = picks(skips)
+    assert [s["id"] for s in view["skips"]] == [p for p, ids in every.items() if any(turnable(skips[v]) for v in ids)]
+    assert view["held"] == len(every) - len(view["skips"]) and not any(s["ceiling"] for s in view["skips"])
+    given = options["defaults"] | {"skip_ceiling": 3, "exclude_categories": ["powers"], "skip_override": {pick: True}}
+    view = sdk.randomizer_settings({"settings": given})
+    assert view["settings"] == given and next(s for s in view["skips"] if s["id"] == pick)["toggle"] is True
+    assert share_decode(view["share"], skips) == settings_from_table(given, skips)
+    assert sdk.randomizer_settings({"share": view["share"]})["settings"] == given
+    assert sdk.randomizer_settings({"share": _share(JUMP)})["note"].startswith(
+        "the share string was made with the movement sliders player_physics jump_speed_scale 1.3")
+    starved = options["defaults"] | {"exclude_categories": ["obsidians"]}
+    assert sdk.randomizer_settings({"settings": starved})["preflight"].startswith("exclude_categories keeps")
+    flagged = sdk.randomizer_settings({"settings": options["defaults"], "obsidian_cost": 20,
+                                       "packs": {"player_physics": {"roll_speed_scale": 0.5}}})["why_not"]
+    assert flagged == [generator.movement_reasons({"player_physics": {"roll_speed_scale": 0.5}},
+                                                  sdk.catalog()["packs"])[0], layer.obsidian_reason(20.0)]
+
+    rando = {"seed": "2", "settings": given, "obsidian_cost": 20.0}
+    found = sdk.preset_decode(sdk.preset_encode({"packs": {}, "randomizer": rando}))
+    assert found["layers"][0] == {"tool": "randomizer", "kind": "plan", "recipe": rando}
+    assert sdk.read_mods(sdk.preset_encode({"packs": {}, "randomizer": rando}))["randomizer"] == rando
+    kept = {"on": True, "seed": "2", "settings": given, "obsidian_cost": 20.0}
+    assert sdk.restore({"ticked": [], "randomizer": kept})["randomizer"] == kept
+    bad = given | {"dark_fire": 9}
+    for refused in (lambda: sdk.preset_encode({"packs": {}, "randomizer": {"seed": "2", "settings": bad}}),
+                    lambda: sdk.randomizer_settings({"settings": bad})):
+        with pytest.raises(ValueError, match="dark_fire: 9 is not 1-3"):
+            refused()
+    assert sdk.restore({"ticked": [], "randomizer": kept | {"settings": bad}})["dropped"] == [
+        "the randomizer's settings (settings: dark_fire: 9 is not 1-3)"]
 
 
 def test_movement_sliders_plan_on_the_logic_rechecked_under_them_and_the_packs_catalog_flags_the_rest():
@@ -140,6 +192,8 @@ def test_g3s_seed_cases_build_modkits_files_and_image_and_open_back_into_their_r
     if (release, case) == ("usa", "randomize-full:seed=2,default"):
         assert {"plan": plan["plan"], "usa": golden["ISO"]} == {k: _golden("tests/goldens/rando_iso.json")[k]
                                                                  for k in ("plan", "usa")}
+        lines = sdk.spoiler(PLANS["default"]["plan"])["lines"]   # Modkit's default plan file: its --spoiler file
+        assert report["spoiler"] == "\n".join([lines[0], "logic_verified: true", *lines[1:]]) + "\n"
     found = sdk.read_mods(sdk.open_build(made, whole=False))
     assert found == {"packs": mods.normalize({n: {} for n, p in mods.PACKS.items() if p.default_on}),
                      "randomizer": {"seed": "2", "share": plan["share"]}}

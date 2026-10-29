@@ -22,12 +22,20 @@
 // The page remembers its setup between visits (D915): the site in this browser's storage, the app in its config. It
 // comes back when the page opens, before you pick an image, less whatever no longer applies (named in the status
 // line); a share link, or a build's recipe you load, takes its place; Reset to defaults forgets it.
+//
+// The Randomizer tab (Step 4.2c1, RANDOMIZER_PLAN §5.5): Randomize (off by default, the tab's one switch, which
+// unlocks its settings, D907), the seed and New, the options with D144's defaults, the share string, the item rows
+// (each a category it shuffles) and the skips a setting can turn on, and the spoiler of the last randomized build. The
+// engine reads the settings (sdk.randomizer_settings) and gives back what the tab shows; Build and Save are the
+// bottom bar's, which build the randomizer's plan first (Modkit's order). A link and a build's recipe carry it.
 const $ = (id) => document.getElementById(id);
+const R = (id) => $(`rando-${id}`);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
                 packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
-                later: null };
+                later: null, spoiler: null,
+                rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 // The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
@@ -61,7 +69,8 @@ function setup() {
   }
   const ticked = state.packs.packs.filter((pack) => $("packs").querySelector(`input[data-pack="${pack.name}"]`).checked)
     .map((pack) => pack.name);
-  return { ticked, values, xbr: state.xbr.filter((op) => op.op === "set") };
+  const rando = randoSetup();
+  return { ticked, values, xbr: state.xbr.filter((op) => op.op === "set"), ...(rando ? { randomizer: rando } : {}) };
 }
 
 // Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
@@ -69,7 +78,8 @@ function remember() {
   clearTimeout(state.later);
   if (!state.packs || state.restoring) return;
   const kept = setup(), defaults = state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name);
-  state.plain = !kept.xbr.length && !Object.keys(kept.values).length && kept.ticked.join() === defaults.join();
+  state.plain = !kept.xbr.length && !Object.keys(kept.values).length && kept.ticked.join() === defaults.join()
+    && !kept.randomizer;
   $("reset").disabled = state.building || state.plain;
   const text = state.plain ? null : JSON.stringify(kept);
   if (text === state.kept) return;
@@ -107,7 +117,7 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
-function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored }) {
+function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
   let worker = null, loaded = false;
   const start = () => {
     loaded = false;
@@ -131,6 +141,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       } else if (data.type === "restored") {
         const { type, ...setup } = data;
         restored(setup);
+      } else if (data.type === "rando") {
+        rando(data.reply, data.ticket);
       } else if (data.type === "refused" && data.quiet) {
         failed(data.message);
       } else if (data.type === "built" || data.type === "refused") {
@@ -156,7 +168,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   };
   start();
   return {
-    build: (file, packs, xbr) => worker.postMessage({ type: "build", file, packs, xbr }),
+    build: (file, packs, xbr, randomizer) => worker.postMessage({ type: "build", file, packs, xbr, randomizer }),
+    randomizer: (given, ticket) => worker.postMessage({ type: "randomizer", given, ticket }),
     vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
     preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
     decode: (text) => worker.postMessage({ type: "decode", text }),
@@ -168,7 +181,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
 // The app's engine: azurkit.sdk on CPython behind this launch's server (azurkit.app), the same in the app's window
 // and in a browser. The page posts JSON to it, and a refusal comes back as {refused}. A build's reply that arrives
 // after Cancel is dropped; a save's is awaited, since the server says whether it wrote anything.
-function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened, shared, decoded, restored }) {
+function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened, shared, decoded, restored, rando }) {
   let ticket = 0;
   const post = async (path, body, keepalive = false) => {
     const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -192,7 +205,10 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     .then((reply) => "refused" in reply ? failed(reply.refused) : done(reply))
     .catch((error) => failed(`The app's engine didn't answer (${error.message}): restart AzurKit`));
   return {
-    build: (iso, packs, xbr) => run("api/build", { iso, packs, xbr }, built),
+    build: (iso, packs, xbr, randomizer) => run("api/build", { iso, packs, xbr, randomizer }, built),
+    randomizer: (given, ticket) => post("api/randomizer", { given }).then((reply) => rando(reply, ticket))
+      .catch((error) => rando({ refused: `The app's engine didn't answer (${error.message})` }, ticket)),
+    spoiler: (out) => ask("api/spoiler", { out }, (reply) => say(`Saved the spoiler: ${reply.spoiler.out}`)),
     vanilla: (iso) => post("api/vanilla", { iso }).then((read) => "refused" in read
       || ("opened" in read ? opened(read.opened) : vanilla(read))).catch(() => {}),
     preset: (recipe, report) => ask("api/preset", { recipe, report }, (reply) => shared(reply.fragment)),
@@ -424,6 +440,7 @@ function renderTabs(tabs) {
 
 function pick(id) {
   state.tab = id;
+  if (id === "randomizer" && state.packs) askRando();   // the Patches tab's packs may have changed
   for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
   for (const panel of document.querySelectorAll("[role=tabpanel]")) panel.hidden = panel.dataset.tab !== id;
   place();
@@ -450,6 +467,7 @@ function busy(on) {
   $("save").disabled = on || !state.build;
   $("cancel").hidden = !on;
   lock();
+  lockRando();
   if (!on) {
     clearInterval(state.poll);
     state.saving = false;
@@ -461,6 +479,7 @@ function forget() {
   state.build = state.url = null;
   $("save").disabled = true;
   $("out-row").hidden = true;
+  spoiler(null);
 }
 
 // Set the page to a recipe: tick exactly the packs `on` names, set each setting to `values`' value, else its default,
@@ -500,19 +519,23 @@ function load(preset, from) {
   const ticked = [...$("packs").querySelectorAll("input[data-pack]:checked")].map((box) => box.dataset.pack);
   setTo(new Set(packs ? Object.keys(packs) : ticked), packs ?? {},
         preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [], from);
-  pick("patches");
+  const rando = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe;
+  loadRando(rando, from);
+  pick(rando ? "randomizer" : "patches");
   state.loaded = preset;
   remember();
   const made = preset.azurkit ? ` (made with AzurKit ${preset.azurkit})` : "";
   const cells = state.xbr.length ? ` and ${state.xbr.length} config.xbr edit${state.xbr.length > 1 ? "s" : ""}` : "";
-  say(`Loaded ${from}'s recipe${made}: ${packs ? Object.keys(packs).length : 0} packs${cells}, marked ●. `
+  const seed = rando ? ` and the randomizer (seed ${rando.seed})` : "";
+  say(`Loaded ${from}'s recipe${made}: ${packs ? Object.keys(packs).length : 0} packs${cells}${seed}, marked ●. `
       + "Pick your vanilla image, then Build.");
 }
 
 // The remembered setup, as the engine gives it back (sdk.restore): what still applies, and what doesn't, by name.
-function restored({ ticked, values, xbr, dropped }) {
+function restored({ ticked, values, xbr, dropped, randomizer }) {
   state.restoring = false;
   setTo(new Set(ticked), values, xbr);
+  setRando(randomizer ?? randoDefaults());
   say(dropped.length ? `Restored your last setup, without ${dropped.join("; ")}`
     : `Restored your last setup: ${ticked.length} pack${ticked.length === 1 ? "" : "s"} on. Reset to defaults clears it.`);
   remember();   // what is left of it
@@ -523,11 +546,13 @@ function restored({ ticked, values, xbr, dropped }) {
 // forgotten (the next change is remembered again, so the status says what happened, not what is kept).
 function reset() {
   setTo(new Set(state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name)), {}, []);
+  setRando(randoDefaults());
   state.loaded = null;
   unlinked();
   pick("patches");
   remember();
-  say("Reset to the defaults: the packs on by default, every setting at its default; the remembered setup is forgotten.");
+  say("Reset to the defaults: the packs on by default, every setting at its default, Randomize off; the remembered "
+      + "setup is forgotten.");
 }
 
 // The page's address drops a link's #p= once the page no longer holds that recipe, so a reload restores the setup.
@@ -539,7 +564,9 @@ function unlinked() {
 // page's current build); the link is shown, and copied where the browser lets it.
 function share() {
   if (!state.ready) return say("AzurKit is still loading: try again in a moment", true);
-  state.engine.preset({ packs: chosen(), xbr: state.xbr }, state.build?.report ?? null);
+  const randomizer = randoRecipe();
+  state.engine.preset({ packs: chosen(), xbr: state.xbr, ...(randomizer ? { randomizer } : {}) },
+                      state.build?.report ?? null);
 }
 
 function shared(fragment) {
@@ -563,8 +590,9 @@ function opened(preset) {
   state.opened = preset;
   const packs = Object.keys(preset.layers.find((layer) => layer.tool === "mods")?.recipe ?? {}).length;
   const label = preset.base?.release === "europe" ? "Europe" : "USA";
-  $("picked").textContent = `◆ AzurKit build · ${label} · ${packs} packs: load its recipe, then pick your vanilla `
-    + "image to build it again.";
+  const seed = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe.seed;
+  $("picked").textContent = `◆ AzurKit build · ${label} · ${packs} packs${seed === undefined ? "" : ` · seed ${seed}`}: `
+    + "load its recipe, then pick your vanilla image to build it again.";
   $("load-build").hidden = false;
 }
 
@@ -580,6 +608,7 @@ function ready(catalog, version) {
     state.packs = catalog;
     renderTabs(catalog.tabs);
     renderPacks(catalog);
+    renderRando(catalog.randomizer);
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -595,6 +624,7 @@ function start() {
   busy(state.building);
   if (state.pending) state.engine.decode(state.pending);
   askVanilla();
+  if (state.rando.waiting) askRando(state.rando.given);
 }
 
 function report(text, error = false) {
@@ -617,9 +647,12 @@ function built(reply) {
     state.build = { report: made, size, segments: reply.segments, blob };
     state.url = URL.createObjectURL(blob);
   }
-  const changed = Object.keys(made.result);
-  report(`Ready · ${made.label} · ${bytes(size)} · changed: ${changed.length ? changed.join(", ") : "nothing"}`
+  const changed = Object.keys(made.result), rz = made.randomizer;
+  const verdict = !rz ? "" : ` · seed ${rz.seed} · ${rz.share} · ${rz.logic_verified ? "logic verified"
+    : `⚠ logic unverified: ${rz.why_not[0]}${rz.why_not.length > 1 ? ` (+${rz.why_not.length - 1} more)` : ""}`}`;
+  report(`Ready · ${made.label} · ${bytes(size)}${verdict} · changed: ${changed.length ? changed.join(", ") : "nothing"}`
          + made.conflicts.map((c) => ` · conflict: ${c}`).join("") + made.notes.map((n) => ` · note: ${n}`).join(""));
+  spoiler(made.spoiler ?? null);
 }
 
 function saved({ saved: done }) {
@@ -672,6 +705,289 @@ function pickInApp(host) {
   });
 }
 
+// ---- The Randomizer tab (Step 4.2c1) ----
+// Its options come from the catalog (sdk.catalog's randomizer: D144's defaults, the tiers, ceilings and fire levels,
+// the item rows); the engine reads what they give (sdk.randomizer_settings): the share string, each skip a setting can
+// turn on, what a build would leave unverified (the ⚠ line) and the preflight's refusal. The page holds the settings
+// as a settings file's table in format /2 (each unticked row's category, as it is) and decides no plan.
+const randoOptions = () => state.packs.randomizer;
+const draw = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000);   // a seed, 0-999999 (Modkit's)
+
+function choices(select, values, tip) {
+  select.replaceChildren(...values.map(([value, label]) => Object.assign(document.createElement("option"),
+                                                                       { value: String(value), textContent: label })));
+  if (tip) select.title = tip;
+}
+
+// A loaded setting's tier or ceiling that the tab doesn't offer (safe; ceiling 1) shows only while it is the one set.
+function offered() {
+  const { loaded } = randoOptions();
+  for (const [key, select] of [["movement_tier", R("movement")], ["skip_ceiling", R("ceiling")]]) {
+    for (const option of select.options) option.hidden = option.value === String(loaded[key]) && !option.selected;
+  }
+}
+
+function renderRando(options) {
+  choices(R("movement"), options.movement, options.tips.movement);
+  choices(R("ceiling"), options.ceilings, options.tips.ceiling);
+  choices(R("dark"), options.dark_fire.map((level) => [level, `Fire ${level}`]));
+  R("cost-note").textContent = `vanilla ${options.obsidian_cost}`;   // D910
+  R("items").replaceChildren(...options.items.map(([category, label, note]) => {
+    const row = Object.assign(document.createElement("label"), { className: "item" });
+    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: true });
+    if (category) box.dataset.category = category;
+    else box.disabled = box.dataset.vanilla = true;
+    row.append(box, Object.assign(document.createElement("span"), { textContent: label }),
+               Object.assign(document.createElement("span"), { textContent: note }));
+    return row;
+  }));
+  setRando(randoDefaults());
+}
+
+function randoDefaults() {
+  return { on: false, seed: R("seed").value || draw(), settings: randoOptions().defaults };
+}
+
+// The tab's settings as the build reads them: a settings file's table, its categories in the database's order.
+function randoSettings() {
+  const { defaults, categories } = randoOptions();
+  const kept = new Set([...R("items").querySelectorAll("input[data-category]")].filter((box) => !box.checked)
+    .map((box) => box.dataset.category));
+  return { format: defaults.format, skip_ceiling: Number(R("ceiling").value), movement_tier: R("movement").value,
+           dark_fire: Number(R("dark").value), exclude_categories: categories.filter((c) => kept.has(c)),
+           skip_override: Object.fromEntries(Object.entries(state.rando.overrides).sort()) };
+}
+
+// The obsidian cost as the engine gets it: none at vanilla's (or an empty box), else the number or the text typed.
+function randoCost() {
+  const text = R("cost").value.trim(), cost = text ? typed(text) : randoOptions().obsidian_cost;
+  return cost === randoOptions().obsidian_cost ? {} : { obsidian_cost: cost };
+}
+
+// The build's randomizer: the seed, the settings and the obsidian cost, or null while Randomize is off.
+function randoRecipe() {
+  if (!state.packs || !R("on").checked) return null;
+  return { seed: R("seed").value.trim(), settings: randoSettings(), ...randoCost() };
+}
+
+// What the page remembers of the tab (D915): nothing at its defaults (off, D144's settings, vanilla's cost).
+function randoSetup() {
+  const settings = randoSettings(), cost = randoCost();
+  const plain = !R("on").checked && !("obsidian_cost" in cost)
+    && JSON.stringify(settings) === JSON.stringify(randoOptions().defaults);
+  return plain ? null : { on: R("on").checked, seed: R("seed").value, settings,
+                          ...(typeof cost.obsidian_cost === "number" ? cost : {}) };
+}
+
+// Set the tab to `rando` (the engine's: its settings as the tab holds them), marked ● where `from` (a link, a build)
+// changed it; then ask the engine what they give.
+function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
+  const before = JSON.stringify(randoSetup());
+  R("on").checked = on;
+  R("seed").value = seed;
+  R("movement").value = settings.movement_tier;
+  R("ceiling").value = String(settings.skip_ceiling);
+  R("dark").value = String(settings.dark_fire);
+  for (const box of R("items").querySelectorAll("input[data-category]")) {
+    box.checked = !settings.exclude_categories.includes(box.dataset.category);
+  }
+  state.rando.overrides = { ...settings.skip_override };
+  R("cost").value = String(cost ?? randoOptions().obsidian_cost);
+  const mark = $("randomizer").querySelector(".on .mark");
+  mark.textContent = from && JSON.stringify(randoSetup()) !== before ? "●" : "";
+  mark.title = mark.textContent ? `Changed by ${from}` : "";
+  offered();
+  lockRando();
+  askRando();
+}
+
+// A recipe's randomizer (a link's or a build's), or none: Randomize off. Its settings go through the engine first
+// (a build's manifest holds its share string; a settings table of format /1 reads otherwise than the tab's).
+function loadRando(rando, from) {
+  if (!rando) {
+    const mark = $("randomizer").querySelector(".on .mark");
+    mark.textContent = R("on").checked ? "●" : "";
+    R("on").checked = false;
+    lockRando();
+    return;
+  }
+  state.rando.load = { on: true, seed: rando.seed, obsidian_cost: rando.obsidian_cost, from };
+  askRando({ ...(rando.share !== undefined ? { share: rando.share } : { settings: rando.settings }),
+             obsidian_cost: rando.obsidian_cost ?? randoOptions().obsidian_cost });
+}
+
+// Ask the engine what the tab's settings give (or `given`'s: a recipe's or a typed share string, whose settings become
+// the tab's), once it is ready, while the tab shows or a recipe waits on it (the database loads at the first ask); only
+// the latest ask's answer is taken.
+function askRando(given = null) {
+  clearTimeout(state.rando.later);
+  const ticket = ++state.rando.ticket;
+  if (given) state.rando.given = given;
+  if (!state.rando.given && state.tab !== "randomizer") return;
+  state.rando.waiting = true;
+  if (!state.ready || state.building) return;
+  state.rando.later = setTimeout(() => {
+    const asked = state.rando.given ?? { settings: randoSettings() };
+    state.rando.given = null;
+    state.engine.randomizer({ ...randoCost(), ...asked, packs: chosen() }, ticket);
+  }, 100);
+}
+
+// The engine's answer: the settings it read (a loaded recipe's become the tab's), the share string, the skips, the
+// facts and the ⚠ line; a refusal shows on the ⚠ line, the tab as it was.
+function randoView(reply, ticket) {
+  if (ticket !== state.rando.ticket) return;
+  state.rando.waiting = false;
+  if ("refused" in reply) {
+    state.rando.load = null;
+    return warn([reply.refused], true);
+  }
+  if (state.rando.load) {
+    const { from, ...rest } = state.rando.load;
+    state.rando.load = null;
+    return setRando({ ...rest, settings: reply.settings }, from);
+  }
+  state.rando.view = reply;
+  R("share").value = reply.share;
+  R("held").textContent = `${reply.skips.length} turnable · ${reply.held} held (no setting turns one on)`;
+  R("facts").textContent = `Accessibility: full · Victory: Spideyzar · Excluded: lock 10 + full-clear · `
+    + `${reply.forfeitable} forfeitable`;
+  renderSkips();
+  warn([...(reply.preflight ? [`The build refuses: ${reply.preflight}`] : []), ...(reply.note ? [reply.note] : []),
+        ...reply.why_not.map((why) => `Logic unverified (flagged, not refused): ${why}`)], Boolean(reply.preflight));
+  remember();
+}
+
+function warn(lines, error = false) {
+  R("warn").hidden = !lines.length;
+  R("warn").textContent = lines.map((line) => `⚠ ${line}`).join("\n");
+  R("warn").classList.toggle("error", error);
+}
+
+// The skips a setting can turn on, filtered: each ticked when it is on (half when only some of a batch's variants are,
+// by the ceiling), by the ceiling or by its own toggle, which a click sets and a click back to the ceiling's clears.
+function renderSkips() {
+  const filter = R("filter").value.trim().toLowerCase();
+  const rows = (state.rando.view?.skips ?? []).filter((s) => !filter || `${s.name} ${s.id} ${s.rating}`.toLowerCase()
+    .includes(filter));
+  R("skips").replaceChildren(...rows.map((skip) => {
+    const toggle = state.rando.overrides[skip.id] ?? null, on = toggle ?? skip.ceiling;
+    const row = Object.assign(document.createElement("label"), { className: `skip${toggle === null ? "" : " toggled"}`,
+                                                                 title: `${skip.name} (${skip.id}): ${skip.rating}` });
+    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: on === true,
+                                                                 indeterminate: on === null });
+    box.dataset.skip = skip.id;
+    box.disabled = state.building || !R("on").checked;
+    row.append(box, Object.assign(document.createElement("span"), { className: "name", textContent: skip.name }),
+               Object.assign(document.createElement("span"), { className: "rating", textContent: skip.rating }),
+               Object.assign(document.createElement("span"), { className: "by",
+                                                               textContent: toggle === null ? "ceiling" : "toggle" }));
+    return row;
+  }));
+}
+
+// A click turns a skip (a batch whole) the other way: by a toggle, or by none when the ceiling now gives that.
+function toggleSkip(id) {
+  const skip = state.rando.view.skips.find((s) => s.id === id), def = skip.ceiling;
+  const toggle = state.rando.overrides[id] ?? null, turned = (toggle === null ? def : toggle) !== true;
+  if (turned === def || (def === null && toggle === false)) delete state.rando.overrides[id];
+  else state.rando.overrides[id] = turned;
+}
+
+// The tab's settings are locked (still readable) until Randomize is ticked, and while a build runs (D907).
+function lockRando() {
+  const off = state.building || !R("on").checked;
+  R("on").disabled = state.building || !state.packs;
+  for (const field of $("randomizer").querySelectorAll(".rando-top :is(input, select, button), #rando-share, "
+    + "#rando-copy, #rando-filter, #rando-clear, #rando-items input[data-category], #rando-skips input")) {
+    if (field !== R("on")) field.disabled = off;
+  }
+}
+
+// The last randomized build's spoiler (Modkit's --spoiler file), viewed in the tab and saved as a text file: the
+// site's download, or where the app's dialog (else beside the image it saves) says.
+function spoiler(text) {
+  state.spoiler = text;
+  $("spoiler-view").disabled = $("spoiler-save").disabled = !text;
+  $("spoiler-note").hidden = Boolean(text);
+  if (!text) $("spoiler").hidden = true;
+  $("spoiler").textContent = text ?? "";
+  $("spoiler-view").textContent = $("spoiler").hidden ? "View" : "Hide";
+}
+
+async function saveSpoiler() {
+  const stem = (state.app ? $("out-path").value.split(/[\\/]/).pop() : state.file.name).replace(/\.x?iso$/i, "")
+    .replace(/ \(AzurKit\)$/, "");
+  const name = `${stem} (AzurKit) spoiler.txt`;
+  if (!state.app) {
+    const url = URL.createObjectURL(new Blob([state.spoiler], { type: "text/plain" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return say(`Saving ${name}: your browser's download shows it`);
+  }
+  let out = $("out-path").value.replace(/[^\\/]*$/, name);
+  if (state.dialogs) {
+    out = await state.engine.choose("spoiler", out).catch((error) => say(error.message, true));
+    if (!out) return;
+  }
+  state.engine.spoiler(out);
+}
+
+function randoEvents(changed) {
+  const edited = () => {
+    changed();
+    askRando();
+  };
+  R("on").addEventListener("change", () => {
+    $("randomizer").querySelector(".on .mark").textContent = "";
+    lockRando();
+    edited();
+  });
+  for (const id of ["movement", "ceiling", "dark"]) {
+    R(id).addEventListener("change", () => {
+      offered();
+      edited();
+    });
+  }
+  R("items").addEventListener("change", edited);
+  R("seed").addEventListener("input", changed);
+  R("cost").addEventListener("input", edited);
+  R("new").addEventListener("click", () => {
+    R("seed").value = draw();
+    changed();
+  });
+  R("share").addEventListener("change", () => {
+    const text = R("share").value.trim();
+    if (text && text !== state.rando.view?.share) {
+      changed();
+      state.rando.load = { on: R("on").checked, seed: R("seed").value, obsidian_cost: randoCost().obsidian_cost };
+      askRando({ share: text });
+    }
+  });
+  R("copy").addEventListener("click", () => {
+    const copied = navigator.clipboard?.writeText(R("share").value);
+    (copied ?? Promise.reject()).then(() => say("Share string copied"), () => say("Copy the share string from its box"));
+  });
+  R("filter").addEventListener("input", renderSkips);
+  R("clear").addEventListener("click", () => {
+    state.rando.overrides = {};
+    edited();
+  });
+  R("skips").addEventListener("change", (e) => {
+    toggleSkip(e.target.dataset.skip);
+    renderSkips();
+    edited();
+  });
+  $("spoiler-view").addEventListener("click", () => {
+    $("spoiler").hidden = !$("spoiler").hidden;
+    $("spoiler-view").textContent = $("spoiler").hidden ? "View" : "Hide";
+  });
+  $("spoiler-save").addEventListener("click", saveSpoiler);
+}
+
 async function main() {
   if (window.top !== window.self) return stop("AzurKit doesn't run inside another page: open it on its own.");
   if (navigator.serviceWorker?.controller) return stop("A service worker controls this page: AzurKit won't run.");
@@ -689,7 +1005,7 @@ async function main() {
   } catch (error) {
     return say(`AzurKit didn't load: ${error.message}`, true);
   }
-  const callbacks = { ready, built, saved, vanilla, opened, shared, decoded, restored,
+  const callbacks = { ready, built, saved, vanilla, opened, shared, decoded, restored, rando: randoView,
                       refused: ({ message }) => report(message, true), failed: (message) => report(message, true) };
   if (location.hash.startsWith("#p=")) state.pending = location.hash;
   state.site = host.site ?? null;
@@ -737,13 +1053,16 @@ async function main() {
     load(state.opened, "your build");
   });
   $("build").addEventListener("click", () => {
+    const randomizer = randoRecipe();
+    if (randomizer && !randomizer.seed) return say("Type a seed on the Randomizer tab, or press New", true);
     forget();
     if (!state.app) state.ready = false;   // the site's engine is replaced after each build
     busy(true);
-    say("Checking your image and building…");
+    say(randomizer ? "Checking your image, planning the seed and building…" : "Checking your image and building…");
     state.sent = chosen();
-    state.engine.build(state.file, state.sent, state.xbr);
+    state.engine.build(state.file, state.sent, state.xbr, randomizer);
   });
+  randoEvents(changed);
   $("cancel").addEventListener("click", () => {
     if (!state.app) state.ready = false;
     state.engine.cancel();
