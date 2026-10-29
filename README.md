@@ -54,8 +54,8 @@ bytes taken from one: you bring your own copy of the game.
 - Recorded results are hashes (sha256) and lengths.
 - [`tests/_leak_guard.py`](tests/_leak_guard.py) refuses a game image, a
   whole game file, an XBE or XBR, a save, a disk or EEPROM image, a private
-  key or a disassembly listing. It checks the checkout in the test suite and
-  every push through its `pre-push` hook.
+  key or a disassembly listing, also inside a gzip file. It checks the
+  checkout in the test suite and every push through its `pre-push` hook.
 
 *Unofficial fan tool. Not affiliated with or endorsed by the rights holders of
 Azurik: Rise of Perathia or Xbox.*

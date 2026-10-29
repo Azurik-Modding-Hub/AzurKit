@@ -53,8 +53,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 - Never commit an ISO or any file taken from the game, whole or in part: no
   XBE, XBR, save, disk or EEPROM image, key, or disassembly listing.
-  - `tests/_leak_guard.py` refuses them in the suite and on every push. Its
-    rules have no allow-list.
+  - `tests/_leak_guard.py` refuses them in the suite and on every push,
+    also inside a gzip file (its inner bytes are read by every rule, the
+    vanilla-run rule's too). Its rules have no allow-list.
   - Never weaken them to get green.
 - Never write a run of vanilla bytes as a literal in code or tests (a bytes
   literal, `bytes.fromhex`, a hex string, a list of byte values): read it from

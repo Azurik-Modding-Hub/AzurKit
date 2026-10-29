@@ -27,6 +27,11 @@ committed and deleted again is caught too. Refused:
   text file, each at its line's start or in its trailing comment (after
   ``#``, ``//``, ``/*`` or ``;``).
 
+A gzip file (``1f 8b`` at 0) is refused for what it holds as well: its
+inner bytes (:func:`gunzip`), named as the file without its ``.gz``, are
+checked by every rule here, the literal reader's below too, and named
+``"<path> (gzip)"``.
+
 One more rule needs the game itself, so the vanilla tier runs it
 (``tests/test_leak_guard.py``, with both releases' :data:`VANILLA_FILES`
 read from the images), and so does ``scripts/land.py`` over every commit it
@@ -65,6 +70,7 @@ import re
 import struct
 import subprocess
 import sys
+import zlib
 from array import array
 from collections.abc import Iterator, Mapping
 from functools import cache
@@ -77,6 +83,7 @@ MAGIC_SPAN = 0x10020
 MIN_WHOLE_FILE = 16      # a smaller whole file is no use on its own (D87)
 MAX_TEXT = 16 << 20      # a text file past this is read for its head only
 DISASSEMBLY_RUN = 4
+GZIP = b"\x1f\x8b"
 _ISO_NAME = re.compile(r"\.x?iso(\.\d+)?$")
 _SAVE_NAMES = (".sav", ".xbx")
 _SAVE_HEADERS = ("fileversion=".encode("ascii"), b"\xff\xfe" + "Name=".encode("utf-16-le"))   # markers, as text
@@ -168,15 +175,54 @@ def _text(data: bytes) -> str | None:
     return None if b"\0" in data[:8192] else data.decode("utf-8", errors="replace")
 
 
+def gunzip(data: bytes) -> tuple[bytes, int, str] | None:
+    """What the gzip file ``data`` holds, every member and as much of a
+    truncated or damaged one as reads: its first :data:`MAX_TEXT` bytes,
+    its size and its sha256; ``None`` when ``data`` doesn't start with
+    :data:`GZIP`."""
+    if not data.startswith(GZIP):
+        return None
+    head, size, sha = bytearray(), 0, hashlib.sha256()
+    while data.startswith(GZIP):
+        member = zlib.decompressobj(31)
+        try:
+            while not member.eof:
+                out = member.decompress(data, 1 << 20)
+                data = member.unconsumed_tail
+                if not out and not data:   # truncated
+                    break
+                head += out[:MAX_TEXT - len(head)]
+                size += len(out)
+                sha.update(out)
+        except zlib.error:   # damaged: what read before it is checked
+            break
+        data = member.unused_data
+    return bytes(head), size, sha.hexdigest()
+
+
+def _gzipped(rel: str, data: bytes) -> str | None:
+    """Why the gzip file ``rel`` can't be committed for what it holds
+    (:func:`check_blob` of its inner bytes, named ``rel`` without ``.gz``),
+    or ``None``."""
+    if (inner := gunzip(data)) is None:
+        return None
+    head, size, sha = inner
+    name = rel.removesuffix(".gz")
+    why = (check_bytes(name, head) if size <= MAX_TEXT
+           else check_blob(name, head[:MAGIC_SPAN], size, sha if size in _whole_files() else None, None))
+    return why and f"inside its gzip: {why}"
+
+
 def check_bytes(rel: str, data: bytes) -> str | None:
-    """:func:`check_blob` for a whole file's bytes."""
+    """:func:`check_blob` for a whole file's bytes, and for a gzip file's inner bytes."""
     sha = hashlib.sha256(data).hexdigest() if len(data) in _whole_files() else None
-    return check_blob(rel, data[:MAGIC_SPAN], len(data), sha, _text(data[:MAX_TEXT]))
+    return check_blob(rel, data[:MAGIC_SPAN], len(data), sha, _text(data[:MAX_TEXT])) or _gzipped(rel, data)
 
 
 def check(root: Path, rel: str) -> str | None:
     """Why ``root/rel`` can't be committed, or ``None`` (a file past
-    :data:`MAX_TEXT` is checked by its head and digest only)."""
+    :data:`MAX_TEXT` is checked by its head and digest only, and a gzip
+    file's inner bytes as :func:`check_bytes` checks them)."""
     path = root / rel
     if (size := path.stat().st_size) <= MAX_TEXT:
         return check_bytes(rel, path.read_bytes())
@@ -184,7 +230,8 @@ def check(root: Path, rel: str) -> str | None:
         head = f.read(MAGIC_SPAN)
         f.seek(0)
         sha = hashlib.file_digest(f, "sha256").hexdigest() if size in _whole_files() else None
-    return check_blob(rel, head, size, sha, None)
+    return check_blob(rel, head, size, sha, None) or (_gzipped(rel, path.read_bytes()) if head.startswith(GZIP)
+                                                      else None)
 
 
 def _listed(root: Path) -> list[str]:
@@ -286,11 +333,11 @@ def byte_literals(rel: str, text: str) -> list[tuple[int, bytes]]:
         except SyntaxError:
             pass
     lines = [0, *(m.end() for m in re.finditer("\n", text))]
-    for pattern, value in ((_HEX_TEXT, lambda s: bytes.fromhex(s)),
-                           (_ESCAPES, lambda s: bytes.fromhex(s.replace("\\x", ""))),
-                           (_BYTE_LIST, lambda s: bytes(int(x, 16) for x in s.split(","))),
-                           (_DECIMAL_LIST, lambda s: bytes(int(x) for x in s.split(",")))):
-        for m in pattern.finditer(text):
+    for pattern, needs, value in ((_HEX_TEXT, "", lambda s: bytes.fromhex(s)),
+                                  (_ESCAPES, "\\x", lambda s: bytes.fromhex(s.replace("\\x", ""))),
+                                  (_BYTE_LIST, "0x", lambda s: bytes(int(x, 16) for x in s.split(","))),
+                                  (_DECIMAL_LIST, "", lambda s: bytes(int(x) for x in s.split(",")))):
+        for m in pattern.finditer(text) if needs in text else ():   # a text without the marker is skipped fast
             found.append((bisect.bisect_right(lines, m.start()), value(m.group())))
     return [(line, data) for line, data in found if len(data) >= VANILLA_RUN]
 
@@ -396,20 +443,27 @@ def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes],
     return list(dict.fromkeys(problems))
 
 
-def _read(rel: str, data: bytes, where: str) -> tuple[list[tuple[str, bytes]], list[tuple[str, bytes, str, int]]]:
+def _read(rel: str, data: bytes, where: str,
+          label: str | None = None) -> tuple[list[tuple[str, bytes]], list[tuple[str, bytes, str, int]]]:
     """The literals (``"<rel>:<line><where>"``) of a text file ``rel``,
     and the parts of a shim object (:func:`_held`): each section
     (``"<rel> (<section>)<where>"``), at :data:`OBJECT_RUN` for code and
     :data:`OBJECT_DATA_RUN` for the rest, and the whole file (``"<rel>
     (file)<where>"``) at :data:`OBJECT_RUN`, parsed or not. A text file
-    named ``.o`` gets both: its literals are read as any text file's."""
-    literals = ([(f"{rel}:{line}{where}", lit) for line, lit in byte_literals(rel, text)]
+    named ``.o`` gets both: its literals are read as any text file's. A
+    gzip file's inner bytes (:func:`gunzip`) are read as well, as a file
+    named ``rel`` without ``.gz`` and labelled ``"<rel> (gzip)"``."""
+    label = label or rel
+    literals = ([(f"{label}:{line}{where}", lit) for line, lit in byte_literals(rel, text)]
                 if (text := _text(data[:MAX_TEXT])) is not None else [])
-    if rel.endswith(".o"):
-        return literals, [*((f"{rel} ({name}){where}", body, "section", OBJECT_RUN if code else OBJECT_DATA_RUN)
-                            for name, body, code in object_sections(data) or ()),
-                          (f"{rel} (file){where}", data, "file", OBJECT_RUN)]
-    return literals, []
+    parts = ([*((f"{label} ({name}){where}", body, "section", OBJECT_RUN if code else OBJECT_DATA_RUN)
+                for name, body, code in object_sections(data) or ()),
+              (f"{label} (file){where}", data, "file", OBJECT_RUN)] if rel.endswith(".o") else [])
+    if (inner := gunzip(data)) is not None:
+        more = _read(rel.removesuffix(".gz"), inner[0], where, f"{label} (gzip)")
+        literals += more[0]
+        parts += more[1]
+    return literals, parts
 
 
 def vanilla_runs(root: Path, files: Mapping[str, bytes]) -> list[str]:

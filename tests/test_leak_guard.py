@@ -3,6 +3,7 @@ repository tracks, could commit or pushes."""
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import os
 import re
@@ -30,7 +31,7 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
     EEPROM, a guest RAM snapshot, a private key, and 4 or more consecutive
     x86 instruction lines in any text file (Ghidra's, objdump's, IDA's, a
     comment's, one ending in a stdcall's ``ret N``, or trailing comments'
-    after bytes in code). Snippets, prose and
+    after bytes in code), each also inside a gzip file. Snippets, prose and
     code that merely name instructions pass."""
     game_file = bytes(range(64)) * 4
     monkeypatch.setattr(_leak_guard, "_whole_files", lambda: {
@@ -40,6 +41,7 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
         "part.000": bytes(0x10000) + b"MICROSOFT*XBOX*MEDIA" + bytes(0x7EC),
         "azurik.iso.007": bytes(64), "europe.xiso": bytes(64),
         "default.bin": b"XBEH" + bytes(60), "level.dat": b"xobx" + bytes(60),
+        "level.json.gz": gzip.compress(b"xobx" + bytes(60)),
         "slot.dat": _leak_guard._SAVE_HEADERS[0] + b"1\n",
         "SaveMeta.dat": b"\xff\xfe" + "Name=Slot\r\n".encode("utf-16-le"),
         "hdd.img": b"QFI\xfb" + bytes(60), "xemu_eeprom.bin": bytes(256), "w1.snap": b"AZL3SNAP" + bytes(56),
@@ -73,6 +75,7 @@ def test_game_files_images_personal_data_keys_and_listings_are_refused(tmp_path,
         "azurik.iso.007": "ISO image or part (.iso/.xiso/.iso.NNN name)",
         "europe.xiso": "ISO image or part (.iso/.xiso/.iso.NNN name)",
         "default.bin": "XBE magic at 0", "level.dat": "XBR magic at 0",
+        "level.json.gz": "inside its gzip: XBR magic at 0",
         "slot.dat": "Xbox save (.sav/.xbx name or save header at 0)",
         "SaveMeta.dat": "Xbox save (.sav/.xbx name or save header at 0)",
         "hdd.img": "qcow2 disk image (an xemu HDD) at 0", "xemu_eeprom.bin": "EEPROM (eeprom*.bin name)",
@@ -134,10 +137,11 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, euro
     that holds 8 or more bytes in a row of either release's vanilla
     default.xbe or config.xbr (the same file in both, named once) is named
     by file, line and lengths, never its bytes: in each form, planted here with the 13
-    vanilla bytes 4.1c's fps_unlock once held, and once with 24 bytes of
-    config.xbr's armor_properties row headers (each read from the image
-    now). A run of one repeated byte, a hash and a file outside those
-    folders pass. The checkout holds none."""
+    vanilla bytes 4.1c's fps_unlock once held (also as a hex string in a
+    gzipped JSON file), and once with 24 bytes of config.xbr's
+    armor_properties row headers (each read from the image now). A run of
+    one repeated byte, a hash and a file outside those folders pass. The
+    checkout holds none, in a literal or a shim object."""
     read = {}
     for label, path in (("USA", usa_iso), ("Europe", europe_iso)):
         with iso.Reader(path) as r:
@@ -160,16 +164,17 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, euro
         "docs/out.py": f'X = b"{escaped}"\n',
         "tests/f.py": f'X = bytes.fromhex("{rows.hex()}")\n',
         "assets/icon/g.py": f'X = b"{escaped}"\n',
+        "src/h.json.gz": f'{{"x": "{run.hex()}"}}\n',
     }
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     for rel, text in plants.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / rel).write_text(text, encoding="utf-8")
+        (tmp_path / rel).write_bytes(gzip.compress(text.encode()) if rel.endswith(".gz") else text.encode())
     found = _leak_guard.vanilla_runs(tmp_path, files)
     assert found == sorted([f"{at}: a 13 B literal holds 13 B in a row of the {name}"
                             for at in ("src/a.py:1", "tests/b.py:1", "scripts/c.py:1", "src/d.py:1",
                                        "web/e.js:1", "web/e.js:2", "web/e.js:3", "web/e.js:4",
-                                       "assets/icon/g.py:1")
+                                       "assets/icon/g.py:1", "src/h.json.gz (gzip):1")
                             for name, data in files.items() if run in data]
                            + ["tests/f.py:1: a 24 B literal holds 24 B in a row of the gamedata/config.xbr"])
     assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run),
@@ -197,10 +202,10 @@ def test_a_shim_object_holding_a_run_of_a_vanilla_file_is_named(tmp_path, usa_is
     named once a later commit removes it), never by its bytes. Shorter
     runs, which compiled code and constants share with the game by chance,
     text, and a constant of at most 3 byte values (the identity matrix the
-    save warp keeps, which the game holds too) pass; so does every object
-    the checkout commits. A text file named ``.o`` is read for literals as
-    any text file is: one holding a hex run of 16 bytes is named at its
-    line."""
+    save warp keeps, which the game holds too) pass (the checkout's own
+    objects are read in the source-literal test's scan of it). A text file
+    named ``.o`` is read for literals as any text file is: one holding a
+    hex run of 16 bytes is named at its line."""
     read = {}
     for label, path in (("USA", usa_iso), ("Europe", europe_iso)):
         with iso.Reader(path) as r:
@@ -245,4 +250,3 @@ def test_a_shim_object_holding_a_run_of_a_vanilla_file_is_named(tmp_path, usa_is
     assert sorted(found) == sorted(n.format(f" in {added[:12]}") for n in named)
     assert not any(form in line for line in found
                    for form in (code.hex(), code[:64].hex(" "), repr(code[:64]), floats.hex()))
-    assert _leak_guard.vanilla_runs(ROOT, files) == []
