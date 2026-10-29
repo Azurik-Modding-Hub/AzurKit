@@ -1,13 +1,15 @@
-"""The XISO reader and packer (``azurkit.core.iso``, ``core.filelist``) and
-the identity build.
+"""The XISO reader and packer (``azurkit.core.iso``, ``core.filelist``), the
+identity build, and the root entries a build adds.
 
 The packer's pins run on synthetic images (``tests/_xiso.py``: no game
-bytes); the identity build reads each release's vanilla image."""
+bytes); the identity build and the root entries read each release's vanilla
+image."""
 
 from __future__ import annotations
 
 import _thread
 import hashlib
+import re
 import struct
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -154,3 +156,34 @@ def test_an_identity_build_is_the_vanilla_image_and_starts_no_thread(release, re
         out.unlink(missing_ok=True)
     assert written == release.iso_sha256
     assert capsys.readouterr().out.endswith(f"{release.label}, {release.iso_size:,} B, sha256 {written}\n")
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_inserted_root_entries_read_back_and_vanilla_entries_keep_their_sectors(release, request):
+    """``iso.read(..., add=)`` (Q66, V10: how a build carries /azurkit.json
+    and /azurkit.bin): the new files go past the end, in name order, and the
+    root folder's table is rebuilt in its one sector (USA's 208 B to 264,
+    Europe's 284 to 340, its size in the volume descriptor): the image reads
+    back with every vanilla entry at its sector and size and the new files'
+    bytes. A name the root has, one no host may write and entries past the
+    table's sector are refused, before anything is written (D35)."""
+    path = request.getfixturevalue(f"{release.name}_iso")
+    with iso.Reader(path) as r:
+        before = {e.path: (e.sector, e.size) for e in r.entries()}
+        table = r._root
+    add = {"azurkit.json": b'{"format": "azurkit-manifest"}\n', "azurkit.bin": fill("bin", 3 * S + 5)}
+    made = iso.read(path, None, add=add)
+    with iso.Reader(made) as r:
+        after = {e.path: (e.sector, e.size) for e in r.entries()}
+        assert (table, r._root) == ((264, 208), (264, 264)) if release is gate.USA else ((264, 284), (264, 340))
+        assert {name: r.read(name) for name in add} == add
+    end = -(-release.iso_size // S)
+    assert {k: v for k, v in after.items() if k not in before} == {"azurkit.bin": (end, 3 * S + 5),
+                                                                    "azurkit.json": (end + 4, len(add["azurkit.json"]))}
+    assert {k: after[k] for k in before} == before
+    for given, error, why in (({"Default.XBE": b"x"}, FileExistsError, "Default.XBE: already in the image's root"),
+                              ({"con.txt": b"x"}, ValueError, "'con.txt': not a name a root entry can hold"),
+                              ({f"azurkit-{k:03}.json": b"x" for k in range(100)}, ValueError,
+                               "/: 100 new entries would outgrow its table's 1 sector(s)")):
+        with pytest.raises(error, match="^" + re.escape(why)):
+            iso.read(path, None, add=given)

@@ -3,6 +3,7 @@ of its files replaced.
 
     read(path)          the image as it is, an :class:`Image`
     read(path, files)   the image with ``files`` ({path: new bytes}) in place of the files of those names
+    read(path, files, add=root)   and ``root`` ({name: bytes}) as new files in its root folder
     Image.segments()    the image as :class:`Copy`, :class:`Bytes` and :class:`Zero` pieces, in order
     pack(image, out)    writes the image; returns its sha256
     Reader(path|Image)  its entries, a lookup, and a file's bytes, streamed
@@ -23,6 +24,7 @@ import hashlib
 import io
 import itertools
 import os
+import re
 import struct
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -38,7 +40,12 @@ _PARTITIONS = (0, 0x18300000, 0xFD90000, 0x2080000)   # where the game partition
 _RECORD = struct.Struct("<HHIIBB")    # left, right, sector, size, attributes, name length
 _DIRECTORY = 0x10
 _PAD = 32                             # an image a moved file ends is padded to 64 KiB (32 sectors), as vanilla's is
+_FILE = 0x20                          # an added file's attributes (archive), as vanilla's files have
 _UPPER = {c: c - 32 for c in range(ord("a"), ord("z") + 1)}
+# A name no host may write as a file of its own (AZ-216): empty, "." or "..", a separator or a character Windows
+# reserves, a trailing dot or space, or a DOS device name.
+_UNSAFE = re.compile(r'^\.{0,2}$|[/\\:*?"<>|\x00-\x1f]|[. ]$'
+                     r'|^(?i:con|prn|aux|nul|conin\$|conout\$|(?:com|lpt)[1-9\u00b9\u00b2\u00b3]) *(?:\.|$)')
 
 
 def key(path: str) -> str:
@@ -69,7 +76,7 @@ class Reader:
             vd = self._read(base + _VD_SECTOR * SECTOR, SECTOR)
             if vd[:20] == MAGIC and vd[0x7EC:0x800] == MAGIC:
                 self.base = base
-                self._root = struct.unpack_from("<II", vd, 20)
+                self._root = struct.unpack_from("<II", vd, 20)   # the root folder's table: its sector and size
                 return
         self._f.close()
         raise ValueError(f"{source}: no XDVDFS volume descriptor")
@@ -272,10 +279,12 @@ class _ImageFile(io.RawIOBase):
         super().close()
 
 
-def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None) -> Image:
+def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
+         add: Mapping[str, bytes] | None = None) -> Image:
     """The image at ``path``, with ``files`` (``{path: new bytes}``, matched
-    case-blind) in place of the files of those names. With no ``files`` it
-    is the input, byte for byte. Otherwise its layout is kept:
+    case-blind) in place of the files of those names, and ``add`` (``{name:
+    bytes}``) as new files in its root folder. With neither it is the
+    input, byte for byte. Otherwise its layout is kept:
 
     - a file that still fits its sectors is written in place (the bytes past
       its new end stay as they were); one that outgrows them moves past the
@@ -286,7 +295,14 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None) -> I
     - ``filelist.txt`` (one in ``files``, else the image's) gets the md5 and
       size of each changed file it lists, and of each it lists at a size
       other than the file's own (vanilla Europe's ``index.xbr``,
-      ``French.xbr`` and ``German.xbr`` lines).
+      ``French.xbr`` and ``German.xbr`` lines); it gets no line for an
+      added file;
+    - each added file goes past the end, after the moved ones, in name
+      order, and the root folder's table is rebuilt in its own sectors with
+      them (:func:`_table`), every other entry keeping its sector (Q66,
+      V10: an image with ``/azurkit.json`` and ``/azurkit.bin`` so made
+      boots); a table that would outgrow its sectors is refused, with
+      nothing moved (D35).
 
     ``ValueError`` names what the kernel would trip on in the image it makes
     (a truncated input, say), and ``FileNotFoundError`` a name the image
@@ -299,18 +315,20 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None) -> I
         if files:
             files.update(_listing(r, files))
         base, end = r.base, _sectors(have - r.base)    # the first sector past the image
-        first, records = end, set()
+        first, records = end, {}                       # a replaced file's record -> its sector and size
         for name in sorted(files, key=key):
             entry, data = r.find(name), files[name]
             if entry.is_dir:
                 raise IsADirectoryError(f"{name}: a folder, not a file")
             if entry.record in records:
                 raise ValueError(f"{name}: the same file is replaced twice")
-            records.add(entry.record)
             sector = entry.sector
             if len(data) > _sectors(entry.size) * SECTOR:
                 sector, end = end, end + max(1, _sectors(len(data)))
+            records[entry.record] = (sector, len(data))
             writes += [(base + sector * SECTOR, data), (base + entry.record + 4, struct.pack("<II", sector, len(data)))]
+        if add:
+            end = _add(r, dict(add), records, writes, end)
     size = max([have, *(at + len(data) for at, data in writes)])
     if end > first:
         size = base + -(-end // _PAD) * _PAD * SECTOR
@@ -320,6 +338,73 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None) -> I
     except ValueError as exc:
         raise ValueError(f"{path}: not an image the kernel can read: {exc}") from None
     return image
+
+
+def _add(r: Reader, add: dict[str, bytes], records: Mapping[int, tuple[int, int]],
+         writes: list[tuple[int, bytes]], end: int) -> int:
+    """:func:`read`'s ``add``: each new file's bytes from sector ``end`` on,
+    in name order, and the root folder's table rebuilt in its own sectors
+    (:func:`_table`) with them, its other entries keeping their sectors
+    (or ``records``' new ones); the table's size in the volume descriptor
+    where it grew past a size that isn't whole sectors (vanilla's root,
+    208 B in USA and 284 B in Europe). Returns the sector after the last
+    new file."""
+    root, size = r._root
+    old = r._table("", root, size)
+    have = {key(e.path) for e in old}
+    new = []
+    for name in sorted(add, key=key):
+        if _UNSAFE.search(name) or len(name.encode("latin-1", "replace")) > 255:
+            raise ValueError(f"{name!r}: not a name a root entry can hold")
+        if key(name) in have:
+            raise FileExistsError(f"{name}: already in the image's root (replace it instead)")
+        have.add(key(name))
+        writes.append((r.base + end * SECTOR, add[name]))
+        new.append((name, end, len(add[name]), _FILE))
+        end += max(1, _sectors(len(add[name])))
+    table = _table([(e.path, *records.get(e.record, (e.sector, e.size)), _attributes(r, e)) for e in old] + new)
+    span = max(1, _sectors(size)) * SECTOR
+    if len(table) > span:
+        raise ValueError(f"/: {len(new)} new entries would outgrow its table's {span // SECTOR} sector(s); "
+                         "nothing is moved (D35)")
+    writes.append((r.base + root * SECTOR, table.ljust(span, b"\xff")))
+    if size % SECTOR and len(table) != size:
+        writes.append((r.base + _VD_SECTOR * SECTOR + 24, struct.pack("<I", len(table))))
+    return end
+
+
+def _attributes(r: Reader, entry: Entry) -> int:
+    """The attributes byte of ``entry``'s record."""
+    return r._read(r.base + entry.record + 12, 1)[0]
+
+
+def _table(entries: list[tuple[str, int, int, int]]) -> bytes:
+    """``entries`` (``(name, sector, size, attributes)``) as one folder's
+    table: a balanced search tree in :func:`key` order, its root record at
+    offset 0 (a zero link is no child), the others in preorder, each record
+    dword-aligned (0xFF after its name) and inside one sector."""
+    entries = sorted(entries, key=lambda e: key(e[0]))
+    if len({key(e[0]) for e in entries}) != len(entries):
+        raise ValueError("two entries of one folder share a name")
+    out = bytearray()
+
+    def lay(lo: int, hi: int) -> int:   # the subtree's root record, in dwords (0: none)
+        if lo >= hi:
+            return 0
+        mid = (lo + hi) // 2
+        name, sector, size, attributes = entries[mid]
+        raw = name.encode("latin-1")
+        at = len(out)
+        if at // SECTOR != (at + _RECORD.size - 1 + len(raw)) // SECTOR:
+            at = -(-at // SECTOR) * SECTOR
+        out.extend(b"\xff" * (at + (_RECORD.size + len(raw) + 3 & ~3) - len(out)))
+        left, right = lay(lo, mid), lay(mid + 1, hi)
+        _RECORD.pack_into(out, at, left, right, sector, size, attributes, len(raw))
+        out[at + _RECORD.size:at + _RECORD.size + len(raw)] = raw
+        return at // 4
+
+    lay(0, len(entries))
+    return bytes(out)
 
 
 def _listing(r: Reader, files: Mapping[str, bytes]) -> dict[str, bytes]:

@@ -118,6 +118,17 @@ def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Relea
     return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole)
 
 
+def check(path: str | os.PathLike, release: Release, changed: dict[str, str], added: tuple[str, ...] = ()) -> None:
+    """:class:`NotVanillaError` naming the first file, in path order, of the
+    image at ``path`` that isn't ``release``'s vanilla file, or for one of
+    ``changed`` (``{path: sha256}``), that sha256's; ``added`` names files
+    it holds besides (an AzurKit build's root files). Every file is read,
+    on the caller's thread."""
+    with iso.Reader(path) as r:
+        if why := _first_difference(r, {e.path: e for e in r.entries()}, release, True, changed, added):
+            raise NotVanillaError(why)
+
+
 def _sha256(r: iso.Reader, entry: iso.Entry) -> str:
     digest = hashlib.sha256()
     for data in r.chunks(entry):
@@ -135,13 +146,17 @@ def _release(r: iso.Reader, have: dict[str, iso.Entry], releases: tuple[Release,
             or next((rel for rel in releases if set(rel.dirs) == dirs), releases[0]))
 
 
-def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Release, whole: bool) -> str | None:
-    files, dirs = release.files, set(release.dirs)
-    checked = sorted(p for p in files.keys() | dirs | have.keys() if whole or p.startswith(BUILD_FILES))
+def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Release, whole: bool,
+                      changed: dict[str, str] | None = None, added: tuple[str, ...] = ()) -> str | None:
+    files = release.files | {path: [None, sha] for path, sha in (changed or {}).items()}
+    dirs = set(release.dirs)
+    checked = sorted(p for p in files.keys() | dirs | have.keys() | set(added) if whole or p.startswith(BUILD_FILES))
     for path in checked:
         entry = have.get(path)
         if entry is None:
             return f"{path}: missing"
+        if path in added and not entry.is_dir:
+            continue
         if path in dirs:
             if not entry.is_dir:
                 return f"{path}: a file, where vanilla has a folder"
@@ -149,7 +164,7 @@ def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Releas
         if path not in files:
             return f"{path}: not in the vanilla image"
         size, sha = files[path]
-        if entry.is_dir or entry.size != size:
+        if entry.is_dir or (size is not None and entry.size != size):
             return f"{path}: {'a folder' if entry.is_dir else f'{entry.size:,} B'}, where vanilla has {size:,} B"
         if _sha256(r, entry) != sha:
             return f"{path}: its contents differ"

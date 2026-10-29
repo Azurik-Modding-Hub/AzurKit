@@ -1,0 +1,111 @@
+# azurkit.sdk, written by scripts/sdk_api.py, never by hand
+
+The one surface a UI calls: :func:`catalog`, :func:`verify`,
+:func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
+:func:`read_mods`, :func:`preset_encode` and :func:`preset_decode` (spoiler
+and art come with their steps). JSON in and out: a recipe is a JSON object
+and each call returns one; :func:`image` also returns the image, unwritten, which the web
+page joins into a Blob (``iso.Image.segments``). A refusal is a
+``ValueError`` or ``OSError`` whose message names what it refuses and why,
+never game bytes; a build that fails writes nothing (D35).
+``tests/sdk_api.txt`` is this surface's snapshot (``scripts/sdk_api.py``).
+
+A recipe names its image, every pack it applies, each with its sliders'
+values (a slider it doesn't name keeps its default), and the mods file's
+``xbr`` operations (``edits.xbr``: a config.xbr cell ``set`` by its names,
+or ``replace_bytes`` in an XBR file, applied in order after the packs)::
+
+    {"iso": "<a vanilla image>", "packs": {"fps_unlock": {"target_fps": 120}, "qol_alloc_race": {}},
+     "xbr": [{"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+              "prop": "hitPoints", "value": 321}]}
+
+A build with a layer carries its manifest in two root files the game never
+opens, ``/azurkit.json`` and ``/azurkit.bin`` (Q66), and :func:`open_build`
+reads an AzurKit build back into its recipe: its mods file (Q268), which
+:func:`read_mods` turns into a recipe's ``packs`` and ``xbr`` again.
+
+The packs apply in their canonical order, whatever order the recipe names
+them in. A build applies the packs it names and no others: :func:`catalog`
+says which are on by default (D528), for a UI to start ticked, each pack's
+sliders, and the packs each requires in the same build, without which a
+recipe is refused by name. A slider takes any finite number (D23; a whole
+one its encoding holds where it takes only those, D45): its track's ends
+are hints, never limits, and nothing is clamped (``mods.normalize``).
+
+
+def catalog() -> 'dict':
+
+Every pack: its name, what it does, its category, whether a build
+starts with it (D528), the releases it supports, the packs it requires
+in the same build and its sliders, in the canonical order. A slider:
+its name, label, default, track (``min``, ``max`` and ``step``, display
+hints only), unit, description, vanilla value (``None`` where the
+image's XBE holds it) and ``whole`` (the range of whole numbers it
+takes, its encoding's, or ``None``).
+
+
+def verify(path: 'str') -> 'dict':
+
+Check that the image at ``path`` is a release's vanilla image, every
+file of it (``gate.NotVanillaError`` names the first that isn't).
+
+
+def vanilla(path: 'str') -> 'dict':
+
+The vanilla values the image at ``path`` holds for every slider at a
+site of its XBE (``catalog`` gives those ``None``: the wheel holds no
+game constant, Q174), ``{"release", "label", "packs": {pack: {slider:
+value}}}``, so a UI's track can hold them (D42).
+
+
+def image(recipe: 'Mapping') -> 'tuple[iso.Image, dict]':
+
+The image ``recipe`` builds, unwritten, and its report: the release,
+each layer's sites and bytes, the sha256 of each file that differs from
+vanilla, every conflict (D28) and each layer's notes (a slider value
+past float32's range, written as the infinity it saturates to, Q110).
+
+
+def build(recipe: 'Mapping', out: 'str', *, progress: 'Callable[[int, int], object] | None' = None) -> 'dict':
+
+Write the image ``recipe`` builds to ``out`` (never its input or a
+vanilla image, D36); :func:`image`'s report with the output's path,
+size and sha256. ``progress(done, total)`` follows the write; an
+exception it raises cancels it, and nothing is written.
+
+
+def open_build(path: 'str') -> 'dict':
+
+The recipe of the AzurKit build at ``path``: its mods file (Q268), a
+preset of its base, AzurKit's version that built it, its layers'
+recipes (the packs; the xbr operations) and the sha256 of each file it
+changed, from its /azurkit.json, once every file of the image is
+checked against it (``edits.manifest.load``): a file no layer wrote
+that differs is drift, refused by name, as is an image that isn't an
+AzurKit build. Its recipe rebuilds the build from the vanilla image
+(:func:`read_mods`).
+
+
+def read_mods(given: 'str | bytes | Mapping') -> 'dict':
+
+A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
+text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
+normalized; ``packs`` only when it has a packs layer (a build's packs
+are then its packs, and no others). Every refusal named.
+
+
+def preset_encode(recipe: 'Mapping', report: 'Mapping | None' = None) -> 'str':
+
+The share link's fragment (``#p=…``) for ``recipe``'s packs,
+normalized, and its ``set`` operations, never its image's path; given
+its build's report (:func:`image`), with the release it was built from
+and the sha256 of each file it changed. Names, numbers and hashes only
+(Q174): a recipe with a ``replace_bytes`` is refused by name.
+
+
+def preset_decode(text: 'str') -> 'dict':
+
+The preset in a link or its fragment (``preset.decode``), its packs
+normalized (``mods.normalize``) and its ``set`` operations checked: a
+tool or pack AzurKit doesn't have, a value a slider refuses or a
+``replace_bytes`` (Q174) is refused by name.

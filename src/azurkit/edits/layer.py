@@ -2,13 +2,15 @@
 
 A tool plans each layer against the vanilla files: its :class:`Change` s,
 each bytes a file gets at an offset, in a **group** that must land whole (one
-per site). :func:`compose` lays the layers over the vanilla files in their
-canonical order. Where a later layer gives a byte an earlier group wrote
-another value, the later layer wins and the build goes on (D28): the earlier
-group is dropped whole, each of its other bytes back to vanilla unless another
-group wrote the same value there, so a site never lands half, and a
-:class:`Conflict` names both layers and the dropped group. A later layer that
-writes the value a byte already holds overwrites nothing.
+per site or cell, or per operation of an ``xbr`` recipe). :func:`compose`
+lays the layers over the vanilla files in their canonical order, each
+layer's groups in its order. Where a later group (of a later layer, or later
+in the same one) gives a byte an earlier group wrote another value, the later
+wins and the build goes on (D28): the earlier group is dropped whole, each
+of its other bytes back to vanilla unless another group wrote the same value
+there, so a site never lands half, and a :class:`Conflict` names both layers
+and both groups (a config.xbr cell's group names the cell, AZ-130). A later
+group that writes the value a byte already holds overwrites nothing.
 
 A layer's :class:`Claim` s are the room the carve allocator gave it in a
 file (``core.xbe.Carver``: a shim's bytes, which its changes then write);
@@ -122,7 +124,7 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer]) -> tuple[dict[st
             hit: dict[tuple[int, str], list[int]] = {}
             for at, value in enumerate(c.after, c.offset):
                 for group in writers.get((c.file, at), ()):
-                    if group[0] != i and buf[at] != value:
+                    if group != (i, c.group) and buf[at] != value:
                         hit.setdefault(group, []).append(at)
             for group, ats in hit.items():
                 drop(group)

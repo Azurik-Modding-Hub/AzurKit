@@ -3,14 +3,18 @@ turns its flags into the sdk's JSON and prints what comes back.
 
     azurkit verify [--iso PATH ...]       is each image a release's vanilla one, every file of it?
     azurkit packs                         the packs: on by default or not, the releases, what each does, its sliders
-    azurkit build --iso PATH --out PATH [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
+    azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
                   [--pack-param PACK.SLIDER=VALUE ...]
+    azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
 
 ``build`` applies the packs on by default (D528) and each ``--pack``, less
 each ``--no-pack`` and each pack on by default that requires one left out
 (D588: ``--no-pack qol_memory_upper64`` leaves out ``qol_memory_upper64_gpu``
 too); ``--no-defaults`` starts from none (no packs at all is the identity
-build). ``--pack-param`` sets a slider of a pack it applies, to
+build). ``--mods FILE`` (Q268: a preset, an AzurKit build's manifest or a
+share link; what ``open`` prints) adds its xbr operations, and when it has
+a packs layer the build starts from its packs in place of those on by
+default. ``--pack-param`` sets a slider of a pack it applies, to
 any finite number (D23: never clamped). A refusal or failure is one
 ``azurkit: ...`` line on stderr and exit 1.
 """
@@ -18,6 +22,7 @@ any finite number (D23: never clamped). A refusal or failure is one
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -53,9 +58,11 @@ def _packs(args: argparse.Namespace) -> int:
     return 0
 
 
-def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, params: list[str] = ()) -> dict:
-    """``build``'s flags as the sdk's recipe; ``ValueError`` names a pack no
-    pack has, one both added and taken away (no flag cancels another), and a
+def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, params: list[str] = (),
+           mods: dict | None = None) -> dict:
+    """``build``'s flags as the sdk's recipe, from ``mods`` (a mods file,
+    ``sdk.read_mods``) when given; ``ValueError`` names a pack no pack has,
+    one both added and taken away (no flag cancels another), and a
     ``--pack-param`` that isn't ``PACK.SLIDER=NUMBER`` of a pack the build
     applies (the sdk names a slider or value it refuses)."""
     catalog = {p["name"]: p for p in sdk.catalog()["packs"]}
@@ -63,11 +70,12 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
         raise ValueError(f"no pack {', '.join(map(repr, unknown))} (the packs: {', '.join(catalog)})")
     if both := sorted(set(packs) & set(no_packs)):
         raise ValueError(f"packs both added and taken away: {', '.join(both)}")
-    chosen = {name for name, p in catalog.items() if defaults and p["default_on"]} | set(packs)
-    chosen -= set(no_packs)
+    given = (mods or {}).get("packs")
+    start = set(given) if given is not None else {name for name, p in catalog.items() if defaults and p["default_on"]}
+    chosen = (start | set(packs)) - set(no_packs)
     while gone := {name for name in chosen - set(packs) if not set(catalog[name]["requires"]) <= chosen}:
         chosen -= gone   # a default pack goes with one it requires (D588); a named one the sdk refuses
-    built = {name: {} for name in catalog if name in chosen}
+    built = {name: dict((given or {}).get(name, {})) for name in catalog if name in chosen}
     for given in params:
         target, _, value = given.partition("=")
         pack, _, slider = target.partition(".")
@@ -80,12 +88,14 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
         if pack not in built:
             raise ValueError(f"--pack-param {given}: the build doesn't apply {pack!r} (add --pack {pack})")
         built[pack][slider] = number
-    return {"iso": iso, "packs": built}
+    return {"iso": iso, "packs": built} | ({"xbr": mods["xbr"]} if mods and mods.get("xbr") else {})
 
 
 def _build(args: argparse.Namespace) -> int:
     try:
-        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param), args.out)
+        given = sdk.read_mods(Path(args.mods).read_bytes()) if args.mods else None
+        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given),
+                          args.out)
     except (OSError, ValueError) as exc:
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
@@ -94,6 +104,16 @@ def _build(args: argparse.Namespace) -> int:
     for conflict in built["conflicts"]:
         print(f"conflict: {conflict}")
     print(f"{Path(built['out'])}: {built['label']}, {built['size']:,} B, sha256 {built['sha256']}")
+    return 0
+
+
+def _open(args: argparse.Namespace) -> int:
+    try:
+        found = sdk.open_build(args.build)
+    except (OSError, ValueError) as exc:
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(found, indent=1, sort_keys=True))
     return 0
 
 
@@ -116,6 +136,8 @@ def main(argv: list[str] | None = None) -> int:
                                          "packs on by default and each --pack, less each --no-pack, and write the "
                                          "image to --out. Nothing is written if any pack fails.")
     build.add_argument("--iso", required=True, metavar="PATH", help="the vanilla image")
+    build.add_argument("--mods", metavar="FILE", help="a mods file: a preset, an AzurKit build's manifest or a "
+                       "share link (azurkit open prints one); its packs, when it has them, replace those on by default")
     build.add_argument("--out", required=True, metavar="PATH", help="where to write the build (never the input)")
     build.add_argument("--pack", action="append", default=[], metavar="NAME", help="a pack to apply (repeatable)")
     build.add_argument("--no-pack", action="append", default=[], metavar="NAME",
@@ -125,6 +147,11 @@ def main(argv: list[str] | None = None) -> int:
                        help="set a slider of a pack the build applies: any finite number, never clamped "
                             "(repeatable; azurkit packs lists them)")
     build.set_defaults(run=_build)
+    opened = verbs.add_parser("open", help="print an AzurKit build's recipe as a mods file",
+                              description="Read BUILD's /azurkit.json, check every file of the image against it, "
+                                          "and print its recipe as a mods file (JSON), which build --mods takes.")
+    opened.add_argument("build", metavar="BUILD", help="an image AzurKit built")
+    opened.set_defaults(run=_open)
     args = parser.parse_args(argv)
     if args.verb is None:
         parser.print_help()

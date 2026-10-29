@@ -15,7 +15,12 @@ fragment, ``#p=`` and the base64url of its raw deflate; :func:`decode`
 reverses it. A fragment is untrusted input, so :func:`decode` caps it (8 KB
 encoded, 64 KB inflated, JSON nested at most 8 deep) and refuses, by name,
 any key or value the format doesn't have. Each tool's recipe is its own to
-check (``sdk`` normalizes it).
+check (``sdk`` normalizes it): the ``mods`` tool's ``packs``, and the
+``data`` tool's ``xbr`` (``{"ops": [...]}``, ``edits.xbr``).
+
+A mods file (Q268, :func:`read`) is a preset, or an AzurKit build's
+manifest (its /azurkit.json), whose layers :func:`from_manifest` gathers
+into one a tool, as JSON text, or a link.
 """
 
 from __future__ import annotations
@@ -29,11 +34,13 @@ from collections.abc import Mapping
 from azurkit.core import gate
 
 FORMAT = "azurkit-preset"
+MANIFEST = "azurkit-manifest"
 SCHEMA_VERSION = 1
 PREFIX = "#p="
 MAX_ENCODED = 8 * 1024
 MAX_INFLATED = 64 * 1024
 MAX_DEPTH = 8
+MAX_FILE = 16 << 20                 # a mods file's JSON text
 KEYS = {"format", "schema_version", "azurkit", "base", "layers", "result"}
 LAYER_KEYS = {"tool", "kind", "recipe"}
 VERSION = re.compile(r"\d+\.\d+\.\d+[0-9A-Za-z.+-]{0,24}")
@@ -103,6 +110,63 @@ def _constant(name: str) -> None:
     raise ValueError(f"preset: {name} is not a finite number")
 
 
+def _json(data: bytes) -> object:
+    try:
+        found = json.loads(data.decode("utf-8"), object_pairs_hook=_object, parse_constant=_constant)
+    except RecursionError:
+        raise ValueError(f"preset: JSON nested deeper than {MAX_DEPTH}") from None
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"preset: not JSON ({exc.msg} at {exc.pos})") from None
+    except UnicodeDecodeError:
+        raise ValueError("preset: not UTF-8") from None
+    if _depth(found) > MAX_DEPTH:
+        raise ValueError(f"preset: JSON nested deeper than {MAX_DEPTH}")
+    return found
+
+
+def from_manifest(record: Mapping) -> dict:
+    """The preset of an AzurKit build's manifest: its base, AzurKit's
+    version, its result, and its layers' recipes, one layer a tool (each
+    pack's ``{pack, params}`` into the ``mods`` tool's packs), :func:`check`
+    ed; ``ValueError`` names a layer no mods file carries."""
+    packs, ops, failed = {}, None, []
+    for layer in record.get("layers", []):
+        recipe, where = layer.get("recipe"), (layer.get("tool"), layer.get("kind"))
+        if where == ("mods", "packs") and isinstance(recipe, Mapping) and isinstance(recipe.get("pack"), str) \
+                and isinstance(recipe.get("params"), Mapping) and recipe["pack"] not in packs:
+            packs[recipe["pack"]] = dict(recipe["params"])
+        elif where == ("data", "xbr") and isinstance(recipe, Mapping) and set(recipe) == {"ops"} and ops is None:
+            ops = recipe["ops"]
+        else:
+            failed.append(f"a {layer.get('kind')!r} layer of tool {layer.get('tool')!r}")
+    if failed:
+        raise ValueError(f"preset: a mods file carries packs and xbr only, not {', '.join(failed)}")
+    base = record.get("base")
+    made = {"format": FORMAT, "schema_version": SCHEMA_VERSION,
+            "base": {k: base.get(k) for k in ("kind", "release", "iso_sha256")} if isinstance(base, Mapping) else base,
+            "layers": [{"tool": "mods", "kind": "packs", "recipe": packs}]
+                      + ([{"tool": "data", "kind": "xbr", "recipe": {"ops": ops}}] if ops is not None else []),
+            "result": record.get("result")}
+    if "azurkit" in record:
+        made["azurkit"] = record["azurkit"]
+    return check(made)
+
+
+def read(given: str | bytes | Mapping) -> dict:
+    """A mods file (:func:`check` ed): a preset or a manifest (as JSON text
+    or the object; :func:`from_manifest`), or a link (:func:`decode`)."""
+    if isinstance(given, (str, bytes)):
+        raw = given.encode() if isinstance(given, str) else given
+        if len(raw) > MAX_FILE:
+            raise ValueError(f"preset: a mods file of {len(raw):,} B, past its {MAX_FILE:,} B")
+        if raw.lstrip()[:1] != b"{":
+            return decode(raw.decode("utf-8", "replace"))
+        given = _json(raw)
+    if isinstance(given, Mapping) and given.get("format") == MANIFEST:
+        return from_manifest(given)
+    return check(given)
+
+
 def decode(text: str) -> dict:
     """The preset in a link (or its fragment, ``#p=…``), :func:`check` ed;
     ``ValueError`` names why it is none, and reads no more than the caps."""
@@ -121,14 +185,4 @@ def decode(text: str) -> dict:
         raise ValueError(f"preset: inflates past {MAX_INFLATED} B")
     if not inflate.eof or inflate.unused_data:
         raise ValueError("preset: the link's data is cut short or runs on")
-    try:
-        preset = json.loads(data.decode("utf-8"), object_pairs_hook=_object, parse_constant=_constant)
-    except RecursionError:
-        raise ValueError(f"preset: JSON nested deeper than {MAX_DEPTH}") from None
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"preset: not JSON ({exc.msg} at {exc.pos})") from None
-    except UnicodeDecodeError:
-        raise ValueError("preset: not UTF-8") from None
-    if _depth(preset) > MAX_DEPTH:
-        raise ValueError(f"preset: JSON nested deeper than {MAX_DEPTH}")
-    return check(preset)
+    return check(_json(data))

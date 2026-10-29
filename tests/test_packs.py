@@ -152,7 +152,8 @@ def test_each_g1_case_of_a_ported_pack_builds_its_golden_and_its_preset_carries_
         assert not cases[name].files.keys() & {s.file for s in pack.sliders() if isinstance(s, mods.XbrParametricEdit)}
 
 
-def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europe_iso, tmp_path, capsys):
+def test_azurkit_build_applies_the_packs_on_by_default_and_a_mods_file_which_open_reads_back(europe_iso, tmp_path,
+                                                                                               capsys):
     """``azurkit packs`` lists the packs in the order a build applies them,
     with their sliders; ``azurkit build`` with none named applies those on
     by default (D528, D571, D588): the load budget, the two upper-64 MiB
@@ -161,7 +162,10 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europ
     without it is refused by name); less the three memory packs (``--no-pack``),
     the written image's XBE holds qol_alloc_race's golden.
     ``--pack-param PACK.SLIDER=VALUE`` sets a slider of a pack the build
-    applies, and is refused by name otherwise."""
+    applies, and is refused by name otherwise. ``--mods FILE`` (Q268) adds
+    its xbr operations, and a mods file with a packs layer replaces the
+    packs on by default; ``azurkit open`` prints the written build's mods
+    file, which holds its packs and operations."""
     assert cli.main(["packs"]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert [line.split()[:2] for line in lines] == [[name, "on" if p.default_on else "off"] for name, p in mods.PACKS.items()]
@@ -178,16 +182,28 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europ
                            ("qol_gem_popups.x=1", "the build doesn't apply 'qol_gem_popups'")):
         with pytest.raises(ValueError, match=re.escape(f"--pack-param {given}: {refused}")):
             cli.recipe("x.iso", ["fps_unlock"], [], True, [given])
+    assert cli.recipe("x.iso", [], [], True, [], {"packs": {"fps_unlock": {"target_fps": 120}}})["packs"] == {
+        "fps_unlock": {"target_fps": 120}}
+    golem = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+             "prop": "hitPoints", "value": 321}
+    given = tmp_path / "mods.json"
+    given.write_text(json.dumps({"format": "azurkit-preset", "schema_version": 1, "layers": [
+        {"tool": "data", "kind": "xbr", "recipe": {"ops": [golem]}}]}), encoding="utf-8")
     out = tmp_path / "europe.iso"
     try:
         memory = ("qol_memory_budget", "qol_memory_upper64", "qol_memory_upper64_gpu")
-        assert cli.main(["build", "--iso", str(europe_iso), "--out", str(out),
+        assert cli.main(["build", "--iso", str(europe_iso), "--out", str(out), "--mods", str(given),
                          *(arg for name in memory for arg in ("--no-pack", name))]) == 0
         with iso.Reader(out) as r:
             assert _sha256(r.read("default.xbe")) == _g1.cases(gate.EUROPE)["qol_alloc_race"].files["default.xbe"]
+        assert capsys.readouterr().out.splitlines()[:2] == ["pack qol_alloc_race: 4 sites, 204 B",
+                                                            "data xbr: 1 sites, 8 B"]
+        assert cli.main(["open", str(out)]) == 0
+        opened = json.loads(capsys.readouterr().out)
     finally:
         out.unlink(missing_ok=True)
-    assert capsys.readouterr().out.splitlines()[0] == "pack qol_alloc_race: 4 sites, 204 B"
+    assert opened["base"]["release"] == "europe"
+    assert sdk.read_mods(opened) == {"packs": {"qol_alloc_race": {}}, "xbr": [golem]}
 
 
 VANILLA = bytes(range(256))   # the synthetic XBE: one .text section at 0x1000

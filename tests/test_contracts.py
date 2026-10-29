@@ -1,6 +1,7 @@
-"""The engine's contracts: import-linter's (``pyproject.toml``: the layers and
-the three tools' independence) and the rules it can't express, read from the
-AST: ``core``, ``edits`` and ``tools`` hold no threads, processes,
+"""The engine's contracts: the sdk's API is its snapshot (``tests/sdk_api.txt``,
+written by ``scripts/sdk_api.py``), import-linter's (``pyproject.toml``: the
+layers and the three tools' independence) and the rules it can't express,
+read from the AST: ``core``, ``edits`` and ``tools`` hold no threads, processes,
 subprocesses, prints or exits (the web page's worker runs them as they are;
 the app-only ``tools/randomizer/live/`` is exempt), only ``tools/characters``
 imports numpy, and nothing imports capstone, unicorn, zig or Tk (none of them
@@ -12,6 +13,8 @@ import ast
 from pathlib import Path
 
 from importlinter.cli import lint_imports
+
+from scripts import sdk_api
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "azurkit"
@@ -48,6 +51,13 @@ def violations(source: str, rel: str) -> list[str]:
             if called in ENGINE_CALLS or called.startswith(ENGINE_CALL_PREFIXES):
                 found.append(f"{rel}:{node.lineno} calls {called}")
     return found
+
+
+def test_the_sdk_api_is_its_snapshot():
+    """Every UI calls the sdk alone, so its surface (each name in
+    ``sdk.__all__``, its signature and its docstring) changes only with
+    ``tests/sdk_api.txt``, whose diff shows the change."""
+    assert sdk_api.SNAPSHOT.read_text(encoding="utf-8") == sdk_api.text(), "run scripts/sdk_api.py"
 
 
 def test_import_linter_contracts_hold(capsys):

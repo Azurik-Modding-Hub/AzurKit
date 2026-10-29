@@ -1,0 +1,228 @@
+"""A build's recipe and its record (Step 4.1g): the mods file (Q268: packs
+and the ``xbr`` operations, ``edits.xbr``), the manifest a build carries in
+its root (``/azurkit.json`` and ``/azurkit.bin``, Q66), opening a build back
+into its recipe (``sdk.open_build``), and Modkit's G3 packs-family cases and
+G4 build cases, file by file, with G3's whole image.
+
+G3's and G4's recipes are Modkit's flags and mod shapes (the oracle's
+``cases.json``), translated here once into AzurKit's (REORG §12.2: Modkit's
+shapes are read only by the parity harness): its ``patches``,
+``_keyed_patches`` and ``xbr_edits`` become ``set`` and ``replace_bytes``
+operations, whose ``expected`` is read from the image (never written here).
+``level_patches`` isn't ported (D95, AZ-009), so the three cases that move
+an entity in ``training_room.xbr`` leave that file, and ``filelist.txt``,
+which lists it, out by name."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+
+import pytest
+
+from azurkit import sdk
+from azurkit.core import iso
+from azurkit.core.xbr import Document
+from azurkit.edits import manifest
+from azurkit.tools import mods
+from scripts import gen_facts
+
+ORACLE = gen_facts.ORACLE / "packs"
+CONFIG = "gamedata/config.xbr"
+LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt")   # left out where a case moves an entity (AZ-009)
+# Modkit's flags -> player_physics's sliders: apply-physics's, then randomize-full's
+APPLY = {"gravity": "gravity", "walk_speed": "walk_speed_scale", "swim_speed": "swim_speed_scale",
+         "jump_speed": "jump_speed_scale", "air_control_speed": "air_control_scale", "flap_height": "flap_height_scale",
+         "flap_below_peak": "flap_below_peak_scale", "wing_flap_ceiling": "wing_flap_ceiling_scale",
+         "flap_descent_fuel_cost": "flap_descent_fuel_cost_scale", "climb_speed": "climb_speed_scale",
+         "roll_speed": "roll_speed_scale", "roll_time": "roll_time_scale"}
+RANDOMIZE = {"gravity": "gravity", "player_walk_scale": "walk_speed_scale", "player_roll_scale": "roll_speed_scale",
+             "player_roll_time_scale": "roll_time_scale", "player_climb_scale": "climb_speed_scale",
+             "player_swim_scale": "swim_speed_scale", "player_jump_scale": "jump_speed_scale",
+             "player_air_control_scale": "air_control_scale", "player_flap_scale": "flap_height_scale",
+             "player_flap_below_peak_scale": "flap_below_peak_scale",
+             "player_wing_flap_ceiling_scale": "wing_flap_ceiling_scale",
+             "player_flap_descent_fuel_cost_scale": "flap_descent_fuel_cost_scale"}
+
+
+def _oracle(rel: str) -> dict:
+    return json.loads((ORACLE / rel).read_text(encoding="utf-8"))
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _defaults() -> dict[str, dict]:
+    return {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+
+
+def _ops(mod: dict, path) -> list[dict]:
+    """A Modkit mod's config.xbr cells and xbr_edits as ``xbr`` operations, in
+    its order (one shape at a time); a replace's ``expected`` is the sha256
+    of the bytes the image holds there."""
+    cell = lambda table, entity, prop, value: {"op": "set", "file": CONFIG, "table": table,  # noqa: E731
+                                               "entity": entity, "prop": prop, "value": value}
+    ops = [cell(e["section"], e["entity"], e["property"], e["value"]) for e in mod.get("patches", [])]
+    ops += [cell(table, entity, prop, value) for table, rows in mod.get("_keyed_patches", {}).items()
+            for entity, props in rows.items() for prop, value in props.items()]
+    for e in mod.get("xbr_edits", []):
+        file = f"gamedata/{e['xbr_file']}"
+        if e["op"] == "replace_bytes":
+            with iso.Reader(path) as r:
+                held = r.read(file)[e["offset"]:e["offset"] + len(e["value"]) // 2]
+            ops.append({"op": "replace_bytes", "file": file, "offset": e["offset"], "value": e["value"],
+                        "expected": {"sha256": _sha256(held), "size": len(held)}})
+        else:
+            assert e["op"].startswith("set_keyed_") and file == CONFIG, e["op"]
+            ops.append(cell(e["section"], e["entity"], e["prop"], e["value"]))
+    return ops
+
+
+def _g3(case: dict, path) -> dict:
+    """A G3 case's recipe: apply-physics applies player_physics alone; patch,
+    randomize-full (--no-randomize) and MCP pack_build_iso the packs on by
+    default and those they name, then the mod's operations."""
+    args = case["args"]
+    if case.get("mcp") == "pack_build_iso":
+        return {"packs": _defaults() | {name: dict(args["params"].get(name, {})) for name in args["enable"]},
+                "xbr": _ops(args["config_mod"], path)}
+    if args["command"] == "apply-physics":
+        return {"packs": {"player_physics": {APPLY[k]: v for k, v in args.items() if k in APPLY and v is not None}}}
+    if args["command"] == "patch":
+        return {"packs": _defaults(), "xbr": [op for mod in args["mod"] for op in _ops(mod, path)]}
+    assert args["command"] == "randomize-full" and args["no_randomize"] and args["ram"] == 128
+    physics = {RANDOMIZE[k]: v for k, v in args.items() if k in RANDOMIZE and v is not None}
+    return {"packs": _defaults() | ({"player_physics": physics} if physics else {}),
+            "xbr": _ops(args["config_mod"] or {}, path)}
+
+
+def _g4(case: dict) -> dict:
+    """A G4 case's recipe: the GUI's ticks over the packs on by default, its
+    sliders, and the Game Data editor's cells as ``set`` operations."""
+    kwargs, packs = case["kwargs"], _defaults()
+    for name, on in kwargs.get("packs", {}).items():
+        packs[name] = packs.get(name, {}) if on else packs.pop(name, None)
+    packs = {name: dict(kwargs.get("pack_params", {}).get(name, {})) for name, values in packs.items()
+             if values is not None}
+    return {"packs": packs, "xbr": [{"op": "set", "file": CONFIG, "table": table, "entity": entity, "prop": prop,
+                                     "value": value}
+                                    for table, entity, prop, value in kwargs.get("config_edits", {}).get("xbr_editor", [])]}
+
+
+def _cases(path) -> dict[str, tuple[dict, dict]]:
+    """``{case: (its recipe, its golden)}`` for G3's packs-family cases and G4's build cases."""
+    recipes = _oracle("cases.json")
+    g3, g4 = _oracle("tests/goldens/pipelines.json"), _oracle("tests/goldens/gui.json")
+    return ({name: (_g3(recipes["tests/goldens/pipelines.json"][name], path), files) for name, files in g3.items()}
+            | {name: (_g4(recipes["tests/goldens/gui.json"][name]), files) for name, files in g4.items()})
+
+
+def test_g3_and_g4_cases_build_their_goldens_and_open_back_into_their_recipes(usa_iso):
+    """Each of G3's 5 packs-family cases and G4's 3 build cases, as a mods
+    file's recipe, changes each file its golden names to its sha256 and no
+    other (the level-patched cases less ``training_room.xbr`` and
+    ``filelist.txt``). Its image carries /azurkit.json and /azurkit.bin,
+    and ``sdk.open_build`` reads it back into its mods file: the release,
+    the result, and the recipe it was built from, normalized, which
+    ``sdk.read_mods`` takes again. A build with no pack carries no root
+    file."""
+    cases = _cases(usa_iso)
+    assert len(cases) == 8
+    for name, (recipe, golden) in cases.items():
+        made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+        left = LEVEL_PATCHED if "gamedata/training_room.xbr" in golden else ()
+        want = {file: sha for file, sha in golden.items() if file != "ISO" and file not in left}
+        assert {file: report["result"].get(file) for file in want} == want, name
+        assert report["result"].keys() - set(left) == want.keys() and report["conflicts"] == [], name
+        found = sdk.open_build(made)
+        assert (found["base"]["release"], found["result"]) == ("usa", report["result"]), name
+        assert sdk.read_mods(found) == {"packs": mods.normalize(recipe["packs"])} | (
+            {"xbr": recipe["xbr"]} if recipe.get("xbr") else {}), name
+    with iso.Reader(sdk.image({"iso": str(usa_iso), "packs": {}})[0]) as r:
+        with pytest.raises(FileNotFoundError):
+            r.find(manifest.JSON)
+
+
+def test_the_whole_image_less_its_root_entries_is_modkits(usa_iso):
+    """G3's ``randomize-full:zero-scales`` (the packs on by default and
+    player_physics at zero), its changed files packed into the vanilla image
+    without the root entries, is Modkit's image byte for byte: the XISO
+    layout (PLAN §3.3)."""
+    recipe, golden = _cases(usa_iso)["randomize-full:zero-scales"]
+    made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+    with iso.Reader(made) as r:
+        files = {file: r.read(file) for file in report["result"] if file != "filelist.txt"}
+    assert iso.read(usa_iso, files).sha256() == golden["ISO"]
+
+
+def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso):
+    """The ``xbr`` operations (``edits.xbr``) find a cell by D51's
+    spellings (case-blind, ``_`` as a space) and apply in order: a later one
+    that rewrites an earlier one's cell wins, and the conflict names both
+    (D28). Every operation that isn't one, or can't apply, is named in one
+    message, by its number, never by the file's bytes. A share link
+    carries ``set`` alone (Q174). ``sdk.open_build`` refuses an image that
+    isn't an AzurKit build, one whose file drifted from its manifest, and a
+    manifest whose blob isn't its bytes, by name."""
+    with iso.Reader(usa_iso) as r:
+        a1 = r.read("gamedata/a1.xbr")
+    golem = {"op": "set", "file": CONFIG, "table": "critters_damage", "entity": "golem", "prop": "hitPoints"}
+    ops = [golem | {"value": 321}, golem | {"entity": "GOLEM", "prop": "HITPOINTS", "value": 654.5}]
+    made, report = sdk.image({"iso": str(usa_iso), "packs": {}, "xbr": ops})
+    with iso.Reader(made) as r:
+        assert Document(r.read(CONFIG)).tables["critters_damage"].number("golem", "hitPoints") == 654.5
+        a3, flip = r.find("gamedata/a3.xbr"), bytes([r.read("gamedata/a3.xbr")[9] ^ 0xFF])
+    assert len(report["conflicts"]) == 1 and re.fullmatch(
+        rf"{CONFIG} 0x[0-9A-F]+ \(\d B\): data xbr \(#2 set critters_damage/golem/hitPoints\) overwrote data xbr, "
+        r"whose group #1 set critters_damage/golem/hitPoints is dropped whole", report["conflicts"][0])
+    held = a1[0x800:0x804]
+    refused = [{"op": "set", "file": CONFIG, "table": "critters_damage", "entity": "golem", "prop": "x", "value": 1},
+               golem | {"value": "text"},
+               {"op": "set", "file": CONFIG, "table": "nope", "entity": "golem", "prop": "hitPoints", "value": 1},
+               {"op": "replace_bytes", "file": "gamedata/a1.xbr", "offset": 0x800, "value": "00" * 4,
+                "expected": {"sha256": _sha256(b"other bytes"), "size": 4}},
+               {"op": "replace_bytes", "file": "gamedata/nope.xbr", "offset": 0, "value": "00",
+                "expected": "00"}]
+    with pytest.raises(ValueError) as caught:
+        sdk.image({"iso": str(usa_iso), "packs": {}, "xbr": refused})
+    assert str(caught.value) == (
+        "xbr op 1 (set): gamedata/config.xbr table critters_damage has no prop 'x'; "
+        "xbr op 2 (set): config table critters_damage golem/hitPoints is a number cell, not a string; "
+        "xbr op 3 (set): gamedata/config.xbr has no keyed table 'nope'; "
+        f"xbr op 4 (replace_bytes): gamedata/a1.xbr holds <4 B, sha256 {_sha256(held)[:12]}> at 0x800, "
+        "not the bytes it expects; "
+        "xbr op 5 (replace_bytes): the USA image has no gamedata/nope.xbr")
+    shapes = [{"op": "rename"}, {"op": "set", "file": CONFIG}, golem | {"value": float("nan"), "x": 1},
+              {"op": "replace_bytes", "file": "default.xbe", "offset": -1, "value": "abc", "expected": "ab"},
+              {"op": "replace_bytes", "file": "gamedata/a1.xbr", "offset": 0, "value": "00" * 33,
+               "expected": "00" * 33}]
+    with pytest.raises(ValueError) as caught:
+        sdk.image({"iso": str(usa_iso), "xbr": shapes})
+    assert str(caught.value) == (
+        "xbr op 1: not an operation (op: set | replace_bytes); xbr op 2 (set): no table, entity, prop, value; "
+        "xbr op 3 (set): no key 'x' (its keys: op, file, table, entity, prop, value); "
+        "xbr op 4 (replace_bytes): file 'default.xbe' is no gamedata/<name>.xbr; xbr op 4 (replace_bytes): "
+        "offset -1 is not a file offset (a whole number from 0); xbr op 4 (replace_bytes): value is not hex bytes; "
+        "xbr op 5 (replace_bytes): expected is not the hex of the 33 B the value replaces (up to 32 B; past that "
+        "{sha256, size})")
+    assert held.hex() not in str(caught.value)
+    replace = {"op": "replace_bytes", "file": "gamedata/a1.xbr", "offset": 0x800, "value": "deadbeef",
+               "expected": {"sha256": _sha256(held), "size": 4}}
+    with pytest.raises(ValueError, match=re.escape("a share link carries packs and set only (Q174), not xbr op 2")):
+        sdk.preset_encode({"packs": {}, "xbr": [ops[0], replace]})
+    assert sdk.preset_decode(sdk.preset_encode({"packs": {}, "xbr": ops}))["layers"][1]["recipe"] == {"ops": ops}
+    with pytest.raises(ValueError, match=r"no /azurkit\.json, so it isn't an AzurKit build"):
+        sdk.open_build(str(usa_iso))
+    drifted = iso.Image(made.source, (*made.writes, (a3.sector * iso.SECTOR + 9, flip)), made.size)
+    with pytest.raises(ValueError, match=r"isn't the build its /azurkit\.json records: gamedata/a3\.xbr: its contents "
+                                         r"differ$"):
+        sdk.open_build(drifted)
+    built, _ = sdk.image({"iso": str(usa_iso), "packs": {"qol_photo_mode": {}}})
+    with iso.Reader(built) as r:
+        blob = r.find(manifest.BIN)
+        flip = bytes([r.read(blob)[0] ^ 0xFF])
+    bent = iso.Image(built.source, (*built.writes, (blob.sector * iso.SECTOR, flip)), built.size)
+    with pytest.raises(ValueError, match=r"/azurkit\.bin's blob [0-9a-f]{12} isn't the bytes its sha256 names"):
+        sdk.open_build(bent)

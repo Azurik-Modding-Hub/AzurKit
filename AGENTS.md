@@ -133,9 +133,31 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
   against the file as parsed; every cell is 16 bytes, so nothing grows.
   The keyed cells are written new from the format, never from the code
   NOTICE.md credits (AZ-212, D95).
+- **The mods file** (Q268; `edits/preset.py`'s `read`, `sdk.read_mods`,
+  `azurkit build --mods`) is a preset, an AzurKit build's manifest or a
+  share link. Its `mods` layer is the build's packs (in place of those on by
+  default), and its `data` layer's `xbr` operations (`edits/xbr.py`) apply
+  in order after the packs: `set` a config.xbr cell by the file's names
+  (D51's spellings), type-checked; `replace_bytes` in an XBR file, where
+  vanilla holds `expected` (hex up to 32 B, else `{sha256, size}`): read it
+  from the image in a test, never write it. A later operation or layer that
+  rewrites an earlier group's bytes wins, and the conflict names both groups
+  (D28; a cell's group names the cell, AZ-130).
+- **A build's manifest** (`edits/manifest.py`): an image with a layer
+  carries `/azurkit.json` and `/azurkit.bin` (a change's bytes past 32 B, by
+  sha256) as new root entries (`iso.read(..., add=)`: the root table rebuilt
+  in its sector, every vanilla entry at its sector, Modkit's layout, which
+  V10 booted). `sdk.open_build` (`azurkit open`) checks every file of an
+  image against them and gives back its mods file; a drifted file is refused
+  by name. Without the root entries a build is Modkit's image byte for byte
+  (`tests/test_builds.py`: G3's whole image; G3's packs cases and G4's file
+  by file). A build with no layer is the vanilla image.
+- **The sdk's surface** is its snapshot, `tests/sdk_api.txt`: change it only
+  with `uv run --locked python scripts/sdk_api.py`, and read its diff.
 - **Presets** (`edits/preset.py`, `sdk.preset_encode` and `preset_decode`)
-  carry a recipe as a link's `#p=` fragment: names, numbers and hashes only,
-  never an image path or a byte (Q174), capped as untrusted input.
+  carry a recipe's packs and `set` operations as a link's `#p=` fragment:
+  names, numbers and hashes only, never an image path or a byte (Q174),
+  capped as untrusted input.
 - **Shims** (Step 4.1f1): a `TrampolinePatch` hooks a site with a CALL or
   JMP rel32 into a C shim. A shim's source and its prebuilt object sit side
   by side in `src/azurkit/tools/mods/shims/` (`<name>.c`, `<name>.o`), both
