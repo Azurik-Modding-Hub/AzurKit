@@ -40,6 +40,15 @@ and the concatenations and repeats of these, and in any text file runs of
 hex byte pairs, ``\\xNN`` escapes or ``0xNN, ...`` or decimal lists. A run
 of one byte value repeated isn't counted, nor is text (a str that isn't
 hex): a format's marker, a save's ``fileversion=`` say, is written as text.
+
+A committed shim object (an i386 COFF ``.o`` there, :func:`object_sections`)
+is read too, each section with file bytes, for :data:`OBJECT_RUN` or more
+bytes in a row: what the compiler makes from a shim's source shares
+shorter runs with the game by chance (its code's instruction idioms, up to
+20 B, and its float constants, up to 10 B, over Modkit's 43 built objects),
+and the source itself is read at :data:`VANILLA_RUN`. A window of text
+(printable ASCII or NUL: a string's) or of at most 3 byte values (a
+constant such as the identity matrix) isn't counted there.
 """
 
 from __future__ import annotations
@@ -50,6 +59,7 @@ import hashlib
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 from array import array
@@ -200,6 +210,7 @@ def scan(root: Path = ROOT) -> list[str]:
 SOURCE_DIRS = ("src/", "tests/", "scripts/", "web/")
 VANILLA_FILES = ("default.xbe", "gamedata/config.xbr")   # the game files the code reads bytes of
 VANILLA_RUN = 8   # bytes in a row of one of them that a literal may not hold
+OBJECT_RUN = 32   # bytes in a row of one of them that a shim object's section may not hold
 _HEX_TEXT = re.compile(r"(?<![0-9A-Za-z_])(?:[0-9A-Fa-f]{2})+(?:[ \t]+(?:[0-9A-Fa-f]{2})+)*(?![0-9A-Za-z_])")
 _ESCAPES = re.compile(r"(?:\\x[0-9A-Fa-f]{2})+")
 _BYTE_LIST = re.compile(r"(?<![\w.])0x[0-9A-Fa-f]{1,2}(?:\s*,\s*0x[0-9A-Fa-f]{1,2})+(?![\w.])")
@@ -280,28 +291,61 @@ def byte_literals(rel: str, text: str) -> list[tuple[int, bytes]]:
     return [(line, data) for line, data in found if len(data) >= VANILLA_RUN]
 
 
-def _windows(data: bytes) -> Iterator[int]:
+def _repeated(window: bytes) -> bool:
+    """A window of one byte value repeated, which no rule counts."""
+    return window.count(window[0]) == len(window)
+
+
+def _plain(window: bytes) -> bool:
+    """A window an object's run isn't counted at: text (printable ASCII,
+    tab, newline or NUL) or at most 3 byte values."""
+    return len(set(window)) <= 3 or all(32 <= b < 127 or b in b"\0\t\n\r" for b in window)
+
+
+def _windows(data: bytes, skip=_repeated) -> Iterator[int]:
     """Each :data:`VANILLA_RUN`-byte window of ``data`` as an int, but a
-    window of one byte value repeated."""
+    window ``skip`` passes."""
     for i in range(len(data) - VANILLA_RUN + 1):
         window = data[i:i + VANILLA_RUN]
-        if window.count(window[0]) != VANILLA_RUN:
+        if not skip(window):
             yield int.from_bytes(window, sys.byteorder)
 
 
-def _longest(data: bytes, haystack: bytes) -> int:
-    """The longest run of ``data`` (one byte value repeated aside) that
+def _longest(data: bytes, haystack: bytes, skip=_repeated) -> int:
+    """The longest run of ``data`` from a window ``skip`` doesn't pass that
     ``haystack`` holds, when it is :data:`VANILLA_RUN` bytes or more; else 0."""
     best = 0
     for i in range(len(data) - VANILLA_RUN + 1):
         window = data[i:i + VANILLA_RUN]
-        if window.count(window[0]) == VANILLA_RUN or window not in haystack:
+        if skip(window) or window not in haystack:
             continue
         end = i + VANILLA_RUN
         while end < len(data) and data[i:end + 1] in haystack:
             end += 1
         best = max(best, end - i)
     return best
+
+
+def object_sections(data: bytes) -> list[tuple[str, bytes]] | None:
+    """``(name, bytes)`` of each section with file bytes of the i386 COFF
+    object ``data`` (a shim's ``.o``), or ``None`` when it isn't one."""
+    try:
+        machine, count, _, symbols_at, symbol_count, optional, _ = struct.unpack_from("<HHIIIHH", data, 0)
+        if machine != 0x014C:
+            return None
+        strings = data[symbols_at + 18 * symbol_count:]
+        sections = []
+        for i in range(count):
+            at = 20 + optional + 40 * i
+            raw_size, raw, flags = *struct.unpack_from("<II", data, at + 16), struct.unpack_from("<I", data, at + 36)[0]
+            name = data[at:at + 8].split(b"\0")[0]
+            if name[:1] == b"/" and name[1:].isdigit():
+                name = strings[int(name[1:]):].split(b"\0")[0]
+            if raw_size and not flags & 0x80 and raw + raw_size <= len(data):   # 0x80: no file bytes
+                sections.append((name.decode("ascii", "replace") or f"#{i + 1}", data[raw:raw + raw_size]))
+        return sections
+    except struct.error:
+        return None
 
 
 def vanilla_named(files: Mapping[tuple[str, str], bytes]) -> dict[str, bytes]:
@@ -315,12 +359,17 @@ def vanilla_named(files: Mapping[tuple[str, str], bytes]) -> dict[str, bytes]:
     return out
 
 
-def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes]) -> list[str]:
+def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes],
+          sections: list[tuple[str, bytes]] = ()) -> list[str]:
     """``"<where>: a <n> B literal holds <m> B in a row of the <file>"`` for
     each ``(where, literal)`` that holds :data:`VANILLA_RUN` or more bytes
     in a row of one of ``files`` (:func:`vanilla_named`), in the literals'
-    order. Lengths only, never the bytes."""
-    wanted = {w for _, data in literals for w in _windows(data)}
+    order, then ``"<where>: a <n> B section holds ..."`` for each of an
+    object's ``sections`` that holds :data:`OBJECT_RUN` or more (text and
+    windows of at most 3 byte values aside). Lengths only, never the bytes."""
+    kinds = [(where, data, "literal", _repeated, VANILLA_RUN) for where, data in literals]
+    kinds += [(where, data, "section", _plain, OBJECT_RUN) for where, data in sections]
+    wanted = {w for _, data, _, skip, _ in kinds for w in _windows(data, skip)}
     held: dict[str, set[int]] = {}
     for name, haystack in files.items():
         held[name] = set()
@@ -329,24 +378,39 @@ def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes]) -> list
             words.frombytes(haystack[k:k + (len(haystack) - k) // 8 * 8])
             held[name] |= wanted.intersection(words)
     problems = []
-    for where, data in literals:
+    for where, data, what, skip, least in kinds:
         for name, haystack in files.items():
-            if not held[name].isdisjoint(_windows(data)) and (run := _longest(data, haystack)):
-                problems.append(f"{where}: a {len(data)} B literal holds {run} B in a row of the {name}")
+            if (not held[name].isdisjoint(_windows(data, skip))
+                    and (run := _longest(data, haystack, skip)) >= least):
+                problems.append(f"{where}: a {len(data)} B {what} holds {run} B in a row of the {name}")
     return list(dict.fromkeys(problems))
+
+
+def _read(rel: str, data: bytes, where: str) -> tuple[list[tuple[str, bytes]], list[tuple[str, bytes]]]:
+    """The literals (``"<rel>:<line><where>"``) of a source file ``rel``,
+    or the sections (``"<rel> (<section>)<where>"``) of a shim object."""
+    if (text := _text(data[:MAX_TEXT])) is not None:
+        return [(f"{rel}:{line}{where}", lit) for line, lit in byte_literals(rel, text)], []
+    if rel.endswith(".o") and (sections := object_sections(data)) is not None:
+        return [], [(f"{rel} ({name}){where}", body) for name, body in sections]
+    return [], []
 
 
 def vanilla_runs(root: Path, files: Mapping[str, bytes]) -> list[str]:
     """``"<path>:<line>: a <n> B literal holds <m> B in a row of the
     <file>"`` for each literal (:func:`byte_literals`) in a source file
     under :data:`SOURCE_DIRS` that holds :data:`VANILLA_RUN` or more bytes
-    in a row of one of ``files`` (:func:`vanilla_named`). Lengths only,
-    never the bytes."""
-    literals = []
+    in a row of one of ``files`` (:func:`vanilla_named`), and ``"<path>
+    (<section>): a <n> B section holds ..."`` for each section of a shim
+    object there that holds :data:`OBJECT_RUN` or more. Lengths only, never
+    the bytes."""
+    literals, sections = [], []
     for rel in _listed(root):
-        if rel.startswith(SOURCE_DIRS) and (text := _text((root / rel).read_bytes()[:MAX_TEXT])) is not None:
-            literals += [(f"{rel}:{line}", data) for line, data in byte_literals(rel, text)]
-    return sorted(_held(literals, files))
+        if rel.startswith(SOURCE_DIRS):
+            found = _read(rel, (root / rel).read_bytes(), "")
+            literals += found[0]
+            sections += found[1]
+    return sorted(_held(literals, files, sections))
 
 
 def _git(root: Path, *args: str, stdin: bytes = b"") -> bytes:
@@ -389,16 +453,18 @@ def vanilla_runs_in_commits(root: Path, revs: list[str], files: Mapping[str, byt
     B literal holds <m> B in a row of the <file>"`` for each
     literal in a source file under :data:`SOURCE_DIRS` that a commit of
     ``git rev-list revs`` (``[top, "--not", base]``, say) adds or changes,
-    named with the first commit adding it, oldest first. A run that a later
-    commit removes again is still named: it stays in the history. Lengths
-    only, never the bytes."""
+    and ``"<path> (<section>) in <commit>: ..."`` for each section of a
+    shim object it adds or changes, named with the first commit adding it,
+    oldest first. A run that a later commit removes again is still named:
+    it stays in the history. Lengths only, never the bytes."""
     added = [(path, blob, commit) for (path, blob), commit in _added(root, revs).items()
              if path.startswith(SOURCE_DIRS)]
-    literals = []
+    literals, sections = [], []
     for (path, _, commit), data in zip(added, _blobs(root, [blob for _, blob, _ in added]), strict=True):
-        if (text := _text(data[:MAX_TEXT])) is not None:
-            literals += [(f"{path}:{line} in {commit[:12]}", lit) for line, lit in byte_literals(path, text)]
-    return _held(literals, files)
+        found = _read(path, data, f" in {commit[:12]}")
+        literals += found[0]
+        sections += found[1]
+    return _held(literals, files, sections)
 
 
 def scan_push(root: Path, remote: str, updates: str) -> list[str]:

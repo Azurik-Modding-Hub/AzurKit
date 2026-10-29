@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
+import struct
 import subprocess
 from pathlib import Path
 
@@ -167,4 +169,58 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, euro
                            + ["tests/f.py:1: a 24 B literal holds 24 B in a row of the gamedata/config.xbr"])
     assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run),
                                                                rows.hex()))
+    assert _leak_guard.vanilla_runs(ROOT, files) == []
+
+
+def _object(**sections: bytes) -> bytes:
+    """A minimal i386 COFF object (``shimkit``'s kind) with these sections, no symbols."""
+    at, headers, body = 20 + 40 * len(sections), b"", b""
+    for name, data in sections.items():
+        headers += struct.pack("<8sIIIIIIHHI", name.encode(), 0, 0, len(data), at + len(body), 0, 0, 0, 0, 0x40000040)
+        body += data
+    return struct.pack("<HHIIIHH", 0x014C, len(sections), 0, at + len(body), 0, 0, 0) + headers + body + bytes(4)
+
+
+def test_a_shim_objects_section_holding_a_run_of_a_vanilla_file_is_named(tmp_path, usa_iso, europe_iso):
+    """A committed shim object (``.o``) under src/ is read section by
+    section: one holding 32 or more bytes in a row of a vanilla file is
+    named by file, section and lengths, in the tree and in the commit that
+    added it (still named once a later commit removes it), never by its
+    bytes. Shorter runs, which compiled code and constants share with the
+    game by chance, text, and a constant of at most 3 byte values (the
+    identity matrix the save warp keeps, which the game holds too) pass;
+    so does every object the checkout commits."""
+    read = {}
+    for label, path in (("USA", usa_iso), ("Europe", europe_iso)):
+        with iso.Reader(path) as r:
+            read |= {(label, rel): r.read(rel) for rel in _leak_guard.VANILLA_FILES}
+    files = _leak_guard.vanilla_named(read)
+    usa = files["USA default.xbe"]
+    code = usa[facts.of(gate.USA).offset(0x05F620, 96):][:96]
+    identity = struct.pack("<16f", *(float(i % 5 == 0) for i in range(16)))
+    text = re.search(rb"[ -~]{48}", usa).group()
+    assert identity in usa and _leak_guard.OBJECT_RUN == 32
+    plants = {"src/a/held.o": _object(**{".text": code[:64], ".rdata": text + identity}),
+              "src/a/short.o": _object(**{".text": code[:31] + bytes([code[31] ^ 0xFF]) + code[32:63]}),
+              "docs/out.o": _object(**{".text": code[:64]})}
+
+    def git(*args: str) -> str:
+        return subprocess.run(["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t",
+                               "-c", "commit.gpgsign=false", *args], capture_output=True, text=True,
+                              check=True).stdout.strip()
+    git("init", "-q", "-b", "main")
+    for rel, data in plants.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_bytes(data)
+    named = [f"src/a/held.o (.text){{}}: a 64 B section holds 64 B in a row of the {name}"
+             for name, data in files.items() if code[:64] in data]
+    assert named and _leak_guard.vanilla_runs(tmp_path, files) == sorted(n.format("") for n in named)
+    git("add", *plants)
+    git("commit", "-q", "-m", "objects")
+    added = git("rev-parse", "HEAD")
+    git("rm", "-q", "src/a/held.o")
+    git("commit", "-q", "-m", "gone again")
+    found = _leak_guard.vanilla_runs_in_commits(tmp_path, ["HEAD"], files)
+    assert found == [n.format(f" in {added[:12]}") for n in named]
+    assert not any(form in line for line in found for form in (code.hex(), code[:64].hex(" "), repr(code[:64])))
     assert _leak_guard.vanilla_runs(ROOT, files) == []

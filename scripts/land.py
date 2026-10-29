@@ -7,8 +7,9 @@ It refuses unless BRANCH's head fast-forwards from main (an unborn main takes
 any head), and when a commit it would land adds a byte literal holding a run
 of either release's vanilla ``default.xbe`` or ``gamedata/config.xbr``
 (``tests/_leak_guard.py``'s vanilla-run rule, run over each commit, not only
-the head: a run a later commit removes stays in the history), naming the
-commit, file, line and lengths, never the bytes. It reads both releases'
+the head: a run a later commit removes stays in the history), or a shim
+object (``.o``) whose section holds a longer run (its object rule), naming
+the commit, file, line or section and lengths, never the bytes. It reads both releases'
 files from their images (``AZURKIT_ISO``, ``AZURKIT_ISO_EUROPE`` or the user
 data folder). It
 also needs a passing ``scripts/fullsuite.py`` receipt for that head's clean
