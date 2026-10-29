@@ -163,6 +163,24 @@ function askVanilla() {
   state.engine.vanilla(state.file);
 }
 
+// Ticking a pack ticks the packs it requires, and unticking one unticks the packs that require it (D588), so the
+// page never sends a recipe the engine refuses for a missing pack.
+function linked(changed) {
+  const boxes = Object.fromEntries([...$("packs").querySelectorAll("input[data-pack]")].map((b) => [b.dataset.pack, b]));
+  const requires = Object.fromEntries(state.packs.packs.map((p) => [p.name, p.requires]));
+  const todo = [changed.dataset.pack];
+  while (todo.length) {
+    const name = todo.pop(), on = boxes[name].checked;
+    const next = on ? requires[name] : Object.keys(requires).filter((other) => requires[other].includes(name));
+    for (const other of next) {
+      if (boxes[other].checked !== on) {
+        boxes[other].checked = on;
+        todo.push(other);
+      }
+    }
+  }
+}
+
 function renderPacks(catalog) {
   const list = $("packs");
   list.replaceChildren();
@@ -172,6 +190,7 @@ function renderPacks(catalog) {
     const label = document.createElement("label");
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: pack.default_on });
     box.dataset.pack = pack.name;
+    box.addEventListener("change", () => linked(box));
     const name = Object.assign(document.createElement("span"), { className: "name", textContent: pack.name });
     const what = Object.assign(document.createElement("span"), { textContent: pack.description });
     const where = Object.assign(document.createElement("span"), {

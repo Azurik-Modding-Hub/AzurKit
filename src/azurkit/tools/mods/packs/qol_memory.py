@@ -110,6 +110,7 @@ UPPER64_GPU_PACK = Pack(
            _gpu("the run allocator's mode-1 budget compare", 0x000A48DD, "budget"),
            *MASKS),
     default_on=True,
+    requires=("qol_memory_upper64",),   # its runs are placed in upper64's heap
 )
 
 UPPER256_PACK = Pack(
@@ -117,4 +118,5 @@ UPPER256_PACK = Pack(
     description="With both upper packs: RAM to 256 MiB (xemu v0.16.2+ at 256 MiB); inert below.",
     sites=(TrampolinePatch(label="Upper 256 MiB: T3's probe on the run allocator's mode-1 path", va=0x000A48D7,
                            shim="qol_memory_upper256", symbol="_c_upper256_probe"),),
+    requires=("qol_memory_upper64", "qol_memory_upper64_gpu"),
 )

@@ -7,8 +7,10 @@ turns its flags into the sdk's JSON and prints what comes back.
                   [--pack-param PACK.SLIDER=VALUE ...]
 
 ``build`` applies the packs on by default (D528) and each ``--pack``, less
-each ``--no-pack``; ``--no-defaults`` starts from none (no packs at all is
-the identity build). ``--pack-param`` sets a slider of a pack it applies, to
+each ``--no-pack`` and each pack on by default that requires one left out
+(D588: ``--no-pack qol_memory_upper64`` leaves out ``qol_memory_upper64_gpu``
+too); ``--no-defaults`` starts from none (no packs at all is the identity
+build). ``--pack-param`` sets a slider of a pack it applies, to
 any finite number (D23: never clamped). A refusal or failure is one
 ``azurkit: ...`` line on stderr and exit 1.
 """
@@ -62,7 +64,10 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
     if both := sorted(set(packs) & set(no_packs)):
         raise ValueError(f"packs both added and taken away: {', '.join(both)}")
     chosen = {name for name, p in catalog.items() if defaults and p["default_on"]} | set(packs)
-    built = {name: {} for name in catalog if name in chosen - set(no_packs)}
+    chosen -= set(no_packs)
+    while gone := {name for name in chosen - set(packs) if not set(catalog[name]["requires"]) <= chosen}:
+        chosen -= gone   # a default pack goes with one it requires (D588); a named one the sdk refuses
+    built = {name: {} for name in catalog if name in chosen}
     for given in params:
         target, _, value = given.partition("=")
         pack, _, slider = target.partition(".")

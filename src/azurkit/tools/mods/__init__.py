@@ -3,8 +3,10 @@
 :data:`PACKS` holds them in their canonical order, Modkit's registry order,
 which every build applies them in (AZ-024); a pack ported later takes its
 place there. :func:`normalize` is the one check of the packs a recipe names
-and their slider values, for every host (WEB §4.2); :func:`vanilla` reads a
-site slider's vanilla value from the player's own XBE (D42, Q174)."""
+and their slider values, for every host (WEB §4.2), and :func:`missing`
+names a pack a build applies without one it requires (``Pack.requires``);
+:func:`vanilla` reads a site slider's vanilla value from the player's own
+XBE (D42, Q174)."""
 
 from collections.abc import Mapping
 
@@ -49,6 +51,15 @@ def normalize(packs: object) -> dict[str, dict[str, float | int]]:
     return out
 
 
+def missing(packs: object) -> list[str]:
+    """Each pack of ``packs`` (names) that requires one ``packs`` leaves
+    out, and what: ``"pack 'x' needs 'y' in the same build"`` (Modkit's
+    ``Feature.requires``; ``qol_memory_upper64_gpu`` places its runs in
+    ``qol_memory_upper64``'s heap)."""
+    return [f"pack {name!r} needs {', '.join(map(repr, lost))} in the same build"
+            for name, pack in PACKS.items() if name in packs and (lost := [r for r in pack.requires if r not in packs])]
+
+
 def vanilla(release: Release, xbe: bytes) -> dict[str, dict[str, float]]:
     """``{pack: {slider: value}}``: each slider at a site of ``release``'s
     XBE (whose catalog's vanilla is ``None``) at the value ``xbe``, the
@@ -66,4 +77,5 @@ def vanilla(release: Release, xbe: bytes) -> dict[str, dict[str, float]]:
     return out
 
 
-__all__ = ["PACKS", "Pack", "PackError", "ParametricPatch", "XbrParametricEdit", "normalize", "plan", "vanilla"]
+__all__ = ["PACKS", "Pack", "PackError", "ParametricPatch", "XbrParametricEdit", "missing", "normalize", "plan",
+           "vanilla"]

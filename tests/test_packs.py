@@ -28,6 +28,7 @@ from azurkit import __version__, cli, sdk
 from azurkit.core import facts, gate, iso, xbe
 from azurkit.edits import preset
 from azurkit.edits.layer import claimed, compose
+from azurkit.edits.manifest import image
 from azurkit.tools import mods
 from azurkit.tools.mods import engine
 from scripts import gen_facts
@@ -47,9 +48,9 @@ def _oracle(rel: str) -> dict:
     return json.loads((ORACLE / rel).read_text(encoding="utf-8"))
 
 
-def _vanilla_xbe(path) -> bytes:
+def _vanilla_file(path, name: str) -> bytes:
     with iso.Reader(path) as r:
-        return r.read("default.xbe")
+        return r.read(name)
 
 
 def test_the_shipped_facts_are_the_ones_gen_facts_derives_from_the_oracle():
@@ -114,18 +115,34 @@ def test_each_g1_case_of_a_ported_pack_builds_its_golden_and_its_preset_carries_
     is its default: its pack's default case changes no XBR. The case's
     preset (with the build's report) decodes to its normalized recipe, the
     release and the result, and holds only names, numbers and hashes: no
-    image path, no game byte."""
+    image path, no game byte. A pack that requires others (the memory packs
+    past upper64, ``Pack.requires``) is refused alone, by name, so its case
+    (G1 builds each pack alone) is its layer's image (``edits.manifest.image``)."""
     path = request.getfixturevalue(f"{release.name}_iso")
     cases = _g1.cases(release)
     assert {case.pack for case in cases.values()} == set(mods.PACKS)
+    assert {name: pack.requires for name, pack in mods.PACKS.items() if pack.requires} == {
+        "qol_memory_upper64_gpu": ("qol_memory_upper64",),
+        "qol_memory_upper256": ("qol_memory_upper64", "qol_memory_upper64_gpu")}
     names = {*preset.KEYS, *preset.LAYER_KEYS, "kind", "release", "iso_sha256", preset.FORMAT, __version__, "mods",
              "packs", "vanilla", release.name, *mods.PACKS, *(s.name for p in mods.PACKS.values() for s in p.sliders())}
+    stamp = gate.verify(str(path), whole=False)
     for name, case in cases.items():
-        packs = {case.pack: case.params}
-        made, report = sdk.image({"iso": str(path), "packs": packs})
+        packs, pack = {case.pack: case.params}, mods.PACKS[case.pack]
+        if pack.requires:
+            with pytest.raises(ValueError, match=re.escape(f"pack {case.pack!r} needs 'qol_memory_upper64'")):
+                sdk.image({"iso": str(path), "packs": packs})
+            base = {file: _vanilla_file(path, file) for file in pack.files()}
+            made, manifest = image(stamp, [mods.plan(pack, release, base, case.params)], base)
+            result = dict(manifest.result)
+        else:
+            made, report = sdk.image({"iso": str(path), "packs": packs})
+            result = report["result"]
         with iso.Reader(made) as r:
             assert {file: _sha256(r.read(file)) for file in case.files} == case.files, name
-        _g1.check(report["result"], case, name)
+        _g1.check(result, case, name)
+        if pack.requires:
+            continue
         assert [layer["id"] for layer in report["layers"]] == [f"pack {case.pack}"] and report["conflicts"] == []
         shared = sdk.preset_decode(sdk.preset_encode({"iso": str(path), "packs": packs}, report))
         assert (shared["base"]["release"], shared["layers"][0]["recipe"], shared["result"]) == (
@@ -139,7 +156,9 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europ
     """``azurkit packs`` lists the packs in the order a build applies them,
     with their sliders; ``azurkit build`` with none named applies those on
     by default (D528, D571, D588): the load budget, the two upper-64 MiB
-    packs and qol_alloc_race; less the three memory packs (``--no-pack``),
+    packs and qol_alloc_race (``--no-pack qol_memory_upper64`` leaves out
+    the GPU pack that requires it too, and a build that names that pack
+    without it is refused by name); less the three memory packs (``--no-pack``),
     the written image's XBE holds qol_alloc_race's golden.
     ``--pack-param PACK.SLIDER=VALUE`` sets a slider of a pack the build
     applies, and is refused by name otherwise."""
@@ -150,6 +169,10 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_names_each_pack(europ
     assert cli.recipe("x.iso", ["fps_unlock"], [], True, ["fps_unlock.target_fps=120"])["packs"] == {
         "fps_unlock": {"target_fps": 120.0}, "qol_memory_budget": {}, "qol_memory_upper64": {},
         "qol_memory_upper64_gpu": {}, "qol_alloc_race": {}}
+    assert list(cli.recipe("x.iso", [], ["qol_memory_upper64"], True)["packs"]) == [   # D588: gpu goes with it
+        "qol_memory_budget", "qol_alloc_race"]
+    with pytest.raises(ValueError, match=re.escape("pack 'qol_memory_upper64_gpu' needs 'qol_memory_upper64' in")):
+        sdk.image(cli.recipe("x.iso", ["qol_memory_upper64_gpu"], ["qol_memory_upper64"], True))
     for given, refused in (("fps_unlock.target_fps=fast", "not PACK.SLIDER=NUMBER"),
                            ("fps_unlock=120", "not PACK.SLIDER=NUMBER"),
                            ("qol_gem_popups.x=1", "the build doesn't apply 'qol_gem_popups'")):

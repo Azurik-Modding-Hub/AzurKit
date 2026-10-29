@@ -221,7 +221,8 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     with the app's engine, here driven in headless Chromium and in WebKit
     (the macOS window's engine): the page reads each image's own vanilla
     values of the sliders at its XBE's sites (``api/vanilla``), each ported
-    pack builds its G1 case on both releases with CPython's report, and Save
+    pack builds its G1 case on both releases with CPython's report (one
+    that requires others, with them), and Save
     (offered in the Downloads folder) writes the USA build of every pack
     where the page names, CPython's image byte for byte, but never over a
     file that is there. The next
@@ -246,11 +247,13 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
                 _page.fill(page, "iso-path", str(path))
                 assert _page.until(page, f"() => azurkit.vanilla?.release === '{release.name}' && azurkit.vanilla"
                                    ) == sdk.vanilla(str(path))
-                for name in mods.PACKS:
+                for name, pack in mods.PACKS.items():   # one that requires others is built with them
                     _page.build(page, [name])
                     report = _page.built(page)
-                    _g1.check(report["result"], cases[name], name)
-                    assert report == sdk.image({"iso": str(path), "packs": {name: {}}})[1], name
+                    if not pack.requires:
+                        _g1.check(report["result"], cases[name], name)
+                    packs = {other: {} for other in (name, *pack.requires)}
+                    assert report == sdk.image({"iso": str(path), "packs": packs})[1], name
             _page.fill(page, "iso-path", str(usa_iso))
             _page.build(page, list(mods.PACKS))
             report = _page.built(page)

@@ -120,6 +120,12 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
   - `mods.normalize` is every host's one check of a recipe's packs. Unknown
     packs and sliders, NaN and inf are refused by name. A value equal to its
     default is dropped.
+- `Pack.requires` names the packs a build must apply with a pack
+  (`qol_memory_upper64_gpu` places its runs in `qol_memory_upper64`'s heap):
+  the sdk refuses a recipe without them, by name (`mods.missing`); the CLI
+  leaves out a pack on by default with one it requires (D588); the page ticks
+  them with it and unticks it with them. G1 builds each pack alone, so such a
+  pack's case is its layer's image.
 - **XBR** (`core/xbr/`): `Document` parses an archive's header, TOC and
   trailer, and config.xbr's keyed tables (`keyed.py`), and `dumps()` writes
   them back (every vanilla XBR round-trips, `tests/test_xbr.py`). An edit

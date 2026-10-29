@@ -329,6 +329,7 @@ class Pack:
     default_on: bool = False                            # every build applies it unless told not to (D528)
     category: str = "qol"
     releases: tuple[str, ...] = ("usa", "europe")
+    requires: tuple[str, ...] = ()                      # the packs a build must apply with it (mods.missing)
 
     def __post_init__(self) -> None:
         """A ``custom_apply`` takes the pack's sliders (it writes their XBE

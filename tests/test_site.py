@@ -108,10 +108,13 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
     past its hints widens it (D23, D42); once the image is picked, a slider
     at a site of the XBE shows the image's own vanilla value
     (``sdk.vanilla``), which its track holds too. No CSP violation, no
-    request but GETs of the site's files."""
+    request but GETs of the site's files. Ticking a pack that requires
+    others ticks them too (``Pack.requires``), so its page builds it with
+    them, and its G1 case (the pack alone) is test_packs'."""
     path = request.getfixturevalue(f"{release.name}_iso")
     golden = _g1.cases(release)
-    cases = ([(name, {}, name) for name in mods.PACKS] + [("fps_unlock", {"target_fps": "120"}, None)]
+    cases = ([(name, {}, None if pack.requires else name) for name, pack in mods.PACKS.items()]
+             + [("fps_unlock", {"target_fps": "120"}, None)]
              + [("enemy_damage", {k: str(v) for k, v in golden[SLID].params.items()}, SLID)]
              + [("qol_photo_mode", {"fly_speed": "1e39"}, None)])
     served = Site(browser, site)
@@ -134,7 +137,9 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
             _page.build(page, [name], {name: values})
         for (name, values, case), page in zip(cases, pages):
             built, sent = _built(page), page.evaluate("() => azurkit.sent")
-            assert sent == {name: {s.name: float(values.get(s.name, s.default)) for s in mods.PACKS[name].sliders()}}
+            assert sent == {other: {s.name: float(values.get(s.name, s.default) if other == name else s.default)
+                                    for s in mods.PACKS[other].sliders()}
+                            for other in (name, *mods.PACKS[name].requires)}
             made, report = sdk.image({"iso": str(path), "packs": sent})
             if case:
                 _g1.check(built["report"]["result"], golden[case], case)

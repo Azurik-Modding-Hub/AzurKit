@@ -14,8 +14,9 @@ values (a slider it doesn't name keeps its default)::
 
 The packs apply in their canonical order, whatever order the recipe names
 them in. A build applies the packs it names and no others: :func:`catalog`
-says which are on by default (D528), for a UI to start ticked, and each
-pack's sliders. A slider takes any finite number (D23; a whole one its
+says which are on by default (D528), for a UI to start ticked, each pack's
+sliders, and the packs each requires in the same build, without which a
+recipe is refused by name. A slider takes any finite number (D23; a whole one its
 encoding holds where it takes only those, D45): its track's ends are hints,
 never limits, and nothing is clamped (``mods.normalize``).
 """
@@ -37,13 +38,13 @@ RECIPE = ("iso", "packs")
 
 def catalog() -> dict:
     """Every pack: its name, what it does, its category, whether a build
-    starts with it (D528), the releases it supports and its sliders, in the
-    canonical order. A slider: its name, label, default, track (``min``,
+    starts with it (D528), the releases it supports, the packs it requires
+    in the same build and its sliders, in the canonical order. A slider: its name, label, default, track (``min``,
     ``max`` and ``step``, display hints only), unit, description, vanilla
     value (``None`` where the image's XBE holds it) and ``whole`` (the range of
     whole numbers it takes, its encoding's, or ``None``)."""
     return {"packs": [{"name": p.name, "description": p.description, "category": p.category,
-                       "default_on": p.default_on, "releases": list(p.releases),
+                       "default_on": p.default_on, "releases": list(p.releases), "requires": list(p.requires),
                        "sliders": [s.catalog() for s in p.sliders()]} for p in mods.PACKS.values()]}
 
 
@@ -66,12 +67,16 @@ def vanilla(path: str) -> dict:
 
 
 def _packs(recipe: object) -> dict[str, dict]:
-    """The recipe's packs, normalized (``mods.normalize``); every refusal named."""
+    """The recipe's packs, normalized (``mods.normalize``), each with every
+    pack it requires (``mods.missing``); every refusal named."""
     if not isinstance(recipe, Mapping):
         raise ValueError(f"a recipe is a JSON object, not {type(recipe).__name__}")
     if unknown := sorted(set(recipe) - set(RECIPE), key=str):
         raise ValueError(f"recipe: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(RECIPE)})")
-    return mods.normalize(recipe.get("packs", {}))
+    packs = mods.normalize(recipe.get("packs", {}))
+    if lost := mods.missing(packs):
+        raise ValueError("; ".join(lost))
+    return packs
 
 
 def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer]]:
@@ -153,4 +158,6 @@ def preset_decode(text: str) -> dict:
         if (layer["tool"], layer["kind"]) != ("mods", "packs"):
             raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} (AzurKit's: mods, packs)")
         layer["recipe"] = mods.normalize(layer["recipe"])
+        if lost := mods.missing(layer["recipe"]):
+            raise ValueError("preset: " + "; ".join(lost))
     return found
