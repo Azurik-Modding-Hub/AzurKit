@@ -57,6 +57,7 @@ import glob
 import hmac
 import http.server
 import json
+import math
 import mimetypes
 import os
 import secrets
@@ -69,6 +70,7 @@ from pathlib import Path
 
 from azurkit import __version__, sdk
 from azurkit.core import gate
+from azurkit.edits import xbr
 
 SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
 
@@ -150,11 +152,33 @@ def _set_theme(body: dict) -> dict:
 
 def _set_setup(body: dict) -> dict:
     """``api/setup``: remember the page's setup (D915), or forget it
-    (``null``): its packs, settings and config.xbr cells only."""
-    if (setup := body.get("setup")) is not None and not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
-        raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
+    (``null``): pack and setting names, their numbers and config.xbr ``set``
+    operations only, so never an image's path or a ``replace_bytes``' bytes
+    (D3), anywhere in it."""
+    if (setup := body.get("setup")) is not None:
+        if not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
+            raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
+        ticked, values, ops = setup.get("ticked", []), setup.get("values", {}), setup.get("xbr", [])
+        if not (isinstance(ticked, list) and all(map(_named, ticked))):
+            raise ValueError("setup: ticked holds pack names only")
+        if not (isinstance(values, dict) and all(_named(pack) and _numbers(settings) for pack, settings in values.items())):
+            raise ValueError("setup: values holds {pack: {setting: number}} only")
+        if not (isinstance(ops, list) and all(isinstance(op, dict) and op.get("op") == "set" for op in ops)):
+            raise ValueError("setup: xbr holds config.xbr set operations only (Q174)")
+        xbr.normalize(ops)   # each set with exactly its keys, else refused by name
     _remember(setup=setup)
     return {}
+
+
+def _named(name: object) -> bool:
+    """``name`` is a pack's or a setting's name (an identifier: never a path)."""
+    return isinstance(name, str) and name.isidentifier()
+
+
+def _numbers(settings: object) -> bool:
+    """``settings`` is ``{setting: a finite number}``."""
+    return isinstance(settings, dict) and all(_named(name) and type(value) in (int, float) and math.isfinite(value)
+                                              for name, value in settings.items())
 
 
 def _path(given: object, what: str) -> Path:

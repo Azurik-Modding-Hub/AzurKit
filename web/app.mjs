@@ -519,14 +519,15 @@ function restored({ ticked, values, xbr, dropped }) {
   start();
 }
 
-// Reset to defaults: the packs on by default, every setting at its default, no config.xbr cell; nothing remembered.
+// Reset to defaults: the packs on by default, every setting at its default, no config.xbr cell; the remembered setup
+// forgotten (the next change is remembered again, so the status says what happened, not what is kept).
 function reset() {
   setTo(new Set(state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name)), {}, []);
   state.loaded = null;
   unlinked();
   pick("patches");
   remember();
-  say("Reset to the defaults: the packs on by default, every setting at its default. Nothing is remembered.");
+  say("Reset to the defaults: the packs on by default, every setting at its default; the remembered setup is forgotten.");
 }
 
 // The page's address drops a link's #p= once the page no longer holds that recipe, so a reload restores the setup.

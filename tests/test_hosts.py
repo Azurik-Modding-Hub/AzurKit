@@ -429,8 +429,9 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
     beside the theme, written whole; ``host.json`` gives it to the next
     page, and ``api/restore`` gives back what of it still applies, the rest
     named (``sdk.restore``). ``null`` forgets it, and a setup holding
-    anything but packs, settings and config.xbr cells (an image's path, say)
-    is refused by name, the config as it was."""
+    anything but pack and setting names, numbers and config.xbr ``set``
+    cells, anywhere in it (an image's path, a ``replace_bytes``), is refused
+    by name, the config as it was."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
     (page := tmp_path / "page").mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
@@ -444,7 +445,18 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
         _post(server.url, path, body, replies)
         return replies[0]
 
-    setup = {"ticked": ["fps_unlock", "qol_retired"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": []}
+    cell = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+            "prop": "hitPoints", "value": 321}
+    setup = {"ticked": ["fps_unlock", "qol_retired"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell]}
+    refused = {   # a path or game bytes anywhere in a setup
+        "setup: an object of ticked, values, xbr only, or null": {"ticked": [], "iso": "/a.iso"},
+        "setup: ticked holds pack names only": {"ticked": ["/a.iso"]},
+        "setup: values holds {pack: {setting: number}} only": {"values": {"fps_unlock": {"target_fps": "/a.iso"}}},
+        "setup: xbr holds config.xbr set operations only (Q174)": {"xbr": [
+            {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": 0, "value": "00", "expected": "00"}]},
+        "xbr op 1 (set): no key 'expected' (its keys: op, file, table, entity, prop, value)": {
+            "xbr": [cell | {"expected": "00"}]},
+    }
 
     def kept() -> list:
         """The config, and the files in its folder."""
@@ -456,10 +468,10 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
         assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
         assert call("host.json")["setup"] == setup
         assert call("api/restore", {"setup": setup}) == sdk.restore(setup) == {
-            "ticked": ["fps_unlock"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [],
+            "ticked": ["fps_unlock"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell],
             "dropped": ["qol_retired (no such pack)"]}
-        assert call("api/setup", {"setup": {"ticked": [], "iso": "/a.iso"}}) == {
-            "refused": "setup: an object of ticked, values, xbr only, or null"}
+        assert [call("api/setup", {"setup": given}) for given in refused.values()] == [
+            {"refused": why} for why in refused]
         assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
         assert call("api/setup", {"setup": None}) == {}
         assert [kept(), call("host.json")["setup"]] == [[{"theme": "light"}, ["app.json"]], None]

@@ -534,6 +534,8 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
         assert [list(_page.ticked(page)), page.evaluate(FIELDS, "player_physics"), page.evaluate(RESET)] == [
             defaults, fresh, True]
         _remembered(page, None)
+        assert page.evaluate(STATUS) == ("Reset to the defaults: the packs on by default, every setting at its default; "
+                                         "the remembered setup is forgotten.")   # an event: a change is kept again
         _reload(page)
         assert [list(_page.ticked(page)), page.evaluate(STATUS)] == [defaults, ""]
 
