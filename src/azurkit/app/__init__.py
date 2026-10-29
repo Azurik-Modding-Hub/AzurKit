@@ -20,7 +20,9 @@ site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
 (``sdk.build``), never over an existing file but the one the save dialog
 chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
 ``POST api/vanilla`` ``{"iso"}`` reads the image's own values of the
-sliders at its XBE's sites (``sdk.vanilla``).
+sliders at its XBE's sites (``sdk.vanilla``), or, when the image is an
+AzurKit build, ``{"opened": its recipe}`` (``sdk.open_build`` of the files
+it changed).
 ``POST api/preset`` ``{"recipe", "report"}`` makes a share link's fragment
 (``sdk.preset_encode``) and ``POST api/decode`` ``{"text"}`` reads one
 (``sdk.preset_decode``).
@@ -241,8 +243,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if (url := self._url()) is None or self.headers.get("Origin", f"http://{self.server.host}") != (
                 f"http://{self.server.host}") or self.headers.get_content_type() != "application/json":
             return self.send_error(403)
-        call = {"/api/build": self.server.build, "/api/save": self.server.save,
-                "/api/vanilla": lambda body: sdk.vanilla(str(_path(body.get("iso"), "image"))),
+        call = {"/api/build": self.server.build, "/api/save": self.server.save, "/api/vanilla": _vanilla,
                 "/api/preset": lambda body: {"fragment": sdk.preset_encode(body.get("recipe"), body.get("report"))},
                 "/api/decode": lambda body: {"preset": sdk.preset_decode(body.get("text"))},
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
@@ -265,6 +266,18 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, *args) -> None:   # the token is in the first request's line
         pass
+
+
+def _vanilla(body: dict) -> dict:
+    """``api/vanilla``: the image's own slider values, or an AzurKit build's recipe."""
+    iso = str(_path(body.get("iso"), "image"))
+    try:
+        return sdk.vanilla(iso)
+    except gate.NotVanillaError as exc:
+        try:
+            return {"opened": sdk.open_build(iso, whole=False)}
+        except (OSError, ValueError):
+            raise exc from None
 
 
 def serve(page: Path = PAGE) -> Server:

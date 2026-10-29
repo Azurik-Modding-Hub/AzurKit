@@ -175,11 +175,12 @@ def _checked(record: object, blob: bytes) -> dict:
     return record
 
 
-def load(path: str | os.PathLike) -> tuple[gate.Release, dict]:
+def load(path: str | os.PathLike, *, whole: bool = True) -> tuple[gate.Release, dict]:
     """The manifest of the AzurKit build at ``path`` (its /azurkit.json,
     checked, its /azurkit.bin's blobs re-verified) and its release, once the
-    image is checked against it (the module's docstring): ``ValueError``
-    names why it is no AzurKit build or what drifted, never game bytes."""
+    image is checked against it (the module's docstring; with ``whole``
+    false, only the files it says the build changed): ``ValueError`` names
+    why it is no AzurKit build or what drifted, never game bytes."""
     try:
         with iso.Reader(path) as r:
             entries = {e.path: e for e in r.entries()}
@@ -198,7 +199,7 @@ def load(path: str | os.PathLike) -> tuple[gate.Release, dict]:
         raise ValueError(f"{path}: its /{JSON} isn't a manifest AzurKit reads: {exc}") from None
     release = {r.name: r for r in gate.RELEASES}[record["base"]["release"]]
     try:
-        gate.check(path, release, record["result"], (JSON, BIN))
+        gate.check(path, release, record["result"], (JSON, BIN), whole=whole)
     except gate.NotVanillaError as exc:
         raise ValueError(f"{path} isn't the build its /{JSON} records: {exc}") from None
     return release, record

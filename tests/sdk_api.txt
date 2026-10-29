@@ -74,7 +74,7 @@ size and sha256. ``progress(done, total)`` follows the write; an
 exception it raises cancels it, and nothing is written.
 
 
-def open_build(path: 'str') -> 'dict':
+def open_build(path: 'str', *, whole: 'bool' = True) -> 'dict':
 
 The recipe of the AzurKit build at ``path``: its mods file (Q268), a
 preset of its base, AzurKit's version that built it, its layers'
@@ -82,7 +82,9 @@ recipes (the packs; the xbr operations) and the sha256 of each file it
 changed, from its /azurkit.json, once every file of the image is
 checked against it (``edits.manifest.load``): a file no layer wrote
 that differs is drift, refused by name, as is an image that isn't an
-AzurKit build. Its recipe rebuilds the build from the vanilla image
+AzurKit build. With ``whole`` false only the files it changed are
+checked (the page's way: it offers the recipe, and builds from a
+vanilla image). Its recipe rebuilds the build from the vanilla image
 (:func:`read_mods`).
 
 

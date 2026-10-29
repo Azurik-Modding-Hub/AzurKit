@@ -7,15 +7,17 @@ golden on both releases, and the page's build is CPython's: the same report,
 and the same segments, so the Blob it saves is the image ``sdk.image`` makes;
 so is a build with a slider set on the page (Step 4.1e1), whose track holds
 its vanilla value and widens, never clamps, and one of config.xbr's cells
-(Step 4.1e2); the saved file of every pack is that image, byte for byte. A
-share link carries the page's recipe and loads it into a page it opens
-(Step 4.1g). Under the page's CSP (no ``'unsafe-eval'``) nothing is refused,
-and every request is a GET of one of the site's own files: the image never
-leaves the page. The page is driven as ``tests/_page.py`` says."""
+(Step 4.1e2); the saved file of every pack is that image, byte for byte, and
+opens back into its recipe. A share link carries the page's recipe and loads
+it into a page it opens (Step 4.1g). Under the page's CSP (no
+``'unsafe-eval'``) nothing is refused, and every request is a GET of one of
+the site's own files: the image never leaves the page. The page is driven as
+``tests/_page.py`` says."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import mimetypes
 import urllib.parse
 from pathlib import Path
@@ -212,9 +214,11 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         served.close()
 
 
-def test_the_saved_file_is_the_image_cpython_builds(browser, site, usa_iso):
+def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):
     """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
-    whose size and sha256 are those of CPython's image of the same recipe."""
+    whose size and sha256 are those of CPython's image of the same recipe.
+    Picked as the image, that build shows as an AzurKit build
+    (``sdk.open_build``), and Load its recipe ticks every pack again."""
     served = Site(browser, site)
     try:
         page = served.open()
@@ -230,6 +234,14 @@ def test_the_saved_file_is_the_image_cpython_builds(browser, site, usa_iso):
                 got = (download.suggested_filename, saved.stat().st_size, hashlib.file_digest(f, "sha256").hexdigest())
             made, _ = sdk.image({"iso": str(usa_iso), "packs": {name: {} for name in mods.PACKS}})
             assert got == (f"{usa_iso.stem} (AzurKit).iso", made.size, made.sha256())
+            _page.tick(page, [])
+            page.set_input_files("#iso", str(saved))
+            opened = _page.until(page, "() => azurkit.opened")
+            assert opened == json.loads(json.dumps(sdk.open_build(made)))
+            assert page.evaluate("() => document.querySelector('#picked').textContent").startswith(
+                "◆ AzurKit build · USA · 17 packs")
+            _page.click(page, "load-build")
+            assert list(_page.ticked(page)) == list(mods.PACKS)
         finally:
             download.delete()
         assert served.stray() == []

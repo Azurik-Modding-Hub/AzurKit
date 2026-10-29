@@ -153,16 +153,18 @@ def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] |
     return _report(manifest) | {"out": str(target), "size": target.stat().st_size, "sha256": sha256}
 
 
-def open_build(path: str) -> dict:
+def open_build(path: str, *, whole: bool = True) -> dict:
     """The recipe of the AzurKit build at ``path``: its mods file (Q268), a
     preset of its base, AzurKit's version that built it, its layers'
     recipes (the packs; the xbr operations) and the sha256 of each file it
     changed, from its /azurkit.json, once every file of the image is
     checked against it (``edits.manifest.load``): a file no layer wrote
     that differs is drift, refused by name, as is an image that isn't an
-    AzurKit build. Its recipe rebuilds the build from the vanilla image
+    AzurKit build. With ``whole`` false only the files it changed are
+    checked (the page's way: it offers the recipe, and builds from a
+    vanilla image). Its recipe rebuilds the build from the vanilla image
     (:func:`read_mods`)."""
-    return preset.from_manifest(edits.load(path)[1])
+    return preset.from_manifest(edits.load(path, whole=whole)[1])
 
 
 def read_mods(given: str | bytes | Mapping) -> dict:

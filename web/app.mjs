@@ -9,11 +9,13 @@
 //
 // A recipe travels as a share link (WEB §4.1, §4.2): Copy link asks the engine for the #p=… fragment of the packs,
 // their sliders and the config.xbr cells a loaded recipe set (sdk.preset_encode), and a page opened with one loads
-// it (sdk.preset_decode): the packs ticked, the sliders set, each value it changed marked ●, never a build.
+// it (sdk.preset_decode): the packs ticked, the sliders set, each value it changed marked ●, never a build. Picking an
+// AzurKit build as the image offers its recipe the same way (sdk.open_build), to build again from a vanilla image.
 const $ = (id) => document.getElementById(id);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
                 packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
-                vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, site: null };
+                vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
+                site: null };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
 function say(text, error = false) {
@@ -29,7 +31,7 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
-function siteEngine({ ready, built, refused, failed, vanilla, shared, decoded }) {
+function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded }) {
   let worker = null, loaded = false;
   const start = () => {
     loaded = false;
@@ -44,6 +46,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, shared, decoded })
       } else if (data.type === "vanilla") {
         const { type, ...read } = data;
         vanilla(read);
+      } else if (data.type === "opened") {
+        opened(data.preset);
       } else if (data.type === "preset") {
         shared(data.fragment);
       } else if (data.type === "decoded") {
@@ -84,7 +88,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, shared, decoded })
 // The app's engine: azurkit.sdk on CPython behind this launch's server (azurkit.app), the same in the app's window
 // and in a browser. The page posts JSON to it, and a refusal comes back as {refused}. A build's reply that arrives
 // after Cancel is dropped; a save's is awaited, since the server says whether it wrote anything.
-function appEngine(host, { ready, built, refused, failed, saved, vanilla, shared, decoded }) {
+function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened, shared, decoded }) {
   let ticket = 0;
   const post = async (path, body) => {
     const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -109,7 +113,8 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, shared
     .catch((error) => failed(`The app's engine didn't answer (${error.message}): restart AzurKit`));
   return {
     build: (iso, packs, xbr) => run("api/build", { iso, packs, xbr }, built),
-    vanilla: (iso) => post("api/vanilla", { iso }).then((read) => "refused" in read || vanilla(read)).catch(() => {}),
+    vanilla: (iso) => post("api/vanilla", { iso }).then((read) => "refused" in read
+      || ("opened" in read ? opened(read.opened) : vanilla(read))).catch(() => {}),
     preset: (recipe, report) => ask("api/preset", { recipe, report }, (reply) => shared(reply.fragment)),
     decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
     save: (recipe, out) => run("api/save", { recipe, out }, saved),
@@ -255,7 +260,7 @@ function forget() {
   $("out-row").hidden = true;
 }
 
-// Load a recipe (a share link's: a preset, already checked by the engine) into the page:
+// Load a recipe (a share link's, or an AzurKit build's: a preset, already checked by the engine) into the page:
 // tick exactly its packs, set their sliders (the others to their defaults), keep its config.xbr cells for the build,
 // and mark ● each tick and value it changed. It never starts a build.
 function load(preset, from) {
@@ -309,6 +314,22 @@ function shared(fragment) {
 function decoded(preset) {
   state.pending = null;
   load(preset, "the link");
+}
+
+// The picked image is an AzurKit build: offer its recipe (sdk.open_build checked every file against it).
+function opened(preset) {
+  if (state.asked !== state.file) return;
+  state.opened = preset;
+  const packs = Object.keys(preset.layers.find((layer) => layer.tool === "mods")?.recipe ?? {}).length;
+  const label = preset.base?.release === "europe" ? "Europe" : "USA";
+  $("picked").textContent = `◆ AzurKit build · ${label} · ${packs} packs: load its recipe, then pick your vanilla `
+    + "image to build it again.";
+  $("load-build").hidden = false;
+}
+
+function unopen() {
+  state.opened = null;
+  $("load-build").hidden = true;
 }
 
 function ready(catalog, version) {
@@ -379,6 +400,7 @@ function pickInApp(host) {
   $("save").textContent = host.dialogs ? "Save ISO…" : "Save";
   const picked = () => {
     forget();
+    unopen();
     state.file = $("iso-path").value.trim() || null;
     $("picked").textContent = host.dialogs ? "Type the image's full path, or Choose… it."
       : "Type the image's full path: a browser can't tell AzurKit where a file is.";
@@ -412,7 +434,7 @@ async function main() {
   } catch (error) {
     return say(`AzurKit didn't load: ${error.message}`, true);
   }
-  const callbacks = { ready, built, saved, vanilla, shared, decoded,
+  const callbacks = { ready, built, saved, vanilla, opened, shared, decoded,
                       refused: ({ message }) => report(message, true), failed: (message) => report(message, true) };
   if (location.hash.startsWith("#p=")) state.pending = location.hash;
   state.site = host.site ?? null;
@@ -425,6 +447,7 @@ async function main() {
     state.engine = siteEngine(callbacks);
     $("iso").addEventListener("change", () => {
       forget();
+      unopen();
       state.file = $("iso").files[0] ?? null;
       $("picked").textContent = state.file ? `${state.file.name} · ${bytes(state.file.size)}` : "";
       say("");
@@ -436,6 +459,10 @@ async function main() {
   $("packs").addEventListener("change", forget);
   $("packs").addEventListener("input", forget);
   $("share").addEventListener("click", share);
+  $("load-build").addEventListener("click", () => {
+    $("load-build").hidden = true;
+    load(state.opened, "your build");
+  });
   $("build").addEventListener("click", () => {
     forget();
     if (!state.app) state.ready = false;   // the site's engine is replaced after each build

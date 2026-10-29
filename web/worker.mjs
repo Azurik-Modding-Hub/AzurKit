@@ -15,6 +15,7 @@
 // Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
+//      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "csp", directive, blocked}
 const base = new URL("./", import.meta.url);
@@ -41,10 +42,12 @@ def engine(request):
 
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
-    if request.type in ("vanilla", "preset", "decode"):
+    if request.type in ("vanilla", "open", "preset", "decode"):
         try:
             if request.type == "vanilla":
                 return js(sdk.vanilla(request.recipe.iso))
+            if request.type == "open":
+                return js({"preset": sdk.open_build(request.recipe.iso, whole=False)})
             if request.type == "preset":
                 report = request.report.to_py() if request.report else None
                 return js({"fragment": sdk.preset_encode(request.recipe.to_py(), report)})
@@ -78,14 +81,17 @@ async function load() {
   return { py, engine: py.runPython(ENGINE) };
 }
 
-// The image's own values of the sliders at its XBE's sites, the image mounted only for the read: a build mounts it
-// again, then this worker is replaced.
+// The image's own values of the sliders at its XBE's sites, or, when it is an AzurKit build, its recipe; the image
+// mounted only for the read: a build mounts it again, then this worker is replaced.
 function vanilla({ py, engine }, file) {
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
   try {
-    const read = engine({ type: "vanilla", recipe: { iso: `/in/${file.name}` } });
-    if (!("refused" in read)) post({ type: "vanilla", ...read });
+    const recipe = { iso: `/in/${file.name}` };
+    const read = engine({ type: "vanilla", recipe });
+    if (!("refused" in read)) return post({ type: "vanilla", ...read });
+    const opened = engine({ type: "open", recipe });
+    if (!("refused" in opened)) post({ type: "opened", preset: opened.preset });
   } finally {
     py.FS.unmount("/in");
   }

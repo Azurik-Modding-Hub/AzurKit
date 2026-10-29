@@ -118,14 +118,22 @@ def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Relea
     return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole)
 
 
-def check(path: str | os.PathLike, release: Release, changed: dict[str, str], added: tuple[str, ...] = ()) -> None:
+def check(path: str | os.PathLike, release: Release, changed: dict[str, str], added: tuple[str, ...] = (), *,
+          whole: bool = True) -> None:
     """:class:`NotVanillaError` naming the first file, in path order, of the
     image at ``path`` that isn't ``release``'s vanilla file, or for one of
     ``changed`` (``{path: sha256}``), that sha256's; ``added`` names files
-    it holds besides (an AzurKit build's root files). Every file is read,
-    on the caller's thread."""
+    it holds besides (an AzurKit build's root files). Every file is read
+    (``whole``), else only ``changed``'s, on the caller's thread."""
     with iso.Reader(path) as r:
-        if why := _first_difference(r, {e.path: e for e in r.entries()}, release, True, changed, added):
+        have = {e.path: e for e in r.entries()}
+        if whole:
+            why = _first_difference(r, have, release, True, changed, added)
+        else:
+            why = next((f"{p}: {'missing' if p not in have or have[p].is_dir else 'its contents differ'}"
+                        for p, sha in sorted(changed.items())
+                        if p not in have or have[p].is_dir or _sha256(r, have[p]) != sha), None)
+        if why:
             raise NotVanillaError(why)
 
 

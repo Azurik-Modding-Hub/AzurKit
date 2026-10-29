@@ -21,7 +21,8 @@ two upper-64 MiB packs) start ticked. The C shims ship prebuilt: nothing
 compiles on your computer. A build carries its recipe in two small files at
 the image's root, `/azurkit.json` and `/azurkit.bin`, which the game never
 opens: `azurkit open` reads a build back into its recipe, a mods file that
-`azurkit build --mods` builds again (it can also set config.xbr's cells by
+`azurkit build --mods` builds again (the page does the same when you pick a
+build as the image) (it can also set config.xbr's cells by
 name and replace bytes in an XBR file). It builds from the command line, in the web page (pick your image, choose
 packs and set their sliders, Build, then Save, and Copy link shares the
 recipe; it runs in your browser, and nothing is uploaded) or in the app, which shows the

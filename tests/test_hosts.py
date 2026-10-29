@@ -226,7 +226,9 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     (offered in the Downloads folder) writes the USA build of every pack
     where the page names, CPython's image byte for byte, but never over a
     file that is there; Copy link gives the site's link to that build's
-    recipe and hashes (``sdk.preset_encode``). The next
+    recipe and hashes (``sdk.preset_encode``), and the saved build, typed
+    as the image, offers its recipe (``sdk.open_build``), which ticks every
+    pack again. The next
     launch starts from the image the last build read (remembered in
     platformdirs' config folder). No CSP violation, no request but to the
     app's own server, and the app, the folder, HOME and TMPDIR are as they
@@ -271,6 +273,11 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
             _page.click(page, "share")
             assert _page.until(page, "() => azurkit.link") == app.SITE + sdk.preset_encode(
                 {"packs": {name: {} for name in mods.PACKS}}, report)
+            _page.tick(page, [])
+            _page.fill(page, "iso-path", str(out))
+            assert _page.until(page, "() => azurkit.opened") == json.loads(json.dumps(sdk.open_build(str(out))))
+            _page.click(page, "load-build")
+            assert list(_page.ticked(page)) == list(mods.PACKS)
             _page.check_csp(page)
         origin = url.partition("/?")[0]
         assert [seen for seen in requests if not seen.startswith(f"{origin}/")] == []

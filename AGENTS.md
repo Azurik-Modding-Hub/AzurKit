@@ -240,6 +240,12 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
     (`sdk.preset_decode`): exactly its packs ticked, its sliders set, each
     tick and value it changed marked ●, and no build. Ticking a pack ticks
     the packs it requires; unticking one unticks those that require it.
+  - **An AzurKit build as the image:** the engine's vanilla read (the
+    site's worker, the app's `api/vanilla`) falls back to
+    `sdk.open_build(whole=False)` (only the files the build changed are
+    checked: reading all 2.6 GB takes minutes in WebKit's worker), and the
+    page shows "◆ AzurKit build" with Load its recipe, which loads it as a
+    link's, to build again from a vanilla image.
 - **The site** is the page with Pyodide's core, the wheel and its
   `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in

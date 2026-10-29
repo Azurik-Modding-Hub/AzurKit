@@ -166,7 +166,8 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
     message, by its number, never by the file's bytes. A share link
     carries ``set`` alone (Q174). ``sdk.open_build`` refuses an image that
     isn't an AzurKit build, one whose file drifted from its manifest, and a
-    manifest whose blob isn't its bytes, by name."""
+    manifest whose blob isn't its bytes, by name; with ``whole`` false (the
+    page's) it checks only the files the build changed."""
     with iso.Reader(usa_iso) as r:
         a1 = r.read("gamedata/a1.xbr")
     golem = {"op": "set", "file": CONFIG, "table": "critters_damage", "entity": "golem", "prop": "hitPoints"}
@@ -175,6 +176,8 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
     with iso.Reader(made) as r:
         assert Document(r.read(CONFIG)).tables["critters_damage"].number("golem", "hitPoints") == 654.5
         a3, flip = r.find("gamedata/a3.xbr"), bytes([r.read("gamedata/a3.xbr")[9] ^ 0xFF])
+        config = r.find(CONFIG)
+        bend = bytes([r.read(config)[9] ^ 0xFF])
     assert len(report["conflicts"]) == 1 and re.fullmatch(
         rf"{CONFIG} 0x[0-9A-F]+ \(\d B\): data xbr \(#2 set critters_damage/golem/hitPoints\) overwrote data xbr, "
         r"whose group #1 set critters_damage/golem/hitPoints is dropped whole", report["conflicts"][0])
@@ -220,6 +223,10 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
     with pytest.raises(ValueError, match=r"isn't the build its /azurkit\.json records: gamedata/a3\.xbr: its contents "
                                          r"differ$"):
         sdk.open_build(drifted)
+    assert sdk.open_build(drifted, whole=False) == sdk.open_build(made)
+    changed = iso.Image(made.source, (*made.writes, (config.sector * iso.SECTOR + 9, bend)), made.size)
+    with pytest.raises(ValueError, match=r"gamedata/config\.xbr: its contents differ$"):
+        sdk.open_build(changed, whole=False)
     built, _ = sdk.image({"iso": str(usa_iso), "packs": {"qol_photo_mode": {}}})
     with iso.Reader(built) as r:
         blob = r.find(manifest.BIN)
