@@ -391,8 +391,7 @@ def spoiler_text(plan, logic, logic_verified: bool, why_not=()) -> str:
     return "\n".join(lines) + "\n"
 
 
-__all__ = ["CATEGORIES", "LAYER", "LayerError", "LayerReport", "SIZE_FOLD", "SIZE_PACK", "SIZE_SLIDERS", "build_sliders",
-           "check_args", "check_movement", "floor_reason", "judge", "movement_reasons", "obsidian_reason", "outputs",
-           "plan_for", "roll_reasons", "unreachable",
+__all__ = ["CATEGORIES", "LAYER", "LayerError", "LayerReport", "SIZE_FOLD", "SIZE_PACK", "SIZE_SLIDERS",
+           "build_sliders", "floor_reason", "obsidian_reason", "plan_for", "roll_reasons", "unreachable",
            "read_settings", "size_params", "sliders_text", "settings_from_args", "settings_text", "spoiler_text",
-           "unjudged_reasons", "write_layer", "write_outputs"]
+           "unjudged_reasons"]

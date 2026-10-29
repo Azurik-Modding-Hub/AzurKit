@@ -556,6 +556,6 @@ DEFAULT_SEED = "2"      # the goldens' seed (D185; scripts/restack.py moves it):
 KEEP = 4                 # the newest cached range sets kept
 
 
-__all__ = ["DEFAULT_SEED", "MODELLED", "Recheck", "SafeRange", "changed", "default_ranges", "describe", "logic_for",
-           "logic_of", "measured", "recheck", "required", "roll_proofs", "rolling_skips", "run_floor", "slider_ranges",
-           "taller", "unjudged", "verdict", "weaker"]
+__all__ = ["DEFAULT_SEED", "MODELLED", "Recheck", "SafeRange", "changed", "describe", "logic_for", "logic_of",
+           "measured", "recheck", "required", "roll_proofs", "rolling_skips", "run_floor", "taller", "unjudged",
+           "verdict", "weaker"]

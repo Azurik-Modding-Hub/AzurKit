@@ -40,6 +40,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import tomllib
 from pathlib import Path
 
@@ -139,11 +140,20 @@ def _binds(node: ast.stmt) -> set[str]:
 def port(rel: str, text: str) -> str:
     """Modkit's module ``rel`` as AzurKit holds it: each top-level statement
     :data:`DROPS` names for it taken out with the comment lines right above
-    it and the blank lines after it, then
+    it and the blank lines after it, and from its ``__all__`` list, then
     :data:`REWRITES`. ValueError naming a statement DROPS names that isn't
     there (or binds more than it names) and each import of Modkit left."""
     drop, lines, cut = set(DROPS.get(rel, ())), text.splitlines(keepends=True), set()
+    dropped = frozenset(drop)
     for node in ast.parse(text).body:
+        if (_binds(node) == {"__all__"} and isinstance(node, ast.Assign) and isinstance(node.value, ast.List)
+                and all(isinstance(e, ast.Constant) for e in node.value.elts)
+                and dropped & {e.value for e in node.value.elts}):   # its names, less those DROPS takes out
+            kept = ", ".join(json.dumps(e.value) for e in node.value.elts if e.value not in dropped)
+            lines[node.lineno - 1] = textwrap.fill(kept, 119, initial_indent="__all__ = [", subsequent_indent=" " * 11,
+                                                   break_long_words=False) + "]\n"
+            cut.update(range(node.lineno, node.end_lineno))
+            continue
         if not (names := _binds(node)) & drop:
             continue
         if names - drop:

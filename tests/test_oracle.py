@@ -43,14 +43,17 @@ def test_every_oracle_file_is_the_one_the_sync_installed():
 
 def test_the_sync_ports_a_modkit_module_by_its_rewrites_and_drops_or_names_what_it_cant(monkeypatch):
     """A ported module loses each top-level statement DROPS names (with the
-    comment right above it and the blank lines after it) and has its imports
+    comment right above it, the blank lines after it and its name in
+    ``__all__``) and has its imports
     rewritten; one that still
     imports Modkit, or a statement DROPS names that is gone, is named."""
     monkeypatch.setattr("scripts.oracle_sync.DROPS", {"m.py": ("threading", "pool")})
     source = ("import json\nimport threading\n\nfrom azurik_mod.randomizer.planner.solver import Logic\n\n\n"
-              "def kept():\n    return 1\n\n\n# the pool\n@cache\ndef pool(n):\n    return n\n\n\ndef last():\n    return 2\n")
+              "def kept():\n    return 1\n\n\n# the pool\n@cache\ndef pool(n):\n    return n\n\n\ndef last():\n    return 2\n"
+              '__all__ = ["kept",\n           "pool", "last"]\n')
     assert port("m.py", source) == ("import json\nfrom azurkit.tools.randomizer.planner.solver import Logic\n\n\n"
-                                    "def kept():\n    return 1\n\n\ndef last():\n    return 2\n")
+                                    "def kept():\n    return 1\n\n\ndef last():\n    return 2\n"
+                                    '__all__ = ["kept", "last"]\n')
     with pytest.raises(ValueError, match=r"m\.py:1 imports azurik_mod\.patching\.registry"):
         port("m.py", "from azurik_mod.patching.registry import all_packs\n" + source)
     with pytest.raises(ValueError, match=r"no top-level statement binds \['pool'\]"):
