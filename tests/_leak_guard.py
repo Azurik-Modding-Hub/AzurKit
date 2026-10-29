@@ -39,7 +39,8 @@ read from the images), and so does ``scripts/land.py`` over every commit it
 lands (:func:`vanilla_runs_in_commits`), but neither the hook nor the
 command line: no byte or hex literal in a source file (:data:`SOURCE_DIRS`)
 holds :data:`VANILLA_RUN` or more bytes in a row of a vanilla
-``default.xbe`` or ``gamedata/config.xbr`` (:func:`vanilla_runs`). Such a
+``default.xbe`` or XBR file (``gamedata/config.xbr``, the levels and the
+rest, :func:`vanilla_runs`). Such a
 run is read from the player's image at its address instead. The literals (:func:`byte_literals`) are a Python file's
 bytes literals, ``bytes.fromhex`` and hex strings, lists of byte-sized ints
 and the concatenations and repeats of these, and in any text file runs of
@@ -287,10 +288,14 @@ def scan(root: Path = ROOT) -> list[str]:
 
 
 SOURCE_DIRS = ("src/", "tests/", "scripts/", "web/", "assets/")
-VANILLA_FILES = ("default.xbe", "gamedata/config.xbr")   # the game files the code reads bytes of
+#: The game files the code reads bytes of: the XBE and every XBR the USA manifest lists (config.xbr, the levels
+#: the randomizer writes and the rest; Europe's are the same files but index.xbr).
+VANILLA_FILES = ("default.xbe", *sorted(path for path in json.loads(MANIFESTS[0].read_text(encoding="utf-8"))["files"]
+                                        if path.endswith(".xbr")))
 VANILLA_RUN = 8   # bytes in a row of one of them that a literal may not hold
 OBJECT_RUN = 32        # bytes in a row of one of them that a shim object's code, or the whole object, may not hold
 OBJECT_DATA_RUN = 16   # and that its other sections may not hold
+SEARCHED = 64   # windows up to which one is searched for in a file, not read off every window of it
 _HEX_TEXT = re.compile(r"(?<![0-9A-Za-z_])(?:[0-9A-Fa-f]{2})+(?:[ \t]+(?:[0-9A-Fa-f]{2})+)*(?![0-9A-Za-z_])")
 _ESCAPES = re.compile(r"(?:\\x[0-9A-Fa-f]{2})+")
 _BYTE_LIST = re.compile(r"(?<![\w.])0x[0-9A-Fa-f]{1,2}(?:\s*,\s*0x[0-9A-Fa-f]{1,2})+(?![\w.])")
@@ -391,18 +396,20 @@ def _windows(data: bytes, skip=_repeated) -> Iterator[int]:
             yield int.from_bytes(window, sys.byteorder)
 
 
-def _longest(data: bytes, haystack: bytes, skip=_repeated, held: set[int] | None = None) -> int:
+def _longest(data: bytes, haystack: bytes, skip=_repeated, held: set[int] | None = None,
+             least: int = VANILLA_RUN) -> int:
     """The longest run of ``data`` from a window ``skip`` doesn't pass that
-    ``haystack`` holds, when it is :data:`VANILLA_RUN` bytes or more; else 0.
-    ``held``, when given, holds every window of ``haystack`` (as
-    :func:`_windows` gives them) that ``data`` has: only those are searched."""
-    best = 0
-    for i in range(len(data) - VANILLA_RUN + 1):
-        window = data[i:i + VANILLA_RUN]
-        if (skip(window) or (held is not None and int.from_bytes(window, sys.byteorder) not in held)
-                or window not in haystack):
+    ``haystack`` holds, when it is ``least`` (:data:`VANILLA_RUN` or more)
+    bytes or more; else 0. ``held``, when given, holds every window of
+    ``haystack`` (as :func:`_windows` gives them) that ``data`` has: a run
+    with a window ``skip`` doesn't pass and ``held`` lacks isn't searched."""
+    best, span = 0, least - VANILLA_RUN + 1
+    found = [held is None or skip(w) or int.from_bytes(w, sys.byteorder) in held
+             for w in (data[j:j + VANILLA_RUN] for j in range(len(data) - VANILLA_RUN + 1))]
+    for i in range(len(data) - least + 1):
+        if skip(data[i:i + VANILLA_RUN]) or not all(found[i:i + span]) or data[i:i + least] not in haystack:
             continue
-        end = i + VANILLA_RUN
+        end = i + least
         while end < len(data) and data[i:end + 1] in haystack:
             end += 1
         best = max(best, end - i)
@@ -458,6 +465,9 @@ def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes],
     wanted = {w for _, data, _, skip, _ in kinds for w in _windows(data, skip)}
     held: dict[str, set[int]] = {}
     for name, haystack in files.items():
+        if len(wanted) <= SEARCHED:   # a few windows: each searched for (a commit's literals, say)
+            held[name] = {w for w in wanted if w.to_bytes(VANILLA_RUN, sys.byteorder) in haystack}
+            continue
         held[name] = set()
         for k in range(VANILLA_RUN):   # every window of the file, as ints, VANILLA_RUN at a time
             words = array("Q")
@@ -467,7 +477,7 @@ def _held(literals: list[tuple[str, bytes]], files: Mapping[str, bytes],
     for where, data, what, skip, least in kinds:
         for name, haystack in files.items():
             if (not held[name].isdisjoint(_windows(data, skip))
-                    and (run := _longest(data, haystack, skip, held[name])) >= least):
+                    and (run := _longest(data, haystack, skip, held[name], least))):
                 problems.append(f"{where}: a {len(data)} B {what} holds {run} B in a row of the {name}")
     return list(dict.fromkeys(problems))
 

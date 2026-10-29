@@ -5,7 +5,7 @@ covers its head (the twin of Modkit's ``land``).
 
 It refuses unless BRANCH's head fast-forwards from main (an unborn main takes
 any head), and when a commit it would land adds a byte literal holding a run
-of either release's vanilla ``default.xbe`` or ``gamedata/config.xbr``
+of either release's vanilla ``default.xbe`` or XBR files
 (``tests/_leak_guard.py``'s vanilla-run rule, run over each commit, not only
 the head: a run a later commit removes stays in the history), or a shim
 object (``.o``) whose section or whole file holds a longer run (its object
