@@ -5,7 +5,7 @@
  * it as it was.  The freeze and the camera are the game's own: the cheat
  * owner's free camera (cheat code 3, action 3 of 0x16610, owner state 1),
  * in which the world doesn't step (0x15F60).  Design ported from Azurik
- * Debug Menu 1.1.0 by Azurik Perathia (MIT; Modkit's NOTICE.md), reimplemented
+ * Debug Menu 1.1.0 by Azurik Perathia (MIT; NOTICE.md), reimplemented
  * here: its hook round the cheat-owner tick and its CALL of action 3.
  *
  * Two hooks, two entry points.  a build lands this object once per

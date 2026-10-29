@@ -12,8 +12,8 @@ closes the camera, and the frame's call of the active camera's update
 (0x548E3, its 9 bytes: the push of dt, the camera into ECX and the indirect
 call) scales the free camera's dt by the slider, a float the build writes
 into the shim. Both releases (the same addresses; the shim names no address
-of the image). Design from Azurik Debug Menu 1.1.0 by Azurik Perathia (MIT),
-reimplemented in Modkit; ported from Modkit's
+of the image). Design from Azurik Debug Menu 1.1.0 by Azurik Perathia (MIT;
+NOTICE.md), reimplemented in Modkit; ported from Modkit's
 ``azurik_mod/patches/qol_photo_mode`` at the packs oracle's tag.
 """
 
