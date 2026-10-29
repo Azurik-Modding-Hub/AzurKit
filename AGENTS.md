@@ -321,6 +321,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - Scratch goes in `mktemp -d /tmp/azurkit-<what>.XXXXXX`. Delete it by its exact
   path.
 - No home paths in tracked files.
+- **The owner's screen (D839):** this machine is the owner's, who works on
+  its screen. Seats never launch the app on it: no `open AzurKit.app`, and
+  neither the bundle's executable nor `python -m azurkit` with no arguments
+  (the window; `serve` and the `azurkit` commands open nothing). Nor a
+  headed browser: Playwright runs headless only, and `tests/conftest.py`
+  refuses any other launch. The frozen-app test runs the bundle only under
+  `AZURKIT_NO_WINDOW` or as `serve`.
 - **xemu only (D601):** in-game checks run in xemu. Real hardware isn't a target.
 - **Ask nothing (D115):** where a decision is missing, take the recorded default
   or your recommendation, and say so in your report.

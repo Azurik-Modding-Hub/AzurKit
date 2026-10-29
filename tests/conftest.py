@@ -25,6 +25,11 @@
   D839: the owner works on this screen). The session checks the mode first,
   in-process with the server, window and browser planted to raise, and
   stops before any test (any process) runs when it doesn't hold.
+- Playwright launches only headless browsers: a launch (sync or async, of
+  any browser) with ``headless`` other than unset (its default) or true, or
+  that leaves out its ``--headless`` argument, is refused before it starts
+  anything, and ``PWDEBUG``, which opens a headed browser, is dropped. The
+  session checks this guard too, and stops when it doesn't hold.
 - Git finds a repository by the cwd alone: the variables that point it at
   one (``GIT_DIR``, which ``git rebase -x`` exports, and the rest of ``git
   rev-parse --local-env-vars``) are dropped, so a test's scratch repo is its
@@ -34,7 +39,9 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import hashlib
+import inspect
 import io
 import os
 import re
@@ -56,6 +63,9 @@ for _var in ("GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAM
              "GIT_SHALLOW_FILE", "GIT_COMMON_DIR", "GIT_NAMESPACE"):
     os.environ.pop(_var, None)
 os.environ["AZURKIT_NO_WINDOW"] = "1"   # azurkit.app.NO_WINDOW, before anything imports the app
+os.environ.pop("PWDEBUG", None)          # Playwright's debug mode: a headed browser and its inspector
+
+from playwright._impl._browser_type import BrowserType as _BrowserType  # noqa: E402
 
 from azurkit import app  # noqa: E402
 from azurkit.core import gate  # noqa: E402
@@ -89,10 +99,42 @@ class _Opened(Exception):
     """The window path ran: the server, the window or the browser."""
 
 
+class _Headed(AssertionError):
+    """A Playwright launch that isn't headless (D839)."""
+
+
+def _headless_only(launch):
+    """Playwright's ``launch``, refusing one that isn't headless."""
+    signature = inspect.signature(launch)
+
+    @functools.wraps(launch)
+    def checked(*args, **kwargs):
+        given = signature.bind(*args, **kwargs).arguments
+        dropped = given.get("ignoreDefaultArgs") or ()
+        if given.get("headless") not in (None, True) or dropped is True or any("headless" in a for a in dropped):
+            raise _Headed(f"BrowserType.{launch.__name__}: a browser that isn't headless: no test opens a window on "
+                          "the owner's screen (D839)")
+        return launch(*args, **kwargs)
+    return checked
+
+
+for _name in ("launch", "launch_persistent_context"):   # the impl's: the sync and async APIs both call it
+    setattr(_BrowserType, _name, _headless_only(getattr(_BrowserType, _name)))
+
+
 def pytest_sessionstart(session):
     """The no-window mode holds before a test starts anything (D839):
     ``app.main()`` returns 1 without reaching its planted server, window or
-    browser, else the run stops here."""
+    browser, and a headed Playwright launch is refused, else the run stops
+    here."""
+    try:
+        _BrowserType.launch(None, headless=False).close()   # unguarded, a coroutine that never runs
+    except _Headed:
+        pass
+    else:
+        pytest.exit("Playwright's launch isn't held to headless: no test runs (D839)",
+                    returncode=pytest.ExitCode.USAGE_ERROR)
+
     def opened(*args, **kwargs):
         raise _Opened
 
@@ -187,7 +229,7 @@ def browser(request, tmp_path_factory):
         mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir(ROOT)))   # read as its driver starts
         with sync_playwright() as playwright:
             launched = getattr(playwright, request.param).launch(
-                downloads_path=str(tmp_path_factory.mktemp("downloads")))
+                headless=True, downloads_path=str(tmp_path_factory.mktemp("downloads")))
             yield launched
             launched.close()
 
