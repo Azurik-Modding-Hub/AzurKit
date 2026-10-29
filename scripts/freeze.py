@@ -9,8 +9,9 @@ It prints the app's path: ``DIR/AzurKit.app`` on macOS, else the folder
 ``DIR/AzurKit``. PyInstaller writes only under ``--dist`` and ``--work``
 (its cache too, which would otherwise go in the user's Library). The app
 leaves out what never ships (:data:`EXCLUDE`: Tk, Unicorn, capstone, zig,
-and the standard library's GPL-linked modules). Its icon is PyInstaller's
-default, which comes with its bootloader (the Bootloader Exception).
+and the standard library's GPL-linked modules). On macOS its icon is
+AzurKit's (:data:`ICON`, the mark on an azure tile, D892; ``assets/icon/``
+rebuilds it).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 NAME = "AzurKit"
 BUNDLE_ID = "io.github.azurik-modding-hub.azurkit"
 MACOS = sys.platform == "darwin"
+ICON = ROOT / "assets" / "icon" / "AzurKit.icns"   # the .app's icon (its Info.plist's CFBundleIconFile)
 EXCLUDE = ("tkinter", "_tkinter", "unicorn", "capstone", "ziglang", "readline", "dbm", "_dbm", "_gdbm")
 
 
@@ -35,7 +37,7 @@ def freeze(dist: Path, work: Path) -> Path:
     from PyInstaller.__main__ import run
 
     run(["--noconfirm", "--clean", "--onedir", "--name", NAME, "--log-level", "WARN",
-         *(("--windowed", "--osx-bundle-identifier", BUNDLE_ID) if MACOS else ()),
+         *(("--windowed", "--osx-bundle-identifier", BUNDLE_ID, "--icon", str(ICON)) if MACOS else ()),
          "--distpath", str(dist), "--workpath", str(work), "--specpath", str(work),
          "--paths", str(ROOT / "src"), "--collect-data", "azurkit", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
          *(arg for module in EXCLUDE for arg in ("--exclude-module", module)),

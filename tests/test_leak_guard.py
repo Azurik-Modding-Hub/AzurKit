@@ -127,10 +127,10 @@ def test_the_checkout_holds_nothing_the_guard_refuses():
 
 
 def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, europe_iso):
-    """A byte or hex literal under src/, tests/, scripts/ or web/ that holds
-    8 or more bytes in a row of either release's vanilla default.xbe or
-    config.xbr (the same file in both, named once) is named by file, line
-    and lengths, never its bytes: in each form, planted here with the 13
+    """A byte or hex literal under src/, tests/, scripts/, web/ or assets/
+    that holds 8 or more bytes in a row of either release's vanilla
+    default.xbe or config.xbr (the same file in both, named once) is named
+    by file, line and lengths, never its bytes: in each form, planted here with the 13
     vanilla bytes 4.1c's fps_unlock once held, and once with 24 bytes of
     config.xbr's armor_properties row headers (each read from the image
     now). A run of one repeated byte, a hash and a file outside those
@@ -156,6 +156,7 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, euro
         "src/ok.py": f'N = b"\\x90" * 32\nH = "{hashlib.sha256(run).hexdigest()}"\n',
         "docs/out.py": f'X = b"{escaped}"\n',
         "tests/f.py": f'X = bytes.fromhex("{rows.hex()}")\n',
+        "assets/icon/g.py": f'X = b"{escaped}"\n',
     }
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     for rel, text in plants.items():
@@ -164,7 +165,8 @@ def test_no_source_literal_holds_a_run_of_a_vanilla_file(tmp_path, usa_iso, euro
     found = _leak_guard.vanilla_runs(tmp_path, files)
     assert found == sorted([f"{at}: a 13 B literal holds 13 B in a row of the {name}"
                             for at in ("src/a.py:1", "tests/b.py:1", "scripts/c.py:1", "src/d.py:1",
-                                       "web/e.js:1", "web/e.js:2", "web/e.js:3", "web/e.js:4")
+                                       "web/e.js:1", "web/e.js:2", "web/e.js:3", "web/e.js:4",
+                                       "assets/icon/g.py:1")
                             for name, data in files.items() if run in data]
                            + ["tests/f.py:1: a 24 B literal holds 24 B in a row of the gamedata/config.xbr"])
     assert not any(form in line for line in found for form in (run.hex(), run.hex(" "), escaped, repr(run),

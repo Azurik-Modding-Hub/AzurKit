@@ -36,6 +36,11 @@ app = [
     "pyinstaller==6.22.3",
     "pywebview==6.2.1",
 ]
+# The icon (assets/icon/render.py, dev only): resvg draws the SVGs' turbulence filters, Pillow writes the favicon.
+icon = [
+    "resvg-py==0.5.0",
+    "pillow==13.0.0",
+]
 
 [tool.uv]
 required-version = ">=0.12"

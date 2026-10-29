@@ -9,16 +9,21 @@ so is a build with a slider set on the page (Step 4.1e1), whose track holds
 its vanilla value and widens, never clamps, and one of config.xbr's cells
 (Step 4.1e2); the saved file of every pack is that image, byte for byte, and
 opens back into its recipe. A share link carries the page's recipe and loads
-it into a page it opens (Step 4.1g). Under the page's CSP (no
-``'unsafe-eval'``) nothing is refused, and every request is a GET of one of
-the site's own files: the image never leaves the page. The page is driven as
+it into a page it opens (Step 4.1g), and the site serves the favicon the page
+links (Step 4.1g2). Under the page's CSP (no ``'unsafe-eval'``) nothing is
+refused, and every request is a GET of one of the site's own files: the image
+never leaves the page. The page is driven as
 ``tests/_page.py`` says."""
 
 from __future__ import annotations
 
+import contextlib
+import functools
 import hashlib
+import http.server
 import json
 import mimetypes
+import threading
 import urllib.parse
 from pathlib import Path
 
@@ -212,6 +217,37 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         assert served.stray() == []
     finally:
         served.close()
+
+
+class _Quiet(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args) -> None:
+        pass
+
+
+@contextlib.contextmanager
+def _static(root: Path):
+    """``root`` served as a static host does, at an address on 127.0.0.1."""
+    with http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(root))) as httpd:
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            yield f"http://127.0.0.1:{httpd.server_port}/"
+        finally:
+            httpd.shutdown()
+
+
+def test_the_site_serves_the_favicon_the_page_links(browser, site):
+    """The page links the favicon (the mark, D892), and the site's folder,
+    served as a static host serves it, gives each file the page asks for,
+    byte for byte ``web/``'s. (A static server here: Playwright aborts a
+    routed request whose address ends in ``/favicon.ico``.)"""
+    with _static(site) as url:
+        context = browser.new_context()
+        try:
+            page = context.new_page()
+            page.goto(url)
+            _page.check_icons(page)
+        finally:
+            context.close()
 
 
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):

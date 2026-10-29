@@ -9,7 +9,12 @@ handlers) and poll with ``page.evaluate``."""
 
 from __future__ import annotations
 
+import hashlib
 import time
+from pathlib import Path
+
+WEB = Path(__file__).resolve().parent.parent / "web"
+ICONS = {"favicon.ico": "16x16 32x32 48x48", "favicon-32.png": "32x32"}   # the favicon (D892): the mark, free
 
 def until(page, js: str, timeout: float = 600):
     """``js``'s value once it is truthy."""
@@ -93,3 +98,17 @@ def check_csp(page) -> None:
     assert page.evaluate("() => azurkit.violations") == []
     assert "'unsafe-" not in page.evaluate("() => document.head.firstElementChild.content").replace(
         "'wasm-unsafe-eval'", "")
+
+
+def check_icons(page) -> None:
+    """The page links the favicon (:data:`ICONS`), and its host serves each
+    file as an image, byte for byte the checkout's ``web/`` one."""
+    got = page.evaluate("""async () => Promise.all([...document.querySelectorAll('link[rel="icon"]')].map(
+        async (link) => {
+            const reply = await fetch(link.href, { cache: "no-store" });
+            return [link.getAttribute("href"), link.getAttribute("sizes"), reply.status,
+                    reply.headers.get("Content-Type"), [...new Uint8Array(await reply.arrayBuffer())]];
+        }))""")
+    assert [[href, sizes, status, (kind or "").startswith("image/"), hashlib.sha256(bytes(data)).hexdigest()]
+            for href, sizes, status, kind, data in got] == [
+        [name, sizes, 200, True, hashlib.sha256((WEB / name).read_bytes()).hexdigest()] for name, sizes in ICONS.items()]

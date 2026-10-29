@@ -1,5 +1,8 @@
 # AzurKit
 
+<img src="assets/icon/AzurKit.svg" width="128" height="128" align="right"
+alt="AzurKit's icon: a disc of the four elements broken in four, its gold air piece lifted out">
+
 Patch packs, sliders, a randomizer and character swaps for *Azurik: Rise of
 Perathia* (Xbox), built from your own copy of the game.
 
@@ -73,6 +76,7 @@ uv run --locked python scripts/web_tools.py --site DIR   # the site: the page, P
 uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS
 uv run --locked python -m shimkit [--check]              # rebuild the prebuilt shim objects (zig, dev only)
+uv run --locked --group icon python assets/icon/render.py # rebuild the icon from its sources (macOS)
 ```
 
 The vanilla tests read the two images, found by `AZURKIT_ISO` (USA) and

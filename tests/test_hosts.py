@@ -16,6 +16,7 @@ import importlib.metadata
 import io
 import json
 import os
+import plistlib
 import subprocess
 import sys
 import threading
@@ -40,10 +41,9 @@ from tests._xiso import fill, image
 
 ROOT = Path(__file__).resolve().parent.parent
 NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
-OURS = {"azurkit", "__main__", "web"}
+OURS = {"azurkit", "__main__", "web", freeze.ICON.name}
 # The bootloader is under PyInstaller's Bootloader Exception; the loader and runtime hooks it bundles are Apache-2.0.
 PYINSTALLER_RUNTIME = ("pyimod", "pyiboot", "pyi_rth_", "_pyi_rth_utils")
-PYINSTALLER_ICON = "icon-windowed.icns"   # the .app's icon, which comes with the bootloader
 WINDOW_REFUSED = f"azurkit: no window while {app.NO_WINDOW} is set (the tests' mode)\n"
 
 
@@ -105,8 +105,6 @@ def _owners(app_path: Path) -> dict[str, str]:
             owners[name] = "AzurKit (MIT)"
         elif name.startswith(PYINSTALLER_RUNTIME):
             owners[name] = "PyInstaller's runtime (Apache-2.0)"
-        elif name == PYINSTALLER_ICON:
-            owners[name] = "PyInstaller's app icon (its Bootloader Exception)"
         elif name in sys.stdlib_module_names or name.startswith(("_sysconfigdata_", "libpython")):
             owners[name] = "Python (PSF-2.0)"
         else:
@@ -190,9 +188,10 @@ class Sandbox:
 def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, tmp_path, verify_argv, verdicts,
                                                                     monkeypatch):
     """The app holds no Unicorn, zig, capstone or GPL code (each name in it
-    is Python's, PyInstaller's runtime or icon, AzurKit's or a
-    distribution's whose licence isn't GPL; the runtime's readline is
-    editline). Run read-only, with a fresh HOME and TMPDIR from an empty
+    is Python's, PyInstaller's runtime, AzurKit's or a distribution's whose
+    licence isn't GPL; the runtime's readline is editline). On macOS its
+    icon is AzurKit's: the .icns its Info.plist names is ``freeze.ICON``,
+    byte for byte. Run read-only, with a fresh HOME and TMPDIR from an empty
     folder and the tests' no-window mode, its window path exits 1 at once,
     and it gives CPython's verdicts, finds the images' folder through
     platformdirs under that HOME, and leaves itself, that folder, HOME and
@@ -202,6 +201,10 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
     assert [name for name in owners if name.lower().startswith(NEVER)] == []
     assert {name: owner for name, owner in owners.items() if "GPL" in owner or owner == "unknown"} == {}
     assert "readline" not in sys.builtin_module_names or __import__("readline").backend == "editline"
+    if app_path.suffix == ".app":
+        plist = plistlib.loads((app_path / "Contents" / "Info.plist").read_bytes())
+        icon = app_path / "Contents" / "Resources" / plist["CFBundleIconFile"]
+        assert (icon.name, icon.read_bytes() == freeze.ICON.read_bytes()) == (freeze.ICON.name, True)
 
     box = Sandbox(tmp_path, monkeypatch)
     assert box.run(app_path, timeout=30) == {"code": 1, "stdout": "", "stderr": WINDOW_REFUSED}   # the window path
@@ -218,8 +221,8 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
         frozen_app, tmp_path, monkeypatch, browser, usa_iso, europe_iso):
     """``AzurKit serve`` from the frozen app (read-only, in a fresh HOME,
     TMPDIR and empty folder, in the tests' no-window mode) serves the page
-    with the app's engine, here driven in headless Chromium and in WebKit
-    (the macOS window's engine): the page reads each image's own vanilla
+    with the app's engine and its favicon, here driven in headless Chromium
+    and in WebKit (the macOS window's engine): the page reads each image's own vanilla
     values of the sliders at its XBE's sites (``api/vanilla``), each ported
     pack builds its G1 case on both releases with CPython's report (one
     that requires others, with them), and Save
@@ -245,6 +248,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
             page.goto(url)
             _page.until(page, "() => globalThis.azurkit?.ready", 60)
             assert page.evaluate("() => [azurkit.app, azurkit.dialogs]") == [True, False]
+            _page.check_icons(page)
             for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
                 cases = _g1.cases(release)
                 _page.fill(page, "iso-path", str(path))

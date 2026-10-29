@@ -210,7 +210,7 @@ def scan(root: Path = ROOT) -> list[str]:
     return problems
 
 
-SOURCE_DIRS = ("src/", "tests/", "scripts/", "web/")
+SOURCE_DIRS = ("src/", "tests/", "scripts/", "web/", "assets/")
 VANILLA_FILES = ("default.xbe", "gamedata/config.xbr")   # the game files the code reads bytes of
 VANILLA_RUN = 8   # bytes in a row of one of them that a literal may not hold
 OBJECT_RUN = 32        # bytes in a row of one of them that a shim object's code, or the whole object, may not hold

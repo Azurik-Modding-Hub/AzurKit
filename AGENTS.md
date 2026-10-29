@@ -13,6 +13,7 @@ uv run --locked pytest                      # the whole suite
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
 uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
 uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
+uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
 ```
 
 - Use `uv run --locked` for everything. Never a bare `pip`, `python` or
@@ -58,7 +59,7 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
 - Never write a run of vanilla bytes as a literal in code or tests (a bytes
   literal, `bytes.fromhex`, a hex string, a list of byte values): read it from
   the player's image at its address. The vanilla tier refuses a literal under
-  `src/`, `tests/`, `scripts/` or `web/` holding 8 or more bytes in a row of
+  `src/`, `tests/`, `scripts/`, `web/` or `assets/` holding 8 or more bytes in a row of
   either release's `default.xbe` or `gamedata/config.xbr` (its
   `VANILLA_FILES`: add a game file there once the code reads its bytes),
   by file, line and length
@@ -279,6 +280,13 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
   `tests/test_hosts.py` checks each name in it and its licence, and builds
   the packs' G1 cases and a save through its page (`AzurKit serve` in
   headless Chromium and WebKit).
+- **The icon** (D891, D892) is original art that code draws, no game pixel
+  (D3, D890): in `assets/icon/`, `mark.py` draws the mark (`AzurKit.svg`)
+  and `tile.py` sets it on the Mac app's azure tile; `render.py` writes
+  those SVGs and renders the app's `AzurKit.icns` (`scripts/freeze.py`'s
+  `--icon`) and the site's favicon, the free mark (`web/favicon.ico` and
+  `favicon-32.png`, which the page links). All of them are committed;
+  `tests/test_icon.py` holds the SVGs to their generators.
 
 ## Commits and landing
 
