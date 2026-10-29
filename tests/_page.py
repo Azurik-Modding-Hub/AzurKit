@@ -71,11 +71,15 @@ def click(page, button: str) -> None:
 
 
 def ticked(page) -> dict[str, dict[str, str]]:
-    """Each ticked pack, with its sliders' boxes as they read."""
-    return page.evaluate("""() => Object.fromEntries([...document.querySelectorAll("#packs .pack")]
-        .filter((item) => item.querySelector("input[data-pack]").checked)
-        .map((item) => [item.dataset.pack, Object.fromEntries([...item.querySelectorAll("input[data-slider]")]
-            .map((box) => [box.dataset.slider, box.value]))]))""")
+    """Each ticked pack in the catalog's order (the page groups them by
+    category, Step 4.1h), with its sliders' boxes as they read."""
+    return page.evaluate("""() => {
+        const rows = Object.fromEntries([...document.querySelectorAll("#packs .pack")].map((i) => [i.dataset.pack, i]));
+        return Object.fromEntries(azurkit.packs.packs.map((pack) => rows[pack.name])
+            .filter((item) => item.querySelector("input[data-pack]").checked)
+            .map((item) => [item.dataset.pack, Object.fromEntries([...item.querySelectorAll("input[data-slider]")]
+                .map((box) => [box.dataset.slider, box.value]))]));
+    }""")
 
 
 def marked(page) -> list[str]:

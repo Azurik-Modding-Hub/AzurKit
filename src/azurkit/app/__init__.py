@@ -12,8 +12,11 @@ The engine below never starts a thread; this host does, for the server.
 The server is the page's engine too. ``host.json`` tells the page it is in
 the app, with the catalog, AzurKit's version, the image to start from (the
 one the last build read, remembered in platformdirs' config folder, else a
-release's own image), whether there are file dialogs (the window's) and the
-site's address, which its share links name (:data:`SITE`, D884).
+release's own image), whether there are file dialogs (the window's), the
+site's address, which its share links name (:data:`SITE`, D884), and the
+theme the player last picked (dark until they pick light, D897; ``POST
+api/theme`` ``{"theme"}`` remembers it there too: the page's address, and
+so its storage, is new each launch).
 ``POST api/build`` ``{"iso", "packs", "xbr"}`` plans the build (``sdk.image``: the
 report, the size, and where to save it: the Downloads folder, under the
 site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
@@ -65,8 +68,10 @@ PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "we
 NO_WINDOW = "AZURKIT_NO_WINDOW"   # set: main() opens nothing (the tests' mode)
 MAX_BODY = 1 << 20
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
-# text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses
-WINDOW = {"title": "AzurKit", "width": 1100, "height": 820, "text_select": True}
+# text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses;
+# background_color: the page's dark ground (D897), which the window shows until the page draws
+WINDOW = {"title": "AzurKit", "width": 1100, "height": 820, "text_select": True, "background_color": "#0d1117"}
+THEMES = ("dark", "light")   # the page's (D897): dark until the player picks light, which the app remembers
 QUIT_WAIT = 1.5   # seconds a close waits, in all, for a cancelled save to remove its part file (AZ-823)
 QUITTING = "AzurKit is quitting: nothing was written"
 
@@ -80,23 +85,42 @@ def _config() -> Path:
     return user_config_path("AzurKit", appauthor=False) / "app.json"
 
 
+def _kept() -> dict:
+    """What the app remembers (``{"iso", "theme"}``), else nothing."""
+    try:
+        kept = json.loads(_config().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return kept if isinstance(kept, dict) else {}
+
+
 def _start_image() -> str:
     """The image the last build read, else a release's own image, else ``""``."""
-    try:
-        last = json.loads(_config().read_text(encoding="utf-8")).get("iso")
-    except (OSError, ValueError, AttributeError):
-        last = None
+    last = _kept().get("iso")
     if isinstance(last, str) and Path(last).is_file():
         return last
     return str(next(filter(None, map(gate.find, gate.RELEASES)), ""))
 
 
-def _remember(iso: str) -> None:
+def _theme() -> str:
+    """The theme the player last picked, else dark (D897)."""
+    return theme if (theme := _kept().get("theme")) in THEMES else THEMES[0]
+
+
+def _remember(**kept: str) -> None:
     try:
         _config().parent.mkdir(parents=True, exist_ok=True)
-        _config().write_text(json.dumps({"iso": iso}) + "\n", encoding="utf-8")
+        _config().write_text(json.dumps(_kept() | kept) + "\n", encoding="utf-8")
     except OSError:   # remembering is a convenience: a build doesn't fail for it
         pass
+
+
+def _set_theme(body: dict) -> dict:
+    """``api/theme``: remember the theme the page's toggle picked."""
+    if (theme := body.get("theme")) not in THEMES:
+        raise ValueError(f"theme: {theme!r} is none of {', '.join(THEMES)}")
+    _remember(theme=theme)
+    return {}
 
 
 def _path(given: object, what: str) -> Path:
@@ -158,7 +182,7 @@ class Server(http.server.ThreadingHTTPServer):
 
     def host_info(self) -> dict:
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
-                "dialogs": self.window is not None, "site": SITE}
+                "dialogs": self.window is not None, "site": SITE, "theme": _theme()}
 
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
@@ -170,7 +194,7 @@ class Server(http.server.ThreadingHTTPServer):
             made, report = sdk.image(recipe)
         if self.quitting:   # closed while it built (AZ-823)
             raise ValueError(QUITTING)
-        _remember(recipe["iso"])
+        _remember(iso=recipe["iso"])
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
         stem = iso.stem if iso.suffix.lower() in (".iso", ".xiso") else iso.name   # the site's download's name
@@ -268,6 +292,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         call = {"/api/build": self.server.build, "/api/save": self.server.save, "/api/vanilla": _vanilla,
                 "/api/preset": lambda body: {"fragment": sdk.preset_encode(body.get("recipe"), body.get("report"))},
                 "/api/decode": lambda body: {"preset": sdk.preset_decode(body.get("text"))},
+                "/api/theme": _set_theme,
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

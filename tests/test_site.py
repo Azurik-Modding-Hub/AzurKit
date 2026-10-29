@@ -10,7 +10,9 @@ its vanilla value and widens, never clamps, and one of config.xbr's cells
 (Step 4.1e2); the saved file of every pack is that image, byte for byte, and
 opens back into its recipe. A share link carries the page's recipe and loads
 it into a page it opens (Step 4.1g), and the site serves the favicon the page
-links (Step 4.1g2). Under the page's CSP (no ``'unsafe-eval'``) nothing is
+links (Step 4.1g2). The page is design A with the owner's changes (Step 4.1h): dark
+first, its areas' tabs, the packs in their categories' groups, Build always in
+view, and an About tab. Under the page's CSP (no ``'unsafe-eval'``) nothing is
 refused, and every request is a GET of one of the site's own files: the image
 never leaves the page. The page is driven as
 ``tests/_page.py`` says."""
@@ -54,9 +56,9 @@ class Site:
     """The site served to a fresh browser context at :data:`ORIGIN` from its
     folder (Playwright's routing, no server), every request logged."""
 
-    def __init__(self, browser, root: Path):
+    def __init__(self, browser, root: Path, **options):
         self.root, self.requests = root.resolve(), []
-        self.context = browser.new_context(accept_downloads=True)
+        self.context = browser.new_context(accept_downloads=True, **options)
         self.context.route("**/*", self._serve)
 
     def _serve(self, route, request) -> None:
@@ -213,6 +215,100 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
                                    && document.querySelector("#status").textContent""").startswith(
             "preset: no #p= and base64url")
         for each in (page, loaded, again, bad):
+            _page.check_csp(each)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+GROUND = "() => [azurkit.theme, getComputedStyle(document.body).backgroundColor]"   # app.css's ground, each theme
+DARK, LIGHT = ["dark", "rgb(13, 17, 23)"], ["light", "rgb(232, 236, 241)"]
+SHOWN = """() => [...document.querySelectorAll("#packs .pack")].filter((item) => item.checkVisibility()
+    && item.querySelector(".sliders").checkVisibility()).map((item) => [item.dataset.pack,
+    item.querySelector(".toggle").getAttribute("aria-expanded"),
+    item.querySelector(".sliders").getBoundingClientRect().left >= item.getBoundingClientRect().right])"""
+GROUPS = """(fold) => {
+    [...document.querySelectorAll("#packs .group > summary")].find((s) => s.firstChild.textContent === fold)?.click();
+    return [...document.querySelectorAll("#packs .group")].map((group) => [group.open,
+        group.querySelector(".tally").textContent, [...group.querySelectorAll(".pack")].filter((i) => i.checkVisibility()).length]);
+}"""
+BAR = """() => {
+    const bar = document.querySelector("footer.build").getBoundingClientRect();
+    const build = document.getElementById("build").getBoundingClientRect();
+    return [Math.round(bar.bottom) === innerHeight, build.top >= bar.top && build.bottom <= innerHeight];
+}"""
+
+
+def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_always_in_view(browser, site):
+    """Design A with the owner's changes (Step 4.1h, D897-D903), on a
+    system set to light: the page opens dark (D897), and its toggle picks
+    light, which a page opened later in the same browser keeps, until
+    toggled back. The toolbar's tabs are the catalog's, in D901's order and
+    only those whose area works (D902): Patches, then About. The Patches tab
+    groups the packs by Modkit's categories, in the catalog's order, each
+    group folding and counting its packs ticked; a pack with settings has a
+    Settings opener with their count, which shows them beside the list and
+    closes the one open before (the first with settings opens first), and
+    one without has none. Build and Save sit in a bar along the window's
+    bottom, there however far the packs scroll, and at a narrow window's
+    foot too. The About tab says what AzurKit is, that it collects nothing
+    and that the image never leaves the computer (and nothing about a
+    host's logs, D883), its licence (the checkout's LICENSE), its credits
+    (NOTICE.md's) and its version. No CSP violation, no request but GETs of
+    the site's files."""
+    from azurkit import __version__
+    served = Site(browser, site, color_scheme="light", viewport={"width": 1280, "height": 600})
+    try:
+        page = served.open()
+        assert page.evaluate(GROUND) == DARK
+        _page.click(page, "theme")
+        later = served.open()
+        assert [page.evaluate(GROUND), later.evaluate(GROUND)] == [LIGHT, LIGHT]
+        _page.click(later, "theme")
+        assert [later.evaluate(GROUND), served.open().evaluate(GROUND)] == [DARK, DARK]
+
+        catalog = sdk.catalog()
+        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "About"]
+        assert page.evaluate("""() => [...document.querySelectorAll("#tabs [role=tab]")].map((tab) => [tab.textContent,
+            tab.getAttribute("aria-selected"), document.getElementById(tab.getAttribute("aria-controls")).hidden])""") == [
+            ["Patches", "true", False], ["About", "false", True]]
+        assert [c["title"] for c in catalog["categories"]] == ["Player", "Enemies", "Quality of Life"]
+        grouped = [[p for p in mods.PACKS.values() if p.category == c["id"]] for c in catalog["categories"]]
+        assert page.evaluate("""() => [...document.querySelectorAll("#packs .group")].map((group) =>
+            [group.querySelector("summary b").textContent, [...group.querySelectorAll(".pack")].map((item) =>
+                [item.dataset.pack, item.querySelector(".toggle").hidden ? null : item.querySelector(".toggle").textContent])])
+            """) == [[c["title"], [[p.name, f"Settings · {len(p.sliders())}" if p.sliders() else None] for p in packs]]
+                     for c, packs in zip(catalog["categories"], grouped)]
+        on = [[True, f"{sum(p.default_on for p in packs)} of {len(packs)} on", len(packs)] for packs in grouped]
+        assert page.evaluate(GROUPS, "Quality of Life") == [*on[:2], [False, on[2][1], 0]]
+        assert page.evaluate(GROUPS, "Quality of Life") == on
+        _page.tick(page, ["fps_unlock"])
+        assert [tally for _, tally, _ in page.evaluate(GROUPS, None)] == ["0 of 3 on", "0 of 2 on", "1 of 12 on"]
+        assert page.evaluate(SHOWN) == [["player_physics", "true", True]]
+        page.evaluate("""() => document.querySelector('#packs .pack[data-pack="enemy_damage"] .toggle').click()""")
+        assert page.evaluate(SHOWN) == [["enemy_damage", "true", True]]
+
+        assert page.evaluate(BAR) == [True, True]
+        assert page.evaluate("() => { const tab = document.getElementById('patches'); tab.scrollTop = 1e6; "
+                             "return tab.scrollTop; }") > 0
+        assert page.evaluate(BAR) == [True, True]
+        page.set_viewport_size({"width": 700, "height": 600})
+        assert page.evaluate("() => { scrollTo(0, 0); return document.documentElement.scrollHeight > innerHeight; }")
+        assert page.evaluate(BAR) == [True, True]
+
+        _page.click(page, "tab-about")
+        shown = page.evaluate("""() => [document.getElementById("patches").hidden, document.getElementById("about").hidden,
+            ...["privacy", "licence", "credits", "about-version"].map((id) => document.getElementById(id).textContent)]""")
+        assert shown[:2] == [True, False]
+        privacy, licence, credits, version = (" ".join(text.split()) for text in shown[2:])
+        assert privacy == ("AzurKit collects nothing: it adds no logging, analytics or tracking. Your image never "
+                           "leaves your computer: AzurKit reads it and builds right here.")
+        assert licence == " ".join((_page.WEB.parent / "LICENSE").read_text(encoding="utf-8").split())
+        notice = (_page.WEB.parent / "NOTICE.md").read_text(encoding="utf-8").splitlines()
+        assert [line[3:] for line in notice if line.startswith("## ") and f"{line[3:]}." in credits] == [
+            line[3:] for line in notice if line.startswith("## ")] != []
+        assert version == f"This is AzurKit {__version__}."
+        for each in served.context.pages:
             _page.check_csp(each)
         assert served.stray() == []
     finally:

@@ -276,7 +276,9 @@ def test_a_slider_writes_any_finite_value_at_its_site_and_a_virtual_one_reaches_
     range the infinity a C cast gives (Q110), and nothing but a finite
     number (refused by name). A virtual slider's value reaches the pack's
     custom_apply, a whole one's as an int; a custom_apply that doesn't take
-    exactly its pack's sliders is refused when the pack is made."""
+    exactly its pack's sliders is refused when the pack is made, as is a
+    category that isn't one of ``CATEGORIES`` (the page groups packs by
+    them)."""
     _synthetic(monkeypatch)
     pack = engine.Pack("s", "", sites=(_slider("speed", 0x1010),))
     written = {value: engine.plan(pack, gate.USA, {engine.XBE: VANILLA}, {} if value is None else {"speed": value})
@@ -294,6 +296,8 @@ def test_a_slider_writes_any_finite_value_at_its_site_and_a_virtual_one_reaches_
     assert type(got[0]) is int
     with pytest.raises(TypeError, match="custom_apply takes"):
         engine.Pack("x", "", sites=(_slider("speed", 0x1010),), custom_apply=lambda xbe_view, sped: None)
+    with pytest.raises(TypeError, match=re.escape("pack 'x': no category 'memory' (the categories: player, enemies, qol)")):
+        engine.Pack("x", "", category="memory")
 
 
 def test_normalize_names_every_unknown_pack_parameter_and_refused_value_and_never_clamps():

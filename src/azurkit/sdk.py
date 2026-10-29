@@ -46,17 +46,26 @@ from azurkit.tools import mods
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
            "preset_decode"]
 RECIPE = ("iso", "packs", "xbr")
+#: A UI's tabs, one an area, in the owner's order (D901), each with whether
+#: its area works yet: a tab shows only once it does (D902).
+TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", False), ("characters", "Characters", False),
+        ("data", "Data", False), ("tools", "Tools", False), ("about", "About", True))
 
 
 def catalog() -> dict:
-    """Every pack: its name, what it does, its category, whether a build
-    starts with it (D528), the releases it supports, the packs it requires
-    in the same build and its sliders, in the canonical order. A slider:
-    its name, label, default, track (``min``, ``max`` and ``step``, display
-    hints only), unit, description, vanilla value (``None`` where the
-    image's XBE holds it) and ``whole`` (the range of whole numbers it
-    takes, its encoding's, or ``None``)."""
-    return {"packs": [{"name": p.name, "description": p.description, "category": p.category,
+    """A UI's tabs (each id and title, those whose area works, D902), the
+    packs' categories (each id, title and line, in the order a UI groups
+    them) and every pack: its name, what it does, its category, whether a
+    build starts with it (D528), the releases it supports, the packs it
+    requires in the same build and its sliders, in the canonical order. A
+    slider: its name, label, default, track (``min``, ``max`` and
+    ``step``, display hints only), unit, description, vanilla value
+    (``None`` where the image's XBE holds it) and ``whole`` (the range of
+    whole numbers it takes, its encoding's, or ``None``)."""
+    return {"tabs": [{"id": tab, "title": title} for tab, title, works in TABS if works],
+            "categories": [{"id": category, "title": title, "description": line}
+                           for category, (title, line) in mods.CATEGORIES.items()],
+            "packs": [{"name": p.name, "description": p.description, "category": p.category,
                        "default_on": p.default_on, "releases": list(p.releases), "requires": list(p.requires),
                        "sliders": [s.catalog() for s in p.sliders()]} for p in mods.PACKS.values()]}
 

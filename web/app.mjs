@@ -11,12 +11,40 @@
 // their sliders and the config.xbr cells a loaded recipe set (sdk.preset_encode), and a page opened with one loads
 // it (sdk.preset_decode): the packs ticked, the sliders set, each value it changed marked ●, never a build. Picking an
 // AzurKit build as the image offers its recipe the same way (sdk.open_build), to build again from a vanilla image.
+//
+// Its design is A, the dense tool (D900): the toolbar's tabs come from the catalog, those whose area works (D898,
+// D901, D902); the Patches tab groups the packs by the catalog's categories, each group folding, and each pack with
+// settings has a Settings opener with their count (D903), which shows them beside the list; Build and Save sit in a
+// bar along the window's bottom. Dark whatever the system's setting, until the toolbar's toggle picks light (D897).
 const $ = (id) => document.getElementById(id);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
                 packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
-                site: null };
+                site: null, theme: "dark", tab: null };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
+
+// The theme (D897): dark, or light once the toggle picks it, which is remembered: by the site in this browser's
+// storage, by the app in its settings (host.json's theme; api/theme), since its page has a new address each launch.
+const THEME = "azurkit.theme";
+function theme(name, keep = false) {
+  const light = name === "light";
+  state.theme = document.documentElement.dataset.theme = light ? "light" : "dark";
+  $("theme").textContent = light ? "☾ Dark" : "☀ Light";
+  $("theme").title = `Switch to the ${light ? "dark" : "light"} theme (AzurKit remembers it)`;
+  if (!keep) return;
+  if (state.app) return state.engine.theme(state.theme);
+  try {
+    localStorage.setItem(THEME, state.theme);
+  } catch {}   // storage refused (a private window, say): the theme lasts this visit
+}
+
+function remembered() {
+  try {
+    return localStorage.getItem(THEME);
+  } catch {
+    return null;
+  }
+}
 
 function say(text, error = false) {
   $("status").textContent = text;
@@ -120,6 +148,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     save: (recipe, out) => run("api/save", { recipe, out }, saved),
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
+    theme: (name) => post("api/theme", { theme: name }).catch(() => {}),   // remembering is a convenience
     cancel: () => {
       if (!state.saving) ticket++;
       post("api/cancel", {}).catch(() => {});
@@ -205,26 +234,95 @@ function linked(changed) {
   }
 }
 
+// One pack's row: its tick, name, description and releases; with settings, its Settings opener (their count) and
+// the settings themselves, which show beside the list while the pack is open.
+function packRow(pack) {
+  const item = Object.assign(document.createElement("div"), { className: "pack" });
+  item.dataset.pack = pack.name;
+  const label = document.createElement("label");
+  const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: pack.default_on });
+  box.dataset.pack = pack.name;
+  box.addEventListener("change", () => linked(box));
+  const name = Object.assign(document.createElement("span"), { className: "name", textContent: pack.name });
+  name.prepend(Object.assign(document.createElement("span"), { className: "mark" }));
+  const what = Object.assign(document.createElement("span"), { textContent: pack.description });
+  const where = Object.assign(document.createElement("span"), {
+    className: "releases", textContent: ` ${pack.releases.map((r) => r === "usa" ? "USA" : "Europe").join(", ")}` });
+  what.append(where);
+  label.append(box, name, what);
+  const sliders = Object.assign(document.createElement("div"), { className: "sliders", id: `${pack.name}-settings` });
+  sliders.setAttribute("role", "group");
+  sliders.setAttribute("aria-label", pack.name);
+  sliders.append(...pack.sliders.map((slider) => sliderRow(pack, slider)));
+  const opener = Object.assign(document.createElement("button"), {
+    type: "button", className: "toggle", textContent: `Settings · ${pack.sliders.length}`,
+    title: `${pack.name}'s settings`, hidden: !pack.sliders.length });
+  opener.setAttribute("aria-expanded", "false");
+  opener.setAttribute("aria-controls", sliders.id);
+  opener.addEventListener("click", () => show(item));
+  item.append(label, opener, sliders);
+  return item;
+}
+
+// The packs in their categories' groups, in the catalog's order; each group folds. The first pack with settings
+// opens.
 function renderPacks(catalog) {
   const list = $("packs");
   list.replaceChildren();
-  for (const pack of catalog.packs) {
-    const item = Object.assign(document.createElement("div"), { className: "pack" });
-    item.dataset.pack = pack.name;
-    const label = document.createElement("label");
-    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: pack.default_on });
-    box.dataset.pack = pack.name;
-    box.addEventListener("change", () => linked(box));
-    const name = Object.assign(document.createElement("span"), { className: "name", textContent: pack.name });
-    name.prepend(Object.assign(document.createElement("span"), { className: "mark" }));
-    const what = Object.assign(document.createElement("span"), { textContent: pack.description });
-    const where = Object.assign(document.createElement("span"), {
-      className: "releases", textContent: ` ${pack.releases.map((r) => r === "usa" ? "USA" : "Europe").join(", ")}` });
-    what.append(where);
-    label.append(box, name, what);
-    item.append(label, ...pack.sliders.map((slider) => sliderRow(pack, slider)));
-    list.append(item);
+  for (const category of catalog.categories) {
+    const packs = catalog.packs.filter((pack) => pack.category === category.id);
+    if (!packs.length) continue;
+    const group = Object.assign(document.createElement("details"), { className: "group", open: true });
+    group.dataset.category = category.id;
+    const summary = document.createElement("summary");
+    summary.append(Object.assign(document.createElement("b"), { textContent: category.title }),
+                   Object.assign(document.createElement("span"), { className: "tally" }),
+                   Object.assign(document.createElement("span"), { className: "line", textContent: category.description }));
+    group.append(summary, ...packs.map(packRow));
+    list.append(group);
   }
+  tally();
+  show(list.querySelector(".pack:has(.slider)"));
+}
+
+// Open one pack's settings and close the others' (a wide page shows them beside the list), or close it again.
+function show(item) {
+  const on = !item?.classList.contains("open");
+  for (const pack of $("packs").querySelectorAll(".pack")) {
+    pack.classList.toggle("open", on && pack === item);
+    pack.querySelector(".toggle").setAttribute("aria-expanded", String(on && pack === item));
+  }
+}
+
+// Each group's count of its packs ticked, which a folded group still shows.
+function tally() {
+  for (const group of $("packs").querySelectorAll(".group")) {
+    const boxes = [...group.querySelectorAll("input[data-pack]")];
+    group.querySelector(".tally").textContent = `${boxes.filter((box) => box.checked).length} of ${boxes.length} on`;
+  }
+}
+
+// The toolbar's tabs: the catalog's, in its order, each that this page has a panel for; one panel shows at a time.
+function renderTabs(tabs) {
+  const strip = $("tabs");
+  strip.replaceChildren();
+  for (const { id, title } of tabs) {
+    const panel = [...document.querySelectorAll("[role=tabpanel]")].find((p) => p.dataset.tab === id);
+    if (!panel) continue;
+    const tab = Object.assign(document.createElement("button"), { type: "button", id: `tab-${id}`, textContent: title });
+    tab.dataset.tab = id;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-controls", panel.id);
+    tab.addEventListener("click", () => pick(id));
+    strip.append(tab);
+  }
+  pick(strip.firstElementChild?.dataset.tab ?? null);
+}
+
+function pick(id) {
+  state.tab = id;
+  for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
+  for (const panel of document.querySelectorAll("[role=tabpanel]")) panel.hidden = panel.dataset.tab !== id;
 }
 
 // The ticked packs, each with its sliders' values as typed: the engine normalizes them and names what it refuses.
@@ -284,6 +382,8 @@ function load(preset, from) {
       field.parentElement.fit();
     }
   }
+  tally();
+  pick("patches");
   state.xbr = preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [];
   state.loaded = preset;
   const made = preset.azurkit ? ` (made with AzurKit ${preset.azurkit})` : "";
@@ -336,8 +436,10 @@ function ready(catalog, version) {
   state.ready = true;
   if (!state.packs) {
     state.packs = catalog;
+    renderTabs(catalog.tabs);
     renderPacks(catalog);
     $("version").textContent = `AzurKit ${version}`;
+    $("about-version").textContent = `This is AzurKit ${version}.`;
   }
   busy(state.building);
   if (state.pending) state.engine.decode(state.pending);
@@ -422,6 +524,8 @@ function pickInApp(host) {
 async function main() {
   if (window.top !== window.self) return stop("AzurKit doesn't run inside another page: open it on its own.");
   if (navigator.serviceWorker?.controller) return stop("A service worker controls this page: AzurKit won't run.");
+  theme(remembered());
+  $("theme").addEventListener("click", () => theme(state.theme === "light" ? "dark" : "light", true));
   document.addEventListener("securitypolicyviolation", (e) => {
     state.violations.push(`page: ${e.violatedDirective} ${e.blockedURI}`);
     say(`The page's security policy refused ${e.violatedDirective}`, true);
@@ -441,6 +545,7 @@ async function main() {
   if (host.engine === "app") {
     state.engine = appEngine(host, callbacks);
     pickInApp(host);
+    theme(host.theme);
   } else if (!("WebAssembly" in window) || !("Worker" in window)) {
     return stop("This browser can't run AzurKit (it needs WebAssembly and workers): use the desktop app.");
   } else {
@@ -456,7 +561,10 @@ async function main() {
     });
   }
 
-  $("packs").addEventListener("change", forget);
+  $("packs").addEventListener("change", () => {
+    forget();
+    tally();
+  });
   $("packs").addEventListener("input", forget);
   $("share").addEventListener("click", share);
   $("load-build").addEventListener("click", () => {

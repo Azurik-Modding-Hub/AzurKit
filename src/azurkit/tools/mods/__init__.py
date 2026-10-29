@@ -12,7 +12,7 @@ from collections.abc import Mapping
 
 from azurkit.core import facts
 from azurkit.core.gate import Release
-from azurkit.tools.mods.engine import Pack, PackError, ParametricPatch, XbrParametricEdit, f32, plan
+from azurkit.tools.mods.engine import CATEGORIES, Pack, PackError, ParametricPatch, XbrParametricEdit, f32, plan
 from azurkit.tools.mods.packs import (air_shield_flaps, enemy_damage, enemy_scaling, fps_unlock, player_max_hp,
                                       player_physics, qol_alloc_race, qol_memory, qol_photo_mode, qol_pickup_anims,
                                       qol_popups, qol_save_warp, qol_skip_logo)
@@ -77,5 +77,5 @@ def vanilla(release: Release, xbe: bytes) -> dict[str, dict[str, float]]:
     return out
 
 
-__all__ = ["PACKS", "Pack", "PackError", "ParametricPatch", "XbrParametricEdit", "missing", "normalize", "plan",
-           "vanilla"]
+__all__ = ["CATEGORIES", "PACKS", "Pack", "PackError", "ParametricPatch", "XbrParametricEdit", "missing", "normalize",
+           "plan", "vanilla"]

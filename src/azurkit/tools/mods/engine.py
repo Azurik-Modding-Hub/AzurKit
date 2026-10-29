@@ -66,6 +66,11 @@ from azurkit.edits.layer import Change, Claim, Layer
 XBE = "default.xbe"
 CONFIG = "gamedata/config.xbr"
 INT32 = (-2**31, 2**31 - 1)
+#: Each pack's category (:attr:`Pack.category`), with its title and line, in the order a UI shows them: Modkit's
+#: (``azurik_mod/patching/category.py``, its GUI's tabs; the player's model is the Characters tab's here).
+CATEGORIES = {"player": ("Player", "Player movement, physics and stats."),
+              "enemies": ("Enemies", "Enemies' health, damage, speed and size, and the damage they take."),
+              "qol": ("Quality of Life", "Frame rate, the boot logo, popups and other conveniences.")}
 
 
 class PackError(ValueError):
@@ -335,7 +340,11 @@ class Pack:
         """A ``custom_apply`` takes the pack's sliders (it writes their XBE
         sites itself; a config.xbr one's cells are the engine's, its value
         handed over too). Without one, a virtual slider is a shim's
-        :class:`FloatParam` of its name."""
+        :class:`FloatParam` of its name. Its category is one of
+        :data:`CATEGORIES`."""
+        if self.category not in CATEGORIES:
+            raise TypeError(f"pack {self.name!r}: no category {self.category!r} (the categories: "
+                            f"{', '.join(CATEGORIES)})")
         if self.custom_apply is not None:
             takes = list(inspect.signature(self.custom_apply).parameters)[1:]
             if takes != [s.name for s in self.sliders()]:

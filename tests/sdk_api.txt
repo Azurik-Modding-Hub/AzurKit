@@ -35,13 +35,15 @@ are hints, never limits, and nothing is clamped (``mods.normalize``).
 
 def catalog() -> 'dict':
 
-Every pack: its name, what it does, its category, whether a build
-starts with it (D528), the releases it supports, the packs it requires
-in the same build and its sliders, in the canonical order. A slider:
-its name, label, default, track (``min``, ``max`` and ``step``, display
-hints only), unit, description, vanilla value (``None`` where the
-image's XBE holds it) and ``whole`` (the range of whole numbers it
-takes, its encoding's, or ``None``).
+A UI's tabs (each id and title, those whose area works, D902), the
+packs' categories (each id, title and line, in the order a UI groups
+them) and every pack: its name, what it does, its category, whether a
+build starts with it (D528), the releases it supports, the packs it
+requires in the same build and its sliders, in the canonical order. A
+slider: its name, label, default, track (``min``, ``max`` and
+``step``, display hints only), unit, description, vanilla value
+(``None`` where the image's XBE holds it) and ``whole`` (the range of
+whole numbers it takes, its encoding's, or ``None``).
 
 
 def verify(path: 'str') -> 'dict':

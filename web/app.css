@@ -1,32 +1,213 @@
-body { font: 15px/1.4 system-ui, sans-serif; max-width: 52rem; margin: 1rem auto; padding: 0 1rem; color: #1b1b1b; }
-h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
-h2 { margin: 1rem 0 .4rem; font-size: 1.1rem; }
-header p { margin: 0; }
-.note { color: #555; font-size: .9rem; margin: .3rem 0; }
+/* AzurKit's page: design A, the dense tool (D900), with the owner's changes (D897-D903). Like a pro editor: a
+   toolbar with the tabs, the image band, the open tab (the Patches tab: the packs in their categories' groups on the
+   left, the open pack's settings in a column on the right; tight 22 px rows, small type), and Build and Save in a
+   bar along the window's bottom, always in view. Dark by default whatever the system's setting, light by the
+   toolbar's toggle (app.mjs remembers it). Colours: the app icon's azure tile for the accent and its four element
+   bands for meaning (water blue the accent's family, earth green Save, fire red errors, air gold the ● marks). */
+:root {
+  color-scheme: dark;
+  --air: #c49a3c; --water: #2f6aae; --fire: #b23a24; --earth: #3f7c36;
+  --bg: #0d1117; --pane: #141920; --bar: #1a2029; --zebra: #171c24; --hover: #1b2736; --sel: #16314f;
+  --line: #2b3440; --soft: #1f2630;
+  --text: #e1e6ed; --muted: #8f9aaa; --faint: #616d7e;
+  --accent: #3b8cf0; --ring: #4aa3ff; --on: #ffffff; --field: #0e1218;
+  --go: #3a8a33; --mark: #e2b552; --error: #ff7a66;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --row: 22px; --list: min(40rem, 48%);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #e8ecf1; --pane: #ffffff; --bar: #dde3ea; --zebra: #f4f6f9; --hover: #e8f0fb; --sel: #d6e5fb;
+  --line: #c6ced8; --soft: #e2e7ed;
+  --text: #151a21; --muted: #586272; --faint: #8b94a1;
+  --accent: #0b4fc4; --ring: #4aa3ff; --on: #ffffff; --field: #ffffff;
+  --go: #2f6b29; --mark: #8f6200; --error: #b23a24;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font: 12px/1.35 system-ui, -apple-system, sans-serif;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+main { min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+main > section { min-height: 0; overflow: auto; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+
+/* The toolbar: the name with a four-element disc (the icon's colours, drawn in CSS), the tabs, the line under the
+   name, the version and the theme's toggle. */
+header {
+  display: flex; align-items: center; gap: 12px; padding: 0 10px; min-height: 30px;
+  background: var(--bar); border-bottom: 1px solid var(--line);
+}
+h1 { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; letter-spacing: .02em; }
+h1::before {
+  content: ""; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ring);
+  background: conic-gradient(from -45deg, var(--air) 0 25%, var(--fire) 0 50%, var(--earth) 0 75%, var(--water) 0);
+}
+#tabs { display: flex; align-self: stretch; }
+#tabs button {
+  height: auto; padding: 0 12px; border: 0; border-radius: 0; background: transparent; color: var(--muted);
+  box-shadow: inset 0 -2px transparent;
+}
+#tabs button:hover { color: var(--text); }
+#tabs button[aria-selected="true"] { color: var(--text); background: var(--pane); box-shadow: inset 0 -2px var(--accent); }
+.tagline {
+  flex: 1; min-width: 0; margin: 0; color: var(--muted); font-size: 11.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#version { margin: 0 0 0 auto; font: 11px var(--mono); color: var(--faint); white-space: nowrap; }
+
+/* Panel captions. */
+h2 {
+  margin: 0; font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap;
+}
+.note { color: var(--muted); font-size: 11.5px; }
+
+/* The image band, and the build bar along the window's bottom. */
+.image, .build {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; padding: 6px 10px; min-width: 0;
+  background: var(--pane);
+}
+.image { border-bottom: 1px solid var(--line); }
+.build { border-top: 1px solid var(--line); background: var(--bar); }
+.image p, .build p { margin: 0; }
+.build > .note { flex-basis: 100%; font-size: 11px; }
+.actions { display: flex; gap: 4px; }
+.actions:not(:has(button:not([hidden]))) { display: none; }
+input[type="file"] { font-size: 11.5px; color: var(--muted); max-width: 15rem; }
+button, input[type="file"]::file-selector-button {
+  height: 22px; padding: 0 12px; font: 600 12px/1 system-ui, -apple-system, sans-serif; color: var(--text);
+  background: var(--pane); border: 1px solid var(--line); border-radius: 3px;
+}
+input[type="file"]::file-selector-button { margin-right: 6px; }
+button:hover:not(:disabled) { border-color: var(--ring); }
+button:disabled { color: var(--faint); background: transparent; }
+#build:not(:disabled) { color: var(--on); background: var(--accent); border-color: var(--accent); }
+#save:not(:disabled) { color: var(--on); background: var(--go); border-color: var(--go); }
+#cancel { color: var(--error); }
+.path { flex: 1 1 100%; display: flex; gap: 6px; align-items: center; }
+.image .path { flex-basis: 30rem; }
+.path label { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.path input, #packs .slider input[type="text"] {
+  min-width: 0; height: 22px; padding: 0 6px; font: 11.5px var(--mono); color: var(--text);
+  background: var(--field); border: 1px solid var(--line); border-radius: 3px;
+}
+.path input { flex: 1; }
+/* The status readout, like a transport's display: the build's line, red when it is an error. */
+#status {
+  flex: 1 1 24rem; min-width: 0; min-height: 22px; padding: 3px 8px; font: 600 11.5px/16px var(--mono);
+  background: var(--field); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 3px;
+}
+#status:empty::before { content: "—"; color: var(--faint); }
+#status.error { color: var(--error); border-left-color: var(--error); }
+
+/* The Patches tab: the packs in their categories' groups on the left; the open pack's settings beside them. */
+.packs {
+  background: linear-gradient(to right, transparent calc(var(--list) - 1px), var(--line) 0 var(--list),
+                              transparent 0) local, var(--pane);
+}
+.packs > h2 {
+  position: sticky; top: 0; z-index: 2; padding: 4px 10px; background: var(--bar);
+  border-bottom: 1px solid var(--line);
+}
+.packs > .note { margin: 0; padding: 4px 10px; width: var(--list); }
+.packs > .note:empty { display: none; }
+#packs { position: relative; }
+#packs > .note { margin: 0; padding: 4px 10px; }
+/* A category's group, which folds: its title, its line and how many of its packs are ticked. */
+#packs .group { width: calc(var(--list) - 1px); }
+#packs .group > summary {
+  display: block; height: var(--row); padding: 0 10px; line-height: var(--row); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; background: var(--bar); border-bottom: 1px solid var(--line); cursor: default;
+  list-style: none;
+}
+#packs .group > summary::-webkit-details-marker { display: none; }
+#packs .group > summary::before { content: "▾"; display: inline-block; width: 12px; color: var(--muted); }
+#packs .group:not([open]) > summary::before { content: "▸"; }
+#packs .group > summary b { font-size: 11.5px; }
+#packs .group > summary .tally { margin-left: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+#packs .group > summary .line { margin-left: 10px; color: var(--faint); font-size: 11px; }
+#packs .group:has(.mark:not(:empty)) > summary b::after { content: " ●"; color: var(--mark); }
+#packs .pack { display: flex; align-items: flex-start; border-bottom: 1px solid var(--soft); }
+#packs .pack:nth-of-type(even) { background: var(--zebra); }
+#packs .pack:hover { background: var(--hover); }
+#packs .pack.open { background: var(--sel); box-shadow: inset 3px 0 var(--accent); }
+/* A pack's row: its tick and name, the releases at the right; its description under the name. */
 #packs .pack > label {
-  display: grid; grid-template-columns: 1.1rem 12rem 1fr; gap: .5rem; align-items: baseline; padding: .15rem 0;
+  position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: 13px minmax(0, 1fr);
+  gap: 0 8px; padding: 3px 4px 3px 10px; line-height: 14px;
 }
-#packs .name { font-family: ui-monospace, monospace; }
-#packs .releases, #packs .unit { color: #555; font-size: .85rem; }
-#packs .slider {
-  display: grid; grid-template-columns: 12rem minmax(8rem, 16rem) 5rem 1fr; gap: .5rem; align-items: center;
-  margin: 0 0 .15rem 1.6rem; font-size: .9rem;
-}
-#packs .slider input[type="range"] { width: 100%; margin: 0; }
-#packs .slider input[type="text"] { font: .9rem ui-monospace, monospace; padding: .05rem .3rem; min-width: 0; }
-#packs .slider input.changed { font-weight: 700; }
-#packs .mark { color: #b35c00; margin-right: .2rem; }
-#packs .mark:empty { display: none; }
+#packs .pack > label input { grid-row: span 2; margin: 1px 0 0; width: 13px; height: 13px; accent-color: var(--accent); }
+#packs .name { font: 600 11.5px/14px var(--mono); overflow-wrap: anywhere; padding-right: 6rem; }
+#packs .pack > label > span:last-child { font-size: 11.5px; color: var(--muted); }
+#packs .releases { position: absolute; top: 3px; right: 4px; font-size: 10px; color: var(--faint); white-space: nowrap; }
+#packs .pack:has(> label input:not(:checked)) > label { color: var(--muted); }
 #packs .pack:has(> label input:not(:checked)) .slider { opacity: .55; }
-.path { display: flex; gap: .5rem; align-items: baseline; margin: .3rem 0; }
-.path[hidden] { display: none; }
-.path input { flex: 1; font: .9rem ui-monospace, monospace; padding: .25rem .4rem; }
-.actions button { font-size: 1rem; padding: .35rem 1rem; margin-right: .4rem; }
-#status { min-height: 1.4em; font-weight: 600; }
-#status.error { color: #a40000; }
-@media (prefers-color-scheme: dark) {
-  body { background: #161616; color: #e8e8e8; }
-  .note, #packs .releases, #packs .unit { color: #aaa; }
-  #packs .mark { color: #ffb05c; }
-  #status.error { color: #ff7b7b; }
+#packs .mark { color: var(--mark); margin-right: 3px; }
+#packs .mark:empty { display: none; }
+/* The Settings opener, with the pack's count of settings; gold when a value in it is changed or marked. */
+#packs .toggle {
+  flex: none; height: 20px; margin: 3px 8px 0 0; padding: 0 8px; font: 600 11px/18px system-ui, -apple-system, sans-serif;
+  color: var(--accent); background: var(--field); border-color: var(--line); border-radius: 10px; white-space: nowrap;
+}
+#packs .toggle::after { content: " ›"; }
+#packs .pack:not(.open):has(input.changed, .slider .mark:not(:empty)) .toggle { color: var(--mark); border-color: var(--mark); }
+#packs .pack.open:has(input.changed, .slider .mark:not(:empty)) .toggle { box-shadow: 0 0 0 1.5px var(--mark); }
+#packs .pack.open .toggle { color: var(--on); background: var(--accent); border-color: var(--accent); }
+#packs .sliders { display: none; }
+#packs .pack.open > .sliders { display: block; position: absolute; top: 0; left: var(--list); right: 0; }
+#packs .sliders::before {
+  content: attr(aria-label); display: block; height: var(--row); padding: 0 10px; font: 600 11.5px/var(--row) var(--mono);
+  background: var(--bar); border-bottom: 1px solid var(--line); box-shadow: inset 3px 0 var(--accent);
+}
+#packs .slider {
+  display: grid; grid-template-columns: minmax(7rem, 14rem) minmax(3rem, 1fr) 4.5rem minmax(4.5rem, 8.5rem);
+  gap: 0 8px; align-items: center; min-height: var(--row); padding: 1px 10px; border-bottom: 1px solid var(--soft);
+}
+#packs .slider:nth-child(even) { background: var(--zebra); }
+#packs .slider:hover { background: var(--hover); }
+#packs .slider input[type="text"] { width: 100%; height: 18px; text-align: right; font-variant-numeric: tabular-nums; }
+#packs .slider input.changed { font-weight: 700; color: var(--accent); border-color: var(--ring); }
+#packs .unit { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#packs input:disabled { opacity: .6; }
+#packs input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; margin: 0; background: none; }
+#packs input[type="range"]::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--line); }
+#packs input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 9px; height: 13px; margin-top: -5px; border-radius: 2px; background: var(--accent);
+}
+#packs input[type="range"]::-moz-range-track { height: 3px; border-radius: 2px; background: var(--line); }
+#packs input[type="range"]::-moz-range-thumb { width: 9px; height: 13px; border: 0; border-radius: 2px; background: var(--accent); }
+
+/* The About tab: a readable column. */
+.about { padding: 10px 16px 24px; background: var(--pane); font-size: 12.5px; line-height: 1.5; }
+.about > * { max-width: 46rem; }
+.about h2 { margin-bottom: 8px; }
+.about h3 { margin: 16px 0 4px; font-size: 12px; }
+.about p, .about ul { margin: 0 0 8px; }
+.about ul { padding-left: 18px; }
+.about li { margin-bottom: 6px; }
+.about a { color: var(--accent); }
+.about summary { color: var(--accent); cursor: default; }
+.about pre {
+  margin: 6px 0 0; padding: 8px 10px; font: 11px/1.45 var(--mono); white-space: pre-wrap; color: var(--muted);
+  background: var(--field); border: 1px solid var(--line); border-radius: 3px;
+}
+#about-version { font: 11.5px var(--mono); color: var(--muted); }
+
+/* A narrow window: one column, the page scrolls with the build bar kept at its foot, and an open pack's settings
+   sit under its row. */
+@media (max-width: 760px) {
+  body { display: block; height: auto; }
+  header { flex-wrap: wrap; padding: 4px 10px; }
+  .tagline { flex-basis: 100%; order: 9; white-space: normal; }
+  main > section { overflow: visible; }
+  .build { position: sticky; bottom: 0; z-index: 3; }
+  .packs { background: var(--pane); }
+  .packs > .note, #packs .group { width: auto; }
+  #packs .pack { flex-wrap: wrap; }
+  #packs .pack.open > .sliders { position: static; flex-basis: 100%; }
+  #packs .sliders::before { display: none; }
 }

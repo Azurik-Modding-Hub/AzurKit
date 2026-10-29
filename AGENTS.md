@@ -233,6 +233,21 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   output byte. Its CSP has no `'unsafe-eval'` and it uses no eval, and no
   host evaluates script in it (pywebview's `evaluate_js` would need eval).
   Text reaches it only through `textContent`.
+  - **Its design** is A, the dense tool (D900): the toolbar's tabs are the
+    catalog's (`sdk.TABS`, in D901's order: Patches, Randomizer,
+    Characters, Data, Tools, About), each only once its area works (D902:
+    flip its flag in the step that makes it work, with a panel in
+    `index.html`); the Patches tab groups the packs by their category
+    (`mods.CATEGORIES`, Modkit's), each group folding, and a pack's
+    Settings opener (with their count) shows its sliders beside the list;
+    Build and Save sit in a bar along the window's bottom (D903). It is
+    dark whatever the system's setting until the toolbar's toggle picks
+    light (D897), remembered by the site in the browser's storage and by
+    the app in its config (`host.json`'s `theme`, `api/theme`: its page's
+    address is new each launch). The About tab's licence and credits
+    restate `LICENSE` and `NOTICE.md` (`tests/test_site.py` holds them
+    to those files); its privacy line says only that AzurKit collects
+    nothing and that the image never leaves the computer (D883).
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders and a
     loaded recipe's config.xbr cells (with the build's hashes when it is

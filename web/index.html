@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta charset="utf-8">
@@ -13,11 +13,13 @@
 <body>
 <header>
 <h1>AzurKit</h1>
-<p>Mods for <i>Azurik: Rise of Perathia</i>, built on this computer from your own copy of the game, USA or Europe.
-Your image never leaves it.</p>
+<nav id="tabs" role="tablist" aria-label="AzurKit's areas"></nav>
+<p class="tagline">Mods for <i>Azurik: Rise of Perathia</i>, built on this computer from your own copy of the game,
+USA or Europe. Your image never leaves it.</p>
+<p id="version"></p>
+<button id="theme" type="button" title="Switch to the light theme (AzurKit remembers it)">☀ Light</button>
 </header>
-<main>
-<section>
+<section class="image">
 <h2>1. Your image</h2>
 <input type="file" id="iso" accept=".iso,.xiso" disabled>
 <p id="iso-row" class="path" hidden><input type="text" id="iso-path" spellcheck="false" autocomplete="off"
@@ -25,12 +27,57 @@ aria-label="The image's full path"> <button id="iso-choose" type="button" hidden
 <p id="picked" class="note">Pick the game's disc image (an .iso, about 2.3 to 2.7 GB).</p>
 <p class="actions"><button id="load-build" type="button" hidden>Load its recipe</button></p>
 </section>
-<section>
-<h2>2. Packs</h2>
+<main>
+<section id="patches" class="packs" role="tabpanel" data-tab="patches" aria-label="Patches">
+<h2>2. Choose packs</h2>
 <div id="packs"><p class="note">Loading AzurKit…</p></div>
 <p id="xbr-note" class="note"></p>
 </section>
-<section>
+<section id="about" class="about" role="tabpanel" data-tab="about" aria-label="About" hidden>
+<h2>About AzurKit</h2>
+<p>AzurKit makes mods for <i>Azurik: Rise of Perathia</i> (Xbox): patch packs and their settings, built from your
+own copy of the game, USA or Europe, into a new image you play in xemu. It holds no part of the game: everything it
+changes is read from your image. It is free and open source, the rewrite of Azurik_Modkit.</p>
+<p id="privacy">AzurKit collects nothing: it adds no logging, analytics or tracking. Your image never leaves your
+computer: AzurKit reads it and builds right here.</p>
+<p id="about-version"></p>
+<h3>Licence</h3>
+<p>AzurKit is under the MIT licence.</p>
+<details><summary>The licence</summary>
+<pre id="licence">MIT License
+
+Copyright (c) 2026 MichaelJSr
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</pre></details>
+<h3>Credits</h3>
+<ul id="credits">
+<li><b>JTCPP (Jett Tripp): Elemental_Games_Modding.</b> AzurKit is the rewrite of Azurik_Modkit, which grew out of a
+fork of <a href="https://github.com/JTCPP/Elemental_Games_Modding" target="_blank" rel="noopener noreferrer">JTCPP's
+Elemental_Games_Modding</a>. None of its code is in AzurKit. Thank you, JTCPP.</li>
+<li><b>Azurik Perathia: Azurik Debug Menu.</b> The photo mode pack takes its design from
+<a href="https://github.com/Azurik-Modding-Hub/Azurik-Debug-Menu" target="_blank" rel="noopener noreferrer">Azurik
+Debug Menu</a> 1.1.0 (MIT, copyright 2026 Azurik Perathia); none of its code was copied.</li>
+</ul>
+</section>
+</main>
+<footer class="build">
 <h2>3. Build, then save</h2>
 <p class="actions">
 <button id="build" type="button" disabled>Build</button>
@@ -38,15 +85,13 @@ aria-label="The image's full path"> <button id="iso-choose" type="button" hidden
 <button id="save" type="button" disabled>Save ISO…</button>
 <button id="share" type="button" disabled>Copy link</button>
 </p>
+<p id="status" role="status" aria-live="polite"></p>
 <p id="link-row" class="path" hidden><label for="link">Link</label>
 <input type="text" id="link" readonly spellcheck="false" autocomplete="off"></p>
 <p id="out-row" class="path" hidden><label for="out-path">Save to</label>
 <input type="text" id="out-path" spellcheck="false" autocomplete="off"></p>
-<p id="status" role="status" aria-live="polite"></p>
 <p class="note">Keep the image where it is until the save finishes: the saved file is read from it.</p>
-</section>
-</main>
-<footer><p id="version" class="note"></p></footer>
+</footer>
 <noscript><p>AzurKit needs JavaScript and WebAssembly.</p></noscript>
 </body>
 </html>

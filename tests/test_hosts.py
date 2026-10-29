@@ -231,9 +231,10 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     file that is there; Copy link gives the site's link to that build's
     recipe and hashes (``sdk.preset_encode``), and the saved build, typed
     as the image, offers its recipe (``sdk.open_build``), which ticks every
-    pack again. The next
-    launch starts from the image the last build read (remembered in
-    platformdirs' config folder). No CSP violation, no request but to the
+    pack again. The page opens dark (D897), and its toggle picks light. The
+    next launch starts from the image the last build read and opens in the
+    theme the page picked (both remembered in platformdirs' config folder:
+    the page's address, and so its storage, is new each launch). No CSP violation, no request but to the
     app's own server, and the app, the folder, HOME and TMPDIR are as they
     were but for platformdirs' folders and the saved build."""
     app_path, before = frozen_app
@@ -282,12 +283,20 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
             assert _page.until(page, "() => azurkit.opened") == json.loads(json.dumps(sdk.open_build(str(out))))
             _page.click(page, "load-build")
             assert list(_page.ticked(page)) == list(mods.PACKS)
+            assert page.evaluate("() => azurkit.theme") == "dark"
+            _page.click(page, "theme")
+            assert _page.until(page, "async () => (await (await fetch('host.json')).json()).theme === 'light'")
             _page.check_csp(page)
         origin = url.partition("/?")[0]
         assert [seen for seen in requests if not seen.startswith(f"{origin}/")] == []
         with box.serving(app_path) as url:
             with urllib.request.urlopen(url.replace("/?token=", "/host.json?token="), timeout=30) as reply:
-                assert json.load(reply)["iso"] == str(usa_iso)
+                host = json.load(reply)
+            assert [host["iso"], host["theme"]] == [str(usa_iso), "light"]
+            page = context.new_page()
+            page.goto(url)
+            _page.until(page, "() => globalThis.azurkit?.ready", 60)
+            assert page.evaluate("() => [azurkit.theme, document.documentElement.dataset.theme]") == ["light"] * 2
     finally:
         context.close()
         out.unlink(missing_ok=True)
@@ -335,7 +344,8 @@ def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
     alone. Without either, with another host named, or outside the page's
     folder, the server refuses. ``host.json`` names the app's engine; the
     engine takes a call only as JSON from the page's own origin, and the
-    file dialogs only in a window."""
+    file dialogs only in a window; ``api/theme`` refuses a theme the page
+    has none of, by name."""
     page = tmp_path / "page"
     page.mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
@@ -370,6 +380,8 @@ def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
         assert (host["engine"], host["dialogs"], host["catalog"]) == ("app", False, sdk.catalog())
         own, as_json = {"Origin": f"http://{server.host}"}, {"Content-Type": "application/json"}
         assert get("/api/cancel", data=b"{}", **sent, **own, **as_json)[::2] == (200, b"{}")
+        assert json.loads(get("/api/theme", data=b'{"theme": "blue"}', **sent, **own, **as_json)[2]) == {
+            "refused": "theme: 'blue' is none of dark, light"}
         assert [get(path, data=b"{}", **headers)[0] for path, headers in (
             ("/api/cancel", own | as_json), ("/api/cancel", sent | own | {"Content-Type": "text/plain"}),
             ("/api/cancel", sent | {"Origin": "http://evil.example"} | as_json),
