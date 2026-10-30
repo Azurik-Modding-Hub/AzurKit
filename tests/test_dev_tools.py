@@ -17,9 +17,9 @@ SMOKE = sorted(fullsuite.SMOKE)
 def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite():
     """A changed module selects every test file that reaches it through
     imports; src/ adds the files that run the whole package (SRC_TESTS);
-    docs and tests/oracle/ select only the smoke files (the lint files, the
-    oracle's test and the gate's, whose USA and Europe cases make every
-    receipt run both tiers); the suite's configuration, what every session
+    docs select only the smoke files (the lint files, the oracle's test and
+    the gate's, whose USA and Europe cases make every receipt run both
+    tiers); the suite's configuration, what every session
     loads and an unknown path make it whole. The session loads only
     what tests/conftest.py imports (it checks the app in a Python of its
     own), so here a change to the sdk is changed-area."""
@@ -35,10 +35,24 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
         {*SMOKE, "tests/test_sdk.py", *fullsuite.SRC_TESTS})
     assert fullsuite.plan(["tests/test_other.py", "AGENTS.md", "tests/sdk_api.txt"], deps) == sorted(
         {*SMOKE, "tests/test_other.py"})
-    assert fullsuite.plan(["tests/oracle/core/oracle.json", "bootstrap.py"], deps) == SMOKE
+    assert fullsuite.plan(["bootstrap.py"], deps) == SMOKE
     for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "assets/icon/a.icns"):
         assert fullsuite.plan([whole], deps) is None, whole
     assert fullsuite.plan(["src/azurkit/sdk.py"], fullsuite.graph(ROOT)) is not None
+
+
+def test_a_change_in_the_oracle_or_the_goldens_picks_the_test_files_that_read_them():
+    """tests/oracle/ and tests/goldens/ are read by path, not imported: a
+    change in one picks each test file that reaches a module naming it
+    (``scripts/oracle_sync.py``'s ORACLE, ``scripts/record_goldens.py``'s
+    GOLDENS, ``tests/test_art.py``'s own), not the smoke files alone."""
+    deps = fullsuite.graph(ROOT)
+    oracle = fullsuite.plan(["tests/oracle/models/probes.json", "tests/oracle/ORACLE.toml"], deps)
+    assert {f"tests/test_{name}.py" for name in ("characters", "hosts", "shims", "randomizer", "art", "site",
+                                                 "packs")} <= set(oracle) - set(SMOKE)
+    goldens = fullsuite.plan(["tests/goldens/packs.json"], deps)
+    assert {f"tests/test_{name}.py" for name in ("packs", "builds", "shims", "xbr", "fps_unlock")} <= set(goldens)
+    assert "tests/test_art.py" not in goldens and "tests/test_xbr.py" not in oracle
 
 
 def test_the_page_picks_the_site_app_and_icon_tests_and_the_docs_they_restate_pick_theirs():

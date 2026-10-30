@@ -728,8 +728,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   files that run the whole package (the wheel's, and those taking the
   `pyodide`, `browser` or `frozen_app` fixture), a change under `web/` the
   site's, the app's and the icon's, `LICENSE` and `NOTICE.md` the About
-  tab's test and the wheel's, `README.md` the wheel's, other docs nothing
-  more; the suite's configuration, what `tests/conftest.py` imports (it
+  tab's test and the wheel's, `README.md` the wheel's, a change in
+  `tests/oracle/` or `tests/goldens/` the test files that read it (read by
+  path: those reaching a module that names the folder, such as
+  `oracle_sync.ORACLE`), other docs nothing more; the suite's configuration, what `tests/conftest.py` imports (it
   checks the app's no-window mode in a Python of its own) and a path no
   rule covers run the whole suite. A changed-area run drives the page in
   Chromium alone, the whole suite in both browsers (D970), and the receipt

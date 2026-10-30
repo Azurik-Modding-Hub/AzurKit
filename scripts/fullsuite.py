@@ -17,8 +17,10 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 ``--changed`` runs only the test files that the worktree's changes against
 ``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
 files, the oracle's test and the gate's, whose USA and Europe cases make
-every receipt show both tiers run (D26). A path no rule covers makes it the
-whole suite; the meta's ``mode`` says which. A changed-area run drives the page in
+every receipt show both tiers run (D26). A change in a data folder the tests
+read by path (:data:`DATA`: the oracle's bundle, the goldens) picks its
+readers. A path no rule covers makes it the whole suite; the meta's ``mode``
+says which. A changed-area run drives the page in
 :data:`CHANGED_BROWSERS` alone (``--browsers``, ``tests/conftest.py``), a
 whole one in every browser (D970); the meta's ``browsers`` says which.
 
@@ -65,6 +67,10 @@ ABOUT = "tests/test_site.py::test_the_page_opens_dark_with_its_areas_tabs_the_pa
 #: NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme).
 RULES = (("web/", ("tests/test_site.py", "tests/test_hosts.py", "tests/test_icon.py")),
          ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)))
+#: The data folders the tests read by path, not by import (Modkit's oracle bundle, AzurKit's goldens): each is
+#: named by the modules that hold its last name as a string (``ROOT / "tests" / "oracle"``: ``scripts/oracle_sync.py``,
+#: ``scripts/record_goldens.py``), so a change in it picks the test files that reach one of them (:func:`graph`).
+DATA = ("tests/oracle/", "tests/goldens/")
 CHANGED_BROWSERS = ("chromium",)   # a changed-area run's (D970: a whole run drives the page in every browser)
 SUMMARY = re.compile(r"^=+ (\d+ (?:passed|failed|errors?|skipped|deselected).*? in [\d.]+s.*?) =+$", re.M)
 TIER = re.compile(r"^(vanilla|europe): (\d+) run$", re.M)
@@ -100,18 +106,27 @@ def imports(source: str) -> set[str]:
     return {".".join(name.split(".")[:i]) for name in names for i in range(1, name.count(".") + 2)}
 
 
+def reads(source: str) -> set[str]:
+    """Each of :data:`DATA`'s folders a Python source names: one of its
+    string constants is the folder's last name (``"oracle"``)."""
+    names = {node.value for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Constant)}
+    return {folder for folder in DATA if folder.rstrip("/").rpartition("/")[2] in names}
+
+
 def graph(wt: Path) -> dict[str, set[str]]:
-    """``{module: the modules it imports}`` over src/, scripts/ and tests/."""
+    """``{module: the modules it imports and the DATA folders it reads}`` over src/, scripts/ and tests/."""
     files = [p for d in ("src", "scripts", "tests") for p in (wt / d).rglob("*.py")]
-    return {module_of(p.relative_to(wt).as_posix()): imports(p.read_text(encoding="utf-8")) for p in files}
+    return {module_of(p.relative_to(wt).as_posix()): imports(text := p.read_text(encoding="utf-8")) | reads(text)
+            for p in files}
 
 
 def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     """The test files (or tests) to run for the ``changed`` paths, or ``None``
     for the whole suite: each changed test file, each test file that imports a
-    changed module directly or through others, :data:`SRC_TESTS` for a change
-    under src/, a path's :data:`RULES` tests, and :data:`SMOKE` (the oracle's
-    test covers tests/oracle/); nothing more for other docs. A change to the
+    changed module directly or through others, each that reaches a module
+    reading a changed :data:`DATA` folder (``deps``' folder entries, :func:`graph`),
+    :data:`SRC_TESTS` for a change under src/, a path's :data:`RULES` tests,
+    and :data:`SMOKE`; nothing more for other docs. A change to the
     suite's configuration, to what every session loads (``tests/conftest.py``
     and what it imports: it runs the app's no-window check in a Python of its
     own, which every run's session holds) or to a path no rule covers is the
@@ -124,8 +139,10 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
                         if rel == path or path.endswith("/") and rel.startswith(path)), ()):
             picked.update(own)
             continue
-        if (rel.endswith(DOCS) or rel == ".gitignore"
-                or rel.startswith("tests/oracle/")):
+        if folder := next((folder for folder in DATA if rel.startswith(folder)), None):
+            touched.add(folder)   # its readers are the modules whose deps name it
+            continue
+        if rel.endswith(DOCS) or rel == ".gitignore":
             continue
         if (module := module_of(rel)) is None:
             return None
