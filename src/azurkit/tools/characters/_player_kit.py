@@ -66,8 +66,7 @@ from pathlib import Path
 from azurkit.tools.characters.characters import Body, bone_records
 from azurkit.tools.characters.retarget import Clip, Retarget, Rig, Track, named_clip, origins
 
-from azurkit.tools.characters.content import ROOT as CONTENT_ROOT
-KIT = CONTENT_ROOT / "clips" / "townsfolk"
+KIT = Path(__file__).resolve().parent / "clips" / "townsfolk"
 """The kit's folder: ``kit.json`` and one clip-only ``.glb`` a rig."""
 KIT_FILE = KIT / "kit.json"
 CARRY_HZ = 30.0

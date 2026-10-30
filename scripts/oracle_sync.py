@@ -33,7 +33,8 @@ names that is gone, stops the sync before anything is written. The models
 family's installs the archive writers a character swap builds on (Step
 4.3a1): ``xbr/append.py`` (new resources and their relocations, grown
 payloads), ``index.xbr``'s records, ``characters.xbr``'s bodies and clips
-and the body codec.
+and the body codec, and the townsfolk's bare-hands kit and the air
+elemental's funnel (our own Blender work, as they are, Step 4.3b2).
 
 Three of a family's files are the sync's own (:data:`DERIVED`), not Modkit's
 bundle: the models family's ``swap.json``, the player-model swap's XBE hooks
@@ -134,7 +135,11 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
                  for name in ("chains", "fx_templates", "mode_grades", "variant_grades", "variants", "weapon_grades",
                               "weapons")),
                ("azurik_mod/patches/_player_*.py", CHARACTERS, True),
-               ("azurik_mod/patches/player_model/*.c", f"{CHARACTERS}/player_model", True)),
+               ("azurik_mod/patches/player_model/*.c", f"{CHARACTERS}/player_model", True),
+               # the townsfolk's bare-hands kit and the air elemental's funnel (Step 4.3b2, D965: our own Blender
+               # work, in the package and the wheel), as they are; the rest of CONTENT stays in the content folder
+               ("azurik_mod/assets/clips/townsfolk", f"{CHARACTERS}/clips/townsfolk", False),
+               ("azurik_mod/assets/fx/air_elemental", f"{CHARACTERS}/fx/air_elemental", False)),
 }
 #: The pictures Modkit commits of what it draws from the image (Step 4.2c3): the level maps (``maps.json`` and each
 #: floor's and the world's PNG) and the item icons, recorded in ORACLE.toml's ``<family>.art`` table as each
@@ -207,20 +212,19 @@ FIXES = {
     **{("azurik_mod/assets/variants.json", sha): "float" for sha in (
         "5f017cd0135adc40e4d4097749d80987e2d32fe8bada4d5eec2b95d456617c29",
         "70452ec6ec38dbaac5acd023a983498129d979b9e5e72423483d66df747860eb")},
-    # the townsfolk's bare-hands kit, booblord's voice and clips, the built-ins' fx files (tools/characters/content.py)
-    ("azurik_mod/patches/_player_kit.py", "a0773f36cbf5b12b85c314d4596c5acc4a9ebf6a98882cb4f1ea45d0ca51f771"): "content",
+    # the built-ins' voice and clips, booblord's (tools/characters/content.py; the kit and the fx are the package's)
     **{("azurik_mod/patches/_player_variants.py", sha): "content" for sha in (
         "661880076b1ae3b2bd5b2423515d7a2295954fbc3606c0f0a60e4960c5112dc8",
-        "dbef8fe62b90863016b18c4a5af5dc5cd4ccdf257bae284c46d695b80263ac61",
-        "d6e098b9983091725a8057e33569f3959d67386ff0a3e17265fea3de6b2d295d")},
+        "dbef8fe62b90863016b18c4a5af5dc5cd4ccdf257bae284c46d695b80263ac61")},
 }
 ASSETS = "azurik_mod/assets/"
 CONTENT = {"models": tuple(f"{ASSETS}{name}" for name in ("clips", "sounds", "fx"))}
-"""Modkit's files a family's swap reads that Azurik-Custom-Content carries,
-not AzurKit (D869: our own work, never in the repository or the wheel):
-the sync installs each in the content folder (``tools/characters/content.py``,
-outside the repository) at its path below :data:`ASSETS`, and ORACLE.toml's
-``<family>.content`` keeps its sha256."""
+"""Modkit's files a family's swap reads that Azurik-Custom-Content carries
+(D869, D965: booblord's clips and voice, optional extras), each but those
+:data:`SOURCES` installs in the package (the townsfolk's kit, the air
+elemental's funnel): the sync installs each in the content folder
+(``tools/characters/content.py``, outside the repository) at its path below
+:data:`ASSETS`, and ORACLE.toml's ``<family>.content`` keeps its sha256."""
 # A top-level tuple of byte-sized ints a family's module defines that holds such a run (the IMA ADPCM step
 # table, the codec's, which default.xbe's own decoder holds too): written as the ints of a string, by name.
 NUMBERS = {"azurik_mod/assets/xbox_adpcm.py": ("_STEP",)}
@@ -380,11 +384,10 @@ def _float_fix(line: str) -> str:
 
 
 def _content_fix(line: str) -> str:
-    """A folder of Modkit's ``assets/`` (``KIT = ...parents[1] / "assets" /
-    "clips" / ...``, ``SOUNDS = BUILTIN.parent / "sounds"``) as the same
-    folder of the content folder (:data:`CONTENT`), imported on the line
-    before it."""
-    return re.sub(r'^(\w+) = (?:Path\(__file__\)\.resolve\(\)\.parents\[1\] / "assets"|BUILTIN\.parent)',
+    """A folder of Modkit's ``assets/`` (``SOUNDS = BUILTIN.parent /
+    "sounds"``) as the same folder of the content folder (:data:`CONTENT`),
+    imported on the line before it."""
+    return re.sub(r"^(\w+) = BUILTIN\.parent",
                   r"from azurkit.tools.characters.content import ROOT as CONTENT_ROOT\n\1 = CONTENT_ROOT", line)
 
 
@@ -552,10 +555,12 @@ def art_hashes(clone: Path, family: str) -> dict[str, str]:
 
 def content_files(clone: Path, family: str) -> dict[str, bytes]:
     """``{path in the content folder: bytes}``: Modkit's tracked files of the
-    family's :data:`CONTENT` folders in ``clone``, each at its path below
-    :data:`ASSETS`."""
+    family's :data:`CONTENT` folders in ``clone`` but those its
+    :data:`SOURCES` install, each at its path below :data:`ASSETS`."""
+    shipped = tuple(f"{src}/" for src, _, _ in SOURCES.get(family, ()))
     return {rel.removeprefix(ASSETS): (clone / rel).read_bytes() for src in CONTENT.get(family, ())
-            for rel in sorted(filter(None, _git(clone, "ls-files", "-z", "--", src).split("\0")))}
+            for rel in sorted(filter(None, _git(clone, "ls-files", "-z", "--", src).split("\0")))
+            if not rel.startswith(shipped)}
 
 
 def content_folder() -> Path:

@@ -133,10 +133,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Modkit's own build of each G3 case that wears a model inside the
     sync's clone of Modkit (never in AzurKit); each built file's sha256
     must be G3's, or the sync stops with nothing written; and
-    `probes.json`, its builds of AzurKit's variant probes
-    (`modkit_resources.probes`: recipes no G3 case builds without
-    Azurik-Custom-Content's files) on both releases, each probe's recipe
-    with its files' sha256 and resources.
+    `probes.json`, its builds of AzurKit's probes
+    (`modkit_resources.probes`: a variant's recipe no G3 case builds
+    without Azurik-Custom-Content's files, and a townsman's and the air
+    elemental's own bodies, which G3 builds on USA only) on both releases,
+    each probe's recipe with its files' sha256 and resources.
 - AzurKit never imports Modkit.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, its sections, every patch site's size and vanilla sha256, the
@@ -408,21 +409,27 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     share link or a build's mods file (the pickers' step, 4.3d): each is
     refused by name. Nor the built-in variants' checks, lods and the
     effects templates (Step 4.3c2).
+  - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
+    bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
+    townsfolk's weapon, and `bare_hands` and the spin attack on any body,
+    with its throw, thuds and whooshes) and the worn air elemental's funnel
+    (`tools/characters/fx/air_elemental/`), our own work made in Blender
+    on the game's rigs, ship in the package and the wheel, so neither swap
+    needs a download. The models family's sync installs Modkit's files as
+    they are (`oracle_sync.SOURCES`), and ORACLE.toml's `models.source`
+    keeps each one's sha256.
   - **The content folder** (Step 4.3b, `tools/characters/content.py`): the
     files the swap reads that Azurik-Custom-Content carries, never this
-    repository or the wheel (D869: our own work, made in Blender on the
-    game's rigs): the townsfolk's bare-hands kit (`clips/townsfolk/`: the
-    weaponless townsfolk's weapon and `bare_hands` on any body, with its
-    throw, thuds and whooshes), the worn air elemental's funnel
-    (`fx/air_elemental/`), booblord's clips and voice (`clips/booblord/`,
-    `sounds/booblord/`). It is the folder `AZURKIT_CONTENT` names, else
-    `content` in the user data folder (beside the images' links), read once
-    a process; the sync's `FIXES` point `_player_kit.KIT` and
-    `_player_variants`' `SOUNDS`, `CLIPS` and `FX_ASSETS` at it. Until
+    repository or the wheel (D869, D965: optional extras): booblord's clips
+    and voice (`clips/booblord/`, `sounds/booblord/`). It is the folder
+    `AZURKIT_CONTENT` names, else `content` in the user data folder (beside
+    the images' links), read once a process; the sync's `FIXES` point
+    `_player_variants`' `SOUNDS` and `CLIPS` at it. Until
     Azurik-Custom-Content is published (4.4), the models family's sync
-    installs Modkit's files there at the family's commit (`oracle_sync.CONTENT`)
-    and ORACLE.toml's `models.content` keeps each one's sha256. A build that
-    needs a file the folder lacks fails naming it.
+    installs Modkit's files there at the family's commit
+    (`oracle_sync.CONTENT`, less what `SOURCES` ships) and ORACLE.toml's
+    `models.content` keeps each one's sha256. A build that needs a file the
+    folder lacks fails naming it.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload
@@ -450,14 +457,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   unmoved, each G3 model case's `index.xbr` is Modkit's byte for byte
   (from `resources.json`'s records, on both releases), the swap's XBE
   sites hold their vanilla bytes on both releases, a layer's whole files
-  build an image that reads back, and each of G3's 20 body cases (its
-  weapon and sound cases and garret4's own body among them) is Modkit's file for file and
-  resource for resource, its default.xbe writes inside its claims and the
-  facts' swap sites (keylord's whole image too), and so is each variant
-  probe of `probes.json`, on both releases; so are the 7 cases that
-  read the content folder (the bare-hands kit's and the funnel's), which
-  needs the files the sync installed there (the test fails naming one
-  missing), and a build without them fails naming the file.
+  build an image that reads back, and, with an empty content folder, each
+  of G3's 27 body cases (its weapon and sound cases, the bare-hands kit's
+  and the funnel's, and garret4's own body among them) is Modkit's file
+  for file and resource for resource, its default.xbe writes inside its
+  claims and the facts' swap sites (keylord's whole image too), and so is
+  each probe of `probes.json` (the variant's, a townsman's and the air
+  elemental's), on both releases; a build that needs booblord's clips
+  fails there naming the file.
 
 ## The engine's contracts
 

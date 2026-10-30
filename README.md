@@ -16,7 +16,7 @@ source ([Development](#development)).
 - **A self-checking randomizer.** Every seed's image is read back against its plan before it is saved.
 - **Tracker maps from your game.** They show what you can reach now; in the app, Live marks your pickups in xemu.
 - **Play as almost anyone.** 178 of the game's 184 creatures, moves and speed fitted to each body (command line for
-  now; 31 of them need a weapon picked).
+  now).
 - **Builds carry their recipe.** Open any AzurKit build to get back the packs, settings and seed that made it.
 - **No hard limits.** 17 packs and 47 settings on both USA and Europe, and no setting is ever clamped.
 
@@ -97,13 +97,13 @@ source ([Development](#development)).
 From the command line for now (`azurkit build --character '{"species": "keylord"}'`); the page's Characters tab
 comes with version 1.0.
 
-- **Play as almost anyone:** 178 of the game's 184 creatures, bosses to critters, on both releases (for now,
-  the 30 weaponless townsfolk and the air elemental need a weapon picked).
+- **Play as almost anyone:** 178 of the game's 184 creatures, bosses to critters, on both releases. The 30
+  weaponless townsfolk fight bare-handed, and the air elemental's gust whirls up a tornado; nothing to download.
 - **Two ways to play:** the creature's own moves (the default), or Garret's exact moves in its skin.
 - **Any size:** the body's own or Garret's height, times any scale you like.
 - **Borrowed moves:** Garret's moves fill a body's gaps, fitted onto 36 different skeletons.
 - **Speed that fits:** walk and roll speed scale with the body, and the speed toggle flips to its own pace.
-- **Weapons:** Garret's Axion staff, the farmer's hoe, Balthazar's magic or the spin attack.
+- **Weapons:** Garret's Axion staff, the farmer's hoe, Balthazar's magic, the spin attack or bare hands, on any body.
 - **Attacks:** reach, damage and speed multipliers.
 - **Voice:** the creature's own sounds, or Garret's.
 - **Works with every pack.** Not yet with the randomizer, share links or rebuilding from a recipe.

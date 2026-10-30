@@ -1,0 +1,179 @@
+{
+  "dir": "t/",
+  "rate": 1.0,
+  "hit_fx": true,
+  "rigs": [
+    {
+      "source": "townspeople/male_6",
+      "stand": "listen_1",
+      "file": "townsmen.glb",
+      "sha256": "c6b88e90ddfe55fd0ad3cf96b54da14a1b79d825e7d3a60f5b93e8d7cfd42e4a",
+      "throw": "rock"
+    },
+    {
+      "source": "townspeople/female_1",
+      "stand": "idle",
+      "file": "townswomen.glb",
+      "sha256": "763e403d1e6e9922e5c961bf203d2ed4d560a9bd9c995a660a4959e3e18a4645",
+      "throw": "vase"
+    },
+    {
+      "source": "townspeople/child_1",
+      "stand": "idle",
+      "file": "children.glb",
+      "sha256": "0bdd8d0e6c80151e2baff9547f8af6724049e85af48edbf26c4ac668fa16d254",
+      "throw": "rock"
+    }
+  ],
+  "clips": {
+    "jab": {
+      "ticks": 12,
+      "hit": [
+        4,
+        7
+      ],
+      "limbs": [
+        "left_hand"
+      ],
+      "pad": "fist"
+    },
+    "cross": {
+      "ticks": 13,
+      "hit": [
+        5,
+        8
+      ],
+      "limbs": [
+        "right_hand"
+      ],
+      "pad": "fist"
+    },
+    "upper": {
+      "ticks": 15,
+      "hit": [
+        6,
+        9
+      ],
+      "limbs": [
+        "left_hand"
+      ],
+      "pad": "fist"
+    },
+    "shove": {
+      "ticks": 20,
+      "hit": [
+        10,
+        13
+      ],
+      "limbs": [
+        "left_hand",
+        "right_hand"
+      ],
+      "pad": "fist"
+    },
+    "kick": {
+      "ticks": 18,
+      "hit": [
+        8,
+        11
+      ],
+      "limbs": [
+        "right_ankle"
+      ],
+      "pad": "foot"
+    },
+    "throw": {
+      "ticks": 20
+    }
+  },
+  "pads": {
+    "fist": [
+      "left_hand",
+      "left_middlefgr_1"
+    ],
+    "foot": [
+      "right_foot_1",
+      "right_foot_2"
+    ]
+  },
+  "columns": {
+    "basic1": "jab",
+    "basic2": "cross",
+    "basic3": "upper",
+    "finish": "shove",
+    "finish2": "kick",
+    "finish3": "shove",
+    "sweep1": "kick",
+    "sweep2": "kick",
+    "sweep ledge": "kick",
+    "elemental1": "shove",
+    "elemental2": "shove",
+    "elemental3": "shove",
+    "hose_attack_3": "shove",
+    "jump attack": "upper",
+    "right1": "throw",
+    "right2": "jab",
+    "left1": "jab",
+    "left2": "jab",
+    "back1": "jab",
+    "back2": "jab",
+    "up1": "jab",
+    "up2": "jab",
+    "down": "upper"
+  },
+  "sounds": {
+    "dir": "fx/sound/t",
+    "swing": {
+      "name": "t_whoosh",
+      "length": 0.2,
+      "swells": 1,
+      "seed": 2159,
+      "takes": 2
+    },
+    "hit": {
+      "name": "fx/sound/t/thud",
+      "length": 0.16,
+      "seed": 2159
+    }
+  },
+  "throw": {
+    "clip": "throw",
+    "spawn": 3,
+    "take": [
+      3,
+      9
+    ],
+    "release": 11,
+    "back": 15,
+    "chain": 18,
+    "range": 14.0,
+    "miss": 9.0,
+    "miss_z": -1.0,
+    "cone": 45.0,
+    "flight": [
+      0.25,
+      1.2
+    ],
+    "pad": 0.15,
+    "life": 3.0,
+    "landing": 23,
+    "clear": 0.05,
+    "kinds": {
+      "rock": {
+        "source": "bosses/boulder",
+        "scale": 0.25,
+        "reference": "town_male_6",
+        "speed": 16.0,
+        "anim": 9
+      },
+      "vase": {
+        "source": "townspeople/female_0_base",
+        "bone": "vase_joint",
+        "scale": 0.4,
+        "speed": 12.0,
+        "anim": -1,
+        "shards": 0.54
+      }
+    }
+  }
+}

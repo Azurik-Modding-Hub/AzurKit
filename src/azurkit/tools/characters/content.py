@@ -1,21 +1,24 @@
 """The content folder: the files a swap reads that Azurik-Custom-Content
-carries, not this repository or the wheel (D869: our own work, made in
-Blender on the game's rigs; the Characters pickers install them, D913).
+carries, not this repository or the wheel (D869, D965: booblord's, optional
+extras; the Characters pickers install them, D913):
 
-- ``clips/townsfolk/``: the weaponless townsfolk's bare-hands kit, a weapon
-  any body may pick (``bare_hands``; ``_player_kit.KIT``);
-- ``fx/air_elemental/``: the worn air elemental's funnel mesh and its
-  swirl (``_player_variants.FX_ASSETS``);
 - ``clips/booblord/``, ``sounds/booblord/``: booblord's own clips and
   voice (the built-in variants', ``_player_variants.CLIPS`` and ``SOUNDS``).
 
-The swap's modules (the models family's sync installs them) read these
-below :data:`ROOT`: the folder ``AZURKIT_CONTENT`` names, else ``content``
-in the user data folder (beside the images' links, where the app keeps
-what it installs). Until Azurik-Custom-Content is published (Step 4.4),
-``scripts/oracle_sync.py``'s models sync installs Modkit's files there, at
-the family's commit, and ORACLE.toml's ``models.content`` keeps each one's
-sha256. A build that needs one the folder lacks fails naming the file."""
+The townsfolk's bare-hands kit (``clips/townsfolk/``, ``_player_kit.KIT``)
+and the air elemental's funnel (``fx/air_elemental/``,
+``_player_variants.FX_ASSETS``) are our own Blender work too, but ship in
+this package beside the swap's modules (D965), so a townsfolk or an air
+elemental needs no download.
+
+The swap's modules (the models family's sync installs them) read the
+content folder's below :data:`ROOT`: the folder ``AZURKIT_CONTENT`` names,
+else ``content`` in the user data folder (beside the images' links, where
+the app keeps what it installs). Until Azurik-Custom-Content is published
+(Step 4.4), ``scripts/oracle_sync.py``'s models sync installs Modkit's files
+there, at the family's commit, and ORACLE.toml's ``models.content`` keeps
+each one's sha256. A build that needs one the folder lacks fails naming the
+file."""
 
 from __future__ import annotations
 

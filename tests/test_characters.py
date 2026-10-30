@@ -11,6 +11,8 @@ from __future__ import annotations
 import hashlib
 import json
 import struct
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -26,7 +28,7 @@ from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_kit, _player_variants, content, ports
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
-from scripts import gen_facts, oracle_sync
+from scripts import gen_facts
 from tests import _pyodide
 
 MODELS = gen_facts.ORACLE / "models"
@@ -175,8 +177,7 @@ FIELDS = {"player_character_mode": "mode", "player_character_size": "size", "pla
           "player_character_sounds": "sounds", "player_weapon": "weapon", "player_jiggle_strength": "jiggle_strength",
           "player_jiggle_stiffness": "jiggle_stiffness"}
 VARIANTS = ("beamlord", "booblord", "booblord_high", "booblord_human", "booblord_high_human")   # Step 4.3c's
-CONTENT = {   # a case whose build reads a file Azurik-Custom-Content carries, not this repository (D869):
-    # the content folder's (tools/characters/content.py)
+KIT = {   # a case whose build reads the townsfolk's bare-hands kit or the air elemental's funnel (the package's, D965)
     "randomize-full:player-character=air_elemental": "its gust's funnel mesh (fx/air_elemental/air_funnel.glb)",
     **{f"randomize-full:{case}": "the townsfolk's bare-hands kit (clips/townsfolk/)" for case in (
         "player-character=balthazar,weapon=bare_hands", "player-character=town_female_4",
@@ -193,17 +194,17 @@ def _character(args: dict) -> dict:
                   if args[k] is not None}
 
 
-def _bodies(content_cases: bool = False) -> dict[str, dict]:
+def _bodies(kit: bool = False) -> dict[str, dict]:
     """``{case: its recipe}`` of G3's USA cases that wear a species' body and
-    build from the player's image alone (with ``content_cases``, those of
-    :data:`CONTENT`, which read the content folder too): every models-family
-    case that names a player character, but Modkit's built-in variants (Step
-    4.3c), a variant file's and the seed case (level_patches, AZ-009)."""
+    build from the player's image and the package alone, but those of
+    :data:`KIT` (with ``kit``, those alone): every models-family case that names a player
+    character, but Modkit's built-in variants (Step 4.3c), a variant file's
+    and the seed case (level_patches, AZ-009)."""
     out = {}
     for case, spec in _oracle("cases.json")[G3["usa"]].items():
         args = spec["args"]
         if args["player_character"] in VARIANTS or args["player_variant_file"] or args["config_mod"] or (
-                case in CONTENT) != content_cases:
+                case in KIT) != kit:
             continue
         assert args["no_randomize"] and args["ram"] == 128 and not args["disable_pack"], case
         out[case] = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
@@ -256,7 +257,25 @@ def _missed(cases: dict[str, dict], usa_iso) -> dict[str, tuple]:
     return missed
 
 
-def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_hooks_at_the_facts_sites(usa_iso):
+@pytest.fixture
+def no_content(tmp_path, monkeypatch):
+    """An empty content folder, as a player who downloaded nothing has it:
+    each name a characters module binds to a folder of ``content.ROOT``
+    (``_player_variants``' ``CLIPS`` and ``SOUNDS``) rebound to that folder
+    of an empty one."""
+    empty, root = tmp_path / "content", content.ROOT
+    empty.mkdir()
+    for name, module in list(sys.modules.items()):
+        if name == characters.__name__ or name.startswith(f"{characters.__name__}."):
+            for attr, value in list(vars(module).items()):
+                if isinstance(value, Path) and value.is_relative_to(root):
+                    monkeypatch.setattr(module, attr, empty / value.relative_to(root))
+    assert (_player_variants.CLIPS, _player_variants.SOUNDS) == (empty / "clips", empty / "sounds")
+    return empty
+
+
+def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_hooks_at_the_facts_sites(
+        usa_iso, no_content):
     """Each of G3's body cases (:func:`_bodies`: 20 of its 35 USA model
     cases, weapons and sounds and garret4's own body among them) built through ``sdk.image`` (the
     packs on by default, the body's size folded into the walk and roll, the
@@ -266,9 +285,9 @@ def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_h
     appended, by name, size and sha256), and ``keylord``'s whole image less
     its root entries is Modkit's (the grown files' layout). The character
     layer writes default.xbe only inside its claims (its shims) and the
-    facts' swap sites (:func:`_missed`). garret4's roll table the
-    roll shim's object holds as zeros, read from the image, gives G2's
-    object back."""
+    facts' swap sites (:func:`_missed`), with an empty content folder.
+    garret4's roll table the roll shim's object holds as zeros, read from
+    the image, gives G2's object back."""
     bodies = _bodies()
     assert len(bodies) == 20 and _missed(bodies, usa_iso) == {}
     roll = coff.parse((shimkit.PLAYER_MODEL / "roll.o").read_bytes())
@@ -276,40 +295,60 @@ def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_h
         "tests/goldens/shims.json")["player_model_roll.o"]["normalized sha256"]
 
 
-@pytest.fixture
-def library():
-    """The content folder (``content.ROOT``) holding each file the models
-    family's sync installed there (ORACLE.toml's ``models.content``) as it
-    installed it, else the test fails naming the first that isn't."""
-    want = oracle_sync.read_index()["models"]["content"]
-    for rel, sha in sorted(want.items()):
-        if not (path := content.ROOT / rel).is_file() or _sha256(path.read_bytes()) != sha:
-            pytest.fail(f"the content folder {content.ROOT} doesn't hold {rel} as the models sync installed it: "
-                        f"run scripts/oracle_sync.py's models sync, or name the folder in {content.ENV}")
-    return content.ROOT
+def _probe(probe: dict, release, image_path, vanilla: dict, tmp_path) -> tuple[dict, dict, Layer]:
+    """``(Modkit's record, AzurKit's, the character layer)`` of a
+    ``probes.json`` probe built through ``sdk.image`` from ``image_path``,
+    the packs on by default (its variant file, if it has one, written in
+    ``tmp_path``): each record the sha256 of every file Modkit's build
+    changed, the files the manifest changed but filelist.txt, characters.xbr's
+    and fx.xbr's resources and the conflicts."""
+    character = probe["character"]
+    if "variants" in probe:
+        recipes = tmp_path / f"{len(list(tmp_path.iterdir()))}.json"
+        recipes.write_text(json.dumps(probe["variants"]), encoding="utf-8")
+        character = character | {"variant_file": str(recipes)}
+    stamp, base, layers, _, _ = sdk._plan({"iso": str(image_path), "character": character, "packs": {
+        name: {} for name, pack in mods.PACKS.items() if pack.default_on}})
+    made, manifest = edits_manifest.image(stamp, layers, base)
+    want = probe[release.name]
+    with iso.Reader(made) as r:
+        files = {f: r.read(f) for f in want["files"]}
+    keep = (CHARACTERS, FX)
+    return ({"files": want["files"], "changed": sorted(set(want["files"]) - {"filelist.txt"}),
+             "resources": {f: view for f, view in want["resources"].items() if f in keep}, "conflicts": ()},
+            {"files": {f: _sha256(data) for f, data in files.items()},
+             "changed": sorted(set(manifest.result) - {"filelist.txt"}),
+             "resources": {f: _view(vanilla[f], files[f]) for f in want["resources"] if f in keep},
+             "conflicts": manifest.conflicts},
+            next(la for la in layers if la.tool == characters.TOOL))
 
 
-def test_each_content_case_is_modkits_file_for_file_from_the_content_folder_and_refused_by_name_without_it(
-        usa_iso, library, monkeypatch, tmp_path):
-    """The weapon and fx rows that read Azurik-Custom-Content's files
-    (:data:`CONTENT`, D869's way: the townsfolk's bare-hands kit, worn by
-    the weaponless townsfolk and picked as ``bare_hands`` on any body, with
-    its throw, thuds and whooshes; the worn air elemental's funnel): the
-    swap reads them in the content folder, and each of those 7 G3 cases is
-    Modkit's file for file and resource for resource (:func:`_missed`). A
-    content folder without them fails the build naming the file."""
-    assert (_player_kit.KIT, _player_variants.FX_ASSETS) == (library / "clips" / "townsfolk", library / "fx")
-    cases = _bodies(content_cases=True)
-    assert sorted(cases) == sorted(CONTENT) and _missed(cases, usa_iso) == {}
-    empty = tmp_path / "content"
-    monkeypatch.setattr(_player_kit, "KIT", empty / "clips" / "townsfolk")
-    monkeypatch.setattr(_player_kit, "KIT_FILE", empty / "clips" / "townsfolk" / "kit.json")
-    monkeypatch.setattr(_player_variants, "FX_ASSETS", empty / "fx")
-    _player_kit._kit.cache_clear()   # kit.json as last read: a failed read isn't kept
-    for case, need in (("randomize-full:player-character=air_elemental", "air_funnel"),
-                       ("randomize-full:player-character=town_male_6", "townsfolk/kit.json")):   # one of each
-        with pytest.raises((OSError, ValueError), match=need):
-            sdk._plan({"iso": str(usa_iso), "packs": {}, "character": cases[case]["character"]})
+@pytest.mark.parametrize("release", RELEASES)
+def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_modkits_file_for_file(
+        release, request, no_content, tmp_path):
+    """The townsfolk's bare-hands kit (the weaponless townsfolk's weapon,
+    and ``bare_hands`` and the spin attack on any body) and the air
+    elemental's funnel ship in the package (D965: each file Modkit's at the
+    models tag, ORACLE.toml's ``models.source``), so with an empty content
+    folder a townsman's and the air elemental's own bodies (``probes.json``'s
+    species probes) are Modkit's file for file and resource for resource on
+    both releases, and on USA so is each G3 case that reads the kit or the
+    funnel (:data:`KIT`, :func:`_missed`). A build that needs a file the
+    content folder lacks (booblord's clips) fails naming it."""
+    package = Path(characters.__file__).parent
+    assert (_player_kit.KIT, _player_variants.FX_ASSETS) == (package / "clips" / "townsfolk", package / "fx")
+    image_path = request.getfixturevalue(f"{release.name}_iso")
+    with iso.Reader(image_path) as r:
+        vanilla = {f: r.read(f) for f in characters.FILES}
+    species = {case: probe for case, probe in _oracle("probes.json").items() if "variants" not in probe}
+    assert sorted(probe["character"]["species"] for probe in species.values()) == ["air_elemental", "town_male_6"]
+    built = {case: _probe(probe, release, image_path, vanilla, tmp_path)[:2] for case, probe in species.items()}
+    assert {case: got for case, (_, got) in built.items()} == {case: want for case, (want, _) in built.items()}
+    if release is gate.USA:
+        cases = _bodies(kit=True)
+        assert sorted(cases) == sorted(KIT) and _missed(cases, image_path) == {}
+    with pytest.raises((OSError, ValueError), match=r"clips[/\\]booblord[/\\]"):
+        sdk._plan({"iso": str(image_path), "packs": {}, "character": {"species": "booblord"}})
 
 
 def test_a_character_is_refused_by_name_where_a_build_cant_carry_it_yet():
@@ -345,35 +384,22 @@ def test_the_speed_toggle_flips_a_worn_bodys_walk_and_roll_to_the_bodys_own(usa_
 
 
 @pytest.mark.parametrize("release", RELEASES)
-def test_each_variant_probe_is_modkits_file_for_file_and_resource_for_resource(release, request, tmp_path):
+def test_each_variant_probe_is_modkits_file_for_file_and_resource_for_resource(release, request, no_content, tmp_path):
     """Each of ``probes.json``'s variants (Modkit's own build of it at the
     models tag: a recipe file's variant whose mesh is subdivided, deformed and
     grown a tube, its textures painted and coloured, its bones on jiggle
     springs, a shape sized, worn with a weapon), built through ``sdk.image``
-    from its recipe file, gives every file Modkit's build changed Modkit's
+    from its recipe file with an empty content folder, gives every file Modkit's build changed Modkit's
     sha256 and characters.xbr's and fx.xbr's resources as Modkit's, with no
     conflict. The layer's recipe holds the variant's sha, and neither it nor
     a note holds the recipe file's folder."""
-    probes = _oracle("probes.json")
+    probes = {case: probe for case, probe in _oracle("probes.json").items() if "variants" in probe}
     assert probes
     with iso.Reader(image_path := request.getfixturevalue(f"{release.name}_iso")) as r:
         vanilla = {f: r.read(f) for f in characters.FILES}
     for case, probe in probes.items():
-        recipes = tmp_path / f"{len(list(tmp_path.iterdir()))}.json"
-        recipes.write_text(json.dumps(probe["variants"]), encoding="utf-8")
-        recipe = {"iso": str(image_path), "packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
-                  "character": probe["character"] | {"variant_file": str(recipes)}}
-        stamp, base, layers, _, _ = sdk._plan(recipe)
-        made, manifest = edits_manifest.image(stamp, layers, base)
-        want = probe[release.name]
-        with iso.Reader(made) as r:
-            files = {f: r.read(f) for f in want["files"]}
-        assert {f: _sha256(data) for f, data in files.items()} == want["files"], case
-        assert set(manifest.result) - {"filelist.txt"} == set(want["files"]) - {"filelist.txt"}, case
-        assert {f: _view(vanilla[f], files[f]) for f in want["resources"] if f in (CHARACTERS, FX)} == {
-            f: view for f, view in want["resources"].items() if f in (CHARACTERS, FX)}, case
-        layer = next(la for la in layers if la.tool == characters.TOOL)
-        assert manifest.conflicts == () and len(layer.recipe["variant"]) == 12, case
+        want, got, layer = _probe(probe, release, image_path, vanilla, tmp_path)
+        assert got == want and len(layer.recipe["variant"]) == 12, case
         assert str(tmp_path) not in json.dumps([layer.recipe, layer.notes]), case
 
 

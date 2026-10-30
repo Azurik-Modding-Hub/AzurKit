@@ -1320,8 +1320,7 @@ def _check_gltf(where: str, p: dict) -> None:
         _positive(f"{where}.rate", p["rate"])
 
 
-from azurkit.tools.characters.content import ROOT as CONTENT_ROOT
-FX_ASSETS = CONTENT_ROOT / "fx"
+FX_ASSETS = BUILTIN.parent / "fx"
 """The built-ins' and overlays' fx files, ``fx/<name>/``: a texture's PNG
 and a platform's glTF mesh (Step 2.155e; made by a script, committed)."""
 

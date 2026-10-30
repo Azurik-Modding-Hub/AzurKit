@@ -29,13 +29,15 @@ release's vanilla file read from the same image:
 
 Names, sizes, offsets and sha256s, a convention (D961).
 
-It then builds AzurKit's variant probes (:func:`probes`, Step 4.3c1) the
-same way on both releases and writes ``probes.json`` beside ``OUT``: each
-probe's recipe (AzurKit's ``character`` and the variant file it names) and,
-for each release, its files' sha256 (``files``) and the records above
+It then builds AzurKit's probes (:func:`probes`: a variant's, Step 4.3c1;
+a townsfolk's and the air elemental's own body, Step 4.3b2) the same way on
+both releases and writes ``probes.json`` beside ``OUT``: each probe's recipe
+(AzurKit's ``character`` and the variant file it names, if any) and, for
+each release, its files' sha256 (``files``) and the records above
 (``resources``). No G3 case builds a variant's mesh, paint and jiggle
-without Azurik-Custom-Content's files (booblord's clips and WAVs), so a
-probe's hashes are Modkit's build of it here, at the bundle's commit.
+without Azurik-Custom-Content's files (booblord's clips and WAVs), nor the
+townsfolk's bare-hands kit or the funnel on Europe, so a probe's hashes are
+Modkit's build of it here, at the bundle's commit.
 
     uv run --locked python scripts/<this file> OUT --bundle BUNDLE/models [--workers N]
 """
@@ -66,17 +68,22 @@ TUBE = {"op": "tube", "name": "tail", "bone": "head", "path": [[0.0, -0.1, 0.08]
         "radius": [0.02, 0.03, 0.01], "group": 0, "rect": [0.02, 0.01, 0.28, 0.14], "sides": 8, "rings": 12,
         "segments": 2}   # W24's topology ops, as Modkit's subdivided-variant test grows them
 FLAGS = {"species": "--player-character", "weapon": "--player-weapon"}   # a probe's character -> Modkit's flags
+SPECIES = ("town_male_6", "air_elemental")
+"""The species probes (Step 4.3b2): a weaponless townsman, who wears the
+townsfolk's bare-hands kit, and the air elemental, whose gust draws the
+funnel, on their own bodies (G3 builds them on USA only)."""
 
 
 def probes() -> dict[str, dict]:
-    """AzurKit's variant probes: ``{case: {"character": a recipe's
-    character but its variant_file, "variants": the file's recipes}}``.
+    """AzurKit's probes: ``{case: {"character": a recipe's character but
+    its variant_file[, "variants": the file's recipes]}}``. The variant's:
     Modkit's own test variant (``tests/_variant_fixtures.py``'s booblord
     v3: W24's deform ops, W28's arms, W29's springs), her WAVs left out,
     with a subdivide and a tube (W24's topology ops), booblord's shipped
     textures (W30's paint) and booblord_human's colours (W38), two shapes
     over its scale ops, one sized; worn with the Farmer's hoe (her base's
-    own moves read the townsfolk's kit, Azurik-Custom-Content's too)."""
+    own moves read the townsfolk's kit). Each of :data:`SPECIES` on its
+    own body."""
     from azurik_mod.patches._player_variants import BUILTIN
     from tests._variant_fixtures import booblord_v3_recipe
 
@@ -89,15 +96,17 @@ def probes() -> dict[str, dict]:
     recipe["mesh"] = {**recipe["mesh"], "ops": [SUBDIVIDE, *recipe["mesh"]["ops"], TUBE]}
     character = {"species": PROBE, "shapes": {"hips": 1.2}, "weapon": "farmers_hoe"}
     return {f"variant:{PROBE},shape=hips=1.2,weapon=farmers_hoe": {"character": character,
-                                                                   "variants": {PROBE: recipe}}}
+                                                                   "variants": {PROBE: recipe}},
+            **{f"species:{name}": {"character": {"species": name}} for name in SPECIES}}
 
 
 def _probe_spec(probe: dict) -> dict:
     """A probe's build as G3's spec: randomize-full with no plan, the packs
-    on by default, the variant file ``probe["variants"]``."""
+    on by default, the variant file ``probe["variants"]`` if it has one."""
     c = probe["character"]
     shapes = [a for name, x in c.get("shapes", {}).items() for a in ("--player-shape", f"{name}={x}")]
-    return {"cli": ["randomize-full", "--no-randomize", "--player-variant-file", probe["variants"], *shapes,
+    variants = ["--player-variant-file", probe["variants"]] if "variants" in probe else []
+    return {"cli": ["randomize-full", "--no-randomize", *variants, *shapes,
                     *(a for key, flag in FLAGS.items() if key in c for a in (flag, c[key]))]}
 
 
