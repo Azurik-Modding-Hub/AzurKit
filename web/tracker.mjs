@@ -140,7 +140,7 @@ export function tracker({ call, app, say, kept, keep, image = () => null }) {
     $("track-tables").hidden = t.mode !== "table";
     if (t.mode === "table") return tables();
     if (drawn) {
-      if (map.level !== t.level || map.pictures === undefined) map.show(t.level);
+      if (map.level !== t.level || !map.pictures?.length) map.show(t.level);
       else map.draw();
       map.floorButtons();
       return placed();

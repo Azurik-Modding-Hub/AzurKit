@@ -111,6 +111,9 @@ def _owners(app_path: Path) -> dict[str, str]:
             owners[name] = "PyInstaller's runtime (Apache-2.0)"
         elif name in sys.stdlib_module_names or name.startswith(("_sysconfigdata_", "libpython")):
             owners[name] = "Python (PSF-2.0)"
+        elif name.endswith(".dist-info"):   # a distribution's metadata (numpy's, which PyInstaller's hook keeps)
+            dist = name.removesuffix(".dist-info").rsplit("-", 1)[0]
+            owners[name] = f"{dist} ({_licence(dist)})"
         else:
             owners[name] = ", ".join(f"{d} ({_licence(d)})" for d in sorted(set(dists.get(name, ())))) or "unknown"
     return owners
