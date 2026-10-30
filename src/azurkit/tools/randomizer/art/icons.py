@@ -74,7 +74,7 @@ KEY_VIEW = (15.0, 5.0)          # a key's yaw and pitch: upright, its gem showin
 def body_parts(rd, cache: dict, body: str) -> list[Part]:
     """A character body's parts (characters.xbr, read once into ``cache``)."""
     from azurkit.tools.randomizer.art import render
-    from azurkit.tools.randomizer.ports import named_resources, parse_toc
+    from azurkit.core.xbr.nodes import named_resources, parse_toc
 
     if "characters" not in cache:
         cache["characters"] = bytes(rd.read_file("gamedata/characters.xbr"))
@@ -164,7 +164,7 @@ def skinned(rd, parts: list[Part], xbr: str, image: str, colour: float, yaw: flo
     facing from the model's centre as seen from ``yaw``/``pitch`` (a sphere
     map)."""
     from azurkit.tools.randomizer.art import render
-    from azurkit.tools.randomizer.ports import named_resources, parse_toc
+    from azurkit.core.xbr.nodes import named_resources, parse_toc
 
     data = bytes(rd.read_file(xbr))
     index = next(i for i, n in named_resources(data).items() if n == image)

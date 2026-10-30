@@ -117,6 +117,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     that still imports Modkit after the rewrites, or a statement `DROPS`
     names that is gone, stops the sync by name before anything is written:
     port what it imports into an AzurKit module, then add a rewrite.
+    The rewrites are one table for every family: `tests/test_oracle.py`
+    ports each family's sources again at its recorded commit and holds them
+    to import-linter's contracts, so the suite reads Modkit's history
+    (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout).
     The models family's sync installs the archive writers a character
     swap builds on (see Characters below).
   - **The sync's own files** (`oracle_sync.DERIVED`): the models family's

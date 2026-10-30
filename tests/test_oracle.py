@@ -1,17 +1,24 @@
 """``tests/oracle/``, the bundle Modkit's ``scripts/export_oracle.py`` writes:
 every file is the one ``scripts/oracle_sync.py`` installed, as is each file
 of Modkit's source it installs in ours (the randomizer's data and planner),
-and both vanilla images match the core family's manifests file by file,
-through the gate."""
+installed again from Modkit's history it keeps the import contracts, and
+both vanilla images match the core family's manifests file by file, through
+the gate."""
 
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
 from azurkit.core import gate
-from scripts.oracle_sync import DERIVED, FACTS, ORACLE, PATHS, SOURCES, port, read_index, source_hashes, tree_hashes
+from scripts.oracle_sync import (DERIVED, FACTS, ORACLE, PATHS, ROOT, SOURCES, install, port, read_index, source_hashes,
+                                 sources, tree_hashes)
 
 
 def test_every_oracle_file_is_the_one_the_sync_installed():
@@ -79,6 +86,38 @@ def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
     off += [f"{family}: {rel}" for family, entry in read_index().items() for rel in entry.get("art", {})
             if not any(rel.startswith(p + "/") for p in PATHS[family])]
     assert off == []
+
+
+def _modkit() -> Path:
+    """Modkit's checkout, whose history the sync ports: ``$AZURKIT_MODKIT``,
+    else ``Azurik_Modkit`` beside the main checkout."""
+    if env := os.environ.get("AZURKIT_MODKIT"):
+        return Path(env)
+    common = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                            capture_output=True, text=True, check=True).stdout.strip()
+    return Path(common).parent.parent / "Azurik_Modkit"
+
+
+def test_a_re_sync_at_each_familys_commit_imports_no_tool_from_another(tmp_path):
+    """Each family's sources ported again from Modkit at the commit
+    ORACLE.toml records (``sources()``, installed by ``install()`` in a copy
+    of ``src/``) keep import-linter's contracts there: the rewrites are every
+    family's, so none may send one tool's import into another tool (a rule
+    for the maps sent the characters' TOC reader into the randomizer's,
+    Step 4.2c3's late review)."""
+    index, clone, src = read_index(), tmp_path / "modkit", tmp_path / "src"
+    subprocess.run(["git", "clone", "--quiet", "--shared", "--no-checkout", str(_modkit()), str(clone)], check=True)
+    shutil.copytree(ROOT / "src", src, ignore=shutil.ignore_patterns("__pycache__"))
+    for family, copies in SOURCES.items():
+        subprocess.run(["git", "-C", str(clone), "checkout", "--quiet", index[family]["commit"], "--",
+                        *(path for path, _, _ in copies)], check=True)
+        install(tmp_path, family, sources(clone, family))
+    lint = ("import importlib.util, sys; from importlinter.cli import lint_imports; "   # on the copy's azurkit
+            "assert importlib.util.find_spec('azurkit').origin.startswith(sys.argv[2]); "
+            "sys.exit(lint_imports(config_filename=sys.argv[1], no_cache=True))")
+    run = subprocess.run([sys.executable, "-c", lint, str(ROOT / "pyproject.toml"), str(src)], capture_output=True,
+                         text=True, env=os.environ | {"PYTHONPATH": str(src)})
+    assert run.returncode == 0, run.stdout + run.stderr
 
 
 @pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),

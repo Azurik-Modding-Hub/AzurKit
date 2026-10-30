@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 
 from azurkit.tools.randomizer.art import render
-from azurkit.tools.randomizer.ports import named_resources, parse_toc
+from azurkit.core.xbr.nodes import named_resources, parse_toc
 
 SS = 8                          # supersampling
 PITCH = 25.0                    # degrees the camera looks down

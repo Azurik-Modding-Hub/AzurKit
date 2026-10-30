@@ -148,8 +148,7 @@ REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.
             ("from azurik_mod.xbr.sections import IndexRecordsSection",
              "from azurkit.core.xbr.nodes import IndexRecordsSection"),
             ("from azurik_mod.xbr.append import", "from azurkit.core.xbr.append import"),
-            ("from azurik_mod.xbr.toc_scan import named_resources, parse_toc",
-             "from azurkit.tools.randomizer.ports import named_resources, parse_toc"),
+            # every family's TOC reader is the core's: a rule sending it into a tool takes another family's too
             ("from azurik_mod.xbr.toc_scan import", "from azurkit.core.xbr.nodes import"),
             # the maps' and icons' XBR readers: Modkit's, in art/ (core/xbr is AzurKit's own)
             # the icons' script writes no PNG here (its main is dropped): art.png does, the site's and the app's
@@ -392,6 +391,18 @@ def derive(family: str, clone: Path, folder: Path, env: dict[str, str]) -> None:
                    check=True, env=env)
 
 
+def install(root: Path, family: str, files: dict[str, bytes]) -> None:
+    """Replace the family's :data:`SOURCES` in the tree ``root`` with
+    ``files`` (:func:`sources`' output)."""
+    for _, dst, _ in SOURCES.get(family, ()):
+        if (root / dst).is_file():
+            (root / dst).unlink()
+        shutil.rmtree(root / dst, ignore_errors=True)
+    for rel, data in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(data)
+
+
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True).stdout
 
@@ -426,13 +437,7 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             shutil.rmtree(ORACLE / family, ignore_errors=True)
             shutil.copytree(bundle / family, ORACLE / family)
             exported = {rel: digest_spans(ORACLE / family / rel) for rel in FACTS if (ORACLE / family / rel).exists()}
-            for _, dst, _ in SOURCES.get(family, ()):
-                if (ROOT / dst).is_file():
-                    (ROOT / dst).unlink()
-                shutil.rmtree(ROOT / dst, ignore_errors=True)
-            for rel, data in ported[family].items():
-                (ROOT / rel).parent.mkdir(parents=True, exist_ok=True)
-                (ROOT / rel).write_bytes(data)
+            install(ROOT, family, ported[family])
             index[family] = {"tag": tag, "commit": commit, "files": tree_hashes(ORACLE / family)}
             index[family] |= {"exported": exported} if exported else {}
             index[family] |= {"source": source_hashes(family)} if family in SOURCES else {}

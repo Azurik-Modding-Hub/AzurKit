@@ -67,8 +67,8 @@ commit = "c5306b3307c3c7415bdaf0d8fa5ac58328036250"
 
 [rando.source]
 "src/azurkit/tools/randomizer/art/collision.py" = "8f506f4931c9a41ad57736fa2405db8a8233ad5c9dd6bd512d5dbc3b427166af"
-"src/azurkit/tools/randomizer/art/draw.py" = "b2ea51c6814aae7663d25ff064daa30803a9290a73fae7b8572277561d862fe8"
-"src/azurkit/tools/randomizer/art/icons.py" = "db75112854ba858cbdc7d3c5fa8afa1f6e267337aabbc573d0a7f0abfdb227d8"
+"src/azurkit/tools/randomizer/art/draw.py" = "a2be4edb8811555bc0359eb74cbe50657c8e746987de2184e6b3dc7e6f89c8ff"
+"src/azurkit/tools/randomizer/art/icons.py" = "25a9fa27b2e9998a829f99f2ec2877e13207f221343e3030bd7ddbf840da8494"
 "src/azurkit/tools/randomizer/art/maps.py" = "509235181061e164e7a0dbfd139fb02a8454c5d7eba906709e849e80d4c468bc"
 "src/azurkit/tools/randomizer/art/node_types.json" = "f89bb311a89fbad8db1540d108ba96499bd50d8a14b8112c39ffb0602dbf43be"
 "src/azurkit/tools/randomizer/art/nodes.py" = "3eefd84b9e5b0c5b301e162f90acfd471e765d39ca7944f2b8ceab91022c2714"

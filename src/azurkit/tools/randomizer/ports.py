@@ -1,10 +1,10 @@
 """What the randomizer modules the oracle sync installs from Modkit
 (``scripts/oracle_sync.py``'s ``SOURCES``) import from Modkit's shared
 engine, on AzurKit's: the sync's ``REWRITES`` point those imports here.
-The planner's and the writer's node and TOC readers are
-:mod:`azurkit.core.xbr.nodes`; the maps' (Step 4.2c3) are Modkit's own, in
+The node and TOC readers are :mod:`azurkit.core.xbr.nodes`; the maps'
+other XBR readers (Step 4.2c3) are Modkit's own, in
 :mod:`azurkit.tools.randomizer.art`, which read an XBE's release and
-addresses and an XBR's resource names through here."""
+addresses through here."""
 
 from __future__ import annotations
 
@@ -13,10 +13,7 @@ from typing import NamedTuple
 
 from azurkit.core import facts, filelist, gate, iso
 from azurkit.core import xbe as xbe_file
-from azurkit.core.xbr.document import Document
-from azurkit.core.xbr.nodes import parse_toc
 
-__all__ = ["Listed", "XisoReader", "listed", "named_resources", "parse_toc", "resolve_va_to_file", "xbe_layout"]
 RETAIL_THUNK_XOR = 0x5B6D40B6   # a retail XBE's header +0x158 holds its kernel thunk table's address XOR this
 
 
@@ -71,8 +68,3 @@ def resolve_va_to_file(xbe: bytes, va: int) -> int | None:
     except ValueError:
         return None
 
-
-def named_resources(data: bytes) -> dict[int, str]:
-    """TOC index -> the XBR ``data``'s own name for that resource (Modkit's
-    ``xbr.toc_scan.named_resources``: :class:`Document`'s names)."""
-    return Document(bytes(data)).names()
