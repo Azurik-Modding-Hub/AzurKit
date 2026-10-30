@@ -43,7 +43,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MAGIC_SPAN = 0x10020
-MAX_TEXT = 16 << 20      # of a gzip file's inner bytes, the most kept (tests/test_provenance.py reads them as text)
+MAX_TEXT = 16 << 20      # of a gzip file's inner bytes, the most kept
 GZIP = b"\x1f\x8b"
 _ISO_NAME = re.compile(r"\.x?iso(\.\d+)?$")   # an image or a part of one (azurik.iso.007)
 _PRIVATE_KEY = re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----\r?\n")

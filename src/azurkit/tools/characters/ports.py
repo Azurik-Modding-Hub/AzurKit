@@ -18,9 +18,8 @@ claims (``core.xbe.grown``), as Modkit's ``carve_shim_landing`` grows
 ``.text`` and appends ``SHIMS``.
 
 **config.xbr's keyed tables** (:class:`KeyedSection`, the edits below,
-:func:`load_all_tables`) are written new from the format (AZ-212, D95; the
-code NOTICE.md credits is not ported): a cell is read from the file's live
-bytes each time, as Modkit's swap reads a cell after it wrote another.
+:func:`load_all_tables`): a cell is read from the file's live bytes each
+time, as Modkit's swap reads a cell after it wrote another.
 
 A refusal is a ``ValueError`` naming what and why, never the bytes (D35);
 where Modkit's engine prints a line and returns ``False``, this raises.

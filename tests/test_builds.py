@@ -9,7 +9,7 @@ G3's and G4's recipes are Modkit's flags and mod shapes (the oracle's
 shapes are read only by the parity harness): its ``patches``,
 ``_keyed_patches`` and ``xbr_edits`` become ``set`` and ``replace_bytes``
 operations, whose ``expected`` is read from the image (never written here).
-``level_patches`` isn't ported (D95, AZ-009), so the three cases that move
+``level_patches`` isn't ported (AZ-009), so the three cases that move
 an entity in ``training_room.xbr`` leave that file, and ``filelist.txt``,
 which lists it, out by name."""
 

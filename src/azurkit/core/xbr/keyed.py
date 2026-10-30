@@ -1,6 +1,5 @@
 """config.xbr's keyed tables (the ``tabl`` entries), read and written
-back. Written new from the format (AZ-212, D95): nothing here comes from
-the code NOTICE.md credits.
+back.
 
 A table's payload starts with five little-endian words: its row count;
 where its row headers start, from that word (0x10, so at +0x14); its

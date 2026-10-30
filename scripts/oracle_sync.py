@@ -48,7 +48,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import fnmatch
 import hashlib
 import json
 import os
@@ -223,8 +222,7 @@ REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.
             ("from azurik_mod.randomizer import ", "from azurkit.tools.randomizer import "),
             ("azurik_mod.randomizer.", "azurkit.tools.randomizer."),
             ("from azurik_mod.xbr.nodes import", "from azurkit.core.xbr.nodes import"),
-            # Modkit's xbr/edits.py's error and xbr/sections.py's index records (a file NOTICE.md credits to
-            # JTCPP, D95): ours, in core/xbr/nodes.py
+            # Modkit's xbr/edits.py's error and xbr/sections.py's index records: the core's, in core/xbr/nodes.py
             ("from azurik_mod.xbr.edits import XbrStructuralError",
              "from azurkit.core.xbr.nodes import XbrStructuralError"),
             ("from azurik_mod.xbr.sections import IndexRecordsSection",
@@ -323,24 +321,6 @@ def installed(family: str, root: Path = ROOT) -> list[Path]:
         else:
             out |= {p for p in (root / dst).rglob("*") if p.is_file() and "__pycache__" not in p.parts}
     return sorted(out)
-
-
-def origins(root: Path = ROOT) -> dict[str, str]:
-    """``{repository path: the Modkit path it was ported from}`` of each file
-    every family installed (:func:`installed`)."""
-    out = {}
-    for family, copies in SOURCES.items():
-        for path in installed(family, root):
-            rel = path.relative_to(root).as_posix()
-            globs = [src for src, dst, _ in copies if "*" in src and rel == f"{dst}/{path.name}"
-                     and fnmatch.fnmatchcase(path.name, src.rpartition("/")[2])]
-            if globs:   # the glob whose pattern names it most closely (``_player_*.py`` over ``*.py``)
-                src = max(globs, key=lambda s: len(s.rpartition("/")[2].replace("*", "")))
-                out[rel] = f"{src.rpartition('/')[0]}/{path.name}"
-                continue
-            out[rel] = next(src + rel[len(dst):] for src, dst, _ in copies
-                            if "*" not in src and (rel == dst or rel.startswith(dst + "/")))
-    return out
 
 
 def source_hashes(family: str, root: Path = ROOT) -> dict[str, str]:

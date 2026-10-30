@@ -105,7 +105,7 @@ Contributors and agents start at [`AGENTS.md`](AGENTS.md).
 ## License and credits
 
 MIT ([`LICENSE`](LICENSE)), for our own work: the game's files and bytes
-here are not under it. [`NOTICE.md`](NOTICE.md) credits Jett Tripp
-(JTCPP), whose Elemental_Games_Modding randomizer is where Azurik_Modkit began
-(none of his code is in this repository), and Azurik Perathia's Azurik Debug
-Menu, the photo mode's design.
+here are not under it. [`NOTICE.md`](NOTICE.md) thanks Jett Tripp
+(JTCPP), a fellow developer in the Azurik modding effort, whose
+Elemental_Games_Modding randomizer is where Azurik_Modkit began, and credits
+Azurik Perathia's Azurik Debug Menu, the photo mode's design.

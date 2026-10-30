@@ -1,6 +1,6 @@
 """The data archives (``azurkit.core.xbr``, Step 4.1e2): every vanilla XBR
 of both releases parses and writes back to its manifest's sha256;
-config.xbr's keyed cells (written new from the format, AZ-212) take the
+config.xbr's keyed cells take the
 Game Data editor's two edits as Modkit made them (the oracle's
 ``xbr_editor`` goldens); and, on a synthetic archive (no game bytes), an
 edit writes only its cell and refuses by name, and a config.xbr slider

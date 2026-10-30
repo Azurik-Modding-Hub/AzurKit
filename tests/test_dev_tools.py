@@ -26,7 +26,7 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
     assert "tests/test_oracle.py" in SMOKE
     assert fullsuite.plan(["src/azurkit/core/iso.py"], deps) == sorted(
         {*SMOKE, "tests/test_sdk.py", "tests/test_wheel.py"})
-    assert fullsuite.plan(["tests/test_other.py", "README.md", "tests/provenance/jtcpp_lines.txt"], deps) == sorted(
+    assert fullsuite.plan(["tests/test_other.py", "README.md", "tests/sdk_api.txt"], deps) == sorted(
         {*SMOKE, "tests/test_other.py"})
     assert fullsuite.plan(["tests/oracle/core/oracle.json", "bootstrap.py"], deps) == SMOKE
     for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "web/index.html"):

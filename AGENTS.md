@@ -121,18 +121,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     their size in zeros, PNG's signature is joined from two halves, a
     recipe's long float gets an exponent, a shim's table of game data
     becomes zeros), and
-    `NUMBERS` writes a tuple of byte-sized ints as a string's. A file it
-    installed is judged by the Modkit file it ports
-    (`oracle_sync.origins`): `tests/test_provenance.py` refuses one from a
-    file NOTICE.md credits.
+    `NUMBERS` writes a tuple of byte-sized ints as a string's.
   - **The sync's own files** (`oracle_sync.DERIVED`): the models family's
     `swap.json` (the `swap` section of Modkit's facts, both releases) and
     `resources.json`, which `scripts/modkit_resources.py` makes by running
     Modkit's own build of each G3 case that wears a model inside the
     sync's clone of Modkit (never in AzurKit); each built file's sha256
     must be G3's, or the sync stops with nothing written.
-- AzurKit never imports Modkit, and nothing NOTICE.md credits to JTCPP is
-  ported (D95). `tests/test_provenance.py` checks that.
+- AzurKit never imports Modkit.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, its sections, every patch site's size and vanilla sha256, the
   player-model swap's hooks (`swap`: the vanilla spans it writes and the
@@ -176,8 +172,6 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   them back (every vanilla XBR round-trips, `tests/test_xbr.py`). An edit
   (`edits.py`) is the writes `[(offset, bytes)]` that make it, planned
   against the file as parsed; every cell is 16 bytes, so nothing grows.
-  The keyed cells are written new from the format, never from the code
-  NOTICE.md credits (AZ-212, D95).
 - **The mods file** (Q268; `edits/preset.py`'s `read`, `sdk.read_mods`,
   `azurkit build --mods`) is a preset, an AzurKit build's manifest or a
   share link. Its `mods` layer is the build's packs (in place of those on by
@@ -379,8 +373,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the packs' claims, the header state laid down from the claims), a
     hook's vanilla bytes read from the player's `default.xbe` and checked
     against the facts' swap site (`xbe_site`), and config.xbr's keyed tables
-    and cell edits written new from the format (AZ-212). `pool.py` runs the
-    swap's parallel work in order unless a host gives it a map (`pool.MAP`).
+    and cell edits. `pool.py` runs the swap's parallel work in order unless
+    a host gives it a map (`pool.MAP`).
   - A recipe's `character` (`tools.characters.normalize`): `species` and
     Modkit's `randomize-full` options (`mode`, `size`, `scale`, the attack
     sliders, `anims`, `sounds`, `weapon`, `ram`, the jiggle's): the sdk
@@ -404,9 +398,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `body_codec.py` (a body decoded whole and written back with any
   topology) and `index_xbr.py` (`index.xbr`'s records, `add_index_records`).
   What they import of Modkit's `xbr/toc_scan.py`, `xbr/edits.py` and
-  `xbr/sections.py` is ours, in `core/xbr/nodes.py` (`named_resources`,
-  `runs`, `XbrStructuralError`, `IndexRecordsSection`; `sections.py` is a
-  file NOTICE.md's JTCPP note covers, D95).
+  `xbr/sections.py` comes from `core/xbr/nodes.py` (`named_resources`,
+  `runs`, `XbrStructuralError`, `IndexRecordsSection`).
 - **The character layer** (§12.2's whole-file group): a swap grows
   `characters.xbr`, `fx.xbr` and `index.xbr`, so it writes each it changes
   whole, all one group (`tools.characters.whole_files`: `Change(...,

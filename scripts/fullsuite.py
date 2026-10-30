@@ -44,7 +44,7 @@ import sys
 import time
 from pathlib import Path
 
-LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py", "tests/test_provenance.py")
+LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
 SMOKE = (*LINT, "tests/test_oracle.py")   # every changed-area run's; test_oracle reads both images
 CAP = 4500        # a run's cap on a host whose load is at most its CPU count (cap())
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
@@ -106,7 +106,7 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
         if rel in WHOLE:
             return None
         if (rel.endswith(DOCS) or rel in ("LICENSE", ".gitignore")
-                or rel.startswith(("tests/provenance/", "tests/oracle/"))):
+                or rel.startswith("tests/oracle/")):
             continue
         if (module := module_of(rel)) is None:
             return None
