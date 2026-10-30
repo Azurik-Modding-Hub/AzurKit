@@ -33,9 +33,10 @@ G2 = json.loads((gen_facts.ORACLE / "packs/tests/goldens/shims.json").read_text(
 G2_MODELS = json.loads((gen_facts.ORACLE / "models/tests/goldens/shims.json").read_text(encoding="utf-8"))
 
 
-def test_each_prebuilt_shim_is_its_sources_build_and_holds_its_g2_hash():
+def test_each_prebuilt_shim_is_its_sources_build_and_holds_its_g2_hash(usa_iso):
     """Every shim source has its object beside it, which zig builds from it
-    byte for byte (``shimkit --check``, D895), and whose normalized sha256
+    byte for byte (``shimkit --check``, D895: roll.c's table filled from the
+    USA image, so the test is ``vanilla``), and whose normalized sha256
     is the oracle's G2 record of Modkit's build: the packs' ten
     (``tools/mods/shims/<name>.c``, the shared kernel-export resolver's
     among them; G2 at the packs tag) and the swap's forty

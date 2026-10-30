@@ -53,12 +53,15 @@ obsidian cost), as an AzurKit build's mods file does.
 A recipe's ``character`` dresses the player in a species' body (Modkit's
 swap, ``tools.characters``: the body and its clips, its attacks, weapon,
 sounds and fx, and the shims it hooks): the body's size folds into
-player_physics' walk and roll before the packs (Modkit's ``size_params``),
-and the character layer stacks after the packs::
+player_physics' walk and roll before the packs (Modkit's ``size_params``;
+the speed toggle flips those two to the body's own), and the character
+layer stacks after the packs::
 
     {"iso": "<a vanilla image>", "packs": {...}, "character": {"species": "keylord", "mode": "garret4"}}
 
-A build's mods file doesn't carry a character yet (:func:`open_build` refuses one by name).
+A character isn't carried by a build's mods file (:func:`open_build`) or a
+share link (:func:`preset_encode`) yet, nor worn by a randomized build
+(its logic would need the body's reasons): each refuses it by name.
 """
 
 from __future__ import annotations
@@ -150,20 +153,24 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
     packs = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     character = characters.normalize(recipe["character"]) if "character" in recipe else None
+    if character is not None and "randomizer" in recipe:
+        raise ValueError("recipe: a randomized build doesn't wear a character yet (its logic would need the "
+                         "body's reasons: its species, attacks and size)")
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
-    folded = vanilla = None
-    if character is None:   # a randomizer's refusal before the image's
-        prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
+    prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
     stamp = gate.verify(recipe["iso"], whole=False)
+    folded = vanilla = None
+    inputs: dict[str, dict[str, float]] = {}
     if character is not None:   # the worn body's size folds into the walk and roll first (Modkit's size_params)
         from azurkit.tools.characters import ports
 
         vanilla = ports.Vanilla(stamp.release, stamp.path)
         folded = characters.size(character, vanilla)
         enabled, params = rando_layer.size_params(list(packs), packs, folded)
+        if (fold := params.get(rando_layer.SIZE_PACK, {}).pop(rando_layer.SIZE_FOLD, None)) is not None:
+            inputs[rando_layer.SIZE_PACK] = {rando_layer.SIZE_FOLD: fold}   # the speed toggle's walk and roll
         packs = mods.normalize({name: params.get(name, {}) for name in enabled})
-        prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
     with iso.Reader(stamp.path) as r:
         names = [f for pack in chosen.values() for f in pack.files()] + xbr.files(ops)
@@ -180,7 +187,8 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
                                                         reasons)}
     for name, pack in chosen.items():
         try:
-            layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims]))
+            layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims],
+                                    inputs.get(name)))
         except mods.PackError as exc:
             failed.append(str(exc))
     if character is not None and not failed:
@@ -292,8 +300,12 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
     its image's path; given its build's report (:func:`image`), with the
     release it was built from and the sha256 of each file it changed. Names,
     numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
-    refused by name."""
+    refused by name, as is one with a ``character`` (no link carries one
+    yet)."""
     packs = _packs(recipe)
+    if "character" in recipe:
+        raise ValueError("preset: a share link carries a randomizer, packs and set operations only, not a "
+                         "character (yet)")
     made = {"format": preset.FORMAT, "schema_version": preset.SCHEMA_VERSION, "azurkit": __version__,
             "layers": [{"tool": generator.TOOL, "kind": generator.KIND,
                         "recipe": generator.check(recipe["randomizer"])}] if "randomizer" in recipe else []}

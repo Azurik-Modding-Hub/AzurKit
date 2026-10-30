@@ -20,7 +20,7 @@ from azurkit.core import coff, facts, gate, iso
 from azurkit.core.xbr.append import PAGE, NewResource, append_resources, appended
 from azurkit.core.xbr.nodes import named_resources, parse_toc, runs
 from azurkit.edits import manifest as edits_manifest
-from azurkit.edits.layer import Layer
+from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
 from azurkit.tools.characters import body_codec as bc
@@ -268,6 +268,35 @@ def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_h
     roll = coff.parse((shimkit.PLAYER_MODEL / "roll.o").read_bytes())
     assert coff.normalized_sha256(ports.restored("roll", roll, ports.Vanilla(gate.USA, usa_iso))) == _oracle(
         "tests/goldens/shims.json")["player_model_roll.o"]["normalized sha256"]
+
+
+def test_a_character_is_refused_by_name_where_a_build_cant_carry_it_yet():
+    """A randomized build doesn't wear a character yet (its logic would need
+    the body's reasons, Modkit's model reasons) and a share link doesn't
+    carry one (``sdk.preset_encode``, as a build's mods file doesn't): each
+    is refused by name, before any image is read."""
+    recipe = {"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "flicken"}}
+    with pytest.raises(ValueError, match=r"^recipe: a randomized build doesn't wear a character yet"):
+        sdk.image(recipe | {"randomizer": {"seed": "2"}})
+    with pytest.raises(ValueError, match=r"^preset: a share link carries .* not a character"):
+        sdk.preset_encode(recipe)
+
+
+def test_the_speed_toggle_flips_a_worn_bodys_walk_and_roll_to_the_bodys_own(usa_iso):
+    """With a character, the speed toggle's vanilla walk and roll distance
+    are the body's own, 7 sqrt(s) and sqrt(s) (the ``size_fold`` the sdk
+    hands player_physics, Modkit's Step 2.186), not garret4's: picked
+    alone they have nothing to flip, and a doubled walk flips between
+    14 sqrt(s) and 7 sqrt(s)."""
+    def physics(params: dict) -> tuple[Layer, bytes]:
+        _, base, layers, _, _ = sdk._plan({"iso": str(usa_iso), "packs": {"player_physics": params},
+                                           "character": {"species": "keylord"}})
+        return next(la for la in layers if la.id == "pack player_physics"), bytes(compose(base, layers)[0][characters.XBE])
+    alone, _ = physics({"toggle_walk_speed_scale": 1, "toggle_roll_speed_scale": 1})
+    assert any(note.endswith("nothing to flip; not installed") for note in alone.notes)
+    walk, xbe = physics({"walk_speed_scale": 2.0, "toggle_walk_speed_scale": 1})
+    r = walk.recipe["params"]["walk_speed_scale"] / 2   # sqrt(s), keylord's s 1.0988
+    assert abs(r * r - 1.0988) < 1e-4 and struct.pack("<I2f", 1, 14 * r, 7 * r) in xbe
 
 
 def test_a_body_case_under_pyodide_is_modkits_file_for_file(usa_iso, pyodide):

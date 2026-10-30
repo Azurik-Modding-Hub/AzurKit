@@ -55,12 +55,15 @@ obsidian cost), as an AzurKit build's mods file does.
 A recipe's ``character`` dresses the player in a species' body (Modkit's
 swap, ``tools.characters``: the body and its clips, its attacks, weapon,
 sounds and fx, and the shims it hooks): the body's size folds into
-player_physics' walk and roll before the packs (Modkit's ``size_params``),
-and the character layer stacks after the packs::
+player_physics' walk and roll before the packs (Modkit's ``size_params``;
+the speed toggle flips those two to the body's own), and the character
+layer stacks after the packs::
 
     {"iso": "<a vanilla image>", "packs": {...}, "character": {"species": "keylord", "mode": "garret4"}}
 
-A build's mods file doesn't carry a character yet (:func:`open_build` refuses one by name).
+A character isn't carried by a build's mods file (:func:`open_build`) or a
+share link (:func:`preset_encode`) yet, nor worn by a randomized build
+(its logic would need the body's reasons): each refuses it by name.
 
 
 def catalog() -> 'dict':
@@ -147,7 +150,8 @@ build checks them), packs, normalized, and its ``set`` operations, never
 its image's path; given its build's report (:func:`image`), with the
 release it was built from and the sha256 of each file it changed. Names,
 numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
-refused by name.
+refused by name, as is one with a ``character`` (no link carries one
+yet).
 
 
 def preset_decode(text: 'str') -> 'dict':

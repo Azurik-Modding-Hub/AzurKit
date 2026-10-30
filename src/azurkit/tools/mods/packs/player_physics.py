@@ -33,11 +33,13 @@ and writing nothing at 1.0 (gravity at its 9.8). Off by default.
   PlayerControl tick's call of the physics state machine (0x8C37D), the
   HUD draw (0x5545A) and game_start_setup (0x52F50), with a table of each
   value's address, the build's dword and vanilla's; the tick's landing keeps
-  the state, the other two its address. None picked installs nothing.
+  the state, the other two its address. None picked installs nothing. A
+  worn body's ``size_fold`` (sqrt(s), the input the sdk hands it with a
+  character, Modkit's Step 2.186) is the walk's and the roll distance's
+  vanilla there: 7 sqrt(s) and sqrt(s), the body's own, not garret4's.
 
 Ported from Modkit's ``azurik_mod/patches/player_physics`` at the packs
-oracle's tag, whose docstring holds each site's evidence; its ``size_fold``
-(a worn body's own walk and roll, the model swap's) comes with the swaps.
+oracle's tag, whose docstring holds each site's evidence.
 """
 
 from __future__ import annotations
@@ -198,9 +200,11 @@ def _load(xbe: Xbe, site: int, label: str, value: float) -> tuple[int, bytes]:
     return float_va, data
 
 
-def apply(xbe: Xbe, **values: float) -> None:
+def apply(xbe: Xbe, size_fold: float | None = None, **values: float) -> None:
     """Each slider off its default at its sites, in Modkit's order (the
-    carves land in it), then the speed toggle for the picked sliders."""
+    carves land in it), then the speed toggle for the picked sliders
+    (``size_fold``: a worn body's sqrt(s), its walk and roll's vanilla)."""
+    fold = 1.0 if size_fold is None else size_fold
     g = values[GRAVITY.name]
     if g != GRAVITY.default:
         xbe.patch(GRAVITY, g)
@@ -209,7 +213,7 @@ def apply(xbe: Xbe, **values: float) -> None:
     at = values.get
     if (k := at("roll_speed_scale")) != 1.0:
         held["roll_speed_scale"] = [(_hand(xbe, "the roll's distance", (ROLL_HOOK, 5), _roll, ROLL_SIZE, k,
-                                           rel32=(32,))[1], xbe.f32(k, "roll"), one)]
+                                           rel32=(32,))[1], xbe.f32(k, "roll"), xbe.f32(fold, "roll"))]
     if (k := at("roll_time_scale")) != 1.0:
         held["roll_time_scale"] = [(_hand(xbe, "the roll's speed", (ROLL_TIME_HOOK, 6), _roll_time, ROLL_TIME_SIZE, k,
                                           writable=True)[1], xbe.f32(k, "roll"), one)]
@@ -248,13 +252,14 @@ def apply(xbe: Xbe, **values: float) -> None:
             held[name] = [(xbe.va(va), xbe.f32(base * k, name), xbe.read(va, 4))]
     picked = {s.name for s in FLIPPED if values[f"toggle_{s.name}"]}
     if picked:
-        _toggle_install(xbe, picked, values, held, jumps)
+        _toggle_install(xbe, picked, values, held, jumps, fold)
 
 
-def _toggle_install(xbe: Xbe, picked: set[str], values: dict, held: dict, jumps: dict) -> None:
+def _toggle_install(xbe: Xbe, picked: set[str], values: dict, held: dict, jumps: dict, fold: float) -> None:
     """The speed toggle for the ``picked`` sliders: the table of what a click
     flips (each slot whose build and vanilla dwords differ, in Modkit's
-    order), the walk's two runSpeeds, then the three landings."""
+    order), the walk's two runSpeeds (vanilla's x ``fold``), then the three
+    landings."""
     vanilla_g = values[GRAVITY.name] if GRAVITY.name not in picked else GRAVITY.default
     slots = []
     if GRAVITY.name in picked:
@@ -268,7 +273,7 @@ def _toggle_install(xbe: Xbe, picked: set[str], values: dict, held: dict, jumps:
             slots.append((*jumps[name], xbe.f32(vanilla_g * k * k, name)))
     slots = [(va, on, off) for va, on, off in slots if on != off]
     base = xbe.tables["critters_critter_data"].number("garret4", "runSpeed")
-    walk = (xbe.f32(base * values[WALK.name], "walk"), xbe.f32(base, "walk"))
+    walk = (xbe.f32(base * values[WALK.name], "walk"), xbe.f32(base * fold, "walk"))
     walk = walk if WALK.name in picked and walk[0] != walk[1] else None
     if not slots and walk is None:
         xbe.notes.append(f"player_physics: the speed toggle's {', '.join(sorted(picked))} build vanilla's values, "
@@ -286,15 +291,17 @@ def _toggle_install(xbe: Xbe, picked: set[str], values: dict, held: dict, jumps:
         xbe.patch(hook, params=params | {"speed_toggle_state_at": struct.pack("<I", state)})
 
 
-apply.__signature__ = inspect.Signature(   # it takes every slider, as a custom_apply does
+apply.__signature__ = inspect.Signature(   # it takes every slider, then its input, as a custom_apply does
     [inspect.Parameter("xbe", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
-    + [inspect.Parameter(s.name, inspect.Parameter.KEYWORD_ONLY) for s in SLIDERS])
+    + [inspect.Parameter(s.name, inspect.Parameter.KEYWORD_ONLY) for s in SLIDERS]
+    + [inspect.Parameter("size_fold", inspect.Parameter.KEYWORD_ONLY, default=None)])
 
 PACK = Pack(
     name="player_physics",
     description="Gravity and the player's walk, jump, swim, roll, climb, air control and flaps.",
     sites=SLIDERS,
     custom_apply=apply,
+    inputs=("size_fold",),
     footprint=(Place(va=GRAVITY.va), Place(va=ROLL_HOOK, size=5), Place(va=ROLL_TIME_HOOK, size=6),
                *(Place(va=va, size=width) for va, width, _ in CLIMB_HOOKS),
                *(Place(va=va, size=6) for va in (SWIM, JUMP, FLAP, BELOW_PEAK)),

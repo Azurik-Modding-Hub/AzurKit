@@ -117,6 +117,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     that still imports Modkit after the rewrites, or a statement `DROPS`
     names that is gone, stops the sync by name before anything is written:
     port what it imports into an AzurKit module, then add a rewrite.
+    Where two families port one Modkit file (`xbr/nodes.py`, `render.py`,
+    `draw.py`: the art's and the swap's), a family's own drops are in
+    `FAMILY_DROPS` and its own rewrites in `FAMILY_REWRITES` (applied first).
     The rewrites are one table for every family: `tests/test_oracle.py`
     ports each family's sources again at its recorded commit and holds them
     to import-linter's contracts, so the suite reads Modkit's history
@@ -393,12 +396,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Modkit's `randomize-full` options (`mode`, `size`, `scale`, the attack
     sliders, `anims`, `sounds`, `weapon`, `ram`, the jiggle's): the sdk
     folds the body's size into player_physics' walk and roll first
-    (Modkit's `size_params`), then plans the character layer after the packs
+    (Modkit's `size_params`; its `size_fold`, the speed toggle's walk and
+    roll for the body, goes to player_physics as a `Pack.inputs`, never a
+    recipe's slider), then plans the character layer after the packs
     (`tools.characters.plan`).
-  - Not here: the built-in variants (booblord, beamlord: Step 4.3c), and the
-    files Azurik-Custom-Content carries (D869): booblord's clips and sounds,
-    the townsfolk's bare-hands kit and the air elemental's funnel; a build
-    that needs one fails by its name.
+  - Not here: a randomized build wearing a character (its logic needs
+    Modkit's model reasons: Step 4.3c's seed case), and a character in a
+    share link or a build's mods file (the pickers' step, 4.3d): each is
+    refused by name. Nor the built-in variants (booblord, beamlord: Step
+    4.3c), or the files Azurik-Custom-Content carries (D869): booblord's
+    clips and sounds, the townsfolk's bare-hands kit and the air elemental's
+    funnel; a build that needs one fails by its name.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload

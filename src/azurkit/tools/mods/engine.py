@@ -337,20 +337,21 @@ class Pack:
     category: str = "qol"
     releases: tuple[str, ...] = ("usa", "europe")
     requires: tuple[str, ...] = ()                      # the packs a build must apply with it (mods.missing)
+    inputs: tuple[str, ...] = ()                        # what a build, never a recipe, hands custom_apply (plan)
 
     def __post_init__(self) -> None:
         """A ``custom_apply`` takes the pack's sliders (it writes their XBE
         sites itself; a config.xbr one's cells are the engine's, its value
-        handed over too). Without one, a virtual slider is a shim's
-        :class:`FloatParam` of its name. Its category is one of
-        :data:`CATEGORIES`."""
+        handed over too), then its :attr:`inputs`. Without one, a virtual
+        slider is a shim's :class:`FloatParam` of its name. Its category is
+        one of :data:`CATEGORIES`."""
         if self.category not in CATEGORIES:
             raise TypeError(f"pack {self.name!r}: no category {self.category!r} (the categories: "
                             f"{', '.join(CATEGORIES)})")
         if self.custom_apply is not None:
             takes = list(inspect.signature(self.custom_apply).parameters)[1:]
-            if takes != [s.name for s in self.sliders()]:
-                raise TypeError(f"pack {self.name!r}: custom_apply takes {takes}, not its sliders")
+            if takes != [s.name for s in self.sliders()] + list(self.inputs):
+                raise TypeError(f"pack {self.name!r}: custom_apply takes {takes}, not its sliders and inputs")
             return
         floats = {f.name for s in self.sites if isinstance(s, TrampolinePatch) for f in s.floats}
         if loose := [s.name for s in self.sliders() if s.virtual and s.name not in floats]:
@@ -591,13 +592,17 @@ class Xbe:
 
 
 def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mapping[str, object] | None = None,
-         occupied: Sequence[Claim] = ()) -> Layer:
+         occupied: Sequence[Claim] = (), inputs: Mapping[str, float] | None = None) -> Layer:
     """``pack``'s layer on ``release``, planned against its vanilla files
     (``base``: each of :meth:`Pack.files`, by its path in the image) with
     ``params``, its shims placed past every claim in ``occupied`` (the
-    layers before it); :class:`PackError` names each reason it can't be
-    (D35)."""
-    params = dict(params or {})
+    layers before it), and ``inputs``, what the build hands its
+    ``custom_apply`` beside them (:attr:`Pack.inputs`: a worn body's
+    ``size_fold``, one unset ``None``); :class:`PackError` names each
+    reason it can't be (D35)."""
+    params, inputs = dict(params or {}), dict(inputs or {})
+    if loose := sorted(set(inputs) - set(pack.inputs)):
+        raise PackError(f"pack {pack.name!r}: no input {', '.join(map(repr, loose))}")
     if release.name not in pack.releases:
         raise PackError(f"pack {pack.name!r} is not available on the {release.label} release "
                         f"(it supports {', '.join(pack.releases)})")
@@ -624,7 +629,7 @@ def plan(pack: Pack, release: Release, base: Mapping[str, bytes], params: Mappin
                     xbe.patch(spec, values.get(spec.name) if isinstance(spec, ParametricPatch) else None, values)
         else:
             try:
-                pack.custom_apply(xbe, **values)
+                pack.custom_apply(xbe, **values, **{name: inputs.get(name) for name in pack.inputs})
             except (LookupError, ValueError) as exc:
                 raise PackError(f"pack {pack.name!r}: {exc}") from None
         changes, failures, claims, notes = xbe.changes, xbe.failures, xbe.claims, xbe.notes
