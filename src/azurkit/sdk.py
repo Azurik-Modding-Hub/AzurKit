@@ -4,8 +4,9 @@
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
 :func:`art_world` (its maps and icons, drawn from the player's image),
-:func:`restore`, and Azurik-Custom-Content's :func:`content`,
-:func:`content_install` and :func:`content_check` (the Characters tab's
+:func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
+(its G4 buttons) and :func:`preview`, and Azurik-Custom-Content's
+:func:`content`, :func:`content_install` and :func:`content_check` (its
 community entries). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
@@ -96,7 +97,7 @@ from azurkit.tools.randomizer import layer as rando_layer
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
            "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
-           "content", "content_install", "content_check", "match"]
+           "content", "content_install", "content_check", "pickers", "match", "preview"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -104,7 +105,7 @@ SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Con
 SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (the tests', a private play's)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
-TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", True), ("characters", "Characters", False),
+TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", True), ("characters", "Characters", True),
         ("data", "Data", False), ("tools", "Tools", False), ("about", "About", True))
 
 
@@ -121,14 +122,15 @@ def catalog() -> dict:
     ``logic_floor`` (``"min"`` or ``"max"``: the side of its default past
     which a randomized build's logic is unverified, D83(c); ``None``).
     ``randomizer``: what the Randomizer tab offers, with D144's defaults
-    (``tools.randomizer.options``)."""
+    (``tools.randomizer.options``); ``characters``: the Characters tab's
+    default Content from (:data:`SOURCE`)."""
     return {"tabs": [{"id": tab, "title": title} for tab, title, works in TABS if works],
             "categories": [{"id": category, "title": title, "description": line}
                            for category, (title, line) in mods.CATEGORIES.items()],
             "packs": [{"name": p.name, "description": p.description, "category": p.category,
                        "default_on": p.default_on, "releases": list(p.releases), "requires": list(p.requires),
                        "sliders": [s.catalog() for s in p.sliders()]} for p in mods.PACKS.values()],
-            "randomizer": randomizer.options()}
+            "randomizer": randomizer.options(), "characters": {"source": SOURCE}}
 
 
 def verify(path: str) -> dict:
@@ -240,18 +242,52 @@ def _pack_layers(stamp: gate.Stamp, chosen: Mapping, packs: Mapping, base: Mappi
 
 
 _MATCHES: dict[str, dict] = {}   # the G4 matches dressed in this process, by their recipe (a dress takes seconds)
+_GAME: dict[tuple, tuple] = {}   # the last image's config.xbr and characters.xbr, by its path, size and mtime
 
 
-def match(recipe: Mapping) -> dict:
-    """The G4 buttons' values (P52, D358: Modkit's match-Garret) for
-    ``recipe``'s character dressed from its image over its packs:
-    ``{"values": {slider: value or None}, "text": {slider: what its box
-    shows: 4 figures rounded up, never short of garret4}, "why": {slider:
-    why none matches}}`` for Model size (``scale``), Attack reach, speed
-    and damage (at the recipe's Attack speed), each read at the other
-    sliders as set; garret4's own body matches at 1 throughout
-    (``tools.characters.match``). The answer of a recipe once matched is
-    kept for this process. A refusal names what can't dress."""
+def _game(path: str) -> tuple[gate.Stamp, bytes, bytes]:
+    """The image at ``path`` (its build files checked, D27) and its
+    config.xbr and characters.xbr, kept for the last image read."""
+    at = Path(path).stat()
+    key = (path, at.st_size, at.st_mtime_ns)
+    if key not in _GAME:
+        stamp = gate.verify(path, whole=False)
+        with iso.Reader(stamp.path) as r:
+            _GAME.clear()
+            _GAME[key] = (stamp, r.read(characters.CONFIG), r.read(characters.FILES[0]))
+    return _GAME[key]
+
+
+def pickers(given: Mapping) -> dict:
+    """What the Characters tab shows (Step 4.3d; Modkit's Player page,
+    ``tools.characters.picker``) for ``given``: its ``character`` (a
+    recipe's; garret4 when none) on the image ``iso`` (none: the graded
+    species alone) with Azurik-Custom-Content's ``manifest`` (``content``:
+    as :func:`content` or the site's page read it; none: the content
+    folder's alone): every usable species in its grade's colour, the
+    untested greyed (``species``), the community entries with their state
+    and, installed, their variants (``community``), the chosen model's info
+    panel, Weapon box, springs, shapes and the options its recipe decides
+    (``chosen``), and the character a build takes from the tab
+    (``character``). A refusal names the field or the image."""
+    from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import picker
+
+    if not isinstance(given, Mapping):
+        raise ValueError("pickers: a JSON object")
+    character = characters.normalize(given.get("character") or {"species": "garret4"})
+    config = bodies = None
+    if isinstance(given.get("iso"), str) and given["iso"]:
+        _, config, bodies = _game(given["iso"])
+    manifest = (given.get("content") or {}).get("manifest")
+    entries = kit.states(kit.check(manifest) if manifest else None, kit.installed())
+    return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
+
+
+def _dress(recipe: Mapping) -> dict:
+    """:func:`match`'s answer for ``recipe`` and, for a variant, its
+    dress's ``preview`` (``picker.dressed``), kept for this process."""
+    from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import picker, ports
 
     packs = _packs(recipe)
@@ -271,12 +307,48 @@ def match(recipe: Mapping) -> dict:
         layers: list[Layer] = []
         if failed := _pack_layers(stamp, chosen, packs, base, layers):
             raise ValueError("; ".join(failed))
-        found, _ = characters.match(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
+        found, staging = characters.match(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
         found["text"] = {k: picker.match_text(v) for k, v in found["values"].items() if v is not None}
+        if variants.resolve(character["species"], character.get("variant_file")) is not None:
+            found["preview"] = picker.dressed(staging, character["species"])
         while len(_MATCHES) >= 16:
             _MATCHES.pop(next(iter(_MATCHES)))
         _MATCHES[key] = found
-    return json.loads(json.dumps(_MATCHES[key]))
+    return _MATCHES[key]
+
+
+def match(recipe: Mapping) -> dict:
+    """The G4 buttons' values (P52, D358: Modkit's match-Garret) for
+    ``recipe``'s character dressed from its image over its packs:
+    ``{"values": {slider: value or None}, "text": {slider: what its box
+    shows: 4 figures rounded up, never short of garret4}, "why": {slider:
+    why none matches}}`` for Model size (``scale``), Attack reach, speed
+    and damage (at the recipe's Attack speed), each read at the other
+    sliders as set; garret4's own body matches at 1 throughout
+    (``tools.characters.match``). The answer of a recipe once matched is
+    kept for this process. A refusal names what can't dress."""
+    found = _dress(recipe)
+    return {k: json.loads(json.dumps(found[k])) for k in ("values", "text", "why")}
+
+
+def preview(recipe: Mapping) -> dict:
+    """``recipe``'s character drawn from the front and from behind
+    (D772, D919: ``draw.py``, numpy, no Blender): ``{"front": PNG bytes,
+    "back": PNG bytes}``, 160 px each. A species' body is drawn from the
+    image at once; a variant's from one dress of it over the recipe's packs
+    (the dress :func:`match` reads, kept for this process; seconds, a
+    detailed one minutes), never its base's picture. A refusal names the
+    species or the image."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import picker
+
+    if not isinstance(recipe, Mapping) or "character" not in recipe or not isinstance(recipe.get("iso"), str):
+        raise ValueError("preview: a recipe naming its image and character")
+    character = characters.normalize(recipe["character"])
+    if variants.resolve(character["species"], character.get("variant_file")) is not None:
+        return dict(_dress(recipe)["preview"])
+    _, config, bodies = _game(recipe["iso"])
+    return picker.preview(bodies, picker.body_of(config, bodies, character["species"]))
 
 
 def _report(made: edits.Manifest, prepared: generator.Prepared | None) -> dict:

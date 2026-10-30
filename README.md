@@ -15,8 +15,8 @@ source ([Development](#development)).
 - **Fixes two of the game's bugs.** A rare crash while a level loads and a "Loading..." hang, both fixed by default.
 - **A self-checking randomizer.** Every seed's image is read back against its plan before it is saved.
 - **Tracker maps from your game.** They show what you can reach now; in the app, Live marks your pickups in xemu.
-- **Play as almost anyone.** 178 of the game's 184 creatures, moves and speed fitted to each body (command line for
-  now).
+- **Play as almost anyone.** 178 of the game's 184 creatures, moves and speed fitted to each body, picked by grade
+  and seen from front and back before you build.
 - **Builds carry their recipe.** Open any AzurKit build to get back the packs, settings and seed that made it.
 - **No hard limits.** 17 packs and 47 settings on both USA and Europe, and no setting is ever clamped.
 
@@ -94,9 +94,13 @@ source ([Development](#development)).
 
 ### Characters
 
-From the command line for now (`azurkit build --character '{"species": "keylord"}'`); the page's Characters tab
-comes with version 1.0.
+In the page's Characters tab, or from the command line (`azurkit build --character '{"species": "keylord"}'`).
 
+- **Pick by grade:** every creature in its grade's colour, green fully playable, yellow rough edges; the 73 nobody
+  has tested yet are greyed, and so are the weapons on them.
+- **See it first:** the chosen model drawn from the front and from behind, from your own game.
+- **Match Garret in one click:** a G4 button beside model size, attack reach, damage and speed sets the body to
+  Garret's height, reach, damage per second or timing.
 - **Play as almost anyone:** 178 of the game's 184 creatures, bosses to critters, on both releases. The 30
   weaponless townsfolk fight bare-handed, and the air elemental's gust whirls up a tornado; nothing to download.
 - **Two ways to play:** the creature's own moves (the default), or Garret's exact moves in its skin.
@@ -110,9 +114,10 @@ comes with version 1.0.
   creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's four
   need her own moves and voice, extra files from our Azurik-Custom-Content; a build without them stops, naming
   the file.
-- **Community content:** `azurkit content install booblord` copies an entry of Azurik-Custom-Content into AzurKit's
-  content folder, every file's size and checksum checked first, so a bad download writes nothing; it stays at its
-  version until you `update` it.
+- **Community variants:** ours from Azurik-Custom-Content sit beside the species, marked community, with Install
+  and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
+  download keeps nothing, and an installed one stays at its version until you update it. In the browser, Booblord's
+  pictures and G4 values can run out of memory: the app draws them.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
   bolts or laser, made from the game's own effects.
 - **Works with every pack and the randomizer:** a seed can wear a character, its logic re-checked at the body's
@@ -206,7 +211,7 @@ uv run --locked azurkit open BUILD                       # a build's recipe, as 
 uv run --locked azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]   # a plan; needs no game
 uv run --locked azurkit spoiler PLAN                     # that plan's spoiler
 uv run --locked azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Content's entries
-uv run --locked python scripts/web_tools.py --site DIR   # the site: the page, Pyodide and the wheel
+uv run --locked python scripts/web_tools.py --site DIR [--content CLONE]   # the site: the page, Pyodide, the wheel
 uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS
 uv run --locked python -m shimkit [--check]              # rebuild the prebuilt shim objects (zig, dev only)

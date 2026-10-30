@@ -31,6 +31,11 @@
 //
 // Its Tracker view (Step 4.2c2, tracker.mjs): the item tracker of a randomized build, of the seed the Settings view
 // holds, or of a plan file, in both hosts; Live, which reads a running xemu, in the app alone (D882).
+//
+// The Characters tab (Step 4.3d, characters.mjs): the player's body, a species or a variant (ours from
+// Azurik-Custom-Content, marked community, with Install and Update), its options and G4 buttons; Build wears it, a link,
+// a build's recipe and the remembered setup carry it.
+import { characters } from "./characters.mjs";
 import { tracker } from "./tracker.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -75,8 +80,9 @@ function setup() {
   }
   const ticked = state.packs.packs.filter((pack) => $("packs").querySelector(`input[data-pack="${pack.name}"]`).checked)
     .map((pack) => pack.name);
-  const rando = randoSetup();
-  return { ticked, values, xbr: state.xbr.filter((op) => op.op === "set"), ...(rando ? { randomizer: rando } : {}) };
+  const rando = randoSetup(), character = state.characters?.setup();
+  return { ticked, values, xbr: state.xbr.filter((op) => op.op === "set"), ...(rando ? { randomizer: rando } : {}),
+           ...(character ? { character } : {}) };
 }
 
 // Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
@@ -85,7 +91,7 @@ function remember() {
   if (!state.packs || state.restoring) return;
   const kept = setup(), defaults = state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name);
   state.plain = !kept.xbr.length && !Object.keys(kept.values).length && kept.ticked.join() === defaults.join()
-    && !kept.randomizer;
+    && !kept.randomizer && !kept.character;
   $("reset").disabled = state.building || state.plain;
   const text = state.plain ? null : JSON.stringify(kept);
   if (text === state.kept) return;
@@ -124,9 +130,10 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
-  let worker = null, loaded = false, calls = 0;
+  let worker = null, loaded = false, calls = 0, content = null;
   const pending = new Map();   // the tracker's asks in flight (call id -> its message and answer), sent again to a
-                               // worker that replaces one stopped before it answered
+                               // worker that replaces one stopped before it answered (a once ask is answered refused:
+                               // a dress that ran the engine out of memory isn't tried again)
   const start = () => {
     loaded = false;
     const entry = new URL("worker.mjs", location.href).href;
@@ -136,6 +143,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       if (data.type === "ready") {
         URL.revokeObjectURL(url);
         loaded = true;
+        if (content) worker.postMessage({ type: "content", ...content });   // what this browser keeps installed
         for (const [, { message }] of pending) worker.postMessage(message);
         ready(data.catalog, data.version);
       } else if (data.type === "reply") {
@@ -176,21 +184,31 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   };
   const restart = () => {
     worker.terminate();
+    for (const [call, { once, done }] of pending) {
+      if (!once) continue;
+      pending.delete(call);
+      done({ refused: "The engine stopped before it answered (out of memory?): try again, or use the desktop app" });
+    }
     if (loaded) start();
   };
   start();
   return {
-    build: (file, packs, xbr, randomizer) => worker.postMessage({ type: "build", file, packs, xbr, randomizer }),
+    build: (file, packs, xbr, randomizer, character) => worker.postMessage({ type: "build", file, packs, xbr, randomizer,
+                                                                             character }),
     randomizer: (given, ticket) => worker.postMessage({ type: "randomizer", given, ticket }),
     vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
     preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
     decode: (text) => worker.postMessage({ type: "decode", text }),
     restore: (setup) => worker.postMessage({ type: "restore", setup }),
-    call: (type, body) => new Promise((done) => {
+    call: (type, body, { once = false } = {}) => new Promise((done) => {
       const message = { type, call: ++calls, ...body };
-      pending.set(message.call, { message, done });
+      pending.set(message.call, { message, done, once });
       if (loaded) worker.postMessage(message);
     }),
+    content: (files, installed) => {
+      content = { files, installed };
+      if (loaded) worker.postMessage({ type: "content", ...content });
+    },
     cancel: restart,
   };
 }
@@ -222,7 +240,8 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     .then((reply) => "refused" in reply ? failed(reply.refused) : done(reply))
     .catch((error) => failed(`The app's engine didn't answer (${error.message}): restart AzurKit`));
   return {
-    build: (iso, packs, xbr, randomizer) => run("api/build", { iso, packs, xbr, randomizer }, built),
+    build: (iso, packs, xbr, randomizer, character) => run("api/build", { iso, packs, xbr, randomizer, character },
+                                                           built),
     randomizer: (given, ticket) => post("api/randomizer", { given }).then((reply) => rando(reply, ticket))
       .catch((error) => rando({ refused: `The app's engine didn't answer (${error.message})` }, ticket)),
     spoiler: (out) => ask("api/spoiler", { out }, (reply) => say(`Saved the spoiler: ${reply.spoiler.out}`)),
@@ -238,6 +257,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     theme: (name) => post("api/theme", { theme: name }).catch(() => {}),   // remembering is a convenience
     call: (type, body) => post(`api/${type}`, body)
       .catch((error) => ({ refused: `The app's engine didn't answer (${error.message}): restart AzurKit` })),
+    content: () => {},   // the app's engine reads its content folder itself
     // remembering is a convenience; not keepalive: a plan and its marks may pass keepalive's 64 KiB
     tracked: (kept) => post("api/tracked", { tracker: kept }).catch(() => {}),
     cancel: () => {
@@ -462,6 +482,7 @@ function renderTabs(tabs) {
 function pick(id) {
   state.tab = id;
   if (id === "randomizer" && state.packs) askRando();   // the Patches tab's packs may have changed
+  if (id === "characters" && state.characters) state.characters.open();
   for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
   for (const panel of document.querySelectorAll("[role=tabpanel]")) panel.hidden = panel.dataset.tab !== id;
   place();
@@ -542,21 +563,24 @@ function load(preset, from) {
         preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [], from);
   const rando = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe;
   loadRando(rando, from);
-  pick(rando ? "randomizer" : "patches");
+  const character = preset.layers.find((layer) => layer.tool === "characters")?.recipe ?? null;
+  state.characters.set(character);
+  pick(rando ? "randomizer" : character ? "characters" : "patches");
   state.loaded = preset;
   remember();
   const made = preset.azurkit ? ` (made with AzurKit ${preset.azurkit})` : "";
   const cells = state.xbr.length ? ` and ${state.xbr.length} config.xbr edit${state.xbr.length > 1 ? "s" : ""}` : "";
-  const seed = rando ? ` and the randomizer (seed ${rando.seed})` : "";
+  const seed = (rando ? ` and the randomizer (seed ${rando.seed})` : "") + (character ? ` and ${character.species}` : "");
   say(`Loaded ${from}'s recipe${made}: ${packs ? Object.keys(packs).length : 0} packs${cells}${seed}, marked ●. `
       + "Pick your vanilla image, then Build.");
 }
 
 // The remembered setup, as the engine gives it back (sdk.restore): what still applies, and what doesn't, by name.
-function restored({ ticked, values, xbr, dropped, randomizer }) {
+function restored({ ticked, values, xbr, dropped, randomizer, character }) {
   state.restoring = false;
   setTo(new Set(ticked), values, xbr);
   setRando(randomizer ?? randoDefaults());
+  state.characters.set(character ?? null);
   say(dropped.length ? `Restored your last setup, without ${dropped.join("; ")}`
     : `Restored your last setup: ${ticked.length} pack${ticked.length === 1 ? "" : "s"} on. Reset to defaults clears it.`);
   remember();   // what is left of it
@@ -568,6 +592,7 @@ function restored({ ticked, values, xbr, dropped, randomizer }) {
 function reset() {
   setTo(new Set(state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name)), {}, []);
   setRando(randoDefaults());
+  state.characters.set(null);
   state.loaded = null;
   unlinked();
   pick("patches");
@@ -585,9 +610,9 @@ function unlinked() {
 // page's current build); the link is shown, and copied where the browser lets it.
 function share() {
   if (!state.ready) return say("AzurKit is still loading: try again in a moment", true);
-  const randomizer = randoRecipe();
-  state.engine.preset({ packs: chosen(), xbr: state.xbr, ...(randomizer ? { randomizer } : {}) },
-                      state.build?.report ?? null);
+  const randomizer = randoRecipe(), character = state.characters.character();
+  state.engine.preset({ packs: chosen(), xbr: state.xbr, ...(randomizer ? { randomizer } : {}),
+                        ...(character ? { character } : {}) }, state.build?.report ?? null);
 }
 
 function shared(fragment) {
@@ -632,6 +657,9 @@ function ready(catalog, version) {
     renderRando(catalog.randomizer);
     state.tracker = tracker({ call: state.engine.call, app: state.app, say, kept: state.tracked, keep: keepTracked,
                               image: () => state.file });
+    state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
+                                    image: () => state.file, packs: chosen, changed: state.changed,
+                                    content: state.engine.content });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -719,6 +747,7 @@ function pickInApp(host) {
     busy(false);
     askVanilla();
     state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
+    state.characters?.imaged();
   };
   picked();
   $("iso-path").addEventListener("input", picked);
@@ -1171,6 +1200,7 @@ async function main() {
                       refused: ({ message }) => report(message, true), failed: (message) => report(message, true) };
   if (location.hash.startsWith("#p=")) state.pending = location.hash;
   state.site = host.site ?? null;
+  state.host = host;
   if (host.engine === "app") {
     state.engine = appEngine(host, callbacks);
     state.remembered = host.setup ?? null;
@@ -1193,10 +1223,11 @@ async function main() {
       busy(false);
       askVanilla();
       state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
+      state.characters?.imaged();
     });
   }
 
-  const changed = () => {
+  const changed = state.changed = () => {
     forget();
     unlinked();
     clearTimeout(state.later);
@@ -1218,14 +1249,16 @@ async function main() {
     load(state.opened, "your build");
   });
   $("build").addEventListener("click", () => {
-    const randomizer = randoRecipe();
+    const randomizer = randoRecipe(), character = state.characters.character();
     if (randomizer && !randomizer.seed) return say("Type a seed on the Randomizer tab, or press New", true);
+    if (state.characters.refused()) return say(state.characters.refused(), true);
     forget();
     if (!state.app) state.ready = false;   // the site's engine is replaced after each build
     busy(true);
-    say(randomizer ? "Checking your image, planning the seed and building…" : "Checking your image and building…");
+    say((randomizer ? "Checking your image, planning the seed and building…" : "Checking your image and building…")
+        + (character ? ` (as ${character.species})` : ""));
     state.sent = chosen();
-    state.engine.build(state.file, state.sent, state.xbr, randomizer);
+    state.engine.build(state.file, state.sent, state.xbr, randomizer, character);
   });
   randoEvents(changed);
   $("cancel").addEventListener("click", () => {

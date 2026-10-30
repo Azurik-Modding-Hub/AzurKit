@@ -376,10 +376,11 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert [later.evaluate(GROUND), served.open().evaluate(GROUND)] == [DARK, DARK]
 
         catalog = sdk.catalog()
-        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "Randomizer", "About"]
+        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "Randomizer", "Characters", "About"]
         assert page.evaluate("""() => [...document.querySelectorAll("#tabs [role=tab]")].map((tab) => [tab.textContent,
             tab.getAttribute("aria-selected"), document.getElementById(tab.getAttribute("aria-controls")).hidden])""") == [
-            ["Patches", "true", False], ["Randomizer", "false", True], ["About", "false", True]]
+            ["Patches", "true", False], ["Randomizer", "false", True], ["Characters", "false", True],
+            ["About", "false", True]]
         assert [c["title"] for c in catalog["categories"]] == ["Player", "Enemies", "Quality of Life"]
         grouped = [[p for p in mods.PACKS.values() if p.category == c["id"]] for c in catalog["categories"]]
         assert page.evaluate("""() => [...document.querySelectorAll("#packs .group")].map((group) =>
@@ -587,6 +588,74 @@ def _static(root: Path):
             httpd.shutdown()
 
 
+COMMUNITY = """() => [...document.querySelectorAll("#char-community .entry")].map((e) => [e.dataset.entry,
+    e.querySelector(".community").textContent.trim(), e.children[1].textContent,
+    [...e.querySelectorAll(".model")].map((m) => m.dataset.model)])"""
+
+
+def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from_the_source(
+        browser, site, usa_iso, tmp_path):
+    """The Characters tab (Step 4.3d, D877, D913) on the site: with the image picked it lists the 178 species the
+    player can wear, the 73 untested greyed; Azurik-Custom-Content's entries (its source served from the site's own
+    address, the page's CSP's ``connect-src 'self'``) come first, each marked community; Install of an entry whose
+    file isn't its manifest's sha256 is refused by name and keeps nothing, and Beamlord's installs, its variant
+    then listed under it, installed v1; a species picked shows its Weapon box and its two pictures (draw.py, under
+    Pyodide). No CSP violation, and no request but GETs of the site's files and the source's."""
+    from azurkit.tools.characters import _player_variants, content
+
+    repo = tmp_path / "repo"
+    files = {"variants/beamlord/variant.json": json.dumps({"beamlord": json.loads(
+        _player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"]}).encode(), "variants/tamper/variant.json": b"{}"}
+    for path, data in files.items():
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_bytes(data)
+    entry = {"author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1, "requires": []}
+    manifest = content.filled({"format": content.FORMAT, "schema_version": 1, "entries": [
+        entry | {"id": "beamlord", "kind": "variant", "title": "Beamlord", "files": [{"path": "variants/beamlord/variant.json"}]},
+        entry | {"id": "tamper", "kind": "variant", "title": "Tampered", "files": [
+            {"path": "variants/tamper/variant.json"}]}]},
+        lambda path: (repo / path).read_bytes())
+    (repo / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (repo / "variants/tamper/variant.json").write_bytes(b"[]")   # its bytes other than its manifest's
+    served = Site(browser, site)
+
+    def source(route, request) -> None:
+        served.requests.append((request.method, request.url, request.post_data_buffer))
+        rel = urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/")
+        route.fulfill(path=str(repo / rel)) if (repo / rel).is_file() else route.fulfill(status=404, body="")
+    served.context.route(f"{ORIGIN}/content-test/**", source)
+    try:
+        page = served.open()
+        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view?.species.length === 178", 300)
+        assert page.evaluate("""() => [document.querySelectorAll("#char-species .model").length,
+            document.querySelectorAll("#char-species .model.untested").length]""") == [178, 73]
+        assert page.evaluate(COMMUNITY) == [["beamlord", "community", "Install", []],
+                                            ["tamper", "community", "Install", []]]
+        page.evaluate("""() => document.querySelector('#char-community .entry[data-entry="tamper"] button').click()""")
+        _page.until(page, "() => document.getElementById('status').textContent.startsWith('Tampered: nothing')", 120)
+        assert re.search(r"tamper: variants/tamper/variant\.json's sha256 [0-9a-f]{12} isn't the manifest's",
+                         page.evaluate("() => document.getElementById('status').textContent"))
+        _page.until(page, """() => !document.querySelector('#char-community .entry[data-entry="beamlord"] button').disabled""")
+        page.evaluate("""() => document.querySelector('#char-community .entry[data-entry="beamlord"] button').click()""")
+        _page.until(page, """() => document.querySelector('#char-community .entry[data-entry="beamlord"] .model')""", 120)
+        assert page.evaluate(COMMUNITY) == [["beamlord", "community", "installed v1", ["beamlord"]],
+                                            ["tamper", "community", "Install", []]]
+        page.evaluate("() => document.querySelector('#char-species .model[data-model=\"keylord\"]').click()")
+        _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 120)
+        assert page.evaluate("() => document.querySelectorAll('#char-weapon option').length") > 1
+        _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 300)
+        assert page.evaluate("""() => ["char-front", "char-back"].map((id) => document.getElementById(id).getContext("2d")
+            .getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0))""") == [True, True]
+        assert page.evaluate("() => azurkit.violations") == []
+        assert [r for r in served.stray() if not r.startswith(f"GET {ORIGIN}/content-test/")] == []
+    finally:
+        served.close()
+
+
 def test_the_site_serves_the_favicon_the_page_links(browser, site):
     """The page links the favicon (the mark, D892), and the site's folder,
     served as a static host serves it, gives each file the page asks for,
@@ -675,7 +744,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
     try:
         page = served.open()
         assert page.evaluate("() => [...document.querySelectorAll('#tabs [role=tab]')].map((t) => t.textContent)") == [
-            "Patches", "Randomizer", "About"]
+            "Patches", "Randomizer", "Characters", "About"]
         _page.click(page, "tab-randomizer")
         view = _page.until(page, "() => azurkit.rando.view")
         assert view == sdk.randomizer_settings({"settings": defaults, "packs": mods.normalize(

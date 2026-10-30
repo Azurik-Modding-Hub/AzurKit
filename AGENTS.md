@@ -666,6 +666,33 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     pixels each (airship, a3, a5, town and e2: a pixel taking another
     face's colour), while every `maps.json` entry is the same; the app's
     (CPython) are Modkit's pixel for pixel.
+  - **The Characters tab** (Step 4.3d, `web/characters.mjs`; Modkit's
+    Player page): the models' list, the community group first (D913:
+    Azurik-Custom-Content's variant entries beside the species, each marked
+    community, its state Install, installed vN or Update to vM, its
+    variants once installed), then every species the player can wear in its
+    grade's colour, the 73 untested greyed and marked (D877); the chosen
+    model's two pictures (D772, D919: `picker.preview`'s draw.py, front and
+    back, on both hosts; a variant's from one dress, `sdk.preview`), its
+    info and its options (Gameplay, Weapon: each pick marked by its fit and
+    coloured by the grade its build reads, an untested model's grey,
+    AZ-807; the clips, sounds, balance, ground and height boxes; the four
+    numbers, each with a G4 button, `sdk.match`; a body's jiggle and a
+    variant's shapes). The engine decides it all (`sdk.pickers`:
+    `tools/characters/picker.py`): the page sends the tab's choice and
+    draws the answer, and Build, a link and the remembered setup take the
+    view's `character` (a variant's recipe-decided options left out). Build
+    refuses an uninstalled community variant that needs files, by name.
+    Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
+    at 4.4) is remembered (the site's storage, the app's `content_source`).
+    The site reads a source on its own address only (its CSP's
+    `connect-src 'self'`; `scripts/web_tools.py --site DIR --content
+    CLONE` serves a clone as `./content-source/`), checks an Install in
+    its worker (`sdk.content_check`), keeps the files in IndexedDB and
+    writes them into its worker's `content/` once a worker; the app's
+    engine installs into its content folder. A known flaw (D835): on the
+    site a detailed variant's dress (booblord's) may run out of wasm
+    memory; the page then says to use the app.
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,

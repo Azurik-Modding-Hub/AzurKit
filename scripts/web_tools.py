@@ -6,6 +6,8 @@ folder a static host serves.
 
     uv run --locked python scripts/web_tools.py               # fetch them all (uv run bootstrap.py does too)
     uv run --locked python scripts/web_tools.py --site DIR    # the site, in DIR (a new folder)
+    uv run --locked python scripts/web_tools.py --site DIR --content CLONE   # with a content repository's files
+                                                     # in DIR/content-source/ (Content from: ./content-source/)
 
 Only the five files the runtime loads are kept (:data:`FILES`), and the
 wheels of the packages the site loads for a tab that needs them
@@ -174,12 +176,16 @@ def wheel(out: Path, root: Path = ROOT) -> Path:
     return built
 
 
-def site(out: Path, root: Path = ROOT, built: Path | None = None) -> Path:
+def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path | None = None) -> Path:
     """The site in the new folder ``out``: ``web/``'s files, Pyodide's
     core in ``pyodide/``, the wheel (``built``, else built now) and
     ``host.json``, which tells the page its engine is the site's and names
     the wheel and its sha256 for the worker's fetch (``integrity``). The
-    app's server answers ``host.json`` itself (``azurkit.app``)."""
+    app's server answers ``host.json`` itself (``azurkit.app``). With
+    ``content`` (a clone of Azurik-Custom-Content, before it is public:
+    the page reads only its own origin until Step 4.4's CSP), its
+    ``manifest.json`` and each file it lists in ``out/content-source/``,
+    which the Characters tab's Content from ``./content-source/`` reads."""
     shutil.copytree(root / "web", out)
     if lost := missing(root):
         raise SystemExit(f"Pyodide {VERSION} lacks {', '.join(lost)}: run `uv run bootstrap.py`")
@@ -188,15 +194,22 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None) -> Path:
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
     (out / "host.json").write_text(json.dumps({"engine": "site", "wheel": Path(built).name,
                                                "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8")
+    if content is not None:
+        listed = json.loads((content / "manifest.json").read_text(encoding="utf-8"))
+        for rel in ["manifest.json", *(f["path"] for e in listed["entries"] for f in e["files"])]:
+            (out / "content-source" / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(content / rel, out / "content-source" / rel)
     return out
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--site", type=Path, metavar="DIR", help="write the site to DIR (a new folder)")
+    ap.add_argument("--content", type=Path, metavar="CLONE",
+                    help="with --site: a content repository's files in DIR/content-source/")
     args = ap.parse_args()
     if args.site:
-        print(f"the site: {site(args.site)}")
+        print(f"the site: {site(args.site, content=args.content)}")
     else:
         print(f"Pyodide {VERSION}: {fetch()}")
         for engine, (_, label) in BROWSERS.items():

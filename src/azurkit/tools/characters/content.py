@@ -319,12 +319,13 @@ def states(manifest: Mapping | None, record: Mapping) -> list[dict]:
     out = []
     for e in (manifest or {}).get("entries", []):
         held = record.get(e["id"], {}).get("version")
-        out.append({k: e[k] for k in ENTRY if k != "files"} | {
+        out.append({k: e[k] for k in ENTRY} | {
             "state": "install" if held is None else "installed" if held == e["version"] else "update",
             "installed": held})
     listed = {e["id"] for e in out}
     out += [{"id": name, "kind": "variant" if any(p.startswith("variants/") for p in held.get("files", {})) else "pack",
              "title": name, "author": "", "licence": "", "version": held.get("version"), "requires": [],
+             "files": [{"path": path, "sha256": sha} for path, sha in held.get("files", {}).items()],
              "state": "installed", "installed": held.get("version")}
             for name, held in record.items() if name not in listed and isinstance(held, Mapping)]
     return out

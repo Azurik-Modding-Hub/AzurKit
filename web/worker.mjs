@@ -15,7 +15,11 @@
 //      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings),
 //      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan),
 //      {type: "art", file, part} and {type: "art_world", parts} (the tracker's pictures, sdk.art and sdk.art_world:
-//      numpy, Pyodide's pinned wheel from this site, is loaded for them alone)
+//      numpy, Pyodide's pinned wheel from this site, is loaded for them and for a character),
+//      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
+//      (sdk.pickers, sdk.preview, sdk.match) and {type: "content_check", call, manifest, id, files} (an Install's
+//      check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
+//      into the engine's content folder)
 // Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
@@ -52,7 +56,20 @@ def engine(request):
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
     if request.type == "restore":
-        return js(sdk.restore(request.setup.to_py() if hasattr(request.setup, "to_py") else request.setup))
+        return js(sdk.restore(json.loads(JSON.stringify(request.setup)) if request.setup else request.setup))
+    if request.type in ("pickers", "preview", "match", "content_check"):
+        try:
+            if request.type == "content_check":
+                entry, files = getattr(request, "id", None), getattr(request, "files", None)
+                given = {"manifest": request.manifest} | ({"id": entry, "files": {
+                    k: bytes(v) for k, v in files.to_py().items()}} if entry else {})
+                return js(sdk.content_check(given))
+            given = json.loads(JSON.stringify(request.given if request.type == "pickers" else request.recipe))
+            if mounted := getattr(request, "iso", None):
+                given["iso"] = mounted
+            return js({"pickers": sdk.pickers, "preview": sdk.preview, "match": sdk.match}[request.type](given))
+        except (OSError, ValueError) as exc:
+            return js({"refused": str(exc)})
     if request.type in ("art", "art_world"):
         try:
             if request.type == "art":
@@ -163,8 +180,7 @@ function vanilla({ py, engine }, file) {
 // lock's sha256), the image mounted for the part's read.
 async function art(loaded, data) {
   const { py, engine } = loaded;
-  loaded.numpy ??= py.loadPackage("numpy", { messageCallback: () => {}, errorCallback: () => {} });
-  await loaded.numpy;
+  await numpy(loaded);
   if (data.type === "art_world") return post({ type: "art", reply: engine({ type: "art_world", parts: data.parts }) });
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [data.file] }, "/in");
@@ -177,10 +193,44 @@ async function art(loaded, data) {
   }
 }
 
-function build({ py, engine }, file, packs, xbr, randomizer) {
+// numpy (Pyodide's pinned wheel, checked by the lock's sha256), loaded once: the tracker's pictures and every
+// character call need it (the swap's modules import it).
+const numpy = (loaded) => loaded.numpy ??= loaded.py.loadPackage("numpy", { messageCallback: () => {},
+                                                                           errorCallback: () => {} });
+const CHARACTER = ["pickers", "preview", "match", "content_check"];
+const needsNumpy = (data) => CHARACTER.includes(data.type) || data.character || data.recipe?.character
+  || data.setup?.character || data.type === "decode";
+
+// The content folder the engine reads (./content: the wheel has no user data folder here): what this browser keeps
+// installed, written in whole once per worker.
+function content({ py }, { files, installed }) {
+  const root = `${py.FS.cwd()}/content`;
+  for (const [path, data] of Object.entries(files)) {
+    py.FS.mkdirTree(`${root}/${path.split("/").slice(0, -1).join("/")}`);
+    py.FS.writeFile(`${root}/${path}`, data);
+  }
+  py.FS.mkdirTree(root);
+  py.FS.writeFile(`${root}/installed.json`, JSON.stringify(installed));
+}
+
+// A Characters tab's call, the image mounted for it (none picked: no image).
+function character(loaded, data) {
+  const { py, engine } = loaded;
+  if (!data.file) return post({ type: "reply", call: data.call, reply: engine(data) });
+  py.FS.mkdirTree("/in");
+  py.FS.mount(py.FS.filesystems.WORKERFS, { files: [data.file] }, "/in");
+  try {
+    post({ type: "reply", call: data.call, reply: engine({ ...data, iso: `/in/${data.file.name}` }) });
+  } finally {
+    py.FS.unmount("/in");
+  }
+}
+
+function build({ py, engine }, file, packs, xbr, randomizer, character) {
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
-  const recipe = { iso: `/in/${file.name}`, packs, xbr, ...(randomizer ? { randomizer } : {}) };
+  const recipe = { iso: `/in/${file.name}`, packs, xbr, ...(randomizer ? { randomizer } : {}),
+                   ...(character ? { character } : {}) };
   const made = engine({ type: "build", recipe });
   if ("refused" in made) return post({ type: "refused", message: made.refused });
   post({ type: "built", ...made }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
@@ -188,10 +238,23 @@ function build({ py, engine }, file, packs, xbr, randomizer) {
 
 try {
   const loaded = await load();
+  let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   self.onmessage = ({ data }) => {
     if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "art",
-          "art_world"].includes(data?.type)) return;
+          "art_world", "content", ...CHARACTER].includes(data?.type)) return;
+    queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null).then(() => handle(data))
+      .catch((error) => post({ type: "failed", message: lastLine(error) }));
+  };
+  const handle = (data) => {
     try {
+      if (data.type === "content") return content(loaded, data);
+      if (CHARACTER.includes(data.type)) {   // answered whatever happens: the page waits on it
+        try {
+          return character(loaded, data);
+        } catch (error) {
+          return post({ type: "reply", call: data.call, reply: { refused: lastLine(error) } });
+        }
+      }
       if (data.type === "art" || data.type === "art_world") {
         return art(loaded, data).catch((error) => post({ type: "failed", message: lastLine(error) }));
       }
@@ -213,7 +276,7 @@ try {
         return post(data.type === "preset" ? { type: "preset", fragment: reply.fragment }
           : { type: "decoded", preset: reply.preset });
       }
-      build(loaded, data.file, data.packs, data.xbr, data.randomizer);
+      build(loaded, data.file, data.packs, data.xbr, data.randomizer, data.character);
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });
     }

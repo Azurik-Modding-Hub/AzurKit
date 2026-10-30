@@ -6,8 +6,9 @@ The one surface a UI calls: :func:`catalog`, :func:`verify`,
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
 :func:`art_world` (its maps and icons, drawn from the player's image),
-:func:`restore`, and Azurik-Custom-Content's :func:`content`,
-:func:`content_install` and :func:`content_check` (the Characters tab's
+:func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
+(its G4 buttons) and :func:`preview`, and Azurik-Custom-Content's
+:func:`content`, :func:`content_install` and :func:`content_check` (its
 community entries). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
@@ -93,7 +94,8 @@ whole numbers it takes, its encoding's, or ``None``) and
 ``logic_floor`` (``"min"`` or ``"max"``: the side of its default past
 which a randomized build's logic is unverified, D83(c); ``None``).
 ``randomizer``: what the Randomizer tab offers, with D144's defaults
-(``tools.randomizer.options``).
+(``tools.randomizer.options``); ``characters``: the Characters tab's
+default Content from (:data:`SOURCE`).
 
 
 def verify(path: 'str') -> 'dict':
@@ -320,6 +322,21 @@ every file verified as :func:`content_install` verifies it
 entry's id it writes, those required first]}``, or the refusal named.
 
 
+def pickers(given: 'Mapping') -> 'dict':
+
+What the Characters tab shows (Step 4.3d; Modkit's Player page,
+``tools.characters.picker``) for ``given``: its ``character`` (a
+recipe's; garret4 when none) on the image ``iso`` (none: the graded
+species alone) with Azurik-Custom-Content's ``manifest`` (``content``:
+as :func:`content` or the site's page read it; none: the content
+folder's alone): every usable species in its grade's colour, the
+untested greyed (``species``), the community entries with their state
+and, installed, their variants (``community``), the chosen model's info
+panel, Weapon box, springs, shapes and the options its recipe decides
+(``chosen``), and the character a build takes from the tab
+(``character``). A refusal names the field or the image.
+
+
 def match(recipe: 'Mapping') -> 'dict':
 
 The G4 buttons' values (P52, D358: Modkit's match-Garret) for
@@ -331,3 +348,14 @@ and damage (at the recipe's Attack speed), each read at the other
 sliders as set; garret4's own body matches at 1 throughout
 (``tools.characters.match``). The answer of a recipe once matched is
 kept for this process. A refusal names what can't dress.
+
+
+def preview(recipe: 'Mapping') -> 'dict':
+
+``recipe``'s character drawn from the front and from behind
+(D772, D919: ``draw.py``, numpy, no Blender): ``{"front": PNG bytes,
+"back": PNG bytes}``, 160 px each. A species' body is drawn from the
+image at once; a variant's from one dress of it over the recipe's packs
+(the dress :func:`match` reads, kept for this process; seconds, a
+detailed one minutes), never its base's picture. A refusal names the
+species or the image.

@@ -61,6 +61,13 @@ it changed).
 ``POST api/preset`` ``{"recipe", "report"}`` makes a share link's fragment
 (``sdk.preset_encode``) and ``POST api/decode`` ``{"text"}`` reads one
 (``sdk.preset_decode``).
+The Characters tab's calls (Step 4.3d): ``POST api/pickers`` ``{"given"}``
+(``sdk.pickers``), ``api/preview`` and ``api/match`` ``{"recipe"}`` (the
+pictures as base64 PNG), and Azurik-Custom-Content's ``api/content``
+``{"source"}`` (``sdk.content``) and ``api/install`` ``{"id", "source"}``
+(``sdk.content_install``, into the content folder); ``api/content_source``
+``{"source"}`` remembers the tab's Content from (``null``: the default),
+which ``host.json``'s ``content_source`` gives the next page.
 ``POST api/choose`` ``{"kind": "iso" | "out", "path"}`` opens the window's
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
@@ -76,6 +83,7 @@ mode: it prints the page's address and serves until its input ends.
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import glob
 import hmac
@@ -243,6 +251,19 @@ def _set_tracked(body: dict) -> dict:
     return {}
 
 
+def _set_source(body: dict) -> dict:
+    """``api/content_source``: remember the Characters tab's Content from
+    (an http(s) URL or a folder's path, as ``sdk.content`` reads it), or
+    forget it (``null``: the default)."""
+    if (source := body.get("source")) is not None:
+        if not (isinstance(source, str) and len(source) <= 2048 and (
+                urllib.parse.urlsplit(source.strip()).scheme in ("http", "https")
+                or Path(source.strip()).expanduser().is_absolute())):
+            raise ValueError("content_source: an http(s) URL or a folder's full path")
+    _remember(content_source=source)
+    return {}
+
+
 def _named(name: object) -> bool:
     """``name`` is a pack's or a setting's name (an identifier: never a path)."""
     return isinstance(name, str) and name.isidentifier()
@@ -322,11 +343,12 @@ class Server(http.server.ThreadingHTTPServer):
     def host_info(self) -> dict:
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
-                "setup": _kept().get("setup"), "tracker": _kept().get("tracker")}
+                "setup": _kept().get("setup"), "tracker": _kept().get("tracker"),
+                "content_source": _kept().get("content_source")}
 
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
-        recipe |= {key: body[key] for key in ("xbr", "randomizer") if body.get(key)}
+        recipe |= {key: body[key] for key in ("xbr", "randomizer", "character") if body.get(key)}
         with self.busy:
             if self.quitting:
                 raise ValueError(QUITTING)
@@ -544,6 +566,13 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/plan": lambda body: {"plan": sdk.plan(body.get("recipe"))},
                 "/api/tracked": _set_tracked, "/api/live": self.server.live, "/api/art": self.server.art,
                 "/api/settings_file": self.server.settings_file,
+                "/api/pickers": lambda body: sdk.pickers(body.get("given")),
+                "/api/preview": lambda body: {k: base64.b64encode(v).decode() for k, v in
+                                              sdk.preview(body.get("recipe")).items()},
+                "/api/match": lambda body: sdk.match(body.get("recipe")),
+                "/api/content": lambda body: sdk.content({"source": body.get("source")}),
+                "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
+                "/api/content_source": _set_source,
                 "/api/spoiler": self.server.save_spoiler,
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:

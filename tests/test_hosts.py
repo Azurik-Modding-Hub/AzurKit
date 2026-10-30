@@ -10,6 +10,7 @@ its launch's token, and takes the engine's calls only from its own page."""
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import hashlib
 import importlib.metadata
@@ -508,6 +509,54 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
         assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
         assert call("api/setup", {"setup": None}) == {}
         assert [kept(), call("host.json")["setup"]] == [[{"theme": "light"}, ["app.json"]], None]
+    finally:
+        server.close()
+
+
+def test_the_apps_characters_tab_installs_from_a_folder_source_and_draws_a_models_two_pictures(
+        tmp_path, monkeypatch, usa_iso):
+    """The app's half of the Characters tab (Step 4.3d): ``api/content`` reads Azurik-Custom-Content from a folder
+    (a clone), ``api/install`` copies an entry into the content folder, every file checked, and ``api/pickers``
+    lists its variant marked community; ``api/content_source`` remembers the folder for the next page
+    (``host.json``); ``api/preview`` draws the chosen model from the front and from behind, two PNGs."""
+    from azurkit.tools.characters import _player_variants, content
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
+    source = tmp_path / "clone"
+    recipe = json.dumps({"beamlord": json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"]})
+    (source / "variants/beamlord").mkdir(parents=True)
+    (source / "variants/beamlord/variant.json").write_text(recipe, encoding="utf-8")
+    (source / "manifest.json").write_text(json.dumps(content.filled({
+        "format": content.FORMAT, "schema_version": 1, "entries": [{
+            "id": "beamlord", "kind": "variant", "title": "Beamlord", "author": "Azurik-Modding-Hub", "licence": "MIT",
+            "version": 1, "files": [{"path": "variants/beamlord/variant.json"}], "requires": []}]},
+        lambda path: (source / path).read_bytes())), encoding="utf-8")
+    (page := tmp_path / "page").mkdir()
+    (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
+    server = app.serve(page)
+
+    def call(path: str, body: dict) -> dict:
+        replies = []
+        _post(server.url, path, body, replies)
+        return replies[0]
+    try:
+        read = call("api/content", {"source": str(source)})
+        assert [(e["id"], e["state"]) for e in read["entries"]] == [("beamlord", "install")] and read["why"] is None
+        installed = call("api/install", {"id": "beamlord", "source": str(source)})
+        assert [(e["id"], e["state"], e["installed"]) for e in installed["entries"]] == [("beamlord", "installed", 1)]
+        view = call("api/pickers", {"given": {"iso": str(usa_iso), "character": {"species": "beamlord"},
+                                              "content": {"manifest": read["manifest"]}}})
+        assert [v["name"] for e in view["community"] for v in e["variants"]] == ["beamlord"]
+        assert view["chosen"]["community"] == "beamlord" and view["chosen"]["info"][-1][1].startswith(
+            "community beamlord v1, recipe 628f6d09ad7b")
+        assert call("api/content_source", {"source": str(source)}) == {}
+        with urllib.request.urlopen(server.url.replace("/?", "/host.json?"), timeout=10) as reply:
+            assert json.load(reply)["content_source"] == str(source)
+        drawn = call("api/preview", {"recipe": {"iso": str(usa_iso), "character": {"species": "keylord"}}})
+        pictures = [base64.b64decode(drawn[v]) for v in ("front", "back")]
+        assert all(len(png) > 1000 and png[1:4] == b"PNG" for png in pictures) and pictures[0] != pictures[1]
     finally:
         server.close()
 

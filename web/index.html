@@ -105,10 +105,47 @@ type="button" disabled>◀ World map</button> <button id="map-fit" type="button"
 </div>
 </div>
 </section>
+<section id="characters" class="rando chars" role="tabpanel" data-tab="characters" aria-label="Characters" hidden>
+<h2>2. Choose a character</h2>
+<div class="chars-cols">
+<div class="chars-list">
+<p class="rando-row"><input type="search" id="char-filter" placeholder="Search the models" aria-label="Search the models"
+spellcheck="false" autocomplete="off"> <span id="char-count" class="note"></span></p>
+<h3>Community <span class="note">our variants from Azurik-Custom-Content</span></h3>
+<div id="char-community"><p class="note">Reading the community content…</p></div>
+<h3>Species <span class="note">green: fully playable · yellow: rough edges · grey: not yet tested</span></h3>
+<div id="char-species" role="listbox" aria-label="Species"></div>
+<p class="rando-row"><label class="field">Content from <input type="text" id="char-source" spellcheck="false"
+autocomplete="off"></label> <button id="char-source-reset" type="button">Reset</button></p>
+<p id="char-content-note" class="note"></p>
+</div>
+<div class="chars-info">
+<p class="previews"><canvas id="char-front" width="160" height="160" aria-label="The model from the front"></canvas><canvas
+id="char-back" width="160" height="160" aria-label="The model from behind"></canvas></p>
+<p id="char-preview-note" class="note"></p>
+<h3 id="char-name"></h3>
+<table id="char-info"></table>
+</div>
+<div class="chars-options">
+<p class="rando-row"><label class="field" title="Balanced: its own size and attacks, evened. Skin only: Garret's attacks."
+>Gameplay <select id="char-mode"></select></label> <label class="field">Weapon <select id="char-weapon"></select></label></p>
+<p class="rando-row"><label class="on" title="On: its own clips at their own length. Off: a humanoid borrows Garret's."
+><input type="checkbox" id="char-clips"> Own clips for missing moves</label> <label class="on"><input type="checkbox"
+id="char-sounds" checked> Own sounds</label> <label class="on"><input type="checkbox" id="char-balance"> Balance</label>
+<label class="on"><input type="checkbox" id="char-ground"> Attacks reach the ground</label> <label class="on"><input
+type="checkbox" id="char-height"> garret4's height</label></p>
+<div id="char-numbers"></div>
+<p id="char-g4-note" class="note"></p>
+<p id="char-refused" class="warn" hidden></p>
+<p class="rando-row"><button id="char-reset" type="button" title="Back to Garret, every option at its default">Garret
+again</button></p>
+</div>
+</div>
+</section>
 <section id="about" class="about" role="tabpanel" data-tab="about" aria-label="About" hidden>
 <h2>About AzurKit</h2>
-<p>AzurKit makes mods for <i>Azurik: Rise of Perathia</i> (Xbox): patch packs and their settings, and randomized
-seeds, built from your
+<p>AzurKit makes mods for <i>Azurik: Rise of Perathia</i> (Xbox): patch packs and their settings, randomized seeds
+and character swaps, built from your
 own copy of the game, USA or Europe, into a new image you play in xemu. It holds no copy of the game: what it
 changes comes from your image and from a few files of our own, the townsfolk's bare-hands moves and the air
 elemental's tornado funnel, made on the game's skeletons. It is free and open source, the rewrite of Azurik_Modkit.</p>

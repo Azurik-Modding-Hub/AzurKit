@@ -565,6 +565,42 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
     assert "beamlord" not in content.installed()
 
 
+def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path, monkeypatch):
+    """``sdk.pickers`` (the Characters tab, D877): the species the player can wear in ``critters_engine``'s order
+    (``player_models``' usable ones), each in its grade's colour as Modkit's picker shows it (60 green, 44 yellow,
+    73 untested and marked, 1 unseen: Modkit's map-scope record, 2026-10-28), the untested greyed; a weapon on an
+    untested model reads grey, never better than the model (AZ-807); a community entry before Install is one row,
+    marked, and a variant's options its recipe decides are locked and left out of the build's character."""
+    from azurkit.tools.characters import _player_character as swap
+    from azurkit.tools.characters import picker
+
+    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
+    with iso.Reader(usa_iso) as r:
+        config, bodies = r.read(characters.CONFIG), r.read(CHARACTERS)
+    usable = [m.species for m in swap.player_models(config, bodies) if m.status != swap.REFUSED]
+    view = sdk.pickers({"iso": str(usa_iso), "character": {"species": "keylord"}})
+    assert [s["name"] for s in view["species"]] == usable and len(usable) == 178
+    colours = {v: k for k, v in picker.STATUS_COLOURS.items()}
+    tally = {k: sum(colours[s["colour"]] == k and not s["untested"] for s in view["species"])
+             for k in picker.STATUS_COLOURS}
+    assert tally | {"untested": sum(s["untested"] for s in view["species"])} == {
+        "green": 60, "yellow": 44, "red": 0, "unseen": 1, "untested": 73}
+    assert all(s["colour"] == picker.STATUS_COLOURS["unseen"] and s["label"].endswith("(not yet tested)")
+               for s in view["species"] if s["untested"])
+    untested = next(s["name"] for s in view["species"] if s["untested"])
+    picks = sdk.pickers({"iso": str(usa_iso), "character": {"species": untested}})["chosen"]["weapons"]
+    assert len(picks) > 1 and {p["colour"] for p in picks[1:] if p.get("fit") not in ("default", "same")} == {
+        picker.STATUS_COLOURS["unseen"]}
+    manifest = {"format": content.FORMAT, "schema_version": 1, "entries": [{
+        "id": "beamlord", "kind": "variant", "title": "Beamlord", "author": "Azurik-Modding-Hub", "licence": "MIT",
+        "version": 1, "files": [{"path": "variants/beamlord/variant.json", "sha256": "0" * 64, "size": 2}],
+        "requires": []}]}
+    view = sdk.pickers({"iso": str(usa_iso), "character": {"species": "beamlord", "mode": "garret4", "scale": 1.0},
+                        "content": {"manifest": manifest}})
+    assert [(e["id"], e["state"], e["variants"]) for e in view["community"]] == [("beamlord", "install", [])]
+    assert view["chosen"]["locked"]["mode"] == "own" and view["character"] == {"species": "beamlord"}
+
+
 def test_the_g4_buttons_values_are_modkits_garret_match(usa_iso):
     """``sdk.match`` (P52, D358; Modkit's ``_player_match``, the sync's): keylord's and beamlord's Model size,
     Attack reach, speed and damage over the packs on by default are Modkit's ``garret_match`` exactly
