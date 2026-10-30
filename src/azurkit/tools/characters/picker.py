@@ -260,7 +260,8 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
                                          "colour": STATUS_COLOURS[model_grade(n, built[n])[0]]} for n in names]})
     return {
         "modes": [{"id": m, "title": t} for m, t in MODE_TITLES.items()], "mode_tip": MODE_TIP,
-        "tracks": TRACKS, "titles": TITLES, "match_tips": MATCH_TIPS, "colours": STATUS_COLOURS, "why": why,
+        "tracks": TRACKS, "titles": TITLES, "match_tips": MATCH_TIPS, "colours": STATUS_COLOURS, "grade_words": GRADE_WORDS,
+        "why": why,
         "species": [{"name": m.species, "body": m.body, "colour": STATUS_COLOURS[grade(m.species, mode, size, scale)],
                      "untested": swap.status(m.species) == swap.UNTESTED,
                      "label": f"{m.species}  (not yet tested)" if swap.status(m.species) == swap.UNTESTED

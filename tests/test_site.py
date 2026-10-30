@@ -610,14 +610,15 @@ COMMUNITY = """() => [...document.querySelectorAll("#char-community .entry")].ma
 def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from_the_source(
         browser, site, usa_iso, tmp_path):
     """The Characters tab (Step 4.3d, D877, D913) on the site: with the image picked it lists the 178 species the
-    player can wear, the 73 untested greyed; Azurik-Custom-Content's entries (its source served from the site's own
+    player can wear, the 73 untested greyed, each row's grade read without colour too (its mark and its words as its
+    title); Azurik-Custom-Content's entries (its source served from the site's own
     address, the page's CSP's ``connect-src 'self'``) come first, each marked community; Install of an entry whose
     file isn't its manifest's sha256 is refused by name and keeps nothing, and Beamlord's installs, its variant
     then listed under it, installed v1, and a page opened again hands it to its engine before the tab is opened (a
     build from another tab reads it); a species picked shows its Weapon box and its two pictures (draw.py, under
     Pyodide), and Content from and its Reset stay in the list's column, the pictures in theirs and every G4 button
     in view at any width, the tab never scrolling sideways. No CSP violation, and no request but GETs of the site's files and the source's."""
-    from azurkit.tools.characters import _player_variants, content
+    from azurkit.tools.characters import _player_variants, content, picker
 
     repo = tmp_path / "repo"
     files = {"variants/beamlord/variant.json": json.dumps({"beamlord": json.loads(
@@ -649,6 +650,10 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         _page.until(page, "() => azurkit.characters.state.view?.species.length === 178", 300)
         assert page.evaluate("""() => [document.querySelectorAll("#char-species .model").length,
             document.querySelectorAll("#char-species .model.untested").length]""") == [178, 73]
+        marks = page.evaluate("""() => [...document.querySelectorAll("#char-species .model")].map((m) =>
+            [m.dataset.grade, getComputedStyle(m, "::after").content, m.title])""")
+        assert {(grade, mark) for grade, mark, _ in marks} == {("green", '" ✓"'), ("yellow", '" ~"'), ("unseen", '" ?"')}
+        assert [t for grade, _, t in marks if not t.startswith(picker.GRADE_WORDS[grade])] == []
         for theme in ("dark", "light"):   # each grade's colour at least 4.5:1 on its row's ground, the chosen row's too
             graded = page.evaluate(FAINT, True)
             assert len(graded) > 178 and [(what, round(r, 2)) for what, r in graded if r < 4.5] == [], theme

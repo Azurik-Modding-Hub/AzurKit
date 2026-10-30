@@ -1,7 +1,7 @@
 // The Characters tab (Step 4.3d; Modkit's Player page): the models' list, the community group first (D913: our variants
 // from Azurik-Custom-Content beside the built-ins, each marked community, with Install and Update) then every species
-// the player can wear, in its grade's colour (green fully playable, yellow rough edges, red not playable, grey not yet
-// tested: the untested greyed and marked, D877); the chosen model's pictures from the front and from behind (D772,
+// the player can wear, in its grade's colour and mark (green fully playable, yellow rough edges, red not playable, grey
+// not yet tested: the untested greyed and marked, D877); the chosen model's pictures from the front and from behind (D772,
 // D919: the engine's draw.py, on both hosts), its info and its options, each number with a G4 button that sets it to
 // match garret4 (P52). The engine decides everything shown (sdk.pickers, sdk.preview, sdk.match): this page sends the
 // tab's choices and draws what comes back. Content from (the source Azurik-Custom-Content is read from) is remembered:
@@ -180,15 +180,22 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     changed();
     ask();
   };
-  // A grade's colour as drawn: the engine's, through its theme's --grade-* (app.css), so a theme toggle repaints it.
+  // A grade's name from the engine's colour, and its colour as drawn: through its theme's --grade-* (app.css), so a
+  // theme toggle repaints it.
+  const gradeOf = (colour) => colour && Object.keys(c.view?.colours ?? {}).find((name) => c.view.colours[name] === colour);
   const paint = (colour) => {
-    const grade = colour && Object.keys(c.view?.colours ?? {}).find((name) => c.view.colours[name] === colour);
+    const grade = gradeOf(colour);
     return grade ? `var(--grade-${grade}, ${colour})` : colour ?? "";
   };
+  // A model's row, its grade read without colour too: its mark (app.css's data-grade ::after) and the grade's words as
+  // its title.
   const row = (name, label, colour, untested = false) => {
+    const grade = gradeOf(colour);
     const button = el("button", { type: "button", className: `model${untested ? " untested" : ""}`, textContent: label,
-                                  title: untested ? "Not yet tested: no sitting has graded it" : name });
+                                  title: untested ? "Not yet tested: no sitting has graded it"
+                                    : c.view.grade_words[grade] ?? name });
     button.dataset.model = name;
+    if (grade) button.dataset.grade = grade;
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", String(name === c.character.species));
     button.style.color = paint(colour);
