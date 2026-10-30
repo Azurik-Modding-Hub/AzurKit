@@ -8,8 +8,9 @@ The pose is :func:`~azurik_mod.assets.retarget.origins`' engine model
 layer blend ``docs/RE_XBE.md`` § "The anim layers' crossfade" reads:
 0xCAD40 starts the new clip on a layer at weight 0.01 and each tick moves
 both layers' weights by dt / 0.25 s (:func:`fade_weight`), the fading
-layer's time advancing too; the pose sums the layers' raw rotation
-components by weight, then normalises, and lerps their translations
+layer's time advancing too; the pose turns each layer's rotation to unit
+length and w >= 0 (0xCBB6D-0xCBB7C, :func:`sample`; AZ-825, Step 2.207d),
+sums them by weight, then normalises, and lerps their translations
 (:func:`blend`).  Sitting 2.118's frame-scored ``hang_start`` fits it: at
 ``h_k`` the new layer ``k - 1`` ticks in, the prior advancing, guard_air
 own x2's placed h1-h8 at rms 0.08 m and kingkong own x2's at 0.003 m
@@ -25,7 +26,8 @@ FADE_TICKS = 7.5
 """A crossfade's ticks at 30 Hz: anim+0x14's 0.25 s (0x197564)."""
 
 Pose = tuple[np.ndarray, np.ndarray]
-"""Per bone and time: the raw rotation components (bones, times, 4) and
+"""Per bone and time: the rotations (bones, times, 4; a layer's
+:func:`sample` unit and w >= 0, a :func:`blend` their weighted sum) and
 translations (bones, times, 3)."""
 
 
@@ -58,9 +60,20 @@ def _curve(keys, ts: np.ndarray) -> np.ndarray:
     return np.where(ts <= kt[0], kv[0], np.where(ts >= kt[-1], kv[-1], value))
 
 
+def canon(q: np.ndarray) -> np.ndarray:
+    """Rotations ``q`` (..., 4) as 0xCB730 turns each layer's before
+    0xA0B70 blends it: normalised, and negated where w < 0 (the scale
+    1/|q| changes sign at 0xCBB6D-0xCBB7C), so two layers holding one turn
+    in opposite signs blend as that turn (AZ-825)."""
+    n = np.linalg.norm(q, axis=-1, keepdims=True)
+    q = q / np.where(n > 0, n, 1.0)
+    return np.where(q[..., 3:4] < 0.0, -q, q)
+
+
 def sample(rig: Rig, clip: Clip | None, ts) -> Pose:
     """``clip`` on ``rig`` at each time of ``ts`` (``None``: the bind),
-    the unkeyed components the bones' rest values."""
+    the unkeyed components the bones' rest values, each rotation
+    :func:`canon`'s (the layer's as the blend reads it)."""
     ts = np.atleast_1d(np.asarray(ts, dtype=float))
     keyed = {(tr.target, tr.comp): tr.keys for tr in clip.bones} if clip is not None else {}
     q = np.empty((len(rig.bones), len(ts), 4))
@@ -72,13 +85,13 @@ def sample(rig: Rig, clip: Clip | None, ts) -> Pose:
         for c in range(3):
             keys = keyed.get((k, c))
             t[k, :, c] = _curve(keys, ts) if keys else bone.t[c]
-    return q, t
+    return canon(q), t
 
 
 def blend(old: Pose, new: Pose, weight: float) -> Pose:
     """Two layers' pose, ``new`` at ``weight`` (:func:`fade_weight`): the
-    raw rotation components and the translations summed by weight (the
-    pose normalises the rotation, :func:`lowest`)."""
+    rotations (:func:`sample`'s, unit and w >= 0) and the translations
+    summed by weight (the pose normalises the rotation, :func:`lowest`)."""
     return (1.0 - weight) * old[0] + weight * new[0], (1.0 - weight) * old[1] + weight * new[1]
 
 
@@ -153,4 +166,4 @@ def highest(rig: Rig, pose: Pose, points=None, skip=frozenset()) -> np.ndarray:
     return _heights(rig, pose, points, skip).max(axis=0)
 
 
-__all__ = ["FADE_TICKS", "Pose", "blend", "fade_weight", "highest", "lowest", "lowest_many", "part", "sample"]
+__all__ = ["FADE_TICKS", "Pose", "blend", "canon", "fade_weight", "highest", "lowest", "lowest_many", "part", "sample"]

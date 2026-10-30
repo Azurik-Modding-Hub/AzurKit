@@ -837,7 +837,7 @@
    ],
    "region": "usa"
   },
-  "randomize-full:player-character=booblord,weapon=axion_staff": {
+  "randomize-full:player-character=booblord,weapon=booblord_spin": {
    "args": {
     "allow_modded_input": false,
     "command": "randomize-full",
@@ -886,7 +886,7 @@
     "player_variant_file": null,
     "player_variant_sounds": null,
     "player_walk_scale": null,
-    "player_weapon": "axion_staff",
+    "player_weapon": "booblord_spin",
     "player_wing_flap_ceiling_scale": null,
     "ram": 128,
     "retired_force": null,
@@ -913,7 +913,7 @@
     "--player-character",
     "booblord",
     "--player-weapon",
-    "axion_staff"
+    "booblord_spin"
    ],
    "region": "usa"
   },

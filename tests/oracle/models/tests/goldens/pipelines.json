@@ -1,15 +1,15 @@
 {
  "randomize-full:attack-damage=2,attack-reach=1.25,attack-speed=1.5,model-scale=2": {
-  "ISO": "bef7aefb86786799f430f75ad88b2ebeb1bb4399f423c4e09b1dd49a7419e3bc",
-  "default.xbe": "62f9003b92173f0e3bec0915d99a4193ef2ed8d5390f13194b67fd866bd91dd7",
+  "ISO": "a597670656fabc47e480a456d2a7196cca3ded2ef44feb247138823328cba43a",
+  "default.xbe": "de719c3c87cf927d6fd32621f2f543614c035203dca9d17c76fc3646443715ed",
   "filelist.txt": "ffbdb4847851ae79da82e283327922fa1d2004cac5874afa32e0e2c6ba4e0baf",
   "gamedata/characters.xbr": "71ea459bd4d645f910f175aa0f9354a4882d3e5c2331bce4bc29529ec2fbbff9",
   "gamedata/config.xbr": "86d796ebf086fc2966d9aaf571680f3e0713b3ac6c2d8c08221e35cfd09e3a16",
   "gamedata/index/index.xbr": "c8f742a8c4cc99604caaf1ddf0e6b60d09352ec994d3560cdd44f4cdfc1beb51"
  },
  "randomize-full:player-character=air_elemental": {
-  "ISO": "fdb5d011432b8b22dccf6b1128428aa20dab7e8a27b31c5f6cbe7ff20c2ebe3b",
-  "default.xbe": "ce0af922278fb962a8f29b90befb9b59a16763c84598c39c9334ae68fbfe63cc",
+  "ISO": "0200ce7c9e5dc7af606d4a23131da5577d905938e0c2e5c5fbd756d24a48db14",
+  "default.xbe": "50bcf8919ba0021feab142f8c85d09770c149558b31e0e2c3520309d30693161",
   "filelist.txt": "15eaeb7d7a7bf5c329eabed6c4c98037dfef1fb7826013dfd052f0031164edbe",
   "gamedata/characters.xbr": "faa63d760cd56330c3971245be38fd997fad9c10bb14bb5eef9f9e8c13eb4a02",
   "gamedata/config.xbr": "b83af8d34b693fab0c89df7390431812d3f8ff34faadcfdc1d60ea937fa4f2d3",
@@ -17,8 +17,8 @@
   "gamedata/index/index.xbr": "2f3373c3663c51639c23fcefbbe5ffd652863e2e6273cabde77db396322eb399"
  },
  "randomize-full:player-character=balthazar": {
-  "ISO": "163de30f651cb6fc9ac1cba7a6036238d9f2f41163389ed5bf8773125b04453d",
-  "default.xbe": "77abfc8745f03ece82870283c679e35971e0d7af2b68a460e8cc060a1af9914b",
+  "ISO": "31a792ea7211d563763c8f42abe39a1018aa76e111fd7552d4d7b325fe48deac",
+  "default.xbe": "057784713085afe47ef4aa671faa087de295fbf6208a84444ac85a388b4dcf36",
   "filelist.txt": "6bd65c69cb5dbf8f83b86f67b851d8bdfe9278f7eef2ce6900130a767481ae86",
   "gamedata/characters.xbr": "9fb88eb8aca347eb687269117072d6ba8387d35790638e337e2adcd0f46940bc",
   "gamedata/config.xbr": "5a5151bb68600161ce5052f2fe928984bf52cabaf12e7dc1bc80877c6ecbccaa",
@@ -26,8 +26,8 @@
   "gamedata/index/index.xbr": "7f9c2b03062a8e77125836424adba9f0a58225d19ca73e572de662da5fb95835"
  },
  "randomize-full:player-character=balthazar,weapon=bare_hands": {
-  "ISO": "e5175c219de1e3e23bbb618a6da21060218dab1c9fbd6470a56c540a9396c3a1",
-  "default.xbe": "25c3b5d98079bd3c10528d6e0b561fffd2fba2625744eb99f06ae7904d52b29d",
+  "ISO": "e780f1c0cbe16de0c07c68be7758e29cb941e27f951b9d7636aa22ff9c43fda2",
+  "default.xbe": "10ec9042b6589eab306cd33f9ff93952117884093fa56f58b32afa2a98a094a1",
   "filelist.txt": "0324556dc677a1a0ba3dbd6207bee00700decb386a849430297d91ff50d280ab",
   "gamedata/characters.xbr": "7b3e614e09b9d7776f477a817fe07daaae40c0365abbcfc9c9c892b0899341ee",
   "gamedata/config.xbr": "3c949d19b3291f2f71cd550ca79c2d470c6abe23ef593f956d74b000ea6fb894",
@@ -35,8 +35,8 @@
   "gamedata/index/index.xbr": "43901719e50defee0603cf2aeef65d2715f348267d9cc8d26b2cdbb3449a99d6"
  },
  "randomize-full:player-character=beamlord": {
-  "ISO": "f98a93cbaa68c6f4280ec2d81bdc63ca0e8801b7c3f77f61758e00712721362b",
-  "default.xbe": "5475e63668901f1ade60745556282d2c5640d0b118d3d98e4c287d99cc5bac07",
+  "ISO": "6d003e8b683ce531caa2654378c760662cb6a7b4f4ae76645d388adcabe2b28d",
+  "default.xbe": "63c8bf02928ef844385143d2a00068bc33f882ddf9c7693ef2dc74eb6178e7cf",
   "filelist.txt": "f9aea4e334554de831c62e255c2006a97b894e5e5f47788966f330ab3a4fae9e",
   "gamedata/characters.xbr": "266aafb6df3d0d21b0484571eaecbd96bbc4092f351361b84ae582354c452ead",
   "gamedata/config.xbr": "3e82b49808e3f142c9cbd410b5d63fec0b63e8f21835b78e3f4124c909e7cb44",
@@ -44,53 +44,53 @@
   "gamedata/index/index.xbr": "1051f923c398b93a2809d6213958147dbc8c5aea3dbb61b34c4e28490f765e54"
  },
  "randomize-full:player-character=booblord": {
-  "ISO": "f7ba956b61e5e2d3474c9a5c4bba2c886ffec30ccd1d3b32d5e6054c18b34c75",
-  "default.xbe": "eaa4e4715861a0514ada217b8c18634876a0435f00b89990c912690a642a8872",
-  "filelist.txt": "a91486398be90cb6c58a43c893bf97499b7198b46b50ca2af3a8f981be38f9a5",
-  "gamedata/characters.xbr": "c3e5b640b5f5fba860e81a1a2ee0ffa4587de6087fbf91c5052bd58c53adb064",
-  "gamedata/config.xbr": "596021d031dbb586120c62a744248e1f31dcede2c76d4379cefe166e995eec3a",
-  "gamedata/fx.xbr": "395837919457aca29dc98922f64592dd39012d944e580b72c8afae41ebb3f501",
-  "gamedata/index/index.xbr": "9bd87def34be152bb5701271cc40e8ae07d7acc6df2fb53545dc6d7b3041af6c"
- },
- "randomize-full:player-character=booblord,weapon=axion_staff": {
-  "ISO": "3e487149f5b1088e860dfc856625a44c6e0abb9c86e6eb554f358002e4450cc1",
-  "default.xbe": "785753a0e1bf1d82c45e12578b95ddb3d10f72e4196726c18164f6fb9e912945",
+  "ISO": "bd27ae0eca63d831bee2859a4fc9a4974fdc0052cf1098bc316e0da21ee10bb0",
+  "default.xbe": "4c19423ea000339849907d8ac206ec9e279ce0fe25146fbf0c823957c1481a25",
   "filelist.txt": "f35045b586648b34e55873b4eca497e3c9c876cf4a91bf0cce420ac2107d050e",
   "gamedata/characters.xbr": "061e63b5c0fee50d1dc276d54dd62ee4f2ee7957e4a541b0b1fdb6c05ba11541",
   "gamedata/config.xbr": "fecb1b5fdc67a5c666c78dcb86cccf65066caf8512db522ce98966e514ea6b36",
   "gamedata/fx.xbr": "82a58403c9698bdf4635b3fd7fc59a59acd28a66ff853208dbb2fdc04146943d",
   "gamedata/index/index.xbr": "55d1ff224f1a95f5d41016991f5c99917f5359dbeb306eb6e0fee5a47930b82b"
  },
- "randomize-full:player-character=booblord_high": {
-  "ISO": "6156f1f1cd9aa8a10f6d08b854a5ab1a32bbe0bbc62c53fffef8de00fd858935",
-  "default.xbe": "43d4473b9dd9e600994741b04dda901bd7ed8054affca48d18307831e6c10491",
-  "filelist.txt": "deb7dba75bfcc8851dc690c79850913151301434f6d7413dcbe71d4005bc658d",
-  "gamedata/characters.xbr": "e6f56b90e6a5364f63b2dbe5712774d4c49b2e4b2e6c336fbe1c7316b415163f",
+ "randomize-full:player-character=booblord,weapon=booblord_spin": {
+  "ISO": "f903df7a899b84545417a2b2594ce88fe1975e5bd38173631df20237da57a555",
+  "default.xbe": "b01e6e158b0b14336be3b1cb3b9274bb4a9137c41df7fafb4ae329593892b0a6",
+  "filelist.txt": "a91486398be90cb6c58a43c893bf97499b7198b46b50ca2af3a8f981be38f9a5",
+  "gamedata/characters.xbr": "c3e5b640b5f5fba860e81a1a2ee0ffa4587de6087fbf91c5052bd58c53adb064",
   "gamedata/config.xbr": "596021d031dbb586120c62a744248e1f31dcede2c76d4379cefe166e995eec3a",
-  "gamedata/fx.xbr": "45d69db37fbc2d97604ba961e5c65efff32e77f298545bdb95f58b3c8c309b56",
-  "gamedata/index/index.xbr": "1e0a259ac6677ad209933f702ad86ed3fff795a405380a9e355a5afdc59e7b8b"
+  "gamedata/fx.xbr": "395837919457aca29dc98922f64592dd39012d944e580b72c8afae41ebb3f501",
+  "gamedata/index/index.xbr": "9bd87def34be152bb5701271cc40e8ae07d7acc6df2fb53545dc6d7b3041af6c"
+ },
+ "randomize-full:player-character=booblord_high": {
+  "ISO": "c2e9327befdf94c3e36dbd0feb13a71d4edd7e7f7a69f040764db3641a916441",
+  "default.xbe": "c2a243923f205c1191da12cc8c80dc6d33c192d10f100e46c34519bab0fbf130",
+  "filelist.txt": "e5cdf270ee2630200e1f58c65665a77cbae710823a454bd46c93073d96af1ba5",
+  "gamedata/characters.xbr": "bc44184fd5f59c1e1ee72a8c81aeba9f09a970c399c0307cca1e7a1b08ae2fca",
+  "gamedata/config.xbr": "fecb1b5fdc67a5c666c78dcb86cccf65066caf8512db522ce98966e514ea6b36",
+  "gamedata/fx.xbr": "488abd64f3a8f0ff9d16a01563268e799150f828b8daa103b3751419f2fe510b",
+  "gamedata/index/index.xbr": "72897f764b0842c9311fbe540e83aa0345ee5e10ebd0fd6b6b72ffcacfbce82e"
  },
  "randomize-full:player-character=booblord_high_human": {
-  "ISO": "1ae7230a063828b865be100dc2dce0e0e0678e3a4c96cdd9969900ca8140ddad",
-  "default.xbe": "62c3927c526be427b3012d8b38eb80cc84322431738fbbe2489b8d8a580479f3",
-  "filelist.txt": "c96ebdbe522dd4f1441a3de47c64801bc541662f50a4a0f5e4423b29a1c7e6fc",
-  "gamedata/characters.xbr": "f1f407f65d1d59207ec6b5d04f17560a46d274bf624d46a440ce437baf689bf4",
-  "gamedata/config.xbr": "596021d031dbb586120c62a744248e1f31dcede2c76d4379cefe166e995eec3a",
-  "gamedata/fx.xbr": "7202de5ecf779a6a29fadc4daa8ebdf0f8c01b86ab7554a87d896fa519a22c1d",
-  "gamedata/index/index.xbr": "795b91e3d857ee654b86823940cb875c0ca6cbb6cdc17e706ae689c7d2d050b2"
+  "ISO": "d7c1e9a225cf65af9f1a4e244844de9beea9d737abaf44f8f19a7cd749aa7ff2",
+  "default.xbe": "02b1779ef7cbae5093017a8c5aeed8a15db0fdbf987b28dde85c76098a9dc6e5",
+  "filelist.txt": "6287e23d34061d30cb1d9a9623701e9f9607b7c67dd4ad3ceec544c4a7d55049",
+  "gamedata/characters.xbr": "482e703d8ad866110f0c65d18e671959c66c95be15745c8c80d08d908695f68c",
+  "gamedata/config.xbr": "fecb1b5fdc67a5c666c78dcb86cccf65066caf8512db522ce98966e514ea6b36",
+  "gamedata/fx.xbr": "41f0fe2ba18a4342f291c29c503bc7ea2f207358c9a3ed4ff0be8f0e4576e24f",
+  "gamedata/index/index.xbr": "b780e79cb0f648b6862484b9ac5f2232971a75757324a0bcd704733e3e7c3b1a"
  },
  "randomize-full:player-character=booblord_human": {
-  "ISO": "0f92a49a5244593ffeec513f7cc17ded7f7ca787a0a1e13b392eea85c40ea56c",
-  "default.xbe": "b543e56b372e6556102450bd02cbbc13fac50d62076b21116a2886cd4e96f6c1",
-  "filelist.txt": "d8f9fcf05a91465f927528e879e0d502262aa1088f96a1e70bea04bba50180b4",
-  "gamedata/characters.xbr": "ef1fc46765405ba4cd313ead4cc27545eb9fb70279c440b89475eeacb7bec870",
-  "gamedata/config.xbr": "596021d031dbb586120c62a744248e1f31dcede2c76d4379cefe166e995eec3a",
-  "gamedata/fx.xbr": "211ceeb7e4f383656b83f0c3368d1f8439df7a4c31efd152b022b853eadf0a17",
-  "gamedata/index/index.xbr": "1749167a7e7a914817f98f4ff66be2c5c5faf446253ef4228fb174e395c159a3"
+  "ISO": "edf65d2cba1a4a8c60ec43cf92d21c740a8457d3f50db311d38dc938ed9f68c3",
+  "default.xbe": "ccee648333e8a5cb5e16eec2f4dcecd83b9f71ff9a9ce807205ce12ca01a7e91",
+  "filelist.txt": "1fcda797739ce77ec2946bc9194682147836fbd51b26e4d98cd887435571be71",
+  "gamedata/characters.xbr": "92b7c44a29cf2b36f8c7dc828b21b7db61e7ad6612f4803ac6595c32c3793690",
+  "gamedata/config.xbr": "fecb1b5fdc67a5c666c78dcb86cccf65066caf8512db522ce98966e514ea6b36",
+  "gamedata/fx.xbr": "5584f2ec2a40e614f4264a82be3f8a306d98575d6973a852db8f3b5ea23650a7",
+  "gamedata/index/index.xbr": "ad1dee4d977fd0965523db71db261126122296fe565ff90086b0bbd575b5d49f"
  },
  "randomize-full:player-character=catalisk,weapon=booblord_spin": {
-  "ISO": "2e7d70429f762391b54a1c69892735eb66a891a33de70814c0ebf4e42a5f771b",
-  "default.xbe": "7f26daf47ea09a61f141758e98ca8c880fc09221bdab282cfbc4924b328768f7",
+  "ISO": "184939ecc34561c60b2dbdb63933b89bad93400dfcf5919e963ee0fcd6a8598d",
+  "default.xbe": "7d6166981850f3af05a627f125faeec64d3b43ddedb8490ca7e9379a26798607",
   "filelist.txt": "7569177a3f148876a31dd4a950cfba41961c8b9d04bd98a5d8f1011ccd656f36",
   "gamedata/characters.xbr": "7c55dd803ab38e753e30c967bae43b3af1a882523fbdc28272f5cafa5b254717",
   "gamedata/config.xbr": "f0169da36a1c29146aeb69d5c63c75a8bd019dc4386a97190a8871cced36da05",
@@ -98,8 +98,8 @@
   "gamedata/index/index.xbr": "fda3d27539368688db752b0abb22c2cbc9e72049aedf2dd92dcd96e35de37f0a"
  },
  "randomize-full:player-character=catalisk,weapon=farmers_hoe": {
-  "ISO": "24ed88ad1d097c576853fe7693e0cbb1bdc93b4da055c44afd4d4d32105b3a31",
-  "default.xbe": "d137b0110e6a3e227bd9d2aa530e0c07c53315a63129346c70eb739aeba65d5f",
+  "ISO": "1e7a5ba37cbedd57ad26c6e8356db138c53c30a12ccbe991135fdf660c2bbcd1",
+  "default.xbe": "326781b04149b6bdf26f6c44d67aced72236790ecba0248262f6ef825a4394d2",
   "filelist.txt": "a2bc94f93263c342cb2bcba9295df0a37102241541b31f041bf401377dd8840c",
   "gamedata/characters.xbr": "5e6095cb9923c4af125ce0a8daeeffc326305ed00849c585609c5e2eb4535403",
   "gamedata/config.xbr": "4580aa0c73f50973e5216fb1d4c142fda6e0a887186ae1384e6dc3734cf885a4",
@@ -107,8 +107,8 @@
   "gamedata/index/index.xbr": "a34ea0d8b99600aa342eee959569d631a9e9b92b42bbf88123c1807a21cad4da"
  },
  "randomize-full:player-character=firelord,variant-file=tests/fixtures/effects.json": {
-  "ISO": "ad2375ecb4aef9a56776b4581a03e3c5e96521fcf9a8153518f9a7868aaf07f9",
-  "default.xbe": "1997a8dedc3ed96f82630fff9b9e63cbd28ad5db72e3aec0d922795f6ca28b96",
+  "ISO": "dbbef17ba4f63b939032a76d75c0e02e985e10fd0a337e436cf27f3f225c9d81",
+  "default.xbe": "99fcd8ce707f40bd494d3767468481ba2353c507d6f3293cf8c550b216f4d3fc",
   "filelist.txt": "f1cbae477a2b6cdb45961bf64e593360d562effbf11334459240e0c8ddbc3d5f",
   "gamedata/characters.xbr": "f78c1ef5fc51010c0972d523ba2b02d771cfe3ad97f531be72b394c8168b2c0a",
   "gamedata/config.xbr": "e8a38f10c6c136e0daaebf4b554d458752aecfa8833b471fd0e5834f9b0a28bf",
@@ -141,8 +141,8 @@
   "gamedata/index/index.xbr": "128d783dabaf909bc76ab8c7dd7b731401bdc82bb99d740b22db515ae953488c"
  },
  "randomize-full:player-character=keylord": {
-  "ISO": "df28e049f4e628a20bfb58bfc050a9af7068ef15063bb2b50396bccd07068923",
-  "default.xbe": "27a6c977256faf693afaf7fe9f91176ff54a20caf5cf4fce612811cefd1411af",
+  "ISO": "54a94de109bbcbec8609b4c77cb5d5b32861ebbda214447fae94bdfe6db47ff9",
+  "default.xbe": "db494b9fad30fc7f678e139827af5ac89e061b586975478f275f46ea77322b80",
   "filelist.txt": "638608800daf3a7f20551aec57d79c62619d04f0345037ece7fb04022fa04259",
   "gamedata/characters.xbr": "6663746c5edaa16babe24bfbb7375998cbb333481cf6747132744a39e7636776",
   "gamedata/config.xbr": "e16a673e6f0bc96a91df13148f50c0916bcedb047e090101ff3868cca369fd49",
@@ -150,8 +150,8 @@
   "gamedata/index/index.xbr": "04d77c4c1f9fc055b5513a7e4e060bafca701665b3520a71687a6916d23681c0"
  },
  "randomize-full:player-character=keylord,attack-reach=1.25,attack-ground=off,attack-balance=off,attack-damage=2,attack-speed=1.5": {
-  "ISO": "15503c35acd4337fddb2e8b853b61f15c7c2850087fdeebf38da7163bba2d4bc",
-  "default.xbe": "bd43249a1e5cc25db8dbf15e0796c6d0cd8a9b657630d3331495ff44f1901c1d",
+  "ISO": "dfd8761718cb568e29f2c223d65ff1969956f734ad6b61f3575ebb7543cc736f",
+  "default.xbe": "53db671f21a399c0456a5fc1448078cedf59690bd41d9dc480a1ae9232413d8b",
   "filelist.txt": "9d16e1b9d57e920b72e50b849e6134e042c22afc4435ad77c1ba7778068758bf",
   "gamedata/characters.xbr": "6663746c5edaa16babe24bfbb7375998cbb333481cf6747132744a39e7636776",
   "gamedata/config.xbr": "570875941f2c9c567b39dc94ec89618320b9ebe9db8ff00bbf6db4d83798b4a3",
@@ -159,8 +159,8 @@
   "gamedata/index/index.xbr": "04d77c4c1f9fc055b5513a7e4e060bafca701665b3520a71687a6916d23681c0"
  },
  "randomize-full:player-character=keylord,mode=garret4": {
-  "ISO": "52330c70f4b8eacbf68500bfdec28b7dc0b51a643659d0424b6f473a865d0651",
-  "default.xbe": "5e4144494ed537b50aa38fd587c589035d4252587adce8f0b25f72f5ab1ee766",
+  "ISO": "ecb16aee986b814f503929d5910e52773a782f5c0255020735feef52c2aaa99b",
+  "default.xbe": "ab52eb2e15b29b3c482c9eb8f2d0501bbb79d2e49f5e7fdcaf5baef3b7dcccf7",
   "filelist.txt": "916d8976bc8e6c3a22581f9a33b95671e74a0b05016b939c7b1d44a5ce3180d1",
   "gamedata/characters.xbr": "0ff5de4b91141a24ab4cd056be7238998821400501ee74bf43c8d037eb33b328",
   "gamedata/config.xbr": "2cb695eb4b88d8529f26fe106d3bbea139b1c810e6071402dc5d019757d48d67",
@@ -168,8 +168,8 @@
   "gamedata/index/index.xbr": "a49f82075bd1ca22de1d7cc186413c0bae56ca4ede3117c560a2b53360a36495"
  },
  "randomize-full:player-character=keylord,model-scale=2": {
-  "ISO": "77f1f5749153ea12068639e92b1ccd4a51edd31b051d5e990bb5f2e338f0cc0b",
-  "default.xbe": "4f0e436fa41cd379c86ea8af7976cd0aa93645de8b85ca6b046f06804d668822",
+  "ISO": "6037012bb9ac48c0819a22dec710ccde7f93834fadda348b9479b5b634030f73",
+  "default.xbe": "ac383a86e4ce245767755a8c685d056ecbbf81677bcb23bee63e6eaa51aefe2c",
   "filelist.txt": "3fcb75f7e4dd100a4a1ee0be70824b87e9f60922417df7adb6d75d59805f2eb3",
   "gamedata/characters.xbr": "0547c81972e58081eed8d5eb2d5a167f7d10d51067f1536662c80b21a5934242",
   "gamedata/config.xbr": "e9ca40008bbf92580e8f49c6d236cef6b2136f6418b4c7b66ad681572bee27ef",
@@ -177,8 +177,8 @@
   "gamedata/index/index.xbr": "04d77c4c1f9fc055b5513a7e4e060bafca701665b3520a71687a6916d23681c0"
  },
  "randomize-full:player-character=keylord,sounds=garret4": {
-  "ISO": "f240a9bf5b0007a7c9a26533e74aa1ef08c530b2e9df9d6c7400b17492a99f3f",
-  "default.xbe": "e9b39dc1a160f4f31b41fa130b8a9502baa1562330ed86f5c42283a434edbb75",
+  "ISO": "039fe5fcea93d90485e5f1fc222bbab4d687fc05a4f9a8c5002e278fe9125102",
+  "default.xbe": "976077ce020c33f207fec424cf626d74c3a35dd0826e64ea0f058878b54faf6f",
   "filelist.txt": "d8836a2a85245b41176bbacee881beab7b260c2771d0a3e10edf6f84f010fa7e",
   "gamedata/characters.xbr": "6663746c5edaa16babe24bfbb7375998cbb333481cf6747132744a39e7636776",
   "gamedata/config.xbr": "ba0d0fc218d9bd808fc4b98a3554c37a5daaf5c5dfe171f41e06860945e67d50",
@@ -186,8 +186,8 @@
   "gamedata/index/index.xbr": "04d77c4c1f9fc055b5513a7e4e060bafca701665b3520a71687a6916d23681c0"
  },
  "randomize-full:player-character=keylord,weapon=axion_staff": {
-  "ISO": "42067e01352c6a21b5963d112a0e3721aa89193aec9c75be0ae3b2693d0fb0f0",
-  "default.xbe": "94d4853e24b6a6d2974ce1e3da48e519468963ed23c9fce125f72110667da50d",
+  "ISO": "a2cb21fbb029003f3d85b34e9e4bce5fc6492a47be2bea0017899475e7354d2b",
+  "default.xbe": "7ae276a8a70446a3637dc58f5d1e7674cdfd5339fce27ed4db34a06c76ec15f0",
   "filelist.txt": "b6264e1c1cab4d56f7c03bb9a690c477bc77a5b02efb4e69320ef4fa8bc375d2",
   "gamedata/characters.xbr": "fded6c807fc6c0516169b466110dc40c4185a543e794d45fb234ac8ddfb08efd",
   "gamedata/config.xbr": "a0cb8609c4f58ece740fe2fd86b14f8f493efbc3d561a1369568f6f642a4390a",
@@ -204,8 +204,8 @@
   "gamedata/index/index.xbr": "56aa18d4a1b06ec28c2d001a68b3d0be83ce9bedfbc2827fb12bf2efa984b9e2"
  },
  "randomize-full:player-character=town_female_1,weapon=farmers_hoe": {
-  "ISO": "65e3783d83db2acc6e467a77c6b646ce5503e837ccb50bfcf4421aeecfc2929d",
-  "default.xbe": "ccc6b4fdddbd8d033197e6ace82c8335d9576146b6560c5682464da2e47a5195",
+  "ISO": "f6cb0787846a457fdcbbe0433e38e225e79ab4e8828bdf0dc6a17383cef517fd",
+  "default.xbe": "a6cb22b254e8078b3120122bbe0df66c11f99819e8d576a03f00004d58572d62",
   "filelist.txt": "b7d52678c37a7c5d775f0ba084c2479ad38b2486129b9e5526a659c7bde60844",
   "gamedata/characters.xbr": "f948ea10d1141ea87f74356396db645266c41c88217dd387256c6c70ae7e6974",
   "gamedata/config.xbr": "bf59f9ddb22426258566610c41a95a9d362c6cae68f5177d0e8ab9ffd898020e",
@@ -222,8 +222,8 @@
   "gamedata/index/index.xbr": "a0a229ed86a759af5c4c012973e3dd5bdee336145ce33828740b4b01efdac29d"
  },
  "randomize-full:player-character=town_girlchild_1": {
-  "ISO": "92bfea9b28c8ee99bbdf3ed628625279f6ec1fd1ffa40e7a3c64c2edfa670b70",
-  "default.xbe": "2d19ee296ba5079e1502e2a8f65c37dfa1d5af3bb48eb8a7b004405a4c834819",
+  "ISO": "369f9baa2a462166a1843b3911a849ab64d27eff095aa6cc76bd2085c801fa2d",
+  "default.xbe": "8afc0591f5f3828a5c29f30b837c0067915ab490a37e7753b24674533d9a424f",
   "filelist.txt": "3e80459ff1903c89227350de81d2d50fb37f7db192ee55ba825cfb065facd8cb",
   "gamedata/characters.xbr": "6420b2532b28d72ba97fbfaa5ebb9acd010ae862084a071fa12c5aad5da694f8",
   "gamedata/config.xbr": "0432b86970bafd38c98f4c472c30c1baf4848f0d4b58774e542f540c93da2519",
@@ -258,8 +258,8 @@
   "gamedata/index/index.xbr": "4911039e300eea9bdc1f02b9a810548b5c50b644def0d5e15e33e05f87c682fc"
  },
  "randomize-full:player-character=town_male_farmer_1": {
-  "ISO": "5111403dde7a43eef2bed7deae26015834254165414c92fa148bd97af5d011e3",
-  "default.xbe": "c6feb3f6c3aac7ed7ad0f378b12c596e17007728a7915d808960743f9dfc2109",
+  "ISO": "60abfb52b07a9b1ae386ccfa4b7eaa4942de25abe547d9decb20ff6d87ee916d",
+  "default.xbe": "20c7d42eca807af28babd7e0c222c5cb20f8c29b49d4b178bcb0d0674580eadc",
   "filelist.txt": "8de6974f89a9e7f2a2571d6d24142c7f539a0cf49dcc7bb235609373da589f1c",
   "gamedata/characters.xbr": "cc263e43263dbb34d3c1e412c84097114b6bac7d2f91f0cd8469344d5c1fbe45",
   "gamedata/config.xbr": "1bbd42f080cff10c911d1d0cb212ec49542f111d076480a473b4e8b8e1f42e73",
@@ -276,8 +276,8 @@
   "gamedata/index/index.xbr": "021f059d811700025706fb64f4201346ffb7c742abc4a1e05b22f2f6824ee094"
  },
  "randomize-full:player-character=town_male_farmer_1,mode=garret4": {
-  "ISO": "ab0c8b1879aa1a61835318b26ca5c815e1849d0f451332e0579d89724c606a0f",
-  "default.xbe": "2fa69e736f83d086ecee77434569b80c449ee029d91662c7ee62b19470aa72c9",
+  "ISO": "928d65680322069fb960e1a4ffcf2baeb223fc526799e0be95070c00c1fe3f4b",
+  "default.xbe": "59699f06b2138999cb6685795aa17386edcf31853786177a9e6266e7c7e615b5",
   "filelist.txt": "413b19a39ecae9f002520dc3f1d6061146eb0c31e5044031c24fa0e7d7e7fa7e",
   "gamedata/characters.xbr": "f11a21c86ec7cd627d8012f0d30dfc1eae500a06d03a197074bf6c2e7c6dceef",
   "gamedata/config.xbr": "a2a31d4401c4314697d34399fcc36ddd4bfcf26f20e2ed4f1ebc48116cb2da9b",

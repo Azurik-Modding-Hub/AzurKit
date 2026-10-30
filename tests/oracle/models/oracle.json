@@ -1,19 +1,19 @@
 {
- "commit": "28d0b411000f1b228e73d48b930ead27058b9221",
+ "commit": "1648692dd458294f83333eed25c55889fb56718b",
  "dirty": false,
  "family": "models",
  "files": {
   "cases.json": {
-   "sha256": "676906b3a26f644a7667bb8d68a24bdf0ae2eb20a79ddd5dad1f824c5d88cb04",
-   "size": 95172
+   "sha256": "03ce9d2fb3a1d3a60b0e01292fa23c957364b2f9a2346b2d04b5987799c2c03a",
+   "size": 95178
   },
   "tests/goldens/europe/pipelines.json": {
-   "sha256": "eff457e55e82cd996ce8178922c45cfd7dba66f86568da3b79b35fff50f24bbd",
+   "sha256": "8a40ff054774cbe0f37161a66f04f94dc2ce07547d02d0ac046c12aeadb5a8e2",
    "size": 723
   },
   "tests/goldens/pipelines.json": {
-   "sha256": "938b17cfb8b115f8fb28a2ad456c18b354a312837427e81e3161e89b01935aa4",
-   "size": 25414
+   "sha256": "74784be2e319c1c716026f2dcbc0c10ee8178af6b594785c593cbdbddb407bd4",
+   "size": 25416
   },
   "tests/goldens/shims.json": {
    "sha256": "23eeb9b5ae2e0b61f2107d69d1b02404af71b1f82f87c9e2080924629a850512",
@@ -24,7 +24,7 @@
  "same_as": {
   "tests/goldens/gui.json: run_randomizer:model": "tests/goldens/pipelines.json: randomize-full:player-character=keylord"
  },
- "tag": "oracle-models-2",
+ "tag": "oracle-models-3",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",

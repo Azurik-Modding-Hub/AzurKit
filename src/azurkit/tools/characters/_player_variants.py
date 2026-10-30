@@ -196,7 +196,9 @@ FIELDS = (*LABELS, "base", "mode", "size", "scale", "sounds", "attacks", "marker
 ``own`` or ``default``), its syntax checked here and its name by the
 build; in the sha as ``<name>@<the weapon's sha>``; a recipe naming one
 plays it in every column, so it names no clips, columns, carry or held
-(Step 2.161g, D585).  ``effects`` (Step 2.167b, D538's E2): rows of an
+(Step 2.161g, D585), unless they are a moveset weapon's
+(:func:`moveset_moves`: booblord's, Step 2.209, D939: her default the
+Axion staff, her spins the pick Booblord spin).  ``effects`` (Step 2.167b, D538's E2): rows of an
 effects template and the columns that play it
 (:func:`~azurik_mod.assets.fx_templates.effects`: a projectile thrown
 from the hand by X42, W30's ``debug`` wearing the template's body; a
@@ -279,6 +281,52 @@ body (:func:`lend`, ``weapons.json``'s ``variant`` style).  Its look
 ``sfx`` (its moves' whooshes) go under another weapon (:func:`unarmed`),
 its ``shouts`` playing there instead, and stay its own body's under a lent
 one (X14 binds one dir)."""
+MOVES = ("clips", "columns", "carry", "held")
+"""The fields that play a recipe's own moves, which a recipe naming a
+weapon leaves out (Step 2.161g, D585) unless they are a moveset weapon's
+(:func:`moveset_moves`)."""
+MOVESET = (*ATTACK_FIELDS, "sfx")
+"""A recipe's whole moveset, as :func:`unarmed` drops it under another
+weapon: its moves, attack numbers and switches, and its moves' whooshes."""
+
+
+def moveset_moves(recipe: dict, of: str = "") -> bool:
+    """Whether ``recipe`` may keep its :data:`MOVES` beside a ``weapon`` it
+    names, the moveset weapon's pick playing them (Step 2.209, D939:
+    booblord's default the Axion staff, her spins Booblord spin): it is a
+    moveset weapon's built-in recipe or one ``from`` it (``of``, that
+    recipe's name; ``weapons.json``'s ``variant`` styles, read raw: the
+    weapons' loader reads the built-ins), else it holds such a recipe's
+    whole :data:`MOVESET` as it builds (a copy of her recipe: ModelKit's
+    shape base, a pasted one), so an edit of them is refused under a weapon
+    (2.209's review, 2: it would build in no pick).  New from this and
+    ``model edit --from`` leave the weapon out (:func:`own_recipe`)."""
+    from azurkit.tools.characters._player_weapons import WEAPONS_FILE
+
+    styles = json.loads(WEAPONS_FILE.read_text(encoding="utf-8")).get("styles", {})
+    names = {s.get("variant") for s in styles.values() if isinstance(s, dict)}
+    if of in names:
+        return True
+    doc = json.loads(BUILTIN.read_text(encoding="utf-8"))
+    return any(isinstance(n, str) and isinstance(doc.get(n), dict) and all(
+        recipe.get(k) == recipe_of(doc, n, "built-in")[0].get(k) for k in MOVESET) for n in names)
+
+
+def own_recipe(recipe: dict) -> dict:
+    """``recipe`` (a built-in's as it builds) made a recipe of one's own (New
+    from this's own copy, ``model edit --from``): a ``weapon`` over its
+    :data:`MOVES` left out, so they and its attack numbers play as its
+    default, its own to edit, and no later change of the built-in's moves
+    refuses it (2.209's review: under booblord's Axion staff a copy's moves
+    and attack numbers built in no pick but a Bare hands its Weapon box
+    called one), and its ``notes`` with it (Step 2.209's looks, 3: hers
+    say she carries the staff; no sha reads them; New from this keeps a
+    user's own, :func:`~azurik_mod.authoring.variant_library.own_copy`)."""
+    if recipe.get("weapon") in (None, "default", "own") or not any(recipe.get(k) for k in MOVES):
+        return recipe
+    return {k: v for k, v in recipe.items() if k not in ("weapon", "notes")}
+
+
 SHOUT = "shout"
 """The name a recipe's ``shouts`` play under (``<dir>/shout``, ``shout_a``
 ..., a WAV a take), so no ``sfx`` takes it."""
@@ -2795,7 +2843,7 @@ def drain_targets(where: str, doc) -> str:
     return doc["targets"]
 
 
-def _variant(name: str, recipe, source: str) -> Variant:
+def _variant(name: str, recipe, source: str, files: str = "") -> Variant:
     from azurkit.tools.characters._player_character import MODES, RETIRED_MODES, SIZES
     from azurkit.tools.characters._player_sounds import SOUND_MODES
 
@@ -2934,8 +2982,10 @@ def _variant(name: str, recipe, source: str) -> Variant:
     if weapon is not None and not (isinstance(weapon, str) and _NAME.match(weapon)):
         raise ValueError(f"{where}: weapon {weapon!r} is not a weapon's name (lower-case letters, digits and _)")
     effects = fx_templates.effects(f"{where}: effects", recipe.get("effects", []))
-    played = [k for k in ("clips", "columns", "carry", "held") if recipe.get(k)]
-    if weapon not in (None, "default", "own") and played:   # Step 2.161g (D585): a weapon is a whole moveset
+    played = [k for k in MOVES if recipe.get(k)]
+    if weapon not in (None, "default", "own") and played and not moveset_moves(
+            recipe, files or (name if source == "built-in" else "")):   # Step 2.161g (D585): a weapon is a whole
+        # moveset; Step 2.209 (D939): a moveset weapon's moves stay, that weapon's pick
         raise ValueError(f"{where}: weapon {weapon} plays every attack column, so the recipe names no "
                          f"{' or '.join(played)}")
     painted = _textures(f"{where}: textures", recipe.get("textures", []))
@@ -2974,7 +3024,7 @@ def _variant(name: str, recipe, source: str) -> Variant:
                    shadow=shadow, lods=screen, idles=idles, idle_wait=idle_wait, slots=slots, texture_scale=scale,
                    victory_cancel=cancel, colours=colours, drain=drain, shapes=shapes,
                    unshaped=recipe_sha({k: v for k, v in recipe.items() if k != "shapes"}) if plain else "",
-                   plain=plain)
+                   plain=plain, files=files)
 
 
 def _shapes(where: str, doc, mesh: MeshSpec | None) -> tuple[Shape, ...]:
@@ -3465,7 +3515,7 @@ def load_variants(text: str, source: str, taken: tuple[str, ...] = ()) -> dict[s
         if name in taken:
             raise ValueError(f"variant {name!r} ({source}): a built-in variant has that name")
         recipe, parent = recipe_of(doc, name, source)
-        out[name] = replace(_variant(name, recipe, source), files=parent)
+        out[name] = _variant(name, recipe, source, parent)
     return out
 
 
@@ -3667,7 +3717,7 @@ def laid_over(variant: Variant, fields) -> Variant:
             recipe.pop(key, None)
         else:
             recipe[key] = value
-    return replace(_variant(variant.name, recipe, variant.source), files=variant.files)
+    return _variant(variant.name, recipe, variant.source, variant.files)
 
 
 def reshaped(variant: Variant, values: dict[str, float]) -> Variant:
@@ -4279,12 +4329,12 @@ def reread(characters: bytes, body: Body, dirs: tuple[str, ...] = ()) -> Body:
 __all__ = ["ARMS", "ATTACKS", "BUILTIN", "CHAINS", "CLIPS", "DRAIN_BOX", "DROP_ROLES", "DropIn", "FIELDS",
            "FROM_FIELDS", "FX_FIELDS",
            "GENERATORS", "GRAFT_FIELDS", "Generator", "TEXTURE_FIELDS",
-           "ATTACK_FIELDS", "KEY_MAX", "LABELS", "LINK_FIELDS", "MATERIAL_FIELDS", "OVERLAYS", "RAMP", "SASH", "SASH_FLARE", "SASH_LAG",
+           "ATTACK_FIELDS", "KEY_MAX", "LABELS", "LINK_FIELDS", "MATERIAL_FIELDS", "MOVES", "MOVESET", "OVERLAYS", "RAMP", "SASH", "SASH_FLARE", "SASH_LAG",
            "SASH_LIFT", "SFX_GENERATORS", "SOUNDS", "TAKES", "UNGRADED", "VARIANT_DIR", "VARIANT_GRADES",
            "VARIANT_SOUND_DIR", "VOICES", "Lods", "Variant", "ROOT_TRAVEL_MAX", "arm_turns", "arms_posed", "beam", "builtins", "check_fx_ring",
            "chain_springs", "clip_folder", "clip_rate", "colour_folder", "drop_ins", "files_shipped", "fit_sha", "fx_folder",
            "gltf_clip", "grow", "gust",
-           "hand_spin", "laid_over", "lend", "load_variants", "nova", "options", "overlay", "recipe_of", "recipe_sha",
+           "hand_spin", "laid_over", "lend", "load_variants", "moveset_moves", "nova", "options", "overlay", "own_recipe", "recipe_of", "recipe_sha",
            "recipe_wavs",
            "refusal", "reread", "reshaped", "resolve",
            "restyled", "Shape", "sound_dir", "sound_folder", "sounds_sha", "status", "t_spin", "take_name", "templated",

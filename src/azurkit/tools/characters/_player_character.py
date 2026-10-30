@@ -329,7 +329,9 @@ X25's camera rig when the body is drawn at another size than his:
   through the stance (:data:`G4_OVER_FEET`).
 - **X48** (Step 2.189b, AZ-706, AZ-711) ``default.xbe``, beside X22 where
   the let-go's or a landing's crossfade takes the drawn body more than
-  0.05 m past its own ground clips' lowest (:func:`fade_dip`): the C shim
+  0.05 m past its own ground clips' lowest (:func:`fade_dip`), or, where X28
+  holds the ride, past that lowest and more than 0.05 m under its origin
+  (Step 2.207d): the C shim
   ``player_model/fade_floor.c`` at critter_model_matrix's CALL of
   glide_origin (VA 0x42237) raises the drawn origin, for 12 ticks after
   the player leaves the ride or lands, by however far the frame's pose
@@ -6411,7 +6413,8 @@ class HoldPlan:
     dip: float = 0.0   # how far through the floor it grabs from some grab's hang_start dips the drawn body
     loop: tuple[float, ...] = ()   # HOLD_LOOP: the hang clip's length, then its lowest point over its loop
     cross: tuple[float, ...] = ()  # HOLD_CROSS: hang_start's clip, the ride's crossfade into the hang clip, its dips ahead
-    fade_ray: float = 0.0    # FADE_RAY (X48): 0 where no let-go's or landing's crossfade dips past the ground clips
+    fade_ray: float = 0.0    # FADE_RAY (X48): 0 where no let-go's or landing's crossfade dips HOLD_DIP past the ground
+    # clips' lowest or, where X28 is needed, past it and HOLD_DIP under the origin (Step 2.207d)
     fade_sole: float = 0.0   # FADE_SOLE: the drawn mesh under the lowest bone, m
     fade_low: float = 0.0    # FADE_LOW: the ground clips' own lowest drawn point under the origin, 0 or less
     fade_loose: bytes = b""  # FADE_LOOSE: the bones X48 leaves out of the lowest, a bit each (:func:`loose_bones`)
@@ -6452,7 +6455,19 @@ def hold_plan(characters: bytes, body: Body, fills: dict[int, tuple[str, float]]
     at every phase) draw it (Step 2.175b, AZ-574: the gate counted the
     hang alone, so overlord own x2's glide, 0.49 m through f3's start
     platform, was never held; firedrake own x2's grab from its fly dips
-    4.29 m, as its fly does on the ground: no hold).  A carried prop's
+    4.29 m, as its fly does on the ground: no hold).  X48's numbers
+    where :func:`fade_dip`'s crossfades take the drawn body more than
+    :data:`HOLD_DIP` past the ground clips' own lowest, or, where X28 is
+    needed, past that lowest and more than :data:`HOLD_DIP` under the
+    origin: its ride's exits leave the held ride at X22's eased origin,
+    not at the stance (Step 2.207d's sitting: booblord, 8 cm under her
+    origin and 1.9 cm past her ground clips' lowest, went 0.73 m through
+    f3's end platform off the cable's end with no X48, main's held her at
+    its line).  A body whose crossfades never pass that lowest, the line
+    X48 holds, by 1 mm gets none, as on main (garret4 x2: 0.41 m under his
+    origin, over his line 0.43 m under it; armed, X48 lifted him 0 on
+    every tick of his cable's end and let-go; guard_water's crossfade at
+    a ground clip's own pose meets its line up to rounding).  A carried prop's
     bones (``held``, the build's :attr:`Loadout.carriers`) are left out."""
     rig = Rig.read(characters, body.name)
     toc, names = parse_toc(characters), {k.casefold(): i for i, k in named_resources(characters).items()}
@@ -6511,10 +6526,14 @@ def hold_plan(characters: bytes, body: Body, fills: dict[int, tuple[str, float]]
     deep = fade_dip(rig, hang, into, [s for s in map(slot, FADE_GROUND) if s is not None], drawn, sole, points,
                     held=held)
     low = min(0.0, rest)   # held where a crossfade dips past the ground clips' own lowest, as the gate's dip
-    fade = deep < low - HOLD_DIP
-    plan = HoldPlan(span, span + margin + 2.0, margin, 0, dip=dip, fade_ray=3.0 - deep if fade else 0.0,
-                    fade_sole=drawn * sole if fade else 0.0, fade_low=low if fade else 0.0,
-                    fade_loose=loose_mask(loose_bones(rig, held)) if fade else b"")
+    plan = HoldPlan(span, span + margin + 2.0, margin, 0, dip=dip)
+    # where X28 holds the ride, its exits leave the held ride at X22's eased origin, not the stance, so HOLD_DIP is
+    # no allowance past the ground clips' lowest there: a crossfade dip 1 mm past that lowest (X48's line; at a ground
+    # clip's own pose it meets the line up to rounding, guard_water's -4.4e-16 m) and HOLD_DIP under the origin arms
+    # X48; one that never passes the line gets none, as on main (garret4 x2's, armed, lifted 0: Step 2.207d)
+    if deep < low - HOLD_DIP or (plan.needed and deep < min(low - 1e-3, -HOLD_DIP)):
+        plan = replace(plan, fade_ray=3.0 - deep, fade_sole=drawn * sole, fade_low=low,
+                       fade_loose=loose_mask(loose_bones(rig, held)))
     if not plan.needed:
         return plan
     ahead = math.ceil((span + margin - G4_SPAN) / HOLD_STEP.default) if span > G4_SPAN else 0

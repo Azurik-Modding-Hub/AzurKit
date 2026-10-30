@@ -5,7 +5,7 @@
   },
   "europe": {
    "files": {
-    "default.xbe": "055bdbc1289b77553167b9031c213c801c09fc486b1c9c3f5bbf91a42cc0f7aa",
+    "default.xbe": "e98c909f76c3d674ac4d4b937006151b75ae4f0a052d26265e1c07745318050a",
     "gamedata/characters.xbr": "faa63d760cd56330c3971245be38fd997fad9c10bb14bb5eef9f9e8c13eb4a02",
     "gamedata/config.xbr": "b83af8d34b693fab0c89df7390431812d3f8ff34faadcfdc1d60ea937fa4f2d3",
     "gamedata/fx.xbr": "b0c30141c6f5f8609b452c321f646df66cf2fcbebef083862e009a0d551708cb",
@@ -903,7 +903,7 @@
   },
   "usa": {
    "files": {
-    "default.xbe": "ce0af922278fb962a8f29b90befb9b59a16763c84598c39c9334ae68fbfe63cc",
+    "default.xbe": "50bcf8919ba0021feab142f8c85d09770c149558b31e0e2c3520309d30693161",
     "gamedata/characters.xbr": "faa63d760cd56330c3971245be38fd997fad9c10bb14bb5eef9f9e8c13eb4a02",
     "gamedata/config.xbr": "b83af8d34b693fab0c89df7390431812d3f8ff34faadcfdc1d60ea937fa4f2d3",
     "gamedata/fx.xbr": "b0c30141c6f5f8609b452c321f646df66cf2fcbebef083862e009a0d551708cb",
@@ -4711,7 +4711,7 @@
   },
   "europe": {
    "files": {
-    "default.xbe": "56ea9d9621082a403b8bad633ee41da72e74f80509836e93b153b7ceea3909fc",
+    "default.xbe": "568071fb592da39385bca4738b39780caccd6fa07c5f86e26c90d50173414335",
     "gamedata/characters.xbr": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
     "gamedata/config.xbr": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
     "gamedata/fx.xbr": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",
@@ -6085,7 +6085,7 @@
   },
   "usa": {
    "files": {
-    "default.xbe": "1a8c7e995eda8d7c17c81b71cb7d903ee147d94be885ebe5e5f7031d046f02b6",
+    "default.xbe": "0436428b52e8f536f5cd39e1796bc364d2e49910c78d0cefdd161c6fa2dbcfb9",
     "gamedata/characters.xbr": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
     "gamedata/config.xbr": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
     "gamedata/fx.xbr": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",

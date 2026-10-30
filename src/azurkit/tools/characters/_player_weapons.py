@@ -93,7 +93,9 @@ weapon, and a build with its default is today's build, byte for byte.
   the axion she would have garret's moveset"; D592 "Every body"): a
   style may name a variant's recipe (``variant``: booblord's spins,
   :func:`moveset`), the variant's default weapon (:func:`default_weapon`)
-  built as its recipe always was; any other weapon a variant picks drops
+  built as its recipe always was, a pick where the recipe names another
+  weapon, its default (Step 2.209, D939: booblord's the Axion staff,
+  :func:`offers`); any other weapon a variant picks drops
   its recipe's moveset (:func:`~azurik_mod.patches._player_variants.unarmed`,
   :attr:`Loadout.recipe`), so the weapon's style plays every column; and
   any other body with clips takes the moveset weapon (:func:`lent`): the
@@ -490,13 +492,14 @@ def _load(text: str, where: str) -> tuple[dict[str, Weapon], dict[str, Grip], di
         if sum(k in s for k in ("source", "kit", "variant")) != 1:
             raise ValueError(f"{at}: a style names its source rig, its kit or a variant's recipe, one of them")
         if "variant" in s:   # Step 2.161g (D585): a recipe's moveset, read by name at build time
-            from azurkit.tools.characters._player_variants import builtins
+            from azurkit.tools.characters._player_variants import BUILTIN
             if ("body" not in s) or any(k in s for k in ("hand", "held", "dir", "clips", "windows", "fx")):
                 raise ValueError(f"{at}: a variant's moveset names its recipe's body, and no held channel, dir, "
                                  "clips, windows or fx")
-            if s["variant"] not in builtins():
+            shipped = json.loads(BUILTIN.read_text(encoding="utf-8"))   # by name: a built-in naming a weapon
+            if s["variant"] not in shipped:   # reads this file for its sha (Step 2.209)
                 raise ValueError(f"{at}.variant: {s['variant']!r} is no built-in variant (the built-ins: "
-                                 f"{', '.join(builtins())})")
+                                 f"{', '.join(shipped)})")
         elif "body" in s:
             raise ValueError(f"{at}.body: only a variant's moveset names its recipe's body")
         if "kit" in s and s["kit"] != KIT.name:
@@ -748,22 +751,37 @@ def loadout(characters_xbr: bytes, body: Body, mode: str, baked: bool, variant=N
     the body can't take (D35).  Step 2.161g (D585): a variant's default is
     its own moveset, its recipe's columns, the rest its base's default's;
     another weapon picked over its recipe's (``weapon``) drops its moveset
-    (:attr:`Loadout.recipe`)."""
+    (:attr:`Loadout.recipe`).  Step 2.209 (D939): a recipe naming a
+    weapon over a moveset weapon's moves (booblord's Axion staff) builds
+    as that weapon picked, its moves dropped, as every other pick drops
+    them (a copy of her recipe's body default too: 2.209's review, 1); its
+    moveset weapon (Booblord spin) builds them, the build of its moveset
+    ``default``."""
     default = default_weapon(characters_xbr, body, variant)
     name = getattr(variant, "weapon", None) if weapon in (None, DEFAULT) else weapon   # a recipe's is its default
     if name not in (None, DEFAULT, default.name if default is not None else OWN) and not (
             name == OWN and (body.name == PLAYER or default is not None and default.style.source == body.name)):
         where = f"--player-weapon {name}" if weapon not in (None, DEFAULT) else f"the recipe's weapon {name}"
         lo = _picked(characters_xbr, body, mode, baked, name, default, variant, where)
-        if variant is not None and lo.picked and lo.recipe is None and name != variant.weapon:
+        if variant is not None and lo.picked and lo.recipe is None and (name != variant.weapon or variant.columns):
             from azurkit.tools.characters._player_variants import unarmed
-            lo = replace(lo, recipe=unarmed(variant))   # D585: the weapon's style in every column
+            lo = replace(lo, recipe=unarmed(variant))   # D585: the weapon's style in every column (Step 2.209: the
+            # recipe's own weapon over a moveset weapon's moves too, booblord's Axion staff)
     elif default is not None and default.style.variant is not None:   # D585: the variant's own moveset, as built
         lo = replace(_own(characters_xbr, body, mode, baked, variant, default_weapon(characters_xbr, body)),
                      weapon=default, default=default)
     else:
         lo = _own(characters_xbr, body, mode, baked, variant, default)
+        if weapon not in (None, DEFAULT) and _worn_over_moves(variant):   # 2.209's review, 1: a copy of her recipe
+            from azurkit.tools.characters._player_variants import unarmed   # picking its body's default drops her moves
+            lo = replace(lo, recipe=unarmed(variant))
     return lo if lo.prop is None else replace(lo, size=prop_size(characters_xbr, lo.prop))
+
+
+def _worn_over_moves(variant) -> bool:
+    """Whether ``variant``'s recipe names a weapon over moves of its own (Step 2.209, D939: booblord's Axion staff
+    over her spins, which only her moveset weapon plays)."""
+    return bool(getattr(variant, "columns", None)) and getattr(variant, "weapon", None) not in (None, DEFAULT, OWN)
 
 
 def _own(characters_xbr: bytes, body: Body, mode: str, baked: bool, variant, default: Weapon | None) -> Loadout:
@@ -1034,13 +1052,18 @@ def attack_recipe(variant, weapon: str | None, default: str | None = None):
     or its own moveset; a moveset weapon's recipe (booblord spin's damage
     0.6, balance off, ground on); a variant's with its moveset dropped
     under any other (:func:`~azurik_mod.patches._player_variants.unarmed`:
-    1.0 and the mode's rules); ``None``: a species' own."""
+    1.0 and the mode's rules), and so under its recipe's own weapon and
+    every pick but its moveset weapon where it names that weapon over its
+    moves (Step 2.209, D939: booblord's Axion staff; its review's 1);
+    ``None``: a species' own."""
     from azurkit.tools.characters._player_variants import unarmed
     own = getattr(variant, "weapon", None)
     name = own if weapon in (None, DEFAULT) else weapon
     lender = moveset(weapons().get(name))
     if lender is not None:
         return variant if variant is not None and lender.name == (variant.files or variant.name) else lender
+    if _worn_over_moves(variant):   # the moves its own weapon and every other pick drop (loadout)
+        return unarmed(variant)
     return variant if variant is None or name in (None, DEFAULT, OWN, own, default) else unarmed(variant)
 
 
@@ -1048,7 +1071,10 @@ def default_name(iso, variant) -> str | None:
     """The name of ``variant``'s :func:`default_weapon` on its base's body
     in the image ``iso`` (``None``: its own attacks), the pick
     :func:`attack_recipe` takes as no pick (the 2.161g review's 1:
-    ``--player-weapon balthazar_magic`` on beamlord builds his default)."""
+    ``--player-weapon balthazar_magic`` on beamlord builds his default):
+    the build's own, under any ``weapon`` its recipe names (Step 2.209:
+    booblord's spins under her Axion staff; :func:`offers` shows the
+    recipe's as her default)."""
     from azurkit.tools.characters.gltf import resolve_body
     from azurkit.tools.characters.ports import IsoStaging
 
@@ -1066,10 +1092,15 @@ def offers(characters_xbr: bytes, body: Body, mode: str = "own", variant=None) -
     default) and why, :data:`OWN` first where the body has attacks of its
     own, a variant's own moveset first (Step 2.161g).  Since Step 2.204
     (D809, D810) every weapon builds on every body the census read, a
-    ``same`` naming why it builds the default (:func:`same_why`)."""
+    ``same`` naming why it builds the default (:func:`same_why`).  Step
+    2.209 (D939): a recipe's weapon over moves of its own (booblord's Axion
+    staff) is its default, first, and the build its moves make (Booblord
+    spin) a pick."""
     out = {}
     own = default_weapon(characters_xbr, body, variant) if variant is not None else None
-    first = [own.name] if own is not None and own.style.variant is not None else []
+    worn = variant.weapon if variant is not None and variant.columns and variant.weapon in weapons() else None
+    first = list(dict.fromkeys(n for n in (worn, own.name if own is not None and own.style.variant is not None
+                                           else None) if n))
     names = ([OWN] if attack_clips(body) and body.name != PLAYER else []) + first + [
         n for n in weapons() if n not in first]
     for name in names:
@@ -1078,7 +1109,11 @@ def offers(characters_xbr: bytes, body: Body, mode: str = "own", variant=None) -
         except ValueError as exc:
             out[name] = ("refused", str(exc))
             continue
-        if not lo.picked:
+        if name == worn:
+            out[name] = (DEFAULT, describe(lo, body))
+        elif not lo.picked and worn is not None and lo.name == name:   # its moves under its recipe's weapon
+            out[name] = (GOOD, describe(lo, body))
+        elif not lo.picked:
             out[name] = (DEFAULT, describe(lo, body)) if lo.name == name else ("same", same_why(body, mode, name))
         else:
             out[name] = (lo.fit, ODD.get(body.name.casefold(), describe(lo, body)))
@@ -1134,7 +1169,9 @@ builds are byte for byte main's, so their grades moved with it, and so
 did her sash's springs, Step 2.169b: a moveset lends no jiggle, and the
 G3 cases of town_male_6 and the catalisk stayed main's; 2.204's
 Balthazar's magic on seven bodies main refused it on, frag_fire_1's red
-its model's own).
+its model's own; Step 2.209's Axion staff her default moved Booblord
+spin's three again with her recipe's sha, their builds main's, and her
+spins on her four recipes carry each one's grade before it, D117).
 A default build keeps the
 species' or variant's own grade; a grade colours the build's status line,
 the GUI's picker and its Weapon box (:func:`pick_grade`) and never gates
@@ -1213,8 +1250,13 @@ def grade(species: str, mode: str, lo: Loadout, built: bool = True,
           own: tuple[str, str] | None = None) -> tuple[str, str] | None:
     """``lo``'s grade on ``species`` (or a variant) in ``mode``
     (:func:`pick_grade`, by its fit, no better than ``own``; ``built``:
-    :func:`seen`); ``None`` for a default."""
-    return pick_grade(species, mode, lo.name, built, lo.body, lo.fit, own) if lo.picked else None
+    :func:`seen`); ``None`` for a default.  Step 2.209 (D939): a built-in
+    recipe's moves under its own weapon (booblord's spins, her default the
+    Axion staff) are a pick, graded as one."""
+    from azurkit.tools.characters._player_variants import builtins
+    v = builtins().get(species)
+    moves = v is not None and v.columns and v.weapon in weapons() and lo.weapon is not None and lo.name != v.weapon
+    return pick_grade(species, mode, lo.name, built, lo.body, lo.fit, own) if lo.picked or moves else None
 
 
 def describe(lo: Loadout, body: Body) -> str:
@@ -2466,7 +2508,7 @@ def faded_lifted(characters_xbr: bytes, body: str, lo: Loadout, donor: bytes | N
 
     from azurkit.tools.characters.body_codec import read_asset
     from azurkit.tools.characters.retarget import read_clip, write_clip
-    from azurkit.tools.characters._player_crossfade import _curve, _qmul, _turn as _vturn, sample
+    from azurkit.tools.characters._player_crossfade import _curve, _qmul, _turn as _vturn, canon, sample
     from azurkit.core.xbr.append import append_resources
 
     prop = lo.prop
@@ -2504,15 +2546,11 @@ def faded_lifted(characters_xbr: bytes, body: str, lo: Loadout, donor: bytes | N
     if not loops or not once:
         return characters_xbr, ()
 
-    def canon(q):   # each layer's rotation normalised, w >= 0 (0xCBB6D-0xCBB7C)
-        q = q / np.linalg.norm(q, axis=-1, keepdims=True)
-        return np.where(q[..., 3:4] < 0.0, -q, q)
-
-    def posed(clip: Clip, ts) -> tuple:   # the chain's raw q and t (rows of ``chain``), m_feet's height, its low
+    def posed(clip: Clip, ts) -> tuple:   # the chain's q and t (rows of ``chain``), m_feet's height, its low
         q, t = sample(rig, clip, ts)
         fz = next((tr.keys for tr in clip.markers if tr.target == feet and tr.comp == 2), None)
         f = _curve(fz, np.asarray(ts, dtype=float)) if fz else np.full(len(ts), rest)
-        q, t = canon(q[chain]), t[chain]
+        q, t = q[chain], t[chain]   # each layer's rotation as the blend reads it (sample's canon)
         return q, t, f, low(*parent_frame(q, t), q[row[carrier]], t[row[carrier]]) - f
 
     def parent_frame(q, t):   # the carrier's parent's world rotation and origin (FK of the chain above it)
