@@ -379,13 +379,15 @@ def test_each_variant_probe_is_modkits_file_for_file_and_resource_for_resource(r
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():
     """``shapes`` size a variant's shapes: on a species they are refused by
-    name, as a shape's value that isn't a finite number is (D23); an option
-    a recipe gives that isn't the variant's own (beamlord's mode) is refused
+    name (an empty ``shapes`` sizes none, as Modkit's ``player_variant``),
+    as a shape's value that isn't a finite number is (D23); an option a
+    recipe gives that isn't the variant's own (beamlord's mode) is refused
     by name, before any image is read."""
     with pytest.raises(ValueError, match=r"^character: shapes\.hips nan is not a finite number"):
         characters.normalize({"species": "keylord", "shapes": {"hips": float("nan")}})
     with pytest.raises(ValueError, match=r"^character: shapes size a variant's shapes, and 'keylord' names no variant"):
         characters.variant(characters.normalize({"species": "keylord", "shapes": {"hips": 1.2}}), None)
+    assert characters.variant(characters.normalize({"species": "keylord", "shapes": {}}), None) == (None, None)
     own = characters.variant({"species": "beamlord"}, None)[1]["mode"]
     with pytest.raises(ValueError, match=r"^--player-character-mode \w+: the variant 'beamlord' is mode " + own):
         characters.variant({"species": "beamlord", "mode": {"own": "garret4", "garret4": "own"}[own]}, None)

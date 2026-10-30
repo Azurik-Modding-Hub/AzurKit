@@ -69,8 +69,9 @@ VARIANT_OPTIONS = {   # a recipe's field -> _player_variants.options' keyword (M
 
 def normalize(given: object) -> dict:
     """``given``, a recipe's ``character``: ``species`` (a ``critters_engine``
-    name) and any of :data:`FIELDS`, each of its type (a number any finite
-    one, D23); unknown fields and other types refused by name."""
+    name or a variant's, :func:`variant`) and any of :data:`FIELDS`, each of
+    its type (a number any finite one, D23); unknown fields and other types
+    refused by name."""
     if not isinstance(given, Mapping) or not isinstance(given.get("species"), str):
         raise ValueError("character: a recipe's character is an object naming its species")
     out = {}
@@ -106,7 +107,7 @@ def variant(recipe: Mapping, vanilla) -> tuple[object, dict] | tuple[None, None]
 
     found = variants.resolve(recipe["species"], recipe.get("variant_file"))
     if found is None:
-        if "shapes" in recipe:
+        if recipe.get("shapes"):
             raise ValueError(f"character: shapes size a variant's shapes, and {recipe['species']!r} names no variant")
         return None, None
     if recipe.get("shapes"):
