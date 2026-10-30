@@ -17,9 +17,10 @@ SMOKE = sorted(fullsuite.SMOKE)
 def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite():
     """A changed module selects every test file that reaches it through
     imports; src/ adds the files that run the whole package (SRC_TESTS);
-    docs and tests/oracle/ select only the smoke files (the lint files and
-    the oracle's USA and Europe test); the suite's configuration, what every
-    session loads and an unknown path make it whole. The session loads only
+    docs and tests/oracle/ select only the smoke files (the lint files, the
+    oracle's test and the gate's, whose USA and Europe cases make every
+    receipt run both tiers); the suite's configuration, what every session
+    loads and an unknown path make it whole. The session loads only
     what tests/conftest.py imports (it checks the app in a Python of its
     own), so here a change to the sdk is changed-area."""
     deps = {"azurkit": set(), "azurkit.core": {"azurkit"}, "azurkit.core.iso": {"azurkit", "azurkit.core"},
@@ -29,6 +30,7 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
             "tests.test_sdk": {"azurkit", "azurkit.sdk"}, "tests.test_oracle": {"azurkit.core.iso"},
             "tests.test_wheel": {"azurkit"}, "tests.test_other": {"json"}}
     assert "tests/test_oracle.py" in SMOKE
+    assert any("pytest.mark.europe" in (ROOT / f).read_text(encoding="utf-8") for f in SMOKE)   # D26
     assert fullsuite.plan(["src/azurkit/core/iso.py"], deps) == sorted(
         {*SMOKE, "tests/test_sdk.py", *fullsuite.SRC_TESTS})
     assert fullsuite.plan(["tests/test_other.py", "AGENTS.md", "tests/sdk_api.txt"], deps) == sorted(

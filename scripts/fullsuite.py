@@ -16,9 +16,9 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 
 ``--changed`` runs only the test files that the worktree's changes against
 ``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
-files and the oracle's test, whose USA and Europe cases make every receipt
-show both tiers run (D26). A path no rule covers makes it the whole suite;
-the meta's ``mode`` says which. A changed-area run drives the page in
+files, the oracle's test and the gate's, whose USA and Europe cases make
+every receipt show both tiers run (D26). A path no rule covers makes it the
+whole suite; the meta's ``mode`` says which. A changed-area run drives the page in
 :data:`CHANGED_BROWSERS` alone (``--browsers``, ``tests/conftest.py``), a
 whole one in every browser (D970); the meta's ``browsers`` says which.
 
@@ -47,7 +47,7 @@ import time
 from pathlib import Path
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
-SMOKE = (*LINT, "tests/test_oracle.py")   # every changed-area run's; test_oracle reads both images
+SMOKE = (*LINT, "tests/test_oracle.py", "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
 CAP = 4500        # a run's cap on a host whose load is at most its CPU count (cap())
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)

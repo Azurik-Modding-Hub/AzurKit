@@ -722,7 +722,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   git config changes.
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
-  with the oracle's USA and Europe test (or the whole suite) in the background
+  with the gate's USA and Europe test (or the whole suite) in the background
   under a lock, and prints a key and a receipt path. Its `plan()` picks the
   test files that import what changed; every change under `src/` adds the
   files that run the whole package (the wheel's, and those taking the
