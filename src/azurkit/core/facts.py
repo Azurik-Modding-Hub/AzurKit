@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from azurkit.core import xbe
-from azurkit.core.gate import Release
+from azurkit.core.gate import RELEASES, USA, Release
 
 
 @dataclass(frozen=True)
@@ -111,6 +111,22 @@ class Facts:
     def mangled(self) -> dict[str, int]:
         """Each function's address by its mangled name (``coff.layout``'s ``vanilla``)."""
         return {f.mangled: f.va for f in self.functions.values()}
+
+
+THUNK_KEY = 0x5B6D40B6
+"""A retail XBE's header holds its kernel thunk table's address at 0x158 XORed with this key."""
+
+
+def xbe_layout(data: bytes) -> Facts:
+    """The facts of the release whose addresses the XBE ``data`` has, by the
+    kernel thunk table's address its header holds (a build keeps it); USA's
+    for anything else."""
+    if bytes(data[:4]) == xbe.MAGIC and len(data) >= 0x15C:
+        thunks = int.from_bytes(bytes(data[0x158:0x15C]), "little") ^ THUNK_KEY
+        for release in RELEASES:
+            if of(release).thunks == thunks:
+                return of(release)
+    return of(USA)
 
 
 def path(release: Release) -> Path:

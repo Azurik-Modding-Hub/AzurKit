@@ -128,13 +128,14 @@ def parse(data: bytes) -> Coff:
     return Coff(machine, tuple(sections), tuple(symbols))
 
 
-def normalized_sha256(data: bytes) -> str:
-    """The sha256 of what decides the object's landed code, as the oracle's
-    G2 records it: the machine, each landed section and ``.bss`` (name,
-    flags, size, the sha256 of its bytes, and its relocations with each
-    symbol by name), and the external symbols with their values; not the
-    timestamp or the debug records, which change between builds."""
-    coff = parse(data)
+def normalized_sha256(data: bytes | Coff) -> str:
+    """The sha256 of what decides the object's landed code (an object's
+    bytes, or one parsed), as the oracle's G2 records it: the machine, each
+    landed section and ``.bss`` (name, flags, size, the sha256 of its bytes,
+    and its relocations with each symbol by name), and the external symbols
+    with their values; not the timestamp or the debug records, which change
+    between builds."""
+    coff = data if isinstance(data, Coff) else parse(data)
     name = lambda i: coff.symbols[i].name if i < len(coff.symbols) else i   # noqa: E731
     sections = [(s.name, s.flags, len(s.data), hashlib.sha256(s.data).hexdigest(),
                  [(r.offset, name(r.symbol), r.type) for r in s.relocations])

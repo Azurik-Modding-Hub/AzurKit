@@ -69,6 +69,16 @@ def offset(table: Iterable[Section], va: int, size: int = 1) -> int:
     raise ValueError(f"0x{va:08X} ({size} B) is in no section's file bytes")
 
 
+def resolve_va_to_file(data: bytes, va: int) -> int | None:
+    """The file offset of ``va`` in the XBE ``data`` by its own section
+    table (an appended section's too), or ``None`` when no section's file
+    bytes hold it (past every section, or in a section's zero-filled tail)."""
+    for s in sections(data):
+        if s.va <= va < s.va + s.vsize and va - s.va < s.raw_size:
+            return s.raw + va - s.va
+    return None
+
+
 # Where shims land (the carve allocator) and the header state their claims derive.
 
 FILE_ALIGN = VA_ALIGN = 0x1000

@@ -69,20 +69,6 @@
 #include "azurik_vanilla.h"   /* the game's calls and the params */
 #include "azurik_kernel.h"    /* KeTickCount */
 
-/* font_draw_text(font, text) takes the pen in ESI: this loads it, saving
- * ESI, and pops its three arguments. */
-static inline __attribute__((naked, stdcall))
-void font_draw_text_call(float *pen, const void *font, const char *text)
-{
-    __asm__("pushl %esi\n\t"
-            "movl 8(%esp), %esi\n\t"
-            "pushl 16(%esp)\n\t"
-            "pushl 16(%esp)\n\t"
-            "calll \"_font_draw_text@8\"\n\t"
-            "popl %esi\n\t"
-            "retl $12");
-}
-
 #define PC_CLOCK     0x00C   /* PlayerControl -> its clock (+0x10: now, f64) */
 #define CLOCK_NOW    0x010
 #define IN_SPECIES   0x034   /* input: the player's CritterData              */

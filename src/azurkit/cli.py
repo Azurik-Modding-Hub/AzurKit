@@ -5,7 +5,7 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit packs                         the packs: on by default or not, the releases, what each does, its sliders
     azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME ...] [--no-pack NAME ...] [--no-defaults]
                   [--pack-param PACK.SLIDER=VALUE ...]
-                  [--seed SEED [--settings FILE | --share STRING] [--obsidian-cost N]]
+                  [--seed SEED [--settings FILE | --share STRING] [--obsidian-cost N]] [--character JSON]
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
@@ -24,7 +24,10 @@ the plan (the seed under the default settings, a settings file's or a share
 string's, on the logic re-checked under the build's movement sliders) is
 written first, the built image is read back against it before anything is
 written, and the build prints whether its logic still holds (and why not);
-``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). A mods file
+``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). ``--character``
+dresses the player in a species' body (a recipe's character as JSON,
+``{"species": "keylord"}`` and any of its options: ``tools.characters``),
+its size folded into the walk and roll first. A mods file
 of a randomized build (``open``) replays its seed and share string. ``plan`` fills the randomizer's
 authored levels for the seed under the default settings (D144), a settings
 file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.
@@ -124,8 +127,9 @@ def _randomizer(args: argparse.Namespace) -> dict | None:
 def _build(args: argparse.Namespace) -> int:
     try:
         given = sdk.read_mods(Path(args.mods).read_bytes()) if args.mods else None
-        built = sdk.build(recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given,
-                                 _randomizer(args)), args.out)
+        made = recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given,
+                      _randomizer(args))
+        built = sdk.build(made | ({"character": json.loads(args.character)} if args.character else {}), args.out)
     except (OSError, ValueError) as exc:    # tomllib.TOMLDecodeError is a ValueError
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
@@ -218,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
     settled.add_argument("--share", metavar="STRING", help="the randomizer's settings as a share string (AZR-...)")
     build.add_argument("--obsidian-cost", type=float, metavar="N",
                        help="the obsidian each lock costs (vanilla 10; any number, never clamped)")
+    build.add_argument("--character", metavar="JSON", help='dress the player in a species\' body: a recipe\'s '
+                       'character, e.g. \'{"species": "keylord", "mode": "garret4"}\'')
     build.set_defaults(run=_build)
     opened = verbs.add_parser("open", help="print an AzurKit build's recipe as a mods file",
                               description="Read BUILD's /azurkit.json, check every file of the image against it, "

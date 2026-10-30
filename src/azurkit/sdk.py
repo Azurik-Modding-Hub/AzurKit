@@ -49,6 +49,16 @@ and its ``spoiler`` the build's spoiler (Modkit's ``--spoiler`` file)::
 
 A share link carries a recipe's randomizer too (its seed, settings and
 obsidian cost), as an AzurKit build's mods file does.
+
+A recipe's ``character`` dresses the player in a species' body (Modkit's
+swap, ``tools.characters``: the body and its clips, its attacks, weapon,
+sounds and fx, and the shims it hooks): the body's size folds into
+player_physics' walk and roll before the packs (Modkit's ``size_params``),
+and the character layer stacks after the packs::
+
+    {"iso": "<a vanilla image>", "packs": {...}, "character": {"species": "keylord", "mode": "garret4"}}
+
+A build's mods file doesn't carry a character yet (:func:`open_build` refuses one by name).
 """
 
 from __future__ import annotations
@@ -62,12 +72,13 @@ from azurkit.core import gate, iso
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
-from azurkit.tools import mods, randomizer
+from azurkit.tools import characters, mods, randomizer
 from azurkit.tools.randomizer import generator, tracking
+from azurkit.tools.randomizer import layer as rando_layer
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
            "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore"]
-RECIPE = ("iso", "packs", "xbr", "randomizer")
+RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer")   # a UI's remembered setup (D915, :func:`restore`)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
@@ -138,14 +149,26 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
     (``None`` without one); every refusal named."""
     packs = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
+    character = characters.normalize(recipe["character"]) if "character" in recipe else None
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
-    prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
+    folded = vanilla = None
+    if character is None:   # a randomizer's refusal before the image's
+        prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
     stamp = gate.verify(recipe["iso"], whole=False)
+    if character is not None:   # the worn body's size folds into the walk and roll first (Modkit's size_params)
+        from azurkit.tools.characters import ports
+
+        vanilla = ports.Vanilla(stamp.release, stamp.path)
+        folded = characters.size(character, vanilla)
+        enabled, params = rando_layer.size_params(list(packs), packs, folded)
+        packs = mods.normalize({name: params.get(name, {}) for name in enabled})
+        prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
     with iso.Reader(stamp.path) as r:
         names = [f for pack in chosen.values() for f in pack.files()] + xbr.files(ops)
         names += generator.files(prepared) if prepared else []
+        names += list(characters.READS) if character is not None else []
         base = {file: r.read(file) for file in dict.fromkeys(names) if file in stamp.release.files}
     layers, failed, judge = [], [], None
     if prepared is not None:
@@ -160,6 +183,11 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
             layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims]))
         except mods.PackError as exc:
             failed.append(str(exc))
+    if character is not None and not failed:
+        layer, lines = characters.plan(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS),
+                                       folded)
+        layers.append(Layer(layer.id, layer.tool, layer.kind, layer.recipe, layer.changes, layer.claims,
+                            tuple(line.strip() for line in lines)))
     if ops:
         try:
             layers.append(xbr.plan(ops, stamp.release, base))

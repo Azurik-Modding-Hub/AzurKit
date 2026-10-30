@@ -217,7 +217,7 @@ def pyodide(tmp_path_factory) -> Callable[..., dict]:
     """``run(*argv)``: the ``azurkit`` command under Pyodide on Node, from
     this checkout's wheel alone (``tests/_pyodide.py``; the test is ``web``)."""
     wheel = web_tools.wheel(tmp_path_factory.mktemp("wheel"))
-    return lambda *argv: _pyodide.run(list(argv), wheel)
+    return lambda *argv, **job: _pyodide.run(list(argv), wheel, **job)
 
 
 @pytest.fixture(scope="module", params=list(web_tools.BROWSERS))

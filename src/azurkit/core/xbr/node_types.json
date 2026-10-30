@@ -1,0 +1,764 @@
+{
+ "releases": [
+  "europe",
+  "usa"
+ ],
+ "types": {
+  "node": {
+   "parent": null,
+   "attrs": []
+  },
+  "combiner": {
+   "parent": "node",
+   "attrs": [
+    "inputs[0]",
+    "inputs[1]",
+    "inputs[2]",
+    "inputs[3]",
+    "inputs[4]",
+    "inputs[5]",
+    "inputs[6]",
+    "inputs[7]",
+    "inputs[8]",
+    "inputs[9]",
+    "inputs[10]",
+    "inputs[11]",
+    "inputs[12]",
+    "inputs[13]",
+    "inputs[14]",
+    "inputs[15]",
+    "index",
+    "output"
+   ]
+  },
+  "mathNode": {
+   "parent": "node",
+   "attrs": [
+    "function",
+    "in0X",
+    "in0Y",
+    "in0Z",
+    "in1X",
+    "in1Y",
+    "in1Z",
+    "out0X",
+    "out0Y",
+    "out0Z"
+   ]
+  },
+  "switch": {
+   "parent": "node",
+   "attrs": [
+    "pause",
+    "turnOn",
+    "turnOff",
+    "toggle",
+    "lock",
+    "onTime",
+    "offTime",
+    "output",
+    "goal"
+   ]
+  },
+  "dag": {
+   "parent": "node",
+   "attrs": [
+    "lodVisibility"
+   ]
+  },
+  "transform": {
+   "parent": "dag",
+   "attrs": [
+    "lodVisibility",
+    "translateX",
+    "translateY",
+    "translateZ",
+    "rotateX",
+    "rotateY",
+    "rotateZ",
+    "scaleX",
+    "scaleY",
+    "scaleZ"
+   ]
+  },
+  "joint": {
+   "parent": "transform",
+   "attrs": [
+    "lodVisibility",
+    "translateX",
+    "translateY",
+    "translateZ",
+    "rotateX",
+    "rotateY",
+    "rotateZ",
+    "scaleX",
+    "scaleY",
+    "scaleZ"
+   ]
+  },
+  "lod": {
+   "parent": "transform",
+   "attrs": [
+    "lodVisibility",
+    "translateX",
+    "translateY",
+    "translateZ",
+    "rotateX",
+    "rotateY",
+    "rotateZ",
+    "scaleX",
+    "scaleY",
+    "scaleZ",
+    "cameraDistance",
+    "output[0]",
+    "output[1]",
+    "output[2]",
+    "output[3]",
+    "output[4]",
+    "output[5]",
+    "output[6]",
+    "output[7]",
+    "output[8]",
+    "output[9]"
+   ]
+  },
+  "locator": {
+   "parent": "dag",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ"
+   ]
+  },
+  "light": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "colorR",
+    "colorG",
+    "colorB",
+    "intensity",
+    "coneAngle",
+    "penumbraAngle"
+   ]
+  },
+  "platform": {
+   "parent": "dag",
+   "attrs": [
+    "lodVisibility",
+    "whack",
+    "actionButton",
+    "actionButtonPressure",
+    "magic",
+    "touch",
+    "joystickEnable",
+    "joystickOn",
+    "joystickX",
+    "joystickY",
+    "gameVisible",
+    "gameSolid",
+    "slippery",
+    "climbable",
+    "water",
+    "springboard",
+    "autoSpring",
+    "damage",
+    "pushEnable",
+    "pushX",
+    "pushY",
+    "pushZ",
+    "pushRadial",
+    "key",
+    "MeshOffset",
+    "WaterType",
+    "WaterSpeed",
+    "WaterFrequency",
+    "WaterAmplitude",
+    "WaterDirectionX",
+    "WaterDirectionY",
+    "WaterDirectionZ",
+    "fieldFogStartDistance",
+    "fieldFogEndDistance",
+    "fieldFogRed",
+    "fieldFogGreen",
+    "fieldFogBlue"
+   ]
+  },
+  "soundEffect": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "volume",
+    "pitchBend",
+    "frequencyMultiplier",
+    "maxDistance",
+    "minDistance"
+   ]
+  },
+  "stereoSound": {
+   "parent": "node",
+   "attrs": [
+    "enable",
+    "volume",
+    "pitchBend",
+    "frequencyMultiplier",
+    "pan"
+   ]
+  },
+  "playerLocation": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "teleport",
+    "teleported",
+    "clearTeleported"
+   ]
+  },
+  "levelSwitch": {
+   "parent": "node",
+   "attrs": [
+    "activate"
+   ]
+  },
+  "camera": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "freezePlayer",
+    "followPlayer",
+    "fov"
+   ]
+  },
+  "timer": {
+   "parent": "node",
+   "attrs": [
+    "startTime",
+    "stopTime",
+    "rate",
+    "enable",
+    "repeat",
+    "reset",
+    "currentTime"
+   ]
+  },
+  "damper": {
+   "parent": "node",
+   "attrs": [
+    "enable",
+    "goal",
+    "rate",
+    "acceleration",
+    "output",
+    "distance"
+   ]
+  },
+  "pSystem": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "emitRate",
+    "updateRate",
+    "sortOffset"
+   ]
+  },
+  "pComponent": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable"
+   ]
+  },
+  "pAccelerator": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "nearMagnitude",
+    "farMagnitude",
+    "maxDistance"
+   ]
+  },
+  "pGravity": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "magnitude",
+    "maxDistance"
+   ]
+  },
+  "pVortex": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "radius"
+   ]
+  },
+  "pEmitter": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "emitRate",
+    "positionVarianceX",
+    "positionVarianceY",
+    "positionVarianceZ",
+    "velocityBaseX",
+    "velocityBaseY",
+    "velocityBaseZ",
+    "velocityVarianceX",
+    "velocityVarianceY",
+    "velocityVarianceZ",
+    "scaleRangeMin",
+    "scaleRangeMax",
+    "localVelocityFactor"
+   ]
+  },
+  "pBurstEmitter": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "emitRate",
+    "spacing",
+    "maxCount",
+    "velocityBaseX",
+    "velocityBaseY",
+    "velocityBaseZ",
+    "velocityVarianceX",
+    "velocityVarianceY",
+    "velocityVarianceZ",
+    "kinkCountMin",
+    "kinkCountMax",
+    "kinkRadialOffsetMin",
+    "kinkRadialOffsetMax",
+    "kinkAxialOffsetMin",
+    "kinkAxialOffsetMax",
+    "kinkSmoothnessMin",
+    "kinkSmoothnessMax",
+    "branchLevelMin",
+    "branchLevelMax",
+    "splitCountMin",
+    "splitCountMax"
+   ]
+  },
+  "pSink": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "maxAge",
+    "maxDistance",
+    "justSunk",
+    "totalSunk"
+   ]
+  },
+  "pBoxSink": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable",
+    "sizeX",
+    "sizeY",
+    "sizeZ",
+    "justSunk",
+    "totalSunk"
+   ]
+  },
+  "pRenderer": {
+   "parent": "node",
+   "attrs": [
+    "enable",
+    "useZWrites",
+    "useLighting",
+    "useDepthSort",
+    "perParticleAge1",
+    "perParticleAge2",
+    "color1R",
+    "color1G",
+    "color1B",
+    "color2R",
+    "color2G",
+    "color2B",
+    "alpha1",
+    "alpha2",
+    "size1",
+    "size2",
+    "maxSizeMode"
+   ]
+  },
+  "pRendererB": {
+   "parent": "node",
+   "attrs": [
+    "enable",
+    "useZWrites",
+    "useLighting",
+    "useDepthSort",
+    "blendMode",
+    "color1R",
+    "color1G",
+    "color1B",
+    "color2R",
+    "color2G",
+    "color2B",
+    "colorAge1",
+    "colorAge2",
+    "alpha1",
+    "alpha2",
+    "alphaAge1",
+    "alphaAge2",
+    "size1",
+    "size2",
+    "sizeAge1",
+    "sizeAge2",
+    "maxSizeMode"
+   ]
+  },
+  "pNull": {
+   "parent": "pComponent",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "enable"
+   ]
+  },
+  "critterGenerator": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "g2g",
+    "playAnimIndex",
+    "numGenerated",
+    "numAlive",
+    "numDead",
+    "maxGenerated",
+    "maxAlive",
+    "critterRange",
+    "emitDelay",
+    "enable"
+   ]
+  },
+  "randomNumber": {
+   "parent": "node",
+   "attrs": [
+    "enable",
+    "minNumber",
+    "maxNumber",
+    "updateTime",
+    "smoothTransition",
+    "output"
+   ]
+  },
+  "blendWeighted": {
+   "parent": "node",
+   "attrs": [
+    "input[0]",
+    "input[1]",
+    "input[2]",
+    "input[3]",
+    "input[4]",
+    "input[5]",
+    "input[6]",
+    "input[7]",
+    "input[8]",
+    "input[9]",
+    "weight[0]",
+    "weight[1]",
+    "weight[2]",
+    "weight[3]",
+    "weight[4]",
+    "weight[5]",
+    "weight[6]",
+    "weight[7]",
+    "weight[8]",
+    "weight[9]",
+    "output"
+   ]
+  },
+  "effectControl": {
+   "parent": "node",
+   "attrs": [
+    "autoUnload",
+    "requestUnload",
+    "forceUnload",
+    "detachEffect",
+    "fxIn[0]",
+    "fxIn[1]",
+    "fxIn[2]",
+    "fxIn[3]",
+    "fxIn[4]",
+    "fxIn[5]",
+    "fxIn[6]",
+    "fxIn[7]",
+    "fxIn[8]",
+    "fxIn[9]",
+    "fxOut[0]",
+    "fxOut[1]",
+    "fxOut[2]",
+    "fxOut[3]",
+    "fxOut[4]",
+    "fxOut[5]",
+    "fxOut[6]",
+    "fxOut[7]",
+    "fxOut[8]",
+    "fxOut[9]"
+   ]
+  },
+  "effect": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "loadEffect",
+    "stopEffect",
+    "detachEffect",
+    "fxTotal",
+    "fxActive",
+    "overrideOrigin",
+    "overrideCell",
+    "overrideMarkers",
+    "autoStop",
+    "autoDetach",
+    "fxIn[0]",
+    "fxIn[1]",
+    "fxIn[2]",
+    "fxIn[3]",
+    "fxIn[4]",
+    "fxIn[5]",
+    "fxIn[6]",
+    "fxIn[7]",
+    "fxIn[8]",
+    "fxIn[9]",
+    "fxOut[0]",
+    "fxOut[1]",
+    "fxOut[2]",
+    "fxOut[3]",
+    "fxOut[4]",
+    "fxOut[5]",
+    "fxOut[6]",
+    "fxOut[7]",
+    "fxOut[8]",
+    "fxOut[9]"
+   ]
+  },
+  "shader": {
+   "parent": "node",
+   "attrs": [
+    "texture1CurrentFrame",
+    "texture1FrameRate",
+    "texture1Scale",
+    "texture1Rotation",
+    "texture1TranslateU",
+    "texture1TranslateV",
+    "texture1URate",
+    "texture1URate",
+    "texture2CurrentFrame",
+    "texture2FrameRate",
+    "texture2Scale",
+    "texture2Rotation",
+    "texture2TranslateU",
+    "texture2TranslateV",
+    "texture2URate",
+    "texture2URate",
+    "texture3CurrentFrame",
+    "texture3FrameRate",
+    "texture3Scale",
+    "texture3Rotation",
+    "texture3TranslateU",
+    "texture3TranslateV",
+    "texture3URate",
+    "texture3URate",
+    "texture4CurrentFrame",
+    "texture4FrameRate",
+    "texture4Scale",
+    "texture4Rotation",
+    "texture4TranslateU",
+    "texture4TranslateV",
+    "texture4URate",
+    "texture4URate",
+    "enableLighting",
+    "diffuseRed",
+    "diffuseGreen",
+    "diffuseBlue",
+    "ambientRed",
+    "ambientGreen",
+    "ambientBlue",
+    "specularRed",
+    "specularGreen",
+    "specularBlue",
+    "emissiveRed",
+    "emissiveGreen",
+    "emissiveBlue",
+    "power",
+    "ShaderAlpha",
+    "alphaRef",
+    "Constant1Red",
+    "Constant1Green",
+    "Constant1Blue",
+    "Constant1Alpha",
+    "Constant2Red",
+    "Constant2Green",
+    "Constant2Blue",
+    "Constant2Alpha",
+    "Constant3Red",
+    "Constant3Green",
+    "Constant3Blue",
+    "Constant3Alpha",
+    "Constant4Red",
+    "Constant4Green",
+    "Constant4Blue",
+    "Constant4Alpha"
+   ]
+  },
+  "gameSaveControl": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "doSave",
+    "active",
+    "restored",
+    "clearRestored"
+   ]
+  },
+  "gameState": {
+   "parent": "node",
+   "attrs": [
+    "value0",
+    "value1",
+    "value2",
+    "value3",
+    "value4",
+    "value5",
+    "value6",
+    "value7",
+    "value8",
+    "value9"
+   ]
+  },
+  "polyTrail": {
+   "parent": "dag",
+   "attrs": [
+    "lodVisibility",
+    "enable",
+    "lineLength",
+    "maxDistance",
+    "maxAge",
+    "startColorR",
+    "startColorG",
+    "startColorB",
+    "endColorR",
+    "endColorG",
+    "endColorB",
+    "startAlpha",
+    "endAlpha"
+   ]
+  },
+  "worldLocator": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "worldPosX",
+    "worldPosY",
+    "worldPosZ"
+   ]
+  },
+  "rumble": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "rumbleScale",
+    "bigRumble",
+    "littleRumble",
+    "shakeVertical",
+    "shakeHorizontal",
+    "distanceAttenuation",
+    "innerDistance",
+    "outerDistance"
+   ]
+  },
+  "latch": {
+   "parent": "node",
+   "attrs": [
+    "input",
+    "update",
+    "output"
+   ]
+  },
+  "helpnode": {
+   "parent": "node",
+   "attrs": [
+    "activate"
+   ]
+  },
+  "puppetMaster": {
+   "parent": "locator",
+   "attrs": [
+    "lodVisibility",
+    "localPositionX",
+    "localPositionY",
+    "localPositionZ",
+    "walkThisWay"
+   ]
+  }
+ }
+}

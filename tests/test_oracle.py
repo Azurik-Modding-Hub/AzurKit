@@ -7,6 +7,8 @@ the gate."""
 
 from __future__ import annotations
 
+import fnmatch
+import hashlib
 import json
 import os
 import shutil
@@ -17,8 +19,9 @@ from pathlib import Path
 import pytest
 
 from azurkit.core import gate
-from scripts.oracle_sync import (DERIVED, FACTS, ORACLE, PATHS, ROOT, SOURCES, install, port, read_index, source_hashes,
-                                 sources, tree_hashes)
+from scripts.oracle_sync import (DERIVED, FACTS, ORACLE, PATHS, ROOT, SOURCES, fix, install, port, read_index,
+                                 source_hashes, sources, tree_hashes)
+from tests import _leak_guard
 
 
 def test_every_oracle_file_is_the_one_the_sync_installed():
@@ -57,7 +60,10 @@ def test_the_sync_ports_a_modkit_module_by_its_rewrites_and_drops_or_names_what_
     comment right above it, the blank lines after it and its name in
     ``__all__``) and has its imports
     rewritten; one that still
-    imports Modkit, or a statement DROPS names that is gone, is named."""
+    imports Modkit, or a statement DROPS names that is gone, is named. A
+    line FIXES names by its sha256 is rewritten (a vanilla run AzurKit may
+    not hold), and one that is gone named; NUMBERS writes a tuple of ints
+    as a string's."""
     monkeypatch.setattr("scripts.oracle_sync.DROPS", {"m.py": ("threading", "pool")})
     source = ("import json\nimport threading\n\nfrom azurik_mod.randomizer.planner.solver import Logic\n\n\n"
               "def kept():\n    return 1\n\n\n# the pool\n@cache\ndef pool(n):\n    return n\n\n\ndef last():\n    return 2\n"
@@ -72,6 +78,20 @@ def test_the_sync_ports_a_modkit_module_by_its_rewrites_and_drops_or_names_what_
     monkeypatch.setattr("scripts.oracle_sync.DROPS", {"s.py": ("sys", "main", "__main__")})   # a script's command line
     assert port("s.py", "import sys\n\n\ndef draw():\n    return 1\n\n\ndef main():\n    return 0\n\n\n"
                         "if __name__ == \"__main__\":\n    sys.exit(main())\n") == "def draw():\n    return 1\n"
+    # FIXES: a line named by its sha256 rewritten as its kind says (here a hook's vanilla bytes become zeros of
+    # their size, a long float takes an exponent), one that isn't there named; NUMBERS: a tuple as a string's ints
+    long = "0.0" + "7" * 17   # a float whose decimals would read as hex pairs
+    hook, value = 'HOOK = bytes.fromhex("0011" "2233")  # its vanilla bytes', f'  "k": [{long}, 1],'
+    sha = lambda line: hashlib.sha256(line.encode()).hexdigest()   # noqa: E731
+    monkeypatch.setattr("scripts.oracle_sync.FIXES", {("n.py", sha(hook)): "vanilla", ("d.json", sha(value)): "float"})
+    monkeypatch.setattr("scripts.oracle_sync.NUMBERS", {"n.py": ("STEP",)})
+    assert port("n.py", f"{hook}\nSTEP = (7, 8,\n        9)\n") == ('HOOK = bytes(4)  # its vanilla bytes\n'
+                                                                  'STEP = tuple(int(v) for v in "7/8/9".split("/"))\n')
+    fixed = fix("d.json", f"{{\n{value}\n}}")
+    assert json.loads(fixed.replace(",\n}", "}"))["k"] == [float(long), 1] and "e-" in fixed
+    assert _leak_guard.byte_literals("d.json", fixed) == []
+    with pytest.raises(ValueError, match=r"n\.py: FIXES' vanilla line [0-9a-f]{12} is there 0 times"):
+        port("n.py", "STEP = (1, 2)\n")
 
 
 def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
@@ -81,8 +101,8 @@ def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
     off = [f"{family}: {rel}" for family, entry in read_index().items() for rel in entry["files"]
            if rel not in ("cases.json", "oracle.json", *DERIVED.get(family, ()))
            and not any(rel == p or rel.startswith(p + "/") for p in PATHS[family])]
-    off += [f"{family}: {src}" for family, copies in SOURCES.items() for src, _, _ in copies
-            if not any(src == p or src.startswith(p + "/") for p in PATHS[family])]
+    off += [f"{family}: {src}" for family, copies in SOURCES.items() for src, _, _ in copies   # a glob too
+            if not any(src == p or src.startswith(p + "/") or fnmatch.fnmatchcase(src, p) for p in PATHS[family])]
     off += [f"{family}: {rel}" for family, entry in read_index().items() for rel in entry.get("art", {})
             if not any(rel.startswith(p + "/") for p in PATHS[family])]
     assert off == []

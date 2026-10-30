@@ -52,6 +52,16 @@ and its ``spoiler`` the build's spoiler (Modkit's ``--spoiler`` file)::
 A share link carries a recipe's randomizer too (its seed, settings and
 obsidian cost), as an AzurKit build's mods file does.
 
+A recipe's ``character`` dresses the player in a species' body (Modkit's
+swap, ``tools.characters``: the body and its clips, its attacks, weapon,
+sounds and fx, and the shims it hooks): the body's size folds into
+player_physics' walk and roll before the packs (Modkit's ``size_params``),
+and the character layer stacks after the packs::
+
+    {"iso": "<a vanilla image>", "packs": {...}, "character": {"species": "keylord", "mode": "garret4"}}
+
+A build's mods file doesn't carry a character yet (:func:`open_build` refuses one by name).
+
 
 def catalog() -> 'dict':
 

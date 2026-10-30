@@ -1,0 +1,250 @@
+{
+  "grafts": {
+    "electric_shield": {
+      "archive": "fx", "key": "fx/magic/fx_shield_electric1",
+      "records": [[4, "StaticField_s_texture2Rotation_randomNumber", "randomNumber"], [5, "StaticField_s", "shader"],
+                  [9, "StaticFieldBase", "transform"], [12, "StaticFieldBaseShape", "platform"]],
+      "what": "the game's electric shield: a hemisphere of radius 1.15 held facing the camera (inherit 3), its two animated blue electric textures at 5 and 10 frames a second, tiled 5x and 2.5x (its shader, ShaderAlpha 0.165), the second turned -30..30 degrees every 0.067 s (its randomNumber); scale 0.85 on garret4"
+    },
+    "holder": {
+      "archive": "fx", "key": "fx/magic/fx_shield_force1",
+      "records": [[30, "Power_rumble", "transform"]],
+      "what": "a lone transform at the identity (inherit 0, no links): the holder a bound template's sets hang under, bound to its anchor's marker by an anchor edit"
+    },
+    "force_field": {
+      "archive": "fx", "key": "fx/magic/fx_shield_force1",
+      "records": [[7, "ForceField", "transform"], [8, "Repeat_timer", "timer"], [9, "ForceFieldGlow", "transform"],
+                  [10, "ForceFieldGlowShape", "platform"], [11, "ForceGlobes", "transform"],
+                  [12, "ForceGlobe03", "transform"], [15, "ForceGlobe03Shape", "platform"],
+                  [16, "ForceGlobe02", "transform"], [18, "ForceGlobe02Shape", "platform"],
+                  [19, "ForceGlobe01", "transform"], [21, "ForceGlobe01Shape", "platform"]],
+      "what": "the force shield's field: a camera-facing glow (scale 2.55) its timer turns every 2 s and three nested globes (0.6, 0.8 and 1.0 of 0.85); its throb, magic timer, sounds and rumble left out, so each shape shows at its own gameVisible"
+    },
+    "force_globe": {
+      "archive": "fx", "key": "fx/damage/fx_force_hit_1",
+      "records": [[5, "ForceGlobe", "transform"], [7, "ForceGlobeShape", "platform"]],
+      "what": "the force hit's globe: a full sphere of radius 1.15 (inherit 0), violet, its texture static; vanilla draws it at gameVisible 0.3 or less; beamlord's dome (Step 2.153c, AZ-669) draws it"
+    },
+    "blaze_blast": {
+      "archive": "characters", "key": "characters/blaze_sentinel/fx/fx_default",
+      "records": [[31, "Blast_pRendererShape", "pRendererB"], [32, "Blast_stuff", "transform"], [33, "Blast", "transform"],
+                  [34, "Blast_pSystem", "transform"], [35, "Blast_pSystemShape", "pSystem"],
+                  [36, "Blast_pEmitter", "transform"], [38, "Blast_pEmitterShape", "pEmitter"],
+                  [39, "Blast_pSink", "transform"], [40, "Blast_pSinkShape", "pSink"],
+                  [41, "BlastSparks_pRendererShape", "pRendererB"], [42, "BlastSparks", "transform"],
+                  [43, "BlastSparks_pSystem", "transform"], [44, "BlastSparks_pSystemShape", "pSystem"],
+                  [45, "BlastSparks_pEmitter", "transform"], [46, "BlastSparks_pEmitterShape", "pEmitter"],
+                  [47, "BlastSparks_pSink", "transform"], [48, "BlastSparks_pSinkShape", "pSink"]],
+      "what": "the blaze sentinel's blast: a fire cloud (yellow-white to dark red over 1.2 s, 0.1 growing to 0.3 m) and its sparks, each emitter at rate 0 until one is written"
+    },
+    "ice_flakes": {
+      "archive": "fx", "key": "fx/damage/fx_ice_hit_1",
+      "records": [[2, "Flake01_pEmitter", "transform"], [4, "Flake01_pEmitterShape", "pEmitter"],
+                  [5, "Flake02_pEmitter", "transform"], [6, "Flake02_pEmitterShape", "pEmitter"],
+                  [7, "Flake01_pRendererShape", "pRendererB"], [8, "Flake_particles", "transform"],
+                  [9, "Flake01_pSystem", "transform"], [10, "Flake01_pSystemShape", "pSystem"],
+                  [11, "Flake02_pRendererShape", "pRendererB"], [12, "Flake02_pSystem", "transform"],
+                  [13, "Flake02_pSystemShape", "pSystem"], [14, "Flake01_pSink", "transform"],
+                  [15, "Flake01_pSinkShape", "pSink"], [16, "Flake01_pAccelerator", "transform"],
+                  [17, "Flake01_pAcceleratorShape", "pAccelerator"]],
+      "what": "the ice hit's two flake clouds (pale blue, 1.5 s), sharing one sink and one accelerator; the first renderer's alpha and size drive the second's"
+    },
+    "magmar_mouth": {
+      "archive": "characters", "key": "characters/magmar/fx/fx_default",
+      "records": [[2, "Burning_Smoke", "transform"], [3, "Sparkle1", "transform"], [4, "mouth1_Emitter2", "transform"],
+                  [6, "mouth1_EmitterShape2", "pEmitter"], [7, "mouth1_Sink2", "transform"],
+                  [8, "mouth1_SinkShape2", "pSink"], [9, "Flame_Smoke1", "transform"],
+                  [10, "mouth1_Emitter1", "transform"], [11, "mouth1_EmitterShape1", "pEmitter"],
+                  [12, "mouth1_Sink1", "transform"], [13, "mouth1_SinkShape1", "pSink"],
+                  [57, "pRendererB7", "pRendererB"], [58, "pSystem2", "transform"], [59, "pSystemShape2", "pSystem"],
+                  [60, "pRendererB8", "pRendererB"], [61, "pSystem1", "transform"], [62, "pSystemShape1", "pSystem"]],
+      "what": "magmar's first mouth: a flame stream (5 m/s for 5 s, 0.5 growing to 3 m) and its sparks (2 m/s for 10 s), each emitter at rate 0 until one is written"
+    },
+    "airship_bolts": {
+      "archive": "characters", "key": "characters/balthazar_airship/fx/fx_default",
+      "records": [[23, "pBurstEmitter1", "transform"], [24, "pBurstEmitterShape1", "pBurstEmitter"],
+                  [35, "pRendererB2", "pRendererB"], [36, "b_blast_zap_system", "transform"],
+                  [37, "b_blast_zap_systemShape", "pSystem"], [38, "pSink2", "transform"],
+                  [39, "pSinkShape2", "pSink"], [58, "locator1", "transform"], [59, "locatorShape1", "pNull"],
+                  [60, "locator2", "transform"], [61, "locatorShape2", "pNull"], [62, "locator3", "transform"],
+                  [63, "locatorShape3", "pNull"]],
+      "what": "Balthazar's lightning (Step 2.157's deferred electric_beam): a burst emitter 2.75 m up firing kinked, split bolts at its three targets 6, 6 and 15 m ahead (+Y), white fading to violet in 0.05 s; off until its enable is written"
+    }
+  },
+  "templates": {
+    "fireball": {
+      "group": "projectile", "title": "Fireball", "engine": "throw", "anchor": "hand",
+      "what": "a small blazing ball (the boulder's body at about 0.12 m, recoloured hot) trailing the blaze sentinel's blast, bursting in the fire guardian's small explosion; its hits show X32's small flash",
+      "sets": ["blaze_blast"],
+      "body": {"key": "characters/bosses/boulder"},
+      "impact": {"archive": "characters", "key": "characters/bosses/fire_guardian/fx/fx_small_explosion"},
+      "hit": "fire_1",
+      "params": {
+        "speed": {"default": 18, "range": [4, 40], "writes": [{"engine": "speed"}]},
+        "arc": {"default": 0.2, "range": [0, 1], "writes": [{"engine": "arc"}]},
+        "size": {"default": 0.12, "range": [0.05, 0.5], "writes": [{"engine": "size"}]},
+        "radius": {"default": 0.4, "range": [0.1, 2], "writes": [{"engine": "radius"}]},
+        "life": {"default": 2, "range": [0.5, 5], "writes": [{"engine": "life"}]}
+      },
+      "colour": {"default": [1, 0.45, 0.1],
+                 "writes": [{"record": "Blast_pRendererShape", "attrs": ["color1R", "color1G", "color1B"]},
+                            {"record": "BlastSparks_pRendererShape", "attrs": ["color1R", "color1G", "color1B"]}],
+                 "recolor": [{"record": "Blast_pRendererShape"}, {"record": "BlastSparks_pRendererShape"}]},
+      "show": [{"record": "Blast_pEmitterShape", "attr": "emitRate", "value": 30},
+               {"record": "BlastSparks_pEmitterShape", "attr": "emitRate", "value": 30}]
+    },
+    "ice_shard": {
+      "group": "projectile", "title": "Ice shard", "engine": "throw", "anchor": "hand",
+      "what": "the ice shard's own body curled in the rock shard's ball pose (its own ball clip keys no bone), trailing the ice hit's flakes, shattering in the ice end; its hits show X32's small flash",
+      "sets": ["ice_flakes"],
+      "body": {"key": "characters/ice_shard", "pose": "characters/rock_shard/ball"},
+      "impact": {"archive": "fx", "key": "fx/damage/fx_ice_end_1"},
+      "hit": "ice_1",
+      "params": {
+        "speed": {"default": 16, "range": [4, 40], "writes": [{"engine": "speed"}]},
+        "arc": {"default": 0.25, "range": [0, 1], "writes": [{"engine": "arc"}]},
+        "size": {"default": 0.3, "range": [0.1, 1], "writes": [{"engine": "size"}]},
+        "radius": {"default": 0.4, "range": [0.1, 2], "writes": [{"engine": "radius"}]},
+        "life": {"default": 2, "range": [0.5, 5], "writes": [{"engine": "life"}]}
+      },
+      "colour": {"default": [0.6, 0.85, 1],
+                 "writes": [{"record": "Flake01_pRendererShape", "attrs": ["color1R", "color1G", "color1B"]},
+                            {"record": "Flake02_pRendererShape", "attrs": ["color1R", "color1G", "color1B"]}]},
+      "show": [{"record": "Flake01_pEmitterShape", "attr": "emitRate", "value": 30},
+               {"record": "Flake02_pEmitterShape", "attr": "emitRate", "value": 30}]
+    },
+    "arrow": {
+      "group": "projectile", "title": "Arrow", "engine": "throw", "anchor": "hand",
+      "what": "an arrow of our own (an authored glb: no game data), flying flat; a plain hit",
+      "sets": [],
+      "body": {"authored": "arrow"},
+      "impact": null,
+      "hit": null,
+      "params": {
+        "speed": {"default": 30, "range": [8, 60], "writes": [{"engine": "speed"}]},
+        "arc": {"default": 0, "range": [0, 1], "writes": [{"engine": "arc"}]},
+        "size": {"default": 0.8, "range": [0.2, 2], "writes": [{"engine": "size"}]},
+        "radius": {"default": 0.2, "range": [0.05, 1], "writes": [{"engine": "radius"}]},
+        "life": {"default": 1.5, "range": [0.5, 5], "writes": [{"engine": "life"}]}
+      },
+      "show": []
+    },
+    "bubble": {
+      "group": "shield", "title": "Bubble", "engine": "bound", "anchor": "centre",
+      "what": "the game's electric shield round the body's centre: a crackling hemisphere facing the camera, so it reads as a sphere from every side; its opacity its shader's ShaderAlpha (the shield's 0.165; its material row's opacity, which the draw doesn't take, stays the shield's: AZ-719, Step 2.167f)",
+      "sets": ["electric_shield"],
+      "params": {
+        "size": {"default": 1.1, "range": [0.5, 3],
+                 "writes": [{"record": "StaticFieldBase", "attr": "scaleX"}, {"record": "StaticFieldBase", "attr": "scaleY"},
+                            {"record": "StaticFieldBase", "attr": "scaleZ"}]},
+        "opacity": {"default": 0.7, "range": [0.05, 1],
+                    "writes": [{"record": "StaticField_s", "attr": "ShaderAlpha"}]},
+        "fade": {"default": 0.3, "range": [0, 2], "writes": [{"engine": "fade"}]}
+      },
+      "colour": {"default": [0.3, 0.6, 1],
+                 "recolor": [{"record": "StaticFieldBaseShape", "stage": 0}, {"record": "StaticFieldBaseShape", "stage": 1}]},
+      "show": [{"record": "StaticFieldBaseShape", "attr": "gameVisible", "value": 1}]
+    },
+    "dome": {
+      "group": "shield", "title": "Dome", "engine": "bound", "anchor": "feet",
+      "what": "the electric shield's hemisphere upright on the feet (inherit 2: it turns with the body and stays level), turned a quarter about x so its pole (the mesh's -y, which the shield's inherit 3 turns to the camera) stands up and its open side lies on the floor",
+      "sets": ["electric_shield"],
+      "edits": [{"record": "StaticFieldBase", "inherit": 2}, {"record": "StaticFieldBase", "set": {"rotateX": -1.5707963}}],
+      "params": {
+        "size": {"default": 1.6, "range": [0.5, 3],
+                 "writes": [{"record": "StaticFieldBase", "attr": "scaleX"}, {"record": "StaticFieldBase", "attr": "scaleY"},
+                            {"record": "StaticFieldBase", "attr": "scaleZ"}]},
+        "opacity": {"default": 0.7, "range": [0.05, 1],
+                    "writes": [{"record": "StaticField_s", "attr": "ShaderAlpha"}]},
+        "fade": {"default": 0.3, "range": [0, 2], "writes": [{"engine": "fade"}]}
+      },
+      "colour": {"default": [0.3, 0.6, 1],
+                 "recolor": [{"record": "StaticFieldBaseShape", "stage": 0}, {"record": "StaticFieldBaseShape", "stage": 1}]},
+      "show": [{"record": "StaticFieldBaseShape", "attr": "gameVisible", "value": 1}]
+    },
+    "barrier": {
+      "group": "shield", "title": "Barrier", "engine": "bound", "anchor": "front",
+      "what": "the force shield's field as a panel ahead of the body (inherit 0, so it turns with the body): its glow, a 2.55 m square the shield holds facing the camera (inherit 3), held in the body's axes instead (inherit 0), so it faces ahead as the panel (AZ-718), and its three globes squashed to a lens through it (scaleY 0.15); the colour recolours the glow (the globes share one material row, so they keep theirs)",
+      "sets": ["force_field"],
+      "edits": [{"record": "ForceField", "inherit": 0}, {"record": "ForceField", "set": {"scaleY": 0.15}},
+                {"record": "ForceFieldGlow", "inherit": 0}],
+      "params": {
+        "ahead": {"default": 1, "range": [0, 3], "writes": [{"record": "ForceField", "attr": "translateY"}]},
+        "size": {"default": 1, "range": [0.3, 3],
+                 "writes": [{"record": "ForceField", "attr": "scaleX"}, {"record": "ForceField", "attr": "scaleZ"}]},
+        "fade": {"default": 0.3, "range": [0, 2], "writes": [{"engine": "fade"}]}
+      },
+      "colour": {"default": [0.7, 0.4, 1],
+                 "recolor": [{"record": "ForceFieldGlowShape"}]},
+      "show": [{"record": "ForceFieldGlowShape", "attr": "gameVisible", "value": 1},
+               {"record": "ForceGlobe01Shape", "attr": "gameVisible", "value": 0.3},
+               {"record": "ForceGlobe02Shape", "attr": "gameVisible", "value": 0.3},
+               {"record": "ForceGlobe03Shape", "attr": "gameVisible", "value": 0.3}]
+    },
+    "stream": {
+      "group": "beam", "title": "Stream", "engine": "bound", "anchor": "hand",
+      "what": "magmar's flame breath from the hand: a widening stream of fire and its sparks, its reach the emitters' speed times their sinks' life; each flies 0.4 s (magmar's 5 and 10 s, their renderers' ages scaled with them), at the range over that (the sparks 0.8 of it), so the flames reach the range inside an attack's column (AZ-717); the flame keeps its colour for 0.3 s and its alpha for 0.1 s, then turns to the smoke's colour and fades to 0 as it dies, so it draws bright to the range (magmar's ramps turned it to smoke by 0.2 s: bright only to 2.25 m, AZ-724); its emitters fire along +x (his mouth marker's axis), so the holder turns a quarter about z and the stream goes ahead (+y)",
+      "sets": ["magmar_mouth"], "turn": [0, 0, 1.5707963],
+      "edits": [{"record": "mouth1_SinkShape1", "set": {"maxAge": 0.4}}, {"record": "mouth1_SinkShape2", "set": {"maxAge": 0.4}},
+                {"record": "pRendererB8", "set": {"colorAge1": 0.3, "colorAge2": 0.4, "alphaAge1": 0.1, "alphaAge2": 0.4, "sizeAge2": 0.4}},
+                {"record": "pRendererB7", "set": {"colorAge2": 0.16, "alphaAge2": 0.4, "sizeAge1": 0.2, "sizeAge2": 0.4}}],
+      "params": {
+        "range": {"default": 25, "range": [2, 40], "auto": "reach",
+                  "writes": [{"record": "mouth1_EmitterShape1", "attr": "velocityBaseX", "factor": 2.5},
+                             {"record": "mouth1_EmitterShape2", "attr": "velocityBaseX", "factor": 2}]},
+        "width": {"default": 3, "range": [0.2, 6],
+                  "writes": [{"record": "pRendererB8", "attr": "size2"},
+                             {"record": "pRendererB8", "attr": "size1", "factor": 0.1667}]},
+        "fade": {"default": 0.3, "range": [0, 2], "writes": [{"engine": "fade"}]}
+      },
+      "colour": {"default": [1, 0.5, 0.15],
+                 "writes": [{"record": "pRendererB7", "attrs": ["color1R", "color1G", "color1B"]}],
+                 "recolor": [{"record": "pRendererB8"}]},
+      "show": [{"record": "mouth1_EmitterShape1", "attr": "emitRate", "value": 30},
+               {"record": "mouth1_EmitterShape2", "attr": "emitRate", "value": 30}]
+    },
+    "bolts": {
+      "group": "beam", "title": "Bolts", "engine": "bound", "anchor": "hand",
+      "what": "Balthazar's lightning from the hand: kinked, splitting bolts at three targets ahead, level with the hand (the airship's translateZ -0.5, which left them 0.5 m under it, set to 0: AZ-722), the middle one at the range",
+      "sets": ["airship_bolts"],
+      "edits": [{"record": "pBurstEmitter1", "set": {"translateX": 0, "translateY": 0, "translateZ": 0}},
+                {"record": "locator1", "set": {"translateZ": 0}}, {"record": "locator2", "set": {"translateZ": 0}},
+                {"record": "locator3", "set": {"translateZ": 0}}],
+      "params": {
+        "range": {"default": 15, "range": [2, 40], "auto": "reach",
+                  "writes": [{"record": "locator1", "attr": "translateY", "factor": 0.4},
+                             {"record": "locator2", "attr": "translateY", "factor": 0.4},
+                             {"record": "locator3", "attr": "translateY"}]},
+        "width": {"default": 0.075, "range": [0.01, 0.5],
+                  "writes": [{"record": "pRendererB2", "attr": "size1"}, {"record": "pRendererB2", "attr": "size2"}]},
+        "fade": {"default": 0.3, "range": [0, 2], "writes": [{"engine": "fade"}]}
+      },
+      "colour": {"default": [0.35, 0.65, 1],
+                 "writes": [{"record": "pRendererB2", "attrs": ["color2R", "color2G", "color2B"]}],
+                 "recolor": [{"record": "pRendererB2"}]},
+      "show": [{"record": "pBurstEmitterShape1", "attr": "enable", "value": 1}]
+    },
+    "laser": {
+      "group": "beam", "title": "Laser", "engine": "bound", "anchor": "hand",
+      "what": "the bolts made straight: no kinks or branches (their splits kept: a split count of 0 with no kinks or no branches double-faults the game, AZ-710), the three targets on one level line straight ahead of the hand (the airship's translateZ -0.5, which left them 0.5 m under the hand, set to 0: AZ-716), wider, so they draw one line",
+      "sets": ["airship_bolts"],
+      "edits": [{"record": "pBurstEmitter1", "set": {"translateX": 0, "translateY": 0, "translateZ": 0}},
+                {"record": "pBurstEmitterShape1",
+                 "set": {"kinkCountMin": 0, "kinkCountMax": 0, "branchLevelMin": 0, "branchLevelMax": 0}},
+                {"record": "locator1", "set": {"translateX": 0, "translateZ": 0}},
+                {"record": "locator2", "set": {"translateX": 0, "translateZ": 0}}, {"record": "locator3", "set": {"translateZ": 0}}],
+      "params": {
+        "range": {"default": 15, "range": [2, 40], "auto": "reach",
+                  "writes": [{"record": "locator1", "attr": "translateY"}, {"record": "locator2", "attr": "translateY"},
+                             {"record": "locator3", "attr": "translateY"}]},
+        "width": {"default": 0.2, "range": [0.02, 1],
+                  "writes": [{"record": "pRendererB2", "attr": "size1"}, {"record": "pRendererB2", "attr": "size2"}]},
+        "fade": {"default": 0.3, "range": [0, 2], "writes": [{"engine": "fade"}]}
+      },
+      "colour": {"default": [1, 0.1, 0.1],
+                 "writes": [{"record": "pRendererB2", "attrs": ["color2R", "color2G", "color2B"]}],
+                 "recolor": [{"record": "pRendererB2"}]},
+      "show": [{"record": "pBurstEmitterShape1", "attr": "enable", "value": 1}]
+    }
+  }
+}

@@ -122,7 +122,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     to import-linter's contracts, so the suite reads Modkit's history
     (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout).
     The models family's sync installs the archive writers a character
-    swap builds on (see Characters below).
+    swap builds on and the swap itself (see Characters below); a line of
+    Modkit's source that holds 8 or more bytes in a row of a vanilla file
+    is rewritten as the sync installs it (`FIXES`, by its path and sha256,
+    so AzurKit holds no copy: a hook's vanilla bytes become their size in
+    zeros, PNG's signature is joined from two halves, a recipe's long float
+    gets an exponent, a shim's table of game data becomes zeros), and
+    `NUMBERS` writes a tuple of byte-sized ints as a string's. A file it
+    installed is judged by the Modkit file it ports
+    (`oracle_sync.origins`): `tests/test_provenance.py` refuses one from a
+    file NOTICE.md credits.
   - **The sync's own files** (`oracle_sync.DERIVED`): the models family's
     `swap.json` (the `swap` section of Modkit's facts, both releases) and
     `resources.json`, which `scripts/modkit_resources.py` makes by running
@@ -206,6 +215,21 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   by side in `src/azurkit/tools/mods/shims/` (`<name>.c`, `<name>.o`), both
   committed, so no host compiles one: neither the site nor the app needs
   zig (AZ-045).
+  - The player-model swap's 40 shims are Modkit's sources, which the sync
+    installs (`tools/characters/player_model/<stem>.c`), their objects
+    beside them: shimkit's header types each game function they call as
+    Modkit's header does (`TYPES`), writes the asm thunks for those that take
+    an argument in a register (`THUNKS`) and an `azurik.h` for the
+    parameter macros. Three objects hold zeros where Modkit's hold bytes a
+    build writes back as it lands them (`ports.HELD`): garret4's roll motion
+    (game data, D3: `roll.c`'s table is zeros in the source, shimkit fills
+    it from the USA image to compile, then zeroes it in the object, and each
+    build reads it from the player's image), and four of Modkit's own
+    constants in `drain.o` and `throw.o` whose bytes, beside their
+    neighbours', meet a vanilla file's by chance for longer than the object
+    rule takes (a 16.0 default, the aim's sides and reach, 4.9); restored,
+    each is G2's object (`tests/test_shims.py`, and `tests/test_characters.py`
+    for roll's).
   - `uv run --locked python -m shimkit` builds every object with the pinned
     zig (`ziglang` 0.16.0, the dev group) and Modkit's flags: the same
     bytes on any machine, whose normalized sha256 is the oracle's G2 record
@@ -343,8 +367,39 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## Characters
 
-- **What a swap writes with** (Step 4.3a1; the models family's sync
-  installs them from Modkit, never edit them by hand): `core/xbr/append.py`
+- **The swap** (Step 4.3a2) is Modkit's, which the models family's sync
+  installs (never edit those files by hand): its `patches/_player_*.py` and
+  the build half of its `assets/` (X.100; never `azurik_mod/authoring`) in
+  `tools/characters/`, its recipes and grades (`weapons.json`,
+  `variants.json`, `chains.json`, `fx_templates.json`, `*_grades.json`),
+  the 40 `player_model` shims' sources (above, Shims), and in `core/xbr/`
+  Modkit's node graphs (`graph.py`, Modkit's `xbr/nodes.py`, reading the
+  node types from the names table `node_types.json`, X.102: no capstone) and
+  its resource copier (`clone.py`); its mesh reader and drawer (`render.py`,
+  `draw.py`, numpy) are the tool's. `_player_character.apply_player_model`
+  dresses the player in a species' body: the body and its clips (garret4's
+  retargeted where it lacks one, D131's sizes, `retarget.py`), its attacks,
+  weapon, sounds and fx, and the shims it hooks into `default.xbe`.
+  - What it calls of Modkit's engine is ours, `tools/characters/ports.py`:
+    the staged files (`IsoStaging`, over the files the packs left and the
+    vanilla `Vanilla`, each read checked against the manifest), the hooks
+    (`apply_trampoline_patch` on `core.coff` and the carve allocator past
+    the packs' claims, the header state laid down from the claims), a
+    hook's vanilla bytes read from the player's `default.xbe` and checked
+    against the facts' swap site (`xbe_site`), and config.xbr's keyed tables
+    and cell edits written new from the format (AZ-212). `pool.py` runs the
+    swap's parallel work in order unless a host gives it a map (`pool.MAP`).
+  - A recipe's `character` (`tools.characters.normalize`): `species` and
+    Modkit's `randomize-full` options (`mode`, `size`, `scale`, the attack
+    sliders, `anims`, `sounds`, `weapon`, `ram`, the jiggle's): the sdk
+    folds the body's size into player_physics' walk and roll first
+    (Modkit's `size_params`), then plans the character layer after the packs
+    (`tools.characters.plan`).
+  - Not here: the built-in variants (booblord, beamlord: Step 4.3c), and the
+    files Azurik-Custom-Content carries (D869): booblord's clips and sounds,
+    the townsfolk's bare-hands kit and the air elemental's funnel; a build
+    that needs one fails by its name.
+- **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload
   grown in place, every later one moved by whole pages; `appended`), and in
@@ -359,21 +414,23 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `characters.xbr`, `fx.xbr` and `index.xbr`, so it writes each it changes
   whole, all one group (`tools.characters.whole_files`: `Change(...,
   whole=True)`, `before` the whole vanilla file's sha256), and the rest as
-  ranges. A whole file shadows each earlier group whose bytes it doesn't
-  hold (dropped whole, a conflict); a later range lands over it only where
-  it kept the vanilla bytes (or holds the range's own), and is refused
-  where it changed them (D35, Modkit's AZ-096: a grown body moved the
-  resource there). One group per file may write it whole.
-  The layer stacks after the packs and before the Data tool's `xbr`
-  operations (Modkit's `mod_apply` order). The swap that fills it (the
-  retarget, D131's standardize, the 40 `player_model` shims) is Step
-  4.3a2's.
+  ranges: `default.xbe`'s bytes one group, config.xbr's a group a table.
+  Its shims' placements are its claims. A whole file shadows each earlier
+  group whose bytes it doesn't hold (dropped whole, a conflict); a later
+  range lands over it only where it kept the vanilla bytes (or holds the
+  range's own), and is refused where it changed them (D35, Modkit's AZ-096:
+  a grown body moved the resource there). One group per file may write it
+  whole. The layer stacks after the packs and before the Data tool's `xbr`
+  operations (Modkit's `mod_apply` order).
 - **Its checks** (`tests/test_characters.py`): every body round-trips
   through the codec, appended resources resolve by name with the old ones
   unmoved, each G3 model case's `index.xbr` is Modkit's byte for byte
   (from `resources.json`'s records, on both releases), the swap's XBE
-  sites hold their vanilla bytes on both releases, and a layer's whole
-  files build an image that reads back.
+  sites hold their vanilla bytes on both releases, a layer's whole files
+  build an image that reads back, and each of G3's 20 body cases (its
+  weapon and sound cases and garret4's own body among them) is Modkit's file for file and
+  resource for resource, its default.xbe writes inside its claims and the
+  facts' swap sites (keylord's whole image too).
 
 ## The engine's contracts
 

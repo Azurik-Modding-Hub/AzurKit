@@ -317,6 +317,30 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     assert box.left() == []
 
 
+def test_the_frozen_app_dresses_the_player_in_a_species_body_as_modkit(frozen_app, tmp_path, monkeypatch, usa_iso):
+    """``AzurKit build --character`` from the frozen app (the swap, its data
+    and numpy in the bundle), read-only in a fresh HOME and TMPDIR, writes
+    G3's keylord case: each file G3 records is Modkit's, and the app and
+    the sandbox are as they were but for the build it wrote."""
+    app_path, before = frozen_app
+    box = Sandbox(tmp_path, monkeypatch)
+    out = tmp_path / "out" / "keylord.iso"
+    out.parent.mkdir()
+    case = "randomize-full:player-character=keylord"
+    done = box.run(app_path, "build", "--iso", str(usa_iso), "--out", str(out), "--character",
+                   json.dumps({"species": "keylord"}), timeout=900)
+    try:
+        assert done["code"] == 0, done["stderr"][-2000:]
+        golden = json.loads((ORACLE / "models/tests/goldens/pipelines.json").read_text(encoding="utf-8"))[case]
+        with iso.Reader(out) as r:
+            assert {f: hashlib.sha256(r.read(f)).hexdigest() for f in golden if f != "ISO"} == {
+                f: sha for f, sha in golden.items() if f != "ISO"}
+    finally:
+        out.unlink(missing_ok=True)
+    assert _tree(app_path) == before
+    assert box.left() == []
+
+
 def _save(page) -> dict | str:
     """Click Save: what the engine saved, or the page's refusal."""
     page.evaluate("() => { azurkit.saved = null; document.querySelector('#save').click(); }")
