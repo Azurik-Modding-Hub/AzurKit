@@ -440,8 +440,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - Not here: a randomized build wearing a character (its logic needs
     Modkit's model reasons: Step 4.3c2's seed case), and a character in a
     share link or a build's mods file (the pickers' step, 4.3d): each is
-    refused by name. Nor the built-in variants' checks, lods and the
-    effects templates (Step 4.3c2).
+    refused by name.
   - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
     bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
     townsfolk's weapon, `bare_hands` and the spin attack,
@@ -497,7 +496,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   claims and the facts' swap sites (keylord's whole image too), and so is
   each probe of `probes.json` (the variant's, a townsman's and the air
   elemental's), on both releases; a build that needs booblord's clips
-  fails there naming the file.
+  fails there naming the file. With the content folder as the models sync
+  installed it, each of G3's 7 variant cases (the five built-ins' recipes
+  applied to the player's image, booblord's with her lods and with a
+  weapon, and the effects case, a recipe file's fireball row made of the
+  effects templates) is Modkit's the same way, and the effects case on
+  Europe too: 34 of G3's 34 USA model cases.
 
 ## The engine's contracts
 

@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import multiprocessing
 import struct
 import sys
-from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path, PurePath
 
 import pytest
 
@@ -222,39 +224,54 @@ def _view(vanilla: bytes, built: bytes) -> dict:
                     for r in appended(len(old), built)]}
 
 
-def _missed(cases: dict[str, dict], usa_iso) -> dict[str, tuple]:
+def _missed(cases: dict[str, dict], image_path, release=gate.USA, workers: int = 1) -> dict[str, tuple]:
     """``{case: (the files whose sha256 isn't G3's, default.xbe's writes outside the character layer's claims and
-    the facts' swap sites, the conflicts)}`` of each of ``cases`` built through ``sdk.image`` that isn't Modkit's
-    file for file (every file G3 records) and resource for resource (characters.xbr's and fx.xbr's, as
-    ``resources.json`` holds them); ``keylord``'s whole image less its root entries is Modkit's."""
-    golden, views = _oracle(G3["usa"]), _oracle("resources.json")[G3["usa"]]
-    assert set(cases) <= set(golden)
-    known = facts.of(gate.USA)
+    the facts' swap sites, the conflicts)}`` of each of ``cases`` built through ``sdk.image`` from the ``release``
+    image that isn't Modkit's file for file (every file G3 records; a Europe build's XBRs but index.xbr, the USA
+    case's, as G3 checks them) and resource for resource (characters.xbr's and fx.xbr's, as ``resources.json``
+    holds them); ``keylord``'s whole image less its root entries is Modkit's. With ``workers``, that many spawned
+    processes build the cases (a case's build is the same in any process; the content folder is the process's)."""
+    assert set(cases) <= set(_oracle(G3[release.name]))
+    jobs = [(case, recipe, str(image_path), release.name) for case, recipe in cases.items()]
+    if workers > 1:
+        with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
+            done = list(pool.map(_miss, jobs))
+    else:
+        done = [_miss(job) for job in jobs]
+    return {case: why for case, why in done if why is not None}
+
+
+def _miss(job: tuple) -> tuple[str, tuple | None]:
+    """One case of :func:`_missed`: ``(case, why or None)``."""
+    case, recipe, image_path, name = job
+    release = next(r for r in gate.RELEASES if r.name == name)
+    golden, view, usa = (_oracle(G3[name])[case], _oracle("resources.json")[G3[name]][case],
+                         _oracle(G3["usa"])[case])
+    known = facts.of(release)
     sites = sorted((known.offset(va, s.size), known.offset(va, s.size) + s.size) for va, s in known.swap.items())
-    with iso.Reader(usa_iso) as r:
+    with iso.Reader(image_path) as r:
         vanilla = {f: r.read(f) for f in characters.FILES}
-    missed = {}
-    for case, recipe in cases.items():
-        stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": str(usa_iso)})
-        made, manifest = edits_manifest.image(stamp, layers, base)
-        layer = next(la for la in layers if la.tool == characters.TOOL)
-        held = []   # its claims and the swap sites, those that meet merged
-        for lo, hi in sorted([(c.offset, c.offset + c.size) for c in layer.claims] + sites):
-            held[-1:] = [(held[-1][0], max(hi, held[-1][1]))] if held and lo <= held[-1][1] else [*held[-1:], (lo, hi)]
-        loose = [f"0x{c.offset:X}" for c in layer.changes if c.file == "default.xbe"
-                 and not any(lo <= c.offset and c.offset + len(c.after) <= hi for lo, hi in held)]
-        with iso.Reader(made) as r:
-            files = {f: r.read(f) for f in golden[case] if f != "ISO"}
-        shas = {f: _sha256(data) for f, data in files.items()}
-        want = {f: sha for f, sha in golden[case].items() if f != "ISO"}
-        resources = {f: _view(vanilla[f], files[f]) for f in (CHARACTERS, FX) if f in files}
-        if shas != want or loose or manifest.conflicts or any(
-                {k: views[case][f][k] for k in resources[f]} != resources[f] for f in resources):
-            missed[case] = (sorted(f for f in want if shas.get(f) != want[f]), loose, manifest.conflicts)
-        if case.endswith("=keylord"):
-            changed = {f: data for f, data in files.items() if f != "filelist.txt" and data != base.get(f)}
-            assert iso.read(usa_iso, changed).sha256() == golden[case]["ISO"]
-    return missed
+    stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": image_path})
+    made, manifest = edits_manifest.image(stamp, layers, base)
+    layer = next(la for la in layers if la.tool == characters.TOOL)
+    held = []   # its claims and the swap sites, those that meet merged
+    for lo, hi in sorted([(c.offset, c.offset + c.size) for c in layer.claims] + sites):
+        held[-1:] = [(held[-1][0], max(hi, held[-1][1]))] if held and lo <= held[-1][1] else [*held[-1:], (lo, hi)]
+    loose = [f"0x{c.offset:X}" for c in layer.changes if c.file == "default.xbe"
+             and not any(lo <= c.offset and c.offset + len(c.after) <= hi for lo, hi in held)]
+    want = {f: sha for f, sha in ({f: sha for f, sha in usa.items() if f.endswith(".xbr") and f != INDEX}
+                                  | golden).items() if f != "ISO"}
+    with iso.Reader(made) as r:
+        files = {f: r.read(f) for f in want}
+    shas = {f: _sha256(data) for f, data in files.items()}
+    resources = {f: _view(vanilla[f], files[f]) for f in (CHARACTERS, FX) if f in files}
+    if case.endswith("=keylord"):
+        changed = {f: data for f, data in files.items() if f != "filelist.txt" and data != base.get(f)}
+        assert iso.read(image_path, changed).sha256() == golden["ISO"]
+    if shas != want or loose or manifest.conflicts or any(
+            {k: view[f][k] for k in resources[f]} != resources[f] for f in resources):
+        return case, (sorted(f for f in want if shas.get(f) != want[f]), loose, manifest.conflicts)
+    return case, None
 
 
 @pytest.fixture
@@ -417,6 +434,55 @@ def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_th
     own = characters.variant({"species": "beamlord"}, None)[1]["mode"]
     with pytest.raises(ValueError, match=r"^--player-character-mode \w+: the variant 'beamlord' is mode " + own):
         characters.variant({"species": "beamlord", "mode": {"own": "garret4", "garret4": "own"}[own]}, None)
+
+
+# --- the built-in variants and the effects templates (Step 4.3c2) -----------------------------------------------
+
+
+@pytest.fixture
+def booblords():
+    """The content folder as the models sync installed it (ORACLE.toml's
+    ``models.content``: booblord's clips and voice, Azurik-Custom-Content's,
+    each at its sha256), which the built-in variants read; one it lacks or
+    holds otherwise fails the test naming it."""
+    want = oracle_sync.read_index()["models"]["content"]
+    held = {rel: _sha256((content.ROOT / rel).read_bytes()) if (content.ROOT / rel).is_file() else None for rel in want}
+    assert held == want, (f"the content folder {content.ROOT} isn't the models sync's: "
+                          + ", ".join(rel for rel in want if held[rel] != want[rel]))
+
+
+def _variants(release, folder: Path) -> dict[str, dict]:
+    """``{case: its recipe}`` of G3's cases on ``release`` that wear a
+    variant: each built-in's (:data:`VARIANTS`, booblord with a weapon
+    among them) and the effects case's, a recipe file's (written in
+    ``folder``) whose fireball row is made of the effects templates."""
+    out = {}
+    for case, spec in _oracle("cases.json")[G3[release.name]].items():
+        args = spec["args"]
+        if args["player_character"] not in VARIANTS and not args["player_variant_file"]:
+            continue
+        character = _character(args)
+        if rel := args["player_variant_file"]:
+            (path := folder / PurePath(rel).name).write_text(json.dumps(spec["files"][rel]), encoding="utf-8")
+            character["variant_file"] = str(path)
+        out[case] = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+                     "character": character}
+    return out
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_each_variant_case_is_modkits_file_for_file_and_resource_for_resource(release, request, booblords, tmp_path):
+    """Each of G3's variant cases (:func:`_variants`: on USA the five
+    built-in variants' recipes applied to the player's image, booblord's
+    clips and voice read from the content folder, booblord with a weapon,
+    and the effects case; on Europe the effects case) built through
+    ``sdk.image`` is Modkit's file for file and resource for resource, its
+    default.xbe written inside its claims and the facts' swap sites
+    (:func:`_missed`, in 4 processes: booblord's builds take minutes)."""
+    cases = _variants(release, tmp_path)
+    assert len(cases) == {"usa": 7, "europe": 1}[release.name]
+    first = dict(sorted(cases.items(), key=lambda kv: "booblord" not in kv[0]))   # the longest builds start first
+    assert _missed(first, request.getfixturevalue(f"{release.name}_iso"), release, workers=4) == {}
 
 
 def test_a_body_case_under_pyodide_is_modkits_file_for_file(usa_iso, pyodide):

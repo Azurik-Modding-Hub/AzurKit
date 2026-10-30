@@ -106,6 +106,11 @@ comes with version 1.0.
 - **Weapons:** Garret's Axion staff, the farmer's hoe, Balthazar's magic, the spin attack or bare hands.
 - **Attacks:** reach, damage and speed multipliers.
 - **Voice:** the creature's own sounds, or Garret's.
+- **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
+  creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's own
+  moves and voice are optional extra files, read from AzurKit's content folder.
+- **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
+  bolts or laser, made from the game's own effects.
 - **Works with every pack.** Not yet with the randomizer, share links or rebuilding from a recipe.
 
 ### Building and sharing
