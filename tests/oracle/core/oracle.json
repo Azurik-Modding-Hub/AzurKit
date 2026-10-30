@@ -1,5 +1,5 @@
 {
- "commit": "4c75cf96267fd55988c5c6aa4ab4fd46afc6561b",
+ "commit": "28d0b411000f1b228e73d48b930ead27058b9221",
  "dirty": false,
  "family": "core",
  "files": {
@@ -8,8 +8,8 @@
    "size": 9890
   },
   "azurik_mod/assets/region_europe.json": {
-   "sha256": "9a2d2cabb084b788e77d226e4cb5a4d63ca701bc0bb2bb202ea86afc6cb4c9a9",
-   "size": 49905
+   "sha256": "ab0877ba0bbbf4b96e2270adccca36b6f9ab466187aa8080a4827084fd968563",
+   "size": 50657
   },
   "azurik_mod/assets/vanilla_manifest.json": {
    "sha256": "383ad0c8d6c655c4cdc81107303a0c34b1fee7faacd360e5b4746d21cbf96a97",
@@ -22,7 +22,7 @@
  },
  "format": "azurik-oracle/1",
  "same_as": {},
- "tag": "oracle-packs-2",
+ "tag": "oracle-packs-4",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",

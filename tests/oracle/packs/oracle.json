@@ -1,39 +1,39 @@
 {
- "commit": "7def1f6ddf43dd9e3064fe5d1b5e26f5323eb7a1",
+ "commit": "28d0b411000f1b228e73d48b930ead27058b9221",
  "dirty": false,
  "family": "packs",
  "files": {
   "cases.json": {
-   "sha256": "7524ad0fbb97063cd6ee0f39f52bd6c21ac2c8c9d6cb5df23b7e95614fa4c05f",
-   "size": 34585
+   "sha256": "bf7ee0f659fbac67218624b1d1fbfaf4b89d50a76fadc4ddfd6c9ea2823933fb",
+   "size": 34670
   },
   "tests/facts/xbe.europe.json": {
-   "sha256": "4e59d513cda30802f029fbad962bacae940a3230399cdcbae98003e4920ccfb7",
-   "size": 61558
+   "sha256": "9e244bcc17dc15c1e3fa4c7de47138b374558d22defd5cab265c80ed5b104249",
+   "size": 91104
   },
   "tests/facts/xbe.json": {
-   "sha256": "9634f105b316b4c21978de40bddeb9d2a74c647106319d610a9b10664cb54721",
-   "size": 73092
+   "sha256": "aa6fb90b486f469ef8dbc79ad49a89cdb30065977bb23c771e92041bbe1c22d7",
+   "size": 102638
   },
   "tests/goldens/europe/packs.json": {
-   "sha256": "47455f00a0e54fdd1eadbc301dda819cba8405b64fb200d31990b01dd4a0e118",
+   "sha256": "5302e3d40fa08664acba66d825e73a4d64955d0b5e8b48d78ce308e35b68fb83",
    "size": 4583
   },
   "tests/goldens/gui.json": {
-   "sha256": "2d57beed28065177d5459c374eb0c19037c81b30fc8e8410b9da8904784f0a90",
+   "sha256": "b5f377491f80083b128563df85e2798ad8591415655e07f53d097f8f38df9abf",
    "size": 899
   },
   "tests/goldens/packs.json": {
-   "sha256": "8a3ca6c69e4e6055cf2b2aa4c09ec8e4ffb37fc2d2009a4d01b5d7c6573b756b",
+   "sha256": "b519f1d7f6db531cd08dfca1d112c88fe868668b7a7ea740049d16ba681823e4",
    "size": 7017
   },
   "tests/goldens/pipelines.json": {
-   "sha256": "945b7cba1703edcc06dc6908a3ceeb2d6230b587a702e6452e1471c7daa63d4c",
+   "sha256": "36b2a10e872462fd53fb829768ce11f750b3340d84d81382e753511258f55863",
    "size": 2447
   },
   "tests/goldens/shims.json": {
-   "sha256": "5101ee769d338838938055b33eb288393928249a8203ab8c0c6264c884e5ee1f",
-   "size": 1193
+   "sha256": "1cb25ffb300fb8bf4e13b683d1b8549f693ebbe0445a26f69e8dce6c1af24c92",
+   "size": 1310
   },
   "tests/goldens/xbr_editor.json": {
    "sha256": "449534358518ddeffa593c35c94c6f14fa76d16925898c5d67458324262a30cd",
@@ -42,7 +42,7 @@
  },
  "format": "azurik-oracle/1",
  "same_as": {},
- "tag": "oracle-packs-3",
+ "tag": "oracle-packs-4",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",

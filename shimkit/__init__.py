@@ -110,6 +110,7 @@ TYPES = {
     "player_staff_wall_check": ("unsigned char", "void *player_control"),
     "quat_from_euler": ("void", "float x, float y, float z"),
     "quat_rotate": ("void", "void"),
+    "run_evict_until": ("unsigned char", "unsigned int size, int level"),
     "run_pages_alloc": ("void *", "unsigned int size"),
     "sound_play_at": ("void", "int handle, const float *point, int unused"),
     "species_bind_clip_sounds": ("void", "int slot, const char *clip"),

@@ -196,7 +196,7 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_a_mods_file_which_ope
                          *(arg for name in memory for arg in ("--no-pack", name))]) == 0
         with iso.Reader(out) as r:
             assert _sha256(r.read("default.xbe")) == _g1.cases(gate.EUROPE)["qol_alloc_race"].files["default.xbe"]
-        assert capsys.readouterr().out.splitlines()[:2] == ["pack qol_alloc_race: 4 sites, 204 B",
+        assert capsys.readouterr().out.splitlines()[:2] == ["pack qol_alloc_race: 8 sites, 2360 B",
                                                             "data xbr: 1 sites, 8 B"]
         assert cli.main(["open", str(out)]) == 0
         opened = json.loads(capsys.readouterr().out)

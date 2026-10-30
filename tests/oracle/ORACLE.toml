@@ -4,15 +4,15 @@
 # file the sync installed in AzurKit's source (scripts/oracle_sync.py's SOURCES).
 
 [core]
-tag = "oracle-packs-2"
-commit = "4c75cf96267fd55988c5c6aa4ab4fd46afc6561b"
+tag = "oracle-packs-4"
+commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 
 [core.files]
 "azurik_mod/assets/europe_manifest.json" = "67adfc1c841f8e677695852667f70cba805836afbcb395382c9c4d7e000a4140"
-"azurik_mod/assets/region_europe.json" = "9a2d2cabb084b788e77d226e4cb5a4d63ca701bc0bb2bb202ea86afc6cb4c9a9"
+"azurik_mod/assets/region_europe.json" = "ab0877ba0bbbf4b96e2270adccca36b6f9ab466187aa8080a4827084fd968563"
 "azurik_mod/assets/vanilla_manifest.json" = "383ad0c8d6c655c4cdc81107303a0c34b1fee7faacd360e5b4746d21cbf96a97"
 "cases.json" = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
-"oracle.json" = "1dc5b18b3c0528e6a051e4d869886e2ada39b2182e64eeac38a638655de7c132"
+"oracle.json" = "bc17a93867ebddf510aa140fc87eafb4839bd0c607536b0d272f38b313318e39"
 
 [models]
 tag = "oracle-models-1"
@@ -119,24 +119,24 @@ commit = "c5306b3307c3c7415bdaf0d8fa5ac58328036250"
 "src/azurkit/tools/characters/xbox_adpcm.py" = "8f9161478855c6869e71718b6af4641e9af778a3aeba118666296ad2e2d49e2c"
 
 [packs]
-tag = "oracle-packs-3"
-commit = "7def1f6ddf43dd9e3064fe5d1b5e26f5323eb7a1"
+tag = "oracle-packs-4"
+commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 
 [packs.files]
-"cases.json" = "7524ad0fbb97063cd6ee0f39f52bd6c21ac2c8c9d6cb5df23b7e95614fa4c05f"
-"oracle.json" = "bcb450b8b4853754a5fb655f8279ccc26ab76f4c62de556c594600f53c2abbcb"
-"tests/facts/xbe.europe.json" = "27ea8311d99a5f3b201ad0620da43db187f986bbfd5ad99039608b201201556d"
-"tests/facts/xbe.json" = "2287070ea5241a99b7faefdd8bff77bdadad0606379fd7569e05b88cf38bbefe"
-"tests/goldens/europe/packs.json" = "47455f00a0e54fdd1eadbc301dda819cba8405b64fb200d31990b01dd4a0e118"
-"tests/goldens/gui.json" = "2d57beed28065177d5459c374eb0c19037c81b30fc8e8410b9da8904784f0a90"
-"tests/goldens/packs.json" = "8a3ca6c69e4e6055cf2b2aa4c09ec8e4ffb37fc2d2009a4d01b5d7c6573b756b"
-"tests/goldens/pipelines.json" = "945b7cba1703edcc06dc6908a3ceeb2d6230b587a702e6452e1471c7daa63d4c"
-"tests/goldens/shims.json" = "5101ee769d338838938055b33eb288393928249a8203ab8c0c6264c884e5ee1f"
+"cases.json" = "bf7ee0f659fbac67218624b1d1fbfaf4b89d50a76fadc4ddfd6c9ea2823933fb"
+"oracle.json" = "aaba41a50411a359b551fc96b5247ae90182e074f52e82ed7c05d2400514379e"
+"tests/facts/xbe.europe.json" = "141032cfbe97bcb135c397b3d846a5fa6809a6923ae8df0d9e2bab42946606f9"
+"tests/facts/xbe.json" = "27fcfc973c0bc40c807436e9530b099ac1eeb89d6aa52059d91931322548855d"
+"tests/goldens/europe/packs.json" = "5302e3d40fa08664acba66d825e73a4d64955d0b5e8b48d78ce308e35b68fb83"
+"tests/goldens/gui.json" = "b5f377491f80083b128563df85e2798ad8591415655e07f53d097f8f38df9abf"
+"tests/goldens/packs.json" = "b519f1d7f6db531cd08dfca1d112c88fe868668b7a7ea740049d16ba681823e4"
+"tests/goldens/pipelines.json" = "36b2a10e872462fd53fb829768ce11f750b3340d84d81382e753511258f55863"
+"tests/goldens/shims.json" = "1cb25ffb300fb8bf4e13b683d1b8549f693ebbe0445a26f69e8dce6c1af24c92"
 "tests/goldens/xbr_editor.json" = "449534358518ddeffa593c35c94c6f14fa76d16925898c5d67458324262a30cd"
 
 [packs.exported]
-"tests/facts/xbe.europe.json" = "4e59d513cda30802f029fbad962bacae940a3230399cdcbae98003e4920ccfb7"
-"tests/facts/xbe.json" = "9634f105b316b4c21978de40bddeb9d2a74c647106319d610a9b10664cb54721"
+"tests/facts/xbe.europe.json" = "9e244bcc17dc15c1e3fa4c7de47138b374558d22defd5cab265c80ed5b104249"
+"tests/facts/xbe.json" = "aa6fb90b486f469ef8dbc79ad49a89cdb30065977bb23c771e92041bbe1c22d7"
 
 [rando]
 tag = "oracle-rando-4"

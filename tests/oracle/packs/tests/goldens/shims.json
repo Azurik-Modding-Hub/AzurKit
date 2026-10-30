@@ -5,6 +5,9 @@
  "player_physics.o": {
   "normalized sha256": "fd1b07fa006bb59df9fface2c43799de9842b3aada6fa0476b1166f2727173ef"
  },
+ "qol_alloc_race.o": {
+  "normalized sha256": "a12661ba0e0b47a75912eb570429cfef6fa0a2bb5d78aadabb5062b291eae9fe"
+ },
  "qol_memory_budget.o": {
   "normalized sha256": "80f6b046dffd88a9c39451ba72b749a159b751281931b3add53721e93c948c7c"
  },

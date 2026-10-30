@@ -1432,6 +1432,9 @@
   "player_physics.o": {
    "source": "azurik_mod/patches/player_physics/speed_toggle.c"
   },
+  "qol_alloc_race.o": {
+   "source": "azurik_mod/patches/qol_alloc_race/shim.c"
+  },
   "qol_memory_budget.o": {
    "source": "azurik_mod/patches/qol_memory_budget/shim.c"
   },

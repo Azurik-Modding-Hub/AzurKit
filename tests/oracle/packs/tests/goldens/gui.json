@@ -1,16 +1,16 @@
 {
  "run_randomizer:mods": {
-  "default.xbe": "7b05644e9aa20d992e5438ac0d158af8d3ec457125fb106422428f20eba03e72",
+  "default.xbe": "7e98affb6348fd834d30384ac2329c80db8bd21c7d63d1f1148f491542b5df6c",
   "filelist.txt": "271476f9f1503046b3b9aab6feb3a2b05a4efc952a9f78ef157b221e63fd26e5",
   "gamedata/config.xbr": "fdb5f162359e3d123475d81a6b64884db661e11eab605021f4c4629b698fb16e"
  },
  "run_randomizer:mods+xbr_editor": {
-  "default.xbe": "7b05644e9aa20d992e5438ac0d158af8d3ec457125fb106422428f20eba03e72",
+  "default.xbe": "7e98affb6348fd834d30384ac2329c80db8bd21c7d63d1f1148f491542b5df6c",
   "filelist.txt": "ffef24183af44078e05426b53dfe7d664410d713e3d14757bf88ca8b8e607e37",
   "gamedata/config.xbr": "c414ba08ba7c87f6ca24dc30d4eeeb6a22f8f53b23e39f45973039fe4fb4c2e4"
  },
  "run_randomizer:xbr_editor": {
-  "default.xbe": "79ef7fd14d4e58340d0448f7064144568ef2afd9f579af5f75002e096699f08b",
+  "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
   "filelist.txt": "0000fb1dd82940081fd218555150af76a4a06075566426fe54f00d7d95903a65",
   "gamedata/config.xbr": "4c939f80e2058f85911dbbc2cf56341ccac814abe901cc77e3d5d92a5f8402ed"
  }

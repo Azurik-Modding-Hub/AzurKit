@@ -1,5 +1,5 @@
 {
- "_about": "Facts about the vanilla Azurik (USA) default.xbe and the patches built from it (REORG_PLAN Step 2.4). Written only by scripts/gen_facts.py --update-facts; a protected path: the owner reviews every diff. No game bytes: vanilla spans are sha256s; patch_sites.*.new holds each build's bytes over the site, for the builds that change it, so a declared span may include vanilla bytes its pack already declares (Q67). Legacy sites (AZURIK_NO_SHIMS bytes) have no new: no build writes them.",
+ "_about": "Facts about the vanilla Azurik (USA) default.xbe and the patches built from it (REORG_PLAN Step 2.4). Written only by scripts/gen_facts.py --update-facts; a protected path: the owner reviews every diff. No game bytes: vanilla spans are sha256s; patch_sites.*.new holds each build's bytes over the site, for the builds that change it, so a declared span may include vanilla bytes its pack already declares (Q67). Legacy sites (AZURIK_NO_SHIMS bytes) have no new: no build writes them. swap holds the player-model swap's hooks (not a pack): each vanilla span it writes and each vanilla address its shims call or are handed, with what does, and no bytes.",
  "cases": [
   "enemy_scaling",
   "enemy_scaling:boss_attack_speed_scale=2",
@@ -433,6 +433,16 @@
    "original_sha256": "05880cc11c39cedc1c8b42ab8a3718af3e7693c62fb2849ba11c82eae91e902d",
    "size": 30
   },
+  "0x00059C90": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "c6e446223670c75b454469cee3597e4d288567f616550e4ed29e9d9a7129d9b1",
+     "size": 5
+    }
+   },
+   "original_sha256": "ac1bd10a437c73461c3149bcee36d671d6eefc3085bcdd28156327775661d1d3",
+   "size": 5
+  },
   "0x0005F6E0": {
    "original_sha256": "226a99b6ba850e0b007680c57480eaffc95236e1063cd9583537e903e109f1ca",
    "size": 10
@@ -803,6 +813,16 @@
    "original_sha256": "32803fcddeee397596ae2378dd0c1049b42bc4be5de110f850b0f792fb0bd65c",
    "size": 5
   },
+  "0x000A66C0": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "f32adf472e2847a7550d2639b45f73460dc8f01b3b9c8a9ec23b5b87bd0e0582",
+     "size": 6
+    }
+   },
+   "original_sha256": "6e4e7e74303b14f17ae50e327464025663892d2300a28120044157c0f9ccd0be",
+   "size": 6
+  },
   "0x000AE76C": {
    "new": {
     "qol_alloc_race": {
@@ -833,10 +853,20 @@
    "original_sha256": "63f3a6e25ad0b27bd9fa8b3b2ef1ef94f25863fa21a475f0bb4f897c9051a216",
    "size": 29
   },
+  "0x000B14E1": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "33d80fae32e4d645fc86610964f215b649423cf12b5b652299d4025ef06008f9",
+     "size": 5
+    }
+   },
+   "original_sha256": "7898a47bc906eadf768c704e310a11857fa0cccb97920c48894198baf99b7aed",
+   "size": 5
+  },
   "0x000B54D0": {
    "new": {
     "qol_alloc_race": {
-     "sha256": "f02556ddc9630da34da6d00cea03d9fc4535f49d2c3d00832b34e4700e9dda97",
+     "sha256": "830ef466b706db13edfd73e5437b93789c16c60ffe2ef6b1480cec9be5887d81",
      "size": 133
     }
    },
@@ -856,6 +886,16 @@
    },
    "original_sha256": "913d576d02b37053ef6f7d2a71d9add1900b3776683cfa327b50345f09a1a201",
    "size": 5
+  },
+  "0x000B5D35": {
+   "new": {
+    "qol_alloc_race": {
+     "sha256": "8b2e730785ee7a55ed44ef14720a057c90f61cb30dbe7628ad78c9787fa88ad0",
+     "size": 7
+    }
+   },
+   "original_sha256": "e20673015ec4f3ca533ece9c4da40c84408ce8942a2440af0db07ad970075574",
+   "size": 7
   },
   "0x000BAD46": {
    "new": {
@@ -2079,6 +2119,1249 @@
    "vsize": "0x00002800"
   }
  ],
+ "swap": {
+  "refs": {
+   "0x0001B110": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "symbol": "hud_list_draw"
+   },
+   "0x000307E0": {
+    "by": [
+     "player_model_attack_carry"
+    ],
+    "symbol": "move_query_clear"
+   },
+   "0x00038C60": {
+    "by": [
+     "player_model_drain"
+    ],
+    "symbol": "ai_hit_handler"
+   },
+   "0x000402E0": {
+    "by": [
+     "player_model_eye",
+     "player_model_hang_ease",
+     "player_model_hang_hold",
+     "player_model_stance_term",
+     "player_model_fade_floor"
+    ],
+    "symbol": "aligned_node_offset"
+   },
+   "0x00041FB5": {
+    "by": [
+     "player_model_fade_floor"
+    ],
+    "handed": true
+   },
+   "0x00042070": {
+    "by": [
+     "player_model_eye",
+     "player_model_hang_hold",
+     "player_model_stance_term",
+     "player_model_fade_floor",
+     "player_model_drain"
+    ],
+    "symbol": "glide_origin"
+   },
+   "0x00042200": {
+    "by": [
+     "player_model_eye",
+     "player_model_throw",
+     "player_model_jiggle"
+    ],
+    "symbol": "critter_model_matrix"
+   },
+   "0x00042430": {
+    "by": [
+     "player_model_climb"
+    ],
+    "symbol": "anim_change_aligned"
+   },
+   "0x00042750": {
+    "by": [
+     "player_model_hit_reaction"
+    ],
+    "symbol": "anim_change_at_node"
+   },
+   "0x00042910": {
+    "by": [
+     "player_model_climb",
+     "player_model_attack_rotation"
+    ],
+    "symbol": "anim_change"
+   },
+   "0x000429DF": {
+    "by": [
+     "player_model_borrow"
+    ],
+    "handed": true
+   },
+   "0x00042E40": {
+    "by": [
+     "player_model_climb",
+     "player_model_hang_ease"
+    ],
+    "symbol": "anim_apply_translation"
+   },
+   "0x000440F0": {
+    "by": [
+     "player_model_hit_fx",
+     "player_model_drain"
+    ],
+    "symbol": "critter_play_fx"
+   },
+   "0x00044640": {
+    "by": [
+     "player_model_throw",
+     "player_model_drain",
+     "player_model_fx_ring"
+    ],
+    "symbol": "apply_damage"
+   },
+   "0x00045C10": {
+    "by": [
+     "player_model_throw"
+    ],
+    "symbol": "critter_spawn"
+   },
+   "0x00045E30": {
+    "by": [
+     "player_model_throw"
+    ],
+    "symbol": "species_get_by_name"
+   },
+   "0x000460B0": {
+    "by": [
+     "player_model_throw"
+    ],
+    "symbol": "hit_send"
+   },
+   "0x0004B600": {
+    "by": [
+     "player_model_slots",
+     "player_model_borrow",
+     "player_model_borrow_first"
+    ],
+    "symbol": "species_clip_lookup"
+   },
+   "0x0004B680": {
+    "by": [
+     "player_model_sounds"
+    ],
+    "symbol": "species_bind_clip_sounds"
+   },
+   "0x0004FF10": {
+    "by": [
+     "player_model_fx_ring"
+    ],
+    "symbol": "quat_from_euler"
+   },
+   "0x00060870": {
+    "by": [
+     "player_model_eye_sweep",
+     "player_model_hang_hold",
+     "player_model_fade_floor"
+    ],
+    "symbol": "collision_sweep"
+   },
+   "0x00060BD0": {
+    "by": [
+     "player_model_water_push"
+    ],
+    "symbol": "volume_query"
+   },
+   "0x000634B0": {
+    "by": [
+     "player_model_fx_ring"
+    ],
+    "symbol": "fx_instance_detach"
+   },
+   "0x000649E0": {
+    "by": [
+     "player_model_fx_ring"
+    ],
+    "symbol": "fx_instantiate"
+   },
+   "0x0007EBB0": {
+    "by": [
+     "player_model_throw",
+     "player_model_target_search",
+     "player_model_drain",
+     "player_model_seek"
+    ],
+    "symbol": "attack_target_find"
+   },
+   "0x0007EF10": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "symbol": "attack_transition_search"
+   },
+   "0x0007F1F0": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "symbol": "attack_anim_record_copy"
+   },
+   "0x00081DB0": {
+    "by": [
+     "player_model_water_push"
+    ],
+    "symbol": "camera_reach"
+   },
+   "0x00081E10": {
+    "by": [
+     "player_model_water_push"
+    ],
+    "symbol": "camera_water_push"
+   },
+   "0x00084940": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "symbol": "player_input_tick"
+   },
+   "0x00084A40": {
+    "by": [
+     "player_model_climb"
+    ],
+    "symbol": "player_move_offsets_init"
+   },
+   "0x00085920": {
+    "by": [
+     "player_model_attack_carry",
+     "player_model_hang_ease"
+    ],
+    "symbol": "player_land_classify"
+   },
+   "0x00088E70": {
+    "by": [
+     "player_model_attack_carry"
+    ],
+    "symbol": "player_air_attack_start"
+   },
+   "0x00089060": {
+    "by": [
+     "player_model_attack_carry"
+    ],
+    "symbol": "player_jump_init"
+   },
+   "0x00089480": {
+    "by": [
+     "player_model_air_blast"
+    ],
+    "symbol": "player_airborne_tick"
+   },
+   "0x0008B100": {
+    "by": [
+     "player_model_air_blast"
+    ],
+    "symbol": "player_hard_land"
+   },
+   "0x0008C080": {
+    "by": [
+     "player_model_hang_hold",
+     "player_model_over_top"
+    ],
+    "symbol": "player_landing"
+   },
+   "0x0008C450": {
+    "by": [
+     "player_model_throw"
+    ],
+    "symbol": "player_move_fx"
+   },
+   "0x0008C7D0": {
+    "by": [
+     "player_model_attack_carry"
+    ],
+    "symbol": "player_ground_attack_tick"
+   },
+   "0x0008C8A0": {
+    "by": [
+     "player_model_damage_marker"
+    ],
+    "symbol": "player_staff_wall_check"
+   },
+   "0x0008D750": {
+    "by": [
+     "player_model_fx_default"
+    ],
+    "symbol": "player_ai_factory"
+   },
+   "0x00097420": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "handed": true
+   },
+   "0x000A1420": {
+    "by": [
+     "player_model_climb",
+     "player_model_over_top"
+    ],
+    "symbol": "quat_rotate"
+   },
+   "0x000A2630": {
+    "by": [
+     "player_model_thud"
+    ],
+    "symbol": "sound_play_at"
+   },
+   "0x000A2FD0": {
+    "by": [
+     "player_model_attack_carry",
+     "player_model_attack_sets"
+    ],
+    "symbol": "active_controller_state"
+   },
+   "0x000A30D0": {
+    "by": [
+     "player_model_attack_carry",
+     "player_model_attack_sets"
+    ],
+    "symbol": "button_pressed_once"
+   },
+   "0x000A5CA0": {
+    "by": [
+     "player_model_thud"
+    ],
+    "symbol": "asset_find"
+   },
+   "0x000CA1D0": {
+    "by": [
+     "player_model_wings"
+    ],
+    "symbol": "anim_node_by_name"
+   },
+   "0x000CA390": {
+    "by": [
+     "player_model_attack_box"
+    ],
+    "symbol": "anim_marker_box"
+   },
+   "0x000CA470": {
+    "by": [
+     "player_model_jiggle"
+    ],
+    "symbol": "anim_bone_matrix"
+   },
+   "0x000CACD0": {
+    "by": [
+     "player_model_roll"
+    ],
+    "symbol": "anim_root_motion_delta"
+   },
+   "0x000CB020": {
+    "by": [
+     "player_model_air_blast"
+    ],
+    "symbol": "anim_layer_fraction"
+   },
+   "0x000CB080": {
+    "by": [
+     "player_model_borrow"
+    ],
+    "symbol": "anim_bind_clip_tracks"
+   },
+   "0x000CB2A0": {
+    "by": [
+     "player_model_eye"
+    ],
+    "symbol": "anim_marker_position"
+   },
+   "0x000CBC80": {
+    "by": [
+     "player_model_fx_ring"
+    ],
+    "symbol": "anim_sample_markers"
+   },
+   "0x000CCDF0": {
+    "by": [
+     "player_model_wings"
+    ],
+    "symbol": "anim_node_transform"
+   },
+   "0x000D0830": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "symbol": "hud_anchor"
+   },
+   "0x000D09E0": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "symbol": "hud_font"
+   },
+   "0x000D0D60": {
+    "by": [
+     "player_model_attack_sets"
+    ],
+    "symbol": "font_draw_text"
+   },
+   "0x001BF63C": {
+    "by": [
+     "player_model_jiggle"
+    ],
+    "handed": true
+   },
+   "0x00380E04": {
+    "by": [
+     "player_model_near_draw"
+    ],
+    "handed": true
+   },
+   "0x00389B78": {
+    "by": [
+     "player_model_climb"
+    ],
+    "handed": true
+   },
+   "0x0038A610": {
+    "by": [
+     "player_model_climb"
+    ],
+    "handed": true
+   },
+   "0x0038B0D0": {
+    "by": [
+     "player_model_climb"
+    ],
+    "handed": true
+   },
+   "0x0038DC50": {
+    "by": [
+     "player_model_idle_pick"
+    ],
+    "handed": true
+   }
+  },
+  "sites": {
+   "0x0001B306": {
+    "by": [
+     "player_model_attack_sets_hud"
+    ],
+    "original_sha256": "eefcf6494d41ae3d25c5cffaa31c4aaaa89bd89ca0d9e180a380203ca18bd969",
+    "size": 5
+   },
+   "0x00030C1C": {
+    "by": [
+     "player_model_light_hit"
+    ],
+    "original_sha256": "45c3fb748774896f4df1344caffa6a6be33a5eda32e49e505b931e68a00af245",
+    "size": 10
+   },
+   "0x00038D2F": {
+    "by": [
+     "player_model_thud"
+    ],
+    "original_sha256": "2d5a1fd3af65f88833b4cb942f4a9586eb20ba7a82aed238ab3651702db96965",
+    "size": 5
+   },
+   "0x00039006": {
+    "by": [
+     "player_model_hit_fx"
+    ],
+    "original_sha256": "a89a23d70551b292f233c2b374ae3521c6318e9503426d0df900a3e82a465907",
+    "size": 5
+   },
+   "0x0003EA57": {
+    "by": [
+     "player_model_near_draw"
+    ],
+    "original_sha256": "c549e94ea1332c1047b0fa94ea5cc49e1df0873affc5c0fbedd2c72120eb0bab",
+    "size": 9
+   },
+   "0x0003EC58": {
+    "by": [
+     "player_model_near_draw_fade"
+    ],
+    "original_sha256": "d77ed44ce78ba561277841e0c28ed67de14e3533717bf7ba932446938858c4e7",
+    "size": 9
+   },
+   "0x00041F67": {
+    "by": [
+     "player_model_eye"
+    ],
+    "original_sha256": "7cce4510ca16e99723445cfa89615ce9059d07b68015e99590aca693160999ad",
+    "size": 5
+   },
+   "0x00042237": {
+    "by": [
+     "player_model_fade_floor"
+    ],
+    "original_sha256": "68821d755dc8621c78f33184dba67052750fc9306e1897026467190c84f66e1f",
+    "size": 5
+   },
+   "0x00042253": {
+    "by": [
+     "player_model_stance_term"
+    ],
+    "original_sha256": "0bd619b1d23883c5159f94f4baadce3b91d1ab7579565da790be9828dd2ced35",
+    "size": 5
+   },
+   "0x00043584": {
+    "by": [
+     "player_model_hit_delay"
+    ],
+    "original_sha256": "764dd0d40f90a7ad5d1030b5c839b72c8fc399c651d20298e8475da0be46839f",
+    "size": 9
+   },
+   "0x00043719": {
+    "by": [
+     "player_model_fx_default"
+    ],
+    "original_sha256": "e71d076856200b111816692e1de70543216e055706201fb034a06dbaab4e1235",
+    "size": 5
+   },
+   "0x00043A62": {
+    "by": [
+     "player_model_fx_ring_tick"
+    ],
+    "original_sha256": "56dc8e361a0d45da876ebb324edd1d51467885ada4e707871518ba2bb38e4be3",
+    "size": 5
+   },
+   "0x00043B47": {
+    "by": [
+     "player_model_attack_box"
+    ],
+    "original_sha256": "345b148bf813d30da9f1872ee97b50a7f6fe0c28df47a3746cd1c7cb0459dfbc",
+    "size": 5
+   },
+   "0x00044355": {
+    "by": [
+     "player_model_wings_bind"
+    ],
+    "original_sha256": "1df5092d3b387285e9b052381870099e7662576c2880c044df89797eb69817d8",
+    "size": 5
+   },
+   "0x00044389": {
+    "by": [
+     "player_model_wings_pose"
+    ],
+    "original_sha256": "db995ce44307d70947d673d53aeea9e9a5fcaea915b6f676171734d60ce331cc",
+    "size": 5
+   },
+   "0x0004B900": {
+    "by": [
+     "player_model_body_key"
+    ],
+    "original_sha256": "53758835521efc4dd1c08d0c3276e13881ffe03b66f1515f1abb08dc2f0032bd",
+    "size": 5
+   },
+   "0x0004B93C": {
+    "by": [
+     "player_model_sounds"
+    ],
+    "original_sha256": "e2f9102468be17117d9383e8f889a263d6e9a36a24dba9acc4d2e28b624068ea",
+    "size": 5
+   },
+   "0x0004B948": {
+    "by": [
+     "player_model_slots"
+    ],
+    "original_sha256": "edfbb2903110ac2b151d2f76417a5d095ff515e323941319d0205db0c95b5383",
+    "size": 5
+   },
+   "0x00068A49": {
+    "by": [
+     "player_model_drain_anchor"
+    ],
+    "original_sha256": "13d0fa463c734bb055de339140867fe33a9a31a398a901b94c092ab5832ef7a8",
+    "size": 6
+   },
+   "0x0007A1CA": {
+    "by": [
+     "player_model_drain_touch"
+    ],
+    "original_sha256": "7588c2b907e5c7d91835b3e22a5dd0150cdc89ea82c82b0974af77e1a33945e5",
+    "size": 7
+   },
+   "0x0007E3DD": {
+    "by": [
+     "player_model_sounds"
+    ],
+    "original_sha256": "d5cffe78837ba716806c6f2fe95d80b0d9fd338454e5abec6c650701e1483b1a",
+    "size": 5
+   },
+   "0x0007E3F0": {
+    "by": [
+     "player_model_borrow_attack",
+     "player_model_borrow_first"
+    ],
+    "original_sha256": "0d81dd74df6cccbd73f1d7098df93b98a352107e98500d153a33e1c6c0764741",
+    "size": 5
+   },
+   "0x0007EC10": {
+    "by": [
+     "X21"
+    ],
+    "original_sha256": "8acddad499966d755a42573a21dc79fe45c40b1fececaa7c830c5df75c84dd21",
+    "size": 6
+   },
+   "0x0007EC20": {
+    "by": [
+     "X21"
+    ],
+    "original_sha256": "8acddad499966d755a42573a21dc79fe45c40b1fececaa7c830c5df75c84dd21",
+    "size": 6
+   },
+   "0x0007EC36": {
+    "by": [
+     "X21"
+    ],
+    "original_sha256": "8acddad499966d755a42573a21dc79fe45c40b1fececaa7c830c5df75c84dd21",
+    "size": 6
+   },
+   "0x0007EC53": {
+    "by": [
+     "X21"
+    ],
+    "original_sha256": "c4ebdc5152510928d15bf73a59a61ed79251df19d21b92a9745284fd59d24951",
+    "size": 6
+   },
+   "0x0007EC5D": {
+    "by": [
+     "X21"
+    ],
+    "original_sha256": "c4ebdc5152510928d15bf73a59a61ed79251df19d21b92a9745284fd59d24951",
+    "size": 6
+   },
+   "0x0007EC67": {
+    "by": [
+     "X21"
+    ],
+    "original_sha256": "c4ebdc5152510928d15bf73a59a61ed79251df19d21b92a9745284fd59d24951",
+    "size": 6
+   },
+   "0x0007EDA4": {
+    "by": [
+     "X21"
+    ],
+    "original_sha256": "7f65556ce6b4209b9153f7e07876f10a091646c365059908fce64e1e815c6e5f",
+    "size": 6
+   },
+   "0x0007EE3B": {
+    "by": [
+     "player_model_drain_find"
+    ],
+    "original_sha256": "32aa12733891d171ee7b27c3c00f49781995493257c3c4c30a7a9f4d22ece413",
+    "size": 6
+   },
+   "0x0007EF80": {
+    "by": [
+     "player_model_target_search"
+    ],
+    "original_sha256": "1d704fc5381105aa859658774ed2b8e9bcb8704602e35120f273fe3aadb66cca",
+    "size": 5
+   },
+   "0x0007EF90": {
+    "by": [
+     "X36"
+    ],
+    "original_sha256": "ca09e466bf3b7ed5f5694d66e0c995a59ebbd9c2c901d8dee5a7aae9ed23d100",
+    "size": 2
+   },
+   "0x0007F08B": {
+    "by": [
+     "X36"
+    ],
+    "original_sha256": "3d9e37a61f0b6064d782fdacb99e012f47d2e7dd25674813aa7af29321859311",
+    "size": 8
+   },
+   "0x0007F09B": {
+    "by": [
+     "X36"
+    ],
+    "original_sha256": "c9c45b91095073443416c0c0d6739fb408c793c6fe230fc09b42dd8e3c4c64f4",
+    "size": 8
+   },
+   "0x0007F0AA": {
+    "by": [
+     "X36"
+    ],
+    "original_sha256": "18612ca1ce29d25877e3acb5b0a26b3c8fc52fcef17b33ddad8bfdd5779d9c78",
+    "size": 8
+   },
+   "0x0007F0B2": {
+    "by": [
+     "player_model_finish_range"
+    ],
+    "original_sha256": "a244bd18ac3857081fddf5e2479cec8eeaf8c41ce54790325810f64770b60bf1",
+    "size": 8
+   },
+   "0x00080C35": {
+    "by": [
+     "player_model_eye_sweep_sight"
+    ],
+    "original_sha256": "d539447614c07ff990f37ad8f871db15e53bbf43748080e822665097c060c70e",
+    "size": 5
+   },
+   "0x000810F3": {
+    "by": [
+     "player_model_eye_sweep"
+    ],
+    "original_sha256": "7a116a076cb6a735f4bb7060643d4c26ec95243de52579f8401cc7fbd6530711",
+    "size": 5
+   },
+   "0x00081292": {
+    "by": [
+     "player_model_eye_hang"
+    ],
+    "original_sha256": "b531e972baf5f4991fa9275e1d4c9e57f485d3ef12f51fde2a45b35c8deb8a23",
+    "size": 10
+   },
+   "0x00081891": {
+    "by": [
+     "player_model_water_push_ease"
+    ],
+    "original_sha256": "dd4f0e8d7b89b554c93f949ae84b24437c397398e8638fa82291e85fedc7ed0c",
+    "size": 7
+   },
+   "0x0008196F": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "d006b603551ffa7d993ceb61055e025d6e8f728e9cffca8682b8554c987b1b5b",
+    "size": 4
+   },
+   "0x000819C9": {
+    "by": [
+     "player_model_eye_sweep_regrow"
+    ],
+    "original_sha256": "782e1d4983e0b747016deca069e5340fb64a3fa02ce3849144e0bbe5b886f50b",
+    "size": 10
+   },
+   "0x00081BEA": {
+    "by": [
+     "player_model_water_push_latch"
+    ],
+    "original_sha256": "b8a5d0265e0faa12c1655cd9ccad8b515c3302d312e3425dd43a8a778d4c185e",
+    "size": 5
+   },
+   "0x00081FEB": {
+    "by": [
+     "player_model_water_push"
+    ],
+    "original_sha256": "3ff8a6722556c37cea11beaff00a7315392b1fda64bf807000942dee54b8903f",
+    "size": 5
+   },
+   "0x00084E59": {
+    "by": [
+     "player_model_climb_offsets"
+    ],
+    "original_sha256": "77fa9e3f49b7776cee8b77072cbad2a5b971805f01f7420f798c1ede2e3f1b8e",
+    "size": 5
+   },
+   "0x000854B4": {
+    "by": [
+     "player_model_attack_sets_white"
+    ],
+    "original_sha256": "67ad96f368332c8bb62666802d1b36252b36aee9a5656f8a1eac360171c999c7",
+    "size": 5
+   },
+   "0x00085A7C": {
+    "by": [
+     "player_model_air_blast_land1"
+    ],
+    "original_sha256": "db4b67b945a6d8050a3b097323e736456d2680a728d6c038a0bc57da3721c498",
+    "size": 5
+   },
+   "0x00085B65": {
+    "by": [
+     "player_model_air_blast_land2"
+    ],
+    "original_sha256": "e331c9c805dc7fe8398d77716221211dd66b5ed8ae12f1b078f71784e0bcf3c4",
+    "size": 5
+   },
+   "0x00085CD7": {
+    "by": [
+     "player_model_idle_pick"
+    ],
+    "original_sha256": "70f2108261407e2a7f3bf60a003daef5f6108eca4b5e03a7a1a2683bfa162b17",
+    "size": 5
+   },
+   "0x0008656D": {
+    "by": [
+     "X15 walkl"
+    ],
+    "original_sha256": "7b219ba45644bb0ba27dc3f8bbf53e82cb7863242f0383fe579cefc50dd476d2",
+    "size": 5
+   },
+   "0x000865C8": {
+    "by": [
+     "X15 walkr"
+    ],
+    "original_sha256": "9d793c8ca152f8df9d6bc8964e3b21adcfc46999924514ff0172427f87481d65",
+    "size": 5
+   },
+   "0x0008672A": {
+    "by": [
+     "player_model_hang_ease_ground"
+    ],
+    "original_sha256": "0d913f78117ebcc6ddfc58c3f35237b7025df8cc6c3993a73d5fb5f22e43110d",
+    "size": 5
+   },
+   "0x00086D9E": {
+    "by": [
+     "player_model_climb_rate_hoist"
+    ],
+    "original_sha256": "0858d5c19e80f449b00d9c53cdd3cb248e3ec856d77745565d4f56b94274b1cc",
+    "size": 5
+   },
+   "0x00086DAE": {
+    "by": [
+     "player_model_over_top_hoist"
+    ],
+    "original_sha256": "4916654ec11ddb90250c8e48dcaab9221e7b42dcb23dff92cbae6170a8b853ba",
+    "size": 5
+   },
+   "0x000870F7": {
+    "by": [
+     "player_model_climb_rate_latch"
+    ],
+    "original_sha256": "ec387e98bf72743bf253c2c2979dc1ce277d5d505feecc80c84dccdc22cb6bf0",
+    "size": 5
+   },
+   "0x00087444": {
+    "by": [
+     "player_model_climb_rate_jump_latch"
+    ],
+    "original_sha256": "f5cff2583a89d3cce73358d3c34f8afd82677a76784530d03d6557fe99bf90bb",
+    "size": 5
+   },
+   "0x00087929": {
+    "by": [
+     "player_model_climb_rate_down_edge"
+    ],
+    "original_sha256": "23e3a7011319b15a5baaf8a25723380c542aec71f03ddef25dbf3d4bcf7e4b0b",
+    "size": 5
+   },
+   "0x00087F55": {
+    "by": [
+     "player_model_climb_rate_up_edge"
+    ],
+    "original_sha256": "3242154ef78be2e07d4337f5b63350c0deaf093e02adabc2fc0b57e1705f789f",
+    "size": 5
+   },
+   "0x00087F65": {
+    "by": [
+     "player_model_over_top"
+    ],
+    "original_sha256": "13c30ce16a5cd26188cd18a62fdf9eea85f2b06af545ead896cb6767d8918873",
+    "size": 5
+   },
+   "0x000883CB": {
+    "by": [
+     "player_model_climb_loop"
+    ],
+    "original_sha256": "99b6418671010c31c1edf9d436ba9a7281ffdaa70ff689b082fd0917a7ad7484",
+    "size": 5
+   },
+   "0x00088733": {
+    "by": [
+     "player_model_climb_idle"
+    ],
+    "original_sha256": "20df946cc535bff12cd54443103a822cd85bdf836c5b55b498926d242fa2a761",
+    "size": 5
+   },
+   "0x000888C2": {
+    "by": [
+     "player_model_climb_use"
+    ],
+    "original_sha256": "ff10d98f1b232ce495ee515df624370a949d3dc83e43080377bda9b566ea1a0c",
+    "size": 8
+   },
+   "0x00088951": {
+    "by": [
+     "player_model_climb_victory"
+    ],
+    "original_sha256": "623886b1c6b7c6db7d1feb0c50dd17b9172621c0eb29972ea7c313f0fbb56765",
+    "size": 5
+   },
+   "0x00088958": {
+    "by": [
+     "player_model_climb_immune"
+    ],
+    "original_sha256": "bbb582b2e07f51559da8b4122f09e8bdd4723e2052b6b210c89b5c45906868b1",
+    "size": 9
+   },
+   "0x000889A6": {
+    "by": [
+     "player_model_attack_rotation"
+    ],
+    "original_sha256": "f55a6ad389230e9c09f3e5056c1c471223995d3c240b5ed3aa3213c78751c8a0",
+    "size": 5
+   },
+   "0x00088A3A": {
+    "by": [
+     "player_model_seek"
+    ],
+    "original_sha256": "3a1c0e9478f0f5c62994c1ad6a2c13ac1878c54b61f07104151fef7a704cfd25",
+    "size": 6
+   },
+   "0x00088A5E": {
+    "by": [
+     "player_model_fx_ring_spawn"
+    ],
+    "original_sha256": "b889f62524dee15267bd85668ede5336a8a10c11b124b1364baf821eacd46ad8",
+    "size": 5
+   },
+   "0x00088D78": {
+    "by": [
+     "player_model_attack_sets_search"
+    ],
+    "original_sha256": "4b12432ef757f23588216c24081d3c6d083b4db6fcf604e797fbe84ae4709d43",
+    "size": 5
+   },
+   "0x00089290": {
+    "by": [
+     "player_model_hang_ease_letgo"
+    ],
+    "original_sha256": "cc6c5e575305bdf3ccbfeb32db059414259e207d4ac9c6a1235e884274e030f7",
+    "size": 5
+   },
+   "0x000892AD": {
+    "by": [
+     "X15 jump"
+    ],
+    "original_sha256": "5a7feea0af8b0cb1c5fdcfefd33ba9a1018888240889d5028944362f1b75fbdc",
+    "size": 5
+   },
+   "0x0008944E": {
+    "by": [
+     "player_model_hang_ease_flap"
+    ],
+    "original_sha256": "01b210362950b8d99397c1352aa213dd7654bba128338f8c3c9c95b3a53518ea",
+    "size": 5
+   },
+   "0x00089466": {
+    "by": [
+     "X15 flap"
+    ],
+    "original_sha256": "5a7feea0af8b0cb1c5fdcfefd33ba9a1018888240889d5028944362f1b75fbdc",
+    "size": 5
+   },
+   "0x0008996D": {
+    "by": [
+     "player_model_hang_ease_airborne"
+    ],
+    "original_sha256": "3b53a056fd021bbe401911b52a31e7b29473d86137718d579231685fdf2d9244",
+    "size": 5
+   },
+   "0x00089982": {
+    "by": [
+     "player_model_attack_carry_land"
+    ],
+    "original_sha256": "cca9e0742e86f912f2d781da85dc7f9d2cf291d7418a317257aeb993d60d2d34",
+    "size": 5
+   },
+   "0x0008A4E3": {
+    "by": [
+     "player_model_climb_hang"
+    ],
+    "original_sha256": "4fa3d60f35d0229910f9c08ced6894ec4526332ad7130b7f974602ed50d26ff8",
+    "size": 5
+   },
+   "0x0008A4F0": {
+    "by": [
+     "player_model_hang_hold_setup"
+    ],
+    "original_sha256": "2b05b015768b38204c637a0446455635e425089009fb8a26844b18aaa7fbbefd",
+    "size": 5
+   },
+   "0x0008AB32": {
+    "by": [
+     "player_model_climb_ride"
+    ],
+    "original_sha256": "2e21a9c0da47be7a2d9c878381be1ee2dd162a8e660a6c745b6326349ba09123",
+    "size": 5
+   },
+   "0x0008AB3F": {
+    "by": [
+     "player_model_hang_hold_ride"
+    ],
+    "original_sha256": "c09cf6d79c8df91ff0fc10490e65940965feeaec9dc022f908545160fb1ad3f2",
+    "size": 5
+   },
+   "0x0008ADC2": {
+    "by": [
+     "X15 ouch"
+    ],
+    "original_sha256": "57c18b8d693fe60b2d5548c569c05e7f19c4716380a484f74064fcdeb409db84",
+    "size": 5
+   },
+   "0x0008B002": {
+    "by": [
+     "X15 walkl"
+    ],
+    "original_sha256": "7afd223efbce2bbd8afecd2700771ee38bfac25b843ac6b6c038ddad0bd39419",
+    "size": 5
+   },
+   "0x0008B0D4": {
+    "by": [
+     "player_model_climb_touchdown"
+    ],
+    "original_sha256": "dd37436525fbec0b9d612652fcb67d8bfca852fcc0daa1cb208a2e6c641dbcd2",
+    "size": 5
+   },
+   "0x0008B0DB": {
+    "by": [
+     "X15 landing"
+    ],
+    "original_sha256": "6bb4d8c6a840336ddc1b3285c75359473fb48e1091daacabd51b0a308fbe1c1c",
+    "size": 5
+   },
+   "0x0008B18C": {
+    "by": [
+     "player_model_climb_landing"
+    ],
+    "original_sha256": "15d916fb291c3b6155a2e8249578ec1d5cf8b0051feb59d840ca7ce5410e1a9b",
+    "size": 5
+   },
+   "0x0008B195": {
+    "by": [
+     "X15 landing"
+    ],
+    "original_sha256": "6bb4d8c6a840336ddc1b3285c75359473fb48e1091daacabd51b0a308fbe1c1c",
+    "size": 5
+   },
+   "0x0008B6CD": {
+    "by": [
+     "player_model_climb_rate_step_up"
+    ],
+    "original_sha256": "f78a657fa2528fb143f18e8d769819ee35acdc6af8b3196058f149366beb4582",
+    "size": 5
+   },
+   "0x0008BDF3": {
+    "by": [
+     "player_model_climb_move"
+    ],
+    "original_sha256": "ccd2174698f335ac9b28d210a193e381185dd28ee7d95ab184368582944e0e11",
+    "size": 5
+   },
+   "0x0008BF61": {
+    "by": [
+     "X15 fallingdeath"
+    ],
+    "original_sha256": "3faeceeb5f6bcf9ea126f2985614ebbdbe8958bda563bd030541fd54e12d0f93",
+    "size": 5
+   },
+   "0x0008C3B0": {
+    "by": [
+     "player_damage_marker"
+    ],
+    "original_sha256": "b7af020903e19b0d48a7f20e6e8c61acf54cbd06c808652f6ee1ba705dbd4278",
+    "size": 5
+   },
+   "0x0008C3C3": {
+    "by": [
+     "player_model_throw"
+    ],
+    "original_sha256": "d57a77a7f9818662aabda4b6bfdb2921f6c3ec67d888d8c45e1aca71f42336c2",
+    "size": 5
+   },
+   "0x0008C553": {
+    "by": [
+     "player_model_touch"
+    ],
+    "original_sha256": "568604adbe4f9a15da8dcb8c1c802a4c90b4377c915713eaca1e524cdad59222",
+    "size": 13
+   },
+   "0x0008C6AE": {
+    "by": [
+     "player_model_roll"
+    ],
+    "original_sha256": "062c4cd7c6714fe1c2790f0185f3ad9a71e443ae456a85be7b96a2daba4802a6",
+    "size": 5
+   },
+   "0x0008C728": {
+    "by": [
+     "player_model_attack_carry"
+    ],
+    "original_sha256": "1ee82367e504d5223ce085b8e6f2a66777b8533d4539cf5a2407b8f7c7283c7f",
+    "size": 5
+   },
+   "0x0008C9CC": {
+    "by": [
+     "X30"
+    ],
+    "original_sha256": "faa2259ad3d5ca423441776052466d7f8c8f09d4974018bf391109f34c07f680",
+    "size": 6
+   },
+   "0x0008CF84": {
+    "by": [
+     "player_model_victory_cancel"
+    ],
+    "original_sha256": "b57a228ced087145dd297d378ca3b16e21344fad6797570447f9a83f3f31d024",
+    "size": 6
+   },
+   "0x0008D091": {
+    "by": [
+     "player_model_hang_hold_tick"
+    ],
+    "original_sha256": "8fb224d38d7766a84f9a9bf06c32dcf164a945584d1568cd9f9b681c65768b26",
+    "size": 5
+   },
+   "0x0008D15A": {
+    "by": [
+     "player_model_attack_carry_ground_jump"
+    ],
+    "original_sha256": "9ec5e438a47f79b7d2595521ac4c2c832d0529cf2a5c9c538c6398b310314fcf",
+    "size": 5
+   },
+   "0x0008D38A": {
+    "by": [
+     "player_model_attack_carry_air"
+    ],
+    "original_sha256": "2cbd565a6ad3488057c4683a1a38b88d325cb63051bad334a9bbf83f9ff4f97c",
+    "size": 5
+   },
+   "0x0008D39A": {
+    "by": [
+     "player_model_air_blast_hold"
+    ],
+    "original_sha256": "023d72a4d73f419865c960f25bb35bdbaa3b1b53b4e8ab9641029e88388c6a42",
+    "size": 5
+   },
+   "0x0008D3E5": {
+    "by": [
+     "player_model_attack_carry_held_a"
+    ],
+    "original_sha256": "428d27854a43a4f6603ad3fef1dc0a391d61955dff051695b5b12fcaf4fe9bf3",
+    "size": 5
+   },
+   "0x0008D406": {
+    "by": [
+     "player_model_attack_carry_held_b"
+    ],
+    "original_sha256": "625790ecdc336582250c3d0678a5a204f4ad3a4b471e41e6c26f26a1c009bb00",
+    "size": 5
+   },
+   "0x0008D44D": {
+    "by": [
+     "player_model_air_blast"
+    ],
+    "original_sha256": "94273518b3ca7f42ed991e16c0464163336398c4f5e3d0172befee7aa7a45d20",
+    "size": 5
+   },
+   "0x0008D46F": {
+    "by": [
+     "player_model_attack_carry_jump"
+    ],
+    "original_sha256": "909f2065210727b2b4758f25d14e921882d66dee8e19ab8e77d66f0a6b754381",
+    "size": 5
+   },
+   "0x0008D682": {
+    "by": [
+     "player_model_hit_reaction"
+    ],
+    "original_sha256": "9e5623f2afbb257f1fdba373ddc700911248236f7aa1121f204da138afa27aa7",
+    "size": 5
+   },
+   "0x0008D6AF": {
+    "by": [
+     "player_model_fx_ring_hit"
+    ],
+    "original_sha256": "46820bd2c431ea45fd45a6c44b2bd261e7946a58c0152d23348989e74695eca2",
+    "size": 5
+   },
+   "0x000CAEC0": {
+    "by": [
+     "player_model_borrow_reuse"
+    ],
+    "original_sha256": "2cb6e37d87b9badff83287c5457ca41a7fd835304371041ff885e9eabdb14299",
+    "size": 6
+   },
+   "0x000CAF6B": {
+    "by": [
+     "player_model_borrow_bind"
+    ],
+    "original_sha256": "0e7336ee7a04ae6928ac704eeed4e57e3dccd561dbc4038b5ce95e60eac354a7",
+    "size": 5
+   },
+   "0x000CB5CB": {
+    "by": [
+     "player_model_jiggle"
+    ],
+    "original_sha256": "cf032f9017709aa5cb510ea8b698e35c4cf4e1eaca328f4eb1d586aed820f448",
+    "size": 5
+   },
+   "0x000FB9D6": {
+    "by": [
+     "X17"
+    ],
+    "original_sha256": "5e240018ef4491b674138d9ea7703cc49a03f5122fe0bb4dd4dd02eae35cb02e",
+    "size": 7
+   },
+   "0x0019814C": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "fca31f1667a6aa1bba12fca4e4ea1becd503379d80da3213af07f6cc5702828d",
+    "size": 4
+   },
+   "0x00198158": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "d99e58435243d9fef9c88273b8d553b4fba4d0baf8009d29eae74fa99e0d9f57",
+    "size": 4
+   },
+   "0x0019815C": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "d9fc8a51763953481a1808af3156bcb8144c2f925e96dec623c886f6d9d975b2",
+    "size": 4
+   },
+   "0x00198160": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "ea2845900b5856c9bf354b1aa9761b5aa6888e5ed61738fe9579ca42bc0f6054",
+    "size": 4
+   },
+   "0x00198164": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "80c8a717ccd70c8809eb78e6a9591c003e11c721fe0ccaf62fd592abda1a5593",
+    "size": 4
+   },
+   "0x00198168": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "80c8a717ccd70c8809eb78e6a9591c003e11c721fe0ccaf62fd592abda1a5593",
+    "size": 4
+   },
+   "0x0019816C": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "d88c86f15bbea365d658ad95a81d45367c465f7af6f7264fb077f01747ddc77d",
+    "size": 4
+   },
+   "0x00198170": {
+    "by": [
+     "X25"
+    ],
+    "original_sha256": "fedcca07b1ccdacce623cb6d8afdeed0314e8508d763e228871f18d4e0ebb7c4",
+    "size": 4
+   },
+   "0x001A2730": {
+    "by": [
+     "W40"
+    ],
+    "original_sha256": "8e215ece122cf70ebe3556a0318fa6c395d1766375c3edc080967e4a09592401",
+    "size": 4
+   }
+  }
+ },
  "symbols": {
   "CreateEventA": {
    "arg_bytes": 16,
@@ -3724,10 +5007,25 @@
    "convention": "cdecl",
    "va": "0x000E7334"
   },
+  "run_evict_all": {
+   "arg_bytes": 4,
+   "convention": "fastcall",
+   "va": "0x000A66C0"
+  },
+  "run_evict_until": {
+   "arg_bytes": 8,
+   "convention": "stdcall",
+   "va": "0x000A64D0"
+  },
   "run_pages_alloc": {
    "arg_bytes": 4,
    "convention": "stdcall",
    "va": "0x000BAB60"
+  },
+  "run_wheel_advance": {
+   "arg_bytes": 0,
+   "convention": "cdecl",
+   "va": "0x000A62B0"
   },
   "scene_state_tick": {
    "arg_bytes": 8,

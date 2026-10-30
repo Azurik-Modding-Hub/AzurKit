@@ -1,6 +1,6 @@
 """The shim engine (Steps 4.1f1, 4.1f2, 4.3a2): the prebuilt objects (AZ-045,
-D895) are their sources' builds and hold the oracle's G2 hashes, all fifty: the
-packs' ten and the player-model swap's forty; the headers a shim includes are written from the facts
+D895) are their sources' builds and hold the oracle's G2 hashes, all fifty-one: the
+packs' eleven and the player-model swap's forty; the headers a shim includes are written from the facts
 (AZ-099, Q85: no vendored header), and a shim built against them lands with
 each call at the facts' address (``core.coff``); the carve allocator places
 a shim past every claim the layers before it hold, in ``.text``'s gap or an
@@ -37,7 +37,7 @@ def test_each_prebuilt_shim_is_its_sources_build_and_holds_its_g2_hash(usa_iso):
     """Every shim source has its object beside it, which zig builds from it
     byte for byte (``shimkit --check``, D895: roll.c's table filled from the
     USA image, so the test is ``vanilla``), and whose normalized sha256
-    is the oracle's G2 record of Modkit's build: the packs' ten
+    is the oracle's G2 record of Modkit's build: the packs' eleven
     (``tools/mods/shims/<name>.c``, the shared kernel-export resolver's
     among them; G2 at the packs tag) and the swap's forty
     (``tools/characters/player_model/<stem>.c``, Modkit's, which the
