@@ -307,6 +307,22 @@ FAINT = """(graded = false) => {
         });
 }"""
 
+# Each grade's colour as drawn (its theme's --grade-*, else the engine's) and its contrast with each ground a models'
+# row can have (the pane, the zebra rows', the chosen row's): [grade, ground, ratio].
+GRADE_GROUNDS = """() => {
+    const hex = (text) => [1, 3, 5].map((i) => parseInt(text.trim().slice(i, i + 2), 16));
+    const lum = (c) => c.map((v) => v / 255).map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, v, i) => sum + [0.2126, 0.7152, 0.0722][i] * v, 0);
+    const css = (el, name) => getComputedStyle(el).getPropertyValue(name).trim();
+    const tab = document.getElementById("characters");
+    return Object.entries(azurkit.characters.state.view.colours).flatMap(([grade, colour]) =>
+        ["--pane", "--zebra", "--sel"].map((ground) => {
+            const [hi, lo] = [lum(hex(css(tab, `--grade-${grade}`) || colour)), lum(hex(css(tab, ground)))]
+                .sort((a, b) => b - a);
+            return [grade, ground, (hi + 0.05) / (lo + 0.05)];
+        }));
+}"""
+
 
 def _locks(page) -> dict[str, list]:
     """:data:`LOCKS`, once it holds that every pack's settings are locked
@@ -657,6 +673,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         for theme in ("dark", "light"):   # each grade's colour at least 4.5:1 on its row's ground, the chosen row's too
             graded = page.evaluate(FAINT, True)
             assert len(graded) > 178 and [(what, round(r, 2)) for what, r in graded if r < 4.5] == [], theme
+            assert [(g, on, round(r, 2)) for g, on, r in page.evaluate(GRADE_GROUNDS) if r < 4.5] == [], theme
             _page.click(page, "theme")
         assert page.evaluate(COMMUNITY) == [["beamlord", "community", "Install", []],
                                             ["tamper", "community", "Install", []]]
