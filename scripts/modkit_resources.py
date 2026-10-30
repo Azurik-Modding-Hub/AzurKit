@@ -39,6 +39,12 @@ without Azurik-Custom-Content's files (booblord's clips and WAVs), nor the
 townsfolk's bare-hands kit or the funnel on Europe, so a probe's hashes are
 Modkit's build of it here, at the bundle's commit.
 
+Last it writes ``matches.json`` beside ``OUT`` (Step 4.3d, P52): Modkit's
+G4 match values (``_player_match.garret_match``: Model size, Attack reach,
+Attack speed and Attack damage at Attack speed 1, each ``None`` with its
+reason where none matches) of each of :data:`MATCHES` on USA at the
+sliders' defaults, which AzurKit's ``sdk.match`` is held to.
+
     uv run --locked python scripts/<this file> OUT --bundle BUNDLE/models [--workers N]
 """
 
@@ -61,6 +67,8 @@ if str(_REPO) not in sys.path:
 G3 = {"usa": "tests/goldens/pipelines.json", "europe": "tests/goldens/europe/pipelines.json"}
 TIMEOUT = 600   # seconds a build, unless its spec says (booblord's 1,200)
 CHILD = "--child"   # argv[1] of one build's process: then its image, its spec and its folder
+MATCH = "--match"   # argv[1] of the G4 matches' process: then its image and the file it writes
+MATCHES = ("keylord", "beamlord")   # a species and a built-in variant (its recipe names no content file)
 PROBE = "probe"   # the probes' variant's name
 SUBDIVIDE = {"op": "subdivide", "name": "bust fine", "bone": "spine_2", "offset": [0.0719, 0.09, 0.02],
              "radius": [0.13, 0.17, 0.16], "edge": 0.02, "groups": [1, 4], "mirror": True}
@@ -179,6 +187,20 @@ def child(iso: str, spec: dict, job: Path) -> None:
     (job / "result.json").write_text(json.dumps({"files": files, "resources": resources}), encoding="utf-8")
 
 
+def match(iso: str, out: Path) -> None:
+    """Modkit's G4 match values of each of :data:`MATCHES` dressed from
+    ``iso`` at the sliders' defaults, written to ``out``."""
+    from azurik_mod.patches._player_match import garret_match
+    from azurik_mod.patches._player_variants import resolve
+
+    found = {}
+    for name in MATCHES:
+        m = garret_match(iso, name, variant=resolve(name))
+        found[name] = {"size": m.size, "reach": m.reach, "speed": m.speed, "damage": m.damage(1.0)[0],
+                       "why": dict(sorted(m.why.items()))}
+    out.write_text(json.dumps(found, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _prebuild(shims: Path) -> None:
     """Every shim object a build may link, compiled once into ``shims``
     before the children start (as G3's driver does: no two compile one)."""
@@ -265,11 +287,19 @@ def _built(args, jobs, isos, work: Path, g3) -> int:
     if not args.only:
         args.out.with_name("probes.json").write_text(json.dumps(built, indent=1, sort_keys=True) + "\n",
                                                      encoding="utf-8")
+        matched = work / "matches.json"
+        subprocess.run([sys.executable, __file__, MATCH, str(isos["usa"]), str(matched)], cwd=_REPO, env=env,
+                       check=True, timeout=TIMEOUT)
+        args.out.with_name("matches.json").write_text(json.dumps({"usa": json.loads(matched.read_text("utf-8"))},
+                                                                 indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     if sys.argv[1:2] == [CHILD]:
         child(sys.argv[2], json.loads(sys.argv[3]), Path(sys.argv[4]))
+        sys.exit(0)
+    if sys.argv[1:2] == [MATCH]:
+        match(sys.argv[2], Path(sys.argv[3]))
         sys.exit(0)
     sys.exit(main())

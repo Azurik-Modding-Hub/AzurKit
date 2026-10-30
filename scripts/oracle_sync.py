@@ -36,7 +36,7 @@ payloads), ``index.xbr``'s records, ``characters.xbr``'s bodies and clips
 and the body codec, and the townsfolk's bare-hands kit and the air
 elemental's funnel (our own Blender work, as they are, Step 4.3b2).
 
-Three of a family's files are the sync's own (:data:`DERIVED`), not Modkit's
+Four of a family's files are the sync's own (:data:`DERIVED`), not Modkit's
 bundle: the models family's ``swap.json``, the player-model swap's XBE hooks
 (the ``swap`` section of Modkit's facts, both releases: each vanilla span it
 writes as size and sha256, each address its shims call),
@@ -45,7 +45,8 @@ a model, which ``scripts/modkit_resources.py`` makes by running Modkit's own
 builds in the clone (checked against G3's per-file hashes first), and
 ``probes.json``, its builds of AzurKit's variant probes on both releases
 (a variant's mesh, paint and jiggle, Step 4.3c1: each probe's recipe, its
-files' sha256 and resources).
+files' sha256 and resources), and ``matches.json``, Modkit's G4 match
+values (``garret_match``, P52) of a species and a variant on USA (Step 4.3d).
 """
 
 from __future__ import annotations
@@ -82,7 +83,7 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
                "azurik_mod/xbr/clone.py", "azurik_mod/xbr/render.py", "azurik_mod/xbr/draw.py", "tests/facts", "tests/goldens/shims.json", "tests/goldens/pipelines.json",
                "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
 }
-DERIVED = {"models": ("probes.json", "resources.json", "swap.json")}   # the sync's own files (module docstring)
+DERIVED = {"models": ("matches.json", "probes.json", "resources.json", "swap.json")}   # the sync's own (docstring)
 SWAP = (("usa", "tests/facts/xbe.json"), ("europe", "tests/facts/xbe.europe.json"))   # Modkit's facts: swap.json's
 
 
@@ -138,16 +139,24 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
 #: picture's :func:`pixel_digest` and ``maps.json``'s sha256 (no picture is copied), which AzurKit's drawings
 #: are held to (``tests/test_art.py``).
 ART_FILES = {"rando": ("gui/assets/maps", "gui/assets/icons")}
-OURS = frozenset(f"{CHARACTERS}/{name}.py" for name in ("__init__", "content", "ports", "pool"))
+OURS = frozenset(f"{CHARACTERS}/{name}.py" for name in ("__init__", "content", "picker", "ports", "pool"))
 """AzurKit's own files in a folder a glob of :data:`SOURCES` installs into (:func:`installed`)."""
 OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py",   # AzurKit's own instead: tools/randomizer/dbcache.py
                  # the swap's: tools/characters/__init__.py, pool.py (no child processes: a host's map) and
                  # ports.py (what the swap calls of Modkit's engine, and the release a file is of); not on the
-                 # build path: _player_match.py (the model match, Modkit's authoring), filelist.py (its listing)
+                 # build path: filelist.py (its listing)
                  "azurik_mod/assets/__init__.py", "azurik_mod/assets/pool.py", "azurik_mod/assets/vanilla.py",
-                 "azurik_mod/assets/filelist.py", "azurik_mod/patches/_player_match.py"})
+                 "azurik_mod/assets/filelist.py"})
 FAMILY_REWRITES = {   # a family's own rewrites, applied before REWRITES
     "models": (  # the swap's engine calls: AzurKit's tools/characters/ports.py and core
+        # the G4 match (Step 4.3d, P52): garret_match dresses the staging its host hands it as ``iso``, the
+        # build's packs already applied there (sdk.match), so it stages and applies none of its own
+        ("    from azurik_mod.assets.model_inspect import DEFAULT_RAM, ram_packs\n", ""),
+        ("    from azurik_mod.patching.mod_apply import LayerLog, apply_enabled_packs, build_packs\n"
+         "    from azurik_mod.patching.xbr_staging import IsoStaging\n", ""),
+        ("game, logic = IsoStaging(Path(iso)), AttackLogic()", "game, logic = iso, AttackLogic()"),
+        ('        apply_enabled_packs(game["default.xbe"], build_packs(ram_packs(ram or DEFAULT_RAM)), {}, game, '
+         'LayerLog())\n', ""),
         ("from azurik_mod.assets.vanilla import xbe_layout\n", "from azurkit.core.facts import xbe_layout\n"),
         ("from azurik_mod.patching.xbe import resolve_va_to_file\n", "from azurkit.core.xbe import resolve_va_to_file\n"),
         ("from azurik_mod.xbr.edits import XbrStructuralError\n",
@@ -214,9 +223,10 @@ CONTENT = {"models": tuple(f"{ASSETS}{name}" for name in ("clips", "sounds", "fx
 """Modkit's files a family's swap reads that Azurik-Custom-Content carries
 (D869, D965: booblord's clips and voice, optional extras), each but those
 :data:`SOURCES` installs in the package (the townsfolk's kit, the air
-elemental's funnel): the sync installs each in the content folder
-(``tools/characters/content.py``, outside the repository) at its path below
-:data:`ASSETS`, and ORACLE.toml's ``<family>.content`` keeps its sha256."""
+elemental's funnel): ORACLE.toml's ``<family>.content`` keeps each one's
+sha256 at its path below :data:`ASSETS`, the pin Azurik-Custom-Content's
+files are held to; the sync writes no content folder (Step 4.3d: the
+Characters tab's Install does, ``tools/characters/content.py``)."""
 # A top-level tuple of byte-sized ints a family's module defines that holds such a run (the IMA ADPCM step
 # table, the codec's, which default.xbe's own decoder holds too): written as the ints of a string, by name.
 NUMBERS = {"azurik_mod/assets/xbox_adpcm.py": ("_STEP",)}
@@ -299,8 +309,8 @@ def write_index(index: dict[str, dict], path: Path = ORACLE / "ORACLE.toml") -> 
     lines = ["# Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of",
              "# tests/oracle/<family>/ against its sha256 here; <family>.source each file the sync installed",
              "# in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.art each picture's digest;",
-             "# <family>.content each file it installed in the content folder (CONTENT: Azurik-Custom-Content's,",
-             "# never committed)."]
+             "# <family>.content each of Modkit's files Azurik-Custom-Content carries (CONTENT: the pin its",
+             "# Install is held to, never committed)."]
     for family in sorted(index):
         entry = index[family]
         lines += ["", f"[{family}]", f"tag = {json.dumps(entry['tag'])}", f"commit = {json.dumps(entry['commit'])}",
@@ -555,24 +565,6 @@ def content_files(clone: Path, family: str) -> dict[str, bytes]:
             if not rel.startswith(shipped)}
 
 
-def content_folder() -> Path:
-    """The content folder a build reads (``azurkit.tools.characters.content.ROOT``)."""
-    from azurkit.tools.characters import content
-    return content.ROOT
-
-
-def install_content(files: dict[str, bytes], folder: Path, old: dict[str, str]) -> dict[str, str]:
-    """Write ``files`` into the content ``folder``, less each file the last
-    sync installed (``old``) that ``files`` no longer holds; returns
-    ``{path: sha256}``."""
-    for rel in sorted(set(old) - set(files)):
-        (folder / rel).unlink(missing_ok=True)
-    for rel, data in files.items():
-        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
-        (folder / rel).write_bytes(data)
-    return {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
-
-
 def derive(family: str, clone: Path, folder: Path, env: dict[str, str]) -> None:
     """Write the family's :data:`DERIVED` files into its bundle ``folder``,
     from Modkit's ``clone``: ``swap.json`` from its facts, ``resources.json``
@@ -641,10 +633,9 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             index[family] = {"tag": tag, "commit": commit, "files": tree_hashes(ORACLE / family)}
             index[family] |= {"source": source_hashes(family)} if family in SOURCES else {}
             index[family] |= {"art": art[family]} if art.get(family) else {}
-            if family in CONTENT:
-                folder = content_folder()
-                index[family]["content"] = install_content(content[family], folder, old.get("content", {}))
-                out.append(f"{family}: {len(content[family])} content files in {folder}")
+            if family in CONTENT:   # the pin; Azurik-Custom-Content's Install writes the player's folder (Step 4.3d)
+                index[family]["content"] = {rel: hashlib.sha256(data).hexdigest() for rel, data in content[family].items()}
+                out.append(f"{family}: {len(content[family])} content files pinned")
             out.append(f"{family}: {len(index[family]['files'])} files at {tag} ({commit[:12]})")
     write_index(index)
     return out

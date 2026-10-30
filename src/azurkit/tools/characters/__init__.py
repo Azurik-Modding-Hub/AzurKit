@@ -34,6 +34,12 @@ files a recipe names are read beside it), its shapes sized by ``shapes``
 variant's, and its scale and attack numbers multiply the variant's
 (:func:`variant`). The layer's recipe keeps the variant's sha and its
 notes the file's name, never its path (a build's manifest carries both).
+
+**The G4 match** (Step 4.3d, P52; Modkit's ``_player_match``, which the
+sync installs): :func:`match` gives the value each of Model size, Attack
+reach, Attack speed and Attack damage takes for the body to stand, reach,
+chain and deal damage as garret4 does, from one dress of it over the
+build's packs, and its picture (:mod:`.picker`).
 """
 
 from __future__ import annotations
@@ -265,6 +271,41 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     kept = {k: v for k, v in recipe.items() if k != "variant_file"} | ({"variant": worn.sha} if worn else {})
     layer = Layer(who, TOOL, KIND, kept, tuple(changes), claims)
     return layer, list(lines), reasons(recipe["species"], attack, worn.base if worn else None)
+
+
+MATCHED = ("scale", "attack_reach", "attack_speed", "attack_damage")
+"""The sliders a G4 button sets (Modkit's ``player_character_scale``, ``player_attack_*``)."""
+
+
+def match(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object] = ()) -> tuple[dict, object]:
+    """The G4 match of :func:`normalize`'s ``recipe`` (Modkit's
+    ``garret_match``, the Player page's buttons, D358) dressed over the
+    layers ``before`` it (the build's packs) on ``vanilla``'s release, and
+    the staging it dressed (its files, which :mod:`.picker` draws the worn
+    body from): ``{"values": {slider: value or None}, "why": {slider:
+    reason}}`` for each of :data:`MATCHED` (the damage's at the recipe's
+    Attack speed, a variant's each a multiplier of its recipe's), the body
+    at the other sliders as set; a variant is its recipe's, unshaped, as
+    Modkit's buttons read it. ``ValueError`` names why it can't dress."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import ports
+    from azurkit.tools.characters._player_match import garret_match
+
+    swap = _swap()
+    base = {f: vanilla.read(f) for f in (*READS, *sorted({c.file for la in before for c in la.changes} - {*READS}))}
+    taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
+    current, _ = compose(base, before)
+    staging = ports.IsoStaging(vanilla, {f: bytes(b) for f, b in current.items()})
+    with ports.building(ports.Build(vanilla, taken=list(taken), packs=dict(packs))):
+        worn = variants.resolve(recipe["species"], recipe.get("variant_file"))
+        found = garret_match(staging, recipe["species"], recipe.get("mode", swap.DEFAULT_MODE),
+                             recipe.get("size", swap.DEFAULT_SIZE), recipe.get("anims"), recipe.get("scale", 1.0),
+                             recipe.get("attack_reach", 1.0), recipe.get("attack_balance"),
+                             recipe.get("attack_ground"), worn, recipe.get("ram"))
+    damage, why = found.damage(recipe.get("attack_speed", 1.0))
+    names = dict(zip(("player_character_scale", "player_attack_reach", "player_attack_speed"), MATCHED))
+    reasons = {names[k]: v for k, v in found.why.items() if k in names} | ({"attack_damage": why} if why else {})
+    return {"values": dict(zip(MATCHED, (found.size, found.reach, found.speed, damage))), "why": reasons}, staging
 
 
 def packs_view(release: gate.Release, packs: Mapping[str, object]) -> dict[str, object]:

@@ -1,8 +1,8 @@
 # Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of
 # tests/oracle/<family>/ against its sha256 here; <family>.source each file the sync installed
 # in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.art each picture's digest;
-# <family>.content each file it installed in the content folder (CONTENT: Azurik-Custom-Content's,
-# never committed).
+# <family>.content each of Modkit's files Azurik-Custom-Content carries (CONTENT: the pin its
+# Install is held to, never committed).
 
 [models]
 tag = "oracle-models-3"
@@ -10,6 +10,7 @@ commit = "1648692dd458294f83333eed25c55889fb56718b"
 
 [models.files]
 "cases.json" = "03ce9d2fb3a1d3a60b0e01292fa23c957364b2f9a2346b2d04b5987799c2c03a"
+"matches.json" = "0d87252c0d1475815b19f8bfc34d5e24c78d63dc10245c960b04061c1c1d42b4"
 "oracle.json" = "fd1649c5b79358729117b8b0bae33c31cd85dda91d1f35e280d827435e6f0d34"
 "probes.json" = "4487db8847a712d1fb38dbbb8415e9e8504d8c0fdf9aaf7f2ff7f3392055ff68"
 "resources.json" = "42d719a61b8cef6d4166a16a5c3b21ad51bcb3182a70c61475fede3f5728c1bc"
@@ -29,6 +30,7 @@ commit = "1648692dd458294f83333eed25c55889fb56718b"
 "src/azurkit/tools/characters/_player_damage_marker.py" = "d2e53f8eb924fc1876f9e26fea922bf2168d7d849fc87bb0cbbc64eb5e9a9a5b"
 "src/azurkit/tools/characters/_player_fx_ring.py" = "0dc219918ad2238e631aeb17b90ad05403e2762cf25ea40247333623483feac3"
 "src/azurkit/tools/characters/_player_kit.py" = "47a945e080d4db9bab572abed9b3c8f2a433d0c129f390788e0c5e4a2d8614e1"
+"src/azurkit/tools/characters/_player_match.py" = "baf64c295faf97dccd8c23c7ff0801110d4a7a72940f81efaa5bc0ae7d34de6a"
 "src/azurkit/tools/characters/_player_power_fx.py" = "f9945fee4dffea0d3b9b8e22930d132f001098b3adbc4a268d5a8cf675018258"
 "src/azurkit/tools/characters/_player_slots.py" = "b196c40654be989ad55288c182848ae4e2d171f8a58d9c35ab57d679219d7c26"
 "src/azurkit/tools/characters/_player_sounds.py" = "75d7f67df74af26e73b83df327ac54f8fadbd5820a72953e1293c218d7c47eec"

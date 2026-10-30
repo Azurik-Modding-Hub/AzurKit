@@ -95,7 +95,7 @@ from azurkit.tools.randomizer import layer as rando_layer
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
            "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
-           "content", "content_install", "content_check"]
+           "content", "content_install", "content_check", "match"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -206,12 +206,7 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
         def judge(made: iso.Image, manifest: edits.Manifest) -> dict:
             return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
                                                         reasons)}
-    for name, pack in chosen.items():
-        try:
-            layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims],
-                                    inputs.get(name)))
-        except mods.PackError as exc:
-            failed.append(str(exc))
+    failed += _pack_layers(stamp, chosen, packs, base, layers, inputs)
     if character is not None and not failed:
         layer, lines, body = characters.plan(character, vanilla, layers,
                                              characters.packs_view(stamp.release, mods.PACKS), folded)
@@ -227,6 +222,60 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
     if failed:
         raise ValueError("; ".join(failed))
     return stamp, base, layers, judge, prepared
+
+
+def _pack_layers(stamp: gate.Stamp, chosen: Mapping, packs: Mapping, base: Mapping[str, bytes], layers: list[Layer],
+                 inputs: Mapping[str, dict] = {}) -> list[str]:
+    """Each ``chosen`` pack's layer appended to ``layers`` (past their
+    claims), in order; each pack's refusal, named."""
+    failed = []
+    for name, pack in chosen.items():
+        try:
+            layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims],
+                                    inputs.get(name)))
+        except mods.PackError as exc:
+            failed.append(str(exc))
+    return failed
+
+
+_MATCHES: dict[str, dict] = {}   # the G4 matches dressed in this process, by their recipe (a dress takes seconds)
+
+
+def match(recipe: Mapping) -> dict:
+    """The G4 buttons' values (P52, D358: Modkit's match-Garret) for
+    ``recipe``'s character dressed from its image over its packs:
+    ``{"values": {slider: value or None}, "text": {slider: what its box
+    shows: 4 figures rounded up, never short of garret4}, "why": {slider:
+    why none matches}}`` for Model size (``scale``), Attack reach, speed
+    and damage (at the recipe's Attack speed), each read at the other
+    sliders as set; garret4's own body matches at 1 throughout
+    (``tools.characters.match``). The answer of a recipe once matched is
+    kept for this process. A refusal names what can't dress."""
+    from azurkit.tools.characters import picker, ports
+
+    packs = _packs(recipe)
+    if "character" not in recipe:
+        raise ValueError("match: the recipe wears no character")
+    character = characters.normalize(recipe["character"])
+    if not isinstance(recipe.get("iso"), str):
+        raise ValueError("recipe: iso names no image")
+    stamp = gate.verify(recipe["iso"], whole=False)
+    key = json.dumps([str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
+    if key not in _MATCHES:
+        vanilla = ports.Vanilla(stamp.release, stamp.path)
+        chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
+        with iso.Reader(stamp.path) as r:
+            names = [f for pack in chosen.values() for f in pack.files()] + list(characters.READS)
+            base = {file: r.read(file) for file in dict.fromkeys(names) if file in stamp.release.files}
+        layers: list[Layer] = []
+        if failed := _pack_layers(stamp, chosen, packs, base, layers):
+            raise ValueError("; ".join(failed))
+        found, _ = characters.match(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
+        found["text"] = {k: picker.match_text(v) for k, v in found["values"].items() if v is not None}
+        while len(_MATCHES) >= 16:
+            _MATCHES.pop(next(iter(_MATCHES)))
+        _MATCHES[key] = found
+    return json.loads(json.dumps(_MATCHES[key]))
 
 
 def _report(made: edits.Manifest, prepared: generator.Prepared | None) -> dict:

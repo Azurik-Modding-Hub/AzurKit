@@ -314,3 +314,16 @@ bytes}``, what the page fetched of the entry and those it requires)
 every file verified as :func:`content_install` verifies it
 (``tools.characters.content.verify``): ``{"manifest", "install": [each
 entry's id it writes, those required first]}``, or the refusal named.
+
+
+def match(recipe: 'Mapping') -> 'dict':
+
+The G4 buttons' values (P52, D358: Modkit's match-Garret) for
+``recipe``'s character dressed from its image over its packs:
+``{"values": {slider: value or None}, "text": {slider: what its box
+shows: 4 figures rounded up, never short of garret4}, "why": {slider:
+why none matches}}`` for Model size (``scale``), Attack reach, speed
+and damage (at the recipe's Attack speed), each read at the other
+sliders as set; garret4's own body matches at 1 throughout
+(``tools.characters.match``). The answer of a recipe once matched is
+kept for this process. A refusal names what can't dress.

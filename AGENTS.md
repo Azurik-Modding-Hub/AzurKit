@@ -158,7 +158,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `resources.json`, which `scripts/modkit_resources.py` makes by running
     Modkit's own build of each G3 case that wears a model inside the
     sync's clone of Modkit (never in AzurKit); each built file's sha256
-    must be G3's, or the sync stops with nothing written; and
+    must be G3's, or the sync stops with nothing written;
+    `matches.json`, Modkit's match-Garret values (`garret_match`, P52: the
+    Characters tab's G4 buttons) of a species and a variant on USA, which
+    `sdk.match` is held to; and
     `probes.json`, its builds of AzurKit's probes
     (`modkit_resources.probes`: a variant's recipe no G3 case builds
     without Azurik-Custom-Content's files, and a townsman's and the air
@@ -450,6 +453,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     verdict Modkit's word for word.
   - Not here: a character in a share link or a build's mods file (the
     pickers' step, 4.3d): each is refused by name.
+  - **The match-Garret values** (Step 4.3d, P52, D358; the G4 buttons):
+    Modkit's `_player_match.py`, which the sync installs, its staging and
+    packs rewritten out (`FAMILY_REWRITES`): `characters.match` hands its
+    `garret_match` a staging of the image with the build's packs applied,
+    and `sdk.match` keeps each recipe's answer for the process (a dress
+    takes seconds).
   - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
     bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
     townsfolk's weapon, `bare_hands` and the spin attack,
@@ -465,12 +474,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     and voice (`clips/booblord/`, `sounds/booblord/`). It is the folder
     `AZURKIT_CONTENT` names, else `content` in the user data folder (beside
     the images' links), read once a process; the sync's `FIXES` point
-    `_player_variants`' `SOUNDS` and `CLIPS` at it. Until
-    Azurik-Custom-Content is published (4.4), the models family's sync
-    installs Modkit's files there at the family's commit
-    (`oracle_sync.CONTENT`, less what `SOURCES` ships) and ORACLE.toml's
-    `models.content` keeps each one's sha256. A build that needs a file the
-    folder lacks fails naming it.
+    `_player_variants`' `SOUNDS` and `CLIPS` at it. The models family's sync
+    writes no content folder (Step 4.3d): ORACLE.toml's `models.content`
+    pins Modkit's copies (`oracle_sync.CONTENT`, less what `SOURCES`
+    ships), which Azurik-Custom-Content's must equal, and Install (below)
+    writes the folder. A build that needs a file the folder lacks fails
+    naming it.
   - **Install and Update** (Step 4.3d, D913, D966): `content.check` reads
     Azurik-Custom-Content's `manifest.json` (its entries, each one's
     version and files with their sha256 and size, the entries it

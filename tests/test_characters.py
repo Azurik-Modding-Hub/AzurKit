@@ -542,6 +542,21 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
     assert "beamlord" not in content.installed()
 
 
+def test_the_g4_buttons_values_are_modkits_garret_match(usa_iso):
+    """``sdk.match`` (P52, D358; Modkit's ``_player_match``, the sync's): keylord's and beamlord's Model size,
+    Attack reach, speed and damage over the packs on by default are Modkit's ``garret_match`` exactly
+    (``matches.json``), each box's text 4 figures rounded up; garret4's own body matches at 1."""
+    packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+    keys = dict(zip(characters.MATCHED, ("size", "reach", "speed", "damage")))
+    for name, want in _oracle("matches.json")["usa"].items():
+        got = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": name}})
+        assert got["values"] == {k: want[v] for k, v in keys.items()} and got["why"] == want["why"], name
+        assert all(float(got["text"][k]) >= v and len(got["text"][k].replace(".", "").lstrip("0")) <= 4
+                   for k, v in got["values"].items()), name
+    garret = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": "garret4"}})
+    assert garret["values"] == dict.fromkeys(characters.MATCHED, 1.0) and garret["text"]["scale"] == "1"
+
+
 # --- the built-in variants, the effects templates and a seed with a character (Step 4.3c2) ----------------------
 
 SEEDED = "randomize-full:seed=0,all"
