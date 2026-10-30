@@ -29,14 +29,15 @@ export function tracker({ call, app, say, kept, keep }) {
   const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, queue: [], running: null,
               kept: kept ?? { plan: null, marks: {} }, live: null };
 
-  // The engine's asks, one at a time and in order (each click is one, sent with the marks the last answer gave);
-  // a plan opened meanwhile drops the asks of the one before it.
-  const ask = (extra = {}) => {
+  // The engine's asks, one at a time and in order (each click is one, sent with the marks the last answer gave;
+  // one made after a call waits for it); a plan opened meanwhile drops the asks of the one before it.
+  const ask = (extra = {}, after = null) => {
     if (!t.plan) return Promise.resolve();
-    t.queue.push({ plan: t.plan, extra });
+    t.queue.push({ plan: t.plan, extra, after });
     return t.running ??= (async () => {
       while (t.queue.length) {
-        const { plan, extra: next } = t.queue.shift();
+        const { plan, extra: next, after: before } = t.queue.shift();
+        await before;
         if (plan !== t.plan) continue;
         $("track-status").textContent = "…";
         const reply = await call("tracker", { given: { plan, marks: t.marks, spoiler: t.spoiler, ...next } });
@@ -178,7 +179,9 @@ export function tracker({ call, app, say, kept, keep }) {
       tr.dataset.key = row.key;
       const label = el("th", { scope: "row", textContent: row.label });
       label.style.paddingLeft = `${6 + 14 * depth}px`;
-      tr.append(label, ...columns.map((c) => el("td", { className: c, textContent: row[c] ?? "" })));
+      // a Where cut short by its column's width is read whole in its tip
+      tr.append(label, ...columns.map((c) => el("td", { className: c, textContent: row[c] ?? "",
+                                                         ...(c === "where" && row.where ? { title: row.where } : {}) })));
       body.append(tr);
       for (const child of row.children) add(child, depth + 1);
     };
@@ -219,14 +222,20 @@ export function tracker({ call, app, say, kept, keep }) {
     $("track-find").disabled = true;
     $("track-dot").textContent = $("track-line").textContent = "";
     $("track-dot").className = "";
-    call("live", { on: false });
-    ask();   // the reach holds the marks' levels alone again
+    return ask({}, call("live", { on: false }));   // the reach holds the marks' levels alone, once the feed is gone
   };
 
   // What the app read: the status's dot and line, the player's level (the world map's ring, a level's "you are
-  // here", Follow's map) and the levels row's warning while xemu runs another seed or build.
+  // here", Follow's map) and the levels row's warning while xemu runs another seed or build. An error that ended
+  // the feed turns Live off, the reach back on the marks alone, and says why (Modkit's).
   const seeLive = (live) => {
     if (!live) return;
+    if (live.status === "stopped") {
+      $("track-live").checked = false;
+      liveOff();
+      $("track-line").textContent = $("track-line").title = live.text;
+      return;
+    }
     const was = t.live.here;
     t.live.seen = live.seen;
     t.live.here = live.here ? live.seen.level : null;

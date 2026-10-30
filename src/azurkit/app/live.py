@@ -49,6 +49,7 @@ class Feed:
         self.seen: game.Reading | None = None      # the newest settled one with the player on a level
         self.status, self.text, self.which, self.paused, self.unpaired = "connecting", "Looking for xemu…", "", False, 0
         self.last: tuple[str, str, float] | None = None   # the last take: its item, its level, when
+        self.session: game.Session | None = None          # the one reading the game now (None: none)
         self.thread = threading.Thread(target=self._run, name="azurkit-live", daemon=True)
 
     def start(self) -> Feed:
@@ -58,15 +59,28 @@ class Feed:
     def stop(self) -> None:
         self.stopped.set()
 
+    def resync(self) -> None:
+        """The tracker was reset: the game is read again (Modkit's ``Session.resync``)."""
+        with self.lock:
+            if self.session is not None:
+                self.session.resync()
+
+    def keep(self, journal: Mapping) -> None:
+        """The tracker's journal after an ask (its saved slot, its newest live mark), which the next session
+        opens on (Modkit's, refreshed at every change)."""
+        with self.lock:
+            self.journal = dict(journal)
+
     def _say(self, status: str, text: str) -> None:
         with self.lock:
             self.status, self.text = status, text
 
     def _run(self) -> None:
         while not self.stopped.is_set():
+            with self.lock:
+                journal = self.journal
             try:
-                session = game.Session(link.open_first(link.endpoints(saved=self.endpoints)), self.spots,
-                                       self.journal)
+                session = game.Session(link.open_first(link.endpoints(saved=self.endpoints)), self.spots, journal)
             except link.LiveError as exc:
                 self._say("connecting", str(exc))
                 self.stopped.wait(RETRY_S)
@@ -74,6 +88,8 @@ class Feed:
             except Exception as exc:   # noqa: BLE001 (the feed ends and says why, as Modkit's does)
                 return self._say("stopped", f"Live stopped: {exc}")
             self.which = session.describe()
+            with self.lock:
+                self.session = session
             try:
                 while not self.stopped.is_set():
                     self._update(session.poll())
@@ -85,6 +101,8 @@ class Feed:
             except Exception as exc:   # noqa: BLE001
                 return self._say("stopped", f"Live stopped: {exc}")
             finally:
+                with self.lock:
+                    self.session = None
                 session.close()
 
     def _update(self, u: game.Update) -> None:
@@ -121,13 +139,15 @@ class Feed:
     def take(self) -> tuple[list, dict]:
         """The events since the last take, and what the page shows of Live: the status and its line, where
         Live last saw the player (``seen``: the level, the place in metres and the way they face; None) and
-        whether they stand there now (``here``), the element levels the game last held (``kit``) and its
-        inventory (``held``, the Table's In game column)."""
+        whether they stand there now (``here``: not once the link is lost), the element levels the game last
+        held (``kit``), its inventory (``held``, the Table's In game column) and the saved slot the newest
+        reading shows (``slot``; None: none), which the tracker's journal keeps (Modkit's)."""
         with self.lock:
             events, self.events = self.events, []
             r, seen = self.reading, self.seen
             return events, {
                 "status": self.status, "text": self.text, "unpaired": self.unpaired,
-                "here": r is not None and r.settled and seen is r,
+                "here": r is not None and r.settled and seen is r and self.status in ("live", "warn"),
                 "seen": None if seen is None else {"level": seen.level, "at": list(seen.at), "yaw": seen.yaw or 0.0},
-                "kit": dict(self.kit), "held": dict(r.inv) if r is not None and r.inv and not r.mismatch else {}}
+                "kit": dict(self.kit), "held": dict(r.inv) if r is not None and r.inv and not r.mismatch else {},
+                "slot": r.slot if r is not None and game.is_slot(r.slot) else None}

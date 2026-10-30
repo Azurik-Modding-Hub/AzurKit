@@ -351,7 +351,10 @@ class Server(http.server.ThreadingHTTPServer):
         """``api/tracker``: what the tracker shows (``sdk.tracker``), one ask
         at a time; with Live on for its plan, Live's events since the last
         ask merged into its marks, the reach holding the element levels the
-        game holds, and Live's status (``live``)."""
+        game holds, and Live's status (``live``). As Modkit's: the marks keep
+        the saved slot the game last showed, the next session opens on their
+        journal (a lost link, Live off and on), and Reset reads the game
+        again."""
         given = body.get("given")
         with self.tracking:
             feed = self.feed
@@ -359,7 +362,15 @@ class Server(http.server.ThreadingHTTPServer):
             if feed is None or not isinstance(plan, dict) or plan.get("sha256") != feed.sha256:
                 return sdk.tracker(given)
             events, seen = feed.take()
+            slot = seen.pop("slot")
             out = tracking.view({**given, "kit": seen.pop("kit"), "held": seen.pop("held")}, events)
+            t = tracking.tracker_of(plan)
+            if slot is not None and slot != t.slot:
+                t.slot = slot
+                out["marks"] = t.state()
+            if given.get("reset"):
+                feed.resync()
+            feed.keep(t.journal())
             return out | {"live": seen}
 
     def live(self, body: dict) -> dict:

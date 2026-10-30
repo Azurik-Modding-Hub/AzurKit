@@ -383,10 +383,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     and each `api/tracker` ask merges its events and the element levels the
     game holds and returns `live` (the status, where it saw the player),
     which the page asks for every 0.7 s; Follow shows the player's level,
-    Find me (key F) shows it once. The level maps and item icons drawn from
-    the player's image wait for P3's node-type names table (a spot's place
-    needs its record's transform); the icons are the page's own drawings
-    (D3) until then.
+    Find me (key F) shows it once. As Modkit's: the marks keep the saved
+    slot the game last showed, each session Live opens (the link back, Live
+    off and on) checks the game against their journal (that slot, the
+    newest live mark's day clock), Reset with Live on reads the game again,
+    and an error that ends the feed turns Live off. The level maps and item
+    icons drawn from the player's image wait for P3's node-type names table
+    (a spot's place needs its record's transform); the icons are the page's
+    own drawings (D3) until then.
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,

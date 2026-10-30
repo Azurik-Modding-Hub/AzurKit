@@ -281,13 +281,11 @@ p.views { margin: 0; padding: 2px 10px; }
 }
 :root[data-theme="light"] .tracker { --near: #1a7f37; --skip: #b35900; --far: #57606a; --live: #0969da; }
 .tracker > p, #track-body > p { margin: 0; }
-.tracker .open { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-.tracker .open input { max-width: 13rem; }
 #track-head, #track-levels { padding: 2px 10px; }
 #track-levels.other { color: var(--error); }
 .tracker .count { padding: 2px 10px; font-weight: 700; font-size: 12.5px; }
 #track-status { font-family: var(--mono); }
-#track-endpoints { width: 14rem; }
+#track-endpoints { width: 18rem; }
 #track-dot { font-size: 11px; }
 #track-dot.live { color: var(--near); } #track-dot.warn, #track-dot.lost { color: var(--air); }
 #track-dot.other { color: var(--error); }
@@ -306,10 +304,10 @@ p.views { margin: 0; padding: 2px 10px; }
 .world .cell .tally { font: 10.5px var(--mono); color: var(--muted); }
 .world .badge {
   position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px;
-  font: 700 10.5px/18px var(--mono); text-align: center; color: #fff; background: var(--soft);
+  font: 700 10.5px/18px var(--mono); text-align: center; color: var(--text); background: var(--soft);
 }
 .world .badge:empty { display: none; }
-.world .badge.near { background: var(--near); } .world .badge.skip { background: var(--skip); }
+.world .badge.near { color: #fff; background: var(--near); } .world .badge.skip { color: #fff; background: var(--skip); }
 .level { padding: 0 10px 10px; }
 .level .rando-row { padding: 4px 0; }
 .level .you { color: var(--live); font-weight: 700; }
@@ -350,11 +348,19 @@ p.views { margin: 0; padding: 2px 10px; }
 .glyph.acid_block { background: #b5e853; border-radius: 2px; box-shadow: inset 0 0 0 2px #6e8f22; }
 .glyph.smash_wall { background: repeating-linear-gradient(0deg, #c08050 0 3px, #6b4426 3px 4px); border-radius: 1px; }
 .glyph.crystal { background: #4fd1c5; clip-path: polygon(50% 0, 80% 30%, 65% 100%, 35% 100%, 20% 30%); }
+/* The light theme's fills for the pale ones, at least 3:1 on a light row (an outline would be clipped away) */
+:root[data-theme="light"] .glyph.key { background: #9a6700; }
+:root[data-theme="light"] .glyph.gem_diamond { background: #6f86a3; }
+:root[data-theme="light"] .glyph.power_ammo { background: #6e7781; }
+:root[data-theme="light"] .glyph.ice_block { background: #3d8fc6; box-shadow: inset 0 0 0 2px #1f6aa0; }
+:root[data-theme="light"] .glyph.acid_block { background: #6e9a1a; box-shadow: inset 0 0 0 2px #4a6a10; }
+:root[data-theme="light"] .glyph.crystal { background: #1a9488; }
 .tables { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 6px 10px 10px; }
 .tables table { border-collapse: collapse; font: 11px var(--mono); }
 .tables th, .tables td { height: 20px; padding: 0 6px; border-bottom: 1px solid var(--soft); white-space: nowrap; }
-.tables thead th { position: sticky; top: 0; color: var(--muted); background: var(--bar); font-weight: 600; text-align: right; }
-.tables thead th:first-child, .tables tbody th { text-align: left; }
+/* the column heads stay in view under the tab's caption (27 px) as the Table scrolls */
+.tables thead th { position: sticky; top: 27px; color: var(--muted); background: var(--bar); font-weight: 600; text-align: right; }
+.tables thead th:first-child, .tables thead th.where, .tables tbody th { text-align: left; }
 .tables tbody th { font-weight: 400; }
 .tables tr.group th, .tables tr.sum th, .tables tr.sum td { font-weight: 700; }
 .tables td { text-align: right; font-variant-numeric: tabular-nums; }

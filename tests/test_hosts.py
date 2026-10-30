@@ -683,9 +683,10 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
     Modkit's verdicts with that kit), the status line names the level and
     the last take, Follow shows the player's level with "you are here" and
     Find me shows it again; another seed's game is named (red), a lost link
-    says so and keeps the marks, and Live off gives the marks' tracker
-    again. Endpoints Live can't read (a gdbstub, D257) are refused by name.
-    The game is a scripted session (Modkit's ``live.Session``'s updates);
+    says so and keeps the marks, and Live reconnects on the marks' journal;
+    an error that ends Live unticks it, says why and gives the marks'
+    tracker again (Modkit's). Endpoints Live can't read (a gdbstub, D257)
+    are refused by name. The game is a scripted session (Modkit's ``live.Session``'s updates);
     Modkit's own Follower and reads, installed by the sync, give the events
     (R1.41b's two recordings replayed through them mark what Modkit's mark:
     the step's evidence)."""
@@ -698,13 +699,17 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
     level, kit = sdk.tracker({"plan": doc})["spots"][near]["level"], {"air": 0, "water": 1, "fire": 1, "earth": 0}
     at = game.Reading("running", game.REGIONS[0], level=level, settle=1, at=(1.0, 2.0, 3.0), yaw=0.5,
                       inv={"level.water": 1, "level.fire": 1, "obsi": 2})
-    gates = {"other": threading.Event(), "lost": threading.Event()}
+    gates = {"other": threading.Event(), "lost": threading.Event(), "broken": threading.Event()}
+    opened = []
 
     class Session:   # a running game, scripted: a take, the player standing, another seed's level, the link lost
         period = 0.02
 
-        def __init__(self, opened, spots, journal):
-            assert (opened, journal) == ("xemu", {"slot": None, "newest": None})
+        def __init__(self, xemu, spots, journal):
+            opened.append((xemu, dict(journal)))
+            if len(opened) > 1:   # the link back, broken: an error Live doesn't go on from
+                gates["broken"].wait(60)
+                raise RuntimeError("the scripted xemu broke")
             self.left = [game.Update(at, (game.Took(near, 0.5),))]
 
         def describe(self) -> str:
@@ -766,10 +771,209 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
         gates["lost"].set()
         _page.until(page, "() => document.getElementById('track-dot').className === 'lost'")
         assert page.evaluate("() => azurkit.tracker.state.marks") == {"collected": [near], "live": {near: 0.5}}
-        _page.click(page, "track-live")
-        _page.until(page, "() => !azurkit.tracker.state.live && !azurkit.tracker.state.running")
+        gates["broken"].set()
+        _page.until(page, "() => !document.getElementById('track-live').checked && !azurkit.tracker.state.live"
+                          " && !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length")
+        assert page.evaluate("() => document.getElementById('track-line').textContent") == (
+            "Live stopped: the scripted xemu broke")
+        assert opened == [("xemu", {"slot": None, "newest": None}), ("xemu", {"slot": None, "newest": 0.5})]
         assert tracking.digest(page.evaluate("() => azurkit.tracker.state.view")) == tracking.digest(
             sdk.tracker({"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}}))
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
+def test_live_opens_each_session_on_the_marks_journal_and_reads_the_game_again_after_a_reset(tmp_path, monkeypatch):
+    """Step 4.2c2's review (Modkit's tracker window): with Live on, the
+    marks keep the saved slot the game last showed, and each session Live
+    opens (the link back after it was lost, Live off and on) checks the
+    game against the marks' journal (that slot, the newest live mark's day
+    clock): an earlier save of that slot loaded meanwhile unmarks what Live
+    marked after it (Modkit's Follower gives the Reload). Reset with Live on
+    reads the game again, so what the game holds is marked again at the
+    next poll. Once the link is lost, the player isn't placed ("here")."""
+    from azurkit.tools.randomizer.live import game, link
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(app.live, "RETRY_S", 0.05)
+    doc = _profile("default")
+    spots = sdk.tracker({"plan": doc})["spots"]
+    near = sorted(loc for loc, s in spots.items() if s["state"] == "near")[0]
+    table = game.spot_table(tracking.tracker_of(doc))
+    field = {s.loc: s.field for s in table.spots}
+    held = next(s.loc for s in table.spots if s.field and s.field != field[near])   # an item the game holds
+    slot = "u:\\AAAAAAAAAAAA\\"
+    gates, opened, resynced = {"lost": threading.Event(), "back": threading.Event()}, [], []
+
+    def reading(clock: float, inv: dict) -> game.Reading:
+        return game.Reading("running", game.REGIONS[0], level=spots[near]["level"], settle=1, clock=clock, slot=slot,
+                            inv=inv, at=(1.0, 2.0, 3.0), yaw=0.0)
+
+    class Session:   # the first: a take at day clock 0.3; the next: that slot's earlier save (0.1), read by Modkit's
+        period = 0.02
+
+        def __init__(self, xemu, spots, journal):
+            opened.append(dict(journal))
+            self.first, self.follower, self.took = len(opened) == 1, game.Follower(spots, journal), False
+
+        def describe(self) -> str:
+            return "xemu, scripted"
+
+        def poll(self):
+            if not self.first:
+                r = reading(0.1, {field[held]: 1})
+                return game.Update(r, tuple(self.follower.step(r)))
+            if gates["lost"].is_set():
+                raise link.LinkLost("xemu quit")
+            took, self.took = () if self.took else (game.Took(near, 0.3),), True
+            return game.Update(reading(0.3, {}), took)
+
+        def resync(self) -> None:
+            resynced.append(len(opened))
+            self.follower.resync.set()
+
+        def close(self) -> None:
+            pass
+
+    def open_first(endpoints):
+        if gates["lost"].is_set() and not gates["back"].is_set():
+            raise link.LiveError("no xemu answers")
+        return "xemu"
+
+    monkeypatch.setattr(game, "Session", Session)
+    monkeypatch.setattr(link, "open_first", open_first)
+    server, marks = app.serve(_page.WEB), {}
+
+    def ask(**extra) -> dict:
+        nonlocal marks
+        replies = []
+        _post(server.url, "api/tracker", {"given": {"plan": doc, "marks": marks, **extra}}, replies)
+        marks = replies[0]["marks"]
+        return replies[0]
+
+    def until(test) -> dict:
+        end = time.monotonic() + 60
+        while not test(reply := ask()) and time.monotonic() < end:
+            time.sleep(0.05)
+        return reply
+
+    try:
+        _post(server.url, "api/live", {"on": True, "plan": doc, "marks": {}}, replies := [])
+        assert replies == [{}]
+        reply = until(lambda r: r["marks"].get("live"))
+        assert (reply["marks"], reply["live"]["here"]) == ({"collected": [near], "live": {near: 0.3}, "slot": slot}, True)
+        gates["lost"].set()
+        reply = until(lambda r: r["live"]["status"] == "connecting")
+        assert (reply["marks"]["collected"], reply["live"]["here"]) == ([near], False)
+        gates["back"].set()
+        reply = until(lambda r: near not in r["marks"]["collected"])
+        assert opened == [{"slot": None, "newest": None}, {"slot": slot, "newest": 0.3}]
+        assert near not in reply["marks"]["collected"] and held in reply["marks"]["collected"]
+        assert ask(reset=True)["marks"] == {"collected": [], "slot": slot} and resynced == [2]
+        assert held in until(lambda r: held in r["marks"]["collected"])["marks"]["collected"]
+        _post(server.url, "api/live", {"on": False}, [])
+        _post(server.url, "api/live", {"on": True, "plan": doc, "marks": marks}, [])
+        end = time.monotonic() + 60
+        while len(opened) < 3 and time.monotonic() < end:
+            time.sleep(0.05)
+        assert opened[2:] == [{"slot": slot, "newest": None}]
+    finally:
+        _post(server.url, "api/live", {"on": False}, [])
+        server.close()
+
+
+# The tracker's looks (Step 4.2c2's looks seat), as the page measures them: WCAG's contrast ratio of each world-map
+# badge's text and of each flat-filled item icon (the Settings item rows', a level's chips') with the ground it sits
+# on, [what, ratio]; whether the plan file's control is the tab's button (no native "No file chosen"); and the width
+# the Endpoints field's placeholder needs, and the room the field has for it.
+TRACKER_LOOKS = """() => {
+    const rgb = (text) => text.match(/[\\d.]+/g).slice(0, 3).map(Number);
+    const lum = (c) => c.map((v) => v / 255).map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, v, i) => sum + [0.2126, 0.7152, 0.0722][i] * v, 0);
+    const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+    const flat = (bg) => bg !== "transparent" && !/^rgba\\(.*, 0\\)$/.test(bg);
+    const ground = (el) => {
+        for (; el; el = el.parentElement) if (flat(getComputedStyle(el).backgroundColor)) return rgb(getComputedStyle(el).backgroundColor);
+    };
+    const badges = [...document.querySelectorAll("#track-world .badge")].filter((b) => b.checkVisibility())
+        .map((b) => [`${b.closest(".cell").dataset.level} ${b.className}`, ratio(rgb(getComputedStyle(b).color),
+                                                                              rgb(getComputedStyle(b).backgroundColor))]);
+    const icons = [...document.querySelectorAll("#rando-items .glyph, #track-level .glyph:not(.dot)")]
+        .filter((g) => flat(getComputedStyle(g).backgroundColor))
+        .map((g) => [g.className, ratio(rgb(getComputedStyle(g).backgroundColor), ground(g.parentElement))]);
+    const open = document.getElementById("track-open"), ends = document.getElementById("track-endpoints");
+    const style = getComputedStyle(ends), pen = document.createElement("canvas").getContext("2d");
+    pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    return { badges, icons, file: [open.checkVisibility(), open.closest("label").checkVisibility(),
+                                   open.closest("label").innerText.trim()],
+             endpoints: [pen.measureText(ends.placeholder).width,
+                         ends.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)] };
+}"""
+# The Table with Spoiler on: each Where cell's text and tip, and how far the Where head's text sits from its cells'
+# text (px); then scrolled down its tab, whether the Level table's column heads are still what shows at their place.
+TRACKER_TABLE = """() => {
+    const left = (el) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().left; };
+    const where = [...document.querySelectorAll("#track-items td.where")];
+    const cell = where.find((c) => c.textContent);
+    return [where.filter((c) => c.textContent).map((c) => [c.textContent, c.title]),
+            Math.abs(left(document.querySelector("#track-items th.where")) - left(cell))];
+}"""
+TRACKER_HEADS = """() => {
+    const pane = document.getElementById("randomizer");
+    pane.scrollTop = 600;
+    return [pane.scrollTop, [...document.querySelectorAll("#track-places thead th")].every((th) => {
+        const box = th.getBoundingClientRect();
+        return document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)?.closest("th") === th;
+    })];
+}"""
+
+
+def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_whole(browser, tmp_path, monkeypatch):
+    """Step 4.2c2's looks (in the app's page, the site's the same): in the
+    light theme each world-map badge's count reads (at least 4.5:1) and
+    each item icon stands out from its row or chip (at least 2:1); the plan
+    file's control is the tab's "Open a plan file…" button, with no native
+    "No file chosen" beside a tracked plan; the Endpoints field holds its
+    whole placeholder; with Spoiler on the Table's Where head sits over its
+    cells' text and a Where cut short shows whole in its tip; and scrolled
+    down, the Level table's column heads stay in view under the tab's
+    caption."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    doc = _profile("default")
+    (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
+    level = next(s["level"] for s in sdk.tracker({"plan": doc, "spoiler": True})["spots"].values() if s["icon"] == "key")
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "theme")
+        _page.click(page, "tab-randomizer")
+        _page.until(page, "() => document.documentElement.dataset.theme === 'light' "
+                          "&& document.querySelectorAll('#rando-items .glyph').length")
+        _page.click(page, "rando-view-tracker")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running")
+        _page.click(page, "track-spoiler")
+        page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
+        _page.until(page, "() => !azurkit.tracker.state.running && document.querySelector('#track-level .glyph.key')"
+                          " && document.querySelector('#track-world .badge:not(.near):not(.skip):not(:empty)')")
+        page.evaluate("() => document.querySelector('#track-level .back').click()")
+        looks = page.evaluate(TRACKER_LOOKS)
+        page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
+        looks["icons"] += page.evaluate(TRACKER_LOOKS)["icons"]
+        assert [b for b in looks["badges"] if b[1] < 4.5] == [] and len(looks["badges"]) == len(
+            sdk.tracker({"plan": doc})["status"]["levels"])
+        assert [i for i in looks["icons"] if i[1] < 2] == [] and {"glyph key", "glyph gem_diamond", "glyph power_ammo",
+            "glyph ice_block", "glyph acid_block", "glyph crystal"} <= {i[0] for i in looks["icons"]}
+        assert looks["file"] == [False, True, "Open a plan file…"]
+        assert looks["endpoints"][0] <= looks["endpoints"][1], looks["endpoints"]
+        _page.click(page, "track-table")
+        where, apart = page.evaluate(TRACKER_TABLE)
+        assert where and all(text == tip for text, tip in where) and apart < 1, (where, apart)
+        assert page.evaluate(TRACKER_HEADS) == [600, True]
         _page.check_csp(page)
         page.close()
     finally:
