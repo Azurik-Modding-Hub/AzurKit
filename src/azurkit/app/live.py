@@ -139,15 +139,16 @@ class Feed:
     def take(self) -> tuple[list, dict]:
         """The events since the last take, and what the page shows of Live: the status and its line, where
         Live last saw the player (``seen``: the level, the place in metres and the way they face; None) and
-        whether they stand there now (``here``: not once the link is lost), the element levels the game last
-        held (``kit``), its inventory (``held``, the Table's In game column) and the saved slot the newest
-        reading shows (``slot``; None: none), which the tracker's journal keeps (Modkit's)."""
+        whether they stand there now (``here``: not once the link is lost; on another seed or build too, as
+        Modkit places them), the element levels the game last held (``kit``), its inventory (``held``, the
+        Table's In game column) and the saved slot the newest reading shows (``slot``; None: none), which the
+        tracker's journal keeps (Modkit's)."""
         with self.lock:
             events, self.events = self.events, []
             r, seen = self.reading, self.seen
             return events, {
                 "status": self.status, "text": self.text, "unpaired": self.unpaired,
-                "here": r is not None and r.settled and seen is r and self.status in ("live", "warn"),
+                "here": r is not None and r.settled and seen is r and self.status in ("live", "warn", "other"),
                 "seen": None if seen is None else {"level": seen.level, "at": list(seen.at), "yaw": seen.yaw or 0.0},
                 "kit": dict(self.kit), "held": dict(r.inv) if r is not None and r.inv and not r.mismatch else {},
                 "slot": r.slot if r is not None and game.is_slot(r.slot) else None}

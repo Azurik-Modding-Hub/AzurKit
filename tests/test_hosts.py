@@ -884,6 +884,20 @@ def test_live_opens_each_session_on_the_marks_journal_and_reads_the_game_again_a
         server.close()
 
 
+
+def test_live_places_the_player_while_xemu_runs_another_seed_or_build():
+    """Step 4.2c2's late review (Modkit's follow_game places the player at
+    every reading, another seed's or build's too): while xemu runs another
+    seed or build, the page still shows where the player stands ("here"),
+    so the world map's ring, "you are here" and Follow stay."""
+    from azurkit.tools.randomizer.live import game
+
+    feed = app.live.Feed(_profile("default"), None)
+    feed._update(game.Update(game.Reading("running", game.REGIONS[0], level="w1", settle=1, mismatch=True,
+                                          at=(1.0, 2.0, 3.0), yaw=0.0)))
+    live = feed.take()[1]
+    assert (live["status"], live["here"], live["seen"]["level"]) == ("other", True, "w1")
+
 # The tracker's looks (Step 4.2c2's looks seat), as the page measures them: WCAG's contrast ratio of each world-map
 # badge's text and of each flat-filled item icon (the Settings item rows', a level's chips') with the ground it sits
 # on, [what, ratio]; whether the plan file's control is the tab's button (no native "No file chosen"); and the width
