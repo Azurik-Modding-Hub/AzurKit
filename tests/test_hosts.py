@@ -792,6 +792,14 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
 
 # A level map's canvas, as the tests read it: what each overlay the pointer finds says (its tip), and a click there
 MAP_HITS = "() => azurkit.tracker.map.hits.map((h) => h.tip)"
+# Each floor button's text: its lines, and how far its middle sits from its radio's
+FLOOR_BUTTONS = """() => [...document.querySelectorAll("#map-floors label")].map((label) => {
+    const radio = label.querySelector("input").getBoundingClientRect(), text = document.createRange();
+    text.selectNodeContents(label.lastChild);
+    const box = text.getBoundingClientRect();
+    return [text.getClientRects().length, Math.abs(box.top + box.bottom - radio.top - radio.bottom) / 2];
+})"""
+COUNTER = "() => document.getElementById('track-count').textContent"
 MAP_CLICK = """([x, y]) => {
     const map = azurkit.tracker.map, c = document.getElementById("map-canvas"), r = c.getBoundingClientRect();
     const [cx, cy] = map.at(x, y), at = { clientX: r.left + cx, clientY: r.top + cy, bubbles: true };
@@ -809,9 +817,10 @@ def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_
     marks it), a click on an exit opens the level it leads to, the wheel
     zooms about the pointer and a double click on ground fits it again, and
     a smaller window fits it smaller. With Gems on, each gem spot of the
-    floor shown is a dot, the floor buttons and the count say how many are
-    left, and Live (the app's: a scripted game taking a gem) takes its dot
-    away. No CSP violation."""
+    floor shown is a dot, the floor buttons (each on one line, its text on
+    its radio's middle) and the count say how many are left, the counter
+    row the gems taken of all (R1.43's words), and Live (the app's: a
+    scripted game taking a gem) takes its dot away. No CSP violation."""
     from azurkit.tools.randomizer.live import game, link
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
@@ -889,14 +898,39 @@ def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_
         assert sum(t is not None and t.split(" ")[0].lower() in ("diamond", "emerald", "ruby", "sapphire") for t in tips) == dots
         floors = page.evaluate("() => [...document.querySelectorAll('#map-floors label')].map((l) => l.textContent.trim())")
         assert len(entry["floors"]) < 2 or floors[entry["main"]] == f"{entry['main'] + 1} · {dots}"
+        assert [b for b in page.evaluate(FLOOR_BUTTONS) if b[0] != 1 or b[1] > 1] == []
+        gems = sum(n for _, n in first["gems"]["counts"].values())
+        _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 0 of {gems}')")
         _page.click(page, "track-live")
         _page.until(page, f"() => azurkit.tracker.state.view.gems.spots['{gem['id']}'].taken === 1"
                           " && !azurkit.tracker.state.running")
         _page.until(page, f"() => azurkit.tracker.map.hits.filter((h) => /^(Diamond|Emerald|Ruby|Sapphire)/"
                           f".test(h.tip ?? '')).length === {dots - 1}")
         assert page.evaluate("() => azurkit.tracker.state.marks.gems") == {gem["id"]: [0.75]}
+        _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 1 of {gems}')")
         _page.check_csp(page)
         page.close()
+    finally:
+        server.close()
+
+
+def test_the_apps_tracker_starts_no_drawing_until_the_typed_path_names_a_file(tmp_path, monkeypatch):
+    """Step 4.2c3's looks: the page asks ``api/art`` to draw at each key
+    typed in the image's field; a path that names no file yet (a folder, a
+    name half typed, a path not yet full) starts no drawing and gives no
+    error, so the line shows no raw OS error and no key is lost to a
+    drawing of a half path; the whole path starts it."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    started = []
+    monkeypatch.setattr(app.pictures.Drawing, "start", lambda self, iso: started.append(iso))
+    (whole := tmp_path / "game.iso").touch()
+    server = app.serve(_page.WEB)
+    try:
+        for typed in ("", "/", str(tmp_path), str(tmp_path / "ga"), "game.iso", str(whole)):
+            replies = []
+            _post(server.url, "api/art", {"iso": typed, "draw": True}, replies)
+            assert [(r["drawing"], r["error"]) for r in replies] == [(None, None)], typed
+        assert started == [str(whole)]
     finally:
         server.close()
 

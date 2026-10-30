@@ -128,8 +128,10 @@ export function tracker({ call, app, say, kept, keep, image = () => null }) {
     $("track-status").textContent = "";
     $("track-head").textContent = v.head.text;
     $("track-head").title = v.head.skips.join("\n") || "No skip is on.";
+    const gems = t.gems && v.gems ? Object.values(v.gems.counts) : null;   // with Gems: taken and in all (R1.43)
     $("track-count").textContent = `Collected ${s.collected} of ${s.total} · Reachable ${s.reachable}`
-      + (s.skipped ? ` (${s.skipped} with a skip)` : "") + ` · Sphere ${s.sphere}` + (s.victory ? " · Victory in reach" : "");
+      + (s.skipped ? ` (${s.skipped} with a skip)` : "") + ` · Sphere ${s.sphere}` + (s.victory ? " · Victory in reach" : "")
+      + (gems ? ` · Gems ${gems.reduce((n, [got]) => n + got, 0)} of ${gems.reduce((n, [, all]) => n + all, 0)}` : "");
     $("track-levels").textContent = `${t.live?.other ? t.live.other : ""}Levels now: ${s.levels.join(", ")}`;
     $("track-levels").classList.toggle("other", Boolean(t.live?.other));
     for (const mode of ["map", "table"]) $(`track-${mode}`).setAttribute("aria-selected", String(t.mode === mode));

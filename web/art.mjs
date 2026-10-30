@@ -94,8 +94,10 @@ export function artStore({ app, image, changed }) {
   };
 
   // The site draws in a worker of its own (the engine under Pyodide, with numpy), one part an ask, each kept as
-  // it comes; the worker goes once they are all drawn (wasm memory never shrinks).
+  // it comes; the worker goes once they are all drawn (wasm memory never shrinks). A new drawing clears the last's
+  // error (an image refused before this one).
   const startSite = () => running ??= (async () => {
+    status.error = null;
     const file = image();
     const entry = new URL("worker.mjs", location.href).href;
     const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));

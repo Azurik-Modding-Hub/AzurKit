@@ -407,11 +407,15 @@ class Server(http.server.ThreadingHTTPServer):
     def art(self, body: dict) -> dict:
         """``api/art``: which of the tracker's pictures are drawn
         (:meth:`.art.Drawing.status`), and with ``draw`` the rest drawn from
-        the image at ``iso`` on a thread, one part at a time."""
+        the image at ``iso`` on a thread, one part at a time, once ``iso``
+        names a file (a path half typed draws nothing, and says nothing)."""
         if body.get("draw"):
             if self.quitting:
                 raise ValueError(QUITTING)
-            self.drawing.start(str(_path(body.get("iso"), "image")))
+            iso = body.get("iso")
+            path = Path(iso.strip()).expanduser() if isinstance(iso, str) else None
+            if path is not None and path.is_absolute() and path.is_file():
+                self.drawing.start(str(path))
         return self.drawing.status()
 
     def save_spoiler(self, body: dict) -> dict:

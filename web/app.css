@@ -363,7 +363,8 @@ p.views { margin: 0; padding: 2px 10px; }
 .map-switches, .map-floors { display: flex; flex-wrap: wrap; gap: 0 8px; }
 .map-switches label { flex-basis: 100%; }
 .map-floors > .note { flex-basis: 100%; }
-.map-floors label { flex-basis: calc(25% - 8px); }
+.map-floors label { flex-basis: calc(25% - 8px); white-space: nowrap; }   /* a gem count never wraps its button */
+.map-floors input { margin: 0; }   /* Chromium's radio margin: the button's text on its radio's middle */
 .map-floors.gems label { flex-basis: calc(33% - 8px); }
 .map-key { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; color: var(--muted); font-size: 11px; }
 .map-key span { display: flex; align-items: center; gap: 4px; min-width: 0; }

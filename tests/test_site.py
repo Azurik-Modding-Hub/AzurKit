@@ -820,20 +820,27 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
 START_ART = "(version) => { azurkit.tracker.art.start(version, ['icons', 'e6'], { world: false }); }"   # two parts
 
 
-def test_the_site_draws_the_trackers_maps_in_the_browser_from_the_image_as_modkit_does(browser, site, usa_iso):
+def test_the_site_draws_the_trackers_maps_in_the_browser_from_the_image_as_modkit_does(browser, site, usa_iso, tmp_path):
     """Step 4.2c3 (D882: the site renders them in the browser from the
     player's own image; D3): the site's engine draws the tracker's pictures
     under Pyodide, numpy its pinned wheel from the site, in a worker of
     their own, and keeps them in this browser's storage: the icons and a
     level (e6) drawn from the image are Modkit's pixel for pixel (each one's
     digest, ORACLE.toml's ``rando.art``), and a page opened again finds them
-    kept. No CSP violation, no request but GETs of the site's files."""
+    kept. An image refused first says why, and the image picked after it
+    clears that. No CSP violation, no request but GETs of the site's files."""
     oracle = read_index()["rando"]["art"]
+    (refused := tmp_path / "not-an-image.iso").write_bytes(bytes(1 << 16))
     served = Site(browser, site)
     try:
         page = served.open()
+        page.set_input_files("#iso", str(refused))
+        page.evaluate(START_ART, tracking.ART_VERSION)
+        _page.until(page, "() => azurkit.tracker.art.status.error && !azurkit.tracker.art.status.drawing", 300)
+        assert page.evaluate("() => azurkit.tracker.art.status.done") == []
         page.set_input_files("#iso", str(usa_iso))
         page.evaluate(START_ART, tracking.ART_VERSION)
+        _page.until(page, "() => azurkit.tracker.art.status.error === null", 60)
         _page.until(page, "() => azurkit.tracker.art.status.done.length === 2 && !azurkit.tracker.art.status.drawing"
                           " || azurkit.tracker.art.status.error", 600)
         status = page.evaluate("() => azurkit.tracker.art.status")
