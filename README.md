@@ -116,8 +116,9 @@ comes with version 1.0.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
   bolts or laser, made from the game's own effects.
 - **Works with every pack and the randomizer:** a seed can wear a character, its logic re-checked at the body's
-  walk and roll, and the verdict says what the body changes (its height, its attacks). Not yet in share links or
-  rebuilding from a recipe.
+  walk and roll, and the verdict says what the body changes (its height, its attacks).
+- **In links and recipes:** a share link and a build's recipe carry the character, by name and numbers; a variant
+  whose recipe has changed since is named, with what to install or update.
 
 ### Building and sharing
 
@@ -129,7 +130,8 @@ comes with version 1.0.
 - **Builds carry their recipe:** two small files on the disc; `azurkit open`, or picking the build in the page,
   gives it back.
 - **Tamper check:** a build changed after it was made is refused by name.
-- **Share links:** Copy link makes a short link with your packs, settings and seed, never your image or its path.
+- **Share links:** Copy link makes a short link with your packs, settings, seed and character, never your image or
+  a path.
 - **Remembers your setup** between visits, never your image, until you Reset to defaults.
 - **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file.
 - **Same bytes everywhere:** the page, the app and the command line make the identical image.

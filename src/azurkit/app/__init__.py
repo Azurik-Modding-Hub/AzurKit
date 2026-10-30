@@ -190,7 +190,8 @@ def _set_setup(body: dict) -> dict:
     the catalog and never puts the image's path in one. The Randomizer
     tab's (``randomizer``: on, the seed the player typed, the settings and
     the obsidian cost) is checked as a build checks it
-    (``tools.randomizer.remembered``)."""
+    (``tools.randomizer.remembered``), and the Characters tab's
+    (``character``) as a share link carries one: names and numbers."""
     if (setup := body.get("setup")) is not None:
         if not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
             raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
@@ -207,6 +208,8 @@ def _set_setup(body: dict) -> dict:
                 randomizer.remembered(setup["randomizer"])
             except ValueError as exc:
                 raise ValueError(f"setup: randomizer: {exc}") from None
+        if "character" in setup and (lost := sdk.restore({"character": setup["character"]})["dropped"]):
+            raise ValueError(f"setup: {lost[0]}")   # by name and numbers, never a recipe file's path
     _remember(setup=setup)
     return {}
 

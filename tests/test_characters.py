@@ -26,6 +26,7 @@ from azurkit.core import coff, facts, gate, iso
 from azurkit.core.xbr.append import PAGE, NewResource, append_resources, appended
 from azurkit.core.xbr.nodes import named_resources, parse_toc, runs
 from azurkit.edits import manifest as edits_manifest
+from azurkit.edits import preset
 from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
@@ -370,14 +371,36 @@ def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_modkits_
         sdk._plan({"iso": str(image_path), "packs": {}, "character": {"species": "booblord"}})
 
 
-def test_a_share_link_refuses_a_character_by_name():
-    """A share link doesn't carry a character yet (``sdk.preset_encode``, as
-    a build's mods file doesn't: the pickers' step): it is refused by name,
-    before any image is read; a randomized recipe's settings are checked
-    before it too, with a character as without one."""
-    recipe = {"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "flicken"}}
-    with pytest.raises(ValueError, match=r"^preset: a share link carries .* not a character"):
-        sdk.preset_encode(recipe)
+def test_a_share_link_and_a_mods_file_carry_a_character():
+    """A share link (``sdk.preset_encode`` and ``preset_decode``) and a mods file (``sdk.read_mods``: a link, or a
+    build's manifest through ``preset.from_manifest``) carry a character by name and numbers, a variant with its
+    recipe's sha, both ways; a recipe file's path (``variant_file``) is refused by name (Q174), and so is a variant
+    whose recipe isn't this AzurKit's, naming what to Install or Update; a remembered setup (``sdk.restore``) keeps
+    one and drops a path by name; a randomized recipe's settings are checked before any image is read."""
+    recipe = {"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "beamlord", "attack_reach": 1.5}}
+    fragment = sdk.preset_encode(recipe)
+    worn = {"species": "beamlord", "attack_reach": 1.5}
+    assert [la for la in sdk.preset_decode(fragment)["layers"] if la["tool"] == characters.TOOL] == [
+        {"tool": "characters", "kind": "characters", "recipe": worn | {"variant": "628f6d09ad7b"}}]
+    assert sdk.read_mods(fragment) == {"packs": {}, "character": worn}
+    built = {"format": preset.MANIFEST, "base": {"kind": "vanilla", "release": "usa", "iso_sha256": gate.USA.iso_sha256},
+             "layers": [{"tool": "mods", "kind": "packs", "recipe": {"pack": "fps_unlock", "params": {}}},
+                        {"tool": "characters", "kind": "characters", "recipe": {"species": "keylord", "mode": "garret4"}}],
+             "result": {}}
+    assert sdk.read_mods(json.dumps(built)) == {"packs": {"fps_unlock": {}}, "character": {"species": "keylord",
+                                                                                           "mode": "garret4"}}
+    with pytest.raises(ValueError, match=r"^preset: a character travels by name and numbers \(Q174\), never its "
+                                         r"recipe file's path \(variant_file\)"):
+        sdk.preset_encode(recipe | {"character": {"species": "mine", "variant_file": "/x/mine.json"}})
+    other = preset.encode({"format": preset.FORMAT, "schema_version": preset.SCHEMA_VERSION, "layers": [
+        {"tool": "characters", "kind": "characters", "recipe": {"species": "beamlord", "variant": "0123456789ab"}}]})
+    with pytest.raises(ValueError, match=r"^preset: 'beamlord' is recipe 0123456789ab there and recipe 628f6d09ad7b "
+                                         r"here: Install or Update it"):
+        sdk.preset_decode(other)
+    kept = sdk.restore({"character": worn})
+    assert kept["character"] == worn and not kept["dropped"]
+    lost = sdk.restore({"character": {"species": "mine", "variant_file": "/x/mine.json"}})
+    assert "character" not in lost and lost["dropped"][0].startswith("the character (a character travels by name")
     with pytest.raises(ValueError, match=r"^randomizer: seed is a string"):
         sdk.image(recipe | {"randomizer": {"seed": 2}})
 

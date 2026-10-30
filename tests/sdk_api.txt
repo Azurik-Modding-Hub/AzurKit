@@ -73,9 +73,10 @@ by ``shapes``::
 A randomized build may wear a character (Modkit's ``randomize-full --seed``
 with ``--player-character``): the plan stands on the walk and roll the
 body's size folds, and what the body leaves unmodelled (its grade, its
-attacks, its size) leaves the logic unverified, never refused. A character
-isn't carried by a build's mods file (:func:`open_build`) or a share link
-(:func:`preset_encode`) yet: each refuses it by name.
+attacks, its size) leaves the logic unverified, never refused. A build's
+mods file (:func:`open_build`) and a share link (:func:`preset_encode`)
+carry its character by name and numbers (a variant with its recipe's sha),
+never a recipe file's path (Q174).
 
 
 def catalog() -> 'dict':
@@ -162,8 +163,8 @@ build checks them), packs, normalized, and its ``set`` operations, never
 its image's path; given its build's report (:func:`image`), with the
 release it was built from and the sha256 of each file it changed. Names,
 numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
-refused by name, as is one with a ``character`` (no link carries one
-yet).
+refused by name; its ``character`` goes by name and numbers (a variant
+with its recipe's sha), and one naming a recipe file is refused.
 
 
 def preset_decode(text: 'str') -> 'dict':
@@ -171,8 +172,9 @@ def preset_decode(text: 'str') -> 'dict':
 The preset in a link or its fragment (``preset.decode``), its packs
 normalized (``mods.normalize``), its ``set`` operations and its
 randomizer checked: a tool or pack AzurKit doesn't have, a value a
-slider refuses, a setting the randomizer refuses or a ``replace_bytes``
-(Q174) is refused by name.
+slider refuses, a setting the randomizer refuses, a ``replace_bytes``
+(Q174) or a character naming a recipe file or a variant recipe this
+AzurKit doesn't hold is refused by name.
 
 
 def plan(recipe: 'Mapping') -> 'dict':
@@ -279,8 +281,10 @@ slider refuses, a pack without one it requires, an operation a link
 couldn't carry), each left out and named, never applied. A setup's
 ``randomizer`` (the tab's: ``on``, ``seed``, ``settings`` and
 ``obsidian_cost``, ``tools.randomizer.remembered``) comes back
-checked, or is dropped whole, by name. It never refuses: a setup it
-can't read is dropped whole, by name.
+checked, or is dropped whole, by name, as is its ``character`` (the
+Characters tab's: a species or variant by name and its options, never a
+recipe file's path). It never refuses: a setup it can't read is dropped
+whole, by name.
 
 
 def content(given: 'Mapping | None' = None) -> 'dict':

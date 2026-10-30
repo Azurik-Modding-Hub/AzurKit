@@ -71,9 +71,10 @@ by ``shapes``::
 A randomized build may wear a character (Modkit's ``randomize-full --seed``
 with ``--player-character``): the plan stands on the walk and roll the
 body's size folds, and what the body leaves unmodelled (its grade, its
-attacks, its size) leaves the logic unverified, never refused. A character
-isn't carried by a build's mods file (:func:`open_build`) or a share link
-(:func:`preset_encode`) yet: each refuses it by name.
+attacks, its size) leaves the logic unverified, never refused. A build's
+mods file (:func:`open_build`) and a share link (:func:`preset_encode`)
+carry its character by name and numbers (a variant with its recipe's sha),
+never a recipe file's path (Q174).
 """
 
 from __future__ import annotations
@@ -97,7 +98,7 @@ __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read
            "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
            "content", "content_install", "content_check", "match"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
-SETUP = ("ticked", "values", "xbr", "randomizer")   # a UI's remembered setup (D915, :func:`restore`)
+SETUP = ("ticked", "values", "xbr", "randomizer", "character")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
 """Where Azurik-Custom-Content is read from by default (D966: the hub's, public at Step 4.4)."""
 SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (the tests', a private play's)
@@ -350,10 +351,41 @@ def read_mods(given: str | bytes | Mapping) -> dict:
             out["xbr"] = xbr.normalize(layer["recipe"]["ops"])
         elif (layer["tool"], layer["kind"]) == (generator.TOOL, generator.KIND):
             out["randomizer"] = generator.normalize(layer["recipe"])
+        elif (layer["tool"], layer["kind"]) == (characters.TOOL, characters.KIND):
+            out["character"] = _character(layer["recipe"])[0]
         else:
             raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} "
-                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan)")
+                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan, characters with "
+                             "characters)")
     return out
+
+
+def _character(given: object) -> tuple[dict, dict]:
+    """A link's, a mods file's or a setup's character (``characters.normalize``
+    less ``variant``, its recipe's sha12) and that as a link carries it:
+    names and numbers only, so a recipe file's path (``variant_file``) is
+    refused by name (Q174), as is a variant AzurKit holds no recipe of with
+    that sha, naming what to Install or Update."""
+    if not isinstance(given, Mapping):
+        raise ValueError("preset: a character is an object naming its species")
+    given = dict(given)
+    sha = given.pop("variant", None)
+    if "variant_file" in given:
+        raise ValueError("preset: a character travels by name and numbers (Q174), never its recipe file's path "
+                         "(variant_file): share a built-in or community variant")
+    character = characters.normalize(given)
+    from azurkit.tools.characters import _player_variants as variants
+
+    worn = variants.resolve(character["species"])
+    if sha is not None and not (isinstance(sha, str) and len(sha) == 12 and all(c in "0123456789abcdef" for c in sha)):
+        raise ValueError(f"preset: the character's variant {sha!r} is no recipe sha")
+    if sha is not None and worn is None:
+        raise ValueError(f"preset: {character['species']!r} is a variant (recipe {sha}) this AzurKit has no recipe "
+                         "of: install it from the Characters tab's community variants")
+    if worn is not None and sha not in (None, worn.sha):
+        raise ValueError(f"preset: {character['species']!r} is recipe {sha} there and recipe {worn.sha} here: "
+                         "Install or Update it (the Characters tab's community variants), or update AzurKit")
+    return character, character | ({"variant": worn.sha} if worn is not None else {})
 
 
 def _shared(ops: list[dict]) -> list[dict]:
@@ -372,16 +404,16 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
     its image's path; given its build's report (:func:`image`), with the
     release it was built from and the sha256 of each file it changed. Names,
     numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
-    refused by name, as is one with a ``character`` (no link carries one
-    yet)."""
+    refused by name; its ``character`` goes by name and numbers (a variant
+    with its recipe's sha), and one naming a recipe file is refused."""
     packs = _packs(recipe)
-    if "character" in recipe:
-        raise ValueError("preset: a share link carries a randomizer, packs and set operations only, not a "
-                         "character (yet)")
+    character = _character(recipe["character"])[1] if "character" in recipe else None
     made = {"format": preset.FORMAT, "schema_version": preset.SCHEMA_VERSION, "azurkit": __version__,
             "layers": [{"tool": generator.TOOL, "kind": generator.KIND,
                         "recipe": generator.check(recipe["randomizer"])}] if "randomizer" in recipe else []}
     made["layers"].append({"tool": "mods", "kind": "packs", "recipe": packs})
+    if character is not None:
+        made["layers"].append({"tool": characters.TOOL, "kind": characters.KIND, "recipe": character})
     if ops := _shared(xbr.normalize(recipe.get("xbr", []))):
         made["layers"].append({"tool": xbr.TOOL, "kind": xbr.KIND, "recipe": {"ops": ops}})
     if report is not None:
@@ -398,8 +430,9 @@ def preset_decode(text: str) -> dict:
     """The preset in a link or its fragment (``preset.decode``), its packs
     normalized (``mods.normalize``), its ``set`` operations and its
     randomizer checked: a tool or pack AzurKit doesn't have, a value a
-    slider refuses, a setting the randomizer refuses or a ``replace_bytes``
-    (Q174) is refused by name."""
+    slider refuses, a setting the randomizer refuses, a ``replace_bytes``
+    (Q174) or a character naming a recipe file or a variant recipe this
+    AzurKit doesn't hold is refused by name."""
     found = preset.decode(text)
     for layer in found["layers"]:
         if (layer["tool"], layer["kind"]) == ("mods", "packs"):
@@ -408,9 +441,12 @@ def preset_decode(text: str) -> dict:
             layer["recipe"] = {"ops": _shared(xbr.normalize(layer["recipe"]["ops"]))}
         elif (layer["tool"], layer["kind"]) == (generator.TOOL, generator.KIND):
             layer["recipe"] = generator.check(layer["recipe"])
+        elif (layer["tool"], layer["kind"]) == (characters.TOOL, characters.KIND):
+            layer["recipe"] = _character(layer["recipe"])[1]
         else:
             raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} "
-                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan)")
+                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan, characters with "
+                             "characters)")
     return found
 
 
@@ -534,8 +570,10 @@ def restore(setup: object) -> dict:
     couldn't carry), each left out and named, never applied. A setup's
     ``randomizer`` (the tab's: ``on``, ``seed``, ``settings`` and
     ``obsidian_cost``, ``tools.randomizer.remembered``) comes back
-    checked, or is dropped whole, by name. It never refuses: a setup it
-    can't read is dropped whole, by name."""
+    checked, or is dropped whole, by name, as is its ``character`` (the
+    Characters tab's: a species or variant by name and its options, never a
+    recipe file's path). It never refuses: a setup it can't read is dropped
+    whole, by name."""
     if not isinstance(setup, Mapping) or not set(setup) <= set(SETUP):
         return {"ticked": [], "values": {}, "xbr": [], "dropped": ["your last setup (not one AzurKit reads)"]}
     ticked, dropped = setup.get("ticked", []), []
@@ -563,6 +601,11 @@ def restore(setup: object) -> dict:
             rando = {"randomizer": randomizer.remembered(setup["randomizer"])}
         except ValueError as exc:
             why.append(f"the randomizer's settings ({exc})")
+    if "character" in setup:
+        try:
+            rando["character"] = _character(setup["character"])[0]
+        except ValueError as exc:
+            why.append(f"the character ({str(exc).removeprefix('preset: ')})")
     return {"ticked": on, "values": {name: v for name, v in values.items() if v}, "xbr": kept,
             "dropped": list(dict.fromkeys(dropped + why))} | rando
 

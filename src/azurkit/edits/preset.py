@@ -16,8 +16,10 @@ reverses it. A fragment is untrusted input, so :func:`decode` caps it (8 KB
 encoded, 64 KB inflated, JSON nested at most 8 deep) and refuses, by name,
 any key or value the format doesn't have. Each tool's recipe is its own to
 check (``sdk`` normalizes it): the ``mods`` tool's ``packs``, the
-``data`` tool's ``xbr`` (``{"ops": [...]}``, ``edits.xbr``), and in a mods
-file the ``randomizer`` tool's ``plan`` (its seed and share string).
+``data`` tool's ``xbr`` (``{"ops": [...]}``, ``edits.xbr``), the
+``randomizer`` tool's ``plan`` (its seed and share string) and the
+``characters`` tool's ``characters`` (the body worn: its species or
+variant by name, its options, and a variant's recipe sha, never a path).
 
 A mods file (Q268, :func:`read`) is a preset, or an AzurKit build's
 manifest (its /azurkit.json), whose layers :func:`from_manifest` gathers
@@ -133,7 +135,7 @@ def from_manifest(record: Mapping) -> dict:
     layers = record.get("layers", [])
     if not (isinstance(layers, list) and all(isinstance(layer, Mapping) for layer in layers)):
         raise ValueError("preset: a manifest's layers is a list of {tool, kind, recipe}")
-    packs, ops, plan, failed = {}, None, None, []
+    packs, ops, plan, character, failed = {}, None, None, None, []
     for layer in layers:
         recipe, where = layer.get("recipe"), (layer.get("tool"), layer.get("kind"))
         if where == ("mods", "packs") and isinstance(recipe, Mapping) and isinstance(recipe.get("pack"), str) \
@@ -143,15 +145,19 @@ def from_manifest(record: Mapping) -> dict:
             ops = recipe["ops"]
         elif where == ("randomizer", "plan") and isinstance(recipe, Mapping) and plan is None:
             plan = dict(recipe)
+        elif where == ("characters", "characters") and isinstance(recipe, Mapping) and character is None:
+            character = dict(recipe)
         else:
             failed.append(f"a {layer.get('kind')!r} layer of tool {layer.get('tool')!r}")
     if failed:
-        raise ValueError(f"preset: a mods file carries a plan, packs and xbr only, not {', '.join(failed)}")
+        raise ValueError(f"preset: a mods file carries a plan, packs, a character and xbr only, not "
+                         f"{', '.join(failed)}")
     base = record.get("base")
     made = {"format": FORMAT, "schema_version": SCHEMA_VERSION,
             "base": {k: base.get(k) for k in ("kind", "release", "iso_sha256")} if isinstance(base, Mapping) else base,
             "layers": ([{"tool": "randomizer", "kind": "plan", "recipe": plan}] if plan is not None else [])
                       + [{"tool": "mods", "kind": "packs", "recipe": packs}]
+                      + ([{"tool": "characters", "kind": "characters", "recipe": character}] if character else [])
                       + ([{"tool": "data", "kind": "xbr", "recipe": {"ops": ops}}] if ops is not None else []),
             "result": record.get("result")}
     if "azurkit" in record:

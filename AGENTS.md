@@ -451,8 +451,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     unverified, never refused. G3's `seed=0,all` (flicken) is Modkit's on
     both releases but `training_room.xbr` (level_patches, AZ-009), its
     verdict Modkit's word for word.
-  - Not here: a character in a share link or a build's mods file (the
-    pickers' step, 4.3d): each is refused by name.
+  - **In a share link and a mods file** (Step 4.3d): the layer
+    `{"tool": "characters", "kind": "characters", "recipe"}`, the build
+    manifest's own (the fields less `variant_file`, a variant with its
+    recipe's sha12, `"variant"`), so a link and a build's recipe share one
+    shape; a `variant_file` is refused by name (Q174), and on read a
+    variant whose sha isn't this AzurKit's is named, with what to Install or
+    Update. The remembered setup keeps one too (`sdk.SETUP`'s `character`).
   - **The match-Garret values** (Step 4.3d, P52, D358; the G4 buttons):
     Modkit's `_player_match.py`, which the sync installs, its staging and
     packs rewritten out (`FAMILY_REWRITES`): `characters.match` hands its

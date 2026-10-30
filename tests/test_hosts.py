@@ -460,8 +460,8 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
     page, and ``api/restore`` gives back what of it still applies, the rest
     named (``sdk.restore``). ``null`` forgets it, and a setup holding
     anything but pack and setting names, numbers and config.xbr ``set``
-    cells (an image's path as a pack or setting name, a ``replace_bytes``)
-    is refused by name, the config as it was."""
+    cells (an image's path as a pack or setting name, a ``replace_bytes``,
+    a character's recipe file) is refused by name, the config as it was."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
     (page := tmp_path / "page").mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
@@ -479,7 +479,7 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
             "prop": "hitPoints", "value": 321}
     setup = {"ticked": ["fps_unlock", "qol_retired"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell]}
     refused = {   # a path or game bytes anywhere in a setup
-        "setup: an object of ticked, values, xbr, randomizer only, or null": {"ticked": [], "iso": "/a.iso"},
+        "setup: an object of ticked, values, xbr, randomizer, character only, or null": {"ticked": [], "iso": "/a.iso"},
         "setup: ticked holds pack names only": {"ticked": ["/a.iso"]},
         "setup: values holds {pack: {setting: number}} only": {"values": {"fps_unlock": {"target_fps": "/a.iso"}}},
         "setup: xbr holds config.xbr set operations only (Q174)": {"xbr": [
@@ -487,6 +487,8 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
         "xbr op 1 (set): no key 'expected' (its keys: op, file, table, entity, prop, value)": {
             "xbr": [cell | {"expected": "00"}]},
         "setup: randomizer: not an object of on, seed, settings, obsidian_cost": {"randomizer": {"iso": "/a.iso"}},
+        "setup: the character (a character travels by name and numbers (Q174), never its recipe file's path "
+        "(variant_file): share a built-in or community variant)": {"character": {"species": "a", "variant_file": "/a"}},
     }
 
     def kept() -> list:
