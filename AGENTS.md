@@ -322,9 +322,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   whole, all one group (`tools.characters.whole_files`: `Change(...,
   whole=True)`, `before` the whole vanilla file's sha256), and the rest as
   ranges. A whole file shadows each earlier group whose bytes it doesn't
-  hold (dropped whole, a conflict); a later range lands over it and, where
-  the whole file changed those bytes, wins them, the conflict naming the
-  whole file's group, which stays. One group per file may write it whole.
+  hold (dropped whole, a conflict); a later range lands over it only where
+  it kept the vanilla bytes (or holds the range's own), and is refused
+  where it changed them (D35, Modkit's AZ-096: a grown body moved the
+  resource there). One group per file may write it whole.
   The layer stacks after the packs and before the Data tool's `xbr`
   operations (Modkit's `mod_apply` order). The swap that fills it (the
   retarget, D131's standardize, the 40 `player_model` shims) is Step

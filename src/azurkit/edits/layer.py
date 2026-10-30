@@ -18,10 +18,12 @@ file a layer wrote, at any size, planned against the whole vanilla file
 ``fx.xbr`` and ``index.xbr`` so, one group of them (a swap grows each:
 ``core.xbr.append``). It shadows every earlier group in its file: a group
 whose bytes it doesn't hold is dropped whole, and listed as a conflict. A
-later range in the file is planned against its vanilla bytes as any change
-and lands over the whole file's; where the whole file changed those bytes,
-the later layer wins them and the conflict names the whole file's group,
-which stays (a file isn't a site). Only one group may write a file whole.
+later range in the file is planned against its vanilla bytes as any change,
+and lands over the whole file's only where they still hold those bytes (or
+its own); where the whole file changed them (a grown body moves every later
+resource), the range would land in another resource and is refused (D35),
+as Modkit refuses an edit whose file holds neither its expected bytes nor
+its new ones (AZ-096). Only one group may write a file whole.
 
 The layers' canonical order is Modkit's ``mod_apply`` order (a file's bytes
 then match Modkit's, file for file): the generator (the randomizer), the
@@ -84,14 +86,11 @@ class Conflict:
     layer: str
     group: str
     overwrote: str  # the earlier layer
-    dropped: str    # its group, dropped whole (or, written whole, kept but for those bytes)
-    kept: bool = False   # the earlier group wrote the file whole, and stays
+    dropped: str    # its group, dropped whole
 
     def __str__(self) -> str:
-        fate = (f"whose whole file ({self.dropped}) keeps the rest" if self.kept else
-                f"whose group {self.dropped} is dropped whole")
         return (f"{self.file} 0x{self.offset:X} ({self.size} B): {self.layer} ({self.group}) overwrote "
-                f"{self.overwrote}, {fate}")
+                f"{self.overwrote}, whose group {self.dropped} is dropped whole")
 
 
 def claimed(base: Mapping[str, bytes], layers: Sequence[Layer]) -> dict[str, bytes]:
@@ -114,9 +113,10 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer]) -> tuple[dict[st
     """Each file a change or claim names, as ``layers`` leave it over
     ``base`` (its vanilla bytes) with the claims' derived state
     (:func:`claimed`), and every conflict. ``ValueError`` names a change
-    outside its file or planned against other bytes, a second group
-    writing a file whole, a group of a whole file and ranges, or a whole
-    file a claim derives (D35)."""
+    outside its file or planned against other bytes, a range over a whole
+    file that holds neither its vanilla bytes there nor its own, a second
+    group writing a file whole, a group of a whole file and ranges, or a
+    whole file a claim derives (D35)."""
     base = {**base, **claimed(base, layers)}
     files: dict[str, bytearray] = {file: bytearray(base[file]) for file in {c.file for la in layers for c in la.claims}}
     writers: dict[tuple[str, int], list[tuple[int, str]]] = {}   # a byte -> the range groups holding its value
@@ -164,20 +164,18 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer]) -> tuple[dict[st
                 raise ValueError(f"{what}: 0x{c.offset:X}+{len(c.after)} is outside {c.file}")
             if hashlib.sha256(base[c.file][c.offset:end]).hexdigest() != c.before:
                 raise ValueError(f"{what}: planned against other bytes of {c.file} at 0x{c.offset:X}")
+            under = whole.get(c.file)
+            if under and put[c.file][c.offset:end] not in (base[c.file][c.offset:end], c.after):
+                raise ValueError(f"{what}: {layers[under[0]].id} ({under[1]}) wrote {c.file} whole with other bytes "
+                                 f"at 0x{c.offset:X}")
             hit: dict[tuple[int, str], list[int]] = {}
-            under = whole.get(c.file)   # the whole file's group, which owns each byte no range group holds
             for at, value in enumerate(c.after, c.offset):
-                held = writers.get((c.file, at), ())
-                for group in held:
+                for group in writers.get((c.file, at), ()):
                     if group != (i, c.group) and buf[at] != value:
                         hit.setdefault(group, []).append(at)
-                if not held and under and buf[at] != value and buf[at] != base[c.file][at]:
-                    hit.setdefault(under, []).append(at)
             for group, ats in hit.items():
-                if group != under:
-                    drop(group)
-                conflicts.append(Conflict(c.file, ats[0], len(ats), layer.id, c.group, layers[group[0]].id, group[1],
-                                          group == under))
+                drop(group)
+                conflicts.append(Conflict(c.file, ats[0], len(ats), layer.id, c.group, layers[group[0]].id, group[1]))
             buf[c.offset:end] = c.after
             for at in range(c.offset, end):
                 writers.setdefault((c.file, at), []).append((i, c.group))

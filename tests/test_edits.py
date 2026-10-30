@@ -70,16 +70,17 @@ def test_a_later_layer_wins_each_conflict_whole_groups_and_the_manifest_names_it
         edits.image(stamp, [stale])
 
 
-def test_a_whole_file_shadows_earlier_groups_and_a_later_range_wins_its_bytes(tmp_path):
+def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_it_kept_vanilla(tmp_path):
     """A file written whole (the character layer's ``characters.xbr``,
     ``fx.xbr`` and ``index.xbr``, one group, at any size) drops each earlier
     group whose bytes it doesn't hold, by name, and keeps one whose bytes it
-    holds. A later range lands over it where it was planned against the
-    vanilla bytes: where the whole file kept them, nothing is overwritten;
-    where it changed them, the later layer wins those bytes and the conflict
-    names the whole file's group, which stays. The image grows the file and
-    the manifest marks the change whole; a second whole write of a file, or a
-    whole file planned against another, is refused by name (D35)."""
+    holds. A later range planned against the vanilla bytes lands over it
+    where the whole file kept them, or already holds the range's own, and
+    overwrites nothing; where the whole file changed them (a grown body moved
+    the resource there), it is refused by name (D35, Modkit's AZ-096). The
+    image grows the file and the manifest marks the change whole; a second
+    whole write of a file, or a whole file planned against another, is
+    refused by name."""
     src = tmp_path / "in.iso"
     src.write_bytes(image(BASE))
     stamp = gate.Stamp(gate.USA, src, src.stat().st_size, src.stat().st_mtime_ns, False)
@@ -89,13 +90,16 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_wins_its_bytes(tm
                    _change("b.bin", 4, BASE["b.bin"][4:6], "a 2"))
     swap = Layer("player model keylord", "characters", "characters", {"species": "keylord"},
                  (put, Change("a.bin", 0, _sha256(BASE["a.bin"]), b"whole a", "swap files", whole=True)))
-    data = Layer("xbr", "xbr", "xbr", {"ops": []}, (_change("b.bin", 0, b"D", "#0"), _change("b.bin", 8, b"d", "#1")))
+    data = Layer("xbr", "xbr", "xbr", {"ops": []}, (_change("b.bin", 0, b"W", "#0"), _change("b.bin", 8, b"d", "#1")))
     made, manifest = edits.image(stamp, [packs, swap, data])
     with iso.Reader(made) as r:
-        assert r.read("b.bin") == b"D" + grown[1:8] + b"d" + grown[9:] and r.read("a.bin") == b"whole a"
+        assert r.read("b.bin") == grown[:8] + b"d" + grown[9:] and r.read("a.bin") == b"whole a"
     assert [str(conflict) for conflict in manifest.conflicts] == [
-        "b.bin 0x0 (1 B): player model keylord (swap files) overwrote pack a, whose group a 1 is dropped whole",
-        "b.bin 0x0 (1 B): xbr (#0) overwrote player model keylord, whose whole file (swap files) keeps the rest"]
+        "b.bin 0x0 (1 B): player model keylord (swap files) overwrote pack a, whose group a 1 is dropped whole"]
+    moved = Layer("xbr", "xbr", "xbr", {"ops": []}, (_change("b.bin", 0, b"D", "#0"),))
+    with pytest.raises(ValueError, match=r"^xbr \(#0\): player model keylord \(swap files\) wrote b\.bin whole "
+                                         r"with other bytes at 0x0$"):
+        edits.image(stamp, [packs, swap, moved])
     assert [c.get("whole") for c in manifest.to_json()["layers"][1]["changes"]] == [True, True]
     twice = Layer("again", "characters", "characters", {}, (put,))
     with pytest.raises(ValueError, match=r"^again \(swap files\): b\.bin is written whole by player model keylord"):
