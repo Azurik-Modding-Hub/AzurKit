@@ -824,6 +824,7 @@ def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_
     from azurkit.tools.randomizer.live import game, link
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("AZURKIT_ISO", str(usa_iso))   # the image the app opens on (this HOME's data folder has none)
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     first = sdk.tracker({"plan": doc, "gems": True})
