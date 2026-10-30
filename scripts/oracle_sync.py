@@ -138,7 +138,7 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
 #: picture's :func:`pixel_digest` and ``maps.json``'s sha256 (no picture is copied), which AzurKit's drawings
 #: are held to (``tests/test_art.py``).
 ART_FILES = {"rando": ("gui/assets/maps", "gui/assets/icons")}
-OURS = frozenset(f"{CHARACTERS}/{name}.py" for name in ("__init__", "ports", "pool"))
+OURS = frozenset(f"{CHARACTERS}/{name}.py" for name in ("__init__", "content", "ports", "pool"))
 """AzurKit's own files in a folder a glob of :data:`SOURCES` installs into (:func:`installed`)."""
 OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py",   # AzurKit's own instead: tools/randomizer/dbcache.py
                  # the swap's: tools/characters/__init__.py, pool.py (no child processes: a host's map) and
@@ -175,7 +175,8 @@ FAMILY_REWRITES = {   # a family's own rewrites, applied before REWRITES
 # it (:data:`LINE_FIXES`): a hook's vanilla bytes become their size in zeros (the swap checks the image's own
 # against the facts' swap site, never these); PNG's signature (a format constant every PNG starts with, which
 # default.xbe holds too) is joined from two halves; a recipe's long float is written with an exponent; a shim's
-# table of game data becomes zeros, which each build writes back from the image (``ports.HELD``).
+# table of game data becomes zeros, which each build writes back from the image (``ports.HELD``). Beside them, the
+# lines that name the folders of files Azurik-Custom-Content carries (CONTENT) read them in the content folder.
 FIXES = {
     **{("azurik_mod/patches/_player_character.py", sha): "vanilla" for sha in (
         "e1de347bd29487c5e017fd4b64394335ae7ee455c1d17c297e342bdb72a178ed",
@@ -202,7 +203,20 @@ FIXES = {
     **{("azurik_mod/assets/variants.json", sha): "float" for sha in (
         "5f017cd0135adc40e4d4097749d80987e2d32fe8bada4d5eec2b95d456617c29",
         "70452ec6ec38dbaac5acd023a983498129d979b9e5e72423483d66df747860eb")},
+    # the townsfolk's bare-hands kit, booblord's voice and clips, the built-ins' fx files (tools/characters/content.py)
+    ("azurik_mod/patches/_player_kit.py", "a0773f36cbf5b12b85c314d4596c5acc4a9ebf6a98882cb4f1ea45d0ca51f771"): "content",
+    **{("azurik_mod/patches/_player_variants.py", sha): "content" for sha in (
+        "661880076b1ae3b2bd5b2423515d7a2295954fbc3606c0f0a60e4960c5112dc8",
+        "dbef8fe62b90863016b18c4a5af5dc5cd4ccdf257bae284c46d695b80263ac61",
+        "d6e098b9983091725a8057e33569f3959d67386ff0a3e17265fea3de6b2d295d")},
 }
+ASSETS = "azurik_mod/assets/"
+CONTENT = {"models": tuple(f"{ASSETS}{name}" for name in ("clips", "sounds", "fx"))}
+"""Modkit's files a family's swap reads that Azurik-Custom-Content carries,
+not AzurKit (D869: our own work, never in the repository or the wheel):
+the sync installs each in the content folder (``tools/characters/content.py``,
+outside the repository) at its path below :data:`ASSETS`, and ORACLE.toml's
+``<family>.content`` keeps its sha256."""
 # A top-level tuple of byte-sized ints a family's module defines that holds such a run (the IMA ADPCM step
 # table, the codec's, which default.xbe's own decoder holds too): written as the ints of a string, by name.
 NUMBERS = {"azurik_mod/assets/xbox_adpcm.py": ("_STEP",)}
@@ -285,13 +299,14 @@ def write_index(index: dict[str, dict], path: Path = ORACLE / "ORACLE.toml") -> 
     lines = ["# Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of",
              "# tests/oracle/<family>/ against its sha256 here; <family>.exported holds a facts file's sha256",
              "# as Modkit exported it, before its build spans became sha256 and size; <family>.source each",
-             "# file the sync installed in AzurKit's source (scripts/oracle_sync.py's SOURCES)."]
+             "# file the sync installed in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.content",
+             "# each file it installed in the content folder (CONTENT: Azurik-Custom-Content's, never committed)."]
     for family in sorted(index):
         entry = index[family]
         lines += ["", f"[{family}]", f"tag = {json.dumps(entry['tag'])}", f"commit = {json.dumps(entry['commit'])}",
                   "", f"[{family}.files]"]
         lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(entry["files"].items())]
-        for table in ("exported", "source", "art"):
+        for table in ("exported", "source", "art", "content"):
             if rows := entry.get(table):
                 lines += ["", f"[{family}.{table}]"]
                 lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(rows.items())]
@@ -360,10 +375,20 @@ def _float_fix(line: str) -> str:
     return re.sub(r"(?<![\w.])(-?)(\d+)\.(\d{12,})(?![\w.])", exponent, line)
 
 
+def _content_fix(line: str) -> str:
+    """A folder of Modkit's ``assets/`` (``KIT = ...parents[1] / "assets" /
+    "clips" / ...``, ``SOUNDS = BUILTIN.parent / "sounds"``) as the same
+    folder of the content folder (:data:`CONTENT`), imported on the line
+    before it."""
+    return re.sub(r'^(\w+) = (?:Path\(__file__\)\.resolve\(\)\.parents\[1\] / "assets"|BUILTIN\.parent)',
+                  r"from azurkit.tools.characters.content import ROOT as CONTENT_ROOT\n\1 = CONTENT_ROOT", line)
+
+
 LINE_FIXES = {"vanilla": _vanilla_fix, "float": _float_fix,
               "zeros": lambda line: re.sub(r"-?\d+\.\d+(?:e-?\d+)?f", "0.0f", line),
               "png": lambda line: line.replace('b"\\x89PNG\\r\\n\\x1a\\n"',
-                                               '(b"\\x89PNG" + "\\r\\n\\x1a\\n".encode("latin-1"))')}
+                                               '(b"\\x89PNG" + "\\r\\n\\x1a\\n".encode("latin-1"))'),
+              "content": _content_fix}
 
 
 def fix(rel: str, text: str) -> str:
@@ -521,6 +546,32 @@ def art_hashes(clone: Path, family: str) -> dict[str, str]:
     return out
 
 
+def content_files(clone: Path, family: str) -> dict[str, bytes]:
+    """``{path in the content folder: bytes}``: Modkit's tracked files of the
+    family's :data:`CONTENT` folders in ``clone``, each at its path below
+    :data:`ASSETS`."""
+    return {rel.removeprefix(ASSETS): (clone / rel).read_bytes() for src in CONTENT.get(family, ())
+            for rel in sorted(filter(None, _git(clone, "ls-files", "-z", "--", src).split("\0")))}
+
+
+def content_folder() -> Path:
+    """The content folder a build reads (``azurkit.tools.characters.content.ROOT``)."""
+    from azurkit.tools.characters import content
+    return content.ROOT
+
+
+def install_content(files: dict[str, bytes], folder: Path, old: dict[str, str]) -> dict[str, str]:
+    """Write ``files`` into the content ``folder``, less each file the last
+    sync installed (``old``) that ``files`` no longer holds; returns
+    ``{path: sha256}``."""
+    for rel in sorted(set(old) - set(files)):
+        (folder / rel).unlink(missing_ok=True)
+    for rel, data in files.items():
+        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+        (folder / rel).write_bytes(data)
+    return {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
+
+
 def digest_spans(path: Path) -> str:
     """Replace each build span of the facts file ``path`` (a hex string at
     ``patch_sites.<va>.new.<case>``) with ``{"sha256", "size"}`` of its bytes;
@@ -585,15 +636,16 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             art = {family: art_hashes(clone, family) for family in families}
         except ValueError as exc:
             raise SystemExit(f"nothing written: {exc}") from None
+        content = {family: content_files(clone, family) for family in families}
         for family in families:
             derive(family, clone, bundle / family, env)
         for family in families:
             meta = json.loads((bundle / family / "oracle.json").read_text(encoding="utf-8"))
             if meta["commit"] != commit or meta["dirty"]:
                 raise SystemExit(f"{family}: the bundle is from {meta['commit']} (dirty: {meta['dirty']}), not {commit}")
-            if old := index.get(family, {}).get("commit"):
-                todo = _git(modkit, "log", "--oneline", f"{old}..{commit}", "--", *PATHS[family]).splitlines()
-                out += [f"{family}: {len(todo)} Modkit commits since {old[:12]} touch its paths (the port's to-do):",
+            if since := (old := index.get(family, {})).get("commit"):
+                todo = _git(modkit, "log", "--oneline", f"{since}..{commit}", "--", *PATHS[family]).splitlines()
+                out += [f"{family}: {len(todo)} Modkit commits since {since[:12]} touch its paths (the port's to-do):",
                         *(f"  {line}" for line in todo)]
             shutil.rmtree(ORACLE / family, ignore_errors=True)
             shutil.copytree(bundle / family, ORACLE / family)
@@ -603,6 +655,10 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             index[family] |= {"exported": exported} if exported else {}
             index[family] |= {"source": source_hashes(family)} if family in SOURCES else {}
             index[family] |= {"art": art[family]} if art.get(family) else {}
+            if family in CONTENT:
+                folder = content_folder()
+                index[family]["content"] = install_content(content[family], folder, old.get("content", {}))
+                out.append(f"{family}: {len(content[family])} content files in {folder}")
             out.append(f"{family}: {len(index[family]['files'])} files at {tag} ({commit[:12]})")
     write_index(index)
     return out

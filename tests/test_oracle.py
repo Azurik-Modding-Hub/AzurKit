@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 
 from azurkit.core import gate
-from scripts.oracle_sync import (DERIVED, FACTS, ORACLE, PATHS, ROOT, SOURCES, fix, install, port, read_index,
-                                 source_hashes, sources, tree_hashes)
+from scripts.oracle_sync import (CONTENT, DERIVED, FACTS, ORACLE, PATHS, ROOT, SOURCES, fix, install, port,
+                                 read_index, source_hashes, sources, tree_hashes)
 
 
 def test_every_oracle_file_is_the_one_the_sync_installed():
@@ -29,8 +29,9 @@ def test_every_oracle_file_is_the_one_the_sync_installed():
     by the exported sha256 for a facts file, whose build spans are installed
     as sha256 and size only (a convention, D961), but for the files the sync derives itself
     (``DERIVED``: the models family's ``swap.json`` and ``resources.json``);
-    and each file the sync installed in our source (``SOURCES``) is as it was
-    installed, none missing or added."""
+    each file the sync installed in our source (``SOURCES``) is as it was
+    installed, none missing or added; and a family with files in the content
+    folder (``CONTENT``) records them."""
     index = read_index()
     assert {"core", "packs"} <= set(index)
     assert {p.name for p in ORACLE.iterdir() if p.is_dir()} == set(index)
@@ -51,6 +52,7 @@ def test_every_oracle_file_is_the_one_the_sync_installed():
             spans = [span for site in sites for span in site.get("new", {}).values()]
             assert spans and all(set(span) == {"sha256", "size"} for span in spans), rel
         assert source_hashes(family) == entry.get("source", {}), family
+        assert bool(entry.get("content")) == (family in CONTENT), family
     assert set(SOURCES) <= set(index)
 
 
@@ -103,6 +105,8 @@ def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
             if not any(src == p or src.startswith(p + "/") or fnmatch.fnmatchcase(src, p) for p in PATHS[family])]
     off += [f"{family}: {rel}" for family, entry in read_index().items() for rel in entry.get("art", {})
             if not any(rel.startswith(p + "/") for p in PATHS[family])]
+    off += [f"{family}: {src}" for family, folders in CONTENT.items() for src in folders
+            if not any(src == p or src.startswith(p + "/") for p in PATHS[family])]
     assert off == []
 
 

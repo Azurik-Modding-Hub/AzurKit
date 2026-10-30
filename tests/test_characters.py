@@ -23,10 +23,10 @@ from azurkit.edits import manifest as edits_manifest
 from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
+from azurkit.tools.characters import _player_kit, _player_variants, content, ports
 from azurkit.tools.characters import body_codec as bc
-from azurkit.tools.characters import ports
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
-from scripts import gen_facts
+from scripts import gen_facts, oracle_sync
 from tests import _pyodide
 
 MODELS = gen_facts.ORACLE / "models"
@@ -175,7 +175,8 @@ FIELDS = {"player_character_mode": "mode", "player_character_size": "size", "pla
           "player_character_sounds": "sounds", "player_weapon": "weapon", "player_jiggle_strength": "jiggle_strength",
           "player_jiggle_stiffness": "jiggle_stiffness"}
 VARIANTS = ("beamlord", "booblord", "booblord_high", "booblord_human", "booblord_high_human")   # Step 4.3c's
-CONTENT = {   # a case whose build reads a file Azurik-Custom-Content carries, not this repository (D869)
+CONTENT = {   # a case whose build reads a file Azurik-Custom-Content carries, not this repository (D869):
+    # the content folder's (tools/characters/content.py)
     "randomize-full:player-character=air_elemental": "its gust's funnel mesh (fx/air_elemental/air_funnel.glb)",
     **{f"randomize-full:{case}": "the townsfolk's bare-hands kit (clips/townsfolk/)" for case in (
         "player-character=balthazar,weapon=bare_hands", "player-character=town_female_4",
@@ -192,15 +193,17 @@ def _character(args: dict) -> dict:
                   if args[k] is not None}
 
 
-def _bodies() -> dict[str, dict]:
+def _bodies(content_cases: bool = False) -> dict[str, dict]:
     """``{case: its recipe}`` of G3's USA cases that wear a species' body and
-    build from the player's image alone: every models-family case that names
-    a player character, but Modkit's built-in variants (Step 4.3c), a
-    variant file's, the seed case (level_patches, AZ-009) and :data:`CONTENT`."""
+    build from the player's image alone (with ``content_cases``, those of
+    :data:`CONTENT`, which read the content folder too): every models-family
+    case that names a player character, but Modkit's built-in variants (Step
+    4.3c), a variant file's and the seed case (level_patches, AZ-009)."""
     out = {}
     for case, spec in _oracle("cases.json")[G3["usa"]].items():
         args = spec["args"]
-        if args["player_character"] in VARIANTS or args["player_variant_file"] or args["config_mod"] or case in CONTENT:
+        if args["player_character"] in VARIANTS or args["player_variant_file"] or args["config_mod"] or (
+                case in CONTENT) != content_cases:
             continue
         assert args["no_randomize"] and args["ram"] == 128 and not args["disable_pack"], case
         out[case] = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
@@ -218,28 +221,19 @@ def _view(vanilla: bytes, built: bytes) -> dict:
                     for r in appended(len(old), built)]}
 
 
-def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_hooks_at_the_facts_sites(usa_iso):
-    """Each of G3's body cases (:func:`_bodies`: 20 of its 35 USA model
-    cases, weapons and sounds and garret4's own body among them) built through ``sdk.image`` (the
-    packs on by default, the body's size folded into the walk and roll, the
-    character layer after them) gives every file G3 records Modkit's
-    sha256, characters.xbr's and fx.xbr's resources each as
-    ``resources.json`` holds them (each vanilla entry it changed, each it
-    appended, by name, size and sha256), and ``keylord``'s whole image less
-    its root entries is Modkit's (the grown files' layout). The character
-    layer writes default.xbe only inside its claims (its shims) and the
-    facts' swap sites, and the cases that need Azurik-Custom-Content's
-    files (:data:`CONTENT`) are refused by name. garret4's roll table the
-    roll shim's object holds as zeros, read from the image, gives G2's
-    object back."""
-    bodies, golden, views = _bodies(), _oracle(G3["usa"]), _oracle("resources.json")[G3["usa"]]
-    assert len(bodies) == 20 and set(bodies) | set(CONTENT) <= set(golden)
+def _missed(cases: dict[str, dict], usa_iso) -> dict[str, tuple]:
+    """``{case: (the files whose sha256 isn't G3's, default.xbe's writes outside the character layer's claims and
+    the facts' swap sites, the conflicts)}`` of each of ``cases`` built through ``sdk.image`` that isn't Modkit's
+    file for file (every file G3 records) and resource for resource (characters.xbr's and fx.xbr's, as
+    ``resources.json`` holds them); ``keylord``'s whole image less its root entries is Modkit's."""
+    golden, views = _oracle(G3["usa"]), _oracle("resources.json")[G3["usa"]]
+    assert set(cases) <= set(golden)
     known = facts.of(gate.USA)
     sites = sorted((known.offset(va, s.size), known.offset(va, s.size) + s.size) for va, s in known.swap.items())
     with iso.Reader(usa_iso) as r:
         vanilla = {f: r.read(f) for f in characters.FILES}
     missed = {}
-    for case, recipe in bodies.items():
+    for case, recipe in cases.items():
         stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": str(usa_iso)})
         made, manifest = edits_manifest.image(stamp, layers, base)
         layer = next(la for la in layers if la.tool == characters.TOOL)
@@ -259,15 +253,63 @@ def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_h
         if case.endswith("=keylord"):
             changed = {f: data for f, data in files.items() if f != "filelist.txt" and data != base.get(f)}
             assert iso.read(usa_iso, changed).sha256() == golden[case]["ISO"]
-    assert missed == {}
-    for case, need in (("randomize-full:player-character=air_elemental", "air_funnel"),
-                       ("randomize-full:player-character=town_male_6", "townsfolk")):   # one of each of CONTENT's
-        with pytest.raises((OSError, ValueError), match=need):
-            sdk._plan({"iso": str(usa_iso), "packs": {}, "character": _character(
-                _oracle("cases.json")[G3["usa"]][case]["args"])})
+    return missed
+
+
+def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_hooks_at_the_facts_sites(usa_iso):
+    """Each of G3's body cases (:func:`_bodies`: 20 of its 35 USA model
+    cases, weapons and sounds and garret4's own body among them) built through ``sdk.image`` (the
+    packs on by default, the body's size folded into the walk and roll, the
+    character layer after them) gives every file G3 records Modkit's
+    sha256, characters.xbr's and fx.xbr's resources each as
+    ``resources.json`` holds them (each vanilla entry it changed, each it
+    appended, by name, size and sha256), and ``keylord``'s whole image less
+    its root entries is Modkit's (the grown files' layout). The character
+    layer writes default.xbe only inside its claims (its shims) and the
+    facts' swap sites (:func:`_missed`). garret4's roll table the
+    roll shim's object holds as zeros, read from the image, gives G2's
+    object back."""
+    bodies = _bodies()
+    assert len(bodies) == 20 and _missed(bodies, usa_iso) == {}
     roll = coff.parse((shimkit.PLAYER_MODEL / "roll.o").read_bytes())
     assert coff.normalized_sha256(ports.restored("roll", roll, ports.Vanilla(gate.USA, usa_iso))) == _oracle(
         "tests/goldens/shims.json")["player_model_roll.o"]["normalized sha256"]
+
+
+@pytest.fixture
+def library():
+    """The content folder (``content.ROOT``) holding each file the models
+    family's sync installed there (ORACLE.toml's ``models.content``) as it
+    installed it, else the test fails naming the first that isn't."""
+    want = oracle_sync.read_index()["models"]["content"]
+    for rel, sha in sorted(want.items()):
+        if not (path := content.ROOT / rel).is_file() or _sha256(path.read_bytes()) != sha:
+            pytest.fail(f"the content folder {content.ROOT} doesn't hold {rel} as the models sync installed it: "
+                        f"run scripts/oracle_sync.py's models sync, or name the folder in {content.ENV}")
+    return content.ROOT
+
+
+def test_each_content_case_is_modkits_file_for_file_from_the_content_folder_and_refused_by_name_without_it(
+        usa_iso, library, monkeypatch, tmp_path):
+    """The weapon and fx rows that read Azurik-Custom-Content's files
+    (:data:`CONTENT`, D869's way: the townsfolk's bare-hands kit, worn by
+    the weaponless townsfolk and picked as ``bare_hands`` on any body, with
+    its throw, thuds and whooshes; the worn air elemental's funnel): the
+    swap reads them in the content folder, and each of those 7 G3 cases is
+    Modkit's file for file and resource for resource (:func:`_missed`). A
+    content folder without them fails the build naming the file."""
+    assert (_player_kit.KIT, _player_variants.FX_ASSETS) == (library / "clips" / "townsfolk", library / "fx")
+    cases = _bodies(content_cases=True)
+    assert sorted(cases) == sorted(CONTENT) and _missed(cases, usa_iso) == {}
+    empty = tmp_path / "content"
+    monkeypatch.setattr(_player_kit, "KIT", empty / "clips" / "townsfolk")
+    monkeypatch.setattr(_player_kit, "KIT_FILE", empty / "clips" / "townsfolk" / "kit.json")
+    monkeypatch.setattr(_player_variants, "FX_ASSETS", empty / "fx")
+    _player_kit._kit.cache_clear()   # kit.json as last read: a failed read isn't kept
+    for case, need in (("randomize-full:player-character=air_elemental", "air_funnel"),
+                       ("randomize-full:player-character=town_male_6", "townsfolk/kit.json")):   # one of each
+        with pytest.raises((OSError, ValueError), match=need):
+            sdk._plan({"iso": str(usa_iso), "packs": {}, "character": cases[case]["character"]})
 
 
 def test_a_character_is_refused_by_name_where_a_build_cant_carry_it_yet():

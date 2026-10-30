@@ -392,9 +392,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Modkit's model reasons: Step 4.3c's seed case), and a character in a
     share link or a build's mods file (the pickers' step, 4.3d): each is
     refused by name. Nor the built-in variants (booblord, beamlord: Step
-    4.3c), or the files Azurik-Custom-Content carries (D869): booblord's
-    clips and sounds, the townsfolk's bare-hands kit and the air elemental's
-    funnel; a build that needs one fails by its name.
+    4.3c).
+  - **The content folder** (Step 4.3b, `tools/characters/content.py`): the
+    files the swap reads that Azurik-Custom-Content carries, never this
+    repository or the wheel (D869: our own work, made in Blender on the
+    game's rigs): the townsfolk's bare-hands kit (`clips/townsfolk/`: the
+    weaponless townsfolk's weapon and `bare_hands` on any body, with its
+    throw, thuds and whooshes), the worn air elemental's funnel
+    (`fx/air_elemental/`), booblord's clips and voice (`clips/booblord/`,
+    `sounds/booblord/`). It is the folder `AZURKIT_CONTENT` names, else
+    `content` in the user data folder (beside the images' links), read once
+    a process; the sync's `FIXES` point `_player_kit.KIT` and
+    `_player_variants`' `SOUNDS`, `CLIPS` and `FX_ASSETS` at it. Until
+    Azurik-Custom-Content is published (4.4), the models family's sync
+    installs Modkit's files there at the family's commit (`oracle_sync.CONTENT`)
+    and ORACLE.toml's `models.content` keeps each one's sha256. A build that
+    needs a file the folder lacks fails naming it.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload
@@ -425,7 +438,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   build an image that reads back, and each of G3's 20 body cases (its
   weapon and sound cases and garret4's own body among them) is Modkit's file for file and
   resource for resource, its default.xbe writes inside its claims and the
-  facts' swap sites (keylord's whole image too).
+  facts' swap sites (keylord's whole image too); so are the 7 cases that
+  read the content folder (the bare-hands kit's and the funnel's), which
+  needs the files the sync installed there (the test fails naming one
+  missing), and a build without them fails naming the file.
 
 ## The engine's contracts
 

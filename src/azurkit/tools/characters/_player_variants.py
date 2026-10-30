@@ -293,7 +293,8 @@ DROP_ROLES = ("hurt", "death", "idle", "taunt", "land", "roll", "jump", "footste
 recipe's ``sfx`` (:func:`~azurik_mod.patches._player_sounds.variant_roles`
 binds them; ``fall``, a long fall's landing, and ``climb``, the ledge
 hoist and the climb over a ladder's top: Step 2.144, D406, D408)."""
-SOUNDS = BUILTIN.parent / "sounds"
+from azurkit.tools.characters.content import ROOT as CONTENT_ROOT
+SOUNDS = CONTENT_ROOT / "sounds"
 """The built-ins' WAVs, ``sounds/<variant>/`` (their origin and licence in
 its ``README.md``)."""
 _WAV_FILE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*\.wav\Z", re.IGNORECASE)
@@ -1285,7 +1286,8 @@ def air_blast(characters: bytes, body: Body, p: dict, markers: dict[str, int]) -
     return Clip(length, clip.bones, tuple(sorted((*kept, *tracks), key=lambda tr: (tr.target, tr.comp))))
 
 
-CLIPS = BUILTIN.parent / "clips"
+from azurkit.tools.characters.content import ROOT as CONTENT_ROOT
+CLIPS = CONTENT_ROOT / "clips"
 """The built-ins' Blender clips, ``clips/<variant>/``: clip-only glTF
 files (bones and keys, no mesh or image; game-asset snippets, D153)."""
 ROOT_TRAVEL_MAX = 0.10
@@ -1318,7 +1320,8 @@ def _check_gltf(where: str, p: dict) -> None:
         _positive(f"{where}.rate", p["rate"])
 
 
-FX_ASSETS = BUILTIN.parent / "fx"
+from azurkit.tools.characters.content import ROOT as CONTENT_ROOT
+FX_ASSETS = CONTENT_ROOT / "fx"
 """The built-ins' and overlays' fx files, ``fx/<name>/``: a texture's PNG
 and a platform's glTF mesh (Step 2.155e; made by a script, committed)."""
 

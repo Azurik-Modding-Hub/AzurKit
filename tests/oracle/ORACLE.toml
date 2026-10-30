@@ -1,7 +1,8 @@
 # Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of
 # tests/oracle/<family>/ against its sha256 here; <family>.exported holds a facts file's sha256
 # as Modkit exported it, before its build spans became sha256 and size; <family>.source each
-# file the sync installed in AzurKit's source (scripts/oracle_sync.py's SOURCES).
+# file the sync installed in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.content
+# each file it installed in the content folder (CONTENT: Azurik-Custom-Content's, never committed).
 
 [core]
 tag = "oracle-packs-4"
@@ -37,12 +38,12 @@ commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 "src/azurkit/tools/characters/_player_crossfade.py" = "2bff6c8a2742a6833c404a199770f6a0666541bdbd0f2e0a09f47422461126ab"
 "src/azurkit/tools/characters/_player_damage_marker.py" = "d2e53f8eb924fc1876f9e26fea922bf2168d7d849fc87bb0cbbc64eb5e9a9a5b"
 "src/azurkit/tools/characters/_player_fx_ring.py" = "0dc219918ad2238e631aeb17b90ad05403e2762cf25ea40247333623483feac3"
-"src/azurkit/tools/characters/_player_kit.py" = "47a945e080d4db9bab572abed9b3c8f2a433d0c129f390788e0c5e4a2d8614e1"
+"src/azurkit/tools/characters/_player_kit.py" = "c1cdf351051afe11607fd58cb9446211256d06185e7e7e6d4f14544f9d590254"
 "src/azurkit/tools/characters/_player_power_fx.py" = "f9945fee4dffea0d3b9b8e22930d132f001098b3adbc4a268d5a8cf675018258"
 "src/azurkit/tools/characters/_player_slots.py" = "b196c40654be989ad55288c182848ae4e2d171f8a58d9c35ab57d679219d7c26"
 "src/azurkit/tools/characters/_player_sounds.py" = "75d7f67df74af26e73b83df327ac54f8fadbd5820a72953e1293c218d7c47eec"
 "src/azurkit/tools/characters/_player_throw.py" = "47e85b9c87cc21562f4b8ab6e31a556f14febc015401701b7dbe05c0bb150d98"
-"src/azurkit/tools/characters/_player_variants.py" = "e4cd15e2fea7292321e157ff36e3fd6cb1e48e9789332dc1120b5fdc4c05d351"
+"src/azurkit/tools/characters/_player_variants.py" = "934c11bf467bfaa3cea608dd2a1796774b3ab83c15f5eef628be5c907de70817"
 "src/azurkit/tools/characters/_player_victory.py" = "530441be6831be0dee5a1104a35bce05ee04c0b12fd26c317b37d33c182f21ac"
 "src/azurkit/tools/characters/_player_weapons.py" = "2480c3cd2186289cfbd5def8503f0f688cd9b86d14b5686eb8af96582c9edd5f"
 "src/azurkit/tools/characters/body_codec.py" = "87af52412d663f6bdabc3e5a5f14dc4b5174e4b335e0b78b76f8f0b8b493753b"
@@ -117,6 +118,25 @@ commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 "src/azurkit/tools/characters/weapon_grades.json" = "cc579411fc124195de6bc6d824817d93951ebcdee62991247d4a18957c3d8ecd"
 "src/azurkit/tools/characters/weapons.json" = "26e3f426f4ea91c404aabf45b9b25cd44b0dd8c224c9e2f7887ddd5d79723727"
 "src/azurkit/tools/characters/xbox_adpcm.py" = "8f9161478855c6869e71718b6af4641e9af778a3aeba118666296ad2e2d49e2c"
+
+[models.content]
+"clips/booblord/idles.glb" = "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c"
+"clips/booblord/moves.glb" = "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab"
+"clips/townsfolk/children.glb" = "0bdd8d0e6c80151e2baff9547f8af6724049e85af48edbf26c4ac668fa16d254"
+"clips/townsfolk/kit.json" = "6dcfddffeb1ad145ab72606c24b792e3c342752e17beb842e8af351e063fba39"
+"clips/townsfolk/townsmen.glb" = "c6b88e90ddfe55fd0ad3cf96b54da14a1b79d825e7d3a60f5b93e8d7cfd42e4a"
+"clips/townsfolk/townswomen.glb" = "763e403d1e6e9922e5c961bf203d2ed4d560a9bd9c995a660a4959e3e18a4645"
+"fx/air_elemental/air_funnel.glb" = "8115cce7de39494f0480e8dab7e1efb424206b945987c726b97dd8646dbc099d"
+"fx/air_elemental/air_funnel_swirl.png" = "da5ed277189ba7849da73ea51170ed2d032a015fc67c993a4c690676e7c7027d"
+"sounds/booblord/README.md" = "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371"
+"sounds/booblord/attack1.wav" = "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17"
+"sounds/booblord/attack2.wav" = "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed"
+"sounds/booblord/fall.wav" = "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c"
+"sounds/booblord/grunt.wav" = "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c"
+"sounds/booblord/hit.wav" = "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43"
+"sounds/booblord/hup.wav" = "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc"
+"sounds/booblord/roll.wav" = "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c"
+"sounds/booblord/shout.wav" = "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c"
 
 [packs]
 tag = "oracle-packs-4"
