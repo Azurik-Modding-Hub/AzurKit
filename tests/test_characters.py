@@ -23,7 +23,7 @@ from types import SimpleNamespace
 import pytest
 
 import shimkit
-from azurkit import sdk
+from azurkit import cli, sdk
 from azurkit.core import coff, facts, gate, iso
 from azurkit.core.xbr.append import PAGE, NewResource, append_resources, appended
 from azurkit.core.xbr.nodes import named_resources, parse_toc, runs
@@ -376,7 +376,7 @@ def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_modkits_
 def test_a_share_link_and_a_mods_file_carry_a_character():
     """A share link (``sdk.preset_encode`` and ``preset_decode``) and a mods file (``sdk.read_mods``: a link, or a
     build's manifest through ``preset.from_manifest``) carry a character by name and numbers, a variant with its
-    recipe's sha, both ways; a recipe file's path (``variant_file``) is refused by name (Q174), and so is a variant
+    recipe's sha, both ways, and ``azurkit build --mods`` wears it (``cli.recipe``); a recipe file's path (``variant_file``) is refused by name (Q174), and so is a variant
     whose recipe isn't this AzurKit's, naming what to Install or Update; a remembered setup (``sdk.restore``) keeps
     one and drops a path by name; a randomized recipe's settings are checked before any image is read."""
     recipe = {"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "beamlord", "attack_reach": 1.5}}
@@ -391,6 +391,8 @@ def test_a_share_link_and_a_mods_file_carry_a_character():
              "result": {}}
     assert sdk.read_mods(json.dumps(built)) == {"packs": {"fps_unlock": {}}, "character": {"species": "keylord",
                                                                                            "mode": "garret4"}}
+    assert cli.recipe("x.iso", [], [], True, [], sdk.read_mods(json.dumps(built)))["character"] == {
+        "species": "keylord", "mode": "garret4"}
     with pytest.raises(ValueError, match=r"^preset: a character travels by name and numbers \(Q174\), never its "
                                          r"recipe file's path \(variant_file\)"):
         sdk.preset_encode(recipe | {"character": {"species": "mine", "variant_file": "/x/mine.json"}})

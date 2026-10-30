@@ -34,7 +34,8 @@ a variant by name, a built-in or one of a recipe file's,
 ``{"species": "mine", "variant_file": "recipes.json"}``),
 its size folded into the walk and roll first (with ``--seed``, the plan's
 too, and what the body leaves unmodelled leaves its logic unverified). A mods file
-of a randomized build (``open``) replays its seed and share string. ``plan`` fills the randomizer's
+of a randomized build (``open``) replays its seed and share string, and one with a character
+wears it (``--character`` in its place). ``plan`` fills the randomizer's
 authored levels for the seed under the default settings (D144), a settings
 file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.
 ``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
@@ -89,8 +90,8 @@ def _packs(args: argparse.Namespace) -> int:
 def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, params: list[str] = (),
            mods: dict | None = None, randomizer: dict | None = None) -> dict:
     """``build``'s flags as the sdk's recipe, from ``mods`` (a mods file,
-    ``sdk.read_mods``) when given, with ``randomizer`` (the randomizer's
-    flags, in place of the mods file's); ``ValueError`` names a pack no pack
+    ``sdk.read_mods``, its character too) when given, with ``randomizer``
+    (the randomizer's flags, in place of the mods file's); ``ValueError`` names a pack no pack
     has, one both added and taken away (no flag cancels another), and a
     ``--pack-param`` that isn't ``PACK.SLIDER=NUMBER`` of a pack the build
     applies (the sdk names a slider or value it refuses)."""
@@ -119,7 +120,8 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
         built[pack][slider] = number
     randomizer = randomizer or (mods or {}).get("randomizer")
     return {"iso": iso, "packs": built} | ({"xbr": mods["xbr"]} if mods and mods.get("xbr") else {}) | (
-        {"randomizer": randomizer} if randomizer else {})
+        {"randomizer": randomizer} if randomizer else {}) | (
+        {"character": mods["character"]} if mods and mods.get("character") else {})
 
 
 def _randomizer(args: argparse.Namespace) -> dict | None:
