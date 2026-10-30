@@ -141,10 +141,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - AzurKit never imports Modkit.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, its sections, every patch site's size and vanilla sha256, the
+  game's functions a shim may call, the kernel exports' slots, the
   player-model swap's hooks (`swap`: the vanilla spans it writes and the
-  addresses its shims call), Europe's address map) are derived from the
-  oracle by `scripts/gen_facts.py`; run it after a packs, core or models
-  sync, never edit them by hand. `tests/test_packs.py` holds them to it.
+  addresses its shims call), Europe's address map). `scripts/gen_facts.py`
+  writes their XBE half from the player's images (the XBE's sha256, size and
+  header, the sections, each site's vanilla sha256, each kernel slot) and the
+  swap from the models family's oracle (until Step 4.12c); a new site's
+  address and size, a function and Europe's address map are edited by hand,
+  then gen_facts fills in the rest. Run it after such an edit or a models
+  sync. `tests/test_packs.py` holds the files to it.
 
 ## Packs
 

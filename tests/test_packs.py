@@ -32,9 +32,10 @@ from azurkit.edits.manifest import image
 from azurkit.tools import mods
 from azurkit.tools.mods import engine
 from scripts import gen_facts
+from scripts.oracle_sync import ORACLE as ORACLE_ROOT
 from tests import _g1
 
-ORACLE = gen_facts.ORACLE / "packs"
+ORACLE = ORACLE_ROOT / "packs"
 FACTS = {"usa": "tests/facts/xbe.json", "europe": "tests/facts/xbe.europe.json"}
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
@@ -53,9 +54,13 @@ def _vanilla_file(path, name: str) -> bytes:
         return r.read(name)
 
 
-def test_the_shipped_facts_are_the_ones_gen_facts_derives_from_the_oracle():
-    for release in gate.RELEASES:
-        assert facts.path(release).read_text(encoding="utf-8") == gen_facts.text(release.name), release.name
+def test_the_shipped_facts_xbe_half_is_the_one_gen_facts_reads_from_each_image(usa_iso, europe_iso):
+    """Each release's facts file is what ``scripts/gen_facts.py`` writes
+    from its image: the XBE's sha256, size, header, sections, each site's
+    vanilla sha256 and each kernel slot, the rest as the file holds it."""
+    for release, path in ((gate.USA, usa_iso), (gate.EUROPE, europe_iso)):
+        assert facts.path(release).read_text(encoding="utf-8") == gen_facts.text(
+            release, _vanilla_file(path, engine.XBE)), release.name
 
 
 @pytest.mark.parametrize("release", RELEASES)

@@ -27,9 +27,9 @@ from azurkit.core import iso
 from azurkit.core.xbr import Document
 from azurkit.edits import manifest
 from azurkit.tools import mods
-from scripts import gen_facts
+from scripts.oracle_sync import ORACLE as ORACLE_ROOT
 
-ORACLE = gen_facts.ORACLE / "packs"
+ORACLE = ORACLE_ROOT / "packs"
 CONFIG = "gamedata/config.xbr"
 LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt")   # left out where a case moves an entity (AZ-009)
 # Modkit's flags -> player_physics's sliders: apply-physics's, then randomize-full's

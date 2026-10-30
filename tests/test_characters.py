@@ -28,10 +28,10 @@ from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_kit, _player_variants, content, ports
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
-from scripts import gen_facts
+from scripts import oracle_sync
 from tests import _pyodide
 
-MODELS = gen_facts.ORACLE / "models"
+MODELS = oracle_sync.ORACLE / "models"
 CHARACTERS, FX, INDEX = characters.FILES
 G3 = {"usa": "tests/goldens/pipelines.json", "europe": "tests/goldens/europe/pipelines.json"}
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),

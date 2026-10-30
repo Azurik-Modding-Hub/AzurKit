@@ -11,9 +11,11 @@ are handed, ``swap_refs``), and Europe's address map: each USA address the packs
 address, or why it has none. USA's addresses are the canonical ones, by
 which every pack names its sites.
 
-``facts.<release>.json`` beside this module holds them, written by
-``scripts/gen_facts.py`` from the oracle (Modkit's facts and address map in
-``tests/oracle/``), never by hand.
+``facts.<release>.json`` beside this module holds them. ``scripts/gen_facts.py``
+writes their XBE half from the player's image (the XBE's sha256, size and
+header, the sections, each site's vanilla sha256, each kernel slot) and the
+swap's hooks from the models family's oracle; a site's address and size,
+the functions and Europe's address map are edited by hand.
 """
 
 from __future__ import annotations

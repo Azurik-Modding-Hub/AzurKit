@@ -27,10 +27,10 @@ from azurkit.edits.layer import Claim, Layer, compose
 from azurkit.tools import mods
 from azurkit.tools.characters import ports
 from azurkit.tools.mods import engine
-from scripts import gen_facts
+from scripts.oracle_sync import ORACLE as ORACLE_ROOT
 
-G2 = json.loads((gen_facts.ORACLE / "packs/tests/goldens/shims.json").read_text(encoding="utf-8"))
-G2_MODELS = json.loads((gen_facts.ORACLE / "models/tests/goldens/shims.json").read_text(encoding="utf-8"))
+G2 = json.loads((ORACLE_ROOT / "packs/tests/goldens/shims.json").read_text(encoding="utf-8"))
+G2_MODELS = json.loads((ORACLE_ROOT / "models/tests/goldens/shims.json").read_text(encoding="utf-8"))
 
 
 def test_each_prebuilt_shim_is_its_sources_build_and_holds_its_g2_hash(usa_iso):

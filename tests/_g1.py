@@ -17,7 +17,7 @@ from typing import NamedTuple
 
 from azurkit.core import gate
 from azurkit.tools import mods
-from scripts import gen_facts
+from scripts.oracle_sync import ORACLE as ORACLE_ROOT
 
 GOLDENS = {"usa": "tests/goldens/packs.json", "europe": "tests/goldens/europe/packs.json"}
 PATHS = {"config.xbr": "gamedata/config.xbr"}   # Modkit's name for a file -> its path in the image
@@ -30,7 +30,7 @@ class Case(NamedTuple):
 
 
 def _oracle(rel: str) -> dict:
-    return json.loads((gen_facts.ORACLE / "packs" / rel).read_text(encoding="utf-8"))
+    return json.loads((ORACLE_ROOT / "packs" / rel).read_text(encoding="utf-8"))
 
 
 def _cases(release: gate.Release, packs) -> dict[str, Case]:

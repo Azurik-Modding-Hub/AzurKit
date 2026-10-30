@@ -1,5 +1,5 @@
 {
- "_about": "Written by scripts/gen_facts.py from tests/oracle/ (Modkit's facts and Europe's address map), never by hand. Hashes, sizes, names and addresses only: a site's vanilla bytes are their sha256 and size.",
+ "_about": "The XBE half (the xbe's sha256, size, base and thunk table, the sections, each site's sha256 and each kernel slot) is written by scripts/gen_facts.py from the player's image, the swap from the models oracle; a site's address and size, the functions and Europe's address map are edited by hand. Hashes, sizes, names and addresses only.",
  "absent": {
   "0x001001D0": "USA's .text slack before BINK, where small shims and slider values land: Europe's .text has none, so they land in SHIMS",
   "0x0011D5D0": "Europe's D3D (XDK 4039) was rebuilt (renumbered render states, a new Present ABI): a shim that needs it owes Europe RE first",
