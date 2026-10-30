@@ -10,6 +10,9 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
+    azurkit content [list | install ID | update ID] [--source URL|DIR]
+                                          Azurik-Custom-Content's entries, and Install or Update one
+    azurkit content check DIR [--write]   a content repository's manifest and files (--write fills in their sha256)
 
 ``build`` applies the packs on by default (D528) and each ``--pack``, less
 each ``--no-pack`` and each pack on by default that requires one left out
@@ -34,6 +37,12 @@ too, and what the body leaves unmodelled leaves its logic unverified). A mods fi
 of a randomized build (``open``) replays its seed and share string. ``plan`` fills the randomizer's
 authored levels for the seed under the default settings (D144), a settings
 file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.
+``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
+``--source`` or ``$AZURKIT_CONTENT_SOURCE``, a URL or a folder) and what the
+content folder holds of each; ``install`` and ``update`` copy one in, every
+file's sha256 checked first (a build reads a variant's files from there);
+``check`` checks a clone's ``manifest.json`` and every file it lists, and
+``--write`` first fills in each listed file's sha256 and size.
 A refusal or failure is one ``azurkit: ...`` line on stderr and exit 1.
 """
 
@@ -190,6 +199,40 @@ def _spoiler(args: argparse.Namespace) -> int:
     return 0
 
 
+def _content(args: argparse.Namespace) -> int:
+    from azurkit.tools.characters import content
+
+    try:
+        if args.action == "check":
+            folder = Path(args.target or ".")
+            raw = json.loads((folder / content.MANIFEST).read_text(encoding="utf-8"))
+            manifest = content.filled(raw, lambda path: (folder / path).read_bytes()) if args.write else content.check(raw)
+            for entry in manifest["entries"]:
+                content.verify(manifest, entry["id"], {f["path"]: (folder / f["path"]).read_bytes()
+                                                       for e in manifest["entries"] for f in e["files"]})
+            if args.write:
+                (folder / content.MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
+            print(f"{folder / content.MANIFEST}: {len(manifest['entries'])} entries, every file as it lists it"
+                  + (" (written)" if args.write else ""))
+            return 0
+        if args.action in ("install", "update"):
+            if not args.target:
+                raise ValueError(f"content {args.action}: name the entry")
+            view = sdk.content_install({"id": args.target, "source": args.source})
+        else:
+            view = sdk.content({"source": args.source})
+    except (OSError, ValueError) as exc:     # json.JSONDecodeError is a ValueError
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    if view["why"]:
+        print(f"azurkit: {view['why']}", file=sys.stderr)
+    for e in view["entries"]:
+        state = {"install": "not installed", "installed": f"installed v{e['installed']}",
+                 "update": f"installed v{e['installed']}, update to v{e['version']}"}[e["state"]]
+        print(f"{e['id']:<18} {e['kind']:<8} {state:<28} {e['title']} ({e['author']}, {e['licence']})")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="azurkit", description="Mods for Azurik: Rise of Perathia.")
     parser.add_argument("--version", action="version", version=f"azurkit {__version__}")
@@ -249,6 +292,17 @@ def main(argv: list[str] | None = None) -> int:
                                            "obtain and return paths, the traps and the rest.")
     spoiled.add_argument("plan", metavar="PLAN", help="a plan file (azurkit plan --out)")
     spoiled.set_defaults(run=_spoiler)
+    contented = verbs.add_parser("content", help="list, install or update Azurik-Custom-Content's entries",
+                                 description="List Azurik-Custom-Content's entries (from --source, else "
+                                             "$AZURKIT_CONTENT_SOURCE, else the hub's) and what the content folder "
+                                             "holds of each; install or update one, every file's sha256 checked "
+                                             "before anything is written; or check a content repository's "
+                                             "manifest and files.")
+    contented.add_argument("action", nargs="?", default="list", choices=("list", "install", "update", "check"))
+    contented.add_argument("target", nargs="?", metavar="ID|DIR", help="the entry to install or update; check's folder")
+    contented.add_argument("--source", metavar="URL|DIR", help="where Azurik-Custom-Content is read from")
+    contented.add_argument("--write", action="store_true", help="check: fill in each listed file's sha256 and size")
+    contented.set_defaults(run=_content)
     args = parser.parse_args(argv)
     if args.verb is None:
         parser.print_help()

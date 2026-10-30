@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import multiprocessing
+import re
 import struct
 import sys
 from concurrent.futures import ProcessPoolExecutor
@@ -435,6 +436,110 @@ def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_th
     own = characters.variant({"species": "beamlord"}, None)[1]["mode"]
     with pytest.raises(ValueError, match=r"^--player-character-mode \w+: the variant 'beamlord' is mode " + own):
         characters.variant({"species": "beamlord", "mode": {"own": "garret4", "garret4": "own"}[own]}, None)
+
+
+# --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
+
+
+def _source(folder: Path, files: dict[str, bytes], entries: list[dict]) -> dict:
+    """A content source in ``folder``: ``files`` at their paths and a manifest of ``entries`` (each's files
+    listed by path, their sha256 and size measured)."""
+    for path, data in files.items():
+        (folder / path).parent.mkdir(parents=True, exist_ok=True)
+        (folder / path).write_bytes(data)
+    manifest = content.filled({"format": content.FORMAT, "schema_version": content.SCHEMA_VERSION, "entries": [
+        {"kind": "pack", "title": e["id"], "author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1,
+         "requires": []} | e | {"files": [{"path": path} for path in e["files"]]} for e in entries]},
+        lambda path: (folder / path).read_bytes())
+    (folder / content.MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
+    return manifest
+
+
+def test_a_content_manifest_is_checked_and_each_fault_refused_by_name(tmp_path):
+    """Azurik-Custom-Content's manifest (``content.check``): one fault each, every one refused by name, and a
+    file whose bytes aren't its size or sha256, or hold an Xbox disc image's magic, refused by
+    ``content.verify`` before an install writes anything."""
+    good = _source(tmp_path, {"packs/a/pack.json": b"{}", "packs/b/pack.json": b"[]"},
+                   [{"id": "a", "files": ["packs/a/pack.json"], "requires": ["b"]}, {"id": "b", "files": ["packs/b/pack.json"]}])
+    assert content.check(json.dumps(good)) == good
+
+    def entry(k: int = 0, **fields):
+        bad = json.loads(json.dumps(good))
+        bad["entries"][k] |= fields
+        return bad
+    file = good["entries"][0]["files"][0]
+    faults = {
+        "manifest: schema_version 2 isn't one AzurKit reads": good | {"schema_version": 2},
+        "manifest: format 'other' isn't": good | {"format": "other"},
+        "entry 'a': two entries have that id": entry(1, id="a"),
+        "kind 'mod' is none of variant, pack": entry(kind="mod"),
+        "version 1.5 is no whole number from 1": entry(version=1.5),
+        "requires 'c', which it lists not": entry(requires=["c"]),
+        "requires itself": entry(1, requires=["a"]),
+        "path '../a/x' isn't a file under": entry(files=[file | {"path": "../a/x"}]),
+        "is no relative POSIX path": entry(files=[file | {"path": "packs\\a"}]),
+        "path 'iso/usa.iso' isn't a file under": entry(files=[file | {"path": "iso/usa.iso"}]),
+        "entry 'b': packs/b/pack.json is entry 'a''s too": entry(files=[file | {"path": "packs/b/pack.json"}]),
+        "sha256 is no 64 lower-case hex digits": entry(files=[file | {"sha256": "ab"}]),
+        f"size {content.MAX_FILE + 1} is no whole number": entry(files=[file | {"size": content.MAX_FILE + 1}]),
+        "an object of id, kind, title": entry(extra=1)}
+    for why, bad in faults.items():
+        with pytest.raises(ValueError, match=re.escape(why)):
+            content.check(bad)
+    with pytest.raises(ValueError, match=r"past the 1,048,576 a manifest may hold"):
+        content.check(b" " * (content.MAX_MANIFEST + 1))
+    files = {"packs/a/pack.json": b"{}", "packs/b/pack.json": b"[]"}
+    assert [e["id"] for e in content.verify(good, "a", files)] == ["b", "a"]   # what it requires first
+    for broken, why in ((b"{ }", r"a: packs/a/pack.json is 3 bytes, not the manifest's 2"),
+                        (b"{]", r"a: packs/a/pack.json's sha256 [0-9a-f]{12} isn't the manifest's [0-9a-f]{12}")):
+        with pytest.raises(ValueError, match=why):
+            content.verify(good, "a", files | {"packs/a/pack.json": broken})
+    magic = b"x" + content.XISO
+    disc = entry(files=[file | {"sha256": _sha256(magic), "size": len(magic)}])
+    with pytest.raises(ValueError, match=r"holds an Xbox disc image's magic: never content \(D960\)"):
+        content.verify(disc, "a", files | {"packs/a/pack.json": magic})
+
+
+def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, monkeypatch):
+    """``sdk.content_install`` from a folder source into the content folder: a file changed by a byte is
+    refused naming it and nothing is written (D35); an install writes the entry and the one it requires and
+    ``installed.json`` last (each version and file's sha256); a newer version upstream leaves the installed copy
+    as it was until its Update, which drops the files that version no longer lists; and a built-in variant's
+    entry whose recipe isn't the engine's (its sha) is refused by name."""
+    source, folder = tmp_path / "source", tmp_path / "content"
+    monkeypatch.setattr(content, "ROOT", folder)
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    files = {"packs/a/pack.json": b"{}", "packs/a/old.txt": b"old", "packs/b/pack.json": b"[]"}
+    manifest = _source(source, files, [{"id": "a", "files": ["packs/a/pack.json", "packs/a/old.txt"], "requires": ["b"]},
+                                       {"id": "b", "files": ["packs/b/pack.json"]}])
+    (source / "packs/a/old.txt").write_bytes(b"olD")
+    with pytest.raises(ValueError, match=r"^a: packs/a/old\.txt's sha256 [0-9a-f]{12} isn't the manifest's"):
+        sdk.content_install({"id": "a", "source": str(source)})
+    assert not folder.exists()
+    (source / "packs/a/old.txt").write_bytes(b"old")
+    view = sdk.content_install({"id": "a", "source": str(source)})
+    shas = {e["id"]: {f["path"]: f["sha256"] for f in e["files"]} for e in manifest["entries"]}
+    assert json.loads((folder / content.INSTALLED).read_text()) == view["installed"] == {
+        name: {"version": 1, "source": str(source), "files": shas[name]} for name in ("a", "b")}
+    assert {e["id"]: e["state"] for e in view["entries"]} == {"a": "installed", "b": "installed"}
+    assert sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()) == sorted(
+        [*files, content.INSTALLED, content.MANIFEST])
+    _source(source, {"packs/a/pack.json": b'{"v": 2}'},
+            [{"id": "a", "version": 2, "files": ["packs/a/pack.json"], "requires": ["b"]},
+             {"id": "b", "files": ["packs/b/pack.json"]}])
+    view = sdk.content({"source": str(source)})
+    assert [(e["id"], e["state"], e["installed"]) for e in view["entries"]] == [("a", "update", 1), ("b", "installed", 1)]
+    assert (folder / "packs/a/pack.json").read_bytes() == b"{}" and (folder / "packs/a/old.txt").is_file()
+    view = sdk.content_install({"id": "a", "source": str(source)})
+    assert view["installed"]["a"]["version"] == 2 and not (folder / "packs/a/old.txt").exists()
+    assert (folder / "packs/a/pack.json").read_bytes() == b'{"v": 2}'
+    recipe = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"] | {"scale": 1.5}
+    _source(source, {"variants/beamlord/variant.json": json.dumps({"beamlord": recipe}).encode()},
+            [{"id": "beamlord", "kind": "variant", "files": ["variants/beamlord/variant.json"]}])
+    with pytest.raises(ValueError, match=r"^beamlord: variants/beamlord/variant\.json's beamlord is recipe "
+                                         r"[0-9a-f]{12}, not the built-in beamlord's 628f6d09ad7b"):
+        sdk.content_install({"id": "beamlord", "source": str(source)})
+    assert "beamlord" not in content.installed()
 
 
 # --- the built-in variants, the effects templates and a seed with a character (Step 4.3c2) ----------------------

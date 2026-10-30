@@ -108,8 +108,11 @@ comes with version 1.0.
 - **Voice:** the creature's own sounds, or Garret's.
 - **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
   creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's four
-  need her own moves and voice, extra files read from AzurKit's content folder; a build without them stops, naming
+  need her own moves and voice, extra files from our Azurik-Custom-Content; a build without them stops, naming
   the file.
+- **Community content:** `azurkit content install booblord` copies an entry of Azurik-Custom-Content into AzurKit's
+  content folder, every file's size and checksum checked first, so a bad download writes nothing; it stays at its
+  version until you `update` it.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
   bolts or laser, made from the game's own effects.
 - **Works with every pack and the randomizer:** a seed can wear a character, its logic re-checked at the body's
@@ -200,6 +203,7 @@ uv run --locked azurkit build --iso PATH --out PATH [--mods FILE] [--pack NAME .
 uv run --locked azurkit open BUILD                       # a build's recipe, as a mods file for build --mods
 uv run --locked azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]   # a plan; needs no game
 uv run --locked azurkit spoiler PLAN                     # that plan's spoiler
+uv run --locked azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Content's entries
 uv run --locked python scripts/web_tools.py --site DIR   # the site: the page, Pyodide and the wheel
 uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS

@@ -471,6 +471,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (`oracle_sync.CONTENT`, less what `SOURCES` ships) and ORACLE.toml's
     `models.content` keeps each one's sha256. A build that needs a file the
     folder lacks fails naming it.
+  - **Install and Update** (Step 4.3d, D913, D966): `content.check` reads
+    Azurik-Custom-Content's `manifest.json` (its entries, each one's
+    version and files with their sha256 and size, the entries it
+    requires), and `content.install` copies an entry into the content
+    folder from what a host fetched (`sdk.content_install`, `azurkit
+    content install`: a URL or a folder, `$AZURKIT_CONTENT_SOURCE`
+    winning): every file checked first, nothing written on a mismatch,
+    `installed.json` last. An installed copy stays at its version until its
+    Update. The engine opens no connection: the sdk's CPython calls fetch,
+    and the site's page fetches and its worker checks
+    (`sdk.content_check`).
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload

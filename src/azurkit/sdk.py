@@ -3,8 +3,10 @@
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
-:func:`art_world` (its maps and icons, drawn from the player's image), and
-:func:`restore`. JSON in and
+:func:`art_world` (its maps and icons, drawn from the player's image),
+:func:`restore`, and Azurik-Custom-Content's :func:`content`,
+:func:`content_install` and :func:`content_check` (the Characters tab's
+community entries). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``). A refusal is a
@@ -77,6 +79,8 @@ isn't carried by a build's mods file (:func:`open_build`) or a share link
 from __future__ import annotations
 
 import json
+import os
+import urllib.parse
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
@@ -90,9 +94,13 @@ from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
-           "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore"]
+           "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
+           "content", "content_install", "content_check"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer")   # a UI's remembered setup (D915, :func:`restore`)
+SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
+"""Where Azurik-Custom-Content is read from by default (D966: the hub's, public at Step 4.4)."""
+SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (the tests', a private play's)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
 TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", True), ("characters", "Characters", False),
@@ -508,3 +516,108 @@ def restore(setup: object) -> dict:
             why.append(f"the randomizer's settings ({exc})")
     return {"ticked": on, "values": {name: v for name, v in values.items() if v}, "xbr": kept,
             "dropped": list(dict.fromkeys(dropped + why))} | rando
+
+
+def _source(given: object = None) -> str:
+    """The content source: ``$AZURKIT_CONTENT_SOURCE``, else ``given`` (a
+    host's setting), else :data:`SOURCE`; an http(s) URL or a folder's
+    absolute path (``~`` expanded), refused by name otherwise."""
+    source = os.environ.get(SOURCE_ENV) or given or SOURCE
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError("content: the source is an http(s) URL or a folder's path")
+    source = source.strip()
+    if urllib.parse.urlsplit(source).scheme in ("http", "https"):
+        return source if source.endswith("/") else source + "/"
+    folder = Path(source).expanduser()
+    if not folder.is_absolute():
+        raise ValueError(f"content: {source} is neither an http(s) URL nor a folder's full path")
+    return str(folder)
+
+
+def _fetch(source: str) -> Callable[[str], bytes]:
+    """``fetch(path)``: the bytes of the file at ``path`` of ``source``
+    (:func:`_source`'s), at most the content folder's file limit;
+    ``OSError`` names what failed. CPython hosts' (the app's, the CLI's):
+    the site fetches in its page."""
+    from azurkit.tools.characters import content
+
+    def fetch(path: str) -> bytes:
+        if not source.startswith(("http://", "https://")):
+            return (Path(source) / path).read_bytes()
+        import urllib.request
+
+        url = urllib.parse.urljoin(source, urllib.parse.quote(path))
+        try:
+            with urllib.request.urlopen(url, timeout=60) as reply:
+                data = reply.read(content.MAX_FILE + 1)
+        except OSError as exc:   # urllib's HTTPError and URLError are OSErrors
+            raise OSError(f"{url}: {getattr(exc, 'reason', exc)}") from None
+        if len(data) > content.MAX_FILE:
+            raise OSError(f"{url}: past the {content.MAX_FILE:,} bytes a content file may hold")
+        return data
+    return fetch
+
+
+def content(given: Mapping | None = None) -> dict:
+    """Azurik-Custom-Content as the Characters tab lists it (D913): the
+    ``source`` read (:data:`SOURCE`, a host's setting ``given["source"]``, or
+    ``$AZURKIT_CONTENT_SOURCE``), its manifest checked
+    (``tools.characters.content.check``; the last one fetched, kept in the
+    content folder, when the source can't be read, with ``why``), each
+    entry's state against what the content folder holds (``entries``:
+    install, installed at its version, or update, kept until its Update)
+    and ``installed`` (the folder's ``installed.json``). CPython's: the
+    site's page fetches, and its worker checks (:func:`content_check`)."""
+    from azurkit.tools.characters import content as kit
+
+    given = given or {}
+    source, why, manifest = _source(given.get("source")), None, None
+    try:
+        raw = _fetch(source)(kit.MANIFEST)
+        manifest = kit.check(raw)
+        kit.ROOT.mkdir(parents=True, exist_ok=True)
+        (kit.ROOT / kit.MANIFEST).write_bytes(raw)   # the last fetched, listed while the source can't be read
+    except (OSError, ValueError) as exc:
+        why = f"can't read {source}: {exc}"
+        try:
+            manifest = kit.check((kit.ROOT / kit.MANIFEST).read_bytes())
+        except (OSError, ValueError):
+            manifest = None
+    record = kit.installed()
+    return {"source": source, "manifest": manifest, "why": why, "entries": kit.states(manifest, record),
+            "installed": record}
+
+
+def content_install(given: Mapping) -> dict:
+    """Install (or Update) the entry ``given["id"]`` of the content source
+    (``given["source"]``, as :func:`content` reads it) into the content
+    folder, with the entries it requires: every file's size and sha256
+    checked before anything is written (D35), ``installed.json`` written
+    last (``tools.characters.content.install``); :func:`content`'s view
+    after it. A refusal names the entry and the file."""
+    from azurkit.tools.characters import content as kit
+
+    if not isinstance(given, Mapping) or not isinstance(given.get("id"), str):
+        raise ValueError("content: name the entry to install")
+    source = _source(given.get("source"))
+    fetch = _fetch(source)
+    kit.install(kit.check(fetch(kit.MANIFEST)), given["id"], fetch, source=source)
+    return content({"source": given.get("source")})
+
+
+def content_check(given: Mapping) -> dict:
+    """The site's half of Install (its page fetches, this checks):
+    ``given["manifest"]`` checked, and with ``id`` and ``files`` (``{path:
+    bytes}``, what the page fetched of the entry and those it requires)
+    every file verified as :func:`content_install` verifies it
+    (``tools.characters.content.verify``): ``{"manifest", "install": [each
+    entry's id it writes, those required first]}``, or the refusal named."""
+    from azurkit.tools.characters import content as kit
+
+    if not isinstance(given, Mapping):
+        raise ValueError("content: a JSON object")
+    manifest = kit.check(given.get("manifest"))
+    if "id" not in given:
+        return {"manifest": manifest, "install": []}
+    chosen = kit.verify(manifest, given["id"], given.get("files") or {})
+    return {"manifest": manifest, "install": [e["id"] for e in chosen]}

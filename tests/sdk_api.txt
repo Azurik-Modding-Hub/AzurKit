@@ -5,8 +5,10 @@ The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
-:func:`art_world` (its maps and icons, drawn from the player's image), and
-:func:`restore`. JSON in and
+:func:`art_world` (its maps and icons, drawn from the player's image),
+:func:`restore`, and Azurik-Custom-Content's :func:`content`,
+:func:`content_install` and :func:`content_check` (the Characters tab's
+community entries). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``). A refusal is a
@@ -279,3 +281,36 @@ couldn't carry), each left out and named, never applied. A setup's
 ``obsidian_cost``, ``tools.randomizer.remembered``) comes back
 checked, or is dropped whole, by name. It never refuses: a setup it
 can't read is dropped whole, by name.
+
+
+def content(given: 'Mapping | None' = None) -> 'dict':
+
+Azurik-Custom-Content as the Characters tab lists it (D913): the
+``source`` read (:data:`SOURCE`, a host's setting ``given["source"]``, or
+``$AZURKIT_CONTENT_SOURCE``), its manifest checked
+(``tools.characters.content.check``; the last one fetched, kept in the
+content folder, when the source can't be read, with ``why``), each
+entry's state against what the content folder holds (``entries``:
+install, installed at its version, or update, kept until its Update)
+and ``installed`` (the folder's ``installed.json``). CPython's: the
+site's page fetches, and its worker checks (:func:`content_check`).
+
+
+def content_install(given: 'Mapping') -> 'dict':
+
+Install (or Update) the entry ``given["id"]`` of the content source
+(``given["source"]``, as :func:`content` reads it) into the content
+folder, with the entries it requires: every file's size and sha256
+checked before anything is written (D35), ``installed.json`` written
+last (``tools.characters.content.install``); :func:`content`'s view
+after it. A refusal names the entry and the file.
+
+
+def content_check(given: 'Mapping') -> 'dict':
+
+The site's half of Install (its page fetches, this checks):
+``given["manifest"]`` checked, and with ``id`` and ``files`` (``{path:
+bytes}``, what the page fetched of the entry and those it requires)
+every file verified as :func:`content_install` verifies it
+(``tools.characters.content.verify``): ``{"manifest", "install": [each
+entry's id it writes, those required first]}``, or the refusal named.
