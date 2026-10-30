@@ -26,7 +26,7 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
     an EEPROM .bin, a private key and a guest RAM snapshot (AZL3SNAP); the
     XISO part and the snapshot also inside a gzip file (the snapshot also
     in one with a bad CRC and in one whose deflate data is damaged after
-    it)."""
+    it), and an ISO part's name inside one named ``.GZ``."""
     snapshot = b"AZL3SNAP" + bytes(56)
     gz = gzip.compress(snapshot)
     deflate = zlib.compressobj(wbits=31)
@@ -35,6 +35,8 @@ def test_game_files_and_bytes_pass_and_images_disks_eeproms_snapshots_and_keys_a
     refused = {
         "part.000": (xiso_part, "XISO volume descriptor at 0x10000"),
         "part.001.gz": (gzip.compress(xiso_part), "inside its gzip: XISO volume descriptor at 0x10000"),
+        "AZURIK.ISO.007.GZ": (gzip.compress(bytes(64)),
+                              "inside its gzip: ISO image or part (.iso/.xiso/.iso.NNN name)"),
         **{name: (bytes(64), "ISO image or part (.iso/.xiso/.iso.NNN name)")
            for name in ("Azurik.ISO", "europe.xiso", "azurik.iso.007")},
         "hdd.qcow2": (b"QFI\xfb" + bytes(60), "qcow2 disk image (an xemu HDD) at 0"),

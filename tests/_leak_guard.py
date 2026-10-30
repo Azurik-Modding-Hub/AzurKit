@@ -116,10 +116,10 @@ def gunzip(data: bytes) -> bytes | None:
 
 def check_bytes(rel: str, data: bytes) -> str | None:
     """:func:`check_blob` for a file's bytes (its head at least), and for a
-    gzip file's inner bytes (named ``rel`` without ``.gz``)."""
+    gzip file's inner bytes (named ``rel`` without ``.gz``, in any case)."""
     if why := check_blob(rel, data[:MAGIC_SPAN]):
         return why
-    if (inner := gunzip(data)) is not None and (why := check_bytes(rel.removesuffix(".gz"), inner)):
+    if (inner := gunzip(data)) is not None and (why := check_bytes(re.sub(r"\.gz\Z", "", rel, flags=re.I), inner)):
         return f"inside its gzip: {why}"
     return None
 
