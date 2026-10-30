@@ -19,6 +19,9 @@ main graph, whose numDead (a f32 at ``[node+8]+0x20``) goes 0 -> 1 when the play
 - :class:`Reload`: the inventory's day clock fell (a death, Continue, Load Game, an xemu loadvm), or another
   timeline began: a load onto another saved slot, or a new game (one entered from a saved slot told once it
   leaves its training room: a load back onto that slot is a stored-power trip, the same timeline).
+- With the tracker's gems (Step R1.43, D928: a spot table built with ``gems``), each gem spot's generator read
+  the same way: :class:`Gem`, a take paired with its gem's count rising (a cluster's gems one rise each, its
+  numDead counting them), and :class:`Gems`, at each settle the level's gems the game holds taken.
 
 A level whose spots name another seed's or build's items gives none (its :attr:`Reading.mismatch`).
 
@@ -66,6 +69,7 @@ PAUSED_S = 5.0            # wall s of holds before the status says paused
 NEW_GAME_LEVEL = "training_room"   # a new game's first level, every element at 1, its clock near 0 [U25, AZ-478]
 WAITING_S = 2.0           # the poll period while xemu runs no Azurik
 FUELS = ("ef", "af", "ff", "wf")   # the element fuels all_fuel fills
+GEM_KINDS = ("G", "g")             # a gem spot's kinds: saved, unsaved (Step R1.43)
 
 
 # ---------------------------------------------------------------- the spots
@@ -74,9 +78,10 @@ FUELS = ("ef", "af", "ff", "wf")   # the element fuels all_fuel fills
 class Spot:
     """A tracked spot as Live reads it: its pool level, its graph and record (None: in a characters graph,
     with no level node), the plan's item, its kind (``S`` saved, ``U`` unsaved: numDead resets every visit,
-    ``C`` characters graph), the inventory field that holds its item from this spot only (None: none) and
-    the species its node names for that item ("": the item; a ``_move`` spot's vanilla item keeps its
-    template, ``obsidian_move``, as the writer does)."""
+    ``C`` characters graph; a gem spot ``G`` saved, ``g`` unsaved), the inventory field that holds its item
+    from this spot only (None: none), the species its node names for that item ("": the item; a ``_move``
+    spot's vanilla item keeps its template, ``obsidian_move``, as the writer does; a gem's isn't checked) and
+    how many pickups its generator holds (a gem cluster's gems; else 1)."""
     loc: str
     level: str
     graph: int | None
@@ -85,6 +90,11 @@ class Spot:
     kind: str
     field: str | None = None
     species: str = ""
+    full: int = 1
+
+    @property
+    def gem(self) -> bool:
+        return self.kind in GEM_KINDS
 
 
 @dataclass(frozen=True)
@@ -102,9 +112,11 @@ class SpotTable:
     spots: tuple[Spot, ...]
 
 
-def spot_table(tracker) -> SpotTable:
+def spot_table(tracker, gems: bool = False) -> SpotTable:
     """``tracker``'s spots (:class:`~azurkit.tools.randomizer.tracker.Tracker`) with their kinds, from the
-    generated database: a location's ``saved`` and its id's graph and record."""
+    generated database: a location's ``saved`` and its id's graph and record; with ``gems`` its gem spots
+    too (:attr:`~azurkit.tools.randomizer.tracker.Tracker.gem_full`, Step R1.43: read only while the tracker
+    shows them)."""
     db = tracker.logic.db
     names = writer.Names(db)
     items = [tracker.item(loc) for loc in sorted(tracker.spots)]
@@ -113,6 +125,11 @@ def spot_table(tracker) -> SpotTable:
     by_level: dict[str, list[Spot]] = {}
     for level, doc in sorted(db.generated.items()):
         for loc in doc["locations"]:
+            if gems and loc["id"] in tracker.gem_full:
+                _, g, r = loc["id"].split("/")
+                by_level.setdefault(level, []).append(Spot(loc["id"], level, int(g[1:]), int(r[1:]),
+                                                           tracker.item(loc["id"]), "G" if loc["saved"] else "g",
+                                                           full=tracker.gem_full[loc["id"]]))
             if loc["id"] not in tracker.spots:
                 continue
             item = tracker.item(loc["id"])
@@ -139,16 +156,19 @@ def unique_field(item: str, fourcc: Mapping[str, str]) -> str | None:
 
 def pair_key(item: str) -> tuple[str, str]:
     """How a pickup of ``item`` shows in the inventory or HP: (mode, field). ``count``: the field rises by one
-    a pickup; ``flag``: a fragment's count 0 -> 1; ``rise``: max HP (power_life adds its amount) or a fuel
-    (all_fuel, taken only below a cap) rises; ``alone``: nothing need change (all_health at full HP; an item
-    Live doesn't know, logged). The fields are :func:`recipes.item_fields`' (a key: any slot, so their sum)."""
+    a pickup; ``flag``: a fragment's count 0 -> 1; ``rise``: max HP (power_life adds its amount), a fuel
+    (all_fuel, taken only below a cap) or a gem's count rises; ``alone``: nothing need change (all_health at
+    full HP; an item Live doesn't know, logged). The fields are :func:`recipes.item_fields`' (a key: any slot,
+    so their sum)."""
     fields = recipes.item_fields(item) or set()
     if len(fields) > 1:
         return "count", "keys"
     if (f := next(iter(fields), "")).startswith("fg"):
         return "flag", f
-    if f.startswith("level.") or f == "obsi":       # (a gem's count isn't known to rise by one: alone)
+    if f.startswith("level.") or f == "obsi":
         return "count", f
+    if f:                                            # a gem: its count isn't known to rise by one
+        return "rise", f
     return {"power_staff1": ("count", "spow"), "power_staff2": ("count", "spow"), "power_ammo": ("count", "mpow"),
             "power_life": ("rise", "maxhp"), "all_fuel": ("rise", "fuel"), "all_health": ("alone", "")
             }.get(item, ("alone", ""))
@@ -236,8 +256,9 @@ class Game:
         self._event: float | None = None
         self._attrs: dict[str, int] = {}
         self._mismatch = False
-        self._seen: dict[str, float] = {}    # numDead >= 1 read twice: not read again this settle
-        self._twice: set[str] = set()
+        self._seen: dict[str, float] = {}    # numDead at its spot's full count read twice: not read again
+        self._twice: set[str] = set()        # this settle
+        self._full: dict[str, int] = {}
 
     def _u32(self, va: int) -> int:
         return struct.unpack("<I", self.link.read(va, 4))[0]
@@ -351,16 +372,16 @@ class Game:
             self._forget()
             return replace(r, state="loading", settle=0)
         for loc, b in zip(want, got):
-            dead = struct.unpack("<3f", b)[2]
-            if dead >= 1 and self._seen.get(loc, 0) >= 1:
+            dead, full = struct.unpack("<3f", b)[2], self._full[loc]
+            if dead >= full and self._seen.get(loc, 0) >= full:
                 self._twice.add(loc)
             self._seen[loc] = dead
         return replace(r, dead=MappingProxyType(dict(self._seen)))
 
     def _resolve(self, lv: LevelSpots, vec: int) -> bool:
-        """Each spot's attributes, once a load: False while a node isn't a critterGenerator yet; a species
-        that isn't the plan's item as the writer names it (:attr:`Spot.species`) is a mismatch (another seed or
-        build)."""
+        """Each spot's attributes, once a load: False while a node isn't a critterGenerator yet; a tracked
+        spot's species that isn't the plan's item as the writer names it (:attr:`Spot.species`) is a mismatch
+        (another seed or build)."""
         spots = [s for s in lv.spots if s.kind != "C" and s.graph == lv.graph]
         try:
             nodes = self.link.read_many([(vec + 4 * s.record, 4) for s in spots])
@@ -387,8 +408,9 @@ class Game:
                 names[k] += more
         except OSError:
             return False
-        self._mismatch = any(_cstr(n) != (s.species or s.item) for s, n in zip(spots, names))
+        self._mismatch = any(_cstr(n) != (s.species or s.item) for s, n in zip(spots, names) if not s.gem)
         self._attrs = {s.loc: attrs for s, (_, attrs, _, _) in zip(spots, heads)}
+        self._full = {s.loc: s.full for s in spots}
         return True
 
 
@@ -430,6 +452,26 @@ class Reload:
 
 
 @dataclass(frozen=True)
+class Gem:
+    """A fresh take at gem spot ``loc``: its numDead then (how many of a cluster's gems are taken), the day
+    clock when it was taken (Step R1.43)."""
+    loc: str
+    dead: int
+    clock: float
+
+
+@dataclass(frozen=True)
+class Gems:
+    """A settle of ``level``: how many of each saved gem spot's gems the game holds taken, and of each
+    unsaved one's this visit (they reset every visit, so their 0 says nothing of an earlier one), and the day
+    clock then (Step R1.43)."""
+    level: str
+    taken: Mapping[str, int] = field(default_factory=dict)
+    unsaved: Mapping[str, int] = field(default_factory=dict)
+    clock: float | None = None
+
+
+@dataclass(frozen=True)
 class Unpaired:
     """A spot's numDead rose with no change of its item: logged, not marked."""
     loc: str
@@ -449,7 +491,7 @@ class _Rise:
     clock: float         # the day clock at the rise
     event: float         # the event clock at the rise
     settle: int
-    dead: float
+    dead: float          # numDead at the rise
     confirmed: bool = False
     moved: bool = False  # its level unloaded before it paired: one chance, at the next level's first running poll
     paid: bool = False   # an item change is its own
@@ -571,7 +613,13 @@ class Follower:
         kinds = {s.loc: s.kind for s in lv.spots}
         part = lambda kind, taken: frozenset(   # noqa: E731
             loc for loc, d in r.dead.items() if kinds[loc] == kind and (d >= 1) == taken)
-        return [Level(lv.level, part("S", True), part("S", False), part("U", True), part("U", False), r.clock)]
+        events: list = [Level(lv.level, part("S", True), part("S", False), part("U", True), part("U", False),
+                              r.clock)]
+        gems = lambda kind: MappingProxyType({   # noqa: E731
+            loc: min(int(d), self.by_loc[loc].full) for loc, d in r.dead.items() if kinds[loc] == kind})
+        if any(s.gem for s in lv.spots):
+            events.append(Gems(lv.level, gems("G"), gems("g"), r.clock))
+        return events
 
     def held(self, r: Reading) -> Held:
         """The one-copy items the inventory holds now, by their spots (:class:`Held`)."""
@@ -606,9 +654,10 @@ class Follower:
                 rise.confirmed = True
             keep.append(rise)
         if not fresh and self.prev is not None:
-            pending = {x.loc for x in keep}
+            pending = {x.loc: x.dead for x in keep}
             for loc, d in r.dead.items():
-                if loc not in pending and d > self.dead.get(loc, d):
+                # a gem cluster's next gem while its last one's rise waits rises too (Step R1.43)
+                if (loc not in pending or self.by_loc[loc].gem and d > pending[loc]) and d > self.dead.get(loc, d):
                     item = self.by_loc[loc].item
                     mode, f = pair_key(item)
                     if mode == "alone" and item != "all_health":
@@ -620,7 +669,9 @@ class Follower:
         gone = []
         for rise in keep:
             if rise in paired:
-                events.append(Took(rise.loc, rise.clock))
+                gem = self.by_loc[rise.loc]
+                events.append(Gem(rise.loc, min(int(rise.dead), gem.full), rise.clock) if gem.gem
+                              else Took(rise.loc, rise.clock))
                 self.newest = max(self.newest or 0.0, rise.clock)
             elif rise.moved or rise.confirmed and r.event - rise.event > PAIR_S:
                 gone.append(rise)               # a rise seen once and gone with its level gives nothing

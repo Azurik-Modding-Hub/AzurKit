@@ -17,6 +17,18 @@ A spot's ``state``: ``got`` (collected by hand), ``live`` (marked by Live),
 ``near`` (reachable now), ``skip`` (reachable now only with a skip on,
 R1.41) or ``far`` (not yet); ``vanilla`` names the item the base game puts
 there, which tells the spot without telling what the seed put there.
+
+With ``gems`` (Step R1.43, D928: off by default), each gem spot's gems
+(a cluster's yield), how many Live saw taken and the plan's gem there (a
+gem spot holds only gems and no requirement reads one, so its colour shows
+without Spoiler), each level's taken and in all, and the Table's Gems rows.
+Live alone takes a gem (the marks' ``gems``: each spot's takes, a day clock
+each); no gem moves the reach or the spots' counts.
+
+The maps (Step 4.2c3) draw from the player's image (:mod:`.art`, the
+host's to keep); :func:`world` gives what they draw from the database:
+the grid, each level's exits, barriers and features with what they need
+(:mod:`.needs`), and :data:`ART_PARTS`, the parts a host draws them in.
 """
 
 from __future__ import annotations
@@ -27,6 +39,7 @@ import re
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 
+from azurkit.tools.randomizer import needs
 from azurkit.tools.randomizer.movement import logic_of
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
@@ -34,7 +47,7 @@ from azurkit.tools.randomizer.planner.settings import CATEGORIES, picks_on
 from azurkit.tools.randomizer.tracker import ELEMENTS, Row, Tracker, held_counts, marks
 
 KEEP = 3                     # the plans whose trackers the process keeps
-GIVEN = ("plan", "marks", "kit", "held", "spoiler", "toggle", "reset")
+GIVEN = ("plan", "marks", "kit", "held", "spoiler", "gems", "toggle", "reset")
 RATINGS = ("None", "Safe", "Standard", "Hard", "Frame-perfect")   # the skip ceiling's names (Modkit's head line)
 #: The world map's grid (Modkit's ``render_level_maps.GRID``): each level's (column, row), neighbours where the
 #: game links them; training_room, never part of a seed, has none (D194).
@@ -43,6 +56,12 @@ GRID = {"airship": (0, 0), "a3": (1, 0), "a5": (2, 0), "a6": (3, 0), "a1": (4, 0
         "w4": (0, 2), "w2": (1, 2), "d1": (2, 2), "f1": (3, 2), "e5": (4, 2), "f2": (5, 2),
         "f3": (1, 3), "d2": (2, 3), "f6": (3, 3), "f4": (4, 3)}
 SPOT = {"major": "Item spot", "obsidian": "Obsidian spot", "consumable": "Fuel or health spot"}
+#: The pictures a host draws from the player's image (:mod:`.art`), one call each: the item icons, then each level of
+#: the world map (whose main floors' thumbnails make the world map); ``ART_VERSION`` names how they are drawn, a
+#: host's key for what it keeps (``tests/test_art.py`` holds it to the drawing's source: a sync that changes how
+#: they are drawn changes it).
+ART_PARTS = ("icons", *GRID)
+ART_VERSION = "1-ee4cdff271e9"
 _KEPT: OrderedDict[str, Tracker] = OrderedDict()
 _LOGIC: dict[str, object] = {}   # a build's plan sha256 -> the logic it was planned on (:func:`prime`)
 
@@ -81,13 +100,15 @@ def icon(item: str) -> str:
 
 @functools.cache
 def world() -> dict:
-    """The world map's levels (:data:`GRID`) and where each one's exits lead (the vanilla data's live exits, in
-    order, each level once): the same for every plan, as exits stay vanilla in v1."""
+    """The world map's levels (:data:`GRID`), where each one's exits lead (the vanilla data's live exits, in
+    order, each level once), the pictures' parts and version (:data:`ART_PARTS`) and what the maps draw over
+    them (``maps``: :func:`.needs.overlays`): the same for every plan, as exits stay vanilla in v1."""
     db = kept_logic().db
     exits = {lv: list(dict.fromkeys(e["dest_level"] for e in db.generated[lv]["exits"]
                                     if e["kind"] == "exit" and e["live"] and e["dest_level"] in GRID
                                     and e["dest_level"] != lv)) for lv in GRID if lv in db.generated}
-    return {"grid": {lv: list(at) for lv, at in GRID.items()}, "exits": exits}
+    return {"grid": {lv: list(at) for lv, at in GRID.items()}, "exits": exits, "art": {"version": ART_VERSION,
+            "parts": list(ART_PARTS)}, "maps": needs.overlays(tuple(GRID))}
 
 
 def tracker_of(doc: Mapping) -> Tracker:
@@ -119,14 +140,16 @@ def marks_of(given: object) -> dict:
         return marks({})
     if isinstance(given, list):
         given = {"collected": given}
-    if not isinstance(given, Mapping) or not set(given) <= {"collected", "live", "veto", "slot"}:
-        raise ValueError("tracker: marks is {collected, live, veto, slot}")
+    if not isinstance(given, Mapping) or not set(given) <= {"collected", "live", "veto", "slot", "gems"}:
+        raise ValueError("tracker: marks is {collected, live, veto, slot, gems}")
     out = marks(given)
-    clocks = out["live"].values()
-    if not (all(isinstance(x, str) for x in out["collected"] + out["veto"] + list(out["live"]))
+    clocks = [*out["live"].values(), *(c for cs in out["gems"].values() if isinstance(cs, list) for c in cs)]
+    if not (all(isinstance(x, str) for x in out["collected"] + out["veto"] + list(out["live"]) + list(out["gems"]))
+            and all(isinstance(cs, list) for cs in out["gems"].values())
             and all(x is None or (isinstance(x, (int, float)) and not isinstance(x, bool)) for x in clocks)
             and (out["slot"] is None or isinstance(out["slot"], str))):
-        raise ValueError("tracker: marks names spots by their ids, live with a day clock or null")
+        raise ValueError("tracker: marks names spots by their ids, live with a day clock or null, gems with a "
+                         "list of them")
     return out
 
 
@@ -178,11 +201,13 @@ def view(given: Mapping, events: Sequence = ()) -> dict:
     if not (isinstance(held, Mapping) and all(type(v) is int for v in held.values())):
         raise ValueError("tracker: held is the game's inventory, {field: count}")
     collected, live, veto = set(m["collected"]) & t.spots, m["live"], set(m["veto"]) & t.spots
+    gems = {loc: list(c)[:t.gem_full[loc]] for loc, c in m["gems"].items() if loc in t.gem_full and c}
     if (collected, {k: v for k, v in live.items() if k in collected}, veto, m["slot"]) != (
             t.collected, t.live, t.veto, t.slot):
         t.collected, t.veto, t.slot = collected, veto, m["slot"]
         t.live = {loc: c for loc, c in live.items() if loc in collected}
         t.update()
+    t.gems = gems
     t.set_kit(_kit(given.get("kit")))
     if events:
         t.apply(events)
@@ -202,16 +227,22 @@ def view(given: Mapping, events: Sequence = ()) -> dict:
         spots[loc] = {"level": t.logic.pool[loc], "class": t.spot_class[loc], "state": state, "item": item,
                       "name": item_name(item) if item else SPOT[t.spot_class[loc]], "icon": icon(item) if item else None,
                       "vanilla": item_name(t.logic.vanilla[loc][0])}
-    items, levels = t.table(spoiler, held_counts(held) if held else None)
-    return {"head": head(t), "world": world(), "marks": t.state(),
-            "status": {"collected": s.collected, "reachable": s.reachable, "total": s.total, "sphere": s.sphere,
-                       "victory": s.victory, "levels": list(s.levels), "skipped": s.skipped},
-            "spots": spots, "table": {"items": [_row(r) for r in items], "levels": [_row(r) for r in levels]}}
+    shown = bool(given.get("gems"))
+    items, levels = t.table(spoiler, held_counts(held) if held else None, gems=shown)
+    out = {"head": head(t), "world": world(), "marks": t.state(),
+           "status": {"collected": s.collected, "reachable": s.reachable, "total": s.total, "sphere": s.sphere,
+                      "victory": s.victory, "levels": list(s.levels), "skipped": s.skipped},
+           "spots": spots, "table": {"items": [_row(r) for r in items], "levels": [_row(r) for r in levels]}}
+    if shown:
+        out["gems"] = {"spots": {loc: {"level": t.logic.pool[loc], "full": full, "taken": t.gems_taken(loc),
+                                       "item": t.item(loc)} for loc, full in sorted(t.gem_full.items())},
+                       "counts": {lv: list(n) for lv, n in t.gem_counts().items()}}
+    return out
 
 
 def digest(out: Mapping) -> str:
     """A view's verdicts as one canonical JSON text (the tests' and the evidence's): the marks, the counter row,
-    each spot's level, class, state and item, and the Table."""
+    each spot's level, class, state and item, the Table and, with ``gems``, the gems'."""
     spots = {loc: {k: s[k] for k in ("level", "class", "state", "item")} for loc, s in out["spots"].items()}
-    return json.dumps({"marks": out["marks"], "status": out["status"], "spots": spots, "table": out["table"]},
-                      sort_keys=True, separators=(",", ":"))
+    return json.dumps({"marks": out["marks"], "status": out["status"], "spots": spots, "table": out["table"]}
+                      | ({"gems": out["gems"]} if "gems" in out else {}), sort_keys=True, separators=(",", ":"))

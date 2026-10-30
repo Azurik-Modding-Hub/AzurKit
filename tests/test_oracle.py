@@ -62,6 +62,9 @@ def test_the_sync_ports_a_modkit_module_by_its_rewrites_and_drops_or_names_what_
         port("m.py", "from azurik_mod.patching.registry import all_packs\n" + source)
     with pytest.raises(ValueError, match=r"no top-level statement binds \['pool'\]"):
         port("m.py", "import threading\n")
+    monkeypatch.setattr("scripts.oracle_sync.DROPS", {"s.py": ("sys", "main", "__main__")})   # a script's command line
+    assert port("s.py", "import sys\n\n\ndef draw():\n    return 1\n\n\ndef main():\n    return 0\n\n\n"
+                        "if __name__ == \"__main__\":\n    sys.exit(main())\n") == "def draw():\n    return 1\n"
 
 
 def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
@@ -73,6 +76,8 @@ def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
            and not any(rel == p or rel.startswith(p + "/") for p in PATHS[family])]
     off += [f"{family}: {src}" for family, copies in SOURCES.items() for src, _, _ in copies
             if not any(src == p or src.startswith(p + "/") for p in PATHS[family])]
+    off += [f"{family}: {rel}" for family, entry in read_index().items() for rel in entry.get("art", {})
+            if not any(rel.startswith(p + "/") for p in PATHS[family])]
     assert off == []
 
 

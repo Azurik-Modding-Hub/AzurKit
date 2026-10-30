@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "platformdirs>=4.5",
+    "numpy>=2.5.4",   # the randomizer's maps and icons (tools/randomizer/art), the characters' models
 ]
 
 [project.scripts]

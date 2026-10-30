@@ -266,6 +266,8 @@ def test_the_default_plan_file_is_modkits_byte_for_byte_under_pyodide(pyodide):
 # sha256[:32] of each view (tracking.digest: the marks, the counter row, each spot's state and item, the Table),
 # from $EV/azurkit-4.2c2-2026-10-29/verdicts.py on Modkit's own Tracker (results/verdicts-modkit.json)
 TRACKER = {
+    "default/gems/plain": "107459b341da384490175026ddd86783",
+    "default/gems/spoiler": "8edf7deb80a3a4e1b327a6f8dcc722ae",
     "default/kit/plain": "ce3571fe88c962f21c7e09d138dac973",
     "default/kit/spoiler": "bf87656a7108cee3227c030710b11feb",
     "default/mid/plain": "855469adebcf58a4d0e99376cf684d07",
@@ -274,10 +276,12 @@ TRACKER = {
     "default/none/spoiler": "99feb6f24dc6f54118e0a99c1ebe8cb8",
     "default/powers/plain": "ff16075ece7b8e4ccebe2c341fb1c3c6",
     "default/powers/spoiler": "6ba1171bab858407a9cf0fc226c67517",
+    "max/gems/plain": "6b078439c450cd1ed8d0f71c1223d00e",
+    "max/gems/spoiler": "bfd829bbe480433ddce3876dfca65d81",
     "max/kit/plain": "2a4d9249a20132ded813953bbb9b461b",
     "max/kit/spoiler": "44e5c5bafc8404762f3f772539117991",
-    "max/mid/plain": "76d678657e5911f31cfa1f7e182c86c5",
-    "max/mid/spoiler": "405647d58558dfc66092980d4350287b",
+    "max/mid/plain": "46f4bf1a77f77b4b75cbf56e715b8a0e",
+    "max/mid/spoiler": "9dd64c832ce40b4b2ca9ea0fc2ef3194",
     "max/none/plain": "cf52424a1d9faa63de7be95f307dec2a",
     "max/none/spoiler": "6d9496c6c8698564fe23472f4877c33e",
     "max/powers/plain": "6dd4c7184fe0aaa17f7c4ca6cbbad22b",
@@ -291,14 +295,25 @@ def tracker_states(view, doc: dict):
     ``view(doc, marks, spoiler)`` (a host's tracker): none, no mark; mid,
     three rounds of marking every spot reachable now; powers, every spot the
     plan put a power at; kit, no mark and Live's kit at air, water, fire and
-    earth 3."""
+    earth 3; gems (Step 4.2c3, R1.43), mid's marks with Live's gems taken at
+    the first cluster (all its gems), the second (one) and the first gem (a
+    host shows the gems when its marks hold some: :func:`shows_gems`)."""
     mid = []
     for _ in range(3):
         spots = view(doc, {"collected": mid}, False)["spots"]
         mid = sorted(set(mid) | {loc for loc, s in spots.items() if s["state"] in ("near", "skip")})
     powers = sorted(loc for loc, s in view(doc, None, True)["spots"].items() if s["item"].startswith("power_"))
+    full = {loc["id"]: loc["yield"] for g in kept_logic().db.generated.values() for loc in g["locations"]
+            if loc["pool"] and not loc["dead"] and loc["class"] in ("gem", "cluster")}
+    cluster, single = (sorted(loc for loc, n in full.items() if (n > 1) == c) for c in (True, False))
+    gems = {cluster[0]: [0.5] * full[cluster[0]], cluster[1]: [None], single[0]: [1.25]}
     return [("none", None, None), ("mid", {"collected": mid}, None), ("powers", {"collected": powers}, None),
-            ("kit", None, KIT)]
+            ("kit", None, KIT), ("gems", {"collected": mid, "gems": gems}, None)]
+
+
+def shows_gems(marks: dict | None) -> bool:
+    """A :func:`tracker_states` state the tracker shows with Gems on: its marks hold gems taken."""
+    return bool((marks or {}).get("gems"))
 
 
 def test_the_trackers_verdicts_are_modkits_at_each_state_and_a_click_marks_what_it_names():
@@ -307,13 +322,15 @@ def test_the_trackers_verdicts_are_modkits_at_each_state_and_a_click_marks_what_
     Modkit's verdicts (:data:`TRACKER`) with nothing marked, after three
     rounds of marking every spot reachable now, with every power marked
     and with Live's kit at every element 3 (R1.41: the reach holds the
-    levels the game holds), the spoiler off (no item a spot holds is given
-    until it is collected) and on. A click marks a spot and a second takes
+    levels the game holds), with Gems on and Live's gem takes (Step 4.2c3,
+    R1.43: each gem spot's gems taken and in all, each level's, the Table's
+    gem rows), the spoiler off (no item a spot holds is given until it is
+    collected) and on. A click marks a spot and a second takes
     it off; a click on a live mark vetoes it (Live won't mark it again);
     Reset clears both; a spot or plan it doesn't know, or a kit it can't
     hold, is refused by name."""
     def view(doc, marks, spoiler, kit=None):
-        return sdk.tracker({"plan": doc, "marks": marks, "kit": kit, "spoiler": spoiler})
+        return sdk.tracker({"plan": doc, "marks": marks, "kit": kit, "spoiler": spoiler, "gems": shows_gems(marks)})
 
     for name in ("default", "max"):
         doc = _profile(name)

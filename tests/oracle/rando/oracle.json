@@ -1,5 +1,5 @@
 {
- "commit": "3befd633687859f0ec3d2cf99956c19200675914",
+ "commit": "c5306b3307c3c7415bdaf0d8fa5ac58328036250",
  "dirty": false,
  "family": "rando",
  "files": {
@@ -16,11 +16,11 @@
    "size": 4324
   },
   "tests/goldens/rando_iso.json": {
-   "sha256": "b64d63f6d37ac1687ba57eb674fec08f469aee0e34026295eff9bbda1e1dd6e8",
+   "sha256": "1124f428ec121562438ba102787c45509e079d8d801d9e8c333bb9527f3f5fc4",
    "size": 221
   },
   "tests/goldens/rando_plans.json": {
-   "sha256": "cf20442a31b36d76706562f2ecc407b30fadd99db7698bcff43d52df7855fed3",
+   "sha256": "75ed259711ba8aa82e0ba97a35a3c1853475b548b11302890955e97e707b1cf4",
    "size": 43490
   }
  },
@@ -28,7 +28,7 @@
  "same_as": {
   "tests/goldens/gui.json: run_randomizer:randomize": "tests/goldens/pipelines.json: randomize-full:seed=2,default"
  },
- "tag": "oracle-rando-3",
+ "tag": "oracle-rando-4",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",

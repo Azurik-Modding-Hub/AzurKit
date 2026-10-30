@@ -41,7 +41,7 @@ from scripts import freeze
 from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
 from tests._xiso import fill, image
-from tests.test_randomizer import TRACKER, _profile, tracker_states
+from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
 
 ROOT = Path(__file__).resolve().parent.parent
 NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
@@ -654,7 +654,8 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         assert json.loads(app._config().read_text(encoding="utf-8"))["setup"] == setup
 
         def view(doc, marks, spoiler, kit=None):   # Step 4.2c2: the tracker from the app's api
-            return call("api/tracker", {"given": {"plan": doc, "marks": marks, "spoiler": spoiler, "kit": kit}})
+            return call("api/tracker", {"given": {"plan": doc, "marks": marks, "spoiler": spoiler, "kit": kit,
+                                                  "gems": shows_gems(marks)}})
 
         assert report["plan"] == _profile("default")
         for name in ("default", "max"):

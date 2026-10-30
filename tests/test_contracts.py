@@ -4,8 +4,9 @@ layers and the three tools' independence) and the rules it can't express,
 read from the AST: ``core``, ``edits`` and ``tools`` hold no threads, processes,
 subprocesses, prints or exits (the web page's worker runs them as they are;
 the app-only ``tools/randomizer/live/`` is exempt), only ``tools/characters``
-imports numpy, and nothing imports capstone, unicorn, zig or Tk (none of them
-ships)."""
+and the randomizer's drawing (its maps and icons: ``tools/randomizer/art/`` and
+the reach model's first stage, ``tools/randomizer/draft/``) import numpy, and
+nothing imports capstone, unicorn, zig or Tk (none of them ships)."""
 
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ ENGINE_CALLS = {"print", "exit", "quit", "sys.exit", "os._exit", "os.system", "o
                 "os.kill"}
 ENGINE_CALL_PREFIXES = ("os.spawn", "os.exec", "os.posix_spawn")
 NEVER = {"capstone", "unicorn", "ziglang", "tkinter"}
-NUMPY_HOME = "tools/characters/"
+NUMPY_HOME = ("tools/characters/", "tools/randomizer/art/", "tools/randomizer/draft/")
 
 
 def violations(source: str, rel: str) -> list[str]:
@@ -64,7 +65,7 @@ def test_import_linter_contracts_hold(capsys):
     assert lint_imports(config_filename=str(ROOT / "pyproject.toml"), no_cache=True) == 0, capsys.readouterr().out
 
 
-def test_the_engine_holds_no_threads_processes_prints_or_exits_and_numpy_stays_in_characters():
+def test_the_engine_holds_no_threads_processes_prints_or_exits_and_numpy_stays_in_its_homes():
     caught = {   # each form the rules name, in an engine module
         "import threading": "imports threading",
         "from concurrent.futures import ThreadPoolExecutor": "imports concurrent.futures",
@@ -82,6 +83,8 @@ def test_the_engine_holds_no_threads_processes_prints_or_exits_and_numpy_stays_i
         "tools/randomizer/live/x.py:1 imports numpy"]
     assert violations("import numpy\nprint(numpy)", "cli.py") == ["cli.py:1 imports numpy"]
     assert violations("import numpy", "tools/characters/body.py") == []
+    assert violations("import numpy", "tools/randomizer/art/maps.py") == []
+    assert violations("import numpy", "tools/randomizer/tracking.py") == ["tools/randomizer/tracking.py:1 imports numpy"]
     found = [v for path in sorted(SRC.rglob("*.py"))
              for v in violations(path.read_text(encoding="utf-8"), path.relative_to(SRC).as_posix())]
     assert found == []

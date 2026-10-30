@@ -778,6 +778,14 @@ confidence = "assumed"
 
 [[edge]]
 from = "w3_z078"
+to = "w3_core"
+kind = "walk"
+requires = "true"
+difficulty = 3
+confidence = "assumed"
+
+[[edge]]
+from = "w3_z078"
 to = "w3_z012"
 kind = "walk"
 requires = "event:w3.LightShape_g1r23.action & event:w3.LightShape_g1r29.action & event:w3.snow_blowers.on"

@@ -16,6 +16,9 @@ those a marked guardian slot's region gave before its disc was placed
 (:mod:`azurkit.tools.randomizer.live`): a live mark is one the game showed,
 kept apart from a hand mark, which Live never undoes; a click on a live mark
 vetoes it, so Live doesn't put it back.
+The gem spots (Step R1.43, D928) are counted apart, by Live alone
+(:attr:`Tracker.gems`): no requirement reads a gem, so they take no part
+in the reach or the counter row's spots.
 ``gui/tracker.py`` draws it on the maps; ``azurik-mod rando tracker``
 opens it.
 """
@@ -26,11 +29,12 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
-from azurkit.tools.randomizer.live.game import EPS, Held, Level, Reload, Took
+from azurkit.tools.randomizer.live.game import EPS, Gem, Gems, Held, Level, Reload, Took
 from azurkit.tools.randomizer.planner.settings import Settings
 from azurkit.tools.randomizer.planner.solver import Logic
 
 TRACKED = ("major", "obsidian", "consumable")
+GEM_CLASSES = ("gem", "cluster")     # Step R1.43: a gem's spot, a cluster's (its yield of gems at one generator)
 SPOT_CLASSES = {"major": "Item spots", "obsidian": "Obsidian spots", "consumable": "Fuel or health spots"}
 GROUPS = {"frag": "Disc fragments", "power": "Powers", "key": "Keys", "obsidian": "Obsidians",
           "consumable": "Fuel and health", "other": "Other"}
@@ -112,28 +116,35 @@ class Status:
 
 def marks(entry) -> dict:
     """A plan's marks as the GUI's state file keeps them: ``{"collected": [...], "live": {loc: day clock or
-    null}, "veto": [...], "slot": the last saved slot Live saw}``; an older bare list is the collected spots."""
+    null}, "veto": [...], "slot": the last saved slot Live saw, "gems": {loc: [each gem's day clock or
+    null]}}``; an older bare list is the collected spots."""
     entry = {"collected": entry} if isinstance(entry, list) else dict(entry or {})
     return {"collected": list(entry.get("collected", [])), "live": dict(entry.get("live", {})),
-            "veto": list(entry.get("veto", [])), "slot": entry.get("slot")}
+            "veto": list(entry.get("veto", [])), "slot": entry.get("slot"), "gems": dict(entry.get("gems", {}))}
 
 
 class Tracker:
     """A plan's tracked spots, those collected (by hand or live), and the reach now. ``live``: the spots a
     live tracker marked, each with the day clock of its take (None: seen taken, not taken while watched);
     ``veto``: live marks a click took off; ``slot``: the last saved slot the game was on (the journal); ``kit``:
-    the element levels Live reads the game holding (:meth:`set_kit`)."""
+    the element levels Live reads the game holding (:meth:`set_kit`); ``gems``: each gem spot's gems Live saw
+    taken, a day clock each (None: seen taken), as many as its ``gem_full``, a cluster's yield (Step R1.43)."""
 
     def __init__(self, logic: Logic, settings: Settings, placement: Mapping[str, str],
                  collected: Iterable[str] = (), live: Mapping[str, float | None] | None = None,
-                 veto: Iterable[str] = (), slot: str | None = None):
+                 veto: Iterable[str] = (), slot: str | None = None,
+                 gems: Mapping[str, list[float | None]] | None = None):
         self.logic, self.settings, self.placement = logic, settings, dict(placement)
-        self.spot_class = {loc["id"]: loc["class"] for doc in logic.db.generated.values() for loc in doc["locations"]
-                           if loc["pool"] and not loc["dead"] and loc["class"] in TRACKED}
+        locs = [loc for doc in logic.db.generated.values() for loc in doc["locations"]
+                if loc["pool"] and not loc["dead"]]
+        self.spot_class = {loc["id"]: loc["class"] for loc in locs if loc["class"] in TRACKED}
         self.spots = frozenset(self.spot_class)
+        self.gem_full = {loc["id"]: loc["yield"] for loc in locs if loc["class"] in GEM_CLASSES}
         self.collected = set(collected) & self.spots
         self.live = {loc: c for loc, c in (live or {}).items() if loc in self.collected}
         self.veto, self.slot = set(veto) & self.spots, slot
+        self.gems = {loc: list(c)[:self.gem_full[loc]] for loc, c in (gems or {}).items()
+                     if loc in self.gem_full and c}
         self.kit: dict[str, int] = {}
         trace: list = []
         logic.reach(settings, self.placement, trace=trace, traps=False)
@@ -156,22 +167,37 @@ class Tracker:
         self.update()
 
     def reset(self) -> None:
-        """No mark, by hand or live, and no veto."""
+        """No mark, by hand or live, no veto and no gem taken."""
         self.collected.clear()
         self.live.clear()
         self.veto.clear()
+        self.gems.clear()
         self.update()
 
     def journal(self) -> dict:
         """What a live session's first settle checks the game against: the last saved slot, the newest fresh
-        live mark's day clock."""
-        return {"slot": self.slot, "newest": max((c for c in self.live.values() if c is not None), default=None)}
+        live mark's or gem's day clock."""
+        clocks = [*self.live.values(), *(c for cs in self.gems.values() for c in cs)]
+        return {"slot": self.slot, "newest": max((c for c in clocks if c is not None), default=None)}
+
+    def gems_taken(self, loc: str) -> int:
+        return len(self.gems.get(loc, ()))
+
+    def gem_counts(self) -> dict[str, tuple[int, int]]:
+        """Each level's gems Live saw taken and its gems in all (a cluster's each), by pool level."""
+        out: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+        for loc, full in self.gem_full.items():
+            n = out[self.logic.pool[loc]]
+            n[0] += self.gems_taken(loc)
+            n[1] += full
+        return {lv: (got, total) for lv, (got, total) in sorted(out.items())}
 
     def apply(self, events) -> bool:
         """Merge a live tracker's events (:mod:`~azurkit.tools.randomizer.live`); whether any mark changed (then
         the reach is updated once). A hand mark is never dropped, a vetoed spot never marked, and an unsaved
         spot never unmarked by a 0 (it resets every visit)."""
         before = (set(self.collected), dict(self.live), set(self.veto))
+        gems = {loc: list(c) for loc, c in self.gems.items()}
 
         def mark(locs, clock=None) -> None:
             for loc in set(locs) & self.spots - self.collected - self.veto:
@@ -183,8 +209,27 @@ class Tracker:
                 del self.live[loc]
                 self.collected.discard(loc)
 
+        def gem(loc, n, clock=None, down=False) -> None:
+            """``loc``'s gems taken: at least ``n`` (more with ``clock``), at most ``n`` with ``down`` (the
+            newest dropped)."""
+            have = sorted(self.gems.get(loc, ()), key=lambda c: -1.0 if c is None else c)
+            n = min(n, self.gem_full.get(loc, 0))
+            have = have[:n] if down else have + [clock] * (n - len(have))
+            if have:
+                self.gems[loc] = have
+            else:
+                self.gems.pop(loc, None)
+
         for e in events:
-            if isinstance(e, Took):
+            if isinstance(e, Gem):
+                gem(e.loc, e.dead, e.clock)
+            elif isinstance(e, Gems):
+                for loc, n in e.taken.items():
+                    gem(loc, n)
+                    gem(loc, n, down=True)
+                for loc, n in e.unsaved.items():
+                    gem(loc, n, e.clock)
+            elif isinstance(e, Took):
                 mark([e.loc], e.clock)
             elif isinstance(e, Level):
                 mark(e.taken)
@@ -197,12 +242,15 @@ class Tracker:
                 self.veto -= e.absent
             elif isinstance(e, Reload):
                 drop([loc for loc, c in self.live.items() if e.new_timeline or c is not None and c > e.clock + EPS])
+                for loc in list(self.gems):
+                    gem(loc, 0 if e.new_timeline else sum(c is None or c <= e.clock + EPS for c in self.gems[loc]),
+                        down=True)
                 if e.new_timeline:
                     self.veto.clear()
                     self.slot = None     # the journal's slot: the new timeline's, once the game shows one
         if changed := before != (self.collected, self.live, self.veto):
             self.update()
-        return changed
+        return changed or gems != self.gems
 
     def is_live(self, loc: str) -> bool:
         return loc in self.live
@@ -211,6 +259,7 @@ class Tracker:
         """The marks for the GUI's state file (:func:`marks` reads them back)."""
         out = {"collected": sorted(self.collected)}
         out |= {"live": dict(sorted(self.live.items()))} if self.live else {}
+        out |= {"gems": dict(sorted(self.gems.items()))} if self.gems else {}
         return out | ({"veto": sorted(self.veto)} if self.veto else {}) | ({"slot": self.slot} if self.slot else {})
 
     def set_kit(self, kit: Mapping[str, int]) -> bool:
@@ -244,14 +293,18 @@ class Tracker:
                              tuple(sorted({self.logic.db.nodes[n][0] for n in r.safe})),
                              len(self.reachable - self.plain))
 
-    def table(self, spoiler: bool, held: Mapping[str, int] | None = None) -> tuple[tuple[Row, ...], tuple[Row, ...]]:
+    def table(self, spoiler: bool, held: Mapping[str, int] | None = None,
+              gems: bool = False) -> tuple[tuple[Row, ...], tuple[Row, ...]]:
         """The Table tab's two trees, each with its All row last: the items
         by group and kind, and the spots by realm and level. Without
         ``spoiler`` nothing says where an item not collected lies: an item
         row's ``now`` is None and its ``where`` "", and a level's rows are
         its spot classes, not the groups of the items there. ``held`` is
-        the game's own count by item row key (``obsidian``, ``frag/air``)."""
+        the game's own count by item row key (``obsidian``, ``frag/air``).
+        With ``gems`` (Step R1.43) each level's rows end in its Gems (taken,
+        left, in all; no Now), and the levels' tree in All gems, after All."""
         pool, held = self.logic.pool, held or {}
+        gem_counts = self.gem_counts() if gems else {}
 
         def row(key, label, locs, children=(), now=spoiler, where=False, game=None) -> Row:
             left = [loc for loc in locs if loc not in self.collected]
@@ -286,8 +339,10 @@ class Tracker:
             names, parts = GROUPS if spoiler else SPOT_CLASSES, defaultdict(list)
             for loc in by_level[lv]:    # its spots by their items' groups (spoiler), else by class
                 parts[kind_of(self.item(loc))[0] if spoiler else self.spot_class[loc]].append(loc)
-            return row(lv, label, by_level[lv], [row(f"{lv}/{p}", names[p], parts[p], now=True)
-                                                 for p in names if p in parts], now=True)
+            children = [row(f"{lv}/{p}", names[p], parts[p], now=True) for p in names if p in parts]
+            if lv in gem_counts:        # its gems taken and in all (Live's alone: none reachable now)
+                children.append(Row(f"{lv}/gems", "Gems", gem_counts[lv][0], None, gem_counts[lv][1]))
+            return row(lv, label, by_level[lv], children, now=True)
 
         realms = defaultdict(list)
         for lv in sorted(by_level):
@@ -299,4 +354,6 @@ class Tracker:
                           row(name.lower(), name, [loc for lv in lvs for loc in by_level[lv]],
                               [level(lv, lv) for lv in lvs], now=True))
         every = sorted(self.spots)
-        return (*items, row("all", "All", every)), (*levels, row("all", "All", every, now=True))
+        total = [Row("gems", "All gems", sum(n for n, _ in gem_counts.values()), None,
+                     sum(t for _, t in gem_counts.values()))] if gems else []
+        return (*items, row("all", "All", every)), (*levels, row("all", "All", every, now=True), *total)

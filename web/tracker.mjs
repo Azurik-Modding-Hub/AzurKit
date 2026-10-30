@@ -26,7 +26,8 @@ const el = (tag, props = {}, ...children) => {
 };
 
 export function tracker({ call, app, say, kept, keep }) {
-  const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, queue: [], running: null,
+  const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, gems: false, queue: [],
+              running: null,
               kept: kept ?? { plan: null, marks: {} }, live: null };
 
   // The engine's asks, one at a time and in order (each click is one, sent with the marks the last answer gave;
@@ -40,7 +41,8 @@ export function tracker({ call, app, say, kept, keep }) {
         await before;
         if (plan !== t.plan) continue;
         $("track-status").textContent = "…";
-        const reply = await call("tracker", { given: { plan, marks: t.marks, spoiler: t.spoiler, ...next } });
+        const reply = await call("tracker", { given: { plan, marks: t.marks, spoiler: t.spoiler, gems: t.gems,
+                                                       ...next } });
         $("track-status").textContent = "";
         if (plan !== t.plan) continue;
         if ("refused" in reply) {

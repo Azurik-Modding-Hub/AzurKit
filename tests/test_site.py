@@ -44,7 +44,7 @@ from azurkit.tools.randomizer import tracking
 from scripts import web_tools
 from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
-from tests.test_randomizer import TRACKER, _profile, tracker_states
+from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
 
 ORIGIN = "https://azurkit.test"
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
@@ -847,13 +847,14 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
                               f" && ({TRACKED})()", 300)
 
             def view(doc, marks, spoiler):
-                return page.evaluate("""async ([marks, spoiler]) => {
+                return page.evaluate("""async ([marks, spoiler, gems]) => {
                     const t = azurkit.tracker.state;
                     t.marks = marks ?? {};
                     t.spoiler = spoiler;
+                    t.gems = gems;
                     await azurkit.tracker.ask();
                     return t.view;
-                }""", [marks, spoiler])
+                }""", [marks, spoiler, shows_gems(marks)])
 
             for state, marks, kit in tracker_states(view, doc):
                 if kit:

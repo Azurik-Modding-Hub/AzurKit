@@ -2,8 +2,9 @@
 :func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
-(its tab's) and :func:`tracker` (the item tracker's), and :func:`restore`
-(art comes with its step). JSON in and
+(its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
+:func:`art_world` (its maps and icons, drawn from the player's image), and
+:func:`restore`. JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``). A refusal is a
@@ -52,6 +53,7 @@ obsidian cost), as an AzurKit build's mods file does.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
@@ -64,7 +66,7 @@ from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import generator, tracking
 
 __all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
-           "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "restore"]
+           "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore"]
 RECIPE = ("iso", "packs", "xbr", "randomizer")
 SETUP = ("ticked", "values", "xbr", "randomizer")   # a UI's remembered setup (D915, :func:`restore`)
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
@@ -366,6 +368,47 @@ def tracker(given: Mapping) -> dict:
     count). Modkit's tracker, the same verdicts on every host
     (``tools.randomizer.tracking``); a refusal names what it refuses."""
     return tracking.view(given)
+
+
+def art(path: str, part: str) -> dict:
+    """One part of the item tracker's pictures, drawn from the image at
+    ``path`` (Step 4.2c3, D3: the repository, the wheel, the app and the
+    site hold none; a host keeps what this gives and draws each part once),
+    each file it reads checked against its release's vanilla file
+    (``gate.NotVanillaError`` names one that isn't): ``"icons"`` gives
+    ``{"pictures": {"icons/<icon>": PNG bytes}}``, every item's and
+    barrier's icon (the game's own model at 20 px, Modkit's), and a level
+    of the world map (``tracker()``'s ``world.art.parts``) ``{"pictures":
+    {floor: PNG bytes}, "entry": its maps.json entry, "thumb": PNG bytes}``:
+    each floor seen from above, where its exits, items, spots, barriers,
+    features and gems lie on it (in pixels, with their floor; ``frame``
+    maps the world's metres to them), and its main floor's world-map
+    thumbnail, which :func:`art_world` takes. Each picture is Modkit's
+    pixel for pixel (``tests/test_art.py``). numpy draws them: a host
+    without it can't."""
+    from azurkit.tools.randomizer import art as drawn
+
+    with drawn.Vanilla(path) as reader:
+        out = drawn.part(reader, part)
+    return {key: ({name: drawn.png(img) for name, img in value.items()} if key == "pictures"
+                  else drawn.png(value) if key == "thumb" else value) for key, value in out.items()}
+
+
+def art_world(parts: Mapping[str, Mapping]) -> dict:
+    """The world map from each level's :func:`art` part (``{level:
+    {"entry", "thumb"}}``, every level of the world map), and the maps'
+    index, Modkit's ``maps.json``: ``{"pictures": {"world": PNG bytes},
+    "index": {"world": {"title", "levels": {level: [x, y, w, h]}},
+    "levels": {level: entry}}, "text": maps.json's text}``."""
+    from azurkit.tools.randomizer import art as drawn
+    from azurkit.tools.randomizer.tracking import GRID
+
+    if not isinstance(parts, Mapping) or set(parts) != set(GRID):
+        raise ValueError(f"art_world: a part for each level of the world map ({', '.join(GRID)})")
+    picture, world = drawn.world({level: drawn.unpng(p["thumb"]) for level, p in parts.items()})
+    entries = {level: p["entry"] for level, p in parts.items()}
+    text = drawn.index(entries, world)
+    return {"pictures": {"world": drawn.png(picture)}, "index": json.loads(text), "text": text}
 
 
 def restore(setup: object) -> dict:

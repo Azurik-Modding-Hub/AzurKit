@@ -100,9 +100,20 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     imports (what they import of Modkit's engine points at ours:
     `core/xbr/nodes.py`, `tools/randomizer/ports.py`), and the top-level
     statements `DROPS` names taken out, such as the seed roll's process pool
-    and Modkit's build objects. ORACLE.toml's `source`
-    table holds each installed file's sha256 and `tests/test_oracle.py`
-    refuses a hand edit: a Modkit fix arrives by the next sync. A module
+    and Modkit's build objects (a script's `if __name__ == "__main__":`
+    block is dropped as `"__main__"`). It installs the maps' and icons'
+    drawing too (Step 4.2c3): Modkit's `scripts/render_level_maps.py` and
+    `render_model_icons.py` as `tools/randomizer/art/maps.py` and
+    `icons.py`, its XBR readers they draw from (`xbr/nodes.py` with the
+    node-type names table `node_types.json`, P3: no capstone; `tern.py`,
+    `collision.py`, `render.py`, `draw.py`) in `art/`, and the reach
+    model's geometry, floors, wiring and envelope in `draft/` and the level
+    semantics they read (`levels.py`, its extractor dropped). ORACLE.toml's
+    `source` table holds each installed file's sha256 and `tests/test_oracle.py`
+    refuses a hand edit: a Modkit fix arrives by the next sync. Its `art`
+    table holds the pixel digest of each picture Modkit commits of what it
+    draws from the image (`gui/assets/maps/*.png`, `icons/*.png`;
+    `maps.json`'s sha256), never a picture. A module
     that still imports Modkit after the rewrites, or a statement `DROPS`
     names that is gone, stops the sync by name before anything is written:
     port what it imports into an AzurKit module, then add a rewrite.
@@ -284,16 +295,39 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The tracker** (Step 4.2c2, D189, D249; `tracking.py`, `sdk.tracker`):
   Modkit's `Tracker` on a plan file's object (a randomized build's report
   carries its plan, `plan`), the marks the page keeps (Modkit's state:
-  `collected`, `live`, `veto`, `slot`) and, with Live on, the element
+  `collected`, `live`, `veto`, `slot`, `gems`) and, with Live on, the element
   levels the game holds (`kit`, R1.41): the marks after a `toggle` or a
   `reset`, the head line, the counter row, each spot's state (`got`,
   `live`, `near`, `skip`: only with a skip, R1.41, `far`) and its item
-  only once collected or with `spoiler`, and the Table's two trees. The
-  process keeps the last few trackers, so a click costs one reach.
-  `tests/test_randomizer.py` holds its verdicts to Modkit's on seed 2's
-  default and max plans at four states (none marked, three rounds of
-  marking what is reachable, every power, Live's kit at 3), each digest
-  from Modkit's own `Tracker`.
+  only once collected or with `spoiler`, and the Table's two trees; with
+  `gems` (Step 4.2c3, R1.43, D928), each gem spot's gems (a cluster's
+  yield), how many Live saw taken and its gem, each level's counts and the
+  Table's Gems rows. The process keeps the last few trackers, so a click
+  costs one reach. `tests/test_randomizer.py` holds its verdicts to
+  Modkit's on seed 2's default and max plans at five states (none marked,
+  three rounds of marking what is reachable, every power, Live's kit at 3,
+  and Gems on with gem takes), each digest from Modkit's own `Tracker`.
+  - **What its maps draw** (Step 4.2c3): `tracking.world()`'s `maps`
+    (`needs.py`, Modkit's map view's needs: each exit's ring colour by
+    what using it needs, dashed one way, each barrier's, key lock's, disc
+    seal's, save point's and teleporter pad's name and need, the world
+    map's lines), and its `art`: the parts the pictures are drawn in and
+    their `ART_VERSION`, a host's key for what it keeps.
+  - **The pictures** (`art/`, Step 4.2c3, D3): `sdk.art(iso, part)` draws
+    one part from the player's image, each file it reads checked against
+    its release's vanilla file (`art.Vanilla`): the icons (every item's and
+    barrier's, the game's own model at 20 px), or a level's floors seen
+    from above, its `maps.json` entry (where its exits, items, spots,
+    barriers, features and gems lie, in pixels with their floor; `frame`
+    maps metres to them) and its world-map thumbnail; `sdk.art_world`
+    makes the world map and the index from the levels' parts. Modkit's
+    scripts draw them (installed by the sync), on the reach model's first
+    stage (`art/reach.py`, ours: Modkit's `Reach(level, flights=False)` up
+    to the logic floors). `tests/test_art.py` holds every picture and the
+    index to Modkit's committed pictures' digests, drawn from the USA image,
+    and the icons and a level from Europe's (its level, character and
+    effect files are USA's); it holds `ART_VERSION` to the digest of the
+    drawing's sources, so a sync that changes them changes the key.
   - **Live** (`live/`, the app's alone, D882): `game.py`'s reads of a
     running game and its events (Took, Level, Held, Reload), `link.py`'s
     link to xemu (the fork's shared guest RAM, or QMP; never a gdbstub,
@@ -345,7 +379,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **AST rules:** `core`, `edits` and `tools` hold no threads, processes,
   subprocesses, prints or exits, so the web page's worker runs them as they
   are. The worker loads the wheel without its dependencies, so the engine
-  imports platformdirs only where it needs the user data folder. Only `tools/characters` imports numpy, and nothing imports capstone,
+  imports platformdirs only where it needs the user data folder. Only `tools/characters` and the randomizer's drawing
+  (`tools/randomizer/art/`, `draft/`) import numpy, and nothing imports capstone,
   unicorn, zig or Tk. `tests/test_contracts.py` checks these, along with
   import-linter's contracts.
 

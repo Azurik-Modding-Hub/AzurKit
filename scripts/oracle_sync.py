@@ -52,11 +52,13 @@ import hashlib
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 import textwrap
 import tomllib
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -73,7 +75,11 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
               "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
     "rando": ("azurik_mod/randomizer", "azurik_mod/sim/pages.py", "azurik_mod/sim/recipes.py",
               "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json",
-              "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
+              "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json",
+              # the maps' and icons' drawing (Step 4.2c3) and the pictures Modkit commits of them (ART)
+              *(f"azurik_mod/xbr/{name}" for name in ("nodes.py", "node_types.json", "tern.py", "collision.py",
+                                                      "render.py", "draw.py")),
+              "scripts/render_level_maps.py", "scripts/render_model_icons.py", "gui/assets/maps", "gui/assets/icons"),
     "models": ("azurik_mod/patches/player_model", "azurik_mod/patches/_player_*", "azurik_mod/assets",
                "azurik_mod/xbr/append.py", "tests/facts", "tests/goldens/shims.json", "tests/goldens/pipelines.json",
                "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
@@ -85,6 +91,7 @@ SWAP = (("usa", "tests/facts/xbe.json"), ("europe", "tests/facts/xbe.europe.json
 RANDO = "src/azurkit/tools/randomizer"
 CHARACTERS = "src/azurkit/tools/characters"
 LIVE = f"{RANDO}/live"   # the app's Live tracker (its link reads a running xemu): the contracts' app-only folder
+ART = f"{RANDO}/art"     # the maps and icons drawn from the player's image (with draft/, the randomizer's numpy)
 SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's folder or file, AzurKit's, through port())
     "rando": (("azurik_mod/randomizer/data", f"{RANDO}/data", False),
               ("azurik_mod/randomizer/planner", f"{RANDO}/planner", True),
@@ -95,12 +102,28 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
               # page tables and RAM layout it reads through
               ("azurik_mod/randomizer/live.py", f"{LIVE}/game.py", True),
               ("azurik_mod/randomizer/live_link.py", f"{LIVE}/link.py", True),
-              *((f"azurik_mod/sim/{name}.py", f"{LIVE}/{name}.py", True) for name in ("pages", "recipes"))),
+              *((f"azurik_mod/sim/{name}.py", f"{LIVE}/{name}.py", True) for name in ("pages", "recipes")),
+              # The level maps and item icons drawn from the player's image (Step 4.2c3, D3): the reach model's
+              # first stage (its geometry, floors and wiring, the level semantics they read), the level node
+              # graphs with the node-type names table (P3: no capstone), the collision and render-mesh readers,
+              # the model drawer, and Modkit's two scripts that draw them
+              *((f"azurik_mod/randomizer/draft/{name}.py", f"{RANDO}/draft/{name}.py", True)
+                for name in ("__init__", "envelope", "geometry", "floors", "wiring")),
+              ("azurik_mod/randomizer/levels.py", f"{RANDO}/levels.py", True),
+              *((f"azurik_mod/xbr/{name}", f"{ART}/{name}", True)
+                for name in ("nodes.py", "node_types.json", "tern.py", "collision.py", "render.py", "draw.py")),
+              ("scripts/render_level_maps.py", f"{ART}/maps.py", True),
+              ("scripts/render_model_icons.py", f"{ART}/icons.py", True)),
     # the archive writers a swap builds on (Step 4.3a1): append and relocations in core, the rest the tool's
     "models": (("azurik_mod/xbr/append.py", "src/azurkit/core/xbr/append.py", True),
                *((f"azurik_mod/assets/{name}.py", f"{CHARACTERS}/{name}.py", True)
                  for name in ("characters", "body_codec", "index_xbr"))),
 }
+#: The pictures Modkit commits of what it draws from the image (Step 4.2c3): the level maps (``maps.json`` and each
+#: floor's and the world's PNG) and the item icons, recorded in ORACLE.toml's ``<family>.art`` table as each
+#: picture's :func:`pixel_digest` and ``maps.json``'s sha256 (D3: no picture is copied), which AzurKit's drawings
+#: are held to (``tests/test_art.py``).
+ART_FILES = {"rando": ("gui/assets/maps", "gui/assets/icons")}
 OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py"})   # AzurKit's own instead: tools/randomizer/dbcache.py
 REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.tools.randomizer import dbcache"),
             # the tracker reads Live's events only: the site imports it, never the link
@@ -113,6 +136,9 @@ REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.
             ("from azurik_mod.sim import recipes", "from azurkit.tools.randomizer.live import recipes"),
             ("from azurik_mod.assets.vanilla import REGIONS, Region, UnmappedAddressError",
              "from azurkit.tools.randomizer.live.regions import REGIONS, Region, UnmappedAddressError"),
+            # the maps' reach model: its first stage alone, AzurKit's (tools/randomizer/art/reach.py)
+            ("from azurik_mod.randomizer.draft.reach import Reach", "from azurkit.tools.randomizer.art.reach import Reach"),
+            ("from azurik_mod.randomizer import ", "from azurkit.tools.randomizer import "),
             ("azurik_mod.randomizer.", "azurkit.tools.randomizer."),
             ("from azurik_mod.xbr.nodes import", "from azurkit.core.xbr.nodes import"),
             # Modkit's xbr/edits.py's error and xbr/sections.py's index records (a file NOTICE.md credits to
@@ -122,7 +148,18 @@ REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.
             ("from azurik_mod.xbr.sections import IndexRecordsSection",
              "from azurkit.core.xbr.nodes import IndexRecordsSection"),
             ("from azurik_mod.xbr.append import", "from azurkit.core.xbr.append import"),
+            ("from azurik_mod.xbr.toc_scan import named_resources, parse_toc",
+             "from azurkit.tools.randomizer.ports import named_resources, parse_toc"),
             ("from azurik_mod.xbr.toc_scan import", "from azurkit.core.xbr.nodes import"),
+            # the maps' and icons' XBR readers: Modkit's, in art/ (core/xbr is AzurKit's own)
+            # the icons' script writes no PNG here (its main is dropped): art.png does, the site's and the app's
+            ("from azurik_mod.xbr.draw import OUTLINE, PITCH, SS, Part, dot, down, draw, png_rgba",
+             "from azurkit.tools.randomizer.art.draw import OUTLINE, PITCH, SS, Part, dot, down, draw"),
+            ("from azurik_mod.xbr import ", "from azurkit.tools.randomizer.art import "),
+            ("from azurik_mod.xbr.", "from azurkit.tools.randomizer.art."),
+            ("from azurik_mod.assets.vanilla import xbe_layout", "from azurkit.tools.randomizer.ports import xbe_layout"),
+            ("from azurik_mod.patching.xbe import resolve_va_to_file",
+             "from azurkit.tools.randomizer.ports import resolve_va_to_file"),
             ("from azurik_mod.assets.filelist import listed", "from azurkit.tools.randomizer.ports import listed"),
             ("from azurik_mod.iso.xiso import XisoReader", "from azurkit.tools.randomizer.ports import XisoReader"))
 DROPS = {   # top-level statements a ported module loses, by the names they bind
@@ -141,6 +178,16 @@ DROPS = {   # top-level statements a ported module loses, by the names they bind
     "azurik_mod/randomizer/live.py": ("connect",),
     # one LiveError, live/errors.py's, which the events raise too (the rewrite above imports it here)
     "azurik_mod/randomizer/live_link.py": ("LiveError",),
+    # the maps' drawing (Step 4.2c3): the flights through the game's code under Unicorn (L2, a dev tool), the
+    # generated data's extractor (db-extract: the data comes by this sync), the node types' capstone scan (the
+    # names table holds them), the gallery's previews and the two scripts' files and command lines (the sdk and
+    # the hosts keep the pictures, tools/randomizer/art/)
+    "azurik_mod/randomizer/draft/envelope.py": ("l2_xbe", "l2_flight"),
+    "azurik_mod/randomizer/levels.py": ("extract", "write_generated"),
+    "azurik_mod/xbr/nodes.py": ("scan_types",),
+    "azurik_mod/xbr/draw.py": ("png_rgba", "_write", "write_preview", "draw_previews"),   # (PNGs: art.png)
+    "scripts/render_level_maps.py": ("argparse", "sys", "png", "draw_detail", "main", "__main__"),
+    "scripts/render_model_icons.py": ("argparse", "sys", "main", "__main__"),
 }
 
 
@@ -160,7 +207,7 @@ def write_index(index: dict[str, dict], path: Path = ORACLE / "ORACLE.toml") -> 
         lines += ["", f"[{family}]", f"tag = {json.dumps(entry['tag'])}", f"commit = {json.dumps(entry['commit'])}",
                   "", f"[{family}.files]"]
         lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(entry["files"].items())]
-        for table in ("exported", "source"):
+        for table in ("exported", "source", "art"):
             if rows := entry.get(table):
                 lines += ["", f"[{family}.{table}]"]
                 lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(rows.items())]
@@ -183,6 +230,9 @@ def source_hashes(family: str, root: Path = ROOT) -> dict[str, str]:
 
 
 def _binds(node: ast.stmt) -> set[str]:
+    if (isinstance(node, ast.If) and isinstance(node.test, ast.Compare)   # a script's command line: "__main__"
+            and ast.unparse(node.test) in ("__name__ == '__main__'", '__name__ == "__main__"')):
+        return {"__main__"}
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         return {node.name}
     if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -250,6 +300,67 @@ def sources(clone: Path, family: str) -> dict[str, bytes]:
     return out
 
 
+PNG = (0x89504E470D0A1A0A).to_bytes(8, "big")   # a PNG's signature (the XBE holds one: no 8-byte literal of it)
+
+
+def pixels(png: bytes) -> tuple[int, int, int, bytes]:
+    """(width, height, channels, rows of pixels top to bottom) of an 8-bit
+    RGB or RGBA PNG that isn't interlaced (Modkit's pictures);
+    ValueError for another."""
+    if png[:8] != PNG:
+        raise ValueError("not a PNG")
+    at, idat, head = 8, [], None
+    while at < len(png):
+        (n,), tag = struct.unpack_from(">I", png, at), png[at + 4:at + 8]
+        body, at = png[at + 8:at + 8 + n], at + 12 + n
+        if tag == b"IHDR":
+            head = struct.unpack(">IIBBBBB", body)
+        elif tag == b"IDAT":
+            idat.append(body)
+    if head is None or head[2] != 8 or head[3] not in (2, 6) or head[6] != 0:
+        raise ValueError(f"a PNG that isn't 8-bit RGB or RGBA, not interlaced: {head}")
+    w, h, c = head[0], head[1], 3 if head[3] == 2 else 4
+    raw, stride, out, prev = zlib.decompress(b"".join(idat)), w * c, bytearray(), bytearray(w * c)
+    for y in range(h):
+        kind, row = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for i in range(stride if kind else 0):   # the five filters (Modkit writes the first, none)
+            a, b = row[i - c] if i >= c else 0, prev[i]
+            up_left = prev[i - c] if i >= c else 0
+            if kind == 1:
+                row[i] = (row[i] + a) & 0xFF
+            elif kind == 2:
+                row[i] = (row[i] + b) & 0xFF
+            elif kind == 3:
+                row[i] = (row[i] + (a + b) // 2) & 0xFF
+            elif kind == 4:
+                pa, pb, pc = abs(b - up_left), abs(a - up_left), abs(a + b - 2 * up_left)
+                row[i] = (row[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else up_left)) & 0xFF
+            elif kind:
+                raise ValueError(f"a PNG row's filter {kind}")
+        out += row
+        prev = row
+    return w, h, c, bytes(out)
+
+
+def pixel_digest(w: int, h: int, c: int, rows: bytes) -> str:
+    """A picture's digest: the sha256 of ``"<w>x<h>x<channels>\\n"`` and its
+    pixels, rows top to bottom (AzurKit's drawings take it the same way,
+    ``tools/randomizer/art.digest``)."""
+    return hashlib.sha256(f"{w}x{h}x{c}\n".encode() + rows).hexdigest()
+
+
+def art_hashes(clone: Path, family: str) -> dict[str, str]:
+    """``{Modkit path: digest}`` of the pictures :data:`ART_FILES` names in
+    ``clone`` (Modkit's tracked files): each PNG's :func:`pixel_digest`,
+    each other file's sha256."""
+    out = {}
+    for folder in ART_FILES.get(family, ()):
+        for rel in sorted(filter(None, _git(clone, "ls-files", "-z", "--", folder).split("\0"))):
+            data = (clone / rel).read_bytes()
+            out[rel] = pixel_digest(*pixels(data)) if rel.endswith(".png") else hashlib.sha256(data).hexdigest()
+    return out
+
+
 def digest_spans(path: Path) -> str:
     """Replace each build span of the facts file ``path`` (a hex string at
     ``patch_sites.<va>.new.<case>``) with ``{"sha256", "size"}`` of its bytes;
@@ -299,6 +410,7 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
         subprocess.run(argv, check=True, env=env)
         try:
             ported = {family: sources(clone, family) for family in families}
+            art = {family: art_hashes(clone, family) for family in families}
         except ValueError as exc:
             raise SystemExit(f"nothing written: {exc}") from None
         for family in families:
@@ -324,6 +436,7 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             index[family] = {"tag": tag, "commit": commit, "files": tree_hashes(ORACLE / family)}
             index[family] |= {"exported": exported} if exported else {}
             index[family] |= {"source": source_hashes(family)} if family in SOURCES else {}
+            index[family] |= {"art": art[family]} if art.get(family) else {}
             out.append(f"{family}: {len(index[family]['files'])} files at {tag} ({commit[:12]})")
     write_index(index)
     return out
