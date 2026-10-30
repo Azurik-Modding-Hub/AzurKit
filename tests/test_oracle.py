@@ -1,9 +1,9 @@
-"""``tests/oracle/``, the bundle Modkit's ``scripts/export_oracle.py`` writes:
-every file is the one ``scripts/oracle_sync.py`` installed, as is each file
-of Modkit's source it installs in ours (the randomizer's data and planner),
-installed again from Modkit's history it keeps the import contracts, and
-both vanilla images match the core family's manifests file by file, through
-the gate."""
+"""``tests/oracle/``, the bundle Modkit's ``scripts/export_oracle.py`` writes
+for the rando and models families (the core and packs families' truth is
+AzurKit's own since Step 4.12a, ``tests/goldens/``): every file is the one
+``scripts/oracle_sync.py`` installed, as is each file of Modkit's source it
+installs in ours (the randomizer's data and planner), and installed again
+from Modkit's history it keeps the import contracts."""
 
 from __future__ import annotations
 
@@ -18,22 +18,20 @@ from pathlib import Path
 
 import pytest
 
-from azurkit.core import gate
-from scripts.oracle_sync import (CONTENT, DERIVED, FACTS, ORACLE, PATHS, ROOT, SOURCES, fix, install, port,
+from scripts.oracle_sync import (CONTENT, DERIVED, FAMILIES, ORACLE, PATHS, ROOT, SOURCES, fix, install, port,
                                  read_index, source_hashes, sources, tree_hashes)
 
 
 def test_every_oracle_file_is_the_one_the_sync_installed():
     """A hand edit, a missing or an extra file in a family's folder fails;
     each family's ``oracle.json`` (Modkit's index) agrees with ORACLE.toml,
-    by the exported sha256 for a facts file, whose build spans are installed
-    as sha256 and size only (a convention, D961), but for the files the sync derives itself
-    (``DERIVED``: the models family's ``swap.json``, ``resources.json`` and ``probes.json``);
+    but for the files the sync derives itself (``DERIVED``: the models
+    family's ``swap.json``, ``resources.json`` and ``probes.json``);
     each file the sync installed in our source (``SOURCES``) is as it was
     installed, none missing or added; and a family with files in the content
     folder (``CONTENT``) records them."""
     index = read_index()
-    assert {"core", "packs"} <= set(index)
+    assert set(index) == set(FAMILIES)
     assert {p.name for p in ORACLE.iterdir() if p.is_dir()} == set(index)
     for family, entry in index.items():
         files = tree_hashes(ORACLE / family)
@@ -41,16 +39,10 @@ def test_every_oracle_file_is_the_one_the_sync_installed():
         meta = json.loads((ORACLE / family / "oracle.json").read_text(encoding="utf-8"))
         assert (meta["family"], meta["tag"], meta["commit"], meta["dirty"]) == (
             family, entry["tag"], entry["commit"], False)
-        exported = entry.get("exported", {})
         derived = DERIVED.get(family, ())
         assert set(derived) <= set(files), family
         assert {rel: m["sha256"] for rel, m in meta["files"].items()} == {
-            rel: exported.get(rel, sha) for rel, sha in files.items() if rel != "oracle.json" and rel not in derived}
-        assert sorted(exported) == sorted(rel for rel in FACTS if rel in files), family
-        for rel in exported:
-            sites = json.loads((ORACLE / family / rel).read_text(encoding="utf-8"))["patch_sites"].values()
-            spans = [span for site in sites for span in site.get("new", {}).values()]
-            assert spans and all(set(span) == {"sha256", "size"} for span in spans), rel
+            rel: sha for rel, sha in files.items() if rel != "oracle.json" and rel not in derived}
         assert source_hashes(family) == entry.get("source", {}), family
         assert bool(entry.get("content")) == (family in CONTENT), family
     assert set(SOURCES) <= set(index)
@@ -140,15 +132,3 @@ def test_a_re_sync_at_each_familys_commit_imports_no_tool_from_another(tmp_path)
     run = subprocess.run([sys.executable, "-c", lint, str(ROOT / "pyproject.toml"), str(src)], capture_output=True,
                          text=True, env=os.environ | {"PYTHONPATH": str(src)})
     assert run.returncode == 0, run.stdout + run.stderr
-
-
-@pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
-                                     pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
-                                                  id="europe")])
-def test_each_vanilla_image_matches_its_oracle_manifest(release, request):
-    """The gate's manifest is the oracle's, and every folder and file of the
-    image is in it, by path, size and sha256 (``gate.verify``)."""
-    name = {"usa": "vanilla_manifest.json", "europe": "europe_manifest.json"}[release.name]
-    assert release.manifest.read_bytes() == (ORACLE / "core/azurik_mod/assets" / name).read_bytes()
-    stamp = gate.verify(request.getfixturevalue(f"{release.name}_iso"))
-    assert (stamp.release, stamp.whole) == (release, True)

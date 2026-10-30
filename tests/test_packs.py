@@ -1,12 +1,12 @@
 """The packs (Step 4.1c: fps_unlock, qol_alloc_race, qol_gem_popups,
 qol_other_popups, qol_pickup_anims; Step 4.1e2: player_max_hp,
 air_shield_flaps and enemy_damage, config.xbr's; Step 4.1f1: qol_skip_logo,
-a shim's) against the oracle at its packs tag.
+a shim's) against their goldens (``tests/goldens/``, Step 4.12a).
 
-The facts AzurKit ships are the oracle's, and each release's vanilla XBE has
-their section table (AZ-316). Every case the oracle's facts record for a
-ported pack (its sliders' values normalized, Step 4.1e1) writes their bytes
-site by site and nothing else; then each G1 case of a ported pack, with its
+The facts' XBE half is each release's image's (``scripts/gen_facts.py``),
+and each release's vanilla XBE has their section table (AZ-316). Every case
+of the sites golden (its sliders' values normalized, Step 4.1e1) writes its
+bytes site by site and nothing else; then each G1 case of a ported pack, with its
 sliders' values, builds its golden, file by file, on both releases, through
 the sdk, and its preset carries its recipe back and nothing from the game;
 ``azurkit build`` applies the packs on by default (D528) and sets sliders.
@@ -31,22 +31,16 @@ from azurkit.edits.layer import claimed, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import mods
 from azurkit.tools.mods import engine
-from scripts import gen_facts
-from scripts.oracle_sync import ORACLE as ORACLE_ROOT
+from scripts import gen_facts, record_goldens
 from tests import _g1
 
-ORACLE = ORACLE_ROOT / "packs"
-FACTS = {"usa": "tests/facts/xbe.json", "europe": "tests/facts/xbe.europe.json"}
+SITES = {"usa": "sites.json", "europe": "europe/sites.json"}
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
 
 
 def _sha256(data) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def _oracle(rel: str) -> dict:
-    return json.loads((ORACLE / rel).read_text(encoding="utf-8"))
 
 
 def _vanilla_file(path, name: str) -> bytes:
@@ -63,36 +57,59 @@ def test_the_shipped_facts_xbe_half_is_the_one_gen_facts_reads_from_each_image(u
             release, _vanilla_file(path, engine.XBE)), release.name
 
 
+def test_the_recorder_writes_a_golden_from_its_cases_and_check_names_each_case_that_differs(usa_iso, tmp_path,
+                                                                                            monkeypatch, capsys):
+    """``scripts/record_goldens.py`` builds a golden's cases on the player's
+    image and writes the committed file byte for byte, naming each case it
+    changed (the editor's two cases here, into an empty folder; its first
+    run on every golden left them all unchanged, Step 4.12a); ``--check``
+    writes nothing and exits 1 naming each case that differs."""
+    name = "xbr_editor.json"
+    committed = (record_goldens.GOLDENS / name).read_text(encoding="utf-8")
+    rows = json.loads(committed)
+    monkeypatch.setattr(record_goldens, "GOLDENS", tmp_path)
+    images = record_goldens.Images({gate.USA: usa_iso})
+    assert record_goldens.main([name], images) == 0
+    assert capsys.readouterr().out.splitlines() == [f"wrote: {name}", *(f"changed: {name}: {c}" for c in sorted(rows))]
+    assert (tmp_path / name).read_text(encoding="utf-8") == committed
+    case = sorted(rows)[0]
+    rows[case] = {"config.xbr": "0" * 64}
+    (tmp_path / name).write_text(record_goldens.text(rows), encoding="utf-8")
+    assert record_goldens.main(["--check", name], images) == 1
+    assert capsys.readouterr().out == f"differs: {name}: {case}\n"
+    assert json.loads((tmp_path / name).read_text(encoding="utf-8"))[case] == {"config.xbr": "0" * 64}
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_each_ported_case_writes_the_facts_bytes_site_by_site_and_nothing_else(release, request):
     """The release's XBE has the facts' sections and sha256. For each case
-    in the oracle's facts, every pack's (``fps_unlock:target_fps=120``
-    too), each site holds the case's recorded bytes (by sha256), or vanilla's
-    when the case leaves it (USA's ``.text`` slack among them, where a shim
-    lands; a legacy site, which no build writes, isn't read), and no byte
-    changed outside the case's sites, its shims' claims and the header state
-    they derive."""
+    of the sites golden (``tests/goldens/sites.json``, every XBE pack's,
+    ``fps_unlock:target_fps=120`` too), each facts site holds the case's
+    recorded bytes (by sha256), or vanilla's when the case leaves it (USA's
+    ``.text`` slack among them, where a shim lands), and no byte changed
+    outside the case's sites, its shims' claims and the header state they
+    derive; every facts site is some case's (none is dead)."""
     with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
         vanilla, config = r.read(engine.XBE), r.read(engine.CONFIG)
     known = facts.of(release)
     assert (xbe.sections(vanilla), _sha256(vanilla)) == (known.sections, known.sha256)
-    oracle, recipes = _oracle(FACTS[release.name]), _oracle("cases.json")[FACTS[release.name]]
-    cases = oracle["cases"]
+    golden, recipes = record_goldens.recorded(SITES[release.name]), record_goldens.cases(SITES[release.name])
     xbe_packs = {name for name, pack in mods.PACKS.items() if engine.XBE in pack.files()}
-    assert {recipes[case]["pack"] for case in cases} == xbe_packs and len(cases) == 32
-    for case in cases:
+    assert {recipes[case]["pack"] for case in golden} == xbe_packs and len(golden) == 32
+    assert {int(va, 16) for spans in golden.values() for va in spans} == set(known.sites)
+    for case, spans in golden.items():
         recipe = recipes[case]
         params = mods.normalize({recipe["pack"]: recipe["params"]})[recipe["pack"]]
         layer = mods.plan(mods.PACKS[recipe["pack"]], release, {engine.XBE: vanilla, engine.CONFIG: config}, params)
         built = compose({"default.xbe": vanilla, engine.CONFIG: config}, [layer])[0].get("default.xbe", vanilla)
         derived = bytearray(claimed({"default.xbe": vanilla}, [layer]).get("default.xbe", vanilla))
         drift, masked = [], bytearray(built)
-        for va, site in ((int(va, 16), site) for va, site in oracle["patch_sites"].items() if site.get("new")):
+        for va, site in known.sites.items():
             s = max((s for s in known.sections if s.va <= va), key=lambda s: s.va)   # the slack is its section's
-            at, want = s.raw + va - s.va, site.get("new", {}).get(case, {"sha256": site["original_sha256"]})["sha256"]
-            if _sha256(built[at:at + site["size"]]) != want:
+            at, want = s.raw + va - s.va, spans.get(f"0x{va:08X}", site.sha256)
+            if _sha256(built[at:at + site.size]) != want:
                 drift.append(f"0x{va:08X}")
-            masked[at:at + site["size"]] = derived[at:at + site["size"]]
+            masked[at:at + site.size] = derived[at:at + site.size]
         for claim in layer.claims:
             masked[claim.offset:claim.offset + claim.size] = derived[claim.offset:claim.offset + claim.size]
         assert drift == [], case

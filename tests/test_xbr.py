@@ -22,7 +22,7 @@ from azurkit.core import gate, iso
 from azurkit.core.xbr import Document, edits
 from azurkit.tools import mods
 from azurkit.tools.mods import engine
-from scripts.oracle_sync import ORACLE as ORACLE_ROOT
+from scripts import record_goldens
 
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
@@ -49,13 +49,11 @@ def test_every_vanilla_xbr_round_trips_to_its_manifest_hash(release, request):
 
 
 def test_the_game_data_editors_two_edits_build_their_goldens(usa_iso):
-    """The oracle's ``xbr_editor`` cases, each one edit of vanilla
+    """The ``xbr_editor`` golden's cases, each one edit of vanilla
     config.xbr: a number cell takes its value, and a string cell its text
     (rewritten in place: no cell of its table holds it), each giving the
     file Modkit's editor saved."""
-    golden = json.loads((ORACLE_ROOT / "packs/tests/goldens/xbr_editor.json").read_text(encoding="utf-8"))
-    recipes = json.loads((ORACLE_ROOT / "packs/cases.json").read_text(encoding="utf-8"))
-    recipes = recipes["tests/goldens/xbr_editor.json"]
+    golden, recipes = record_goldens.recorded("xbr_editor.json"), record_goldens.cases("xbr_editor.json")
     with iso.Reader(usa_iso) as r:
         data = r.read(mods.engine.CONFIG)
     doc = Document(data)

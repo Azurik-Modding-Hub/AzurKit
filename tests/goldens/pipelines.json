@@ -6,28 +6,19 @@
   "gamedata/config.xbr": "89b23c00cb34adf15bfca1a9a57ba1123fb9d2b6a961c97390fa44917484dcc4"
  },
  "pack_build_iso:starting_hp=500": {
-  "ISO": "81337321122faccbb9ef60c86f6bbc38ea7b060f1e3733b79fcb5a03fb36f9da",
   "default.xbe": "3319501bfe468d6ebe4cc56c0f919aae2713709e38b7a579efcc9ae1279e35aa",
-  "filelist.txt": "fa5b6763542a081d912afb079d826427ff54c93cbb63ad72ee088fac2da40e33",
   "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
-  "gamedata/config.xbr": "7aafefd1fd4df286d01a0606f33347d5bfc05ab99536a977e65e9d0cb824a60c",
-  "gamedata/training_room.xbr": "fcdf6f210f01f2a2cd75978b1afe983feb0a3718bd35c2b9e94a6dc71e1cd23d"
+  "gamedata/config.xbr": "7aafefd1fd4df286d01a0606f33347d5bfc05ab99536a977e65e9d0cb824a60c"
  },
  "patch:config-mod": {
-  "ISO": "268cea64b887469531cea18dc664dd945b70216557f3feb8ed46c4f117cec974",
   "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
-  "filelist.txt": "88486b8a70b9d0891a0d957e4581e00d830db235a546d0367f5e8f980d3995fe",
   "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
-  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881",
-  "gamedata/training_room.xbr": "fcdf6f210f01f2a2cd75978b1afe983feb0a3718bd35c2b9e94a6dc71e1cd23d"
+  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881"
  },
  "randomize-full:config-mod": {
-  "ISO": "268cea64b887469531cea18dc664dd945b70216557f3feb8ed46c4f117cec974",
   "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
-  "filelist.txt": "88486b8a70b9d0891a0d957e4581e00d830db235a546d0367f5e8f980d3995fe",
   "gamedata/a1.xbr": "8f116c32a910fc1eb09396ecfdf2d2cf7ef5763e8bb855b6ba91c2768c371723",
-  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881",
-  "gamedata/training_room.xbr": "fcdf6f210f01f2a2cd75978b1afe983feb0a3718bd35c2b9e94a6dc71e1cd23d"
+  "gamedata/config.xbr": "80ba8230bd6049d930543b57ed3c33c103f9743b4683eebfd4b99a082dd8b881"
  },
  "randomize-full:zero-scales": {
   "ISO": "aaa52faf4b0ce9049f2c34885ef30dc9f6fd1829654764b144816c3868d75e93",

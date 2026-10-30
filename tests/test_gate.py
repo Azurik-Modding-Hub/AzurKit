@@ -1,8 +1,8 @@
 """The gate (``azurkit.core.gate.verify``, D27) and ``azurkit verify``: an
 image is a release's vanilla one when its files match that release's
 manifest, and otherwise the first file that differs is named. These run on
-synthetic images and releases (``tests/_xiso.py``: no game bytes); the
-vanilla images go through the gate in ``tests/test_oracle.py``."""
+synthetic images and releases (``tests/_xiso.py``: no game bytes), and the
+two vanilla images through the gate, whole."""
 
 from __future__ import annotations
 
@@ -81,3 +81,15 @@ def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path
     monkeypatch.setenv("AZURKIT_ISO_EUROPE", str(out))
     assert cli.main(["verify"]) == 1
     assert capsys.readouterr().err == f"azurkit: no Europe image: AZURKIT_ISO_EUROPE names no file ({out})\n"
+
+
+@pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
+                                     pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
+                                                  id="europe")])
+def test_each_vanilla_image_matches_its_manifest_file_by_file(release, request):
+    """Every folder and file of each release's vanilla image is in its
+    manifest (``core/manifests/<release>.json``, AzurKit's own since Step
+    4.12a), by path, size and sha256, and nothing else is (``gate.verify``,
+    whole)."""
+    stamp = gate.verify(request.getfixturevalue(f"{release.name}_iso"))
+    assert (stamp.release, stamp.whole) == (release, True)

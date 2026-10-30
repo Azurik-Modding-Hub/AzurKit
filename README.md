@@ -170,8 +170,10 @@ Azurik: Rise of Perathia or Xbox.*
 ## Development
 
 AzurKit is the lean rewrite of Azurik_Modkit, the proof of concept it replaces.
-Modkit is also its test oracle: every port step is checked against Modkit's
-recorded outputs, per-file sha256s copied into [`tests/oracle/`](tests/oracle/).
+The packs' truth is AzurKit's own: [`tests/goldens/`](tests/goldens/), per-file
+sha256s it records from its own builds. The randomizer and the characters are
+still checked against Modkit's recorded outputs, copied into
+[`tests/oracle/`](tests/oracle/).
 AzurKit never imports Modkit's code. A build's recipe is the two files at its
 image's root, `/azurkit.json` and `/azurkit.bin`.
 

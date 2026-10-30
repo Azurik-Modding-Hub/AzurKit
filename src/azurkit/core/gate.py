@@ -11,7 +11,7 @@ worker loads the wheel without its dependencies and passes the image's path).
 :func:`verify` is the gate (D27). It tells the release by the sha256 of the
 image's ``default.xbe`` (else by its folders), then checks the image's files against that
 release's manifest (``manifests/<release>.json``: each folder, and each
-file's size and sha256, a copy of the oracle's), one :data:`iso.CHUNK` read
+file's size and sha256, Modkit's at its last cut, AzurKit's own since Step 4.12a), one :data:`iso.CHUNK` read
 at a time on the caller's thread, and names the first file (in path order)
 that differs. A dump that isn't the whole vanilla image (another trim, or a
 whole disc) passes when its files match. It returns a :class:`Stamp`; it

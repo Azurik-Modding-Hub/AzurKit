@@ -1,25 +1,24 @@
-"""G1, the oracle's pack goldens (Modkit's ``tests/goldens/packs.json`` and
-its Europe twin), as AzurKit's tests read them: each case of a ported
+"""G1, the pack goldens (``tests/goldens/packs.json`` and its Europe twin,
+``scripts/record_goldens.py``'s), as the tests read them: each case of a
 pack, its recipe, and the files it changes from vanilla with their sha256,
 by their paths in the image.
 
-Modkit records each file a pack reads, at vanilla's sha256 where the pack
-leaves it so (an XBR pack's ``default.xbe``, a default case's
-``config.xbr``); a case here holds only the files it changes. Europe's G1
-has no case for a pack that writes only XBRs: ``config.xbr`` is the same
-file in both releases (PLAN §3's gap by design), so the USA cases stand
-for it there."""
+A golden records ``default.xbe`` and each file the pack's layer writes, at
+vanilla's sha256 where it leaves it so (an XBR pack's ``default.xbe``, a
+default case's ``config.xbr``); a case here holds only the files it
+changes. Europe's G1 has no case for a pack that writes only XBRs:
+``config.xbr`` is the same file in both releases (PLAN §3's gap by
+design), so the USA cases stand for it there."""
 
 from __future__ import annotations
 
-import json
 from typing import NamedTuple
 
 from azurkit.core import gate
 from azurkit.tools import mods
-from scripts.oracle_sync import ORACLE as ORACLE_ROOT
+from scripts import record_goldens
 
-GOLDENS = {"usa": "tests/goldens/packs.json", "europe": "tests/goldens/europe/packs.json"}
+GOLDENS = {"usa": "packs.json", "europe": "europe/packs.json"}
 PATHS = {"config.xbr": "gamedata/config.xbr"}   # Modkit's name for a file -> its path in the image
 
 
@@ -29,12 +28,8 @@ class Case(NamedTuple):
     files: dict[str, str]   # each file it changes -> its sha256
 
 
-def _oracle(rel: str) -> dict:
-    return json.loads((ORACLE_ROOT / "packs" / rel).read_text(encoding="utf-8"))
-
-
 def _cases(release: gate.Release, packs) -> dict[str, Case]:
-    golden, recipes = _oracle(GOLDENS[release.name]), _oracle("cases.json")[GOLDENS[release.name]]
+    golden, recipes = record_goldens.recorded(GOLDENS[release.name]), record_goldens.cases(GOLDENS[release.name])
     out = {}
     for case, files in golden.items():
         if (recipe := recipes[case])["pack"] in packs:

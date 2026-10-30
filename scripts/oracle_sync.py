@@ -1,6 +1,6 @@
 """Copy Modkit's oracle bundle for the given families into ``tests/oracle/``.
 
-    uv run --locked python scripts/oracle_sync.py --modkit PATH --ref REF --tag NAME --family core --family packs
+    uv run --locked python scripts/oracle_sync.py --modkit PATH --ref REF --tag NAME --family rando --family models
 
 The script clones Modkit at REF into a scratch folder. It uses ``git clone
 --shared``, so Modkit's checkout and refs are left as they are. It then runs
@@ -13,10 +13,10 @@ tag the bundle is cut at), its commit and the sha256 of every file;
 When a family was synced before, the script prints Modkit's commits since that
 sync that touch the family's paths. That list is the port's to-do. AzurKit never
 imports Modkit: the bundle holds sha256s, names and recipes (never game bytes).
-The facts' build spans (``patch_sites.<va>.new.<case>``, a build's bytes over
-a site, vanilla code included where the pack leaves it) are installed as their
-sha256 and size (:func:`digest_spans`); ORACLE.toml's ``exported`` table keeps
-each such file's sha256 as exported, which Modkit's ``oracle.json`` lists.
+Two families are left, ``rando`` and ``models`` (until Steps 4.12b and 4.12c):
+the core and packs families' truth is AzurKit's own since Step 4.12a, its
+goldens recorded from its own builds (``scripts/record_goldens.py``) and its
+facts' XBE half read from the player's images (``scripts/gen_facts.py``).
 
 A family's sync also installs the Modkit source it ports as it is
 (:data:`SOURCES`): the randomizer's data (and the movement tiers' margins),
@@ -68,16 +68,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ORACLE = ROOT / "tests" / "oracle"
-FAMILIES = ("core", "packs", "rando", "models")
-FACTS = ("tests/facts/xbe.json", "tests/facts/xbe.europe.json")   # their build spans are installed as digests
+FAMILIES = ("rando", "models")
 PATHS = {   # where each family's code and records live in Modkit (its tag bump's commit list)
-    "core": ("azurik_mod/iso", "azurik_mod/assets/vanilla.py", "azurik_mod/assets/filelist.py",
-             "azurik_mod/assets/vanilla_manifest.json", "azurik_mod/assets/europe_manifest.json",
-             "azurik_mod/assets/region_europe.json"),
-    "packs": ("azurik_mod/patches", "azurik_mod/patching", "azurik_mod/xbe_tools", "azurik_mod/xbr",
-              "azurik_mod/config", "shims", "tests/facts", "tests/goldens/packs.json",
-              "tests/goldens/europe/packs.json", "tests/goldens/shims.json", "tests/goldens/xbr_editor.json",
-              "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
     "rando": ("azurik_mod/randomizer", "azurik_mod/sim/pages.py", "azurik_mod/sim/recipes.py",
               "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json",
               "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json",
@@ -298,23 +290,23 @@ FAMILY_DROPS = {   # a family's own DROPS, beside those, where two families port
 
 
 def read_index(path: Path = ORACLE / "ORACLE.toml") -> dict[str, dict]:
-    """``{family: {"tag", "commit", "files": {path: sha256}[, "exported": {path: sha256}]}}``; empty when there
+    """``{family: {"tag", "commit", "files": {path: sha256}[, "source" | "art" | "content": {path: sha256}]}}``; empty when there
     is no index."""
     return tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def write_index(index: dict[str, dict], path: Path = ORACLE / "ORACLE.toml") -> None:
     lines = ["# Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of",
-             "# tests/oracle/<family>/ against its sha256 here; <family>.exported holds a facts file's sha256",
-             "# as Modkit exported it, before its build spans became sha256 and size; <family>.source each",
-             "# file the sync installed in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.content",
-             "# each file it installed in the content folder (CONTENT: Azurik-Custom-Content's, never committed)."]
+             "# tests/oracle/<family>/ against its sha256 here; <family>.source each file the sync installed",
+             "# in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.art each picture's digest;",
+             "# <family>.content each file it installed in the content folder (CONTENT: Azurik-Custom-Content's,",
+             "# never committed)."]
     for family in sorted(index):
         entry = index[family]
         lines += ["", f"[{family}]", f"tag = {json.dumps(entry['tag'])}", f"commit = {json.dumps(entry['commit'])}",
                   "", f"[{family}.files]"]
         lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(entry["files"].items())]
-        for table in ("exported", "source", "art", "content"):
+        for table in ("source", "art", "content"):
             if rows := entry.get(table):
                 lines += ["", f"[{family}.{table}]"]
                 lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(rows.items())]
@@ -581,20 +573,6 @@ def install_content(files: dict[str, bytes], folder: Path, old: dict[str, str]) 
     return {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
 
 
-def digest_spans(path: Path) -> str:
-    """Replace each build span of the facts file ``path`` (a hex string at
-    ``patch_sites.<va>.new.<case>``) with ``{"sha256", "size"}`` of its bytes;
-    returns the file's sha256 as it was."""
-    raw = path.read_bytes()
-    facts = json.loads(raw)
-    for site in facts["patch_sites"].values():
-        for case, hexed in site.get("new", {}).items():
-            span = bytes.fromhex(hexed)
-            site["new"][case] = {"sha256": hashlib.sha256(span).hexdigest(), "size": len(span)}
-    path.write_text(json.dumps(facts, indent=1) + "\n", encoding="utf-8")
-    return hashlib.sha256(raw).hexdigest()
-
-
 def derive(family: str, clone: Path, folder: Path, env: dict[str, str]) -> None:
     """Write the family's :data:`DERIVED` files into its bundle ``folder``,
     from Modkit's ``clone``: ``swap.json`` from its facts, ``resources.json``
@@ -659,10 +637,8 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
                         *(f"  {line}" for line in todo)]
             shutil.rmtree(ORACLE / family, ignore_errors=True)
             shutil.copytree(bundle / family, ORACLE / family)
-            exported = {rel: digest_spans(ORACLE / family / rel) for rel in FACTS if (ORACLE / family / rel).exists()}
             install(ROOT, family, ported[family])
             index[family] = {"tag": tag, "commit": commit, "files": tree_hashes(ORACLE / family)}
-            index[family] |= {"exported": exported} if exported else {}
             index[family] |= {"source": source_hashes(family)} if family in SOURCES else {}
             index[family] |= {"art": art[family]} if art.get(family) else {}
             if family in CONTENT:

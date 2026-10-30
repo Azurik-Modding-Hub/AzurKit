@@ -1,5 +1,5 @@
 """The shim engine (Steps 4.1f1, 4.1f2, 4.3a2): the prebuilt objects (AZ-045,
-D895) are their sources' builds and hold the oracle's G2 hashes, all fifty-one: the
+D895) are their sources' builds and hold their G2 hashes, all fifty-one: the
 packs' eleven and the player-model swap's forty; the headers a shim includes are written from the facts
 (AZ-099, Q85: no vendored header), and a shim built against them lands with
 each call at the facts' address (``core.coff``); the carve allocator places
@@ -27,19 +27,20 @@ from azurkit.edits.layer import Claim, Layer, compose
 from azurkit.tools import mods
 from azurkit.tools.characters import ports
 from azurkit.tools.mods import engine
-from scripts.oracle_sync import ORACLE as ORACLE_ROOT
+from scripts import record_goldens
+from scripts.oracle_sync import ORACLE
 
-G2 = json.loads((ORACLE_ROOT / "packs/tests/goldens/shims.json").read_text(encoding="utf-8"))
-G2_MODELS = json.loads((ORACLE_ROOT / "models/tests/goldens/shims.json").read_text(encoding="utf-8"))
+G2 = record_goldens.recorded("shims.json")
+G2_MODELS = json.loads((ORACLE / "models/tests/goldens/shims.json").read_text(encoding="utf-8"))
 
 
 def test_each_prebuilt_shim_is_its_sources_build_and_holds_its_g2_hash(usa_iso):
     """Every shim source has its object beside it, which zig builds from it
     byte for byte (``shimkit --check``, D895: roll.c's table filled from the
     USA image, so the test is ``vanilla``), and whose normalized sha256
-    is the oracle's G2 record of Modkit's build: the packs' eleven
-    (``tools/mods/shims/<name>.c``, the shared kernel-export resolver's
-    among them; G2 at the packs tag) and the swap's forty
+    is G2's record: the packs' eleven (``tools/mods/shims/<name>.c``, the
+    shared kernel-export resolver's among them; ``tests/goldens/shims.json``,
+    Modkit's build at its last cut) and the swap's forty
     (``tools/characters/player_model/<stem>.c``, Modkit's, which the
     sync installs; G2's ``player_model_<stem>.o`` at the models tag). Three
     hold zeros where a build writes back what Modkit's holds

@@ -1,8 +1,10 @@
 # AGENTS.md: rules for agents and contributors
 
 AzurKit is the lean, public rewrite of Azurik_Modkit. Modkit is its reference
-and test oracle: a port is done when its output matches Modkit's byte for byte,
-file by file. [`README.md`](README.md) says what AzurKit is. These rules bind.
+and, for the randomizer and the characters until Steps 4.12b and 4.12c, its
+test oracle: a port is done when its output matches Modkit's byte for byte,
+file by file. The packs' and the core's truth is AzurKit's own (The goldens,
+below). [`README.md`](README.md) says what AzurKit is. These rules bind.
 
 **README's features:** a change a player would notice adds or updates its
 line in README.md's Features (and Highlights if it earns one), in the same
@@ -18,6 +20,8 @@ uv run --locked pytest                      # the whole suite
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
 uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
 uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
+uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # tests/goldens/ from the player's images
+uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
 uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
 ```
 
@@ -76,10 +80,32 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - The images are read-only. A build writes to an explicit output that isn't
   its input.
 
+## The goldens
+
+- `tests/goldens/` is AzurKit's own truth for the packs and the core (Step
+  4.12a): what each case of `tests/goldens/cases.json` (its recipe, edited by
+  hand) builds from the vanilla images, as names and sha256: G1 per pack
+  (`packs.json`, `europe/packs.json`), each XBE pack case's bytes at the
+  facts' sites (`sites.json`, `europe/sites.json`), the packs' shim objects
+  (G2, `shims.json`), the Game Data editor's cells (`xbr_editor.json`) and
+  whole builds (G3's packs cases `pipelines.json`, G4's `gui.json`).
+  - Only `scripts/record_goldens.py` writes them, from AzurKit's own builds
+    on the player's images (`--check` writes nothing); never edit them by
+    hand. A commit that changes one names each golden it changed and why,
+    and a gameplay byte change to a default build is seen once in xemu.
+  - The first recording is Modkit's last cut (oracle-packs-4, Modkit
+    28d0b4110), which the recorder's first run wrote back unchanged.
+  - A new pack adds its cases to `cases.json` (its defaults in `packs.json`,
+    `sites.json` and, for an XBE pack, Europe's), then records them.
+  - **The coupling rule until 4.12c:** the models family's G3 hashes of
+    `default.xbe` (`tests/oracle/models/`) still come from Modkit, and they
+    hold the packs on by default. A change that moves a default build's
+    bytes lands in Modkit too, or waits; a pack off by default is free.
+
 ## The oracle
 
-- `tests/oracle/<family>/` is Modkit's bundle for a family (`core`, `packs`,
-  `rando`, `models`), cut at a Modkit tag. `tests/oracle/ORACLE.toml` records
+- `tests/oracle/<family>/` is Modkit's bundle for a family (`rando`,
+  `models`), cut at a Modkit tag. `tests/oracle/ORACLE.toml` records
   each family's tag, its commit and every file's sha256, and
   `tests/test_oracle.py` holds them to it.
   - Only `scripts/oracle_sync.py` changes these files; never edit them by hand.
@@ -235,8 +261,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     for roll's).
   - `uv run --locked python -m shimkit` builds every object with the pinned
     zig (`ziglang` 0.16.0, the dev group) and Modkit's flags: the same
-    bytes on any machine, whose normalized sha256 is the oracle's G2 record
-    (`tests/test_shims.py` holds both). Rebuild after editing a source;
+    bytes on any machine, whose normalized sha256 is G2's record
+    (`tests/goldens/shims.json` for the packs', the models oracle's for the
+    swap's; `tests/test_shims.py` holds both). Rebuild after editing a source;
     `--check` writes nothing.
   - A shim includes only the headers shimkit writes from the facts at every
     compile (`--headers DIR` writes them out to read), or one of its own
@@ -275,10 +302,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - A slider at a site of the XBE has no vanilla value in the catalog (the
   wheel holds no game constant, Q174): `sdk.vanilla` reads it from the
   player's image, and the page shows it once the image is picked (D42).
-- A port is done when its cases match the oracle: the facts site by site,
-  then G1 per file on both releases (`tests/test_packs.py`; `tests/_g1.py`
-  reads G1, whose Europe half has no case for a config.xbr-only pack: the
-  file is the same in both releases, so its USA cases stand for it).
+- A pack is done when its cases match their goldens: the facts' sites site
+  by site, then G1 per file on both releases (`tests/test_packs.py`;
+  `tests/_g1.py` reads G1, whose Europe half has no case for a
+  config.xbr-only pack: the file is the same in both releases, so its USA
+  cases stand for it).
 
 ## The randomizer
 

@@ -4,19 +4,19 @@ its root (``/azurkit.json`` and ``/azurkit.bin``, Q66), opening a build back
 into its recipe (``sdk.open_build``), and Modkit's G3 packs-family cases and
 G4 build cases, file by file, with G3's whole image.
 
-G3's and G4's recipes are Modkit's flags and mod shapes (the oracle's
-``cases.json``), translated here once into AzurKit's (REORG §12.2: Modkit's
-shapes are read only by the parity harness): its ``patches``,
-``_keyed_patches`` and ``xbr_edits`` become ``set`` and ``replace_bytes``
-operations, whose ``expected`` is read from the image (never written here).
-``level_patches`` isn't ported (AZ-009), so the three cases that move
-an entity in ``training_room.xbr`` leave that file, and ``filelist.txt``,
-which lists it, out by name."""
+G3's and G4's recipes are Modkit's flags and mod shapes (the goldens'
+``cases.json``), translated once into AzurKit's by
+``scripts/record_goldens.py``'s ``recipe`` (REORG §12.2: Modkit's shapes
+are read only there): its ``patches``, ``_keyed_patches`` and
+``xbr_edits`` become ``set`` and ``replace_bytes`` operations, whose
+``expected`` is read from the image. ``level_patches`` isn't ported
+(AZ-009), so the three cases that move an entity in ``training_room.xbr``
+leave that file, ``filelist.txt``, which lists it, and the image out by
+name."""
 
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import struct
 
@@ -27,97 +27,26 @@ from azurkit.core import iso
 from azurkit.core.xbr import Document
 from azurkit.edits import manifest
 from azurkit.tools import mods
-from scripts.oracle_sync import ORACLE as ORACLE_ROOT
+from scripts import record_goldens
 
-ORACLE = ORACLE_ROOT / "packs"
 CONFIG = "gamedata/config.xbr"
-LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt")   # left out where a case moves an entity (AZ-009)
-# Modkit's flags -> player_physics's sliders: apply-physics's, then randomize-full's
-APPLY = {"gravity": "gravity", "walk_speed": "walk_speed_scale", "swim_speed": "swim_speed_scale",
-         "jump_speed": "jump_speed_scale", "air_control_speed": "air_control_scale", "flap_height": "flap_height_scale",
-         "flap_below_peak": "flap_below_peak_scale", "wing_flap_ceiling": "wing_flap_ceiling_scale",
-         "flap_descent_fuel_cost": "flap_descent_fuel_cost_scale", "climb_speed": "climb_speed_scale",
-         "roll_speed": "roll_speed_scale", "roll_time": "roll_time_scale"}
-RANDOMIZE = {"gravity": "gravity", "player_walk_scale": "walk_speed_scale", "player_roll_scale": "roll_speed_scale",
-             "player_roll_time_scale": "roll_time_scale", "player_climb_scale": "climb_speed_scale",
-             "player_swim_scale": "swim_speed_scale", "player_jump_scale": "jump_speed_scale",
-             "player_air_control_scale": "air_control_scale", "player_flap_scale": "flap_height_scale",
-             "player_flap_below_peak_scale": "flap_below_peak_scale",
-             "player_wing_flap_ceiling_scale": "wing_flap_ceiling_scale",
-             "player_flap_descent_fuel_cost_scale": "flap_descent_fuel_cost_scale"}
-
-
-def _oracle(rel: str) -> dict:
-    return json.loads((ORACLE / rel).read_text(encoding="utf-8"))
 
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _defaults() -> dict[str, dict]:
-    return {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
-
-
-def _ops(mod: dict, path) -> list[dict]:
-    """A Modkit mod's config.xbr cells and xbr_edits as ``xbr`` operations, in
-    its order (one shape at a time); a replace's ``expected`` is the sha256
-    of the bytes the image holds there."""
-    cell = lambda table, entity, prop, value: {"op": "set", "file": CONFIG, "table": table,  # noqa: E731
-                                               "entity": entity, "prop": prop, "value": value}
-    ops = [cell(e["section"], e["entity"], e["property"], e["value"]) for e in mod.get("patches", [])]
-    ops += [cell(table, entity, prop, value) for table, rows in mod.get("_keyed_patches", {}).items()
-            for entity, props in rows.items() for prop, value in props.items()]
-    for e in mod.get("xbr_edits", []):
-        file = f"gamedata/{e['xbr_file']}"
-        if e["op"] == "replace_bytes":
-            with iso.Reader(path) as r:
-                held = r.read(file)[e["offset"]:e["offset"] + len(e["value"]) // 2]
-            ops.append({"op": "replace_bytes", "file": file, "offset": e["offset"], "value": e["value"],
-                        "expected": {"sha256": _sha256(held), "size": len(held)}})
-        else:
-            assert e["op"].startswith("set_keyed_") and file == CONFIG, e["op"]
-            ops.append(cell(e["section"], e["entity"], e["prop"], e["value"]))
-    return ops
-
-
-def _g3(case: dict, path) -> dict:
-    """A G3 case's recipe: apply-physics applies player_physics alone; patch,
-    randomize-full (--no-randomize) and MCP pack_build_iso the packs on by
-    default and those they name, then the mod's operations."""
-    args = case["args"]
-    if case.get("mcp") == "pack_build_iso":
-        return {"packs": _defaults() | {name: dict(args["params"].get(name, {})) for name in args["enable"]},
-                "xbr": _ops(args["config_mod"], path)}
-    if args["command"] == "apply-physics":
-        return {"packs": {"player_physics": {APPLY[k]: v for k, v in args.items() if k in APPLY and v is not None}}}
-    if args["command"] == "patch":
-        return {"packs": _defaults(), "xbr": [op for mod in args["mod"] for op in _ops(mod, path)]}
-    assert args["command"] == "randomize-full" and args["no_randomize"] and args["ram"] == 128
-    physics = {RANDOMIZE[k]: v for k, v in args.items() if k in RANDOMIZE and v is not None}
-    return {"packs": _defaults() | ({"player_physics": physics} if physics else {}),
-            "xbr": _ops(args["config_mod"] or {}, path)}
-
-
-def _g4(case: dict) -> dict:
-    """A G4 case's recipe: the GUI's ticks over the packs on by default, its
-    sliders, and the Game Data editor's cells as ``set`` operations."""
-    kwargs, packs = case["kwargs"], _defaults()
-    for name, on in kwargs.get("packs", {}).items():
-        packs[name] = packs.get(name, {}) if on else packs.pop(name, None)
-    packs = {name: dict(kwargs.get("pack_params", {}).get(name, {})) for name, values in packs.items()
-             if values is not None}
-    return {"packs": packs, "xbr": [{"op": "set", "file": CONFIG, "table": table, "entity": entity, "prop": prop,
-                                     "value": value}
-                                    for table, entity, prop, value in kwargs.get("config_edits", {}).get("xbr_editor", [])]}
-
-
-def _cases(path) -> dict[str, tuple[dict, dict]]:
-    """``{case: (its recipe, its golden)}`` for G3's packs-family cases and G4's build cases."""
-    recipes = _oracle("cases.json")
-    g3, g4 = _oracle("tests/goldens/pipelines.json"), _oracle("tests/goldens/gui.json")
-    return ({name: (_g3(recipes["tests/goldens/pipelines.json"][name], path), files) for name, files in g3.items()}
-            | {name: (_g4(recipes["tests/goldens/gui.json"][name]), files) for name, files in g4.items()})
+def _cases(path) -> dict[str, tuple[dict, dict, tuple[str, ...]]]:
+    """``{case: (its recipe, its golden, the files it leaves out)}`` for G3's
+    packs-family cases and G4's build cases (``tests/goldens/``)."""
+    out = {}
+    for golden in ("pipelines.json", "gui.json"):
+        recipes = record_goldens.cases(golden)
+        for name, files in record_goldens.recorded(golden).items():
+            left = record_goldens.LEVEL_PATCHED if golden == "pipelines.json" and record_goldens.level_patched(
+                recipes[name]) else ()
+            out[name] = (record_goldens.recipe(golden, recipes[name], path), files, left)
+    return out
 
 
 def test_g3_and_g4_cases_build_their_goldens_and_open_back_into_their_recipes(usa_iso):
@@ -130,11 +59,10 @@ def test_g3_and_g4_cases_build_their_goldens_and_open_back_into_their_recipes(us
     ``sdk.read_mods`` takes again. A build with no pack carries no root
     file."""
     cases = _cases(usa_iso)
-    assert len(cases) == 8
-    for name, (recipe, golden) in cases.items():
+    assert len(cases) == 8 and sum(bool(left) for _, _, left in cases.values()) == 3
+    for name, (recipe, golden, left) in cases.items():
         made, report = sdk.image(recipe | {"iso": str(usa_iso)})
-        left = LEVEL_PATCHED if "gamedata/training_room.xbr" in golden else ()
-        want = {file: sha for file, sha in golden.items() if file != "ISO" and file not in left}
+        want = {file: sha for file, sha in golden.items() if file != "ISO"}
         assert {file: report["result"].get(file) for file in want} == want, name
         assert report["result"].keys() - set(left) == want.keys() and report["conflicts"] == [], name
         found = sdk.open_build(made)
@@ -151,7 +79,7 @@ def test_the_whole_image_less_its_root_entries_is_modkits(usa_iso):
     player_physics at zero), its changed files packed into the vanilla image
     without the root entries, is Modkit's image byte for byte: the XISO
     layout (PLAN §3.3)."""
-    recipe, golden = _cases(usa_iso)["randomize-full:zero-scales"]
+    recipe, golden, _ = _cases(usa_iso)["randomize-full:zero-scales"]
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
     with iso.Reader(made) as r:
         files = {file: r.read(file) for file in report["result"] if file != "filelist.txt"}
