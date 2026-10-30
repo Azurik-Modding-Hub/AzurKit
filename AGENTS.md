@@ -465,10 +465,36 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     slot the game last showed, each session Live opens (the link back, Live
     off and on) checks the game against their journal (that slot, the
     newest live mark's day clock), Reset with Live on reads the game again,
-    and an error that ends the feed turns Live off. The level maps and item
-    icons drawn from the player's image wait for P3's node-type names table
-    (a spot's place needs its record's transform); the icons are the page's
-    own drawings (D3) until then.
+    and an error that ends the feed turns Live off.
+  - **The maps** (Step 4.2c3, R1.41, R1.43; `web/art.mjs`,
+    `web/mapview.mjs`): the first time the Tracker view shows with an image,
+    its pictures are drawn from it (`sdk.art`, one part at a time) and kept
+    under `ART_VERSION`: the site draws them in a worker of their own (the
+    engine with numpy, Pyodide's pinned wheel from the site) into this
+    browser's storage (IndexedDB `azurkit-art`, PNG bytes: WebKit's private
+    storage keeps no Blob), the app on a thread into platformdirs' cache
+    folder (`api/art`, `art/<version>/<name>`; `azurkit.app.art`). A level
+    drawn shows as Modkit's map view on a canvas in place of its chips (the
+    world map once every level is): its picture by floor (the floor
+    buttons), its features, barriers, tracked spots and exits at their
+    vanilla places (each spot's ring, icon and check as Modkit's track(), an
+    exit's ring by what using it needs, `tracking.world()`'s `maps`), a
+    click marking a spot or opening an exit's level, the wheel zooming about
+    the pointer, a drag panning, a double click or Fit showing it whole, the
+    map filling the window as it resizes, and, with Live, the player's dot
+    (Follow keeps a zoomed map on them; Find me centres it). The world map:
+    each level's main floor, its badge of spots reachable now (amber: only
+    a skip), the exits' lines. **Gems** (off by default, remembered: the
+    tracked plan's `gems`): each gem spot not all taken a tiny dot in its
+    gem's colour, under every other overlay, the gems taken and left under
+    the title, on the floor buttons and on the world map, and the colour
+    key; Live (the app's) reads the gem spots while Gems is on (`api/live`'s
+    `gems`) and takes a dot once the game shows its gem taken.
+    `web/mapview.mjs`'s `marks` and `badges` are the map's verdicts:
+    `tests/test_site.py` holds them to Modkit's (`TRACKER_MAP`, its map
+    view's rules on its own Tracker) at TRACKER's states; the site's drawing
+    in both browsers to Modkit's pictures; and `tests/test_hosts.py` the
+    app's map, a click, zoom, resize and Live taking a gem's dot.
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,
@@ -504,7 +530,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     setup; once the page changes, its address drops the link's `#p=`.
     Reset to defaults, in the bottom bar (off at the defaults), ticks the
     packs on by default, sets every setting to its default and forgets it.
-- **The site** is the page with Pyodide's core, the wheel and its
+- **The site** is the page with Pyodide's core (and numpy's wheel, which the
+  tracker's maps load: `web_tools.PACKAGES`), the wheel and its
   `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in
   a module worker started from a `blob:` URL (so the page's CSP holds there),

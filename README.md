@@ -35,8 +35,9 @@ isn't hosted and the app isn't released yet: on macOS you build the app
 yourself (below). The randomizer is the page's Randomizer tab (tick
 Randomize, pick a seed and the options, Build; it shows the spoiler, and a
 link carries the seed), with its item tracker beside it (Tracker: what you
-collected, what you can reach now, by level and in a table; in the app, Live
-marks what a running xemu shows you take) and runs from the command line
+collected, what you can reach now, on each level's map, drawn once from your
+own image, and in a table; Gems puts a dot on the map for each gem; in the app,
+Live marks what a running xemu shows you take) and runs from the command line
 too: `azurkit plan --seed 2` prints a plan, `azurkit spoiler PLAN` its
 spoiler, and `azurkit build --iso PATH --out PATH --seed 2` builds a
 randomized image. Version 1 will add character swaps and variants. Players will

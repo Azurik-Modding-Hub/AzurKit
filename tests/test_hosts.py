@@ -668,7 +668,7 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         tracked = {"plan": report["plan"], "marks": {report["plan"]["sha256"]: {"collected": ["w1/g0/r1717"]}}}
         assert call("api/tracked", {"tracker": tracked}) == {}
         assert call("api/tracked", {"tracker": tracked | {"iso": str(usa_iso)}}) == {
-            "refused": "tracker: an object of plan, marks and endpoints only, or null"}
+            "refused": "tracker: an object of plan, marks, endpoints and gems only, or null"}
         assert call("api/tracked", {"tracker": tracked | {"endpoints": "gdb:1234"}})["refused"].startswith(
             "tracker: endpoints: 'gdb:1234': Live reads no gdbstub")
         assert app.Server.host_info(server)["tracker"] == tracked
@@ -730,6 +730,7 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
 
     monkeypatch.setattr(game, "Session", Session)
     monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
+    monkeypatch.setattr(app.pictures.Drawing, "start", lambda self, iso: None)   # the maps aren't drawn: the chips show
     server = app.serve(_page.WEB)
     shown = """() => [document.getElementById("track-dot").textContent, document.getElementById("track-dot").className,
                       document.getElementById("track-line").textContent, azurkit.tracker.state.level,
@@ -780,6 +781,117 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
         assert opened == [("xemu", {"slot": None, "newest": None}), ("xemu", {"slot": None, "newest": 0.5})]
         assert tracking.digest(page.evaluate("() => azurkit.tracker.state.view")) == tracking.digest(
             sdk.tracker({"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}}))
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
+# A level map's canvas, as the tests read it: what each overlay the pointer finds says (its tip), and a click there
+MAP_HITS = "() => azurkit.tracker.map.hits.map((h) => h.tip)"
+MAP_CLICK = """([x, y]) => {
+    const map = azurkit.tracker.map, c = document.getElementById("map-canvas"), r = c.getBoundingClientRect();
+    const [cx, cy] = map.at(x, y), at = { clientX: r.left + cx, clientY: r.top + cy, bubbles: true };
+    c.dispatchEvent(new PointerEvent("pointerdown", at));
+    c.dispatchEvent(new PointerEvent("pointerup", at));
+}"""
+
+
+def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_remove_its_dots(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """Step 4.2c3 (D3; R1.43, D928): the app draws the tracker's pictures
+    from the image it reads, the first time the Tracker shows (the icons and
+    a level here), into platformdirs' cache folder, and the page shows the
+    level's map in place of its chips: its tracked spots (a click on one
+    marks it), a click on an exit opens the level it leads to, the wheel
+    zooms about the pointer and a double click on ground fits it again, and
+    a smaller window fits it smaller. With Gems on, each gem spot of the
+    floor shown is a dot, the floor buttons and the count say how many are
+    left, and Live (the app's: a scripted game taking a gem) takes its dot
+    away. No CSP violation."""
+    from azurkit.tools.randomizer.live import game, link
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    doc = _profile("default")
+    (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
+    first = sdk.tracker({"plan": doc, "gems": True})
+    near = sorted(loc for loc, s in first["spots"].items() if s["state"] == "near")[0]
+    level = first["spots"][near]["level"]
+    monkeypatch.setattr(tracking, "ART_PARTS", ("icons", level))   # a level's map, not every level's (minutes)
+    at = game.Reading("running", game.REGIONS[0], level=level, settle=1, at=(1.0, 2.0, 3.0), yaw=0.5)
+    gem = {}   # the gem the game takes: the first of the floor the map opens on, once the map is drawn
+
+    class Session:   # a running game, scripted: the player takes the gem
+        period = 0.02
+
+        def __init__(self, xemu, spots, journal):
+            assert any(s.loc == gem["id"] and s.gem for s in spots.spots)   # Live reads the gem spots with Gems on
+            self.left = [game.Update(at, (game.Gem(gem["id"], 1, 0.75),))]
+
+        def describe(self) -> str:
+            return "xemu, scripted"
+
+        def poll(self):
+            return self.left.pop(0) if self.left else game.Update(at)
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(game, "Session", Session)
+    monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page(viewport={"width": 1100, "height": 820})
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+        _page.until(page, "() => azurkit.tracker.art.status.done.length === 2 && !azurkit.tracker.art.status.drawing"
+                          " || azurkit.tracker.art.status.error", 300)
+        assert page.evaluate("() => azurkit.tracker.art.status.error") is None
+        kept = app.pictures.folder()
+        assert sorted(p.name for p in kept.glob("*.part.json")) == ["icons.part.json", f"{level}.part.json"]
+        entry = json.loads((kept / f"{level}.part.json").read_text(encoding="utf-8"))["entry"]
+        gem |= next(g for g in sorted(entry["gems"], key=lambda g: g["id"]) if g["at"][2] == entry["main"])
+        page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
+        _page.until(page, "() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.hits.length")
+        assert page.evaluate("() => document.getElementById('track-level').hidden") is True
+        place = next(i["at"] for i in entry["items"] + entry["spots"] if i["id"] == near)
+        assert place[2] == entry["main"] and "Item spot: reachable now" in page.evaluate(MAP_HITS)
+        page.evaluate(MAP_CLICK, place[:2])
+        _page.until(page, f"() => !azurkit.tracker.state.running && azurkit.tracker.state.marks.collected?.includes('{near}')")
+        exit_ = next(x for x in entry["exits"] if any(p[2] == entry["main"] for p in x["at"]))
+        page.evaluate(MAP_CLICK, next(p for p in exit_["at"] if p[2] == entry["main"])[:2])
+        assert page.evaluate("() => [azurkit.tracker.state.level, document.getElementById('track-maps').hidden]") == [
+            exit_["to"], True]   # its map isn't drawn here: its chips show
+        page.evaluate("(level) => azurkit.tracker.map.show(level, true)", level)
+        fitted = page.evaluate("() => azurkit.tracker.map.fitted")
+        page.evaluate("""() => { const c = document.getElementById("map-canvas"), r = c.getBoundingClientRect();
+            c.dispatchEvent(new WheelEvent("wheel", { deltaY: -300, clientX: r.left + 100, clientY: r.top + 100,
+                                                      bubbles: true, cancelable: true })); }""")
+        assert page.evaluate("() => azurkit.tracker.map.s") > fitted * 1.5
+        page.evaluate("""() => { const c = document.getElementById("map-canvas"), r = c.getBoundingClientRect();
+            const at = { clientX: r.left + 2, clientY: r.bottom - 2, bubbles: true };
+            c.dispatchEvent(new PointerEvent("pointerdown", at)); c.dispatchEvent(new PointerEvent("pointerup", at));
+            c.dispatchEvent(new MouseEvent("dblclick", at)); }""")
+        assert page.evaluate("() => azurkit.tracker.map.s") == fitted
+        page.set_viewport_size({"width": 900, "height": 640})
+        _page.until(page, f"() => azurkit.tracker.map.fitted < {fitted}")
+        _page.click(page, "track-gems")
+        _page.until(page, "() => azurkit.tracker.state.view.gems && !azurkit.tracker.state.running")
+        dots = sum(1 for g in entry["gems"] if g["at"][2] == entry["main"])
+        tips = page.evaluate(MAP_HITS)
+        assert sum(t is not None and t.split(" ")[0].lower() in ("diamond", "emerald", "ruby", "sapphire") for t in tips) == dots
+        floors = page.evaluate("() => [...document.querySelectorAll('#map-floors label')].map((l) => l.textContent.trim())")
+        assert len(entry["floors"]) < 2 or floors[entry["main"]] == f"{entry['main'] + 1} · {dots}"
+        _page.click(page, "track-live")
+        _page.until(page, f"() => azurkit.tracker.state.view.gems.spots['{gem['id']}'].taken === 1"
+                          " && !azurkit.tracker.state.running")
+        _page.until(page, f"() => azurkit.tracker.map.hits.filter((h) => /^(Diamond|Emerald|Ruby|Sapphire)/"
+                          f".test(h.tip ?? '')).length === {dots - 1}")
+        assert page.evaluate("() => azurkit.tracker.state.marks.gems") == {gem["id"]: [0.75]}
         _page.check_csp(page)
         page.close()
     finally:
@@ -959,6 +1071,7 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     level = next(s["level"] for s in sdk.tracker({"plan": doc, "spoiler": True})["spots"].values() if s["icon"] == "key")
+    monkeypatch.setattr(app.pictures.Drawing, "start", lambda self, iso: None)   # the maps aren't drawn: the chips show
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()

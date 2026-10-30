@@ -78,6 +78,8 @@ file… <input type="file" id="track-open" accept=".json,application/json"></lab
 class="note">Build with Randomize ticked, track the seed you set, or open a plan file (azurkit plan's).</span></p>
 <div id="track-body" hidden>
 <p class="rando-row"><label class="on"><input type="checkbox" id="track-spoiler"> Spoiler</label>
+<label class="on" title="Each gem a tiny dot on its level's map, gone once Live sees it taken, with the gems taken and left"
+><input type="checkbox" id="track-gems"> Gems</label>
 <button id="track-reset" type="button" title="No spot marked collected">Reset</button>
 <span id="track-live-bar" hidden><label class="on"><input type="checkbox" id="track-live"> Live</label>
 <label class="on" id="track-follow-box" hidden><input type="checkbox" id="track-follow" checked> Follow</label>
@@ -86,12 +88,17 @@ class="note">Build with Randomize ticked, track the seed you set, or open a plan
 placeholder="Endpoints: shared RAM, then QMP :4444" title="Where Live looks for xemu, in order: shm:NAME,
 qmp:HOST:PORT or qmp:unix:PATH, comma-separated (empty: the fork's shared RAM, then QMP on 127.0.0.1:4444)">
 <span id="track-dot" aria-hidden="true"></span><span id="track-line" class="note"></span></span>
-<span id="track-status" class="note"></span></p>
+<span id="track-status" class="note"></span> <span id="track-art" class="note"></span></p>
 <p id="track-head" class="note"></p>
 <p id="track-count" class="count"></p>
 <p id="track-levels" class="note"></p>
 <p class="views" role="tablist" aria-label="The tracker's views"><button id="track-map" type="button" role="tab"
 aria-selected="true">Map</button><button id="track-table" type="button" role="tab" aria-selected="false">Table</button></p>
+<div id="track-maps" class="maps" hidden><div class="map-side"><p class="map-buttons"><button id="map-back"
+type="button" disabled>◀ World map</button> <button id="map-fit" type="button" disabled>Fit</button></p>
+<div id="map-switches" class="map-switches"></div><div id="map-floors" class="map-floors"></div>
+<p id="map-hint" class="note"></p><div id="map-key" class="map-key"></div><p id="map-note" class="note"></p></div>
+<div id="map-room" class="map-room"><canvas id="map-canvas"></canvas><div id="map-tip" class="map-tip" hidden></div></div></div>
 <div id="track-world" class="world"></div>
 <div id="track-level" class="level" hidden></div>
 <div id="track-tables" class="tables" hidden><table id="track-items"></table><table id="track-places"></table></div>

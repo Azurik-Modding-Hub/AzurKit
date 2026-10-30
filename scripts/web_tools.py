@@ -7,7 +7,11 @@ folder a static host serves.
     uv run --locked python scripts/web_tools.py               # fetch them all (uv run bootstrap.py does too)
     uv run --locked python scripts/web_tools.py --site DIR    # the site, in DIR (a new folder)
 
-Only the five files the runtime loads are kept (:data:`FILES`). Each
+Only the five files the runtime loads are kept (:data:`FILES`), and the
+wheels of the packages the site loads for a tab that needs them
+(:data:`PACKAGES`: numpy, the tracker's maps and icons, Step 4.2c3), each
+from Pyodide's CDN at the core's version and checked against the sha256 the
+core's ``pyodide-lock.json`` gives it, so they are pinned with it. Each
 browser is Playwright's build at the revision the locked ``playwright``
 names (Chromium's headless shell; WebKit, Safari's engine), in
 ``.tools/playwright`` (``PLAYWRIGHT_BROWSERS_PATH``), never the user's
@@ -38,6 +42,8 @@ URL = f"https://github.com/pyodide/pyodide/releases/download/{VERSION}/pyodide-c
 SIZE = 6_757_104
 SHA256 = "2abdcc2e35208af406e07724cffa85bc582ced97e9028383ecf5462541393f95"
 FILES = ("pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json")
+PACKAGES = ("numpy",)
+CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
 # The web tests' engines (Step 4.1d3): each test that takes the ``browser`` fixture runs in both. Each one's name in
 # Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit")}
@@ -56,10 +62,17 @@ def pyodide_dir(root: Path = ROOT) -> Path:
     return _tools(root) / f"pyodide-{VERSION}"
 
 
+def wheels(root: Path = ROOT) -> dict[str, str]:
+    """``{file name: sha256}`` of :data:`PACKAGES`' wheels, as the core's lock names them."""
+    lock = json.loads((pyodide_dir(root) / "pyodide-lock.json").read_text(encoding="utf-8"))["packages"]
+    return {lock[name]["file_name"]: lock[name]["sha256"] for name in PACKAGES}
+
+
 def missing(root: Path = ROOT) -> list[str]:
-    """The core's files that aren't there."""
+    """The core's files and :data:`PACKAGES`' wheels that aren't there."""
     folder = pyodide_dir(root)
-    return [name for name in FILES if not (folder / name).is_file()]
+    lost = [name for name in FILES if not (folder / name).is_file()]
+    return lost or [name for name in wheels(root) if not (folder / name).is_file()]
 
 
 def fetch(root: Path = ROOT) -> Path:
@@ -67,6 +80,8 @@ def fetch(root: Path = ROOT) -> Path:
     folder = pyodide_dir(root)
     if not missing(root):
         return folder
+    if any(name not in FILES for name in missing(root)):   # the core is there: only a package's wheel is missing
+        return fetch_wheels(root)
     with tempfile.TemporaryDirectory(prefix="azurkit-pyodide.") as tmp:
         archive = Path(tmp) / "core.tar.bz2"
         with urllib.request.urlopen(URL, timeout=120) as response, open(archive, "wb") as out:
@@ -85,6 +100,22 @@ def fetch(root: Path = ROOT) -> Path:
         folder.mkdir(parents=True, exist_ok=True)
         for name, member in members.items():
             shutil.move(unpacked / member.name, folder / name)
+    return fetch_wheels(root)
+
+
+def fetch_wheels(root: Path = ROOT) -> Path:
+    """Download each of :data:`PACKAGES`' wheels that isn't there, checked against the core's lock."""
+    folder = pyodide_dir(root)
+    for name, want in wheels(root).items():
+        if (folder / name).is_file():
+            continue
+        with urllib.request.urlopen(CDN + name, timeout=120) as response:
+            data = response.read()
+        if (got := hashlib.sha256(data).hexdigest()) != want:
+            raise SystemExit(f"{CDN}{name}: sha256 {got[:12]}, not the lock's {want[:12]}")
+        part = folder / f"{name}.part"
+        part.write_bytes(data)
+        part.replace(folder / name)
     return folder
 
 

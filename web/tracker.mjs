@@ -3,10 +3,16 @@
 // marked collected and what the solver says is reachable now: the world map (each level with its spots reachable now,
 // amber where only a skip reaches them, R1.41), a level's spots (a click marks one collected, or no longer), and the
 // Table (each kind's and level's collected, reachable now, left and total). Spoiler shows the item at each spot; off,
-// nothing names an item not yet collected. The engine (sdk.tracker, Modkit's tracker) decides every verdict: this page
+// nothing names an item not yet collected. The maps (Step 4.2c3) are drawn from the player's own image the first time
+// the tracker opens with one (web/art.mjs: kept for the next visit) and shown by web/mapview.mjs, Modkit's map view;
+// until a map is drawn, the world map is a grid of the levels and a level's spots are chips. Gems (R1.43, D928, off
+// by default and remembered) draws each gem spot as a tiny dot on its level's map, gone once Live sees it taken. The engine (sdk.tracker, Modkit's tracker) decides every verdict: this page
 // sends the plan, the marks, a click, and draws what comes back. The marks are kept per plan, the last KEEP plans
 // (the site in this browser's storage, the app in its config), with the plan last tracked; the tracker's Reset clears
 // a plan's marks. Live (the app's alone, D882) marks what a running xemu shows taken and follows the player.
+import { artStore } from "./art.mjs";
+import { MapView } from "./mapview.mjs";
+
 const $ = (id) => document.getElementById(id);
 const KEEP = 20;
 const STORE = "azurkit.tracker";
@@ -25,7 +31,7 @@ const el = (tag, props = {}, ...children) => {
   return node;
 };
 
-export function tracker({ call, app, say, kept, keep }) {
+export function tracker({ call, app, say, kept, keep, image = () => null }) {
   const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, gems: false, queue: [],
               running: null,
               kept: kept ?? { plan: null, marks: {} }, live: null };
@@ -65,8 +71,35 @@ export function tracker({ call, app, say, kept, keep }) {
     const marks = Object.fromEntries(Object.entries(t.kept.marks).filter(([k]) => k !== sha));
     marks[sha] = t.marks;
     t.kept = { plan: t.plan, marks: Object.fromEntries(Object.entries(marks).slice(-KEEP)),
-               ...(t.kept.endpoints ? { endpoints: t.kept.endpoints } : {}) };
+               ...(t.kept.endpoints ? { endpoints: t.kept.endpoints } : {}), ...(t.gems ? { gems: true } : {}) };
     keep(t.kept);
+  };
+
+  // The maps: their pictures (drawn once from the image, then kept) and the canvas that shows them.
+  const art = artStore({ app, image, changed: () => {
+    artLine();
+    if (t.view && t.mode === "map") draw();
+  } });
+  const map = new MapView({ room: $("map-room"), canvas: $("map-canvas"), back: $("map-back"), fit: $("map-fit"),
+                            switches: $("map-switches"), floors: $("map-floors"), key: $("map-key"),
+                            note: $("map-note"), hint: $("map-hint"), tip: $("map-tip") }, {
+    view: () => t.view, art, spoiler: () => t.spoiler, gems: () => t.gems,
+    toggle: (loc) => ask({ toggle: loc }),
+    navigated: (level, byHand) => {
+      if (byHand && t.live?.followed && level !== t.live.followed) {
+        $("track-follow").checked = false;
+        t.live.followed = null;
+      }
+      t.level = level;
+      if (byHand) draw();
+    },
+  });
+  const artLine = () => {
+    const a = art.status;
+    $("track-art").textContent = a.error ? a.error : a.drawing ? `Drawing the maps from your image: ${a.done.length} `
+      + `of ${a.total} (${a.drawing})…` : a.total && !a.index && !image() ? "Pick your image and the maps are drawn "
+      + "from it (once: they are kept)." : "";
+    $("track-art").classList.toggle("error", Boolean(a.error));
   };
 
   const open = (plan, from = null) => {
@@ -86,6 +119,12 @@ export function tracker({ call, app, say, kept, keep }) {
   // The counter row, the head line and the levels reached now, then the shown view.
   const draw = () => {
     const v = t.view, s = v.status;
+    // the maps: read once the Tracker view shows (a new drawing, or an image picked since), and drawn from the image
+    if (!$("tracker").hidden && (art.status.version !== v.world.art.version || image() !== t.artFrom)) {
+      t.artFrom = image();
+      art.start(v.world.art.version, v.world.art.parts);
+    }
+    artLine();
     $("track-status").textContent = "";
     $("track-head").textContent = v.head.text;
     $("track-head").title = v.head.skips.join("\n") || "No skip is on.";
@@ -94,12 +133,29 @@ export function tracker({ call, app, say, kept, keep }) {
     $("track-levels").textContent = `${t.live?.other ? t.live.other : ""}Levels now: ${s.levels.join(", ")}`;
     $("track-levels").classList.toggle("other", Boolean(t.live?.other));
     for (const mode of ["map", "table"]) $(`track-${mode}`).setAttribute("aria-selected", String(t.mode === mode));
-    $("track-world").hidden = t.mode !== "map" || t.level !== null;
-    $("track-level").hidden = t.mode !== "map" || t.level === null;
+    const drawn = t.mode === "map" && map.ready(t.level);   // its picture is drawn: the map view, else the grid or chips
+    $("track-maps").hidden = !drawn;
+    $("track-world").hidden = t.mode !== "map" || drawn || t.level !== null;
+    $("track-level").hidden = t.mode !== "map" || drawn || t.level === null;
     $("track-tables").hidden = t.mode !== "table";
     if (t.mode === "table") return tables();
+    if (drawn) {
+      if (map.level !== t.level || map.pictures === undefined) map.show(t.level);
+      else map.draw();
+      map.floorButtons();
+      return placed();
+    }
     if (t.level === null) return worldMap();
     levelMap();
+  };
+
+  // The player on the map view: where Live saw them (grey once it lost xemu); Follow keeps a zoomed map on them.
+  const placed = () => {
+    const seen = t.live?.seen;
+    if (!seen || $("track-maps").hidden) return map.here && map.place(null);
+    map.place(seen, !t.live.here);
+    const at = map.level === seen.level && map.pixel(seen);
+    if (at && $("track-follow").checked && t.live.here) map.see(...at);
   };
 
   const counts = (level) => {
@@ -205,7 +261,8 @@ export function tracker({ call, app, say, kept, keep }) {
 
   // ---- Live (the app's, D882): xemu's game read by the app, merged into the marks at each ask, every POLL_MS.
   const liveOn = async () => {
-    const reply = await call("live", { on: true, plan: t.plan, marks: t.marks, endpoints: $("track-endpoints").value });
+    const reply = await call("live", { on: true, plan: t.plan, marks: t.marks, endpoints: $("track-endpoints").value,
+                                       gems: t.gems });
     if ("refused" in reply) {
       $("track-live").checked = false;
       liveOff();
@@ -263,6 +320,8 @@ export function tracker({ call, app, say, kept, keep }) {
   const findMe = () => {
     if (!t.live?.seen) return;
     show(t.live.seen.level, false);
+    const at = map.pixel(t.live.seen);
+    if (at && !$("track-maps").hidden) map.see(...at, true);
   };
 
   $("track-world").addEventListener("click", (e) => {
@@ -281,6 +340,14 @@ export function tracker({ call, app, say, kept, keep }) {
   });
   $("track-spoiler").addEventListener("change", () => {
     t.spoiler = $("track-spoiler").checked;
+    ask();
+  });
+  // Gems (R1.43): off by default, remembered; Live reads the gem spots only while they show, so it starts again
+  $("track-gems").checked = t.gems = Boolean(t.kept.gems);
+  $("track-gems").addEventListener("change", () => {
+    t.gems = $("track-gems").checked;
+    if (t.plan) remember();
+    if (t.live) liveOn();
     ask();
   });
   $("track-reset").addEventListener("click", () => ask({ reset: true }));
@@ -322,5 +389,5 @@ export function tracker({ call, app, say, kept, keep }) {
     });
   }
   if (t.kept.plan) open(t.kept.plan);
-  return { open, ask, state: t, draw: () => t.view && draw() };
+  return { open, ask, state: t, art, map, draw: () => t.view && draw(), image: () => artLine() };
 }

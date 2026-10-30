@@ -630,7 +630,8 @@ function ready(catalog, version) {
     renderTabs(catalog.tabs);
     renderPacks(catalog);
     renderRando(catalog.randomizer);
-    state.tracker = tracker({ call: state.engine.call, app: state.app, say, kept: state.tracked, keep: keepTracked });
+    state.tracker = tracker({ call: state.engine.call, app: state.app, say, kept: state.tracked, keep: keepTracked,
+                              image: () => state.file });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -717,6 +718,7 @@ function pickInApp(host) {
     say("");
     busy(false);
     askVanilla();
+    state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
   };
   picked();
   $("iso-path").addEventListener("input", picked);
@@ -1066,6 +1068,7 @@ function randoPane(view) {
   for (const id of ["settings", "tracker"]) $(`rando-view-${id}`).setAttribute("aria-selected", String(id === view));
   $("rando-settings").hidden = view !== "settings";
   $("tracker").hidden = view !== "tracker";
+  if (view === "tracker") state.tracker?.draw();   // its maps, drawn from the image the first time they show
 }
 
 // Track this seed: the Settings view's seed and settings (their share string, with the Patches tab's movement
@@ -1189,6 +1192,7 @@ async function main() {
       say("");
       busy(false);
       askVanilla();
+      state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
     });
   }
 

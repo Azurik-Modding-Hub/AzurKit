@@ -41,10 +41,12 @@ from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
+from azurkit.tools.randomizer import art
+from azurkit.tools.randomizer.art import icons
 from scripts import web_tools
-from scripts.oracle_sync import ORACLE
+from scripts.oracle_sync import ORACLE, read_index
 from tests import _g1, _page
-from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
+from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
 ORIGIN = "https://azurkit.test"
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
@@ -815,7 +817,56 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         served.close()
 
 
+START_ART = "(version) => { azurkit.tracker.art.start(version, ['icons', 'e6'], { world: false }); }"   # two parts
+
+
+def test_the_site_draws_the_trackers_maps_in_the_browser_from_the_image_as_modkit_does(browser, site, usa_iso):
+    """Step 4.2c3 (D882: the site renders them in the browser from the
+    player's own image; D3): the site's engine draws the tracker's pictures
+    under Pyodide, numpy its pinned wheel from the site, in a worker of
+    their own, and keeps them in this browser's storage: the icons and a
+    level (e6) drawn from the image are Modkit's pixel for pixel (each one's
+    digest, ORACLE.toml's ``rando.art``), and a page opened again finds them
+    kept. No CSP violation, no request but GETs of the site's files."""
+    oracle = read_index()["rando"]["art"]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        page.evaluate(START_ART, tracking.ART_VERSION)
+        _page.until(page, "() => azurkit.tracker.art.status.done.length === 2 && !azurkit.tracker.art.status.drawing"
+                          " || azurkit.tracker.art.status.error", 600)
+        status = page.evaluate("() => azurkit.tracker.art.status")
+        assert status["error"] is None and status["levels"]["e6"]["floors"] == ["e6-1", "e6-2", "e6-3", "e6"]
+        names = status["icons"] + status["levels"]["e6"]["floors"]
+        pngs = page.evaluate("""async (names) => Object.fromEntries(await Promise.all(names.map(async (n) =>
+            [n, Array.from(await azurkit.tracker.art.png(n))])))""", names)
+        drawn = {(f"gui/assets/{n}.png" if n.startswith("icons/") else f"gui/assets/maps/{n}.png"):
+                 art.digest(art.unpng(bytes(png))) for n, png in pngs.items()}
+        assert drawn == {rel: d for rel, d in oracle.items() if rel in drawn} and len(drawn) == 44
+        again = served.open()
+        again.evaluate(START_ART, tracking.ART_VERSION)
+        _page.until(again, "() => azurkit.tracker.art.status.done.length === 2")
+        assert again.evaluate("() => azurkit.tracker.art.status.drawing") is None
+        for each in (page, again):
+            _page.check_csp(each)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 TRACKED = "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length && azurkit.tracker.state.view"
+# The maps' model of the view shown (web/mapview.mjs's marks() for each level and badges(); the icons the engine draws),
+# as one canonical JSON text: TRACKER_MAP's
+ICONS = [f"icons/{name}" for name in [*icons.ICONS, *icons.DRAWN, *icons.keys()]]
+MAP_MODEL = """async ([levels, icons]) => {
+    const { marks, badges } = await import("./mapview.mjs");
+    const view = azurkit.tracker.state.view, have = (name) => icons.includes(`icons/${name}`);
+    const sorted = (v) => Array.isArray(v) ? v.map(sorted) : v && typeof v === "object"
+      ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;
+    return JSON.stringify(sorted({ levels: Object.fromEntries(levels.map((lv) => [lv, marks(view, lv, have)])),
+                                   badges: badges(view) }));
+}"""
 # The Tracker view as it reads: the counter row, the level shown (null: the world map) and its spot chips' states
 SHOWN_TRACKER = """() => [document.getElementById("track-count").textContent, azurkit.tracker.state.level,
     Object.fromEntries([...document.querySelectorAll("#track-level .spot")].map((b) => [b.dataset.loc, b.className]))]"""
@@ -825,8 +876,12 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
     """Step 4.2c2 (D189, D249): the Randomizer tab's Tracker view opens a
     plan file (seed 2's default and max plans) and the engine under
     Pyodide gives Modkit's verdicts at each state (test_randomizer's
-    :data:`TRACKER`; Live's kit is the app's, D882), the spoiler off and on.
-    On the world map a level's badge counts its spots reachable now; a
+    :data:`TRACKER`; Live's kit is the app's, D882), the spoiler off and on,
+    and its maps' model (``web/mapview.mjs``: each level's spots' rings,
+    icons and checks, its gem dots, the world map's badges) Modkit's map
+    verdicts (:data:`TRACKER_MAP`, Step 4.2c3). Until the maps are drawn
+    from an image, the world map is a grid where a level's badge counts its
+    spots reachable now; a
     click on the level shows its spots, and a click on a spot reachable now
     marks it collected (the counter row and the chip say so), a second
     takes it off. The Table sums each kind and level (its All rows). The
@@ -863,6 +918,8 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
                     key = f"{name}/{state}/{'spoiler' if spoiler else 'plain'}"
                     shown = view(doc, marks, spoiler)
                     assert hashlib.sha256(tracking.digest(shown).encode()).hexdigest()[:32] == TRACKER[key], key
+                    drawn = page.evaluate(MAP_MODEL, [list(tracking.GRID), ICONS])
+                    assert hashlib.sha256(drawn.encode()).hexdigest()[:32] == TRACKER_MAP[key], key
         view(doc, None, False)   # max, nothing marked
         world = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll("#track-world .cell")].map(
             (c) => [c.dataset.level, c.querySelector(".badge").textContent]))""")

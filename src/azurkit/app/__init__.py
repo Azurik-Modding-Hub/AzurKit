@@ -48,6 +48,12 @@ grammar, empty for the defaults) or off. ``POST api/plan`` ``{"recipe"}`` plans 
 (``sdk.plan``), and ``POST api/tracked`` ``{"tracker"}`` remembers the
 plan last tracked and the marks of the last plans (``host.json``'s
 ``tracker``: the randomizer's names and numbers, never the image's).
+``POST api/art`` ``{"iso", "draw"}`` says which of the tracker's pictures
+are drawn (:mod:`.art`: its maps and icons, drawn from the player's image
+into the user cache folder, Step 4.2c3, D3), and with ``draw`` draws the
+rest from ``iso`` on a thread; ``GET art/<version>/<name>`` serves one.
+Live (``api/live``'s ``gems``) reads the gem spots too while the tracker
+shows them (R1.43).
 ``POST api/vanilla`` ``{"iso"}`` reads the image's own values of the
 sliders at its XBE's sites (``sdk.vanilla``), or, when the image is an
 AzurKit build, ``{"opened": its recipe}`` (``sdk.open_build`` of the files
@@ -93,6 +99,7 @@ from azurkit.tools import randomizer
 from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.live import link
 
+from . import art as pictures
 from . import live
 
 SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
@@ -213,8 +220,9 @@ def _set_tracked(body: dict) -> dict:
     the last :data:`TRACKED` plans (``{sha256: marks}``), or forget them
     (``null``); marks the tracker can't read are refused by name."""
     if (kept := body.get("tracker")) is not None:
-        if not (isinstance(kept, dict) and set(kept) <= {"plan", "marks", "endpoints"}):
-            raise ValueError("tracker: an object of plan, marks and endpoints only, or null")
+        if not (isinstance(kept, dict) and set(kept) <= {"plan", "marks", "endpoints", "gems"}
+                and kept.get("gems", False) in (True, False)):
+            raise ValueError("tracker: an object of plan, marks, endpoints and gems only, or null")
         if not isinstance(endpoints := kept.get("endpoints", ""), str):
             raise ValueError("tracker: endpoints is a list's text")
         try:
@@ -276,6 +284,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
         self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
         self.feed: live.Feed | None = None  # Live, while it is on
+        self.drawing = pictures.Drawing()   # the tracker's maps and icons, in the user cache folder
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
@@ -291,6 +300,7 @@ class Server(http.server.ThreadingHTTPServer):
         ``quitting``, before its part file is made and after each chunk."""
         self.quitting = True
         self.cancelled.set()
+        self.drawing.stop()
         if (feed := self.feed) is not None:
             feed.stop()
         self.deadline = self.deadline or time.monotonic() + QUIT_WAIT
@@ -391,8 +401,18 @@ class Server(http.server.ThreadingHTTPServer):
                     link.parse(endpoints)
                 except ValueError as exc:
                     raise ValueError(f"Endpoints: {exc}") from None
-                self.feed = live.Feed(body.get("plan"), body.get("marks"), endpoints).start()
+                self.feed = live.Feed(body.get("plan"), body.get("marks"), endpoints, bool(body.get("gems"))).start()
         return {}
+
+    def art(self, body: dict) -> dict:
+        """``api/art``: which of the tracker's pictures are drawn
+        (:meth:`.art.Drawing.status`), and with ``draw`` the rest drawn from
+        the image at ``iso`` on a thread, one part at a time."""
+        if body.get("draw"):
+            if self.quitting:
+                raise ValueError(QUITTING)
+            self.drawing.start(str(_path(body.get("iso"), "image")))
+        return self.drawing.status()
 
     def save_spoiler(self, body: dict) -> dict:
         """``api/spoiler``: write the last randomized build's spoiler to
@@ -486,6 +506,13 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/api/progress":
             done, total = self.server.progress
             return self._json({"done": done, "total": total})
+        if url.path.startswith("/art/"):   # the tracker's pictures, from the user cache folder (D3: never the bundle)
+            version, _, rel = urllib.parse.unquote(url.path).removeprefix("/art/").partition("/")
+            root = self.server.drawing.where
+            file = (root / rel).resolve()
+            ok = version == tracking.ART_VERSION and file.suffix in (".png", ".json") and file.is_relative_to(
+                root.resolve()) and file.is_file()
+            return self._send(file.read_bytes(), mimetypes.guess_type(file.name)[0]) if ok else self.send_error(404)
         try:
             file = (self.server.page / (urllib.parse.unquote(url.path).lstrip("/") or "index.html")).resolve()
             data = file.read_bytes() if file.is_relative_to(self.server.page) and file.is_file() else None
@@ -508,7 +535,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/randomizer": lambda body: sdk.randomizer_settings(body.get("given")),
                 "/api/tracker": self.server.track,
                 "/api/plan": lambda body: {"plan": sdk.plan(body.get("recipe"))},
-                "/api/tracked": _set_tracked, "/api/live": self.server.live,
+                "/api/tracked": _set_tracked, "/api/live": self.server.live, "/api/art": self.server.art,
                 "/api/settings_file": self.server.settings_file,
                 "/api/spoiler": self.server.save_spoiler,
                 "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)

@@ -287,6 +287,31 @@ TRACKER = {
     "max/powers/plain": "6dd4c7184fe0aaa17f7c4ca6cbbad22b",
     "max/powers/spoiler": "106b13abcc619b74194430a5a1b8f6e4",
 }
+#: Step 4.2c3: the same states' map verdicts, Modkit's (its map view's rules on its own Tracker: each level's tracked
+#: spots with their ring, icon, faintness and check, its gem dots, and the world map's badges), which the page's
+#: ``web/mapview.mjs`` (``marks`` and ``badges``) gives on each host's view (``tests/test_site.py``).
+TRACKER_MAP = {
+    "default/gems/plain": "896882e01509e47b3519bd3310b54bde",
+    "default/gems/spoiler": "33a87095d05edb212fb8ff346f784dcd",
+    "default/kit/plain": "667d490734bb4c3b7f6efb80ade7278b",
+    "default/kit/spoiler": "d68d8a730748df9f531eb961d5283f02",
+    "default/mid/plain": "0211fd25302bb83daebce2b4a8ff4888",
+    "default/mid/spoiler": "d6d244a9567b5b871804761dfe80282e",
+    "default/none/plain": "4967d5f30669639fe81aae9bc12c3e23",
+    "default/none/spoiler": "d8d55ef7bfc5d675b0e6bcfc5f9fbcb8",
+    "default/powers/plain": "ea8bfa7e863cbc4b416f8629ac27cb90",
+    "default/powers/spoiler": "6ceb6b00efad5d84442dec357c549b2c",
+    "max/gems/plain": "ceb17ff518794b820daabe64649824df",
+    "max/gems/spoiler": "b9fb061405bea77283c59eb084715e54",
+    "max/kit/plain": "541b6c9ffe666c078ebd7fb527ea3c18",
+    "max/kit/spoiler": "1096c65f28413c151b2d11b153375441",
+    "max/mid/plain": "4e73af01215d1f4e45e68ccefbd0213f",
+    "max/mid/spoiler": "6e51aa10349bfdbfaae3a8864c74c489",
+    "max/none/plain": "4f58757566574a6184421cce4c67846f",
+    "max/none/spoiler": "1f594079ebc7878e416a564642a00323",
+    "max/powers/plain": "5efb4bdecf25484e46e98dac8ded35d8",
+    "max/powers/spoiler": "8f2d82414249b54713b34239f9761c53",
+}
 KIT = {"air": 3, "water": 3, "fire": 3, "earth": 3}
 
 

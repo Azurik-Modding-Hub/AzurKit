@@ -13,7 +13,9 @@
 // In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer}, {type: "vanilla", file},
 //      {type: "preset", recipe: {packs, xbr, randomizer}, report}, {type: "decode", text}, {type: "restore", setup},
 //      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings),
-//      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan)
+//      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan),
+//      {type: "art", file, part} and {type: "art_world", parts} (the tracker's pictures, sdk.art and sdk.art_world:
+//      numpy, Pyodide's pinned wheel from this site, is loaded for them alone)
 // Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
@@ -21,7 +23,8 @@
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
 //      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "reply", call, reply}
-//      (a tracker's or plan's answer: the view, {plan}, or {refused}), {type: "csp", directive, blocked}
+//      (a tracker's or plan's answer: the view, {plan}, or {refused}), {type: "art", reply} (a part's pictures as
+//      PNG bytes, its entry and thumb, or the world map and the index; or {refused}), {type: "csp", directive, blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
@@ -32,7 +35,9 @@ const lastLine = (error) => String(error?.message ?? error).trim().split("\n").a
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. to_js copies each piece's bytes into its own buffer.
 const ENGINE = `
-from js import Object
+import json
+
+from js import JSON, Object
 from pyodide.ffi import to_js
 
 import azurkit
@@ -48,12 +53,20 @@ def engine(request):
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
     if request.type == "restore":
         return js(sdk.restore(request.setup.to_py() if hasattr(request.setup, "to_py") else request.setup))
+    if request.type in ("art", "art_world"):
+        try:
+            if request.type == "art":
+                return js(sdk.art(request.recipe.iso, request.part))
+            parts = {lv: {"entry": p["entry"], "thumb": bytes(p["thumb"])} for lv, p in request.parts.to_py().items()}
+            return js(sdk.art_world(parts))
+        except (OSError, ValueError) as exc:
+            return js({"refused": str(exc)})
     if request.type in ("vanilla", "open", "preset", "decode", "randomizer", "tracker", "plan"):
         try:
             if request.type == "randomizer":
                 return js(sdk.randomizer_settings(request.given.to_py()))
-            if request.type == "tracker":
-                return js(sdk.tracker(request.given.to_py()))
+            if request.type == "tracker":   # through JSON: a mark's null clock is None (to_py gives JsNull)
+                return js(sdk.tracker(json.loads(JSON.stringify(request.given))))
             if request.type == "plan":
                 return js({"plan": sdk.plan(request.recipe.to_py())})
             if request.type == "vanilla":
@@ -146,6 +159,24 @@ function vanilla({ py, engine }, file) {
   }
 }
 
+// The tracker's pictures: numpy loaded once (Pyodide's wheel, which the site carries beside its core, checked by the
+// lock's sha256), the image mounted for the part's read.
+async function art(loaded, data) {
+  const { py, engine } = loaded;
+  loaded.numpy ??= py.loadPackage("numpy", { messageCallback: () => {}, errorCallback: () => {} });
+  await loaded.numpy;
+  if (data.type === "art_world") return post({ type: "art", reply: engine({ type: "art_world", parts: data.parts }) });
+  py.FS.mkdirTree("/in");
+  py.FS.mount(py.FS.filesystems.WORKERFS, { files: [data.file] }, "/in");
+  try {
+    const reply = engine({ type: "art", recipe: { iso: `/in/${data.file.name}` }, part: data.part });
+    if ("refused" in reply) return post({ type: "failed", reply, message: reply.refused });
+    post({ type: "art", reply });
+  } finally {
+    py.FS.unmount("/in");
+  }
+}
+
 function build({ py, engine }, file, packs, xbr, randomizer) {
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
@@ -158,8 +189,12 @@ function build({ py, engine }, file, packs, xbr, randomizer) {
 try {
   const loaded = await load();
   self.onmessage = ({ data }) => {
-    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan"].includes(data?.type)) return;
+    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "art",
+          "art_world"].includes(data?.type)) return;
     try {
+      if (data.type === "art" || data.type === "art_world") {
+        return art(loaded, data).catch((error) => post({ type: "failed", message: lastLine(error) }));
+      }
       if (data.type === "vanilla") return vanilla(loaded, data.file);
       if (data.type === "tracker" || data.type === "plan") {   // answered whatever happens: the page waits on it
         let reply;
