@@ -29,6 +29,20 @@ RETRY_S = 2.0   # s between looks for xemu while none answers, or after one is l
 NOT_AZURIK = "xemu is running, but not Azurik yet: boot the seed's ISO."
 OTHER_SEED = "xemu runs another seed or build: open the tracker of the build you're playing."
 PAUSED = "The game isn't advancing: paused in xemu, or xemu quit."
+NO_XEMU = f"No xemu answers. Start xemu with {link.QMP_ARG}, or enter where yours listens in Endpoints."
+
+
+def page_text(text: str) -> str:
+    """The link's ``text`` as the page can act on it. The link names its
+    Tk window's controls (Modkit's tracker: a right-click menu with the
+    macOS admin attach and Endpoints…, a click that copies the QMP launch
+    line); the page has only its Endpoints box, so its no-xemu line (any
+    OS's) is :data:`NO_XEMU` and the others name the box and the QMP
+    argument itself."""
+    if text in {link.no_xemu(platform) for platform in ("darwin", "linux", "win32")}:
+        return NO_XEMU
+    return (text.replace("Endpoints… (right-click)", "Endpoints")
+            .replace("(right-click copies the line)", f"({link.QMP_ARG})"))
 
 
 class Feed:
@@ -83,7 +97,7 @@ class Feed:
             try:
                 session = game.Session(link.open_first(link.endpoints(saved=self.endpoints)), self.spots, journal)
             except link.LiveError as exc:
-                self._say("connecting", str(exc))
+                self._say("connecting", page_text(str(exc)))
                 self.stopped.wait(RETRY_S)
                 continue
             except Exception as exc:   # noqa: BLE001 (the feed ends and says why, as Modkit's does)

@@ -1073,6 +1073,37 @@ def test_live_places_the_player_while_xemu_runs_another_seed_or_build():
     live = feed.take()[1]
     assert (live["status"], live["here"], live["seen"]["level"]) == ("other", True, "w1")
 
+
+def test_lives_line_with_no_xemu_names_only_what_the_page_offers(monkeypatch):
+    """Step 4.1k (the retire inventory's F1): with no xemu answering, Live's
+    line on any OS (macOS's too) names the QMP argument to start xemu with
+    and the page's Endpoints box, never the Tk window's right-click admin
+    attach or its click-to-copy launch line; the link's other texts name
+    the box and the argument the same way."""
+    from azurkit.tools.randomizer.live import link
+
+    texts = [*(link.no_xemu(p) for p in ("darwin", "linux", "win32")), link.not_xemu("127.0.0.1:4444"),
+             link.monitor_not_qmp("127.0.0.1:4444")]
+    shown = [app.live.page_text(text) for text in texts]
+    assert shown[:3] == [app.live.NO_XEMU] * 3 and link.QMP_ARG in app.live.NO_XEMU and link.QMP_ARG in shown[4]
+    assert [t for t in shown if "Endpoints…" in t or any(w in t.lower() for w in ("right-click", "copy", "hover",
+                                                                                  "admin"))] == []
+    assert 'id="track-endpoints"' in (_page.WEB / "index.html").read_text(encoding="utf-8")
+
+    def nothing(endpoints):
+        raise link.LiveError(link.no_xemu("darwin"))
+
+    monkeypatch.setattr(app.live, "RETRY_S", 0.05)
+    monkeypatch.setattr(link, "open_first", nothing)
+    feed = app.live.Feed(_profile("default"), None).start()
+    try:
+        end = time.monotonic() + 30
+        while (live := feed.take()[1])["text"] != app.live.NO_XEMU and time.monotonic() < end:
+            time.sleep(0.02)
+        assert (live["status"], live["text"]) == ("connecting", app.live.NO_XEMU)
+    finally:
+        feed.stop()
+
 # The tracker's looks (Step 4.2c2's looks seat), as the page measures them: WCAG's contrast ratio of each world-map
 # badge's text and of each flat-filled item icon (the Settings item rows', a level's chips') with the ground it sits
 # on, [what, ratio]; whether the plan file's control is the tab's button (no native "No file chosen"); and the width
