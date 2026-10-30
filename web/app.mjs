@@ -62,7 +62,7 @@ function theme(name, keep = false) {
 
 // The setup the page remembers (D915): the packs ticked, each setting whose value differs from its default (its pack
 // ticked or not: an unticked pack keeps its values, D907; a value that isn't a number isn't kept) and a loaded recipe's
-// config.xbr cells (set: names and numbers, Q174). Never the image, its path or anything read from it (D3): the site
+// config.xbr cells (set: names and numbers, Q174). Never the image, its path or anything read from it: the site
 // keeps it in this browser's storage, the app in its config (api/setup), and the page at its defaults keeps nothing.
 const SETUP = "azurkit.setup";
 function setup() {
@@ -758,7 +758,7 @@ function renderRando(options) {
   choices(R("ceiling"), options.ceilings, options.tips.ceiling);
   choices(R("dark"), options.dark_fire.map((level) => [level, `Fire ${level}`]));
   R("cost-note").textContent = `vanilla ${options.obsidian_cost}`;   // D910
-  // Each item row: its box, its icons (the page's own drawings, D3), its name, how many the base game places, its note
+  // Each item row: its box, its icons (the page's own drawings), its name, how many the base game places, its note
   R("items").replaceChildren(...options.items.map(([category, label, note, count, icons]) => {
     const row = Object.assign(document.createElement("label"), { className: "item" });
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: Boolean(category) });

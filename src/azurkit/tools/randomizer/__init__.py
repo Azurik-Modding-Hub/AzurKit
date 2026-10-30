@@ -66,7 +66,7 @@ RATINGS = ("Unrated", "Safe", "Standard", "Hard", "Frame-perfect")   # a skip's 
 BARRIERS = "Stay vanilla in v1 (R2.2)."
 #: The item rows (Modkit's Randomize page): each its category, ticked to shuffle it, or None, greyed: it stays vanilla;
 #: its label and note, the kind its base-game count counts (:func:`base_counts`) and its icons (the page's own drawings,
-#: Modkit's icon names: never the game's art, D3).
+#: Modkit's icon names).
 ITEMS = (("fragments", "Disc fragments", "Guardians keep their 4th.", "disc_fragment",
           ("frag_air", "frag_water", "frag_fire", "frag_earth", "frag_life")),
          ("powers", "Elemental powers", "Air, water, fire and earth.", "power",

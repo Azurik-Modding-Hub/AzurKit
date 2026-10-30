@@ -107,7 +107,7 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
               ("azurik_mod/randomizer/live.py", f"{LIVE}/game.py", True),
               ("azurik_mod/randomizer/live_link.py", f"{LIVE}/link.py", True),
               *((f"azurik_mod/sim/{name}.py", f"{LIVE}/{name}.py", True) for name in ("pages", "recipes")),
-              # The level maps and item icons drawn from the player's image (Step 4.2c3, D3): the reach model's
+              # The level maps and item icons drawn from the player's image (Step 4.2c3): the reach model's
               # first stage (its geometry, floors and wiring, the level semantics they read), the level node
               # graphs with the node-type names table (P3: no capstone), the collision and render-mesh readers,
               # the model drawer, and Modkit's two scripts that draw them
@@ -136,7 +136,7 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
 }
 #: The pictures Modkit commits of what it draws from the image (Step 4.2c3): the level maps (``maps.json`` and each
 #: floor's and the world's PNG) and the item icons, recorded in ORACLE.toml's ``<family>.art`` table as each
-#: picture's :func:`pixel_digest` and ``maps.json``'s sha256 (D3: no picture is copied), which AzurKit's drawings
+#: picture's :func:`pixel_digest` and ``maps.json``'s sha256 (no picture is copied), which AzurKit's drawings
 #: are held to (``tests/test_art.py``).
 ART_FILES = {"rando": ("gui/assets/maps", "gui/assets/icons")}
 OURS = frozenset(f"{CHARACTERS}/{name}.py" for name in ("__init__", "ports", "pool"))
@@ -172,7 +172,7 @@ FAMILY_REWRITES = {   # a family's own rewrites, applied before REWRITES
         ("scratch = IsoStaging(Path(iso))", "scratch = IsoStaging(iso)")),
 }
 # Lines of Modkit's source a family's sync installs that hold 8 or more bytes in a row of a vanilla file
-# (tests/_leak_guard.py), by their path and sha256 (so AzurKit holds no copy), each with how port() rewrites
+# (the leak guard's rule before D961, kept as its default), by their path and sha256, each with how port() rewrites
 # it (:data:`LINE_FIXES`): a hook's vanilla bytes become their size in zeros (the swap checks the image's own
 # against the facts' swap site, never these); PNG's signature (a format constant every PNG starts with, which
 # default.xbe holds too) is joined from two halves; a recipe's long float is written with an exponent; a shim's
@@ -190,7 +190,7 @@ FIXES = {
     ("azurik_mod/assets/gltf.py", "8bb139c57b773daa80ca100380f15c04747385a9eb6c603ce3a724c5ac943cca"): "png",
     ("azurik_mod/assets/textures.py", "c0c308295f4fb80e2c3cc4aa3997b58c3f588a54c932414622d2b9a139ce64a4"): "png",
     ("azurik_mod/xbr/draw.py", "c532301bb2307f594f064e6cfa25830f6851e6a9d6c8b313b0eb61181456e529"): "png",
-    # garret4's roll motion in roll.c's table (game data, D3: the build reads it from the image, ports.HELD)
+    # garret4's roll motion in roll.c's table (game data: the build reads it from the image, ports.HELD)
     **{("azurik_mod/patches/player_model/roll.c", sha): "zeros" for sha in (
         "0de73e484c1034838585b85e47f9aff0ece1aab0cb71b3acc12bbb56cb0c60ea",
         "e47f16bf24786927e86c1a7ef7c89f350b1b13f8e11bfe0a864441bd4204c19d",

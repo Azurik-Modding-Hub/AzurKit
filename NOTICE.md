@@ -23,6 +23,13 @@ not the lines; written by
 The parts he started, among them the keyed `config.xbr` cells, are written new
 from the format.
 
+## Azurik: Rise of Perathia
+
+Azurik: Rise of Perathia's files and bytes in this repository (a game file, a
+snippet, a byte literal) belong to their rights holders and are not under the
+MIT licence, which covers our own work. The game's image is never here: you
+bring your own copy.
+
 ## Azurik Perathia: Azurik Debug Menu
 
 The photo mode pack (`src/azurkit/tools/mods/packs/qol_photo_mode.py` and its

@@ -1,5 +1,5 @@
-"""The item tracker's pictures, drawn from the player's image (Step 4.2c3,
-D3: none is in the repository): every level's maps, the world map, the maps'
+"""The item tracker's pictures, drawn from the player's image (Step 4.2c3):
+every level's maps, the world map, the maps'
 index and the item icons are Modkit's pixel for pixel, read from each
 release's image here and held to the digests of Modkit's committed pictures
 (ORACLE.toml's ``rando.art``, the oracle sync's, never a picture)."""

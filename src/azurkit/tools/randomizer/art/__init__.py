@@ -1,7 +1,7 @@
 """The item tracker's pictures, drawn from the player's own image at first
-use (Step 4.2c3, D3: no picture of the game is in the repository, the
-wheel, the app or the site): each level's map, its floors seen from above
-in the colours the level shows, with where its exits, items, spots,
+use (Step 4.2c3: no picture of the game is in the wheel, the app or the
+site): each level's map, its floors seen from above in the colours the
+level shows, with where its exits, items, spots,
 barriers, features and gems lie on it (``maps.json``'s entry), the world
 map of every level's main floor, and the item icons, each the game's own
 model at 20 px. Modkit draws them by its scripts ``render_level_maps.py``

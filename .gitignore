@@ -8,8 +8,10 @@ build/
 .import_linter_cache/
 .DS_Store
 
-# Game data never enters this repository (bring your own copy; the leak guard,
-# tests/_leak_guard.py, refuses what a forced add would commit).
+# Game data: ignored against accidental bloat (bring your own copy of the game).
+# A game file may be committed on purpose with `git add -f` (D961); the leak
+# guard, tests/_leak_guard.py, refuses only an ISO image or a part of one, an
+# xemu disk, an EEPROM dump, a guest RAM snapshot and a private key.
 /iso/
 *.iso
 *.xiso

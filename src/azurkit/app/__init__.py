@@ -50,7 +50,7 @@ plan last tracked and the marks of the last plans (``host.json``'s
 ``tracker``: the randomizer's names and numbers, never the image's).
 ``POST api/art`` ``{"iso", "draw"}`` says which of the tracker's pictures
 are drawn (:mod:`.art`: its maps and icons, drawn from the player's image
-into the user cache folder, Step 4.2c3, D3), and with ``draw`` draws the
+into the user cache folder, Step 4.2c3), and with ``draw`` draws the
 rest from ``iso`` on a thread; ``GET art/<version>/<name>`` serves one.
 Live (``api/live``'s ``gems``) reads the gem spots too while the tracker
 shows them (R1.43).
@@ -184,7 +184,7 @@ def _set_setup(body: dict) -> dict:
     """``api/setup``: remember the page's setup (D915), or forget it
     (``null``): pack and setting names (identifiers, so never a path), their
     numbers and config.xbr ``set`` operations only, so never a
-    ``replace_bytes``' bytes (D3). A ``set``'s table, entity, prop and text
+    ``replace_bytes``' bytes. A ``set``'s table, entity, prop and text
     value are free strings (config.xbr's names hold spaces; text cells hold
     text), checked by :func:`xbr.normalize` alone: the page fills them from
     the catalog and never puts the image's path in one. The Randomizer
@@ -510,7 +510,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/api/progress":
             done, total = self.server.progress
             return self._json({"done": done, "total": total})
-        if url.path.startswith("/art/"):   # the tracker's pictures, from the user cache folder (D3: never the bundle)
+        if url.path.startswith("/art/"):   # the tracker's pictures, from the user cache folder (never the bundle)
             version, _, rel = urllib.parse.unquote(url.path).removeprefix("/art/").partition("/")
             root = self.server.drawing.where
             file = (root / rel).resolve()

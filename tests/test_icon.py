@@ -1,5 +1,5 @@
 """AzurKit's icon (Step 4.1g2; D891, D892): original art that code in
-``assets/icon/`` makes, no game pixel in it (D3, D890). ``mark.py`` draws the
+``assets/icon/`` makes, no game pixel in it (D886, D890). ``mark.py`` draws the
 mark and ``tile.py`` puts it on the Mac app's azure tile; ``render.py`` (the
 ``icon`` group, macOS) renders them into the app's ``.icns`` and the site's
 favicon. The app and the site serve them (``tests/test_hosts.py``,

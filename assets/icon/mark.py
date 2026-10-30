@@ -6,7 +6,7 @@ app's icon on an azure tile (``tile.py``, D892).
 Original geometry only: circles, arcs, polylines and SVG turbulence filters
 computed here. The looks follow words (four zones, element colours, a jagged
 break showing pinkish granite); no game texture, pixel, vertex or render is
-read, traced or sampled (D3, D890).
+read, traced or sampled (D886, D890).
 
 Stdlib only; ``render.py`` writes it and every icon made from it.
 """

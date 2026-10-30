@@ -822,7 +822,7 @@ START_ART = "(version) => { azurkit.tracker.art.start(version, ['icons', 'e6'], 
 
 def test_the_site_draws_the_trackers_maps_in_the_browser_from_the_image_as_modkit_does(browser, site, usa_iso, tmp_path):
     """Step 4.2c3 (D882: the site renders them in the browser from the
-    player's own image; D3): the site's engine draws the tracker's pictures
+    player's own image): the site's engine draws the tracker's pictures
     under Pyodide, numpy its pinned wheel from the site, in a worker of
     their own, and keeps them in this browser's storage: the icons and a
     level (e6) drawn from the image are Modkit's pixel for pixel (each one's

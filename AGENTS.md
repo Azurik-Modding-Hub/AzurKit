@@ -49,36 +49,25 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Lean tests:** the fewest tests that pin a behavior, each in a
   behavior-area file. A fix gets one behavior-named test, in the same commit.
 
-## Game data (D3: public, no game bytes ever)
+## Game data (D961: the content repo's rules)
 
-- Never commit an ISO or any file taken from the game, whole or in part: no
-  XBE, XBR, save, disk or EEPROM image, key, or disassembly listing.
+- Game files and game bytes may be committed (D961, as Modkit's D153 and
+  Azurik-Custom-Content's D960): an XBE or XBR file, a clip, a texture, a
+  save, a snippet, a byte literal, a disassembly listing. They belong to the
+  game's rights holders and aren't under the MIT licence (`NOTICE.md`).
+  - `.gitignore` still ignores `*.xbe`, `*.xbr`, saves and extracted trees
+    against accidental bloat: add a game file on purpose with `git add -f`.
+- Never commit the ISO/XISO image, whole or in parts that rebuild it, a
+  private key, an EEPROM dump, an xemu HDD (qcow2) image or a guest RAM
+  snapshot (`AZL3SNAP`): the last three can hold console keys.
   - `tests/_leak_guard.py` refuses them in the suite and on every push,
-    also inside a gzip file (its inner bytes are read by every rule, the
-    vanilla-run rule's too). Its rules have no allow-list.
+    also inside a gzip file. Its rules have no allow-list.
   - Never weaken them to get green.
-- Never write a run of vanilla bytes as a literal in code or tests (a bytes
-  literal, `bytes.fromhex`, a hex string, a list of byte values): read it from
-  the player's image at its address. The vanilla tier refuses a literal under
-  `src/`, `tests/`, `scripts/`, `web/` or `assets/` holding 8 or more bytes in a row of
-  either release's `default.xbe` or XBR files (its `VANILLA_FILES`: the
-  XBE and every `.xbr` of either release, config.xbr, the levels the
-  randomizer writes and Europe's own French.xbr and German.xbr among them;
-  add a game file there once the code reads its bytes),
-  by file, line and length
-  (`tests/test_leak_guard.py`), and `scripts/land.py` refuses a stack any of
-  whose commits adds one, even when a later commit removes it again: the
-  history keeps it. Rewrite the commit that adds it.
-  - Both read a committed shim object (`.o`) there too, for 32 or more
-    bytes in a row in a code section or anywhere in the file, and 16 in a
-    data section: compiled code and constants share shorter runs with the
-    game by chance (up to 20 B and 10 B measured), and its source is read
-    at 8. Text, and a constant of at most 3 byte values, aren't counted in
-    an object.
 - Never print game bytes in logs, commits or chat: print lengths and
   `sha256[:12]`. Failure output is redacted (`tests/_byte_safe.py`).
-- Recorded results are hashes and names. The facts hold sha256 and length,
-  never raw vanilla spans.
+- Recorded results are hashes and names, a convention and not a leak rule:
+  the goldens, the oracle's bundle and the facts hold sha256 and length, not
+  raw vanilla spans.
 - The images are read-only. A build writes to an explicit output that isn't
   its input.
 
@@ -128,9 +117,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     swap builds on and the swap itself (see Characters below); a line of
     Modkit's source that holds 8 or more bytes in a row of a vanilla file
     is rewritten as the sync installs it (`FIXES`, by its path and sha256,
-    so AzurKit holds no copy: a hook's vanilla bytes become their size in
-    zeros, PNG's signature is joined from two halves, a recipe's long float
-    gets an exponent, a shim's table of game data becomes zeros), and
+    kept from before D961 as its default: a hook's vanilla bytes become
+    their size in zeros, PNG's signature is joined from two halves, a
+    recipe's long float gets an exponent, a shim's table of game data
+    becomes zeros), and
     `NUMBERS` writes a tuple of byte-sized ints as a string's. A file it
     installed is judged by the Modkit file it ports
     (`oracle_sync.origins`): `tests/test_provenance.py` refuses one from a
@@ -156,8 +146,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   site a `PatchSpec` at a USA address (Europe's comes from the facts), its
   bytes, and the offsets of the absolute addresses (`abs32`) and rel32
   branches (`rel32`) in them. The facts give each site's size and the
-  sha256 of its vanilla bytes; never put vanilla bytes or game constants in
-  a pack: read a value the pack scales from the vanilla XBE (`Xbe.read`).
+  sha256 of its vanilla bytes. A value the pack scales is read from the
+  vanilla XBE (`Xbe.read`), each release's own.
 - A `custom_apply` writes only through `Xbe.patch`, inside the footprint it
   declares (AZ-097). Errors name the site, never its bytes (D35).
 - **Sliders** (`ParametricPatch`) are a pack's parameters. Each takes any
@@ -225,12 +215,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     an argument in a register (`THUNKS`) and an `azurik.h` for the
     parameter macros. Three objects hold zeros where Modkit's hold bytes a
     build writes back as it lands them (`ports.HELD`): garret4's roll motion
-    (game data, D3: `roll.c`'s table is zeros in the source, shimkit fills
+    (game data: `roll.c`'s table is zeros in the source, shimkit fills
     it from the USA image to compile, then zeroes it in the object, and each
     build reads it from the player's image), and four of Modkit's own
     constants in `drain.o` and `throw.o` whose bytes, beside their
     neighbours', meet a vanilla file's by chance for longer than the object
-    rule takes (a 16.0 default, the aim's sides and reach, 4.9); restored,
+    rule took before D961 (a 16.0 default, the aim's sides and reach, 4.9;
+    kept as D961's default); restored,
     each is G2's object (`tests/test_shims.py`, and `tests/test_characters.py`
     for roll's).
   - `uv run --locked python -m shimkit` builds every object with the pinned
@@ -275,8 +266,6 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - A slider at a site of the XBE has no vanilla value in the catalog (the
   wheel holds no game constant, Q174): `sdk.vanilla` reads it from the
   player's image, and the page shows it once the image is picked (D42).
-- Describe patch bytes in prose: four or more comment lines that read as
-  x86 instructions are a disassembly listing to the leak guard.
 - A port is done when its cases match the oracle: the facts site by site,
   then G1 per file on both releases (`tests/test_packs.py`; `tests/_g1.py`
   reads G1, whose Europe half has no case for a config.xbr-only pack: the
@@ -344,7 +333,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     seal's, save point's and teleporter pad's name and need, the world
     map's lines), and its `art`: the parts the pictures are drawn in and
     their `ART_VERSION`, a host's key for what it keeps.
-  - **The pictures** (`art/`, Step 4.2c3, D3): `sdk.art(iso, part)` draws
+  - **The pictures** (`art/`, Step 4.2c3): `sdk.art(iso, part)` draws
     one part from the player's image, each file it reads checked against
     its release's vanilla file (`art.Vanilla`): the icons (every item's and
     barrier's, the game's own model at 20 px), or a level's floors seen
@@ -589,8 +578,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **The remembered setup** (D915): the page keeps its ticks, each
     setting that differs from its default (an unticked pack's too) and a
     loaded recipe's config.xbr `set` cells, `{"ticked", "values", "xbr"}`:
-    names and numbers, never the image, its path or anything read from it
-    (D3). The site keeps it in the browser's storage (`azurkit.setup`), the
+    names and numbers, never the image, its path or anything read from it.
+    The site keeps it in the browser's storage (`azurkit.setup`), the
     app in its config (`host.json`'s `setup`; `api/setup` refuses by name a
     setup with anything else: a pack or setting name that isn't an
     identifier, a path say, or a `replace_bytes`; a `set`'s names and text
@@ -644,7 +633,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   the packs' G1 cases and a save through its page (`AzurKit serve` in
   headless Chromium and WebKit).
 - **The icon** (D891, D892) is original art that code draws, no game pixel
-  (D3, D890): in `assets/icon/`, `mark.py` draws the mark (`AzurKit.svg`)
+  (D886, D890): in `assets/icon/`, `mark.py` draws the mark (`AzurKit.svg`)
   and `tile.py` sets it on the Mac app's azure tile; `render.py` writes
   those SVGs and renders the app's `AzurKit.icns` (`scripts/freeze.py`'s
   `--icon`) and the site's favicon, the free mark (`web/favicon.ico` and
@@ -670,8 +659,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   it is still running, so issue the same command again.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
-  and `europe: M run`, N and M at least 1 (D26), and no commit it lands adds
-  a vanilla run (by commit, file, line and length). There is no remote
+  and `europe: M run`, N and M at least 1 (D26). There is no remote
   until AzurKit goes public (D137, D91: Azurik-Modding-Hub at 4.4).
 
 ## Environment

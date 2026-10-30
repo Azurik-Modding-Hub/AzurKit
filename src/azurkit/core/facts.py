@@ -1,6 +1,6 @@
 """The facts about each release's vanilla ``default.xbe``: its sha256 and
 size, its section table (:mod:`azurkit.core.xbe`), every patch site a pack
-writes as the sha256 and size of its vanilla bytes (never the bytes, D3),
+writes as the sha256 and size of its vanilla bytes (a convention, D961),
 the kernel thunk table's address, the game's functions a shim may call (:class:`Function`: the one source of
 their names, addresses and ABIs, from which ``shimkit`` writes the header a
 shim includes, AZ-099), the kernel exports a shim may use (:class:`Kernel`:

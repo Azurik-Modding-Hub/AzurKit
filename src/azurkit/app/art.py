@@ -1,4 +1,4 @@
-"""The app's pictures for the tracker (Step 4.2c3, D3): drawn from the
+"""The app's pictures for the tracker (Step 4.2c3): drawn from the
 player's image the first time the tracker needs them (``sdk.art``, one part
 at a time on a thread), kept in the user cache folder (platformdirs) under
 the drawing's version (``tracking.ART_VERSION``), never in the bundle, and

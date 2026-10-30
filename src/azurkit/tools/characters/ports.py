@@ -10,7 +10,7 @@ staged files in place (:class:`IsoStaging`): ``default.xbe`` after the packs,
 
 **default.xbe**: a hook's vanilla bytes are the image's own, which
 :func:`xbe_site` reads from the vanilla ``default.xbe`` (checked against the
-facts' swap site where the facts hold one), never a literal (D3); a shim is
+facts' swap site where the facts hold one), never a literal; a shim is
 the prebuilt object beside its source (``player_model/<stem>.o``, shimkit's),
 laid out by ``core.coff`` where the carve allocator (``core.xbe.Carver``)
 gives room past every claim before it, its header state laid down from the
@@ -484,11 +484,12 @@ def _g4_roll(vanilla: Vanilla) -> bytes:
 
 
 HELD = {   # a shim's object (its stem) -> each symbol whose bytes the committed object holds as zeros -> its bytes
-    # garret4's roll motion (game data, D3): read from the player's image at each build
+    # garret4's roll motion (game data): read from the player's image at each build
     "roll": {"_g4_roll": _g4_roll},
     # Modkit's own constants, held because their bytes meet a vanilla file's by chance, longer than the leak
-    # guard's object rule takes (16 B in a data section, 32 in the file): the range param's default and the aim's
-    # sides and reach beside the zeros around them (fx.xbr, d1.xbr); half the projectile's gravity, in its name
+    # guard's object rule took before D961 (16 B in a data section, 32 in the file; kept as D961's default): the
+    # range param's default and the aim's sides and reach beside the zeros around them (fx.xbr, d1.xbr); half the
+    # projectile's gravity, in its name
     "drain": {"_player_model_drain_range": struct.pack("<f", 16.0),
               "_aim_node.side": struct.pack("<3f", -1.0, 1.0, 0.0),
               "_aim_node.ahead": struct.pack("<3f", 0.8, 0.8, 1.0)},

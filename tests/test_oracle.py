@@ -21,14 +21,13 @@ import pytest
 from azurkit.core import gate
 from scripts.oracle_sync import (DERIVED, FACTS, ORACLE, PATHS, ROOT, SOURCES, fix, install, port, read_index,
                                  source_hashes, sources, tree_hashes)
-from tests import _leak_guard
 
 
 def test_every_oracle_file_is_the_one_the_sync_installed():
     """A hand edit, a missing or an extra file in a family's folder fails;
     each family's ``oracle.json`` (Modkit's index) agrees with ORACLE.toml,
     by the exported sha256 for a facts file, whose build spans are installed
-    as sha256 and size only (D3), but for the files the sync derives itself
+    as sha256 and size only (a convention, D961), but for the files the sync derives itself
     (``DERIVED``: the models family's ``swap.json`` and ``resources.json``);
     and each file the sync installed in our source (``SOURCES``) is as it was
     installed, none missing or added."""
@@ -61,8 +60,8 @@ def test_the_sync_ports_a_modkit_module_by_its_rewrites_and_drops_or_names_what_
     ``__all__``) and has its imports
     rewritten; one that still
     imports Modkit, or a statement DROPS names that is gone, is named. A
-    line FIXES names by its sha256 is rewritten (a vanilla run AzurKit may
-    not hold), and one that is gone named; NUMBERS writes a tuple of ints
+    line FIXES names by its sha256 is rewritten (a vanilla run, kept from
+    before D961), and one that is gone named; NUMBERS writes a tuple of ints
     as a string's."""
     monkeypatch.setattr("scripts.oracle_sync.DROPS", {"m.py": ("threading", "pool")})
     source = ("import json\nimport threading\n\nfrom azurik_mod.randomizer.planner.solver import Logic\n\n\n"
@@ -89,7 +88,6 @@ def test_the_sync_ports_a_modkit_module_by_its_rewrites_and_drops_or_names_what_
                                                                   'STEP = tuple(int(v) for v in "7/8/9".split("/"))\n')
     fixed = fix("d.json", f"{{\n{value}\n}}")
     assert json.loads(fixed.replace(",\n}", "}"))["k"] == [float(long), 1] and "e-" in fixed
-    assert _leak_guard.byte_literals("d.json", fixed) == []
     with pytest.raises(ValueError, match=r"n\.py: FIXES' vanilla line [0-9a-f]{12} is there 0 times"):
         port("n.py", "STEP = (1, 2)\n")
 

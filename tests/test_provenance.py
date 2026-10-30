@@ -38,7 +38,7 @@ def test_no_file_shares_five_lines_with_the_files_that_credit_jtcpp():
     for rel in sorted(set(filter(None, listed)) - SKIP - set(ported)):
         data = (ROOT / rel).read_bytes() if (ROOT / rel).is_file() else b"\0"
         if (inner := _leak_guard.gunzip(data)) is not None:
-            data = inner[0]
+            data = inner
         if b"\0" not in data[:8192] and (n := shared(data.decode("utf-8", errors="replace"), prints)) >= THRESHOLD:
             found[rel] = n
     assert found == {}

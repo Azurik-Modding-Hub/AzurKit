@@ -7,7 +7,7 @@ offsets and the targets of its rel32 branches at its ``rel32`` offsets moved
 along; a site that names releases without USA is that release's own, at its
 own address. The facts give each site's size and the sha256 of its vanilla
 bytes, which the input must hold there (D27). A pack holds only what it
-writes, never vanilla bytes (D3).
+writes.
 
 A pack's parameters are its sliders (:class:`ParametricPatch`): any finite
 number (D23), its track's ends display hints only; a slider at a site writes

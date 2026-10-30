@@ -5,7 +5,7 @@ and Pyodide, Chromium and WebKit for the site and the ``web`` tests.
 
 The hook (in the repository's common git dir, so every worktree shares it)
 runs ``tests/_leak_guard.py --pre-push`` over every file the pushed commits
-add or change, and refuses the push on a hit (Q273). Pyodide's core (pinned
+add or change, and refuses the push on a hit (D961). Pyodide's core (pinned
 by sha256) and Playwright's headless Chromium and WebKit go in the main checkout's
 ``.tools/`` (``scripts/web_tools.py``), which every lane uses. Run this in
 the main checkout, not in a lane. Stdlib only.
@@ -21,12 +21,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 HOOK = """#!/bin/sh
-# leak-guard pre-push hook, written by `uv run bootstrap.py` (AzurKit, Q273)
+# leak-guard pre-push hook, written by `uv run bootstrap.py` (AzurKit, D961)
 # It runs only tests/_leak_guard.py (stdlib) over every file the pushed
 # commits add or change, those no remote-tracking ref of the remote reaches
-# (a new remote: the whole history): a push fails while one of them holds
-# anything taken from the game, even one a later commit deleted, naming each
-# file and the commit that added it. Delete this file to remove it.
+# (a new remote: the whole history): a push fails while one of them is an ISO
+# image or a part of one, an xemu disk, an EEPROM dump, a guest RAM snapshot
+# or a private key, even one a later commit deleted, naming each file and the
+# commit that added it. Delete this file to remove it.
 cd "$(git rev-parse --show-toplevel)" || exit 1
 for py in .venv/bin/python .venv/Scripts/python.exe; do
   if [ -x "$py" ]; then exec "$py" -I tests/_leak_guard.py --pre-push "$1"; fi

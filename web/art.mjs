@@ -1,4 +1,4 @@
-// The tracker's pictures (Step 4.2c3, D3: no picture of the game is in the site or the app): the level maps, the world
+// The tracker's pictures (Step 4.2c3: no picture of the game is in the site or the app): the level maps, the world
 // map and the item icons, drawn by the engine (sdk.art, Modkit's drawing) from the player's own image the first time
 // the tracker needs them, one part at a time, and kept: by the site in this browser's storage (IndexedDB, DB), by the
 // app in its user cache folder (api/art draws there; art/<version>/<name> serves them). They are kept under the

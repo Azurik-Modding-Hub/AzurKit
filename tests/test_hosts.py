@@ -834,7 +834,7 @@ MAP_CLICK = """([x, y]) => {
 
 def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_remove_its_dots(
         browser, tmp_path, monkeypatch, usa_iso):
-    """Step 4.2c3 (D3; R1.43, D928): the app draws the tracker's pictures
+    """Step 4.2c3 (R1.43, D928): the app draws the tracker's pictures
     from the image it reads, the first time the Tracker shows (the icons and
     a level here), into platformdirs' cache folder, and the page shows the
     level's map in place of its chips: its tracked spots (a click on one

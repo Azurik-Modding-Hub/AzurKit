@@ -1,13 +1,11 @@
 """The landing tools: ``scripts/fullsuite.py``'s changed-area plan and
-``scripts/land.py``'s gate: a passing receipt, and no vanilla run added by
-any commit it lands."""
+``scripts/land.py``'s gate: a fast-forward and a passing receipt."""
 
 from __future__ import annotations
 
 import json
 import subprocess
 
-from azurkit.core import facts, gate
 from scripts import fullsuite, land
 
 SMOKE = sorted(fullsuite.SMOKE)
@@ -65,8 +63,7 @@ def _receipt(receipts, head, **fields):
     (receipts / f"suite-{m['key']}.meta").write_text(json.dumps(m), encoding="utf-8")
 
 
-def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lane(tmp_path, monkeypatch,
-                                                                                  usa_iso, europe_iso):
+def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lane(tmp_path, monkeypatch):
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
     top = _git(lane, "rev-parse", "HEAD")
@@ -86,30 +83,3 @@ def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lan
     _receipt(receipts, _git(repo, "rev-parse", "HEAD"))
     code, why = land.land(repo, "p2/y")
     assert code == 1 and "doesn't fast-forward from main" in why
-
-
-def test_land_refuses_a_vanilla_run_a_later_commit_of_the_stack_removes(tmp_path, monkeypatch, usa_iso,
-                                                                         europe_iso):
-    """A stack whose first commit adds a literal holding 13 bytes of the USA
-    default.xbe (read from the image here; 4.1c's fps_unlock held them) and
-    whose second removes it again has a clean head and a passing receipt,
-    and land still refuses it: it names the first commit, the file, the
-    line and the lengths, never the bytes, and moves nothing."""
-    files = land.vanilla_files()
-    run = files["USA default.xbe"][facts.of(gate.USA).offset(0x059B37, 30):][17:30]
-    repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
-    (lane / "src").mkdir()
-    (lane / "src" / "a.py").write_text(f'N = 1\nX = bytes.fromhex("{run.hex()}")\n', encoding="utf-8")
-    _git(lane, "add", "src/a.py")
-    _git(lane, "commit", "-q", "-m", "a vanilla run")
-    planted = _git(lane, "rev-parse", "HEAD")
-    (lane / "src" / "a.py").write_text("N = 1\n", encoding="utf-8")
-    _git(lane, "commit", "-q", "-am", "gone again")
-    top = _git(lane, "rev-parse", "HEAD")
-    _receipt(receipts, top, mode="changed", base=base)
-    code, why = land.land(repo, "p2/x")
-    assert code == 1 and why.splitlines()[1:] == [
-        f"src/a.py:2 in {planted[:12]}: a 13 B literal holds 13 B in a row of the {name}"
-        for name, data in files.items() if run in data]
-    assert not any(form in why.lower() for form in (run.hex(), run.hex(" "), repr(run).lower()))
-    assert (_git(repo, "rev-parse", "main"), _git(lane, "rev-parse", "HEAD")) == (base, top)

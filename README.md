@@ -51,18 +51,21 @@ check of a build is made in xemu, and some packs rely on what xemu gives
 them, such as the RAM above 64 MiB. Real Xbox hardware is not a target: a
 build may work on a console, but nothing here has been checked on one.
 
-## No game data
+## Game data
 
-This repository, its wheel, the app and the site hold no game file and no
-bytes taken from one: you bring your own copy of the game.
+You bring your own copy of the game: AzurKit builds from your ISO, and no
+ISO image, whole or in parts, is ever in this repository.
 
 - Builds read your ISO and stay on your computer.
-- Share presets (recipes), never ISOs or game files.
-- Recorded results are hashes (sha256) and lengths.
-- [`tests/_leak_guard.py`](tests/_leak_guard.py) refuses a game image, a
-  whole game file, an XBE or XBR, a save, a disk or EEPROM image, a private
-  key or a disassembly listing, also inside a gzip file. It checks the
-  checkout in the test suite and every push through its `pre-push` hook.
+- Share presets (recipes), never ISOs.
+- Game files and bytes (an XBE or XBR file, a clip, a texture, a save, a
+  snippet) may be committed here. They belong to the game's rights holders,
+  not to this project's licence ([`NOTICE.md`](NOTICE.md)).
+- Recorded results are hashes (sha256) and lengths, by convention.
+- [`tests/_leak_guard.py`](tests/_leak_guard.py) refuses an ISO image or a
+  part of one, an xemu disk, an EEPROM dump, a guest RAM snapshot or a
+  private key, also inside a gzip file. It checks the checkout in the test
+  suite and every push through its `pre-push` hook.
 
 *Unofficial fan tool. Not affiliated with or endorsed by the rights holders of
 Azurik: Rise of Perathia or Xbox.*
@@ -101,7 +104,8 @@ Contributors and agents start at [`AGENTS.md`](AGENTS.md).
 
 ## License and credits
 
-MIT ([`LICENSE`](LICENSE)). [`NOTICE.md`](NOTICE.md) credits Jett Tripp
+MIT ([`LICENSE`](LICENSE)), for our own work: the game's files and bytes
+here are not under it. [`NOTICE.md`](NOTICE.md) credits Jett Tripp
 (JTCPP), whose Elemental_Games_Modding randomizer is where Azurik_Modkit began
 (none of his code is in this repository), and Azurik Perathia's Azurik Debug
 Menu, the photo mode's design.

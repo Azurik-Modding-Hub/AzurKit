@@ -253,7 +253,7 @@ def compile(source: Path, out: Path | None = None) -> bytes:
 def fill(source: Path) -> str | None:
     """``source``'s text with each table of game data ``ports.HELD`` names
     for it (a callable: garret4's roll motion) filled from the player's USA
-    image, which the source holds as zeros (D3): the object Modkit compiles,
+    image, which the source holds as zeros: the object Modkit compiles,
     whose bytes there :func:`hold` then zeroes. ``None`` for a source with
     none. ``RuntimeError`` when the image isn't there."""
     from azurkit.tools.characters import ports

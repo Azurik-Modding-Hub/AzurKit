@@ -12,7 +12,7 @@ models family's ``swap.json``: each vanilla span it writes, its size and
 sha256 and what writes it, and each address its shims call by name or are
 handed, at the release's own addresses) and, for Europe, the address map's
 USA -> Europe addresses and its named absences. Hashes, sizes, names and
-addresses only (D3).
+addresses only, a convention (D961).
 
     uv run --locked python scripts/gen_facts.py [--check]
 

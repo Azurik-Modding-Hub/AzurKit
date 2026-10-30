@@ -4,17 +4,9 @@ covers its head (the twin of Modkit's ``land``).
     uv run --locked python scripts/land.py BRANCH [--repo PATH] [--dry-run]
 
 It refuses unless BRANCH's head fast-forwards from main (an unborn main takes
-any head), and when a commit it would land adds a byte literal holding a run
-of either release's vanilla ``default.xbe`` or XBR files
-(``tests/_leak_guard.py``'s vanilla-run rule, run over each commit, not only
-the head: a run a later commit removes stays in the history), or a shim
-object (``.o``) whose section or whole file holds a longer run (its object
-rule), naming the commit, file, line or section and lengths, never the bytes. It reads both releases'
-files from their images (``AZURKIT_ISO``, ``AZURKIT_ISO_EUROPE`` or the user
-data folder). It
-also needs a passing ``scripts/fullsuite.py`` receipt for that head's clean
-tree, in which at least one vanilla and one europe test ran (D26): either a
-whole-suite run, or a changed-area run whose base is main's head.
+any head) and a passing ``scripts/fullsuite.py`` receipt covers that head's
+clean tree, in which at least one vanilla and one europe test ran (D26):
+either a whole-suite run, or a changed-area run whose base is main's head.
 
 Then it moves main. In the worktree that has main checked out, that is a
 fast-forward merge; otherwise it updates the ref from its old value. It removes
@@ -28,18 +20,13 @@ The landing is local only: AzurKit has no remote until it goes public (D137).
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 import fullsuite as fs  # noqa: E402
-
-from tests import _leak_guard  # noqa: E402
 
 
 def receipt_for(folder: Path, head: str, main: str | None) -> dict | None:
@@ -52,25 +39,6 @@ def receipt_for(folder: Path, head: str, main: str | None) -> dict | None:
                 and (m["mode"] == "full" or (main is not None and m["base"] == main))):
             found.append(m)
     return max(found, key=lambda m: m.get("finished_at") or "", default=None)
-
-
-def vanilla_files() -> dict[str, bytes]:
-    """``tests/_leak_guard.py``'s vanilla ``VANILLA_FILES``, each read once
-    for each distinct content from a release's image that holds it
-    (``vanilla_reads``) and named by ``vanilla_named``; ``ValueError`` or
-    ``OSError`` says which is missing or not vanilla."""
-    from azurkit.core import gate, iso
-    files, reads = {}, _leak_guard.vanilla_reads({release.label: release.files for release in gate.RELEASES})
-    for release in gate.RELEASES:
-        if (path := gate.find(release)) is None:
-            raise ValueError(f"no {release.label} image: {gate.missing(release)}")
-        with iso.Reader(path) as r:
-            for rel in reads[release.label]:
-                data = r.read(rel)
-                if [len(data), hashlib.sha256(data).hexdigest()] != release.files[rel]:
-                    raise ValueError(f"{path}'s {rel} isn't the vanilla {release.label} one")
-                files[release.label, rel] = data
-    return _leak_guard.vanilla_named(files)
 
 
 def worktrees(repo: Path) -> list[tuple[Path, str | None]]:
@@ -93,13 +61,6 @@ def land(repo: Path, branch: str, dry_run: bool = False) -> tuple[int, str]:
     main = fs.git(repo, "rev-parse", "--verify", "-q", "refs/heads/main", check=False).strip() or None
     if main and fs.git(repo, "merge-base", main, top, check=False).strip() != main:
         return 1, f"land: {branch} ({top[:12]}) doesn't fast-forward from main ({main[:12]}): rebase it onto main"
-    try:
-        runs = _leak_guard.vanilla_runs_in_commits(repo, [top, *(("--not", main) if main else ())], vanilla_files())
-    except (OSError, ValueError) as exc:
-        return 1, f"land: the vanilla-run guard needs both images: {exc}"
-    if runs:
-        return 1, (f"land: {branch} ({top[:12]}) adds a run of vanilla bytes as a literal; read it from the "
-                   f"player's image instead, and rewrite the commit that adds it:\n" + "\n".join(runs))
     folder = fs.receipts(repo)
     if (m := receipt_for(folder, top, main)) is None:
         return 1, (f"land: no passing clean receipt with vanilla and europe tests run for {branch} ({top[:12]}): "

@@ -27,7 +27,7 @@ release's vanilla file read from the same image:
   archive, fourcc]``, in the order their strings follow vanilla's (the
   order the build added them).
 
-Names, sizes, offsets and sha256s: no game bytes (D3).
+Names, sizes, offsets and sha256s, a convention (D961).
 
     uv run --locked python scripts/<this file> OUT --bundle BUNDLE/models [--workers N]
 """

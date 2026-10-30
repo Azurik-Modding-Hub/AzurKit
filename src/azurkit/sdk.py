@@ -412,8 +412,8 @@ def tracker(given: Mapping) -> dict:
 
 def art(path: str, part: str) -> dict:
     """One part of the item tracker's pictures, drawn from the image at
-    ``path`` (Step 4.2c3, D3: the repository, the wheel, the app and the
-    site hold none; a host keeps what this gives and draws each part once),
+    ``path`` (Step 4.2c3: the wheel, the app and the site hold none; a
+    host keeps what this gives and draws each part once),
     each file it reads checked against its release's vanilla file
     (``gate.NotVanillaError`` names one that isn't): ``"icons"`` gives
     ``{"pictures": {"icons/<icon>": PNG bytes}}``, every item's and

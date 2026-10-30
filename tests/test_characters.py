@@ -175,7 +175,7 @@ FIELDS = {"player_character_mode": "mode", "player_character_size": "size", "pla
           "player_character_sounds": "sounds", "player_weapon": "weapon", "player_jiggle_strength": "jiggle_strength",
           "player_jiggle_stiffness": "jiggle_stiffness"}
 VARIANTS = ("beamlord", "booblord", "booblord_high", "booblord_human", "booblord_high_human")   # Step 4.3c's
-CONTENT = {   # a case whose build reads a file Azurik-Custom-Content carries, not this repository (D3, D869)
+CONTENT = {   # a case whose build reads a file Azurik-Custom-Content carries, not this repository (D869)
     "randomize-full:player-character=air_elemental": "its gust's funnel mesh (fx/air_elemental/air_funnel.glb)",
     **{f"randomize-full:{case}": "the townsfolk's bare-hands kit (clips/townsfolk/)" for case in (
         "player-character=balthazar,weapon=bare_hands", "player-character=town_female_4",
