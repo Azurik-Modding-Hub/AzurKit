@@ -68,9 +68,12 @@ by ``shapes``::
 
     {"character": {"species": "mine", "variant_file": "<recipes.json>", "shapes": {"hips": 1.2}}}
 
-A character isn't carried by a build's mods file (:func:`open_build`) or a
-share link (:func:`preset_encode`) yet, nor worn by a randomized build
-(its logic would need the body's reasons): each refuses it by name.
+A randomized build may wear a character (Modkit's ``randomize-full --seed``
+with ``--player-character``): the plan stands on the walk and roll the
+body's size folds, and what the body leaves unmodelled (its grade, its
+attacks, its size) leaves the logic unverified, never refused. A character
+isn't carried by a build's mods file (:func:`open_build`) or a share link
+(:func:`preset_encode`) yet: each refuses it by name.
 
 
 def catalog() -> 'dict':

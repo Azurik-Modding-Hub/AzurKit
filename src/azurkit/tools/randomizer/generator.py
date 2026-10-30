@@ -21,7 +21,8 @@ through the packs' catalog (D83(c)).
 - :func:`movement_reasons`: the packs' sliders the logic doesn't model, past
   their ``logic_floor`` (the catalog's), and the speed sliders at 0 or less
   whose move never ends: each leaves the logic unverified, never refused.
-  A swapped body's (Modkit's player model) comes with the models (Step 4.3).
+  A worn body's are the characters' (``tools.characters.reasons``), which
+  the sdk joins to these (Step 4.3c2).
 - :func:`spoiler`: the build's spoiler, Modkit's ``--spoiler`` file (Step
   4.2c1), and :func:`check`: a link's recipe checked before a page loads it.
 

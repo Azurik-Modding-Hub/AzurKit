@@ -69,7 +69,7 @@ source ([Development](#development)).
 - **Checked before it's saved:** the finished image is read back against its plan, and any mismatch no later
   change explains stops the build.
 - **Logic verdict:** whether the logic still holds, and why not (a pack over an item spot, an unmodelled setting,
-  a costlier lock).
+  a costlier lock, a worn body).
 - **One build:** randomize and patch together, on USA or Europe.
 - **Spoiler log:** each sphere, every key item with its way in and its way back, and the traps; view or save it.
 
@@ -111,7 +111,9 @@ comes with version 1.0.
   moves and voice are optional extra files, read from AzurKit's content folder.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
   bolts or laser, made from the game's own effects.
-- **Works with every pack.** Not yet with the randomizer, share links or rebuilding from a recipe.
+- **Works with every pack and the randomizer:** a seed can wear a character, its logic re-checked at the body's
+  walk and roll, and the verdict says what the body changes (its height, its attacks). Not yet in share links or
+  rebuilding from a recipe.
 
 ### Building and sharing
 

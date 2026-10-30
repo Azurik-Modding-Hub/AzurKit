@@ -437,10 +437,19 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     variant's, its scale and attack numbers multiply the variant's
     (`tools.characters.variant`). The layer's recipe keeps the variant's
     sha, and its notes the file's name, never its folder.
-  - Not here: a randomized build wearing a character (its logic needs
-    Modkit's model reasons: Step 4.3c2's seed case), and a character in a
-    share link or a build's mods file (the pickers' step, 4.3d): each is
-    refused by name.
+  - **A seed with a character** (Step 4.3c2, Modkit's `randomize-full
+    --seed` with `--player-character`): the sdk plans the randomizer after
+    the body's size is folded into the walk and roll, so the plan stands
+    on them, and the swap reads the files the randomizer and the packs
+    left; the body's reasons (`characters.reasons`, Modkit's
+    `layer.movement_reasons`' model half word for word: a body no sitting
+    graded, no melee idle swing, a weak or endless attack, a body shorter
+    than garret4) join the packs' in the verdict, leaving the logic
+    unverified, never refused. G3's `seed=0,all` (flicken) is Modkit's on
+    both releases but `training_room.xbr` (level_patches, AZ-009), its
+    verdict Modkit's word for word.
+  - Not here: a character in a share link or a build's mods file (the
+    pickers' step, 4.3d): each is refused by name.
   - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
     bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
     townsfolk's weapon, `bare_hands` and the spin attack,

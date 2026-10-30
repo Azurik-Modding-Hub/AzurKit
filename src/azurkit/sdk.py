@@ -66,9 +66,12 @@ by ``shapes``::
 
     {"character": {"species": "mine", "variant_file": "<recipes.json>", "shapes": {"hips": 1.2}}}
 
-A character isn't carried by a build's mods file (:func:`open_build`) or a
-share link (:func:`preset_encode`) yet, nor worn by a randomized build
-(its logic would need the body's reasons): each refuses it by name.
+A randomized build may wear a character (Modkit's ``randomize-full --seed``
+with ``--player-character``): the plan stands on the walk and roll the
+body's size folds, and what the body leaves unmodelled (its grade, its
+attacks, its size) leaves the logic unverified, never refused. A character
+isn't carried by a build's mods file (:func:`open_build`) or a share link
+(:func:`preset_encode`) yet: each refuses it by name.
 """
 
 from __future__ import annotations
@@ -160,12 +163,13 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
     packs = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     character = characters.normalize(recipe["character"]) if "character" in recipe else None
-    if character is not None and "randomizer" in recipe:
-        raise ValueError("recipe: a randomized build doesn't wear a character yet (its logic would need the "
-                         "body's reasons: its species, attacks and size)")
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
-    prepared = generator.prepare(recipe["randomizer"], packs) if "randomizer" in recipe else None
+    prepared = None
+    if "randomizer" in recipe and character is None:
+        prepared = generator.prepare(recipe["randomizer"], packs)
+    elif "randomizer" in recipe:   # checked now; planned below, on the walk and roll the body's size folds
+        generator.check(recipe["randomizer"])
     stamp = gate.verify(recipe["iso"], whole=False)
     folded = vanilla = None
     inputs: dict[str, dict[str, float]] = {}
@@ -178,6 +182,8 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
         if (fold := params.get(rando_layer.SIZE_PACK, {}).pop(rando_layer.SIZE_FOLD, None)) is not None:
             inputs[rando_layer.SIZE_PACK] = {rando_layer.SIZE_FOLD: fold}   # the speed toggle's walk and roll
         packs = mods.normalize({name: params.get(name, {}) for name in enabled})
+        if "randomizer" in recipe:   # Modkit's randomize-full: the plan stands on the folded sliders (AZ-383)
+            prepared = generator.prepare(recipe["randomizer"], packs)
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
     with iso.Reader(stamp.path) as r:
         names = [f for pack in chosen.values() for f in pack.files()] + xbr.files(ops)
@@ -187,7 +193,7 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
     layers, failed, judge = [], [], None
     if prepared is not None:
         layers.append(generator.plan_layer(prepared, base))   # a WriteError or LayerError: nothing planned on
-        reasons = generator.movement_reasons(packs, catalog()["packs"])
+        reasons = generator.movement_reasons(packs, catalog()["packs"])   # the worn body's join them below
 
         def judge(made: iso.Image, manifest: edits.Manifest) -> dict:
             return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
@@ -199,8 +205,10 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
         except mods.PackError as exc:
             failed.append(str(exc))
     if character is not None and not failed:
-        layer, lines = characters.plan(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS),
-                                       folded)
+        layer, lines, body = characters.plan(character, vanilla, layers,
+                                             characters.packs_view(stamp.release, mods.PACKS), folded)
+        if prepared is not None:   # Modkit's check_movement: its packs' reasons, then the body's
+            reasons += body
         layers.append(Layer(layer.id, layer.tool, layer.kind, layer.recipe, layer.changes, layer.claims,
                             tuple(line.strip() for line in lines)))
     if ops:

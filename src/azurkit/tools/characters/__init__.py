@@ -173,12 +173,50 @@ def _runs(old: bytes, new: bytes) -> list[tuple[int, int]]:
     return out
 
 
+def reasons(model: str, attack, base: str | None = None) -> list[str]:
+    """Why the body ``model`` (a recipe's ``species``; ``base``, a variant's
+    base species) leaves a randomized build's logic unverified, by what its
+    build made of its attacks and size (``attack``, an ``AttackLogic``):
+    Modkit's ``layer.movement_reasons``' model half, word for word (its
+    pack half is ``tools.randomizer.generator.movement_reasons``). A body no
+    xemu sitting has graded (D260), none of whose idle swings is melee or
+    reaches ahead of its feet, whose least attack deals under
+    ``BALANCE_FLOOR`` of garret4's damage, whose attacks play at a speed of
+    0 or less, or that is shorter than garret4 (X34, D356): each is a
+    reason, never a refusal (D83(c))."""
+    from azurkit.tools.characters._player_damage_marker import GARRET4_FORWARD
+
+    swap, why = _swap(), []
+    if model != swap.PLAYER and swap.status(base or model) == swap.UNTESTED:
+        why.append(f"--player-character {model}: not yet tested as a player model (no xemu sitting has "
+                   f"graded it, D260), so the logic can't count on its moves")
+    who = (f"--player-character {model}" if model != swap.PLAYER
+           else f"{swap.PLAYER} at its --player-character-scale and --player-attack-* values")
+    if attack.reach is None:
+        why.append(f"{who}: none of its idle swings (basic1, the sweeps) is melee (Step 2.61's 4 m rule), so none "
+                   f"stands in for garret4's basic swing, {GARRET4_FORWARD:.2f} m ahead (D237)")
+    elif attack.reach <= 0:
+        why.append(f"{who}: none of its idle swings (basic1, the sweeps) reaches ahead of its feet, so no hit "
+                   f"lands (X13 draws each box at or behind them at an attack reach of 0 or less)")
+    if attack.damage < swap.BALANCE_FLOOR:
+        why.append(f"{who}: an attack deals x{attack.damage:.2f} garret4's damage, under "
+                   f"the x{swap.BALANCE_FLOOR:g} that keeps every target the logic needs killable (D223)")
+    if attack.speed <= 0:
+        why.append(f"{who}: --player-attack-speed {attack.speed:g} is a lock, not a speed: an attack "
+                   f"played at a Rate of 0 or less never ends, so the first attack press holds the player in it")
+    if attack.size < 1.0:
+        why.append(f"the worn body is x{attack.size:.3g} garret4's height, so it touches pickups x{attack.size:.3g} "
+                   f"his reach (X34), under the x1 the logic's proofs and its 1.5 m standing reach assume (D356)")
+    return why
+
+
 def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object] = (),
-         folded: float | None = None) -> tuple[Layer, list[str]]:
+         folded: float | None = None) -> tuple[Layer, list[str], list[str]]:
     """The character layer of ``recipe`` (:func:`normalize`'s) on the
     release of ``vanilla`` (a ``ports.Vanilla``), over the layers ``before``
-    it (the packs: what their files hold is what the swap reads, and its
-    shims take room past their claims), and the swap's build-log lines. The
+    it (the randomizer's and the packs': what their files hold is what the
+    swap reads, and its shims take room past their claims), the swap's build-log lines and the
+    body's :func:`reasons` (a randomized build's). The
     files the swap grows are one whole group; ``default.xbe``'s bytes and
     config.xbr's cells each table it changes are a group of ranges, its
     shims' placements the layer's claims. ``folded``: the size the sdk
@@ -187,7 +225,7 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     from azurkit.tools.characters import ports
 
     swap, release = _swap(), vanilla.release
-    base = {f: vanilla.read(f) for f in READS}
+    base = {f: vanilla.read(f) for f in (*READS, *sorted({c.file for la in before for c in la.changes} - {*READS}))}
     taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
     current, _ = compose(base, before)
     build = ports.Build(vanilla, taken=list(taken), packs=dict(packs))
@@ -226,7 +264,7 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
                                   f"{who} config/{table}"))
     kept = {k: v for k, v in recipe.items() if k != "variant_file"} | ({"variant": worn.sha} if worn else {})
     layer = Layer(who, TOOL, KIND, kept, tuple(changes), claims)
-    return layer, list(lines)
+    return layer, list(lines), reasons(recipe["species"], attack, worn.base if worn else None)
 
 
 def packs_view(release: gate.Release, packs: Mapping[str, object]) -> dict[str, object]:

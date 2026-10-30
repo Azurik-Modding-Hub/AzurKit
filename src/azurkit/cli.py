@@ -29,7 +29,8 @@ dresses the player in a species' body (a recipe's character as JSON,
 ``{"species": "keylord"}`` and any of its options: ``tools.characters``;
 a variant by name, a built-in or one of a recipe file's,
 ``{"species": "mine", "variant_file": "recipes.json"}``),
-its size folded into the walk and roll first. A mods file
+its size folded into the walk and roll first (with ``--seed``, the plan's
+too, and what the body leaves unmodelled leaves its logic unverified). A mods file
 of a randomized build (``open``) replays its seed and share string. ``plan`` fills the randomizer's
 authored levels for the seed under the default settings (D144), a settings
 file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.

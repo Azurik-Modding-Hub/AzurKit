@@ -15,6 +15,7 @@ import struct
 import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path, PurePath
+from types import SimpleNamespace
 
 import pytest
 
@@ -30,7 +31,7 @@ from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_kit, _player_variants, content, ports
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
-from scripts import oracle_sync
+from scripts import oracle_sync, record_goldens
 from tests import _pyodide
 
 MODELS = oracle_sync.ORACLE / "models"
@@ -368,16 +369,16 @@ def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_modkits_
         sdk._plan({"iso": str(image_path), "packs": {}, "character": {"species": "booblord"}})
 
 
-def test_a_character_is_refused_by_name_where_a_build_cant_carry_it_yet():
-    """A randomized build doesn't wear a character yet (its logic would need
-    the body's reasons, Modkit's model reasons) and a share link doesn't
-    carry one (``sdk.preset_encode``, as a build's mods file doesn't): each
-    is refused by name, before any image is read."""
+def test_a_share_link_refuses_a_character_by_name():
+    """A share link doesn't carry a character yet (``sdk.preset_encode``, as
+    a build's mods file doesn't: the pickers' step): it is refused by name,
+    before any image is read; a randomized recipe's settings are checked
+    before it too, with a character as without one."""
     recipe = {"iso": "/nowhere/usa.iso", "packs": {}, "character": {"species": "flicken"}}
-    with pytest.raises(ValueError, match=r"^recipe: a randomized build doesn't wear a character yet"):
-        sdk.image(recipe | {"randomizer": {"seed": "2"}})
     with pytest.raises(ValueError, match=r"^preset: a share link carries .* not a character"):
         sdk.preset_encode(recipe)
+    with pytest.raises(ValueError, match=r"^randomizer: seed is a string"):
+        sdk.image(recipe | {"randomizer": {"seed": 2}})
 
 
 def test_the_speed_toggle_flips_a_worn_bodys_walk_and_roll_to_the_bodys_own(usa_iso):
@@ -436,7 +437,9 @@ def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_th
         characters.variant({"species": "beamlord", "mode": {"own": "garret4", "garret4": "own"}[own]}, None)
 
 
-# --- the built-in variants and the effects templates (Step 4.3c2) -----------------------------------------------
+# --- the built-in variants, the effects templates and a seed with a character (Step 4.3c2) ----------------------
+
+SEEDED = "randomize-full:seed=0,all"
 
 
 @pytest.fixture
@@ -483,6 +486,39 @@ def test_each_variant_case_is_modkits_file_for_file_and_resource_for_resource(re
     assert len(cases) == {"usa": 7, "europe": 1}[release.name]
     first = dict(sorted(cases.items(), key=lambda kv: "booblord" not in kv[0]))   # the longest builds start first
     assert _missed(first, request.getfixturevalue(f"{release.name}_iso"), release, workers=4) == {}
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_a_randomized_build_wears_a_character_as_modkits_seed_0_all(release, request):
+    """G3's ``seed=0,all`` (Modkit's ``randomize-full --seed 0`` with
+    flicken's body, the movement sliders, packs and a config mod, its
+    settings flags and obsidian cost; ``record_goldens.recipe``'s
+    translation) built through ``sdk.image``: the plan stands on the walk
+    and roll the body's size folds, and every file Modkit's build changed
+    is Modkit's but ``training_room.xbr`` (its level_patches, AZ-009) and
+    filelist.txt, which lists it; the image reads back to the plan, and the
+    logic is unverified with the packs' reasons and the body's
+    (``characters.reasons``: flicken's x0.351 height, in the words of
+    Modkit's verdict of this build). A body no
+    sitting graded, with no melee idle swing, a weak attack or one that
+    never ends gives Modkit's reasons for each."""
+    path = request.getfixturevalue(f"{release.name}_iso")
+    spec = _oracle("cases.json")[G3[release.name]][SEEDED]
+    recipe = record_goldens.recipe("pipelines.json", spec, path) | {"character": _character(spec["args"]),
+                                                                     "iso": str(path)}
+    made, report = sdk.image(recipe)
+    usa, golden = _oracle(G3["usa"])[SEEDED], _oracle(G3[release.name])[SEEDED]
+    want = {f: sha for f, sha in ({f: sha for f, sha in usa.items() if f.endswith(".xbr")} | golden).items()
+            if f not in record_goldens.LEVEL_PATCHED}
+    assert {f: report["result"].get(f) for f in want} == want and report["conflicts"] == []
+    assert set(report["result"]) - set(want) == {"filelist.txt"}
+    verdict = report["randomizer"]
+    assert (verdict["seed"], verdict["logic_verified"], verdict["conflicts"]) == ("0", False, [])
+    assert verdict["why_not"][-1].startswith("the worn body is x0.351 garret4's height, so it touches pickups")
+    assert not any(why.startswith("--player-character") for why in verdict["why_not"])
+    weak = characters.reasons("nobody", SimpleNamespace(reach=None, damage=0.25, speed=0.0, size=1.0))
+    assert [why.split(": ", 2)[1][:20] for why in weak] == [
+        "not yet tested as a ", "none of its idle swi", "an attack deals x0.2", "--player-attack-spee"]
 
 
 def test_a_body_case_under_pyodide_is_modkits_file_for_file(usa_iso, pyodide):

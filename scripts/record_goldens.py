@@ -67,6 +67,10 @@ RANDOMIZE = {"gravity": "gravity", "player_walk_scale": "walk_speed_scale", "pla
              "player_wing_flap_ceiling_scale": "wing_flap_ceiling_scale",
              "player_flap_descent_fuel_cost_scale": "flap_descent_fuel_cost_scale"}
 
+FLAG_PACKS = {"gem_popups": "qol_gem_popups", "other_popups": "qol_other_popups", "pickup_anims": "qol_pickup_anims",
+              "skip_logo": "qol_skip_logo", "fps_unlock": "fps_unlock"}   # randomize-full's flags that turn a pack on
+SETTINGS = ("skip_ceiling", "movement_tier", "dark_fire")   # randomize-full's settings flags over D144's defaults
+
 
 def _sha256(data) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -111,10 +115,13 @@ def _ops(mod: Mapping, path) -> list[dict]:
 def recipe(golden: str, case: Mapping, path) -> dict:
     """A G3 (``pipelines.json``) or G4 (``gui.json``) case's recipe as a mods
     file's: apply-physics applies player_physics alone; patch,
-    randomize-full (--no-randomize) and MCP pack_build_iso the packs on by
-    default and those they name, then the mod's operations; a GUI build its
-    ticks over the packs on by default, its sliders and the Game Data
-    editor's cells."""
+    randomize-full and MCP pack_build_iso the packs on by default and those
+    they name (randomize-full's flags, :data:`FLAG_PACKS`, and
+    ``--enable-pack``), then the mod's operations, and randomize-full with
+    a seed its ``randomizer`` (the seed, D144's settings with its settings
+    flags, its obsidian cost); a GUI build its ticks over the packs on by
+    default, its sliders and the Game Data editor's cells. A flag AzurKit
+    doesn't translate is refused by name."""
     if golden == "gui.json":
         kwargs, packs = case["kwargs"], _defaults()
         for name, on in kwargs.get("packs", {}).items():
@@ -133,11 +140,25 @@ def recipe(golden: str, case: Mapping, path) -> dict:
         return {"packs": {"player_physics": {APPLY[k]: v for k, v in args.items() if k in APPLY and v is not None}}}
     if args["command"] == "patch":
         return {"packs": _defaults(), "xbr": [op for mod in args["mod"] for op in _ops(mod, path)]}
-    if not (args["command"] == "randomize-full" and args["no_randomize"] and args["ram"] == 128):
+    if not (args["command"] == "randomize-full" and args["ram"] == 128):
         raise ValueError(f"a G3 case AzurKit doesn't translate: {args['command']}")
+    if left := [flag for flag in ("disable_pack", "pack_param", "plan", "settings", "share", "skip", "no_skip",
+                                  "exclude_category") if args.get(flag)]:
+        raise ValueError(f"a G3 case's flags AzurKit doesn't translate: {', '.join(left)}")
     physics = {RANDOMIZE[k]: v for k, v in args.items() if k in RANDOMIZE and v is not None}
-    return {"packs": _defaults() | ({"player_physics": physics} if physics else {}),
-            "xbr": _ops(args["config_mod"] or {}, path)}
+    packs = _defaults() | {FLAG_PACKS[k]: {} for k in FLAG_PACKS if args.get(k)} | {
+        name: {} for name in args.get("enable_pack") or ()}
+    out = {"packs": packs | ({"player_physics": physics} if physics else {}),
+           "xbr": _ops(args["config_mod"] or {}, path)}
+    if not args["no_randomize"]:
+        from azurkit.tools.randomizer import layer
+        from azurkit.tools.randomizer.planner.loader import kept_logic
+
+        options = {k: args[k] for k in SETTINGS if args[k] is not None}
+        out["randomizer"] = {"seed": str(args["seed"] if args["seed"] is not None else 42)} | (
+            {"settings": layer.settings_doc(kept_logic().db.defaults) | options} if options else {}) | (
+            {"obsidian_cost": args["obsidian_cost"]} if args["obsidian_cost"] is not None else {})
+    return out
 
 
 def level_patched(case: Mapping) -> bool:
