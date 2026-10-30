@@ -4,6 +4,11 @@ AzurKit is the lean, public rewrite of Azurik_Modkit. Modkit is its reference
 and test oracle: a port is done when its output matches Modkit's byte for byte,
 file by file. [`README.md`](README.md) says what AzurKit is. These rules bind.
 
+**README's features:** a change a player would notice adds or updates its
+line in README.md's Features (and Highlights if it earns one), in the same
+commit. Each line is plain and short, with no step, D or AZ ids, and true on
+`main`.
+
 ## Setup and tests
 
 ```bash
