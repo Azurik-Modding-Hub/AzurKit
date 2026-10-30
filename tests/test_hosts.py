@@ -351,7 +351,7 @@ def _save(page) -> dict | str:
 def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch):
     """No test opens a window or a browser tab on the owner's screen (D839):
     the run sets the no-window mode, under which ``app.main`` serves nothing
-    and never reaches the window or the browser (checked in-process first,
+    and never reaches the window or the browser (the session checks it first,
     with all three planted to raise), and ``python -m azurkit`` with no
     arguments (the page) exits 1 within seconds. ``serve`` reaches neither
     in any mode: it prints the page's address and stops when its input

@@ -18,14 +18,16 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 ``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
 files and the oracle's test, whose USA and Europe cases make every receipt
 show both tiers run (D26). A path no rule covers makes it the whole suite;
-the meta's ``mode`` says which.
+the meta's ``mode`` says which. A changed-area run drives the page in
+:data:`CHANGED_BROWSERS` alone (``--browsers``, ``tests/conftest.py``), a
+whole one in every browser (D970); the meta's ``browsers`` says which.
 
 The key is built from HEAD, a hash of the uncommitted diff and the untracked
-files, the base, the mode and the selection. A passing receipt with the same
-key is reused; ``--force`` runs again. Receipts live in ``$AZURKIT_RECEIPTS``,
-else in ``azurkit-receipts/`` in the repository's common git dir, shared by
-its worktrees. ``scripts/land.py`` reads them. Stdlib only, macOS and Linux
-(it locks with ``fcntl``).
+files, the base, the mode, the selection and a changed-area run's browsers.
+A passing receipt with the same key is reused; ``--force`` runs again.
+Receipts live in ``$AZURKIT_RECEIPTS``, else in ``azurkit-receipts/`` in the
+repository's common git dir, shared by its worktrees. ``scripts/land.py``
+reads them. Stdlib only, macOS and Linux (it locks with ``fcntl``).
 """
 
 from __future__ import annotations
@@ -52,8 +54,18 @@ DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in t
 FINAL = {"done", "capped", "error"}
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
 SESSION = {"tests.conftest", "tests._byte_safe"}   # loaded by every run: a change to what they import is whole
-SRC_TESTS = ("tests/test_wheel.py",)               # builds the wheel from every file under src/
+WHEEL = "tests/test_wheel.py"                      # builds the wheel from every file under src/ and installs it
+#: The test files that run every module under src/ outside the import graph: the wheel's, and those whose tests
+#: take the pyodide, browser or frozen_app fixture (the wheel under Pyodide, the site in a browser, the frozen app).
+SRC_TESTS = (WHEEL, "tests/test_characters.py", "tests/test_hosts.py", "tests/test_randomizer.py", "tests/test_site.py")
 DOCS = (".md", ".txt")
+ABOUT = "tests/test_site.py::test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_always_in_view"
+#: A path's own tests (a folder's ends in "/"), what reads it outside the import graph: the page (web/) is the
+#: site's, the app's (it serves it and freezes it in) and the favicons'; the About tab restates LICENSE and
+#: NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme).
+RULES = (("web/", ("tests/test_site.py", "tests/test_hosts.py", "tests/test_icon.py")),
+         ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)))
+CHANGED_BROWSERS = ("chromium",)   # a changed-area run's (D970: a whole run drives the page in every browser)
 SUMMARY = re.compile(r"^=+ (\d+ (?:passed|failed|errors?|skipped|deselected).*? in [\d.]+s.*?) =+$", re.M)
 TIER = re.compile(r"^(vanilla|europe): (\d+) run$", re.M)
 
@@ -95,17 +107,24 @@ def graph(wt: Path) -> dict[str, set[str]]:
 
 
 def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
-    """The test files to run for the ``changed`` paths, or ``None`` for the
-    whole suite: each changed test file, each test file that imports a changed
-    module directly or through others, the wheel's test for a change under
-    src/, and :data:`SMOKE` (the oracle's test covers tests/oracle/);
-    nothing more for docs. A change to the suite's configuration, to what
-    every session loads or to a path no rule covers is the whole suite."""
+    """The test files (or tests) to run for the ``changed`` paths, or ``None``
+    for the whole suite: each changed test file, each test file that imports a
+    changed module directly or through others, :data:`SRC_TESTS` for a change
+    under src/, a path's :data:`RULES` tests, and :data:`SMOKE` (the oracle's
+    test covers tests/oracle/); nothing more for other docs. A change to the
+    suite's configuration, to what every session loads (``tests/conftest.py``
+    and what it imports: it runs the app's no-window check in a Python of its
+    own, which every run's session holds) or to a path no rule covers is the
+    whole suite."""
     picked, touched = set(SMOKE), set()
     for rel in changed:
         if rel in WHOLE:
             return None
-        if (rel.endswith(DOCS) or rel in ("LICENSE", ".gitignore")
+        if own := next((tests for path, tests in RULES
+                        if rel == path or path.endswith("/") and rel.startswith(path)), ()):
+            picked.update(own)
+            continue
+        if (rel.endswith(DOCS) or rel == ".gitignore"
                 or rel.startswith("tests/oracle/")):
             continue
         if (module := module_of(rel)) is None:
@@ -118,7 +137,7 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     if touched & SESSION:
         return None
     picked |= {f"{m.replace('.', '/')}.py" for m in touched if m.startswith("tests.test_") and m in deps}
-    return sorted(picked)
+    return sorted(t for t in picked if t.partition("::")[0] == t or t.partition("::")[0] not in picked)
 
 
 def cap(load5: float | None = None, cpus: int | None = None) -> int:
@@ -165,7 +184,8 @@ def status_code(m: dict | None) -> int:
 
 def describe(m: dict, meta: Path) -> str:
     line = f"fullsuite {m['key']}: {state(m)}" + (f", exit {m['exit_code']}" if m.get("exit_code") is not None else "")
-    line += f" [{m['subject']}, {m['mode']}{', ' + str(len(m['pytest_args'])) + ' files' if m['pytest_args'] else ''}]"
+    line += f" [{m['subject']}, {m['mode']}{', ' + str(len(m['pytest_args'])) + ' files' if m['pytest_args'] else ''}"
+    line += f"{', ' + ' '.join(m['browsers']) if isinstance(m.get('browsers'), list) else ''}]"
     if m.get("summary") is not None or state(m) in FINAL:
         line += (f"\n  {m.get('summary') or 'no summary line'}; vanilla: {m.get('vanilla_run')} run; "
                  f"europe: {m.get('europe_run')} run; wall {m.get('wall_s')} s of its cap {m.get('cap_s')} s "
@@ -174,7 +194,9 @@ def describe(m: dict, meta: Path) -> str:
 
 
 def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
-    """The run's receipt fields before it runs: its key, mode and pytest arguments."""
+    """The run's receipt fields before it runs: its key, mode, pytest
+    arguments and browsers (``"all"``: every one, ``tests/conftest.py``'s
+    default)."""
     head = git(wt, "rev-parse", "HEAD").strip()
     base = git(wt, "rev-parse", "--verify", "-q", f"{base_ref}^{{commit}}", check=False).strip() or None
     diff = subprocess.run(["git", "-C", str(wt), "diff", "HEAD", "--binary"], capture_output=True, check=True).stdout
@@ -183,13 +205,15 @@ def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
     if changed_area and base:
         changed = git(wt, "diff", "--name-only", base).split() + untracked
         selection = plan(sorted(set(changed)), graph(wt))
-    mode = "full" if selection is None else "changed"
+    mode, browsers = ("full", "all") if selection is None else ("changed", list(CHANGED_BROWSERS))
     state_hash = hashlib.sha256(diff)
     for rel in untracked:
         state_hash.update(rel.encode() + b"\0" + ((wt / rel).read_bytes() if (wt / rel).is_file() else b""))
-    state_hash.update(json.dumps([mode, base if mode == "changed" else None, selection]).encode())
+    keyed = [mode, None, None] if selection is None else [mode, base, selection, browsers]   # a whole run's as before
+    state_hash.update(json.dumps(keyed).encode())
     return {"key": f"{head[:12]}-{state_hash.hexdigest()[:12]}", "head": head, "base": base, "mode": mode,
-            "pytest_args": selection or [], "clean": not diff and not untracked, "worktree": str(wt),
+            "pytest_args": selection or [], "browsers": browsers, "clean": not diff and not untracked,
+            "worktree": str(wt),
             "branch": git(wt, "branch", "--show-current").strip(), "subject": git(wt, "log", "-1", "--format=%s").strip()}
 
 
@@ -202,6 +226,13 @@ def lint(wt: Path) -> tuple[bool, str]:
     done = subprocess.run(["uv", "run", "--locked", "pytest", "-q", *LINT], cwd=wt, capture_output=True, text=True,
                           timeout=240, env=_env())
     return done.returncode == 0, done.stdout + done.stderr
+
+
+def command(m: dict) -> list[str]:
+    """The run's pytest command: its selection (none: the whole suite), a
+    changed-area run's browsers, and the slowest tests at the log's end."""
+    browsers = [f"--browsers={','.join(m['browsers'])}"] if isinstance(m.get("browsers"), list) else []
+    return ["nice", "-n", "10", "uv", "run", "--locked", "pytest", *m["pytest_args"], *browsers, DURATIONS]
 
 
 def runner(meta: Path) -> int:
@@ -218,8 +249,7 @@ def runner(meta: Path) -> int:
         save(meta, m)
         t0, capped = time.time(), False
         with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
-            proc = subprocess.Popen(["nice", "-n", "10", "uv", "run", "--locked", "pytest", *m["pytest_args"],
-                                     DURATIONS], cwd=m["worktree"], stdout=log, stderr=subprocess.STDOUT,
+            proc = subprocess.Popen(command(m), cwd=m["worktree"], stdout=log, stderr=subprocess.STDOUT,
                                     start_new_session=True, env=_env())
             try:
                 code = proc.wait(timeout=m["cap_s"])

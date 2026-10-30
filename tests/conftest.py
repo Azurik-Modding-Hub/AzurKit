@@ -11,20 +11,25 @@
   ``vanilla: N run`` and ``europe: M run``.
 - A test that runs under Pyodide on Node takes the ``pyodide`` fixture, and
   one that drives the page in a browser the ``browser`` fixture, which runs
-  it in headless Chromium and again in WebKit (Safari's engine; Step 4.1d3);
-  either becomes ``web``. Like the images, what they run on (Pyodide, Node
-  for the first, each browser for the second; ``uv run bootstrap.py``
-  fetches Pyodide and both browsers) is needed by a run that selects one,
-  which otherwise stops with one message naming what is missing; ``-m "not
-  web"`` opts out. The summary prints ``web: K run``.
+  it in headless Chromium and again in WebKit (Safari's engine; Step 4.1d3),
+  or only in those ``--browsers`` names (``scripts/fullsuite.py``'s
+  changed-area runs: Chromium, D970); either becomes ``web``. Like the
+  images, what they run on (Pyodide, Node for the first, each browser for
+  the second; ``uv run bootstrap.py`` fetches Pyodide and both browsers) is
+  needed by a run that selects one, which otherwise stops with one message
+  naming what is missing; ``-m "not web"`` opts out. The summary prints
+  ``web: K run``.
 - A skip or an xfail fails the run unless ``tests/skip_allowlist.toml`` lists
   its test id with a regex its reason matches. The list starts empty (Q277).
 - Failure output is byte-safe (``tests/_byte_safe.py``).
 - The app opens no window or browser tab in a test, or in anything a test
   starts: ``AZURKIT_NO_WINDOW`` is set for the whole run (``azurkit.app``;
   D839: the owner works on this screen). The session checks the mode first,
-  in-process with the server, window and browser planted to raise, and
-  stops before any test (any process) runs when it doesn't hold.
+  in a Python of its own under the run's environment with the server,
+  window and browser planted to raise, and stops before any test (any
+  process) runs when it doesn't hold. The session itself never imports the
+  app, so what every run loads is only what this file imports
+  (``scripts/fullsuite.py``'s ``SESSION``).
 - Playwright launches only headless browsers: a launch (sync or async, of
   any browser) with ``headless`` other than unset (its default) or true, or
   that leaves out its ``--headless`` argument, is refused before it starts
@@ -39,14 +44,13 @@
 
 from __future__ import annotations
 
-import contextlib
 import functools
 import hashlib
 import inspect
-import io
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 from collections.abc import Callable
@@ -69,7 +73,6 @@ for _var in ("PWDEBUG", "npm_config_pwdebug", "npm_package_config_pwdebug"):   #
 
 from playwright._impl._browser_type import BrowserType as _BrowserType  # noqa: E402
 
-from azurkit import app  # noqa: E402
 from azurkit.core import gate  # noqa: E402
 from scripts import web_tools  # noqa: E402
 from tests import _pyodide  # noqa: E402
@@ -97,8 +100,24 @@ def _verify(release: gate.Release) -> Path | str:
             f"sha256 checked only on a size match)")
 
 
-class _Opened(Exception):
-    """The window path ran: the server, the window or the browser."""
+#: ``app.main()`` with its server, window and browser planted to raise: what it returns, or that it reached one.
+_NO_WINDOW = """import contextlib, io
+from azurkit import app
+
+class Opened(Exception):
+    pass
+
+def opened(*args, **kwargs):
+    raise Opened
+
+app.serve = app._window = app.webbrowser.open = opened
+with contextlib.redirect_stderr(io.StringIO()):
+    try:
+        code = app.main()
+    except Opened:
+        code = "the window path"
+print(code)
+"""
 
 
 class _Headed(AssertionError):
@@ -127,8 +146,8 @@ for _name in ("launch", "launch_persistent_context"):   # the impl's: the sync a
 def pytest_sessionstart(session):
     """The no-window mode holds before a test starts anything (D839):
     ``app.main()`` returns 1 without reaching its planted server, window or
-    browser, and a headed Playwright launch is refused, else the run stops
-    here."""
+    browser (:data:`_NO_WINDOW`, in this run's environment), and a headed
+    Playwright launch is refused, else the run stops here."""
     try:
         _BrowserType.launch(None, headless=False).close()   # unguarded, a coroutine that never runs
     except _Headed:
@@ -137,20 +156,25 @@ def pytest_sessionstart(session):
         pytest.exit("Playwright's launch isn't held to headless: no test runs (D839)",
                     returncode=pytest.ExitCode.USAGE_ERROR)
 
-    def opened(*args, **kwargs):
-        raise _Opened
-
-    with pytest.MonkeyPatch.context() as mp, contextlib.redirect_stderr(io.StringIO()):
-        for name in ("serve", "_window"):
-            mp.setattr(app, name, opened)
-        mp.setattr(app.webbrowser, "open", opened)
-        try:
-            code = app.main()
-        except _Opened:
-            code = "the window path"
-    if code != 1:
-        pytest.exit(f"{app.NO_WINDOW} doesn't keep azurkit.app's window shut (app.main() gave {code}, want 1): "
+    done = subprocess.run([sys.executable, "-I", "-c", _NO_WINDOW], capture_output=True, text=True, timeout=300)
+    if (code := done.stdout.strip() or f"no answer: {done.stderr.strip()[-500:]}") != "1":
+        pytest.exit(f"AZURKIT_NO_WINDOW doesn't keep azurkit.app's window shut (app.main() gave {code}, want 1): "
                     "no test runs (D839)", returncode=pytest.ExitCode.USAGE_ERROR)
+
+
+def pytest_addoption(parser):
+    parser.addoption("--browsers", default=",".join(web_tools.BROWSERS), metavar="NAMES",
+                     help=f"the browsers the browser fixture drives the page in, comma-separated (default: every one, "
+                          f"{','.join(web_tools.BROWSERS)})")
+
+
+def pytest_generate_tests(metafunc):
+    """A ``browser`` test runs once in each browser ``--browsers`` names."""
+    if "browser" in metafunc.fixturenames:
+        names = metafunc.config.getoption("browsers").split(",")
+        if set(names) - set(web_tools.BROWSERS):
+            raise pytest.UsageError(f"--browsers takes names of {', '.join(web_tools.BROWSERS)}, not {names}")
+        metafunc.parametrize("browser", [n for n in web_tools.BROWSERS if n in names], indirect=True, scope="module")
 
 
 @pytest.hookimpl(tryfirst=True)   # before -m deselects
@@ -220,12 +244,13 @@ def pyodide(tmp_path_factory) -> Callable[..., dict]:
     return lambda *argv, **job: _pyodide.run(list(argv), wheel, **job)
 
 
-@pytest.fixture(scope="module", params=list(web_tools.BROWSERS))
+@pytest.fixture(scope="module")
 def browser(request, tmp_path_factory):
     """Each browser in turn, headless (Playwright's, from the main checkout's
     ``.tools/``; the test is ``web``): Chromium's headless shell, then
-    WebKit, Safari's engine. No window opens. Module-scoped, so a module's
-    tests stay together and its other fixtures are made once."""
+    WebKit, Safari's engine, or those ``--browsers`` names
+    (:func:`pytest_generate_tests`). No window opens. Module-scoped, so a
+    module's tests stay together and its other fixtures are made once."""
     from playwright.sync_api import sync_playwright
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("PLAYWRIGHT_BROWSERS_PATH", str(web_tools.browsers_dir(ROOT)))   # read as its driver starts

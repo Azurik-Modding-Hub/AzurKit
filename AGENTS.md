@@ -37,8 +37,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `azurkit` command from the wheel alone), and one that drives the page in
   a browser takes the `browser` fixture (`tests/test_site.py`), which runs
   it in Playwright's headless Chromium and again in its WebKit, Safari's
-  engine (Step 4.1d3: Safari failed where Chromium passed); either becomes
-  `web`. A run that selects one needs Pyodide's pinned core, Node on PATH
+  engine (Step 4.1d3: Safari failed where Chromium passed), or only in those
+  `--browsers` names (`--browsers=chromium`); either becomes `web`. A run that selects one needs Pyodide's pinned core, Node on PATH
   for the first and both browsers for the second, which `uv run
   bootstrap.py` puts in the main checkout's `.tools/` for every lane
   (`scripts/web_tools.py`; `PLAYWRIGHT_BROWSERS_PATH`, never the user's
@@ -683,7 +683,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
   with the oracle's USA and Europe test (or the whole suite) in the background
-  under a lock, and prints a key and a receipt path. A run is killed past its
+  under a lock, and prints a key and a receipt path. Its `plan()` picks the
+  test files that import what changed; every change under `src/` adds the
+  files that run the whole package (the wheel's, and those taking the
+  `pyodide`, `browser` or `frozen_app` fixture), a change under `web/` the
+  site's, the app's and the icon's, `LICENSE` and `NOTICE.md` the About
+  tab's test and the wheel's, `README.md` the wheel's, other docs nothing
+  more; the suite's configuration, what `tests/conftest.py` imports (it
+  checks the app's no-window mode in a Python of its own) and a path no
+  rule covers run the whole suite. A changed-area run drives the page in
+  Chromium alone, the whole suite in both browsers (D970), and the receipt
+  says which (`browsers`). A run is killed past its
   cap, 4,500 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
   it is still running, so issue the same command again.

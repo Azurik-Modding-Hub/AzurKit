@@ -4,19 +4,24 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
+from pathlib import Path
 
 from scripts import fullsuite, land
 
+ROOT = Path(__file__).resolve().parent.parent
 SMOKE = sorted(fullsuite.SMOKE)
 
 
 def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite():
     """A changed module selects every test file that reaches it through
-    imports; src/ adds the wheel's test; docs and tests/oracle/ select only
-    the smoke files (the lint files and the oracle's USA and Europe test);
-    the suite's configuration, what every session loads and an unknown path
-    make it whole."""
+    imports; src/ adds the files that run the whole package (SRC_TESTS);
+    docs and tests/oracle/ select only the smoke files (the lint files and
+    the oracle's USA and Europe test); the suite's configuration, what every
+    session loads and an unknown path make it whole. The session loads only
+    what tests/conftest.py imports (it checks the app in a Python of its
+    own), so here a change to the sdk is changed-area."""
     deps = {"azurkit": set(), "azurkit.core": {"azurkit"}, "azurkit.core.iso": {"azurkit", "azurkit.core"},
             "azurkit.core.gate": {"azurkit", "azurkit.core"},
             "azurkit.sdk": {"azurkit", "azurkit.core", "azurkit.core.iso"},
@@ -25,12 +30,65 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
             "tests.test_wheel": {"azurkit"}, "tests.test_other": {"json"}}
     assert "tests/test_oracle.py" in SMOKE
     assert fullsuite.plan(["src/azurkit/core/iso.py"], deps) == sorted(
-        {*SMOKE, "tests/test_sdk.py", "tests/test_wheel.py"})
-    assert fullsuite.plan(["tests/test_other.py", "README.md", "tests/sdk_api.txt"], deps) == sorted(
+        {*SMOKE, "tests/test_sdk.py", *fullsuite.SRC_TESTS})
+    assert fullsuite.plan(["tests/test_other.py", "AGENTS.md", "tests/sdk_api.txt"], deps) == sorted(
         {*SMOKE, "tests/test_other.py"})
     assert fullsuite.plan(["tests/oracle/core/oracle.json", "bootstrap.py"], deps) == SMOKE
-    for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "web/index.html"):
+    for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "assets/icon/a.icns"):
         assert fullsuite.plan([whole], deps) is None, whole
+    assert fullsuite.plan(["src/azurkit/sdk.py"], fullsuite.graph(ROOT)) is not None
+
+
+def test_the_page_picks_the_site_app_and_icon_tests_and_the_docs_they_restate_pick_theirs():
+    """D970: a change under web/ selects the site's, the app's and the
+    favicons' test files; LICENSE and NOTICE.md the About tab's test (inside
+    its file when that is picked whole) and the wheel's, README.md the
+    wheel's, any other doc only the smoke files. Each rule names a test file
+    and test that exist, and SRC_TESTS every test file whose tests run the
+    package outside the import graph (the pyodide, browser and frozen_app
+    fixtures) besides the wheel's."""
+    deps = {"tests.test_site": {"json"}, "tests.test_hosts": {"json"}, "tests.test_wheel": {"json"}}
+    page = ["tests/test_hosts.py", "tests/test_icon.py", "tests/test_site.py"]
+    assert fullsuite.plan(["web/app.mjs", "web/favicon.ico"], deps) == sorted({*SMOKE, *page})
+    assert fullsuite.plan(["NOTICE.md"], deps) == sorted({*SMOKE, fullsuite.ABOUT, "tests/test_wheel.py"})
+    assert fullsuite.plan(["LICENSE", "web/index.html"], deps) == sorted({*SMOKE, *page, "tests/test_wheel.py"})
+    assert fullsuite.plan(["README.md", "AGENTS.md", "CLAUDE.md"], deps) == sorted({*SMOKE, "tests/test_wheel.py"})
+    assert fullsuite.plan(["AGENTS.md", "docs/plan.md"], deps) == SMOKE
+    for test in {test for _, tests in fullsuite.RULES for test in tests}:
+        file, _, name = test.partition("::")
+        assert f"\ndef {name}(" in (ROOT / file).read_text(encoding="utf-8") if name else (ROOT / file).is_file(), test
+    runs = {f"tests/{p.name}" for p in (ROOT / "tests").glob("test_*.py") if re.search(
+        r"^def test_\w+\([^)]*\b(pyodide|browser|frozen_app)\b", p.read_text(encoding="utf-8"), re.M)}
+    assert sorted({fullsuite.WHEEL, *runs}) == sorted(fullsuite.SRC_TESTS)
+
+
+def test_a_changed_area_run_drives_the_page_in_chromium_alone_and_a_whole_run_in_every_browser(
+        tmp_path, monkeypatch, pytester):
+    """D970: a changed-area run's receipt names Chromium and its pytest
+    command asks for it alone (``--browsers``), keyed so a receipt for other
+    browsers is another; a whole run's names every browser and asks for no
+    narrowing. The ``browser`` fixture runs a test in each browser it is
+    given, every one by default."""
+    _, lane, _, _ = _repo(tmp_path, monkeypatch)
+    (lane / "README.md").write_text("a doc\n", encoding="utf-8")
+    _git(lane, "add", "README.md")
+    _git(lane, "commit", "-q", "-m", "a doc")
+    changed, whole = fullsuite.prepare(lane, True, "main"), fullsuite.prepare(lane, False, "main")
+    assert (changed["mode"], changed["browsers"], whole["mode"], whole["browsers"]) == (
+        "changed", ["chromium"], "full", "all")
+    asks = {run: [a for a in fullsuite.command(m) if a.startswith("--browsers")]
+            for run, m in (("changed", changed), ("whole", whole))}
+    assert asks == {"changed": ["--browsers=chromium"], "whole": []}
+    monkeypatch.setattr(fullsuite, "CHANGED_BROWSERS", ("webkit",))
+    assert fullsuite.prepare(lane, True, "main")["key"] != changed["key"]
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n\n\n"
+                          "def pytest_deselected(items):\n    print('ran in', *(item.nodeid for item in items))\n")
+    pytester.makepyfile(test_x="def test_page(browser):\n    pass\n")
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    for run, ids in (("changed", "[chromium]"), ("whole", "[chromium] test_x.py::test_page[webkit]")):
+        done = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-s", "--collect-only", "-m", "not web",
+                                             *asks[run])   # collected and deselected: no browser starts
+        assert f"ran in test_x.py::test_page{ids}\n" in done.stdout.str(), run
 
 
 def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
