@@ -101,14 +101,14 @@ def icon(item: str) -> str:
 @functools.cache
 def world() -> dict:
     """The world map's levels (:data:`GRID`), where each one's exits lead (the vanilla data's live exits, in
-    order, each level once), the pictures' parts and version (:data:`ART_PARTS`) and what the maps draw over
-    them (``maps``: :func:`.needs.overlays`): the same for every plan, as exits stay vanilla in v1."""
+    order, each level once) and what the maps draw over their pictures (``maps``: :func:`.needs.overlays`):
+    the same for every plan, as exits stay vanilla in v1 (:func:`view` adds ``art``: the pictures' parts and
+    version, :data:`ART_PARTS`)."""
     db = kept_logic().db
     exits = {lv: list(dict.fromkeys(e["dest_level"] for e in db.generated[lv]["exits"]
                                     if e["kind"] == "exit" and e["live"] and e["dest_level"] in GRID
                                     and e["dest_level"] != lv)) for lv in GRID if lv in db.generated}
-    return {"grid": {lv: list(at) for lv, at in GRID.items()}, "exits": exits, "art": {"version": ART_VERSION,
-            "parts": list(ART_PARTS)}, "maps": needs.overlays(tuple(GRID))}
+    return {"grid": {lv: list(at) for lv, at in GRID.items()}, "exits": exits, "maps": needs.overlays(tuple(GRID))}
 
 
 def tracker_of(doc: Mapping) -> Tracker:
@@ -229,7 +229,8 @@ def view(given: Mapping, events: Sequence = ()) -> dict:
                       "vanilla": item_name(t.logic.vanilla[loc][0])}
     shown = bool(given.get("gems"))
     items, levels = t.table(spoiler, held_counts(held) if held else None, gems=shown)
-    out = {"head": head(t), "world": world(), "marks": t.state(),
+    out = {"head": head(t), "world": world() | {"art": {"version": ART_VERSION, "parts": list(ART_PARTS)}},
+           "marks": t.state(),
            "status": {"collected": s.collected, "reachable": s.reachable, "total": s.total, "sphere": s.sphere,
                       "victory": s.victory, "levels": list(s.levels), "skipped": s.skipped},
            "spots": spots, "table": {"items": [_row(r) for r in items], "levels": [_row(r) for r in levels]}}

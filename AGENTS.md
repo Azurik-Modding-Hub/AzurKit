@@ -493,8 +493,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `web/mapview.mjs`'s `marks` and `badges` are the map's verdicts:
     `tests/test_site.py` holds them to Modkit's (`TRACKER_MAP`, its map
     view's rules on its own Tracker) at TRACKER's states; the site's drawing
-    in both browsers to Modkit's pictures; and `tests/test_hosts.py` the
-    app's map, a click, zoom, resize and Live taking a gem's dot.
+    in both browsers to Modkit's pictures (the icons and e6); and
+    `tests/test_hosts.py` the app's map, a click, zoom, resize and Live
+    taking a gem's dot. A known flaw (D835): under Pyodide (wasm32, its
+    numpy 2.4.6) 16 of the 162 pictures differ from Modkit's in at most 135
+    pixels each (airship, a3, a5, town and e2: a pixel taking another
+    face's colour), while every `maps.json` entry is the same; the app's
+    (CPython) are Modkit's pixel for pixel.
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,
