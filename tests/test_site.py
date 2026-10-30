@@ -599,7 +599,8 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     player can wear, the 73 untested greyed; Azurik-Custom-Content's entries (its source served from the site's own
     address, the page's CSP's ``connect-src 'self'``) come first, each marked community; Install of an entry whose
     file isn't its manifest's sha256 is refused by name and keeps nothing, and Beamlord's installs, its variant
-    then listed under it, installed v1; a species picked shows its Weapon box and its two pictures (draw.py, under
+    then listed under it, installed v1, and a page opened again hands it to its engine before the tab is opened (a
+    build from another tab reads it); a species picked shows its Weapon box and its two pictures (draw.py, under
     Pyodide). No CSP violation, and no request but GETs of the site's files and the source's."""
     from azurkit.tools.characters import _player_variants, content
 
@@ -652,6 +653,10 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
             .getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0))""") == [True, True]
         assert page.evaluate("() => azurkit.violations") == []
         assert [r for r in served.stray() if not r.startswith(f"GET {ORIGIN}/content-test/")] == []
+        again = served.open()   # this browser's storage, the Characters tab never opened
+        assert _page.until(again, """async () => !azurkit.characters.state.opened && (await azurkit.engine.call(
+            "pickers", {given: {iso: null}})).community.map((e) => `${e.id} ${e.state}`).join() === "beamlord installed"
+            """, 120)
     finally:
         served.close()
 

@@ -8,7 +8,8 @@
 // by the site in this browser's storage, by the app in its config; an Install checks every file's sha256 before
 // anything is kept (the site's worker, sdk.content_check; the app's engine, sdk.content_install), and an installed
 // entry stays at its version until its Update. The site keeps what it installed in this browser's storage (IndexedDB)
-// and hands it to its engine; the app writes it into its content folder.
+// and hands it to its engine as the page starts (a build from any tab, a link's or the remembered setup's, reads it);
+// the app writes it into its content folder.
 const $ = (id) => document.getElementById(id);
 const SOURCE = "azurkit.content_source";
 const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
@@ -60,6 +61,12 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       return fallback();
     }
   })();
+
+  // What this browser keeps installed, handed to the site's engine now, not on the tab's first open.
+  const kept = app ? Promise.resolve() : Promise.all([idb.get("files"), idb.get("installed")])
+    .then(([files, installed]) => {
+      if (files && installed) content(files, installed);
+    });
 
   const given = (extra) => app ? { given: { iso: image() || null, ...extra } } : { file: image(), given: { iso: null,
                                                                                                            ...extra } };
@@ -395,16 +402,12 @@ export function characters({ call, app, host, say, image, packs, changed, conten
   };
 
   return {
-    // The tab shown: read the community content once, then ask what it shows.
+    // The tab shown: read the community content once (after what this browser keeps reached the engine), then ask
+    // what it shows.
     open: () => {
       if (!c.opened) {
         c.opened = true;
-        if (!app) {
-          Promise.all([idb.get("files"), idb.get("installed")]).then(([files, installed]) => {
-            if (files && installed) content(files, installed);
-            read();
-          });
-        } else read();
+        kept.then(read);
       } else ask();
     },
     imaged: () => {
