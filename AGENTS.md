@@ -106,13 +106,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     that still imports Modkit after the rewrites, or a statement `DROPS`
     names that is gone, stops the sync by name before anything is written:
     port what it imports into an AzurKit module, then add a rewrite.
+    The models family's sync installs the archive writers a character
+    swap builds on (see Characters below).
+  - **The sync's own files** (`oracle_sync.DERIVED`): the models family's
+    `swap.json` (the `swap` section of Modkit's facts, both releases) and
+    `resources.json`, which `scripts/modkit_resources.py` makes by running
+    Modkit's own build of each G3 case that wears a model inside the
+    sync's clone of Modkit (never in AzurKit); each built file's sha256
+    must be G3's, or the sync stops with nothing written.
 - AzurKit never imports Modkit, and nothing NOTICE.md credits to JTCPP is
   ported (D95). `tests/test_provenance.py` checks that.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
-  sha256, its sections, every patch site's size and vanilla sha256, Europe's
-  address map) are derived from the oracle by `scripts/gen_facts.py`; run it
-  after a packs or core sync, never edit them by hand. `tests/test_packs.py`
-  holds them to it.
+  sha256, its sections, every patch site's size and vanilla sha256, the
+  player-model swap's hooks (`swap`: the vanilla spans it writes and the
+  addresses its shims call), Europe's address map) are derived from the
+  oracle by `scripts/gen_facts.py`; run it after a packs, core or models
+  sync, never edit them by hand. `tests/test_packs.py` holds them to it.
 
 ## Packs
 
@@ -293,6 +302,39 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (`facts.<release>.json`'s `xbe.thunks`, the kernel thunk table's, tells
     the release a running xemu booted). The tracker imports only the
     events, so the site never loads the link.
+
+## Characters
+
+- **What a swap writes with** (Step 4.3a1; the models family's sync
+  installs them from Modkit, never edit them by hand): `core/xbr/append.py`
+  (`append_resources`: new resources on pages after the last payload, their
+  named rows, names and relocation rows; `rewrite_payloads`: a payload
+  grown in place, every later one moved by whole pages; `appended`), and in
+  `tools/characters/`: `characters.py` (a body and its clips),
+  `body_codec.py` (a body decoded whole and written back with any
+  topology) and `index_xbr.py` (`index.xbr`'s records, `add_index_records`).
+  What they import of Modkit's `xbr/toc_scan.py`, `xbr/edits.py` and
+  `xbr/sections.py` is ours, in `core/xbr/nodes.py` (`named_resources`,
+  `runs`, `XbrStructuralError`, `IndexRecordsSection`; `sections.py` is a
+  file NOTICE.md's JTCPP note covers, D95).
+- **The character layer** (§12.2's whole-file group): a swap grows
+  `characters.xbr`, `fx.xbr` and `index.xbr`, so it writes each it changes
+  whole, all one group (`tools.characters.whole_files`: `Change(...,
+  whole=True)`, `before` the whole vanilla file's sha256), and the rest as
+  ranges. A whole file shadows each earlier group whose bytes it doesn't
+  hold (dropped whole, a conflict); a later range lands over it and, where
+  the whole file changed those bytes, wins them, the conflict naming the
+  whole file's group, which stays. One group per file may write it whole.
+  The layer stacks after the packs and before the Data tool's `xbr`
+  operations (Modkit's `mod_apply` order). The swap that fills it (the
+  retarget, D131's standardize, the 40 `player_model` shims) is Step
+  4.3a2's.
+- **Its checks** (`tests/test_characters.py`): every body round-trips
+  through the codec, appended resources resolve by name with the old ones
+  unmoved, each G3 model case's `index.xbr` is Modkit's byte for byte
+  (from `resources.json`'s records, on both releases), the swap's XBE
+  sites hold their vanilla bytes on both releases, and a layer's whole
+  files build an image that reads back.
 
 ## The engine's contracts
 

@@ -29,7 +29,19 @@ engine can't hold, a process pool, Modkit's build objects, a file beside
 the ISO). ORACLE.toml's ``source`` table keeps each installed file's
 sha256, so a later Modkit fix arrives by the same sync, never by hand. A
 module that still imports Modkit after its rewrites, or a statement DROPS
-names that is gone, stops the sync before anything is written.
+names that is gone, stops the sync before anything is written. The models
+family's installs the archive writers a character swap builds on (Step
+4.3a1): ``xbr/append.py`` (new resources and their relocations, grown
+payloads), ``index.xbr``'s records, ``characters.xbr``'s bodies and clips
+and the body codec.
+
+Two of a family's files are the sync's own (:data:`DERIVED`), not Modkit's
+bundle: the models family's ``swap.json``, the player-model swap's XBE hooks
+(the ``swap`` section of Modkit's facts, both releases: each vanilla span it
+writes as size and sha256, each address its shims call), and
+``resources.json``, one sha256 per XBR resource of every G3 build that wears
+a model, which ``scripts/modkit_resources.py`` makes by running Modkit's own
+builds in the clone (checked against G3's per-file hashes first).
 """
 
 from __future__ import annotations
@@ -62,11 +74,16 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
     "rando": ("azurik_mod/randomizer", "azurik_mod/sim/pages.py", "azurik_mod/sim/recipes.py",
               "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json",
               "tests/goldens/pipelines.json", "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
-    "models": ("azurik_mod/patches/player_model", "azurik_mod/patches/_player_character.py", "azurik_mod/assets"),
+    "models": ("azurik_mod/patches/player_model", "azurik_mod/patches/_player_*", "azurik_mod/assets",
+               "azurik_mod/xbr/append.py", "tests/facts", "tests/goldens/shims.json", "tests/goldens/pipelines.json",
+               "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
 }
+DERIVED = {"models": ("resources.json", "swap.json")}   # a family's files the sync makes itself (module docstring)
+SWAP = (("usa", "tests/facts/xbe.json"), ("europe", "tests/facts/xbe.europe.json"))   # Modkit's facts: swap.json's
 
 
 RANDO = "src/azurkit/tools/randomizer"
+CHARACTERS = "src/azurkit/tools/characters"
 LIVE = f"{RANDO}/live"   # the app's Live tracker (its link reads a running xemu): the contracts' app-only folder
 SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's folder or file, AzurKit's, through port())
     "rando": (("azurik_mod/randomizer/data", f"{RANDO}/data", False),
@@ -79,6 +96,10 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
               ("azurik_mod/randomizer/live.py", f"{LIVE}/game.py", True),
               ("azurik_mod/randomizer/live_link.py", f"{LIVE}/link.py", True),
               *((f"azurik_mod/sim/{name}.py", f"{LIVE}/{name}.py", True) for name in ("pages", "recipes"))),
+    # the archive writers a swap builds on (Step 4.3a1): append and relocations in core, the rest the tool's
+    "models": (("azurik_mod/xbr/append.py", "src/azurkit/core/xbr/append.py", True),
+               *((f"azurik_mod/assets/{name}.py", f"{CHARACTERS}/{name}.py", True)
+                 for name in ("characters", "body_codec", "index_xbr"))),
 }
 OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py"})   # AzurKit's own instead: tools/randomizer/dbcache.py
 REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.tools.randomizer import dbcache"),
@@ -94,6 +115,13 @@ REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.
              "from azurkit.tools.randomizer.live.regions import REGIONS, Region, UnmappedAddressError"),
             ("azurik_mod.randomizer.", "azurkit.tools.randomizer."),
             ("from azurik_mod.xbr.nodes import", "from azurkit.core.xbr.nodes import"),
+            # Modkit's xbr/edits.py's error and xbr/sections.py's index records (a file NOTICE.md credits to
+            # JTCPP, D95): ours, in core/xbr/nodes.py
+            ("from azurik_mod.xbr.edits import XbrStructuralError",
+             "from azurkit.core.xbr.nodes import XbrStructuralError"),
+            ("from azurik_mod.xbr.sections import IndexRecordsSection",
+             "from azurkit.core.xbr.nodes import IndexRecordsSection"),
+            ("from azurik_mod.xbr.append import", "from azurkit.core.xbr.append import"),
             ("from azurik_mod.xbr.toc_scan import", "from azurkit.core.xbr.nodes import"),
             ("from azurik_mod.assets.filelist import listed", "from azurkit.tools.randomizer.ports import listed"),
             ("from azurik_mod.iso.xiso import XisoReader", "from azurkit.tools.randomizer.ports import XisoReader"))
@@ -236,6 +264,23 @@ def digest_spans(path: Path) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def derive(family: str, clone: Path, folder: Path, env: dict[str, str]) -> None:
+    """Write the family's :data:`DERIVED` files into its bundle ``folder``,
+    from Modkit's ``clone``: ``swap.json`` from its facts, ``resources.json``
+    from its builds (``scripts/modkit_resources.py``, run in the clone at
+    nice 15; it stops the sync when a build isn't G3's recorded one)."""
+    if family != "models":
+        return
+    facts = {release: (clone / rel).read_bytes() for release, rel in SWAP}
+    swap = {release: json.loads(raw)["swap"] for release, raw in facts.items()}
+    swap["from"] = {rel: hashlib.sha256(facts[release]).hexdigest() for release, rel in SWAP}
+    (folder / "swap.json").write_text(json.dumps(swap, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    shutil.copy(ROOT / "scripts" / "modkit_resources.py", clone / "scripts" / "_azurkit_resources.py")
+    subprocess.run(["nice", "-n", "15", "uv", "run", "--locked", "--directory", str(clone), "python",
+                    "scripts/_azurkit_resources.py", str(folder / "resources.json"), "--bundle", str(folder)],
+                   check=True, env=env)
+
+
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True).stdout
 
@@ -256,6 +301,8 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             ported = {family: sources(clone, family) for family in families}
         except ValueError as exc:
             raise SystemExit(f"nothing written: {exc}") from None
+        for family in families:
+            derive(family, clone, bundle / family, env)
         for family in families:
             meta = json.loads((bundle / family / "oracle.json").read_text(encoding="utf-8"))
             if meta["commit"] != commit or meta["dirty"]:

@@ -11,15 +11,17 @@ import json
 import pytest
 
 from azurkit.core import gate
-from scripts.oracle_sync import FACTS, ORACLE, PATHS, SOURCES, port, read_index, source_hashes, tree_hashes
+from scripts.oracle_sync import DERIVED, FACTS, ORACLE, PATHS, SOURCES, port, read_index, source_hashes, tree_hashes
 
 
 def test_every_oracle_file_is_the_one_the_sync_installed():
     """A hand edit, a missing or an extra file in a family's folder fails;
     each family's ``oracle.json`` (Modkit's index) agrees with ORACLE.toml,
     by the exported sha256 for a facts file, whose build spans are installed
-    as sha256 and size only (D3); and each file the sync installed in our
-    source (``SOURCES``) is as it was installed, none missing or added."""
+    as sha256 and size only (D3), but for the files the sync derives itself
+    (``DERIVED``: the models family's ``swap.json`` and ``resources.json``);
+    and each file the sync installed in our source (``SOURCES``) is as it was
+    installed, none missing or added."""
     index = read_index()
     assert {"core", "packs"} <= set(index)
     assert {p.name for p in ORACLE.iterdir() if p.is_dir()} == set(index)
@@ -30,8 +32,10 @@ def test_every_oracle_file_is_the_one_the_sync_installed():
         assert (meta["family"], meta["tag"], meta["commit"], meta["dirty"]) == (
             family, entry["tag"], entry["commit"], False)
         exported = entry.get("exported", {})
+        derived = DERIVED.get(family, ())
+        assert set(derived) <= set(files), family
         assert {rel: m["sha256"] for rel, m in meta["files"].items()} == {
-            rel: exported.get(rel, sha) for rel, sha in files.items() if rel != "oracle.json"}
+            rel: exported.get(rel, sha) for rel, sha in files.items() if rel != "oracle.json" and rel not in derived}
         assert sorted(exported) == sorted(rel for rel in FACTS if rel in files), family
         for rel in exported:
             sites = json.loads((ORACLE / family / rel).read_text(encoding="utf-8"))["patch_sites"].values()
@@ -65,7 +69,7 @@ def test_a_tag_bumps_commit_list_covers_every_file_of_its_family():
     paths (``oracle_sync.PATHS``), so a Modkit commit that touches only it
     is on the next tag bump's to-do list."""
     off = [f"{family}: {rel}" for family, entry in read_index().items() for rel in entry["files"]
-           if rel not in ("cases.json", "oracle.json")
+           if rel not in ("cases.json", "oracle.json", *DERIVED.get(family, ()))
            and not any(rel == p or rel.startswith(p + "/") for p in PATHS[family])]
     off += [f"{family}: {src}" for family, copies in SOURCES.items() for src, _, _ in copies
             if not any(src == p or src.startswith(p + "/") for p in PATHS[family])]

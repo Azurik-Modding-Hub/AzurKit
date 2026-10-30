@@ -14,6 +14,25 @@ commit = "4c75cf96267fd55988c5c6aa4ab4fd46afc6561b"
 "cases.json" = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
 "oracle.json" = "1dc5b18b3c0528e6a051e4d869886e2ada39b2182e64eeac38a638655de7c132"
 
+[models]
+tag = "oracle-models-1"
+commit = "c5306b3307c3c7415bdaf0d8fa5ac58328036250"
+
+[models.files]
+"cases.json" = "676906b3a26f644a7667bb8d68a24bdf0ae2eb20a79ddd5dad1f824c5d88cb04"
+"oracle.json" = "1f33c7450883001267b2c1806319ccbd20a0f78c333513a889fe34eded387d26"
+"resources.json" = "cb5e6c739c427468425666692a38a969e2eae4ae61133bf05f9a34242253472e"
+"swap.json" = "8fe5d21fad5c2e649337f853b7e4cb5e92f8fc717a6bcc42054e9fd0618ba5db"
+"tests/goldens/europe/pipelines.json" = "5b3fd7f99326e5b0b91db50536b32b108b5c164985dda2004fa2e0eda85a6f5d"
+"tests/goldens/pipelines.json" = "93ee2a70d22a7b2fb650d24d54681c66244ff15c8b8acef1cfb71c897c8148db"
+"tests/goldens/shims.json" = "23eeb9b5ae2e0b61f2107d69d1b02404af71b1f82f87c9e2080924629a850512"
+
+[models.source]
+"src/azurkit/core/xbr/append.py" = "1528ebb6b12b20c138a03fdb4cd2ccdba62d45dc5304328b26e63c7982090963"
+"src/azurkit/tools/characters/body_codec.py" = "87af52412d663f6bdabc3e5a5f14dc4b5174e4b335e0b78b76f8f0b8b493753b"
+"src/azurkit/tools/characters/characters.py" = "92b81e883e401f5d7d99fae6ccd67a2e10e45fbce2519fa292b0792aba3c9ad6"
+"src/azurkit/tools/characters/index_xbr.py" = "b5f9caf638bd57d4b4976f9709bdcfdca3f96ef4bd2eb14641087613fd985141"
+
 [packs]
 tag = "oracle-packs-3"
 commit = "7def1f6ddf43dd9e3064fe5d1b5e26f5323eb7a1"

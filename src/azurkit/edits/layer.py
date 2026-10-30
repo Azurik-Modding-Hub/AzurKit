@@ -12,6 +12,21 @@ there, so a site never lands half, and a :class:`Conflict` names both layers
 and both groups (a config.xbr cell's group names the cell, AZ-130). A later
 group that writes the value a byte already holds overwrites nothing.
 
+A change can also be a whole file (``whole``, §12.2's ``file.put``): the
+file a layer wrote, at any size, planned against the whole vanilla file
+(``before`` its sha256). The character layer writes ``characters.xbr``,
+``fx.xbr`` and ``index.xbr`` so, one group of them (a swap grows each:
+``core.xbr.append``). It shadows every earlier group in its file: a group
+whose bytes it doesn't hold is dropped whole, and listed as a conflict. A
+later range in the file is planned against its vanilla bytes as any change
+and lands over the whole file's; where the whole file changed those bytes,
+the later layer wins them and the conflict names the whole file's group,
+which stays (a file isn't a site). Only one group may write a file whole.
+
+The layers' canonical order is Modkit's ``mod_apply`` order (a file's bytes
+then match Modkit's, file for file): the generator (the randomizer), the
+packs, the character layer, then the ``xbr`` operations (the Data tool).
+
 A layer's :class:`Claim` s are the room the carve allocator gave it in a
 file (``core.xbe.Carver``: a shim's bytes, which its changes then write);
 the manifest keeps them, and no two layers' claims meet. The header state
@@ -34,10 +49,11 @@ DERIVED = {"default.xbe": xbe.grown}   # a file a layer may claim room in -> its
 @dataclass(frozen=True)
 class Change:
     file: str       # its path in the image, e.g. "default.xbe"
-    offset: int
-    before: str     # sha256 of the vanilla bytes it replaces
+    offset: int     # 0 for a whole file
+    before: str     # sha256 of the vanilla bytes it replaces (a whole file's: the whole vanilla file's)
     after: bytes = field(repr=False)
     group: str      # the unit it lands with, e.g. "fps_unlock 0x001983E8 (timestep)"
+    whole: bool = False   # the file whole, at any size (the module's docstring)
 
 
 @dataclass(frozen=True)
@@ -68,11 +84,14 @@ class Conflict:
     layer: str
     group: str
     overwrote: str  # the earlier layer
-    dropped: str    # its group, dropped whole
+    dropped: str    # its group, dropped whole (or, written whole, kept but for those bytes)
+    kept: bool = False   # the earlier group wrote the file whole, and stays
 
     def __str__(self) -> str:
+        fate = (f"whose whole file ({self.dropped}) keeps the rest" if self.kept else
+                f"whose group {self.dropped} is dropped whole")
         return (f"{self.file} 0x{self.offset:X} ({self.size} B): {self.layer} ({self.group}) overwrote "
-                f"{self.overwrote}, whose group {self.dropped} is dropped whole")
+                f"{self.overwrote}, {fate}")
 
 
 def claimed(base: Mapping[str, bytes], layers: Sequence[Layer]) -> dict[str, bytes]:
@@ -95,40 +114,70 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer]) -> tuple[dict[st
     """Each file a change or claim names, as ``layers`` leave it over
     ``base`` (its vanilla bytes) with the claims' derived state
     (:func:`claimed`), and every conflict. ``ValueError`` names a change
-    outside its file or planned against other bytes (D35)."""
+    outside its file or planned against other bytes, a second group
+    writing a file whole, a group of a whole file and ranges, or a whole
+    file a claim derives (D35)."""
     base = {**base, **claimed(base, layers)}
     files: dict[str, bytearray] = {file: bytearray(base[file]) for file in {c.file for la in layers for c in la.claims}}
-    writers: dict[tuple[str, int], list[tuple[int, str]]] = {}   # a byte -> the groups holding its value
+    writers: dict[tuple[str, int], list[tuple[int, str]]] = {}   # a byte -> the range groups holding its value
     members: dict[tuple[int, str], list[Change]] = {}
+    whole: dict[str, tuple[int, str]] = {}   # a file written whole -> its group
+    put: dict[str, bytes] = {}               # -> its bytes, under every range group's
     conflicts: list[Conflict] = []
 
-    def drop(group: tuple[int, str]) -> None:
+    def drop(group: tuple[int, str]) -> None:   # a range group: each byte back to the whole file's, else vanilla
         for c in members.pop(group):
             for at in range(c.offset, c.offset + len(c.after)):
                 held = writers[c.file, at]
                 held.remove(group)
                 if not held:
                     del writers[c.file, at]
-                    files[c.file][at] = base[c.file][at]
+                    files[c.file][at] = (put[c.file] if c.file in put else base[c.file])[at]
 
     for i, layer in enumerate(layers):
         for c in layer.changes:
+            what = f"{layer.id} ({c.group})"
             if c.file not in base:
-                raise ValueError(f"{layer.id} ({c.group}): no file {c.file} in the base")
+                raise ValueError(f"{what}: no file {c.file} in the base")
+            if any(m.whole != c.whole for m in members.get((i, c.group), ())):
+                raise ValueError(f"{what}: one group writes {c.file} whole and another file in ranges")
+            if c.whole:
+                if c.offset or hashlib.sha256(base[c.file]).hexdigest() != c.before:
+                    raise ValueError(f"{what}: written whole against another {c.file}")
+                if c.file in whole or c.file in DERIVED:
+                    by = layers[whole[c.file][0]].id if c.file in whole else "the claims' derived state"
+                    raise ValueError(f"{what}: {c.file} is written whole by {by} already")
+                for group in [g for g, cs in members.items() if any(m.file == c.file for m in cs)]:
+                    ats = [at for m in members[group] if m.file == c.file
+                           for at, value in enumerate(m.after, m.offset) if at >= len(c.after) or c.after[at] != value]
+                    if ats:
+                        drop(group)
+                        conflicts.append(Conflict(c.file, ats[0], len(ats), layer.id, c.group, layers[group[0]].id,
+                                                  group[1]))
+                whole[c.file], put[c.file] = (i, c.group), c.after
+                files[c.file] = bytearray(c.after)
+                members.setdefault((i, c.group), []).append(c)
+                continue
             buf = files.setdefault(c.file, bytearray(base[c.file]))
             end = c.offset + len(c.after)
-            if c.offset < 0 or end > len(buf):
-                raise ValueError(f"{layer.id} ({c.group}): 0x{c.offset:X}+{len(c.after)} is outside {c.file}")
+            if c.offset < 0 or end > min(len(buf), len(base[c.file])):
+                raise ValueError(f"{what}: 0x{c.offset:X}+{len(c.after)} is outside {c.file}")
             if hashlib.sha256(base[c.file][c.offset:end]).hexdigest() != c.before:
-                raise ValueError(f"{layer.id} ({c.group}): planned against other bytes of {c.file} at 0x{c.offset:X}")
+                raise ValueError(f"{what}: planned against other bytes of {c.file} at 0x{c.offset:X}")
             hit: dict[tuple[int, str], list[int]] = {}
+            under = whole.get(c.file)   # the whole file's group, which owns each byte no range group holds
             for at, value in enumerate(c.after, c.offset):
-                for group in writers.get((c.file, at), ()):
+                held = writers.get((c.file, at), ())
+                for group in held:
                     if group != (i, c.group) and buf[at] != value:
                         hit.setdefault(group, []).append(at)
+                if not held and under and buf[at] != value and buf[at] != base[c.file][at]:
+                    hit.setdefault(under, []).append(at)
             for group, ats in hit.items():
-                drop(group)
-                conflicts.append(Conflict(c.file, ats[0], len(ats), layer.id, c.group, layers[group[0]].id, group[1]))
+                if group != under:
+                    drop(group)
+                conflicts.append(Conflict(c.file, ats[0], len(ats), layer.id, c.group, layers[group[0]].id, group[1],
+                                          group == under))
             buf[c.offset:end] = c.after
             for at in range(c.offset, end):
                 writers.setdefault((c.file, at), []).append((i, c.group))

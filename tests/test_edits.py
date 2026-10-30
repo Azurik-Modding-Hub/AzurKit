@@ -70,6 +70,41 @@ def test_a_later_layer_wins_each_conflict_whole_groups_and_the_manifest_names_it
         edits.image(stamp, [stale])
 
 
+def test_a_whole_file_shadows_earlier_groups_and_a_later_range_wins_its_bytes(tmp_path):
+    """A file written whole (the character layer's ``characters.xbr``,
+    ``fx.xbr`` and ``index.xbr``, one group, at any size) drops each earlier
+    group whose bytes it doesn't hold, by name, and keeps one whose bytes it
+    holds. A later range lands over it where it was planned against the
+    vanilla bytes: where the whole file kept them, nothing is overwritten;
+    where it changed them, the later layer wins those bytes and the conflict
+    names the whole file's group, which stays. The image grows the file and
+    the manifest marks the change whole; a second whole write of a file, or a
+    whole file planned against another, is refused by name (D35)."""
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(BASE))
+    stamp = gate.Stamp(gate.USA, src, src.stat().st_size, src.stat().st_mtime_ns, False)
+    grown = b"W" + BASE["b.bin"][1:16] + bytes(16) + b"tail" * 300
+    put = Change("b.bin", 0, _sha256(BASE["b.bin"]), grown, "swap files", whole=True)
+    packs = _layer("a", _change("b.bin", 0, b"Z", "a 1"), _change("a.bin", 0, b"A", "a 1"),
+                   _change("b.bin", 4, BASE["b.bin"][4:6], "a 2"))
+    swap = Layer("player model keylord", "characters", "characters", {"species": "keylord"},
+                 (put, Change("a.bin", 0, _sha256(BASE["a.bin"]), b"whole a", "swap files", whole=True)))
+    data = Layer("xbr", "xbr", "xbr", {"ops": []}, (_change("b.bin", 0, b"D", "#0"), _change("b.bin", 8, b"d", "#1")))
+    made, manifest = edits.image(stamp, [packs, swap, data])
+    with iso.Reader(made) as r:
+        assert r.read("b.bin") == b"D" + grown[1:8] + b"d" + grown[9:] and r.read("a.bin") == b"whole a"
+    assert [str(conflict) for conflict in manifest.conflicts] == [
+        "b.bin 0x0 (1 B): player model keylord (swap files) overwrote pack a, whose group a 1 is dropped whole",
+        "b.bin 0x0 (1 B): xbr (#0) overwrote player model keylord, whose whole file (swap files) keeps the rest"]
+    assert [c.get("whole") for c in manifest.to_json()["layers"][1]["changes"]] == [True, True]
+    twice = Layer("again", "characters", "characters", {}, (put,))
+    with pytest.raises(ValueError, match=r"^again \(swap files\): b\.bin is written whole by player model keylord"):
+        edits.image(stamp, [swap, twice])
+    stale = Layer("stale", "characters", "characters", {}, (Change("b.bin", 0, _sha256(b"X"), b"Y", "s", whole=True),))
+    with pytest.raises(ValueError, match=r"^stale \(s\): written whole against another b\.bin$"):
+        edits.image(stamp, [stale])
+
+
 def _link(value: object, raw: bytes | None = None) -> str:
     """``value`` as a link's fragment, unchecked: JSON (or ``raw``), raw deflate, base64url."""
     squeeze = zlib.compressobj(9, zlib.DEFLATED, -15)

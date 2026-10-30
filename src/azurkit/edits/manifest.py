@@ -72,7 +72,8 @@ class Manifest:
             "azurkit": __version__,
             "base": recipe["base"] | {"files": _sha256(self.release.manifest.read_bytes())},
             "layers": [r | {"changes": [{"file": c.file, "offset": c.offset, "size": len(c.after), "before": c.before,
-                                         "after": after(c.after), "group": c.group} for c in la.changes],
+                                         "after": after(c.after), "group": c.group}
+                                        | ({"whole": True} if c.whole else {}) for c in la.changes],
                              "claims": [{"file": c.file, "offset": c.offset, "size": c.size, "owner": c.owner,
                                          "writable": c.writable} for c in la.claims],
                              "notes": list(la.notes)}

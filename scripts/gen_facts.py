@@ -7,14 +7,18 @@ address, calling convention and argument bytes; AZ-116's three names
 corrected, as Ghidra names them since D94), the kernel exports a shim may
 use (:data:`KERNEL`: each one's ordinal, its convention and argument bytes or
 that it is data, and its slot in the release's kernel thunk table, from the
-oracle's ordinals) and, for Europe, the address map's USA -> Europe addresses
-and its named absences. Hashes, sizes, names and addresses only (D3).
+oracle's ordinals), the player-model swap's XBE hooks (``swap``, from the
+models family's ``swap.json``: each vanilla span it writes, its size and
+sha256 and what writes it, and each address its shims call by name or are
+handed, at the release's own addresses) and, for Europe, the address map's
+USA -> Europe addresses and its named absences. Hashes, sizes, names and
+addresses only (D3).
 
     uv run --locked python scripts/gen_facts.py [--check]
 
 ``--check`` writes nothing and exits 1 when a file isn't what this derives;
 ``tests/test_packs.py`` checks the same. Run it after an oracle sync of the
-packs or core family.
+packs, core or models family.
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ORACLE = ROOT / "tests" / "oracle"
 SOURCES = {"usa": ORACLE / "packs/tests/facts/xbe.json", "europe": ORACLE / "packs/tests/facts/xbe.europe.json"}
 ADDRESS_MAP = ORACLE / "core/azurik_mod/assets/region_europe.json"
+SWAP = ORACLE / "models/swap.json"
 OUT = ROOT / "src" / "azurkit" / "core"
 ABOUT = ("Written by scripts/gen_facts.py from tests/oracle/ (Modkit's facts and Europe's address map), never by "
          "hand. Hashes, sizes, names and addresses only: a site's vanilla bytes are their sha256 and size.")
@@ -58,6 +63,13 @@ def derive(release: str) -> dict:
                       if ordinal in (thunks := facts["kernel_thunks"])["ordinals"] else {})
                    for name, (ordinal, convention, arg_bytes) in KERNEL.items()},
     }
+    swap = json.loads(SWAP.read_text(encoding="utf-8"))[release]
+    out["swap"] = {
+        "sites": {va: {"size": s["size"], "sha256": s["original_sha256"], "by": s["by"]}
+                  for va, s in swap["sites"].items()},
+        "refs": {va: {"by": r["by"]} | ({"symbol": RENAMED.get(r["symbol"], r["symbol"])} if "symbol" in r else
+                                        {"handed": True})
+                 for va, r in swap["refs"].items()}}
     if release == "europe":
         amap = json.loads(ADDRESS_MAP.read_text(encoding="utf-8"))
         out["addresses"] = {va: entry["europe"] for va, entry in amap["map"].items()}

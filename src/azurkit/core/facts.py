@@ -5,7 +5,9 @@ the kernel thunk table's address, the game's functions a shim may call (:class:`
 their names, addresses and ABIs, from which ``shimkit`` writes the header a
 shim includes, AZ-099), the kernel exports a shim may use (:class:`Kernel`:
 their ordinals and slots in the release's thunk table, from which ``shimkit``
-writes ``azurik_kernel.h``, Q85), and Europe's address map: each USA address the packs name, at its Europe
+writes ``azurik_kernel.h``, Q85), the player-model swap's hooks (``swap``:
+each vanilla span it writes, and each address its shims call by name or
+are handed, ``swap_refs``), and Europe's address map: each USA address the packs name, at its Europe
 address, or why it has none. USA's addresses are the canonical ones, by
 which every pack names its sites.
 
@@ -81,6 +83,8 @@ class Facts:
     functions: Mapping[str, Function] = field(default_factory=dict)   # by name
     kernel: Mapping[str, Kernel] = field(default_factory=dict)        # by name
     thunks: int = 0                    # the kernel thunk table's address (a booted XBE's header holds it)
+    swap: Mapping[int, Site] = field(default_factory=dict)          # the swap's sites, by the release's own address
+    swap_refs: Mapping[int, str | None] = field(default_factory=dict)   # -> the function it is, None: handed
 
     def va(self, usa_va: int) -> int:
         """``usa_va``'s address in this release; ``LookupError`` says why
@@ -129,4 +133,6 @@ def of(release: Release) -> Facts:
          for name, f in raw["functions"].items()},
         {name: Kernel(name, k["ordinal"], k["convention"], k["arg_bytes"], int(k["slot"], 16) if "slot" in k else None)
          for name, k in raw["kernel"].items()},
-        int(raw["xbe"]["thunks"], 16))
+        int(raw["xbe"]["thunks"], 16),
+        {va: Site(va, s["size"], s["sha256"]) for va, s in hexed(raw["swap"]["sites"]).items()},
+        {va: r.get("symbol") for va, r in hexed(raw["swap"]["refs"]).items()})
