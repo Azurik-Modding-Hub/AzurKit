@@ -139,15 +139,15 @@ commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 "tests/facts/xbe.json" = "aa6fb90b486f469ef8dbc79ad49a89cdb30065977bb23c771e92041bbe1c22d7"
 
 [rando]
-tag = "oracle-rando-4"
-commit = "c5306b3307c3c7415bdaf0d8fa5ac58328036250"
+tag = "oracle-rando-5"
+commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 
 [rando.files]
 "cases.json" = "470635b0cded0e03386de8e319080709b3d5bde5ec246a52593fc738d4cd6faa"
-"oracle.json" = "7f50476289eea0fb638857710a59c66e2928d2fd68ec18c2fae353e0be3723e0"
-"tests/goldens/europe/pipelines.json" = "d169cfd94136e1eefbda20ba6b871d7bb1a747f7c9a1e7906ee20ba3207c5690"
-"tests/goldens/pipelines.json" = "52e00aaf33951c8b4993a04a13f2b4380874a7bf9610c1514ad6a3c905106f11"
-"tests/goldens/rando_iso.json" = "1124f428ec121562438ba102787c45509e079d8d801d9e8c333bb9527f3f5fc4"
+"oracle.json" = "e619ca390b00fd1c41b419691fcb8769c37881d5bfa0610ada50874824b157f8"
+"tests/goldens/europe/pipelines.json" = "6532611502a306cfabb10d1d7ab855b28e98e1d82759d37380900eaeb5c70d10"
+"tests/goldens/pipelines.json" = "0b56c9bbc4c738dec7601680800f7b268a82b207547be81c7fb67aecb9266aac"
+"tests/goldens/rando_iso.json" = "80b6e05925d0d79a958d5f18a4d1b1ba0fcac552f2346119842d0e958833180c"
 "tests/goldens/rando_plans.json" = "75ed259711ba8aa82e0ba97a35a3c1853475b548b11302890955e97e707b1cf4"
 
 [rando.source]

@@ -1,5 +1,5 @@
 {
- "commit": "c5306b3307c3c7415bdaf0d8fa5ac58328036250",
+ "commit": "28d0b411000f1b228e73d48b930ead27058b9221",
  "dirty": false,
  "family": "rando",
  "files": {
@@ -8,15 +8,15 @@
    "size": 9397
   },
   "tests/goldens/europe/pipelines.json": {
-   "sha256": "d169cfd94136e1eefbda20ba6b871d7bb1a747f7c9a1e7906ee20ba3207c5690",
+   "sha256": "6532611502a306cfabb10d1d7ab855b28e98e1d82759d37380900eaeb5c70d10",
    "size": 290
   },
   "tests/goldens/pipelines.json": {
-   "sha256": "52e00aaf33951c8b4993a04a13f2b4380874a7bf9610c1514ad6a3c905106f11",
+   "sha256": "0b56c9bbc4c738dec7601680800f7b268a82b207547be81c7fb67aecb9266aac",
    "size": 4324
   },
   "tests/goldens/rando_iso.json": {
-   "sha256": "1124f428ec121562438ba102787c45509e079d8d801d9e8c333bb9527f3f5fc4",
+   "sha256": "80b6e05925d0d79a958d5f18a4d1b1ba0fcac552f2346119842d0e958833180c",
    "size": 221
   },
   "tests/goldens/rando_plans.json": {
@@ -28,7 +28,7 @@
  "same_as": {
   "tests/goldens/gui.json: run_randomizer:randomize": "tests/goldens/pipelines.json: randomize-full:seed=2,default"
  },
- "tag": "oracle-rando-4",
+ "tag": "oracle-rando-5",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",

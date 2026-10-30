@@ -1,7 +1,7 @@
 {
  "randomize-full:seed=2,ceiling2": {
-  "ISO": "5186fb7673cc500e09d5868c595cc6f8168f5dc9cd656af1c5cdcc27524b2387",
-  "default.xbe": "79ef7fd14d4e58340d0448f7064144568ef2afd9f579af5f75002e096699f08b",
+  "ISO": "3976704f7cf9b6a804ef5bfe32385dcbcd8519c3c974ba9547d0c30ec51df380",
+  "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
   "filelist.txt": "8dbda3dd59011db7298d9dd9fd7322accc0a3efad5c4343869d8046cbf102838",
   "gamedata/a1.xbr": "d70feb6e95fb19079e5e3bfc7bd16d0aeaf5caee319880972b0c76b7bf0edd0a",
   "gamedata/a3.xbr": "bace154f7f0cb898073d1be5ae6b78fa578e03a43ad41e88589143f2db77db27",
@@ -26,8 +26,8 @@
   "gamedata/w4.xbr": "6d641a5b5ef85f726bdac78e7a18597f85196a3aed3c2293c459cd3597fcdd18"
  },
  "randomize-full:seed=2,default": {
-  "ISO": "4220a3233c4f52b81b0b246b517554e96b0adddb809ec694d7ab3c17d93ede24",
-  "default.xbe": "79ef7fd14d4e58340d0448f7064144568ef2afd9f579af5f75002e096699f08b",
+  "ISO": "f10f0055ebe8ec969194c283b1dd3e69f0b718128c9e497c1bf9ff5942fe7a7e",
+  "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
   "filelist.txt": "6f23c711cf92c302104965101c797090aaeb728a4c1d1d30fac4e773b5d828ef",
   "gamedata/a1.xbr": "2c681357708c455fe61fe1ec42bcf24c7f6b86d33ee6fe1aed9215ffa7bc26a9",
   "gamedata/a3.xbr": "c1c531a5b85c08b640a76e6bf2ddb8ebc330ffac7402572dcd54bb9567351aad",
