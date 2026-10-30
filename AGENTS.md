@@ -665,7 +665,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   --changed`. It runs the lint files in the foreground, then the changed area
   with the oracle's USA and Europe test (or the whole suite) in the background
   under a lock, and prints a key and a receipt path. A run is killed past its
-  cap, 2,700 s, scaled by the host's load per CPU up to twice that, and its log
+  cap, 4,500 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
   it is still running, so issue the same command again.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
