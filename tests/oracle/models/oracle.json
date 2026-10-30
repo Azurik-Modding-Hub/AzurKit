@@ -1,5 +1,5 @@
 {
- "commit": "c5306b3307c3c7415bdaf0d8fa5ac58328036250",
+ "commit": "28d0b411000f1b228e73d48b930ead27058b9221",
  "dirty": false,
  "family": "models",
  "files": {
@@ -8,11 +8,11 @@
    "size": 95172
   },
   "tests/goldens/europe/pipelines.json": {
-   "sha256": "5b3fd7f99326e5b0b91db50536b32b108b5c164985dda2004fa2e0eda85a6f5d",
+   "sha256": "eff457e55e82cd996ce8178922c45cfd7dba66f86568da3b79b35fff50f24bbd",
    "size": 723
   },
   "tests/goldens/pipelines.json": {
-   "sha256": "93ee2a70d22a7b2fb650d24d54681c66244ff15c8b8acef1cfb71c897c8148db",
+   "sha256": "938b17cfb8b115f8fb28a2ad456c18b354a312837427e81e3161e89b01935aa4",
    "size": 25414
   },
   "tests/goldens/shims.json": {
@@ -24,7 +24,7 @@
  "same_as": {
   "tests/goldens/gui.json: run_randomizer:model": "tests/goldens/pipelines.json: randomize-full:player-character=keylord"
  },
- "tag": "oracle-models-1",
+ "tag": "oracle-models-2",
  "toolchain": {
   "capstone": "5.0.9",
   "numpy": "2.5.4",

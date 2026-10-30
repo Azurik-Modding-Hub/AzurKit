@@ -15,16 +15,16 @@ commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 "oracle.json" = "bc17a93867ebddf510aa140fc87eafb4839bd0c607536b0d272f38b313318e39"
 
 [models]
-tag = "oracle-models-1"
-commit = "c5306b3307c3c7415bdaf0d8fa5ac58328036250"
+tag = "oracle-models-2"
+commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 
 [models.files]
 "cases.json" = "676906b3a26f644a7667bb8d68a24bdf0ae2eb20a79ddd5dad1f824c5d88cb04"
-"oracle.json" = "1f33c7450883001267b2c1806319ccbd20a0f78c333513a889fe34eded387d26"
+"oracle.json" = "19c7bf68b7ed50ac0b449babab764c4dd97564e72ce0bb953d709c216fb04079"
 "resources.json" = "cb5e6c739c427468425666692a38a969e2eae4ae61133bf05f9a34242253472e"
-"swap.json" = "8fe5d21fad5c2e649337f853b7e4cb5e92f8fc717a6bcc42054e9fd0618ba5db"
-"tests/goldens/europe/pipelines.json" = "5b3fd7f99326e5b0b91db50536b32b108b5c164985dda2004fa2e0eda85a6f5d"
-"tests/goldens/pipelines.json" = "93ee2a70d22a7b2fb650d24d54681c66244ff15c8b8acef1cfb71c897c8148db"
+"swap.json" = "8931d6875354b8ba65f826804f77621bfabbc59a31f4a523c2e17579c9bbd057"
+"tests/goldens/europe/pipelines.json" = "eff457e55e82cd996ce8178922c45cfd7dba66f86568da3b79b35fff50f24bbd"
+"tests/goldens/pipelines.json" = "938b17cfb8b115f8fb28a2ad456c18b354a312837427e81e3161e89b01935aa4"
 "tests/goldens/shims.json" = "23eeb9b5ae2e0b61f2107d69d1b02404af71b1f82f87c9e2080924629a850512"
 
 [models.source]
