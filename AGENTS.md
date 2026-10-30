@@ -530,8 +530,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   claims and the facts' swap sites (keylord's whole image too), and so is
   each probe of `probes.json` (the variant's, a townsman's and the air
   elemental's), on both releases; a build that needs booblord's clips
-  fails there naming the file. With the content folder as the models sync
-  installed it, each of G3's 7 variant cases (the five built-ins' recipes
+  fails there naming the file. With booblord installed from Azurik-Custom-Content
+  into a new content folder (the `booblords` fixture: Install's own path,
+  from `$AZURKIT_CONTENT_SOURCE`, else the clone beside the main checkout,
+  its files ORACLE.toml's `models.content`), each of G3's 7 variant cases (the five built-ins' recipes
   applied to the player's image, booblord's with her lods and with a
   weapon, and the effects case, a recipe file's fireball row made of the
   effects templates) is Modkit's the same way, and the effects case on

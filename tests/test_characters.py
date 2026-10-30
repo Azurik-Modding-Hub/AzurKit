@@ -11,8 +11,10 @@ from __future__ import annotations
 import hashlib
 import json
 import multiprocessing
+import os
 import re
 import struct
+import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path, PurePath
@@ -621,16 +623,34 @@ def test_the_g4_buttons_values_are_modkits_garret_match(usa_iso):
 SEEDED = "randomize-full:seed=0,all"
 
 
+def _content_source() -> str:
+    """Azurik-Custom-Content's source: ``$AZURKIT_CONTENT_SOURCE``, else its
+    clone beside the main checkout (as ``$AZURKIT_MODKIT`` finds Modkit)."""
+    if env := os.environ.get(sdk.SOURCE_ENV):
+        return env
+    common = subprocess.run(["git", "-C", str(oracle_sync.ROOT), "rev-parse", "--path-format=absolute",
+                             "--git-common-dir"], capture_output=True, text=True, check=True).stdout.strip()
+    return str(Path(common).parent.parent / "Azurik-Custom-Content")
+
+
 @pytest.fixture
-def booblords():
-    """The content folder as the models sync installed it (ORACLE.toml's
-    ``models.content``: booblord's clips and voice, Azurik-Custom-Content's,
-    each at its sha256), which the built-in variants read; one it lacks or
-    holds otherwise fails the test naming it."""
-    want = oracle_sync.read_index()["models"]["content"]
-    held = {rel: _sha256((content.ROOT / rel).read_bytes()) if (content.ROOT / rel).is_file() else None for rel in want}
-    assert held == want, (f"the content folder {content.ROOT} isn't the models sync's: "
-                          + ", ".join(rel for rel in want if held[rel] != want[rel]))
+def booblords(tmp_path_factory, monkeypatch):
+    """Booblord installed from Azurik-Custom-Content (:func:`_content_source`:
+    Install's own path, ``sdk.content_install``, every file checked) into a
+    new content folder, which the build processes read (``AZURKIT_CONTENT``);
+    the files it installs are ORACLE.toml's ``models.content``, Modkit's
+    copies of her clips and voice. A source it can't read stops the test with
+    one message."""
+    source, folder = _content_source(), tmp_path_factory.mktemp("content")
+    monkeypatch.setattr(content, "ROOT", folder)
+    monkeypatch.setenv(content.ENV, str(folder))
+    try:
+        record = sdk.content_install({"id": "booblord", "source": source})["installed"]["booblord"]
+    except (OSError, ValueError) as exc:
+        pytest.fail(f"Azurik-Custom-Content's booblord can't be installed from {source} (set "
+                    f"{sdk.SOURCE_ENV}, or clone it beside the main checkout): {exc}", pytrace=False)
+    held = {rel: sha for rel, sha in record["files"].items() if not rel.startswith("variants/")}
+    assert held == oracle_sync.read_index()["models"]["content"], "booblord's files aren't models.content's"
 
 
 def _variants(release, folder: Path) -> dict[str, dict]:
@@ -656,7 +676,8 @@ def _variants(release, folder: Path) -> dict[str, dict]:
 def test_each_variant_case_is_modkits_file_for_file_and_resource_for_resource(release, request, booblords, tmp_path):
     """Each of G3's variant cases (:func:`_variants`: on USA the five
     built-in variants' recipes applied to the player's image, booblord's
-    clips and voice read from the content folder, booblord with a weapon,
+    clips and voice installed from Azurik-Custom-Content (:func:`booblords`),
+    booblord with a weapon,
     and the effects case; on Europe the effects case) built through
     ``sdk.image`` is Modkit's file for file and resource for resource, its
     default.xbe written inside its claims and the facts' swap sites
