@@ -2,7 +2,9 @@
 D895) are their sources' builds and hold their G2 hashes, all fifty-one: the
 packs' eleven and the player-model swap's forty; the headers a shim includes are written from the facts
 (AZ-099, Q85: no vendored header), and a shim built against them lands with
-each call at the facts' address (``core.coff``); the carve allocator places
+each call at the facts' address (``core.coff``), each of whose functions
+starts a function in its release's code (the prologue drift guard); the
+carve allocator places
 a shim past every claim the layers before it hold, in ``.text``'s gap or an
 appended section, and the claims, kept in the manifest, derive the header's
 state (``core.xbe.Carver``, ``grown``). The shim packs' G1 cases (their
@@ -114,6 +116,36 @@ def test_a_shim_built_against_the_facts_header_lands_with_each_call_at_its_facts
     names = {f.name for f in functions}
     assert {"player_ground_attack_start", "settings_get_double", "game_start_setup"} <= names
     assert not {"player_ground_land_tick", "cvar_get_double", "dev_menu_flag_check"} & names
+
+
+# The bytes an i386 function opens with in MSVC-compiled code (Modkit's test_va_audit): PUSH EBP/EBX/ESI/EDI/ECX,
+# SUB ESP, MOV r32 or r8 from memory, LEA, MOV AL/EAX from an address, XOR r32, FLD, PUSH imm, a 16-bit operand,
+# CMP r8, TEST r/m8, a tail-call JMP, an import thunk's JMP [abs] or PUSH [ESP+4], and a TIB read (FS:). A
+# function whose first byte is none of these is mid-function: fix its address (Ghidra), never extend this set.
+PROLOGUE_FIRST_BYTES = frozenset({0x55, 0x53, 0x56, 0x57, 0x51, 0x83, 0x81, 0x8B, 0x8A, 0x8D, 0xA0, 0xA1, 0x33,
+                                  0xD9, 0x6A, 0x68, 0x66, 0x80, 0xF6, 0xE9, 0xFF, 0x64})
+
+
+@pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
+                                     pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
+                                                  id="europe")])
+def test_each_facts_function_starts_a_function_in_its_releases_code(release, request):
+    """The prologue drift guard (Modkit's test_va_audit, ported in Step
+    4.12a, when the facts' functions became AzurKit's to edit): each
+    function the facts give a shim lies, at its release's address, in the
+    file bytes of an executable section of that release's vanilla XBE, and
+    its first byte is one a prologue opens with (``PROLOGUE_FIRST_BYTES``)."""
+    with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
+        data = r.read("default.xbe")
+    known = facts.of(release)
+    code = [s for s in xbe.sections(data) if s.flags & 4]   # an XBE section's executable bit
+    outside, opens = [], []
+    for f in known.functions.values():
+        if not any(s.va <= f.va < s.va + min(s.vsize, s.raw_size) for s in code):
+            outside.append(f.name)
+        elif data[known.offset(f.va)] not in PROLOGUE_FIRST_BYTES:
+            opens.append(f"{f.name} at 0x{f.va:08X}")
+    assert (outside, opens, len(known.functions)) == ([], [], {"usa": 354, "europe": 254}[release.name])
 
 
 def test_a_shim_lands_past_every_claim_before_it_and_its_claims_derive_the_header(usa_iso):
