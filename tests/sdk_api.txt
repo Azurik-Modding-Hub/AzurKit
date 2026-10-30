@@ -61,6 +61,13 @@ layer stacks after the packs::
 
     {"iso": "<a vanilla image>", "packs": {...}, "character": {"species": "keylord", "mode": "garret4"}}
 
+A character's ``species`` may name a variant (a recipe over a base species:
+its sculpted mesh, painted textures, jiggle springs, clips and sounds), a
+built-in or one of the recipe file ``variant_file`` names, its shapes sized
+by ``shapes``::
+
+    {"character": {"species": "mine", "variant_file": "<recipes.json>", "shapes": {"hips": 1.2}}}
+
 A character isn't carried by a build's mods file (:func:`open_build`) or a
 share link (:func:`preset_encode`) yet, nor worn by a randomized build
 (its logic would need the body's reasons): each refuses it by name.

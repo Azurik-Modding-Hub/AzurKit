@@ -35,13 +35,16 @@ family's installs the archive writers a character swap builds on (Step
 payloads), ``index.xbr``'s records, ``characters.xbr``'s bodies and clips
 and the body codec.
 
-Two of a family's files are the sync's own (:data:`DERIVED`), not Modkit's
+Three of a family's files are the sync's own (:data:`DERIVED`), not Modkit's
 bundle: the models family's ``swap.json``, the player-model swap's XBE hooks
 (the ``swap`` section of Modkit's facts, both releases: each vanilla span it
-writes as size and sha256, each address its shims call), and
+writes as size and sha256, each address its shims call),
 ``resources.json``, one sha256 per XBR resource of every G3 build that wears
 a model, which ``scripts/modkit_resources.py`` makes by running Modkit's own
-builds in the clone (checked against G3's per-file hashes first).
+builds in the clone (checked against G3's per-file hashes first), and
+``probes.json``, its builds of AzurKit's variant probes on both releases
+(a variant's mesh, paint and jiggle, Step 4.3c1: each probe's recipe, its
+files' sha256 and resources).
 """
 
 from __future__ import annotations
@@ -86,7 +89,7 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
                "azurik_mod/xbr/clone.py", "azurik_mod/xbr/render.py", "azurik_mod/xbr/draw.py", "tests/facts", "tests/goldens/shims.json", "tests/goldens/pipelines.json",
                "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
 }
-DERIVED = {"models": ("resources.json", "swap.json")}   # a family's files the sync makes itself (module docstring)
+DERIVED = {"models": ("probes.json", "resources.json", "swap.json")}   # the sync's own files (module docstring)
 SWAP = (("usa", "tests/facts/xbe.json"), ("europe", "tests/facts/xbe.europe.json"))   # Modkit's facts: swap.json's
 
 
@@ -168,7 +171,8 @@ FAMILY_REWRITES = {   # a family's own rewrites, applied before REWRITES
         ("from azurik_mod.assets.", f"from {CHARACTERS_PKG}."),
         ('Path(__file__).resolve().parents[1] / "assets"', "Path(__file__).resolve().parent"),   # one folder
         # IsoStaging takes the vanilla files a build read (ports.Vanilla), not an image's path
-        ("scratch = IsoStaging(Path(iso))", "scratch = IsoStaging(iso)")),
+        ("scratch = IsoStaging(Path(iso))", "scratch = IsoStaging(iso)"),
+        ("game = IsoStaging(Path(iso))", "game = IsoStaging(iso)")),   # a variant's default weapon (Step 4.3c1)
 }
 # Lines of Modkit's source a family's sync installs that hold 8 or more bytes in a row of a vanilla file
 # (the leak guard's rule before D961, kept as its default), by their path and sha256, each with how port() rewrites
@@ -589,8 +593,9 @@ def digest_spans(path: Path) -> str:
 def derive(family: str, clone: Path, folder: Path, env: dict[str, str]) -> None:
     """Write the family's :data:`DERIVED` files into its bundle ``folder``,
     from Modkit's ``clone``: ``swap.json`` from its facts, ``resources.json``
-    from its builds (``scripts/modkit_resources.py``, run in the clone at
-    nice 15; it stops the sync when a build isn't G3's recorded one)."""
+    and ``probes.json`` from its builds (``scripts/modkit_resources.py``, run
+    in the clone at nice 15; it stops the sync when a build isn't G3's
+    recorded one)."""
     if family != "models":
         return
     facts = {release: (clone / rel).read_bytes() for release, rel in SWAP}

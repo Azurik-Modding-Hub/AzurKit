@@ -1052,7 +1052,7 @@ def default_name(iso, variant) -> str | None:
     from azurkit.tools.characters.gltf import resolve_body
     from azurkit.tools.characters.ports import IsoStaging
 
-    game = IsoStaging(Path(iso))
+    game = IsoStaging(iso)
     characters = game.stored("characters.xbr")
     body, _ = resolve_body(characters, game.stored("config.xbr"), variant.base)
     w = default_weapon(characters, read_body(characters, body), variant)

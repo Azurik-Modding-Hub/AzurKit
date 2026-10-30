@@ -23,6 +23,17 @@ player model: ``{"species": "keylord", "mode": "own", "size": "own",
 "scale": 1.0, "attack_reach": 1.0, ...}``. Its body's size folds into
 player_physics' walk and roll before the packs (:func:`size`, Modkit's
 ``layer.size_params``), which the sdk does.
+
+**A variant** (Step 4.3c; Modkit's ``_player_variants``: a recipe over a
+base species, its sculpted mesh, painted textures and colours, its jiggle
+springs, its clips, sounds and effects) is worn as ``--player-character``
+wears one: ``species`` names a built-in (``variants.json``) or one of the
+recipes of the file ``variant_file`` names (``--player-variant-file``; the
+files a recipe names are read beside it), its shapes sized by ``shapes``
+(``{name: x}``, ``--player-shape``); an option the recipe gives must be the
+variant's, and its scale and attack numbers multiply the variant's
+(:func:`variant`). The layer's recipe keeps the variant's sha and its
+notes the file's name, never its path (a build's manifest carries both).
 """
 
 from __future__ import annotations
@@ -30,6 +41,7 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Mapping, Sequence
+from pathlib import PurePath
 
 from azurkit.core import facts as facts_
 from azurkit.core import gate
@@ -48,7 +60,11 @@ FIELDS = {   # a recipe's field -> (its type, apply_player_model's keyword)
     "attack_balance": (bool, "attack_balance"), "attack_damage": (float, "attack_damage"),
     "attack_speed": (float, "attack_speed"), "anims": (str, "missing_anims"), "sounds": (str, "sounds"),
     "weapon": (str, "weapon"), "ram": (int, "ram"), "jiggle_strength": (float, "jiggle_strength"),
-    "jiggle_stiffness": (float, "jiggle_stiffness")}
+    "jiggle_stiffness": (float, "jiggle_stiffness"), "variant_file": (str, None), "shapes": (dict, None)}
+VARIANT_OPTIONS = {   # a recipe's field -> _player_variants.options' keyword (Modkit's variant_options)
+    "mode": "mode", "size": "size", "sounds": "sounds", "attack_balance": "balance", "attack_ground": "ground",
+    "anims": "anims", "scale": "scale", "attack_reach": "reach", "attack_damage": "damage", "attack_speed": "speed",
+    "jiggle_strength": "jiggle_strength", "jiggle_stiffness": "jiggle_stiffness"}
 
 
 def normalize(given: object) -> dict:
@@ -69,7 +85,36 @@ def normalize(given: object) -> dict:
         if not ok:
             raise ValueError(f"character: {name} {value!r} is not {kind.__name__ if kind is not float else 'a finite number'}")
         out[name] = value
+    for shape, x in out.get("shapes", {}).items():
+        if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):
+            raise ValueError(f"character: shapes.{shape} {x!r} is not a finite number")
     return out
+
+
+def variant(recipe: Mapping, vanilla) -> tuple[object, dict] | tuple[None, None]:
+    """The variant :func:`normalize`'s ``recipe`` wears and
+    ``apply_player_model``'s options for it (Modkit's ``player_variant`` and
+    ``variant_options``), or ``(None, None)`` for a species: ``species`` a
+    built-in variant, else one of ``variant_file``'s recipes, its shapes
+    sized by ``shapes``; a mode, size, sounds, anims or on/off option the
+    recipe gives must be the variant's, its scale and attack numbers
+    multiply the variant's (a weapon's moveset's, under a weapon: its
+    default read from ``vanilla``). ``ValueError`` (``OSError`` for the
+    file) names what can't load."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import _player_weapons as weapons
+
+    found = variants.resolve(recipe["species"], recipe.get("variant_file"))
+    if found is None:
+        if "shapes" in recipe:
+            raise ValueError(f"character: shapes size a variant's shapes, and {recipe['species']!r} names no variant")
+        return None, None
+    if recipe.get("shapes"):
+        found = variants.reshaped(found, recipe["shapes"])
+    weapon = recipe.get("weapon")
+    default = weapons.default_name(vanilla, found) if weapon not in (None, weapons.DEFAULT, weapons.OWN) else None
+    given = {VARIANT_OPTIONS[k]: v for k, v in recipe.items() if k in VARIANT_OPTIONS}
+    return found, variants.options(found, weapon=weapon, default=default, **given)
 
 
 def whole_files(base: Mapping[str, bytes], built: Mapping[str, bytes], group: str) -> tuple[Change, ...]:
@@ -99,6 +144,12 @@ def size(recipe: Mapping, vanilla) -> float:
 
     swap = _swap()
     with ports.building(ports.Build(vanilla)):
+        worn, options = variant(recipe, vanilla)
+        if worn is not None:   # Modkit's randomize-full: the variant's base dressed with its recipe
+            swap.check_player_model(ports.IsoStaging(vanilla), worn.base)
+            shape = swap.size_shape(vanilla, worn.base, options["mode"], options["size"], None, worn,
+                                    recipe.get("weapon"))
+            return swap.movement_size(shape, options["model_scale"])
         swap.check_player_model(ports.IsoStaging(vanilla), recipe["species"])
         shape = swap.size_shape(vanilla, recipe["species"], recipe.get("mode", swap.DEFAULT_MODE),
                                 recipe.get("size", swap.DEFAULT_SIZE), recipe.get("anims"),
@@ -140,10 +191,17 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     current, _ = compose(base, before)
     build = ports.Build(vanilla, taken=list(taken), packs=dict(packs))
     staging = ports.IsoStaging(vanilla, {f: bytes(b) for f, b in current.items()})
-    kwargs = {FIELDS[k][1]: v for k, v in recipe.items() if k != "species"}
     attack = swap.AttackLogic()
     with ports.building(build):
-        lines = swap.apply_player_model(staging, recipe["species"], logic=attack, **kwargs)
+        worn, options = variant(recipe, vanilla)
+        if worn is not None:   # Modkit's randomize-full: the base dressed with the variant's recipe
+            lines = swap.apply_player_model(staging, worn.base, variant=worn, logic=attack, weapon=recipe.get("weapon"),
+                                            ram=recipe.get("ram"), **options)
+        else:
+            kwargs = {FIELDS[k][1]: v for k, v in recipe.items() if FIELDS[k][1] is not None}
+            lines = swap.apply_player_model(staging, recipe["species"], logic=attack, **kwargs)
+    if worn is not None and worn.source != "built-in":   # the log names the recipe's file: its name only
+        lines = [line.replace(worn.source, PurePath(worn.source).name) for line in lines]
     if folded is not None and attack.size != folded:
         raise ValueError(f"character: the dressed body's size x{attack.size:.6g} isn't the x{folded:.6g} the walk "
                          "and roll were folded with")
@@ -165,7 +223,8 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
             table = next((name for start, end, name in tables if start <= lo < end), "config.xbr")
             changes.append(Change(CONFIG, lo, hashlib.sha256(base[CONFIG][lo:hi]).hexdigest(), built[CONFIG][lo:hi],
                                   f"{who} config/{table}"))
-    layer = Layer(who, TOOL, KIND, dict(recipe), tuple(changes), claims)
+    kept = {k: v for k, v in recipe.items() if k != "variant_file"} | ({"variant": worn.sha} if worn else {})
+    layer = Layer(who, TOOL, KIND, kept, tuple(changes), claims)
     return layer, list(lines)
 
 

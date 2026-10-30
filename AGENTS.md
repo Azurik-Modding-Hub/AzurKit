@@ -128,11 +128,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     becomes zeros), and
     `NUMBERS` writes a tuple of byte-sized ints as a string's.
   - **The sync's own files** (`oracle_sync.DERIVED`): the models family's
-    `swap.json` (the `swap` section of Modkit's facts, both releases) and
+    `swap.json` (the `swap` section of Modkit's facts, both releases),
     `resources.json`, which `scripts/modkit_resources.py` makes by running
     Modkit's own build of each G3 case that wears a model inside the
     sync's clone of Modkit (never in AzurKit); each built file's sha256
-    must be G3's, or the sync stops with nothing written.
+    must be G3's, or the sync stops with nothing written; and
+    `probes.json`, its builds of AzurKit's variant probes
+    (`modkit_resources.probes`: recipes no G3 case builds without
+    Azurik-Custom-Content's files) on both releases, each probe's recipe
+    with its files' sha256 and resources.
 - AzurKit never imports Modkit.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, its sections, every patch site's size and vanilla sha256, the
@@ -388,11 +392,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     roll for the body, goes to player_physics as a `Pack.inputs`, never a
     recipe's slider), then plans the character layer after the packs
     (`tools.characters.plan`).
+  - **A variant** (Step 4.3c1; Modkit's `_player_variants`: a recipe over a
+    base species, its mesh sculpted by `mesh_edit.py`'s ops, its textures
+    painted and coloured by `paint.py` and `textures.py`, its bones on
+    `jiggle.py`'s springs, its clips, sounds and effects): `species` names
+    one as `--player-character` does, a built-in (`variants.json`) or one of
+    the recipes of the file `variant_file` names (`--player-variant-file`;
+    the files a recipe names are read beside it), its shapes sized by
+    `shapes` (`--player-shape`); an option a recipe gives must be the
+    variant's, its scale and attack numbers multiply the variant's
+    (`tools.characters.variant`). The layer's recipe keeps the variant's
+    sha, and its notes the file's name, never its folder.
   - Not here: a randomized build wearing a character (its logic needs
-    Modkit's model reasons: Step 4.3c's seed case), and a character in a
+    Modkit's model reasons: Step 4.3c2's seed case), and a character in a
     share link or a build's mods file (the pickers' step, 4.3d): each is
-    refused by name. Nor the built-in variants (booblord, beamlord: Step
-    4.3c).
+    refused by name. Nor the built-in variants' checks, lods and the
+    effects templates (Step 4.3c2).
   - **The content folder** (Step 4.3b, `tools/characters/content.py`): the
     files the swap reads that Azurik-Custom-Content carries, never this
     repository or the wheel (D869: our own work, made in Blender on the
@@ -438,7 +453,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   build an image that reads back, and each of G3's 20 body cases (its
   weapon and sound cases and garret4's own body among them) is Modkit's file for file and
   resource for resource, its default.xbe writes inside its claims and the
-  facts' swap sites (keylord's whole image too); so are the 7 cases that
+  facts' swap sites (keylord's whole image too), and so is each variant
+  probe of `probes.json`, on both releases; so are the 7 cases that
   read the content folder (the bare-hands kit's and the funnel's), which
   needs the files the sync installed there (the test fails naming one
   missing), and a build without them fails naming the file.

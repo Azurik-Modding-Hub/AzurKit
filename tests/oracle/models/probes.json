@@ -1,0 +1,3941 @@
+{
+ "variant:probe,shape=hips=1.2,weapon=farmers_hoe": {
+  "character": {
+   "shapes": {
+    "hips": 1.2
+   },
+   "species": "probe",
+   "weapon": "farmers_hoe"
+  },
+  "europe": {
+   "files": {
+    "default.xbe": "56ea9d9621082a403b8bad633ee41da72e74f80509836e93b153b7ceea3909fc",
+    "gamedata/characters.xbr": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
+    "gamedata/config.xbr": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+    "gamedata/fx.xbr": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",
+    "gamedata/index/index.xbr": "7acc608a05d3f00060f1071c30b3d7111a7dbb68cda280f09c95d3a1cb86d426"
+   },
+   "resources": {
+    "gamedata/characters.xbr": {
+     "changed": [
+      [
+       2955,
+       "gshd",
+       924,
+       "5a499f77dd38a33e69bf43f822577efe20b109954537ac7aff4eaae8df6d6e7c"
+      ],
+      [
+       2956,
+       "bmsh",
+       526640,
+       "929c32a75f13145ab27ff47b824f99dbdd44678cd8d615c1bd5e127f2c5db3af"
+      ],
+      [
+       2957,
+       "body",
+       66816,
+       "806eeace34214146e3f64cd3532f473236d6c9867c9a75c709a5d31ad4fdea75"
+      ],
+      [
+       2958,
+       "banm",
+       15428,
+       "7be1046a835b16114d7a733fc6c234ccbec79923009b580ec453b2911e906a7c"
+      ],
+      [
+       2959,
+       "banm",
+       13424,
+       "6a52fa2345713c3efa7d1fa587e7ed32951ad5205c8f586956c78a1264746821"
+      ],
+      [
+       2960,
+       "banm",
+       15796,
+       "858824ca484f97e0517be1ef28a6d2fe34413ebb540925494664d3e8013d66fd"
+      ],
+      [
+       2961,
+       "banm",
+       26992,
+       "1297844eb0cac33a7072026a5187bb920419a07f0dc479991b9a16fcdc5576bc"
+      ],
+      [
+       2962,
+       "banm",
+       18252,
+       "c6b57cc1a7fe14e1aad3e5ebae9ae7848d681af34403cb6199117f9b13c80492"
+      ]
+     ],
+     "count": 3477,
+     "new": [
+      [
+       null,
+       "surf",
+       174976,
+       "bde17fc92e941a2e2886e08beffec0b531c158883ba62a5ee0c1ab082b776544",
+       []
+      ],
+      [
+       null,
+       "surf",
+       43904,
+       "e66088ed9705add95669206e448b2595a1c10eaf5dcc464a66c66cb64eac622c",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_basic_attack",
+       "banm",
+       42944,
+       "eb5ed13b3fb8ffc67622daa4c1affe6802c14b21e29def5d6919e65bdd76b6ea",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_ledge",
+       "banm",
+       36156,
+       "ec9c62db9db260da31f48442d13b5841bcb5b1ba20a6a046b27301178b8b45b6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_sweep",
+       "banm",
+       56868,
+       "d331ad7008beb43a8aae179f781037ccf394eeacfeba9639cc187b6bb054741a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_1",
+       "banm",
+       29716,
+       "b7d0549f8b9035633aedb9badf7d6cbbdac29d92477e4149ea72c9c208112407",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_10",
+       "banm",
+       42748,
+       "6fbd30f07f1c3361f691a7fd98d1a85a06db5f3503c3a4a8d75e0eb8c5a8674b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_12",
+       "banm",
+       25000,
+       "141e9eb65d5504488af7a47f9f005c44a652bd4e259cfd23b7c19bedcf783675",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_13",
+       "banm",
+       20960,
+       "712148bfc7708b021ed6036ec2d67ce58a3f84810d609bddf758568e899fcb1f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_14",
+       "banm",
+       31428,
+       "692bb9d667285cc5968bdd98d9fc976028056d96fa4cdd1c4fb951eefea278a0",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_15",
+       "banm",
+       32984,
+       "43de0a22b8f8d263e1a3e86a9e4069f1f0a68606b4bfac062cf813ded0856a5a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_16",
+       "banm",
+       31304,
+       "25362145463ac646671e31ef63d4df13f2b07b351329c3a328bab5ff740464e9",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_17",
+       "banm",
+       29604,
+       "19da0bd7f1d45fb1010bf64629254335bab42798f6eb72f481af00e2054a8cce",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_2",
+       "banm",
+       33020,
+       "87446e5c948d4b7361feb8d6a7d051ebd9f517ef0e1404ba446acaa3dd9387bf",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_3",
+       "banm",
+       31696,
+       "320c8ecc31224af535888b0adcda4974422f71433f3f150ef287086e0b71dd78",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_8",
+       "banm",
+       32356,
+       "25227234b0119a8b747b1fe0906e3d3d708cf024c452edbb59d33830c712ecf3",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_9",
+       "banm",
+       24208,
+       "9c90b214c7108a18959a9f3bb758368a554f49dd5e22dd43a476c375fc933acb",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back",
+       "banm",
+       23912,
+       "d318a4eaf43eaf28dcca4a76e0c41cd8fc92232eec8abfc4b521d3e138f13355",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back_kick",
+       "banm",
+       26104,
+       "6a861004b0115a396dcb9519d2d2622f19af066964cdcb929c1ba2c8282e76fd",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down",
+       "banm",
+       52644,
+       "75f2f22f244130436572ec7dadfb255b5c236017f94fb86bf2c00275f18e576e",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down_edge",
+       "banm",
+       85828,
+       "fe190c5fb8a4a8ee2ac2c831f37f9c5ae057ac9d3f025519ec40304ab9eb712c",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_drop",
+       "banm",
+       28816,
+       "474cec5ef0547249e9fd895f9d236114fafd188bd32bfd49c0bf3569c8e2fdd2",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_from_jump",
+       "banm",
+       26008,
+       "27d443b94d427da7f160b0af225e9080ccf220e417e503e5eb9e6feb00ce4e34",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_idle",
+       "banm",
+       45580,
+       "b862b38f08734647c79ebeb3a88384b0dd9e7677724588dd9c891820a18101e9",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_left",
+       "banm",
+       52888,
+       "f21bcafd64f78f756aaa2be255fcaecbbc49dfb855f490d3d195fae03fe854b6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_right",
+       "banm",
+       50776,
+       "22f6338ef9e32a02f7d76bc903ec4d0677caf1f75d32a2bf56a1a9517e463e6a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_start",
+       "banm",
+       58556,
+       "c747b65eba801e57c79db69d170f25b5eea92fc7ac217c1ff1af303fea227599",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up",
+       "banm",
+       51396,
+       "67f18bbdcfc4fc51c2b195ac51100e53375920d956dd1d3c7a4bf76447065269",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up_edge",
+       "banm",
+       123496,
+       "b76eac7e3a2769e4a7e865c4d354bfba56ee53348be1ec969e7e92ada950505f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/die",
+       "banm",
+       63060,
+       "29127a349270b45b51c976039d94e31df5aa264a1c10809449cef8af82427935",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_1",
+       "banm",
+       91828,
+       "551cc9442ff23de1afcf4393fc46caa20b529978825141a589444f53103da163",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_2",
+       "banm",
+       120884,
+       "ff1b108dc601f45b02e1b073cf32184bb372510b539d2a7968b18ff5df354051",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/drowning",
+       "banm",
+       109084,
+       "e8ff1569602e025fa973ad821f689b690750ffa670095f48493e706615f56a5b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack",
+       "banm",
+       99180,
+       "c4f4e2b5d244e45536103b59467131be7808ab9ddeac9959219bd1ba4d90ca2b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_2",
+       "banm",
+       126524,
+       "772f615c7963f411d5532e2acd12f6673ee4d0ff5f2f6b037c0f8756e2629560",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_3",
+       "banm",
+       152316,
+       "31ab3b45ecced3afe3e6ac45775bdbda5a31fcff736cd64815f802b3bcd1913a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall",
+       "banm",
+       44872,
+       "a4f81c5bd8289722ed595c0c6f0368d38229988bbcff03b58b882048447bfda7",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_attack",
+       "banm",
+       18412,
+       "d77d18887818e0e3e66cba32fe214af21010c55bae714c04e32514de7df795fe",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_big",
+       "banm",
+       38648,
+       "ac8fad446a5d85f90c13b084c55e6f35e6f2261388ee40964a9dc63c9b6ae62f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang",
+       "banm",
+       32148,
+       "ba56d323d177f1ab66c36d517f5e96715ecdaac567c9181cb71afecab6f2187b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang_start",
+       "banm",
+       34552,
+       "09ed830b0dd1ba682378782e40064fd026305e0872ed5a88231004ef41b5191f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist",
+       "banm",
+       102280,
+       "f0e9492fc04449b250d80c2185ecec4af678136a1df91114949fa0851a8cd7f1",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist_waist",
+       "banm",
+       45780,
+       "8e32a1cc8ccdf4aacafc812de2860baa1199cf49ffbb929a3c6c5dadfa2c0da5",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hose_attack_3",
+       "banm",
+       69272,
+       "cd65dac80f98e4948892065b6f390e723217f15a8c6c44e020986ba3c3d68243",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hover",
+       "banm",
+       32692,
+       "d0f8f5d9c18b1333f94daba255617e92b156b09b3353b7a1c02da69041653a59",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump",
+       "banm",
+       44804,
+       "c94ed801a8cf3bcfa0ea020b22610ae27ca25a1e7e522f9e05775c855dee2039",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump_standing",
+       "banm",
+       51944,
+       "cff307a06e59def92746234b83ae76314a3612b69751f9d65d6d25c6f4a6a5b4",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1",
+       "banm",
+       24348,
+       "71bfe3da44948c9aaf475fac520ddf4d450183f179b7d4198d23e2e98ea61cfe",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1b",
+       "banm",
+       25692,
+       "c88fe21222a71461fb0eeffb067baacfd8cad4fb3dba29a3ccd1861e16df8705",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1l",
+       "banm",
+       26108,
+       "b489e1ecda91d10af68a35dcc48251eb0c5ac14600a8943bf64bd59a2c19d5d1",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1r",
+       "banm",
+       26172,
+       "3a30849f9c9b7bd6a425ca1a0c162b1dd29de427d3d1dd99249bff76b7d8a60b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/roll_forward",
+       "banm",
+       61388,
+       "53ad7a0027ed209f265dc0ff2ad50539973389c610e4a36431178cd1ee93f1d6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/slide",
+       "banm",
+       23012,
+       "dc3b85fa544dac5c221aca063685b0d75a024a2dd8451faa28a87167b2654ea1",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_1",
+       "banm",
+       36404,
+       "a06029de1dee41cadd1c766f9d5291d11127883ec006777acbe789afab727a67",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_2",
+       "banm",
+       48760,
+       "b7d73e2896dde94c74b87951144295bb52a6b027537299a79e6e5eb240c7f55a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/step_up",
+       "banm",
+       39532,
+       "06db84bf69f1a36ceccdebc78ff8d1fd59df2c441801f5cfea6bce702bcd5570",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/superjump",
+       "banm",
+       162388,
+       "426bb66033559f0698415e08622458d8558bf28aaedb1044d2cce4614a99eeef",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_2",
+       "banm",
+       45292,
+       "9729d6e6e775a697f048101e3d06bb5ba1bd15b3280316d02222a70b66218b0f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle",
+       "banm",
+       67792,
+       "9782fe504bba78f94fbd144b0171ca445b4913a9e1e33ff03b99dfbfda96392f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_down",
+       "banm",
+       31936,
+       "ce736800b94a2e0721d685a008ade8b35fab4af9327fe9c8814da836eda7b453",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_up",
+       "banm",
+       34100,
+       "a058a80a85cf39b6063d8e73c12e656ecf6685417f95cedaf11bc087bb0d29e5",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/touchdown",
+       "banm",
+       24360,
+       "ad3753512ad9a87755499bcde465468f5c44705aa3ee59b6cbfb97505af0cd13",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/use",
+       "banm",
+       41584,
+       "533b9497bb4fff082b1507ba45faf28c5806accb4f73b71c193cc94ba3dbd06e",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_1",
+       "banm",
+       76400,
+       "a316cb7e2b74230ff8d60e4b223d0bcc16131fffd4cc253b056388d74b666259",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_2",
+       "banm",
+       76400,
+       "a316cb7e2b74230ff8d60e4b223d0bcc16131fffd4cc253b056388d74b666259",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_3",
+       "banm",
+       72904,
+       "8b7f53a46cc8c94b3df9bb17fe2f4b7a227c643a06a37364a28d954d8465a310",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_4",
+       "banm",
+       63120,
+       "51833b32061bd8689a8fc450475a6c585c161654dfae07a3e427fd07112b5445",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_5",
+       "banm",
+       108776,
+       "bd4b5bf95596eb42c18d083b6e519e784cb55a4e3e713831acc34e57e04a5b07",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_6",
+       "banm",
+       127208,
+       "4ea296fad6566bd100a469267094d04210ce52e1da58cc7cf415a9cd5a460559",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_2",
+       "banm",
+       45612,
+       "eacd5121dd2cf43d29684635f3f9ff32223ca85d84972e65105ec55287a4dc12",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle",
+       "banm",
+       68128,
+       "4de5f29c57c06d04f5ced0245662f34ef8346e3f71e4a6829fa5832184f1e2c6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_down",
+       "banm",
+       32144,
+       "ff1194bccf66bbb7deaef739839d24e0d29c7d84e1484aab1e74d5b136edfcf0",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_up",
+       "banm",
+       34340,
+       "0d25a9b070d6acc2cab6d2ce41ef65ca543745a759733e66f6b72a2e1fd57f32",
+       []
+      ],
+      [
+       null,
+       "sprv",
+       2488,
+       "a74a599adb9bd698acaa420da0bc09004ed25f4450ea4beb8a91da05d5401195",
+       []
+      ],
+      [
+       null,
+       "surf",
+       11136,
+       "5ec35c0093face9926f89fd99e4ec8601cb098d496c3f63450cbb961ab3983b7",
+       []
+      ],
+      [
+       null,
+       "gshd",
+       240,
+       "61e426f6e1aea1451e2288d3ad2268cc8cad0e7f40aa4c1e9d3eb8fef4f0abc4",
+       [
+        8,
+        112,
+        116
+       ]
+      ],
+      [
+       "characters/townspeople/female_2/v/skin",
+       "body",
+       66816,
+       "f1e22003f467a11b627d4f80f556e0f4c9e8d27c80390929636562d2a6c772d6",
+       [
+        16768
+       ]
+      ],
+      [
+       null,
+       "bmsh",
+       526640,
+       "4810eacb92da5316b70233f969110581a2b0134967a327c5303bd04369803e1f",
+       [
+        40,
+        80,
+        120,
+        160,
+        200,
+        240,
+        280,
+        320
+       ]
+      ],
+      [
+       null,
+       "gshd",
+       924,
+       "587aa94b73e3684e4abd53ebedc8beb80565f5912da3d74b027ddd2c114fecfa",
+       [
+        8,
+        112,
+        116,
+        336,
+        340,
+        560,
+        564,
+        784,
+        788
+       ]
+      ],
+      [
+       null,
+       "sprv",
+       3256,
+       "15f8888878667c3d574c2f3a8f165be74314309306fa6dc6aaa53ad276c9b26e",
+       []
+      ],
+      [
+       null,
+       "gshd",
+       240,
+       "01d1d43d5619a864086d3f21303620d3891dbababaf6e80a7aa95f82b5a647a0",
+       [
+        8,
+        112,
+        116
+       ]
+      ],
+      [
+       null,
+       "sprv",
+       2488,
+       "a74a599adb9bd698acaa420da0bc09004ed25f4450ea4beb8a91da05d5401195",
+       []
+      ],
+      [
+       null,
+       "surf",
+       174976,
+       "518a00492341f672518d0a55a7c80f70b3fdc3e6df496bd32bfa6eeb4bd805da",
+       []
+      ]
+     ],
+     "sha256": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
+     "size": 73018000,
+     "vanilla_count": 3394
+    },
+    "gamedata/config.xbr": {
+     "changed": [
+      [
+       2,
+       "tabl",
+       7289,
+       "0d28a30049a45b85833d00e8624eee7f3b66c5673548f49b6817b2f3877358d5"
+      ],
+      [
+       3,
+       "tabl",
+       7247,
+       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
+      ],
+      [
+       4,
+       "tabl",
+       69880,
+       "aaa01bf7e911cd8e7012f40219df794fe7ac1a62e6f78fb8f5e7c2d37136a2b2"
+      ],
+      [
+       7,
+       "tabl",
+       86176,
+       "7c3a3624014fc894139fbb77b7bd72806f91bc4870fc43c89190e226a8853cfd"
+      ]
+     ],
+     "count": 18,
+     "new": [],
+     "sha256": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+     "size": 565818,
+     "vanilla_count": 18
+    },
+    "gamedata/fx.xbr": {
+     "changed": [
+      [
+       1174,
+       "node",
+       24876,
+       "e3b118aa8fdf2b6b68f0d8e1573a9f1655c266fe2259780074286eec622e44c7"
+      ],
+      [
+       1212,
+       "node",
+       31848,
+       "74d2476c3c51d0139870497b9e8dced58d42dee8dd93e6f08e15fa7dd8e47a71"
+      ],
+      [
+       1250,
+       "node",
+       32228,
+       "a805a41b194d5a8e75cda20d0a82cabda047412c52f28e2e44b64aa9f89d3627"
+      ],
+      [
+       1357,
+       "node",
+       36932,
+       "269a6dabcefa2d5cd865d5ac29b9cc644bd1c57ed4ee855a8ba26d486fa5be3f"
+      ],
+      [
+       1440,
+       "node",
+       38288,
+       "7b889b2ebb0387db7af6c75ff008564e7baba140379da7cb276e5e367740ab9e"
+      ],
+      [
+       1529,
+       "node",
+       45328,
+       "187edff7895033eb9b009107808b8bcb64530dff443597373f802b36e01c1087"
+      ],
+      [
+       1555,
+       "node",
+       14584,
+       "dbb7d155db5ef4a2a8f3c7d26bb096925c029828237807c68e85a5930d55fa5a"
+      ],
+      [
+       1584,
+       "node",
+       19548,
+       "8bfdef6f96be980d7d0dbfa085690be331cc89c67c2839a754df18dd96e6038d"
+      ],
+      [
+       1615,
+       "node",
+       27228,
+       "985f35db6cabc733b0455d80d226d2798418fd570383b2dcf4143c2b3d193f4b"
+      ],
+      [
+       1657,
+       "node",
+       27596,
+       "e9d666fc01bf85f83f6be176331c7a20f0a8d4796287b6a2b76488d79c0aa25a"
+      ],
+      [
+       1684,
+       "node",
+       30384,
+       "216657496f7a75d23bc6135469d7045a800430803d19386ae6759d47bbd58e6a"
+      ],
+      [
+       1710,
+       "node",
+       32024,
+       "ad9b605b4a1a51eab82d1c623728111b56303ce68a9310e33d0e3712dc44522f"
+      ],
+      [
+       1736,
+       "node",
+       9928,
+       "a0be1299c7602a15e06f3d13eea55eb27cc915d1d17af30536c312e67c985516"
+      ],
+      [
+       1762,
+       "node",
+       14748,
+       "f3b1e795ad735ef85e5b31f68ad935c0aca6f2c5545d3a07faec0c70758aeab4"
+      ],
+      [
+       1791,
+       "node",
+       18512,
+       "083fdcbe270138bf293c2207df727a3a17933602d28e87a70077237ffc3784b2"
+      ],
+      [
+       1816,
+       "node",
+       18980,
+       "2eeb89c105faa385634c4fb9dc2744b55903401a35ebfd982f5011f9d2161458"
+      ],
+      [
+       1838,
+       "node",
+       26780,
+       "33371d1d59bc43703a411234b80d0a280e30dafdef1c6e8f0a3a8cb0fb95e978"
+      ],
+      [
+       1868,
+       "node",
+       30788,
+       "87a7170d70236414bf0897a6ea9c054b55dbdfce7631b56521602991d7310228"
+      ],
+      [
+       1880,
+       "node",
+       12072,
+       "b69c27ee8b00aba4d53d0d3f218cb543a09fdb0ddfffc5d30df98c92c76b2ad3"
+      ],
+      [
+       1894,
+       "node",
+       15280,
+       "4143c5e7200aa1c6220f581ab173e30693077cfff1b6cded37edda2d98282506"
+      ],
+      [
+       1901,
+       "node",
+       17016,
+       "0dfb12241e61a722176ac663f6ae2061d8638199b2f15d406d52de0bbeefa337"
+      ],
+      [
+       1937,
+       "node",
+       23628,
+       "a3df0f3c6d9deeac91fcb43a04cafba0200e6a90cdfd7298cdd7b9d2fcb30846"
+      ],
+      [
+       1958,
+       "node",
+       25564,
+       "6254d29a3f25a8aed8e62439335bcb4cc111828582c0efd21ff25254d0d78614"
+      ],
+      [
+       1973,
+       "node",
+       25580,
+       "d33cb6d83478411e780344ea9fda09b259228d16ab8046b34a6b9cd19c2069a1"
+      ],
+      [
+       1988,
+       "node",
+       15608,
+       "338d9f1c4fcca404f1f0bde3038e76606fca5d92fa2e5a0194c0094c29c5a8bd"
+      ],
+      [
+       2005,
+       "node",
+       19152,
+       "a42f1f0b8b3720cf836e796e9449dde7cc1cb8d734940f7f5adb5fb0e09ac61e"
+      ],
+      [
+       2020,
+       "node",
+       21584,
+       "6f3fd60df99caef61f2132a0d818fb52d26ae61400ab3e99dc296479ca2f0919"
+      ],
+      [
+       2058,
+       "node",
+       26116,
+       "d47e58ab587ab0cef58104661593eb3bb901238321691e2d3b8cb66da7f4eaef"
+      ],
+      [
+       2104,
+       "node",
+       32052,
+       "befeeecd08b8a46de9817d4cdbf02234a7c1133133d839175a5816795cd935dd"
+      ],
+      [
+       2159,
+       "node",
+       36324,
+       "6d022b56cdf822668e9d4757248ea3cbf6c126a5b33bdf8ecd7b7a46c4ef2a25"
+      ],
+      [
+       2223,
+       "node",
+       26496,
+       "44cd9517d006a0fc2de2c60b653fa69c128849c94e1564e172fd9ee1f72c0c86"
+      ],
+      [
+       2282,
+       "node",
+       31412,
+       "4e0cf3cace320b87462805eebaa844229e2cd0f91d1755d05f0f30078480ecc0"
+      ],
+      [
+       2325,
+       "node",
+       35284,
+       "5b3edc56cc829e05d9a9d2c136365b1b3f17f5dbe6a2c7d2160acf04bf809cfd"
+      ],
+      [
+       2363,
+       "node",
+       16512,
+       "5f5237173dcc34201b2ae432071d404f54ba6a1a7d9284ddcfdd122e196c14ce"
+      ],
+      [
+       2402,
+       "node",
+       19344,
+       "181ee4fe9b1ec3280c29a65850e04e8347f9c52c7ba34a5651734bac7bbed1fe"
+      ],
+      [
+       2429,
+       "node",
+       19392,
+       "b72bed56cd54296cffe85b918d93734811e35cb239668ac721aef58a406583e9"
+      ],
+      [
+       2460,
+       "node",
+       24596,
+       "9443d468fb7305cc765bc0bbf28441e39ba14483f735ff3f1150576fa14885c7"
+      ],
+      [
+       2472,
+       "node",
+       14920,
+       "98d0b5ffd5e4e8fbb1d6096f26b0b1ff5d8d4916aeb8346ef6bb01d8d44a6661"
+      ],
+      [
+       2481,
+       "node",
+       14920,
+       "01dfe4da1cb21ee8b59e243a820c5563921780c2d83f22f80acbb3d224c5f821"
+      ],
+      [
+       2490,
+       "node",
+       14920,
+       "e0dcafff7ee435027a25731511c6f1f7bdf7da7254486ac0fbe505dbbfddd990"
+      ],
+      [
+       2598,
+       "node",
+       34860,
+       "c3a866269c429b236fdd3647214dd3a5eeed4713acb693cf44da8bc7608e81f1"
+      ],
+      [
+       2690,
+       "node",
+       36392,
+       "d97a3373b0833dace28dda18eb8760d5825ecf2c1870553ea98d006253f56e3f"
+      ],
+      [
+       2790,
+       "node",
+       40988,
+       "8d474d3cf77a326a2fca4b214092c01a5fb4f9a8dd26eb49a177e529c257bb4b"
+      ],
+      [
+       2799,
+       "node",
+       13684,
+       "ea74f2bc9e0ed9268c2a8b55b909054d14fc69966b70f5c31c4d9885371fab9c"
+      ],
+      [
+       2810,
+       "node",
+       18216,
+       "b2a3b7624269fdfbc8a13ef481cf1bc8fc291fe3774ad61dc684b5e8b7014837"
+      ],
+      [
+       2817,
+       "node",
+       23280,
+       "9f37f68398503ec66d711d1ea0ae39072942134db7afd250f3ca1c55d5dad313"
+      ]
+     ],
+     "count": 3572,
+     "new": [],
+     "sha256": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",
+     "size": 38238150,
+     "vanilla_count": 3572
+    },
+    "gamedata/index/index.xbr": {
+     "changed": [
+      [
+       0,
+       "indx",
+       202624,
+       "9249111fc0aeb624b3362bd7a413b4cab5932c275d10e976145c430a0de5809f"
+      ]
+     ],
+     "count": 1,
+     "new": [],
+     "records": [
+      [
+       "characters/townspeople/female_2/g4/360_basic_attack",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_ledge",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_sweep",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_10",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_12",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_13",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_14",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_15",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_16",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_17",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_8",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_9",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back_kick",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down_edge",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_drop",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_from_jump",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_idle",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_left",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_right",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_start",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up_edge",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/die",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/drowning",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_attack",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_big",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang_start",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist_waist",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hose_attack_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hover",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump_standing",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1b",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1l",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1r",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/roll_forward",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/slide",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/step_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/superjump",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_down",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/touchdown",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/use",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_4",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_5",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_6",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_down",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/v/skin",
+       "characters.xbr",
+       "body"
+      ]
+     ],
+     "sha256": "7acc608a05d3f00060f1071c30b3d7111a7dbb68cda280f09c95d3a1cb86d426",
+     "size": 208918,
+     "vanilla_count": 1
+    }
+   }
+  },
+  "usa": {
+   "files": {
+    "default.xbe": "1a8c7e995eda8d7c17c81b71cb7d903ee147d94be885ebe5e5f7031d046f02b6",
+    "gamedata/characters.xbr": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
+    "gamedata/config.xbr": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+    "gamedata/fx.xbr": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",
+    "gamedata/index/index.xbr": "39246c1120f6b99bf00b38fb5f5f3d014b2184b2b91a505865dc6f819f45cc46"
+   },
+   "resources": {
+    "gamedata/characters.xbr": {
+     "changed": [
+      [
+       2955,
+       "gshd",
+       924,
+       "5a499f77dd38a33e69bf43f822577efe20b109954537ac7aff4eaae8df6d6e7c"
+      ],
+      [
+       2956,
+       "bmsh",
+       526640,
+       "929c32a75f13145ab27ff47b824f99dbdd44678cd8d615c1bd5e127f2c5db3af"
+      ],
+      [
+       2957,
+       "body",
+       66816,
+       "806eeace34214146e3f64cd3532f473236d6c9867c9a75c709a5d31ad4fdea75"
+      ],
+      [
+       2958,
+       "banm",
+       15428,
+       "7be1046a835b16114d7a733fc6c234ccbec79923009b580ec453b2911e906a7c"
+      ],
+      [
+       2959,
+       "banm",
+       13424,
+       "6a52fa2345713c3efa7d1fa587e7ed32951ad5205c8f586956c78a1264746821"
+      ],
+      [
+       2960,
+       "banm",
+       15796,
+       "858824ca484f97e0517be1ef28a6d2fe34413ebb540925494664d3e8013d66fd"
+      ],
+      [
+       2961,
+       "banm",
+       26992,
+       "1297844eb0cac33a7072026a5187bb920419a07f0dc479991b9a16fcdc5576bc"
+      ],
+      [
+       2962,
+       "banm",
+       18252,
+       "c6b57cc1a7fe14e1aad3e5ebae9ae7848d681af34403cb6199117f9b13c80492"
+      ]
+     ],
+     "count": 3477,
+     "new": [
+      [
+       null,
+       "surf",
+       174976,
+       "bde17fc92e941a2e2886e08beffec0b531c158883ba62a5ee0c1ab082b776544",
+       []
+      ],
+      [
+       null,
+       "surf",
+       43904,
+       "e66088ed9705add95669206e448b2595a1c10eaf5dcc464a66c66cb64eac622c",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_basic_attack",
+       "banm",
+       42944,
+       "eb5ed13b3fb8ffc67622daa4c1affe6802c14b21e29def5d6919e65bdd76b6ea",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_ledge",
+       "banm",
+       36156,
+       "ec9c62db9db260da31f48442d13b5841bcb5b1ba20a6a046b27301178b8b45b6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_sweep",
+       "banm",
+       56868,
+       "d331ad7008beb43a8aae179f781037ccf394eeacfeba9639cc187b6bb054741a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_1",
+       "banm",
+       29716,
+       "b7d0549f8b9035633aedb9badf7d6cbbdac29d92477e4149ea72c9c208112407",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_10",
+       "banm",
+       42748,
+       "6fbd30f07f1c3361f691a7fd98d1a85a06db5f3503c3a4a8d75e0eb8c5a8674b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_12",
+       "banm",
+       25000,
+       "141e9eb65d5504488af7a47f9f005c44a652bd4e259cfd23b7c19bedcf783675",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_13",
+       "banm",
+       20960,
+       "712148bfc7708b021ed6036ec2d67ce58a3f84810d609bddf758568e899fcb1f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_14",
+       "banm",
+       31428,
+       "692bb9d667285cc5968bdd98d9fc976028056d96fa4cdd1c4fb951eefea278a0",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_15",
+       "banm",
+       32984,
+       "43de0a22b8f8d263e1a3e86a9e4069f1f0a68606b4bfac062cf813ded0856a5a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_16",
+       "banm",
+       31304,
+       "25362145463ac646671e31ef63d4df13f2b07b351329c3a328bab5ff740464e9",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_17",
+       "banm",
+       29604,
+       "19da0bd7f1d45fb1010bf64629254335bab42798f6eb72f481af00e2054a8cce",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_2",
+       "banm",
+       33020,
+       "87446e5c948d4b7361feb8d6a7d051ebd9f517ef0e1404ba446acaa3dd9387bf",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_3",
+       "banm",
+       31696,
+       "320c8ecc31224af535888b0adcda4974422f71433f3f150ef287086e0b71dd78",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_8",
+       "banm",
+       32356,
+       "25227234b0119a8b747b1fe0906e3d3d708cf024c452edbb59d33830c712ecf3",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_9",
+       "banm",
+       24208,
+       "9c90b214c7108a18959a9f3bb758368a554f49dd5e22dd43a476c375fc933acb",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back",
+       "banm",
+       23912,
+       "d318a4eaf43eaf28dcca4a76e0c41cd8fc92232eec8abfc4b521d3e138f13355",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back_kick",
+       "banm",
+       26104,
+       "6a861004b0115a396dcb9519d2d2622f19af066964cdcb929c1ba2c8282e76fd",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down",
+       "banm",
+       52644,
+       "75f2f22f244130436572ec7dadfb255b5c236017f94fb86bf2c00275f18e576e",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down_edge",
+       "banm",
+       85828,
+       "fe190c5fb8a4a8ee2ac2c831f37f9c5ae057ac9d3f025519ec40304ab9eb712c",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_drop",
+       "banm",
+       28816,
+       "474cec5ef0547249e9fd895f9d236114fafd188bd32bfd49c0bf3569c8e2fdd2",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_from_jump",
+       "banm",
+       26008,
+       "27d443b94d427da7f160b0af225e9080ccf220e417e503e5eb9e6feb00ce4e34",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_idle",
+       "banm",
+       45580,
+       "b862b38f08734647c79ebeb3a88384b0dd9e7677724588dd9c891820a18101e9",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_left",
+       "banm",
+       52888,
+       "f21bcafd64f78f756aaa2be255fcaecbbc49dfb855f490d3d195fae03fe854b6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_right",
+       "banm",
+       50776,
+       "22f6338ef9e32a02f7d76bc903ec4d0677caf1f75d32a2bf56a1a9517e463e6a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_start",
+       "banm",
+       58556,
+       "c747b65eba801e57c79db69d170f25b5eea92fc7ac217c1ff1af303fea227599",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up",
+       "banm",
+       51396,
+       "67f18bbdcfc4fc51c2b195ac51100e53375920d956dd1d3c7a4bf76447065269",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up_edge",
+       "banm",
+       123496,
+       "b76eac7e3a2769e4a7e865c4d354bfba56ee53348be1ec969e7e92ada950505f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/die",
+       "banm",
+       63060,
+       "29127a349270b45b51c976039d94e31df5aa264a1c10809449cef8af82427935",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_1",
+       "banm",
+       91828,
+       "551cc9442ff23de1afcf4393fc46caa20b529978825141a589444f53103da163",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_2",
+       "banm",
+       120884,
+       "ff1b108dc601f45b02e1b073cf32184bb372510b539d2a7968b18ff5df354051",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/drowning",
+       "banm",
+       109084,
+       "e8ff1569602e025fa973ad821f689b690750ffa670095f48493e706615f56a5b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack",
+       "banm",
+       99180,
+       "c4f4e2b5d244e45536103b59467131be7808ab9ddeac9959219bd1ba4d90ca2b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_2",
+       "banm",
+       126524,
+       "772f615c7963f411d5532e2acd12f6673ee4d0ff5f2f6b037c0f8756e2629560",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_3",
+       "banm",
+       152316,
+       "31ab3b45ecced3afe3e6ac45775bdbda5a31fcff736cd64815f802b3bcd1913a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall",
+       "banm",
+       44872,
+       "a4f81c5bd8289722ed595c0c6f0368d38229988bbcff03b58b882048447bfda7",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_attack",
+       "banm",
+       18412,
+       "d77d18887818e0e3e66cba32fe214af21010c55bae714c04e32514de7df795fe",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_big",
+       "banm",
+       38648,
+       "ac8fad446a5d85f90c13b084c55e6f35e6f2261388ee40964a9dc63c9b6ae62f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang",
+       "banm",
+       32148,
+       "ba56d323d177f1ab66c36d517f5e96715ecdaac567c9181cb71afecab6f2187b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang_start",
+       "banm",
+       34552,
+       "09ed830b0dd1ba682378782e40064fd026305e0872ed5a88231004ef41b5191f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist",
+       "banm",
+       102280,
+       "f0e9492fc04449b250d80c2185ecec4af678136a1df91114949fa0851a8cd7f1",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist_waist",
+       "banm",
+       45780,
+       "8e32a1cc8ccdf4aacafc812de2860baa1199cf49ffbb929a3c6c5dadfa2c0da5",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hose_attack_3",
+       "banm",
+       69272,
+       "cd65dac80f98e4948892065b6f390e723217f15a8c6c44e020986ba3c3d68243",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/hover",
+       "banm",
+       32692,
+       "d0f8f5d9c18b1333f94daba255617e92b156b09b3353b7a1c02da69041653a59",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump",
+       "banm",
+       44804,
+       "c94ed801a8cf3bcfa0ea020b22610ae27ca25a1e7e522f9e05775c855dee2039",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump_standing",
+       "banm",
+       51944,
+       "cff307a06e59def92746234b83ae76314a3612b69751f9d65d6d25c6f4a6a5b4",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1",
+       "banm",
+       24348,
+       "71bfe3da44948c9aaf475fac520ddf4d450183f179b7d4198d23e2e98ea61cfe",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1b",
+       "banm",
+       25692,
+       "c88fe21222a71461fb0eeffb067baacfd8cad4fb3dba29a3ccd1861e16df8705",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1l",
+       "banm",
+       26108,
+       "b489e1ecda91d10af68a35dcc48251eb0c5ac14600a8943bf64bd59a2c19d5d1",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1r",
+       "banm",
+       26172,
+       "3a30849f9c9b7bd6a425ca1a0c162b1dd29de427d3d1dd99249bff76b7d8a60b",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/roll_forward",
+       "banm",
+       61388,
+       "53ad7a0027ed209f265dc0ff2ad50539973389c610e4a36431178cd1ee93f1d6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/slide",
+       "banm",
+       23012,
+       "dc3b85fa544dac5c221aca063685b0d75a024a2dd8451faa28a87167b2654ea1",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_1",
+       "banm",
+       36404,
+       "a06029de1dee41cadd1c766f9d5291d11127883ec006777acbe789afab727a67",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_2",
+       "banm",
+       48760,
+       "b7d73e2896dde94c74b87951144295bb52a6b027537299a79e6e5eb240c7f55a",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/step_up",
+       "banm",
+       39532,
+       "06db84bf69f1a36ceccdebc78ff8d1fd59df2c441801f5cfea6bce702bcd5570",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/superjump",
+       "banm",
+       162388,
+       "426bb66033559f0698415e08622458d8558bf28aaedb1044d2cce4614a99eeef",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_2",
+       "banm",
+       45292,
+       "9729d6e6e775a697f048101e3d06bb5ba1bd15b3280316d02222a70b66218b0f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle",
+       "banm",
+       67792,
+       "9782fe504bba78f94fbd144b0171ca445b4913a9e1e33ff03b99dfbfda96392f",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_down",
+       "banm",
+       31936,
+       "ce736800b94a2e0721d685a008ade8b35fab4af9327fe9c8814da836eda7b453",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_up",
+       "banm",
+       34100,
+       "a058a80a85cf39b6063d8e73c12e656ecf6685417f95cedaf11bc087bb0d29e5",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/touchdown",
+       "banm",
+       24360,
+       "ad3753512ad9a87755499bcde465468f5c44705aa3ee59b6cbfb97505af0cd13",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/use",
+       "banm",
+       41584,
+       "533b9497bb4fff082b1507ba45faf28c5806accb4f73b71c193cc94ba3dbd06e",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_1",
+       "banm",
+       76400,
+       "a316cb7e2b74230ff8d60e4b223d0bcc16131fffd4cc253b056388d74b666259",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_2",
+       "banm",
+       76400,
+       "a316cb7e2b74230ff8d60e4b223d0bcc16131fffd4cc253b056388d74b666259",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_3",
+       "banm",
+       72904,
+       "8b7f53a46cc8c94b3df9bb17fe2f4b7a227c643a06a37364a28d954d8465a310",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_4",
+       "banm",
+       63120,
+       "51833b32061bd8689a8fc450475a6c585c161654dfae07a3e427fd07112b5445",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_5",
+       "banm",
+       108776,
+       "bd4b5bf95596eb42c18d083b6e519e784cb55a4e3e713831acc34e57e04a5b07",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_6",
+       "banm",
+       127208,
+       "4ea296fad6566bd100a469267094d04210ce52e1da58cc7cf415a9cd5a460559",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_2",
+       "banm",
+       45612,
+       "eacd5121dd2cf43d29684635f3f9ff32223ca85d84972e65105ec55287a4dc12",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle",
+       "banm",
+       68128,
+       "4de5f29c57c06d04f5ced0245662f34ef8346e3f71e4a6829fa5832184f1e2c6",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_down",
+       "banm",
+       32144,
+       "ff1194bccf66bbb7deaef739839d24e0d29c7d84e1484aab1e74d5b136edfcf0",
+       []
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_up",
+       "banm",
+       34340,
+       "0d25a9b070d6acc2cab6d2ce41ef65ca543745a759733e66f6b72a2e1fd57f32",
+       []
+      ],
+      [
+       null,
+       "sprv",
+       2488,
+       "a74a599adb9bd698acaa420da0bc09004ed25f4450ea4beb8a91da05d5401195",
+       []
+      ],
+      [
+       null,
+       "surf",
+       11136,
+       "5ec35c0093face9926f89fd99e4ec8601cb098d496c3f63450cbb961ab3983b7",
+       []
+      ],
+      [
+       null,
+       "gshd",
+       240,
+       "61e426f6e1aea1451e2288d3ad2268cc8cad0e7f40aa4c1e9d3eb8fef4f0abc4",
+       [
+        8,
+        112,
+        116
+       ]
+      ],
+      [
+       "characters/townspeople/female_2/v/skin",
+       "body",
+       66816,
+       "f1e22003f467a11b627d4f80f556e0f4c9e8d27c80390929636562d2a6c772d6",
+       [
+        16768
+       ]
+      ],
+      [
+       null,
+       "bmsh",
+       526640,
+       "4810eacb92da5316b70233f969110581a2b0134967a327c5303bd04369803e1f",
+       [
+        40,
+        80,
+        120,
+        160,
+        200,
+        240,
+        280,
+        320
+       ]
+      ],
+      [
+       null,
+       "gshd",
+       924,
+       "587aa94b73e3684e4abd53ebedc8beb80565f5912da3d74b027ddd2c114fecfa",
+       [
+        8,
+        112,
+        116,
+        336,
+        340,
+        560,
+        564,
+        784,
+        788
+       ]
+      ],
+      [
+       null,
+       "sprv",
+       3256,
+       "15f8888878667c3d574c2f3a8f165be74314309306fa6dc6aaa53ad276c9b26e",
+       []
+      ],
+      [
+       null,
+       "gshd",
+       240,
+       "01d1d43d5619a864086d3f21303620d3891dbababaf6e80a7aa95f82b5a647a0",
+       [
+        8,
+        112,
+        116
+       ]
+      ],
+      [
+       null,
+       "sprv",
+       2488,
+       "a74a599adb9bd698acaa420da0bc09004ed25f4450ea4beb8a91da05d5401195",
+       []
+      ],
+      [
+       null,
+       "surf",
+       174976,
+       "518a00492341f672518d0a55a7c80f70b3fdc3e6df496bd32bfa6eeb4bd805da",
+       []
+      ]
+     ],
+     "sha256": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
+     "size": 73018000,
+     "vanilla_count": 3394
+    },
+    "gamedata/config.xbr": {
+     "changed": [
+      [
+       2,
+       "tabl",
+       7289,
+       "0d28a30049a45b85833d00e8624eee7f3b66c5673548f49b6817b2f3877358d5"
+      ],
+      [
+       3,
+       "tabl",
+       7247,
+       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
+      ],
+      [
+       4,
+       "tabl",
+       69880,
+       "aaa01bf7e911cd8e7012f40219df794fe7ac1a62e6f78fb8f5e7c2d37136a2b2"
+      ],
+      [
+       7,
+       "tabl",
+       86176,
+       "7c3a3624014fc894139fbb77b7bd72806f91bc4870fc43c89190e226a8853cfd"
+      ]
+     ],
+     "count": 18,
+     "new": [],
+     "sha256": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+     "size": 565818,
+     "vanilla_count": 18
+    },
+    "gamedata/fx.xbr": {
+     "changed": [
+      [
+       1174,
+       "node",
+       24876,
+       "e3b118aa8fdf2b6b68f0d8e1573a9f1655c266fe2259780074286eec622e44c7"
+      ],
+      [
+       1212,
+       "node",
+       31848,
+       "74d2476c3c51d0139870497b9e8dced58d42dee8dd93e6f08e15fa7dd8e47a71"
+      ],
+      [
+       1250,
+       "node",
+       32228,
+       "a805a41b194d5a8e75cda20d0a82cabda047412c52f28e2e44b64aa9f89d3627"
+      ],
+      [
+       1357,
+       "node",
+       36932,
+       "269a6dabcefa2d5cd865d5ac29b9cc644bd1c57ed4ee855a8ba26d486fa5be3f"
+      ],
+      [
+       1440,
+       "node",
+       38288,
+       "7b889b2ebb0387db7af6c75ff008564e7baba140379da7cb276e5e367740ab9e"
+      ],
+      [
+       1529,
+       "node",
+       45328,
+       "187edff7895033eb9b009107808b8bcb64530dff443597373f802b36e01c1087"
+      ],
+      [
+       1555,
+       "node",
+       14584,
+       "dbb7d155db5ef4a2a8f3c7d26bb096925c029828237807c68e85a5930d55fa5a"
+      ],
+      [
+       1584,
+       "node",
+       19548,
+       "8bfdef6f96be980d7d0dbfa085690be331cc89c67c2839a754df18dd96e6038d"
+      ],
+      [
+       1615,
+       "node",
+       27228,
+       "985f35db6cabc733b0455d80d226d2798418fd570383b2dcf4143c2b3d193f4b"
+      ],
+      [
+       1657,
+       "node",
+       27596,
+       "e9d666fc01bf85f83f6be176331c7a20f0a8d4796287b6a2b76488d79c0aa25a"
+      ],
+      [
+       1684,
+       "node",
+       30384,
+       "216657496f7a75d23bc6135469d7045a800430803d19386ae6759d47bbd58e6a"
+      ],
+      [
+       1710,
+       "node",
+       32024,
+       "ad9b605b4a1a51eab82d1c623728111b56303ce68a9310e33d0e3712dc44522f"
+      ],
+      [
+       1736,
+       "node",
+       9928,
+       "a0be1299c7602a15e06f3d13eea55eb27cc915d1d17af30536c312e67c985516"
+      ],
+      [
+       1762,
+       "node",
+       14748,
+       "f3b1e795ad735ef85e5b31f68ad935c0aca6f2c5545d3a07faec0c70758aeab4"
+      ],
+      [
+       1791,
+       "node",
+       18512,
+       "083fdcbe270138bf293c2207df727a3a17933602d28e87a70077237ffc3784b2"
+      ],
+      [
+       1816,
+       "node",
+       18980,
+       "2eeb89c105faa385634c4fb9dc2744b55903401a35ebfd982f5011f9d2161458"
+      ],
+      [
+       1838,
+       "node",
+       26780,
+       "33371d1d59bc43703a411234b80d0a280e30dafdef1c6e8f0a3a8cb0fb95e978"
+      ],
+      [
+       1868,
+       "node",
+       30788,
+       "87a7170d70236414bf0897a6ea9c054b55dbdfce7631b56521602991d7310228"
+      ],
+      [
+       1880,
+       "node",
+       12072,
+       "b69c27ee8b00aba4d53d0d3f218cb543a09fdb0ddfffc5d30df98c92c76b2ad3"
+      ],
+      [
+       1894,
+       "node",
+       15280,
+       "4143c5e7200aa1c6220f581ab173e30693077cfff1b6cded37edda2d98282506"
+      ],
+      [
+       1901,
+       "node",
+       17016,
+       "0dfb12241e61a722176ac663f6ae2061d8638199b2f15d406d52de0bbeefa337"
+      ],
+      [
+       1937,
+       "node",
+       23628,
+       "a3df0f3c6d9deeac91fcb43a04cafba0200e6a90cdfd7298cdd7b9d2fcb30846"
+      ],
+      [
+       1958,
+       "node",
+       25564,
+       "6254d29a3f25a8aed8e62439335bcb4cc111828582c0efd21ff25254d0d78614"
+      ],
+      [
+       1973,
+       "node",
+       25580,
+       "d33cb6d83478411e780344ea9fda09b259228d16ab8046b34a6b9cd19c2069a1"
+      ],
+      [
+       1988,
+       "node",
+       15608,
+       "338d9f1c4fcca404f1f0bde3038e76606fca5d92fa2e5a0194c0094c29c5a8bd"
+      ],
+      [
+       2005,
+       "node",
+       19152,
+       "a42f1f0b8b3720cf836e796e9449dde7cc1cb8d734940f7f5adb5fb0e09ac61e"
+      ],
+      [
+       2020,
+       "node",
+       21584,
+       "6f3fd60df99caef61f2132a0d818fb52d26ae61400ab3e99dc296479ca2f0919"
+      ],
+      [
+       2058,
+       "node",
+       26116,
+       "d47e58ab587ab0cef58104661593eb3bb901238321691e2d3b8cb66da7f4eaef"
+      ],
+      [
+       2104,
+       "node",
+       32052,
+       "befeeecd08b8a46de9817d4cdbf02234a7c1133133d839175a5816795cd935dd"
+      ],
+      [
+       2159,
+       "node",
+       36324,
+       "6d022b56cdf822668e9d4757248ea3cbf6c126a5b33bdf8ecd7b7a46c4ef2a25"
+      ],
+      [
+       2223,
+       "node",
+       26496,
+       "44cd9517d006a0fc2de2c60b653fa69c128849c94e1564e172fd9ee1f72c0c86"
+      ],
+      [
+       2282,
+       "node",
+       31412,
+       "4e0cf3cace320b87462805eebaa844229e2cd0f91d1755d05f0f30078480ecc0"
+      ],
+      [
+       2325,
+       "node",
+       35284,
+       "5b3edc56cc829e05d9a9d2c136365b1b3f17f5dbe6a2c7d2160acf04bf809cfd"
+      ],
+      [
+       2363,
+       "node",
+       16512,
+       "5f5237173dcc34201b2ae432071d404f54ba6a1a7d9284ddcfdd122e196c14ce"
+      ],
+      [
+       2402,
+       "node",
+       19344,
+       "181ee4fe9b1ec3280c29a65850e04e8347f9c52c7ba34a5651734bac7bbed1fe"
+      ],
+      [
+       2429,
+       "node",
+       19392,
+       "b72bed56cd54296cffe85b918d93734811e35cb239668ac721aef58a406583e9"
+      ],
+      [
+       2460,
+       "node",
+       24596,
+       "9443d468fb7305cc765bc0bbf28441e39ba14483f735ff3f1150576fa14885c7"
+      ],
+      [
+       2472,
+       "node",
+       14920,
+       "98d0b5ffd5e4e8fbb1d6096f26b0b1ff5d8d4916aeb8346ef6bb01d8d44a6661"
+      ],
+      [
+       2481,
+       "node",
+       14920,
+       "01dfe4da1cb21ee8b59e243a820c5563921780c2d83f22f80acbb3d224c5f821"
+      ],
+      [
+       2490,
+       "node",
+       14920,
+       "e0dcafff7ee435027a25731511c6f1f7bdf7da7254486ac0fbe505dbbfddd990"
+      ],
+      [
+       2598,
+       "node",
+       34860,
+       "c3a866269c429b236fdd3647214dd3a5eeed4713acb693cf44da8bc7608e81f1"
+      ],
+      [
+       2690,
+       "node",
+       36392,
+       "d97a3373b0833dace28dda18eb8760d5825ecf2c1870553ea98d006253f56e3f"
+      ],
+      [
+       2790,
+       "node",
+       40988,
+       "8d474d3cf77a326a2fca4b214092c01a5fb4f9a8dd26eb49a177e529c257bb4b"
+      ],
+      [
+       2799,
+       "node",
+       13684,
+       "ea74f2bc9e0ed9268c2a8b55b909054d14fc69966b70f5c31c4d9885371fab9c"
+      ],
+      [
+       2810,
+       "node",
+       18216,
+       "b2a3b7624269fdfbc8a13ef481cf1bc8fc291fe3774ad61dc684b5e8b7014837"
+      ],
+      [
+       2817,
+       "node",
+       23280,
+       "9f37f68398503ec66d711d1ea0ae39072942134db7afd250f3ca1c55d5dad313"
+      ]
+     ],
+     "count": 3572,
+     "new": [],
+     "sha256": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",
+     "size": 38238150,
+     "vanilla_count": 3572
+    },
+    "gamedata/index/index.xbr": {
+     "changed": [
+      [
+       0,
+       "indx",
+       164780,
+       "941f9bc4f9c522dcc4d495f9f207ba74793fa9fce467d41d08e5f714a4157838"
+      ]
+     ],
+     "count": 1,
+     "new": [],
+     "records": [
+      [
+       "characters/townspeople/female_2/g4/360_basic_attack",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_ledge",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/360_sweep",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_10",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_12",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_13",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_14",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_15",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_16",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_17",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_8",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_9",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/attack_back_kick",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_down_edge",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_drop",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_from_jump",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_idle",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_left",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_right",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_start",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/climb_up_edge",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/die",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/die_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/drowning",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/elemental_attack_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_attack",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/fall_big",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hang_start",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hoist_waist",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hose_attack_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/hover",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/jump_standing",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1b",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1l",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/ouch_1r",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/roll_forward",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/slide",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/smash_attack_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/step_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/superjump",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_down",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/swim_idle_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/touchdown",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/use",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_1",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_3",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_4",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_5",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/g4/victory_6",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_2",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_down",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/s/g4/swim_idle_up",
+       "characters.xbr",
+       "banm"
+      ],
+      [
+       "characters/townspeople/female_2/v/skin",
+       "characters.xbr",
+       "body"
+      ]
+     ],
+     "sha256": "39246c1120f6b99bf00b38fb5f5f3d014b2184b2b91a505865dc6f819f45cc46",
+     "size": 172054,
+     "vanilla_count": 1
+    }
+   }
+  },
+  "variants": {
+   "probe": {
+    "arms": {
+     "out_deg": 4.0
+    },
+    "attacks": {
+     "balance": false,
+     "damage": 0.6,
+     "ground": true,
+     "reach": 1.0,
+     "speed": 1.0
+    },
+    "base": "town_female_2",
+    "carry": [
+     "basic1",
+     "basic2",
+     "basic3",
+     "finish",
+     "finish2",
+     "finish3",
+     "sweep1",
+     "sweep2",
+     "sweep ledge",
+     "jump attack",
+     "right1",
+     "right2",
+     "left1",
+     "left2",
+     "up1",
+     "up2",
+     "back1",
+     "back2",
+     "down"
+    ],
+    "clips": {
+     "hspin": {
+      "active": [
+       0.1,
+       0.67
+      ],
+      "box": {
+       "centre": [
+        0.0,
+        0.0,
+        0.75
+       ],
+       "half": [
+        1.5,
+        1.5,
+        0.75
+       ]
+      },
+      "generator": "hand_spin",
+      "hand": "right_hand_endnode",
+      "hand_z": 0.05,
+      "hold": 0.19,
+      "length": 2.1,
+      "plant": [
+       0.1,
+       0.86
+      ],
+      "tilt_deg": 85,
+      "turns": 2
+     },
+     "spin": {
+      "active": [
+       0.1,
+       0.9
+      ],
+      "box": {
+       "centre": [
+        0.0,
+        0.0,
+        0.8
+       ],
+       "half": [
+        0.78,
+        0.78,
+        0.8
+       ]
+      },
+      "generator": "t_spin",
+      "length": 0.4,
+      "turns": 2
+     },
+     "stomp": {
+      "active": [
+       0.7,
+       0.95
+      ],
+      "box": {
+       "centre": [
+        0.0,
+        0.0,
+        0.6
+       ],
+       "half": [
+        0.9,
+        0.9,
+        0.6
+       ]
+      },
+      "generator": "t_spin",
+      "hop": 0.35,
+      "length": 0.6,
+      "turns": 0
+     },
+     "twirl": {
+      "active": [
+       0.1,
+       0.9
+      ],
+      "box": {
+       "centre": [
+        0.0,
+        0.0,
+        0.8
+       ],
+       "half": [
+        0.78,
+        0.78,
+        0.8
+       ]
+      },
+      "generator": "t_spin",
+      "length": 1.0,
+      "turns": 4
+     }
+    },
+    "colours": [
+     {
+      "ops": [
+       {
+        "hue": 22,
+        "op": "hsv",
+        "sat": 0.75,
+        "sat_min": 0.4,
+        "soft": 4,
+        "value": 0.55,
+        "window": [
+         330,
+         10
+        ]
+       },
+       {
+        "op": "hsv",
+        "sat": 0.6875,
+        "sat_min": 0.66,
+        "soft": 12,
+        "value": 1.333,
+        "window": [
+         190,
+         300
+        ]
+       },
+       {
+        "hue": 140,
+        "op": "hsv",
+        "sat": 0.8,
+        "soft": 12,
+        "spread": 0.25,
+        "value": 1.05,
+        "window": [
+         190,
+         300
+        ]
+       }
+      ],
+      "row": 1
+     }
+    ],
+    "columns": {
+     "back1": "spin",
+     "back2": "spin",
+     "basic1": "spin",
+     "basic2": "spin",
+     "basic3": "spin",
+     "down": "stomp",
+     "finish": "twirl",
+     "finish2": "twirl",
+     "finish3": "twirl",
+     "jump attack": "spin",
+     "left1": "spin",
+     "left2": "spin",
+     "right1": "spin",
+     "right2": "spin",
+     "sweep ledge": "hspin",
+     "sweep1": "hspin",
+     "sweep2": "hspin",
+     "up1": "spin",
+     "up2": "spin"
+    },
+    "jiggle": {
+     "bones": [
+      {
+       "bone": "joint32",
+       "groups": [
+        1,
+        4
+       ],
+       "parent": "spine_2",
+       "role": "bust",
+       "shape": [
+        "bust",
+        "bust low",
+        "bust fill"
+       ],
+       "spring": {
+        "accel": 3.5,
+        "centre": "auto",
+        "damping": 0.1,
+        "freq": 2.6,
+        "gain": 3.6,
+        "give": 0.04,
+        "gravity": 0.4,
+        "impact": 0.125,
+        "kick": 0.5,
+        "kick_hold": 2.0,
+        "kick_time": 1.5,
+        "mass": 2.4,
+        "pace": 3.0,
+        "pivot": [
+         0.0,
+         -0.07,
+         0.0
+        ],
+        "rot_share": 0.65,
+        "sides": "auto",
+        "squash": [
+         0.0,
+         -0.1,
+         0.35
+        ],
+        "swim": [
+         0.15,
+         3.0
+        ],
+        "travel": [
+         0.05,
+         0.06,
+         0.3
+        ],
+        "turn": 0.3,
+        "weights": [
+         0.65,
+         0.42,
+         1.0
+        ]
+       },
+       "takes": [
+        "spine_1",
+        "spine_2",
+        "spine_3",
+        "spine_endnode"
+       ],
+       "weight": 0.9
+      },
+      {
+       "bone": "joint39",
+       "groups": [
+        1
+       ],
+       "parent": "root_joint",
+       "role": "glutes",
+       "shape": [
+        "glutes"
+       ],
+       "spring": {
+        "accel": 3.0,
+        "centre": "auto",
+        "damping": 0.15,
+        "freq": 3.1,
+        "gain": 4.3,
+        "give": 0.05,
+        "gravity": 0.4,
+        "impact": 0.1,
+        "kick": 0.3,
+        "kick_hold": 2.0,
+        "kick_time": 1.5,
+        "mass": 3.0,
+        "pace": 2.0,
+        "pivot": [
+         0.0,
+         0.06,
+         0.0
+        ],
+        "rot_share": 0.5,
+        "sides": "auto",
+        "squash": [
+         0.0,
+         -0.08,
+         0.17
+        ],
+        "swim": [
+         0.15,
+         3.0
+        ],
+        "travel": [
+         0.03,
+         0.045,
+         0.12
+        ],
+        "turn": 0.25,
+        "weights": [
+         0.15,
+         0.4,
+         1.0
+        ]
+       },
+       "takes": [
+        "root_joint",
+        "left_hip",
+        "right_hip"
+       ],
+       "weight": 0.75
+      }
+     ],
+     "frees": [
+      {
+       "bone": "joint19",
+       "group": 1,
+       "into": "left_foot_2"
+      },
+      {
+       "bone": "joint10",
+       "group": 1,
+       "into": "right_foot_2"
+      },
+      {
+       "bone": "left_hand",
+       "drop": true,
+       "group": 4
+      }
+     ],
+     "springs": [
+      {
+       "bone": "hair_1",
+       "parent": "head",
+       "role": "hair1",
+       "spring": {
+        "accel": 3.0,
+        "damping": 0.2,
+        "freq": 2.0,
+        "gain": 1.0,
+        "give": 0.04,
+        "gravity": 0.0,
+        "pace": 2.0,
+        "pivot": "origin",
+        "rot_share": 1.0,
+        "travel": 0.06
+       }
+      },
+      {
+       "bone": "hair_2",
+       "parent": "hair_1",
+       "role": "hair2",
+       "spring": {
+        "accel": 3.0,
+        "damping": 0.2,
+        "freq": 2.0,
+        "gain": 1.0,
+        "give": 0.04,
+        "gravity": 0.0,
+        "pace": 2.0,
+        "pivot": "origin",
+        "rot_share": 1.0,
+        "travel": 0.06
+       }
+      },
+      {
+       "bone": "hair_3",
+       "parent": "hair_2",
+       "role": "hair3",
+       "spring": {
+        "accel": 3.0,
+        "centre": [
+         0.0,
+         -0.3169,
+         1.6447
+        ],
+        "damping": 0.2,
+        "freq": 2.0,
+        "gain": 1.0,
+        "give": 0.04,
+        "gravity": 0.0,
+        "pace": 2.0,
+        "pivot": "origin",
+        "rot_share": 1.0,
+        "travel": 0.06
+       }
+      }
+     ]
+    },
+    "markers": [
+     "m_damage"
+    ],
+    "mesh": {
+     "keep": [
+      "loincloth_front_1",
+      "loincloth_back_1",
+      "vase_joint"
+     ],
+     "ops": [
+      {
+       "bone": "spine_2",
+       "edge": 0.02,
+       "groups": [
+        1,
+        4
+       ],
+       "mirror": true,
+       "name": "bust fine",
+       "offset": [
+        0.0719,
+        0.09,
+        0.02
+       ],
+       "op": "subdivide",
+       "radius": [
+        0.13,
+        0.17,
+        0.16
+       ]
+      },
+      {
+       "bone": "spine_2",
+       "depth": 0.157,
+       "dir": [
+        0.048,
+        1.0,
+        -0.209
+       ],
+       "fold": 0.062,
+       "groups": [
+        4
+       ],
+       "height": 0.1378,
+       "mirror": true,
+       "name": "bust",
+       "offset": [
+        0.0719,
+        0.1257,
+        0.0575
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.0917,
+        "in": 0.092,
+        "out": 0.0675,
+        "up": 0.1383
+       }
+      },
+      {
+       "bone": "spine_2",
+       "depth": 0.0462,
+       "dir": [
+        0.048,
+        1.0,
+        -0.209
+       ],
+       "fold": 0.131,
+       "groups": [
+        1
+       ],
+       "height": 0.1047,
+       "mirror": true,
+       "name": "bust",
+       "offset": [
+        0.0719,
+        0.0564,
+        0.0575
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.1013,
+        "in": 0.0659,
+        "out": 0.075,
+        "up": 0.1286
+       }
+      },
+      {
+       "bone": "spine_2",
+       "depth": 0.1596,
+       "dir": [
+        0.048,
+        1.0,
+        -0.08
+       ],
+       "fold": 0.0,
+       "groups": [
+        4
+       ],
+       "height": 0.0752,
+       "mirror": true,
+       "name": "bust low",
+       "offset": [
+        0.0719,
+        0.1257,
+        -0.0416
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.0511,
+        "in": 0.0815,
+        "out": 0.0617,
+        "up": 0.0653
+       }
+      },
+      {
+       "bone": "spine_2",
+       "depth": 0.0462,
+       "dir": [
+        0.048,
+        1.0,
+        -0.08
+       ],
+       "fold": 0.0,
+       "groups": [
+        1
+       ],
+       "height": 0.0344,
+       "mirror": true,
+       "name": "bust low",
+       "offset": [
+        0.0719,
+        0.0564,
+        -0.0416
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.0499,
+        "in": 0.0664,
+        "out": 0.0606,
+        "up": 0.0658
+       }
+      },
+      {
+       "bone": "spine_2",
+       "depth": 0.064,
+       "dir": [
+        0.048,
+        1.0,
+        -0.09
+       ],
+       "fold": 0.0,
+       "groups": [
+        1
+       ],
+       "height": 0.0274,
+       "mirror": true,
+       "name": "bust fill",
+       "offset": [
+        0.0928,
+        0.0233,
+        -0.0439
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.0421,
+        "in": 0.0519,
+        "out": 0.0709,
+        "up": 0.0335
+       }
+      },
+      {
+       "bone": "root_joint",
+       "depth": 0.1,
+       "dir": [
+        0.04,
+        -1.0,
+        0.0
+       ],
+       "fold": 0.48,
+       "height": 0.115,
+       "mirror": true,
+       "name": "glutes",
+       "offset": [
+        0.071,
+        -0.105,
+        -0.09
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.118,
+        "in": 0.075,
+        "out": 0.077,
+        "up": 0.13
+       }
+      },
+      {
+       "bone": "root_joint",
+       "factors": [
+        1.1578,
+        1.0,
+        1.0
+       ],
+       "name": "pelvis",
+       "offset": [
+        0.0,
+        -0.0331,
+        -0.09
+       ],
+       "op": "scale",
+       "profile": "smooth",
+       "radius": [
+        0.4624,
+        0.1534,
+        0.17
+       ]
+      },
+      {
+       "bone": "root_joint",
+       "depth": 0.08,
+       "dir": [
+        1.0,
+        -0.433,
+        0.0
+       ],
+       "fold": 0.0,
+       "height": 0.0155,
+       "mirror": true,
+       "name": "hips",
+       "offset": [
+        0.1505,
+        -0.021,
+        -0.1195
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.0417,
+        "in": 0.1132,
+        "out": 0.1278,
+        "up": 0.1223
+       }
+      },
+      {
+       "bone": "root_joint",
+       "factors": [
+        0.86,
+        0.92
+       ],
+       "half": 0.09,
+       "name": "waist",
+       "offset": [
+        0.0,
+        0.015,
+        0.11
+       ],
+       "op": "taper",
+       "plateau": 0.05,
+       "reach": [
+        0.2,
+        0.3
+       ]
+      },
+      {
+       "bone": "left_leg_1",
+       "factors": [
+        1.02,
+        1.2195,
+        1.0
+       ],
+       "mirror": true,
+       "name": "thighs",
+       "offset": [
+        0.0,
+        -0.014,
+        -0.1515
+       ],
+       "op": "scale",
+       "profile": "smooth",
+       "radius": [
+        0.112,
+        0.125,
+        0.169
+       ]
+      },
+      {
+       "bone": "left_leg_1",
+       "depth": 0.08,
+       "dir": [
+        0.0,
+        -1.0,
+        0.0
+       ],
+       "fold": 0.0,
+       "height": 0.026,
+       "mirror": true,
+       "name": "hamstring",
+       "offset": [
+        0.0,
+        -0.1,
+        -0.17
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.1,
+        "in": 0.07,
+        "out": 0.08,
+        "up": 0.09
+       }
+      },
+      {
+       "bone": "loincloth_back_1",
+       "depth": 0.05,
+       "dir": [
+        0.0,
+        -0.05,
+        1.0
+       ],
+       "fold": 1.0,
+       "height": 0.11,
+       "name": "drape",
+       "offset": [
+        0.0,
+        -0.2,
+        -0.03
+       ],
+       "only": [
+        "loincloth_back_1"
+       ],
+       "op": "push",
+       "radius": {
+        "down": 0.9,
+        "in": 0.15,
+        "out": 0.15,
+        "up": 0.188
+       }
+      },
+      {
+       "band": [
+        1.225,
+        1.28
+       ],
+       "dir": [
+        0.0,
+        1.0,
+        0.0
+       ],
+       "faces": true,
+       "groups": [
+        1
+       ],
+       "margin": 0.003,
+       "name": "tuck",
+       "op": "tuck",
+       "skip": [
+        "loincloth_front_1",
+        "loincloth_back_1"
+       ],
+       "strict": true,
+       "under": [
+        4
+       ]
+      },
+      {
+       "band": [
+        1.28,
+        9.0
+       ],
+       "dir": [
+        0.0,
+        1.0,
+        0.0
+       ],
+       "faces": true,
+       "groups": [
+        1
+       ],
+       "margin": 0.0066,
+       "name": "tuck",
+       "op": "tuck",
+       "skip": [
+        "loincloth_front_1",
+        "loincloth_back_1"
+       ],
+       "strict": true,
+       "under": [
+        4
+       ]
+      },
+      {
+       "bone": "head",
+       "group": 0,
+       "name": "tail",
+       "op": "tube",
+       "path": [
+        [
+         0.0,
+         -0.1,
+         0.08
+        ],
+        [
+         0.0,
+         -0.2,
+         0.0
+        ],
+        [
+         0.0,
+         -0.22,
+         -0.2
+        ]
+       ],
+       "radius": [
+        0.02,
+        0.03,
+        0.01
+       ],
+       "rect": [
+        0.02,
+        0.01,
+        0.28,
+        0.14
+       ],
+       "rings": 12,
+       "segments": 2,
+       "sides": 8
+      }
+     ]
+    },
+    "mode": "own",
+    "notes": "booblord v3's look, painted and coloured, with the hoe",
+    "scale": 1.0,
+    "sfx": {
+     "hspin": {
+      "columns": [
+       "sweep1",
+       "sweep2",
+       "sweep ledge"
+      ],
+      "generator": "whoosh",
+      "length": 1.4,
+      "seed": 4,
+      "swells": 4,
+      "takes": 2
+     },
+     "spin": {
+      "columns": [
+       "basic1",
+       "basic2",
+       "basic3",
+       "right1",
+       "right2",
+       "left1",
+       "left2",
+       "up1",
+       "up2",
+       "back1",
+       "back2",
+       "jump attack",
+       "hose_attack_3"
+      ],
+      "generator": "whoosh",
+      "length": 0.4,
+      "seed": 1,
+      "swells": 4,
+      "takes": 3
+     },
+     "stomp": {
+      "columns": [
+       "down"
+      ],
+      "generator": "whoosh",
+      "length": 0.6,
+      "seed": 3,
+      "swells": 1,
+      "takes": 2
+     },
+     "twirl": {
+      "columns": [
+       "finish",
+       "finish2",
+       "finish3"
+      ],
+      "generator": "whoosh",
+      "length": 1.0,
+      "seed": 2,
+      "swells": 8,
+      "takes": 2
+     },
+     "whip": {
+      "columns": [
+       "elemental1",
+       "elemental2",
+       "elemental3"
+      ],
+      "generator": "whoosh",
+      "length": 0.8,
+      "seed": 5,
+      "swells": 2,
+      "takes": 2
+     }
+    },
+    "shapes": {
+     "hips": {
+      "ops": [
+       "pelvis"
+      ],
+      "title": "Hip width",
+      "value": 1.0
+     },
+     "thighs": {
+      "ops": [
+       "thighs"
+      ],
+      "title": "Thigh size",
+      "value": 1.0
+     }
+    },
+    "size": "own",
+    "sounds": "own",
+    "textures": [
+     {
+      "ops": [
+       {
+        "bone": "spine_2",
+        "detail": 0.15,
+        "feather": 0.03,
+        "from": {
+         "bone": "spine_2",
+         "offset": [
+          0.0,
+          -0.02,
+          0.17
+         ],
+         "radius": [
+          0.36,
+          0.14,
+          0.12
+         ]
+        },
+        "groups": [
+         1
+        ],
+        "hue": [
+         250,
+         30
+        ],
+        "lift": 1.04,
+        "offset": [
+         0.0,
+         0.0,
+         0.1
+        ],
+        "op": "skin",
+        "radius": [
+         0.45,
+         0.4,
+         0.4
+        ],
+        "sat": 0.1,
+        "value": 0.04,
+        "z": [
+         1.215,
+         1.62
+        ]
+       },
+       {
+        "bone": "spine_2",
+        "detail": 0.0,
+        "feather": 0.03,
+        "from": {
+         "bone": "spine_2",
+         "offset": [
+          0.0,
+          -0.02,
+          0.17
+         ],
+         "radius": [
+          0.36,
+          0.14,
+          0.12
+         ]
+        },
+        "groups": [
+         1
+        ],
+        "hue": [
+         185,
+         30
+        ],
+        "lift": 1.04,
+        "mirror": true,
+        "offset": [
+         0.1,
+         0.16,
+         0.04
+        ],
+        "op": "skin",
+        "radius": [
+         0.22,
+         0.26,
+         0.24
+        ],
+        "sat": 0.1,
+        "value": 0.04,
+        "z": [
+         1.215,
+         1.62
+        ]
+       },
+       {
+        "ao": 0.7,
+        "bone": "spine_2",
+        "feather": 0.03,
+        "groups": [
+         1
+        ],
+        "light": 0.22,
+        "mirror": true,
+        "offset": [
+         0.1,
+         0.16,
+         0.04
+        ],
+        "op": "shade",
+        "radius": [
+         0.22,
+         0.26,
+         0.24
+        ],
+        "reach": 0.12,
+        "skip": [
+         5
+        ],
+        "warm": 0.12,
+        "z": [
+         1.215,
+         1.62
+        ]
+       },
+       {
+        "bone": "root_joint",
+        "chroma": 1.25,
+        "clean": 0.6,
+        "contrast": 1.35,
+        "gain": 1.15,
+        "groups": [
+         1
+        ],
+        "hue": [
+         30,
+         75
+        ],
+        "offset": [
+         0.0,
+         0.0,
+         0.08
+        ],
+        "op": "metal",
+        "radius": [
+         0.35,
+         0.3,
+         0.08
+        ],
+        "sat": 0.1,
+        "value": 0.35
+       }
+      ],
+      "row": 1,
+      "size": 512
+     },
+     {
+      "ops": [
+       {
+        "bone": "spine_2",
+        "chroma": 1.2,
+        "clean": 0.6,
+        "contrast": 1.3,
+        "gain": 1.15,
+        "groups": [
+         0
+        ],
+        "hue": [
+         0,
+         360
+        ],
+        "mirror": true,
+        "offset": [
+         0.0,
+         0.0,
+         0.15
+        ],
+        "only": [
+         "right_arm_1"
+        ],
+        "op": "metal",
+        "radius": [
+         0.4,
+         0.25,
+         0.12
+        ],
+        "sat": 0.0,
+        "value": 0.2
+       },
+       {
+        "bone": "head",
+        "colour": [
+         0.025,
+         0.025,
+         0.035
+        ],
+        "groups": [
+         0
+        ],
+        "mix": 0.85,
+        "offset": [
+         0.0,
+         -0.06,
+         0.06
+        ],
+        "only": [
+         "hair_1",
+         "hair_2",
+         "hair_3"
+        ],
+        "op": "fill",
+        "radius": [
+         0.2,
+         0.2,
+         0.2
+        ]
+       },
+       {
+        "below": 0.12,
+        "bone": "head",
+        "count": 60.0,
+        "dark": 0.4,
+        "from": [
+         0.0,
+         -0.4,
+         1.0
+        ],
+        "groups": [
+         0
+        ],
+        "offset": [
+         0.0,
+         -0.12,
+         -0.14
+        ],
+        "op": "strands",
+        "radius": [
+         0.26,
+         0.26,
+         0.42
+        ],
+        "seed": 3,
+        "sheen": 0.06,
+        "tint": [
+         0.5,
+         0.56,
+         0.72
+        ],
+        "value": 0.05
+       },
+       {
+        "colour": [
+         0.1,
+         0.28,
+         0.88
+        ],
+        "groups": [
+         0
+        ],
+        "op": "fill",
+        "uv": [
+         0.42,
+         0.4,
+         0.58,
+         0.56
+        ]
+       }
+      ],
+      "row": 0,
+      "size": 256
+     }
+    ],
+    "title": "AzurKit's probe",
+    "voice": "silent"
+   }
+  }
+ }
+}

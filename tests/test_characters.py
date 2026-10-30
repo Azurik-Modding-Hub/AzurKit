@@ -341,6 +341,56 @@ def test_the_speed_toggle_flips_a_worn_bodys_walk_and_roll_to_the_bodys_own(usa_
     assert abs(r * r - 1.0988) < 1e-4 and struct.pack("<I2f", 1, 14 * r, 7 * r) in xbe
 
 
+# --- variants (Step 4.3c1): a recipe's mesh, paint and jiggle -----------------------------------------------------
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_each_variant_probe_is_modkits_file_for_file_and_resource_for_resource(release, request, tmp_path):
+    """Each of ``probes.json``'s variants (Modkit's own build of it at the
+    models tag: a recipe file's variant whose mesh is subdivided, deformed and
+    grown a tube, its textures painted and coloured, its bones on jiggle
+    springs, a shape sized, worn with a weapon), built through ``sdk.image``
+    from its recipe file, gives every file Modkit's build changed Modkit's
+    sha256 and characters.xbr's and fx.xbr's resources as Modkit's, with no
+    conflict. The layer's recipe holds the variant's sha, and neither it nor
+    a note holds the recipe file's folder."""
+    probes = _oracle("probes.json")
+    assert probes
+    with iso.Reader(image_path := request.getfixturevalue(f"{release.name}_iso")) as r:
+        vanilla = {f: r.read(f) for f in characters.FILES}
+    for case, probe in probes.items():
+        recipes = tmp_path / f"{len(list(tmp_path.iterdir()))}.json"
+        recipes.write_text(json.dumps(probe["variants"]), encoding="utf-8")
+        recipe = {"iso": str(image_path), "packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+                  "character": probe["character"] | {"variant_file": str(recipes)}}
+        stamp, base, layers, _, _ = sdk._plan(recipe)
+        made, manifest = edits_manifest.image(stamp, layers, base)
+        want = probe[release.name]
+        with iso.Reader(made) as r:
+            files = {f: r.read(f) for f in want["files"]}
+        assert {f: _sha256(data) for f, data in files.items()} == want["files"], case
+        assert set(manifest.result) - {"filelist.txt"} == set(want["files"]) - {"filelist.txt"}, case
+        assert {f: _view(vanilla[f], files[f]) for f in want["resources"] if f in (CHARACTERS, FX)} == {
+            f: view for f, view in want["resources"].items() if f in (CHARACTERS, FX)}, case
+        layer = next(la for la in layers if la.tool == characters.TOOL)
+        assert manifest.conflicts == () and len(layer.recipe["variant"]) == 12, case
+        assert str(tmp_path) not in json.dumps([layer.recipe, layer.notes]), case
+
+
+def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():
+    """``shapes`` size a variant's shapes: on a species they are refused by
+    name, as a shape's value that isn't a finite number is (D23); an option
+    a recipe gives that isn't the variant's own (beamlord's mode) is refused
+    by name, before any image is read."""
+    with pytest.raises(ValueError, match=r"^character: shapes\.hips nan is not a finite number"):
+        characters.normalize({"species": "keylord", "shapes": {"hips": float("nan")}})
+    with pytest.raises(ValueError, match=r"^character: shapes size a variant's shapes, and 'keylord' names no variant"):
+        characters.variant(characters.normalize({"species": "keylord", "shapes": {"hips": 1.2}}), None)
+    own = characters.variant({"species": "beamlord"}, None)[1]["mode"]
+    with pytest.raises(ValueError, match=r"^--player-character-mode \w+: the variant 'beamlord' is mode " + own):
+        characters.variant({"species": "beamlord", "mode": {"own": "garret4", "garret4": "own"}[own]}, None)
+
+
 def test_a_body_case_under_pyodide_is_modkits_file_for_file(usa_iso, pyodide):
     """keylord's case built by ``sdk.image`` under Pyodide on Node (the
     site's runtime, D882: swaps on the site too), from the wheel alone with

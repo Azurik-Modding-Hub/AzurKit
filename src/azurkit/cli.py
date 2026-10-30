@@ -26,7 +26,9 @@ written first, the built image is read back against it before anything is
 written, and the build prints whether its logic still holds (and why not);
 ``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). ``--character``
 dresses the player in a species' body (a recipe's character as JSON,
-``{"species": "keylord"}`` and any of its options: ``tools.characters``),
+``{"species": "keylord"}`` and any of its options: ``tools.characters``;
+a variant by name, a built-in or one of a recipe file's,
+``{"species": "mine", "variant_file": "recipes.json"}``),
 its size folded into the walk and roll first. A mods file
 of a randomized build (``open``) replays its seed and share string. ``plan`` fills the randomizer's
 authored levels for the seed under the default settings (D144), a settings

@@ -28,7 +28,7 @@ def test_every_oracle_file_is_the_one_the_sync_installed():
     each family's ``oracle.json`` (Modkit's index) agrees with ORACLE.toml,
     by the exported sha256 for a facts file, whose build spans are installed
     as sha256 and size only (a convention, D961), but for the files the sync derives itself
-    (``DERIVED``: the models family's ``swap.json`` and ``resources.json``);
+    (``DERIVED``: the models family's ``swap.json``, ``resources.json`` and ``probes.json``);
     each file the sync installed in our source (``SOURCES``) is as it was
     installed, none missing or added; and a family with files in the content
     folder (``CONTENT``) records them."""
