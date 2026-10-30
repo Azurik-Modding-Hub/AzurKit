@@ -107,8 +107,9 @@ comes with version 1.0.
 - **Attacks:** reach, damage and speed multipliers.
 - **Voice:** the creature's own sounds, or Garret's.
 - **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
-  creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's own
-  moves and voice are optional extra files, read from AzurKit's content folder.
+  creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's four
+  need her own moves and voice, extra files read from AzurKit's content folder; a build without them stops, naming
+  the file.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
   bolts or laser, made from the game's own effects.
 - **Works with every pack and the randomizer:** a seed can wear a character, its logic re-checked at the body's
