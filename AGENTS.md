@@ -411,7 +411,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     effects templates (Step 4.3c2).
   - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
     bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
-    townsfolk's weapon, and `bare_hands` and the spin attack on any body,
+    townsfolk's weapon, `bare_hands` and the spin attack,
     with its throw, thuds and whooshes) and the worn air elemental's funnel
     (`tools/characters/fx/air_elemental/`), our own work made in Blender
     on the game's rigs, ship in the package and the wheel, so neither swap

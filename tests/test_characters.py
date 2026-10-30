@@ -327,7 +327,7 @@ def _probe(probe: dict, release, image_path, vanilla: dict, tmp_path) -> tuple[d
 def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_modkits_file_for_file(
         release, request, no_content, tmp_path):
     """The townsfolk's bare-hands kit (the weaponless townsfolk's weapon,
-    and ``bare_hands`` and the spin attack on any body) and the air
+    ``bare_hands`` and the spin attack) and the air
     elemental's funnel ship in the package (D965: each file Modkit's at the
     models tag, ORACLE.toml's ``models.source``), so with an empty content
     folder a townsman's and the air elemental's own bodies (``probes.json``'s

@@ -103,7 +103,7 @@ comes with version 1.0.
 - **Any size:** the body's own or Garret's height, times any scale you like.
 - **Borrowed moves:** Garret's moves fill a body's gaps, fitted onto 36 different skeletons.
 - **Speed that fits:** walk and roll speed scale with the body, and the speed toggle flips to its own pace.
-- **Weapons:** Garret's Axion staff, the farmer's hoe, Balthazar's magic, the spin attack or bare hands, on any body.
+- **Weapons:** Garret's Axion staff, the farmer's hoe, Balthazar's magic, the spin attack or bare hands.
 - **Attacks:** reach, damage and speed multipliers.
 - **Voice:** the creature's own sounds, or Garret's.
 - **Works with every pack.** Not yet with the randomizer, share links or rebuilding from a recipe.
