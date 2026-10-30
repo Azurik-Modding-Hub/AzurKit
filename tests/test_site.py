@@ -271,8 +271,9 @@ COLUMNS = """(pack) => {
             [...item.querySelectorAll(".l3 .mark:not(:empty)")].map((mark) =>
                 mark.getBoundingClientRect().right <= mark.parentElement.getBoundingClientRect().left)];
 }"""
-# Every visible text drawn in --faint, and its contrast with the ground it sits on (WCAG's ratio): [what, ratio].
-FAINT = """() => {
+# Every visible text drawn in --faint (given true: in a grade's colour, on the Characters tab), and its contrast with
+# the ground it sits on (WCAG's ratio): [what, ratio].
+FAINT = """(graded = false) => {
     const rgb = (text) => text.match(/[\\d.]+/g).slice(0, 3).map(Number);
     const hex = getComputedStyle(document.documentElement).getPropertyValue("--faint").trim();
     const faint = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -284,12 +285,14 @@ FAINT = """() => {
             if (bg !== "transparent" && !/^rgba\\(.*, 0\\)$/.test(bg)) return rgb(bg);
         }
     };
-    return [...document.querySelectorAll("body *")].filter((el) => el.checkVisibility()
+    const color = (el) => rgb(getComputedStyle(el).color);
+    return [...document.querySelectorAll(graded ? "#characters *" : "body *")].filter((el) => el.checkVisibility()
             && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
-            && rgb(getComputedStyle(el).color).join() === faint.join())
+            && (graded ? el.style.color !== "" : color(el).join() === faint.join()))
         .map((el) => {
-            const [hi, lo] = [lum(faint), lum(ground(el))].sort((a, b) => b - a);
-            return [`${el.closest(".pack.open") ? "open " : ""}${el.className || el.id}`, (hi + 0.05) / (lo + 0.05)];
+            const [hi, lo] = [lum(color(el)), lum(ground(el))].sort((a, b) => b - a);
+            return [`${el.closest(".pack.open") ? "open " : ""}${el.dataset.model ?? (el.className || el.id)}`,
+                    (hi + 0.05) / (lo + 0.05)];
         });
 }"""
 
@@ -634,6 +637,10 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         _page.until(page, "() => azurkit.characters.state.view?.species.length === 178", 300)
         assert page.evaluate("""() => [document.querySelectorAll("#char-species .model").length,
             document.querySelectorAll("#char-species .model.untested").length]""") == [178, 73]
+        for theme in ("dark", "light"):   # each grade's colour at least 4.5:1 on its row's ground, the chosen row's too
+            graded = page.evaluate(FAINT, True)
+            assert len(graded) > 178 and [(what, round(r, 2)) for what, r in graded if r < 4.5] == [], theme
+            _page.click(page, "theme")
         assert page.evaluate(COMMUNITY) == [["beamlord", "community", "Install", []],
                                             ["tamper", "community", "Install", []]]
         page.evaluate("""() => document.querySelector('#char-community .entry[data-entry="tamper"] button').click()""")

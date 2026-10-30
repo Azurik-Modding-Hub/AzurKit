@@ -436,7 +436,11 @@ p.views { margin: 0; padding: 2px 10px; }
   border-bottom: 1px solid var(--soft); border-radius: 0; background: transparent; font: 11.5px var(--mono); }
 .chars .model:nth-child(even) { background: var(--zebra); }
 .chars .model[aria-selected="true"] { background: var(--sel); box-shadow: inset 3px 0 var(--accent); }
-.chars .model.untested { opacity: .7; }
+/* The grades' colours (the engine's, picker.STATUS_COLOURS) as drawn, at least 4.5:1 on every row's ground, the chosen
+   row's too: the light theme's Modkit's (AZ-545) a shade darker, the dark theme's grey a shade lighter. */
+.chars { --grade-unseen: #999999; }
+:root[data-theme="light"] .chars { --grade-green: #2a722e; --grade-yellow: #895b00; --grade-red: #c02727;
+  --grade-unseen: #646464; }
 .chars .entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 8px;
   padding: 2px 4px; border-bottom: 1px solid var(--soft); }
 .chars .entry .community { font-size: 10px; color: var(--mark); text-transform: uppercase; letter-spacing: .05em; }

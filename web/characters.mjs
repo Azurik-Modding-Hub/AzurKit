@@ -180,13 +180,18 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     changed();
     ask();
   };
+  // A grade's colour as drawn: the engine's, through its theme's --grade-* (app.css), so a theme toggle repaints it.
+  const paint = (colour) => {
+    const grade = colour && Object.keys(c.view?.colours ?? {}).find((name) => c.view.colours[name] === colour);
+    return grade ? `var(--grade-${grade}, ${colour})` : colour ?? "";
+  };
   const row = (name, label, colour, untested = false) => {
     const button = el("button", { type: "button", className: `model${untested ? " untested" : ""}`, textContent: label,
                                   title: untested ? "Not yet tested: no sitting has graded it" : name });
     button.dataset.model = name;
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", String(name === c.character.species));
-    button.style.color = colour;
+    button.style.color = paint(colour);
     button.addEventListener("click", () => pick(name));
     return button;
   };
@@ -216,7 +221,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $("char-name").textContent = chosen.name + (chosen.community ? "  · community" : "");
     $("char-info").replaceChildren(...chosen.info.map(([label, text, colour]) => {
       const value = el("td", { textContent: text });
-      if (colour) value.style.color = colour;
+      if (colour) value.style.color = paint(colour);
       return el("tr", {}, el("th", { textContent: label }), value);
     }));
     const locked = chosen.locked, live = chosen.live, defaults = chosen.defaults, ch = c.character;
@@ -225,13 +230,13 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $("char-mode").disabled = "mode" in locked;
     $("char-weapon").replaceChildren(...chosen.weapons.map((w) => {
       const option = el("option", { value: w.name ?? "", textContent: w.label, title: w.tip });
-      if (w.colour) option.style.color = w.colour;
+      if (w.colour) option.style.color = paint(w.colour);
       return option;
     }));
     $("char-weapon").value = chosen.weapon ?? "";
     $("char-weapon").disabled = chosen.weapons.length < 2;
     const picked = chosen.weapons.find((w) => w.name === (chosen.weapon ?? null));
-    $("char-weapon").style.color = picked?.colour ?? "";
+    $("char-weapon").style.color = paint(picked?.colour);
     $("char-clips").checked = (ch.anims ?? defaults.anims) === "own";
     $("char-clips").disabled = !live.anims;
     $("char-sounds").checked = (locked.sounds ?? ch.sounds ?? "own") === "own";
