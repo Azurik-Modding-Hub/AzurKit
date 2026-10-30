@@ -430,7 +430,7 @@ p.views { margin: 0; padding: 2px 10px; }
 .chars h3 { margin: 6px 0 2px; font-size: 11.5px; }
 .chars h3 .note { font-weight: 400; margin-left: 6px; }
 #char-filter { width: 14rem; }
-#char-source { width: 22rem; }
+.chars-list .field, #char-source { flex: 1 1 0; min-width: 0; }   /* Content from fills its row, Reset beside it */
 #char-species { max-height: 24rem; overflow: auto; border: 1px solid var(--soft); }
 .chars .model { display: block; width: 100%; height: var(--row); padding: 0 6px; text-align: left; border: 0;
   border-bottom: 1px solid var(--soft); border-radius: 0; background: transparent; font: 11.5px var(--mono); }

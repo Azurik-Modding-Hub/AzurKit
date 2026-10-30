@@ -271,6 +271,12 @@ COLUMNS = """(pack) => {
             [...item.querySelectorAll(".l3 .mark:not(:empty)")].map((mark) =>
                 mark.getBoundingClientRect().right <= mark.parentElement.getBoundingClientRect().left)];
 }"""
+# The Characters tab's layout at the page's width: [Content from and its Reset inside the list's column, on one line].
+CHARS_LAYOUT = """() => {
+    const r = (el) => el.getBoundingClientRect(), list = r(document.querySelector(".chars-list"));
+    const [source, reset] = ["char-source", "char-source-reset"].map((id) => r(document.getElementById(id)));
+    return [source.right <= list.right && reset.right <= list.right && Math.abs(reset.top - source.top) < 2];
+}"""
 # Every visible text drawn in --faint (given true: in a grade's colour, on the Characters tab), and its contrast with
 # the ground it sits on (WCAG's ratio): [what, ratio].
 FAINT = """(graded = false) => {
@@ -604,7 +610,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     file isn't its manifest's sha256 is refused by name and keeps nothing, and Beamlord's installs, its variant
     then listed under it, installed v1, and a page opened again hands it to its engine before the tab is opened (a
     build from another tab reads it); a species picked shows its Weapon box and its two pictures (draw.py, under
-    Pyodide). No CSP violation, and no request but GETs of the site's files and the source's."""
+    Pyodide), and Content from and its Reset stay in the list's column. No CSP violation, and no request but GETs of the site's files and the source's."""
     from azurkit.tools.characters import _player_variants, content
 
     repo = tmp_path / "repo"
@@ -655,6 +661,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         page.evaluate("() => document.querySelector('#char-species .model[data-model=\"keylord\"]').click()")
         _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 120)
         assert page.evaluate("() => document.querySelectorAll('#char-weapon option').length") > 1
+        assert page.evaluate(CHARS_LAYOUT) == [True]
         _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 300)
         assert page.evaluate("""() => ["char-front", "char-back"].map((id) => document.getElementById(id).getContext("2d")
             .getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0))""") == [True, True]
