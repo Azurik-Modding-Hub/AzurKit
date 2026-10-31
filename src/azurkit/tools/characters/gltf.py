@@ -94,7 +94,7 @@ from pathlib import Path
 
 import numpy as np
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, inflate
 from azurkit.tools.characters.characters import BoneRecord, body_at, bone_records, inverse_binds, mesh_groups
 from azurkit.tools.characters.retarget import FLT_MAX, SAMPLE_HZ, Clip, _linear, _slopes, evaluate, qmul, qnorm, read_clip
 from azurkit.tools.characters import render
@@ -716,7 +716,7 @@ def _read_png(data: bytes) -> np.ndarray:
     if head is None or head[2:] != (8, 6, 0, 0, 0):
         raise ValueError("PNG isn't 8-bit RGBA, uninterlaced")
     w, h = head[:2]
-    rows = np.frombuffer(zlib.decompress(idat), np.uint8).reshape(h, 1 + 4 * w)
+    rows = np.frombuffer(inflate.png_rows(idat, w, h, 4), np.uint8).reshape(h, 1 + 4 * w)
     if rows[:, 0].any():
         raise ValueError("PNG row filter isn't 0")
     return rows[:, 1:].reshape(h, w, 4)

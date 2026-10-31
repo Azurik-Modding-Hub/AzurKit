@@ -48,7 +48,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, inflate
 from azurkit.tools.characters import render
 
 FORMATS = {"dxt1": 0x20, "dxt3": 0x40, "bgra8": 0x10}
@@ -290,10 +290,8 @@ def read_png(blob: bytes) -> np.ndarray:
     if head is None or head[2] != 8 or head[3] not in (2, 6) or head[4:] != (0, 0, 0):
         raise ValueError("the PNG isn't 8-bit RGB or RGBA, non-interlaced")
     w, h, bpp = head[0], head[1], 3 if head[3] == 2 else 4
-    raw = zlib.decompress(idat)
+    raw = inflate.png_rows(idat, w, h, bpp)   # past 4096x4096, or a bomb: refused before it fills memory (SEC-5)
     stride = w * bpp
-    if len(raw) != h * (stride + 1):
-        raise ValueError("the PNG's image data isn't its size")
     img = np.zeros((h, stride), np.uint8)
     prev = bytearray(stride)
     for y in range(h):

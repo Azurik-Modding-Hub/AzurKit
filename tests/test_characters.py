@@ -567,6 +567,57 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
     assert "beamlord" not in content.installed()
 
 
+# --- untrusted content (D992's SEC-5, 6, 9, 14, 15 and the allow-list; Step S1) -----------------------------
+
+
+def _png(width: int, height: int, rows: bytes, channels: int = 4) -> bytes:
+    """A PNG file whose header says ``width`` x ``height``, 8-bit RGBA (or RGB), and whose image data is
+    ``rows`` deflated (whatever their length: a bomb's)."""
+    import zlib
+
+    def chunk(tag: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
+    deflate = zlib.compressobj(9)
+    data = b"".join(deflate.compress(rows[at:at + (1 << 20)]) for at in range(0, len(rows), 1 << 20)) + deflate.flush()
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6 if channels == 4 else 2,
+                                                               0, 0, 0)) + chunk(b"IDAT", data) + chunk(b"IEND", b""))
+
+
+def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
+    """What a community entry, a recipe or a picture a player is handed can hold (D992's threat model) is
+    refused by name, as a ``ValueError``, in under 0.1 s and with under 16 MiB held, or, for a valid one,
+    read as quickly: a PNG bomb (64 MiB of rows behind a 64x64 header, in the textures' reader and in a glTF
+    folder's read-back) and a picture past 4096x4096 (refused before it inflates; SEC-5)."""
+    import time
+    import tracemalloc
+
+    from azurkit.tools.characters import gltf, textures
+
+    bomb, wide = _png(64, 64, bytes(64 << 20)), _png(8192, 4096, bytes(4096 * (8192 * 4 + 1)))
+    rows = {
+        "a PNG bomb": (lambda: textures.read_png(bomb), r"^the PNG's image data isn't its size"),
+        "a PNG bomb in a glTF folder": (lambda: gltf._read_png(bomb), r"^the PNG's image data isn't its size"),
+        "a PNG past 4096x4096": (lambda: textures.read_png(wide),
+                                 r"^a PNG of 8192x4096: past the 4096x4096 pixels a picture may hold")}
+    slow = {}
+    for row, (call, why) in rows.items():
+        tracemalloc.start()
+        try:
+            start = time.perf_counter()
+            if why is None:
+                call()
+            else:
+                with pytest.raises(ValueError, match=why):
+                    call()
+            took, held = time.perf_counter() - start, tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        if took >= 0.1 or held >= 16 << 20:
+            slow[row] = f"{took:.3f} s, {held:,} bytes held"
+    assert not slow, slow
+    assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
+
+
 def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path, monkeypatch):
     """``sdk.pickers`` (the Characters tab, D877): the species the player can wear in ``critters_engine``'s order
     (``player_models``' usable ones), each in its grade's colour as Modkit's picker shows it (60 green, 44 yellow,
