@@ -97,7 +97,7 @@ from pathlib import Path
 
 from azurkit import __version__
 from azurkit.core import gate, iso
-from azurkit.core.progress import Steps
+from azurkit.core.progress import Steps, record
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
@@ -206,25 +206,42 @@ def _note(text: str) -> None:
 
 
 @contextlib.contextmanager
-def _noting(steps: Steps, stage: str, label: str):
-    """The planner's notes (``generator.NOTE``: "placing the items";
-    ``needs.NOTE``: "the maps' exits, k of n") told to ``steps`` as
-    ``stage``'s record while this thread's call runs: ``label (note)``, a
-    note's "k of n" its count."""
+def _noting(steps: Steps):
+    """``steps`` for this thread's call, the planner's notes
+    (``generator.NOTE``: "placing the items"; ``needs.NOTE``: "the maps'
+    exits, k of n") folded into the stage it reported last through the
+    ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
+    counted inside the stage's step (``done`` of ``total`` as ``done * n +
+    k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
+    so its bar moves on, never back."""
     if not steps:
-        yield
+        yield steps
         return
+    last: list[dict] = []
+
+    def heard(step: dict) -> None:
+        last[:] = [step]
+        steps.report(step)
 
     def told(text: str) -> None:
-        count = re.search(r"(\d+) of (\d+)", text)
-        steps(stage, f"{label} ({text})", *(map(int, count.groups()) if count else ()))
+        if not last:   # no stage yet to fold it into
+            return
+        at, done, total = last[0], last[0]["done"], last[0]["total"]
+        if count := re.search(r"(\d+) of (\d+)", text):
+            k, n = map(int, count.groups())
+            done, total = done * n + k - 1, max(total, 1) * n
+        steps.report(record(at["stage"], f"{at['label']} ({text})", done, total))
     ident = threading.get_ident()
+    outer = _NOTES.get(ident)
     _NOTES[ident] = told
     generator.NOTE = needs.NOTE = _note
     try:
-        yield
+        yield Steps(heard)
     finally:
-        _NOTES.pop(ident, None)
+        if outer is None:
+            _NOTES.pop(ident, None)
+        else:
+            _NOTES[ident] = outer
 
 
 def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None,
@@ -242,8 +259,8 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
         raise ValueError("recipe: iso names no image")
     prepared = None
     if "randomizer" in recipe and character is None:
-        steps("plan")
-        with _noting(steps, "plan", "Planning the seed"):
+        with _noting(steps) as noted:
+            noted("plan")
             prepared = generator.prepare(recipe["randomizer"], packs)
     elif "randomizer" in recipe:   # checked now; planned below, on the walk and roll the body's size folds
         generator.check(recipe["randomizer"])
@@ -261,8 +278,8 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
             inputs[rando_layer.SIZE_PACK] = {rando_layer.SIZE_FOLD: fold}   # the speed toggle's walk and roll
         packs = mods.normalize({name: params.get(name, {}) for name in enabled})
         if "randomizer" in recipe:   # Modkit's randomize-full: the plan stands on the folded sliders (AZ-383)
-            steps("plan")
-            with _noting(steps, "plan", "Planning the seed"):
+            with _noting(steps) as noted:
+                noted("plan")
                 prepared = generator.prepare(recipe["randomizer"], packs)
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
     steps("read")
@@ -803,9 +820,10 @@ def tracker(given: Mapping, *, progress: Callable[[dict], object] | None = None)
     each row's collected, reachable now, left, total, where and the game's
     count). Modkit's tracker, the same verdicts on every host
     (``tools.randomizer.tracking``); ``progress(record)`` hears a plan's
-    first view build its tracker and read the world map; a refusal names
-    what it refuses."""
-    return tracking.view(given, progress=progress)
+    first view build its tracker and read the world map, the maps' exits
+    counted on it; a refusal names what it refuses."""
+    with _noting(Steps(progress)) as steps:
+        return tracking.view(given, progress=steps.report)
 
 
 def art(path: str, part: str) -> dict:

@@ -289,8 +289,8 @@ Table's two trees (``table``: the items by kind and the spots by level,
 each row's collected, reachable now, left, total, where and the game's
 count). Modkit's tracker, the same verdicts on every host
 (``tools.randomizer.tracking``); ``progress(record)`` hears a plan's
-first view build its tracker and read the world map; a refusal names
-what it refuses.
+first view build its tracker and read the world map, the maps' exits
+counted on it; a refusal names what it refuses.
 
 
 def art(path: 'str', part: 'str') -> 'dict':

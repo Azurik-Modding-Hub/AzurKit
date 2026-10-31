@@ -5,6 +5,7 @@ share preset carries a recipe (WEB §4.2, Q174)."""
 from __future__ import annotations
 
 import base64
+import functools
 import hashlib
 import json
 import re
@@ -17,6 +18,7 @@ from azurkit.core import gate, iso
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset
 from azurkit.edits.layer import Change, Layer, compose
+from azurkit.tools.randomizer import needs, tracking
 from tests._xiso import fill, image
 
 BASE = {"a.bin": bytes(64), "b.bin": fill("b", 32)}
@@ -118,8 +120,9 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
                                                                                                     monkeypatch):
     """``sdk.image`` reports each named stage of a build as the progress
     record (``core.progress``), in order, the planner's note among the
-    seed's (Step 4.3m); with ``spoiler`` false its report leaves the
-    spoiler out, and ``sdk.spoiler(plan, built=True)`` gives it then.
+    seed's, and ``sdk.tracker`` a plan's first view's, the maps' exits
+    counted inside its world map's step (Step 4.3m); with ``spoiler`` false
+    its report leaves the spoiler out, and ``sdk.spoiler(plan, built=True)`` gives it then.
     ``sdk.save`` writes the image the build made, without planning it
     again, its sha256 the image's, following the write in the record."""
     seen, writes = [], []
@@ -132,6 +135,15 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     assert [r["label"] for r in seen if r["stage"] == "pack"] == ["Applying qol_alloc_race"]
     assert [r["label"] for r in seen if r["stage"] == "plan"] == ["Planning the seed",
                                                                   "Planning the seed (placing the items)"]
+    monkeypatch.setattr(tracking, "_KEPT", type(tracking._KEPT)())   # the plan's first view, in a process that
+    for module, name in ((tracking, "world"), (needs, "overlays"), (needs, "exit_edges")):   # reads the maps' exits
+        monkeypatch.setattr(module, name, functools.cache(getattr(module, name).__wrapped__))
+    read = []
+    sdk.tracker({"plan": report["plan"]}, progress=read.append)
+    n = read[-1]["total"] // 2
+    assert [(r["label"], r["done"], r["total"]) for r in read] == [
+        ("Reading the seed's logic", 0, 2), ("Reading the world map", 1, 2),
+        *((f"Reading the world map (the maps' exits, {k} of {n})", n + k - 1, 2 * n) for k in range(1, n + 1))]
     assert "spoiler" not in report and report["randomizer"]["logic_verified"]
     text = sdk.spoiler(report["plan"], built=True)["text"]
     lines = text.splitlines()

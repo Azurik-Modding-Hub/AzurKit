@@ -40,7 +40,8 @@ api/progress`` gives the progress of the calls in flight, each a
 (``build``, ``save``: their named stages, the swap's items counted;
 ``preview``, ``match``: the call's own line, the swap's items counted;
 ``plan``: its logic read, fill and placements; ``tracker``: a plan's
-first view's seed logic and world map; ``randomizer``, ``restore``,
+first view's seed logic and world map, the maps' exits counted on it
+outside Live's view; ``randomizer``, ``restore``,
 ``vanilla``, ``spoiler``: the call's own line, no count), which the page
 shows as its bar.
 Both run in the engine (:mod:`.engine`): ``serve``'s on the request's own
