@@ -42,10 +42,18 @@ icon = [
     "resvg-py==0.5.0",
     "pillow==13.0.0",
 ]
+# The developer side (D950, D990): `devkit/`, dev only, never in the wheel or the app (devkit/README.md). capstone
+# disassembles (BSD), Unicorn runs the simulator's CPU (GPL-2: never shipped). One group, installed by default, so a
+# broken install fails devkit's tests rather than skipping them. mcp 2 joins it with the MCP server, and
+# scripts/freeze.py then leaves out its cryptography, which pywebview imports when it is installed.
+devkit = [
+    "capstone==5.0.9",
+    "unicorn==2.1.4",
+]
 
 [tool.uv]
 required-version = ">=0.12"
-default-groups = ["dev", "app"]
+default-groups = ["dev", "app", "devkit"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

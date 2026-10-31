@@ -21,6 +21,7 @@ uv run --locked pytest                      # the whole suite
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
 uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
 uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
+uv run --locked python -m devkit [AREA [VERB ...]]    # the developer side (D950, dev only): devkit/README.md
 uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # tests/goldens/ from the player's images
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
 uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
@@ -561,8 +562,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   are. The worker loads the wheel without its dependencies, so the engine
   imports platformdirs only where it needs the user data folder. Only `tools/characters` and the randomizer's drawing
   (`tools/randomizer/art/`, `draft/`) import numpy, and nothing imports capstone,
-  unicorn, zig or Tk. `tests/test_contracts.py` checks these, along with
-  import-linter's contracts.
+  unicorn, zig, Tk or `devkit` (the developer side, which never ships).
+  `tests/test_contracts.py` checks these, along with import-linter's
+  contracts.
 - **The same bits on every platform (AZ-830):** each platform's libm rounds
   some sines, cosines and powers otherwise (macOS's for CPython, musl's
   under Pyodide), so the swap's (`tools/characters/`) and the XBR graphs'
@@ -934,8 +936,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## Environment
 
-- Scratch goes in `mktemp -d /tmp/azurkit-<what>.XXXXXX`. Delete it by its exact
-  path.
+- Scratch goes in `mktemp -d /tmp/azurkit-<what>.XXXXXX` (`/tmp` is shared).
+  Delete it by its exact path: never a glob over `/tmp`, and never anything
+  you didn't make, the images, an xemu folder or the xemu oracle's fixtures
+  (`AZURIK_XEMU_FIXTURES`). Never edit what a tool writes: `.venv/`,
+  `.tools/` (every lane's), `__pycache__/`, `dist/` and `build/`. Never run
+  `bootstrap.py` in a lane's worktree: setup is the main checkout's, once,
+  and the pre-push hook it writes is every worktree's.
 - No home paths in tracked files.
 - **The owner's screen (D839):** this machine is the owner's, who works on
   its screen. Seats never launch the app on it: no `open AzurKit.app`, and
