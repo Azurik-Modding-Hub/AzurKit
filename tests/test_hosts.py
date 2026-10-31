@@ -389,15 +389,24 @@ def _save(page) -> dict | str:
                                 && document.querySelector("#status").textContent""")
 
 
-def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch):
+def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch, tmp_path):
     """No test opens a window or a browser tab on the owner's screen (D839):
     the run sets the no-window mode, under which ``app.main`` serves nothing
     and never reaches the window or the browser (the session checks it first,
     with all three planted to raise), and ``python -m azurkit`` with no
     arguments (the page) exits 1 within seconds. ``serve`` reaches neither
     in any mode: it prints the page's address and stops when its input
-    ends."""
+    ends. The stores it installs (``app.swapcache``) are this test's
+    folder's, its engine process's too, and gone after it."""
+    from azurkit.app import swapcache
+    from azurkit.tools import characters
+
     assert os.environ.get(app.NO_WINDOW)
+    monkeypatch.setattr(gate, "STAMPS", gate.STAMPS)   # put back after the test: no later test writes the user's
+    monkeypatch.setattr(characters, "CACHE", characters.CACHE)
+    monkeypatch.setattr(swapcache, "root", lambda: tmp_path / "cache")
+    monkeypatch.setattr(swapcache, "key_file", lambda: tmp_path / "data" / "cache.key")
+    monkeypatch.setenv("HOME", str(tmp_path))   # the engine process's platformdirs
 
     def opened(*args, **kwargs):
         raise AssertionError("the window path ran under the tests")
@@ -409,6 +418,8 @@ def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch):
             m.setattr(os, "environ", os.environ | mode)
             assert app.main(["serve"]) == 0
         assert out.getvalue().startswith("http://127.0.0.1:")
+        assert all(p.is_relative_to(tmp_path) for p in (gate.STAMPS.file, characters.CACHE.folder,
+                                                        characters.CACHE.signer.file))
     monkeypatch.setattr(app, "serve", opened)
     assert app.main() == 1
 
