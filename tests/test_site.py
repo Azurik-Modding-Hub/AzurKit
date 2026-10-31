@@ -1591,8 +1591,8 @@ def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_w
     of an opened plan reads the world map stop the site's worker. The view's
     ask is sent again to the worker that replaces it, and until that worker
     is ready the bottom bar shows no value: never the stopped worker's stage
-    ("Reading the world map… 50 %"), which nothing runs. It hides once the
-    view is shown."""
+    ("Reading the world map… 50 %", or with its exits' note, 4.3m's fold),
+    which nothing runs. It hides once the view is shown."""
     served = Site(browser, site)
     try:
         page = served.open()
@@ -1604,8 +1604,8 @@ def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_w
         doc = _profile("default")
         (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
         page.set_input_files("#track-open", str(tmp_path / "plan.json"))
-        _page.until(page, "() => [...azurkit.asks.values()].some((a) => a.kind === 'tracker'"
-                          " && a.record?.label === 'Reading the world map')", 300)
+        _page.until(page, "() => [...azurkit.asks.values()].some((a) => a.kind === 'tracker'"   # the stage, its exits'
+                          " && a.record?.label?.startsWith('Reading the world map'))", 300)   # note folded in or not
         page.evaluate(BUILD_CANCEL)
         _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
                           f" && ({TRACKED})()", 300)
