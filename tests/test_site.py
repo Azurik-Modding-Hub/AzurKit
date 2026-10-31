@@ -62,14 +62,20 @@ def site(tmp_path_factory) -> Path:
     return web_tools.site(tmp_path_factory.mktemp("site") / "site")
 
 
+PAGES = (".html", ".htm", ".shtml", ".xhtml", ".xht", ".svg", ".svgz", ".js", ".mjs", ".xml", ".xsl", ".xslt", ".rss",
+         ".atom", ".rdf", ".mml")
+"""What a static host serves as a page, a script or a document the browser renders (mime-db's types)."""
+
+
 @pytest.mark.parametrize("fault", ["a ../ path through a linked folder", "a linked folder", "a listed link",
-                                   "a listed page", "a page behind a trailing /", "a page behind a trailing /."])
+                                   *(f"a listed {s} page" for s in PAGES), "a page behind a trailing /",
+                                   "a page behind a trailing /."])
 def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothing(tmp_path, monkeypatch, fault):
     """``web_tools.site(content=)`` publishes a content clone's manifest and
     each regular file it lists in ``content-source/``, checked as an Install
     checks them; a ``../`` path, a link anywhere on a listed file's path (a
-    folder or the file: the deployer's own files), a page or script
-    suffix (``.html``) and a path that isn't plain (a trailing ``/`` or
+    folder or the file: the deployer's own files), a page, script or
+    rendered-document suffix (:data:`PAGES`) and a path that isn't plain (a trailing ``/`` or
     ``/.``, which would publish the page under it) are refused naming the
     file, before the site's first file is written (the three cases SEC-3
     reproduced, a linked folder with no ``../``, and the trailing ``/``)."""
@@ -82,13 +88,14 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     (clone / "index.html").write_text("planted\n")
     (clone / "packs/x/pack.json").write_text("{}\n")
     (outside / "secret.json").write_text('"the deployer\'s"\n')
-    (clone / "packs/x/x.html").write_text("<script>1</script>\n")
+    for suffix in PAGES:
+        (clone / f"packs/x/x{suffix}").write_text("<script>1</script>\n")
     (clone / "packs/a").symlink_to(clone / "d1/d2/d3")
     (clone / "packs/y").symlink_to(outside)
     (clone / "packs/x/leak.json").symlink_to(outside / "secret.json")
     bad = {"a ../ path through a linked folder": "packs/a/../../../index.html",
            "a linked folder": "packs/y/secret.json", "a listed link": "packs/x/leak.json",
-           "a listed page": "packs/x/x.html", "a page behind a trailing /": "packs/x/x.html/",
+           **{f"a listed {s} page": f"packs/x/x{s}" for s in PAGES}, "a page behind a trailing /": "packs/x/x.html/",
            "a page behind a trailing /.": "packs/x/x.html/."}[fault]
     monkeypatch.setattr(web_tools, "missing", lambda _root: [])
     monkeypatch.setattr(web_tools, "pyodide_dir", lambda _root: tmp_path / "pyodide")

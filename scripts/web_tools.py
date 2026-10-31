@@ -54,9 +54,11 @@ CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
 # Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit")}
 SHIPPED = "azurkit/tools/randomizer/shipped"   # the checked randomizer database's folder (dbcache.SHIPPED)
-UNSERVED = (".html", ".htm", ".xhtml", ".svg", ".js", ".mjs", ".xml")
+UNSERVED = (".html", ".htm", ".shtml", ".xhtml", ".xht", ".svg", ".svgz", ".js", ".mjs", ".xml", ".xsl", ".xslt", ".rss",
+            ".atom", ".rdf", ".mml")
 """The suffixes no content file on the site has: its host would serve each
-as a page or a script on the site's own origin, outside the page's CSP."""
+as a page, a script or an XML document the browser renders (where an XHTML
+``<script>`` runs) on the site's own origin, outside the page's CSP."""
 
 
 def _tools(root: Path) -> Path:
