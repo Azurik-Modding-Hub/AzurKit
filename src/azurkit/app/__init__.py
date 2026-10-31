@@ -7,7 +7,8 @@ answers only a request that names it as the host (no DNS rebinding) and
 carries this launch's token: in its URL the first time, then in the cookie
 that answer sets. The cookie is named for the launch's port: browsers keep
 cookies by host, not port, so a second launch's never replaces the first's.
-The engine below never starts a thread; this host does, for the server.
+The engine below never starts a thread; this host does, for the server,
+and the app's engine process (:mod:`.engine`).
 
 The server is the page's engine too. ``host.json`` tells the page it is in
 the app, with the catalog, AzurKit's version, the image to start from (the
@@ -30,6 +31,10 @@ report, the size, and where to save it: the Downloads folder, under the
 site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
 (``sdk.build``), never over an existing file but the one the save dialog
 chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
+Both run in the engine (:mod:`.engine`): ``serve``'s on the request's own
+thread, the app's (:func:`main`) in a process of its own, with the seed's
+plan and the Characters tab's pictures and G4 match, so the server's own
+answers never wait on a build, and Cancel stops a build at once.
 ``POST api/spoiler`` ``{"out"}`` writes the last randomized build's spoiler
 there, on the same terms. ``POST api/randomizer`` ``{"given"}`` gives what
 the Randomizer tab shows (``sdk.randomizer_settings``).
@@ -72,7 +77,7 @@ which ``host.json``'s ``content_source`` gives the next page.
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
 time. Closing the app cancels either (:meth:`Server.quit`, AZ-823) and
-never waits on a build.
+never waits on a build (the app's engine process: it ends it).
 
 The tests run with :data:`NO_WINDOW` set (``tests/conftest.py``): the owner
 works on this screen (D839), so there :func:`main` refuses at once, before it
@@ -83,7 +88,6 @@ mode: it prints the page's address and serves until its input ends.
 
 from __future__ import annotations
 
-import base64
 import contextlib
 import glob
 import hmac
@@ -108,7 +112,9 @@ from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.live import link
 
 from . import art as pictures
+from . import engine as engines
 from . import live
+from .engine import Cancelled
 
 SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
 
@@ -124,10 +130,6 @@ GROUNDS = {"dark": "#0d1117", "light": "#e8ecf1"}
 THEMES = tuple(GROUNDS)
 QUIT_WAIT = 1.5   # seconds a close waits, in all, for a cancelled save to remove its part file (AZ-823)
 QUITTING = "AzurKit is quitting: nothing was written"
-
-
-class Cancelled(Exception):
-    """The page cancelled the save."""
 
 
 def _config() -> Path:
@@ -290,8 +292,9 @@ class Server(http.server.ThreadingHTTPServer):
 
     daemon_threads = True
 
-    def __init__(self, page: Path):
+    def __init__(self, page: Path, engine: engines.Here | engines.Spawned | None = None):
         super().__init__(("127.0.0.1", 0), _Handler)
+        self.engine = engine or engines.Here()   # where builds, saves, plans and pictures run
         self.page, self.token = page.resolve(), secrets.token_urlsafe(32)
         self.host, self.cookie = f"127.0.0.1:{self.server_port}", f"azurkit-token-{self.server_port}"
         self.url = f"http://{self.host}/?token={self.token}"
@@ -315,7 +318,8 @@ class Server(http.server.ThreadingHTTPServer):
         """Cancel a build or a save in flight, within :data:`QUIT_WAIT`
         (AZ-823): the window's closing hook (its close button, and Cmd-Q,
         after which no ``finally`` runs) and :meth:`close`. A build writes
-        nothing, so this never waits on one: its answer is refused. A save
+        nothing, so this never waits on one: its answer is refused (the
+        app's engine process, which ends here, ends it). A save
         is waited on until it has removed its part file (D35), as its thread
         is a daemon, which the interpreter's exit would kill mid-write; if
         it hasn't by then (a stalled disk), its part file is removed here.
@@ -328,17 +332,23 @@ class Server(http.server.ThreadingHTTPServer):
         if (feed := self.feed) is not None:
             feed.stop()
         self.deadline = self.deadline or time.monotonic() + QUIT_WAIT
-        if self.writing.acquire(timeout=max(0.0, self.deadline - time.monotonic())):
+        if saved := self.writing.acquire(timeout=max(0.0, self.deadline - time.monotonic())):
             self.writing.release()
-        elif (out := self.out) is not None:
-            for part in out.parent.glob(f"{glob.escape(out.name)}.*.part"):   # iso.pack's
-                with contextlib.suppress(OSError):   # still open on Windows: nothing more to do here
-                    part.unlink(missing_ok=True)
+        self.engine.close()   # the app's engine process ends here, before a stalled save's part file goes
+        if not saved and (out := self.out) is not None:
+            _unpart(out)
 
     def close(self) -> None:
         self.quit()
         self.shutdown()
         self.server_close()
+
+    def cancel(self) -> dict:
+        """``api/cancel``: a save stops at its next chunk; a build in the
+        app's engine process at once (it ends, and another starts)."""
+        self.cancelled.set()
+        self.engine.cancel()
+        return {}
 
     def host_info(self) -> dict:
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
@@ -352,15 +362,21 @@ class Server(http.server.ThreadingHTTPServer):
         with self.busy:
             if self.quitting:
                 raise ValueError(QUITTING)
-            made, report = sdk.image(recipe)
+            try:
+                built = self.engine.call("image", recipe)
+            except Cancelled:
+                raise ValueError("Cancelled: nothing was built") from None
+            except engines.Gone as exc:
+                raise ValueError(QUITTING if self.quitting else str(exc)) from None
         if self.quitting:   # closed while it built (AZ-823)
             raise ValueError(QUITTING)
+        report = built["report"]
         self.spoiler, self.source = report.get("spoiler"), Path(recipe["iso"])
         _remember(iso=recipe["iso"])
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
         stem = iso.stem if iso.suffix.lower() in (".iso", ".xiso") else iso.name   # the site's download's name
-        return {"report": report, "size": made.size, "recipe": recipe,
+        return {"report": report, "size": built["size"], "recipe": recipe,
                 "out": str(user_downloads_path() / f"{stem} (AzurKit).iso")}
 
     def save(self, body: dict) -> dict:
@@ -378,9 +394,36 @@ class Server(http.server.ThreadingHTTPServer):
                 raise ValueError(QUITTING)
             self.progress, self.out = (0, 0), out
             try:
-                return {"saved": sdk.build(recipe, str(out), progress=progress)}
+                return {"saved": self.engine.call("save", recipe, str(out), progress=progress)}
             except Cancelled:
                 raise ValueError("Cancelled: nothing was written") from None
+            except engines.Gone as exc:   # its process ended mid-write: its part file goes here
+                _unpart(out)
+                raise ValueError("Cancelled: nothing was written" if self.cancelled.is_set()
+                                 else f"{exc}: nothing was written") from None
+
+    def randomizer(self, body: dict) -> dict:
+        """``api/randomizer``: what the Randomizer tab shows; the engine
+        builds the randomizer's logic meanwhile, for a seed's build."""
+        self.engine.warm("randomizer")
+        return sdk.randomizer_settings(body.get("given"))
+
+    def restore(self, body: dict) -> dict:
+        """``api/restore``: what of the setup still applies; with Randomize
+        on, the engine builds the randomizer's logic meanwhile."""
+        setup = body.get("setup")
+        if isinstance(setup, dict) and isinstance(setup.get("randomizer"), dict) and setup["randomizer"].get("on"):
+            self.engine.warm("randomizer")
+        return sdk.restore(setup)
+
+    def vanilla(self, body: dict) -> dict:
+        """``api/vanilla``: the image's own slider values, or an AzurKit
+        build's recipe; the engine reads a vanilla image meanwhile, for its
+        pictures."""
+        read = _vanilla(body)
+        if "opened" not in read:
+            self.engine.warm("image", str(_path(body.get("iso"), "image")))
+        return read
 
     def track(self, body: dict) -> dict:
         """``api/tracker``: what the tracker shows (``sdk.tracker``), one ask
@@ -556,25 +599,24 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if (url := self._url()) is None or self.headers.get("Origin", f"http://{self.server.host}") != (
                 f"http://{self.server.host}") or self.headers.get_content_type() != "application/json":
             return self.send_error(403)
-        call = {"/api/build": self.server.build, "/api/save": self.server.save, "/api/vanilla": _vanilla,
+        call = {"/api/build": self.server.build, "/api/save": self.server.save, "/api/vanilla": self.server.vanilla,
                 "/api/preset": lambda body: {"fragment": sdk.preset_encode(body.get("recipe"), body.get("report"))},
                 "/api/decode": lambda body: {"preset": sdk.preset_decode(body.get("text"))},
                 "/api/theme": _set_theme, "/api/setup": _set_setup,
-                "/api/restore": lambda body: sdk.restore(body.get("setup")),
-                "/api/randomizer": lambda body: sdk.randomizer_settings(body.get("given")),
+                "/api/restore": self.server.restore,
+                "/api/randomizer": self.server.randomizer,
                 "/api/tracker": self.server.track,
-                "/api/plan": lambda body: {"plan": sdk.plan(body.get("recipe"))},
+                "/api/plan": lambda body: {"plan": self.server.engine.call("plan", body.get("recipe"))},
                 "/api/tracked": _set_tracked, "/api/live": self.server.live, "/api/art": self.server.art,
                 "/api/settings_file": self.server.settings_file,
                 "/api/pickers": lambda body: sdk.pickers(body.get("given")),
-                "/api/preview": lambda body: {k: base64.b64encode(v).decode() for k, v in
-                                              sdk.preview(body.get("recipe")).items()},
-                "/api/match": lambda body: sdk.match(body.get("recipe")),
+                "/api/preview": lambda body: self.server.engine.call("preview", body.get("recipe")),
+                "/api/match": lambda body: self.server.engine.call("match", body.get("recipe")),
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
                 "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
                 "/api/content_source": _set_source,
                 "/api/spoiler": self.server.save_spoiler,
-                "/api/cancel": lambda body: self.server.cancelled.set() or {}}.get(url.path)
+                "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose
         size = int(self.headers.get("Content-Length") or 0)
@@ -588,7 +630,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             return self.send_error(400)
         try:
             reply = call(body)
-        except (OSError, ValueError) as exc:   # the sdk's refusals name what and why, never game bytes
+        except (OSError, ValueError, engines.Gone) as exc:   # the sdk's refusals name what and why, never game bytes
             reply = {"refused": str(exc)}
         self._json(reply)
 
@@ -608,12 +650,20 @@ def _vanilla(body: dict) -> dict:
             raise exc from None
 
 
-def serve(page: Path = PAGE) -> Server:
+def _unpart(out: Path) -> None:
+    """Remove a save's part files beside ``out`` (``iso.pack``'s), its writer ended (D35)."""
+    for part in out.parent.glob(f"{glob.escape(out.name)}.*.part"):
+        with contextlib.suppress(OSError):   # still open on Windows: nothing more to do here
+            part.unlink(missing_ok=True)
+
+
+def serve(page: Path = PAGE, engine: engines.Here | engines.Spawned | None = None) -> Server:
     """Serve ``page`` (a folder holding ``index.html``) on 127.0.0.1 with a
-    fresh token, on a thread; :meth:`Server.close` stops it."""
+    fresh token, on a thread, its calls run by ``engine`` (on the request's
+    thread: :class:`.engine.Here`); :meth:`Server.close` stops both."""
     if not (page / "index.html").is_file():
         raise FileNotFoundError(f"{page}: no index.html (the page)")
-    return Server(page)
+    return Server(page, engine)
 
 
 def _window(server: Server) -> bool:
@@ -646,11 +696,10 @@ def main(argv: list[str] | None = None) -> int:
     if not argv and os.environ.get(NO_WINDOW):
         print(f"azurkit: no window while {NO_WINDOW} is set (the tests' mode)", file=sys.stderr)
         return 1
-    try:
-        server = serve()
-    except FileNotFoundError as exc:
-        print(f"azurkit: {exc}", file=sys.stderr)
+    if not (PAGE / "index.html").is_file():
+        print(f"azurkit: {PAGE}: no index.html (the page)", file=sys.stderr)
         return 1
+    server = serve(engine=engines.Spawned())
     try:
         if argv:
             print(server.url, flush=True)

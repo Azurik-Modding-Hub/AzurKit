@@ -35,6 +35,7 @@ import pytest
 
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli, sdk
+from azurkit.app import engine
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
@@ -601,7 +602,8 @@ def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monke
     removed its part file, before the app can exit (D35): when ``serve``'s
     input ends (the way out of the window and the browser fallback too), and
     when the window's closing event fires (its close button, and Cmd-Q,
-    after which no ``finally`` runs). Nothing is left where it saved."""
+    after which no ``finally`` runs). Nothing is left where it saved. Both
+    run the save in the app's engine process (``app.engine.Spawned``)."""
     import webview
     monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers the image
     out = tmp_path / "out"
@@ -632,7 +634,7 @@ def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monke
         assert (served.wait(60), served.stderr.read()) == (0, "")
     assert list(out.iterdir()) == []
 
-    server, left = app.serve(), []
+    server, left = app.serve(engine=engine.Spawned()), []
 
     def start(**kwargs) -> None:   # the window: a save writes, then the window closes
         save_until_writing(server.url, "window.iso")
@@ -704,6 +706,55 @@ def test_closing_the_app_during_a_long_build_returns_within_2_s_and_leaves_no_pa
     took, left, replies = close(app.serve(), stalled, save)
     assert (took < 2, left, replies) == (True, [], [{"refused": "Cancelled: nothing was written"}])
     assert list(out.iterdir()) == []
+
+
+def _ended(pid: int, within: float = 10) -> bool:
+    """The process ``pid`` has ended (and been reaped) within ``within`` seconds."""
+    end = time.monotonic() + within
+    while time.monotonic() < end:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_stops_it(tmp_path, monkeypatch,
+                                                                                       usa_iso):
+    """Step 4.3i: the app's builds run in its engine process
+    (``app.engine.Spawned``), so the server's own answers (the species list,
+    the setup) come within 0.5 s while keylord builds; Cancel ends that
+    process at once, the build is refused, another process takes the next
+    Build, and closing the app ends it too."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    server = app.serve(_page.WEB, engine.Spawned())
+    first, replies = server.engine.pid, []
+
+    def ask(path: str, body: dict) -> tuple[float, dict]:
+        got, began = [], time.monotonic()
+        _post(server.url, path, body, got)
+        return time.monotonic() - began, got[0]
+
+    try:
+        ask("api/pickers", {"given": {}})   # the species list read once, as the page's first ask reads it
+        building = threading.Thread(target=_post, args=(server.url, "api/build", {
+            "iso": str(usa_iso), "packs": {}, "character": {"species": "keylord"}}, replies))
+        building.start()
+        time.sleep(1.5)   # into the build's Python (it takes about 5 s)
+        assert building.is_alive()
+        took = [ask("api/pickers", {"given": {}}), ask("api/setup", {"setup": {"ticked": ["fps_unlock"]}})]
+        assert [s < 0.5 for s, _ in took] == [True, True] and took[1][1] == {}, took[0][0]
+        assert ask("api/cancel", {})[1] == {}
+        building.join(5)
+        assert (building.is_alive(), replies) == (False, [{"refused": "Cancelled: nothing was built"}])
+        assert _ended(first) and server.engine.pid != first
+        took, built = ask("api/build", {"iso": str(usa_iso), "packs": {}})
+        assert built["size"] == sdk.image({"iso": str(usa_iso), "packs": {}})[0].size, built
+        last = server.engine.pid
+    finally:
+        server.close()
+    assert _ended(last)
 
 
 def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_spoiler(tmp_path, monkeypatch, usa_iso):

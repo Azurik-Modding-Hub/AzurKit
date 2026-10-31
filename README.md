@@ -163,8 +163,10 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
-- **Cancel any time:** Cancel stops a build or a save; closing the app mid-build or mid-save leaves no
-  half-written file.
+- **Cancel any time:** Cancel stops a build or a save (in the app, a build at once); closing the app mid-build or
+  mid-save leaves no half-written file.
+- **The app stays quick while it builds:** a build runs in a process of its own, so picking an image and the other
+  tabs answer at once.
 - **A private app:** its page is served only to itself, with a fresh key each launch.
 - **The command line:** `azurkit verify`, `packs`, `build`, `open`, `plan` and `spoiler`; the app doubles as it.
 - **Dark or light:** your pick is remembered, and both are easy to read.

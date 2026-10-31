@@ -805,7 +805,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   arguments are the `azurkit` command. `azurkit.app` serves the page on
   127.0.0.1 to this launch's token only, and is its engine: `host.json`
   and JSON calls (`api/build`, `api/save`, ...) that run `azurkit.sdk` on
-  CPython, only from the page's own origin. The page takes the image's path
+  CPython, only from the page's own origin. Its builds, saves, a seed's
+  plan and the Characters tab's pictures and G4 match run in the app's
+  engine process (`azurkit.app.engine.Spawned`, spawned, each call on a
+  thread of its own), so the server's other answers never wait on a build;
+  Cancel kills that process mid-build and spawns the next (a save cancels
+  itself at its next chunk). In-process `app.serve()` (the tests') runs
+  them on the request's thread (`engine.Here`), so a test's stand-in sdk
+  call takes. A script that calls `app.main` guards it with `if __name__ ==
+  "__main__"` (spawn imports the main script again). The page takes the image's path
   (remembered in platformdirs' config folder; the window adds file dialogs)
   and Save writes the build to a path, never over an existing file but one
   the save dialog chose. Closing the app (the window's close button, Cmd-Q,
