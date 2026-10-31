@@ -199,8 +199,9 @@ def test_dis_and_fn_list_each_instruction_without_its_bytes(tmp_path, capsys):
 def test_a_file_that_is_no_xbe_or_whose_section_table_runs_off_it_is_one_line_and_exit_2(tmp_path, capsys):
     """Modkit's test_xbe_sections, on core.xbe: a file that is neither an
     image nor an XBE, a header too short for its table or one that claims
-    2^31 sections, and an address no section maps, are each one ``xbe:``
-    line on stderr and exit 2, with nothing on stdout."""
+    2^31 sections, an address no section maps and a ``--regex`` that
+    doesn't compile, are each one ``xbe:`` line on stderr and exit 2, with
+    nothing on stdout."""
     def header(count: int) -> bytes:
         out = bytearray(0x200)
         out[0:4] = b"XBEH"
@@ -212,14 +213,15 @@ def test_a_file_that_is_no_xbe_or_whose_section_table_runs_off_it_is_one_line_an
     good.write_bytes(synthetic())
     refused = []
     for name, data, argv in (("zz.bin", b"ZZZZ" + bytes(0x400), ["sections"]), ("short.xbe", header(100), ["sections"]),
-                             ("huge.xbe", header(0x7FFFFFFF), ["sections"]), (good.name, None, ["read", "0x400000"])):
+                             ("huge.xbe", header(0x7FFFFFFF), ["sections"]), (good.name, None, ["read", "0x400000"]),
+                             (good.name, None, ["strings", "[", "--regex"])):
         path = tmp_path / name
         if data is not None:
             path.write_bytes(data)
         code, out, err = run(capsys, *argv, "--xbe", str(path))
         refused.append((code, out, err.splitlines()[-1].startswith("xbe: "),
                         sum(line.startswith("xbe: ") for line in err.splitlines())))
-    assert refused == [(2, "", True, 1)] * 4
+    assert refused == [(2, "", True, 1)] * 5
 
 
 def test_python_m_devkit_runs_the_re_areas_xbe_verb_and_names_an_xbe_of_neither_release(tmp_path):

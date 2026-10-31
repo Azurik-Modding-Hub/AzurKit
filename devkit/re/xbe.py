@@ -252,8 +252,12 @@ def find_strings(data: bytes, pattern: str, *, regex: bool = False, ignore_case:
                  limit: int = 200) -> list[String]:
     """At most ``limit`` runs of printable ASCII in ``.rdata`` and ``.data``,
     each ``min_len`` or more characters long, that hold ``pattern`` (a
-    substring, or with ``regex`` a Python regex searched for)."""
-    rx = re.compile(pattern if regex else re.escape(pattern), re.IGNORECASE if ignore_case else 0)
+    substring, or with ``regex`` a Python regex searched for; one that
+    doesn't compile is a ValueError)."""
+    try:
+        rx = re.compile(pattern if regex else re.escape(pattern), re.IGNORECASE if ignore_case else 0)
+    except re.error as exc:
+        raise ValueError(f"--regex {pattern!r}: {exc}") from None
     hits: list[String] = []
     for s in xbe.sections(data):
         if s.name not in STRING_SECTIONS:
