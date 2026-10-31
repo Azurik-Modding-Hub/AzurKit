@@ -1325,8 +1325,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   or `web/` times its area's ops in the app's serve mode (the worktree's
   wheel in a scratch venv, so the app reads the database the wheel ships, as
   a player's install does) and on the site in WebKit, and main's own full
-  run times every op in four profiles (the app; the site in WebKit and
-  Chromium, and Firefox once its first record lands; the site with each File read 200 ms late,
+  run times every op in four profiles (the app; the site in WebKit, Chromium
+  and Firefox; the site with each File read 200 ms late,
   Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
   app's process tree, and the WebKit processes launchd starts for the run's own
   browser (`launchctl print pid/N` holds the mark the run put in its PATH;
@@ -1369,8 +1369,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   debt or a raised ceiling against main's, but for a browser main's
   `perf.py` doesn't time yet (`perf.new_browsers`), whose first record
   (`--update-ceilings`, its ops as measured) may add its own ops and debts
-  once: the landing queue lands with main's `land.py`, so Firefox joins
-  `perf.py`'s `BROWSERS`, with its record, a stack after `new_browsers`.
+  once (it lands a stack after the one that put `new_browsers` on main: the
+  landing queue lands with main's `land.py`).
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that

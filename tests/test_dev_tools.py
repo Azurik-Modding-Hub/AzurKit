@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts import fullsuite, land, perf, web_tools
+from scripts import fullsuite, land, perf
 from tests import _perf
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -639,32 +639,6 @@ def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_g
            "a second record")
     code, why = land.land(repo, "p2/z", dry_run=True)
     assert code == 1 and "S08/firefox: added to the list" in why, why
-
-
-def test_firefox_stays_untimed_until_the_stack_after_new_browsers_lands_so_its_first_record_can(tmp_path, monkeypatch):
-    """D994: the landing queue lands with main's scripts/land.py, so the
-    stack that puts ``perf.new_browsers`` on main doesn't time Firefox (main's
-    full run would time it with no record, and its record would no longer be
-    new); the next stack adds it to this perf.py's BROWSERS with its first
-    record, and this land.py, main's by then, takes it."""
-    assert "firefox" in web_tools.BROWSERS and "firefox" not in perf.BROWSERS
-    repo, _, receipts, _ = _repo(tmp_path, monkeypatch)
-    source = (ROOT / "scripts" / "perf.py").read_text(encoding="utf-8")
-
-    def commit(text, lst, what):
-        for path, body in (("scripts/perf.py", text), (perf.CEILINGS, perf.render(lst))):
-            (repo / path).parent.mkdir(exist_ok=True)
-            (repo / path).write_text(body, encoding="utf-8")
-        _git(repo, "add", "scripts/perf.py", perf.CEILINGS)
-        _git(repo, "commit", "-q", "-m", what)
-        _receipt(receipts, _git(repo, "rev-parse", "HEAD"), mode="changed", base=_git(repo, "rev-parse", "main"))
-    on_main = {"ceilings": {"S05/webkit": 4.0}, "debts": [], "memory": {}, "untimed": {}}
-    commit(source, on_main, "this stack")
-    _git(repo, "switch", "-q", "-c", "p2/r")
-    on = re.sub(r"^BROWSERS = .*$", f"BROWSERS = {perf.BROWSERS + ('firefox',)!r}", source, count=1, flags=re.M)
-    commit(on, {**on_main, "ceilings": {"S05/webkit": 4.0, "S05/firefox": 5.8}, "debts": ["S05/firefox"]}, "record")
-    assert perf.new_browsers(repo, "main", "p2/r") == {"firefox"}
-    assert land.land(repo, "p2/r", dry_run=True)[0] == 0
 
 
 def test_every_name_the_perf_registrys_functions_call_is_one_the_module_has():
