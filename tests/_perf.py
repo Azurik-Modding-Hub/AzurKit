@@ -161,7 +161,7 @@ OPS = {op.id: op for op in (
     Op("S16", "Randomizer tab, first ask", "randomizer"),
     Op("S17", "seed typed, its ask", "randomizer"),
     Op("S18", "Track this seed", "tracker", head_start=True),
-    Op("S19", "the Tracker view's world map, at Track's click", "tracker"),   # raced with S18: no Track work
+    Op("S19", "the Tracker view's world map, first open", "tracker"),   # the view's click: no Track work (C10)
     Op("S20", "the maps' first draw", "tracker"),
     Op("S21", "the tracker, a reopen", "tracker"),
     Op("S22", "a level's map", "tracker", first=False),
@@ -985,8 +985,8 @@ def site_track(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     _pick(d, p, None)
     _seeded(d, p, randomize=False)
-    d.act(p, None, click("rando-view-tracker"), WORLD, 600)   # its own work, before the head start
-    d.race(p, "S18", click("track-seed"), {"S18": TRACKED, "S19": WORLD, "S20": ART_DONE}, 3600, after={"S20": "S18"})
+    d.act(p, "S19", click("rando-view-tracker"), WORLD, 600)   # a tab's open: no head start, its work its own
+    d.race(p, "S18", click("track-seed"), {"S18": TRACKED, "S20": ART_DONE}, 3600, after={"S20": "S18"})
     while d.need("S22"):
         d.act(p, "S22", "() => azurkit.tracker.map.show('w1', true)", LEVEL, 600)
         d.act(p, None, click("map-back"), WORLD, 600)

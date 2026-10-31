@@ -8,11 +8,13 @@ import json
 import re
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
 
 from scripts import fullsuite, land, perf, web_tools
+from tests import _perf
 
 ROOT = Path(__file__).resolve().parent.parent
 SMOKE = sorted(fullsuite.SMOKE)
@@ -187,6 +189,41 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
         _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))
 
 
+class _Stub(_perf.Page):
+    """A page on a stub clock: each action's done-states (``costs``: ``{action:
+    {done: ms}}``) true some ms after it, any other at once; the freeze
+    probe's ``[due, ms]`` ticks."""
+
+    def __init__(self, costs, ticks=()):
+        super().__init__(types.SimpleNamespace(**dict.fromkeys(("goto", "set_input_files", "close"), lambda *a: None)))
+        self.t, self.costs, self.ticks, self.at, self.clicks = 0.0, costs, list(ticks), {}, {}
+
+    def now(self):
+        return self.t
+
+    def do(self, action, arg=None):
+        self.clicks[action] = self.t
+        self.at |= {done: self.t + ms for done, ms in self.costs.get(action, {}).items()}
+        return self.t
+
+    js = do
+
+    def wait(self, done, timeout=900, arg=None):
+        self.t = max(self.t, self.at.get(done, self.t))
+        return self.t, True
+
+    def poll(self, dones):
+        return self.t, [self.t >= self.at.get(done, self.t) for done in dones]
+
+    def settled(self):
+        return self.t
+
+    def events(self):
+        self.late += [tick for tick in self.ticks if sum(tick) <= self.t]   # fired by now
+        self.ticks = [tick for tick in self.ticks if sum(tick) > self.t]
+        return []
+
+
 def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_froze_in_a_gap(tmp_path):
     """D1006 and D1014 over a stub clock: a Track or Build after a change
     (an op with ``head_start``) is clicked 3 s after it and timed from the
@@ -198,38 +235,8 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_f
     logs. One click's done-states race, each its own first true poll (the
     click's op takes its head start's freeze); a state made once is cloned
     anew."""
-    from tests import _perf
-
-    class Stub(_perf.Page):   # each action's done-states true some ms after it; the probe's [due, ms] ticks
-        def __init__(self, costs, ticks):
-            super().__init__(None)
-            self.t, self.costs, self.ticks, self.at, self.clicks = 0.0, costs, list(ticks), {}, {}
-
-        def now(self):
-            return self.t
-
-        def do(self, action, arg=None):
-            self.clicks[action] = self.t
-            self.at |= {done: self.t + ms for done, ms in self.costs[action].items()}
-            return self.t
-
-        def wait(self, done, timeout=900, arg=None):
-            self.t = max(self.t, self.at.get(done, self.t))
-            return self.t, True
-
-        def poll(self, dones):
-            return self.t, [self.t >= self.at[done] for done in dones]
-
-        def settled(self):
-            return self.t
-
-        def events(self):
-            self.late += [tick for tick in self.ticks if sum(tick) <= self.t]   # fired by now
-            self.ticks = [tick for tick in self.ticks if sum(tick) > self.t]
-            return []
-
     def driven(costs, ticks):
-        p = Stub(costs, ticks)
+        p = _Stub(costs, ticks)
         d = _perf.Driver(_perf.RUNS["app"], dict.fromkeys(("A12", "A16", "S18", "S19", "S20"), 9), tmp_path,
                          tmp_path / "usa.iso", None)
         d.sleep = lambda seconds: setattr(p, "t", p.t + seconds * 1000)
@@ -268,6 +275,32 @@ def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_f
     one, two = (d.state("home", lambda f: (made.append(f), (f / "a").write_text("x"))) for _ in range(2))
     (one / "a").write_text("y")
     assert len(made) == 1 and one != two and (two / "a").read_text() == "x"
+
+
+def test_the_sites_tracker_view_times_its_world_map_from_its_own_click_and_track_comes_after_the_head_start(
+        tmp_path, monkeypatch):
+    """S19 is the Tracker view's world map timed from the view's click (a
+    tab's open: no head start of its own), so a slow first draw shows in it;
+    Track (S18) is clicked 3 s after the typed seed, at once when the view's
+    open took longer, and S20 counts from Track's done."""
+    view, track = _perf.click("rando-view-tracker"), _perf.click("track-seed")
+    costs = {view: {_perf.WORLD: 0}, track: {_perf.TRACKED: 5000, _perf.ART_DONE: 100}}
+    pages = []
+
+    def page(_):
+        pages.append(_Stub(costs))
+        return pages[-1]
+
+    def tracked(world_ms):
+        costs[view][_perf.WORLD], pages[:] = world_ms, []
+        d = _perf.Driver(_perf.RUNS["webkit"], dict.fromkeys(("S18", "S19", "S20"), 9), tmp_path,
+                         tmp_path / "usa.iso", None)
+        d.sleep = lambda seconds: setattr(d.p, "t", d.p.t + seconds * 1000)
+        _perf.site_track(d, types.SimpleNamespace(new_page=dict), "http://127.0.0.1:9800/")
+        return round(pages[0].clicks[track]), {op: d.samples[op][0]["s"] for op in ("S18", "S19", "S20")}
+    monkeypatch.setattr(_perf, "Page", page)
+    assert [tracked(ms) for ms in (50, 30_000)] == [
+        (3000, {"S18": 5.0, "S19": 0.05, "S20": 0.0}), (30_000, {"S18": 5.0, "S19": 30.0, "S20": 0.0})]
 
 
 def test_update_ceilings_on_a_narrow_run_keeps_the_untimed_ops_it_doesnt_reach(tmp_path, monkeypatch):
