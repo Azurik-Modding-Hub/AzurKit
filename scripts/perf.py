@@ -19,7 +19,8 @@ built from the same wheel and served on 127.0.0.1, in each of
 late, Safari's read model) and ``capped`` (the app with ``AZURKIT_CORES=4``
 and the site in WebKit, against 9 s, with our processes' peak resident size
 at most 6 GiB). Default: ``app`` and ``site`` in WebKit (a changed area's);
-``--all`` every profile and browser (main's full runs).
+``--all`` every profile and browser (:data:`BROWSERS`: WebKit, Chromium and
+Firefox, D994; main's full runs).
 
 The verdicts (:func:`judge`): each op runs :data:`R` times (an op with a
 sample over 30 s once), first-time ops each in a fresh state, and its median
@@ -31,12 +32,15 @@ moving bar (the progress element seen at 2 or more values). A listed op fails
 over its ceiling. An op whose median passes 1 s must show progress (a bar or a
 "k of n" / "N %" line changing at least once, D980) unless it is one of the
 list's progress debts. The list itself fails when it adds an op or a debt or
-raises a ceiling against main's (:func:`check_list`).
+raises a ceiling against main's (:func:`check_list`), but for a browser
+main's perf.py doesn't time (:func:`new_browsers`), whose first record may
+add its own ops and debts once.
 
 ``--update-ceilings`` rewrites the list from this run (:func:`updated`): it
 lowers a ceiling to the new median x 1.15 (rounded up to 0.1 s) and drops an
 op back under its budget and a debt that now shows progress; with no list on
-main (its first record) it records every over-budget op and every debt.
+main (its first record), and for a browser new to main, it records every
+over-budget op and every debt as measured (no re-run).
 ``--json FILE`` writes the result (``scripts/fullsuite.py``'s receipt block).
 ``--keep DIR`` keeps each run's samples there and reuses them, so a stopped
 run resumes. Exit 0 passed, 1 failed, 2 can't run. No game bytes printed.
@@ -45,6 +49,7 @@ run resumes. Exit 0 passed, 1 failed, 2 can't run. No game bytes printed.
 from __future__ import annotations
 
 import argparse
+import ast
 import dataclasses
 import json
 import math
@@ -69,7 +74,7 @@ LONG = 30.0           # an op past this runs once, and once more on a re-run
 MARGIN = 1.15         # a ceiling is the median times this, rounded up to 0.1 s
 LOAD_LINE = 40.0      # D926/D975: the gate's perf stage starts under this normal-priority load
 PROFILES = ("app", "site", "lag", "capped")
-BROWSERS = ("webkit", "chromium")
+BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
 #: Which ops a changed path reaches (section 2.4 of round 1's plan): ``(prefix, hosts, groups)``, the first match;
 #: an unlisted path under ``src/`` reaches every op; any other path none.
 REACH = (("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app",), None),
@@ -180,43 +185,66 @@ def count(lst: dict) -> int:
     return len(lst["ceilings"]) + len(lst["debts"]) + len(lst["memory"]) + len(lst["untimed"])
 
 
-def check_list(mine: dict, main: dict | None) -> list[str]:
-    """What the worktree's list adds or raises against main's (none on the first record)."""
+def context_of(k: str) -> str:
+    return k.rpartition("/")[2]
+
+
+def browsers_of(source: str | None) -> tuple[str, ...]:
+    """The :data:`BROWSERS` a perf.py's ``source`` names (``()`` for none)."""
+    for node in ast.parse(source or "").body:
+        if isinstance(node, ast.Assign) and any(getattr(n, "id", None) == "BROWSERS" for n in node.targets):
+            return tuple(ast.literal_eval(node.value))
+    return ()
+
+
+def new_browsers(repo: Path, base: str | None, head: str) -> set[str]:
+    """The browsers ``head``'s perf.py times that ``base``'s doesn't (none
+    when ``base`` has no perf.py): each gets one first record (D994)."""
+    if base is None or (old := _git(repo, "show", f"{base}:scripts/perf.py")) is None:
+        return set()
+    return set(browsers_of(_git(repo, "show", f"{head}:scripts/perf.py"))) - set(browsers_of(old))
+
+
+def check_list(mine: dict, main: dict | None, new: frozenset[str] | set[str] = frozenset()) -> list[str]:
+    """What the worktree's list adds or raises against main's: none on the
+    first record (no list on main), and none of a context in ``new`` (a
+    browser main's perf.py doesn't time: its first record)."""
     if main is None:
         return []
-    bad = [f"{k}: added to the list (ceiling {v} s)" for k, v in mine["ceilings"].items() if k not in main["ceilings"]]
+    old = [k for k in mine["ceilings"] if context_of(k) not in new]
+    bad = [f"{k}: added to the list (ceiling {mine['ceilings'][k]} s)" for k in old if k not in main["ceilings"]]
     bad += [f"{k}: its ceiling raised, {main['ceilings'][k]} -> {v} s" for k, v in mine["ceilings"].items()
             if k in main["ceilings"] and v > main["ceilings"][k]]
-    bad += [f"{k}: a new progress debt" for k in mine["debts"] if k not in main["debts"]]
+    bad += [f"{k}: a new progress debt" for k in mine["debts"] if k not in main["debts"] and context_of(k) not in new]
     bad += [f"memory {k}: added or raised" for k, v in mine["memory"].items() if v > main["memory"].get(k, -1)]
     bad += [f"{k}: newly untimed" for k in mine["untimed"] if k not in main["untimed"]]
     return bad
 
 
-def updated(lst: dict, results: dict, memory: dict, first: bool) -> dict:
+def updated(lst: dict, results: dict, memory: dict, first: bool, new: frozenset[str] | set[str] = frozenset()) -> dict:
     """The list after this run: a measured ceiling lowered to its median's
     (:func:`ceil`) or dropped once under its budget, a debt dropped once it
     shows progress or stays under 1 s, a memory peak likewise (its ceiling
-    the peak x 1.15); ``first`` (no list on
-    main) records every over-budget op and debt. A failed or unmeasured op
-    keeps its entry."""
+    the peak x 1.15); ``first`` (no list on main) records every over-budget
+    op and debt, and so does a context in ``new`` (a browser new to main) for
+    its own. A failed or unmeasured op keeps its entry."""
     out = {"ceilings": dict(lst["ceilings"]), "debts": list(lst["debts"]), "memory": dict(lst["memory"]),
            "untimed": dict(lst["untimed"])}
     for k, r in results.items():
         if "median" not in r or r["verdict"] == "error":
             continue
-        over = r["median"] > r["budget"] and r["verdict"] != "bar"
+        over, fresh = r["median"] > r["budget"] and r["verdict"] != "bar", first or context_of(k) in new
         if k in out["ceilings"]:
             if not over:
                 del out["ceilings"][k]
             elif r["verdict"] != "regressed":
                 out["ceilings"][k] = min(out["ceilings"][k], ceil(r["median"]))
-        elif first and over:
+        elif fresh and over:
             out["ceilings"][k] = ceil(r["median"])
         quiet = r["median"] > PROGRESS and not r["progress"]
         if k in out["debts"] and not quiet:
             out["debts"].remove(k)
-        elif first and quiet and k not in out["debts"]:
+        elif fresh and quiet and k not in out["debts"]:
             out["debts"].append(k)
     for run, peak in memory.items():
         if peak is None:
@@ -249,12 +277,12 @@ def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozen
 
 
 def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(), bars=frozenset(),
-            again: bool = True) -> tuple[dict, dict, dict]:
+            fresh=frozenset()) -> tuple[dict, dict, dict]:
     """``({key: verdict}, {run: memory peak}, {(run, op): samples})`` for ``cases`` (``(op,
     context)``): ``drive(run, {op: target})`` returns that run's ``{"samples":
     {op: every sample so far}, "memory_peak"}`` once each op has
     :func:`taken` its target; a failing time verdict drives its op again
-    (:func:`rerun`; not with ``again`` false: the first record lists every
+    (:func:`rerun`; not in a context of ``fresh``: a first record lists every
     over-budget op as it is) and is judged on all its samples."""
     timed = [(op, c) for op, c in cases if op not in untimed]
     samples: dict[tuple[str, str], list[dict]] = {}
@@ -278,7 +306,7 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
     judged = verdicts(timed, samples, lst, bars)
     for op, c in timed:
         got = samples.get((run_of(op, c), op), [])
-        if again and (n := rerun(judged[key(op, c)], got)):
+        if c not in fresh and (n := rerun(judged[key(op, c)], got)):
             targets = more.setdefault(run_of(op, c), {})
             targets[op] = max(targets.get(op, 0), taken(got) + n)
     if more:
@@ -331,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--base", default="main", help="the changes' base for the selection (default main)")
     ap.add_argument("--all", action="store_true", help="every op, every profile and browser (main's full runs)")
     ap.add_argument("--profiles", help=f"comma-separated of {', '.join(PROFILES)} (default app,site)")
-    ap.add_argument("--browsers", help="the site's browsers (default webkit; --all both)")
+    ap.add_argument("--browsers", help=f"the site's browsers, of {', '.join(BROWSERS)} (default webkit; --all each)")
     ap.add_argument("--ops", help="only these op ids")
     ap.add_argument("--update-ceilings", action="store_true", help=f"rewrite {CEILINGS} from this run")
     ap.add_argument("--json", type=Path, help="write the result here")
@@ -352,7 +380,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         pairs = select(changed(wt, args.base))
     profiles = (args.profiles or ("app,site,lag,capped" if args.all else "app,site")).split(",")
-    browsers = (args.browsers or ("webkit,chromium" if args.all else "webkit")).split(",")
+    browsers = (args.browsers or (",".join(BROWSERS) if args.all else "webkit")).split(",")
     if bad := set(profiles) - set(PROFILES) | set(browsers) - set(BROWSERS):
         ap.error(f"unknown profiles or browsers: {sorted(bad)}")
     ops = [op for op in _perf.OPS.values() if (op.host, op.group) in pairs
@@ -362,9 +390,10 @@ def main(argv: list[str] | None = None) -> int:
     mine = listed((wt / CEILINGS).read_text(encoding="utf-8") if (wt / CEILINGS).is_file() else None)
     on_main = _git(wt, "show", f"main:{CEILINGS}")
     main_list = listed(on_main) if on_main is not None else None
+    new = new_browsers(wt, "main", "HEAD")   # each one's first record may add its own ops
     t0 = time.monotonic()
     block = {"profiles": profiles, "browsers": browsers, "pairs": sorted(f"{h}:{g}" for h, g in pairs),
-             "cases": {}, "memory": {}, "list": check_list(mine, main_list), "untimed": {}}
+             "cases": {}, "memory": {}, "list": check_list(mine, main_list, new), "untimed": {}, "new": sorted(new)}
     untimed = {op.id for op in ops if op.untimed}
     block["untimed"] = {op.id: op.untimed for op in ops if op.untimed}
     if cases:
@@ -410,8 +439,8 @@ def main(argv: list[str] | None = None) -> int:
                         "memory_shared": shared}
 
             bars = {op.id for op in ops if op.bar}
-            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars,
-                                                     again=not (args.update_ceilings and main_list is None))
+            fresh = (set(contexts(profiles, browsers)) if main_list is None else new) if args.update_ceilings else ()
+            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh)
         finally:
             import shutil
             shutil.rmtree(scratch, ignore_errors=True)
@@ -422,15 +451,16 @@ def main(argv: list[str] | None = None) -> int:
                 block["memory"][name] = {"peak": peak, "ok": peak <= max(MEMORY, ceiling or 0), "ceiling": ceiling,
                                          "shared": others}   # the site's: another Playwright's WebKit may be in it
     if args.update_ceilings:
-        new = updated(mine, block["cases"], {k: v["peak"] for k, v in block["memory"].items()}, main_list is None)
-        new["untimed"] = (dict(mine["untimed"]) | block["untimed"]) if main_list is None else {   # the registry's
+        lst = updated(mine, block["cases"], {k: v["peak"] for k, v in block["memory"].items()}, main_list is None,
+                      new)
+        lst["untimed"] = (dict(mine["untimed"]) | block["untimed"]) if main_list is None else {   # the registry's
             k: v for k, v in mine["untimed"].items() if k not in _perf.OPS or _perf.OPS[k].untimed}   # not the run's
-        (wt / CEILINGS).write_text(render(new), encoding="utf-8")
-        block["list"] = check_list(new, main_list)
+        (wt / CEILINGS).write_text(render(lst), encoding="utf-8")
+        block["list"] = check_list(lst, main_list, new)
         if cases:   # judged again against the list it wrote
-            block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, new, bars)
+            block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, lst, bars)
             for name, mem in block["memory"].items():
-                mem |= {"ceiling": new["memory"].get(name), "ok": mem["peak"] <= max(MEMORY, new["memory"].get(name, 0))}
+                mem |= {"ceiling": lst["memory"].get(name), "ok": mem["peak"] <= max(MEMORY, lst["memory"].get(name, 0))}
     failing = [f"{k}: {r['verdict']}" + (f" ({r.get('median')} s, budget {r['budget']}"
                                          + (f", ceiling {r['ceiling']}" if r["ceiling"] else "") + ")"
                                          if "median" in r else f" ({r.get('error')})")

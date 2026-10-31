@@ -1,7 +1,7 @@
 """The site (Step 4.1d1, D866): the page in ``web/`` runs the wheel under
 Pyodide 314 in a module worker, unpacked without its dependencies (WEB §3,
-§6.3), here in headless Chromium and in WebKit (Safari's engine, Step
-4.1d3), served from the site folder
+§6.3), here in headless Chromium, in WebKit (Safari's engine, Step
+4.1d3) and in Firefox (D994), served from the site folder
 ``scripts/web_tools.py`` assembles. Each ported pack's G1 case builds its
 golden on both releases, and the page's build is CPython's: the same report,
 and the same segments, so the Blob it saves is the image ``sdk.image`` makes;

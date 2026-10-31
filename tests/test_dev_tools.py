@@ -102,7 +102,8 @@ def test_a_changed_area_run_drives_the_page_in_chromium_alone_and_a_whole_run_in
                           "def pytest_deselected(items):\n    print('ran in', *(item.nodeid for item in items))\n")
     pytester.makepyfile(test_x="def test_page(browser):\n    pass\n")
     monkeypatch.setenv("PYTHONPATH", str(ROOT))
-    for run, ids in (("changed", "[chromium]"), ("whole", "[chromium] test_x.py::test_page[webkit]")):
+    for run, ids in (("changed", "[chromium]"),
+                     ("whole", "[chromium] test_x.py::test_page[webkit] test_x.py::test_page[firefox]")):
         done = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-s", "--collect-only", "-m", "not web",
                                              *asks[run])   # collected and deselected: no browser starts
         assert f"ran in test_x.py::test_page{ids}\n" in done.stdout.str(), run
@@ -296,3 +297,48 @@ def test_land_needs_a_passing_perf_block_for_src_or_web_a_list_that_only_shrinks
         assert (code == 0) == landed and (landed or "grows main's list" in why), why
         if not landed:
             _git(repo, "reset", "-q", "--hard", "main")
+
+
+def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_grows(tmp_path, monkeypatch):
+    """D994: a browser the stack's perf.py times and main's doesn't
+    (``perf.new_browsers``) gets one first record: ``--update-ceilings``
+    lists its over-budget ops and debts as measured, with no re-run, and
+    land.py takes them against main's list; an op added in another context
+    is still refused, and so is a new op of that browser once main's perf.py
+    times it."""
+    repo, _, receipts, _ = _repo(tmp_path, monkeypatch)
+
+    def commit(browsers, lst, what):
+        (repo / "scripts").mkdir(exist_ok=True)
+        (repo / "tests").mkdir(exist_ok=True)
+        (repo / "scripts" / "perf.py").write_text(f"BROWSERS = {browsers!r}\n", encoding="utf-8")
+        (repo / perf.CEILINGS).write_text(perf.render(lst), encoding="utf-8")
+        _git(repo, "add", "scripts/perf.py", perf.CEILINGS)
+        _git(repo, "commit", "-q", "-m", what)
+        _receipt(receipts, _git(repo, "rev-parse", "HEAD"), mode="changed", base=_git(repo, "rev-parse", "main"))
+    on_main = {"ceilings": {"S05/webkit": 4.0}, "debts": [], "memory": {}, "untimed": {}}
+    commit(("webkit", "chromium"), on_main, "main")
+    asked = []
+
+    def drive(run, targets):
+        asked.append((run, dict(targets)))
+        return {"samples": {op: [{"s": 5.0, "bar": 0, "progress": False}] * n for op, n in targets.items()}}
+    got, _, _ = perf.measure([("S05", "webkit"), ("S05", "firefox")], drive, on_main, fresh={"firefox"})
+    assert asked == [("webkit", {"S05": 3}), ("firefox", {"S05": 3}), ("webkit", {"S05": 6})]
+    recorded = perf.updated(on_main, got, {}, False, {"firefox"})
+    assert recorded == {**on_main, "ceilings": {"S05/webkit": 4.0, "S05/firefox": 5.8}, "debts": ["S05/firefox"]}
+    _git(repo, "switch", "-q", "-c", "p2/y")
+    commit(("webkit", "chromium", "firefox"), recorded, "firefox's first record")
+    assert perf.new_browsers(repo, "main", "p2/y") == {"firefox"} and perf.new_browsers(repo, "p2/y", "main") == set()
+    assert land.land(repo, "p2/y", dry_run=True)[0] == 0
+    commit(("webkit", "chromium", "firefox"), {**recorded, "ceilings": {**recorded["ceilings"], "S07/webkit": 4.0}},
+           "another op")
+    code, why = land.land(repo, "p2/y", dry_run=True)
+    assert code == 1 and why.endswith("grows main's list (D981): S07/webkit: added to the list (ceiling 4.0 s)"), why
+    _git(repo, "reset", "-q", "--hard", "HEAD~1")
+    assert land.land(repo, "p2/y")[0] == 0   # main's perf.py times firefox now
+    _git(repo, "switch", "-q", "-c", "p2/z")
+    commit(("webkit", "chromium", "firefox"), {**recorded, "ceilings": {**recorded["ceilings"], "S08/firefox": 4.0}},
+           "a second record")
+    code, why = land.land(repo, "p2/z", dry_run=True)
+    assert code == 1 and "S08/firefox: added to the list" in why, why

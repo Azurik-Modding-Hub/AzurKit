@@ -1,12 +1,12 @@
 """First setup: ``uv sync --locked``, the leak guard's ``pre-push`` hook,
-and Pyodide, Chromium and WebKit for the site and the ``web`` tests.
+and Pyodide, Chromium, WebKit and Firefox for the site and the ``web`` tests.
 
     uv run bootstrap.py [--no-hooks] [--no-web]
 
 The hook (in the repository's common git dir, so every worktree shares it)
 runs ``tests/_leak_guard.py --pre-push`` over every file the pushed commits
 add or change, and refuses the push on a hit (D961). Pyodide's core (pinned
-by sha256) and Playwright's headless Chromium and WebKit go in the main checkout's
+by sha256) and Playwright's headless Chromium, WebKit and Firefox go in the main checkout's
 ``.tools/`` (``scripts/web_tools.py``), which every lane uses. Run this in
 the main checkout, not in a lane. Stdlib only.
 """

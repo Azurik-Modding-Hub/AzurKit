@@ -20,7 +20,7 @@ worktree's wheel in a scratch venv, :func:`venv`, so it reads the randomizer
 database the wheel ships as a player's install does; with a fresh HOME, its
 page in WebKit), the app capped
 (``AZURKIT_CORES=4``), the site (``scripts/web_tools.py``'s, served on
-127.0.0.1 from port 8900 up) in WebKit or Chromium, and the site with each
+127.0.0.1 from port 8900 up) in WebKit, Chromium or Firefox, and the site with each
 File read 200 ms late (Safari's read model: one checked substitution in the
 served ``worker.mjs``, so no source carries a test hook). First-time ops
 take a fresh state each sample (a new HOME or browser context), so a
@@ -147,6 +147,7 @@ RUNS = {run.name: run for run in (
     Run("app-capped", "app", "webkit", cores=4, memory=True),
     Run("webkit", "site", "webkit"),
     Run("chromium", "site", "chromium"),
+    Run("firefox", "site", "firefox"),
     Run("lag", "site", "webkit", lag=True),
 )}
 

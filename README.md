@@ -160,7 +160,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 
 - **On a computer:** a Mac or a PC; on a phone or a tablet the page says to use a computer.
 - **The web page:** the whole builder, randomizer and tracker run in your browser through WebAssembly, tested in
-  Chromium and in Safari's engine.
+  Chromium, Safari's engine and Firefox.
 - **Builds back to back:** the page keeps its engine loaded after a build, so the next one starts at once (after a
   large one, such as a character, it loads a fresh engine).
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
@@ -243,8 +243,8 @@ The vanilla tests read the two images, found by `AZURKIT_ISO` (USA) and
 (on macOS, `~/Library/Application Support/AzurKit/`). A run that selects one
 of these tests without its image stops with one message: no test is quietly
 skipped. The `web` tests run AzurKit under Pyodide on Node, and the page in
-headless Chromium and in WebKit (Safari's engine); they need Node, and the
-Pyodide, Chromium and WebKit that `uv run bootstrap.py` fetches into `.tools/`
+headless Chromium, in WebKit (Safari's engine) and in Firefox; they need Node,
+and the Pyodide, Chromium, WebKit and Firefox that `uv run bootstrap.py` fetches into `.tools/`
 (`-m "not web"` leaves them out).
 
 Contributors and agents start at [`AGENTS.md`](AGENTS.md).

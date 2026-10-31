@@ -56,10 +56,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   runtime) takes the `pyodide` fixture (`tests/_pyodide.py` runs the
   `azurkit` command from the wheel alone), and one that drives the page in
   a browser takes the `browser` fixture (`tests/test_site.py`), which runs
-  it in Playwright's headless Chromium and again in its WebKit, Safari's
-  engine (Step 4.1d3: Safari failed where Chromium passed), or only in those
-  `--browsers` names (`--browsers=chromium`); either becomes `web`. A run that selects one needs Pyodide's pinned core, Node on PATH
-  for the first and both browsers for the second, which `uv run
+  it in Playwright's headless Chromium, again in its WebKit, Safari's
+  engine (Step 4.1d3: Safari failed where Chromium passed), and again in its
+  Firefox (D994), or only in those `--browsers` names
+  (`--browsers=chromium`); either becomes `web`. A run that selects one
+  needs Pyodide's pinned core, Node on PATH for the first and each of its
+  browsers for the second, which `uv run
   bootstrap.py` puts in the main checkout's `.tools/` for every lane
   (`scripts/web_tools.py`; `PLAYWRIGHT_BROWSERS_PATH`, never the user's
   cache). Without one the run stops with one message naming it; the opt-out
@@ -908,8 +910,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes, and Save downloads it.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
-  `tests/test_site.py` the packs' G1 cases and a save in Chromium and
-  WebKit.
+  `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
+  and Firefox.
   - The worker holds one PyProxy, its engine function, which hands back
     plain JS values: a PyProxy it dropped would be freed by Pyodide's
     FinalizationRegistry, which needs the GIL, and WebKit runs that cleanup
@@ -960,7 +962,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   player saves to. It carries no Unicorn, zig, capstone or GPL code;
   `tests/test_hosts.py` checks each name in it and its licence, and builds
   the packs' G1 cases and a save through its page (`AzurKit serve` in
-  headless Chromium and WebKit).
+  headless Chromium, WebKit and Firefox).
 - **The icon** (D891, D892) is original art that code draws, no game pixel
   (D886, D890): in `assets/icon/`, `mark.py` draws the mark (`AzurKit.svg`)
   and `tile.py` sets it on the Mac app's azure tile; `render.py` writes
@@ -1013,7 +1015,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   other docs nothing more; the suite's configuration, what `tests/conftest.py` imports (it
   checks the app's no-window mode in a Python of its own) and a path no
   rule covers run the whole suite. A changed-area run drives the page in
-  Chromium alone, the whole suite in both browsers (D970), and the receipt
+  Chromium alone, the whole suite in every browser (D970), and the receipt
   says which (`browsers`). A run is killed past its
   cap, 4,500 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
@@ -1023,8 +1025,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   registry, its ids and drivers in `tests/_perf.py`): a change under `src/`
   or `web/` times its area's ops in the app's serve mode (the worktree's
   wheel in a scratch venv, so the app reads the database the wheel ships, as
-  a player's install does) and on the site in WebKit, and main's own full run times every op in four profiles (the app;
-  the site in WebKit and Chromium; the site with each File read 200 ms late,
+  a player's install does) and on the site in WebKit, and main's own full
+  run times every op in four profiles (the app; the site in WebKit, Chromium
+  and Firefox; the site with each File read 200 ms late,
   Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
   app's process tree, and the site's WebKit processes that start during the run).
   It starts once the normal-priority load is under 40, at nice 10. An op
@@ -1036,7 +1039,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   only if the median of all six is still over. The list only shrinks: `perf.py
   --update-ceilings` lowers a ceiling you earned (in your own commit) and
   drops what is back under, and the gate and `land.py` fail an added op or
-  debt or a raised ceiling against main's.
+  debt or a raised ceiling against main's, but for a browser main's
+  `perf.py` doesn't time yet (`perf.new_browsers`), whose first record
+  (`--update-ceilings`, its ops as measured) may add its own ops and debts
+  once.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that

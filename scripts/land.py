@@ -11,7 +11,9 @@ stack that changes a file under ``src/`` or ``web/`` also needs the
 receipt's passing perf block (D981, ``scripts/perf.py``). Every stack's
 ``tests/perf_ceilings.toml`` only shrinks: it refuses one that adds an op, a
 debt, a memory peak or an untimed op, or raises a ceiling, against main's
-(``perf.check_list``; main without the file takes any, the first record).
+(``perf.check_list``; main without the file takes any, the first record, and
+a browser the stack's perf.py times and main's doesn't may add its own once,
+its first record: ``perf.new_browsers``, D994).
 ``--release`` (the landing a release is cut from) refuses while the list
 holds anything: every op within its budget, showing progress, timed.
 
@@ -80,7 +82,8 @@ def land(repo: Path, branch: str, dry_run: bool = False, release: bool = False) 
     if main and fs.git(repo, "merge-base", main, top, check=False).strip() != main:
         return 1, f"land: {branch} ({top[:12]}) doesn't fast-forward from main ({main[:12]}): rebase it onto main"
     left = perf_list(repo, top) or perf.listed(None)
-    if grown := perf.check_list(left, perf_list(repo, main)):   # any stack, list-only ones too (no perf stage)
+    new = perf.new_browsers(repo, main, top)   # each one's first record may add its own ops (D994)
+    if grown := perf.check_list(left, perf_list(repo, main), new):   # any stack, list-only ones too (no perf stage)
         return 1, f"land: {branch}'s {perf.CEILINGS} grows main's list (D981): " + "; ".join(grown)
     folder = fs.receipts(repo)
     paths = fs.git(repo, "diff", "--name-only", main, top) if main else fs.git(repo, "ls-tree", "-r", "--name-only", top)

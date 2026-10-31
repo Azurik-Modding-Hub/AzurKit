@@ -11,11 +11,12 @@
   ``vanilla: N run`` and ``europe: M run``.
 - A test that runs under Pyodide on Node takes the ``pyodide`` fixture, and
   one that drives the page in a browser the ``browser`` fixture, which runs
-  it in headless Chromium and again in WebKit (Safari's engine; Step 4.1d3),
-  or only in those ``--browsers`` names (``scripts/fullsuite.py``'s
-  changed-area runs: Chromium, D970); either becomes ``web``. Like the
-  images, what they run on (Pyodide, Node for the first, each browser for
-  the second; ``uv run bootstrap.py`` fetches Pyodide and both browsers) is
+  it in headless Chromium, again in WebKit (Safari's engine; Step 4.1d3) and
+  again in Firefox (D994), or only in those ``--browsers`` names
+  (``scripts/fullsuite.py``'s changed-area runs: Chromium, D970); either
+  becomes ``web``. Like the images, what they run on (Pyodide, Node for the
+  first, each browser for the second; ``uv run bootstrap.py`` fetches
+  Pyodide and every browser) is
   needed by a run that selects one, which otherwise stops with one message
   naming what is missing; ``-m "not web"`` opts out. The summary prints
   ``web: K run``.
@@ -248,7 +249,7 @@ def pyodide(tmp_path_factory) -> Callable[..., dict]:
 def browser(request, tmp_path_factory):
     """Each browser in turn, headless (Playwright's, from the main checkout's
     ``.tools/``; the test is ``web``): Chromium's headless shell, then
-    WebKit, Safari's engine, or those ``--browsers`` names
+    WebKit, Safari's engine, then Firefox, or those ``--browsers`` names
     (:func:`pytest_generate_tests`). No window opens. Module-scoped, so a
     module's tests stay together and its other fixtures are made once."""
     from playwright.sync_api import sync_playwright

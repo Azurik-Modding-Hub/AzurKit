@@ -1,6 +1,6 @@
 """The site and its tools: Pyodide's core, pinned by URL, size and sha256
-(WEB §6.3), and the browsers the ``web`` tests drive the page in (Chromium
-and WebKit, :data:`BROWSERS`), all in the main checkout's ``.tools/``
+(WEB §6.3), and the browsers the ``web`` tests drive the page in (Chromium,
+WebKit and Firefox, :data:`BROWSERS`), all in the main checkout's ``.tools/``
 (git-ignored, shared by every lane); and the site itself (:func:`site`), the
 folder a static host serves.
 
@@ -15,7 +15,7 @@ wheels of the packages the site loads for a tab that needs them
 from Pyodide's CDN at the core's version and checked against the sha256 the
 core's ``pyodide-lock.json`` gives it, so they are pinned with it. Each
 browser is Playwright's build at the revision the locked ``playwright``
-names (Chromium's headless shell; WebKit, Safari's engine), in
+names (Chromium's headless shell; WebKit, Safari's engine; Firefox, D994), in
 ``.tools/playwright`` (``PLAYWRIGHT_BROWSERS_PATH``), never the user's
 cache; their installer (the ``playwright`` package's) runs on the ``node``
 on PATH. Stdlib only, but for a site's content, which ``azurkit``'s content
@@ -50,9 +50,10 @@ SHA256 = "2abdcc2e35208af406e07724cffa85bc582ced97e9028383ecf5462541393f95"
 FILES = ("pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json")
 PACKAGES = ("numpy",)
 CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
-# The web tests' engines (Step 4.1d3): each test that takes the ``browser`` fixture runs in both. Each one's name in
-# Playwright's browsers.json, and its label.
-BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit")}
+# The web tests' engines (Step 4.1d3; Firefox D994): each test that takes the ``browser`` fixture runs in each. Each
+# one's name in Playwright's browsers.json, and its label.
+BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit"),
+            "firefox": ("firefox", "Firefox")}
 SHIPPED = "azurkit/tools/randomizer/shipped"   # the checked randomizer database's folder (dbcache.SHIPPED)
 CONTENT_KINDS = (".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
 """The suffixes a content file the site publishes may have, and no other
@@ -171,7 +172,7 @@ def browser_missing(engine: str, root: Path = ROOT) -> bool:
 
 
 def fetch_browser(engine: str, root: Path = ROOT) -> Path:
-    """Install ``engine`` (Chromium's headless shell, or WebKit) with
+    """Install ``engine`` (Chromium's headless shell, WebKit or Firefox) with
     playwright's own installer, run on the ``node`` on PATH, into
     :func:`browsers_dir`."""
     if browser_missing(engine, root):
