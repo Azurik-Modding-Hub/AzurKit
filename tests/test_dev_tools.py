@@ -67,7 +67,7 @@ def test_the_page_picks_the_site_app_and_icon_tests_and_the_docs_they_restate_pi
     package outside the import graph (the pyodide, browser and frozen_app
     fixtures) besides the wheel's."""
     deps = {"tests.test_site": {"json"}, "tests.test_hosts": {"json"}, "tests.test_wheel": {"json"}}
-    page = ["tests/test_hosts.py", "tests/test_icon.py", "tests/test_site.py"]
+    page = ["tests/test_hosts.py", "tests/test_icon.py", "tests/test_site.py", "tests/test_site_workers.py"]
     assert fullsuite.plan(["web/app.mjs", "web/favicon.ico"], deps) == sorted({*SMOKE, *page})
     assert fullsuite.plan(["NOTICE.md"], deps) == sorted({*SMOKE, fullsuite.ABOUT, "tests/test_wheel.py"})
     assert fullsuite.plan(["LICENSE", "web/index.html"], deps) == sorted({*SMOKE, *page, "tests/test_wheel.py"})
