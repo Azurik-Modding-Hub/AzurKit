@@ -713,14 +713,15 @@ CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length
     asked.filter((t) => ["preview", "match"].includes(t))]"""
 
 
-def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image(browser, site):
+def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image(browser, site, tmp_path):
     """Step 4.3f (D961, D979): before an image is picked the Characters tab
     lists all 178 species the player can wear, the 73 untested among them,
     with Garret's two pictures, and a click on another shows its own at
     once: the site's shipped answer and pictures (``tests/test_characters.py``
     holds them to the images and to the app's draw), no engine call drawing
-    them. G4 and the Weapon box stay greyed, saying the image is needed. No
-    CSP violation, no request but GETs of the site's files."""
+    them. G4 and the Weapon box stay greyed, saying the image is needed, and
+    say so again once the engine refuses a file that is no image. No CSP
+    violation, no request but GETs of the site's files."""
     served = Site(browser, site)
     served.context.add_init_script(script=ASKED)
     try:
@@ -735,6 +736,11 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 120)
         assert page.evaluate(CHARS_SHOWN)[2:] == [[True, True], [True] * 4, "Choose your image to match garret4 (G4).",
                                                   True, "Choose your image to see its weapons", []]
+        (tmp_path / "not-an-image.iso").write_bytes(bytes(64 * 1024))
+        page.set_input_files("#iso", str(tmp_path / "not-an-image.iso"))
+        _page.until(page, "() => !document.getElementById('char-refused').hidden", 180)
+        assert page.evaluate(CHARS_SHOWN)[3:7] == [[True] * 4, "Choose your image to match garret4 (G4).", True,
+                                                   "Choose your image to see its weapons"]
         index = json.loads((site / "characters" / "index.json").read_text(encoding="utf-8"))
         assert {f"characters/{index['species'][s]}.{v}.png" for s in ("garret4", "keylord") for v in ("front", "back")} <= {
             url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests}

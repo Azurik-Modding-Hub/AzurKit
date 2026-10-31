@@ -17,6 +17,7 @@ const $ = (id) => document.getElementById(id);
 const SOURCE = "azurkit.content_source";
 const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
 const JIGGLE = ["jiggle_strength", "jiggle_stiffness"];
+const CHOOSE_WEAPONS = "Choose your image to see its weapons";   // the Weapon box with no image read
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
 const box = (v) => typeof v === "number" ? String(v) : v ?? "1";
@@ -91,7 +92,10 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     if ("refused" in reply) {
       $("char-refused").hidden = false;
       $("char-refused").textContent = reply.refused;
-      c.view = null;
+      c.view = null;   // no answer read the image: G4 and the weapons ask for one again (D979), not "Reading"
+      $("char-weapon").replaceChildren(el("option", { value: "", textContent: CHOOSE_WEAPONS }));
+      $("char-weapon").disabled = true;
+      g4();
       return;
     }
     c.view = reply;
@@ -250,7 +254,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $("char-mode").value = locked.mode ?? ch.mode ?? defaults.mode;
     $("char-mode").disabled = "mode" in locked;
     const weapons = imaged() ? chosen.weapons   // D979: none until the image is read
-      : [{ name: null, label: image() ? "Reading your image…" : "Choose your image to see its weapons" }];
+      : [{ name: null, label: image() ? "Reading your image…" : CHOOSE_WEAPONS }];
     $("char-weapon").replaceChildren(...weapons.map((w) => {
       const option = el("option", { value: w.name ?? "", textContent: w.label, title: w.tip ?? "" });
       if (w.colour) option.style.color = paint(w.colour);
@@ -339,7 +343,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       if (button) button.disabled = c.matching || !imaged();
     }
     $("char-g4-note").textContent = c.matching ? "Measuring the body against garret4…"
-      : imaged() ? "G4 sets a number so the body matches garret4." : image() ? "Reading your image…"
+      : imaged() ? "G4 sets a number so the body matches garret4." : image() && c.view ? "Reading your image…"
       : "Choose your image to match garret4 (G4).";
   };
   const match = async (name) => {
