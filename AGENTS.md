@@ -327,6 +327,26 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   carry a recipe's packs and `set` operations as a link's `#p=` fragment:
   names, numbers and hashes only, never an image path or a byte (Q174),
   capped as untrusted input.
+- **Community packs** (D988, `tools/mods/community.py`): an
+  Azurik-Custom-Content entry of kind `pack` whose one file,
+  `packs/<id>/pack.json`, is a mods file of a `mods` packs layer and a
+  `data` xbr layer only: release-free (no `base` or `result`), data only (no
+  randomizer, character, XBE site or code), its packs carrying every pack
+  they need (`check`). `refusal` is the content folder's Install check of a
+  pack entry, which the sdk hands `content.verify` (`tools.characters` may
+  not import `tools.mods`). A recipe pins one by id and its pack.json's
+  sha12 (`normalize`), and `resolve` takes it only installed, untouched
+  since and at the pin, naming what to Install or Update. Its built-in packs
+  `merge` with the recipe's own (a pack two sources set to other values is
+  refused, naming both and the slider; equal copies are one; nothing is
+  unticked) and plan as ordinary pack layers; its edits are a layer of
+  their own (`layer`, `community <id>`) for the sdk to lay after the packs
+  and the character and before the player's own `data xbr`, so a later
+  layer wins, reported (D28). A build's manifest records it by id, version
+  and sha256, never its bytes, and `edits.preset.from_manifest` gives it
+  back as the mods file's `community` layer, `{"packs": [{"id", "sha"}]}`.
+  No pack ships (D997), so no golden records one: fixture packs in
+  `tests/test_community.py` pin them.
 - **Shims** (Step 4.1f1): a `TrampolinePatch` hooks a site with a CALL or
   JMP rel32 into a C shim. A shim's source and its prebuilt object sit side
   by side in `src/azurkit/tools/mods/shims/` (`<name>.c`, `<name>.o`), both
