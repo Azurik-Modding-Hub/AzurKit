@@ -2,6 +2,11 @@
 
 > Ported from Azurik_Modkit's `docs/` (Step 4.11g). A path under `azurik_mod/`, `scripts/`, `tests/` or
 > `shims/`, and a link to a doc this folder lacks, names Modkit's tree, where the finding was made.
+> So do its commands (`azurik-mod`, `bootstrap.py --with re`), its environment variables and its "this repo" and
+> "today" claims: AGENTS.md is AzurKit's rule and wins where the two differ.
+> The toolchain this guide describes (zig compiling at build time, `shim_builder`, `vanilla_symbols.py`, the
+> hand-written headers, `AZURIK_NO_SHIMS`) is Modkit's and isn't ported: AGENTS.md § Shims is AzurKit's rule
+> (11 C shims in `src/azurkit/tools/mods/shims/`, source and object both committed) and wins where the two differ.
 
 How to write, build and pin a patch that runs code of its own inside
 Azurik's `default.xbe`: a C shim compiled by zig, or a shim

@@ -2,6 +2,8 @@
 
 > Ported from Azurik_Modkit's `docs/` (Step 4.11g). A path under `azurik_mod/`, `scripts/`, `tests/` or
 > `shims/`, and a link to a doc this folder lacks, names Modkit's tree, where the finding was made.
+> So do its commands (`azurik-mod`, `bootstrap.py --with re`), its environment variables and its "this repo" and
+> "today" claims: AGENTS.md is AzurKit's rule and wins where the two differ.
 
 What the engine reads from its data files: `config.xbr`'s keyed
 tables, `hourglass.xbr` and `fx.xbr` (with the wave codec),

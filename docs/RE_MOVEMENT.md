@@ -2,6 +2,8 @@
 
 > Ported from Azurik_Modkit's `docs/` (Step 4.11g). A path under `azurik_mod/`, `scripts/`, `tests/` or
 > `shims/`, and a link to a doc this folder lacks, names Modkit's tree, where the finding was made.
+> So do its commands (`azurik-mod`, `bootstrap.py --with re`), its environment variables and its "this repo" and
+> "today" claims: AGENTS.md is AzurKit's rule and wins where the two differ.
 
 How the engine moves the player: walking and the shared 3.0, wing
 flaps and their ceiling, fuel, armor and HP, air control, the jump,

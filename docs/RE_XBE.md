@@ -2,6 +2,8 @@
 
 > Ported from Azurik_Modkit's `docs/` (Step 4.11g). A path under `azurik_mod/`, `scripts/`, `tests/` or
 > `shims/`, and a link to a doc this folder lacks, names Modkit's tree, where the finding was made.
+> So do its commands (`azurik-mod`, `bootstrap.py --with re`), its environment variables and its "this repo" and
+> "today" claims: AGENTS.md is AzurKit's rule and wins where the two differ.
 
 `default.xbe` itself: the Ghidra project, the section map and the
 notable functions (from the old DECOMP notes), the boot state
@@ -26,6 +28,8 @@ For anyone doing reverse-engineering work on `default.xbe`: this document points
 
 The live Ghidra project is NOT committed to this repo (it's a multi-megabyte binary directory).  To continue analysis:
 
+These steps are Modkit's setup; AzurKit's Ghidra side (`bootstrap.py --with re`, the `ghidra-*` verbs, the snapshot) arrives with Step 4.11d.
+
 1. `uv run bootstrap.py --with re` installs Ghidra 12.1.2, its JDK, the ghidra-xbe loader (needed to import an XBE) and the stock GhydraMCP plugin into `.tools/`; start it with `.tools/ghidra/ghidraRun`.
 2. Open your project (the owner's `Azurik Ghidra.gpr`, with its `.rep`, lives outside the checkout), or create a new one.
 3. Import `default.xbe` from a legitimately-owned copy of Azurik.
@@ -40,7 +44,7 @@ For AI-assisted RE, the same bootstrap installs the stock [GhydraMCP](https://gi
 
 Azurik's XBE has **23 sections**, hard-coded as `(va_start, raw_start)` pairs in [`azurik_mod.patching.xbe.XBE_SECTIONS`](../azurik_mod/patching/xbe.py).  Every patch VA resolves through `va_to_file(va)` against that table, which is the single source of truth — a hand-copied 9-row mirror used to live here and drifted, returning offsets into the wrong section for every VA past BINK.  To dump the live table use `azurik-mod xbe sections`, or `parse_xbe_sections(xbe_data)` from the same module on your own `default.xbe`.
 
-The two boundaries that matter most for the notes below: `.rdata` spans VA `0x18F3A0`–`0x1A299F`, and `.data` starts at VA `0x1A29A0`.
+The two boundaries that matter most for the notes below: `.rdata` spans VA `0x18F3A0`–`0x1A298F`, and `.data` starts at VA `0x1A29A0`.
 
 ### Notable functions
 
