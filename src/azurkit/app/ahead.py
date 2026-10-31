@@ -17,7 +17,9 @@ the same answer, and a key that misses an input only misses.
   too). An offer older than the newest is refused; one of the same key
   keeps its job (a letter typed and deleted costs nothing); one of another
   key stops the job at its next record, and the new job starts once that
-  one has ended, so a slot never runs two (a build holds GiBs).
+  one has ended, so a slot never runs two (a build holds GiBs). While a
+  click follows the slot's job, nothing else goes ahead of it there (the
+  offer is refused), so its Cancel finds it.
   :meth:`Ahead.change` stops every job of an older change no click
   follows. Work ahead runs at the host's background priority
   (``core.host``, :class:`Low`) and, past a seed's fill (which another
@@ -182,7 +184,9 @@ class Ahead:
               then: Callable[[Job], object] | None = None) -> bool:
         """Work ``key``'s answer out ahead with ``fn`` at the page's change
         ``gen``, ``then(job)`` once it is done; whether it is being (or has
-        been) worked out. ``key`` ``None``: nothing ahead of ``kind`` now."""
+        been) worked out. ``key`` ``None``: nothing ahead of ``kind`` now.
+        Refused while a click follows the slot's job of another key (its
+        Cancel and :meth:`close` read the slot)."""
         with self._cond:
             kind = _kind(kind)
             if self._closed or gen < self.gen:
@@ -194,6 +198,8 @@ class Ahead:
                 if job.state == "demoted":   # wanted again: its rest too
                     job.state = "ahead"
                 return True
+            if job is not None and job.state == "taken" and not job.done.is_set():
+                return False   # a click follows it: nothing else ahead of it in the slot until it ends
             self._stop(job)
             if key is None or not room(self._peaks.get(key)):
                 return False

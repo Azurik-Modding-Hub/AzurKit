@@ -157,14 +157,17 @@ def test_a_click_takes_the_work_ahead_of_its_key_and_answers_as_a_plain_run(setu
     assert (click.error, click.value) == (None, Stand(setup.root).make(setup.seeded))
 
 
-@pytest.mark.parametrize("then", ["Build while its fill runs on", "Build after its fill", "a change", "silence"])
+@pytest.mark.parametrize("then", ["Build while its fill runs on", "Build after its fill", "a change", "silence",
+                                  "an offer before it"])
 def test_cancel_answers_at_once_and_keeps_the_seeds_fill_for_the_same_settings(setup, then, monkeypatch):
     """The player's Cancel answers Cancelled at once, mid-fill; the job runs
     on through its fill, kept for the next Build of the same settings, and
     stops at its first record past it: a Build meanwhile takes the job
     back, one after it takes the kept fill, each the plain run's answer.
     A change stops it at its next record, mid-fill, keeping nothing; one
-    that reaches no record within ``GRACE`` is the host's ``kill``."""
+    that reaches no record within ``GRACE`` is the host's ``kill``. An
+    offer of another recipe while the click runs is refused, so the
+    Cancel after it still finds the click's job."""
     if then == "silence":
         monkeypatch.setattr(ahead, "GRACE", 0.3)
     s, killed = setup.stand, []
@@ -173,6 +176,8 @@ def test_cancel_answers_at_once_and_keeps_the_seeds_fill_for_the_same_settings(s
     first = Click(slots, "build", k, s.fn(setup.seeded))
     assert s.held.wait(10)
     job = slots.job("build")
+    if then == "an offer before it":
+        assert not slots.offer("build", 1, setup.key(setup.other), s.fn(setup.other)) and slots.job("build") is job
     began = time.monotonic()
     assert slots.cancel() and isinstance(first.end().error, Cancelled) and time.monotonic() - began < 1
     plain = Stand(setup.root).make(setup.seeded)
@@ -191,10 +196,13 @@ def test_cancel_answers_at_once_and_keeps_the_seeds_fill_for_the_same_settings(s
         s.go.set()
         assert job.done.wait(10) and isinstance(job.error, Cancelled) and job.step == record("plan", None, 2, 4)
         assert "2" not in s.fills
-    else:
+    elif then == "silence":
         _until(lambda: killed)
         s.go.set()
         assert job.done.wait(10)
+    else:
+        s.go.set()
+        assert job.done.wait(10) and isinstance(job.error, Cancelled) and (slots.job("build"), s.runs) == (job, 1)
     assert killed == ([job] if then == "silence" else [])
 
 
