@@ -178,10 +178,13 @@ def resolve(pins: object, record: Mapping, read: Callable[[str], bytes]) -> list
 
 def _shown(pack: str, slider: str, params: Mapping) -> str:
     value = params.get(slider)
-    if value is None:
+    default = value is None
+    if default:
         value = next(s.default for s in mods.PACKS[pack].sliders() if s.name == slider)
-        return f"{value:g} (its default)"
-    return f"{value:g}"
+    text = f"{value:g}"
+    if float(text) != value:   # :g's 6 digits would show two values the same
+        text = repr(value).removesuffix(".0")
+    return f"{text} (its default)" if default else text
 
 
 def merge(own: Mapping[str, Mapping], picked: Sequence[Mapping]) -> dict[str, dict]:

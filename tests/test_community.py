@@ -127,6 +127,14 @@ def test_a_recipes_community_pack_must_be_installed_untouched_and_pinned_and_set
                                  "pack hard 1.5: untick one")
     with pytest.raises(ValueError, match="community pack hard sets 150, your packs 200 \\(its default\\)"):
         community.merge({"player_max_hp": {}}, [hard])
+    near = {"id": "near", **community.check(_pack({"enemy_scaling": {"enemy_damage_dealt_scale": 1.0000001},
+                                                   "player_max_hp": {"starting_hp": 1234567}}))}
+    with pytest.raises(ValueError) as caught:
+        community.merge({"enemy_scaling": {"enemy_damage_dealt_scale": 1.0000002},
+                         "player_max_hp": {"starting_hp": 1234568}}, [near])
+    assert str(caught.value) == ("player_max_hp's starting_hp: community pack near sets 1234567, your packs 1234568: "
+                                 "untick one; enemy_scaling's enemy_damage_dealt_scale: community pack near sets "
+                                 "1.0000001, your packs 1.0000002: untick one")
 
 
 def test_a_community_packs_edits_are_its_own_layer_a_later_edit_wins_and_its_build_carries_it():
