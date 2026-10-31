@@ -104,7 +104,8 @@ never over an existing file but the one the save dialog chose, nor a
 vanilla image or the image it reads (D36). ``api/storage`` ``{"clear"}``
 lists what the app keeps on this computer, by name (:func:`kept`), and
 clears those entries alone: never an image or the folder that may hold one
-(SEC-10).
+(SEC-10); asked as the tab opens, it has the engine build the randomizer's
+logic meanwhile, for a plan file's spoiler.
 ``POST api/choose`` ``{"kind": "iso" | "build" | "out" | ..., "path"}`` opens the window's
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
@@ -717,6 +718,14 @@ class Server(http.server.ThreadingHTTPServer):
         out = self.writable(_path(body["out"], "report") if body.get("out") else _downloads() / name, "report")
         return _written(out, text.encode("utf-8"))
 
+    def storage(self, body: dict) -> dict:
+        """``api/storage`` (:func:`_storage`), which the Tools tab asks as it
+        opens: the engine builds the randomizer's logic meanwhile, for a plan
+        file's spoiler."""
+        if not body.get("clear"):
+            self.engine.warm("randomizer")
+        return _storage(body)
+
     def plan_spoiler(self, body: dict) -> dict:
         """``api/plan_spoiler``: a plan file's spoiler (the engine's)."""
         with self.follow("plan_spoiler", record("spoiler")):
@@ -825,7 +834,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/extract": self.server.extract,
                 "/api/open": lambda body: {"preset": sdk.open_build(str(_path(body.get("iso"), "build")), whole=False)},
                 "/api/mods_file": self.server.mods_file, "/api/report": self.server.report,
-                "/api/plan_spoiler": self.server.plan_spoiler, "/api/storage": _storage,
+                "/api/plan_spoiler": self.server.plan_spoiler, "/api/storage": self.server.storage,
                 "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

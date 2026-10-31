@@ -930,8 +930,10 @@ def site_tools(d: Driver, ctx, url: str) -> None:
     t0, t1 = max((t0, t1), (t2, t3), key=lambda span: span[1] - span[0])
     d.record("S46", (t1 - t0) / 1000, d.ev, t0, t1)
     saved.value.delete()
-    p.js(click("tab-tools"))
     plan = _plan_file(d)
+    p.js(click("tab-randomizer"))   # its first ask reads the randomizer's logic (S16's op), which the spoiler needs
+    p.wait("() => azurkit.rando.view?.share", 900)
+    p.js(click("tab-tools"))
     d.act(p, "S47", lambda: p.page.set_input_files("#tools-plan-file", str(plan)), SPOILED, 900)
     p.page.close()
 
