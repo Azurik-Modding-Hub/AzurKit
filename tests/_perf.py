@@ -1,6 +1,6 @@
 """The perf gate's registry and drivers (D980-D985): every player-facing
 operation by its id (round 1's table: ``A01``-``A30`` the app's, ``S01``-``S25``
-the site's), each with a start (a click, a launch, a file set) and a
+the site's; wave 2's from ``A31`` and ``S26``), each with a start (a click, a launch, a file set) and a
 done-state (a DOM condition), and the scenarios that drive them in the app's
 serve mode and on the site, headless (D839). ``scripts/perf.py`` runs them
 and judges the times; this module only drives and clocks.
@@ -99,6 +99,8 @@ OPS = {op.id: op for op in (
     Op("A28", "Save the seed, after the save dialog", "randomizer"),
     Op("A29", "Cancel a build, then Build", "randomizer"),
     Op("A30", "a small ask while a build runs (a model's pictures)", "randomizer"),
+    Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True),   # D999
+    Op("A32", "the same reshape at the next launch", "build", content=True),
     Op("S01", "page start, first visit (the engine load)", "start", bar=True),
     Op("S02", "page start, a return visit", "start", first=False),
     Op("S03", "choose the image, first time", "image", bar=True),
@@ -658,6 +660,33 @@ def app_booblord(d: Driver, app: App, ctx) -> None:
     app.quit(p)
 
 
+# D999: a shape no build has made (booblord with one slider moved) builds first with a bar (A31); at the next launch
+# the same shape is the app's kept answer (A32, strict). Her own pictures are drawn first, untimed.
+RESHAPE = """() => { const s = azurkit.characters.state.view.chosen.shapes[0].name, b = document.getElementById(
+  `char-shape:${s}`); b.value = "1.25"; b.dispatchEvent(new Event("change")); }"""
+RESHAPED = ("() => azurkit.characters.state.character.shapes && azurkit.characters.state.view?.asked "
+            "=== JSON.stringify(azurkit.characters.state.character)")
+
+
+def app_reshape(d: Driver, app: App, ctx) -> None:
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    p.js(click("tab-characters"))
+    p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
+    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
+          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 600)
+    d.act(p, None, model("booblord"), chosen("booblord"), 3600)
+    d.act(p, None, RESHAPE, RESHAPED, 600)
+    d.act(p, "A31", build_js(), BUILT, 3600)
+    app.quit(p)
+    p = app.launch(d, ctx, None)   # the same HOME: the remembered setup wears the reshape
+    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    p.js(click("tab-characters"))
+    p.wait(f"() => azurkit.characters.state.character.species === 'booblord' && ({RESHAPED[6:]})", 600)
+    d.act(p, "A32", build_js(), BUILT, 1800)
+    app.quit(p)
+
+
 def _site_page(d: Driver, ctx, url: str, op: str | None) -> Page:
     """A new page on ``url``, ``op`` timed by its own clock from its navigation to the engine's ready flag."""
     p = Page(ctx.new_page())
@@ -773,6 +802,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
     "app-track": ("app", ("A02", "A23", "A24", "A25", "A26"), app_track),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
+    "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "S16", "S17"),
                    site_start),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
