@@ -73,6 +73,7 @@ source ([Development](#development)).
   a costlier lock, a worn body).
 - **One build:** randomize and patch together, on USA or Europe.
 - **Spoiler log:** each sphere, every key item with its way in and its way back, and the traps; view or save it.
+  It's written once the build is done, so the build is ready sooner.
 
 ### Item tracker
 

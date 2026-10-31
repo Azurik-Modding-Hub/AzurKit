@@ -216,10 +216,11 @@ function unchecked() {
 // The site's engine: a module worker, started from a blob: URL so that it keeps the page's CSP. It is kept after a
 // build while the heap its answer reports is under KEEP (Step 4.3i: wasm memory never shrinks, so a worker a build grew
 // is replaced, "Preparing the engine…" meanwhile), else replaced, as it is after a cancel or a report with no heap;
-// not after one that never loaded.
+// not after one that never loaded. A seed's build comes without its spoiler, which the worker sends next (built's
+// spoiled: a promise of it); a worker the page doesn't keep is replaced once it has.
 const KEEP = 1 << 30;
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
-  let worker = null, loaded = false, calls = 0, content = null, engine = null;
+  let worker = null, loaded = false, calls = 0, content = null, engine = null, spoiled = null, retiring = false;
   const waits = new Map();   // the posted asks this worker answers by type (the Randomizer tab's, the restore): ask ids
   const wait = (kind, message) => {
     answered(waits.get(kind));
@@ -275,9 +276,17 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       } else if (data.type === "built" || data.type === "refused") {
         state.heap = data.heap ?? null;
         const keep = typeof data.heap === "number" && data.heap < KEEP;
-        if (!keep) restart();
+        const coming = data.type === "built" && data.report.plan && !("spoiler" in data.report);
+        if (coming) data.spoiled = new Promise((give) => spoiled = give);
+        if (!keep && coming) retiring = true;
+        else if (!keep) restart();
         (data.type === "built" ? built : refused)(data);
         if (keep) ready(...engine);   // the page's engine is ready again: the same worker
+      } else if (data.type === "spoiled") {
+        const { type, ...reply } = data;
+        spoiled?.(reply);
+        spoiled = null;
+        if (retiring) restart();
       } else if (data.type === "csp") {
         state.violations.push(`worker: ${data.directive} ${data.blocked}`);
         failed(`The page's security policy refused ${data.directive} in the engine`);
@@ -296,6 +305,9 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     worker.terminate();
     unchecked();   // nor finishes a check
     for (const ask of state.asks.values()) ask.record = null;   // nor runs a stage it reported (Step 4.3 train)
+    retiring = false;
+    spoiled?.({ refused: "The engine stopped before it gave the spoiler: build the seed again" });
+    spoiled = null;
     for (const kind of [...waits.keys()]) end(kind);   // a stopped worker answers none of them
     for (const [call, { once, done }] of pending) {
       if (!once) continue;
@@ -851,7 +863,8 @@ function built(reply) {
   report(`Ready · ${made.label} · ${bytes(size)}${verdict}` + made.conflicts.map((c) => ` · conflict: ${c}`).join("")
          + made.notes.map((n) => ` · note: ${n}`).join("")
          + ` · changed: ${changed.length ? changed.join(", ") : "nothing"}`);   // the file list last: it runs long
-  spoiler(made.spoiler ?? null);
+  spoiler(made.spoiler ?? null, !made.plan || made.spoiler ? null : reply.spoiled ? () => reply.spoiled
+    : () => state.engine.call("spoiler", {}));   // the app's engine makes it when View or Save asks
   if (made.plan) state.tracker.open(made.plan);   // the Tracker view tracks the build's seed
 }
 
@@ -1186,14 +1199,33 @@ async function saveSettings() {
 }
 
 // The last randomized build's spoiler (Modkit's --spoiler file), viewed in the tab and saved as a text file: the
-// site's download, or where the app's dialog (else beside the image it saves) says.
-function spoiler(text) {
+// site's download, or where the app's dialog (else beside the image it saves) says. A seed's build leaves it out, so
+// the build shows sooner: later() gives it (the site's worker sends it after the build; the app's engine makes it at
+// the first View or Save), asked once.
+let later = null, coming = null;
+function spoiler(text, ask = null) {
   state.spoiler = text;
-  $("spoiler-view").disabled = $("spoiler-save").disabled = !text;
-  $("spoiler-note").hidden = Boolean(text);
+  later = text ? null : ask;
+  coming = null;
+  $("spoiler-view").disabled = $("spoiler-save").disabled = !text && !later;
+  $("spoiler-note").hidden = Boolean(text || later);
   if (!text) $("spoiler").hidden = true;
   $("spoiler").textContent = text ?? "";
   $("spoiler-view").textContent = $("spoiler").hidden ? "View" : "Hide";
+}
+
+async function spoilt() {   // the spoiler's text, null when the engine refused it (said)
+  if (state.spoiler === null && later) {
+    const mine = later, reply = await (coming ??= later());
+    if (mine !== later) return null;   // another build since
+    if ("refused" in reply) {
+      coming = null;
+      say(reply.refused, true);
+      return null;
+    }
+    spoiler(reply.text);
+  }
+  return state.spoiler;
 }
 
 async function saveSpoiler() {
@@ -1201,6 +1233,7 @@ async function saveSpoiler() {
     .replace(/ \(AzurKit\)$/, "");
   const name = `${stem} (AzurKit) spoiler.txt`;
   if (!state.app) {
+    if (!await spoilt()) return;
     const url = URL.createObjectURL(new Blob([state.spoiler], { type: "text/plain" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: name });
     document.body.append(a);
@@ -1316,7 +1349,8 @@ function randoEvents(changed) {
     renderSkips();
     edited();
   });
-  $("spoiler-view").addEventListener("click", () => {
+  $("spoiler-view").addEventListener("click", async () => {
+    if ($("spoiler").hidden && !await spoilt()) return;
     $("spoiler").hidden = !$("spoiler").hidden;
     $("spoiler-view").textContent = $("spoiler").hidden ? "View" : "Hide";
   });

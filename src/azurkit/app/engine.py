@@ -1,5 +1,6 @@
 """The app's engine (Step 4.3i): where the page's long calls run (:data:`JOBS`:
-a build, a save, a seed's plan, a character's pictures and its G4 match).
+a build, a save, a seed's plan and its build's spoiler, a character's pictures
+and its G4 match).
 
 :class:`Here` runs them on the caller's thread, the server's request thread
 (:func:`azurkit.app.serve`'s default, as the app ran them before). :class:`Spawned`,
@@ -113,7 +114,7 @@ def _drop() -> None:
 
 def _image(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
     _drop()   # before the build: never two builds' images held at once
-    made, report = sdk.image(recipe, progress=progress)
+    made, report = sdk.image(recipe, progress=progress, spoiler=False)   # a seed's spoiler when asked: JOBS' spoiler
     ident = secrets.token_hex(8)
     _BUILT[ident] = _Built(made, report)
     return {"size": made.size, "report": report, "build": ident}
@@ -186,9 +187,10 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                              "plan": _warmed(lambda recipe, progress=None: sdk.plan(recipe, progress=progress),
                                              always=True),
-                             "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe))}
+                             "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe)),
+                             "spoiler": lambda plan: sdk.spoiler(plan, built=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save`` and ``plan``:
-``core.progress`` records)."""
+``core.progress`` records; ``spoiler``: the last build's, which ``image`` leaves out)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
 

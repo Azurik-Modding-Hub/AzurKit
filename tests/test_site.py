@@ -1116,9 +1116,10 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
     Patches (D901, D902), at D144's defaults (Modkit's share string of them)
     with its settings locked until Randomize is ticked (D907). Ticked, with
     seed 2 and the packs on by default, Build makes G3's seed case file by
-    file with its logic verified, CPython's report and segments; the
-    spoiler it shows and Save downloads is the build's (Modkit's
-    ``--spoiler`` file, test_randomizer's). Copy link carries the
+    file with its logic verified, CPython's report and segments, its
+    spoiler left out; the spoiler the worker sends after it, which View
+    shows and Save downloads, is the build's (Modkit's ``--spoiler`` file,
+    test_randomizer's). Copy link carries the
     randomizer: a page opened with it holds Randomize ticked, the seed and
     the settings, and copies back the same link; a randomized build's
     recipe (Load its recipe) ticks it again with its seed and the settings
@@ -1147,10 +1148,11 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
         assert built["report"]["result"] == {f: s for f, s in golden.items() if f != "ISO"}
-        assert (built["report"], built["segments"]) == (report, segments)
+        assert (built["report"], built["segments"]) == ({k: v for k, v in report.items() if k != "spoiler"}, segments)
         assert built["report"]["randomizer"]["logic_verified"] is True
         _page.click(page, "spoiler-view")
-        assert page.evaluate("() => document.getElementById('spoiler').textContent") == report["spoiler"]
+        assert _page.until(page, "() => !document.getElementById('spoiler').hidden "
+                                 "&& document.getElementById('spoiler').textContent", 120) == report["spoiler"]
         with page.expect_download(timeout=60_000) as caught:
             _page.click(page, "spoiler-save")
         assert (caught.value.suggested_filename, Path(caught.value.path()).read_text(encoding="utf-8")) == (

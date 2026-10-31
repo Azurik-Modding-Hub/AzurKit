@@ -11,8 +11,7 @@
 // runs it inside FileReaderSync, under WORKERFS's read of the image, while CPython has released the GIL around read():
 // Safari's build stopped with NoGilError there. Chromium runs it only between tasks.
 //
-// In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer, character, spoiler}
-//      (spoiler false: a seed's spoiler is left out of its report, for {type: "spoiler", call, plan} to give),
+// In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer, character},
 //      {type: "vanilla", file},
 //      {type: "preset", recipe: {packs, xbr, randomizer}, report}, {type: "decode", text}, {type: "restore", setup},
 //      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings),
@@ -23,7 +22,8 @@
 //      into the engine's content folder file by file once checked: kept). A message with a File has the image checked
 //      first, once a File (prime).
 // Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
-//      record, mid-call: the check, then a build's stages), {type: "built", report, size, segments, heap},
+//      record, mid-call: the check, then a build's stages), {type: "built", report, size, segments, heap} (a seed's
+//      report without its spoiler, which {type: "spoiled", text | refused} brings next: the build shows sooner),
 //      {type: "refused", message, heap}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
@@ -138,8 +138,8 @@ def engine(request):
             return js({"refused": str(exc)})
     if request.type in ("vanilla", "open", "preset", "decode", "randomizer", "tracker", "plan", "spoiler"):
         try:
-            if request.type == "spoiler":   # a seed built with its spoiler left out (sdk.image's spoiler false)
-                return js(sdk.spoiler(json.loads(JSON.stringify(request.plan)), built=True))
+            if request.type == "spoiler":   # the seed just built, its spoiler left out (sdk.image's spoiler false)
+                return js(sdk.spoiler({"sha256": request.sha256}, built=True))
             if request.type == "randomizer":
                 return js(sdk.randomizer_settings(request.given.to_py()))
             if request.type == "tracker":   # through JSON: a mark's null clock is None (to_py gives JsNull)
@@ -157,8 +157,7 @@ def engine(request):
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     try:
-        image, report = sdk.image(request.recipe.to_py(), progress=progressed,
-                                  spoiler=getattr(request, "spoiler", None) is not False)
+        image, report = sdk.image(request.recipe.to_py(), progress=progressed, spoiler=False)
     except (OSError, ValueError) as exc:
         return js({"refused": str(exc)})
     pieces = [{"kind": "copy", "offset": p.offset, "size": p.size} if isinstance(p, iso.Copy)
@@ -353,20 +352,29 @@ function character(loaded, data) {
 
 // A build, the image mounted for it and unmounted after; its answer carries the engine's heap then (wasm memory never
 // shrinks: a page that keeps the worker keeps one whose heap is small enough for another build, Step 4.3i), undefined
-// where Pyodide hides it.
-function build({ py, engine }, { file, packs, xbr, randomizer, character, spoiler }) {
-  const made = mounted(py, file, (iso) => engine({ type: "build", spoiler, recipe: { iso, packs, xbr,
+// where Pyodide hides it. A seed's spoiler comes after it (the page shows the build meanwhile, and replaces a worker
+// it doesn't keep only once it has it).
+function build({ py, engine }, { file, packs, xbr, randomizer, character }) {
+  const made = mounted(py, file, (iso) => engine({ type: "build", recipe: { iso, packs, xbr,
     ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } }));
   const heap = py._module?.HEAPU8?.length;
   if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
   post({ type: "built", ...made, heap }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
+  if (!made.report.plan) return;
+  let reply;
+  try {
+    reply = engine({ type: "spoiler", sha256: made.report.plan.sha256 });
+  } catch (error) {
+    reply = { refused: lastLine(error) };
+  }
+  post({ type: "spoiled", ...reply });
 }
 
 try {
   const loaded = await load();
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   self.onmessage = ({ data }) => {
-    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "spoiler", "content",
+    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
           ...CHARACTER].includes(data?.type)) return;
     queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
       .then(() => data.file ? prime(loaded, data.file).catch(() => null) : null).then(() => handle(data))
@@ -383,7 +391,7 @@ try {
         }
       }
       if (data.type === "vanilla") return vanilla(loaded, data.file);
-      if (data.type === "tracker" || data.type === "plan" || data.type === "spoiler") {   // answered whatever happens
+      if (data.type === "tracker" || data.type === "plan") {   // answered whatever happens
         let reply;
         try {
           reply = loaded.engine(data);

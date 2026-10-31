@@ -736,9 +736,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     of other sliders stays until the tab is edited or the Patches tab's
     sliders give that share string). With Randomize ticked, Build
     sends the build's `randomizer` (seed, settings, a cost other than
-    vanilla's), planned and written first; its report carries the verdict
-    and the spoiler (Modkit's `--spoiler` file), which the tab shows and
-    saves (the site's download, the app's `api/spoiler`). The tab's setup
+    vanilla's), planned and written first; its report carries the verdict,
+    and the spoiler (Modkit's `--spoiler` file) comes after it, so the
+    build shows sooner (`sdk.image(spoiler=False)`: the site's worker sends
+    it once the build is posted, and replaces a worker the page doesn't
+    keep only then; the app's engine makes it from the plan it kept at the
+    first View or Save, `api/spoiler`), which the tab shows and saves (the
+    site's download, the app's `api/spoiler` `{"out"}`). The tab's setup
     is remembered too (`randomizer`: on, seed, settings, cost) and Reset
     unticks it.
   - **The Tracker view** (Step 4.2c2, `web/tracker.mjs`): the Randomizer

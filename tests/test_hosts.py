@@ -920,9 +920,11 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
     """From the app's api in-process (Step 4.2c1): ``api/randomizer`` gives
     the Randomizer tab's view (``sdk.randomizer_settings``); ``api/build``
     with the tab's randomizer (seed 2, D144's defaults) and the packs on by
-    default makes G3's seed case file by file, its logic verified, with its
-    spoiler; ``api/spoiler`` writes that spoiler where the page names, never
-    over a file that is there, and ``api/settings_file`` the tab's settings
+    default makes G3's seed case file by file, its logic verified, its
+    spoiler left out (the build shows sooner): ``api/spoiler`` gives the
+    build's spoiler (Modkit's ``--spoiler`` file), which the engine makes
+    from the plan it kept, and writes it where the page names, never over a
+    file that is there, and ``api/settings_file`` the tab's settings
     file (D144); ``api/setup`` keeps the tab's setup (D915). Step 4.2c2:
     ``api/tracker`` gives Modkit's tracker verdicts at each state, Live's
     kit too, on the build's plan (its report's) and the max plan, and
@@ -948,10 +950,13 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         assert report["result"] == {f: sha for f, sha in golden.items() if f != "ISO"}
         assert (report["randomizer"]["seed"], report["randomizer"]["logic_verified"]) == ("2", True)
         assert built["recipe"]["randomizer"] == {"seed": "2", "settings": defaults}
+        assert "spoiler" not in report
+        lines = sdk.spoiler(report["plan"])["lines"]   # the build's: its verdict after the head line (test_randomizer)
+        text = "\n".join([lines[0], "logic_verified: true", *lines[1:]]) + "\n"
+        assert call("api/spoiler", {}) == {"text": text}
         out = tmp_path / "seed 2 spoiler.txt"
-        assert call("api/spoiler", {"out": str(out)}) == {"spoiler": {"out": str(out), "size": len(
-            report["spoiler"].encode())}}
-        assert out.read_text(encoding="utf-8") == report["spoiler"]
+        assert call("api/spoiler", {"out": str(out)}) == {"spoiler": {"out": str(out), "size": len(text.encode())}}
+        assert out.read_text(encoding="utf-8") == text
         assert call("api/spoiler", {"out": str(out)}) == {
             "refused": f"{out} exists: choose another name, or delete it first"}
         saved = tmp_path / "settings.toml"   # Step 4.2c2: Save settings (D144)
@@ -1470,8 +1475,9 @@ def test_the_apps_spoiler_never_replaces_the_image_its_build_read(tmp_path, monk
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     picked = tmp_path / "picked.iso"
     picked.write_bytes(bytes(64))
-    monkeypatch.setattr(sdk, "image", lambda recipe, progress=None: (types.SimpleNamespace(size=64),
-                                                                     {"spoiler": "seed 2"}))
+    monkeypatch.setattr(sdk, "image", lambda recipe, progress=None, spoiler=True: (types.SimpleNamespace(size=64),
+                                                                                   {"plan": {"sha256": "2"}}))
+    monkeypatch.setattr(sdk, "spoiler", lambda plan, built=False: {"lines": ["seed 2"], "text": "seed 2\n"})
     server, replies = app.serve(_page.WEB), []
     try:
         _post(server.url, "api/build", {"iso": str(picked)}, replies)

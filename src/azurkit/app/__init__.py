@@ -38,14 +38,17 @@ api/progress`` gives the progress of the calls in flight, each a
 ``core.progress`` record (``{"stage", "label", "done", "total",
 "percent"}``): the newest's at its top, and each kind's in ``calls``
 (``build``, ``save``: their named stages; ``preview``, ``match``,
-``plan``, ``tracker``, ``randomizer``, ``restore``, ``vanilla``: the
-call's own line, no count), which the page shows as its bar.
+``plan``, ``tracker``, ``randomizer``, ``restore``, ``vanilla``,
+``spoiler``: the call's own line, no count), which the page shows as its bar.
 Both run in the engine (:mod:`.engine`): ``serve``'s on the request's own
 thread, the app's (:func:`main`) in a process of its own, with the seed's
 plan and the Characters tab's pictures and G4 match, so the server's own
 answers never wait on a build, and Cancel stops a build at once.
-``POST api/spoiler`` ``{"out"}`` writes the last randomized build's spoiler
-there, on the same terms. ``POST api/randomizer`` ``{"given"}`` gives what
+``POST api/spoiler`` ``{}`` gives the last randomized build's spoiler
+(``{"text"}``), which the build leaves out (``sdk.image``'s ``spoiler``
+false) and the engine makes from the plan it kept the first time it is
+asked (``sdk.spoiler(plan, built=True)``), and ``{"out"}`` writes it there,
+on the same terms. ``POST api/randomizer`` ``{"given"}`` gives what
 the Randomizer tab shows (``sdk.randomizer_settings``).
 ``POST api/settings_file`` ``{"out", "settings"}`` writes the Randomizer
 tab's settings as a settings file (D144; ``out`` null: ``settings.toml``
@@ -323,7 +326,8 @@ class Server(http.server.ThreadingHTTPServer):
         self.quitting = False               # set by quit(), before it cancels: no build or save starts after it
         self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
         self.chosen: Path | None = None     # the save dialog's last answer, which it asked before replacing
-        self.spoiler: str | None = None     # the last randomized build's spoiler (api/spoiler)
+        self.plan: dict | None = None       # the last randomized build's plan, whose spoiler api/spoiler gives
+        self.spoiler: str | None = None     # and that spoiler, once the engine made it
         self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
         self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
         self.feed: live.Feed | None = None  # Live, while it is on
@@ -410,7 +414,7 @@ class Server(http.server.ThreadingHTTPServer):
         if self.quitting:   # closed while it built (AZ-823)
             raise ValueError(QUITTING)
         report = built["report"]
-        self.spoiler, self.source = report.get("spoiler"), Path(recipe["iso"])
+        self.plan, self.spoiler, self.source = report.get("plan"), None, Path(recipe["iso"])
         _remember(iso=recipe["iso"])
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
@@ -533,20 +537,28 @@ class Server(http.server.ThreadingHTTPServer):
         (:meth:`.art.Drawing.status`)."""
         return self.drawing.status()
 
-    def save_spoiler(self, body: dict) -> dict:
-        """``api/spoiler``: write the last randomized build's spoiler to
-        ``out``, never over an existing file but the one the save dialog
-        chose, nor a vanilla image or the image it was built from (D36);
-        whole or not at all."""
-        out = _path(body.get("out"), "spoiler")
-        if self.spoiler is None:
+    def spoiled(self, body: dict) -> dict:
+        """``api/spoiler``: the last randomized build's spoiler (``{"text"}``,
+        made by the engine from the plan it kept, once), or with ``out`` that
+        spoiler written there, never over an existing file but the one the
+        save dialog chose, nor a vanilla image or the image it was built from
+        (D36); whole or not at all."""
+        if (plan := self.plan) is None:
             raise ValueError("No spoiler: build with Randomize ticked first")
+        if (text := self.spoiler) is None:
+            with self.follow("spoiler", record("spoiler")):
+                text = self.engine.call("spoiler", plan)["text"]
+            if self.plan is plan:   # no build since
+                self.spoiler = text
+        if not body.get("out"):
+            return {"text": text}
+        out = _path(body.get("out"), "spoiler")
         if out.exists() and out != self.chosen:
             raise ValueError(f"{out} exists: choose another name, or delete it first")
         if out.exists() and any(image and image.exists() and out.samefile(image)
                                 for image in (self.source, *map(gate.find, gate.RELEASES))):
             raise ValueError(f"{out}: it is a vanilla image, which AzurKit never writes over")
-        data = self.spoiler.encode("utf-8")
+        data = text.encode("utf-8")
         part = out.with_name(f"{out.name}.part")
         part.write_bytes(data)
         part.replace(out)
@@ -661,7 +673,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
                 "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
                 "/api/content_source": _set_source,
-                "/api/spoiler": self.server.save_spoiler,
+                "/api/spoiler": self.server.spoiled,
                 "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose
