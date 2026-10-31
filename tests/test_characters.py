@@ -587,18 +587,40 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     """What a community entry, a recipe or a picture a player is handed can hold (D992's threat model) is
     refused by name, as a ``ValueError``, in under 0.1 s and with under 16 MiB held, or, for a valid one,
     read as quickly: a PNG bomb (64 MiB of rows behind a 64x64 header, in the textures' reader and in a glTF
-    folder's read-back) and a picture past 4096x4096 (refused before it inflates; SEC-5)."""
+    folder's read-back) and a picture past 4096x4096 (refused before it inflates; SEC-5); a manifest whose
+    requires make an 80-entry lattice (checked, each entry walked once), a 5,000-deep chain back to itself
+    (named, not a ``RecursionError``), 200,000 brackets, past 1,000 entries or 10,000 files, or a requires
+    that holds no id (SEC-6)."""
     import time
     import tracemalloc
 
     from azurkit.tools.characters import gltf, textures
 
     bomb, wide = _png(64, 64, bytes(64 << 20)), _png(8192, 4096, bytes(4096 * (8192 * 4 + 1)))
+
+    def manifest(entries: list[dict]) -> dict:
+        return {"format": content.FORMAT, "schema_version": 1, "entries": [
+            {"id": "", "kind": "pack", "title": "t", "author": "a", "licence": "MIT", "version": 1, "files": [],
+             "requires": []} | e for e in entries]}
+    lattice = json.dumps(manifest([{"id": f"e{level}{side}", "requires": [f"e{level + 1}a", f"e{level + 1}b"][:2 * (
+        level < 39)]} for level in range(40) for side in "ab"]))
+    chain = {f"e{k}": {"requires": [f"e{(k + 1) % 5000}"]} for k in range(5000)}
+    many = manifest([{"id": f"e{k}"} for k in range(content.MAX_ENTRIES + 1)])
+    files = manifest([{"id": "a", "files": [{"path": f"packs/a/{k}.json", "sha256": "0" * 64, "size": 0}
+                                            for k in range(content.MAX_FILES + 1)]}])
     rows = {
         "a PNG bomb": (lambda: textures.read_png(bomb), r"^the PNG's image data isn't its size"),
         "a PNG bomb in a glTF folder": (lambda: gltf._read_png(bomb), r"^the PNG's image data isn't its size"),
         "a PNG past 4096x4096": (lambda: textures.read_png(wide),
-                                 r"^a PNG of 8192x4096: past the 4096x4096 pixels a picture may hold")}
+                                 r"^a PNG of 8192x4096: past the 4096x4096 pixels a picture may hold"),
+        "an 80-entry lattice of requires": (lambda: content.check(lattice), None),
+        "a 5,000-deep chain back to itself": (lambda: content.needs("e0", chain), r"^manifest: entry 'e0' requires "
+                                              r"itself \(e0 -> e1 -> e2 -> \.\.\. 4,995 more \.\.\. -> e4998 -> e4999 -> e0\)"),
+        "200,000 brackets": (lambda: content.check("[" * 200_000), r"^manifest: not JSON \(nested too deep\)"),
+        "1,001 entries": (lambda: content.check(many), r"^manifest: 1,001 entries, past the 1,000 a manifest may hold"),
+        "10,001 files": (lambda: content.check(files), r"^manifest: entry 'a': past the 10,000 files a manifest may "),
+        "a requires of no id": (lambda: content.check(manifest([{"id": "a", "requires": [["b"]]}])),
+                                r"^manifest: entry 'a': requires is a list of ids")}
     slow = {}
     for row, (call, why) in rows.items():
         tracemalloc.start()

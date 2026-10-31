@@ -52,6 +52,8 @@ KINDS = ("variant", "pack")
 FOLDERS = ("variants", "clips", "sounds", "fx", "packs")
 """The folders an entry's files lie in (a variant's recipe in ``variants/<id>/variant.json``)."""
 MAX_MANIFEST, MAX_FILE = 1 << 20, 64 << 20
+MAX_ENTRIES, MAX_FILES = 1000, 10000
+"""A manifest's entries and its files in all, at most (D992's SEC-6: a small manifest is untrusted input)."""
 XISO = b"MICROSOFT*XBOX*MEDIA"
 """An XISO image's media magic (at 0x10000 of an image, and of each of its parts): never content (D960)."""
 _ID = re.compile(r"[a-z][a-z0-9_]*\Z")
@@ -92,8 +94,10 @@ def check(manifest: bytes | str | Mapping) -> dict:
     identifier, a kind of :data:`KINDS`, a version a whole number, the ids
     it requires known, with no cycle), each file's path (relative, POSIX,
     under :data:`FOLDERS`, no ``..``, claimed by one entry only), sha256 (64
-    hex digits) and size (a whole number up to :data:`MAX_FILE`).
-    ``ValueError`` names the first fault."""
+    hex digits) and size (a whole number up to :data:`MAX_FILE`), and at
+    most :data:`MAX_ENTRIES` entries and :data:`MAX_FILES` files in all.
+    ``ValueError`` names the first fault, in time linear in the manifest
+    (its requires walked once, :func:`needs`)."""
     if isinstance(manifest, (bytes, str)):
         raw = manifest.encode() if isinstance(manifest, str) else manifest
         if len(raw) > MAX_MANIFEST:
@@ -102,6 +106,8 @@ def check(manifest: bytes | str | Mapping) -> dict:
             manifest = json.loads(raw)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ValueError(f"manifest: not JSON ({exc})") from None
+        except RecursionError:
+            raise ValueError("manifest: not JSON (nested too deep)") from None
     if not isinstance(manifest, Mapping):
         raise ValueError("manifest: not a JSON object")
     if manifest.get("format") != FORMAT:
@@ -111,7 +117,9 @@ def check(manifest: bytes | str | Mapping) -> dict:
                          f"({SCHEMA_VERSION}): update AzurKit")
     if not isinstance(entries := manifest.get("entries"), list):
         raise ValueError("manifest: entries is no list")
-    out, claimed = [], {}
+    if len(entries) > MAX_ENTRIES:
+        raise ValueError(f"manifest: {len(entries):,} entries, past the {MAX_ENTRIES:,} a manifest may hold")
+    out, claimed, seen, count = [], {}, set(), 0
     for k, given in enumerate(entries, 1):
         where = f"manifest: entry {k}"
         if not isinstance(given, Mapping) or set(given) != set(ENTRY):
@@ -119,8 +127,9 @@ def check(manifest: bytes | str | Mapping) -> dict:
         where = f"manifest: entry {given['id']!r}"
         if not isinstance(given["id"], str) or not _ID.match(given["id"]):
             raise ValueError(f"{where}: an id is a lower-case identifier")
-        if any(e["id"] == given["id"] for e in out):
+        if given["id"] in seen:
             raise ValueError(f"{where}: two entries have that id")
+        seen.add(given["id"])
         if given["kind"] not in KINDS:
             raise ValueError(f"{where}: kind {given['kind']!r} is none of {', '.join(KINDS)}")
         for field in ("title", "author", "licence"):
@@ -130,6 +139,10 @@ def check(manifest: bytes | str | Mapping) -> dict:
             raise ValueError(f"{where}: version {given['version']!r} is no whole number from 1")
         if not isinstance(given["files"], list) or not isinstance(given["requires"], list):
             raise ValueError(f"{where}: files and requires are lists")
+        if not all(isinstance(r, str) for r in given["requires"]):
+            raise ValueError(f"{where}: requires is a list of ids")
+        if (count := count + len(given["files"])) > MAX_FILES:
+            raise ValueError(f"{where}: past the {MAX_FILES:,} files a manifest may list in all")
         files = []
         for f in given["files"]:
             if not isinstance(f, Mapping) or not {"path", "sha256", "size"} <= set(f) <= {"path", "sha256", "size",
@@ -152,8 +165,7 @@ def check(manifest: bytes | str | Mapping) -> dict:
     for e in out:
         if lost := [r for r in e["requires"] if r not in ids]:
             raise ValueError(f"manifest: entry {e['id']!r} requires {', '.join(map(repr, lost))}, which it lists not")
-    for e in out:
-        needs(e["id"], ids)   # a cycle is named
+    _walk(list(ids), ids)   # a cycle is named
     return {"format": FORMAT, "schema_version": SCHEMA_VERSION, "entries": out}
 
 
@@ -176,18 +188,39 @@ def needs(entry: str, entries: Mapping[str, Mapping]) -> list[str]:
     """``entry`` and each entry it requires, transitively, those required
     first (``entries``: id -> a checked entry); ``ValueError`` names a cycle
     or an unknown id."""
-    order: list[str] = []
+    return _walk([entry], entries)
 
-    def visit(name: str, path: tuple[str, ...]) -> None:
-        if name in path:
-            raise ValueError(f"manifest: entry {name!r} requires itself ({' -> '.join((*path, name))})")
-        if name not in entries:
-            raise ValueError(f"manifest: no entry {name!r}")
-        for other in entries[name]["requires"]:
-            visit(other, (*path, name))
-        if name not in order:
-            order.append(name)
-    visit(entry, ())
+
+def _walk(starts: list[str], entries: Mapping[str, Mapping]) -> list[str]:
+    """Each of ``starts`` and what it requires, transitively, those required
+    first, each once: one walk with a done set and a stack of its own (no
+    recursion), so a lattice of requires costs its size and a chain of any
+    depth is walked (D992's SEC-6)."""
+    order: list[str] = []
+    done: set[str] = set()
+    for start in starts:
+        if start in done:
+            continue
+        if start not in entries:
+            raise ValueError(f"manifest: no entry {start!r}")
+        path, on, stack = [start], {start}, [iter(entries[start]["requires"])]
+        while stack:
+            name = next(stack[-1], None)
+            if name is None:
+                stack.pop()
+                done.add(last := path.pop())
+                on.discard(last)
+                order.append(last)
+            elif name in on:
+                loop = path[path.index(name):] + [name]
+                shown = loop if len(loop) <= 8 else [*loop[:3], f"... {len(loop) - 6:,} more ...", *loop[-3:]]
+                raise ValueError(f"manifest: entry {name!r} requires itself ({' -> '.join(shown)})")
+            elif name not in done:
+                if name not in entries:
+                    raise ValueError(f"manifest: no entry {name!r}")
+                path.append(name)
+                on.add(name)
+                stack.append(iter(entries[name]["requires"]))
     return order
 
 
