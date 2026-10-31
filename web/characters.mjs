@@ -92,10 +92,13 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     if ("refused" in reply) {
       $("char-refused").hidden = false;
       $("char-refused").textContent = reply.refused;
-      c.view = null;   // no answer read the image: G4 and the weapons ask for one again (D979), not "Reading"
-      $("char-weapon").replaceChildren(el("option", { value: "", textContent: CHOOSE_WEAPONS }));
-      $("char-weapon").disabled = true;
-      g4();
+      const read = imaged();   // a field refused with the image read keeps G4 and the weapons (D979)
+      c.view = null;
+      if (!read) {   // no answer read the image: G4 and the weapons ask for one again, not "Reading"
+        $("char-weapon").replaceChildren(el("option", { value: "", textContent: CHOOSE_WEAPONS }));
+        $("char-weapon").disabled = true;
+        g4();
+      }
       return;
     }
     c.view = reply;

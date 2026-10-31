@@ -632,7 +632,9 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     then listed under it, installed v1, and a page opened again hands it to its engine before the tab is opened (a
     build from another tab reads it); a species picked shows its Weapon box and its two pictures (the site's own,
     Step 4.3f), and Content from and its Reset stay in the list's column, the pictures in theirs and every G4 button
-    in view at any width, the tab never scrolling sideways. No CSP violation, and no request but GETs of the site's files and the source's."""
+    in view at any width, the tab never scrolling sideways; a field the engine refuses by name (a Scale that is no
+    number) leaves G4 and the Weapon box live, the image read (D979). No CSP violation, and no request but GETs of the
+    site's files and the source's."""
     from azurkit.tools.characters import _player_variants, content, picker
 
     repo = tmp_path / "repo"
@@ -695,6 +697,16 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 300)
         assert page.evaluate("""() => ["char-front", "char-back"].map((id) => document.getElementById(id).getContext("2d")
             .getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0))""") == [True, True]
+        scale = """(text) => { const box = document.getElementById("char-scale"); box.value = text;
+            box.dispatchEvent(new Event("change")); }"""
+        page.evaluate(scale, "abc")   # a field the engine refuses, the image read: G4 and the weapons stay live (D979)
+        _page.until(page, "() => !document.getElementById('char-refused').hidden", 120)
+        assert page.evaluate("""() => [document.getElementById("char-refused").textContent.includes("scale 'abc'"),
+            [...document.querySelectorAll("#char-numbers .g4")].map((b) => b.disabled),
+            document.getElementById("char-g4-note").textContent, document.getElementById("char-weapon").disabled]""") == [
+            True, [False] * 4, "G4 sets a number so the body matches garret4.", False]
+        page.evaluate(scale, "1")
+        _page.until(page, "() => document.getElementById('char-refused').hidden && Boolean(azurkit.characters.state.view?.from)", 120)
         assert page.evaluate("() => azurkit.violations") == []
         assert [r for r in served.stray() if not r.startswith(f"GET {ORIGIN}/content-test/")] == []
         again = served.open()   # this browser's storage, the Characters tab never opened
