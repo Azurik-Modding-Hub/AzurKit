@@ -1050,6 +1050,25 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     FinalizationRegistry, which needs the GIL, and WebKit runs that cleanup
     inside WORKERFS's read of the image, where CPython has released the GIL
     (`NoGilError`, Step 4.1d3).
+  - **The service worker** (D1013, Step 4.3z; `web/sw.js`, which the page
+    registers from its hub turn on): `site()` writes the release into it
+    (`web_tools.release`: each file the site serves but `sw.js`,
+    `.nojekyll` and `content-source/`, with its sha256 and size; the
+    page's CSP, from `index.html`'s meta; a name its files decide). It
+    keeps that release whole in one cache (`azurkit:<scope>:<name>`), each
+    file checked against its sha256 as it is downloaded (one an older
+    release's cache holds with the same bytes is copied, so an update
+    downloads what changed; one that differs fails the install, and the
+    release before stays), serves the page, its modules and its engine
+    from it (a page never runs another release's engine, and needs no
+    network once kept; a file cleared from it is downloaded again only if
+    it is the release's, else answered 503), adds COOP, COEP, CORP and the
+    page's CSP to what it serves, and holds an update until the page takes
+    it (`reload`, refused while another of the site's pages is open). An
+    install posts its progress and its outcome (`installed`, `failed`) to
+    the site's pages; the first takes over at once; an activation deletes
+    the scope's older releases' caches. `tests/test_service_worker.py` holds it in the
+    three browsers on small sites `site()` writes.
 - **The app** (D732) is `python -m azurkit` (`src/azurkit/__main__.py`): with
   no arguments the page in a pywebview window, else in the default browser;
   `serve` serves it without opening either (the tests' way in); any other

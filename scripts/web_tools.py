@@ -32,6 +32,7 @@ import json
 import os
 import platform
 import py_compile
+import re
 import shutil
 import stat
 import subprocess
@@ -66,6 +67,16 @@ not as a page, a script or an XML document the browser renders (where an
 XHTML ``<script>`` runs) on the site's own origin, outside the page's CSP.
 A Jekyll build renders any text kind with front matter (a ``.json``,
 ``.gltf`` or ``.md``) as a page: :func:`site`'s ``.nojekyll`` turns it off."""
+WORKER = "sw.js"   # the site's service worker (D1013): web/sw.js, with the release site() lists in it
+RELEASE_LINE = "const RELEASE = null;"
+"""The line of ``web/sw.js`` :func:`site` writes the release into: the
+checkout's (the app's page's, which never registers it) lists none."""
+UNLISTED = (WORKER, ".nojekyll")
+"""What a site serves outside its release, with ``content-source/``: the
+worker itself (a browser fetches it to look for an update), the empty
+``.nojekyll`` and the content repository's files, read from the network
+(each Install checks its own)."""
+CSP = re.compile(r'<meta http-equiv="Content-Security-Policy" content="([^"]*)">')
 
 
 def _tools(root: Path) -> Path:
@@ -288,8 +299,15 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     ``manifest.json`` and each file it lists in ``out/content-source/``,
     which the Characters tab's Content from ``./content-source/`` reads,
     each checked first (:func:`content_files`): a fault names the file and
-    writes nothing (D35)."""
+    writes nothing (D35). Its ``sw.js`` is ``web/sw.js`` with the site's
+    :func:`release` on its :data:`RELEASE_LINE`, and the page's CSP, from
+    ``web/index.html``, in it, each checked first too."""
     published = {} if content is None else content_files(content)
+    worker, page = root / "web" / WORKER, root / "web" / "index.html"
+    if (lines := (worker := worker.read_text(encoding="utf-8")).count(RELEASE_LINE)) != 1:
+        raise SystemExit(f"{root / 'web' / WORKER}: holds {lines} lines {RELEASE_LINE!r}, not one")
+    if len(policy := CSP.findall(page.read_text(encoding="utf-8"))) != 1:
+        raise SystemExit(f"{page}: holds {len(policy)} Content-Security-Policy metas, not one")
     shelf = out.resolve() / "content-source"   # out is new, and copytree copies a link's target: no link below it
     if lost := [rel for rel in published if not (shelf / rel).resolve().is_relative_to(shelf)]:
         raise SystemExit(f"content {content}: {lost[0]} would land outside {shelf}")
@@ -305,7 +323,26 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     for rel, data in published.items():
         (out / "content-source" / rel).parent.mkdir(parents=True, exist_ok=True)
         (out / "content-source" / rel).write_bytes(data)
+    listed = json.dumps(release(out, policy[0]), sort_keys=True)
+    (out / WORKER).write_text(worker.replace(RELEASE_LINE, f"const RELEASE = {listed};"), encoding="utf-8")
     return out
+
+
+def release(out: Path, csp: str) -> dict:
+    """The release of the site in ``out`` (``web/sw.js`` keeps it whole):
+    ``files``, each file the site serves with it (all but
+    :data:`UNLISTED` and ``content-source/``) by its path,
+    ``{"sha256", "size"}``; ``csp``, the
+    page's policy, which the worker sends as a header; and ``name``, the
+    first 16 hex digits of the sha256 of ``files``' canonical JSON, so a
+    release is new exactly when one of its files is."""
+    files = {}
+    for path in sorted(p for p in out.rglob("*") if p.is_file()):
+        if (rel := path.relative_to(out).as_posix()) not in UNLISTED and not rel.startswith("content-source/"):
+            data = path.read_bytes()
+            files[rel] = {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+    name = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
+    return {"name": name, "csp": csp, "files": files}
 
 
 def content_files(clone: Path) -> dict[str, bytes]:

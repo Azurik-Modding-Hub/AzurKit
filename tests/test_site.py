@@ -88,7 +88,9 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     root, clone, outside = tmp_path / "root", tmp_path / "clone", tmp_path / "outside"
     for folder in (root / "web", tmp_path / "pyodide", clone / "packs/x", clone / "d1/d2/d3", outside):
         folder.mkdir(parents=True)
-    (root / "web/index.html").write_text("the page\n")
+    page = """<meta http-equiv="Content-Security-Policy" content="default-src 'self'">the page\n"""
+    (root / "web/index.html").write_text(page)
+    (root / "web/sw.js").write_text(f"{web_tools.RELEASE_LINE}\n")   # the service worker's line for its release
     (clone / "index.html").write_text("planted\n")
     (clone / "packs/x/pack.json").write_text("{}\n")
     folder = {".md": "packs", ".wav": "sounds", ".azkp": "variants"}
@@ -123,7 +125,7 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     assert sorted(p.relative_to(good / "content-source").as_posix() for p in (good / "content-source").rglob("*")
                   if p.is_file()) == sorted(["manifest.json", *kinds])
     assert all((good / "content-source" / rel).read_bytes() == (clone / rel).read_bytes() for rel in kinds)
-    assert (good / "index.html").read_text() == "the page\n" and (good / ".nojekyll").read_bytes() == b""
+    assert (good / "index.html").read_text() == page and (good / ".nojekyll").read_bytes() == b""
     with pytest.raises(SystemExit, match=re.escape(bad)):
         site(tmp_path / "bad", "packs/x/pack.json", bad)
     assert not (tmp_path / "bad").exists()
