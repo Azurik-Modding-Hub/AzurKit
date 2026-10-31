@@ -56,7 +56,7 @@ def test_a_change_in_the_oracle_or_the_goldens_picks_the_test_files_that_read_th
     goldens = fullsuite.plan(["tests/goldens/probes.json"], deps)
     assert {f"tests/test_{name}.py" for name in ("characters", "packs", "builds", "shims", "xbr", "fps_unlock",
                                                  "hosts")} <= set(goldens)
-    assert "tests/test_art.py" not in goldens and "tests/test_xbr.py" not in oracle
+    assert "tests/test_randomizer.py" not in goldens and "tests/test_xbr.py" not in oracle   # each reads the other
 
 
 def test_the_page_picks_the_site_app_and_icon_tests_and_the_docs_they_restate_pick_theirs():
