@@ -2,27 +2,36 @@
 (Step 4.3i), so a second launch does again none of what a first one worked
 out: the images the gate vouched for (``core.gate.STAMPS``: one JSON file,
 ``stamps.json``, its newest :data:`STAMPS_KEPT` entries, so a picked image
-that hasn't changed isn't hashed again) and the swap's answers
-(``tools.characters.CACHE``: a folder, ``swap/``, one file an answer, the
-newest used kept to :data:`MOST` bytes in all, so a body dressed once
-dresses from it). Each is written whole or not at all (a part file renamed
-into place); a store that can't be read or written is a store that holds
-nothing, as remembering is a convenience. The keys are the engine's: they
-name the image's path, size and times, and the swap's code, recipe,
-release and earlier layers.
+that hasn't changed isn't hashed again) and the store's kinds
+(:mod:`azurkit.store`, one folder a kind: the swap's answers,
+``tools.characters.CACHE``, in ``swap/``, so a body dressed once dresses
+from it), every kind's least recently used removed past one budget in all
+(:data:`azurkit.store.BUDGET`). Each is written whole or not at all (a part
+file renamed into place); a store that can't be read or written is a store
+that holds nothing, as remembering is a convenience. The keys are the
+engine's: they name the image's path, size and times, and the swap's code,
+recipe, release and earlier layers.
 
 The engine unpickles the swap's answers, so the stores trust only what this
-install wrote (SEC-4): each file carries an HMAC-SHA256 under the install's
-own key (:func:`key_file`, made once with :mod:`secrets`, in the user data
-folder and never the cache folder a shared "speed-up" zip unpacks into).
-A file whose MAC isn't this key's (planted, or copied from another
-install's cache), or any file once the key is gone, is a miss: nothing of
-it is read past its MAC, and the answer is worked out again. The stamps
-are signed too: the gate takes a stamp for its check of the image its key
-names (the path, size, modification and change times), and where a zip that
-ships an image can set those (on Windows st_ctime is the creation time,
-which an unzipper restores), a forged ``stamps.json`` would vouch for an
-image the gate never read."""
+install wrote (SEC-4): each entry is sealed by an HMAC-SHA256 under the
+install's own key (:func:`key_file`, made once with :mod:`secrets`, in the
+user data folder and never the cache folder a shared "speed-up" zip unpacks
+into), and so is every kind's, JSON's too, as a planted answer would build
+another image. An entry whose seal isn't this key's (planted, or copied
+from another install's cache), or any entry once the key is gone, is a
+miss: nothing of it is read past its seal, and the answer is worked out
+again. The stamps are signed too: the gate takes a stamp for its check of
+the image its key names (the path, size, modification and change times),
+and where a zip that ships an image can set those (on Windows st_ctime is
+the creation time, which an unzipper restores), a forged ``stamps.json``
+would vouch for an image the gate never read.
+
+The store's writes go behind the answer (:class:`Kept`): a put hands its
+bytes to the process's one writer thread, which seals, writes and prunes
+them once the call has answered, and a get of what it hasn't written yet is
+answered from them. The thread is a daemon, so a quit never waits on it
+(D1012): a write it cuts short leaves a part file, never an entry (a miss
+at the next launch), which a later write removes."""
 
 from __future__ import annotations
 
@@ -32,12 +41,13 @@ import json
 import os
 import secrets
 import threading
+from collections.abc import Collection
 from pathlib import Path
 
-MOST = 2 << 30          # the swap's answers kept, in bytes (each a dressed body's plan: about 110 MB)
+from azurkit import store
+
 STAMPS_KEPT = 64        # the images vouched for, newest kept
 KEY = 32                # the install's key, in bytes
-MAC = 32                # an HMAC-SHA256, at the head of each swap answer's file
 
 
 def root() -> Path:
@@ -52,23 +62,6 @@ def key_file() -> Path:
     return user_data_path("AzurKit", appauthor=False) / "cache.key"
 
 
-def _part(path: Path) -> Path:
-    return path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.part")
-
-
-def _write(path: Path, *data: bytes) -> None:
-    """``data`` at ``path``, whole: a part file of this process's, renamed into place."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    part = _part(path)
-    try:
-        with part.open("wb") as f:
-            for chunk in data:
-                f.write(chunk)
-        part.replace(path)
-    finally:
-        part.unlink(missing_ok=True)
-
-
 def _secret(file: Path, make: bool) -> bytes | None:
     """The :data:`KEY`-byte key in ``file``; where there is none and
     ``make``, a new one from :mod:`secrets`, written whole (a part file of
@@ -79,10 +72,9 @@ def _secret(file: Path, make: bool) -> bytes | None:
     except FileNotFoundError:
         if not make:
             return None
-        part = _part(file)
+        part = store.part(file)
         try:
             file.parent.mkdir(parents=True, exist_ok=True)
-            part.unlink(missing_ok=True)
             with open(os.open(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as f:
                 f.write(secrets.token_bytes(KEY))
             os.link(part, file)
@@ -113,57 +105,124 @@ class _Signer:
             return None
         return hmac.new(self.secret, b"".join(h + b"\0" for h in head), "sha256")
 
+    def seal(self, head: bytes, body: bytes, make: bool) -> bytes | None:
+        """The store's seal (:data:`azurkit.store.Seal`): the HMAC of an
+        entry's ``head`` and ``body`` under the key."""
+        if (mac := self.mac(b"store", head, make=make)) is None:
+            return None
+        mac.update(body)
+        return mac.digest()
+
+
+class _Behind:
+    """The process's one writer: each entry a :class:`Kept` puts, written
+    after the call that put it has answered, the newest put of a key the
+    one written; held (and answered from) until it is."""
+
+    def __init__(self):
+        self.lock = threading.Condition()
+        self.held: dict[tuple[Path, str, str], tuple[Kept, bytes]] = {}
+        self.thread: threading.Thread | None = None
+
+    def put(self, kept: Kept, kind: str, key: str, body: bytes) -> None:
+        with self.lock:
+            self.held[(kept.folder, kind, key)] = (kept, body)
+            if self.thread is None or not self.thread.is_alive():
+                self.thread = threading.Thread(target=self._write, name="azurkit-store", daemon=True)
+                self.thread.start()
+            self.lock.notify_all()
+
+    def pending(self, folder: Path, kind: str, key: str) -> bytes | None:
+        with self.lock:
+            held = self.held.get((folder, kind, key))
+        return None if held is None else held[1]
+
+    def drop(self, folder: Path, kinds: Collection[str] | None) -> None:
+        """Forget what it holds of ``kinds`` (every kind) under ``folder``:
+        one being written then is removed once written."""
+        with self.lock:
+            for at in [at for at in self.held if at[0] == folder and (kinds is None or at[1] in kinds)]:
+                del self.held[at]
+
+    def settle(self, timeout: float | None) -> bool:
+        with self.lock:
+            return self.lock.wait_for(lambda: not self.held, timeout)
+
+    def _write(self) -> None:
+        while True:
+            with self.lock:
+                self.lock.wait_for(lambda: self.held)
+                at, item = next(iter(self.held.items()))
+            kept, body = item
+            try:
+                kept.write(at[1], at[2], body)
+            except Exception:   # a store that can't be written holds nothing; the next put is written as ever
+                pass
+            with self.lock:
+                if self.held.get(at) is item:
+                    del self.held[at]
+                elif at not in self.held:   # cleared while it was written
+                    with contextlib.suppress(OSError):
+                        kept.file(at[1], at[2]).unlink(missing_ok=True)
+                self.lock.notify_all()
+
+
+_BEHIND = _Behind()
+
+
+def settle(timeout: float | None = None) -> bool:
+    """Wait for the writer to write all it holds (``timeout`` seconds at
+    most); whether it did. Nothing a player does waits on it."""
+    return _BEHIND.settle(timeout)
+
+
+class Kept(store.Store):
+    """The app's store under ``folder`` (:func:`root`): every kind's entries
+    sealed under the install's key in ``key`` (:func:`key_file`'s by
+    default), the least recently used removed past ``most`` bytes in all,
+    each put written behind the answer (the process's writer)."""
+
+    def __init__(self, folder: Path, most: int = store.BUDGET, key: Path | None = None):
+        self.signer = _Signer(key)
+        super().__init__(folder, most, self.signer.seal)
+
+    def get(self, kind: str, key: str) -> object | None:
+        self.file(kind, key)
+        if (held := _BEHIND.pending(self.folder, kind, key)) is not None:
+            return store.decode(kind, held)
+        return super().get(kind, key)
+
+    def put(self, kind: str, key: str, value: object) -> bool:
+        """Hand ``value`` to the writer (refused by name first, as
+        :func:`azurkit.store.encode` refuses, writing nothing); it writes it
+        after this answers."""
+        body = store.encode(kind, value)
+        self.file(kind, key)
+        _BEHIND.put(self, kind, key, body)
+        return True
+
+    def clear(self, kinds: Collection[str] | None = None) -> list[str]:
+        """What :meth:`azurkit.store.Store.clear` removes, and what the writer
+        holds of ``kinds`` first."""
+        for kind in kinds or ():
+            store.form(kind)
+        _BEHIND.drop(self.folder, kinds)
+        return super().clear(kinds)
+
 
 class Folder:
-    """``tools.characters.CACHE``: one file an answer under ``folder`` (its
-    MAC under the key in ``key``, :func:`key_file`'s by default, then its
-    bytes), the newest used (read or written) kept to ``most`` bytes in all."""
+    """``tools.characters.CACHE``: the swap's answers (``get(key) -> bytes |
+    None``, ``put(key, bytes)``), the ``swap`` kind of the app's store under
+    ``folder`` (:class:`Kept`, with ``most`` and ``key``)."""
 
-    def __init__(self, folder: Path, most: int = MOST, key: Path | None = None):
-        self.folder, self.most, self.signer = Path(folder), most, _Signer(key)
-
-    def _file(self, key: str) -> Path:
-        if not (key.isascii() and key.isalnum()):   # the engine's keys are sha256 hex digests
-            raise ValueError(f"swap cache: a key is a hex digest, not {key!r}")
-        return self.folder / f"{key}.pickle"
+    def __init__(self, folder: Path, most: int = store.BUDGET, key: Path | None = None):
+        self.kept = Kept(folder, most, key)
 
     def get(self, key: str) -> bytes | None:
-        file = self._file(key)
-        if (mac := self.signer.mac(b"swap", key.encode(), make=False)) is None:
-            return None
-        try:
-            with file.open("rb") as f:
-                signed, data = f.read(MAC), f.read()
-        except OSError:
-            return None
-        mac.update(data)
-        if not hmac.compare_digest(mac.digest(), signed):
-            return None   # not this install's
-        with contextlib.suppress(OSError):
-            os.utime(file)   # used now: the newest kept
-        return data
+        return self.kept.get("swap", key)
 
     def put(self, key: str, data: bytes) -> None:
-        file = self._file(key)
-        if (mac := self.signer.mac(b"swap", key.encode(), make=True)) is None:
-            return
-        mac.update(data)
-        with contextlib.suppress(OSError):
-            _write(file, mac.digest(), data)
-            self._prune()
-
-    def _prune(self) -> None:
-        """Remove the least recently used answers past :attr:`most` bytes."""
-        kept = []
-        for file in self.folder.glob("*.pickle"):
-            with contextlib.suppress(OSError):
-                at = file.stat()
-                kept.append((at.st_mtime_ns, at.st_size, file))
-        total = 0
-        for _, size, file in sorted(kept, key=lambda k: k[0], reverse=True):
-            total += size
-            if total > self.most:
-                file.unlink(missing_ok=True)
+        self.kept.put("swap", key, data)
 
 
 class Stamps:
@@ -200,16 +259,16 @@ class Stamps:
             kept[key] = name   # the newest last
             body = (json.dumps(dict(list(kept.items())[-STAMPS_KEPT:])) + "\n").encode()
             mac.update(body)
-            _write(self.file, mac.hexdigest().encode() + b"\n", body)
+            store.whole(self.file, mac.hexdigest().encode() + b"\n", body)
 
 
 def install(folder: Path | None = None, key: Path | None = None) -> None:
-    """Keep this process's stamps and swap answers in ``folder`` (the user
-    cache folder's AzurKit folder), signed under the key in ``key``
+    """Keep this process's stamps and the store's kinds in ``folder`` (the
+    user cache folder's AzurKit folder), signed under the key in ``key``
     (:func:`key_file`): the app's server and its engine process."""
     from azurkit.core import gate
     from azurkit.tools import characters
 
     folder = Path(folder) if folder else root()
     gate.STAMPS = Stamps(folder / "stamps.json", key)
-    characters.CACHE = Folder(folder / "swap", key=key)
+    characters.CACHE = Folder(folder, key=key)

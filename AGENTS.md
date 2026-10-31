@@ -722,6 +722,19 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   launches (by path, size, modification and change times) and
   `characters.CACHE` its store of the swap's answers (`size`, `plan`, by
   `characters.cache_key`).
+- **The store** (`src/azurkit/store.py`, D1015): what AzurKit keeps
+  between calls and launches, one folder a kind (`store.KINDS`: plans,
+  layers, dresses, pictures, memos, swap), each entry sealed whole (the
+  kind, key, length and body: a sha256 by default, the app's an HMAC) and
+  read back only whole, sealed and of its kind's form (a torn, altered or
+  moved entry is a miss, never decoded). Its kinds keep JSON or AZKP1, never
+  a pickle; `swap` keeps the bytes `characters._kept` and `engine._kept`
+  still pickle, until they move to `dresses` and `memos`/`pictures`. One
+  budget across the kinds (`store.BUDGET`, 5 GiB): a write past it removes
+  the least recently used entry, whatever its kind. It removes only files
+  of its own names in its kinds' folders, never a player's settings,
+  content installs or key. It starts no thread, so the page's worker can
+  run it.
 
 ## The two hosts (D866)
 
@@ -1033,12 +1046,18 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   keeps, in its process and its engine's (`Spawned(stores=True)`), what
   they work out across launches (`azurkit.app.swapcache`, in platformdirs'
   cache folder): the images the gate vouched for (`gate.STAMPS`,
-  `stamps.json`) and the swap's answers (`characters.CACHE`, `swap/`, the
-  newest used kept to 2 GiB), with a character's pictures and G4 match
-  under the swap's key (`characters.cache_key`, the packs as asked), each
-  file signed (an HMAC-SHA256 under the install's own key, `cache.key` in
-  the user data folder, mode 0600): a file not this install's, a shared
-  cache's too, is a miss and never unpickled (SEC-4);
+  `stamps.json`) and the store's kinds (`swapcache.Kept`, one folder a
+  kind beside it, every kind's least recently used removed past the store's
+  one budget): the swap's answers (`characters.CACHE`, `swap/`), with a
+  character's pictures and G4 match under the swap's key
+  (`characters.cache_key`, the packs as asked), each entry and the stamps
+  signed (an HMAC-SHA256 under the install's own key, `cache.key` in the
+  user data folder, mode 0600): a file not this install's, a shared cache's
+  too, is a miss and never unpickled (SEC-4), and 4.3i's `swap/*.pickle`
+  are never read and are removed by the next write. A put is written behind
+  the answer (one daemon writer thread a process: a get meanwhile answers
+  from what it holds, a quit never waits on it, and a write it cuts short
+  leaves only a part file, a miss);
   `serve()` and `Spawned()` keep nothing past their process. In-process `app.serve()` (the tests') runs
   them on the request's thread (`engine.Here`), so a test's stand-in sdk
   call takes. A script that calls `app.main` guards it with `if __name__ ==

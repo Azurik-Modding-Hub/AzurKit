@@ -438,8 +438,8 @@ def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch, tmp_pat
             m.setattr(os, "environ", os.environ | mode)
             assert app.main(["serve"]) == 0
         assert out.getvalue().startswith("http://127.0.0.1:")
-        assert all(p.is_relative_to(tmp_path) for p in (gate.STAMPS.file, characters.CACHE.folder,
-                                                        characters.CACHE.signer.file))
+        assert all(p.is_relative_to(tmp_path) for p in (gate.STAMPS.file, characters.CACHE.kept.folder,
+                                                        characters.CACHE.kept.signer.file))
     monkeypatch.setattr(app, "serve", opened)
     assert app.main() == 1
 
@@ -911,14 +911,16 @@ def test_a_second_launch_of_the_app_hashes_no_image_it_checked_and_dresses_no_bo
 
 def test_the_apps_cache_folder_loads_only_what_this_install_wrote_there(tmp_path, monkeypatch):
     """SEC-4 (Step 4.3i): each file the app's stores write in the user cache
-    folder (``app.swapcache``: the swap's pickled answers, the images'
-    stamps) carries an HMAC-SHA256 under this install's own key
+    folder (``app.swapcache``: the store's entries, the swap's pickled
+    answers among them, and the images' stamps) carries an HMAC-SHA256
+    under this install's own key
     (``cache.key``, 32 bytes made once, mode 0600, in the user data folder,
     never the cache folder a shared "speed-up" zip unpacks into). A pickle
     planted there that would run code is a miss and never loads, and so is a
-    file copied from another install's cache, a stamp for an image this
-    install never checked, and every file once the key is gone; this
-    install's own entries hit."""
+    file copied from another install's cache, an older AzurKit's pickle
+    (removed by the next write), a stamp for an image this install never
+    checked, and every file once the key is gone; this install's own
+    entries hit."""
     import pickle
     import stat
 
@@ -932,18 +934,22 @@ def test_the_apps_cache_folder_loads_only_what_this_install_wrote_there(tmp_path
             return os.mkdir, (str(ran),)
 
     key, mine_key, their_key = hashlib.sha256(b"an answer").hexdigest(), tmp_path / "mine.key", tmp_path / "theirs.key"
-    mine, theirs = swapcache.Folder(tmp_path / "swap", key=mine_key), swapcache.Folder(tmp_path / "x", key=their_key)
+    mine, theirs = swapcache.Folder(tmp_path / "cache", key=mine_key), swapcache.Folder(tmp_path / "x", key=their_key)
+    entry, older = mine.kept.file("swap", key), tmp_path / "cache" / "swap" / f"{key}.pickle"
     assert not swapcache.key_file().is_relative_to(swapcache.root())
     mine.put(key, b"mine")
-    assert mine.get(key) == b"mine" and len(mine_key.read_bytes()) == 32
+    assert swapcache.settle() and mine.get(key) == b"mine" and len(mine_key.read_bytes()) == 32
     assert stat.S_IMODE(mine_key.stat().st_mode) == 0o600
     theirs.put(key, b"theirs")
-    (tmp_path / "swap" / f"{key}.pickle").write_bytes((tmp_path / "x" / f"{key}.pickle").read_bytes())
+    assert swapcache.settle()
+    entry.write_bytes(theirs.kept.file("swap", key).read_bytes())
     assert mine.get(key) is None and theirs.get(key) == b"theirs"
-    (tmp_path / "swap" / f"{key}.pickle").write_bytes(pickle.dumps(Planted()))
+    entry.write_bytes(pickle.dumps(Planted()))
+    older.write_bytes(pickle.dumps(Planted()))   # 4.3i's file of it
     monkeypatch.setattr(characters, "CACHE", mine)
     assert characters._kept(key, lambda: "worked out") == "worked out" and not ran.exists()
     assert characters._kept(key, lambda: "again") == "worked out"   # what it kept, this install's
+    assert swapcache.settle() and not older.exists() and not ran.exists()
 
     stamps, their_stamps = (swapcache.Stamps(tmp_path / "stamps.json", key=mine_key),
                             swapcache.Stamps(tmp_path / "x" / "stamps.json", key=their_key))
@@ -956,10 +962,79 @@ def test_the_apps_cache_folder_loads_only_what_this_install_wrote_there(tmp_path
     assert stamps.get("never checked") is None
     stamps.put("checked", "usa")
     mine.put(key, b"mine")
+    assert swapcache.settle()
     mine_key.unlink()   # a new launch without its key: nothing it finds is its own
-    assert swapcache.Folder(tmp_path / "swap", key=mine_key).get(key) is None
+    assert swapcache.Folder(tmp_path / "cache", key=mine_key).get(key) is None
     assert swapcache.Stamps(tmp_path / "stamps.json", key=mine_key).get("checked") is None
 
+
+
+@pytest.mark.parametrize("host", ["site", "app"])
+def test_the_store_keeps_its_kinds_in_one_budget_and_reads_no_torn_or_altered_entry(host, tmp_path, monkeypatch):
+    """D1015 (Step 4.3r): the store (``azurkit.store``; the site's sealed by
+    a sha256, the app's ``app.swapcache.Kept`` by an HMAC under the
+    install's key and written behind) keeps JSON, AZKP1 and the swap's bytes
+    in one folder a kind under one budget across them: a write past it
+    removes the least recently used entry (read or written), whatever its
+    kind, and an older AzurKit's pickle, but nothing else (the stamps,
+    another tool's folder, a kind's file of another name, the install's
+    key; Clear neither). An entry torn short, altered, headless or moved to
+    another key is a miss, never decoded; a value its kind can't hold is
+    refused by name, writing nothing. The app's put answers before its write
+    (the writer, a daemon thread a quit never waits on), and a get
+    meanwhile answers from what it holds."""
+    from azurkit import store
+    from azurkit.app import swapcache
+
+    folder, key = tmp_path / "cache", tmp_path / "data" / "cache.key"
+    a, b, c, d = (hashlib.sha256(bytes([i])).hexdigest() for i in range(4))
+    plan, dress, swap = "x" * 998, store.AZKP1 + b"\1" * 994, b"\2" * 1000   # each 1000 bytes as its kind keeps it
+    most = 2 * (store.HEAD + 1000) + 100   # two of them and a small one
+    kept = store.Store(folder, most) if host == "site" else swapcache.Kept(folder, most, key)
+    settle = (lambda: True) if host == "site" else swapcache.settle
+    for other in (folder / "stamps.json", folder / "builds" / f"{a}.kept", folder / "swap" / "notes.txt"):
+        other.parent.mkdir(parents=True, exist_ok=True)
+        other.write_text("not the store's")
+    (folder / "swap" / f"{d}.pickle").write_bytes(b"an older AzurKit's")
+    assert kept.put("plans", a, plan) and kept.put("dresses", b, dress) and settle()
+    for kind, at, ago in (("plans", a, 60), ("dresses", b, 120)):
+        os.utime(kept.file(kind, at), (time.time() - ago,) * 2)
+    assert kept.get("dresses", b) == dress   # read: the newest used, the plan the oldest
+    assert kept.put("swap", c, swap) and settle()
+    assert [kept.get("plans", a), kept.get("dresses", b), kept.get("swap", c)] == [None, dress, swap]
+    assert {k: v["entries"] for k, v in kept.usage().items() if v["size"]} == {"dresses": 1, "swap": 1}
+    assert not (folder / "swap" / f"{d}.pickle").exists()
+
+    entry = kept.file("dresses", b)
+    whole = entry.read_bytes()
+    for bad in (whole[:-1], whole[:-1] + bytes([whole[-1] ^ 1]), whole[:store.HEAD - 1]):   # torn, altered, headless
+        entry.write_bytes(bad)
+        assert kept.get("dresses", b) is None
+    kept.file("dresses", d).write_bytes(whole)   # moved to another key
+    assert kept.get("dresses", d) is None
+    kept.file("dresses", d).unlink()
+    entry.write_bytes(whole)
+    assert kept.get("dresses", b) == dress
+    for kind, at, value, why in (("plans", d, float("nan"), "JSON"), ("memos", d, None, "None"),
+                                 ("dresses", d, b"\1" * 10, "AZKP1"), ("swap", d, "text", "bytes"),
+                                 ("nothing", d, 1, "no kind"), ("plans", "../x", 1, "hex digest")):
+        with pytest.raises(ValueError, match=why):
+            kept.put(kind, at, value)
+    assert settle() and not any((folder / kind / f"{d}.kept").exists() for kind in store.KINDS if kind != "dresses")
+
+    if host == "app":
+        written, write = threading.Event(), store.Store.write
+        monkeypatch.setattr(store.Store, "write", lambda self, *args: written.wait(30) and write(self, *args))
+        assert kept.put("memos", d, {"view": [1]}) and not kept.file("memos", d).exists()
+        assert kept.get("memos", d) == {"view": [1]} and swapcache._BEHIND.thread.daemon
+        written.set()
+        assert settle() and swapcache.Kept(folder, most, key).get("memos", d) == {"view": [1]}
+    assert kept.clear(["swap"]) == ["swap"] and kept.get("swap", c) is None and kept.get("dresses", b) == dress
+    kept.clear()
+    assert sum(v["size"] for v in kept.usage().values()) == 0
+    assert all(f.read_text() == "not the store's"
+               for f in (folder / "stamps.json", folder / "builds" / f"{a}.kept", folder / "swap" / "notes.txt"))
+    assert host == "site" or len(key.read_bytes()) == swapcache.KEY
 
 def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_spoiler(tmp_path, monkeypatch, usa_iso):
     """From the app's api in-process (Step 4.2c1): ``api/randomizer`` gives
