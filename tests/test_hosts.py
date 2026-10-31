@@ -946,7 +946,8 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
     """From the app's api in-process (Step 4.2c1): ``api/randomizer`` gives
     the Randomizer tab's view (``sdk.randomizer_settings``); ``api/build``
     with the tab's randomizer (seed 2, D144's defaults) and the packs on by
-    default makes G3's seed case file by file, its logic verified, its
+    default makes G3's seed case file by file, its logic verified, the
+    plan ``api/plan`` makes of its seed (Track this seed's) its plan, its
     spoiler left out (the build shows sooner): ``api/spoiler`` gives the
     build's spoiler (Modkit's ``--spoiler`` file), which the engine makes
     from the plan it kept, and writes it where the page names, never over a
@@ -976,6 +977,7 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         assert report["result"] == {f: sha for f, sha in golden.items() if f != "ISO"}
         assert (report["randomizer"]["seed"], report["randomizer"]["logic_verified"]) == ("2", True)
         assert built["recipe"]["randomizer"] == {"seed": "2", "settings": defaults}
+        assert call("api/plan", {"recipe": {"seed": "2", "settings": defaults}}) == {"plan": report["plan"]}
         assert "spoiler" not in report
         lines = sdk.spoiler(report["plan"])["lines"]   # the build's: its verdict after the head line (test_randomizer)
         text = "\n".join([lines[0], "logic_verified: true", *lines[1:]]) + "\n"

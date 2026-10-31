@@ -329,7 +329,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.quitting = False               # set by quit(), before it cancels: no build or save starts after it
         self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
         self.chosen: tuple[str, Path] | None = None   # the save dialog's last answer and its kind (it asked first)
-        self.plan: dict | None = None       # the last randomized build's plan, whose spoiler api/spoiler gives
+        self.seeded: dict | None = None     # the last randomized build's plan, whose spoiler api/spoiler gives
         self.spoiler: str | None = None     # and that spoiler, once the engine made it
         self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
         self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
@@ -417,7 +417,7 @@ class Server(http.server.ThreadingHTTPServer):
         if self.quitting:   # closed while it built (AZ-823)
             raise ValueError(QUITTING)
         report = built["report"]
-        self.plan, self.spoiler, self.source = report.get("plan"), None, Path(recipe["iso"])
+        self.seeded, self.spoiler, self.source = report.get("plan"), None, Path(recipe["iso"])
         _remember(iso=recipe["iso"])
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
@@ -557,13 +557,13 @@ class Server(http.server.ThreadingHTTPServer):
         spoiler written there, never over an existing file but the one the
         save dialog chose, nor a vanilla image or the image it was built from
         (D36); whole or not at all."""
-        if (plan := self.plan) is None:
+        if (plan := self.seeded) is None:
             raise ValueError("No spoiler: build with Randomize ticked first")
         out = self.writable(_path(body["out"], "spoiler"), "spoiler") if body.get("out") else None
         if (text := self.spoiler) is None:
             with self.follow("spoiler", record("spoiler")):
                 text = self.engine.call("spoiler", plan)["text"]
-            if self.plan is plan:   # no build since
+            if self.seeded is plan:   # no build since
                 self.spoiler = text
         if out is None:
             return {"text": text}
