@@ -176,8 +176,8 @@ SAVED = f"() => azurkit.saved ? 'saved' : {ERROR}"
 PICTURES = ("(document.getElementById('char-preview-note').textContent.startsWith('From the') "
             "|| document.getElementById('char-preview-note').textContent.includes('no '))")
 TRACKED = "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length && azurkit.tracker.state.view"
-ART_DONE = ("() => { const a = azurkit.tracker.art.status; "
-            "return (a.error && 'error: ' + a.error) || (a.index && !a.drawing && a.done.length === a.total); }")
+ART_DONE = ("() => { const a = azurkit.tracker.art.status; "   # the shipped maps' index read (web/art.mjs)
+            "return (a.error && 'error: ' + a.error) || Boolean(a.index); }")
 WORLD = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.level === null "
          "&& Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)")
 LEVEL = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.level === 'w1' "
