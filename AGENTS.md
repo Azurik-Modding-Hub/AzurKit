@@ -612,7 +612,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     config (`host.json`'s `theme`, `api/theme`: its page's address is new
     each launch). `theme.js`, a classic script in the head, sets it before
     the first paint: the site's reads the storage, and the app serves its
-    own from its config and opens its window on that theme's ground. The About tab's licence and credits
+    own from its config and opens its window on that theme's ground. A long
+    call shows its progress in the bottom bar (D980, Step 4.3i: `#progress`,
+    app.mjs's `progressed()`, one renderer for both hosts): a build's and a
+    save's `core.progress` records (the app's `api/progress`, polled every
+    250 ms; the site's worker's `progress` posts, the image's check among
+    them) as their stage's line and percent, and any other ask the engine
+    hasn't answered within 1 s as its line on a moving stripe. The About tab's licence and credits
     restate `LICENSE` and `NOTICE.md` (`tests/test_site.py` holds them
     to those files); its privacy line says only that AzurKit collects
     nothing and that the image never leaves the computer (D883).

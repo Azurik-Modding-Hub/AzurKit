@@ -111,9 +111,9 @@ def _drop() -> None:
     _BUILT.clear()
 
 
-def _image(recipe: Mapping) -> dict:
+def _image(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
     _drop()   # before the build: never two builds' images held at once
-    made, report = sdk.image(recipe)
+    made, report = sdk.image(recipe, progress=progress)
     ident = secrets.token_hex(8)
     _BUILT[ident] = _Built(made, report)
     return {"size": made.size, "report": report, "build": ident}
@@ -171,9 +171,12 @@ def _preview(recipe: Mapping) -> dict:
 
 def _warmed(job: Callable, always: bool = False) -> Callable:
     """``job``, run once a warm-up in flight has built the randomizer's
-    logic, when ``always`` or its recipe has a randomizer."""
+    logic, when ``always`` or its recipe has a randomizer (its ``progress``
+    told meanwhile)."""
     def run(recipe, *args, **kwargs):
         if always or not isinstance(recipe, Mapping) or recipe.get("randomizer"):
+            if _WARM.locked() and kwargs.get("progress") is not None:
+                kwargs["progress"](record("plan", "Reading the randomizer's logic"))
             with _WARM:
                 pass
         return job(recipe, *args, **kwargs)
@@ -183,8 +186,8 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                              "plan": _warmed(lambda recipe: sdk.plan(recipe), always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe))}
-"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``save``: a
-``core.progress`` record a call)."""
+"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image`` and ``save``:
+``core.progress`` records)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
 

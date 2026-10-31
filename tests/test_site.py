@@ -929,6 +929,45 @@ def test_two_files_with_the_same_name_size_and_time_but_other_bytes_get_other_st
         served.close()
 
 
+# The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
+# or null while it is hidden
+BARS = """() => {
+    globalThis.bars = [];
+    const look = () => {
+        const seen = document.getElementById("progress-row").hidden ? null
+            : [document.getElementById("progress").getAttribute("value"), document.getElementById("progress-line").textContent];
+        if (JSON.stringify(seen) !== JSON.stringify(bars.length ? bars.at(-1) : null)) bars.push(seen);
+    };
+    new MutationObserver(look).observe(document.querySelector("footer"), { subtree: true, childList: true,
+                                                                            characterData: true, attributes: true });
+}"""
+
+
+def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stages(browser, site, usa_iso):
+    """Step 4.3i (D980): the site's bottom bar shows the picked image's
+    check (its build files hashed, ``sdk.prime``) by its percent up to 100,
+    then a build's named stages as the worker posts them (``core.progress``'s
+    records: its files read, each pack applied, the image laid out), and
+    hides once the build is ready."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.evaluate(BARS)
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.build(page, ["fps_unlock", "qol_skip_logo"])
+        _page.built(page)
+        bars = page.evaluate("() => bars")
+        checked = [int(value) for value, line in filter(None, bars) if line.startswith("Checking your image")]
+        assert len(checked) >= 3 and checked == sorted(checked) and checked[-1] == 100, checked
+        lines = [line for _, line in filter(None, bars)]
+        assert [any(line.startswith(stage) for line in lines) for stage in (
+            "Reading its files", "Applying fps_unlock", "Applying qol_skip_logo", "Laying out the image")] == [True] * 4
+        assert bars[-1] is None and served.stray() == []
+    finally:
+        served.close()
+
+
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):
     """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe.

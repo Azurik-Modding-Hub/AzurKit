@@ -35,16 +35,20 @@
 // The Characters tab (Step 4.3d, characters.mjs): the player's body, a species or a variant (ours from
 // Azurik-Custom-Content, marked community, with Install and Update), its options and G4 buttons; Build wears it, a link,
 // a build's recipe and the remembered setup carry it.
+//
+// A long call shows its progress in the bottom bar (D980, Step 4.3i): its stage and percent (core/progress.py's record)
+// on a bar, from the app's api/progress or the site's worker; any ask the engine hasn't answered within 1 s shows
+// its line there too, until it answers.
 import { characters } from "./characters.mjs";
 import { tracker } from "./tracker.mjs";
 
 const $ = (id) => document.getElementById(id);
 const R = (id) => $(`rando-${id}`);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
-                packs: null, sent: null, build: null, url: null, saved: null, poll: null, violations: [],
+                packs: null, sent: null, build: null, url: null, saved: null, violations: [],
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
-                later: null, spoiler: null, tracker: null, call: null,
+                later: null, spoiler: null, tracker: null, call: null, asks: new Map(),
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, groups: new Set() } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
@@ -127,10 +131,93 @@ function stop(text) {
 
 const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
+// Progress (D980): one bar for both hosts. Each ask in flight is kept (asking(kind) -> its id, answered(id)) with the
+// last record the engine gave for it (the app's api/progress, polled every 250 ms; the site's worker's posts); the
+// newest that is a build or a save, has a record, or has waited 1 s shows: its label and percent, or a moving stripe
+// while it has no count.
+const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your image", check: "Checking your image",
+                 plan: "Planning the seed", tracker: "Reading the seed's logic", randomizer: "Reading the randomizer",
+                 restore: "Restoring your setup", pickers: "Reading the models", preview: "Drawing the model",
+                 match: "Matching garret4", content: "Reading the community content", install: "Installing",
+                 content_check: "Checking the download", spoiler: "Writing the spoiler", preset: "Making the link",
+                 decode: "Reading the link" };
+const AT_ONCE = new Set(["build", "save"]);   // shown from the click; any other ask after 1 s
+let asked = 0, ticking = null;
+
+function progressed(step) {
+  const row = $("progress-row"), bar = $("progress");
+  row.hidden = !step;
+  if (!step) return bar.removeAttribute("value");
+  if (step.percent == null) bar.removeAttribute("value");
+  else bar.setAttribute("value", String(step.percent));
+  $("progress-line").textContent = `${step.label}…${step.percent == null ? "" : ` ${step.percent} %`}`;
+}
+
+function asking(kind, until = null) {
+  const id = ++asked;
+  state.asks.set(id, { kind, since: performance.now(), record: null, until });
+  ticking ??= setInterval(tick, 250);
+  showing();
+  return id;
+}
+
+function answered(id) {
+  state.asks.delete(id);
+  showing();
+}
+
+// The newest ask that shows (its record, or its kind's line), or none: the bar hidden.
+function showing() {
+  const now = performance.now();
+  for (const [id, ask] of state.asks) if (ask.until !== null && now > ask.until) state.asks.delete(id);
+  const ask = [...state.asks.values()].findLast((a) => a.record || AT_ONCE.has(a.kind) || now - a.since >= 1000);
+  progressed(ask && (ask.record ?? { label: LABELS[ask.kind] ?? "Working", percent: null }));
+}
+
+async function tick() {
+  if (!state.asks.size) {
+    clearInterval(ticking);
+    ticking = null;
+    return progressed(null);
+  }
+  const now = performance.now();
+  if (state.app && [...state.asks.values()].some((a) => AT_ONCE.has(a.kind) || now - a.since >= 750)) {
+    const reply = await state.engine.progress().catch(() => null);
+    for (const ask of state.asks.values()) {
+      const step = reply?.calls?.[ask.kind];
+      if (step?.stage) ask.record = step;
+    }
+  }
+  showing();
+}
+
+// The site's worker's record: the build's while one runs; else a check's (before the call it came with: its own,
+// gone a moment after it is whole, or 1.5 s after its last), else the newest ask's.
+function posted(step) {
+  const asks = [...state.asks.values()];
+  let ask = asks.findLast((a) => a.kind === "build") ?? (step.stage === "check" ? asks.findLast((a) => a.kind === "check")
+    : asks.at(-1));
+  if (!ask && step.stage === "check") ask = state.asks.get(asking("check"));
+  if (!ask) return;
+  ask.record = step;
+  if (ask.kind === "check") ask.until = performance.now() + (step.percent === 100 ? 250 : 1500);
+  showing();
+}
+
 // The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
 // replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
   let worker = null, loaded = false, calls = 0, content = null;
+  const waits = new Map();   // the posted asks this worker answers by type (the Randomizer tab's, the restore): ask ids
+  const wait = (kind, message) => {
+    answered(waits.get(kind));
+    waits.set(kind, asking(kind));
+    worker.postMessage(message);
+  };
+  const end = (kind) => {
+    answered(waits.get(kind));
+    waits.delete(kind);
+  };
   const pending = new Map();   // the tracker's asks in flight (call id -> its message and answer), sent again to a
                                // worker that replaces one stopped before it answered (a once ask is answered refused:
                                // a dress that ran the engine out of memory isn't tried again)
@@ -146,6 +233,9 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
         if (content) worker.postMessage({ type: "content", ...content });   // what this browser keeps installed
         for (const [, { message }] of pending) worker.postMessage(message);
         ready(data.catalog, data.version);
+      } else if (data.type === "progress") {
+        const { type, ...step } = data;
+        posted(step);
       } else if (data.type === "reply") {
         pending.get(data.call)?.done(data.reply);
         pending.delete(data.call);
@@ -160,8 +250,10 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
         decoded(data.preset);
       } else if (data.type === "restored") {
         const { type, ...setup } = data;
+        end("restore");
         restored(setup);
       } else if (data.type === "rando") {
+        end("randomizer");
         rando(data.reply, data.ticket);
       } else if (data.type === "refused" && data.quiet) {
         failed(data.message);
@@ -184,6 +276,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   };
   const restart = () => {
     worker.terminate();
+    for (const kind of [...waits.keys()]) end(kind);   // a stopped worker answers none of them
     for (const [call, { once, done }] of pending) {
       if (!once) continue;
       pending.delete(call);
@@ -195,13 +288,17 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   return {
     build: (file, packs, xbr, randomizer, character) => worker.postMessage({ type: "build", file, packs, xbr, randomizer,
                                                                              character }),
-    randomizer: (given, ticket) => worker.postMessage({ type: "randomizer", given, ticket }),
+    randomizer: (given, ticket) => wait("randomizer", { type: "randomizer", given, ticket }),
     vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
     preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
     decode: (text) => worker.postMessage({ type: "decode", text }),
-    restore: (setup) => worker.postMessage({ type: "restore", setup }),
-    call: (type, body, { once = false } = {}) => new Promise((done) => {
-      const message = { type, call: ++calls, ...body };
+    restore: (setup) => wait("restore", { type: "restore", setup }),
+    call: (type, body, { once = false } = {}) => new Promise((resolve) => {
+      const message = { type, call: ++calls, ...body }, id = asking(type);
+      const done = (reply) => {
+        answered(id);
+        resolve(reply);
+      };
       pending.set(message.call, { message, done, once });
       if (loaded) worker.postMessage(message);
     }),
@@ -218,6 +315,10 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
 // after Cancel is dropped; a save's is awaited, since the server says whether it wrote anything.
 function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened, shared, decoded, restored, rando }) {
   let ticket = 0;
+  const followed = (kind, asked) => {   // an ask's progress shown until it answers
+    const id = asking(kind);
+    return asked.finally(() => answered(id));
+  };
   const post = async (path, body, keepalive = false) => {
     const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
                                       body: JSON.stringify(body), keepalive });
@@ -242,20 +343,21 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
   return {
     build: (iso, packs, xbr, randomizer, character) => run("api/build", { iso, packs, xbr, randomizer, character },
                                                            built),
-    randomizer: (given, ticket) => post("api/randomizer", { given }).then((reply) => rando(reply, ticket))
+    randomizer: (given, ticket) => followed("randomizer", post("api/randomizer", { given }))
+      .then((reply) => rando(reply, ticket))
       .catch((error) => rando({ refused: `The app's engine didn't answer (${error.message})` }, ticket)),
     spoiler: (out) => ask("api/spoiler", { out }, (reply) => say(`Saved the spoiler: ${reply.spoiler.out}`)),
-    vanilla: (iso) => post("api/vanilla", { iso }).then((read) => "refused" in read
+    vanilla: (iso) => followed("vanilla", post("api/vanilla", { iso })).then((read) => "refused" in read
       || ("opened" in read ? opened(read.opened) : vanilla(read))).catch(() => {}),
     preset: (recipe, report) => ask("api/preset", { recipe, report }, (reply) => shared(reply.fragment)),
     decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
-    restore: (setup) => ask("api/restore", { setup }, restored),
+    restore: (setup) => followed("restore", ask("api/restore", { setup }, restored)),
     setup: (setup) => post("api/setup", { setup }, true).catch(() => {}),   // remembering is a convenience
     save: (recipe, out, build) => run("api/save", { recipe, out, build }, saved),   // that build's image, kept
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
     theme: (name) => post("api/theme", { theme: name }).catch(() => {}),   // remembering is a convenience
-    call: (type, body) => post(`api/${type}`, body)
+    call: (type, body) => followed(type, post(`api/${type}`, body))
       .catch((error) => ({ refused: `The app's engine didn't answer (${error.message}): restart AzurKit` })),
     content: () => {},   // the app's engine reads its content folder itself
     // remembering is a convenience; not keepalive: a plan and its marks may pass keepalive's 64 KiB
@@ -511,8 +613,8 @@ function busy(on) {
   lock();
   lockRando();
   if (!on) {
-    clearInterval(state.poll);
     state.saving = false;
+    for (const [id, ask] of state.asks) if (AT_ONCE.has(ask.kind)) answered(id);
   }
 }
 
@@ -722,10 +824,7 @@ async function saveInApp() {
   busy(true);
   state.saving = true;
   say("Saving…");
-  state.poll = setInterval(async () => {
-    const { label, done, total } = await state.engine.progress().catch(() => ({}));
-    if (state.saving && total) say(`${label || "Saving"}… ${Math.floor((100 * done) / total)} %`);
-  }, 400);
+  asking("save");
   state.engine.save(state.build.recipe, out, state.build.id);   // the image Build made, hashed since
 }
 
@@ -1258,6 +1357,7 @@ async function main() {
     say((randomizer ? "Checking your image, planning the seed and building…" : "Checking your image and building…")
         + (character ? ` (as ${character.species})` : ""));
     state.sent = chosen();
+    asking("build");
     state.engine.build(state.file, state.sent, state.xbr, randomizer, character);
   });
   randoEvents(changed);

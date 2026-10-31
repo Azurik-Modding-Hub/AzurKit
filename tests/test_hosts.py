@@ -36,7 +36,7 @@ import pytest
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli, sdk
 from azurkit.app import engine
-from azurkit.core import gate, iso
+from azurkit.core import gate, iso, progress
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
 from scripts import freeze, record_goldens
@@ -677,7 +677,7 @@ def test_closing_the_app_during_a_long_build_returns_within_2_s_and_leaves_no_pa
     out.mkdir()
     planning, stalled = threading.Event(), threading.Event()
 
-    def image(recipe):   # a long build
+    def image(recipe, progress=None):   # a long build
         planning.set()
         release.wait(60)
         return types.SimpleNamespace(size=0), {}
@@ -738,10 +738,11 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
                                                                                        usa_iso):
     """Step 4.3i: the app's builds run in its engine process
     (``app.engine.Spawned``), so the server's own answers (the species list,
-    the setup) come within 0.5 s while keylord builds, its swap's work spread
-    over that process's pool (``app.procpool``); Cancel ends that process at
-    once, and its pool's children with it, the build is refused, another
-    process takes the next Build, and closing the app ends it too."""
+    the setup, the build's progress: its stage's ``core.progress`` record)
+    come within 0.5 s while keylord builds, its swap's work spread over that
+    process's pool (``app.procpool``); Cancel ends that process at once, and
+    its pool's children with it, the build is refused, another process
+    takes the next Build, and closing the app ends it too."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     server = app.serve(_page.WEB, engine.Spawned())
     first, replies = server.engine.pid, []
@@ -760,6 +761,10 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         assert building.is_alive()
         took = [ask("api/pickers", {"given": {}}), ask("api/setup", {"setup": {"ticked": ["fps_unlock"]}})]
         assert [s < 0.5 for s, _ in took] == [True, True] and took[1][1] == {}, took[0][0]
+        host, query = urllib.parse.urlsplit(server.url).netloc, urllib.parse.urlsplit(server.url).query
+        with urllib.request.urlopen(f"http://{host}/api/progress?{query}", timeout=10) as reply:
+            step = json.load(reply)
+        assert step["calls"]["build"]["stage"] in progress.STAGES and step["stage"] == step["calls"]["build"]["stage"]
         end, pool = time.monotonic() + 10, []
         while building.is_alive() and not pool and time.monotonic() < end:
             pool = subprocess.run(["pgrep", "-P", str(first)], capture_output=True, text=True).stdout.split()
@@ -1404,7 +1409,8 @@ def test_the_apps_spoiler_never_replaces_the_image_its_build_read(tmp_path, monk
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     picked = tmp_path / "picked.iso"
     picked.write_bytes(bytes(64))
-    monkeypatch.setattr(sdk, "image", lambda recipe: (types.SimpleNamespace(size=64), {"spoiler": "seed 2"}))
+    monkeypatch.setattr(sdk, "image", lambda recipe, progress=None: (types.SimpleNamespace(size=64),
+                                                                     {"spoiler": "seed 2"}))
     server, replies = app.serve(_page.WEB), []
     try:
         _post(server.url, "api/build", {"iso": str(picked)}, replies)

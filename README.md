@@ -163,6 +163,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
+- **Progress bars:** a build, a save and your image's first check show their step and percent; anything slower than
+  a second shows what it is doing.
 - **Cancel any time:** Cancel stops a build or a save (in the app, a build at once); closing the app mid-build or
   mid-save leaves no half-written file.
 - **The app stays quick while it builds:** a build runs in a process of its own, so picking an image and the other

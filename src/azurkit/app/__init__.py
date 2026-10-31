@@ -33,8 +33,13 @@ folder, under the site's download's name), and ``POST api/save``
 and hashed in the engine from the moment it was made (``sdk.save``), else,
 when the engine keeps it no more or its input changed, the recipe built
 again (``sdk.build``); never over an existing file but the one the save
-dialog chose (it asked first), with ``GET api/progress`` (the save's
-``core.progress`` record) and ``POST api/cancel``.
+dialog chose (it asked first), with ``POST api/cancel``. ``GET
+api/progress`` gives the progress of the calls in flight, each a
+``core.progress`` record (``{"stage", "label", "done", "total",
+"percent"}``): the newest's at its top, and each kind's in ``calls``
+(``build``, ``save``: their named stages; ``preview``, ``match``,
+``plan``, ``tracker``, ``randomizer``, ``restore``, ``vanilla``: the
+call's own line, no count), which the page shows as its bar.
 Both run in the engine (:mod:`.engine`): ``serve``'s on the request's own
 thread, the app's (:func:`main`) in a process of its own, with the seed's
 plan and the Characters tab's pictures and G4 match, so the server's own
@@ -115,6 +120,7 @@ from pathlib import Path
 
 from azurkit import __version__, sdk
 from azurkit.core import gate
+from azurkit.core.progress import record
 from azurkit.edits import xbr
 from azurkit.tools import randomizer
 from azurkit.tools.randomizer import tracking
@@ -312,7 +318,8 @@ class Server(http.server.ThreadingHTTPServer):
         self.busy = threading.Lock()        # one build or save at a time
         self.writing = threading.Lock()     # held by a save, which quit() waits on (never a build)
         self.out: Path | None = None        # where the save in flight writes
-        self.progress = IDLE                # the save's last core.progress record
+        self.calls: dict[object, tuple[str, dict]] = {}   # the calls in flight: their kind and last record
+        self.following = threading.Lock()   # self.calls
         self.cancelled = threading.Event()
         self.quitting = False               # set by quit(), before it cancels: no build or save starts after it
         self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
@@ -360,6 +367,30 @@ class Server(http.server.ThreadingHTTPServer):
         self.engine.cancel()
         return {}
 
+    @contextlib.contextmanager
+    def follow(self, kind: str, first: dict = IDLE):
+        """A call of ``kind`` in flight for ``api/progress``, from its record
+        ``first``: ``report(record)`` gives its next, until it ends."""
+        ident = object()
+        with self.following:
+            self.calls[ident] = (kind, first)
+
+        def report(step: dict) -> None:
+            with self.following:
+                if ident in self.calls:
+                    self.calls[ident] = (kind, step)
+        try:
+            yield report
+        finally:
+            with self.following:
+                self.calls.pop(ident, None)
+
+    def progress(self) -> dict:
+        """``api/progress``: the newest call's record, and each kind's (``calls``)."""
+        with self.following:
+            calls = list(self.calls.values())
+        return {**(calls[-1][1] if calls else IDLE), "calls": dict(calls)}
+
     def host_info(self) -> dict:
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
@@ -369,11 +400,11 @@ class Server(http.server.ThreadingHTTPServer):
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
         recipe |= {key: body[key] for key in ("xbr", "randomizer", "character") if body.get(key)}
-        with self.busy:
+        with self.busy, self.follow("build") as report:
             if self.quitting:
                 raise ValueError(QUITTING)
             try:
-                built = self.engine.call("image", recipe)
+                built = self.engine.call("image", recipe, progress=report)
             except Cancelled:
                 raise ValueError("Cancelled: nothing was built") from None
             except engines.Gone as exc:
@@ -394,15 +425,15 @@ class Server(http.server.ThreadingHTTPServer):
         if out.exists() and out != self.chosen:
             raise ValueError(f"{out} exists: choose another name, or delete it first")
 
-        def progress(step: dict) -> None:
-            self.progress = step
-            if self.cancelled.is_set():
-                raise Cancelled
-        with self.busy, self.writing:
+        with self.busy, self.writing, self.follow("save", record("write")) as report:
+            def progress(step: dict) -> None:
+                report(step)
+                if self.cancelled.is_set():
+                    raise Cancelled
             self.cancelled.clear()   # before the check: a quit after it still cancels this save
             if self.quitting:
                 raise ValueError(QUITTING)
-            self.progress, self.out = IDLE, out
+            self.out = out
             try:
                 return {"saved": self.engine.call("save", recipe, str(out), body.get("build"), progress=progress)}
             except Cancelled:
@@ -416,7 +447,8 @@ class Server(http.server.ThreadingHTTPServer):
         """``api/randomizer``: what the Randomizer tab shows; the engine
         builds the randomizer's logic meanwhile, for a seed's build."""
         self.engine.warm("randomizer")
-        return sdk.randomizer_settings(body.get("given"))
+        with self.follow("randomizer", record("plan", "Reading the randomizer's logic")):
+            return sdk.randomizer_settings(body.get("given"))
 
     def restore(self, body: dict) -> dict:
         """``api/restore``: what of the setup still applies; with Randomize
@@ -424,13 +456,15 @@ class Server(http.server.ThreadingHTTPServer):
         setup = body.get("setup")
         if isinstance(setup, dict) and isinstance(setup.get("randomizer"), dict) and setup["randomizer"].get("on"):
             self.engine.warm("randomizer")
-        return sdk.restore(setup)
+        with self.follow("restore", record("read", "Restoring your setup")):
+            return sdk.restore(setup)
 
     def vanilla(self, body: dict) -> dict:
         """``api/vanilla``: the image's own slider values, or an AzurKit
         build's recipe; the engine reads a vanilla image meanwhile, for its
         pictures."""
-        read = _vanilla(body)
+        with self.follow("vanilla", record("check")):
+            read = _vanilla(body)
         if "opened" not in read:
             self.engine.warm("image", str(_path(body.get("iso"), "image")))
         return read
@@ -444,7 +478,7 @@ class Server(http.server.ThreadingHTTPServer):
         journal (a lost link, Live off and on), and Reset reads the game
         again."""
         given = body.get("given")
-        with self.tracking:
+        with self.tracking, self.follow("tracker", record("plan", "Reading the seed's logic")):
             feed = self.feed
             plan = given.get("plan") if isinstance(given, dict) else None
             if feed is None or not isinstance(plan, dict) or plan.get("sha256") != feed.sha256:
@@ -481,6 +515,20 @@ class Server(http.server.ThreadingHTTPServer):
                     raise ValueError(f"Endpoints: {exc}") from None
                 self.feed = live.Feed(body.get("plan"), body.get("marks"), endpoints, bool(body.get("gems"))).start()
         return {}
+
+    def dressed(self, job: str, body: dict) -> dict:
+        """``api/preview`` and ``api/match``: the engine's, followed by its line (a variant's dress takes minutes)."""
+        recipe = body.get("recipe")
+        character = recipe.get("character") if isinstance(recipe, dict) else None
+        species = character.get("species") if isinstance(character, dict) else None
+        what = "draw it" if job == "preview" else "match garret4"
+        with self.follow(job, record("dress", f"Dressing {species} to {what}" if isinstance(species, str) else None)):
+            return self.engine.call(job, recipe)
+
+    def plan(self, body: dict) -> dict:
+        """``api/plan``: a seed's plan to track (the engine's)."""
+        with self.follow("plan", record("plan")):
+            return {"plan": self.engine.call("plan", body.get("recipe"))}
 
     def art(self, body: dict) -> dict:
         """``api/art``: which of the tracker's pictures are drawn
@@ -586,7 +634,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/theme.js":
             return self._send(_theme_js(), "text/javascript")
         if url.path == "/api/progress":
-            return self._json(self.server.progress)
+            return self._json(self.server.progress())
         if url.path.startswith("/art/"):   # the tracker's pictures, from the user cache folder (never the bundle)
             version, _, rel = urllib.parse.unquote(url.path).removeprefix("/art/").partition("/")
             root = self.server.drawing.where
@@ -615,12 +663,12 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/restore": self.server.restore,
                 "/api/randomizer": self.server.randomizer,
                 "/api/tracker": self.server.track,
-                "/api/plan": lambda body: {"plan": self.server.engine.call("plan", body.get("recipe"))},
+                "/api/plan": self.server.plan,
                 "/api/tracked": _set_tracked, "/api/live": self.server.live, "/api/art": self.server.art,
                 "/api/settings_file": self.server.settings_file,
                 "/api/pickers": lambda body: sdk.pickers(body.get("given")),
-                "/api/preview": lambda body: self.server.engine.call("preview", body.get("recipe")),
-                "/api/match": lambda body: self.server.engine.call("match", body.get("recipe")),
+                "/api/preview": lambda body: self.server.dressed("preview", body),
+                "/api/match": lambda body: self.server.dressed("match", body),
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
                 "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
                 "/api/content_source": _set_source,
