@@ -229,10 +229,12 @@ def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lan
     assert code == 1 and "doesn't fast-forward from main" in why
 
 
-def test_land_needs_a_passing_perf_block_for_src_or_web_and_an_empty_list_for_a_release(tmp_path, monkeypatch):
+def test_land_needs_a_passing_perf_block_for_src_or_web_a_list_that_only_shrinks_and_an_empty_one_to_release(
+        tmp_path, monkeypatch):
     """D981: a stack changing src/ or web/ lands only on a receipt whose
-    perf block passed; ``--release`` refuses while tests/perf_ceilings.toml
-    lists an op."""
+    perf block passed; any stack, one changing only tests/perf_ceilings.toml
+    too, is refused when its list adds an op or raises a ceiling against
+    main's; ``--release`` refuses while the list holds an op."""
     repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
     (lane / "src").mkdir()
     (lane / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
@@ -250,4 +252,15 @@ def test_land_needs_a_passing_perf_block_for_src_or_web_and_an_empty_list_for_a_
     _receipt(receipts, top, perf_args=["--select", "app:build"], perf={"passed": True})
     code, why = land.land(repo, "p2/x", dry_run=True, release=True)
     assert code == 1 and "still lists 1 ops over their budget" in why
-    assert land.land(repo, "p2/x", dry_run=True)[0] == 0
+    assert land.land(repo, "p2/x")[0] == 0   # main had no list: the first record
+    _git(repo, "switch", "-q", "-c", "p2/y")
+    for ceilings, landed in (({"A15/app": 60.0}, False), ({"A15/app": 4.8, "A01/app": 9.0}, False),
+                             ({"A15/app": 4.0}, True)):
+        (repo / perf.CEILINGS).write_text(perf.render({"ceilings": ceilings, "debts": [], "memory": {},
+                                                       "untimed": {}}), encoding="utf-8")
+        _git(repo, "commit", "-q", "-m", "the list alone", perf.CEILINGS)
+        _receipt(receipts, _git(repo, "rev-parse", "HEAD"), mode="changed", base=_git(repo, "rev-parse", "main"))
+        code, why = land.land(repo, "p2/y", dry_run=True)
+        assert (code == 0) == landed and (landed or "grows main's list" in why), why
+        if not landed:
+            _git(repo, "reset", "-q", "--hard", "main")

@@ -820,13 +820,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   list names it a debt (D980). An op over runs three more times and fails
   only if the median of all six is still over. The list only shrinks: `perf.py
   --update-ceilings` lowers a ceiling you earned (in your own commit) and
-  drops what is back under, and the gate fails an added op or debt or a
-  raised ceiling against main's.
+  drops what is back under, and the gate and `land.py` fail an added op or
+  debt or a raised ceiling against main's.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that
-  changes `src/` or `web/`, a passing perf block; `--release` refuses while
-  the perf list holds anything (it is empty for 4.4). There is no remote
+  changes `src/` or `web/`, a passing perf block; it refuses any stack whose
+  perf list grows main's (one that changes only the list too); `--release`
+  refuses while the list holds anything (it is empty for 4.4). There is no remote
   until AzurKit goes public (D137, D91: Azurik-Modding-Hub at 4.4).
 
 ## Environment

@@ -8,9 +8,12 @@ any head) and a passing ``scripts/fullsuite.py`` receipt covers that head's
 clean tree, in which at least one vanilla and one europe test ran (D26):
 either a whole-suite run, or a changed-area run whose base is main's head. A
 stack that changes a file under ``src/`` or ``web/`` also needs the
-receipt's passing perf block (D981, ``scripts/perf.py``). ``--release``
-(the landing a release is cut from) refuses while ``tests/perf_ceilings.toml``
-lists anything: every op within its budget, showing progress, timed.
+receipt's passing perf block (D981, ``scripts/perf.py``). Every stack's
+``tests/perf_ceilings.toml`` only shrinks: it refuses one that adds an op, a
+debt, a memory peak or an untimed op, or raises a ceiling, against main's
+(``perf.check_list``; main without the file takes any, the first record).
+``--release`` (the landing a release is cut from) refuses while the list
+holds anything: every op within its budget, showing progress, timed.
 
 Then it moves main. In the worktree that has main checked out, that is a
 fast-forward merge; otherwise it updates the ref from its old value. It removes
@@ -62,6 +65,12 @@ def worktrees(repo: Path) -> list[tuple[Path, str | None]]:
     return out
 
 
+def perf_list(repo: Path, rev: str | None) -> dict | None:
+    """``rev``'s ``tests/perf_ceilings.toml`` (:func:`perf.listed`), or None without one."""
+    text = fs.git(repo, "show", f"{rev}:{perf.CEILINGS}", check=False) if rev else ""
+    return perf.listed(text) if text else None
+
+
 def land(repo: Path, branch: str, dry_run: bool = False, release: bool = False) -> tuple[int, str]:
     """(exit code, what it did or why it refused)."""
     top = fs.git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{branch}", check=False).strip()
@@ -70,6 +79,9 @@ def land(repo: Path, branch: str, dry_run: bool = False, release: bool = False) 
     main = fs.git(repo, "rev-parse", "--verify", "-q", "refs/heads/main", check=False).strip() or None
     if main and fs.git(repo, "merge-base", main, top, check=False).strip() != main:
         return 1, f"land: {branch} ({top[:12]}) doesn't fast-forward from main ({main[:12]}): rebase it onto main"
+    left = perf_list(repo, top) or perf.listed(None)
+    if grown := perf.check_list(left, perf_list(repo, main)):   # any stack, list-only ones too (no perf stage)
+        return 1, f"land: {branch}'s {perf.CEILINGS} grows main's list (D981): " + "; ".join(grown)
     folder = fs.receipts(repo)
     paths = fs.git(repo, "diff", "--name-only", main, top) if main else fs.git(repo, "ls-tree", "-r", "--name-only", top)
     timed = any(rel.startswith(PERF_PATHS) for rel in paths.split())
@@ -77,7 +89,7 @@ def land(repo: Path, branch: str, dry_run: bool = False, release: bool = False) 
         return 1, (f"land: no passing clean receipt with vanilla and europe tests run"
                    f"{' and a passing perf block (it changes src/ or web/: D981)' if timed else ''} for {branch} "
                    f"({top[:12]}): run scripts/fullsuite.py on its worktree (receipts in {folder})")
-    if release and perf.count(left := perf.listed(fs.git(repo, "show", f"{top}:{perf.CEILINGS}", check=False) or None)):
+    if release and perf.count(left):
         return 1, (f"land --release: {perf.CEILINGS} still lists {len(left['ceilings'])} ops over their budget, "
                    f"{len(left['debts'])} progress debts, {len(left['memory'])} memory peaks and "
                    f"{len(left['untimed'])} untimed ops: a release needs it empty (D981)")
