@@ -458,7 +458,7 @@ def pickers(given: Mapping) -> dict:
     if isinstance(given.get("iso"), str) and given["iso"]:
         _, config, bodies = _game(given["iso"])
     manifest = (given.get("content") or {}).get("manifest")
-    entries = kit.states(_manifest(kit, manifest) if manifest else None, kit.installed())
+    entries = kit.states(kit.check(manifest) if manifest else None, kit.installed())
     return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
 
 
@@ -966,15 +966,6 @@ def _fetch(source: str) -> Callable[..., bytes]:
     return fetch
 
 
-def _manifest(kit, raw) -> dict:
-    """``kit.check(raw)``: a manifest whose entries nest too deep to walk
-    refused by name as any other (SEC-6: its ``RecursionError``)."""
-    try:
-        return kit.check(raw)
-    except RecursionError:
-        raise ValueError("manifest: its entries require one another too deep to read") from None
-
-
 def content(given: Mapping | None = None) -> dict:
     """Azurik-Custom-Content as the Characters tab lists it (D913): the
     ``source`` read (:data:`SOURCE`, a host's setting ``given["source"]``, or
@@ -991,14 +982,14 @@ def content(given: Mapping | None = None) -> dict:
     source, why, manifest = _source(given.get("source")), None, None
     try:
         raw = _fetch(source)(kit.MANIFEST, kit.MAX_MANIFEST)
-        manifest = _manifest(kit, raw)
+        manifest = kit.check(raw)
         kit.ROOT.mkdir(parents=True, exist_ok=True)
         (kit.ROOT / kit.MANIFEST).write_bytes(raw)   # the last fetched, listed while the source can't be read
-    except (OSError, ValueError, RecursionError) as exc:
+    except (OSError, ValueError) as exc:
         why = f"can't read {source}: {exc}"
         try:
-            manifest = _manifest(kit, (kit.ROOT / kit.MANIFEST).read_bytes())
-        except (OSError, ValueError, RecursionError):
+            manifest = kit.check((kit.ROOT / kit.MANIFEST).read_bytes())
+        except (OSError, ValueError):
             manifest = None
     record = kit.installed()
     return {"source": source, "manifest": manifest, "why": why, "entries": kit.states(manifest, record),
@@ -1018,7 +1009,7 @@ def content_install(given: Mapping) -> dict:
         raise ValueError("content: name the entry to install")
     source = _source(given.get("source"))
     fetch = _fetch(source)
-    manifest = _manifest(kit, fetch(kit.MANIFEST, kit.MAX_MANIFEST))
+    manifest = kit.check(fetch(kit.MANIFEST, kit.MAX_MANIFEST))
     sizes = {f["path"]: f["size"] for e in manifest["entries"] for f in e["files"]}
     kit.install(manifest, given["id"], lambda path, size=None: fetch(path, sizes.get(path) if size is None else size),
                 source=source)   # each file read to at most its listed size (SEC-9)
@@ -1036,7 +1027,7 @@ def content_check(given: Mapping) -> dict:
 
     if not isinstance(given, Mapping):
         raise ValueError("content: a JSON object")
-    manifest = _manifest(kit, given.get("manifest"))
+    manifest = kit.check(given.get("manifest"))
     if "id" not in given:
         return {"manifest": manifest, "install": []}
     chosen = kit.verify(manifest, given["id"], given.get("files") or {})

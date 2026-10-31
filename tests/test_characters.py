@@ -746,9 +746,10 @@ def test_the_hosts_content_reads_stop_at_a_files_listed_size_and_a_too_deep_or_b
         tmp_path, monkeypatch):
     """The sdk's half of Install (Step 4.3m, SEC-9, SEC-6): a source's file is read to at most one past the size its
     manifest lists, and one past it is refused by name with nothing written; a manifest past what a manifest may
-    hold is refused as that (it lists no size for itself); a manifest whose requires nest too deep to walk is
-    refused by name as any other fault, never a RecursionError (``sdk.content`` lists it as the source's fault,
-    ``sdk.content_check``, the site's, refuses it)."""
+    hold is refused as that (it lists no size for itself); a manifest nested too deep to read or past 1,000 entries
+    is refused by name as any other fault, never a RecursionError: ``content.check``'s own refusal (S1's SEC-6, the
+    hosts adding no catch of their own; ``sdk.content`` lists it as the source's fault, ``sdk.content_check``, the
+    site's, refuses it)."""
     source, folder = tmp_path / "source", tmp_path / "content"
     monkeypatch.setattr(content, "ROOT", folder)
     _source(source, {"packs/a/pack.json": b"{}"}, [{"id": "a", "files": ["packs/a/pack.json"]}])
@@ -761,13 +762,14 @@ def test_the_hosts_content_reads_stop_at_a_files_listed_size_and_a_too_deep_or_b
         sdk.content_install({"id": "a", "source": str(source)})
     assert not folder.exists()
     entry = {"kind": "pack", "title": "x", "author": "a", "licence": "MIT", "version": 1, "files": []}
-    deep = {"format": content.FORMAT, "schema_version": content.SCHEMA_VERSION, "entries": [
-        entry | {"id": f"e{k}", "requires": [f"e{k + 1}"] if k < 1499 else []} for k in range(1500)]}
-    (source / content.MANIFEST).write_text(json.dumps(deep), encoding="utf-8")
-    view = sdk.content({"source": str(source)})
-    assert view["why"].startswith(f"can't read {source}: manifest") and view["manifest"] is None
-    with pytest.raises(ValueError, match=r"^manifest"):
-        sdk.content_check({"manifest": json.dumps(deep)})
+    chain = json.dumps({"format": content.FORMAT, "schema_version": content.SCHEMA_VERSION, "entries": [
+        entry | {"id": f"e{k}", "requires": [f"e{k + 1}"] if k < 1499 else []} for k in range(1500)]})
+    for deep, why in (("[" * 200_000, "not JSON (nested too deep)"), (chain, "1,500 entries, past the 1,000")):
+        (source / content.MANIFEST).write_text(deep, encoding="utf-8")
+        view = sdk.content({"source": str(source)})
+        assert view["why"].startswith(f"can't read {source}: manifest: {why}") and view["manifest"] is None
+        with pytest.raises(ValueError, match=rf"^manifest: {re.escape(why)}"):
+            sdk.content_check({"manifest": deep})
 
 
 def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path, monkeypatch):
