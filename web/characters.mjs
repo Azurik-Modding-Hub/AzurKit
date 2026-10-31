@@ -56,7 +56,7 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 // installed) hands the site's engine what this browser keeps installed.
 export function characters({ call, app, host, say, image, packs, changed, content }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
-              matching: false, drawn: null, opened: false, installing: null, filter: "" };
+              matching: false, drawn: null, opened: false, installing: null, filter: "", read: null };
   const fallback = () => host.catalog?.characters?.source ?? "";
   c.source = app ? host.content_source || fallback() : (() => {
     try {
@@ -92,7 +92,8 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     if ("refused" in reply) {
       $("char-refused").hidden = false;
       $("char-refused").textContent = reply.refused;
-      const read = imaged();   // a field refused with the image read keeps G4 and the weapons (D979)
+      // a field refused with the image read keeps G4 and the weapons (D979), on every refusal: c.read outlives the view
+      const read = Boolean(c.read) && c.read === image();
       c.view = null;
       if (!read) {   // no answer read the image: G4 and the weapons ask for one again, not "Reading"
         $("char-weapon").replaceChildren(el("option", { value: "", textContent: CHOOSE_WEAPONS }));
@@ -102,6 +103,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       return;
     }
     c.view = reply;
+    c.read = from;   // the image the last answer read
     render();
     draw();
   };
