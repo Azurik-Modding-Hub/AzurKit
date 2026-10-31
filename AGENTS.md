@@ -1021,8 +1021,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The perf gate (D980-D985):** once pytest passes, the same locked run times
   the player-facing operations the changes reach (`scripts/perf.py`; the
   registry, its ids and drivers in `tests/_perf.py`): a change under `src/`
-  or `web/` times its area's ops in the app's serve mode and on the site in
-  WebKit, and main's own full run times every op in four profiles (the app;
+  or `web/` times its area's ops in the app's serve mode (the worktree's
+  wheel in a scratch venv, so the app reads the database the wheel ships, as
+  a player's install does) and on the site in WebKit, and main's own full run times every op in four profiles (the app;
   the site in WebKit and Chromium; the site with each File read 200 ms late,
   Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
   app's process tree, and the site's WebKit processes that start during the run).

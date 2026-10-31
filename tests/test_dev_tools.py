@@ -197,6 +197,24 @@ def test_update_ceilings_on_a_narrow_run_keeps_the_untimed_ops_it_doesnt_reach(t
                                                                               "untimed": {"S15": "out of memory"}}
 
 
+def test_the_perf_gates_app_is_the_worktrees_wheel_in_a_venv_reading_the_database_it_ships(tmp_path):
+    """The perf gate's app profile runs the app as a player installs it
+    (``_perf.venv``): the worktree's wheel in a scratch venv, whose app reads
+    the randomizer database the wheel ships instead of checking it again as a
+    checkout does (round 1's A06: 7.8 s from a worktree, 3.5 s frozen), and
+    finds the worktree's page where the installed app looks for it."""
+    from tests import _perf
+
+    python = _perf.venv(ROOT, tmp_path / "app")
+    code = ("import sys; from azurkit import app; from azurkit.tools.randomizer import dbcache; "
+            "from azurkit.tools.randomizer.planner.loader import DATA_DIR; "
+            "print(app.PAGE, dbcache.shipped(DATA_DIR) is not None, sys.prefix, sep='\\n')")
+    page, shipped, prefix = subprocess.run([python, "-I", "-c", code], cwd=tmp_path, capture_output=True, text=True,
+                                           check=True, timeout=300).stdout.splitlines()
+    assert (shipped, Path(prefix).resolve()) == ("True", (tmp_path / "app" / "venv").resolve())
+    assert sorted(f.relative_to(page) for f in Path(page).rglob("*")) == sorted(
+        f.relative_to(ROOT / "web") for f in (ROOT / "web").rglob("*"))
+
 def _git(cwd, *args):
     return subprocess.run(["git", "-C", str(cwd), "-c", "user.name=t", "-c", "user.email=t@t",
                            "-c", "commit.gpgsign=false", *args], capture_output=True, text=True,

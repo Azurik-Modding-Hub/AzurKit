@@ -11,8 +11,10 @@ shrinks.
 What it times: ``tests/_perf.py``'s registry (``A01``-``A30`` the app's,
 ``S01``-``S25`` the site's), the ops of the groups the worktree's changes
 reach (:func:`select`: ``--base``, default main; or ``--select``; ``--all``
-every op), in the profiles named: ``app`` (the app's serve mode with a fresh
-HOME, its page in WebKit), ``site`` (the site served on 127.0.0.1, in each of
+every op), in the profiles named: ``app`` (the app's serve mode from the
+worktree's wheel in a scratch venv, so it reads the database the wheel ships
+as players get it, with a fresh HOME, its page in WebKit), ``site`` (the site
+built from the same wheel and served on 127.0.0.1, in each of
 ``--browsers``), ``lag`` (the site in WebKit with each File read 200 ms
 late, Safari's read model) and ``capped`` (the app with ``AZURKIT_CORES=4``
 and the site in WebKit, against 9 s, with our processes' peak resident size
@@ -374,13 +376,15 @@ def main(argv: list[str] | None = None) -> int:
         content = args.content or clone_of(wt)
         import tempfile
         scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site.", dir="/tmp"))
-        built: list[Path] = []
+        built: dict[str, Path | str] = {}
 
-        def site() -> Path:   # built once, the first time a site run drives
-            if not built:
+        def made(what: str) -> Path | str:   # each made once, the first time a run needs it: one wheel for both hosts
+            if what not in built:
                 from scripts import web_tools
-                built.append(web_tools.site(scratch / "site", root=wt, content=content))
-            return built[0]
+                built[what] = (web_tools.wheel(scratch / "wheel", wt) if what == "wheel"
+                               else web_tools.site(scratch / "site", root=wt, built=made("wheel"), content=content)
+                               if what == "site" else _perf.venv(wt, scratch / "app", made("wheel")))
+            return built[what]
         try:
             def drive(run: str, targets: dict[str, int]) -> dict:
                 spec = _perf.RUNS[run]
@@ -390,7 +394,8 @@ def main(argv: list[str] | None = None) -> int:
                 old = json.loads(kept.read_text(encoding="utf-8")) if kept and kept.is_file() else {"samples": {}}
                 have = {op: [s for s in got if not s.get("error")] for op, got in old["samples"].items()}
                 todo = {op: n - taken(have.get(op, [])) for op, n in targets.items() if n > taken(have.get(op, []))}
-                got = (_perf.drive(wt, spec, todo, iso, content, site() if spec.host == "site" else None) if todo
+                got = (_perf.drive(wt, spec, todo, iso, content, made("site") if spec.host == "site" else None,
+                                   made("app") if spec.host == "app" else None) if todo
                        else {"samples": {}, "log": []})
                 for op, more in got["samples"].items():
                     have.setdefault(op, []).extend(more)

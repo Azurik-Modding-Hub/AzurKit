@@ -16,7 +16,9 @@ bar moved and whether the page showed progress (a bar, or a "k of n" or
 "N %" text, changing at least once).
 
 A run is one of :data:`RUNS`: the app (``python -m azurkit serve`` from the
-worktree with a fresh HOME, its page in WebKit), the app capped
+worktree's wheel in a scratch venv, :func:`venv`, so it reads the randomizer
+database the wheel ships as a player's install does; with a fresh HOME, its
+page in WebKit), the app capped
 (``AZURKIT_CORES=4``), the site (``scripts/web_tools.py``'s, served on
 127.0.0.1 from port 8900 up) in WebKit or Chromium, and the site with each
 File read 200 ms late (Safari's read model: one checked substitution in the
@@ -416,18 +418,19 @@ def browser_pids(rows: list[tuple[int, int, str]], before: set[int]) -> list[int
 
 
 class App:
-    """``python -m azurkit serve`` from the worktree, its own fresh HOME (its
-    config and user cache), no image named (``AZURKIT_ISO`` dropped), the
-    clone as its Content from; quit by closing its input."""
+    """``python -m azurkit serve`` from the scratch venv ``python`` is
+    (:func:`venv`), in its own fresh HOME (its config and user cache, and its
+    cwd), no image named (``AZURKIT_ISO`` dropped), the clone as its Content
+    from; quit by closing its input."""
 
-    def __init__(self, python: str, wt: Path, home: Path, run: Run, content: Path | None):
-        self.python, self.wt, self.home, self.run = python, wt, home, run
+    def __init__(self, python: str, home: Path, run: Run, content: Path | None):
+        self.python, self.home, self.run = python, home, run
         config = home / "Library" / "Application Support" / "AzurKit"
         config.mkdir(parents=True, exist_ok=True)
         if content is not None:
             (config / "app.json").write_text(json.dumps({"content_source": str(content)}), encoding="utf-8")
         self.env = {k: v for k, v in os.environ.items()
-                    if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE", "VIRTUAL_ENV", "AZURKIT_CORES")}
+                    if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE", "VIRTUAL_ENV", "PYTHONPATH", "AZURKIT_CORES")}
         self.env |= {"HOME": str(home), "AZURKIT_NO_WINDOW": "1"}
         if run.cores:
             self.env["AZURKIT_CORES"] = str(run.cores)
@@ -438,7 +441,7 @@ class App:
         t = time.monotonic()
         err = self.home / "serve.err"
         with open(err, "a", encoding="utf-8") as errors:
-            self.proc = subprocess.Popen([self.python, "-m", "azurkit", "serve"], cwd=self.wt, env=self.env,
+            self.proc = subprocess.Popen([self.python, "-m", "azurkit", "serve"], cwd=self.home, env=self.env,
                                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors, text=True,
                                          start_new_session=True)
         url = self.proc.stdout.readline().strip()
@@ -813,20 +816,33 @@ assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)
 
 
-def python_of(wt: Path) -> str:
-    """The worktree's own Python (``uv run --locked``, made if missing)."""
-    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
-    done = subprocess.run(["uv", "run", "--locked", "python", "-c", "import sys; print(sys.executable)"], cwd=wt,
-                          env=env, capture_output=True, text=True, check=True, timeout=600)
-    return done.stdout.strip().splitlines()[-1]
+def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
+    """The app's Python as a player installs it: a venv in the new folder
+    ``folder`` holding the worktree's wheel (``wheel``, else built now:
+    ``web_tools.wheel``) and its declared dependencies, so the app reads the
+    randomizer database the wheel ships (its RECORD lists it; a checkout
+    checks it again, round 1's A06 7.8 s against the frozen app's 3.5 s), and
+    a copy of the worktree's ``web/`` where the installed app looks for its
+    page (``azurkit.app.PAGE``: beside ``site-packages``). Its python."""
+    from scripts import web_tools
+    wheel = wheel or web_tools.wheel(folder / "dist", wt)
+    env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
+    run = functools.partial(subprocess.run, env=env, capture_output=True, text=True, check=True, timeout=600)
+    run(["uv", "venv", "--quiet", "--python", "3.14", str(folder / "venv")])
+    python = str(folder / "venv" / ("Scripts" if os.name == "nt" else "bin") / "python")
+    run(["uv", "pip", "install", "--offline", "--quiet", "--python", python, str(wheel)])
+    purelib = run([python, "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"]).stdout.strip()
+    shutil.copytree(wt / "web", Path(purelib).parent / "web")
+    return python
 
 
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
-          passes: int = 7) -> dict:
+          python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
     {op: [{"s", "bar", "progress"[, "error"]}]}, "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh
-    state each pass, until its ops have their samples (at most ``passes``)."""
+    state each pass, until its ops have their samples (at most ``passes``). An app run serves the app from ``python``
+    (:func:`venv`'s; else one made for this run)."""
     from playwright.sync_api import sync_playwright
 
     from scripts import web_tools
@@ -834,7 +850,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
     t = time.monotonic()
     scratch = Path(tempfile.mkdtemp(prefix=f"azurkit-perf-{run.name}.", dir="/tmp"))
     d = Driver(run, targets, scratch, iso, content)
-    python = python_of(wt) if run.host == "app" else None
+    python = python or (venv(wt, scratch / "app") if run.host == "app" else None)
     current: list[App] = []
     before, shared = {pid for pid, _, comm in Memory.rows() if ".xpc/" in comm}, []
 
@@ -861,7 +877,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                     d.ev = []
                     try:
                         if run.host == "app":
-                            current[:] = [App(python, wt, scratch / f"home-{name}-{n}", run, content)]
+                            current[:] = [App(python, scratch / f"home-{name}-{n}", run, content)]
                             scenario(d, current[0], ctx)
                         else:
                             scenario(d, ctx, url)
