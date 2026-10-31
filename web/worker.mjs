@@ -1,5 +1,5 @@
-// The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, one worker per build: the page replaces it
-// after each (WEB §3.6); each build's answer reports the heap, for a page that keeps it (Step 4.3i). The page
+// The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, kept by the page after a build whose answer
+// reports a heap under 1 GiB and replaced after any other (app.mjs's KEEP, Step 4.3i; WEB §3.6). The page
 // starts it from a blob: URL that imports this file, so the page's CSP holds here too (WEB §6.4). Pyodide comes from
 // this site alone; the wheel, fetched with the integrity host.json gives, is unpacked without its dependencies
 // (WEB §6.3). The player's image is mounted read-only (WORKERFS, read in blocks: readInBlocks) and azurkit.sdk reads
