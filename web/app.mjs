@@ -1,6 +1,6 @@
 // The page (D866): pick your image, choose packs and set their sliders, Build, then Save. One page for both hosts,
 // the site and the app; it decides no output byte (WEB §3.1). host.json names the host's engine, and the engine, azurkit.sdk, plans and
-// checks the build. The site's, siteEngine(), is the wheel under Pyodide in a fresh module worker for each build: it
+// checks the build. The site's, siteEngine(), is the wheel under Pyodide in a module worker, kept while it is small: it
 // returns the build as segments, which this page joins into a Blob of slices of your own file and the bytes the
 // build writes (WEB §3.4), and Save downloads it. The app's, appEngine(), is azurkit.sdk on CPython behind the app's
 // own server on 127.0.0.1 (azurkit.app), in its window or a browser alike: it reads the image at the path you give
@@ -204,10 +204,13 @@ function posted(step) {
   showing();
 }
 
-// The site's engine: one worker per build, started from a blob: URL so that it keeps the page's CSP; it is
-// replaced after each build or cancel (wasm memory never shrinks), and not after one that never loaded.
+// The site's engine: a module worker, started from a blob: URL so that it keeps the page's CSP. It is kept after a
+// build while the heap its answer reports is under KEEP (Step 4.3i: wasm memory never shrinks, so a worker a build grew
+// is replaced, "Preparing the engine…" meanwhile), else replaced, as it is after a cancel or a report with no heap;
+// not after one that never loaded.
+const KEEP = 1 << 30;
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
-  let worker = null, loaded = false, calls = 0, content = null;
+  let worker = null, loaded = false, calls = 0, content = null, engine = null;
   const waits = new Map();   // the posted asks this worker answers by type (the Randomizer tab's, the restore): ask ids
   const wait = (kind, message) => {
     answered(waits.get(kind));
@@ -230,6 +233,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       if (data.type === "ready") {
         URL.revokeObjectURL(url);
         loaded = true;
+        engine = [data.catalog, data.version];
+        state.workers = (state.workers ?? 0) + 1;   // the workers that loaded, for the tests
         if (content) worker.postMessage({ type: "content", ...content });   // what this browser keeps installed
         for (const [, { message }] of pending) worker.postMessage(message);
         ready(data.catalog, data.version);
@@ -258,8 +263,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       } else if (data.type === "refused" && data.quiet) {
         failed(data.message);
       } else if (data.type === "built" || data.type === "refused") {
-        restart();
+        state.heap = data.heap ?? null;
+        const keep = typeof data.heap === "number" && data.heap < KEEP;
+        if (!keep) restart();
         (data.type === "built" ? built : refused)(data);
+        if (keep) ready(...engine);   // the page's engine is ready again: the same worker
       } else if (data.type === "csp") {
         state.violations.push(`worker: ${data.directive} ${data.blocked}`);
         failed(`The page's security policy refused ${data.directive} in the engine`);
@@ -1377,7 +1385,7 @@ async function main() {
     if (randomizer && !randomizer.seed) return say("Type a seed on the Randomizer tab, or press New", true);
     if (state.characters.refused()) return say(state.characters.refused(), true);
     forget();
-    if (!state.app) state.ready = false;   // the site's engine is replaced after each build
+    if (!state.app) state.ready = false;   // until the site's engine answers: then kept, or replaced
     busy(true);
     say((randomizer ? "Checking your image, planning the seed and building…" : "Checking your image and building…")
         + (character ? ` (as ${character.species})` : ""));

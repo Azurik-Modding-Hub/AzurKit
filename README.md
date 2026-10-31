@@ -160,6 +160,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 
 - **The web page:** the whole builder, randomizer and tracker run in your browser through WebAssembly, tested in
   Chromium and in Safari's engine.
+- **Builds back to back:** the page keeps its engine loaded after a build, so the next one starts at once (after a
+  large one, such as a character, it loads a fresh engine).
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.

@@ -1002,6 +1002,31 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         served.close()
 
 
+def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_builds_again_as_cpython(
+        browser, site, usa_iso):
+    """Step 4.3i: the site keeps its engine's worker after a build whose
+    heap it reports is under ``KEEP`` (a refused build's too): the page is
+    ready again at once, and the same worker builds the next recipe as
+    CPython does. A value the engine refuses is refused by name."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.build(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "fast"}})
+        refused = _page.until(page, "() => !azurkit.building && document.querySelector('#status').textContent")
+        assert "target_fps" in refused and page.evaluate("() => [azurkit.ready, azurkit.workers]") == [True, 1]
+        for values in ({"target_fps": "120"}, {}):
+            _page.build(page, ["fps_unlock"], {"fps_unlock": values})
+            built = _built(page)
+            made, report = sdk.image({"iso": str(usa_iso), "packs": page.evaluate("() => azurkit.sent")})
+            assert (built["report"], built["segments"]) == (report, _signature(made))
+            assert page.evaluate("() => [azurkit.ready, azurkit.workers, azurkit.heap < 1 << 30]") == [True, 1, True]
+        assert served.stray() == [] and page.evaluate("() => azurkit.violations") == []
+    finally:
+        served.close()
+
+
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):
     """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe.
