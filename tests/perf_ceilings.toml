@@ -6,99 +6,79 @@
 # raised ceiling against main's. Empty for a release (scripts/land.py --release).
 
 [ceilings]
-"A02/app" = 20.5
+"A02/app" = 7.6
 "A02/capped" = 26.1
-"A06/app" = 9.7
+"A06/app" = 7.7
 "A06/capped" = 12.5
-"A11/app" = 4.7
-"A15/app" = 6.1
-"A16/app" = 5.0
-"A17/app" = 7.7
-"A18/app" = 226.1
+"A15/app" = 4.3
 "A18/capped" = 336.5
-"A20/app" = 156.1
+"A20/app" = 89.6
 "A20/capped" = 279.6
-"A21/app" = 133.2
 "A21/capped" = 255.5
-"A22/app" = 147.3
 "A22/capped" = 250.5
-"A23/app" = 89.4
+"A23/app" = 14.3
 "A23/capped" = 98.4
-"A24/app" = 397.3
 "A24/capped" = 525.5
-"A25/app" = 74.8
+"A25/app" = 6.8
 "A25/capped" = 117.4
-"A26/app" = 21.9
+"A26/app" = 14.1
 "A26/capped" = 25.3
-"A27/app" = 19.6
+"A27/app" = 14.5
 "A27/capped" = 25.1
-"A28/app" = 82.7
 "A28/capped" = 92.8
-"A29/app" = 34.6
+"A29/app" = 21.6
 "A29/capped" = 37.1
-"A30/app" = 5.6
 "S02/lag" = 4.0
-"S02/webkit" = 3.9
 "S03/chromium" = 4.9
 "S03/lag" = 29.3
-"S03/webkit" = 8.0
 "S04/chromium" = 5.0
 "S04/lag" = 29.2
-"S04/webkit" = 8.0
 "S05/chromium" = 4.9
 "S05/lag" = 29.5
-"S05/webkit" = 8.0
 "S08/chromium" = 7.2
 "S08/lag" = 32.2
-"S08/webkit" = 10.4
 "S09/capped" = 17.0
 "S09/chromium" = 10.3
 "S09/lag" = 60.4
-"S09/webkit" = 17.0
 "S10/capped" = 16.5
 "S10/lag" = 60.0
-"S10/webkit" = 16.5
 "S11/capped" = 24.2
 "S11/lag" = 89.7
-"S11/webkit" = 24.2
 "S12/capped" = 27.9
 "S12/chromium" = 15.2
 "S12/lag" = 123.0
-"S12/webkit" = 27.9
 "S13/capped" = 17.6
 "S13/lag" = 61.9
-"S13/webkit" = 17.6
 "S14/capped" = 19.1
 "S14/chromium" = 15.1
 "S14/lag" = 135.6
-"S14/webkit" = 19.1
+"S14/webkit" = 8.0
 "S16/chromium" = 10.8
 "S16/lag" = 10.4
-"S16/webkit" = 9.9
+"S16/webkit" = 4.3
 "S18/capped" = 120.5
 "S18/chromium" = 89.1
 "S18/lag" = 119.5
-"S18/webkit" = 120.5
+"S18/webkit" = 21.8
 "S19/capped" = 976.9
 "S19/chromium" = 649.9
 "S19/lag" = 856.3
-"S19/webkit" = 976.9
+"S19/webkit" = 21.8
 "S20/capped" = 856.4
 "S20/chromium" = 560.9
 "S20/lag" = 736.8
-"S20/webkit" = 856.4
 "S21/capped" = 100.2
 "S21/chromium" = 74.6
 "S21/lag" = 104.5
-"S21/webkit" = 100.2
+"S21/webkit" = 9.4
 "S23/capped" = 38.8
 "S23/chromium" = 33.9
 "S23/lag" = 110.9
-"S23/webkit" = 38.8
+"S23/webkit" = 29.3
 "S24/capped" = 41.9
 "S24/chromium" = 34.0
 "S24/lag" = 112.4
-"S24/webkit" = 41.9
+"S24/webkit" = 29.8
 
 [debts]
 keys = [
@@ -112,17 +92,12 @@ keys = [
     "A11/capped",
     "A15/app",
     "A15/capped",
-    "A16/app",
     "A16/capped",
-    "A18/app",
     "A18/capped",
     "A20/app",
     "A20/capped",
-    "A21/app",
     "A21/capped",
-    "A23/app",
     "A23/capped",
-    "A25/app",
     "A25/capped",
     "A26/app",
     "A26/capped",
@@ -130,7 +105,6 @@ keys = [
     "A27/capped",
     "A29/app",
     "A29/capped",
-    "A30/app",
     "A30/capped",
     "S01/capped",
     "S01/chromium",
@@ -143,31 +117,24 @@ keys = [
     "S03/capped",
     "S03/chromium",
     "S03/lag",
-    "S03/webkit",
     "S04/capped",
     "S04/chromium",
     "S04/lag",
-    "S04/webkit",
     "S05/capped",
     "S05/chromium",
     "S05/lag",
-    "S05/webkit",
     "S06/capped",
     "S06/chromium",
     "S06/lag",
-    "S06/webkit",
     "S07/capped",
     "S07/chromium",
     "S07/lag",
-    "S07/webkit",
     "S08/capped",
     "S08/chromium",
     "S08/lag",
-    "S08/webkit",
     "S09/capped",
     "S09/chromium",
     "S09/lag",
-    "S09/webkit",
     "S10/capped",
     "S10/lag",
     "S10/webkit",
@@ -177,14 +144,11 @@ keys = [
     "S12/capped",
     "S12/chromium",
     "S12/lag",
-    "S12/webkit",
     "S13/capped",
     "S13/lag",
-    "S13/webkit",
     "S14/capped",
     "S14/chromium",
     "S14/lag",
-    "S14/webkit",
     "S16/capped",
     "S16/chromium",
     "S16/lag",
@@ -195,19 +159,15 @@ keys = [
     "S18/capped",
     "S18/chromium",
     "S18/lag",
-    "S18/webkit",
     "S21/capped",
     "S21/chromium",
     "S21/lag",
-    "S21/webkit",
     "S23/capped",
     "S23/chromium",
     "S23/lag",
-    "S23/webkit",
     "S24/capped",
     "S24/chromium",
     "S24/lag",
-    "S24/webkit",
 ]
 
 [memory]   # GiB
