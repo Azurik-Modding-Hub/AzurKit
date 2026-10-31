@@ -49,6 +49,8 @@ import struct
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
 
+from azurkit.core import iso
+
 from azurkit.tools.randomizer.ports import listed
 from azurkit.core.xbr.nodes import lstr, record_offsets
 from azurkit.core.xbr.nodes import TOC_ROW_SIZE, TOC_START, parse_toc
@@ -256,12 +258,14 @@ def write_plan(files: MutableMapping[str, bytearray], placement: Mapping[str, st
 
 def read_back(image, placement: Mapping[str, str], db) -> list[str]:
     """Every difference between ``image`` (an ISO path or an
-    :class:`~azurik_mod.iso.xiso.Image`) and ``placement``: each location
+    :class:`~azurkit.core.iso.Image`) and ``placement``: each location
     of the database decoded from its file in the image (its node section
     cut at the TOC size, the record a critterGenerator, its item that of
     the name it holds) against its planned item, else its vanilla one;
     and each level file's ``filelist.txt`` line against the file's md5
-    and size.  Empty when the image holds the plan.  One file at a time."""
+    and size (an image's :meth:`~azurkit.core.iso.Image.md5`: a file it
+    wrote with its md5 given isn't hashed again).  Empty when the image
+    holds the plan.  One file at a time."""
     from azurkit.tools.randomizer.ports import XisoReader
 
     base = {it["name"]: it.get("base", it["name"]) for it in db.items["item"]}
@@ -270,12 +274,13 @@ def read_back(image, placement: Mapping[str, str], db) -> list[str]:
         item = placement.get(lid, loc["item"])
         want.setdefault(lid.split("/", 1)[0], {})[lid] = base.get(item, item)
     out = []
+    md5 = image.md5 if isinstance(image, iso.Image) else lambda _, data: hashlib.md5(data).hexdigest()
     with XisoReader(image) as r:
         lines = {e.path.lower(): e for e in listed(r.read_file("filelist.txt"))}
         for stem, locs in sorted(want.items()):
-            data = r.read_file(f"gamedata/{stem}.xbr")
+            data = r.read_file(path := f"gamedata/{stem}.xbr")
             line = lines.get(f"{stem}.xbr")
-            if line is None or (line.md5, line.size) != (hashlib.md5(data).hexdigest(), len(data)):
+            if line is None or (line.md5, line.size) != (md5(path, data), len(data)):
                 out.append(f"{stem}.xbr: its filelist.txt line doesn't name its md5 and size")
             node_entries = [e for e in parse_toc(data) if e.tag == "node"]
             sections: dict[int, tuple[memoryview, list]] = {}

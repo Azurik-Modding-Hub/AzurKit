@@ -192,11 +192,21 @@ class Image:
     those before it) applied, zero-filled up to ``size``. It reads
     ``source`` and the writes' buffers when it is read, so neither may
     change before then: ``origin`` is ``source``'s size, modification and
-    change times when :func:`read` read it, which :func:`pack` holds it to."""
+    change times when :func:`read` read it, which :func:`pack` holds it to;
+    ``md5s`` the md5 :func:`read`'s caller gave of a file it wrote, with
+    those bytes (``{key(path): (md5, bytes)}``: :meth:`md5`)."""
     source: Path
     writes: tuple[tuple[int, bytes], ...] = field(repr=False)
     size: int
     origin: tuple[int, int, int] | None = field(default=None, compare=False)   # source's size, mtime, ctime as read
+    md5s: Mapping[str, tuple[str, bytes]] = field(default_factory=dict, repr=False, compare=False)
+
+    def md5(self, path: str, data: bytes) -> str:
+        """The md5 of ``data``, the file at ``path`` as read back from the
+        image: the md5 :func:`read` was given for the bytes it wrote there
+        when ``data`` is those bytes (compared, never assumed), else hashed."""
+        held = self.md5s.get(key(path))
+        return held[0] if held is not None and data == held[1] else filelist.md5(data)
 
     def segments(self) -> list[Copy | Bytes | Zero]:
         """The image as pieces that cover it once, in order, each as large
@@ -313,13 +323,14 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
     (a truncated input, say), and ``FileNotFoundError`` a name the image
     doesn't have, before anything is written (D35). ``md5s`` (``{path:
     md5}``) gives the md5 of a file of ``files`` a caller hashed already
-    (``filelist.rewrite``'s)."""
+    (``filelist.rewrite``'s), which the image keeps (:meth:`Image.md5`)."""
     path = Path(path)
     stat = path.stat()
     have = stat.st_size
     writes: list[tuple[int, bytes]] = []
     with Reader(path) as r:
         files = dict(files or {})
+        given = {key(name): (md5, files[name]) for name, md5 in (md5s or {}).items() if name in files}
         if files:
             files.update(_listing(r, files, md5s))
         base, end = r.base, _sectors(have - r.base)    # the first sector past the image
@@ -340,7 +351,7 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
     size = max([have, *(at + len(data) for at, data in writes)])
     if end > first:
         size = base + -(-end // _PAD) * _PAD * SECTOR
-    image = Image(path, tuple(writes), size, _origin(stat))
+    image = Image(path, tuple(writes), size, _origin(stat), given)
     try:
         _check(image)
     except ValueError as exc:

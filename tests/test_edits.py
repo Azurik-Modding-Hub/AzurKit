@@ -5,10 +5,12 @@ share preset carries a recipe (WEB §4.2, Q174)."""
 from __future__ import annotations
 
 import base64
+import collections
 import concurrent.futures
 import functools
 import hashlib
 import json
+import random
 import re
 import zlib
 
@@ -17,7 +19,7 @@ import pytest
 from azurkit import __version__, sdk
 from azurkit.core import gate, iso
 from azurkit.edits import manifest as edits
-from azurkit.edits import preset
+from azurkit.edits import layer, preset
 from azurkit.edits.layer import Change, Layer, compose
 from azurkit.tools.randomizer import needs, tracking
 from azurkit.tools.randomizer.planner import fill as rando_fill
@@ -116,6 +118,78 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
     assert compose(BASE, [packs, swap, data], known) == compose(BASE, [packs, swap, data])
     with pytest.raises(ValueError, match=r"written whole against another b\.bin$"):
         compose(BASE, [swap], known | {"b.bin": _sha256(b"X")})
+
+
+COMPOSE_SETS = {   # each row's random layer sets: seed, sets, files and groups at most, a change's odds of being
+    # written whole and of being planned against other bytes
+    "ranges of two groups": (1, 1500, 2, 2, 0.0, 0.0),
+    "ranges of six groups, a group again in later layers": (2, 1500, 3, 6, 0.0, 0.0),
+    "whole files under and over ranges": (3, 1500, 3, 3, 0.08, 0.0),
+    "refusals among them": (4, 1000, 3, 3, 0.04, 0.02),
+}
+
+
+def test_compose_with_runs_makes_the_files_conflicts_and_refusals_byte_by_byte_compose_makes(monkeypatch):
+    """``compose`` keeps a file's range writes as runs until another
+    group's write meets one (``layer.RUNS``), and over random layer sets
+    (range and whole-file changes over small files of four byte values,
+    overlapping or not, by the same group again or another, some planned
+    against other bytes) it gives the files, the conflicts and the refusals
+    it gives keeping every byte's writers (Step 4.3v)."""
+    def composed(base: dict, layers: list, runs: bool) -> tuple | str:
+        monkeypatch.setattr(layer, "RUNS", runs)
+        try:
+            files, conflicts = compose(base, layers)
+        except ValueError as exc:
+            return str(exc)
+        return {name: bytes(data) for name, data in files.items()}, conflicts
+
+    seen = collections.Counter()
+    for row, (seed, sets, most, groups, whole, other) in COMPOSE_SETS.items():
+        rng = random.Random(seed)
+
+        def some(n: int) -> bytes:
+            return bytes(rng.randrange(4) for _ in range(n))
+        for k in range(sets):
+            base = {f"f{n}.bin": some(rng.randint(8, 64)) for n in range(rng.randint(1, most))}
+            layers = []
+            for at_layer in range(rng.randint(1, 4)):
+                changes = []
+                for _ in range(rng.randint(1, 6)):
+                    file, group = rng.choice(sorted(base)), f"g{rng.randrange(groups)}"
+                    if rng.random() < whole:
+                        after = some(len(base[file]) + rng.randint(-4, 4))
+                        changes.append(Change(file, 0, _sha256(base[file]), after, group, whole=True))
+                        continue
+                    n = rng.randint(0, 12)
+                    at = rng.randint(0, max(len(base[file]) - n, 0))
+                    before = base[file][at:at + n] if rng.random() >= other else b"other"
+                    changes.append(Change(file, at, _sha256(before), some(n), group))
+                layers.append(Layer(f"layer {at_layer}", "t", "k", {}, tuple(changes)))
+            runs = composed(base, layers, True)
+            assert runs == composed(base, layers, False), (row, k)
+            seen[row, "refused" if isinstance(runs, str) else "conflicts" if runs[1] else "clean"] += 1
+    assert all(seen[row, "clean"] and seen[row, "conflicts"] for row in COMPOSE_SETS), seen
+    assert seen["refusals among them", "refused"] and seen["whole files under and over ranges", "refused"], seen
+
+
+def test_a_builds_image_gives_the_md5_its_layout_hashed_only_for_the_bytes_hashed(tmp_path):
+    """The image a build makes keeps the md5 its layout hashed of each
+    changed file (``iso.read``'s ``md5s``), so the randomizer's read-back
+    hashes no level file again (Step 4.3v); ``Image.md5`` gives it for that
+    file, its path matched case-blind, only when the bytes read back are
+    the bytes hashed (compared, never assumed), and hashes any other."""
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(BASE))
+    stamp = gate.Stamp(gate.USA, src, src.stat().st_size, src.stat().st_mtime_ns, False)
+    made, _ = edits.image(stamp, [_layer("a", _change("a.bin", 0, b"AAAA", "a 1"))])
+    with iso.Reader(made) as r:
+        data = r.read("a.bin")
+    assert made.md5s == {iso.key("a.bin"): (hashlib.md5(data).hexdigest(), data)}
+    told = iso.read(src, {"a.bin": data}, md5s={"a.bin": "0" * 32})   # a given md5, to see where it is taken
+    assert told.md5("/A.BIN", data) == "0" * 32
+    assert told.md5("a.bin", b"B" + data[1:]) == hashlib.md5(b"B" + data[1:]).hexdigest()
+    assert told.md5("b.bin", BASE["b.bin"]) == hashlib.md5(BASE["b.bin"]).hexdigest()
 
 
 def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(tmp_path, monkeypatch):

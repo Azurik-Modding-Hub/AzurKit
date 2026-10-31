@@ -128,7 +128,8 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     ``ValueError`` naming why the build fails (D35: the randomizer's
     read-back against its plan). The stamp vouches for its build files'
     sha256 (none is hashed again); ``map(fn, items)`` (a host's threads'; the
-    built-in by default) hashes each changed file, once a build."""
+    built-in by default) hashes each changed file, once a build, and the
+    image keeps each one's md5 for the read-back (:meth:`iso.Image.md5`)."""
     names = sorted({c.file for la in layers for c in (*la.changes, *la.claims)})
     base = dict(base or {})
     with iso.Reader(stamp.path) as r:

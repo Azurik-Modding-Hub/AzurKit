@@ -54,7 +54,7 @@ def _toc_header(data: bytes | bytearray | memoryview) -> tuple[int, int]:
     return count, data_start
 
 
-@functools.lru_cache(maxsize=16)
+@functools.lru_cache(maxsize=64)   # every level file's, vanilla and built (23 each): a build parses each once
 def _entries(rows: bytes, data_start: int) -> tuple[TocEntry, ...]:
     out = []
     for k, (rel, size, raw, flags) in enumerate(struct.iter_unpack("<II4sI", rows)):

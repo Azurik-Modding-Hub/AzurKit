@@ -39,6 +39,7 @@ against the vanilla file with it.
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -46,6 +47,7 @@ from dataclasses import dataclass, field
 from azurkit.core import xbe
 
 DERIVED = {"default.xbe": xbe.grown}   # a file a layer may claim room in -> its derived header state
+RUNS = True   # compose keeps a file's range writes as runs until another group's meets one; False: byte by byte (tests)
 
 
 @dataclass(frozen=True)
@@ -119,18 +121,55 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[s
     group writing a file whole, a group of a whole file and ranges, or a
     whole file a claim derives (D35). ``known`` gives the sha256 of a file
     of ``base`` (a stamp's, which vouches for it) where a whole change is
-    planned against it, in place of hashing it."""
+    planned against it, in place of hashing it.
+
+    A file's range writes are kept as runs, each its group's, while no two
+    groups' meet (:data:`RUNS`): the first write that meets another group's
+    replays the file's writes byte by byte, which every later write of it
+    follows, so the files and conflicts are the byte-by-byte ones."""
     derived = claimed(base, layers)
     known = {file: sha for file, sha in (known or {}).items() if file not in derived}
     base = {**base, **derived}
-    files: dict[str, bytearray] = {file: bytearray(base[file]) for file in {c.file for la in layers for c in la.claims}}
+    files: dict[str, bytearray] = {}
     writers: dict[tuple[str, int], list[tuple[int, str]]] = {}   # a byte -> the range groups holding its value
     members: dict[tuple[int, str], list[Change]] = {}
     whole: dict[str, tuple[int, str]] = {}   # a file written whole -> its group
     put: dict[str, bytes] = {}               # -> its bytes, under every range group's
     conflicts: list[Conflict] = []
+    runs: dict[str, list[list]] = {}         # a file's range writes as sorted, disjoint [start, end, group] runs
+    written: dict[str, list[tuple[int, int, tuple[int, str]]]] = {}   # -> those writes, in order
+    bytewise = set() if RUNS else {c.file for la in layers for c in la.changes}   # files kept in writers
+
+    def start(file: str, data: bytes) -> bytearray:   # the file's own copy, made once
+        files[file] = buf = bytearray(data)
+        return buf
+
+    def by_byte(file: str) -> None:   # the file's runs replayed into writers, as every write of it from now on
+        bytewise.add(file)
+        runs.pop(file, None)
+        for a, b, group in written.pop(file, ()):
+            for at in range(a, b):
+                writers.setdefault((file, at), []).append(group)
+
+    def run(file: str, a: int, b: int, group: tuple[int, str]) -> bool:
+        """[a, b) recorded as ``group``'s run, merged with its own runs it
+        meets; ``False``, with nothing recorded, where another group's meets it."""
+        spans = runs.setdefault(file, [])
+        lo = bisect.bisect_right(spans, a, key=lambda s: s[0])
+        lo -= 1 if lo and spans[lo - 1][1] > a else 0
+        hi = lo
+        while hi < len(spans) and spans[hi][0] < b:
+            if spans[hi][2] != group:
+                return False
+            hi += 1
+        if hi > lo:
+            a, b = min(a, spans[lo][0]), max(b, spans[hi - 1][1])
+        spans[lo:hi] = [[a, b, group]]
+        return True
 
     def drop(group: tuple[int, str]) -> None:   # a range group: each byte back to the whole file's, else vanilla
+        for c in members[group]:
+            by_byte(c.file)
         for c in members.pop(group):
             for at in range(c.offset, c.offset + len(c.after)):
                 held = writers[c.file, at]
@@ -139,6 +178,8 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[s
                     del writers[c.file, at]
                     files[c.file][at] = (put[c.file] if c.file in put else base[c.file])[at]
 
+    for file in sorted({c.file for la in layers for c in la.claims}):
+        start(file, base[file])
     for i, layer in enumerate(layers):
         for c in layer.changes:
             what = f"{layer.id} ({c.group})"
@@ -160,10 +201,10 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[s
                         conflicts.append(Conflict(c.file, ats[0], len(ats), layer.id, c.group, layers[group[0]].id,
                                                   group[1]))
                 whole[c.file], put[c.file] = (i, c.group), c.after
-                files[c.file] = bytearray(c.after)
+                start(c.file, c.after)
                 members.setdefault((i, c.group), []).append(c)
                 continue
-            buf = files.setdefault(c.file, bytearray(base[c.file]))
+            buf = files[c.file] if c.file in files else start(c.file, base[c.file])
             end = c.offset + len(c.after)
             if c.offset < 0 or end > min(len(buf), len(base[c.file])):
                 raise ValueError(f"{what}: 0x{c.offset:X}+{len(c.after)} is outside {c.file}")
@@ -173,6 +214,12 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[s
             if under and put[c.file][c.offset:end] not in (base[c.file][c.offset:end], c.after):
                 raise ValueError(f"{what}: {layers[under[0]].id} ({under[1]}) wrote {c.file} whole with other bytes "
                                  f"at 0x{c.offset:X}")
+            if c.file not in bytewise and (end == c.offset or run(c.file, c.offset, end, (i, c.group))):
+                written.setdefault(c.file, []).append((c.offset, end, (i, c.group)))
+                buf[c.offset:end] = c.after   # no other group's write holds these bytes: it overwrites none
+                members.setdefault((i, c.group), []).append(c)
+                continue
+            by_byte(c.file)
             hit: dict[tuple[int, str], list[int]] = {}
             for at, value in enumerate(c.after, c.offset):
                 for group in writers.get((c.file, at), ()):
