@@ -305,10 +305,15 @@ def _vanilla(beam: int) -> _Checker:
 def logic_for(db, movement: Movement, tier: str):
     """(:class:`~.planner.solver.Logic` of ``db`` under ``movement``, the
     :class:`Recheck`): the fill and the spoiler read it; ``db`` itself
-    (its digest, the writer) is unchanged."""
+    (its digest, the writer) is unchanged. Under vanilla movement it is
+    the kept Logic of ``db`` when there is one (:func:`~.planner.loader.kept_for`,
+    Step 2.221: a build's plan on the tracker's Logic, not another built)."""
+    from azurkit.tools.randomizer.planner.loader import kept_for
     from azurkit.tools.randomizer.planner.solver import Logic
 
     rc = recheck(db, movement, tier)
+    if rc.levels is db.levels and (kept := kept_for(db)) is not None:
+        return kept, rc
     return Logic(db if rc.levels is db.levels else replace(db, levels=rc.levels)), rc
 
 

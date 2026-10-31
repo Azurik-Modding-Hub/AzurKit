@@ -3,12 +3,12 @@
 # in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.art each picture's digest.
 
 [rando]
-tag = "oracle-rando-5"
-commit = "28d0b411000f1b228e73d48b930ead27058b9221"
+tag = "oracle-rando-6"
+commit = "8bfef0ca63811e7efc87359eb2d5ef35d1458a4b"
 
 [rando.files]
 "cases.json" = "470635b0cded0e03386de8e319080709b3d5bde5ec246a52593fc738d4cd6faa"
-"oracle.json" = "e619ca390b00fd1c41b419691fcb8769c37881d5bfa0610ada50874824b157f8"
+"oracle.json" = "bb014d619fd8ea0944debfab0d24aea4fd394583524d9c4be7e5d9a321ff6f9c"
 "tests/goldens/europe/pipelines.json" = "6532611502a306cfabb10d1d7ab855b28e98e1d82759d37380900eaeb5c70d10"
 "tests/goldens/pipelines.json" = "0b56c9bbc4c738dec7601680800f7b268a82b207547be81c7fb67aecb9266aac"
 "tests/goldens/rando_iso.json" = "80b6e05925d0d79a958d5f18a4d1b1ba0fcac552f2346119842d0e958833180c"
@@ -131,12 +131,12 @@ commit = "28d0b411000f1b228e73d48b930ead27058b9221"
 "src/azurkit/tools/randomizer/live/link.py" = "2c9ff5c0f7be22151dc75d8c6ecaa1f31816d21bac37849ab3e1a6fc7a0eff57"
 "src/azurkit/tools/randomizer/live/pages.py" = "831ab0679cc104cba4635149cbd9d3e6451eb7f732d9f94b86b6489b387ae0e9"
 "src/azurkit/tools/randomizer/live/recipes.py" = "fd98dca61d5e976b7e713ee8357001a0cacb4727993ce00b930e831d63b3e66d"
-"src/azurkit/tools/randomizer/movement.py" = "3e6464970edf11ecf9090bb39fd76091601b862260ae7939596513b8df6c30bc"
+"src/azurkit/tools/randomizer/movement.py" = "e91fcd0cd3f0b30e67771271d40e0279ff375a17f9bd61cbefb4611838128438"
 "src/azurkit/tools/randomizer/physics.py" = "5fad3f238e5f533d4ac867a496fa17be336157a4d5fc0b728fdb7b369d5486c6"
 "src/azurkit/tools/randomizer/planner/__init__.py" = "b811b57c459bba93fa58591ef3baab95ca3457091d11129c0559b3191acebeac"
-"src/azurkit/tools/randomizer/planner/fill.py" = "f708fd1ecd213f57c8d0ffd4f2c1fe292a59991ca3074814ed0c9ba18f7c3c0e"
+"src/azurkit/tools/randomizer/planner/fill.py" = "4de5ae154a3327bb524bd6b1d295c6f57651bf30b1b6ca6cc35f1841bd3cdcc7"
 "src/azurkit/tools/randomizer/planner/grammar.py" = "98f8bae41e5df5b9a05f5980c7648d2792c9097b63332ee3b9d99e7b2bc35eca"
-"src/azurkit/tools/randomizer/planner/loader.py" = "7f7820d81265a1f63915f73bd7784dc9ccffd3aecf299dc660089965836671ed"
+"src/azurkit/tools/randomizer/planner/loader.py" = "188277b5b365dacb643cf0530548fb63486eaf0067ebcd120df8bbe32d2c5138"
 "src/azurkit/tools/randomizer/planner/plan.py" = "59a1553a6766bebce902dfb2e90c2de384bf8155263d1e00cd7e94014eb42cfa"
 "src/azurkit/tools/randomizer/planner/proofs.py" = "5831da99ffb47cde4c2ec83edea71efa942765aa32d41824cd45b424cc1344b0"
 "src/azurkit/tools/randomizer/planner/settings.py" = "2c45dd1bf3462a350f17c0983653fad2b637c9170e22950321175dd0b0d632e9"

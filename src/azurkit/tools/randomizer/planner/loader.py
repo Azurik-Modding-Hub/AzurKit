@@ -32,7 +32,7 @@ import pickle
 import re
 import tomllib
 import zlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -55,6 +55,11 @@ from azurkit.tools.randomizer.planner.solver import Logic
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 VERSION = 1
+# A host's hooks (Step 2.221), None by default: NOTE(label, done, total) hears each of the checks
+# :func:`check_database` runs and "building its logic"; SHIPPED(root) is a Logic of ``root``'s checked database
+# the host already holds (AzurKit's shipped one), or None, and :func:`kept_logic` builds it as before
+NOTE: Callable[[str, int, int], object] | None = None
+SHIPPED: Callable[[Path], Logic | None] | None = None
 FORMATS = {kind: f"azurik-rando-{kind}/{VERSION}"
            for kind in ("generated", "derived", "level", "items", "world", "settings", "tricks", "route", "movement",
                         "contact")}
@@ -1586,22 +1591,13 @@ class _Checker:
         }
 
     def run(self) -> Report:
-        self.read()
-        self.schema()
-        self.registries()
-        self.item_rules()
-        self.levels_rules()
-        self.skip_rules()
-        self.cycles()
-        self.gates()
-        self.terminal_reads()
-        self.tricks_rules()
-        self.settings()
-        self.route_rules()
-        self.movement_rules()
-        self.hygiene()
+        steps = len(_CHECKS) + 1
+        for k, (label, check) in enumerate(_CHECKS):
+            _note(label, k, steps)
+            getattr(self, check)()
         database = None
         if not self.issues:
+            _note("building its logic", len(_CHECKS), steps)
             database = Database(
                 root=self.root, generated=self.gen, levels=self.levels, items=self.items, world=self.world,
                 tricks=self.tricks, route=self.route, settings=self.parsed_settings, stubs=frozenset(self.stubs),
@@ -1642,6 +1638,19 @@ class _Checker:
         return Report(self.issues, self.summary(), database)
 
 
+_CHECKS = (("reading its files", "read"), ("checking their format", "schema"), ("checking the registries", "registries"),
+           ("checking the items", "item_rules"), ("checking the levels", "levels_rules"),
+           ("checking the skips", "skip_rules"), ("checking for cycles", "cycles"), ("checking the gates", "gates"),
+           ("checking the victory's reads", "terminal_reads"), ("checking the tricks", "tricks_rules"),
+           ("checking the settings", "settings"), ("checking the vanilla route", "route_rules"),
+           ("checking the movement", "movement_rules"), ("checking the rest", "hygiene"))   # _Checker.run's, in order
+
+
+def _note(label: str, done: int, total: int) -> None:
+    if NOTE is not None:
+        NOTE(label, done, total)
+
+
 def check_database(root: Path | str = DATA_DIR, texts: Mapping[str, str] | None = None) -> Report:
     """Apply every load check to the database at ``root``; never raises for
     bad data (each problem is an :class:`Issue` in the report). ``texts``
@@ -1659,30 +1668,49 @@ def load_database(root: Path | str = DATA_DIR) -> Database:
     return dbcache.load(Path(root), _load)
 
 
-_KEPT: dict[Path, tuple[str, bytes, bytes, Logic]] = {}   # root -> (its cache key, its database's and tables' digests)
+_KEPT: dict[Path, tuple[str, Database, bytes, Logic]] = {}   # root -> (its cache key, its database, its tables' digest)
 _MEMOS = frozenset({"db", "_compiled", "_defaults", "_inside", "_kit_memo"})   # what a Logic fills in as it is asked
 
 
 def kept_logic(root: Path | str = DATA_DIR) -> Logic:
     """``Logic(load_database(root))``, built once a process (Step X.57: a
-    test run built the shipped database's 38 times in its 8 processes).
-    It is served again while ``root``'s files and the planner's code are as
-    they were (:func:`.dbcache.entry`'s key: a different database never
-    gets it) and while neither its database nor a table of its own was
-    changed in place since it was built (their pickles are as they were
-    then: their sha256). Treat it as read-only."""
+    test run built the shipped database's 38 times in its 8 processes;
+    :data:`SHIPPED`'s when it has one). It is served again while
+    ``root``'s files and the planner's code are as they were
+    (:func:`.dbcache.entry`'s key: a different database never gets it),
+    while it holds the database it was built with (the same object), and
+    while its own tables pickle to the sha256 they had then (a table changed
+    in place, or a location or skip row of its database, which they hold).
+    Step 2.221: the database's own 87.5 MB pickle is no longer hashed a
+    call (0.7 s, 87 times in the tracker's first ask), so treat the Logic
+    and its database as read-only: a holder that wants another database
+    hands it one (``logic.db = replace(logic.db, ...)``) or builds its own."""
     from azurkit.tools.randomizer import dbcache
 
     root = Path(root).resolve()
     key = dbcache.entry(root).name
     if (kept := _KEPT.get(root)) is not None:
-        was, state, tables, logic = kept
-        if was == key and _tables(logic) == tables and _digest(logic.db) == state:
+        was, db, tables, logic = kept
+        if was == key and logic.db is db and _tables(logic) == tables:
             return logic
-    logic = Logic(load_database(root))
+    if (logic := SHIPPED(root) if SHIPPED is not None else None) is None:
+        db = load_database(root)
+        _note("building its logic", 0, 1)
+        logic = Logic(db)
     if (tables := _tables(logic)) is not None:
-        _KEPT[root] = (key, _digest(logic.db), tables, logic)
+        _KEPT[root] = (key, logic.db, tables, logic)
     return logic
+
+
+def kept_for(db: Database) -> Logic | None:
+    """The kept Logic (:func:`kept_logic`'s) of ``db`` (the same object),
+    its tables as it was built, else None (none is built): what
+    :func:`~azurkit.tools.randomizer.movement.logic_for` hands back under
+    vanilla movement (Step 2.221: a build's plan on the tracker's Logic)."""
+    for _, was, tables, logic in list(_KEPT.values()):
+        if was is db and logic.db is db and _tables(logic) == tables:
+            return logic
+    return None
 
 
 def _digest(value) -> bytes:

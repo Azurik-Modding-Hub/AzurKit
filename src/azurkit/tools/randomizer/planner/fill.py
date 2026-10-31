@@ -98,6 +98,8 @@ USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward maj
 _DIGEST_DROP = frozenset({"_meta", "note", "description",   # RANDOMIZER_DB §9: no comments, display names or hints
                           "gate_hint", "do_save", "teleport_gate", "enabled_by", "update", "input"})
 _TWO53 = 1 << 53
+NOTE: Callable[[str, int, int | None], object] | None = None   # a host's hook (Step 2.221), None by default:
+#                                                               (label, the reaches so far, None) at each attempt's reach
 
 
 class Rng:
@@ -301,6 +303,7 @@ class _Slots:
         self.kind = {loc: ("cluster", locs[loc]["yield"]) if locs[loc]["class"] == "cluster"
                      else locs[loc]["class"] if locs[loc]["class"] == "gem" else "nongem" for loc in self.pool}
         self.major = frozenset(loc for loc in self.pool if locs[loc]["class"] == "major")
+        self.reaches = 0                        # the attempts' reaches so far (NOTE's count)
 
     def holds(self, loc: str, item: str) -> bool:
         """Whether ``loc``'s proven mark holds for ``item`` under these options."""
@@ -411,6 +414,9 @@ class _Slots:
         assumed = collections.Counter(self.vanilla[loc] for loc in todo if self.vanilla[loc] in read)
 
         def reach(at: Mapping[str, str] | None = None) -> Reach:
+            if NOTE is not None:
+                self.reaches += 1
+                NOTE("placing the items", self.reaches, None)
             return lg.reach(settings, {**placed, **(at or {})}, sorted(assumed.elements()), traps=False)
 
         def put(loc: str, item: str) -> None:
@@ -602,8 +608,25 @@ def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
     defaults when None), from the first of :data:`MAX_ATTEMPTS` attempts
     that passes; :class:`FillError` otherwise, before any attempt when the
     settings starve it (:meth:`_Slots.starved`). The same inputs give the
-    same placement in any process."""
+    same placement in any process. The process's last fill is kept by its
+    Logic and the database it holds (the same objects), seed and
+    :func:`settings_digest` (what the solver reads of the settings), and a
+    call on those again gets a copy of it (Step 2.221: a build after Track
+    this seed fills once)."""
     st = settings if settings is not None else logic.db.defaults
+    key = (str(seed), settings_digest(st))
+    if (last := _LAST_FILL[0]) is not None and last[0] is logic and last[1] is logic.db and last[2] == key:
+        made = last[3]
+    else:
+        made = _fill(logic, str(seed), st)
+        _LAST_FILL[0] = (logic, logic.db, key, made)
+    return Fill(made.seed, st, made.attempt, dict(made.placement), made.failed, made.repaired)
+
+
+_LAST_FILL: list = [None]   # the process's last fill: (its Logic, its database, (seed, settings digest), the Fill)
+
+
+def _fill(logic: Logic, seed: str, st: Settings) -> Fill:
     slots = _Slots(logic, st)
     if (refused := slots.starved(st)) is not None:
         raise refused
@@ -619,7 +642,7 @@ def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
                 stuck.add(exc.item)
             continue
         layout(placement, logic.db)     # the writer's own check (never over a budget): a WriteError is a bug
-        return Fill(str(seed), st, k, placement, tuple(reasons), tuple(f"attempt {k}: {r}" for r in repaired))
+        return Fill(seed, st, k, placement, tuple(reasons), tuple(f"attempt {k}: {r}" for r in repaired))
     raise FillError(f"{MAX_ATTEMPTS} attempts failed; the last: {reasons[-1]}", sorted(stuck), slots.open_proven(),
                     reasons)
 
