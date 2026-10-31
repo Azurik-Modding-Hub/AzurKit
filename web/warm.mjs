@@ -2,10 +2,11 @@
 // read, asked of the worker ahead while the page asks nothing (D1007: background work, dropped on a change), in two
 // phases: phase A (phaseA), at ready, on intent only (Randomize on in the remembered setup, a tracked plan
 // remembered, or the Randomizer tab opened): the randomizer's logic and the world map, the Randomizer tab's answer
-// for the remembered setup, the remembered plan's tracker view and, with Randomize on, the remembered seed's plan at
-// that answer's share string, each answer kept (memo.mjs); phase B (phaseB), after the first pick of an image: its
-// check and the Characters tab's pickers. A dress is the second worker's (one heavy job at a time, terminated after
-// it), not this queue's. The species' and the tracker's pictures ship with the page: nothing to warm for them.
+// for the remembered setup and the remembered plan's tracker view, each answer kept (memo.mjs; the remembered seed's
+// plan is the plan ahead's, AM-HUB-D's B: one ask of the one worker that a change couldn't drop); phase B (phaseB),
+// after the first pick of an image: its check and the Characters tab's pickers. A dress is the second worker's (one
+// heavy job at a time, terminated after it), not this queue's. The species' and the tracker's pictures ship with the
+// page: nothing to warm for them.
 //
 // Warm runs one item at a time, each one ask of the worker (item.run()), started only while the page has no ask in
 // flight (call()), so a page's ask waits behind at most one item in the worker's queue. An item in flight can't be
@@ -179,9 +180,8 @@ export function intent({ setup, tracked, opened = false } = {}) {
 
 // Phase A's items (none without intent), each one ask through ask(type, fields) (the page's call to the worker:
 // its reply), its answer kept in memo under space (memo.mjs): the logic and the world map ({type: "warm"}), with
-// tab (the Randomizer tab's ask for the remembered setup, as the page makes it) the tab's answer and, Randomize on
-// with a seed, that seed's plan at the answer's share string (Track's recipe); with tracked the plan last tracked's
-// view, as the page asks it on reopening.
+// tab (the Randomizer tab's ask for the remembered setup, as the page makes it) the tab's answer; with tracked the
+// plan last tracked's view, as the page asks it on reopening.
 export function phaseA({ memo, space, ask, setup, tracked, tab, opened = false }) {
   if (!intent({ setup, tracked, opened })) return [];
   const kept = async (call, args, fields) => {   // a refusal fails the item (the page's own ask names it)
@@ -198,15 +198,8 @@ export function phaseA({ memo, space, ask, setup, tracked, tab, opened = false }
                     [plan.sha256, given.marks, given.gems]));
   }
   if (tab && typeof tab === "object") {
-    const answered = () => kept("randomizer", tab, { given: tab });
-    items.push(item("tab", "plan", "Reading the randomizer's settings", answered, tab));
-    const seed = typeof setup?.randomizer?.seed === "string" ? setup.randomizer.seed.trim() : "";
-    if (setup?.randomizer?.on === true && seed) {
-      items.push(item("plan", "plan", `Planning seed ${seed}`, async () => {
-        const recipe = { seed, share: (await answered()).answer.share };
-        return kept("plan", recipe, { recipe });
-      }, [tab, seed]));
-    }
+    items.push(item("tab", "plan", "Reading the randomizer's settings", () => kept("randomizer", tab, { given: tab }),
+                    tab));
   }
   return items;
 }

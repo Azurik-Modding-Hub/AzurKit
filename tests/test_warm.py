@@ -160,7 +160,6 @@ let release;
 const ask = async (type, fields) => {
   asked.push(type);
   if (type === "randomizer") return { share: "AZR-AAEA", settings: fields.given };
-  if (type === "plan") return { plan: { seed: fields.recipe.seed, share: fields.recipe.share } };
   if (type === "tracker") return { head: { sha256: fields.given.plan.sha256 }, marks: fields.given.marks };
   if (type === "slow") await new Promise((r) => (release = r));
   return {};
@@ -201,7 +200,7 @@ asked.length = 0;
 w.put(phaseA({ memo, space, ask, setup: { randomizer: { on: true, seed: " 2 " } }, tab: { share: "AZR-AAEA" },
                tracked: { plan, marks: { p: { collected: ["x"] } } } }));
 await w.idle();
-out.phaseA = [[...asked], await memo.get("plan", { seed: "2", share: "AZR-AAEA" }, space),
+out.phaseA = [[...asked],
               await memo.get("tracker", { plan, marks: { collected: ["x"] }, spoiler: false, gems: false }, space),
               w.status()];
 const file = { name: "usa.iso", size: 1, lastModified: 2 };
@@ -216,9 +215,10 @@ def test_the_sites_warm_up_asks_the_worker_one_item_at_a_time_only_while_the_pag
     while a page's ask is in flight; a change drops the queued item and
     leaves the one in flight's answer counting for nothing, its new inputs
     asked next; a page's ask that needs an item has it asked first, the rest
-    after the ask; phase A, on intent only, keeps the tab's answer, the
-    remembered seed's plan at its share string and the tracked plan's
-    view; phase B checks the picked image."""
+    after the ask; phase A, on intent only, keeps the tab's answer and the
+    tracked plan's view, the remembered seed's plan left to the plan ahead
+    (one worker ask a change couldn't drop); phase B checks the picked
+    image."""
     uri = lambda name: json.dumps((ROOT / "web" / name).as_uri())   # noqa: E731
     run = subprocess.run(["node", "--input-type=module", "--eval", SITE % (uri("warm.mjs"), uri("memo.mjs"))],
                          capture_output=True, text=True, timeout=120)
@@ -228,8 +228,7 @@ def test_the_sites_warm_up_asks_the_worker_one_item_at_a_time_only_while_the_pag
     assert out["change"] == [["slow", "s2"], "dropped"]
     assert out["need"] == [[True, ["y"], ["z", "x"]], ["y", "z", "x"], False, True]
     assert out["intent"] == 0
-    assert out["phaseA"] == [["warm", "warm", "tracker", "randomizer", "plan"],
-                             {"plan": {"seed": "2", "share": "AZR-AAEA"}},
+    assert out["phaseA"] == [["warm", "warm", "tracker", "randomizer"],
                              {"head": {"sha256": "p"}, "marks": {"collected": ["x"]}},
-                             {"done": 5, "total": 5, "stage": None, "label": "", "ready": True}]
+                             {"done": 4, "total": 4, "stage": None, "label": "", "ready": True}]
     assert out["phaseB"] == [["image", "check", ["usa.iso", 1, 2]]]
