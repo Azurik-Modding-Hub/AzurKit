@@ -135,8 +135,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 
 - **Checks your game first:** the files a build reads against the original USA or Europe disc (`azurkit verify`
   checks every file); a modded image is refused, naming the first file that differs.
-- **Checked once:** your image is checked the first time you pick it, then trusted until it changes (in the app, while it
-  runs), in the browser across visits too; saved on the same Mac drive as your original, a build writes only what it
+- **Checked once:** your image is checked the first time you pick it, then trusted until it changes, across launches
+  of the app and visits in the browser; saved on the same Mac drive as your original, a build writes only what it
   changed.
 - **Your original stays safe:** a build never writes over the image it reads.
 - **All or nothing:** if anything fails, nothing is written, and the error says what and why.
@@ -168,6 +168,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **The app stays quick while it builds:** a build runs in a process of its own, so picking an image and the other
   tabs answer at once, and dressing a character spreads over your CPU's cores.
 - **Save is quick in the app:** it writes the image Build made, already checked while you chose where to save it.
+- **Dressed once, in the app:** a character's body, pictures and G4 numbers are kept (up to 2 GB in your cache
+  folder), so building or drawing it again, after a relaunch too, takes a second or two.
 - **A private app:** its page is served only to itself, with a fresh key each launch.
 - **The command line:** `azurkit verify`, `packs`, `build`, `open`, `plan` and `spoiler`; the app doubles as it.
 - **Dark or light:** your pick is remembered, and both are easy to read.

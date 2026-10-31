@@ -18,7 +18,10 @@ hashed there on a thread from the moment it is made, so its Save writes
 that image (``sdk.save``) without planning it again and takes the hash
 (or waits on it); a save whose build that process no longer keeps (a
 cancel's new process) or whose input changed since builds it again
-(``sdk.build``), as before. Closing kills the
+(``sdk.build``), as before. The app's (``Spawned(stores=True)``) keeps
+what it works out across launches (:mod:`.swapcache`: the images it
+checked, the swap's answers, and a character's pictures and G4 match by
+the same key). Closing kills the
 process (the server first waits on a save); a process whose parent is gone
 exits too (Cmd-Q runs no ``finally``), and ignores Ctrl-C, which the
 server answers. Every result and refusal crosses as a pickle, so
@@ -39,9 +42,9 @@ import threading
 from collections.abc import Callable, Mapping
 
 from azurkit import sdk
-from azurkit.core import iso
+from azurkit.core import gate, iso
 from azurkit.core.progress import record
-from azurkit.tools import randomizer
+from azurkit.tools import characters, randomizer
 
 
 class Cancelled(Exception):
@@ -130,8 +133,40 @@ def _save(recipe: Mapping, out: str, build: str | None = None,
     return sdk.build(recipe, out, progress=lambda done, total: report(record("write", None, done, total)))
 
 
+def _kept(job: str, fn: Callable[[Mapping], dict]) -> Callable[[Mapping], dict]:
+    """``fn`` (``sdk.preview``, ``sdk.match``), its answer kept in
+    ``tools.characters.CACHE`` (the app's store, across launches) under the
+    swap's key (``characters.cache_key``: the swap's code, the vanilla
+    release the image was checked as, the character, the packs as asked and
+    the content folder), where there is one and the image is one the gate
+    vouched for as it is now (``gate.vouched``); else ``fn``'s answer."""
+    def run(recipe: Mapping) -> dict:
+        key = None
+        if characters.CACHE is not None and isinstance(recipe, Mapping) and isinstance(recipe.get("iso"), str):
+            try:
+                stamp = gate.vouched(recipe["iso"], whole=False)
+                if stamp is not None:   # a recipe file's character (variant_file) is never kept: cache_key's None
+                    key = characters.cache_key(job, characters.normalize(recipe.get("character")), stamp.release,
+                                               extra=recipe.get("packs"))
+            except (OSError, ValueError, TypeError):
+                key = None   # fn names what it refuses
+        if key is not None and (blob := characters.CACHE.get(key)) is not None:
+            try:
+                return pickle.loads(blob)
+            except Exception:   # a store from another AzurKit: worked out again
+                pass
+        found = fn(recipe)
+        if key is not None:
+            characters.CACHE.put(key, pickle.dumps(found, pickle.HIGHEST_PROTOCOL))
+        return found
+    return run
+
+
+_previewed = _kept("preview", lambda recipe: sdk.preview(recipe))
+
+
 def _preview(recipe: Mapping) -> dict:
-    return {k: base64.b64encode(v).decode() for k, v in sdk.preview(recipe).items()}
+    return {k: base64.b64encode(v).decode() for k, v in _previewed(recipe).items()}
 
 
 def _warmed(job: Callable, always: bool = False) -> Callable:
@@ -147,7 +182,7 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 
 JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                              "plan": _warmed(lambda recipe: sdk.plan(recipe), always=True),
-                             "preview": _preview, "match": lambda recipe: sdk.match(recipe)}
+                             "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe))}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``save``: a
 ``core.progress`` record a call)."""
 KILLS = {"image"}
@@ -193,8 +228,9 @@ class _Child:
 class Spawned:
     """The engine in a process of its own (the module's docstring)."""
 
-    def __init__(self):
+    def __init__(self, stores: bool = False):
         self._context = multiprocessing.get_context("spawn")
+        self._stores = stores   # the process keeps its stamps and swap answers across launches (:mod:`.swapcache`)
         self._lock = threading.Lock()   # the process in use, spawning the next, closing
         self._ids = itertools.count(1)
         self._closed, self._warms = False, {}
@@ -208,7 +244,7 @@ class Spawned:
 
     def _spawn(self) -> _Child:
         here, there = self._context.Pipe()
-        process = self._context.Process(target=_main, args=(there,), name="azurkit-engine")
+        process = self._context.Process(target=_main, args=(there, self._stores), name="azurkit-engine")
         process.start()
         there.close()
         child = _Child(process, here)
@@ -363,13 +399,16 @@ WARMS = {"randomizer": _warm_logic, "image": _warm_image}
 """What :meth:`Spawned.warm` reads ahead: ``{what: fn(*args)}``."""
 
 
-def _main(conn) -> None:
+def _main(conn, stores: bool = False) -> None:
     """The engine's process: each call on a thread of its own, its answers
-    and its save's progress sent back as they come."""
-    from . import procpool
+    and its save's progress sent back as they come; with ``stores``, what it
+    works out kept across launches (:mod:`.swapcache`)."""
+    from . import procpool, swapcache
 
     orphaned()
     procpool.install()   # the swap's parallel work in children of this process
+    if stores:
+        swapcache.install()
     sending, stops = threading.Lock(), {}
 
     def send(kind: str, ident: int, value) -> None:

@@ -739,6 +739,34 @@ def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso
         procpool.stop()
 
 
+def test_a_bodys_answers_kept_in_the_apps_store_build_the_same_image_and_miss_when_a_layer_or_the_content_changes(
+        usa_iso, no_content, tmp_path, monkeypatch):
+    """Step 4.3i: the swap's answers kept in the app's store
+    (``app.swapcache.Folder`` as ``characters.CACHE``, a launch's on the
+    same folder) build keylord's image as a fresh dress builds it, without
+    working its size and plan out again; an earlier layer changed (a pack
+    ticked) works out its plan again, and a changed content folder both."""
+    from azurkit.app import swapcache
+
+    kept = []
+
+    class Counted(swapcache.Folder):
+        def put(self, key: str, data: bytes) -> None:
+            kept.append(key)
+            super().put(key, data)
+
+    def keylord(packs: dict) -> list:
+        monkeypatch.setattr(characters, "CACHE", Counted(tmp_path / "swap"))   # this launch's store
+        made, _ = sdk.image({"iso": str(usa_iso), "packs": packs, "character": {"species": "keylord"}})
+        return [(at, _sha256(data)) for at, data in made.writes]
+    first = keylord({})
+    assert len(kept) == 2 and keylord({}) == first and len(kept) == 2   # its size and plan, then from the store
+    keylord({"fps_unlock": {}})
+    assert len(kept) == 3   # the plan over another layer; the size kept
+    (content.ROOT / "installed.json").write_text(json.dumps({"booblord": {"version": 1, "source": "", "files": {}}}))
+    assert keylord({}) == first and len(kept) == 5
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release, request):
     """G3's ``seed=0,all`` (Modkit's ``randomize-full --seed 0`` with

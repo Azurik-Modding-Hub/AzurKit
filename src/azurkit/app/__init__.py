@@ -83,6 +83,11 @@ sdk's) comes back as ``{"refused": message}``; one build or save runs at a
 time. Closing the app cancels either (:meth:`Server.quit`, AZ-823) and
 never waits on a build (the app's engine process: it ends it).
 
+The app (:func:`main`) keeps the images it checked and the swap's answers
+across launches in platformdirs' cache folder (:mod:`.swapcache`), so an
+image picked again isn't hashed again and a body dressed once isn't
+dressed again; ``serve`` alone (the tests') keeps nothing past its process.
+
 The tests run with :data:`NO_WINDOW` set (``tests/conftest.py``): the owner
 works on this screen (D839), so there :func:`main` refuses at once, before it
 serves anything or opens a window or a browser tab. ``serve`` (``python -m
@@ -117,7 +122,7 @@ from azurkit.tools.randomizer.live import link
 
 from . import art as pictures
 from . import engine as engines
-from . import live
+from . import live, swapcache
 from .engine import Cancelled
 
 SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
@@ -703,7 +708,8 @@ def main(argv: list[str] | None = None) -> int:
     if not (PAGE / "index.html").is_file():
         print(f"azurkit: {PAGE}: no index.html (the page)", file=sys.stderr)
         return 1
-    server = serve(engine=engines.Spawned())
+    swapcache.install()   # the images checked and the swap's answers, kept across launches (the engine's too)
+    server = serve(engine=engines.Spawned(stores=True))
     try:
         if argv:
             print(server.url, flush=True)

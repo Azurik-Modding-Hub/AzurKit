@@ -815,6 +815,40 @@ def test_the_apps_save_writes_the_image_its_build_made_planned_once_and_hashed_f
         engine._drop()
 
 
+def test_a_second_launch_of_the_app_hashes_no_image_it_checked_and_dresses_no_body_it_matched(tmp_path, monkeypatch,
+                                                                                            usa_iso):
+    """Step 4.3i: the app's stores (``app.swapcache``, in the user cache
+    folder) keep across launches the images the gate vouched for
+    (``gate.STAMPS``) and a character's G4 match (``tools.characters.CACHE``,
+    the swap's key): a second launch's pick of the same image hashes
+    nothing, and its G4 dresses nothing, the same answers. Without the
+    stores (``serve``'s), each launch works them out again."""
+    from azurkit.app import swapcache
+    from azurkit.tools import characters
+
+    monkeypatch.setattr(gate, "STAMPS", None)
+    monkeypatch.setattr(characters, "CACHE", None)
+    hashed, dressed, digests, dress = [], [], sdk._digests, sdk._dress
+    monkeypatch.setattr(sdk, "_digests", lambda *args: hashed.append(1) or digests(*args))
+    monkeypatch.setattr(sdk, "_dress", lambda recipe: dressed.append(1) or dress(recipe))
+    recipe = {"iso": str(usa_iso), "packs": {}, "character": {"species": "keylord"}}
+
+    def launch() -> tuple[dict, dict]:   # this process's memos gone, as a new launch's
+        sdk._STAMPS.clear()
+        sdk._MATCHES.clear()
+        return sdk.vanilla(str(usa_iso)), engine.JOBS["match"](recipe)
+    try:
+        first = launch()
+        assert (hashed, dressed) == ([1], [1])
+        swapcache.install(tmp_path / "cache")
+        assert launch() == first and (hashed, dressed) == ([1, 1], [1, 1])
+        swapcache.install(tmp_path / "cache")   # the next launch's stores, on the same folder
+        assert launch() == first and (hashed, dressed) == ([1, 1], [1, 1])
+    finally:
+        sdk._STAMPS.clear()
+        sdk._MATCHES.clear()
+
+
 def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_spoiler(tmp_path, monkeypatch, usa_iso):
     """From the app's api in-process (Step 4.2c1): ``api/randomizer`` gives
     the Randomizer tab's view (``sdk.randomizer_settings``); ``api/build``

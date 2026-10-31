@@ -821,7 +821,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   it is made (`iso.digest`), and `api/build` answers its id: Save sends it
   back, so `api/save` writes that image (`sdk.save`, the hash taken or
   waited on), or builds the recipe again (`sdk.build`) when the engine keeps
-  it no more (a cancel's new process) or its input changed. In-process `app.serve()` (the tests') runs
+  it no more (a cancel's new process) or its input changed. `main()`
+  keeps, in its process and its engine's (`Spawned(stores=True)`), what
+  they work out across launches (`azurkit.app.swapcache`, in platformdirs'
+  cache folder): the images the gate vouched for (`gate.STAMPS`,
+  `stamps.json`) and the swap's answers (`characters.CACHE`, `swap/`, the
+  newest used kept to 2 GiB), with a character's pictures and G4 match
+  under the swap's key (`characters.cache_key`, the packs as asked);
+  `serve()` and `Spawned()` keep nothing past their process. In-process `app.serve()` (the tests') runs
   them on the request's thread (`engine.Here`), so a test's stand-in sdk
   call takes. A script that calls `app.main` guards it with `if __name__ ==
   "__main__"` (spawn imports the main script again). The page takes the image's path
