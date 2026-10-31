@@ -1092,6 +1092,59 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
         served.close()
 
 
+RETIRING = """async (source) => {
+    const code = source.slice(source.indexOf("const KEEP = "),
+                              source.indexOf("\\n}\\n", source.indexOf("function siteEngine(")) + 3);
+    const workers = [];
+    class Fake {
+        constructor() { this.got = []; this.stopped = false; workers.push(this); }
+        postMessage(message) { this.got.push(message.type); }
+        terminate() { this.stopped = true; }
+    }
+    const fakes = { state: { violations: [], asks: new Map() }, asking: () => 0, answered: () => {}, posted: () => {},
+                    unchecked: () => {},
+                    location: { href: "https://azurkit.test/" }, Blob: function () {}, Worker: Fake,
+                    URL: Object.assign(function (url) { this.href = url; },
+                                       { createObjectURL: () => "blob:", revokeObjectURL: () => {} }) };
+    const engine = new Function(...Object.keys(fakes), `${code}\\nreturn siteEngine;`)(...Object.values(fakes))(
+        { ready: () => {}, built: () => {}, refused: () => {}, failed: () => {} });
+    const [first] = workers;
+    first.onmessage({ data: { type: "ready", catalog: {}, version: "0" } });
+    engine.build(null, {}, [], { seed: "2" }, null);
+    first.onmessage({ data: { type: "built", report: { plan: { sha256: "0" } }, heap: 2 ** 31 } });   // past KEEP
+    const preview = engine.call("preview", {}, { once: true });
+    const seen = [first.got.includes("preview")];
+    first.onmessage({ data: { type: "spoiled", text: "" } });
+    const next = workers[1];
+    seen.push(first.stopped, next.got.includes("preview"));
+    next.onmessage({ data: { type: "ready", catalog: {}, version: "0" } });
+    next.onmessage({ data: { type: "reply", call: 1, reply: { drawn: true } } });
+    seen.push(next.got.includes("preview"), await preview);
+    const match = engine.call("match", {}, { once: true });
+    next.onerror({ preventDefault: () => {}, message: "" });
+    return [...seen, await match, workers.length];
+}"""
+"""The site's engine (``web/app.mjs``'s ``siteEngine``) on fake workers: a seed's build whose heap the page doesn't
+keep, a Characters preview asked before its spoiler arrives, the next worker's answer, then a G4 match that worker
+was sent before it stopped: [the preview sent to the retiring worker, that worker stopped, the preview sent to the
+next before it loads, after, the preview's answer, the match's, the workers started]."""
+
+
+def test_a_characters_ask_made_while_a_seeds_worker_retires_waits_for_the_next_and_only_a_sent_one_is_refused(browser):
+    """Step 4.3m (the review's D1): a worker the page doesn't keep after a
+    seed's build stays until it has sent the spoiler; a once ask (a
+    Characters preview or a G4 match) made meanwhile is never sent to it,
+    and the worker that replaces it answers it. Only a once ask a stopped
+    worker was sent is refused, as out of memory."""
+    page = browser.new_page()
+    try:
+        assert page.evaluate(RETIRING, (web_tools.ROOT / "web" / "app.mjs").read_text(encoding="utf-8")) == [
+            False, True, False, True, {"drawn": True},
+            {"refused": "The engine stopped before it answered (out of memory?): try again, or use the desktop app"}, 3]
+    finally:
+        page.close()
+
+
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):
     """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe.

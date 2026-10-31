@@ -232,8 +232,9 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     waits.delete(kind);
   };
   const pending = new Map();   // the tracker's asks in flight (call id -> its message and answer), sent again to a
-                               // worker that replaces one stopped before it answered (a once ask is answered refused:
-                               // a dress that ran the engine out of memory isn't tried again)
+                               // worker that replaces one stopped before it answered (a once ask it was sent is
+                               // answered refused: a dress that ran the engine out of memory isn't tried again); an
+                               // ask made while the worker loads or retires waits, unsent, for the next one
   const start = () => {
     loaded = false;
     const entry = new URL("worker.mjs", location.href).href;
@@ -247,7 +248,10 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
         engine = [data.catalog, data.version];
         state.workers = (state.workers ?? 0) + 1;   // the workers that loaded, for the tests
         if (content) worker.postMessage({ type: "content", ...content });   // what this browser keeps installed
-        for (const [, { message }] of pending) worker.postMessage(message);
+        for (const ask of pending.values()) {
+          ask.sent = true;
+          worker.postMessage(ask.message);
+        }
         ready(data.catalog, data.version);
       } else if (data.type === "progress") {
         const { type, ...step } = data;
@@ -309,8 +313,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     spoiled?.({ refused: "The engine stopped before it gave the spoiler: build the seed again" });
     spoiled = null;
     for (const kind of [...waits.keys()]) end(kind);   // a stopped worker answers none of them
-    for (const [call, { once, done }] of pending) {
-      if (!once) continue;
+    for (const [call, { once, sent, done }] of pending) {
+      if (!once || (!sent && loaded)) continue;   // unsent, it waits for the worker that replaces this one
       pending.delete(call);
       done({ refused: "The engine stopped before it answered (out of memory?): try again, or use the desktop app" });
     }
@@ -331,8 +335,9 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
         answered(id);
         resolve(reply);
       };
-      pending.set(message.call, { message, done, once });
-      if (loaded) worker.postMessage(message);
+      const sent = loaded && !retiring;   // a retiring worker is stopped once it has sent the spoiler
+      pending.set(message.call, { message, done, once, sent });
+      if (sent) worker.postMessage(message);
     }),
     content: (files, installed) => {
       content = { files, installed };
