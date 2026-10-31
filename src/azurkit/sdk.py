@@ -1,5 +1,5 @@
 """The one surface a UI calls: :func:`catalog`, :func:`verify`,
-:func:`vanilla`, :func:`image`, :func:`build`, :func:`open_build`,
+:func:`vanilla`, :func:`image`, :func:`save`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
@@ -10,9 +10,11 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 community entries). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
-(``iso.Image.segments``). A refusal is a
+(``iso.Image.segments``), or :func:`save` writes. A refusal is a
 ``ValueError`` or ``OSError`` whose message names what it refuses and why,
-never game bytes; a build that fails writes nothing (D35).
+never game bytes; a build that fails writes nothing (D35). A long call
+reports its named stages to a host's ``progress`` (``core.progress``'s
+record: ``{"stage", "label", "done", "total", "percent"}``).
 ``tests/sdk_api.txt`` is this surface's snapshot (``scripts/sdk_api.py``).
 
 A recipe names its image, every pack it applies, each with its sliders'
@@ -89,6 +91,7 @@ from pathlib import Path
 
 from azurkit import __version__
 from azurkit.core import gate, iso
+from azurkit.core.progress import Steps
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
@@ -96,7 +99,7 @@ from azurkit.tools import characters, mods, randomizer
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
-__all__ = ["catalog", "verify", "vanilla", "image", "build", "open_build", "read_mods", "preset_encode",
+__all__ = ["catalog", "verify", "vanilla", "image", "save", "build", "open_build", "read_mods", "preset_encode",
            "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
            "content", "content_install", "content_check", "pickers", "match", "preview"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
@@ -165,13 +168,14 @@ def _packs(recipe: object) -> dict[str, dict]:
     return packs
 
 
-def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None,
-                                   generator.Prepared | None]:
+def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None,
+                                                         generator.Prepared | None]:
     """The recipe's vanilla image (its build files checked, D27), the files
     read from it, its randomizer's layer (its plan written, the first), each
     pack's layer, then its xbr operations' (the Data tool's, after the
     packs), the randomizer's read-back of the built image and its plan
-    (``None`` without one); every refusal named."""
+    (``None`` without one); every refusal named. ``steps`` hears each
+    stage."""
     packs = own = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     character = characters.normalize(recipe["character"]) if "character" in recipe else None
@@ -179,24 +183,28 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
         raise ValueError("recipe: iso names no image")
     prepared = None
     if "randomizer" in recipe and character is None:
+        steps("plan")
         prepared = generator.prepare(recipe["randomizer"], packs)
     elif "randomizer" in recipe:   # checked now; planned below, on the walk and roll the body's size folds
         generator.check(recipe["randomizer"])
-    stamp = gate.verify(recipe["iso"], whole=False)
+    stamp = gate.verify(recipe["iso"], whole=False, progress=steps.counter("check"))
     folded = vanilla = None
     inputs: dict[str, dict[str, float]] = {}
     if character is not None:   # the worn body's size folds into the walk and roll first (Modkit's size_params)
         from azurkit.tools.characters import ports
 
         vanilla = ports.Vanilla(stamp.release, stamp.path)
+        steps("size", f"Sizing {character['species']}")
         folded = characters.size(character, vanilla)
         enabled, params = rando_layer.size_params(list(packs), packs, folded)
         if (fold := params.get(rando_layer.SIZE_PACK, {}).pop(rando_layer.SIZE_FOLD, None)) is not None:
             inputs[rando_layer.SIZE_PACK] = {rando_layer.SIZE_FOLD: fold}   # the speed toggle's walk and roll
         packs = mods.normalize({name: params.get(name, {}) for name in enabled})
         if "randomizer" in recipe:   # Modkit's randomize-full: the plan stands on the folded sliders (AZ-383)
+            steps("plan")
             prepared = generator.prepare(recipe["randomizer"], packs)
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
+    steps("read")
     with iso.Reader(stamp.path) as r:
         names = [f for pack in chosen.values() for f in pack.files()] + xbr.files(ops)
         names += generator.files(prepared) if prepared else []
@@ -208,21 +216,25 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
         reasons = generator.movement_reasons(packs, catalog()["packs"])   # the worn body's join them below
 
         def judge(made: iso.Image, manifest: edits.Manifest) -> dict:
+            steps("judge")
             return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
                                                         reasons)}
-    failed += _pack_layers(stamp, chosen, packs, base, layers, inputs)
+    failed += _pack_layers(stamp, chosen, packs, base, layers, inputs, steps)
     if folded is not None:   # its recipe holds the walk and roll as asked: a rebuild folds the size in again (AZ-829)
         asked = {"pack": rando_layer.SIZE_PACK, "params": own.get(rando_layer.SIZE_PACK, {})}
         layers = [dataclasses.replace(la, recipe=asked) if la.id == f"pack {rando_layer.SIZE_PACK}" else la
                   for la in layers]
     if character is not None and not failed:
+        steps("dress", f"Dressing {character['species']}")
         layer, lines, body = characters.plan(character, vanilla, layers,
-                                             characters.packs_view(stamp.release, mods.PACKS), folded)
+                                             characters.packs_view(stamp.release, mods.PACKS), folded,
+                                             note=lambda label: steps("dress", label))
         if prepared is not None:   # Modkit's check_movement: its packs' reasons, then the body's
             reasons += body
         layers.append(Layer(layer.id, layer.tool, layer.kind, layer.recipe, layer.changes, layer.claims,
                             tuple(line.strip() for line in lines)))
     if ops:
+        steps("data")
         try:
             layers.append(xbr.plan(ops, stamp.release, base))
         except ValueError as exc:
@@ -233,11 +245,12 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
 
 
 def _pack_layers(stamp: gate.Stamp, chosen: Mapping, packs: Mapping, base: Mapping[str, bytes], layers: list[Layer],
-                 inputs: Mapping[str, dict] = {}) -> list[str]:
+                 inputs: Mapping[str, dict] = {}, steps: Steps = Steps()) -> list[str]:
     """Each ``chosen`` pack's layer appended to ``layers`` (past their
     claims), in order; each pack's refusal, named."""
     failed = []
-    for name, pack in chosen.items():
+    for i, (name, pack) in enumerate(chosen.items()):
+        steps("pack", f"Applying {name}", i, len(chosen))
         try:
             layers.append(mods.plan(pack, stamp.release, base, packs[name], [c for la in layers for c in la.claims],
                                     inputs.get(name)))
@@ -356,7 +369,11 @@ def preview(recipe: Mapping) -> dict:
     return picker.preview(bodies, picker.body_of(config, bodies, character["species"]))
 
 
-def _report(made: edits.Manifest, prepared: generator.Prepared | None) -> dict:
+_SPOILERS: dict[str, tuple[generator.Prepared, dict]] = {}   # the last build's spoiler left out, by its plan's sha256
+
+
+def _report(made: edits.Manifest, prepared: generator.Prepared | None, steps: Steps = Steps(),
+            spoiler: bool = True) -> dict:
     out = {"release": made.release.name, "label": made.release.label,
            "layers": [{"id": la.id, "sites": len({c.group for c in la.changes}),
                        "bytes": sum(len(c.after) for c in la.changes)} for la in made.layers],
@@ -365,11 +382,18 @@ def _report(made: edits.Manifest, prepared: generator.Prepared | None) -> dict:
     if prepared is not None:
         verdict = made.verdicts[generator.TOOL]
         tracking.prime(prepared.plan.doc, prepared.logic)
-        out |= {"randomizer": verdict, "spoiler": generator.spoiler(prepared, verdict), "plan": prepared.plan.doc}
+        out |= {"randomizer": verdict, "plan": prepared.plan.doc}
+        if spoiler:
+            steps("spoiler")
+            out["spoiler"] = generator.spoiler(prepared, verdict)
+        else:   # kept for spoiler(plan, built=True)
+            _SPOILERS.clear()
+            _SPOILERS[prepared.plan.doc["sha256"]] = (prepared, verdict)
     return out
 
 
-def image(recipe: Mapping) -> tuple[iso.Image, dict]:
+def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
+          spoiler: bool = True) -> tuple[iso.Image, dict]:
     """The image ``recipe`` builds, unwritten, and its report: the release,
     each layer's sites and bytes, the sha256 of each file that differs from
     vanilla, every conflict (D28) and each layer's notes (a slider value
@@ -378,11 +402,43 @@ def image(recipe: Mapping) -> tuple[iso.Image, dict]:
     settings, plan sha256, the movement sliders it stands on,
     ``logic_verified`` with each reason it is false, ``why_not``, and the
     placements a later layer changed, ``conflicts``) and its spoiler
-    (``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file) and
-    its plan (``plan``: the plan file's object, which :func:`tracker` reads)."""
-    stamp, base, layers, judge, prepared = _plan(recipe)
+    (``spoiler``: the text of Modkit's ``randomize-full --spoiler`` file; left
+    out with ``spoiler`` false, then :func:`spoiler` of its plan with
+    ``built`` gives it) and its plan (``plan``: the plan file's object, which
+    :func:`tracker` reads). ``progress(record)`` hears each named stage
+    (``core.progress``): checking the image (its bytes, the first time),
+    planning the seed, sizing and dressing the body, reading its files,
+    applying each pack (done of total), the data edits, laying out the
+    image, reading it back against the plan and writing the spoiler; an
+    exception it raises stops the build."""
+    steps = Steps(progress)
+    stamp, base, layers, judge, prepared = _plan(recipe, steps)
+    steps("layout")
     made, manifest = edits.image(stamp, layers, base, judge=judge)
-    return made, _report(manifest, prepared)
+    return made, _report(manifest, prepared, steps, spoiler)
+
+
+def save(made: iso.Image, out: str, *, progress: Callable[[dict], object] | None = None,
+         sha256: Callable[[], str] | None = None) -> dict:
+    """Write ``made``, an image :func:`image` returned, to ``out`` (never its
+    input or a vanilla image, D36) as :func:`build` writes its recipe's,
+    without planning it again: ``{"out", "size", "sha256"}``. An input that
+    changed since the build read it is refused by name (D27), with nothing
+    written. ``progress(record)`` follows the write (``core.progress``'s
+    ``write``, in bytes); an exception it raises cancels it, and nothing is
+    written. ``sha256``: ``() -> str``, the image's sha256 as a host hashed
+    it (``iso.digest``, from Build on), called once the bytes are written;
+    else it is hashed as they are."""
+    target = Path(out)
+    _never_vanilla(target)
+    sha = iso.pack(made, target, Steps(progress).counter("write"), sha256=sha256)
+    return {"out": str(target), "size": target.stat().st_size, "sha256": sha}
+
+
+def _never_vanilla(target: Path) -> None:
+    for release in gate.RELEASES:
+        if (vanilla := gate.find(release)) and target.exists() and target.samefile(vanilla):
+            raise ValueError(f"{target}: it is the vanilla {release.label} image, which a build never writes over")
 
 
 def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] | None = None) -> dict:
@@ -392,9 +448,7 @@ def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] |
     exception it raises cancels it, and nothing is written."""
     stamp, base, layers, judge, prepared = _plan(recipe)
     target = Path(out)
-    for release in gate.RELEASES:
-        if (vanilla := gate.find(release)) and target.exists() and target.samefile(vanilla):
-            raise ValueError(f"{target}: it is the vanilla {release.label} image, which a build never writes over")
+    _never_vanilla(target)
     sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress, judge=judge)
     return _report(manifest, prepared) | {"out": str(target), "size": target.stat().st_size, "sha256": sha256}
 
@@ -539,12 +593,23 @@ def plan(recipe: Mapping) -> dict:
     return randomizer.plan(recipe)
 
 
-def spoiler(plan: Mapping) -> dict:
+def spoiler(plan: Mapping, *, built: bool = False) -> dict:
     """``{"lines": [...]}``, the spoiler of a plan file's object: its
     settings, the spheres with each progression item's obtain and return
     paths, the traps and the rest. A plan from another database, format or
-    generator, or an edited one, is refused by name."""
-    return {"lines": randomizer.spoiler(plan)}
+    generator, or an edited one, is refused by name. ``built``: the spoiler
+    of the randomized build of that plan this engine made last with
+    :func:`image`'s ``spoiler`` false (its build's spoiler on the logic the
+    build stands on, ``{"lines", "text"}``: the text its report would have
+    held), refused by name once this engine keeps it no more (another
+    build's since, or another engine)."""
+    if not built:
+        return {"lines": randomizer.spoiler(plan)}
+    sha = plan.get("sha256") if isinstance(plan, Mapping) else None
+    if (kept := _SPOILERS.get(sha)) is None:
+        raise ValueError("spoiler: this engine no longer keeps that build's spoiler: build it again")
+    text = generator.spoiler(*kept)
+    return {"lines": text.splitlines(), "text": text}
 
 
 def randomizer_settings(given: Mapping) -> dict:

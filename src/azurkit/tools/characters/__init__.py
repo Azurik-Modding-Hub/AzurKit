@@ -46,11 +46,16 @@ build's packs, and its picture (:mod:`.picker`).
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
+import json
 import math
-from collections.abc import Mapping, Sequence
-from pathlib import PurePath
+import pickle
+import sys
+from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path, PurePath
 
+from azurkit import __version__
 from azurkit.core import facts as facts_
 from azurkit.core import gate
 from azurkit.core.xbr.document import Document
@@ -73,6 +78,62 @@ VARIANT_OPTIONS = {   # a recipe's field -> _player_variants.options' keyword (M
     "mode": "mode", "size": "size", "sounds": "sounds", "attack_balance": "balance", "attack_ground": "ground",
     "anims": "anims", "scale": "scale", "attack_reach": "reach", "attack_damage": "damage", "attack_speed": "speed",
     "jiggle_strength": "jiggle_strength", "jiggle_stiffness": "jiggle_stiffness"}
+CACHE = None
+"""A host's store of the swap's answers, kept across calls and launches
+(``get(key) -> bytes | None``, ``put(key, bytes)``: the app's, in its user
+cache), or ``None`` (each is worked out again): :func:`size` and
+:func:`plan` keep theirs under :func:`cache_key`; a recipe file's
+(``variant_file``) never."""
+
+
+@functools.cache
+def _code() -> str:
+    """The sha256 of the code and data a swap's answer comes from (this
+    package, ``core``, ``edits`` and ``tools/mods``, AzurKit's version, and a
+    frozen app's executable): a cache key's first part."""
+    package = Path(__file__).resolve().parents[2]
+    h = hashlib.sha256(__version__.encode())
+    for top in ("tools/characters", "core", "edits", "tools/mods"):
+        for f in sorted((package / top).rglob("*")):
+            if f.is_file() and "__pycache__" not in f.parts:
+                h.update(f.relative_to(package).as_posix().encode() + b"\0" + f.read_bytes())
+    if getattr(sys, "frozen", False):   # its modules sit in the executable's archive, not as files
+        at = Path(sys.executable).stat()
+        h.update(f"{at.st_size} {at.st_mtime_ns}".encode())
+    return h.hexdigest()
+
+
+def cache_key(what: str, recipe: Mapping, release: gate.Release, before: Sequence[Layer] = (),
+              extra: object = None) -> str | None:
+    """The key :data:`CACHE` keeps ``what`` of ``recipe`` under on
+    ``release`` over the layers ``before`` (each one's recipe, changes and
+    claims), with ``extra`` (the size the walk and roll were folded with)
+    and the content folder's ``installed.json``; ``None`` without a
+    :data:`CACHE`, or for a recipe file's character."""
+    from azurkit.tools.characters import content as kit
+
+    if CACHE is None or "variant_file" in recipe:
+        return None
+    h = hashlib.sha256(json.dumps([what, _code(), release.name, release.iso_sha256, recipe, extra, kit.installed()],
+                                  sort_keys=True, default=str).encode())
+    for la in before:
+        h.update(json.dumps([la.id, la.tool, la.kind, la.recipe, [(c.file, c.offset, c.before, c.group, c.whole)
+                                                                   for c in la.changes],
+                             [dataclasses.astuple(c) for c in la.claims]], sort_keys=True, default=str).encode())
+        for c in la.changes:
+            h.update(hashlib.sha256(c.after).digest())
+    return h.hexdigest()
+
+
+def _kept(key: str | None, work: Callable[[], object]) -> object:
+    """``work()``'s answer, from :data:`CACHE` under ``key`` when it holds
+    it, else worked out and kept there."""
+    if key is not None and (blob := CACHE.get(key)) is not None:
+        return pickle.loads(blob)
+    found = work()
+    if key is not None:
+        CACHE.put(key, pickle.dumps(found, pickle.HIGHEST_PROTOCOL))
+    return found
 
 
 def normalize(given: object) -> dict:
@@ -148,7 +209,11 @@ def size(recipe: Mapping, vanilla) -> float:
     ``randomize-full`` folds it into the walk and roll sliders before its
     packs: the body dressed on a scratch staging of the vanilla files
     (``vanilla``, a ``ports.Vanilla``); ``ValueError`` for a species it can't
-    use."""
+    use. Kept in :data:`CACHE`."""
+    return _kept(cache_key("size", recipe, vanilla.release), lambda: _size(recipe, vanilla))
+
+
+def _size(recipe: Mapping, vanilla) -> float:
     from azurkit.tools.characters import ports
 
     swap = _swap()
@@ -276,7 +341,8 @@ def _over(vanilla, before: Sequence[Layer]):
 
 
 def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object] = (),
-         folded: float | None = None) -> tuple[Layer, list[str], list[str]]:
+         folded: float | None = None, note: Callable[[str], object] | None = None
+         ) -> tuple[Layer, list[str], list[str]]:
     """The character layer of ``recipe`` (:func:`normalize`'s) on the
     release of ``vanilla`` (a ``ports.Vanilla``), over the layers ``before``
     it (the randomizer's and the packs': what their files hold is what the
@@ -286,14 +352,23 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     config.xbr's cells each table it changes are a group of ranges, its
     shims' placements the layer's claims. ``folded``: the size the sdk
     folded into the walk and roll, which the dressed body must have (D35).
-    ``ValueError`` names why the swap can't be built."""
+    ``ValueError`` names why the swap can't be built. ``note(label)`` hears
+    the swap's named steps. Kept in :data:`CACHE`."""
+    return _kept(cache_key("plan", recipe, vanilla.release, before, folded),
+                 lambda: _plan(recipe, vanilla, before, packs, folded, note or (lambda label: None)))
+
+
+def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object], folded: float | None,
+          note: Callable[[str], object]) -> tuple[Layer, list[str], list[str]]:
     from azurkit.tools.characters import ports
 
     swap, release = _swap(), vanilla.release
+    note(f"Dressing {recipe['species']} (reading its files)")
     base, kept, current, staging = _over(vanilla, before)
     taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
     build = ports.Build(vanilla, taken=list(taken), packs=dict(packs))
     attack = swap.AttackLogic()
+    note(f"Dressing {recipe['species']}")
     with ports.building(build):
         worn, options = variant(recipe, vanilla)
         if worn is not None:   # Modkit's randomize-full: the base dressed with the variant's recipe
@@ -307,6 +382,7 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     if folded is not None and attack.size != folded:
         raise ValueError(f"character: the dressed body's size x{attack.size:.6g} isn't the x{folded:.6g} the walk "
                          "and roll were folded with")
+    note(f"Dressing {recipe['species']} (writing its files)")
     built = {path: bytes(buf) for path, buf in staging.changed().items()}
     if strays := sorted(set(built) - {XBE, CONFIG, *FILES}):
         raise ValueError(f"character: the swap wrote {', '.join(strays)}, which the character layer doesn't")

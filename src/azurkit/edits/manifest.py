@@ -143,6 +143,8 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
         manifest = replace(manifest, verdicts=dict(judge(made, manifest)))
     if root and layers:
         made = iso.read(stamp.path, changed, add=root_files(manifest))
+    if made.origin[:2] != (stamp.size, stamp.mtime_ns):   # the stamp vouches for the image as it was checked
+        raise ValueError(f"{stamp.path}: it changed after it was checked (D27); choose it again")
     return made, manifest
 
 

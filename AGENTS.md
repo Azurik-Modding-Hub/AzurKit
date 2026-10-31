@@ -567,6 +567,18 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   arrays take them as they are). No `math` or numpy libm call and no `**`
   but an integer's there; the previews' drawer (`draw.py`) writes no built
   byte and keeps numpy's. `tests/test_contracts.py` holds this.
+- **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
+  behaviour):** a long call reports its named stages to a host's
+  `progress(record)`, `core/progress.py`'s `{stage, label, done, total,
+  percent}` (`sdk.image`, `sdk.save`); `sdk.image(spoiler=False)` leaves a
+  seed's spoiler for `sdk.spoiler(plan, built=True)`; `sdk.save(made, out)`
+  writes the image a Build made without planning it again, refused once its
+  input changed since it was read (`iso.Image.origin`), its sha256 hashed as
+  written or the host's (`iso.digest` on a thread of the host's, `sha256=`);
+  `gate.STAMPS` is a host's store of the images it vouched for across
+  launches (by path, size, modification and change times) and
+  `characters.CACHE` its store of the swap's answers (`size`, `plan`, by
+  `characters.cache_key`).
 
 ## The two hosts (D866)
 

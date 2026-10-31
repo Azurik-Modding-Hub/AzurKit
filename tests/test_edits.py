@@ -109,6 +109,29 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
         edits.image(stamp, [stale])
 
 
+def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoiler_comes_on_demand(usa_iso, tmp_path):
+    """``sdk.image`` reports each named stage of a build as the progress
+    record (``core.progress``), in order; with ``spoiler`` false its report
+    leaves the spoiler out, and ``sdk.spoiler(plan, built=True)`` gives it
+    then. ``sdk.save`` writes the image the build made, without planning it
+    again, its sha256 the image's, following the write in the record."""
+    seen, writes = [], []
+    made, report = sdk.image({"iso": str(usa_iso), "packs": {"qol_alloc_race": {}}, "randomizer": {"seed": "2"}},
+                             progress=seen.append, spoiler=False)
+    assert list(dict.fromkeys(r["stage"] for r in seen)) == ["plan", "check", "read", "pack", "layout", "judge"]
+    check = [r for r in seen if r["stage"] == "check"]
+    assert (check[0]["label"], check[-1]["percent"]) == ("Checking your image", 100)
+    assert [r["label"] for r in seen if r["stage"] == "pack"] == ["Applying qol_alloc_race"]
+    assert "spoiler" not in report and report["randomizer"]["logic_verified"]
+    text = sdk.spoiler(report["plan"], built=True)["text"]
+    assert text.splitlines()[1] == "logic_verified: true" and text.splitlines()[0] in sdk.spoiler(report["plan"])["lines"]
+    out = tmp_path / "out.iso"
+    saved = sdk.save(made, str(out), progress=writes.append)
+    with open(out, "rb") as f:
+        assert saved == {"out": str(out), "size": made.size, "sha256": hashlib.file_digest(f, "sha256").hexdigest()}
+    assert saved["sha256"] == iso.digest(made) and (writes[0]["stage"], writes[-1]["percent"]) == ("write", 100)
+
+
 def _link(value: object, raw: bytes | None = None) -> str:
     """``value`` as a link's fragment, unchecked: JSON (or ``raw``), raw deflate, base64url."""
     squeeze = zlib.compressobj(9, zlib.DEFLATED, -15)

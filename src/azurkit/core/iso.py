@@ -6,6 +6,7 @@ of its files replaced.
     read(path, files, add=root)   and ``root`` ({name: bytes}) as new files in its root folder
     Image.segments()    the image as :class:`Copy`, :class:`Bytes` and :class:`Zero` pieces, in order
     pack(image, out)    writes the image; returns its sha256
+    digest(image)       the image's sha256, read through its segments (for a host's thread: pack's sha256=)
     Reader(path|Image)  its entries, a lookup, and a file's bytes, streamed
 
 The volume descriptor sits at sector 32 of the game partition (at 0 in an
@@ -188,10 +189,12 @@ class Image:
     input ``source`` with ``writes`` (``(offset, bytes)``, each laid over
     those before it) applied, zero-filled up to ``size``. It reads
     ``source`` and the writes' buffers when it is read, so neither may
-    change before then."""
+    change before then: ``origin`` is ``source``'s size, modification and
+    change times when :func:`read` read it, which :func:`pack` holds it to."""
     source: Path
     writes: tuple[tuple[int, bytes], ...] = field(repr=False)
     size: int
+    origin: tuple[int, int, int] | None = field(default=None, compare=False)   # source's size, mtime, ctime as read
 
     def segments(self) -> list[Copy | Bytes | Zero]:
         """The image as pieces that cover it once, in order, each as large
@@ -308,7 +311,8 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
     (a truncated input, say), and ``FileNotFoundError`` a name the image
     doesn't have, before anything is written (D35)."""
     path = Path(path)
-    have = os.path.getsize(path)
+    stat = path.stat()
+    have = stat.st_size
     writes: list[tuple[int, bytes]] = []
     with Reader(path) as r:
         files = dict(files or {})
@@ -332,7 +336,7 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
     size = max([have, *(at + len(data) for at, data in writes)])
     if end > first:
         size = base + -(-end // _PAD) * _PAD * SECTOR
-    image = Image(path, tuple(writes), size)
+    image = Image(path, tuple(writes), size, _origin(stat))
     try:
         _check(image)
     except ValueError as exc:
@@ -443,31 +447,60 @@ def _check(image: Image) -> None:
             raise ValueError(f"{a} and {b} share a sector")
 
 
-def pack(image: Image, out: str | os.PathLike, progress: Callable[[int, int], object] | None = None) -> str:
+def _origin(stat: os.stat_result) -> tuple[int, int, int]:
+    return stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+
+
+def pack(image: Image, out: str | os.PathLike, progress: Callable[[int, int], object] | None = None, *,
+         sha256: Callable[[], str] | None = None) -> str:
     """Write ``image`` to ``out`` and return its sha256, hashed as it is
-    written. ``out`` appears only once it is whole and on the disk (a fresh
-    ``.part`` beside it, fsynced, then renamed into place; D35), and it may
-    not be the image's input (D36). ``progress(done, total)`` is called
-    before the ``.part`` is made and after each :data:`CHUNK`; an exception
-    it raises cancels the write, and nothing is left behind."""
+    written, or ``sha256()``'s (the same bytes' hash, which a host started
+    earlier: :func:`digest` on a thread of its own), called once the bytes
+    are written. ``out`` appears only once it is whole and on the disk (a
+    fresh ``.part`` beside it, fsynced, then renamed into place; D35), and it
+    may not be the image's input (D36), nor written once that input has
+    changed since :func:`read` read it (``Image.origin``). ``progress(done,
+    total)`` is called before the ``.part`` is made and after each
+    :data:`CHUNK`; an exception it raises cancels the write, and nothing is
+    left behind."""
     out = Path(out)
     if out.exists() and out.samefile(image.source):
         raise ValueError(f"{out}: it is the build's input, which a build never writes over")
+    if (origin := getattr(image, "origin", None)) is not None and _origin(os.stat(image.source)) != origin:
+        raise ValueError(f"{image.source}: it changed after the build read it; build again")
     if progress is not None:
         progress(0, image.size)
     part = out.with_name(f"{out.name}.{os.urandom(4).hex()}.part")
-    digest, dst = hashlib.sha256(), open(part, "xb")
+    digest_, dst = hashlib.sha256(), open(part, "xb")
     try:
         with dst, image.open() as src:
             while data := src.read(CHUNK):
-                digest.update(data)
+                if sha256 is None:
+                    digest_.update(data)
                 dst.write(data)
                 if progress is not None:
                     progress(src.tell(), image.size)
             dst.flush()
             os.fsync(dst.fileno())
+        sha = digest_.hexdigest() if sha256 is None else sha256()
         os.replace(part, out)
     except BaseException:
         part.unlink(missing_ok=True)
         raise
-    return digest.hexdigest()
+    return sha
+
+
+def digest(image: Image, progress: Callable[[int, int], object] | None = None) -> str:
+    """The sha256 of ``image``'s bytes, as :func:`pack` writes them, read
+    through its segments :data:`CHUNK` at a time on the caller's thread;
+    ``progress(done, total)`` after each (an exception it raises stops
+    it)."""
+    h, buffer, done = hashlib.sha256(), bytearray(CHUNK), 0
+    view = memoryview(buffer)
+    with image.open() as src:
+        while n := src.readinto(view):
+            h.update(view[:n])
+            done += n
+            if progress is not None:
+                progress(done, image.size)
+    return h.hexdigest()

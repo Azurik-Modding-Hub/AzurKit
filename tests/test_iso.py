@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import _thread
 import hashlib
+import os
 import re
 import struct
 import threading
@@ -36,7 +37,8 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     writes over its input (D36), and pack returns the sha256 of what it
     wrote, reporting its progress (first before it makes its part file);
     an exception the progress callback raises cancels the write and leaves
-    nothing behind."""
+    nothing behind; given a host's ``sha256()``, it returns that, and once
+    the input has changed since it was read it writes nothing."""
     old = {"a.bin": fill("a", 90), "gamedata/big.xbr": fill("big", 3 * S), "gamedata/sub/c.xbr": fill("c", 100),
            "z.bin": fill("z", 10)}
     src = tmp_path / "in.iso"
@@ -71,6 +73,12 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     assert {p: s for p, s in after.items() if s != before[p]} == {"gamedata/big.xbr": end,
                                                                   "gamedata/sub/c.xbr": end + 4}
     assert len(data) % 0x10000 == 0
+    assert iso.pack(built, tmp_path / "given.iso", sha256=lambda: "given") == "given"   # a host's hash, from Build on
+    assert _sha256(tmp_path / "given.iso") == built.sha256() == iso.digest(built)
+    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1))
+    with pytest.raises(ValueError, match="it changed after the build read it"):   # D27: the input as the build read it
+        iso.pack(built, tmp_path / "late.iso")
+    assert not (tmp_path / "late.iso").exists()
 
 
 def _listing(files: dict[str, bytes]) -> bytes:

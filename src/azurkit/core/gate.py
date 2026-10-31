@@ -15,7 +15,9 @@ file's size and sha256, Modkit's at its last cut, AzurKit's own since Step 4.12a
 at a time on the caller's thread, and names the first file (in path order)
 that differs. A dump that isn't the whole vanilla image (another trim, or a
 whole disc) passes when its files match. It returns a :class:`Stamp`; it
-writes nothing.
+writes nothing. A host may keep the images it vouched for across launches
+(:data:`STAMPS`): an image with the same path, size, modification and
+change times as one it passed is not read again.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ import functools
 import hashlib
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +34,12 @@ from azurkit.core import iso
 
 _MANIFESTS = Path(__file__).with_name("manifests")
 BUILD_FILES = ("default.xbe", "filelist.txt", "gamedata/")   # what a build reads: a stamp for a build vouches for these
+STAMPS = None
+"""A host's store of the images :func:`verify` passed, kept across launches
+(``get(key) -> str | None``, ``put(key, str)``; the app's, in its user
+cache), or ``None`` (every image is read). A key names the image's path,
+size, modification and change times, what was checked and the manifests it
+was checked against."""
 
 
 @dataclass(frozen=True)
@@ -70,13 +79,19 @@ class NotVanillaError(ValueError):
 @dataclass(frozen=True)
 class Stamp:
     """What :func:`verify` found: the release, and the image it checked as
-    that image was then (its size and modification time). ``whole``: every
-    file was checked; else only :data:`BUILD_FILES`."""
+    that image was then (its size, modification and change times). ``whole``:
+    every file was checked; else only :data:`BUILD_FILES`."""
     release: Release
     path: Path
     size: int
     mtime_ns: int
     whole: bool
+    ctime_ns: int = 0
+
+    def holds(self, stat: os.stat_result) -> bool:
+        """Whether the image is still as it was checked (``stat``, its
+        ``os.stat`` now)."""
+        return (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns) == (self.size, self.mtime_ns, self.ctime_ns)
 
 
 def data_path(release: Release) -> Path:
@@ -99,7 +114,8 @@ def missing(release: Release) -> str:
     return f"set {release.env} or put it at {data_path(release)}"
 
 
-def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Release, ...] = RELEASES) -> Stamp:
+def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Release, ...] = RELEASES,
+           progress: Callable[[int, int], object] | None = None) -> Stamp:
     """The :class:`Stamp` of the image at ``path`` when it is one of
     ``releases``' vanilla images: every file of it (``whole``), or every one
     a build reads (:data:`BUILD_FILES`; the rest of the image is copied as it
@@ -107,15 +123,33 @@ def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Relea
     is missing, extra, or has another size or sha256, checked against the
     release whose ``default.xbe`` the image holds, else the one whose folders
     it has (a modded image), else the first of ``releases``. It reads only on
-    the caller's thread."""
+    the caller's thread; ``progress(done, total)`` follows the bytes it
+    hashes. An image :data:`STAMPS` holds as it is now isn't read."""
     path = Path(path)
     stat = path.stat()
+    keys = [_key(path, stat, w, releases) for w in ((True,) if whole else (False, True))]
+    if STAMPS is not None and (name := next(filter(None, map(STAMPS.get, keys)), None)):
+        if release := next((r for r in releases if r.name == name), None):
+            return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole, stat.st_ctime_ns)
     with iso.Reader(path) as r:
         have = {e.path: e for e in r.entries()}
         release = _release(r, have, releases)
-        if why := _first_difference(r, have, release, whole):
+        if why := _first_difference(r, have, release, whole, progress=progress):
             raise NotVanillaError(f"{path} is not the vanilla {release.label} image: {why}")
-    return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole)
+    if STAMPS is not None:
+        STAMPS.put(keys[0], release.name)
+    return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole, stat.st_ctime_ns)
+
+
+def _key(path: Path, stat: os.stat_result, whole: bool, releases: tuple[Release, ...]) -> str:
+    """:data:`STAMPS`' key for the image at ``path`` as ``stat`` finds it."""
+    return json.dumps([str(path.resolve()), stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, whole,
+                       [[r.name, _manifest_sha256(r.manifest)] for r in releases]])
+
+
+@functools.cache
+def _manifest_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def check(path: str | os.PathLike, release: Release, changed: dict[str, str], added: tuple[str, ...] = (), *,
@@ -155,10 +189,23 @@ def _release(r: iso.Reader, have: dict[str, iso.Entry], releases: tuple[Release,
 
 
 def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Release, whole: bool,
-                      changed: dict[str, str] | None = None, added: tuple[str, ...] = ()) -> str | None:
+                      changed: dict[str, str] | None = None, added: tuple[str, ...] = (), *,
+                      progress: Callable[[int, int], object] | None = None) -> str | None:
     files = release.files | {path: [None, sha] for path, sha in (changed or {}).items()}
     dirs = set(release.dirs)
     checked = sorted(p for p in files.keys() | dirs | have.keys() | set(added) if whole or p.startswith(BUILD_FILES))
+    if progress is not None:
+        total = sum(have[p].size for p in checked if p in have and p in files and not have[p].is_dir)
+        done = [0]
+        progress(0, total)
+
+        def counted(r: iso.Reader, entry: iso.Entry) -> str:
+            sha = _sha256(r, entry)
+            done[0] += entry.size
+            progress(done[0], total)
+            return sha
+    else:
+        counted = _sha256
     for path in checked:
         entry = have.get(path)
         if entry is None:
@@ -174,6 +221,6 @@ def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Releas
         size, sha = files[path]
         if entry.is_dir or (size is not None and entry.size != size):
             return f"{path}: {'a folder' if entry.is_dir else f'{entry.size:,} B'}, where vanilla has {size:,} B"
-        if _sha256(r, entry) != sha:
+        if counted(r, entry) != sha:
             return f"{path}: its contents differ"
     return None
