@@ -1043,9 +1043,10 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
     level's picture on it, as soon as it shows, with no image picked and no
     plan tracked: the page reads the pictures the site ships (``art/``,
     which ``tests/test_art.py`` holds to Modkit's pixels and to the
-    tracker's drawing) and asks its engine nothing for them. A tracked
-    plan's level shows its own map, each floor from the same files. No CSP
-    violation, no request but GETs of the site's files."""
+    tracker's drawing) and asks its engine nothing for them; its hint says
+    a level opens once a seed is tracked. A tracked plan's level shows its
+    own map, each floor from the same files. No CSP violation, no request
+    but GETs of the site's files."""
     shipped = site / "art" / tracking.ART_VERSION
     entry = json.loads((shipped / "maps.json").read_text(encoding="utf-8"))["levels"]["e6"]
     served = Site(browser, site)
@@ -1059,9 +1060,12 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
                                               [["world", *_png_size((shipped / "world.png").read_bytes())]], []]
         assert [url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests if "/art/" in url] == [
             "art/index.json", f"art/{tracking.ART_VERSION}/maps.json", f"art/{tracking.ART_VERSION}/world.png"]
+        hint = "() => document.getElementById('map-hint').textContent"
+        assert page.evaluate(hint) == "Track a seed to open a level's map. Scroll to zoom, drag to pan."
         (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
         page.set_input_files("#track-open", str(tmp_path / "plan.json"))
         _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+        assert page.evaluate(hint) == "Click a level to open its map. Scroll to zoom, drag to pan."
         page.evaluate("() => azurkit.tracker.map.show('e6', true)")
         _page.until(page, "() => azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
         assert page.evaluate("() => azurkit.tracker.map.pictures.map((p) => [p.name, p.bitmap.width, p.bitmap.height])"

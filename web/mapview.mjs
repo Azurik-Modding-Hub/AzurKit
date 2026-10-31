@@ -157,9 +157,9 @@ export class MapView {
     return b ? [b.width, b.height] : null;
   }
 
-  // The column's switches: the overlay boxes, a level's floors (with Gems, each floor's gems left), what a click does.
+  // The column's switches: the overlay boxes and a level's floors (with Gems, each floor's gems left).
   switches() {
-    const { switches, floors, hint, back } = this.els;
+    const { switches, back } = this.els;
     back.disabled = this.level === null;
     switches.replaceChildren(...KINDS[this.level === null ? "world" : "level"].map(([kind, text]) => {
       this.shown[kind] ??= true;
@@ -174,8 +174,14 @@ export class MapView {
       return label;
     }));
     this.floorButtons();
-    hint.textContent = (this.level === null ? "Click a level to open its map."
-      : "Click a spot to mark it collected, an exit to open its level.") + " Scroll to zoom, drag to pan.";
+  }
+
+  // What a click does, set at each draw: a level opens from the world map only once a seed is tracked (its view).
+  hint() {
+    const text = (this.level !== null ? "Click a spot to mark it collected, an exit to open its level."
+      : this.hooks.view() ? "Click a level to open its map." : "Track a seed to open a level's map.")
+      + " Scroll to zoom, drag to pan.";
+    if (this.els.hint.textContent !== text) this.els.hint.textContent = text;
   }
 
   floorButtons() {
@@ -300,6 +306,7 @@ export class MapView {
   // ---- drawing
   draw() {
     this.fill();
+    this.hint();
     if (this.want <= this.fitted * 1.0001 && this.els.room.offsetParent !== null) this.fitWhole(false);   // its room now
     const view = this.hooks.view(), c = this.els.canvas, ctx = this.ctx;
     const [cw, ch] = this.room(), ratio = window.devicePixelRatio || 1;
