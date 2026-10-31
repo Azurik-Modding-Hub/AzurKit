@@ -840,6 +840,32 @@ def test_the_site_serves_the_favicon_the_page_links(browser, site):
             context.close()
 
 
+def test_the_pick_and_the_characters_tab_check_the_image_once_and_a_page_opened_again_keeps_its_stamp(
+        browser, site, usa_iso):
+    """The site's worker checks the image's build files once a File (hashed in WebCrypto, ``sdk.prime``): picking it
+    and then opening the Characters tab hash them once, and a page opened again, the same File picked, hashes them no
+    more (the browser keeps the last image's stamp by its name, size and lastModified)."""
+    served = Site(browser, site)
+
+    def hashed(page) -> int:
+        return sum(w.evaluate("() => self.azurkitChecks ?? 0") for w in page.workers)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view?.species.length === 178", 300)
+        assert hashed(page) == 1
+        page.close()
+        again = served.open()
+        again.set_input_files("#iso", str(usa_iso))
+        _page.until(again, "() => azurkit.vanilla?.release === 'usa'", 300)
+        assert hashed(again) == 0 and again.evaluate("() => azurkit.violations") == []
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):
     """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe.

@@ -114,13 +114,15 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
         compose(BASE, [swap], known | {"b.bin": _sha256(b"X")})
 
 
-def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoiler_comes_on_demand(usa_iso, tmp_path):
+def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoiler_comes_on_demand(usa_iso, tmp_path,
+                                                                                                    monkeypatch):
     """``sdk.image`` reports each named stage of a build as the progress
     record (``core.progress``), in order; with ``spoiler`` false its report
     leaves the spoiler out, and ``sdk.spoiler(plan, built=True)`` gives it
     then. ``sdk.save`` writes the image the build made, without planning it
     again, its sha256 the image's, following the write in the record."""
     seen, writes = [], []
+    monkeypatch.setattr(sdk, "_STAMPS", {})   # the image's first check in this process: its bytes are reported
     made, report = sdk.image({"iso": str(usa_iso), "packs": {"qol_alloc_race": {}}, "randomizer": {"seed": "2"}},
                              progress=seen.append, spoiler=False)
     assert list(dict.fromkeys(r["stage"] for r in seen)) == ["plan", "check", "read", "pack", "layout", "judge"]
@@ -129,7 +131,8 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     assert [r["label"] for r in seen if r["stage"] == "pack"] == ["Applying qol_alloc_race"]
     assert "spoiler" not in report and report["randomizer"]["logic_verified"]
     text = sdk.spoiler(report["plan"], built=True)["text"]
-    assert text.splitlines()[1] == "logic_verified: true" and text.splitlines()[0] in sdk.spoiler(report["plan"])["lines"]
+    lines = text.splitlines()
+    assert lines[1] == "logic_verified: true" and lines[0] in sdk.spoiler(report["plan"])["lines"]
     out = tmp_path / "out.iso"
     saved = sdk.save(made, str(out), progress=writes.append)
     with open(out, "rb") as f:

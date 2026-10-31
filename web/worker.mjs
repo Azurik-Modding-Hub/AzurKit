@@ -1,4 +1,5 @@
-// The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, one worker per build (WEB §3.6). The page
+// The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, which the page replaces after a build
+// whose heap it won't keep (WEB §3.6; each build's answer reports the heap). The page
 // starts it from a blob: URL that imports this file, so the page's CSP holds here too (WEB §6.4). Pyodide comes from
 // this site alone; the wheel, fetched with the integrity host.json gives, is unpacked without its dependencies
 // (WEB §6.3). The player's image is mounted read-only (WORKERFS, read in blocks: readInBlocks) and azurkit.sdk reads
@@ -10,7 +11,9 @@
 // runs it inside FileReaderSync, under WORKERFS's read of the image, while CPython has released the GIL around read():
 // Safari's build stopped with NoGilError there. Chromium runs it only between tasks.
 //
-// In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer}, {type: "vanilla", file},
+// In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer, character, spoiler}
+//      (spoiler false: a seed's spoiler is left out of its report, for {type: "spoiler", call, plan} to give),
+//      {type: "vanilla", file},
 //      {type: "preset", recipe: {packs, xbr, randomizer}, report}, {type: "decode", text}, {type: "restore", setup},
 //      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings),
 //      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan),
@@ -21,7 +24,8 @@
 //      check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
 //      into the engine's content folder). A message with a File has the image checked first, once a File (prime).
 // Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
-//      record, mid-call), {type: "built", report, size, segments}, {type: "refused", message}
+//      record, mid-call: the check, then a build's stages), {type: "built", report, size, segments, heap},
+//      {type: "refused", message, heap}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
@@ -46,7 +50,7 @@ const ENGINE = `
 import json
 
 import pyodide_js
-from js import JSON, Object
+from js import JSON, Object, postMessage
 from pyodide.ffi import to_js
 
 import azurkit
@@ -69,6 +73,10 @@ def handed(value):
     if isinstance(value, (list, tuple)):
         return [handed(v) for v in value]
     return value
+
+
+def progressed(record):   # a build's stage, posted while it runs (core/progress.py's record)
+    postMessage(to_js({"type": "progress", **record}, dict_converter=Object.fromEntries, create_pyproxies=False))
 
 
 def engine(request):
@@ -107,8 +115,10 @@ def engine(request):
             return js(sdk.art_world(parts))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
-    if request.type in ("vanilla", "open", "preset", "decode", "randomizer", "tracker", "plan"):
+    if request.type in ("vanilla", "open", "preset", "decode", "randomizer", "tracker", "plan", "spoiler"):
         try:
+            if request.type == "spoiler":   # a seed built with its spoiler left out (sdk.image's spoiler false)
+                return js(sdk.spoiler(json.loads(JSON.stringify(request.plan)), built=True))
             if request.type == "randomizer":
                 return js(sdk.randomizer_settings(request.given.to_py()))
             if request.type == "tracker":   # through JSON: a mark's null clock is None (to_py gives JsNull)
@@ -126,7 +136,8 @@ def engine(request):
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     try:
-        image, report = sdk.image(request.recipe.to_py())
+        image, report = sdk.image(request.recipe.to_py(), progress=progressed,
+                                  spoiler=getattr(request, "spoiler", None) is not False)
     except (OSError, ValueError) as exc:
         return js({"refused": str(exc)})
     pieces = [{"kind": "copy", "offset": p.offset, "size": p.size} if isinstance(p, iso.Copy)
@@ -140,19 +151,24 @@ engine`;
 // The image is read in blocks (Step 4.1g2). WebKit answers each read of a File's slice after about 200 ms, whatever
 // its size (2 KiB and 64 MiB alike), and a build read the image about 650 times through WORKERFS (the folders'
 // tables, which every iso.Reader reads again, and a 4 KiB read after each 8 MiB one): 131 s a build, 4 s in
-// Chromium. So each read is served from what a File's blocks already hold, else from a block read for it: a 1 MiB
-// page for a read under 1 MiB (the tables), else a 64 MiB block (a file's bytes); the last PAGES pages and BLOCKS
-// blocks of each File are kept (160 MiB at most). Each message brings its own File object, so nothing outlives the
-// message that read it.
-const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 32, BLOCKS = 2;
+// Chromium. So each read is served from what the image's blocks already hold, else from a block read for it: a 1 MiB
+// page for a read under 1 MiB (the tables: USA's 59 lie in 29 pages), else a 64 MiB block (a file's bytes); the last
+// PAGES pages and BLOCKS blocks are kept (256 MiB at most), for the last image only (by its name, size and
+// lastModified: each message brings its own File object of it), from one message to the next, so a worker reads the
+// folders' tables once, not once a call.
+const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 64, BLOCKS = 3;
+const fileId = (file) => `${file.name}|${file.size}|${file.lastModified}`;
 function readInBlocks(WORKERFS) {
-  const kept = new WeakMap();   // File -> its unit -> index -> bytes, the least recently used first
+  const kept = new Map();   // the last image's id -> its unit -> index -> bytes, the least recently used first
   const units = [[BLOCK, BLOCKS], [PAGE, PAGES]];
   WORKERFS.stream_ops.read = (stream, buffer, offset, length, position) => {
-    const file = stream.node.contents, end = Math.min(position + length, file.size);
+    const file = stream.node.contents, end = Math.min(position + length, file.size), id = fileId(file);
     if (!(position < end)) return 0;
-    if (!kept.has(file)) kept.set(file, new Map(units.map(([unit]) => [unit, new Map()])));
-    const caches = kept.get(file);
+    if (!kept.has(id)) {
+      kept.clear();
+      kept.set(id, new Map(units.map(([unit]) => [unit, new Map()])));
+    }
+    const caches = kept.get(id);
     for (let at = position; at < end;) {
       const [unit, keep] = units.find(([u]) => caches.get(u).has(Math.floor(at / u))) ?? units[length < PAGE ? 1 : 0];
       const cache = caches.get(unit), index = Math.floor(at / unit);
@@ -208,12 +224,30 @@ function mounted(py, file, fn) {
 // browser's native sha256 (about 10x wasm's), RUNS of up to 128 MiB read HASHERS at a time, then handed to the engine
 // (sdk.prime), which checks them against its manifest and keeps the stamp for every later call on the image. Its
 // progress is posted as the engine's record (core/progress.py). A refusal (not an image, a file that differs) is left
-// to the call that follows, which names it.
-const HASHERS = 3, RUN = 128 << 20;
+// to the call that follows, which names it. The digests of an image that passed are kept in the browser (IndexedDB,
+// the last image's by its name, size and lastModified), so the same File picked again after a reload is not read
+// again (self.azurkitChecks counts the hashings, for the tests).
+const HASHERS = 3, RUN = 128 << 20, STORE = "azurkit-stamp";
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
+const stamps = (mode, fn) => new Promise((resolve) => {   // the browser's kept stamp; none where storage is refused
+  const opened = indexedDB.open(STORE, 1);
+  opened.onupgradeneeded = () => opened.result.createObjectStore("stamp");
+  opened.onerror = () => resolve(null);
+  opened.onsuccess = () => {
+    const db = opened.result, done = db.transaction("stamp", mode), asked = fn(done.objectStore("stamp"));
+    done.oncomplete = () => { db.close(); resolve(asked?.result ?? null); };
+    done.onerror = done.onabort = () => { db.close(); resolve(null); };
+  };
+});
 async function prime(loaded, file) {
-  const { py, engine } = loaded, id = `${file.name}|${file.size}|${file.lastModified}`;
+  const { py, engine } = loaded, id = fileId(file);
   if (loaded.primed === id) return;
+  const kept = await stamps("readonly", (store) => store.get("last")).catch(() => null);
+  if (kept?.id === id) {
+    const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests: kept.digests }));
+    if (!("refused" in checked)) return void (loaded.primed = id);
+  }
+  self.azurkitChecks = (self.azurkitChecks ?? 0) + 1;
   const listed = mounted(py, file, (iso) => engine({ type: "layout", recipe: { iso } }));
   if ("refused" in listed) return;
   const runs = [];
@@ -235,14 +269,17 @@ async function prime(loaded, file) {
     for (let run; (run = runs.shift());) {
       const bytes = new Uint8Array(await file.slice(run.start, run.end).arrayBuffer());
       for (const [path, at, size] of run.files) {
-        digests[path] = hex(await crypto.subtle.digest("SHA-256", bytes.subarray(at - run.start, at - run.start + size)));
+        const from = at - run.start;
+        digests[path] = hex(await crypto.subtle.digest("SHA-256", bytes.subarray(from, from + size)));
       }
       done += run.end - run.start;
       checking();
     }
   }));
   const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
-  if (!("refused" in checked)) loaded.primed = id;
+  if ("refused" in checked) return;
+  loaded.primed = id;
+  await stamps("readwrite", (store) => store.put({ id, digests }, "last")).catch(() => null);
 }
 
 // The image's own values of the sliders at its XBE's sites, or, when it is an AzurKit build, its recipe; the image
@@ -297,18 +334,21 @@ function character(loaded, data) {
   mounted(py, data.file, (iso) => post({ type: "reply", call: data.call, reply: engine({ ...data, iso }) }));
 }
 
-function build({ py, engine }, file, packs, xbr, randomizer, character) {
-  const made = mounted(py, file, (iso) => engine({ type: "build", recipe: { iso, packs, xbr,
+// A build, the image mounted for it and unmounted after; its answer carries the engine's heap then (wasm memory never
+// shrinks: the page keeps a worker whose heap is small enough for another build), undefined where Pyodide hides it.
+function build({ py, engine }, { file, packs, xbr, randomizer, character, spoiler }) {
+  const made = mounted(py, file, (iso) => engine({ type: "build", spoiler, recipe: { iso, packs, xbr,
     ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } }));
-  if ("refused" in made) return post({ type: "refused", message: made.refused });
-  post({ type: "built", ...made }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
+  const heap = py._module?.HEAPU8?.length;
+  if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
+  post({ type: "built", ...made, heap }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
 }
 
 try {
   const loaded = await load();
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   self.onmessage = ({ data }) => {
-    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "art",
+    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "spoiler", "art",
           "art_world", "content", ...CHARACTER].includes(data?.type)) return;
     queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
       .then(() => data.file ? prime(loaded, data.file).catch(() => null) : null).then(() => handle(data))
@@ -328,7 +368,7 @@ try {
         return art(loaded, data).catch((error) => post({ type: "failed", message: lastLine(error) }));
       }
       if (data.type === "vanilla") return vanilla(loaded, data.file);
-      if (data.type === "tracker" || data.type === "plan") {   // answered whatever happens: the page waits on it
+      if (data.type === "tracker" || data.type === "plan" || data.type === "spoiler") {   // answered whatever happens
         let reply;
         try {
           reply = loaded.engine(data);
@@ -345,7 +385,7 @@ try {
         return post(data.type === "preset" ? { type: "preset", fragment: reply.fragment }
           : { type: "decoded", preset: reply.preset });
       }
-      build(loaded, data.file, data.packs, data.xbr, data.randomizer, data.character);
+      build(loaded, data);
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });
     }

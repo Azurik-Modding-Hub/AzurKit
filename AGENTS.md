@@ -780,8 +780,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   shipped database) and its `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in
   a module worker started from a `blob:` URL (so the page's CSP holds there),
-  one worker per build, which reads the image in blocks (WebKit takes about
-  200 ms for each read of a File, whatever its size). It returns the build as segments
+  which reads the image in blocks (WebKit takes about 200 ms for each read
+  of a File, whatever its size), kept from one message to the next for the
+  last image, and checks each image once (Step 4.3h): its build files hashed
+  in WebCrypto (`sdk.layout`, `sdk.prime`), the stamp kept in the browser
+  (IndexedDB, by the File's name, size and lastModified) for the next
+  visit. It posts a build's stages as `core/progress.py`'s record and
+  reports its heap with each build's answer, by which the page keeps or
+  replaces it. It returns the build as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes, and Save downloads it.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and

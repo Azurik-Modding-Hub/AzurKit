@@ -103,8 +103,8 @@ from azurkit.tools import characters, mods, randomizer
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
-__all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods", "preset_encode",
-           "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
+__all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
+           "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
            "content", "content_install", "content_check", "pickers", "match", "preview"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character")   # a UI's remembered setup (D915, :func:`restore`)

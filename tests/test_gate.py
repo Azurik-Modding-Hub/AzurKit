@@ -108,7 +108,8 @@ def test_the_hosts_hashes_name_the_same_first_difference_and_a_wrong_one_is_refu
         gate.verify(src, whole=False, releases=gate.RELEASES)
     with pytest.raises(gate.NotVanillaError) as threaded:
         sdk._stamp(str(src))
-    assert str(plain.value) == str(threaded.value) == f"{src} is not the vanilla Test image: gamedata/b.xbr: its contents differ"
+    why = f"{src} is not the vanilla Test image: gamedata/b.xbr: its contents differ"
+    assert str(plain.value) == str(threaded.value) == why
     src.write_bytes(image(VANILLA))
     files = sdk.layout(str(src))["files"]
     assert [f[0] for f in files] == ["default.xbe", "filelist.txt", "gamedata/a.xbr", "gamedata/b.xbr"]

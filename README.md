@@ -135,6 +135,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 
 - **Checks your game first:** the files a build reads against the original USA or Europe disc (`azurkit verify`
   checks every file); a modded image is refused, naming the first file that differs.
+- **Checked once:** your image is checked the first time you pick it, then trusted until it changes, in the browser
+  across visits too; saved on the same Mac drive as your original, a build writes only what it changed.
 - **Your original stays safe:** a build never writes over the image it reads.
 - **All or nothing:** if anything fails, nothing is written, and the error says what and why.
 - **Clashes named:** when two changes touch the same spot, the later one wins and the build says so.
