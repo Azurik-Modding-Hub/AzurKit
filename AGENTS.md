@@ -842,7 +842,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   cache folder): the images the gate vouched for (`gate.STAMPS`,
   `stamps.json`) and the swap's answers (`characters.CACHE`, `swap/`, the
   newest used kept to 2 GiB), with a character's pictures and G4 match
-  under the swap's key (`characters.cache_key`, the packs as asked);
+  under the swap's key (`characters.cache_key`, the packs as asked), each
+  file signed (an HMAC-SHA256 under the install's own key, `cache.key` in
+  the user data folder, mode 0600): a file not this install's, a shared
+  cache's too, is a miss and never unpickled (SEC-4);
   `serve()` and `Spawned()` keep nothing past their process. In-process `app.serve()` (the tests') runs
   them on the request's thread (`engine.Here`), so a test's stand-in sdk
   call takes. A script that calls `app.main` guards it with `if __name__ ==

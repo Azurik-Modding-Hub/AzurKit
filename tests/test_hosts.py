@@ -845,13 +845,65 @@ def test_a_second_launch_of_the_app_hashes_no_image_it_checked_and_dresses_no_bo
     try:
         first = launch()
         assert (hashed, dressed) == ([1], [1])
-        swapcache.install(tmp_path / "cache")
+        swapcache.install(tmp_path / "cache", tmp_path / "cache.key")
         assert launch() == first and (hashed, dressed) == ([1, 1], [1, 1])
-        swapcache.install(tmp_path / "cache")   # the next launch's stores, on the same folder
+        swapcache.install(tmp_path / "cache", tmp_path / "cache.key")   # the next launch's stores, on the same folder
         assert launch() == first and (hashed, dressed) == ([1, 1], [1, 1])
     finally:
         sdk._STAMPS.clear()
         sdk._MATCHES.clear()
+
+
+def test_the_apps_cache_folder_loads_only_what_this_install_wrote_there(tmp_path, monkeypatch):
+    """SEC-4 (Step 4.3i): each file the app's stores write in the user cache
+    folder (``app.swapcache``: the swap's pickled answers, the images'
+    stamps) carries an HMAC-SHA256 under this install's own key
+    (``cache.key``, 32 bytes made once, mode 0600, in the user data folder,
+    never the cache folder a shared "speed-up" zip unpacks into). A pickle
+    planted there that would run code is a miss and never loads, and so is a
+    file copied from another install's cache, a stamp for an image this
+    install never checked, and every file once the key is gone; this
+    install's own entries hit."""
+    import pickle
+    import stat
+
+    from azurkit.app import swapcache
+    from azurkit.tools import characters
+
+    ran = tmp_path / "ran"
+
+    class Planted:   # unpickling it makes ``ran``
+        def __reduce__(self):
+            return os.mkdir, (str(ran),)
+
+    key, mine_key, their_key = hashlib.sha256(b"an answer").hexdigest(), tmp_path / "mine.key", tmp_path / "theirs.key"
+    mine, theirs = swapcache.Folder(tmp_path / "swap", key=mine_key), swapcache.Folder(tmp_path / "x", key=their_key)
+    assert not swapcache.key_file().is_relative_to(swapcache.root())
+    mine.put(key, b"mine")
+    assert mine.get(key) == b"mine" and len(mine_key.read_bytes()) == 32
+    assert stat.S_IMODE(mine_key.stat().st_mode) == 0o600
+    theirs.put(key, b"theirs")
+    (tmp_path / "swap" / f"{key}.pickle").write_bytes((tmp_path / "x" / f"{key}.pickle").read_bytes())
+    assert mine.get(key) is None and theirs.get(key) == b"theirs"
+    (tmp_path / "swap" / f"{key}.pickle").write_bytes(pickle.dumps(Planted()))
+    monkeypatch.setattr(characters, "CACHE", mine)
+    assert characters._kept(key, lambda: "worked out") == "worked out" and not ran.exists()
+    assert characters._kept(key, lambda: "again") == "worked out"   # what it kept, this install's
+
+    stamps, their_stamps = (swapcache.Stamps(tmp_path / "stamps.json", key=mine_key),
+                            swapcache.Stamps(tmp_path / "x" / "stamps.json", key=their_key))
+    stamps.put("checked", "usa")
+    their_stamps.put("never checked", "usa")
+    assert stamps.get("checked") == "usa" and stamps.get("never checked") is None
+    (tmp_path / "stamps.json").write_text(json.dumps({"checked": "usa", "never checked": "usa"}))   # forged
+    assert stamps.get("checked") is stamps.get("never checked") is None
+    (tmp_path / "stamps.json").write_bytes((tmp_path / "x" / "stamps.json").read_bytes())
+    assert stamps.get("never checked") is None
+    stamps.put("checked", "usa")
+    mine.put(key, b"mine")
+    mine_key.unlink()   # a new launch without its key: nothing it finds is its own
+    assert swapcache.Folder(tmp_path / "swap", key=mine_key).get(key) is None
+    assert swapcache.Stamps(tmp_path / "stamps.json", key=mine_key).get("checked") is None
 
 
 def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_spoiler(tmp_path, monkeypatch, usa_iso):

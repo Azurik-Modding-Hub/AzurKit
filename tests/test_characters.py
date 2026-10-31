@@ -756,7 +756,7 @@ def test_a_bodys_answers_kept_in_the_apps_store_build_the_same_image_and_miss_wh
             super().put(key, data)
 
     def keylord(packs: dict) -> list:
-        monkeypatch.setattr(characters, "CACHE", Counted(tmp_path / "swap"))   # this launch's store
+        monkeypatch.setattr(characters, "CACHE", Counted(tmp_path / "swap", key=tmp_path / "cache.key"))   # a launch's
         made, _ = sdk.image({"iso": str(usa_iso), "packs": packs, "character": {"species": "keylord"}})
         return [(at, _sha256(data)) for at, data in made.writes]
     first = keylord({})
