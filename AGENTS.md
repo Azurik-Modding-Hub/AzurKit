@@ -816,7 +816,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   engine process (`azurkit.app.engine.Spawned`, spawned, each call on a
   thread of its own), so the server's other answers never wait on a build;
   Cancel kills that process mid-build and spawns the next (a save cancels
-  itself at its next chunk). In-process `app.serve()` (the tests') runs
+  itself at its next chunk). A build keeps its image in that process (the
+  last build's: a new Build drops it), hashed on a thread from the moment
+  it is made (`iso.digest`), and `api/build` answers its id: Save sends it
+  back, so `api/save` writes that image (`sdk.save`, the hash taken or
+  waited on), or builds the recipe again (`sdk.build`) when the engine keeps
+  it no more (a cancel's new process) or its input changed. In-process `app.serve()` (the tests') runs
   them on the request's thread (`engine.Here`), so a test's stand-in sdk
   call takes. A script that calls `app.main` guards it with `if __name__ ==
   "__main__"` (spawn imports the main script again). The page takes the image's path

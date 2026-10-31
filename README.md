@@ -167,6 +167,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   mid-save leaves no half-written file.
 - **The app stays quick while it builds:** a build runs in a process of its own, so picking an image and the other
   tabs answer at once, and dressing a character spreads over your CPU's cores.
+- **Save is quick in the app:** it writes the image Build made, already checked while you chose where to save it.
 - **A private app:** its page is served only to itself, with a fresh key each launch.
 - **The command line:** `azurkit verify`, `packs`, `build`, `open`, `plan` and `spoiler`; the app doubles as it.
 - **Dark or light:** your pick is remembered, and both are easy to read.

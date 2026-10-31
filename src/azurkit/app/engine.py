@@ -12,7 +12,13 @@ randomizer's logic), and reads ahead what the page's next calls will
 (:meth:`Spawned.warm`: the image it picked, the randomizer). Cancelling a build kills that process and spawns
 another at once (a build writes nothing, D35); a call of another kind that
 the kill cut short runs again in the new one. A save is cancelled from its
-progress, as before: it removes its own part file. Closing kills the
+progress, as before: it removes its own part file. A build keeps its image
+in the process that made it (the last build's only, a new Build drops it),
+hashed there on a thread from the moment it is made, so its Save writes
+that image (``sdk.save``) without planning it again and takes the hash
+(or waits on it); a save whose build that process no longer keeps (a
+cancel's new process) or whose input changed since builds it again
+(``sdk.build``), as before. Closing kills the
 process (the server first waits on a save); a process whose parent is gone
 exits too (Cmd-Q runs no ``finally``), and ignores Ctrl-C, which the
 server answers. Every result and refusal crosses as a pickle, so
@@ -27,11 +33,14 @@ import multiprocessing.connection
 import os
 import pickle
 import queue
+import secrets
 import signal
 import threading
 from collections.abc import Callable, Mapping
 
 from azurkit import sdk
+from azurkit.core import iso
+from azurkit.core.progress import record
 from azurkit.tools import randomizer
 
 
@@ -46,13 +55,79 @@ class Gone(Exception):
 _WARM = threading.Lock()   # held while the randomizer's logic is built, so a seed's build or plan waits on it
 
 
+class _Built:
+    """A build's image, kept in this process for its Save, with its report,
+    and its sha256 hashed on a thread of its own from the moment it is made
+    (``iso.digest``: hashlib lets go of the GIL), which the Save takes, or
+    waits on, or (a failed or stopped hash) hashes again as it writes."""
+
+    def __init__(self, made, report: dict):
+        self.made, self.report = made, report
+        self.done, self.sha, self.stopped = 0, None, False
+        self.ended = threading.Event()
+        threading.Thread(target=self._hash, name="azurkit-hash-build", daemon=True).start()
+
+    def _hash(self) -> None:
+        def tick(done: int, total: int) -> None:
+            self.done = done
+            if self.stopped:
+                raise Cancelled
+        try:
+            self.sha = iso.digest(self.made, tick)
+        except BaseException:   # stopped, or an image that can't be read now: the Save hashes as it writes
+            pass
+        finally:
+            self.ended.set()
+
+    def holds(self) -> bool:
+        """Whether its input is as the build read it (``iso.Image.origin``)."""
+        try:
+            at = os.stat(self.made.source)
+        except (OSError, AttributeError, TypeError):
+            return False
+        return (at.st_size, at.st_mtime_ns, at.st_ctime_ns) == getattr(self.made, "origin", None)
+
+    def sha256(self, progress: Callable[[dict], object]) -> str:
+        """``iso.pack``'s ``sha256=``: the hash, once its thread ends, its
+        progress the save's meanwhile (whose cancel stops the wait)."""
+        while not self.ended.wait(0.1):
+            progress(record("write", "Hashing the saved image", self.done, self.made.size))
+        if self.sha is not None:
+            return self.sha
+        return iso.digest(self.made, lambda done, total: progress(record("write", "Hashing the saved image", done,
+                                                                         total)))
+
+
+_BUILT: dict[str, _Built] = {}   # the last build's image, by its build id (random: a new process never reuses one)
+
+
+def _drop() -> None:
+    """Forget the kept build (a new Build), its hash stopped."""
+    for kept in _BUILT.values():
+        kept.stopped = True
+    _BUILT.clear()
+
+
 def _image(recipe: Mapping) -> dict:
+    _drop()   # before the build: never two builds' images held at once
     made, report = sdk.image(recipe)
-    return {"size": made.size, "report": report}
+    ident = secrets.token_hex(8)
+    _BUILT[ident] = _Built(made, report)
+    return {"size": made.size, "report": report, "build": ident}
 
 
-def _save(recipe: Mapping, out: str, progress: Callable[[int, int], object] | None = None) -> dict:
-    return sdk.build(recipe, out, progress=progress)
+def _save(recipe: Mapping, out: str, build: str | None = None,
+          progress: Callable[[dict], object] | None = None) -> dict:
+    """Write ``build``'s image (``_image``'s id) when this process keeps it
+    and its input is as it read it (``sdk.save``: the report with the
+    output's path, size and sha256, as ``sdk.build`` gives), else build
+    ``recipe`` again and write it (``sdk.build``). ``progress(record)``
+    follows the write; an exception it raises cancels it."""
+    report = progress or (lambda _: None)
+    kept = _BUILT.get(build) if isinstance(build, str) else None
+    if kept is not None and kept.holds():
+        return kept.report | sdk.save(kept.made, out, progress=report, sha256=lambda: kept.sha256(report))
+    return sdk.build(recipe, out, progress=lambda done, total: report(record("write", None, done, total)))
 
 
 def _preview(recipe: Mapping) -> dict:
@@ -73,7 +148,8 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                              "plan": _warmed(lambda recipe: sdk.plan(recipe), always=True),
                              "preview": _preview, "match": lambda recipe: sdk.match(recipe)}
-"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``save``)."""
+"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``save``: a
+``core.progress`` record a call)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
 
@@ -82,7 +158,7 @@ class Here:
     """The engine on the caller's thread: a build runs on after Cancel (its
     answer is the server's to refuse); a save sees it in its progress."""
 
-    def call(self, job: str, *args, progress: Callable[[int, int], object] | None = None):
+    def call(self, job: str, *args, progress: Callable[[dict], object] | None = None):
         return JOBS[job](*args, **({"progress": progress} if progress is not None else {}))
 
     def cancel(self) -> None:
@@ -162,7 +238,7 @@ class Spawned:
         child.process.join()
         child.conn.close()
 
-    def call(self, job: str, *args, progress: Callable[[int, int], object] | None = None):
+    def call(self, job: str, *args, progress: Callable[[dict], object] | None = None):
         """``JOBS[job](*args)`` in the engine's process: its result, or what
         it raised; :class:`Cancelled` when a cancel killed it, :class:`Gone`
         when the process ended otherwise (a later call spawns another)."""
@@ -209,7 +285,7 @@ class Spawned:
             if kind == "progress":
                 try:
                     if not stopping:
-                        progress(*value)
+                        progress(value)
                 except Cancelled:   # the save stops at its next chunk and removes its part file
                     stopping = True
                     with child.lock:
@@ -308,8 +384,8 @@ def _main(conn) -> None:
     def run(ident: int, job: str, args: tuple, follows: bool) -> None:
         stop = stops[ident]
 
-        def progress(done: int, total: int) -> None:
-            send("progress", ident, (done, total))
+        def progress(step: dict) -> None:
+            send("progress", ident, step)
             if stop.is_set():
                 raise Cancelled
         try:

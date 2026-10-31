@@ -27,10 +27,14 @@ the theme before its first paint, is the server's own (:func:`_theme_js`),
 and the window opens on that theme's ground (:data:`GROUNDS`), so a player
 who picked light never sees a dark first frame.
 ``POST api/build`` ``{"iso", "packs", "xbr", "randomizer"}`` plans the build (``sdk.image``: the
-report, the size, and where to save it: the Downloads folder, under the
-site's download's name), and ``POST api/save`` ``{"recipe", "out"}`` writes it
-(``sdk.build``), never over an existing file but the one the save dialog
-chose (it asked first), with ``GET api/progress`` and ``POST api/cancel``.
+report, the size, the build's id, and where to save it: the Downloads
+folder, under the site's download's name), and ``POST api/save``
+``{"recipe", "out", "build"}`` writes it: the image that build made, kept
+and hashed in the engine from the moment it was made (``sdk.save``), else,
+when the engine keeps it no more or its input changed, the recipe built
+again (``sdk.build``); never over an existing file but the one the save
+dialog chose (it asked first), with ``GET api/progress`` (the save's
+``core.progress`` record) and ``POST api/cancel``.
 Both run in the engine (:mod:`.engine`): ``serve``'s on the request's own
 thread, the app's (:func:`main`) in a process of its own, with the seed's
 plan and the Characters tab's pictures and G4 match, so the server's own
@@ -130,6 +134,7 @@ GROUNDS = {"dark": "#0d1117", "light": "#e8ecf1"}
 THEMES = tuple(GROUNDS)
 QUIT_WAIT = 1.5   # seconds a close waits, in all, for a cancelled save to remove its part file (AZ-823)
 QUITTING = "AzurKit is quitting: nothing was written"
+IDLE = {"stage": None, "label": "", "done": 0, "total": 0, "percent": None}   # api/progress with nothing in flight
 
 
 def _config() -> Path:
@@ -302,7 +307,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.busy = threading.Lock()        # one build or save at a time
         self.writing = threading.Lock()     # held by a save, which quit() waits on (never a build)
         self.out: Path | None = None        # where the save in flight writes
-        self.progress = (0, 0)
+        self.progress = IDLE                # the save's last core.progress record
         self.cancelled = threading.Event()
         self.quitting = False               # set by quit(), before it cancels: no build or save starts after it
         self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
@@ -376,7 +381,7 @@ class Server(http.server.ThreadingHTTPServer):
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
         stem = iso.stem if iso.suffix.lower() in (".iso", ".xiso") else iso.name   # the site's download's name
-        return {"report": report, "size": built["size"], "recipe": recipe,
+        return {"report": report, "size": built["size"], "recipe": recipe, "build": built["build"],
                 "out": str(user_downloads_path() / f"{stem} (AzurKit).iso")}
 
     def save(self, body: dict) -> dict:
@@ -384,17 +389,17 @@ class Server(http.server.ThreadingHTTPServer):
         if out.exists() and out != self.chosen:
             raise ValueError(f"{out} exists: choose another name, or delete it first")
 
-        def progress(done: int, total: int) -> None:
-            self.progress = (done, total)
+        def progress(step: dict) -> None:
+            self.progress = step
             if self.cancelled.is_set():
                 raise Cancelled
         with self.busy, self.writing:
             self.cancelled.clear()   # before the check: a quit after it still cancels this save
             if self.quitting:
                 raise ValueError(QUITTING)
-            self.progress, self.out = (0, 0), out
+            self.progress, self.out = IDLE, out
             try:
-                return {"saved": self.engine.call("save", recipe, str(out), progress=progress)}
+                return {"saved": self.engine.call("save", recipe, str(out), body.get("build"), progress=progress)}
             except Cancelled:
                 raise ValueError("Cancelled: nothing was written") from None
             except engines.Gone as exc:   # its process ended mid-write: its part file goes here
@@ -576,8 +581,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/theme.js":
             return self._send(_theme_js(), "text/javascript")
         if url.path == "/api/progress":
-            done, total = self.server.progress
-            return self._json({"done": done, "total": total})
+            return self._json(self.server.progress)
         if url.path.startswith("/art/"):   # the tracker's pictures, from the user cache folder (never the bundle)
             version, _, rel = urllib.parse.unquote(url.path).removeprefix("/art/").partition("/")
             root = self.server.drawing.where

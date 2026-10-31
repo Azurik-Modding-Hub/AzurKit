@@ -372,7 +372,8 @@ def test_the_frozen_app_dresses_the_player_in_a_species_body_as_its_golden(froze
             built, saved = [], []
             _post(url, "api/build", {"iso": str(usa_iso), "character": {"species": "keylord"}, "packs": {
                 name: {} for name, pack in mods.PACKS.items() if pack.default_on}}, built, timeout=900)
-            _post(url, "api/save", {"recipe": built[0]["recipe"], "out": str(out)}, saved, timeout=900)
+            _post(url, "api/save", {"recipe": built[0]["recipe"], "out": str(out), "build": built[0]["build"]},
+                  saved, timeout=900)
         assert saved[0]["saved"]["out"] == str(out), saved
         assert files() == {f: sha for f, sha in golden.items() if f != "ISO"}
     finally:
@@ -773,6 +774,45 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
     finally:
         server.close()
     assert _ended(last)
+
+
+def test_the_apps_save_writes_the_image_its_build_made_planned_once_and_hashed_from_the_build_on(
+        tmp_path, monkeypatch, usa_iso):
+    """Step 4.3i: Save (``api/save`` with the build's id) writes the image
+    its Build made, kept in the engine and hashed there from the moment it
+    was made, without planning it again: the build's report with the
+    output's path, size and sha256, as ``sdk.build`` gives them. A save
+    whose build the engine keeps no more (another Build's since, or a
+    cancel's new process) builds its recipe again: the same image."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    planned, plan = [], sdk._plan
+    monkeypatch.setattr(sdk, "_plan", lambda *args, **kwargs: planned.append(1) or plan(*args, **kwargs))
+    server, recipe = app.serve(_page.WEB), {"iso": str(usa_iso), "packs": {"fps_unlock": {}}}
+    out = tmp_path / "out"
+    out.mkdir()
+    try:
+        built = []
+        _post(server.url, "api/build", recipe, built)
+        kept = engine._BUILT[built[0]["build"]]
+        assert kept.ended.wait(60) and len(planned) == 1   # hashed before Save asks
+        saved, again = [], []
+        _post(server.url, "api/save", {"recipe": built[0]["recipe"], "out": str(out / "a.iso"),
+                                       "build": built[0]["build"]}, saved)
+        assert len(planned) == 1
+        made, _ = sdk.image(recipe)
+        with open(out / "a.iso", "rb") as f:
+            sha256 = hashlib.file_digest(f, "sha256").hexdigest()
+        assert saved == [{"saved": built[0]["report"] | {"out": str(out / "a.iso"), "size": made.size,
+                                                          "sha256": kept.sha}}]
+        assert (sha256, (out / "a.iso").stat().st_size) == (kept.sha, made.size)
+        _post(server.url, "api/build", recipe, built)
+        assert list(engine._BUILT) == [built[1]["build"]]   # a new Build drops the last one's image
+        _post(server.url, "api/save", {"recipe": built[0]["recipe"], "out": str(out / "b.iso"),
+                                       "build": built[0]["build"]}, again)
+        assert (len(planned), again[0]["saved"]["sha256"]) == (4, kept.sha)
+    finally:
+        server.close()
+        engine._drop()
 
 
 def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_spoiler(tmp_path, monkeypatch, usa_iso):

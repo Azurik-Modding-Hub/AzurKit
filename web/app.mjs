@@ -251,7 +251,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
     restore: (setup) => ask("api/restore", { setup }, restored),
     setup: (setup) => post("api/setup", { setup }, true).catch(() => {}),   // remembering is a convenience
-    save: (recipe, out) => run("api/save", { recipe, out }, saved),
+    save: (recipe, out, build) => run("api/save", { recipe, out, build }, saved),   // that build's image, kept
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
     theme: (name) => post("api/theme", { theme: name }).catch(() => {}),   // remembering is a convenience
@@ -686,7 +686,7 @@ function report(text, error = false) {
 function built(reply) {
   const { report: made, size } = reply;
   if (state.app) {
-    state.build = { report: made, size, recipe: reply.recipe, out: reply.out };
+    state.build = { report: made, size, recipe: reply.recipe, out: reply.out, id: reply.build };
     $("out-path").value = reply.out;
     $("out-row").hidden = state.dialogs;
   } else {
@@ -723,10 +723,10 @@ async function saveInApp() {
   state.saving = true;
   say("Saving…");
   state.poll = setInterval(async () => {
-    const { done, total } = await state.engine.progress().catch(() => ({}));
-    if (state.saving && total) say(`Saving… ${Math.floor((100 * done) / total)} %`);
+    const { label, done, total } = await state.engine.progress().catch(() => ({}));
+    if (state.saving && total) say(`${label || "Saving"}… ${Math.floor((100 * done) / total)} %`);
   }, 400);
-  state.engine.save(state.build.recipe, out);
+  state.engine.save(state.build.recipe, out, state.build.id);   // the image Build made, hashed since
 }
 
 function pickInApp(host) {
