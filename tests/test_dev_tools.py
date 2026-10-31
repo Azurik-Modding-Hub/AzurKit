@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from scripts import fullsuite, land, perf
@@ -160,6 +161,26 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
     assert perf.select(["src/azurkit/tools/randomizer/x.py", "scripts/web_tools.py"]) == {
         *(("app", g) for g in ("randomizer", "tracker")), *(("site", g) for g in perf.GROUPS)}
     assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set() and len(perf.select(["web/app.mjs"])) == 12
+
+
+def test_update_ceilings_on_a_narrow_run_keeps_the_untimed_ops_it_doesnt_reach(tmp_path, monkeypatch):
+    """``perf.py --update-ceilings`` on a run that reaches no untimed op
+    (a lane lowering its own rows) keeps the list's untimed ops the registry
+    still can't time, and drops only one the registry now times."""
+    monkeypatch.setattr(perf.signal, "signal", lambda *_: None)
+    monkeypatch.setattr(perf, "R", perf.R)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    repo = tmp_path / "repo"
+    (repo / "tests").mkdir(parents=True)
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    on_main = {"ceilings": {"A15/app": 6.1}, "debts": [], "memory": {}, "untimed": {"S15": "out of memory", "S14": "x"}}
+    (repo / perf.CEILINGS).write_text(perf.render(on_main), encoding="utf-8")
+    _git(repo, "add", perf.CEILINGS)
+    _git(repo, "commit", "-q", "-m", "main")
+    assert perf.main([str(repo), "--select", "app:tracker", "--ops", "NOOP", "--update-ceilings",
+                      "--json", str(tmp_path / "perf.json")]) == 0
+    assert perf.listed((repo / perf.CEILINGS).read_text(encoding="utf-8")) == {**on_main,
+                                                                              "untimed": {"S15": "out of memory"}}
 
 
 def _git(cwd, *args):

@@ -418,8 +418,8 @@ def main(argv: list[str] | None = None) -> int:
                                          "shared": others}   # the site's: another Playwright's WebKit may be in it
     if args.update_ceilings:
         new = updated(mine, block["cases"], {k: v["peak"] for k, v in block["memory"].items()}, main_list is None)
-        new["untimed"] = (dict(mine["untimed"]) | block["untimed"]) if main_list is None else {
-            k: v for k, v in mine["untimed"].items() if k in block["untimed"] or k not in _perf.OPS}
+        new["untimed"] = (dict(mine["untimed"]) | block["untimed"]) if main_list is None else {   # the registry's
+            k: v for k, v in mine["untimed"].items() if k not in _perf.OPS or _perf.OPS[k].untimed}   # not the run's
         (wt / CEILINGS).write_text(render(new), encoding="utf-8")
         block["list"] = check_list(new, main_list)
         if cases:   # judged again against the list it wrote
