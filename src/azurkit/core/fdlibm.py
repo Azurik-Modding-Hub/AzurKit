@@ -7,15 +7,17 @@ app.
 
 These are fdlibm's algorithms as musl carries them (its ``sin``, ``cos``,
 ``tan`` and ``__rem_pio2``'s small and medium arguments, ``acos``,
-``atan``, ``atan2``, ``cbrt``; fdlibm 5.3's ``exp`` and ``log``), in pure
-Python built only from IEEE double operations that are correctly rounded
-on every platform: ``+``, ``-``, ``*``, ``/``, ``math.sqrt`` and the exact
-ones (comparisons, ``math.ldexp``, ``math.fabs``, bit patterns through
-``struct``). Python never fuses a multiply and an add, so each expression
-rounds as written here. Where musl's code is fdlibm's, the result is musl's
-bit for bit (Pyodide's ``math``); ``exp`` and ``log`` (musl's are ARM's
-table-driven ones) and :func:`pow` (``exp(y * log(x))``) are within a few
-ulps of the true value, which no build needs closer. An argument past
+``atan``, ``atan2``, ``cbrt``; fdlibm 5.3's ``exp``; musl 1.1's ``log``,
+FreeBSD's), in pure Python built only from IEEE double operations that are
+correctly rounded on every platform: ``+``, ``-``, ``*``, ``/``,
+``math.sqrt`` and the exact ones (comparisons, ``math.ldexp``,
+``math.fabs``, bit patterns through ``struct``). Python never fuses a
+multiply and an add, so each expression rounds as written here. Where
+musl's code is fdlibm's, the result is musl's bit for bit (Pyodide's
+``math``); ``exp`` and ``log`` (musl's are now ARM's table-driven ones) are
+within an ulp of the true value (0.80 and 0.50 on a sweep), and
+:func:`pow` (``exp(y * log(x))``) within about ``|y ln x| + 1`` ulps (51
+on a sweep with ``|y ln x| <= 98``), which no build needs closer. An argument past
 2**20 * pi/2 is reduced exactly with integers (musl's Payne-Hanek isn't
 ported).
 
