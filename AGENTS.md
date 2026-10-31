@@ -106,6 +106,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - Never weaken them to get green.
 - Never print game bytes in logs, commits or chat: print lengths and
   `sha256[:12]`. Failure output is redacted (`tests/_byte_safe.py`).
+  - Read the game's code and constants with `python -m devkit re xbe`
+    (`devkit/re/README.md`): `read` prints a value and `dis` and `fn` an
+    instruction's text, never their bytes; its `hexdump` is a human's.
 - Recorded results are hashes and names, a convention and not a leak rule:
   the goldens and the facts hold sha256 and length, not
   raw vanilla spans.
