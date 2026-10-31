@@ -31,7 +31,7 @@ def test_a_kept_answer_is_the_engines_byte_for_byte_and_any_change_to_its_key_mi
     tracker.json's), the page's tracker ask and the warm-up's sharing one
     key; another code, database, installed.json, argument or call is
     another key, and Live on, a click that marks or resets, or Live's kit
-    has none."""
+    (any kit given, a falsy one the tracker refuses too) has none."""
     monkeypatch.setattr(kit, "ROOT", tmp_path)
     doc = record_goldens.profile("default")
     asked = {"plan": doc, "marks": {}, "spoiler": False, "gems": False}   # web/tracker.mjs's ask on reopening
@@ -59,7 +59,8 @@ def test_a_kept_answer_is_the_engines_byte_for_byte_and_any_change_to_its_key_mi
             assert kept.key("restore", SETUP) != key, part
     assert len({key, kept.key("restore", SETUP | {"ticked": []}), kept.key("randomizer", SETUP)}) == 3
     assert [kept.key("tracker", asked | extra) for extra in ({"toggle": "x"}, {"reset": True}, {"kit": {"air": 3}},
-                                                             {"held": {"x": 1}}, {"what": 1})] == [None] * 5
+                                                             {"kit": 0}, {"kit": []}, {"held": {"x": 1}},
+                                                             {"what": 1})] == [None] * 7
     assert kept.key("restore", SETUP, live=True) is None and kept.key("spoiler", {}) is None
     assert kept.get("tracker", asked, live=True) is None
 
@@ -105,7 +106,8 @@ out.misses = await Promise.all([{ ...space, code: "other" }, { ...space, entry: 
   .map((s) => memo.key("restore", given.setup, s)).concat([memo.key("restore", { ...given.setup, ticked: [] }, space),
   memo.key("randomizer", given.setup, space)]));
 out.misses = out.misses.map((k) => k === key ? "same" : k === null ? null : "other");
-out.never = await Promise.all([{ toggle: "x" }, { reset: true }, { kit: { air: 3 } }, { what: 1 }]
+out.never = await Promise.all([{ toggle: "x" }, { reset: true }, { kit: { air: 3 } }, { kit: 0 }, { kit: [] },
+  { what: 1 }]
   .map((extra) => memo.key("tracker", { ...given.asked, ...extra }, space)));
 await memo.put("restore", given.setup, { ticked: [] }, space);
 out.confirmed = [await memo.confirm("restore", given.setup, { ticked: [] }, given.view, space),
@@ -126,7 +128,7 @@ def test_the_sites_kept_answers_are_the_workers_and_miss_on_any_change_and_never
     """``web/memo.mjs`` under Node: the page's tracker ask hits what the
     warm-up's kept, as the worker's bytes; another code key, database key,
     installed record, argument or call misses, and Live on, a click that
-    marks or resets, Live's kit or a key the tracker doesn't take has no
+    marks or resets, Live's kit (a falsy one too) or a key the tracker doesn't take has no
     key; a contradicted kept answer is logged once and replaced; a torn
     entry and a refusal are never answers."""
     doc = record_goldens.profile("default")
@@ -138,6 +140,6 @@ def test_the_sites_kept_answers_are_the_workers_and_miss_on_any_change_and_never
                          capture_output=True, text=True, timeout=120)
     assert run.returncode == 0, run.stderr[-2000:]
     assert json.loads(run.stdout) == {"tracker": [False, True, True, 1],
-                                      "misses": ["other"] * 3 + [None] + ["other"] * 2, "never": [None] * 4,
+                                      "misses": ["other"] * 3 + [None] + ["other"] * 2, "never": [None] * 6,
                                       "confirmed": [False, True], "replaced": True, "lines": 1, "torn": None,
                                       "refused": None}

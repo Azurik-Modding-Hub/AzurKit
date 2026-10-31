@@ -50,7 +50,8 @@ from azurkit import __version__
 FORMAT = 1   # an entry's layout: another is a miss
 CALLS = ("tracker", "restore", "randomizer", "plan")
 MOST = 64 << 20   # :class:`Mem`'s bytes (a view is about 85 KB, a plan 37 KB, the tab's answer 10 KB)
-LIVE_ONLY = ("toggle", "reset", "kit", "held")   # a tracker ask with one of these set is never kept
+LIVE_ONLY = ("toggle", "kit")   # a tracker ask that gives one of these (not None) is never kept, as one that
+LIVE_TRUE = ("reset", "held")   # sets one of these (the tracker reads them by truth: a falsy one is none)
 
 
 def _text(value: object, sort: bool) -> str:
@@ -101,7 +102,8 @@ def canonical(call: str, args: object) -> str | None:
     """``call``'s arguments as the call reads them, as compact JSON with
     sorted keys, or ``None`` for one never kept: a call not in
     :data:`CALLS`, a tracker ask that marks, resets or carries Live's kit or
-    inventory (:data:`LIVE_ONLY`) or one whose marks it refuses (the
+    inventory (:data:`LIVE_ONLY`, :data:`LIVE_TRUE`: any kit given, which
+    the tracker reads or refuses by name) or one whose marks it refuses (the
     engine names why), or arguments JSON can't hold. A tracker ask's marks
     are read as the tracker reads them (``tracking.marks_of``) and its
     ``spoiler`` and ``gems`` as true or false."""
@@ -112,7 +114,7 @@ def canonical(call: str, args: object) -> str | None:
 
         if not isinstance(args, Mapping) or not set(args) <= set(tracking.GIVEN):
             return None
-        if args.get("toggle") is not None or any(args.get(k) for k in LIVE_ONLY if k != "toggle"):
+        if any(args.get(k) is not None for k in LIVE_ONLY) or any(args.get(k) for k in LIVE_TRUE):
             return None
         try:
             marks = tracking.marks_of(args.get("marks"))

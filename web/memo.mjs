@@ -15,7 +15,8 @@
 export const FORMAT = 1;
 export const CALLS = ["tracker", "restore", "randomizer", "plan"];
 export const MOST = 64 << 20;   // MemStore's bytes (counted as the JSON text's UTF-16 length)
-const LIVE_ONLY = ["toggle", "reset", "kit", "held"];
+const LIVE_ONLY = ["toggle", "kit"];   // a tracker ask that gives one of these (not null) is never kept, as one
+const LIVE_TRUE = ["reset", "held"];   // that sets one of these (the tracker reads them by truth: a falsy one is none)
 const GIVEN = ["plan", "marks", "kit", "held", "spoiler", "gems", "toggle", "reset"];   // tracking.GIVEN
 
 // value as JSON with its object keys sorted (sorted) or as given; a value JSON can't hold (NaN, infinity, undefined,
@@ -60,7 +61,7 @@ export function canonical(call, args) {
   if (!CALLS.includes(call)) return null;
   if (call === "tracker") {
     if (!args || typeof args !== "object" || Object.keys(args).some((k) => !GIVEN.includes(k))) return null;
-    if ((args.toggle !== undefined && args.toggle !== null) || LIVE_ONLY.slice(1).some((k) => isSet(args[k]))) {
+    if (LIVE_ONLY.some((k) => args[k] !== undefined && args[k] !== null) || LIVE_TRUE.some((k) => isSet(args[k]))) {
       return null;
     }
     const marks = marksOf(args.marks);
