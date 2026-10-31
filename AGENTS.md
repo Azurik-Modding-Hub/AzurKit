@@ -618,7 +618,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     save's `core.progress` records (the app's `api/progress`, polled every
     250 ms; the site's worker's `progress` posts, the image's check among
     them) as their stage's line and percent, and any other ask the engine
-    hasn't answered within 1 s as its line on a moving stripe. The About tab's licence and credits
+    hasn't answered within 1 s as its line on a moving stripe. A control
+    that can't work yet is greyed with the line that says what it waits for
+    (D979: app.mjs's `lines()`): Build until an image is picked (a vanilla
+    one: an AzurKit build only offers its recipe) and the engine is ready
+    ("Pick your image (1.) to build", `#build-line` and its title), Save
+    until a build, the spoiler's line naming the image, and each pack whose
+    vanilla values the image holds saying so in its settings until it is
+    read. The About tab's licence and credits
     restate `LICENSE` and `NOTICE.md` (`tests/test_site.py` holds them
     to those files); its privacy line says only that AzurKit collects
     nothing and that the image never leaves the computer (D883).

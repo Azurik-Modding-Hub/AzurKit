@@ -76,7 +76,9 @@ h2 {
 .build { border-top: 1px solid var(--line); background: var(--bar); }
 .image p, .build p { margin: 0; }
 .build > .note { flex-basis: 100%; font-size: 11px; }
-.actions { display: flex; gap: 4px; }
+.actions { display: flex; align-items: center; gap: 4px; }
+#build-line { margin-left: 4px; white-space: nowrap; }
+#packs .vanilla-note { margin: 0; padding: 3px 10px; font-size: 11px; }
 .actions:not(:has(button:not([hidden]))) { display: none; }
 input[type="file"] { font-size: 11.5px; color: var(--muted); max-width: 15rem; }
 button, input[type="file"]::file-selector-button {

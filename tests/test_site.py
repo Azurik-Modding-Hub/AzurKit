@@ -968,6 +968,40 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
         served.close()
 
 
+# What D979 greys and the lines that say why: [Build disabled, Save disabled, the bottom bar's line, Build's title, the
+# spoiler's line, how many packs' settings say their vanilla values wait on the image]
+GREYED = """() => [document.getElementById("build").disabled, document.getElementById("save").disabled,
+    document.getElementById("build-line").textContent, document.getElementById("build").title,
+    document.getElementById("spoiler-note").textContent,
+    [...document.querySelectorAll("#packs .vanilla-note")].filter((note) => !note.hidden).length]"""
+
+
+def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the_image_and_a_build(
+        browser, site, usa_iso):
+    """D979: until an image is picked, Build is greyed with "Pick your image
+    (1.) to build" (its line in the bottom bar and its title), Save with it,
+    the spoiler's line names the image, and each pack whose vanilla values
+    the image holds says so in its settings; once the image is read, Build
+    works and Save waits on a build, and once built, nothing is greyed."""
+    vanilla = {name for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        assert page.evaluate(GREYED) == [True, True, "Pick your image (1.) to build", "Pick your image (1.) to build",
+                                         "Pick your image (1.), then build with Randomize ticked to see its spoiler.",
+                                         len(vanilla)]
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        assert page.evaluate(GREYED) == [False, True, "Save follows a build", "",
+                                         "Build with Randomize ticked to see its spoiler.", 0]
+        _page.build(page, ["fps_unlock"])
+        _page.built(page)
+        _page.until(page, "() => azurkit.ready", 120)   # a worker that replaces the build's says "Preparing the engine…"
+        assert page.evaluate(GREYED)[:4] == [False, False, "", ""] and served.stray() == []
+    finally:
+        served.close()
+
+
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):
     """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe.

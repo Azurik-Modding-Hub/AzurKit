@@ -445,6 +445,7 @@ function vanilla(read) {
       document.getElementById(`${pack.name}.${slider.name}`)?.closest(".slider").fit();
     }
   }
+  lines();
 }
 
 // Ask the engine for the picked image's values once it is ready (the site's is replaced after each build).
@@ -496,6 +497,10 @@ function packRow(pack) {
   const rows = pack.sliders.filter((slider) => !toggles.has(slider))
     .map((slider) => sliderRow(pack, slider, flipped.get(slider.name)));
   sliders.append(...rows);
+  if (pack.sliders.some((slider) => slider.vanilla == null)) {   // its vanilla values are the image's (D42, D979)
+    sliders.prepend(Object.assign(document.createElement("p"), {
+      className: "note vanilla-note", textContent: "Pick your image (1.): its own values show beside these." }));
+  }
   const opener = Object.assign(document.createElement("button"), {
     type: "button", className: "toggle", textContent: `Settings · ${rows.length}`,
     title: `${pack.name}'s settings`, hidden: !rows.length });
@@ -603,13 +608,14 @@ function chosen() {
 
 function busy(on) {
   state.building = on;
-  $("build").disabled = on || !state.file || !state.ready;
+  $("build").disabled = on || !state.file || !state.ready || Boolean(state.opened);
   $("share").disabled = on || !state.packs;
   $("reset").disabled = on || state.plain;
   $("iso").disabled = on || !state.packs;
   for (const id of ["iso-path", "iso-choose", "out-path"]) $(id).disabled = on;
   $("save").disabled = on || !state.build;
   $("cancel").hidden = !on;
+  lines();
   lock();
   lockRando();
   if (!on) {
@@ -618,10 +624,27 @@ function busy(on) {
   }
 }
 
+// D979: a control that can't work yet is greyed, with the line that says what it waits for: Build until an image is
+// picked (a vanilla one: an AzurKit build only offers its recipe) and the engine is ready, Save until a build; the
+// settings of a pack whose vanilla values the image holds say so until it is read, and the spoiler's line names the
+// image too.
+function lines() {
+  const why = state.building ? "" : !state.file ? "Pick your image (1.) to build"
+    : state.opened ? "Pick your vanilla image (1.) to build: this one is an AzurKit build"
+    : !state.ready ? "Preparing the engine…" : !state.build ? "Save follows a build" : "";
+  $("build-line").textContent = why;
+  $("build").title = $("build").disabled ? why : "";
+  $("save").title = $("save").disabled && !state.building ? (state.build ? why : "Save follows a build") : "";
+  $("spoiler-note").textContent = state.file ? "Build with Randomize ticked to see its spoiler."
+    : "Pick your image (1.), then build with Randomize ticked to see its spoiler.";
+  for (const note of $("packs").querySelectorAll(".vanilla-note")) note.hidden = Boolean(state.vanilla);
+}
+
 function forget() {
   if (state.url) URL.revokeObjectURL(state.url);
   state.build = state.url = null;
   $("save").disabled = true;
+  lines();
   $("out-row").hidden = true;
   spoiler(null);
 }
@@ -742,11 +765,13 @@ function opened(preset) {
   $("picked").textContent = `◆ AzurKit build · ${label} · ${packs} packs${seed === undefined ? "" : ` · seed ${seed}`}: `
     + "load its recipe, then pick your vanilla image to build it again.";
   $("load-build").hidden = false;
+  busy(state.building);   // Build greyed: an AzurKit build isn't built from
 }
 
 function unopen() {
   state.opened = null;
   $("load-build").hidden = true;
+  busy(state.building);
 }
 
 // The engine is ready (the site's again after each build). The first time, the page draws the catalog and asks for the
