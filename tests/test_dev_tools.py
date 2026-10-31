@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import fullsuite, land, perf
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -161,6 +163,21 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
     assert perf.select(["src/azurkit/tools/randomizer/x.py", "scripts/web_tools.py"]) == {
         *(("app", g) for g in ("randomizer", "tracker")), *(("site", g) for g in perf.GROUPS)}
     assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set() and len(perf.select(["web/app.mjs"])) == 12
+
+
+def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_one_it_doesnt_know():
+    """Safari's read model (the perf gate's lag run) makes every read of the
+    player's File in ``web/worker.mjs`` 200 ms late, the blocks' FileReaderSync
+    reads and the image check's awaited ones alike; a read it doesn't know
+    stops the run, naming its line."""
+    from tests import _perf
+
+    text = (ROOT / "web" / "worker.mjs").read_text(encoding="utf-8")
+    late = _perf.lagged(text)
+    assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 2
+    added = "const more = await file.slice(0, 1).arrayBuffer();"
+    with pytest.raises(SystemExit, match=re.escape(repr(added))):
+        _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))
 
 
 def test_update_ceilings_on_a_narrow_run_keeps_the_untimed_ops_it_doesnt_reach(tmp_path, monkeypatch):

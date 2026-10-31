@@ -183,8 +183,20 @@ WORLD = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker
 LEVEL = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.level === 'w1' "
          "&& azurkit.tracker.map.pictures.length > 0 && azurkit.tracker.map.pictures.every((p) => p.bitmap)")
 SPECIES = "() => azurkit.characters.state.view?.species.length === 178"
-LAG = ("data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));",
-       f"{{ const late = performance.now() + {LAG_MS}; while (performance.now() < late); }} ")
+# The lag model: each File read worker.mjs makes, and that read made LAG_MS late (a FileReaderSync read by a busy wait
+# before it, as WebKit's blocks the worker; an awaited one by a timer before it). lagged() refuses a worker with a read
+# of a File this doesn't list (READS outside these and NOT_FILE), so a lane that adds one adds it here.
+_WAIT = f"new Promise((late) => setTimeout(late, {LAG_MS})).then(() => "
+LAG = (
+    ("data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));",
+     f"{{ const late = performance.now() + {LAG_MS}; while (performance.now() < late); }} "
+     "data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));"),
+    ("await ends.arrayBuffer()", f"await {_WAIT}ends.arrayBuffer())"),   # identify's sample of the File
+    ("await file.slice(run.start, run.end).arrayBuffer()",   # prime's hashers
+     f"await {_WAIT}file.slice(run.start, run.end).arrayBuffer())"),
+)
+READS = re.compile(r"readAsArrayBuffer\(|\.arrayBuffer\(\)")
+NOT_FILE = ("await wheel.arrayBuffer()",)   # the wheel's fetch
 COUNTED = re.compile(r"\d+ of \d+|\d+(?:\.\d+)? ?%")
 
 
@@ -475,15 +487,9 @@ class _Quiet(http.server.SimpleHTTPRequestHandler):
 @contextlib.contextmanager
 def served(site: Path, lag: bool = False) -> Iterator[str]:
     """The site on 127.0.0.1 (the first free port from :data:`PORTS`); with
-    ``lag`` its ``worker.mjs`` answers each File read :data:`LAG_MS` late, by
-    one substitution that must match exactly once."""
-    worker = None
-    if lag:
-        text = (site / "worker.mjs").read_text(encoding="utf-8")
-        if text.count(LAG[0]) != 1:
-            raise SystemExit(f"perf: the lag model's line is in worker.mjs {text.count(LAG[0])} times, not once: "
-                             f"{LAG[0]!r} (tests/_perf.py LAG)")
-        worker = text.replace(LAG[0], LAG[1] + LAG[0])
+    ``lag`` its ``worker.mjs`` answers each File read :data:`LAG_MS` late
+    (:func:`lagged`)."""
+    worker = lagged((site / "worker.mjs").read_text(encoding="utf-8")) if lag else None
     handler = type("Handler", (_Quiet,), {"worker": worker})
     server = http.server.ThreadingHTTPServer(("127.0.0.1", free_port()),
                                              functools.partial(handler, directory=str(site)))
@@ -494,6 +500,24 @@ def served(site: Path, lag: bool = False) -> Iterator[str]:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def lagged(text: str) -> str:
+    """``worker.mjs``'s ``text`` with each File read :data:`LAG` lists made
+    :data:`LAG_MS` late: each must be there once, and no other read of a
+    File (:data:`READS` but :data:`NOT_FILE`), else a SystemExit names it."""
+    rest = text
+    for read, late in LAG:
+        if text.count(read) != 1:
+            raise SystemExit(f"perf: the lag model's read is in worker.mjs {text.count(read)} times, not once: "
+                             f"{read!r} (tests/_perf.py LAG)")
+        text, rest = text.replace(read, late), rest.replace(read, "")
+    for other in NOT_FILE:
+        rest = rest.replace(other, "")
+    if unknown := [line.strip() for line in rest.splitlines() if READS.search(line)]:
+        raise SystemExit(f"perf: worker.mjs reads a File the lag model doesn't make late: {unknown[0]!r} "
+                         "(tests/_perf.py LAG)")
+    return text
 
 
 # ---- the scenarios ------------------------------------------------------------------------------------------------
