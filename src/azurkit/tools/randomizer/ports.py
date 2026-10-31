@@ -1,6 +1,6 @@
-"""What the randomizer modules the oracle sync installs from Modkit
-(``scripts/oracle_sync.py``'s ``SOURCES``) import from Modkit's shared
-engine, on AzurKit's: the sync's ``REWRITES`` point those imports here.
+"""What the randomizer modules ported from Modkit (at the last cut, Step
+4.12b: AGENTS.md's Porting from Modkit) import from Modkit's shared engine,
+on AzurKit's: a port points those imports here (the rewrites table).
 The node and TOC readers are :mod:`azurkit.core.xbr.nodes`; the maps'
 other XBR readers (Step 4.2c3) are Modkit's own, in
 :mod:`azurkit.tools.randomizer.art`, which read an XBE's release and

@@ -1,15 +1,17 @@
-"""The randomizer against Modkit (``tests/oracle/rando/``): its planner
-(Step 4.2a; ``rando_plans.json``: seed 2 under the strict, default and max
-settings gives Modkit's attempt and plan sha256, and the default plan file
-is Modkit's byte for byte, on CPython and under Pyodide, the site's runtime)
-and its generator layer (Step 4.2b): G3's seed cases build Modkit's files
-and image on both releases (``pipelines.json``, ``rando_iso.json``) and the
-default case's spoiler is Modkit's ``--spoiler`` file of its plan, a
-later layer over a placement is a conflict and any other difference a
-failure, and movement sliders plan on the logic re-checked under them;
-the Randomizer tab's settings (Step 4.2c1); the item tracker's verdicts
-(Step 4.2c2), Modkit's at several states; the checked database the wheel
-and the app ship (Step 4.3g)."""
+"""The randomizer against its goldens (``tests/goldens/``, which
+``scripts/record_goldens.py`` records from AzurKit's own planner; the first
+recording, Step 4.12b, was Modkit's at oracle-rando-6): its planner (Step
+4.2a; ``rando_plans.json``: seed 2 under the strict, default and max
+settings gives its attempt, plan sha256 and spoiler, and the default plan
+file byte for byte, on CPython and under Pyodide, the site's runtime)
+and its generator layer (Step 4.2b): G3's seed cases build their files
+and image on both releases (``pipelines.json``) and the default case's
+spoiler is the ``--spoiler`` file of its plan, a later layer over a
+placement is a conflict and any other difference a failure, and movement
+sliders plan on the logic re-checked under them; the Randomizer tab's
+settings (Step 4.2c1); the item tracker's verdicts (Step 4.2c2) at
+several states and the maps' model of each (``tracker.json``); the
+checked database the wheel and the app ship (Step 4.3g)."""
 
 from __future__ import annotations
 
@@ -27,39 +29,22 @@ from azurkit.core import iso
 from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
 from azurkit.tools.randomizer.planner import loader
-from azurkit.tools.randomizer.planner.fill import settings_table
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import (
     Settings, picks, settings_from_table, share_decode, share_encode, turnable)
 from azurkit.tools.randomizer.planner.solver import Logic
-from scripts import web_tools
-from scripts.oracle_sync import ORACLE
+from scripts import record_goldens, web_tools
 
-RANDO = ORACLE / "rando"
-PLANS = json.loads((RANDO / "tests/goldens/rando_plans.json").read_text(encoding="utf-8"))
-CASES = json.loads((RANDO / "cases.json").read_text(encoding="utf-8"))
-DEFAULT_PLAN = json.dumps(PLANS["default"]["plan"], indent=1, sort_keys=True) + "\n"   # Modkit's plan file
-G3 = {"usa": "tests/goldens/pipelines.json", "europe": "tests/goldens/europe/pipelines.json"}
+PLANS = record_goldens.recorded(record_goldens.PLANS)
+DEFAULT_PLAN = json.dumps(PLANS["default"]["plan"], indent=1, sort_keys=True) + "\n"   # its plan file
+G3 = {"usa": "pipelines.json", "europe": "europe/pipelines.json"}
 JUMP = {"player_physics": {"jump_speed_scale": 1.3}}
-
-
-def _golden(rel: str) -> dict:
-    return json.loads((RANDO / rel).read_text(encoding="utf-8"))
-
-
-def _recipe(case: dict) -> dict:
-    """An oracle case (Modkit's seed and ``Settings`` fields) as the sdk's
-    recipe, its settings as a settings file holds them."""
-    st = case["settings"]
-    return {"seed": case["seed"], "settings": settings_table(Settings(
-        st["skip_ceiling"], st["movement_tier"], st["dark_fire"], st["skip_override"],
-        frozenset(st["exclude_categories"]), st["sliders"]))}
-
-
-@functools.cache
-def _profile(name: str) -> dict:
-    """Seed 2's plan file's object under the oracle's ``name`` settings (strict, default or max)."""
-    return sdk.plan(_recipe(CASES["tests/goldens/rando_plans.json"][name]))
+# tracker.json (Step 4.2c2, 4.2c3): by <plan>/<state>/<plain|spoiler>, the sha256[:32] of the tracker's view
+# (tracking.digest) and of the maps' model the page draws of it (web/mapview.mjs, tests/test_site.py's MAP_MODEL)
+TRACKER = {key: row["view"] for key, row in record_goldens.recorded(record_goldens.TRACKER).items()}
+TRACKER_MAP = {key: row["map"] for key, row in record_goldens.recorded(record_goldens.TRACKER).items()}
+# the hosts' tests (test_site, test_hosts) take these from here: seed 2's plan by case, and tracker.json's states
+_profile, tracker_states, shows_gems = record_goldens.profile, record_goldens.tracker_states, record_goldens.shows_gems
 
 
 def _share(sliders: dict) -> str:
@@ -67,14 +52,21 @@ def _share(sliders: dict) -> str:
     return share_encode(Settings(0, "standard", 1, {}, sliders=sliders), skips)
 
 
-def test_seed_2s_plan_under_each_profile_is_modkits_and_the_default_plan_file_byte_for_byte(capsys):
-    cases = CASES["tests/goldens/rando_plans.json"]
-    assert sorted(cases) == ["default", "max", "strict"] and PLANS["seed"] == "2"
+def test_seed_2s_plan_under_each_profile_is_its_goldens_and_the_default_plan_file_byte_for_byte(capsys, tmp_path):
+    """Each profile's attempt, plan sha256 and spoiler file's sha256; the
+    CLI's plan at the database's defaults (the default profile's) and its
+    spoiler of that file, byte for byte."""
+    cases = record_goldens.cases(record_goldens.PLANS)
+    assert sorted(cases) == ["default", "max", "strict"] and {c["seed"] for c in cases.values()} == {"2"}
     for name in cases:
-        doc = _profile(name)
-        assert (doc["attempt"], doc["sha256"]) == (PLANS[name]["attempt"], PLANS[name]["sha256"]), name
+        doc, lines = _profile(name), sdk.spoiler(_profile(name))["lines"]
+        assert (doc["attempt"], doc["sha256"], hashlib.sha256(("\n".join(lines) + "\n").encode()).hexdigest()) == (
+            PLANS[name]["attempt"], PLANS[name]["sha256"], PLANS[name]["spoiler"]), name
     assert cli.main(["plan", "--seed", "2"]) == 0        # the database's defaults are the default profile's
     assert capsys.readouterr().out == DEFAULT_PLAN
+    (tmp_path / "plan.json").write_text(DEFAULT_PLAN, encoding="utf-8")
+    assert cli.main(["spoiler", str(tmp_path / "plan.json")]) == 0
+    assert hashlib.sha256(capsys.readouterr().out.encode()).hexdigest() == PLANS["default"]["spoiler"]
 
 
 def test_a_plan_reads_back_into_its_spoiler_and_what_the_randomizer_cant_take_is_refused_by_name():
@@ -191,23 +183,23 @@ def test_movement_sliders_plan_on_the_logic_rechecked_under_them_and_the_packs_c
     pytest.param("usa", "randomize-full:seed=2,default", marks=pytest.mark.vanilla),
     pytest.param("usa", "randomize-full:seed=2,ceiling2", marks=pytest.mark.vanilla),
     pytest.param("europe", "randomize-full:seed=2,default", marks=[pytest.mark.vanilla, pytest.mark.europe])])
-def test_g3s_seed_cases_build_modkits_files_and_image_and_open_back_into_their_recipe(release, case, request):
+def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_their_recipe(release, case, request):
     """G3's seed cases (J1's model-free seed case on both releases): the
-    packs on by default and the plan of Modkit's seed and options, through
-    the CLI's recipe, change each file the golden names to its sha256 and
-    no other (Europe's golden names its own files; its XBRs are the USA
-    case's), the image less its root entries is Modkit's (``rando_iso``:
-    the recorded default plan's), the image reads back to the plan with
-    its logic verified, its report carrying the plan (the tracker's), and
-    the build opens back into its recipe."""
+    packs on by default and the plan of the case's seed and options,
+    through the CLI's recipe, change each file the golden names to its
+    sha256 and no other (Europe's golden names its own files; its XBRs are
+    the USA case's), the image less its root entries is the golden's (the
+    default case's of ``rando_plans.json``'s default plan), the image reads
+    back to the plan with its logic verified, its report carrying the plan
+    (the tracker's), and the build opens back into its recipe."""
     path = request.getfixturevalue(f"{release}_iso")
-    args = CASES[G3[release]][case]["args"]
+    args = record_goldens.cases(G3[release])[case]["args"]
     options = {k: args[k] for k in ("skip_ceiling", "movement_tier", "dark_fire") if args[k] is not None}
     settings = layer.settings_doc(kept_logic().db.defaults) | options
     given = {"seed": args["seed"]} | ({"settings": settings} if options else {})
     made, report = sdk.image(cli.recipe(str(path), [], [], True, randomizer=given))
-    golden = _golden(G3[release])[case]
-    want = {f: sha for f, sha in (_golden(G3["usa"])[case] | golden).items() if f != "ISO"}
+    golden = record_goldens.recorded(G3[release])[case]
+    want = {f: sha for f, sha in (record_goldens.recorded(G3["usa"])[case] | golden).items() if f != "ISO"}
     assert report["result"] == want and report["conflicts"] == []
     plan = report["randomizer"]
     assert (plan["seed"], plan["logic_verified"], plan["why_not"], plan["conflicts"]) == ("2", True, [], [])
@@ -215,9 +207,8 @@ def test_g3s_seed_cases_build_modkits_files_and_image_and_open_back_into_their_r
         files = {file: r.read(file) for file in report["result"] if file != "filelist.txt"}
     assert iso.read(path, files).sha256() == golden["ISO"]
     if (release, case) == ("usa", "randomize-full:seed=2,default"):
-        assert {"plan": plan["plan"], "usa": golden["ISO"]} == {k: _golden("tests/goldens/rando_iso.json")[k]
-                                                                 for k in ("plan", "usa")}
-        lines = sdk.spoiler(PLANS["default"]["plan"])["lines"]   # Modkit's default plan file: its --spoiler file
+        assert plan["plan"] == PLANS["default"]["sha256"]
+        lines = sdk.spoiler(PLANS["default"]["plan"])["lines"]   # the default plan file: its --spoiler file
         assert report["spoiler"] == "\n".join([lines[0], "logic_verified: true", *lines[1:]]) + "\n"
         assert report["plan"] == PLANS["default"]["plan"]   # the tracker's (Step 4.2c2)
     found = sdk.read_mods(sdk.open_build(made, whole=False))
@@ -261,7 +252,7 @@ def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_f
     assert [c for c in report["conflicts"] if f"whose group randomizer {key} is dropped whole" in c]
 
 
-def test_the_default_plan_file_is_modkits_byte_for_byte_under_pyodide(pyodide):
+def test_the_default_plan_file_is_its_goldens_byte_for_byte_under_pyodide(pyodide):
     got = pyodide("plan", "--seed", "2")
     assert (got["code"], got["stderr"]) == (0, ""), got["stderr"][-2000:]
     assert got["stdout"] == DEFAULT_PLAN
@@ -295,90 +286,12 @@ def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_th
     assert kept.db == fresh.db and kept_logic() is kept
 
 
-# Modkit 3befd6336's tracker on seed 2's default and max plans, each state with the spoiler off and on: the
-# sha256[:32] of each view (tracking.digest: the marks, the counter row, each spot's state and item, the Table),
-# from $EV/azurkit-4.2c2-2026-10-29/verdicts.py on Modkit's own Tracker (results/verdicts-modkit.json)
-TRACKER = {
-    "default/gems/plain": "107459b341da384490175026ddd86783",
-    "default/gems/spoiler": "8edf7deb80a3a4e1b327a6f8dcc722ae",
-    "default/kit/plain": "ce3571fe88c962f21c7e09d138dac973",
-    "default/kit/spoiler": "bf87656a7108cee3227c030710b11feb",
-    "default/mid/plain": "855469adebcf58a4d0e99376cf684d07",
-    "default/mid/spoiler": "fafe347a9ba2ca1c664f2cd939e516b0",
-    "default/none/plain": "41630c81ddcd3ff9c0b1a9955fb979a1",
-    "default/none/spoiler": "99feb6f24dc6f54118e0a99c1ebe8cb8",
-    "default/powers/plain": "ff16075ece7b8e4ccebe2c341fb1c3c6",
-    "default/powers/spoiler": "6ba1171bab858407a9cf0fc226c67517",
-    "max/gems/plain": "6b078439c450cd1ed8d0f71c1223d00e",
-    "max/gems/spoiler": "bfd829bbe480433ddce3876dfca65d81",
-    "max/kit/plain": "2a4d9249a20132ded813953bbb9b461b",
-    "max/kit/spoiler": "44e5c5bafc8404762f3f772539117991",
-    "max/mid/plain": "46f4bf1a77f77b4b75cbf56e715b8a0e",
-    "max/mid/spoiler": "9dd64c832ce40b4b2ca9ea0fc2ef3194",
-    "max/none/plain": "cf52424a1d9faa63de7be95f307dec2a",
-    "max/none/spoiler": "6d9496c6c8698564fe23472f4877c33e",
-    "max/powers/plain": "6dd4c7184fe0aaa17f7c4ca6cbbad22b",
-    "max/powers/spoiler": "106b13abcc619b74194430a5a1b8f6e4",
-}
-#: Step 4.2c3: the same states' map verdicts, Modkit's (its map view's rules on its own Tracker: each level's tracked
-#: spots with their ring, icon, faintness and check, its gem dots, and the world map's badges), which the page's
-#: ``web/mapview.mjs`` (``marks`` and ``badges``) gives on each host's view (``tests/test_site.py``).
-TRACKER_MAP = {
-    "default/gems/plain": "896882e01509e47b3519bd3310b54bde",
-    "default/gems/spoiler": "33a87095d05edb212fb8ff346f784dcd",
-    "default/kit/plain": "667d490734bb4c3b7f6efb80ade7278b",
-    "default/kit/spoiler": "d68d8a730748df9f531eb961d5283f02",
-    "default/mid/plain": "0211fd25302bb83daebce2b4a8ff4888",
-    "default/mid/spoiler": "d6d244a9567b5b871804761dfe80282e",
-    "default/none/plain": "4967d5f30669639fe81aae9bc12c3e23",
-    "default/none/spoiler": "d8d55ef7bfc5d675b0e6bcfc5f9fbcb8",
-    "default/powers/plain": "ea8bfa7e863cbc4b416f8629ac27cb90",
-    "default/powers/spoiler": "6ceb6b00efad5d84442dec357c549b2c",
-    "max/gems/plain": "ceb17ff518794b820daabe64649824df",
-    "max/gems/spoiler": "b9fb061405bea77283c59eb084715e54",
-    "max/kit/plain": "541b6c9ffe666c078ebd7fb527ea3c18",
-    "max/kit/spoiler": "1096c65f28413c151b2d11b153375441",
-    "max/mid/plain": "4e73af01215d1f4e45e68ccefbd0213f",
-    "max/mid/spoiler": "6e51aa10349bfdbfaae3a8864c74c489",
-    "max/none/plain": "4f58757566574a6184421cce4c67846f",
-    "max/none/spoiler": "1f594079ebc7878e416a564642a00323",
-    "max/powers/plain": "5efb4bdecf25484e46e98dac8ded35d8",
-    "max/powers/spoiler": "8f2d82414249b54713b34239f9761c53",
-}
-KIT = {"air": 3, "water": 3, "fire": 3, "earth": 3}
-
-
-def tracker_states(view, doc: dict):
-    """(state, marks, kit) of :data:`TRACKER`'s states for ``doc``, through
-    ``view(doc, marks, spoiler)`` (a host's tracker): none, no mark; mid,
-    three rounds of marking every spot reachable now; powers, every spot the
-    plan put a power at; kit, no mark and Live's kit at air, water, fire and
-    earth 3; gems (Step 4.2c3, R1.43), mid's marks with Live's gems taken at
-    the first cluster (all its gems), the second (one) and the first gem (a
-    host shows the gems when its marks hold some: :func:`shows_gems`)."""
-    mid = []
-    for _ in range(3):
-        spots = view(doc, {"collected": mid}, False)["spots"]
-        mid = sorted(set(mid) | {loc for loc, s in spots.items() if s["state"] in ("near", "skip")})
-    powers = sorted(loc for loc, s in view(doc, None, True)["spots"].items() if s["item"].startswith("power_"))
-    full = {loc["id"]: loc["yield"] for g in kept_logic().db.generated.values() for loc in g["locations"]
-            if loc["pool"] and not loc["dead"] and loc["class"] in ("gem", "cluster")}
-    cluster, single = (sorted(loc for loc, n in full.items() if (n > 1) == c) for c in (True, False))
-    gems = {cluster[0]: [0.5] * full[cluster[0]], cluster[1]: [None], single[0]: [1.25]}
-    return [("none", None, None), ("mid", {"collected": mid}, None), ("powers", {"collected": powers}, None),
-            ("kit", None, KIT), ("gems", {"collected": mid, "gems": gems}, None)]
-
-
-def shows_gems(marks: dict | None) -> bool:
-    """A :func:`tracker_states` state the tracker shows with Gems on: its marks hold gems taken."""
-    return bool((marks or {}).get("gems"))
-
-
-def test_the_trackers_verdicts_are_modkits_at_each_state_and_a_click_marks_what_it_names():
+def test_the_trackers_verdicts_are_their_goldens_at_each_state_and_a_click_marks_what_it_names():
     """Step 4.2c2 (D189, D249): the item tracker (Modkit's ``Tracker``,
-    installed by the oracle sync) on seed 2's default and max plans gives
-    Modkit's verdicts (:data:`TRACKER`) with nothing marked, after three
-    rounds of marking every spot reachable now, with every power marked
+    ported) on seed 2's default and max plans gives its golden's verdicts
+    (:data:`TRACKER`, first recorded from Modkit's own) with nothing
+    marked, after three rounds of marking every spot reachable now, with
+    every power marked
     and with Live's kit at every element 3 (R1.41: the reach holds the
     levels the game holds), with Gems on and Live's gem takes (Step 4.2c3,
     R1.43: each gem spot's gems taken and in all, each level's, the Table's
@@ -435,3 +348,12 @@ def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_
         ("plan", "Writing the placements", 66), ("plan", "Reading the seed's logic", 0),
         ("plan", "Reading the world map", 50)]
     assert tracking.digest(first) == tracking.digest(again) == tracking.digest(sdk.tracker({"plan": doc}))
+
+
+@pytest.mark.web
+def test_the_recorder_writes_the_trackers_golden_from_azurkits_own_tracker_and_map_view():
+    """``tracker.json`` is what ``scripts/record_goldens.py`` records: each
+    state's view from the tracker on CPython and the maps' model the page's
+    ``web/mapview.mjs`` draws of it, under Node (the test is ``web``)."""
+    made = record_goldens.record(record_goldens.TRACKER, record_goldens.Images())
+    assert record_goldens.text(made) == (record_goldens.GOLDENS / record_goldens.TRACKER).read_text(encoding="utf-8")

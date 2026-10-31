@@ -1438,15 +1438,17 @@
    "sha256": "aa53a70eff1bf059aae6749ca3b1dc653b65d090d90a239eb8944202e8b80cc6",
    "share": "AZR-AAEA"
   },
-  "sha256": "aa53a70eff1bf059aae6749ca3b1dc653b65d090d90a239eb8944202e8b80cc6"
+  "sha256": "aa53a70eff1bf059aae6749ca3b1dc653b65d090d90a239eb8944202e8b80cc6",
+  "spoiler": "146cec1c89added0accdaa46b34ec914c5720f1e32ce054fe4d2350835c7206a"
  },
  "max": {
   "attempt": 0,
-  "sha256": "33e1c79d103aa6d5c46ed53dd3ad3780cf4975ad044b9d7f2424cccb282547f1"
+  "sha256": "33e1c79d103aa6d5c46ed53dd3ad3780cf4975ad044b9d7f2424cccb282547f1",
+  "spoiler": "44760551baaeae92eecdc58315c10efcfb8985bfdcba09c170a926d51b6bb8f0"
  },
- "seed": "2",
  "strict": {
   "attempt": 0,
-  "sha256": "2c1114ccb4de61c0b04654b96e504c80b500840f27942112166e3145468aafb8"
+  "sha256": "2c1114ccb4de61c0b04654b96e504c80b500840f27942112166e3145468aafb8",
+  "spoiler": "ee75c81203b7bd40a5f1eae6837d6389155b4aacab15d003f5ad4475cf4362cd"
  }
 }

@@ -33,6 +33,15 @@ edited by hand) builds, as names and sha256 only.
   packs on by default on both releases: each file's sha256 and resources.
 - ``matches.json``: the Characters tab's match-Garret values (``sdk.match``)
   of each recipe on USA over the packs on by default.
+- ``rando_plans.json``: the randomizer's plan of each case's seed and
+  settings (``sdk.plan``): its attempt and sha256, the sha256 of its spoiler
+  file (``azurkit spoiler``'s text) and, for the case marked ``file``, the
+  plan file's object. G3's seed cases build it into an image.
+- ``tracker.json``: the item tracker's verdicts on each case's plan at each
+  of :func:`tracker_states`' states, the spoiler off and on: the
+  ``sha256[:32]`` of its view (``view``: ``tracking.digest`` of
+  ``sdk.tracker``) and of the maps' model the page draws of that view
+  (``map``: ``web/mapview.mjs`` under ``node``, :data:`MAP_MODEL`).
 
 The page's shipped pictures (Step 4.3f, D961), files rather than names and
 sha256, are recorded the same way, each family by its name:
@@ -47,7 +56,10 @@ sha256, are recorded the same way, each family by its name:
 The first recording is Modkit's last cut: for the core and packs families
 oracle-packs-4 (Modkit 28d0b4110, Step 4.12a), for the models family
 oracle-models-3 (Modkit 1648692, Step 4.12c), which this script's first run
-wrote back unchanged but where AzurKit can't build a file (AZ-009). Only it
+wrote back unchanged but where AzurKit can't build a file (AZ-009); for the
+randomizer's oracle-rando-6 (Modkit 8bfef0ca6, Step 4.12b), whose rows it
+wrote back unchanged, each plan's ``spoiler`` added and ``tracker.json``
+recorded equal to the digests of Modkit's own tracker. Only it
 changes these files, and a commit that does names each golden it changed and
 why. ``--check`` writes nothing and exits 1 naming each case that differs.
 The images are the ones the gate finds (``AZURKIT_ISO``,
@@ -60,9 +72,11 @@ in ``--workers`` processes (4).
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import multiprocessing
+import subprocess
 import sys
 import tempfile
 from collections.abc import Callable, Mapping
@@ -84,6 +98,9 @@ SHIMS = ROOT / "src" / "azurkit" / "tools" / "mods" / "shims"   # shimkit.SHIMS:
 PLAYER_MODEL = ROOT / "src" / "azurkit" / "tools" / "characters" / "player_model"   # shimkit.PLAYER_MODEL: the swap's
 G3 = ("pipelines.json", "europe/pipelines.json")
 RESOURCES, PROBES, MATCHES = "resources.json", "probes.json", "matches.json"
+PLANS, TRACKER = "rando_plans.json", "tracker.json"   # the randomizer's
+MAPVIEW = ROOT / "web" / "mapview.mjs"   # the page's maps, whose model of a tracker view tracker.json records
+KIT = {"air": 3, "water": 3, "fire": 3, "earth": 3}   # Live's kit at tracker.json's "kit" state
 INDEX = "gamedata/index/index.xbr"
 CONFIG = engine.CONFIG
 NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (Modkit's)
@@ -167,6 +184,14 @@ def wears(case: Mapping) -> bool:
     return args.get("command") == "randomize-full" and bool(
         args["player_character"] or args["player_weapon"]
         or any(args[k] not in (None, 1.0) for k in PLAYER_SLIDERS))
+
+
+def seeded(case: Mapping) -> bool:
+    """Whether a G3 case plans a seed (randomize-full without
+    ``--no-randomize``): ``tests/test_randomizer.py``'s, but one that
+    :func:`wears` a character, ``tests/test_characters.py``'s."""
+    args = case.get("args") or {}
+    return args.get("command") == "randomize-full" and not args["no_randomize"]
 
 
 def character(case: Mapping, folder: Path | None = None) -> dict:
@@ -416,7 +441,7 @@ GOLDENS_BUILT = {   # golden -> (its release, what builds one case)
     "pipelines.json": (gate.USA, build("pipelines.json")),
     "europe/pipelines.json": (gate.EUROPE, build("europe/pipelines.json")), "gui.json": (gate.USA, build("gui.json")),
 }
-CASED = (*GOLDENS_BUILT, PROBES, MATCHES)
+CASED = (*GOLDENS_BUILT, PROBES, MATCHES, PLANS)
 """The goldens whose rows are their cases' (``resources.json``'s are G3's that dress the player, ``shims.json``'s
 the objects)."""
 
@@ -446,6 +471,105 @@ def matches(images: Images) -> dict[str, dict]:
         out[name] = {k: got["values"][slider] for k, slider in zip(("size", "reach", "speed", "damage"),
                                                                     characters.MATCHED)} | {"why": got["why"]}
     return {"usa": out}
+
+
+def plan_recipe(case: Mapping) -> dict:
+    """A ``rando_plans.json`` case (Modkit's seed and ``Settings`` fields) as
+    the sdk's recipe, its settings as a settings file holds them."""
+    from azurkit.tools.randomizer.planner.fill import settings_table
+    from azurkit.tools.randomizer.planner.settings import Settings
+
+    st = case["settings"]
+    return {"seed": case["seed"], "settings": settings_table(Settings(
+        st["skip_ceiling"], st["movement_tier"], st["dark_fire"], st["skip_override"],
+        frozenset(st["exclude_categories"]), st["sliders"]))}
+
+
+@functools.cache
+def profile(name: str) -> dict:
+    """The plan file's object of ``rando_plans.json``'s case ``name`` (seed 2 under strict, default or max)."""
+    return sdk.plan(plan_recipe(cases(PLANS)[name]))
+
+
+def plans() -> dict[str, dict]:
+    """``rando_plans.json``: each case's plan's attempt and sha256, its
+    spoiler file's sha256 (``azurkit spoiler``'s lines) and, for the case
+    marked ``file``, the plan file's object."""
+    out = {}
+    for name, case in cases(PLANS).items():
+        doc, spoiler = profile(name), "\n".join(sdk.spoiler(profile(name))["lines"]) + "\n"
+        out[name] = {"attempt": doc["attempt"], "sha256": doc["sha256"], "spoiler": _sha256(spoiler.encode())} | (
+            {"plan": json.loads(json.dumps(doc))} if case.get("file") else {})
+    return out
+
+
+def shows_gems(marks: Mapping | None) -> bool:
+    """A :func:`tracker_states` state the tracker shows with Gems on: its marks hold gems taken."""
+    return bool((marks or {}).get("gems"))
+
+
+def tracker_states(view: Callable, doc: dict) -> list[tuple]:
+    """(state, marks, kit) of ``tracker.json``'s states for ``doc``, through
+    ``view(doc, marks, spoiler)`` (a host's tracker): none, no mark; mid,
+    three rounds of marking every spot reachable now; powers, every spot the
+    plan put a power at; kit, no mark and Live's kit at air, water, fire and
+    earth 3 (:data:`KIT`); gems (Step 4.2c3, R1.43), mid's marks with Live's
+    gems taken at the first cluster (all its gems), the second (one) and the
+    first gem (a host shows the gems when its marks hold some:
+    :func:`shows_gems`)."""
+    from azurkit.tools.randomizer.planner.loader import kept_logic
+
+    mid = []
+    for _ in range(3):
+        spots = view(doc, {"collected": mid}, False)["spots"]
+        mid = sorted(set(mid) | {loc for loc, s in spots.items() if s["state"] in ("near", "skip")})
+    powers = sorted(loc for loc, s in view(doc, None, True)["spots"].items() if s["item"].startswith("power_"))
+    full = {loc["id"]: loc["yield"] for g in kept_logic().db.generated.values() for loc in g["locations"]
+            if loc["pool"] and not loc["dead"] and loc["class"] in ("gem", "cluster")}
+    cluster, single = (sorted(loc for loc, n in full.items() if (n > 1) == c) for c in (True, False))
+    gems = {cluster[0]: [0.5] * full[cluster[0]], cluster[1]: [None], single[0]: [1.25]}
+    return [("none", None, None), ("mid", {"collected": mid}, None), ("powers", {"collected": powers}, None),
+            ("kit", None, KIT), ("gems", {"collected": mid, "gems": gems}, None)]
+
+
+#: The maps' model of each tracker view, as the page draws it (``web/mapview.mjs``'s ``marks()`` for each level and
+#: ``badges()``, with the icons the engine draws): one canonical JSON text a view (``tests/test_site.py``'s MAP_MODEL
+#: in the page), under ``node``, the views, levels and icons on its stdin.
+MAP_MODEL = """import { marks, badges } from %s;
+let text = "";
+for await (const chunk of process.stdin) text += chunk;
+const [views, levels, icons] = JSON.parse(text), have = (name) => icons.includes(`icons/${name}`);
+const sorted = (v) => Array.isArray(v) ? v.map(sorted) : v && typeof v === "object"
+  ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;
+process.stdout.write(JSON.stringify(views.map((view) => JSON.stringify(sorted({
+  levels: Object.fromEntries(levels.map((lv) => [lv, marks(view, lv, have)])), badges: badges(view) })))));
+"""
+
+
+def tracker() -> dict[str, dict]:
+    """``tracker.json``: by ``<case>/<state>/<plain|spoiler>``, the
+    ``sha256[:32]`` of the tracker's view of the case's plan at each of
+    :func:`tracker_states`' states (``view``) and of :data:`MAP_MODEL`'s
+    model of it (``map``)."""
+    from azurkit.tools.randomizer import tracking
+    from azurkit.tools.randomizer.art import icons
+
+    def view(doc, marks, spoiler, kit=None):
+        return sdk.tracker({"plan": doc, "marks": marks, "kit": kit, "spoiler": spoiler, "gems": shows_gems(marks)})
+
+    views = {}   # key -> (its view's digest, its view as JSON)
+    for name, case in cases(TRACKER).items():
+        doc = profile(case["plan"])
+        for state, marks, kit in tracker_states(view, doc):
+            for spoiler in (False, True):
+                got = view(doc, marks, spoiler, kit)
+                views[f"{name}/{state}/{'spoiler' if spoiler else 'plain'}"] = (tracking.digest(got), json.dumps(got))
+    drawn = [f"icons/{name}" for name in [*icons.ICONS, *icons.DRAWN, *icons.keys()]]
+    given = f"[[{','.join(text for _, text in views.values())}],{json.dumps(list(tracking.GRID))},{json.dumps(drawn)}]"
+    run = subprocess.run(["node", "--input-type=module", "--eval", MAP_MODEL % json.dumps(MAPVIEW.as_uri())],
+                         input=given, capture_output=True, text=True, check=True)
+    return {key: {"map": _sha256(model.encode())[:32], "view": _sha256(digest.encode())[:32]}
+            for (key, (digest, _)), model in zip(views.items(), json.loads(run.stdout), strict=True)}
 
 
 def _art_part(job: tuple[str, str]) -> tuple[str, dict]:
@@ -581,6 +705,10 @@ def record(golden: str, images: Images) -> dict[str, dict]:
         return shims(images)
     if golden == MATCHES:
         return matches(images)
+    if golden == PLANS:
+        return plans()
+    if golden == TRACKER:
+        return tracker()
     if golden == PROBES:
         return {case: probe | {r.name: images.built(("probe", case, r.name)) for r in gate.RELEASES}
                 for case, probe in cases(PROBES).items()}
@@ -601,7 +729,7 @@ def text(rows: Mapping) -> str:
 
 
 def main(argv: list[str] | None = None, images: Images | None = None) -> int:
-    names = [*GOLDENS_BUILT, "shims.json", RESOURCES, PROBES, MATCHES, *SHIPPED]
+    names = [*GOLDENS_BUILT, "shims.json", RESOURCES, PROBES, MATCHES, PLANS, TRACKER, *SHIPPED]
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--check", action="store_true", help="write nothing; exit 1 naming each case that differs")
     ap.add_argument("--workers", type=int, default=4,

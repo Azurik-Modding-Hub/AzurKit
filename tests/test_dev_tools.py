@@ -21,9 +21,9 @@ SMOKE = sorted(fullsuite.SMOKE)
 def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite():
     """A changed module selects every test file that reaches it through
     imports; src/ adds the files that run the whole package (SRC_TESTS);
-    docs select only the smoke files (the lint files, the oracle's test and
-    the gate's, whose USA and Europe cases make every receipt run both
-    tiers); the suite's configuration, what every session
+    docs select only the smoke files (the lint files and the gate's test,
+    whose USA and Europe cases make every receipt run both tiers); the
+    suite's configuration, what every session
     loads and an unknown path make it whole. The session loads only
     what tests/conftest.py imports (it checks the app in a Python of its
     own), so here a change to the sdk is changed-area."""
@@ -31,9 +31,9 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
             "azurkit.core.gate": {"azurkit", "azurkit.core"},
             "azurkit.sdk": {"azurkit", "azurkit.core", "azurkit.core.iso"},
             "tests.conftest": {"azurkit", "azurkit.core", "azurkit.core.gate"},
-            "tests.test_sdk": {"azurkit", "azurkit.sdk"}, "tests.test_oracle": {"azurkit.core.iso"},
+            "tests.test_sdk": {"azurkit", "azurkit.sdk"}, "tests.test_gate": {"azurkit.core.iso"},
             "tests.test_wheel": {"azurkit"}, "tests.test_other": {"json"}}
-    assert "tests/test_oracle.py" in SMOKE
+    assert "tests/test_gate.py" in SMOKE
     assert any("pytest.mark.europe" in (ROOT / f).read_text(encoding="utf-8") for f in SMOKE)   # D26
     assert fullsuite.plan(["src/azurkit/core/iso.py"], deps) == sorted(
         {*SMOKE, "tests/test_sdk.py", *fullsuite.SRC_TESTS})
@@ -45,18 +45,15 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
     assert fullsuite.plan(["src/azurkit/sdk.py"], fullsuite.graph(ROOT)) is not None
 
 
-def test_a_change_in_the_oracle_or_the_goldens_picks_the_test_files_that_read_them():
-    """tests/oracle/ and tests/goldens/ are read by path, not imported: a
-    change in one picks each test file that reaches a module naming it
-    (``scripts/oracle_sync.py``'s ORACLE, ``scripts/record_goldens.py``'s
-    GOLDENS, ``tests/test_art.py``'s own), not the smoke files alone."""
-    deps = fullsuite.graph(ROOT)
-    oracle = fullsuite.plan(["tests/oracle/rando/cases.json", "tests/oracle/ORACLE.toml"], deps)
-    assert {f"tests/test_{name}.py" for name in ("hosts", "randomizer", "art", "site")} <= set(oracle) - set(SMOKE)
-    goldens = fullsuite.plan(["tests/goldens/probes.json"], deps)
+def test_a_change_in_the_goldens_picks_the_test_files_that_read_them():
+    """tests/goldens/ is read by path, not imported: a change in it picks
+    each test file that reaches a module naming it
+    (``scripts/record_goldens.py``'s GOLDENS), every family's (the packs',
+    the characters', the randomizer's and its maps'), not the smoke files
+    alone."""
+    goldens = fullsuite.plan(["tests/goldens/rando_plans.json", "tests/goldens/probes.json"], fullsuite.graph(ROOT))
     assert {f"tests/test_{name}.py" for name in ("characters", "packs", "builds", "shims", "xbr", "fps_unlock",
-                                                 "hosts")} <= set(goldens)
-    assert "tests/test_randomizer.py" not in goldens and "tests/test_xbr.py" not in oracle   # each reads the other
+                                                 "randomizer", "art", "hosts", "site")} <= set(goldens) - set(SMOKE)
 
 
 def test_the_page_picks_the_site_app_and_icon_tests_and_the_docs_they_restate_pick_theirs():

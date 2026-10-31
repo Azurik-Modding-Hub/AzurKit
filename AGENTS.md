@@ -1,10 +1,10 @@
 # AGENTS.md: rules for agents and contributors
 
 AzurKit is the lean, public rewrite of Azurik_Modkit. Modkit is its reference
-and, for the randomizer until Step 4.12b, its test oracle: a port is done
-when its output matches Modkit's byte for byte, file by file. Every other
-family's truth is AzurKit's own (The goldens, below): the core's and the
-packs' since Step 4.12a, the characters' since Step 4.12c.
+only: every family's truth is AzurKit's own (The goldens, below), the core's
+and the packs' since Step 4.12a, the characters' since Step 4.12c and the
+randomizer's since Step 4.12b, each first recorded at Modkit's last cut. A
+later Modkit result reaches AzurKit as a hand port (Porting from Modkit).
 [`README.md`](README.md) says what AzurKit is. These rules bind.
 
 **README's features:** a change a player would notice adds or updates its
@@ -100,7 +100,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - Never print game bytes in logs, commits or chat: print lengths and
   `sha256[:12]`. Failure output is redacted (`tests/_byte_safe.py`).
 - Recorded results are hashes and names, a convention and not a leak rule:
-  the goldens, the oracle's bundle and the facts hold sha256 and length, not
+  the goldens and the facts hold sha256 and length, not
   raw vanilla spans.
 - The images are read-only. A build writes to an explicit output that isn't
   its input.
@@ -110,9 +110,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## The goldens
 
-- `tests/goldens/` is AzurKit's own truth for every family but the
-  randomizer's: the packs and the core (Step 4.12a) and the characters
-  (Step 4.12c). It is what each case of `tests/goldens/cases.json` (its
+- `tests/goldens/` is AzurKit's own truth for every family: the packs and
+  the core (Step 4.12a), the characters (Step 4.12c) and the randomizer
+  (Step 4.12b). It is what each case of `tests/goldens/cases.json` (its
   recipe, edited by hand) builds from the vanilla images, as names and
   sha256: G1 per pack (`packs.json`, `europe/packs.json`), each XBE pack
   case's bytes at the facts' sites (`sites.json`, `europe/sites.json`), the
@@ -123,8 +123,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   resource of every G3 build that dresses the player (`resources.json`),
   the character probes no G3 case builds (`probes.json`: a variant's mesh,
   paint and jiggle without Azurik-Custom-Content's files, a townsman's and
-  the air elemental's own bodies, on both releases) and the Characters
-  tab's match-Garret values (`matches.json`).
+  the air elemental's own bodies, on both releases), the Characters
+  tab's match-Garret values (`matches.json`) and the randomizer's: seed
+  2's plan under the strict, default and max settings (`rando_plans.json`:
+  each plan's attempt, sha256 and spoiler file's sha256, the default plan
+  file whole), G3's seed cases (in `pipelines.json`, Europe's in its own)
+  and the item tracker's verdicts on the default and max plans at five
+  states, the spoiler off and on (`tracker.json`: each view's digest and
+  that of the maps' model `web/mapview.mjs` draws of it, under `node`).
   - Only `scripts/record_goldens.py` writes them, from AzurKit's own builds
     on the player's images (`--check` writes nothing); never edit them by
     hand. It records the page's shipped pictures too, by family (`art`:
@@ -132,59 +138,89 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     and a gameplay byte change to a default build is seen once in xemu.
   - The first recording is Modkit's last cut (the packs and the core:
     oracle-packs-4, Modkit 28d0b4110; the characters: oracle-models-3,
-    Modkit 1648692), which the recorder's first run wrote back unchanged
-    but the files AzurKit can't build (AZ-009: G3's `seed=0,all` leaves out
+    Modkit 1648692; the randomizer: oracle-rando-6, Modkit 8bfef0ca6),
+    which the recorder's first run wrote back unchanged but the files
+    AzurKit can't build (AZ-009: G3's `seed=0,all` leaves out
     `training_room.xbr`, `filelist.txt` and `ISO`, as the packs' three
-    level-patched cases do).
+    level-patched cases do); the randomizer's plans gained their spoiler's
+    sha256, `tracker.json` was recorded equal to Modkit's own tracker's
+    digests, and Modkit's `rando_iso.json` (the default plan's sha256 and
+    its seed build's image, both pinned above) was left out.
   - The cases that wear booblord read her files in the content folder
     (`AZURKIT_CONTENT`, `azurkit content install booblord`); the builds
     that dress the player run in `--workers` processes.
   - A new pack adds its cases to `cases.json` (its defaults in `packs.json`,
     `sites.json` and, for an XBE pack, Europe's), then records them.
 
-## The oracle
+## Porting from Modkit
 
-- `tests/oracle/<family>/` is Modkit's bundle for a family (`rando`, the
-  one left until Step 4.12b), cut at a Modkit tag. `tests/oracle/ORACLE.toml` records
-  each family's tag, its commit and every file's sha256, and
-  `tests/test_oracle.py` holds them to it.
-  - Only `scripts/oracle_sync.py` changes these files; never edit them by hand.
-  - A tag bump prints Modkit's commits since the last sync. That list is the
-    port's to-do.
-  - **Modkit's source a sync installs** (`oracle_sync.SOURCES`): the rando
-    family's sync also installs the randomizer's database
-    (`src/azurkit/tools/randomizer/data/`, our own logic data, copied
-    verbatim, and `draft/tiers.toml`, the movement tiers' margins), its
-    planner (`.../randomizer/planner/`) and its `writer.py`, `physics.py`,
-    `movement.py` and `layer.py`, each module through `port()`: `REWRITES`'
-    imports (what they import of Modkit's engine points at ours:
-    `core/xbr/nodes.py`, `tools/randomizer/ports.py`), and the top-level
-    statements `DROPS` names taken out, such as the seed roll's process pool
-    and Modkit's build objects (a script's `if __name__ == "__main__":`
-    block is dropped as `"__main__"`). It installs the maps' and icons'
-    drawing too (Step 4.2c3): Modkit's `scripts/render_level_maps.py` and
-    `render_model_icons.py` as `tools/randomizer/art/maps.py` and
-    `icons.py`, its XBR readers they draw from (`xbr/nodes.py` with the
-    node-type names table `node_types.json`, P3: no capstone; `tern.py`,
-    `collision.py`, `render.py`, `draw.py`) in `art/`, and the reach
-    model's geometry, floors, wiring and envelope in `draft/` and the level
-    semantics they read (`levels.py`, its extractor dropped). ORACLE.toml's
-    `source` table holds each installed file's sha256 and `tests/test_oracle.py`
-    refuses a hand edit: a Modkit fix arrives by the next sync. Its `art`
-    table holds the pixel digest of each picture Modkit commits of what it
-    draws from the image (`gui/assets/maps/*.png`, `icons/*.png`;
-    `maps.json`'s sha256), never a picture. A module
-    that still imports Modkit after the rewrites, or a statement `DROPS`
-    names that is gone, stops the sync by name before anything is written:
-    port what it imports into an AzurKit module, then add a rewrite.
-    `tests/test_oracle.py` ports the sources again at the recorded commit
-    and holds them to import-linter's contracts, so the suite reads Modkit's
-    history (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main
-    checkout).
-  - The models family's sync (until Step 4.12c, oracle-models-3, Modkit
-    1648692) installed the swap and the archive writers it builds on (see
-    Characters below); they are AzurKit's own source since, and its truth
-    AzurKit's goldens.
+- **The cut:** the randomizer (its database, planner, writer, physics,
+  movement, layer and tracker, Live's game reads and link, and the maps'
+  and icons' drawing) was ported from Modkit at oracle-rando-6, Modkit
+  `8bfef0ca6` (Step 4.12b, the last sync), and is AzurKit's own since:
+  edit it here, held to `tests/goldens/` and `tests/test_contracts.py`.
+  Modkit's later randomizer results (R2.16g's tiers and skips, a fix) come
+  by hand, in these steps; the orchestrator runs the first at each AzurKit
+  randomizer step.
+  1. **The to-do:** Modkit's commits on the ported paths since the cut
+     (`planner/dbcache.py` is AzurKit's own `tools/randomizer/dbcache.py`;
+     the reach engine's code, `reach_native/`, `draft/reach.py` and the
+     flights, isn't ported: its results arrive through `data/`):
+     ```bash
+     git -C "$MODKIT" log --oneline 8bfef0ca6..origin/main -- azurik_mod/randomizer/{data,planner} \
+       azurik_mod/randomizer/{writer,physics,movement,layer,tracker,live,live_link,levels}.py \
+       azurik_mod/randomizer/draft/{__init__,envelope,geometry,floors,wiring}.py azurik_mod/randomizer/draft/tiers.toml \
+       azurik_mod/sim/{pages,recipes}.py azurik_mod/xbr/{nodes.py,node_types.json,tern.py,collision.py,render.py,draw.py} \
+       scripts/render_{level_maps,model_icons}.py gui/assets/{maps,icons} tests/goldens/{rando_plans,pipelines,europe/pipelines}.json
+     ```
+  2. **Data** (`data/**`, `draft/tiers.toml`): copy each file as Modkit has
+     it (`git -C "$MODKIT" show <ref>:<path>`), new and removed files too.
+  3. **Code:** apply Modkit's diff of the file (`git -C "$MODKIT" diff
+     8bfef0ca6..<ref> -- <file>`) by hand to AzurKit's module, with
+     AzurKit's imports: `azurik_mod.randomizer.X` is
+     `azurkit.tools.randomizer.X`; `live` and `live_link` are `live.game`
+     and `live.link` (`LiveError`: `live.errors`); `sim.pages` and
+     `sim.recipes` are `live.pages` and `live.recipes`; `assets.vanilla`'s
+     regions are `live.regions`; `xbr.nodes` and `xbr.toc_scan` are
+     `azurkit.core.xbr.nodes`; the other `xbr` modules and the two render
+     scripts are `tools/randomizer/art/` (`maps.py`, `icons.py`);
+     `draft.reach`'s `Reach` is `art/reach.py` (its first stage);
+     `xbe_layout`, `resolve_va_to_file`, `listed` and `XisoReader` are
+     `tools/randomizer/ports.py`; `planner.dbcache` is
+     `tools/randomizer/dbcache.py`. Leave out what AzurKit dropped: the
+     seed roll's pool (`fill.roll_seed`), layer's build objects
+     (`check_args`, `write_layer`, `check_movement`, `movement_reasons`,
+     `judge`, `outputs`, `write_outputs`), physics' `SOURCE_SHA256`,
+     movement's slider ranges, the tracker's file reads (`placements`,
+     `plan_doc`), live's `connect`, the L2 flights (`envelope.l2_*`), the
+     levels extractor (`extract`, `write_generated`), `nodes.scan_types`,
+     and the drawing's command lines and PNG writers. A Modkit import with
+     no AzurKit home is ported into an AzurKit module first
+     (`tests/test_contracts.py` holds the layers: no threads and no libm in
+     byte paths).
+  4. **Check:** `azurkit plan --seed 2` (the database loads), then
+     `tests/test_randomizer.py`, `tests/test_art.py` and
+     `tests/test_site.py`'s tracker tests.
+  5. **Record:** `scripts/record_goldens.py rando_plans.json pipelines.json
+     europe/pipelines.json tracker.json`, and `art` when `ART_VERSION`
+     moved (`data/generated`, `draft/`, `art/` or `levels.py` changed: a
+     new `web/art/<version>/`). The commit names each golden and why.
+  6. **Cross-check** (evidence, not a test): the re-recorded
+     `rando_plans.json` rows (attempt, sha256, the default plan file) and
+     G3's seed rows equal Modkit's at `<ref>` (`git -C "$MODKIT" show
+     <ref>:tests/goldens/...`; AZ-009's files aside). A difference is a
+     port bug until it is named.
+  7. **What a player sees**, on both hosts: README's Randomizer lines (the
+     skips, tiers, levels and locations), the Randomizer tab's lists where
+     the database doesn't give them, and old `AZR-` share strings, each
+     still decoding or refused by name.
+  8. The perf gate times the randomizer and tracker groups: a ceiling
+     crossed is the port's to fix (D835). It owes an xemu sitting only when
+     the writer's or the layer's bytes change.
+  9. Move the cut above to `<ref>`.
+- **Coverage:** Modkit's planner tests don't guard AzurKit's copy. A step
+  that edits a module from the cut ports the Modkit tests that pin what it
+  changes, or names the golden that pins it.
 - AzurKit never imports Modkit.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, its sections, every patch site's size and vanilla sha256, the
@@ -341,10 +377,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `azurkit plan` and `azurkit spoiler` call them. A plan needs no image.
   - `planner/`, `data/`, `writer.py`, `physics.py`, `movement.py`,
     `layer.py`, `tracker.py` and `live/`'s `game.py`, `link.py`, `pages.py`
-    and `recipes.py` are Modkit's, installed by the sync (above): never edit
-    them by hand. `generator.py`, `tracking.py`, `ports.py`, `dbcache.py`
-    (no cache on disk: a pickle read back from a folder the program writes
-    runs its code) and `live/`'s `errors.py` and `regions.py` are ours.
+    and `recipes.py` were ported from Modkit at the cut (Porting from
+    Modkit, above), AzurKit's own since; `generator.py`, `tracking.py`,
+    `ports.py`, `dbcache.py` (no cache on disk: a pickle read back from a
+    folder the program writes runs its code) and `live/`'s `errors.py` and
+    `regions.py` were written here.
   - **The shipped database** (Step 4.3g): the wheel (`web_tools.wheel`) and
     the frozen app (`scripts/freeze.py`) carry the checked database, its
     Logic's tables and its memos' types as `shipped/<key>.pickle` beside
@@ -356,9 +393,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     was made for (`dbcache.entry`: the data's and the planner's files; the
     frozen app's, whose planner is in its archive, the data's alone), and
     reads it only from the wheel (its RECORD lists it) or the frozen app: a
-    checkout checks the database (about 4 s). `dbcache.shipped_logic` hands
-    the loader's `kept_logic` the Logic as built (Modkit's hook, once its
-    sync brings it).
+    checkout checks the database (about 4 s). `dbcache.shipped_logic`, the
+    loader's `SHIPPED` hook (the package sets it), hands `kept_logic` the
+    Logic as built, a fresh one each call, so neither checks nor builds.
   - `needs.NOTE` and `generator.NOTE`, None by default, are told the
     tracker's exits ("the maps' exits, k of 22") and the fill's start
     ("placing the items") for the sdk's progress.
@@ -380,14 +417,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   report's `randomizer` and the manifest's `verdicts` carry the verdict, and
   a randomized build's mods file replays its seed and share string.
   - Not ported: Modkit's `db-extract` (`levels.py`, the generated data's
-    extractor: the data comes by the sync), the player-model swap's
+    extractor: the data comes by a port), the player-model swap's
     movement reasons (with the models, Step 4.3) and the slider tracks'
     safe ranges.
-  - `tests/test_randomizer.py` holds it to the oracle: `rando_plans.json`
-    (seed 2's attempt and plan sha256 under the strict, default and max
-    settings, and the default plan file byte for byte, on CPython and under
-    Pyodide), G3's seed cases file by file and whole image on both releases
-    and `rando_iso.json`.
+  - `tests/test_randomizer.py` holds it to its goldens: `rando_plans.json`
+    (seed 2's attempt, plan sha256 and spoiler under the strict, default
+    and max settings, and the default plan file byte for byte, on CPython
+    and under Pyodide) and G3's seed cases file by file and whole image on
+    both releases.
 - **The tracker** (Step 4.2c2, D189, D249; `tracking.py`, `sdk.tracker`):
   Modkit's `Tracker` on a plan file's object (a randomized build's report
   carries its plan, `plan`), the marks the page keeps (Modkit's state:
@@ -400,9 +437,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   yield), how many Live saw taken and its gem, each level's counts and the
   Table's Gems rows. The process keeps the last few trackers, so a click
   costs one reach. `tests/test_randomizer.py` holds its verdicts to
-  Modkit's on seed 2's default and max plans at five states (none marked,
+  `tracker.json` on seed 2's default and max plans at five states (none marked,
   three rounds of marking what is reachable, every power, Live's kit at 3,
-  and Gems on with gem takes), each digest from Modkit's own `Tracker`.
+  and Gems on with gem takes), first recorded equal to Modkit's own `Tracker`'s.
   - **What its maps draw** (Step 4.2c3): `tracking.world()`'s `maps`
     (`needs.py`, Modkit's map view's needs: each exit's ring colour by
     what using it needs, dashed one way, each barrier's, key lock's, disc
@@ -417,13 +454,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     barriers, features and gems lie, in pixels with their floor; `frame`
     maps metres to them) and its world-map thumbnail; `sdk.art_world`
     makes the world map and the index from the levels' parts. Modkit's
-    scripts draw them (installed by the sync), on the reach model's first
+    scripts draw them (ported), on the reach model's first
     stage (`art/reach.py`, ours: Modkit's `Reach(level, flights=False)` up
     to the logic floors). `tests/test_art.py` holds every picture and the
-    index to Modkit's committed pictures' digests, drawn from the USA image,
+    index to the drawing from the USA image (Modkit's committed pictures at the cut),
     and the icons and a level from Europe's (its level, character and
     effect files are USA's); it holds `ART_VERSION` to the digest of the
-    drawing's sources, so a sync that changes them changes the key.
+    drawing's sources, so a port that changes them changes the key.
   - **Live** (`live/`, the app's alone, D882): `game.py`'s reads of a
     running game and its events (Took, Level, Held, Reload), `link.py`'s
     link to xemu (the fork's shared guest RAM, or QMP; never a gdbstub,
@@ -720,8 +757,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `web/art/index.json` names that version and the icons. Only
     `scripts/record_goldens.py`'s `art` family writes them, drawn from the
     USA image (`sdk.art`, Modkit's drawing; `--check` writes nothing), and
-    `tests/test_art.py` holds them to Modkit's committed pictures
-    (ORACLE.toml's `rando.art`) and to what each release's image draws: a
+    `tests/test_art.py` holds them (Modkit's committed pictures at the
+    cut) to what each release's image draws: a
     change to what draws them moves `ART_VERSION`, and they are recorded
     again. No host draws them and none needs an image: the site reads
     `art/index.json` and its `maps.json`, the app `api/art`
@@ -745,8 +782,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     key; Live (the app's) reads the gem spots while Gems is on (`api/live`'s
     `gems`) and takes a dot once the game shows its gem taken.
     `web/mapview.mjs`'s `marks` and `badges` are the map's verdicts:
-    `tests/test_site.py` holds them to Modkit's (`TRACKER_MAP`, its map
-    view's rules on its own Tracker) at TRACKER's states and shows the
+    `tests/test_site.py` holds them to `tracker.json`'s (`TRACKER_MAP`,
+    first recorded equal to Modkit's map view's) at TRACKER's states and shows the
     shipped maps with no image and no engine call in both browsers, and
     `tests/test_hosts.py` the app's map, a click, zoom, resize, Live
     taking a gem's dot and the frozen app serving the pictures.
@@ -945,9 +982,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `pyodide`, `browser` or `frozen_app` fixture), a change under `web/` the
   site's, the app's and the icon's, `LICENSE` and `NOTICE.md` the About
   tab's test and the wheel's, `README.md` the wheel's, a change in
-  `tests/oracle/` or `tests/goldens/` the test files that read it (read by
-  path: those reaching a module that names the folder, such as
-  `oracle_sync.ORACLE`), other docs nothing more; the suite's configuration, what `tests/conftest.py` imports (it
+  `tests/goldens/` the test files that read it (read by path: those
+  reaching a module that names the folder, `record_goldens.GOLDENS`),
+  other docs nothing more; the suite's configuration, what `tests/conftest.py` imports (it
   checks the app's no-window mode in a Python of its own) and a path no
   rule covers run the whole suite. A changed-area run drives the page in
   Chromium alone, the whole suite in both browsers (D970), and the receipt

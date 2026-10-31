@@ -40,7 +40,6 @@ from azurkit.core import gate, iso, progress
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
 from scripts import freeze, record_goldens
-from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
 from tests._xiso import fill, image
 from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
@@ -933,8 +932,7 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
     server = app.serve(_page.WEB)
     defaults = sdk.catalog()["randomizer"]["defaults"]
     packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
-    golden = json.loads((ORACLE / "rando/tests/goldens/pipelines.json").read_text(encoding="utf-8"))[
-        "randomize-full:seed=2,default"]
+    golden = record_goldens.recorded("pipelines.json")["randomize-full:seed=2,default"]
 
     def call(path: str, body: dict) -> dict:
         replies = []

@@ -42,8 +42,7 @@ from azurkit.core import gate, iso
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.art import icons
-from scripts import web_tools
-from scripts.oracle_sync import ORACLE
+from scripts import record_goldens, web_tools
 from tests import _g1, _page
 from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
@@ -1126,7 +1125,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
     site's files."""
     defaults = sdk.catalog()["randomizer"]["defaults"]
     report, segments = _seeded(usa_iso)
-    golden = json.loads((ORACLE / "rando/tests/goldens/pipelines.json").read_text(encoding="utf-8"))[SEEDED]
+    golden = record_goldens.recorded("pipelines.json")[SEEDED]
     served = Site(browser, site)
     try:
         page = served.open()

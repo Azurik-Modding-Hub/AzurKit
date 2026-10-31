@@ -663,7 +663,7 @@ SEEDED = "randomize-full:seed=0,all"
 
 def _content_source() -> str:
     """Azurik-Custom-Content's source: ``$AZURKIT_CONTENT_SOURCE``, else its
-    clone beside the main checkout (as ``$AZURKIT_MODKIT`` finds Modkit)."""
+    clone beside the main checkout."""
     if env := os.environ.get(sdk.SOURCE_ENV):
         return env
     common = subprocess.run(["git", "-C", str(record_goldens.ROOT), "rev-parse", "--path-format=absolute",

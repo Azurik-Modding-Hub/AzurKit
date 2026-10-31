@@ -16,10 +16,9 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 
 ``--changed`` runs only the test files that the worktree's changes against
 ``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
-files, the oracle's test and the gate's, whose USA and Europe cases make
-every receipt show both tiers run (D26). A change in a data folder the tests
-read by path (:data:`DATA`: the oracle's bundle, the goldens) picks its
-readers. A path no rule covers makes it the whole suite; the meta's ``mode``
+files and the gate's test, whose USA and Europe cases make every receipt
+show both tiers run (D26). A change in the data folder the tests read by
+path (:data:`DATA`: the goldens) picks its readers. A path no rule covers makes it the whole suite; the meta's ``mode``
 says which. A changed-area run drives the page in
 :data:`CHANGED_BROWSERS` alone (``--browsers``, ``tests/conftest.py``), a
 whole one in every browser (D970); the meta's ``browsers`` says which.
@@ -61,7 +60,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import perf  # noqa: E402
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
-SMOKE = (*LINT, "tests/test_oracle.py", "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
+SMOKE = (*LINT, "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
 CAP = 6000        # a run's cap on a host whose load is at most its CPU count (cap())
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
@@ -81,10 +80,10 @@ ABOUT = "tests/test_site.py::test_the_page_opens_dark_with_its_areas_tabs_the_pa
 #: NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme).
 RULES = (("web/", ("tests/test_site.py", "tests/test_hosts.py", "tests/test_icon.py")),
          ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)))
-#: The data folders the tests read by path, not by import (Modkit's oracle bundle, AzurKit's goldens): each is
-#: named by the modules that hold its last name as a string (``ROOT / "tests" / "oracle"``: ``scripts/oracle_sync.py``,
-#: ``scripts/record_goldens.py``), so a change in it picks the test files that reach one of them (:func:`graph`).
-DATA = ("tests/oracle/", "tests/goldens/")
+#: The data folders the tests read by path, not by import (AzurKit's goldens): each is named by the modules that hold
+#: its last name as a string (``ROOT / "tests" / "goldens"``: ``scripts/record_goldens.py``), so a change in it picks
+#: the test files that reach one of them (:func:`graph`).
+DATA = ("tests/goldens/",)
 CHANGED_BROWSERS = ("chromium",)   # a changed-area run's (D970: a whole run drives the page in every browser)
 SUMMARY = re.compile(r"^=+ (\d+ (?:passed|failed|errors?|skipped|deselected).*? in [\d.]+s.*?) =+$", re.M)
 TIER = re.compile(r"^(vanilla|europe): (\d+) run$", re.M)
@@ -122,7 +121,7 @@ def imports(source: str) -> set[str]:
 
 def reads(source: str) -> set[str]:
     """Each of :data:`DATA`'s folders a Python source names: one of its
-    string constants is the folder's last name (``"oracle"``)."""
+    string constants is the folder's last name (``"goldens"``)."""
     names = {node.value for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Constant)}
     return {folder for folder in DATA if folder.rstrip("/").rpartition("/")[2] in names}
 

@@ -6,10 +6,10 @@ runs on both hosts and reads only :mod:`.game`'s events.
 ``game.py`` (the game's reads through a link and the events they give),
 ``link.py`` (the link: the xemu fork's shared guest RAM, or QMP),
 ``pages.py`` (the guest's page tables) and ``recipes.py`` (the game's RAM
-layout) are Modkit's, which ``scripts/oracle_sync.py`` installs through its
-rewrites: never edit them by hand. ``errors.py`` (the one
-:class:`~.errors.LiveError`) and ``regions.py`` (each release's addresses,
-from the facts) are AzurKit's. This folder is the contracts' app-only one:
+layout) were ported from Modkit at the last cut (Step 4.12b) and are
+AzurKit's own since; ``errors.py`` (the one :class:`~.errors.LiveError`)
+and ``regions.py`` (each release's addresses, from the facts) were written
+here. This folder is the contracts' app-only one:
 its link opens sockets and shared memory, and its session runs on the app's
 thread (``azurkit.app``).
 """

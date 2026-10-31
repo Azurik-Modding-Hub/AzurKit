@@ -8,11 +8,13 @@ its file byte for byte), on the logic re-checked under a share string's
 movement sliders (AZ-383); :func:`spoiler` reads a plan back into its
 spoiler on the logic it was planned on. The planner (``planner/``), its
 database (``data/``, our own logic data, no game bytes), the writer,
-physics, movement and layer are Modkit's, which ``scripts/oracle_sync.py``
-installs as they are (the modules through its rewrites): never edit them by
-hand. ``generator.py``, ``ports.py`` (what they import of Modkit's engine,
-on ours) and ``dbcache.py`` (no cache on disk) are AzurKit's. The fill runs
-in the calling thread: Modkit's seed roll in a process pool isn't ported.
+physics, movement and layer were ported from Modkit at the last cut (Step
+4.12b: AGENTS.md's Porting from Modkit) and are AzurKit's own since, held
+to its goldens (``tests/goldens/rando_plans.json``, G3's seed cases);
+``generator.py``, ``ports.py`` (what they import of Modkit's engine, on
+ours) and ``dbcache.py`` (no cache on disk) were written here. The fill
+runs in the calling thread: Modkit's seed roll in a process pool isn't
+ported.
 
 A recipe names the seed (any string) and at most one of ``settings`` (a
 settings file's table, ``data/settings/defaults.toml``'s format) and

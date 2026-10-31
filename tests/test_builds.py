@@ -38,12 +38,14 @@ def _sha256(data: bytes) -> str:
 
 def _cases(path) -> dict[str, tuple[dict, dict, tuple[str, ...]]]:
     """``{case: (its recipe, its golden, the files it leaves out)}`` for G3's
-    packs-family cases and G4's build cases (``tests/goldens/``)."""
+    packs-family cases (no character, no seed) and G4's build cases
+    (``tests/goldens/``)."""
     out = {}
     for golden in ("pipelines.json", "gui.json"):
         recipes = record_goldens.cases(golden)
         for name, files in record_goldens.recorded(golden).items():
-            if golden == "pipelines.json" and record_goldens.wears(recipes[name]):   # tests/test_characters.py's
+            if golden == "pipelines.json" and (record_goldens.wears(recipes[name]) or record_goldens.seeded(
+                    recipes[name])):   # tests/test_characters.py's, and tests/test_randomizer.py's seed cases
                 continue
             left = record_goldens.LEVEL_PATCHED if golden == "pipelines.json" and record_goldens.level_patched(
                 recipes[name]) else ()
