@@ -1233,12 +1233,13 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
 
 def test_a_seed_wearing_a_character_builds_on_the_site_as_cpython_builds_it(browser, site, usa_iso):
     """A link with seed azurkit, keylord and the packs on by default, built on the page: CPython's report and
-    segments, inside the worker's 4 GiB (AZ-831: the swap held the seed's levels three times over, MemoryError), its
-    bytes past the heap's first 2 GiB handed over as they are (AZ-832: they came out as other bytes)."""
+    segments (its spoiler left out, as the site's build leaves it), inside the worker's 4 GiB (AZ-831: the swap held
+    the seed's levels three times over, MemoryError), its bytes past the heap's first 2 GiB handed over as they are
+    (AZ-832: they came out as other bytes)."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "randomizer": {"seed": "azurkit", "settings": sdk.catalog()["randomizer"]["defaults"]},
               "character": {"species": "keylord"}}
-    made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+    made, report = sdk.image(recipe | {"iso": str(usa_iso)}, spoiler=False)
     served = Site(browser, site)
     try:
         page = served.context.new_page()
