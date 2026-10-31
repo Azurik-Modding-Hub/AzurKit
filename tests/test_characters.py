@@ -695,12 +695,15 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     updated, victim = tmp_path / "updated", tmp_path / "victim.json"
     (updated / "packs/a").mkdir(parents=True)
     victim.write_bytes(b"{}")
-    (updated / "packs/a/old.json").write_bytes(b"{}")
+    olds = ("packs/a/old.json", "packs/a/old.txt")   # an older version's .txt goes too, though packs/ now refuses one
+    for old in olds:
+        (updated / old).write_bytes(b"{}")
     (updated / content.INSTALLED).write_text(json.dumps({"a": {"version": 1, "source": "", "files": {
-        "../victim.json": "0" * 64, str(victim): "0" * 64, "packs/a/old.json": "0" * 64}}}))
+        "../victim.json": "0" * 64, str(victim): "0" * 64} | dict.fromkeys(olds, "0" * 64)}}))
     content.install(manifest([{"id": "a", "version": 2, "files": [{"path": "packs/a/new.json", "sha256": _sha256(b"[]"),
                                                                      "size": 2}]}]), "a", lambda _: b"[]", updated)
-    assert victim.is_file() and not (updated / "packs/a/old.json").exists()   # an Update removes only its own (SEC-15)
+    assert victim.is_file() and sorted(p.name for p in (updated / "packs/a").iterdir()) == ["new.json"]   # its own only
+    assert set(content.installed(updated)["a"]["files"]) == {"packs/a/new.json"}   # (SEC-15)
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
 
 

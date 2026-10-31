@@ -97,7 +97,9 @@ ROOT = root()
 """The content folder of this process (:func:`root`, read once)."""
 
 
-def _path(where: str, value: object) -> str:
+def _path(where: str, value: object, suffix: bool = True) -> str:
+    """``value``, a content path: relative, POSIX, under :data:`FOLDERS`, no ``..``, ``:`` or device name,
+    and (``suffix``) a suffix its folder takes; ``ValueError`` names the fault."""
     if not isinstance(value, str) or not value or "\\" in value or value.startswith("/") or "//" in value:
         raise ValueError(f"{where}: path {value!r} is no relative POSIX path")
     parts = PurePosixPath(value).parts
@@ -107,8 +109,8 @@ def _path(where: str, value: object) -> str:
         raise ValueError(f"{where}: path {value!r} holds a ':', which no content path does")
     if device := next((part for part in parts if _DEVICE.match(part)), None):
         raise ValueError(f"{where}: path {value!r}: {device!r} is a name Windows keeps for a device (CON, NUL, COM1)")
-    if (suffix := PurePosixPath(value).suffix.lower()) not in SUFFIXES[parts[0]]:
-        raise ValueError(f"{where}: path {value!r} is {f'a {suffix}' if suffix else 'a suffix-less'} file: "
+    if suffix and (given := PurePosixPath(value).suffix.lower()) not in SUFFIXES[parts[0]]:
+        raise ValueError(f"{where}: path {value!r} is {f'a {given}' if given else 'a suffix-less'} file: "
                          f"{parts[0]}/ holds only {', '.join(SUFFIXES[parts[0]])} files")
     return value
 
@@ -438,15 +440,16 @@ def _record(record: Mapping, name: str) -> Mapping:
 
 
 def _removable(record: Mapping, name: str) -> set[str]:
-    """The paths ``installed.json`` lists for entry ``name`` that are content
-    paths (:func:`_path`): only those does an Update remove, so a path a
-    hand-edited record holds outside the content folder is never touched
-    (D992's SEC-15)."""
+    """The paths ``installed.json`` lists for entry ``name`` that lie in the
+    content folder (:func:`_path`, any suffix: a file an older version
+    listed goes even if its folder now refuses that suffix): only those
+    does an Update remove, so a path a hand-edited record holds outside the
+    content folder is never touched (D992's SEC-15)."""
     files = _record(record, name).get("files")
     out = set()
     for path in files if isinstance(files, Mapping) else ():
         with contextlib.suppress(ValueError):
-            out.add(_path(INSTALLED, path))
+            out.add(_path(INSTALLED, path, suffix=False))
     return out
 
 
