@@ -44,6 +44,7 @@ build's packs, and its picture (:mod:`.picker`).
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import math
 from collections.abc import Mapping, Sequence
@@ -216,6 +217,63 @@ def reasons(model: str, attack, base: str | None = None) -> list[str]:
     return why
 
 
+def _reaching(layers: Sequence[Layer], files) -> tuple[list[Layer], set[str]]:
+    """``layers`` with only their changes and claims in ``files`` and in every
+    file a group writing there writes too (a later layer's hit drops a group
+    whole, so :func:`compose` gives those files as the whole layers do), and
+    those files."""
+    want, groups = set(files), {}
+    for i, layer in enumerate(layers):
+        for c in layer.changes:
+            groups.setdefault((i, c.group), set()).add(c.file)
+    while grown := [held for held in groups.values() if held & want and not held <= want]:
+        want.update(*grown)
+    return [dataclasses.replace(la, changes=tuple(c for c in la.changes if c.file in want),
+                                claims=tuple(c for c in la.claims if c.file in want)) for la in layers], want
+
+
+class _Left(Mapping):
+    """Each file the layers ``before`` change, as they leave it over
+    ``vanilla``'s (``current`` holds those already composed), composed on its
+    first read with only the changes that reach it (:func:`_reaching`): the
+    swap reads :data:`READS` and what it asks for, so a seed's levels are
+    never all held, copied and composed at once (AZ-831: the site's 4 GiB)."""
+
+    def __init__(self, vanilla, before: Sequence[Layer], current: Mapping[str, bytes]):
+        self._vanilla, self._before, self._files = vanilla, before, dict(current)
+        self._names = {c.file for la in before for c in (*la.changes, *la.claims)} | set(current)
+
+    def __contains__(self, file: object) -> bool:
+        return file in self._names
+
+    def __getitem__(self, file: str) -> bytes:
+        if file not in self._files:
+            if file not in self._names:
+                raise KeyError(file)
+            layers, reached = _reaching(self._before, {file})
+            self._files |= compose({f: self._vanilla.read(f) for f in reached}, layers)[0]
+        return self._files[file]
+
+    def __iter__(self):
+        return iter(sorted(self._names))
+
+    def __len__(self) -> int:
+        return len(self._names)
+
+
+def _over(vanilla, before: Sequence[Layer]):
+    """What a swap stands on over the layers ``before``: the vanilla files of
+    :data:`READS` and every file :func:`_reaching` them, those layers kept to
+    their changes there, the files those leave, and the staging over them
+    and the rest (:class:`_Left`)."""
+    from azurkit.tools.characters import ports
+
+    kept, reached = _reaching(before, READS)
+    base = {f: vanilla.read(f) for f in (*READS, *sorted(reached - {*READS}))}
+    current, _ = compose(base, kept)
+    return base, kept, current, ports.IsoStaging(vanilla, _Left(vanilla, before, current))
+
+
 def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object] = (),
          folded: float | None = None) -> tuple[Layer, list[str], list[str]]:
     """The character layer of ``recipe`` (:func:`normalize`'s) on the
@@ -231,11 +289,9 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     from azurkit.tools.characters import ports
 
     swap, release = _swap(), vanilla.release
-    base = {f: vanilla.read(f) for f in (*READS, *sorted({c.file for la in before for c in la.changes} - {*READS}))}
+    base, kept, current, staging = _over(vanilla, before)
     taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
-    current, _ = compose(base, before)
     build = ports.Build(vanilla, taken=list(taken), packs=dict(packs))
-    staging = ports.IsoStaging(vanilla, {f: bytes(b) for f, b in current.items()})
     attack = swap.AttackLogic()
     with ports.building(build):
         worn, options = variant(recipe, vanilla)
@@ -257,7 +313,7 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     changes = list(whole_files(base, {f: built[f] for f in FILES if f in built}, f"{who} (its archives)"))
     claims = tuple(Claim(XBE, o, n, f"shim:{who}", w) for o, n, w in build.claims)
     if XBE in built:   # the bytes the swap wrote over what the packs left, its claims' header state laid down
-        mine = [*before, Layer(who, TOOL, KIND, {}, (), claims)]
+        mine = [*kept, Layer(who, TOOL, KIND, {}, (), claims)]
         reference, vanilla_claimed = bytes(compose(base, mine)[0][XBE]), claimed(base, mine)[XBE]
         changes += [Change(XBE, lo, hashlib.sha256(vanilla_claimed[lo:hi]).hexdigest(), built[XBE][lo:hi],
                            f"{who} (default.xbe)") for lo, hi in _runs(reference, built[XBE])]
@@ -292,10 +348,8 @@ def match(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str,
     from azurkit.tools.characters._player_match import garret_match
 
     swap = _swap()
-    base = {f: vanilla.read(f) for f in (*READS, *sorted({c.file for la in before for c in la.changes} - {*READS}))}
+    staging = _over(vanilla, before)[3]
     taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
-    current, _ = compose(base, before)
-    staging = ports.IsoStaging(vanilla, {f: bytes(b) for f, b in current.items()})
     with ports.building(ports.Build(vanilla, taken=list(taken), packs=dict(packs))):
         worn = variants.resolve(recipe["species"], recipe.get("variant_file"))
         found = garret_match(staging, recipe["species"], recipe.get("mode", swap.DEFAULT_MODE),

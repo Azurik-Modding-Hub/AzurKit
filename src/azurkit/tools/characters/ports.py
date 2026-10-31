@@ -149,7 +149,7 @@ class IsoStaging:
 
     def __init__(self, source: Vanilla, current: Mapping[str, bytes] | None = None):
         self.root = source
-        self._current = dict(current or {})
+        self._current = {} if current is None else current   # a Mapping may compose a file on its read
         self._paths: dict[str, str] = {}
         self._cache: dict[str, bytearray] = {}
         self._files = {iso.key(p): p for p in source.paths}

@@ -37,10 +37,14 @@ self.addEventListener("securitypolicyviolation", (e) =>
 const lastLine = (error) => String(error?.message ?? error).trim().split("\n").at(-1);
 
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
-// ValueError or OSError, by its message); anything else raises. to_js copies each piece's bytes into its own buffer.
+// ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
+// as a Uint8Array of their own through the file system: Pyodide 314.0.7's to_js (and assign, getBuffer) reads a buffer
+// past 2 GiB of the heap at its address taken as signed, so a build that held more than that came out with other
+// bytes (a seed wearing keylord: three of its levels).
 const ENGINE = `
 import json
 
+import pyodide_js
 from js import JSON, Object
 from pyodide.ffi import to_js
 
@@ -48,10 +52,27 @@ import azurkit
 from azurkit import sdk
 from azurkit.core import iso
 
+PIECE = "/tmp/azurkit-piece"
+
+
+def handed(value):
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        with open(PIECE, "wb") as f:
+            f.write(value)
+        try:
+            return pyodide_js.FS.readFile(PIECE)
+        finally:
+            pyodide_js.FS.unlink(PIECE)
+    if isinstance(value, dict):
+        return {k: handed(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [handed(v) for v in value]
+    return value
+
 
 def engine(request):
     def js(value):
-        return to_js(value, dict_converter=Object.fromEntries, create_pyproxies=False)
+        return to_js(handed(value), dict_converter=Object.fromEntries, create_pyproxies=False)
 
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})

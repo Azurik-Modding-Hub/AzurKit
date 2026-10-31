@@ -857,6 +857,26 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         served.close()
 
 
+def test_a_seed_wearing_a_character_builds_on_the_site_as_cpython_builds_it(browser, site, usa_iso):
+    """A link with seed azurkit, keylord and the packs on by default, built on the page: CPython's report and
+    segments, inside the worker's 4 GiB (AZ-831: the swap held the seed's levels three times over, MemoryError), its
+    bytes past the heap's first 2 GiB handed over as they are (AZ-832: they came out as other bytes)."""
+    recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+              "randomizer": {"seed": "azurkit", "settings": sdk.catalog()["randomizer"]["defaults"]},
+              "character": {"species": "keylord"}}
+    made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+    served = Site(browser, site)
+    try:
+        page = served.context.new_page()
+        page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.until(page, "() => globalThis.azurkit?.loaded && !azurkit.rando.load && azurkit.rando.view", 120)
+        page.set_input_files("#iso", str(usa_iso))
+        page.evaluate("() => document.querySelector('#build').click()")
+        assert _built(page) == {"report": report, "segments": _signature(made)}
+    finally:
+        served.close()
+
+
 # The tab's rows that stay vanilla in v1 ([ticked, greyed] each); "vanilla 10" beside its box ([right of it, on its
 # line]); the skip list's rows and whether it shows them all (no inner scroll).
 RANDO_SHOWN = """() => {
