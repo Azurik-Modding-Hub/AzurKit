@@ -48,8 +48,9 @@ def test_every_agent_role_pins_the_model_that_fits_its_job():
     parses (an unknown one silently falls back to the model's default).
     The read-only roles (reader, scout: one deny list) can't reach the
     Ghidra MCP's write tools: the bridge's default port is the owner's live
-    Ghidra. Only the builder, whose seats wait on suites and sittings,
-    keeps its prompt cache an hour."""
+    Ghidra. The builder spawns and messages no seat (Agent, SendMessage).
+    Only the builder, whose seats wait on suites and sittings, keeps its
+    prompt cache an hour."""
     roles, heads = {}, {}
     for path in sorted((ROOT / ".claude" / "agents").glob("*.md")):
         heads[path.stem] = head = path.read_text(encoding="utf-8").split("---\n")[1]
@@ -60,6 +61,7 @@ def test_every_agent_role_pins_the_model_that_fits_its_job():
     assert denied["azurik-scout"] == denied["azurik-reader"] >= {
         "Edit", *(f"mcp__ghidra__{t}" for t in GHIDRA_WRITERS)}
     assert {"Edit", "Write", "mcp__ghidra"} <= denied["azurik-mechanic"]
+    assert {"Agent", "SendMessage"} <= denied["azurik-builder"]
     assert {s for s, h in heads.items() if "\nexperimental:\n  cacheTtl: 1h\n" in h} == {"azurik-builder"}
 
 
