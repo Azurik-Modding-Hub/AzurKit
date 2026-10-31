@@ -99,7 +99,8 @@ def test_a_save_slot_decodes_edits_and_re_signs(tmp_path):
                                                                                "0.750000"])
     assert (shown["inv.sav"]["clock"], shown["levels/water/w1.sav"]["records"], "records" in shown["shared.sav"]) == (
         12.5, 153, False)
-    for data in (META, MAGIC, LOC, b"0.333333\r\n0.333333\r\n0\r\n", b"fileversion=01\nx\n"):
+    for data in (META, MAGIC, LOC, b"0.333333\r\n0.333333\r\n0\r\n", b"fileversion=01\nx\n",
+                 b"fileversion=" + b"1" * 5000 + b"\n"):
         parsed = saves.Meta.from_bytes(data) if data is META else saves.Text.from_bytes(data)
         assert parsed.to_bytes() == data
     assert saves.Text.from_bytes(b"0.333333\r\n0\r\n").version is None

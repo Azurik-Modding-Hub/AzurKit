@@ -233,7 +233,7 @@ class Text:
             lines.pop()
         version = None
         head = lines[0][12:] if lines and lines[0].startswith("fileversion=") else ""
-        if head.isdecimal() and f"{int(head)}" == head:     # else it wouldn't come back as it is: a line
+        if head.isdecimal() and len(head) <= 9 and f"{int(head)}" == head:  # else not as it is: a line
             version = int(lines.pop(0)[12:])
         return cls(version, lines, tail, newline, final)
 
