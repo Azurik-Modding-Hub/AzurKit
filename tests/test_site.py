@@ -1096,7 +1096,8 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
     click on the level shows its spots, and a click on a spot reachable now
     marks it collected (the counter row and the chip say so), a second
     takes it off. The Table sums each kind and level (its All rows). The
-    page keeps the plan and its marks, and opens on them after a reload. No
+    page keeps the plan and its marks, and after a reload opens on them
+    once the Tracker view shows (not as the page starts). No
     CSP violation, no request but GETs of the site's files."""
     served = Site(browser, site)
     served.context.route(f"{ORIGIN}/art/**", lambda route: route.fulfill(status=404, body=""))   # no maps: the grid
@@ -1160,11 +1161,12 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
                          str(cpython["status"]["total"] - 1), str(cpython["status"]["total"])]]
 
         _reload(page)
+        assert page.evaluate("() => azurkit.tracker.state.plan") is None   # opened once the Tracker view shows
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
         _page.until(page, f"() => azurkit.tracker?.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
                           f" && ({TRACKED})()", 300)
         assert page.evaluate("() => azurkit.tracker.state.marks") == {"collected": [near]}
-        _page.click(page, "tab-randomizer")
-        _page.click(page, "rando-view-tracker")
         page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
         page.evaluate("(loc) => document.querySelector(`#track-level .spot[data-loc='${loc}']`).click()", near)
         _page.until(page, f"() => ({TRACKED})() && !azurkit.tracker.state.marks.collected?.length")

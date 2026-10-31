@@ -10,7 +10,8 @@
 // by default and remembered) draws each gem spot as a tiny dot on its level's map, gone once Live sees it taken. The engine (sdk.tracker, Modkit's tracker) decides every verdict: this page
 // sends the plan, the marks, a click, and draws what comes back. The marks are kept per plan, the last KEEP plans
 // (the site in this browser's storage, the app in its config), with the plan last tracked; the tracker's Reset clears
-// a plan's marks. Live (the app's alone, D882) marks what a running xemu shows taken and follows the player.
+// a plan's marks; the plan last tracked opens again when the view first shows. Live (the app's alone, D882) marks
+// what a running xemu shows taken and follows the player.
 import { artStore } from "./art.mjs";
 import { MapView } from "./mapview.mjs";
 
@@ -93,7 +94,7 @@ export function tracker({ call, app, say, kept, keep }) {
         t.live.followed = null;
       }
       t.level = level;
-      if (byHand) draw();
+      if (byHand && t.view) draw();
     },
   });
   const artLine = () => {
@@ -398,6 +399,21 @@ export function tracker({ call, app, say, kept, keep }) {
       if ((e.key === "f" || e.key === "F") && !e.target.closest("input, select, textarea") && !$("tracker").hidden) findMe();
     });
   }
-  if (t.kept.plan) open(t.kept.plan);
-  return { open, ask, state: t, art, map, draw: () => (t.view ? draw() : preview()) };
+  // The plan last tracked opens when the Tracker view first shows, not as the page starts: its first ask builds the
+  // tracker's logic (seconds to a minute), which would hold the engine while the page starts.
+  let pending = t.kept.plan ?? null;
+  const shown = () => {
+    if ($("tracker").hidden) return false;
+    if (pending && !t.plan) open(pending);
+    pending = null;
+    return true;
+  };
+  shown();
+  return { open: (...given) => {
+    pending = null;
+    return open(...given);
+  }, ask, state: t, art, map, draw: () => {
+    if (pending && !shown()) return;
+    return t.view ? draw() : preview();
+  } };
 }

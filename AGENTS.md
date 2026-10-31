@@ -623,7 +623,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the item vanilla puts there), and the Table. The page keeps the plan
     last tracked and the marks of the last 20 plans (the site's storage
     `azurkit.tracker`, the app's `api/tracked`, `host.json`'s `tracker`):
-    names and numbers, never the image. **Live** is the app's alone (D882):
+    names and numbers, never the image; the plan opens again when the
+    Tracker view first shows (Step 4.3f: its first ask builds the tracker's
+    logic, which held the page's start). **Live** is the app's alone (D882):
     `api/live` starts `azurkit.app.live`'s feed (a thread) for the plan,
     and each `api/tracker` ask merges its events and the element levels the
     game holds and returns `live` (the status, where it saw the player),
