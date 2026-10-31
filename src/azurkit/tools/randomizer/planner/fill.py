@@ -80,9 +80,11 @@ import collections
 import hashlib
 import json
 import random
+import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
+from azurkit.core import progress
 from azurkit.tools.randomizer.planner.grammar import atoms, parse
 from azurkit.tools.randomizer.planner.settings import Settings, category, category_table, pick_of, skips_on
 from azurkit.tools.randomizer.planner.solver import TRICK_FREE, Logic, Reach
@@ -98,10 +100,8 @@ USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward maj
 _DIGEST_DROP = frozenset({"_meta", "note", "description",   # RANDOMIZER_DB §9: no comments, display names or hints
                           "gate_hint", "do_save", "teleport_gate", "enabled_by", "update", "input"})
 _TWO53 = 1 << 53
-NOTE: Callable[[str], object] | None = None   # a host's hook, None by default: "placing the items, k of n" at an
-#                                               attempt's reach for the k-th of the n items reaches place (progression,
-#                                               counted and useful), k rising through the fill: an attempt after a
-#                                               stuck one tells only past the last k told (a repair holds it too)
+WAIT = 0.1                            # a fill waited on: how often its waiter tells its count (a cancel point, s)
+_POLL = 0.02                          # and looks for its end (s): the engine holds no threads, so no Event
 
 
 class Rng:
@@ -305,7 +305,6 @@ class _Slots:
         self.kind = {loc: ("cluster", locs[loc]["yield"]) if locs[loc]["class"] == "cluster"
                      else locs[loc]["class"] if locs[loc]["class"] == "gem" else "nongem" for loc in self.pool}
         self.major = frozenset(loc for loc in self.pool if locs[loc]["class"] == "major")
-        self.told = 0                           # the last k NOTE was told, kept across the attempts
 
     def holds(self, loc: str, item: str) -> bool:
         """Whether ``loc``'s proven mark holds for ``item`` under these options."""
@@ -402,32 +401,33 @@ class _Slots:
 
     def attempt(self, settings: Settings, reads: Mapping[str, frozenset[int]], streams: Callable[[str], Rng],
                 known: frozenset[str], repaired: list[str] | None = None,
-                reaches: _Reaches | None = None) -> dict[str, str]:
+                reaches: _Reaches | None = None, told: _Count | None = None) -> dict[str, str]:
         """One attempt's placement, or :class:`_Stuck`; ``repaired`` gets
         each trap-gate refusal it went on to repair. ``reaches``: the
-        fill's kept reaches under ``settings`` (one of its own when None)."""
+        fill's kept reaches under ``settings`` (one of its own when None);
+        ``told`` hears the spots it fills and each reach (:class:`_Count`)."""
         lg = self.logic
         reaches = reaches if reaches is not None else _Reaches(lg, settings)
         placed, budget = dict(self.prefilled), _Budget(self.names)
         placed.update(self.kept(settings))
         read = {name for name, cs in lg.items.items() if cs.keys() & reads.keys()}
         todo = [loc for loc in self.pool if loc not in placed]
+        told, start = told or _Count.SILENT, len(placed)
+        told.begin(len(todo))
         nongem = [loc for loc in todo if self.kind[loc] == "nongem"]
         by_class = collections.defaultdict(list)
         for loc in nongem:
             by_class[self.cls[self.vanilla[loc]]].append(self.vanilla[loc])
         assumed = collections.Counter(self.vanilla[loc] for loc in todo if self.vanilla[loc] in read)
-        placing = len(nongem) - len(by_class["filler"])   # the items a reach places
 
         def reach(at: Mapping[str, str] | None = None) -> Reach:
-            if NOTE is not None and (k := min(len(placed) - len(base) + 1, placing)) > self.told:
-                self.told = k
-                NOTE(f"placing the items, {k} of {placing}")
+            told(len(placed) - start, True)
             return reaches({**placed, **(at or {})}, tuple(sorted(assumed.elements())), traps=False)
 
         def put(loc: str, item: str) -> None:
             placed[loc] = item
             budget.take(loc, item)
+            told(len(placed) - start)
 
         def safe(item: str, got: frozenset[str]) -> list[str]:
             return [loc for loc in nongem if loc not in placed and loc in got and self.ok(loc, item, budget)]
@@ -505,6 +505,7 @@ class _Slots:
                             put(rng.choice(spots), item)
                             k -= 1
                 trace: list = []
+                told(len(placed) - start, True)
                 r = reaches(placed, trace=trace)
                 if not (problems := _problems(lg, r, known)):
                     break
@@ -556,9 +557,41 @@ class _Slots:
                     raise _Stuck(f"no {what} item may go on {loc}")
                 put(loc, items.pop(j))
 
+        told(len(placed) - start, True)
         if problems := _problems(lg, reaches(placed), known):     # verify's, on the kept reaches
             raise _Stuck("the verify: " + "; ".join(problems))
         return dict(sorted(placed.items()))
+
+
+class _Count:
+    """An attempt's progress as :func:`~azurkit.core.progress.note` calls
+    (Step 4.3u): "placing the items, k of n" (attempt 2 on: "placing the
+    items, attempt 2, k of n"), k the spot being filled of the n the attempt
+    fills, never back (a trade or repair puts spots again). A note each time
+    the count passes a percent and at each reach, where the time goes, so
+    each is the bar's step and a cancel point no more than one reach apart;
+    the fill's :class:`_Making` keeps the last for a thread waiting on it."""
+
+    SILENT: _Count
+
+    def __init__(self, attempt: int = 0, making: _Making | None = None) -> None:
+        self.head = "placing the items" if attempt == 0 else f"placing the items, attempt {attempt + 1}"
+        self.making, self.n, self.k, self.percent = making, 1, 0, -1
+
+    def begin(self, n: int) -> None:
+        self.n, self.k, self.percent = max(n, 1), 0, -1
+        self(0, True)
+
+    def __call__(self, placed: int, reach: bool = False) -> None:
+        self.k = k = min(max(self.k, placed + 1), self.n)
+        if self.making is None or not (reach or k * 100 // self.n != self.percent):
+            return
+        self.percent = k * 100 // self.n
+        self.making.text = text = f"{self.head}, {k} of {self.n}"
+        progress.note(text)
+
+
+_Count.SILENT = _Count()
 
 
 class _Reaches:
@@ -607,7 +640,10 @@ def known_traps(logic: Logic, settings: Settings) -> frozenset[str]:
         return last[3]
     signed = {t["node"] for doc in logic.db.levels.values() for t in doc.get("known_traps", ())}
     vanilla = logic.vanilla_placement()
-    traps = [logic.reach(st, vanilla).traps for st in (settings, logic.db.defaults)[:1 + (key[0] != key[1])]]
+    traps = []
+    for st in (settings, logic.db.defaults)[:1 + (key[0] != key[1])]:
+        traps.append(logic.reach(st, vanilla).traps)
+        progress.note("placing the items")
     known = frozenset(signed).union(*traps)
     _KNOWN[0] = (logic, logic.db, key, known)
     return known
@@ -656,30 +692,84 @@ def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
     Logic and the database it holds (the same objects), seed and
     :func:`settings_digest` (what the solver reads of the settings), and a
     call on those again gets a copy of it (Step 2.221: a build after Track
-    this seed fills once)."""
+    this seed fills once). A fill of those another thread is making (a
+    host's plan ahead) is waited on (Step 4.3u), its waiter telling the
+    maker's count every :data:`WAIT` s (:func:`~azurkit.core.progress.note`,
+    so a cancel stops the waiter there) and taking a copy when it ends; one
+    that ends without a fill (refused or cancelled) is made again by its
+    waiter, which names its own refusal. The fill's notes count its spots
+    (:class:`_Count`). The engine holds no threads (the site's worker runs
+    it as it is): the in-flight fills are one dict whose ``setdefault`` is
+    atomic, and a waiter sleeps between looks."""
     st = settings if settings is not None else logic.db.defaults
     key = (str(seed), settings_digest(st))
-    if (last := _LAST_FILL[0]) is not None and last[0] is logic and last[1] is logic.db and last[2] == key:
-        made = last[3]
-    else:
-        made = _fill(logic, str(seed), st)
+    ident = (id(logic), id(logic.db), key)   # live while in flight: its _Making holds them
+    while True:
+        if (made := _kept(logic, key)) is None:
+            busy = _MAKING.setdefault(ident, mine := _Making(logic, key))
+            if busy is mine and (made := _kept(logic, key)) is None:   # kept since the first look: no fill again
+                break
+            if busy is mine:
+                del _MAKING[ident]
+            else:
+                told = time.monotonic()
+                while not busy.ended:
+                    time.sleep(_POLL)
+                    if time.monotonic() - told >= WAIT:
+                        told = time.monotonic()
+                        progress.note(busy.text)
+                made = busy.made
+        if made is not None:
+            return _copy(made, st)
+    try:
+        mine.made = made = _fill(logic, str(seed), st, mine)
         _LAST_FILL[0] = (logic, logic.db, key, made)
+    finally:
+        del _MAKING[ident]
+        mine.ended = True
+    return _copy(made, st)
+
+
+def _kept(logic: Logic, key: tuple[str, str]) -> Fill | None:
+    """The process's last fill when it is ``logic``'s (and its database's) for ``key``."""
+    last = _LAST_FILL[0]
+    return last[3] if last is not None and last[0] is logic and last[1] is logic.db and last[2] == key else None
+
+
+def _copy(made: Fill, st: Settings) -> Fill:
     return Fill(made.seed, st, made.attempt, dict(made.placement), made.failed, made.repaired)
 
 
+class _Making:
+    """A fill in flight (:func:`fill`): its Logic and database (held, so
+    their ids stay theirs), the note it told last, the fill once made and
+    whether it ended."""
+
+    def __init__(self, logic: Logic, key: tuple[str, str]) -> None:
+        self.logic, self.db, self.key, self.text = logic, logic.db, key, "placing the items"
+        self.made: Fill | None = None
+        self.ended = False
+
+
 _LAST_FILL: list = [None]   # the process's last fill: (its Logic, its database, (seed, settings digest), the Fill)
+_MAKING: dict[tuple, _Making] = {}   # the fills in flight, by their Logic's and database's ids and key
 
 
-def _fill(logic: Logic, seed: str, st: Settings) -> Fill:
+def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) -> Fill:
+    progress.note("placing the items")    # and between the options' first graphs and reaches (cancel points)
     slots = _Slots(logic, st)
     if (refused := slots.starved(st)) is not None:
         raise refused
-    digest, reads, known = settings_digest(st), logic.reads(st), known_traps(logic, st)
+    digest, reads = settings_digest(st), logic.reads(st)
+    progress.note("placing the items")
+    known = known_traps(logic, st)
+    progress.note("placing the items")
     reasons, stuck, reaches = [], set(), _Reaches(logic, st)
     for k in range(MAX_ATTEMPTS):
         repaired: list[str] = []
         try:
-            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired, reaches)
+            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired, reaches,
+                                      _Count(k, making))
         except _Stuck as exc:
             reasons.append(f"attempt {k}: {exc}")
             if exc.item is not None:

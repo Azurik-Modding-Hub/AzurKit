@@ -12,8 +12,9 @@ sliders plan on the logic re-checked under them; the Randomizer tab's
 settings (Step 4.2c1); the item tracker's verdicts (Step 4.2c2) at
 several states and the maps' model of each (``tracker.json``); the
 checked database the wheel and the app ship (Step 4.3g); R2.1's solver
-(Step 4.3u): RS1's 80 plans as the solver before it made them and the
-grammar's monotone rules it rests on."""
+(Step 4.3u): RS1's 80 plans as the solver before it made them, the
+grammar's monotone rules it rests on, the fill's counted notes and the
+wait on a fill another thread is making."""
 
 from __future__ import annotations
 
@@ -24,20 +25,23 @@ import json
 import math
 import os
 import random
+import re
 import struct
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
 
 from azurkit import cli, sdk
-from azurkit.core import iso
+from azurkit.core import iso, progress
 from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
 from azurkit.tools.randomizer.planner import fill, loader
 from azurkit.tools.randomizer.planner.grammar import ParseError, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
+from azurkit.tools.randomizer.planner.plan import plan_doc
 from azurkit.tools.randomizer.planner.settings import (
     Settings, picks, settings_from_table, share_decode, share_encode, turnable)
 from azurkit.tools.randomizer.planner.solver import Logic
@@ -432,6 +436,66 @@ def test_the_grammar_has_no_negation_and_each_rule_the_solver_compiles_holds_at_
                 assert not [r for r in rules if r(low, f_low) and not r(high, f_high)], (st, physical)
 
 
+def test_a_fill_another_thread_makes_is_waited_on_telling_its_count_and_a_cancelled_one_is_made_by_its_waiter(
+        monkeypatch):
+    """Step 4.3u (D1007: a host's plan ahead): a fill of the seed and
+    settings another thread is making is waited on, the waiter telling the
+    maker's count each ``fill.WAIT`` s, so a cancel raised from its host's
+    callback stops it there; a maker cancelled at a note keeps nothing
+    (D35) and its waiter makes the fill itself, which is the plain one,
+    kept for the next call (no note)."""
+    monkeypatch.setattr(fill, "_LAST_FILL", [None])
+    logic, held, go, waiting = kept_logic(), threading.Event(), threading.Event(), threading.Event()
+
+    class Stop(Exception):
+        pass
+
+    def run(hear, out):
+        try:
+            with progress.noting(progress.Steps(hear)) as steps:
+                steps("plan", "Filling the seed")
+                out.append(fill.fill(logic, "2"))
+        except Stop:
+            out.append(Stop)
+
+    def maker(record):   # held at its first count, then cancelled there
+        if " of " in record["label"]:
+            held.set()
+            go.wait(120)
+            raise Stop
+
+    def stopped(record):  # a waiter cancelled at its third record
+        told.append(record["label"])
+        if len(told) == 3:
+            raise Stop
+
+    def patient(record):  # a waiter until the maker is cancelled
+        told_b.append(record["label"])
+        if " of " in record["label"]:
+            waiting.set()
+
+    made, cancelled, told, b, told_b = [], [], [], [], []
+    first = threading.Thread(target=run, args=(maker, made))
+    first.start()
+    assert held.wait(120)
+    run(stopped, cancelled)
+    count = told[1].removeprefix("Filling the seed (").removesuffix(")")
+    assert (cancelled, told[0], told[2], re.fullmatch(r"placing the items, 1 of \d+", count) is not None) == (
+        [Stop], "Filling the seed", told[1], True)
+    second = threading.Thread(target=run, args=(patient, b))
+    second.start()
+    assert waiting.wait(120)
+    go.set()
+    first.join(120)
+    second.join(120)
+    assert (made, fill._MAKING, plan_doc(b[0], logic.db)) == ([Stop], {}, PLANS["default"]["plan"])
+    last = re.search(r"(\d+) of (\d+)\)$", told_b[-1])   # it filled, counting to the last spot
+    assert last[1] == last[2] == count.rsplit(" ", 1)[1]
+    heard, again = [], []
+    run(heard.append, again)
+    assert ([r["label"] for r in heard], again[0].placement) == (["Filling the seed"], b[0].placement)
+
+
 def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic_unwalked(
         tmp_path, monkeypatch):
     """The database the wheel and the app ship (``web_tools.ship_database``:
@@ -509,8 +573,9 @@ def test_the_trackers_verdicts_are_their_goldens_at_each_state_and_a_click_marks
 def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_as_without_them(monkeypatch):
     """Step 4.3 train (D980): Track's bar on both hosts follows the engine's
     work. ``sdk.plan`` reports the logic read, the fill and the placements
-    written (``core.progress``'s ``plan``, done of 3), the fill's items
-    placed counted inside its step, so the app's bar, polled every 250 ms,
+    written (``core.progress``'s ``plan``, done of 3), the fill counting its
+    spots inside its step (Step 4.3u: "placing the items, k of n", each
+    percent of them, never back), so the app's bar, polled every 250 ms,
     moves through the seconds the fill takes once the shipped Logic is read
     at once (train B2); the tracker's first view of the plan its tracker
     built and the world map read (done of 2), and a view of a kept plan
@@ -520,14 +585,12 @@ def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_
     monkeypatch.setattr(fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills now
     doc = sdk.plan({"seed": "2"}, progress=seen.append)
     assert doc == PLANS["default"]["plan"]
-    placing = [r for r in seen if r["label"].startswith("Filling the seed (")]
-    ks = [tuple(map(int, r["label"].removeprefix("Filling the seed (placing the items, ").removesuffix(")").split(
-        " of "))) for r in placing]
-    n = ks[-1][1]
-    assert len(ks) > 20 and ks[0] == (1, n) and ks[-1] == (n, n) and all(a < b for (a, _), (b, _) in zip(ks, ks[1:]))
-    assert [r["percent"] for r in placing] == sorted(r["percent"] for r in placing) and {
-        placing[0]["percent"], placing[-1]["percent"]} == {33, 66}
-    seen = [r for r in seen if r not in placing]
+    counts = [re.fullmatch(r"Filling the seed \(placing the items(?:, (\d+) of (\d+))?\)", r["label"]) for r in seen]
+    ks = [int(m[1]) for m in counts if m and m[1]]
+    n = int(next(m[2] for m in counts if m and m[2]))
+    assert (ks == sorted(ks), ks[0], ks[-1], {k * 100 // n for k in ks}) == (True, 1, n, set(range(101)))
+    assert [r["done"] / r["total"] for r in seen] == sorted(r["done"] / r["total"] for r in seen)
+    seen[:] = [r for r, m in zip(seen, counts) if not m]
     world = tracking.world()
     monkeypatch.setattr(tracking, "world", functools.cache(lambda: world))   # a process's first view reads it
     monkeypatch.setattr(tracking, "_KEPT", type(tracking._KEPT)())

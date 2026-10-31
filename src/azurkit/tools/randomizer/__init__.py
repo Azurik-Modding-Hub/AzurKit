@@ -44,7 +44,7 @@ import tomllib
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 
-from azurkit.core.progress import Steps
+from azurkit.core.progress import Steps, noting
 from azurkit.tools.randomizer import dbcache, layer
 from azurkit.tools.randomizer.movement import logic_of, run_floor
 from azurkit.tools.randomizer.planner import loader
@@ -139,9 +139,10 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
     attempts that passes the verify, on the logic re-checked under the share
     string's movement sliders. ``progress(record)`` hears its three stages
     (``core.progress``'s ``plan``, done of 3): the logic read, the fill and
-    the placements written. ``ValueError`` names a recipe or a setting it
-    refuses, or (a ``FillError``) the progression items with no safe proven
-    spot when no attempt passes."""
+    the placements written, the fill's notes ("placing the items, k of n",
+    ``core.progress.noting``) counted inside its stage. ``ValueError`` names
+    a recipe or a setting it refuses, or (a ``FillError``) the progression
+    items with no safe proven spot when no attempt passes."""
     if not isinstance(recipe, Mapping):
         raise ValueError(f"a randomizer recipe is a JSON object, not {type(recipe).__name__}")
     if unknown := sorted(set(recipe) - set(RECIPE), key=str):
@@ -150,14 +151,14 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
         raise ValueError("recipe: seed is a string (any string; the same seed and settings give the same plan)")
     if "settings" in recipe and "share" in recipe:
         raise ValueError("recipe: settings and share both give the settings: give one")
-    steps = Steps(progress)
-    steps("plan", "Reading the randomizer's logic", 0, 3)
-    logic = kept_logic()
-    settings = _settings(recipe, logic.db)
-    steps("plan", "Filling the seed", 1, 3)
-    filled = fill(logic_of(logic, settings), recipe["seed"], settings)
-    steps("plan", "Writing the placements", 2, 3)
-    return plan_doc(filled, logic.db)
+    with noting(Steps(progress)) as steps:
+        steps("plan", "Reading the randomizer's logic", 0, 3)
+        logic = kept_logic()
+        settings = _settings(recipe, logic.db)
+        steps("plan", "Filling the seed", 1, 3)
+        filled = fill(logic_of(logic, settings), recipe["seed"], settings)
+        steps("plan", "Writing the placements", 2, 3)
+        return plan_doc(filled, logic.db)
 
 
 def spoiler(doc: Mapping) -> list[str]:

@@ -440,6 +440,18 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     shows its records, `engine._WARMING`, the warm-up counted on a seed
     plan's scale, its first of 3 steps); a note counted short of the last
     one keeps that one's count, so a bar never goes back (Step 4.7c).
+  - The fill tells its count (Step 4.3u): `core.progress.note("placing
+    the items, k of n")`, k the spot it is filling of the n its attempt
+    fills, each percent and at each reach, which `core.progress.noting`
+    folds into the stage the call on that thread reported last
+    (`randomizer.plan`'s "Filling the seed"), so each note is the bar's
+    step and a cancel point (a host's callback raises through it). A fill
+    of the same Logic, database, seed and settings digest another thread
+    is making is waited on, the waiter telling its count every
+    `fill.WAIT` s, and copied when it ends; one cancelled or refused is
+    made again by its waiter. The engine holds no threads: the fills in
+    flight are a dict whose `setdefault` is atomic, the waiter sleeps
+    between looks.
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's

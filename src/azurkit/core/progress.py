@@ -13,12 +13,19 @@ keylord``); ``done`` and ``total`` count the stage's units (bytes, packs:
 ``total`` rounded down, or ``None`` with no count. :class:`Steps` is what a
 call reports through: it does nothing without a host's callback, and an
 exception the callback raises (a cancel) goes up through the call, which
-then writes nothing (D35). Nothing here starts a thread.
+then writes nothing (D35). A loop deep in a call that has no ``Steps`` of
+its own (the randomizer's fill) tells the call its thread runs a
+:func:`note` ("placing the items, k of n"), which :func:`noting` folds into
+the stage the call reported last, so each note is a record and a cancel
+point too. Nothing here starts a thread.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import contextlib
+import contextvars
+import re
+from collections.abc import Callable, Iterator
 
 STAGES = {
     "check": "Checking your image",        # its build files hashed, the first time (D27, D982)
@@ -67,3 +74,49 @@ class Steps:
         if self.report is None:
             return None
         return lambda done, total: self(stage, label, done, total)
+
+
+# the fold of the call this thread runs (:func:`noting`'s): a context's, so each thread's own and no thread started
+_TOLD: contextvars.ContextVar[Callable[[str], None] | None] = contextvars.ContextVar("told", default=None)
+
+
+def note(text: str) -> None:
+    """Tell the call this thread runs under :func:`noting` ``text``: a long
+    loop's count ("placing the items, k of n"), a record of its stage and
+    so a cancel point (the host's callback may raise through it); nothing
+    when no call on this thread listens."""
+    if (told := _TOLD.get()) is not None:
+        told(text)
+
+
+@contextlib.contextmanager
+def noting(steps: Steps) -> Iterator[Steps]:
+    """``steps`` for this thread's call, the :func:`note` calls made on this
+    thread while it runs folded into the stage it reported last through the
+    ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
+    counted inside the stage's step (``done`` of ``total`` as ``done * n +
+    k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
+    so its bar moves on, never back. A call inside another's folds into its
+    own stages until it ends."""
+    if not steps:
+        yield steps
+        return
+    last: list[dict] = []
+
+    def heard(step: dict) -> None:
+        last[:] = [step]
+        steps.report(step)
+
+    def told(text: str) -> None:
+        if not last:   # no stage yet to fold it into
+            return
+        at, done, total = last[0], last[0]["done"], last[0]["total"]
+        if count := re.search(r"(\d+) of (\d+)", text):
+            k, n = map(int, count.groups())
+            done, total = done * n + k - 1, max(total, 1) * n
+        steps.report(record(at["stage"], f"{at['label']} ({text})", done, total))
+    token = _TOLD.set(told)
+    try:
+        yield Steps(heard)
+    finally:
+        _TOLD.reset(token)
