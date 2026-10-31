@@ -104,6 +104,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - `tests/_leak_guard.py` refuses them in the suite and on every push,
     also inside a gzip file. Its rules have no allow-list.
   - Never weaken them to get green.
+- Saves keep no key: `tools/saves/sign.py` derives the console's signature
+  key in memory from the player's own BIOS files, which are never kept, and
+  holds only the certificate key's fingerprint. Its tests sign with a random
+  key found by its own fingerprint, on slots and HDD images built in
+  `tmp_path`.
 - Never print game bytes in logs, commits or chat: print lengths and
   `sha256[:12]`. Failure output is redacted (`tests/_byte_safe.py`).
   - Read the game's code and constants with `python -m devkit re xbe`
