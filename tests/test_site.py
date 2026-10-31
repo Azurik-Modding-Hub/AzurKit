@@ -61,8 +61,9 @@ def site(tmp_path_factory) -> Path:
     return web_tools.site(tmp_path_factory.mktemp("site") / "site")
 
 
-KINDS = (".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
-"""The content kinds the site publishes, each served as data (mime-db's types: no page, script or rendered document)."""
+KINDS = (".azkp", ".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
+"""The content kinds the site publishes, each served as data (mime-db's types: no page, script or rendered document;
+a variant's shipped answer, ``.azkp``, no type's, so ``application/octet-stream``)."""
 REFUSED = (".xsd", ".rng", ".html", ".zqx")
 """Two XML types a browser renders (an XHTML ``<script>`` in one ran on the site's origin), a page and a made-up suffix."""
 
@@ -90,8 +91,9 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     (root / "web/index.html").write_text("the page\n")
     (clone / "index.html").write_text("planted\n")
     (clone / "packs/x/pack.json").write_text("{}\n")
-    kinds = ["packs/x/pack.json", *(f"{'packs' if s == '.md' else 'sounds' if s == '.wav' else 'fx'}/x/x{s}"
-                                    for s in KINDS if s != ".json")]   # each in a folder that takes it (Step S1)
+    folder = {".md": "packs", ".wav": "sounds", ".azkp": "variants"}
+    kinds = ["packs/x/pack.json", *(f"{folder.get(s, 'fx')}/x/x{s}" for s in KINDS if s != ".json")]   # each in a
+    # folder that takes it (Step S1)
     for rel in kinds[1:]:
         (clone / rel).parent.mkdir(parents=True, exist_ok=True)
         (clone / rel).write_text(f"a {rel} file\n")

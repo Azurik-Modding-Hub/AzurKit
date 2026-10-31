@@ -215,8 +215,14 @@ def size(recipe: Mapping, vanilla) -> float:
     ``randomize-full`` folds it into the walk and roll sliders before its
     packs: the body dressed on a scratch staging of the vanilla files
     (``vanilla``, a ``ports.Vanilla``); ``ValueError`` for a species it can't
-    use. Kept in :data:`CACHE`."""
-    return _kept(cache_key("size", recipe, vanilla.release), lambda: _size(recipe, vanilla))
+    use. Kept in :data:`CACHE`; a shipped one (:mod:`.shipped`, D995) taken first."""
+    from azurkit.tools.characters import shipped
+
+    if (found := shipped.size(recipe, vanilla.release)) is not None:
+        return found
+    found = _kept(cache_key("size", recipe, vanilla.release), lambda: _size(recipe, vanilla))
+    shipped.heard_size(recipe, vanilla.release, found)
+    return found
 
 
 def _size(recipe: Mapping, vanilla) -> float:
@@ -359,18 +365,27 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
     shims' placements the layer's claims. ``folded``: the size the sdk
     folded into the walk and roll, which the dressed body must have (D35).
     ``ValueError`` names why the swap can't be built. ``note(label)`` hears
-    the swap's named steps. Kept in :data:`CACHE`."""
+    the swap's named steps. Kept in :data:`CACHE`; a shipped one (:mod:`.shipped`, D995) that stands on
+    what this swap would read taken first, and never kept again."""
+    from azurkit.tools.characters import shipped
+
+    note, over = note or (lambda label: None), None
+    if found := shipped.rows(recipe, vanilla.release, folded, before):
+        over = _over(vanilla, before)
+        if (answered := shipped.plan(found, vanilla.release, over[0], over[3])) is not None:
+            note(f"Dressing {recipe['species']} (its shipped build)")
+            return answered
     return _kept(cache_key("plan", recipe, vanilla.release, before, folded),
-                 lambda: _plan(recipe, vanilla, before, packs, folded, note or (lambda label: None)))
+                 lambda: _plan(recipe, vanilla, before, packs, folded, note, over))
 
 
 def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object], folded: float | None,
-          note: Callable[[str], object]) -> tuple[Layer, list[str], list[str]]:
-    from azurkit.tools.characters import ports
+          note: Callable[[str], object], over: tuple | None = None) -> tuple[Layer, list[str], list[str]]:
+    from azurkit.tools.characters import ports, shipped
 
     swap, release = _swap(), vanilla.release
     note(f"Dressing {recipe['species']} (reading its files)")
-    base, kept, current, staging = _over(vanilla, before)
+    base, kept, current, staging = over or _over(vanilla, before)
     taken = [(c.offset, c.size, c.writable) for la in before for c in la.claims if c.file == XBE]
     build = ports.Build(vanilla, taken=list(taken), packs=dict(packs))
     attack = swap.AttackLogic()
@@ -409,8 +424,10 @@ def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str,
             changes.append(Change(CONFIG, lo, hashlib.sha256(base[CONFIG][lo:hi]).hexdigest(), built[CONFIG][lo:hi],
                                   f"{who} config/{table}"))
     kept = {k: v for k, v in recipe.items() if k != "variant_file"} | ({"variant": worn.sha} if worn else {})
-    layer = Layer(who, TOOL, KIND, kept, tuple(changes), claims)
-    return layer, list(lines), reasons(recipe["species"], attack, worn.base if worn else None)
+    found = Layer(who, TOOL, KIND, kept, tuple(changes), claims), list(lines), reasons(
+        recipe["species"], attack, worn.base if worn else None)
+    shipped.heard_plan(recipe, release, folded, before, found, staging)
+    return found
 
 
 MATCHED = ("scale", "attack_reach", "attack_speed", "attack_damage")

@@ -38,6 +38,7 @@ uv run --locked python -m shimkit [--check]           # the prebuilt shim object
 uv run --locked python -m nativekit [--check]         # the compiled kernels' libraries, from native/*.c (zig, dev only)
 uv run --locked python -m devkit [AREA [VERB ...]]    # the developer side (D950, dev only): devkit/README.md
 uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # tests/goldens/ from the player's images
+uv run --locked python scripts/record_shipped.py [--check] [--content CLONE]  # the swap's shipped answers (D995)
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
 uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
 ```
@@ -627,6 +628,29 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Update. The engine opens no connection: the sdk's CPython calls fetch,
     and the site's page fetches and its worker checks
     (`sdk.content_check`).
+  - **Shipped answers** (D995, `tools/characters/shipped.py`): each
+    species' and built-in variant's size at its defaults and booblord's
+    whole plan at the page's defaults (the packs on by default) are made
+    once, on both releases: the sizes and each answer's sha256 in the
+    package's `shipped.json`, her plan one `AZKP1` file a release in her
+    content entry (`variants/booblord/shipped/<release>-<sha12>.azkp`, each
+    whole file zstd against its vanilla file; no pickle). A row is taken in
+    place of a dress only where it stands on what that dress would read (the
+    release, the recipe as given, the fold, the claims before it, the
+    installed content and the sha256 of each staged file it read), its file
+    read only once its size and sha256 are the row's, and never kept in
+    `characters.CACHE`; else the swap runs.
+    - **The re-record pin:** every dress the goldens make is fresh
+      (`shipped.OFF`, which `record_goldens.py` sets, and so the tests that
+      import it), and `test_characters.py` holds each shipped answer a golden
+      build stands on to that build's (a slider at 1.0 as the page's
+      recipe, which leaves it out), and booblord's plan on both releases
+      (Europe's built for it). A change to the swap's bytes is red until
+      `scripts/record_shipped.py --content <a clone of
+      Azurik-Custom-Content>` re-records, and her entry then takes the new
+      files at a new version. `--check` re-derives every row (the release
+      check's, and the only pin of the sizes no golden builds: a stale one
+      fails that body's build by name, D35, its size not the folded one).
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload

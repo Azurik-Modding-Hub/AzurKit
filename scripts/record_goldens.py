@@ -66,7 +66,9 @@ The images are the ones the gate finds (``AZURKIT_ISO``,
 ``AZURKIT_ISO_EUROPE``, else the user data folder); the cases that wear
 booblord read her clips and voice in the content folder (``AZURKIT_CONTENT``:
 ``azurkit content install booblord``). The builds that dress the player run
-in ``--workers`` processes (4).
+in ``--workers`` processes (4), each dress fresh (``shipped.OFF``: no
+shipped answer, D995, is taken; ``tests/test_characters.py`` holds each of
+those to these builds' own).
 """
 
 from __future__ import annotations
@@ -89,8 +91,10 @@ from azurkit.core.xbr import Document, edits
 from azurkit.edits.layer import compose
 from azurkit.edits.manifest import image
 from azurkit.tools import mods
+from azurkit.tools.characters import shipped
 from azurkit.tools.mods import engine
 
+shipped.OFF = True   # every dress fresh, in each process that imports this: the shipped answers are held to them
 ROOT = Path(__file__).resolve().parent.parent
 GOLDENS = ROOT / "tests" / "goldens"
 CASES = GOLDENS / "cases.json"

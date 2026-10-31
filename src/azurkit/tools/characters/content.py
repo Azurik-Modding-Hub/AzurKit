@@ -5,6 +5,8 @@ Characters tab's community entries):
 
 - ``clips/booblord/``, ``sounds/booblord/``: booblord's own clips and
   voice (the built-in variants', ``_player_variants.CLIPS`` and ``SOUNDS``).
+- ``variants/booblord/shipped/``: her whole build at the page's defaults,
+  one file a release (``shipped.py``, D995), read in place of dressing her.
 
 The townsfolk's bare-hands kit (``clips/townsfolk/``, ``_player_kit.KIT``)
 and the air elemental's funnel (``fx/air_elemental/``,
@@ -58,12 +60,15 @@ ENV = "AZURKIT_CONTENT"
 FORMAT, SCHEMA_VERSION = "azurik-custom-content", 1
 MANIFEST, INSTALLED = "manifest.json", "installed.json"
 KINDS = ("variant", "pack")
-SUFFIXES = {"variants": (".json", ".glb", ".gltf", ".bin", ".png", ".md"), "clips": (".glb", ".gltf", ".bin", ".md"),
-            "sounds": (".wav", ".md"), "fx": (".glb", ".gltf", ".bin", ".png", ".md"), "packs": (".json", ".md")}
+SUFFIXES = {"variants": (".json", ".glb", ".gltf", ".bin", ".png", ".md", ".azkp"),
+            "clips": (".glb", ".gltf", ".bin", ".md"), "sounds": (".wav", ".md"),
+            "fx": (".glb", ".gltf", ".bin", ".png", ".md"), "packs": (".json", ".md")}
 """The suffixes each folder's files may have (in any letter case), as the content repository's
 ``scripts/check.py`` holds: a variant's recipe and the files read beside it (clips and meshes as glTF,
-colours and effects' pictures), clips, sounds, effects' files, a pack's JSON, and a note (``.md``) in
-each; no page, script or document a browser renders (``.html``, ``.svg``, ``.js``, ``.xml``: D992's SEC-3)."""
+colours and effects' pictures) and its shipped answers (``.azkp``, ``shipped.py``: data the engine reads
+only once its size and sha256 are AzurKit's own row's), clips, sounds, effects' files, a pack's JSON, and
+a note (``.md``) in each; no page, script or document a browser renders (``.html``, ``.svg``, ``.js``,
+``.xml``: D992's SEC-3)."""
 FOLDERS = tuple(SUFFIXES)
 """The folders an entry's files lie in (a variant's recipe in ``variants/<id>/variant.json``)."""
 MAX_MANIFEST, MAX_FILE = 1 << 20, 64 << 20

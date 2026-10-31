@@ -34,7 +34,7 @@ from azurkit.edits import preset
 from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
-from azurkit.tools.characters import _player_kit, _player_variants, content, ports
+from azurkit.tools.characters import _player_kit, _player_variants, content, ports, shipped
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens
@@ -216,33 +216,53 @@ def _bodies(kit: bool = False) -> dict[str, dict]:
     return out
 
 
-def _missed(cases: dict[str, dict], image_path, release=gate.USA, workers: int = 1) -> dict[str, tuple]:
+PINNED = "shipped: "
+"""A :func:`_missed` case named so is no golden's: a shipped plan no case builds, built for its answer alone."""
+
+
+def _missed(cases: dict[str, dict], image_path, release=gate.USA, workers: int = 1,
+            held: set | None = None) -> dict[str, tuple]:
     """``{case: (the files whose sha256 isn't G3's, default.xbe's writes outside the character layer's claims and
-    the facts' swap sites, the conflicts)}`` of each of ``cases`` built through ``sdk.image`` from the ``release``
+    the facts' swap sites, the conflicts, the shipped answers that aren't its dress's)}`` of each of ``cases``
+    built through ``sdk.image`` from the ``release``
     image that isn't its golden's file for file (every file G3 records; a Europe build's XBRs but index.xbr, the
     USA case's, as G3 records them) and resource for resource (characters.xbr's and fx.xbr's, as ``resources.json``
-    holds them); ``keylord``'s whole image less its root entries is the golden's. With ``workers``, that many spawned
+    holds them); ``keylord``'s whole image less its root entries is the golden's. Each dress is fresh
+    (``shipped.OFF``, which importing ``record_goldens`` sets), and each shipped answer that stands on what it read
+    must be its answer (D995's re-record pin, ``shipped.held``; ``held`` gathers those rows' names); a
+    :data:`PINNED` case is built for that alone. With ``workers``, that many spawned
     processes build the cases (a case's build is the same in any process; the content folder is the process's)."""
-    assert set(cases) <= set(_golden(G3[release.name]))
+    assert {c for c in cases if not c.startswith(PINNED)} <= set(_golden(G3[release.name]))
     jobs = [(case, recipe, str(image_path), release.name) for case, recipe in cases.items()]
     if workers > 1:
         with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
             done = list(pool.map(_miss, jobs))
     else:
         done = [_miss(job) for job in jobs]
-    return {case: why for case, why in done if why is not None}
+    if held is not None:
+        held.update(name for _, _, names in done for name in names)
+    return {case: why for case, why, _ in done if why is not None}
 
 
-def _miss(job: tuple) -> tuple[str, tuple | None]:
-    """One case of :func:`_missed`: ``(case, why or None)``."""
+def _miss(job: tuple) -> tuple[str, tuple | None, list[str]]:
+    """One case of :func:`_missed`: ``(case, why or None, the shipped rows its fresh dress held)``."""
     case, recipe, image_path, name = job
     release = next(r for r in gate.RELEASES if r.name == name)
+    assert shipped.OFF
+    shipped.SEEN = []
+    try:
+        stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": image_path})
+    finally:
+        seen, shipped.SEEN = shipped.SEEN, None
+    held = [shipped.held(s) for s in seen]
+    good, stale = [n for g, _ in held for n in g], [w for _, s in held for w in s]
+    if case.startswith(PINNED):
+        return case, tuple(stale) or None, good
     golden, view, usa = _golden(G3[name])[case], _resources(name)[case], _golden(G3["usa"])[case]
     known = facts.of(release)
     sites = sorted((known.offset(va, s.size), known.offset(va, s.size) + s.size) for va, s in known.swap.items())
     with iso.Reader(image_path) as r:
         vanilla = {f: r.read(f) for f in characters.FILES}
-    stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": image_path})
     made, manifest = edits_manifest.image(stamp, layers, base)
     layer = next(la for la in layers if la.tool == characters.TOOL)
     held = []   # its claims and the swap sites, those that meet merged
@@ -259,10 +279,10 @@ def _miss(job: tuple) -> tuple[str, tuple | None]:
     if case.endswith("=keylord"):
         changed = {f: data for f, data in files.items() if f != "filelist.txt" and data != base.get(f)}
         assert iso.read(image_path, changed).sha256() == golden["ISO"]
-    if shas != want or loose or manifest.conflicts or any(
+    if shas != want or loose or manifest.conflicts or stale or any(
             {k: view[f][k] for k in resources[f]} != resources[f] for f in resources):
-        return case, (sorted(f for f in want if shas.get(f) != want[f]), loose, manifest.conflicts)
-    return case, None
+        return case, (sorted(f for f in want if shas.get(f) != want[f]), loose, manifest.conflicts, stale), good
+    return case, None, good
 
 
 @pytest.fixture
@@ -597,14 +617,31 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     256 MiB (SEC-9); a path with a ``:`` or a name Windows keeps for a device, two paths one but for letter
     case, and an Update whose ``installed.json`` lists a path outside the content folder, which it leaves
     (SEC-15); a file whose suffix its folder doesn't take (``content.SUFFIXES``: a listed ``.html``, a
-    picture in ``packs/``, a suffix-less file; SEC-3's allow-list); and a recipe whose clip or mesh file
-    leaves the recipe's folder (``..``, an absolute path; SEC-14)."""
+    picture in ``packs/``, a suffix-less file, a shipped answer outside ``variants/``; SEC-3's allow-list); a
+    recipe whose clip or mesh file leaves the recipe's folder (``..``, an absolute path; SEC-14); and a shipped
+    answer (``shipped.py``, D995) whose file isn't its row's size and sha256, never inflated, or that inflates
+    past the size its head lists, stopped there (SEC-5's rule)."""
     import time
     import tracemalloc
+
+    from compression import zstd
 
     from azurkit.tools.characters import gltf, textures
 
     bomb, wide = _png(64, 64, bytes(64 << 20)), _png(8192, 4096, bytes(4096 * (8192 * 4 + 1)))
+    flood = zstd.compress(bytes(64 << 20), options={zstd.CompressionParameter.window_log: 20})
+
+    def answer(size: int) -> bytes:
+        """An ``AZKP1`` file of one whole characters.xbr that inflates to 64 MiB, its head listing ``size``."""
+        head = json.dumps({"layer": {"id": "x", "tool": "characters", "kind": "characters", "recipe": {},
+                                     "notes": [], "claims": []}, "lines": [], "reasons": [], "changes": [
+            {"file": CHARACTERS, "offset": 0, "before": "0" * 64, "group": "x", "whole": True, "size": size,
+             "sha256": "0" * 64, "enc": "zstd-prefix", "length": len(flood)}]}).encode()
+        return shipped.MAGIC + struct.pack("<I", len(head)) + head + flood
+    (tmp_path / "shipped").mkdir()
+    (tmp_path / "shipped/x.azkp").write_bytes(planted := answer(64 << 20))
+    unlisted = {"reads": {}, "recipe": {}, "answer": "0" * 64,
+                "blob": {"path": "x.azkp", "sha256": "0" * 64, "size": len(planted)}}   # not its sha256
 
     def manifest(entries: list[dict]) -> dict:
         return {"format": content.FORMAT, "schema_version": 1, "entries": [
@@ -660,7 +697,9 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
              r"^manifest: entry 'a': path 'packs/Nul/x\.json': 'Nul' is a name Windows keeps for a device"),
             ("Windows keeps, with a suffix", "packs/a/com1.json", r"'com1\.json' is a name Windows keeps"),
             ("to a listed .html", "variants/a/index.HTML", r"^manifest: entry 'a': path 'variants/a/index\.HTML' is a "
-             r"\.html file: variants/ holds only \.json, \.glb, \.gltf, \.bin, \.png, \.md files"),
+             r"\.html file: variants/ holds only \.json, \.glb, \.gltf, \.bin, \.png, \.md, \.azkp files"),
+            ("to a shipped answer outside variants/", "clips/a/usa-0.azkp",
+             r"'clips/a/usa-0\.azkp' is a \.azkp file: clips/ holds only \.glb, "),
             ("to a picture in packs/", "packs/a/x.png", r"'packs/a/x\.png' is a \.png file: packs/ holds only \.json, "),
             ("to a suffix-less file", "sounds/a/x", r"'sounds/a/x' is a suffix-less file: sounds/ holds only \.wav, "))},
         **{f"a recipe's {what} outside its folder": (lambda text=text: _player_variants.load_variants(
@@ -669,6 +708,11 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             ("clip", recipe("clips", {"hip_idle": booblord["clips"]["hip_idle"] | {"file": "../../x.glb"}}),
              "clips.hip_idle.file", "../../x.glb"),
             ("mesh", recipe("mesh", {"gltf": {"file": "/etc/x.glb", "sha256": "0" * 64}}), "mesh.gltf.file", "/etc/x.glb"))},
+        "a shipped answer that isn't its row's": (lambda: shipped.plan(
+            [unlisted], gate.USA, {CHARACTERS: b"x" * 16}, SimpleNamespace(_current={}), tmp_path / "shipped"), None),
+        "a shipped answer past the size its head lists": (lambda: shipped.decode(answer(1024), {CHARACTERS: b"x" * 16}),
+                                                          r"^shipped: gamedata/characters\.xbr inflates past the "
+                                                          r"1,024 bytes its head lists"),
         "two paths one but for letter case": (lambda: content.check(manifest([
             {"id": "a", "files": [{"path": "packs/a/X.json", "sha256": "0" * 64, "size": 0}]},
             {"id": "b", "files": [{"path": "packs/a/x.json", "sha256": "0" * 64, "size": 0}]}])),
@@ -916,11 +960,22 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     and the effects case; on Europe the effects case) built through
     ``sdk.image`` is its golden's file for file and resource for resource, its
     default.xbe written inside its claims and the facts' swap sites
-    (:func:`_missed`, in 4 processes: booblord's builds take minutes)."""
+    (:func:`_missed`, in 4 processes: booblord's builds take minutes). Each of
+    the release's shipped plans (``shipped.json``, D995: booblord's at the
+    page's defaults) is the answer of a fresh dress that reads what it stood on:
+    on USA booblord's case's, on Europe one built for it (:data:`PINNED`), so a
+    change to her bytes is red until ``scripts/record_shipped.py`` re-records."""
     cases = _variants(release, tmp_path)
     assert len(cases) == {"usa": 7, "europe": 1}[release.name]
+    plans = [row for row in shipped.table().get("plan", ()) if row["release"] == release.iso_sha256]
+    built = [shipped._page(characters.normalize(recipe["character"])) for recipe in cases.values()]
+    cases |= {f"{PINNED}{json.dumps(row['recipe'])}": {"packs": {name: {} for name, pack in mods.PACKS.items()
+                                                                 if pack.default_on}, "character": row["recipe"]}
+              for row in plans if row["recipe"] not in built}
     first = dict(sorted(cases.items(), key=lambda kv: "booblord" not in kv[0]))   # the longest builds start first
-    assert _missed(first, request.getfixturevalue(f"{release.name}_iso"), release, workers=4) == {}
+    held: set[str] = set()
+    assert _missed(first, request.getfixturevalue(f"{release.name}_iso"), release, workers=4, held=held) == {}
+    assert plans and {shipped.name("plan", row) for row in plans} <= held
 
 
 def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso, no_content, tmp_path, monkeypatch):
@@ -972,6 +1027,74 @@ def test_a_bodys_answers_kept_in_the_apps_store_build_the_same_image_and_miss_wh
     assert len(kept) == 3   # the plan over another layer; the size kept
     (content.ROOT / "installed.json").write_text(json.dumps({"booblord": {"version": 1, "source": "", "files": {}}}))
     assert keylord({}) == first and len(kept) == 5
+
+
+def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(tmp_path, monkeypatch):
+    """D995's shipped answers (``tools/characters/shipped.py``), on made-up
+    files: a plan's ``AZKP1`` file (a whole file zstd-compressed against its
+    vanilla bytes, a range as it is) decodes to the answer it was made from;
+    ``characters.plan`` and ``characters.size`` take a row's answer in place
+    of a dress, never keeping it in the app's store, where the row stands on
+    the build's release, recipe, fold, claims, content and reads; and a pack
+    that changed a file the dress read, another fold or recipe, an installed
+    entry the body reads, the file changed by a byte, an answer other than
+    its row's and ``shipped.OFF`` each miss (``None``: the swap runs). The
+    re-record pin (``shipped.held``) holds a fresh answer to the row it
+    stands on, a slider at 1.0 as the page's recipe, and names a stale one."""
+    from azurkit.edits.layer import Change, Claim
+
+    made = {f: bytes([k + 1]) * (4096 + k) for k, f in enumerate(characters.READS)}
+    vanilla, xbe = ports.Vanilla(gate.USA, made), characters.XBE
+    grown = made[CHARACTERS][:100] + b"grown" * 1000 + made[CHARACTERS][100:]
+    found = (Layer("player model x", characters.TOOL, characters.KIND, {"species": "x", "variant": "0" * 12},
+                   (Change(CHARACTERS, 0, _sha256(made[CHARACTERS]), grown, "x (its archives)", True),
+                    Change(xbe, 16, _sha256(made[xbe][16:24]), b"\x90" * 8, "x (default.xbe)")),
+                   (Claim(xbe, 16, 8, "shim:x"),)), ["dressed x"], ["a reason"])
+    blob = shipped.encode(*found, made)
+    assert shipped.decode(blob, made) == found and len(blob) < len(grown) // 4
+    monkeypatch.setattr(content, "ROOT", tmp_path)
+    staging = characters._over(vanilla, [])[3]
+    staging["default.xbe"], staging["config.xbr"]   # what a dress of x reads
+    row = shipped.plan_row({"species": "x"}, gate.USA, 1.0, [], found, staging) | {
+        "blob": {"path": "variants/x/shipped/usa-0.azkp", "sha256": _sha256(blob), "size": len(blob)}}
+    (answer := tmp_path / row["blob"]["path"]).parent.mkdir(parents=True)
+    answer.write_bytes(blob)
+    table = {"plan": [row], "size": [shipped.size_row({"species": "x"}, gate.USA, 1.25)]}
+    monkeypatch.setattr(shipped, "table", lambda: table)
+    monkeypatch.setattr(shipped, "OFF", False)
+
+    class Store(dict):
+        put = dict.__setitem__
+    monkeypatch.setattr(characters, "CACHE", kept := Store())
+    assert characters.plan({"species": "x"}, vanilla, [], folded=1.0) == found
+    assert characters.size({"species": "x"}, vanilla) == 1.25 and not kept
+
+    def ask(recipe: dict = {"species": "x"}, folded: float = 1.0, before: tuple = ()):
+        over = characters._over(vanilla, list(before))
+        return shipped.plan(shipped.rows(recipe, gate.USA, folded, list(before)), gate.USA, over[0], over[3])
+    pack = Layer("pack p", "mods", "packs", {}, (Change(xbe, 0, _sha256(made[xbe][:4]), b"abcd", "p"),))
+    entry = {"x": {"version": 1, "source": "", "files": {"clips/x/a.glb": "0" * 64}}}
+    for why, given in {"a pack that changed a file it read": {"before": (pack,)}, "another fold": {"folded": 1.5},
+                       "another recipe": {"recipe": {"species": "x", "scale": 2.0}}}.items():
+        assert ask(**given) is None, why
+    for why, change in {
+            "an installed entry it reads": lambda: (tmp_path / content.INSTALLED).write_text(json.dumps(entry)),
+            "its file changed by a byte": lambda: answer.write_bytes(blob[:-1] + bytes([blob[-1] ^ 1])),
+            "another answer than its row's": lambda: table["plan"].__setitem__(0, row | {"answer": "0" * 64}),
+            "shipped.OFF": lambda: monkeypatch.setattr(shipped, "OFF", True)}.items():
+        change()
+        assert ask() is None, why
+        (tmp_path / content.INSTALLED).unlink(missing_ok=True)
+        answer.write_bytes(blob)
+        table["plan"][0] = row
+        monkeypatch.setattr(shipped, "OFF", False)
+        assert ask() == found, why
+    monkeypatch.setattr(shipped, "OFF", True)
+    assert shipped.size({"species": "x"}, gate.USA) is None
+    seen = {k: v for k, v in row.items() if k != "blob"} | {"recipe": {"species": "x", "scale": 1.0}}   # a golden's
+    assert shipped.held({"plan": seen}, table) == ([shipped.name("plan", row)], [])   # the re-record pin's reading
+    assert shipped.held({"plan": seen | {"answer": "0" * 64}}, table)[1] == [
+        f"the shipped {shipped.name('plan', row)} isn't a fresh dress's (scripts/record_shipped.py)"]
 
 
 def test_a_changed_dress_in_the_sdk_changes_the_key_the_app_keeps_a_characters_match_under(no_content, monkeypatch):

@@ -1,0 +1,3272 @@
+{
+ "plan": [
+  {
+   "answer": "1292732f9e2dae1b0f3204d8c41505125fd5d1c9d7e89b356bdd4a9fb6d38ad0",
+   "blob": {
+    "path": "variants/booblord/shipped/usa-6ef66938464b.azkp",
+    "sha256": "6ef66938464b8cf28b88897416c2d7d8dcdf2edf9a34b58c4e8548be5d967735",
+    "size": 6591397
+   },
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "folded": "0x1.0000000000000p+0",
+   "reads": {
+    "default.xbe": "a6b23515f4837dc782f0579f86fdaa8297b9782c091c76fe7ad26b1879275789",
+    "gamedata/characters.xbr": "0bb4264b0e16615c805cd9ca84f0068c374bc6623223d02271fed9d5910945e6",
+    "gamedata/config.xbr": "ea0f4c00deef7763ca10abb2e00c937f2659b3b879151117268225d03884a4ab",
+    "gamedata/english.xbr": "0702f131e9349d5fed6677d14aadc81eb4bb5ccb7284e51a9f0a468fd554dcfc",
+    "gamedata/fx.xbr": "f0e87442ac549a076e25bf4294c0e0dca69d1b43b1d8ad10e81a3c0ebb1bc137",
+    "gamedata/index/index.xbr": "86327679ab1df636c6f7034dd7584d486c7f9b8e3ea6117c0d19b2a8d68a08b3"
+   },
+   "recipe": {
+    "species": "booblord"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "taken": [
+    [
+     983504,
+     6,
+     false
+    ],
+    [
+     1785856,
+     90,
+     false
+    ],
+    [
+     1785946,
+     1116,
+     false
+    ],
+    [
+     1787062,
+     1116,
+     false
+    ],
+    [
+     1788178,
+     1322,
+     false
+    ],
+    [
+     1789500,
+     1320,
+     false
+    ],
+    [
+     1790820,
+     1320,
+     false
+    ],
+    [
+     1792140,
+     1320,
+     false
+    ],
+    [
+     1793460,
+     683,
+     false
+    ],
+    [
+     1794143,
+     157,
+     true
+    ],
+    [
+     1794300,
+     683,
+     false
+    ],
+    [
+     1794983,
+     157,
+     true
+    ],
+    [
+     1795140,
+     683,
+     false
+    ],
+    [
+     1795823,
+     157,
+     true
+    ]
+   ]
+  },
+  {
+   "answer": "70c854a555b5a91d8e7e3f6475e875f39e0bafca0712654627951c45ac1430b7",
+   "blob": {
+    "path": "variants/booblord/shipped/europe-17d629747530.azkp",
+    "sha256": "17d629747530d2092909f1a8bdba74a4659c4134fb37564b018f48bcc64ec8fd",
+    "size": 6586052
+   },
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "folded": "0x1.0000000000000p+0",
+   "reads": {
+    "default.xbe": "abc18383b34593ce083983b014b2e8ea9387f1b3117f1830c0e6c9f7aa29c7a6",
+    "gamedata/characters.xbr": "0bb4264b0e16615c805cd9ca84f0068c374bc6623223d02271fed9d5910945e6",
+    "gamedata/config.xbr": "ea0f4c00deef7763ca10abb2e00c937f2659b3b879151117268225d03884a4ab",
+    "gamedata/english.xbr": "0702f131e9349d5fed6677d14aadc81eb4bb5ccb7284e51a9f0a468fd554dcfc",
+    "gamedata/fx.xbr": "f0e87442ac549a076e25bf4294c0e0dca69d1b43b1d8ad10e81a3c0ebb1bc137",
+    "gamedata/index/index.xbr": "9056b4b1462007059fa89082b8740a08b06414296d2bc622ce77fec5e1b6e2ed"
+   },
+   "recipe": {
+    "species": "booblord"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "taken": [
+    [
+     1798144,
+     90,
+     false
+    ],
+    [
+     1798234,
+     1116,
+     false
+    ],
+    [
+     1799350,
+     1116,
+     false
+    ],
+    [
+     1800466,
+     1322,
+     false
+    ],
+    [
+     1801788,
+     6,
+     false
+    ],
+    [
+     1801794,
+     1322,
+     false
+    ],
+    [
+     1803116,
+     1320,
+     false
+    ],
+    [
+     1804436,
+     1320,
+     false
+    ],
+    [
+     1805756,
+     683,
+     false
+    ],
+    [
+     1806439,
+     157,
+     true
+    ],
+    [
+     1806596,
+     683,
+     false
+    ],
+    [
+     1807279,
+     157,
+     true
+    ],
+    [
+     1807436,
+     683,
+     false
+    ],
+    [
+     1808119,
+     157,
+     true
+    ]
+   ]
+  }
+ ],
+ "size": [
+  {
+   "entries": {},
+   "recipe": {
+    "species": "24hr"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.f968b11ac9cafp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "air_elemental"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d8b31c5531283p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "air_elemental_boss"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d8b31c5531283p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "air_octopus"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.e47b7f75af679p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "all_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "all_health"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.25ccd2de9f342p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "balthazar"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0f0bbd759bac0p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "barnacle"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ab380de5d8305p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "beamlord"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0f0bbd759bac0p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "bird"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.4966c789f1ce0p-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "blaze_move"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.9149f714c6687p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "blaze_sentinel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.9149f714c6687p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord_high"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord_high_human"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord_human"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "bot"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.1327a69f4b151p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "boulder"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ccb17834950fap-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "cat_dead"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d15b9d12f611ep-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d15b9d12f611ep-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk_baby"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d15b9d12f611ep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk_baby_grp"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d15b9d12f611ep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk_grp"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d15b9d12f611ep-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "channeler"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8b39bd83d8708p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "diamond"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0024aaacbf870p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "diamond_move"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0024aaacbf870p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "emerald"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.da247f768f34cp-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "emerald_move"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.da247f768f34cp-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "evil_noreht"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.3bd879796b4e8p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fire_bot"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.e60dd61bc2f26p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fire_elemental"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0e6aa00a69a2cp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fire_shard"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.5a8fa422db95ep-5"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "firedrake"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.54c39916ddaefp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "firefly"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.1e76f93ca91a2p-8"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fish_big"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0f98917bf7ba6p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fish_little1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.2406560fb5aeep-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fish_little2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0e6fc6def89fdp-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "flicken of peril"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.67c05f72542aap-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "flicken"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.67c05f72542aap-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ee1d9d869bcfep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.41f8d95fa528ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ff8bd460679c8p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.408da7d64479bp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.76e45d664b263p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.049a6072d9ec4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ff70ee7bda212p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ff70ee7bda212p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.7fa8dfc830abfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.069020869d6f8p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.41f8d760194e4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.f31d82eca604dp-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ff8bd460679c8p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.50cfb8d628601p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.30e603c664947p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.76f1c45b4ac5ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.12a30eba47f47p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.41e54bd0295cap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.41f8d760194e4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.41f8d760194e4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "gargoylestone"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.60ede7fbb3f9cp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "garret4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "golem"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0e37e48f3afacp+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "good_noreht"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.f968b11ac9cafp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_air"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.6491bc6918a34p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_air_clone"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.6491bc6918a34p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_earth"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.94e39fd156983p+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_fire1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.078cb92c74c80p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_fire2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.078cb92c74c80p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_fire3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.078cb92c74c80p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_water"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.30c002677442cp+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "harvester"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.eac8075555bfep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "harvester_train"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.eac8075555bfep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "ice_shard"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.cccfd74f3d224p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_air1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.f43a8037a35e1p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_air2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.f43a8037a35e1p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_air3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.f43a8037a35e1p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_battery"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_blue"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.06e724c4c6d26p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_circuitboard"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_diamondbattery"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0ddea9d1b143ap+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fire1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fire2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fire3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fuse"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_gear"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_green"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_lens"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0ddea9d1b143ap+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_life1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0e1822c51aff4p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_obsidian1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.083eeeb60cea5p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_obsidian2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.083eeeb60cea5p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_red"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_water1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.981e641985b48p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_water2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.978646a336315p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "keylord"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.194d4355164e5p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "kingkong"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0e37e48f3afacp+3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_air_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_chromatic_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_earth_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_fire_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_health"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.25ccd2de9f342p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_water_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "lava_shard"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "magmar"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.fb3d42b73a25fp+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "obsidian"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d76631ebea4f7p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "obsidian_move"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.3a442147f18a5p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "overlord and gargoyle"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.801a6a00ae986p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "overlord and golem"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0e37e48f3afacp+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "overlord"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.3f8732ed8fcfcp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_air"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_ammo"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d94a71f8df5e5p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_earth"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_fire"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_life"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.e5f80f0d950a9p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_staff1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.1cc930d1ca5dfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_staff2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.23fb189d09584p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_water"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_water_a3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "rock_shard"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "rock_shard_boss"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "rock_shard_grp"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "ruby"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.45461576607f5p-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "ruby_move"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.45461576607f5p-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sapphire"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.40ffdde7bdc21p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sapphire_move"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.40ffdde7bdc21p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "shadow_demon"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.52fcbe5d47124p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "shard"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0021a65c1a568p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_air"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_earth"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_fire"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_water"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sleeth"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.899132e85100ap-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sleeth_momma"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.899132e85100ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sleeth_x"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.899132e85100ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_air_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_chromatic_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_earth_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_fire_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_health"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.79be33b0838c2p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_water_fuel"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "spideyzar"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.96919c3069821p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "splinter"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.f030c5ed0f8cep-4"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "tesla_tree"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.06907c71beac9p+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "tesla_tree_x"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.06907c71beac9p+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8a6bac80a87cfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_farmer_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_farmer_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8a6bac80a87cfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_farmer_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_sleep"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_3B"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_sleep"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_farmer_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_farmer_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_sleep"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_5"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.27fec1485d71dp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_6"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_6B"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_7"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_8"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_9"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.27fec1485d71dp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_4"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_5"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_6"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_sleep"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_stand"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_elemental"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.26d0ef693dd46p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_tentacle1"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.d30cc5682d6eap+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_tentacle2"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0a605bad7e285p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_tentacle3"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be",
+   "value": "0x1.0a605bad7e285p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "24hr"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.f968b11ac9cafp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "air_elemental"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d8b31c5531283p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "air_elemental_boss"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d8b31c5531283p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "air_octopus"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.e47b7f75af679p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "all_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "all_health"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.25ccd2de9f342p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "balthazar"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0f0bbd759bac0p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "barnacle"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ab380de5d8305p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "beamlord"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0f0bbd759bac0p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "bird"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.4966c789f1ce0p-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "blaze_move"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.9149f714c6687p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "blaze_sentinel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.9149f714c6687p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord_high"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord_high_human"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+    }
+   },
+   "recipe": {
+    "species": "booblord_human"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "bot"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.1327a69f4b151p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "boulder"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ccb17834950fap-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "cat_dead"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d15b9d12f611ep-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d15b9d12f611ep-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk_baby"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d15b9d12f611ep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk_baby_grp"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d15b9d12f611ep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "catalisk_grp"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d15b9d12f611ep-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "channeler"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8b39bd83d8708p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "diamond"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0024aaacbf870p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "diamond_move"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0024aaacbf870p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "emerald"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.da247f768f34cp-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "emerald_move"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.da247f768f34cp-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "evil_noreht"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.3bd879796b4e8p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fire_bot"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.e60dd61bc2f26p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fire_elemental"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0e6aa00a69a2cp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fire_shard"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.5a8fa422db95ep-5"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "firedrake"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.54c39916ddaefp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "firefly"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.1e76f93ca91a2p-8"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fish_big"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0f98917bf7ba6p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fish_little1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.2406560fb5aeep-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "fish_little2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0e6fc6def89fdp-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "flicken of peril"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.67c05f72542aap-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "flicken"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.67c05f72542aap-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ee1d9d869bcfep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.41f8d95fa528ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ff8bd460679c8p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_air_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.408da7d64479bp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.76e45d664b263p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.049a6072d9ec4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ff70ee7bda212p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_earth_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ff70ee7bda212p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.7fa8dfc830abfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.069020869d6f8p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.41f8d760194e4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_fire_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.f31d82eca604dp-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ff8bd460679c8p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.50cfb8d628601p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.30e603c664947p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_life_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.76f1c45b4ac5ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.12a30eba47f47p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.41e54bd0295cap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.41f8d760194e4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "frag_water_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.41f8d760194e4p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "gargoylestone"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.60ede7fbb3f9cp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "garret4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "golem"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0e37e48f3afacp+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "good_noreht"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.f968b11ac9cafp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_air"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.6491bc6918a34p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_air_clone"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.6491bc6918a34p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_earth"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.94e39fd156983p+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_fire1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.078cb92c74c80p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_fire2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.078cb92c74c80p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_fire3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.078cb92c74c80p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "guard_water"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.30c002677442cp+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "harvester"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.eac8075555bfep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "harvester_train"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.eac8075555bfep-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "ice_shard"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.cccfd74f3d224p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_air1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.f43a8037a35e1p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_air2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.f43a8037a35e1p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_air3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.f43a8037a35e1p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_battery"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_blue"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.06e724c4c6d26p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_circuitboard"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_diamondbattery"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0ddea9d1b143ap+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fire1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fire2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fire3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_fuse"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_gear"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_green"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_lens"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0ddea9d1b143ap+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_life1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0e1822c51aff4p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_obsidian1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.083eeeb60cea5p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_obsidian2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.083eeeb60cea5p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_red"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0798ce6e213ebp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_water1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.981e641985b48p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "key_water2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.978646a336315p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "keylord"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.194d4355164e5p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "kingkong"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0e37e48f3afacp+3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_air_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_chromatic_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_earth_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_fire_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_health"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.25ccd2de9f342p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "large_water_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.4c5dba04f06dbp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "lava_shard"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "magmar"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.fb3d42b73a25fp+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "obsidian"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d76631ebea4f7p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "obsidian_move"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.3a442147f18a5p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "overlord and gargoyle"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.801a6a00ae986p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "overlord and golem"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0e37e48f3afacp+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "overlord"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.3f8732ed8fcfcp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_air"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_ammo"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d94a71f8df5e5p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_earth"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_fire"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_life"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.e5f80f0d950a9p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_staff1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.1cc930d1ca5dfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_staff2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.23fb189d09584p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_water"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "power_water_a3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.079c7bb868c13p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "rock_shard"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "rock_shard_boss"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "rock_shard_grp"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.cccfd54fb147ep+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "ruby"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.45461576607f5p-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "ruby_move"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.45461576607f5p-3"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sapphire"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.40ffdde7bdc21p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sapphire_move"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.40ffdde7bdc21p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "shadow_demon"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.52fcbe5d47124p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "shard"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0021a65c1a568p-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_air"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_earth"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_fire"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "skrit_water"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.75bce87bb6e92p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sleeth"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.899132e85100ap-2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sleeth_momma"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.899132e85100ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "sleeth_x"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.899132e85100ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_air_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_chromatic_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_earth_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_fire_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_health"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.79be33b0838c2p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "small_water_fuel"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.ab53ef2aebfadp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "spideyzar"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.96919c3069821p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "splinter"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.f030c5ed0f8cep-4"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "tesla_tree"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.06907c71beac9p+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "tesla_tree_x"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.06907c71beac9p+2"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8a6bac80a87cfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_farmer_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_farmer_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8a6bac80a87cfp-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_farmer_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_child_sleep"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.a02c53a2b5e1ap-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_3B"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_female_sleep"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0000000000000p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_farmer_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_farmer_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_girlchild_sleep"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.8b37e0d679b40p-1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_5"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.27fec1485d71dp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_6"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_6B"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_7"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_8"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_9"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.27fec1485d71dp+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_4"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_5"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.322d27cc23933p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_farmer_6"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_sleep"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "town_male_stand"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.148115d750e32p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_elemental"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.26d0ef693dd46p+0"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_tentacle1"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.d30cc5682d6eap+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_tentacle2"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0a605bad7e285p+1"
+  },
+  {
+   "entries": {},
+   "recipe": {
+    "species": "water_tentacle3"
+   },
+   "release": "77fb736e5656333080733ba894ceb1c505a83e53339441c8ac563fcccbc37e99",
+   "value": "0x1.0a605bad7e285p+1"
+  }
+ ]
+}

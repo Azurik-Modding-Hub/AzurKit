@@ -55,11 +55,13 @@ CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit"),
             "firefox": ("firefox", "Firefox")}
 SHIPPED = "azurkit/tools/randomizer/shipped"   # the checked randomizer database's folder (dbcache.SHIPPED)
-CONTENT_KINDS = (".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
+CONTENT_KINDS = (".azkp", ".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
 """The suffixes a content file the site publishes may have, and no other
 (none, or any other, is refused by name): the kinds the content repository
-holds (a recipe or manifest, a clip, a sound, its notes) and those it is to
-hold (a glTF's buffers, a texture), each of which its host serves as data,
+holds (a recipe or manifest, a clip, a sound, its notes, a variant's shipped
+answer, ``.azkp``, which no type names, so it is served as
+``application/octet-stream``) and those it is to hold (a glTF's buffers, a
+texture), each of which its host serves as data,
 not as a page, a script or an XML document the browser renders (where an
 XHTML ``<script>`` runs) on the site's own origin, outside the page's CSP.
 A Jekyll build renders any text kind with front matter (a ``.json``,

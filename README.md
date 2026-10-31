@@ -127,6 +127,9 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
   download keeps nothing, and an installed one stays at its version until you update it. In the browser, Booblord's
   pictures and G4 values can run out of memory: the app draws them.
+- **Ready-made bodies:** every body's size at its defaults ships with AzurKit, and Booblord's whole build at the
+  defaults comes with her download, for both releases, so their first Build skips that work; any other choice builds
+  as before.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
   bolts or laser, made from the game's own effects.
 - **Works with every pack and the randomizer:** a seed can wear a character, its logic re-checked at the body's
