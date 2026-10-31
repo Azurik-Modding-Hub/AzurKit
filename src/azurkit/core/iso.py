@@ -283,7 +283,7 @@ class _ImageFile(io.RawIOBase):
 
 
 def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
-         add: Mapping[str, bytes] | None = None) -> Image:
+         add: Mapping[str, bytes] | None = None, md5s: Mapping[str, str] | None = None) -> Image:
     """The image at ``path``, with ``files`` (``{path: new bytes}``, matched
     case-blind) in place of the files of those names, and ``add`` (``{name:
     bytes}``) as new files in its root folder. With neither it is the
@@ -309,7 +309,9 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
 
     ``ValueError`` names what the kernel would trip on in the image it makes
     (a truncated input, say), and ``FileNotFoundError`` a name the image
-    doesn't have, before anything is written (D35)."""
+    doesn't have, before anything is written (D35). ``md5s`` (``{path:
+    md5}``) gives the md5 of a file of ``files`` a caller hashed already
+    (``filelist.rewrite``'s)."""
     path = Path(path)
     stat = path.stat()
     have = stat.st_size
@@ -317,7 +319,7 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
     with Reader(path) as r:
         files = dict(files or {})
         if files:
-            files.update(_listing(r, files))
+            files.update(_listing(r, files, md5s))
         base, end = r.base, _sectors(have - r.base)    # the first sector past the image
         first, records = end, {}                       # a replaced file's record -> its sector and size
         for name in sorted(files, key=key):
@@ -411,7 +413,7 @@ def _table(entries: list[tuple[str, int, int, int]]) -> bytes:
     return bytes(out)
 
 
-def _listing(r: Reader, files: Mapping[str, bytes]) -> dict[str, bytes]:
+def _listing(r: Reader, files: Mapping[str, bytes], md5s: Mapping[str, str] | None = None) -> dict[str, bytes]:
     """``{name: bytes}`` of the ``filelist.txt`` the image with ``files``
     gets (:func:`read`); empty when it has none."""
     name = next((p for p in files if key(p) == "FILELIST.TXT"), "filelist.txt")
@@ -427,7 +429,7 @@ def _listing(r: Reader, files: Mapping[str, bytes]) -> dict[str, bytes]:
             continue
         if not entry.is_dir and entry.size != row.size and key(row.path) not in replaced:
             stale[row.path] = r.read(entry)
-    return {name: filelist.rewrite(text, stale | dict(files))}
+    return {name: filelist.rewrite(text, stale | dict(files), md5s)}
 
 
 def _check(image: Image) -> None:

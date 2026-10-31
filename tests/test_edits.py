@@ -16,7 +16,7 @@ from azurkit import __version__, sdk
 from azurkit.core import gate, iso
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset
-from azurkit.edits.layer import Change, Layer
+from azurkit.edits.layer import Change, Layer, compose
 from tests._xiso import fill, image
 
 BASE = {"a.bin": bytes(64), "b.bin": fill("b", 32)}
@@ -80,7 +80,8 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
     the resource there), it is refused by name (D35, Modkit's AZ-096). The
     image grows the file and the manifest marks the change whole; a second
     whole write of a file, or a whole file planned against another, is
-    refused by name."""
+    refused by name; a file's sha256 a stamp vouches for (``known``) stands
+    for its hash."""
     src = tmp_path / "in.iso"
     src.write_bytes(image(BASE))
     stamp = gate.Stamp(gate.USA, src, src.stat().st_size, src.stat().st_mtime_ns, False)
@@ -107,6 +108,10 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
     stale = Layer("stale", "characters", "characters", {}, (Change("b.bin", 0, _sha256(b"X"), b"Y", "s", whole=True),))
     with pytest.raises(ValueError, match=r"^stale \(s\): written whole against another b\.bin$"):
         edits.image(stamp, [stale])
+    known = {name: _sha256(data) for name, data in BASE.items()}   # a stamp's: the files aren't hashed again
+    assert compose(BASE, [packs, swap, data], known) == compose(BASE, [packs, swap, data])
+    with pytest.raises(ValueError, match=r"written whole against another b\.bin$"):
+        compose(BASE, [swap], known | {"b.bin": _sha256(b"X")})
 
 
 def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoiler_comes_on_demand(usa_iso, tmp_path):

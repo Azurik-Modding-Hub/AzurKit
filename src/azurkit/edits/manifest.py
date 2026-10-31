@@ -31,7 +31,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 
 from azurkit import __version__
-from azurkit.core import gate, iso
+from azurkit.core import filelist, gate, iso
 from azurkit.edits.layer import Conflict, Layer, compose
 
 FORMAT = "azurkit-manifest"
@@ -103,9 +103,15 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _hashes(data: bytes) -> tuple[str, str]:
+    """A changed file's sha256 (the manifest's result) and md5 (its
+    ``filelist.txt`` line's)."""
+    return _sha256(data), filelist.md5(data)
+
+
 def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] | None = None, *,
-          root: bool = True, judge: Callable[[iso.Image, Manifest], Mapping] | None = None
-          ) -> tuple[iso.Image, Manifest]:
+          root: bool = True, judge: Callable[[iso.Image, Manifest], Mapping] | None = None,
+          map: Callable = map) -> tuple[iso.Image, Manifest]:
     """The image ``layers`` make of the vanilla image ``stamp`` checked,
     unwritten, and its manifest, which the image carries in its root
     (:func:`root_files`) when it has a layer and ``root`` (without them, it
@@ -115,25 +121,31 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     it differs. ``judge`` reads the image without the root files back and
     gives the manifest's verdicts (``{tool: verdict}``), or raises
     ``ValueError`` naming why the build fails (D35: the randomizer's
-    read-back against its plan)."""
+    read-back against its plan). The stamp vouches for its build files'
+    sha256 (none is hashed again); ``map(fn, items)`` (a host's threads'; the
+    built-in by default) hashes each changed file, once a build."""
     names = sorted({c.file for la in layers for c in (*la.changes, *la.claims)})
     base = dict(base or {})
     with iso.Reader(stamp.path) as r:
         base |= {name: r.read(name) for name in names if name not in base}
-        files, conflicts = compose(base, layers)
+        known = {name: stamp.release.files[name][1] for name in base
+                 if name in stamp.release.files and name.startswith(gate.BUILD_FILES)}
+        files, conflicts = compose(base, layers, known)
         changed = {}
         for name in list(files):   # each file's copy freed as it is kept: a randomized build changes 700 MB of levels
             if (data := files.pop(name)) != base[name]:
                 changed[name] = bytes(data)
             del data
-        made = iso.read(stamp.path, changed)
+        hashes = dict(zip(changed, map(_hashes, changed.values())))
+        md5s = {name: md5 for name, (_, md5) in hashes.items()}
+        made = iso.read(stamp.path, changed, md5s=md5s)
         listing = {}
         if changed:
             try:
                 listing["filelist.txt"] = r.read("filelist.txt")
             except FileNotFoundError:
                 pass
-    result = {name: _sha256(data) for name, data in changed.items()}
+    result = {name: sha for name, (sha, _) in hashes.items()}
     if listing:
         with iso.Reader(made) as r:
             if (new := r.read("filelist.txt")) != listing["filelist.txt"]:
@@ -142,8 +154,9 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     if judge is not None:
         manifest = replace(manifest, verdicts=dict(judge(made, manifest)))
     if root and layers:
-        made = iso.read(stamp.path, changed, add=root_files(manifest))
-    if made.origin[:2] != (stamp.size, stamp.mtime_ns):   # the stamp vouches for the image as it was checked
+        made = iso.read(stamp.path, changed, add=root_files(manifest), md5s=md5s)
+    held = (stamp.size, stamp.mtime_ns, stamp.ctime_ns)[:3 if stamp.ctime_ns else 2]
+    if made.origin[:len(held)] != held:   # the stamp vouches for the image as it was checked
         raise ValueError(f"{stamp.path}: it changed after it was checked (D27); choose it again")
     return made, manifest
 
@@ -220,9 +233,10 @@ def load(path: str | os.PathLike, *, whole: bool = True) -> tuple[gate.Release, 
 
 def build(stamp: gate.Stamp, layers: Sequence[Layer], out, *, base: Mapping[str, bytes] | None = None,
           progress: Callable[[int, int], object] | None = None,
-          judge: Callable[[iso.Image, Manifest], Mapping] | None = None) -> tuple[str, Manifest]:
-    """Write the image (:func:`image`, with ``judge``) to ``out``; its
-    sha256 and manifest. ``progress(done, total)`` follows the write, and an
-    exception it raises cancels it with nothing written (:func:`iso.pack`)."""
-    made, manifest = image(stamp, layers, base, judge=judge)
+          judge: Callable[[iso.Image, Manifest], Mapping] | None = None, map: Callable = map) -> tuple[str, Manifest]:
+    """Write the image (:func:`image`, with ``judge`` and ``map``) to
+    ``out``; its sha256 and manifest. ``progress(done, total)`` follows the
+    write, and an exception it raises cancels it with nothing written
+    (:func:`iso.pack`)."""
+    made, manifest = image(stamp, layers, base, judge=judge, map=map)
     return iso.pack(made, out, progress=progress), manifest

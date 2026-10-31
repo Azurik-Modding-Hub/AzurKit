@@ -187,16 +187,19 @@ def variant(recipe: Mapping, vanilla) -> tuple[object, dict] | tuple[None, None]
     return found, variants.options(found, weapon=weapon, default=default, **given)
 
 
-def whole_files(base: Mapping[str, bytes], built: Mapping[str, bytes], group: str) -> tuple[Change, ...]:
+def whole_files(base: Mapping[str, bytes], built: Mapping[str, bytes], group: str,
+                digests: Mapping[str, str] | None = None) -> tuple[Change, ...]:
     """The character layer's whole-file group ``group``: each of
     :data:`FILES` that ``built`` holds and that differs from its vanilla
-    bytes in ``base``, as one whole change, in :data:`FILES`' order.
-    ``ValueError`` names a file ``built`` holds that isn't one of them."""
+    bytes in ``base`` (whose sha256 ``digests`` may give: a stamp's), as one
+    whole change, in :data:`FILES`' order. ``ValueError`` names a file
+    ``built`` holds that isn't one of them."""
+    digests = digests or {}
     if strays := sorted(set(built) - set(FILES)):
         raise ValueError(f"{group}: {', '.join(strays)} isn't a file the character layer writes whole "
                          f"({', '.join(FILES)})")
-    return tuple(Change(file, 0, hashlib.sha256(base[file]).hexdigest(), bytes(built[file]), group, whole=True)
-                 for file in FILES if file in built and bytes(built[file]) != base[file])
+    return tuple(Change(file, 0, digests.get(file) or hashlib.sha256(base[file]).hexdigest(), bytes(built[file]), group,
+                        whole=True) for file in FILES if file in built and bytes(built[file]) != base[file])
 
 
 def _swap():
@@ -387,7 +390,8 @@ def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str,
     if strays := sorted(set(built) - {XBE, CONFIG, *FILES}):
         raise ValueError(f"character: the swap wrote {', '.join(strays)}, which the character layer doesn't")
     who = f"player model {recipe['species']}"
-    changes = list(whole_files(base, {f: built[f] for f in FILES if f in built}, f"{who} (its archives)"))
+    changes = list(whole_files(base, {f: built[f] for f in FILES if f in built}, f"{who} (its archives)",
+                               getattr(vanilla, "digests", None)))
     claims = tuple(Claim(XBE, o, n, f"shim:{who}", w) for o, n, w in build.claims)
     if XBE in built:   # the bytes the swap wrote over what the packs left, its claims' header state laid down
         mine = [*kept, Layer(who, TOOL, KIND, {}, (), claims)]

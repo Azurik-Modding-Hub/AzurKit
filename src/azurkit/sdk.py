@@ -217,7 +217,7 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
     if character is not None:   # the worn body's size folds into the walk and roll first (Modkit's size_params)
         from azurkit.tools.characters import ports
 
-        vanilla = ports.Vanilla(stamp.release, stamp.path)
+        vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
         steps("size", f"Sizing {character['species']}")
         folded = characters.size(character, vanilla)
         enabled, params = rando_layer.size_params(list(packs), packs, folded)
@@ -324,6 +324,19 @@ def _stamp(path: str, steps: Steps = Steps(), digests: Mapping[str, str] | None 
     return _STAMPS[key]
 
 
+def _map(fn: Callable, items) -> list:
+    """``map(fn, items)`` as a list, on :func:`cores` threads where the host
+    has them (the engine's hashes of a build's changed files: hashlib lets go
+    of the GIL), else on the caller's."""
+    items = list(items)
+    if not THREADS or len(items) < 2:
+        return list(map(fn, items))
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(cores(8), thread_name_prefix="azurkit-hash") as pool:
+        return list(pool.map(fn, items))
+
+
 def _digests(path: str, steps: Steps) -> dict[str, str]:
     """``{path: sha256}`` of the image's build files (``gate.layout``),
     each hashed from its own offsets (``os.pread``: hashlib lets go of the
@@ -410,7 +423,7 @@ def _dress(recipe: Mapping) -> dict:
     stamp = _stamp(recipe["iso"])
     key = json.dumps([str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
     if key not in _MATCHES:
-        vanilla = ports.Vanilla(stamp.release, stamp.path)
+        vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
         chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
         with iso.Reader(stamp.path) as r:
             names = [f for pack in chosen.values() for f in pack.files()] + list(characters.READS)
@@ -507,7 +520,7 @@ def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
     steps = Steps(progress)
     stamp, base, layers, judge, prepared = _plan(recipe, steps)
     steps("layout")
-    made, manifest = edits.image(stamp, layers, base, judge=judge)
+    made, manifest = edits.image(stamp, layers, base, judge=judge, map=_map)
     return made, _report(manifest, prepared, steps, spoiler)
 
 
@@ -542,7 +555,7 @@ def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] |
     stamp, base, layers, judge, prepared = _plan(recipe)
     target = Path(out)
     _never_vanilla(target)
-    sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress, judge=judge)
+    sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress, judge=judge, map=_map)
     return _report(manifest, prepared) | {"out": str(target), "size": target.stat().st_size, "sha256": sha256}
 
 

@@ -109,15 +109,20 @@ def claimed(base: Mapping[str, bytes], layers: Sequence[Layer]) -> dict[str, byt
     return out
 
 
-def compose(base: Mapping[str, bytes], layers: Sequence[Layer]) -> tuple[dict[str, bytearray], list[Conflict]]:
+def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[str, str] | None = None
+            ) -> tuple[dict[str, bytearray], list[Conflict]]:
     """Each file a change or claim names, as ``layers`` leave it over
     ``base`` (its vanilla bytes) with the claims' derived state
     (:func:`claimed`), and every conflict. ``ValueError`` names a change
     outside its file or planned against other bytes, a range over a whole
     file that holds neither its vanilla bytes there nor its own, a second
     group writing a file whole, a group of a whole file and ranges, or a
-    whole file a claim derives (D35)."""
-    base = {**base, **claimed(base, layers)}
+    whole file a claim derives (D35). ``known`` gives the sha256 of a file
+    of ``base`` (a stamp's, which vouches for it) where a whole change is
+    planned against it, in place of hashing it."""
+    derived = claimed(base, layers)
+    known = {file: sha for file, sha in (known or {}).items() if file not in derived}
+    base = {**base, **derived}
     files: dict[str, bytearray] = {file: bytearray(base[file]) for file in {c.file for la in layers for c in la.claims}}
     writers: dict[tuple[str, int], list[tuple[int, str]]] = {}   # a byte -> the range groups holding its value
     members: dict[tuple[int, str], list[Change]] = {}
@@ -142,7 +147,7 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer]) -> tuple[dict[st
             if any(m.whole != c.whole for m in members.get((i, c.group), ())):
                 raise ValueError(f"{what}: one group writes {c.file} whole and another file in ranges")
             if c.whole:
-                if c.offset or hashlib.sha256(base[c.file]).hexdigest() != c.before:
+                if c.offset or (known.get(c.file) or hashlib.sha256(base[c.file]).hexdigest()) != c.before:
                     raise ValueError(f"{what}: written whole against another {c.file}")
                 if c.file in whole or c.file in DERIVED:
                     by = layers[whole[c.file][0]].id if c.file in whole else "the claims' derived state"

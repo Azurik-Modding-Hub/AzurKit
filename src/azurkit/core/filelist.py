@@ -43,12 +43,15 @@ def _rows(lines: list[str]) -> Iterator[Row]:
             yield Row(number, f"{folder}/{rest[2].strip()}", rest[0].lower(), int(rest[1]))
 
 
-def rewrite(text: bytes, changed: Mapping[str, bytes]) -> bytes:
+def rewrite(text: bytes, changed: Mapping[str, bytes], md5s: Mapping[str, str] | None = None) -> bytes:
     """``text`` with the md5 and size of each file of ``changed`` (``{path
     from the image's root: its new bytes}``, matched case-blind) that it
     lists put in that file's line; every other byte stays, and a size stays
-    right-aligned in its column (at least one space before it)."""
+    right-aligned in its column (at least one space before it). ``md5s``
+    (``{path: md5}``, the same paths') gives a file's md5 a caller hashed
+    already (:func:`md5`), in place of hashing it here."""
     new = {path.strip("/").lower(): data for path, data in changed.items()}
+    known = {path.strip("/").lower(): md5 for path, md5 in (md5s or {}).items()}
     lines = text.decode("latin-1").splitlines(keepends=True)
     for row in _rows(lines):
         if (data := new.get(row.path.lower())) is None:
@@ -56,5 +59,10 @@ def rewrite(text: bytes, changed: Mapping[str, bytes]) -> bytes:
         old = lines[row.line]
         fields = _FIELDS.match(old)
         size = f" {len(data)}".rjust(len(fields[2]))
-        lines[row.line] = fields[1] + hashlib.md5(data, usedforsecurity=False).hexdigest() + size + old[fields.end():]
+        lines[row.line] = fields[1] + (known.get(row.path.lower()) or md5(data)) + size + old[fields.end():]
     return "".join(lines).encode("latin-1")
+
+
+def md5(data: bytes) -> str:
+    """The md5 a line holds of a file's bytes."""
+    return hashlib.md5(data, usedforsecurity=False).hexdigest()

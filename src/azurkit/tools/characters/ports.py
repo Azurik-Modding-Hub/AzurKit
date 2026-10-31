@@ -31,6 +31,7 @@ import contextlib
 import contextvars
 import hashlib
 import math
+import os
 import struct
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
@@ -75,12 +76,17 @@ class PatchConflictError(ValueError):
 class Vanilla:
     """A vanilla image's files, read on demand and each checked against its
     release's manifest (D27): ``source`` is the image (a path or an
-    ``iso.Image``) or ``{path: bytes}`` of files already read and checked."""
+    ``iso.Image``) or ``{path: bytes}`` of files already read and checked.
+    ``stamped``, the ``gate.Stamp`` of the image at ``source``, vouches for
+    its build files while the image is as it was checked: they are not
+    hashed again (their sha256 is the manifest's, ``digests``)."""
 
-    def __init__(self, release: gate.Release, source):
+    def __init__(self, release: gate.Release, source, stamped: gate.Stamp | None = None):
         self.release = release
         self._source = source
+        self._stamped = stamped
         self._cache: dict[str, bytes] = {}
+        self.digests: dict[str, str] = {}   # each file read, by the sha256 it was checked to have
         if isinstance(source, Mapping):
             self._cache.update(source)
             self.paths = tuple(sorted(source))
@@ -95,8 +101,11 @@ class Vanilla:
             with iso.Reader(self._source) as r:
                 data = r.read(path)
             size, sha256 = self.release.files.get(path, (None, None))
-            if (len(data), hashlib.sha256(data).hexdigest()) != (size, sha256):
+            vouched = (self._stamped is not None and sha256 is not None and path.startswith(gate.BUILD_FILES)
+                       and self._stamped.holds(os.stat(self._source)))
+            if (len(data), sha256 if vouched else hashlib.sha256(data).hexdigest()) != (size, sha256):
                 raise ValueError(f"{path}: not the vanilla {self.release.label} file (D27)")
+            self.digests[path] = sha256
             self._cache[path] = data
         return self._cache[path]
 
