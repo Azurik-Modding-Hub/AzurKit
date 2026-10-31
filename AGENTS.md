@@ -12,6 +12,20 @@ line in README.md's Features (and Highlights if it earns one), in the same
 commit. Each line is plain and short, with no step, D or AZ ids, and true on
 `main`.
 
+## Where knowledge lives
+
+| Home | Load it for |
+|---|---|
+| This file | the rules: setup and tests, game data, the goldens and the oracle, packs, the randomizer, characters, the engine's contracts, the two hosts, commits and landing |
+| `azurik-game-reference` (`.claude/skills/`) | VAs, structs, ABIs, measured movement and armor numbers, patches whose bytes landed with no in-game effect |
+| `.claude/agents/` | the seats' roles (D951's `azurik-*` names): `azurik-builder` (Opus: build, fix, gate, sitting), `azurik-reader` (Opus, read-only: RE, reads, reviews, skeptics), `azurik-scout` (Sonnet, read-only: locate and cite), `azurik-mechanic` (Haiku: a command list handed over); `tests/test_agent_files.py` pins each one's model, effort and denied tools |
+| `$EV`, the private evidence folder beside the main checkout | the brief (`$EV/tools/BRIEF.md`), the decisions, the ledger, plans, evidence and the tools the seats run (D951, D952); never copied into the repo |
+| Modkit (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout) | the reference: its skills and docs not ported yet |
+
+Tracked files name the private folder as `$EV`, never by a home path, and
+the docs and skills cite no step's dated evidence folder
+(`tests/test_agent_files.py` lints both).
+
 ## Setup and tests
 
 ```bash
@@ -57,6 +71,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
+- **When a truth goes red, suspect the code or the address first:** a
+  golden, the oracle, the facts or a drift guard that fails (the prologue
+  guard in `tests/test_shims.py`, a site's vanilla sha256) means the port
+  or the facts' address is wrong. Fix it there; never widen
+  `PROLOGUE_FIRST_BYTES`, the skip list or any other allow-list to get green.
+- **A suite hang that takes the network down: stop (AZ-312).** Workers stuck
+  in `close()` or `sendto` while DNS or `curl -sI https://github.com` fails
+  is an XNU TCP deadlock only a reboot clears: don't kill and retry or start
+  another run; report it.
 - **Lean tests:** the fewest tests that pin a behavior, each in a
   behavior-area file. A fix gets one behavior-named test, in the same commit.
 
@@ -81,6 +104,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   raw vanilla spans.
 - The images are read-only. A build writes to an explicit output that isn't
   its input.
+- **The private game-data repo,** `Azurik-Testing/AzurKit-gamedata` (the
+  images' parts, for CI only): never make it public, fork or mirror it. Its
+  key and how its parts are put back together stay in `$EV`.
 
 ## The goldens
 
@@ -887,6 +913,27 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Commits:** a fix is one commit with its test. Name the step in the subject
   (`fix: … (Step 4.1c)`) and keep the body to a few lines. Stage explicit paths:
   never `git add -A` or `.`.
+- **Protected paths:** a commit that changes one names each in its body, and
+  why: `tests/goldens/` (only `scripts/record_goldens.py` writes it),
+  `tests/oracle/` and the source it pins (only `scripts/oracle_sync.py`),
+  the facts (`src/azurkit/core/facts.<release>.json`), the release
+  manifests (`src/azurkit/core/manifests/`), the shim objects (only `python
+  -m shimkit`) and `shimkit/`, `tests/sdk_api.txt` (only
+  `scripts/sdk_api.py`), `tests/skip_allowlist.toml`, `tests/conftest.py`,
+  `tests/_*.py` (the leak guard among them), the drift guards' tables
+  (`PROLOGUE_FIRST_BYTES`), `pyproject.toml`, `uv.lock`, `bootstrap.py`,
+  `CLAUDE.md` and `.claude/`.
+- **Ids:** an AZ, D or Q id comes from the private ledger: `$EV/tools/ledger
+  take AZ "slug: one line"` (`ledger next` prints the next free ones). Never
+  write an id or the ledger's pointer by hand. A lane whose prompt says not
+  to take ids reports the loose end instead.
+- **Reviews by default (D288):** a correctness review after every code step
+  and a skeptic after every xemu sitting; a tiny docs- or test-only change
+  skips it, and so does a rebase whose only conflicts are docs, the ledger
+  or goldens (D779). A step with a sitting runs its review beside the
+  sitting, both on the build commit; the record re-runs the rows whose
+  image a review fix changed (D778). A builder checks its own work first; a
+  reviewer never edits.
 - **Never:** attribution trailers, force-pushes, `--no-verify`, `git stash` or
   git config changes.
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
