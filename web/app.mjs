@@ -295,6 +295,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   const restart = () => {
     worker.terminate();
     unchecked();   // nor finishes a check
+    for (const ask of state.asks.values()) ask.record = null;   // nor runs a stage it reported (Step 4.3 train)
     for (const kind of [...waits.keys()]) end(kind);   // a stopped worker answers none of them
     for (const [call, { once, done }] of pending) {
       if (!once) continue;

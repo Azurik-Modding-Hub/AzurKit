@@ -1477,3 +1477,50 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
         assert served.stray() == []
     finally:
         served.close()
+
+
+# Build, then Cancel: ``seen`` is the bottom bar at once and at each change after, [the page ready, the bar's value
+# (null: a moving stripe or hidden), its line (null: hidden)]
+BUILD_CANCEL = """() => {
+    globalThis.seen = [];
+    const look = () => {
+        const hidden = document.getElementById("progress-row").hidden;
+        seen.push([azurkit.ready, hidden ? null : document.getElementById("progress").getAttribute("value"),
+                   hidden ? null : document.getElementById("progress-line").textContent]);
+    };
+    new MutationObserver(look).observe(document.querySelector("footer"), { subtree: true, childList: true,
+                                                                            characterData: true, attributes: true });
+    document.getElementById("build").click();
+    document.getElementById("cancel").click();
+    look();
+}"""
+
+
+def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_worker(browser, site, usa_iso, tmp_path):
+    """Step 4.3 train: a Build and its Cancel while the Tracker's first view
+    of an opened plan reads the world map stop the site's worker. The view's
+    ask is sent again to the worker that replaces it, and until that worker
+    is ready the bottom bar shows no value: never the stopped worker's stage
+    ("Reading the world map… 50 %"), which nothing runs. It hides once the
+    view is shown."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa' && azurkit.ready && !azurkit.asks.size", 300)
+        _page.click(page, "tab-randomizer")
+        _page.until(page, f"() => ({SETTLED})() && !azurkit.asks.size", 300)   # the tab's read: the view's is the newest
+        _page.click(page, "rando-view-tracker")
+        doc = _profile("default")
+        (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => [...azurkit.asks.values()].some((a) => a.kind === 'tracker'"
+                          " && a.record?.label === 'Reading the world map')", 300)
+        page.evaluate(BUILD_CANCEL)
+        _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
+                          f" && ({TRACKED})()", 300)
+        seen = page.evaluate("() => seen")
+        assert not seen[0][0] and [s for s in seen if not s[0] and s[1] is not None] == [], seen
+        assert seen[-1][1:] == [None, None] and served.stray() == [], seen
+    finally:
+        served.close()
