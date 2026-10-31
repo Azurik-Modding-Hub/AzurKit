@@ -265,6 +265,7 @@ uv run --locked python scripts/web_tools.py --site DIR [--content CLONE]   # the
 uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
 uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS
 uv run --locked python -m shimkit [--check]              # rebuild the prebuilt shim objects (zig, dev only)
+uv run --locked python -m nativekit [--check]            # rebuild the compiled kernels' libraries (zig, dev only)
 uv run --locked --group icon python assets/icon/render.py # rebuild the icon from its sources (macOS)
 ```
 

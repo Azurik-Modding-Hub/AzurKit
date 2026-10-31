@@ -29,11 +29,14 @@ def numpy() -> str:
     return pinned["file_name"]
 
 
-def run(argv: list[str], wheel: Path, *, image: dict | None = None, packages: tuple[str, ...] = ()) -> dict:
+def run(argv: list[str], wheel: Path, *, image: dict | None = None, packages: tuple[str, ...] = (),
+        python: str | None = None) -> dict:
     """``{"code", "stdout", "stderr", "report", "platform", "python",
     "azurkit"}`` of ``azurkit *argv`` under Pyodide, or (``image``, a
     recipe) of ``sdk.image``, its report, with ``packages`` (wheels beside
-    Pyodide's core) loaded first."""
+    Pyodide's core) loaded first; or with ``python``, a source whose last
+    expression is a JSON object's text (``ARGV``: the argv, as JSON), that
+    object."""
     mounts, passed, given = [], [], {}
 
     def mounted(arg: str) -> str:
@@ -44,7 +47,7 @@ def run(argv: list[str], wheel: Path, *, image: dict | None = None, packages: tu
         given[f"{folder}/{real.name}"] = arg
         return f"{folder}/{real.name}"
     passed = [mounted(arg) for arg in argv]
-    job = {"mounts": mounts, "argv": passed, "packages": list(packages)}
+    job = {"mounts": mounts, "argv": passed, "packages": list(packages), "python": python}
     if image is not None:
         job["image"] = image | {"iso": mounted(image["iso"])}
     done = subprocess.run(["node", str(ROOT / "tests" / "_pyodide.mjs"), str(web_tools.pyodide_dir(ROOT)), str(wheel),
@@ -52,7 +55,7 @@ def run(argv: list[str], wheel: Path, *, image: dict | None = None, packages: tu
     if done.returncode:
         raise RuntimeError(f"Pyodide on Node exited {done.returncode}: {done.stderr[-2000:]}")
     result = json.loads(done.stdout.splitlines()[-1])
-    for stream in ("stdout", "stderr"):
+    for stream in ("stdout", "stderr") if python is None else ():
         for there, arg in given.items():
             result[stream] = result[stream].replace(there, arg)
     return result

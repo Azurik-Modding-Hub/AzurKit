@@ -35,6 +35,7 @@ uv run --locked pytest -n 8 --dist loadgroup   # the whole suite, on 8 workers (
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
 uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
 uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
+uv run --locked python -m nativekit [--check]         # the compiled kernels' libraries, from native/*.c (zig, dev only)
 uv run --locked python -m devkit [AREA [VERB ...]]    # the developer side (D950, dev only): devkit/README.md
 uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # tests/goldens/ from the player's images
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
@@ -692,6 +693,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   arrays take them as they are). No `math` or numpy libm call and no `**`
   but an integer's there; the previews' drawer (`draw.py`) writes no built
   byte and keeps numpy's. `tests/test_contracts.py` holds this.
+- **The compiled kernels (D1009):** a hot loop may be C99 in `native/`,
+  built by `python -m nativekit` with the pinned zig for six targets from
+  one machine (macOS arm64 and x86_64, Linux x86_64 and aarch64 on glibc
+  2.17, Windows x86_64, and the wasm32 side module the site's Pyodide
+  loads) into `src/azurkit/core/_native/`, committed, with no float
+  contraction (`-ffp-contract=off`: zig's default fuses a multiply and an
+  add, which rounds otherwise than Python), no fast math and the targets'
+  baseline CPUs; `--check` rebuilds them to the same bytes. A kernel is a
+  pure function over caller buffers (no allocation, no libc).
+  `core/native.py` loads this platform's library with ctypes on both hosts,
+  and each kernel keeps its Python twin there, the reference: the twin runs
+  without a library, when the library can't hold a call's numbers, and
+  under `AZURKIT_NATIVE=0`, with the same answer bit for bit
+  (`tests/test_native.py`, over seeded random inputs, natively and under
+  Pyodide). The first is the randomizer's reach (`native.solve`, the
+  solver's `_solve` over `native.Tables`), not wired into the planner yet.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,
@@ -1062,7 +1079,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   why: `tests/goldens/` (only `scripts/record_goldens.py` writes it),
   the facts (`src/azurkit/core/facts.<release>.json`), the release
   manifests (`src/azurkit/core/manifests/`), the shim objects (only `python
-  -m shimkit`) and `shimkit/`, `tests/sdk_api.txt` (only
+  -m shimkit`) and `shimkit/`, the native libraries
+  (`src/azurkit/core/_native/`, only `python -m nativekit`) and
+  `nativekit/`, `tests/sdk_api.txt` (only
   `scripts/sdk_api.py`), `tests/skip_allowlist.toml`, `tests/conftest.py`,
   `tests/_*.py` (the leak guard among them), the drift guards' tables
   (`PROLOGUE_FIRST_BYTES`), `pyproject.toml`, `uv.lock`, `bootstrap.py`,

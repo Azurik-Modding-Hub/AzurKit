@@ -1,0 +1,153 @@
+"""The compiled kernels (D1009): each library is its sources' build
+(``nativekit --check``), this platform's loads, and each kernel gives its
+Python twin's answer bit for bit, here and as the side module under
+Pyodide, over seeded random inputs; ``AZURKIT_NATIVE=0`` runs the twin."""
+
+from __future__ import annotations
+
+import inspect
+import json
+import random
+import re
+
+import pytest
+
+import nativekit
+from azurkit.core import native
+
+
+def _rule(rng: random.Random, count: int) -> int:
+    return 1 if rng.random() < 0.35 else rng.randrange(count)
+
+
+def _tables(rng: random.Random) -> native.Tables:
+    """A random database's tables: nodes past one bitset word, rules with
+    edge numbers, discs, refund keys, forced flags, regions, teleports."""
+    n = rng.choice((1, 2, 7, 40, 70, 150, 300))
+    nf, nl, nc, ni = rng.randint(0, 130), rng.randint(0, 90), rng.randint(1, 10), rng.randint(1, 8)
+    big = 1 << 40
+    rules = [("false",), ("true",)]
+    for _ in range(rng.randint(5, 60)):
+        k = rng.random()
+        if k < 0.3:
+            rules.append(("counter", rng.randrange(nc), rng.choice((-1, 0, 1, 1, 2, 3, 4, big, -big))))
+        elif k < 0.5 and nf:
+            rules.append(("flag", rng.randrange(nf)))
+        elif k < 0.6:
+            rules.append(("sum", rng.randint(0, 6), tuple(rng.randrange(nc) for _ in range(rng.randint(0, 3)))))
+        else:
+            rules.append((rng.choice(("and", "or")), tuple(rng.randrange(len(rules)) for _ in range(rng.randint(0, 3)))))
+    nr, start = len(rules), rng.randrange(n)
+    flags = (lambda most: tuple(rng.sample(range(nf), rng.randint(0, min(most, nf)))))
+
+    def graph() -> native.Graph:
+        locs = [(loc, rng.randrange(n), _rule(rng, nr)) for loc in range(nl) if rng.random() < 0.9]
+        if rng.random() < 0.3:
+            rng.shuffle(locs)
+        home = rng.random()   # how often a node has a way back to the start (an escape that holds)
+        return native.Graph(
+            tuple(tuple((rng.randrange(n), _rule(rng, nr)) for _ in range(rng.choice((0, 1, 1, 2, 3))))
+                  + (((start, _rule(rng, nr)),) if rng.random() < home else ()) for _ in range(n)),
+            tuple((rng.randrange(nf), rng.randrange(n), rng.random() < 0.2, _rule(rng, nr))
+                  for _ in range(rng.randint(0, 2 * nf))) if nf else (),
+            tuple(locs),
+            tuple((rng.randrange(n), rng.randrange(n), _rule(rng, nr), rng.randrange(nl))
+                  for _ in range(rng.randint(0, 3))) if nl else (),
+            _rule(rng, nr))
+    return native.Tables(
+        n, nf, nl, nc, start, tuple(rules),
+        tuple(tuple((c, rng.choice((1, 1, 2, 3, 0, -1))) for c in rng.sample(range(nc), rng.randint(0, min(3, nc))))
+              for _ in range(ni)),
+        frozenset(c for c in range(nc) if rng.random() < 0.3),
+        tuple(rng.choice((1, 1, 1, 2, 3)) for _ in range(nl)),
+        tuple(tuple(rng.sample(range(nc), 2)) if nc > 1 and rng.random() < 0.15 else (-1, -1) for _ in range(nl)),
+        tuple(flags(2) if rng.random() < 0.2 else () for _ in range(n)),
+        tuple(flags(2) if rng.random() < 0.2 else () for _ in range(n)),
+        tuple((rng.randrange(nl), tuple(rng.sample(range(n), rng.randint(1, min(5, n))))) for _ in range(rng.randint(0, 3)))
+        if nl else (),
+        tuple(graph() for _ in range(3)))
+
+
+def _call(rng: random.Random, t: native.Tables) -> dict:
+    phys = rng.randrange(3)
+    got = rng.sample(range(t.locations), rng.randint(0, t.locations // 2)) if rng.random() < 0.3 else None
+    return {"graph": rng.randrange(3), "phys": phys, "free": phys if rng.random() < 0.4 else rng.randrange(3),
+            "counters": [rng.choice((0, 0, 1, 2, 3, 1 << 40)) for _ in range(t.counters)],
+            "held": [rng.choice((0, 0, 1, 2)) for _ in range(len(t.items))],
+            "flags": rng.sample(range(t.flags), rng.randint(0, min(5, t.flags))),
+            "gives": [rng.randrange(-1, len(t.items)) for _ in range(t.locations)],
+            "got": got, "late": rng.sample(got, rng.randint(0, len(got))) if got else [],
+            "traps": rng.random() < 0.8, "log": rng.random() < 0.7}
+
+
+def _cases(seed: int, count: int):
+    rng = random.Random(seed)
+    for _ in range(count):
+        t = _tables(rng)
+        for _ in range(2):
+            yield t, _call(rng, t)
+
+
+def _answer(solved) -> dict:
+    """A :class:`native.Solved` as JSON's types, its sets sorted."""
+    return {k: sorted(v) if isinstance(v, frozenset) else [sorted(x) for x in v] if k.endswith("_log") else
+            list(v) if isinstance(v, tuple) else v for k, v in vars(solved).items()}
+
+
+_UNDER_PYODIDE = """
+import json
+from azurkit.core import native
+
+def tup(x):
+    return tuple(tup(v) for v in x) if isinstance(x, list) else x
+
+answers = []
+for doc, call in json.load(open(json.loads(ARGV)[0])):
+    graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
+    t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
+    answers.append(_answer(native._native(native.library(), t, **call)))
+json.dumps({"report": native.report(), "answers": answers})
+"""
+
+
+def test_the_reach_kernel_gives_its_twins_answer_bit_for_bit_and_this_platforms_library_loads():
+    lib = native.library()
+    assert lib is not None and native.report()["library"] == native.target(), native.report()
+    for t, call in _cases(1400, 300):
+        assert native._native(lib, t, **call) == native._twin(t, **call)
+
+
+def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path):
+    cases = list(_cases(1401, 40))
+    docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
+             | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
+    (path := tmp_path / "cases.json").write_text(json.dumps(docs), encoding="utf-8")
+    got = pyodide(str(path), python=inspect.getsource(_answer) + _UNDER_PYODIDE)
+    assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
+    assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
+
+
+def test_azurkit_native_0_runs_the_twin(monkeypatch):
+    monkeypatch.setenv("AZURKIT_NATIVE", "0")
+    monkeypatch.setattr(native, "_LIB", None)
+    t, call = next(_cases(1402, 1))
+    assert native.library() is None and native.report()["why"] == "AZURKIT_NATIVE=0"
+    assert native.solve(t, **call) == native._twin(t, **call)
+
+
+@pytest.mark.parametrize("change, why", [
+    ({"rules": (("false",), ("and", (1,)))}, "rule 1's child (an earlier rule): 1 is no id below 1"),
+    ({"graphs": (native.Graph((((5, 0),),)),)}, "graph 0's edge from 0: 5 is no id below 1"),
+    ({"yields": ()}, "yields: 0 rows for 1 locations"),
+    ({"discs": frozenset({3})}, "discs: [3] name a counter that isn't"),
+])
+def test_tables_the_kernel_cant_read_are_refused_by_name(change, why):
+    fields = {"nodes": 1, "flags": 0, "locations": 1, "counters": 1, "start": 0, "rules": (("false",),),
+              "items": (), "discs": frozenset(), "yields": (1,), "refund": ((-1, -1),), "forced": ((),),
+              "forced_phys": ((),), "regions": (), "graphs": (native.Graph(((),)),)}
+    with pytest.raises(ValueError, match=f"^{re.escape(why)}"):
+        native.Tables(**fields | change)
+
+
+def test_nativekit_rebuilds_each_committed_library_to_its_bytes():
+    assert nativekit.build(check=True) == []

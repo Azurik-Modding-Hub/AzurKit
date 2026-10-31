@@ -6,8 +6,10 @@
 // place of "argv", and "packages": the wheels in the Pyodide folder to load first (numpy, which the site loads for a
 // tab that needs it). It loads Pyodide, unpacks the wheel alone into site-packages (as the site does: no
 // dependencies), loads the packages, mounts each folder (NODEFS), runs azurkit.cli.main(argv) (or sdk.image(recipe))
-// and prints one JSON line: its exit code, stdout and stderr (or the image's report), and the runtime. An error is
-// one line on stderr and exit 1 (Node would print the minified line it was thrown from).
+// and prints one JSON line: its exit code, stdout and stderr (or the image's report), and the runtime. With
+// "python", a source whose last expression is a JSON string, it runs that instead (ARGV holds the argv as JSON) and
+// prints the string. An error is one line on stderr and exit 1 (Node would print the minified line it was thrown
+// from).
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 
@@ -20,7 +22,7 @@ const { loadPyodide } = await import(pathToFileURL(`${dir}/pyodide.mjs`).href);
 const py = await loadPyodide({ indexURL: `${dir}/`, stdout: () => {}, stderr: (s) => process.stderr.write(`${s}\n`) });
 const site = py.runPython("import site; site.getsitepackages()[0]");
 py.unpackArchive(new Uint8Array(fs.readFileSync(wheel)), "wheel", { extractDir: site });
-const { mounts, argv, image, packages = [] } = JSON.parse(job);
+const { mounts, argv, image, packages = [], python } = JSON.parse(job);
 for (const name of packages) {
   await py.loadPackage(`${dir}/${name}`, { messageCallback: () => {} });
 }
@@ -30,7 +32,7 @@ for (const [at, folder] of mounts) {
 }
 py.globals.set("ARGV", JSON.stringify(argv ?? []));
 py.globals.set("IMAGE", JSON.stringify(image ?? null));
-console.log(py.runPython(`
+console.log(python ? py.runPython(python) : py.runPython(`
 import contextlib, io, json, sys
 import azurkit
 from azurkit import cli, sdk
