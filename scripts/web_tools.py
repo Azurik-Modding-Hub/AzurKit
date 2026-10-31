@@ -18,7 +18,8 @@ browser is Playwright's build at the revision the locked ``playwright``
 names (Chromium's headless shell; WebKit, Safari's engine), in
 ``.tools/playwright`` (``PLAYWRIGHT_BROWSERS_PATH``), never the user's
 cache; their installer (the ``playwright`` package's) runs on the ``node``
-on PATH. Stdlib only.
+on PATH. Stdlib only, but for a site's content, which ``azurkit``'s content
+checks check (:func:`content_files`).
 """
 
 from __future__ import annotations
@@ -32,13 +33,14 @@ import os
 import platform
 import py_compile
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
 import urllib.request
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = "314.0.7"
@@ -52,6 +54,9 @@ CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
 # Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit")}
 SHIPPED = "azurkit/tools/randomizer/shipped"   # the checked randomizer database's folder (dbcache.SHIPPED)
+UNSERVED = (".html", ".htm", ".xhtml", ".svg", ".js", ".mjs", ".xml")
+"""The suffixes no content file on the site has: its host would serve each
+as a page or a script on the site's own origin, outside the page's CSP."""
 
 
 def _tools(root: Path) -> Path:
@@ -245,7 +250,13 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     ``content`` (a clone of Azurik-Custom-Content, before it is public:
     the page reads only its own origin until Step 4.4's CSP), its
     ``manifest.json`` and each file it lists in ``out/content-source/``,
-    which the Characters tab's Content from ``./content-source/`` reads."""
+    which the Characters tab's Content from ``./content-source/`` reads,
+    each checked first (:func:`content_files`): a fault names the file and
+    writes nothing (D35)."""
+    published = {} if content is None else content_files(content)
+    shelf = out.resolve() / "content-source"   # out is new, and copytree copies a link's target: no link below it
+    if lost := [rel for rel in published if not (shelf / rel).resolve().is_relative_to(shelf)]:
+        raise SystemExit(f"content {content}: {lost[0]} would land outside {shelf}")
     shutil.copytree(root / "web", out)
     if lost := missing(root):
         raise SystemExit(f"Pyodide {VERSION} lacks {', '.join(lost)}: run `uv run bootstrap.py`")
@@ -254,12 +265,58 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
     (out / "host.json").write_text(json.dumps({"engine": "site", "wheel": Path(built).name,
                                                "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8")
-    if content is not None:
-        listed = json.loads((content / "manifest.json").read_text(encoding="utf-8"))
-        for rel in ["manifest.json", *(f["path"] for e in listed["entries"] for f in e["files"])]:
-            (out / "content-source" / rel).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(content / rel, out / "content-source" / rel)
+    for rel, data in published.items():
+        (out / "content-source" / rel).parent.mkdir(parents=True, exist_ok=True)
+        (out / "content-source" / rel).write_bytes(data)
     return out
+
+
+def content_files(clone: Path) -> dict[str, bytes]:
+    """What :func:`site` publishes of the content clone ``clone``, each
+    path's bytes, all read and checked before the site's first file is
+    written: ``manifest.json`` passes ``content.check`` and each of its
+    entries ``content.verify`` (each file's size and sha256 as listed, no
+    disc image, a built-in variant's recipe the engine's), as an Install
+    checks them; as the content repository's ``scripts/check.py`` holds,
+    each listed path has no ``:`` and is a regular file reached through
+    real folders (``lstat``: a link anywhere on it is never followed); and
+    none ends in one of :data:`UNSERVED`. ``SystemExit`` names the first
+    fault's file."""
+    from azurkit.tools.characters import content
+
+    def read(rel: str, most: int) -> bytes:
+        at, parts = clone, PurePosixPath(rel).parts
+        for k, part in enumerate(parts, 1):
+            at, last = at / part, k == len(parts)
+            what = rel if last else f"{rel}'s folder {'/'.join(parts[:k])}"
+            try:
+                mode = os.lstat(at).st_mode
+            except OSError:
+                raise SystemExit(f"content {clone}: {what} is missing") from None
+            if stat.S_ISLNK(mode):
+                raise SystemExit(f"content {clone}: {what} is a link (never followed)")
+            if not (stat.S_ISREG if last else stat.S_ISDIR)(mode):
+                raise SystemExit(f"content {clone}: {what} is no regular {'file' if last else 'folder'}")
+        if (size := os.lstat(at).st_size) > most:
+            raise SystemExit(f"content {clone}: {rel} is {size:,} bytes, more than the {most:,} it may hold")
+        return at.read_bytes()
+
+    raw = read(content.MANIFEST, content.MAX_MANIFEST)
+    try:
+        manifest = content.check(raw)
+        files = {}
+        for f in (f for e in manifest["entries"] for f in e["files"]):
+            if ":" in f["path"]:
+                raise ValueError(f"{f['path']} holds a ':', which no content path does")
+            if f["path"].lower().endswith(UNSERVED):
+                raise ValueError(f"{f['path']} is a {PurePosixPath(f['path']).suffix} file, which the site's host "
+                                 "would serve as a page or a script")
+            files[f["path"]] = read(f["path"], f["size"])
+        for e in manifest["entries"]:
+            content.verify(manifest, e["id"], files)
+    except ValueError as exc:
+        raise SystemExit(f"content {clone}: {exc}") from None
+    return {content.MANIFEST: raw, **files}
 
 
 if __name__ == "__main__":

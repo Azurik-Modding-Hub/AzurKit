@@ -62,6 +62,54 @@ def site(tmp_path_factory) -> Path:
     return web_tools.site(tmp_path_factory.mktemp("site") / "site")
 
 
+@pytest.mark.parametrize("fault", ["a ../ path through a linked folder", "a linked folder", "a listed link",
+                                   "a listed page"])
+def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothing(tmp_path, monkeypatch, fault):
+    """``web_tools.site(content=)`` publishes a content clone's manifest and
+    each regular file it lists in ``content-source/``, checked as an Install
+    checks them; a ``../`` path, a link anywhere on a listed file's path (a
+    folder or the file: the deployer's own files) and a page or script
+    suffix (``.html``) are refused naming the file, before the site's first
+    file is written (the three cases SEC-3 reproduced, and a linked folder
+    with no ``../``)."""
+    from azurkit.tools.characters import content
+
+    root, clone, outside = tmp_path / "root", tmp_path / "clone", tmp_path / "outside"
+    for folder in (root / "web", tmp_path / "pyodide", clone / "packs/x", clone / "d1/d2/d3", outside):
+        folder.mkdir(parents=True)
+    (root / "web/index.html").write_text("the page\n")
+    (clone / "index.html").write_text("planted\n")
+    (clone / "packs/x/pack.json").write_text("{}\n")
+    (outside / "secret.json").write_text('"the deployer\'s"\n')
+    (clone / "packs/x/x.html").write_text("<script>1</script>\n")
+    (clone / "packs/a").symlink_to(clone / "d1/d2/d3")
+    (clone / "packs/y").symlink_to(outside)
+    (clone / "packs/x/leak.json").symlink_to(outside / "secret.json")
+    bad = {"a ../ path through a linked folder": "packs/a/../../../index.html",
+           "a linked folder": "packs/y/secret.json", "a listed link": "packs/x/leak.json",
+           "a listed page": "packs/x/x.html"}[fault]
+    monkeypatch.setattr(web_tools, "missing", lambda _root: [])
+    monkeypatch.setattr(web_tools, "pyodide_dir", lambda _root: tmp_path / "pyodide")
+    (built := tmp_path / "azurkit-0-py3-none-any.whl").write_bytes(b"a wheel")
+
+    def site(out: Path, *paths: str) -> Path:
+        files = [{"path": p, "sha256": hashlib.sha256(data := (clone / p).read_bytes()).hexdigest(), "size": len(data)}
+                 for p in paths]
+        (clone / "manifest.json").write_text(json.dumps({"format": content.FORMAT, "schema_version": 1, "entries": [
+            {"id": "x", "kind": "pack", "title": "X", "author": "A", "licence": "MIT", "version": 1, "files": files,
+             "requires": []}]}))
+        return web_tools.site(out, root, built, clone)
+
+    good = site(tmp_path / "good", "packs/x/pack.json")
+    assert sorted(p.relative_to(good / "content-source").as_posix() for p in (good / "content-source").rglob("*")
+                  if p.is_file()) == ["manifest.json", "packs/x/pack.json"]
+    assert (good / "content-source/packs/x/pack.json").read_bytes() == (clone / "packs/x/pack.json").read_bytes()
+    assert (good / "index.html").read_text() == "the page\n"
+    with pytest.raises(SystemExit, match=re.escape(bad)):
+        site(tmp_path / "bad", "packs/x/pack.json", bad)
+    assert not (tmp_path / "bad").exists()
+
+
 class Site:
     """The site served to a fresh browser context at :data:`ORIGIN` from its
     folder (Playwright's routing, no server), every request logged."""
