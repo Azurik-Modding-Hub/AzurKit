@@ -158,6 +158,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 
 ### Where it runs
 
+- **On a computer:** a Mac or a PC; on a phone or a tablet the page says to use a computer.
 - **The web page:** the whole builder, randomizer and tracker run in your browser through WebAssembly, tested in
   Chromium and in Safari's engine.
 - **Builds back to back:** the page keeps its engine loaded after a build, so the next one starts at once (after a

@@ -59,6 +59,12 @@ h1::before {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #version { margin: 0 0 0 auto; font: 11px var(--mono); color: var(--faint); white-space: nowrap; }
+/* A phone or a tablet (D1000: v1 is for computers): one plain line atop the toolbar, no layout of its own. */
+#computers { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  header { flex-wrap: wrap; }
+  #computers { display: block; flex-basis: 100%; order: -1; margin: 4px 0; font-size: 13px; font-weight: 600; }
+}
 
 /* Panel captions. */
 h2 {

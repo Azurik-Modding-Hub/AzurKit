@@ -530,6 +530,24 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         served.close()
 
 
+def test_a_phone_or_a_tablet_gets_one_plain_line_to_use_a_computer(browser, site):
+    """D1000 (Step 4.3m): v1 is for computers. A phone (its touch screen
+    emulated, ``(hover: none) and (pointer: coarse)``) shows one plain line
+    saying to use a computer, atop the toolbar; a computer's page doesn't."""
+    shown = """() => [getComputedStyle(document.getElementById("computers")).display !== "none",
+        document.getElementById("computers").textContent]"""
+    line = "AzurKit is for computers: open this page on a Mac or PC to use it."
+    for options, seen in (({"is_mobile": True, "has_touch": True, "viewport": {"width": 390, "height": 844}}, True),
+                          ({}, False)):
+        served = Site(browser, site, **options)
+        try:
+            page = served.context.new_page()
+            page.goto(f"{ORIGIN}/")
+            assert page.evaluate(shown) == [seen, line], options
+        finally:
+            served.close()
+
+
 def test_a_packs_settings_lock_until_it_is_ticked_and_its_l3_toggles_sit_in_their_rows(browser, site):
     """The owner's answers (Step 4.1i). D907: a pack's settings are locked
     (each field disabled, its value still shown) until its pack is ticked;
