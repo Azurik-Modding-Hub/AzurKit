@@ -149,7 +149,7 @@ def vanilla(path: str) -> dict:
     site of its XBE (``catalog`` gives those ``None``: the wheel holds no
     game constant, Q174), ``{"release", "label", "packs": {pack: {slider:
     value}}}``, so a UI's track can hold them (D42)."""
-    stamp = gate.verify(path, whole=False)
+    stamp = _stamp(path)
     with iso.Reader(stamp.path) as r:
         xbe = r.read("default.xbe")
     return {"release": stamp.release.name, "label": stamp.release.label, "packs": mods.vanilla(stamp.release, xbe)}
@@ -187,7 +187,7 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
         prepared = generator.prepare(recipe["randomizer"], packs)
     elif "randomizer" in recipe:   # checked now; planned below, on the walk and roll the body's size folds
         generator.check(recipe["randomizer"])
-    stamp = gate.verify(recipe["iso"], whole=False, progress=steps.counter("check"))
+    stamp = _stamp(recipe["iso"], steps)
     folded = vanilla = None
     inputs: dict[str, dict[str, float]] = {}
     if character is not None:   # the worn body's size folds into the walk and roll first (Modkit's size_params)
@@ -260,16 +260,31 @@ def _pack_layers(stamp: gate.Stamp, chosen: Mapping, packs: Mapping, base: Mappi
 
 
 _MATCHES: dict[str, dict] = {}   # the G4 matches dressed in this process, by their recipe (a dress takes seconds)
-_GAME: dict[tuple, tuple] = {}   # the last image's config.xbr and characters.xbr, by its path, size and mtime
+_STAMPS: dict[tuple, gate.Stamp] = {}   # the last image's build files checked, by its path, size, mtime and ctime
+_GAME: dict[tuple, tuple] = {}   # its config.xbr and characters.xbr, by the same
+
+
+def _stamp(path: str, steps: Steps = Steps()) -> gate.Stamp:
+    """The image at ``path``, its build files checked (D27:
+    ``gate.verify``), once for the last image as it is now (its path, size,
+    modification and change times): every call that reads it shares the
+    check, and a touched image is checked again. ``steps`` hears the
+    check's bytes."""
+    at = os.stat(path)
+    key = (str(path), at.st_size, at.st_mtime_ns, at.st_ctime_ns)
+    if key not in _STAMPS:
+        stamp = gate.verify(path, whole=False, releases=gate.RELEASES, progress=steps.counter("check"))
+        _STAMPS.clear()
+        _STAMPS[key] = stamp
+    return _STAMPS[key]
 
 
 def _game(path: str) -> tuple[gate.Stamp, bytes, bytes]:
     """The image at ``path`` (its build files checked, D27) and its
     config.xbr and characters.xbr, kept for the last image read."""
-    at = Path(path).stat()
-    key = (path, at.st_size, at.st_mtime_ns)
+    stamp = _stamp(path)
+    key = (str(stamp.path), stamp.size, stamp.mtime_ns, stamp.ctime_ns)
     if key not in _GAME:
-        stamp = gate.verify(path, whole=False)
         with iso.Reader(stamp.path) as r:
             _GAME.clear()
             _GAME[key] = (stamp, r.read(characters.CONFIG), r.read(characters.FILES[0]))
@@ -314,7 +329,7 @@ def _dress(recipe: Mapping) -> dict:
     character = characters.normalize(recipe["character"])
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
-    stamp = gate.verify(recipe["iso"], whole=False)
+    stamp = _stamp(recipe["iso"])
     key = json.dumps([str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
     if key not in _MATCHES:
         vanilla = ports.Vanilla(stamp.release, stamp.path)

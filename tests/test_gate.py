@@ -9,11 +9,13 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import os
+import types
 from pathlib import Path
 
 import pytest
 
-from azurkit import cli
+from azurkit import cli, sdk
 from azurkit.core import gate
 from tests._xiso import fill, image
 
@@ -60,6 +62,35 @@ def test_the_gate_names_the_release_or_the_first_file_that_differs(tmp_path):
         with pytest.raises(gate.NotVanillaError) as refused:
             verify(files)
         assert str(refused.value) == f"{src} is not the vanilla {why}"
+
+
+def test_an_image_is_checked_once_until_it_changes_and_a_hosts_store_vouches_for_it_across_launches(tmp_path,
+                                                                                                    monkeypatch):
+    """Every sdk call on an image shares one check of its build files
+    (``sdk._stamp``) until the image changes (its size, modification or
+    change time), when it is checked again. With a host's store
+    (``gate.STAMPS``) a later launch reads none of it, and an image changed
+    since is checked, and refused, as any other."""
+    monkeypatch.setattr(gate, "RELEASES", (_release(tmp_path, "test", VANILLA),))
+    monkeypatch.setattr(sdk, "_STAMPS", {})
+    hashed, sha256 = [], gate._sha256
+    monkeypatch.setattr(gate, "_sha256", lambda r, entry: hashed.append(entry.path) or sha256(r, entry))
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(VANILLA))
+    first = sdk._stamp(str(src))
+    once = len(hashed)
+    assert once and sdk._stamp(str(src)) is first and len(hashed) == once
+    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1))
+    assert sdk._stamp(str(src)).mtime_ns == first.mtime_ns + 1 and len(hashed) == 2 * once
+    kept = {}
+    monkeypatch.setattr(gate, "STAMPS", types.SimpleNamespace(get=kept.get, put=kept.__setitem__))
+    for launch in range(2):
+        sdk._STAMPS.clear()
+        assert sdk._stamp(str(src)).release.name == "test" and len(hashed) == 3 * once and len(kept) == 1
+    src.write_bytes(image(VANILLA | {"gamedata/a.xbr": fill("A", 100)}))
+    sdk._STAMPS.clear()
+    with pytest.raises(gate.NotVanillaError, match=r"gamedata/a\.xbr: its contents differ$"):
+        sdk._stamp(str(src))
 
 
 def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path, capsys, monkeypatch):

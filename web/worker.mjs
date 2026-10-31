@@ -181,20 +181,31 @@ async function load() {
   return { py, engine: py.runPython(ENGINE) };
 }
 
-// The image's own values of the sliders at its XBE's sites, or, when it is an AzurKit build, its recipe; the image
-// mounted only for the read: a build mounts it again, then this worker is replaced.
-function vanilla({ py, engine }, file) {
+// fn(the path of file mounted read-only at /in), unmounted after it. The mount's times are the File's lastModified
+// (WORKERFS takes lastModifiedDate, which WebKit's File lacks, and else the time of the mount), so the engine's check
+// of an image holds from one message to the next (sdk._stamp: by its path, size and times) and a changed File is
+// checked again.
+function mounted(py, file, fn) {
+  if (!file.lastModifiedDate) Object.defineProperty(file, "lastModifiedDate", { value: new Date(file.lastModified) });
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
   try {
-    const recipe = { iso: `/in/${file.name}` };
+    return fn(`/in/${file.name}`);
+  } finally {
+    py.FS.unmount("/in");
+  }
+}
+
+// The image's own values of the sliders at its XBE's sites, or, when it is an AzurKit build, its recipe; the image
+// mounted only for the read: a build mounts it again.
+function vanilla({ py, engine }, file) {
+  mounted(py, file, (iso) => {
+    const recipe = { iso };
     const read = engine({ type: "vanilla", recipe });
     if (!("refused" in read)) return post({ type: "vanilla", ...read });
     const opened = engine({ type: "open", recipe });
     if (!("refused" in opened)) post({ type: "opened", preset: opened.preset });
-  } finally {
-    py.FS.unmount("/in");
-  }
+  });
 }
 
 // The tracker's pictures: numpy loaded once (Pyodide's wheel, which the site carries beside its core, checked by the
@@ -203,15 +214,11 @@ async function art(loaded, data) {
   const { py, engine } = loaded;
   await numpy(loaded);
   if (data.type === "art_world") return post({ type: "art", reply: engine({ type: "art_world", parts: data.parts }) });
-  py.FS.mkdirTree("/in");
-  py.FS.mount(py.FS.filesystems.WORKERFS, { files: [data.file] }, "/in");
-  try {
-    const reply = engine({ type: "art", recipe: { iso: `/in/${data.file.name}` }, part: data.part });
+  mounted(py, data.file, (iso) => {
+    const reply = engine({ type: "art", recipe: { iso }, part: data.part });
     if ("refused" in reply) return post({ type: "failed", reply, message: reply.refused });
     post({ type: "art", reply });
-  } finally {
-    py.FS.unmount("/in");
-  }
+  });
 }
 
 // numpy (Pyodide's pinned wheel, checked by the lock's sha256), loaded once: the tracker's pictures and every
@@ -238,21 +245,12 @@ function content({ py }, { files, installed }) {
 function character(loaded, data) {
   const { py, engine } = loaded;
   if (!data.file) return post({ type: "reply", call: data.call, reply: engine(data) });
-  py.FS.mkdirTree("/in");
-  py.FS.mount(py.FS.filesystems.WORKERFS, { files: [data.file] }, "/in");
-  try {
-    post({ type: "reply", call: data.call, reply: engine({ ...data, iso: `/in/${data.file.name}` }) });
-  } finally {
-    py.FS.unmount("/in");
-  }
+  mounted(py, data.file, (iso) => post({ type: "reply", call: data.call, reply: engine({ ...data, iso }) }));
 }
 
 function build({ py, engine }, file, packs, xbr, randomizer, character) {
-  py.FS.mkdirTree("/in");
-  py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
-  const recipe = { iso: `/in/${file.name}`, packs, xbr, ...(randomizer ? { randomizer } : {}),
-                   ...(character ? { character } : {}) };
-  const made = engine({ type: "build", recipe });
+  const made = mounted(py, file, (iso) => engine({ type: "build", recipe: { iso, packs, xbr,
+    ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } }));
   if ("refused" in made) return post({ type: "refused", message: made.refused });
   post({ type: "built", ...made }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
 }
