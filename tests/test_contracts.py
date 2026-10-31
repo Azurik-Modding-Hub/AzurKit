@@ -11,6 +11,7 @@ nothing imports capstone, unicorn, zig, Tk or ``devkit`` (none of them ships).""
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 from importlinter.cli import lint_imports
@@ -107,4 +108,27 @@ def test_the_engine_holds_no_threads_processes_prints_or_exits_numpy_stays_in_it
     assert violations("import numpy", "tools/randomizer/tracking.py") == ["tools/randomizer/tracking.py:1 imports numpy"]
     found = [v for path in sorted(SRC.rglob("*.py"))
              for v in violations(path.read_text(encoding="utf-8"), path.relative_to(SRC).as_posix())]
+    assert found == []
+
+
+HTML_SINKS = re.compile(r"\b(innerHTML|outerHTML|insertAdjacentHTML|createContextualFragment|parseFromString|srcdoc)\b"
+                        r"|\bdocument\s*\.\s*write|javascript:", re.IGNORECASE)
+"""What would parse text as HTML or run it as a URL's script in the page (D992's SEC-18)."""
+
+
+def test_the_page_parses_no_text_as_html():
+    """The page writes every text it shows with ``textContent`` and builds
+    its nodes with the DOM's own calls: no file under ``web/`` (its
+    modules, scripts and HTML) holds an HTML sink of :data:`HTML_SINKS`, so
+    a name or a line from a manifest, a recipe or a mods file can't become
+    markup or script on the site's origin (D992's SEC-18, kept for the
+    Data, Tools, Saves and community tabs to come)."""
+    for line in ("el.innerHTML = name", "x.insertAdjacentHTML('beforeend', s)", "document.write(s)",
+                 "a.href = 'javascript:go()'", "new DOMParser().parseFromString(s, 'text/html')"):
+        assert HTML_SINKS.search(line), line
+    assert not HTML_SINKS.search("el.textContent = name; el.append(document.createElement('b'))")
+    web = ROOT / "web"
+    found = [f"{path.relative_to(ROOT).as_posix()}:{k} {m.group(0)}" for path in sorted(web.rglob("*"))
+             if path.suffix in (".mjs", ".js", ".html")
+             for k, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1) for m in HTML_SINKS.finditer(line)]
     assert found == []
