@@ -62,10 +62,9 @@ grammar, empty for the defaults) or off. ``POST api/plan`` ``{"recipe"}`` plans 
 (``sdk.plan``), and ``POST api/tracked`` ``{"tracker"}`` remembers the
 plan last tracked and the marks of the last plans (``host.json``'s
 ``tracker``: the randomizer's names and numbers, never the image's).
-``POST api/art`` ``{"iso", "draw"}`` says which of the tracker's pictures
-are drawn (:mod:`.art`: its maps and icons, drawn from the player's image
-into the user cache folder, Step 4.2c3), and with ``draw`` draws the
-rest from ``iso`` on a thread; ``GET art/<version>/<name>`` serves one.
+``POST api/art`` gives the tracker's pictures that ship with the page
+(:mod:`.art`: its maps' index and its icons' names, Step 4.3f);
+``GET art/<version>/<name>`` serves one.
 Live (``api/live``'s ``gems``) reads the gem spots too while the tracker
 shows them (R1.43).
 ``POST api/vanilla`` ``{"iso"}`` reads the image's own values of the
@@ -328,7 +327,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
         self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
         self.feed: live.Feed | None = None  # Live, while it is on
-        self.drawing = pictures.Drawing()   # the tracker's maps and icons, in the user cache folder
+        self.drawing = pictures.Drawing()   # the tracker's maps and icons, shipped with the page
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
@@ -345,7 +344,6 @@ class Server(http.server.ThreadingHTTPServer):
         ``quitting``, before its part file is made and after each chunk."""
         self.quitting = True
         self.cancelled.set()
-        self.drawing.stop()
         if (feed := self.feed) is not None:
             feed.stop()
         self.deadline = self.deadline or time.monotonic() + QUIT_WAIT
@@ -531,17 +529,8 @@ class Server(http.server.ThreadingHTTPServer):
             return {"plan": self.engine.call("plan", body.get("recipe"))}
 
     def art(self, body: dict) -> dict:
-        """``api/art``: which of the tracker's pictures are drawn
-        (:meth:`.art.Drawing.status`), and with ``draw`` the rest drawn from
-        the image at ``iso`` on a thread, one part at a time, once ``iso``
-        names a file (a path half typed draws nothing, and says nothing)."""
-        if body.get("draw"):
-            if self.quitting:
-                raise ValueError(QUITTING)
-            iso = body.get("iso")
-            path = Path(iso.strip()).expanduser() if isinstance(iso, str) else None
-            if path is not None and path.is_absolute() and path.is_file():
-                self.drawing.start(str(path))
+        """``api/art``: the tracker's shipped pictures
+        (:meth:`.art.Drawing.status`)."""
         return self.drawing.status()
 
     def save_spoiler(self, body: dict) -> dict:

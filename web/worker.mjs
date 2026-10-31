@@ -17,11 +17,9 @@
 //      {type: "preset", recipe: {packs, xbr, randomizer}, report}, {type: "decode", text}, {type: "restore", setup},
 //      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings),
 //      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan),
-//      {type: "art", file, part} and {type: "art_world", parts} (the tracker's pictures, sdk.art and sdk.art_world:
-//      numpy, Pyodide's pinned wheel from this site, is loaded for them and for a character),
 //      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
-//      (sdk.pickers, sdk.preview, sdk.match) and {type: "content_check", call, manifest, id, files} (an Install's
-//      check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
+//      (sdk.pickers, sdk.preview, sdk.match: numpy, Pyodide's pinned wheel from this site, is loaded for them) and
+//      {type: "content_check", call, manifest, id, files} (an Install's check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
 //      into the engine's content folder file by file once checked: kept). A message with a File has the image checked
 //      first, once a File (prime).
 // Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
@@ -33,8 +31,7 @@
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
 //      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "reply", call, reply}
-//      (a tracker's or plan's answer: the view, {plan}, or {refused}), {type: "art", reply} (a part's pictures as
-//      PNG bytes, its entry and thumb, or the world map and the index; or {refused}), {type: "csp", directive, blocked}
+//      (a tracker's or plan's answer: the view, {plan}, or {refused}), {type: "csp", directive, blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
@@ -137,14 +134,6 @@ def engine(request):
             if request.type == "layout":
                 return js(sdk.layout(request.recipe.iso))
             return js(sdk.prime(request.recipe.iso, request.digests.to_py()))
-        except (OSError, ValueError) as exc:
-            return js({"refused": str(exc)})
-    if request.type in ("art", "art_world"):
-        try:
-            if request.type == "art":
-                return js(sdk.art(request.recipe.iso, request.part))
-            parts = {lv: {"entry": p["entry"], "thumb": bytes(p["thumb"])} for lv, p in request.parts.to_py().items()}
-            return js(sdk.art_world(parts))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     if request.type in ("vanilla", "open", "preset", "decode", "randomizer", "tracker", "plan", "spoiler"):
@@ -340,21 +329,8 @@ function vanilla({ py, engine }, file) {
   });
 }
 
-// The tracker's pictures: numpy loaded once (Pyodide's wheel, which the site carries beside its core, checked by the
-// lock's sha256), the image mounted for the part's read.
-async function art(loaded, data) {
-  const { py, engine } = loaded;
-  await numpy(loaded);
-  if (data.type === "art_world") return post({ type: "art", reply: engine({ type: "art_world", parts: data.parts }) });
-  mounted(py, data.file, (iso) => {
-    const reply = engine({ type: "art", recipe: { iso }, part: data.part });
-    if ("refused" in reply) return post({ type: "failed", reply, message: reply.refused });
-    post({ type: "art", reply });
-  });
-}
-
-// numpy (Pyodide's pinned wheel, checked by the lock's sha256), loaded once: the tracker's pictures and every
-// character call need it (the swap's modules import it).
+// numpy (Pyodide's pinned wheel, which the site carries beside its core, checked by the lock's sha256), loaded once:
+// every character call needs it (the swap's modules import it).
 const numpy = (loaded) => loaded.numpy ??= loaded.py.loadPackage("numpy", { messageCallback: () => {},
                                                                            errorCallback: () => {} });
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
@@ -390,8 +366,8 @@ try {
   const loaded = await load();
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   self.onmessage = ({ data }) => {
-    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "spoiler", "art",
-          "art_world", "content", ...CHARACTER].includes(data?.type)) return;
+    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "spoiler", "content",
+          ...CHARACTER].includes(data?.type)) return;
     queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
       .then(() => data.file ? prime(loaded, data.file).catch(() => null) : null).then(() => handle(data))
       .catch((error) => post({ type: "failed", message: lastLine(error) }));
@@ -405,9 +381,6 @@ try {
         } catch (error) {
           return post({ type: "reply", call: data.call, reply: { refused: lastLine(error) } });
         }
-      }
-      if (data.type === "art" || data.type === "art_world") {
-        return art(loaded, data).catch((error) => post({ type: "failed", message: lastLine(error) }));
       }
       if (data.type === "vanilla") return vanilla(loaded, data.file);
       if (data.type === "tracker" || data.type === "plan" || data.type === "spoiler") {   // answered whatever happens

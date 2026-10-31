@@ -336,7 +336,7 @@ def test_the_frozen_app_serves_the_pictures_the_page_ships(frozen_app, tmp_path,
     shipped = record_goldens.kept_files((record_goldens.ART, record_goldens.PICTURES))
     with box.serving(app_path) as url:
         replies = []
-        _post(url, "api/art", {"iso": "", "draw": False}, replies)
+        _post(url, "api/art", {}, replies)
         served = {rel: _get(url, rel.removeprefix("web/")) for rel in shipped if rel != "web/art/index.json"}
     assert replies == [{"version": v, "index": json.loads(shipped[f"web/art/{v}/maps.json"]),
                         "icons": json.loads(shipped["web/art/index.json"])["icons"]}]

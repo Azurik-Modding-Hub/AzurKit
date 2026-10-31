@@ -19,7 +19,7 @@ export function artStore({ app, changed }) {
   const read = async () => {
     try {
       const shipped = app ? await json("api/art", { method: "POST", headers: { "Content-Type": "application/json" },
-                                                     body: JSON.stringify({ iso: "", draw: false }) })
+                                                     body: "{}" })
         : await json("art/index.json");
       const index = app ? shipped.index : await json(`art/${shipped.version}/maps.json`);
       Object.assign(status, { version: shipped.version, index, levels: index?.levels ?? {}, icons: shipped.icons });

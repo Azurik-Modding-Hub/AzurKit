@@ -21,9 +21,7 @@ def folder() -> Path:
 
 
 class Drawing:
-    """The pictures in :func:`folder`: :meth:`status`. Nothing is drawn, so
-    :meth:`start` (``api/art``'s ``draw``) and :meth:`stop` (the app's
-    close) do nothing."""
+    """The pictures in :func:`folder`: :meth:`status`."""
 
     def __init__(self, where: Path | None = None):
         self._where = where
@@ -42,9 +40,3 @@ class Drawing:
         return {"version": tracking.ART_VERSION,
                 "index": json.loads(maps.read_text(encoding="utf-8")) if found else None,
                 "icons": json.loads(shipped.read_text(encoding="utf-8"))["icons"] if found else None}
-
-    def start(self, iso: str) -> None:
-        """Nothing to draw: the pictures ship with the page."""
-
-    def stop(self) -> None:
-        """Nothing is drawing."""
