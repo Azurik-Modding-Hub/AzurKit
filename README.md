@@ -14,7 +14,8 @@ source ([Development](#development)).
 - **Runs in your browser.** Your game never leaves your computer: nothing is uploaded, and tests check every request.
 - **Fixes two of the game's bugs.** A rare crash while a level loads and a "Loading..." hang, both fixed by default.
 - **A self-checking randomizer.** Every seed's image is read back against its plan before it is saved.
-- **Tracker maps from your game.** They show what you can reach now; in the app, Live marks your pickups in xemu.
+- **Tracker maps at once.** They show the moment you open the tracker and what you can reach now; in the app, Live
+  marks your pickups in xemu.
 - **Play as almost anyone.** 178 of the game's 184 creatures, moves and speed fitted to each body, picked by grade
   and seen from front and back before you build.
 - **Builds carry their recipe.** Open any AzurKit build to get back the packs, settings and seed that made it.
@@ -79,7 +80,8 @@ source ([Development](#development)).
 - **Where you stand:** what you've collected and what you can reach right now, sphere by sphere.
 - **Skips shown apart:** spots you can reach only with a skip have their own colour.
 - **Spoiler-free:** each item stays hidden until you collect it, unless you turn Spoiler on.
-- **Maps from your game:** 22 level maps, a world map and 41 icons, drawn once from your own copy and kept.
+- **Maps at once:** 22 level maps, a world map and 41 icons come with AzurKit, so the world map shows the moment you
+  open the tracker, before you pick your image or a seed.
 - **Level maps:** floors, zoom and pan; click a spot to mark it, or an exit to jump to its level.
 - **Every lock labelled:** exits, barriers, key locks and disc seals show what they need; save points and
   teleporters are marked.

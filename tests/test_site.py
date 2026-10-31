@@ -41,10 +41,9 @@ from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
-from azurkit.tools.randomizer import art
 from azurkit.tools.randomizer.art import icons
 from scripts import web_tools
-from scripts.oracle_sync import ORACLE, read_index
+from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
 from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
@@ -974,46 +973,54 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         served.close()
 
 
-START_ART = "(version) => { azurkit.tracker.art.start(version, ['icons', 'e6'], { world: false }); }"   # two parts
+# Each message the page posts to a worker, by its type (an init script: before the page's own)
+ASKED = """(() => {
+    const post = Worker.prototype.postMessage;
+    globalThis.asked = [];
+    Worker.prototype.postMessage = function (message, ...rest) {
+        globalThis.asked.push(message?.type);
+        return post.call(this, message, ...rest);
+    };
+})();"""
+WORLD_SHOWN = """() => [azurkit.tracker.state.view, azurkit.tracker.map.level,
+    [...document.getElementById("track-body").children].filter((n) => !n.hidden).map((n) => n.id),
+    document.getElementById("track-empty").hidden, azurkit.tracker.map.pictures.map((p) => [p.name, p.bitmap.width,
+    p.bitmap.height]), asked.filter((t) => ["tracker", "plan", "art", "art_world"].includes(t))]"""
 
 
-def test_the_site_draws_the_trackers_maps_in_the_browser_from_the_image_as_modkit_does(browser, site, usa_iso, tmp_path):
-    """Step 4.2c3 (D882: the site renders them in the browser from the
-    player's own image): the site's engine draws the tracker's pictures
-    under Pyodide, numpy its pinned wheel from the site, in a worker of
-    their own, and keeps them in this browser's storage: the icons and a
-    level (e6) drawn from the image are Modkit's pixel for pixel (each one's
-    digest, ORACLE.toml's ``rando.art``), and a page opened again finds them
-    kept. An image refused first says why, and the image picked after it
-    clears that. No CSP violation, no request but GETs of the site's files."""
-    oracle = read_index()["rando"]["art"]
-    (refused := tmp_path / "not-an-image.iso").write_bytes(bytes(1 << 16))
+def _png_size(png: bytes) -> list[int]:
+    return [int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")]
+
+
+def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_call(browser, site, tmp_path):
+    """Step 4.3f (D961): the Tracker view shows Modkit's world map, every
+    level's picture on it, as soon as it shows, with no image picked and no
+    plan tracked: the page reads the pictures the site ships (``art/``,
+    which ``tests/test_art.py`` holds to Modkit's pixels and to the
+    tracker's drawing) and asks its engine nothing for them. A tracked
+    plan's level shows its own map, each floor from the same files. No CSP
+    violation, no request but GETs of the site's files."""
+    shipped = site / "art" / tracking.ART_VERSION
+    entry = json.loads((shipped / "maps.json").read_text(encoding="utf-8"))["levels"]["e6"]
     served = Site(browser, site)
+    served.context.add_init_script(script=ASKED)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(refused))
-        page.evaluate(START_ART, tracking.ART_VERSION)
-        _page.until(page, "() => azurkit.tracker.art.status.error && !azurkit.tracker.art.status.drawing", 300)
-        assert page.evaluate("() => azurkit.tracker.art.status.done") == []
-        page.set_input_files("#iso", str(usa_iso))
-        page.evaluate(START_ART, tracking.ART_VERSION)
-        _page.until(page, "() => azurkit.tracker.art.status.error === null", 60)
-        _page.until(page, "() => azurkit.tracker.art.status.done.length === 2 && !azurkit.tracker.art.status.drawing"
-                          " || azurkit.tracker.art.status.error", 600)
-        status = page.evaluate("() => azurkit.tracker.art.status")
-        assert status["error"] is None and status["levels"]["e6"]["floors"] == ["e6-1", "e6-2", "e6-3", "e6"]
-        names = status["icons"] + status["levels"]["e6"]["floors"]
-        pngs = page.evaluate("""async (names) => Object.fromEntries(await Promise.all(names.map(async (n) =>
-            [n, Array.from(await azurkit.tracker.art.png(n))])))""", names)
-        drawn = {(f"gui/assets/{n}.png" if n.startswith("icons/") else f"gui/assets/maps/{n}.png"):
-                 art.digest(art.unpng(bytes(png))) for n, png in pngs.items()}
-        assert drawn == {rel: d for rel, d in oracle.items() if rel in drawn} and len(drawn) == 44
-        again = served.open()
-        again.evaluate(START_ART, tracking.ART_VERSION)
-        _page.until(again, "() => azurkit.tracker.art.status.done.length === 2")
-        assert again.evaluate("() => azurkit.tracker.art.status.drawing") is None
-        for each in (page, again):
-            _page.check_csp(each)
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        _page.until(page, "() => Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)", 60)
+        assert page.evaluate(WORLD_SHOWN) == [None, None, ["track-maps"], False,
+                                              [["world", *_png_size((shipped / "world.png").read_bytes())]], []]
+        assert [url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests if "/art/" in url] == [
+            "art/index.json", f"art/{tracking.ART_VERSION}/maps.json", f"art/{tracking.ART_VERSION}/world.png"]
+        (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+        page.evaluate("() => azurkit.tracker.map.show('e6', true)")
+        _page.until(page, "() => azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
+        assert page.evaluate("() => azurkit.tracker.map.pictures.map((p) => [p.name, p.bitmap.width, p.bitmap.height])"
+                             ) == [[name, *_png_size((shipped / f"{name}.png").read_bytes())] for name in entry["floors"]]
+        _page.check_csp(page)
         assert served.stray() == []
     finally:
         served.close()
@@ -1043,15 +1050,16 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
     :data:`TRACKER`; Live's kit is the app's, D882), the spoiler off and on,
     and its maps' model (``web/mapview.mjs``: each level's spots' rings,
     icons and checks, its gem dots, the world map's badges) Modkit's map
-    verdicts (:data:`TRACKER_MAP`, Step 4.2c3). Until the maps are drawn
-    from an image, the world map is a grid where a level's badge counts its
-    spots reachable now; a
+    verdicts (:data:`TRACKER_MAP`, Step 4.2c3). Where the maps can't be
+    read (here the site answers none), the world map is a grid where a
+    level's badge counts its spots reachable now; a
     click on the level shows its spots, and a click on a spot reachable now
     marks it collected (the counter row and the chip say so), a second
     takes it off. The Table sums each kind and level (its All rows). The
     page keeps the plan and its marks, and opens on them after a reload. No
     CSP violation, no request but GETs of the site's files."""
     served = Site(browser, site)
+    served.context.route(f"{ORIGIN}/art/**", lambda route: route.fulfill(status=404, body=""))   # no maps: the grid
     try:
         page = served.open()
         _page.click(page, "tab-randomizer")

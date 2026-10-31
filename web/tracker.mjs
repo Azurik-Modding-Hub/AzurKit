@@ -3,9 +3,10 @@
 // marked collected and what the solver says is reachable now: the world map (each level with its spots reachable now,
 // amber where only a skip reaches them, R1.41), a level's spots (a click marks one collected, or no longer), and the
 // Table (each kind's and level's collected, reachable now, left and total). Spoiler shows the item at each spot; off,
-// nothing names an item not yet collected. The maps (Step 4.2c3) are drawn from the player's own image the first time
-// the tracker opens with one (web/art.mjs: kept for the next visit) and shown by web/mapview.mjs, Modkit's map view;
-// until a map is drawn, the world map is a grid of the levels and a level's spots are chips. Gems (R1.43, D928, off
+// nothing names an item not yet collected. The maps (Step 4.2c3) are Modkit's pictures, shipped with the page (Step
+// 4.3f, web/art.mjs) and shown by web/mapview.mjs, Modkit's map view: the world map shows with every level's picture
+// as soon as the view does, before any plan, its badges and exits once one is tracked; where the pictures can't be
+// read, the world map is a grid of the levels and a level's spots are chips. Gems (R1.43, D928, off
 // by default and remembered) draws each gem spot as a tiny dot on its level's map, gone once Live sees it taken. The engine (sdk.tracker, Modkit's tracker) decides every verdict: this page
 // sends the plan, the marks, a click, and draws what comes back. The marks are kept per plan, the last KEEP plans
 // (the site in this browser's storage, the app in its config), with the plan last tracked; the tracker's Reset clears
@@ -31,7 +32,7 @@ const el = (tag, props = {}, ...children) => {
   return node;
 };
 
-export function tracker({ call, app, say, kept, keep, image = () => null }) {
+export function tracker({ call, app, say, kept, keep }) {
   const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, gems: false, queue: [],
               running: null,
               kept: kept ?? { plan: null, marks: {} }, live: null };
@@ -75,10 +76,11 @@ export function tracker({ call, app, say, kept, keep, image = () => null }) {
     keep(t.kept);
   };
 
-  // The maps: their pictures (drawn once from the image, then kept) and the canvas that shows them.
-  const art = artStore({ app, image, changed: () => {
+  // The maps: their pictures (shipped with the page, read when the view first shows) and the canvas that shows them.
+  const art = artStore({ app, changed: () => {
     artLine();
     if (t.view && t.mode === "map") draw();
+    else preview();
   } });
   const map = new MapView({ room: $("map-room"), canvas: $("map-canvas"), back: $("map-back"), fit: $("map-fit"),
                             switches: $("map-switches"), floors: $("map-floors"), key: $("map-key"),
@@ -95,11 +97,20 @@ export function tracker({ call, app, say, kept, keep, image = () => null }) {
     },
   });
   const artLine = () => {
-    const a = art.status;
-    $("track-art").textContent = a.error ? a.error : a.drawing ? `Drawing the maps from your image: ${a.done.length} `
-      + `of ${a.total} (${a.drawing})…` : a.total && !a.index && !image() ? "Pick your image and the maps are drawn "
-      + "from it (once: they are kept)." : "";
-    $("track-art").classList.toggle("error", Boolean(a.error));
+    $("track-art").textContent = art.status.error ?? "";
+    $("track-art").classList.toggle("error", Boolean(art.status.error));
+  };
+
+  // Before a plan is tracked (and while the first is asked): the world map alone, every level's picture on it, as soon
+  // as the Tracker view shows (Modkit's: it needs no plan).
+  const preview = () => {
+    if ($("tracker").hidden || t.view) return;
+    art.load();
+    if (!map.ready(null)) return;
+    $("track-body").hidden = false;
+    for (const node of $("track-body").children) node.hidden = node.id !== "track-maps";
+    if (map.level !== null || !map.pictures?.length) map.show(null);
+    else map.draw();
   };
 
   const open = (plan, from = null) => {
@@ -119,11 +130,8 @@ export function tracker({ call, app, say, kept, keep, image = () => null }) {
   // The counter row, the head line and the levels reached now, then the shown view.
   const draw = () => {
     const v = t.view, s = v.status;
-    // the maps: read once the Tracker view shows (a new drawing, or an image picked since), and drawn from the image
-    if (!$("tracker").hidden && (art.status.version !== v.world.art.version || image() !== t.artFrom)) {
-      t.artFrom = image();
-      art.start(v.world.art.version, v.world.art.parts);
-    }
+    if (!$("tracker").hidden) art.load();   // the maps: read once the Tracker view shows
+    for (const node of $("track-body").children) node.hidden = false;   // (the world map alone before: preview())
     artLine();
     $("track-status").textContent = "";
     $("track-head").textContent = v.head.text;
@@ -391,5 +399,5 @@ export function tracker({ call, app, say, kept, keep, image = () => null }) {
     });
   }
   if (t.kept.plan) open(t.kept.plan);
-  return { open, ask, state: t, art, map, draw: () => t.view && draw(), image: () => artLine() };
+  return { open, ask, state: t, art, map, draw: () => (t.view ? draw() : preview()) };
 }

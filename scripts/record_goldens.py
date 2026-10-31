@@ -34,6 +34,13 @@ edited by hand) builds, as names and sha256 only.
 - ``matches.json``: the Characters tab's match-Garret values (``sdk.match``)
   of each recipe on USA over the packs on by default.
 
+The page's shipped pictures (Step 4.3f, D961), files rather than names and
+sha256, are recorded the same way, each family by its name:
+
+- ``art``: the tracker's pictures in ``web/art/`` (:func:`art`), drawn from
+  the USA image as the tracker draws them, Modkit's committed files byte
+  for byte.
+
 The first recording is Modkit's last cut: for the core and packs families
 oracle-packs-4 (Modkit 28d0b4110, Step 4.12a), for the models family
 oracle-models-3 (Modkit 1648692, Step 4.12c), which this script's first run
@@ -78,6 +85,8 @@ INDEX = "gamedata/index/index.xbr"
 CONFIG = engine.CONFIG
 NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (Modkit's)
 LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt", "ISO")
+ART = "web/art"   # the tracker's shipped pictures, from the checkout's root
+LONGEST = ("w1", "d2", "w3", "w4")   # the parts that draw longest (CPython 44, 33, 27, 25 s), started first
 # Modkit's flags -> player_physics's sliders: apply-physics's, then randomize-full's
 APPLY = {"gravity": "gravity", "walk_speed": "walk_speed_scale", "swim_speed": "swim_speed_scale",
          "jump_speed": "jump_speed_scale", "air_control_speed": "air_control_scale", "flap_height": "flap_height_scale",
@@ -434,6 +443,61 @@ def matches(images: Images) -> dict[str, dict]:
     return {"usa": out}
 
 
+def _art_part(job: tuple[str, str]) -> tuple[str, dict]:
+    path, part = job
+    return part, sdk.art(path, part)
+
+
+def art(images: Images, workers: int) -> dict[str, bytes]:
+    """The tracker's pictures the page ships, by their path: drawn from the
+    USA image (``sdk.art``, one part a process, then ``sdk.art_world``;
+    Europe's draw the same, ``tests/test_art.py``) under ``ART_VERSION``
+    each picture (``icons/<icon>.png``, each floor's, ``world.png``) and
+    ``maps.json``, and ``index.json``, that version and the icons' names,
+    which the site's page reads first (``web/art.mjs``)."""
+    from azurkit.tools.randomizer import tracking
+
+    path, v = str(images.stamp(gate.USA).path), tracking.ART_VERSION
+    order = sorted(tracking.ART_PARTS, key=lambda p: LONGEST.index(p) if p in LONGEST else len(LONGEST))
+    with ProcessPoolExecutor(max(1, workers), mp_context=multiprocessing.get_context("spawn")) as pool:
+        got = dict(pool.map(_art_part, [(path, part) for part in order]))
+    world = sdk.art_world({lv: {"entry": got[lv]["entry"], "thumb": got[lv]["thumb"]} for lv in tracking.GRID})
+    out = {f"{v}/{name}.png": png for part in tracking.ART_PARTS for name, png in got[part]["pictures"].items()}
+    out |= {f"{v}/world.png": world["pictures"]["world"], f"{v}/maps.json": world["text"].encode(),
+            "index.json": (json.dumps({"version": v, "icons": sorted(got["icons"]["pictures"])}) + "\n").encode()}
+    return {f"{ART}/{rel}": data for rel, data in out.items()}
+
+
+SHIPPED = {"art": (art, (ART,))}
+"""Each family of shipped files: what makes them (``{path: bytes}``, from the checkout's root) and the paths it owns
+(a folder's every file, which a recording leaves holding only what it made)."""
+
+
+def kept_files(paths) -> dict[str, bytes]:
+    """The files the checkout holds at ``paths`` (each a file, or a folder's every file but dot files)."""
+    out = {}
+    for rel in paths:
+        if (where := ROOT / rel).is_file():
+            out[rel] = where.read_bytes()
+        for file in sorted(where.rglob("*")) if where.is_dir() else ():
+            if file.is_file() and not file.name.startswith("."):
+                out[file.relative_to(ROOT).as_posix()] = file.read_bytes()
+    return out
+
+
+def ship(made: Mapping[str, bytes], gone) -> None:
+    """Write each file of ``made`` and remove each path of ``gone`` (and a folder it leaves empty)."""
+    for rel, data in made.items():
+        (ROOT / rel).parent.mkdir(parents=True, exist_ok=True)
+        (ROOT / rel).write_bytes(data)
+    for rel in gone:
+        (ROOT / rel).unlink()
+        for folder in (ROOT / rel).parents:
+            if folder == ROOT or any(folder.iterdir()):
+                break
+            folder.rmdir()
+
+
 def jobs(goldens) -> list[tuple]:
     """The builds that dress the player ``goldens`` need (:func:`_job`)."""
     out = [("g3", g, case, GOLDENS_BUILT[g][0].name) for g in G3 if g in goldens or RESOURCES in goldens
@@ -467,17 +531,26 @@ def text(rows: Mapping) -> str:
 
 
 def main(argv: list[str] | None = None, images: Images | None = None) -> int:
-    names = [*GOLDENS_BUILT, "shims.json", RESOURCES, PROBES, MATCHES]
+    names = [*GOLDENS_BUILT, "shims.json", RESOURCES, PROBES, MATCHES, *SHIPPED]
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--check", action="store_true", help="write nothing; exit 1 naming each case that differs")
-    ap.add_argument("--workers", type=int, default=4, help="processes for the builds that dress the player (4)")
+    ap.add_argument("--workers", type=int, default=4,
+                    help="processes for the builds that dress the player and the shipped pictures (4)")
     ap.add_argument("golden", nargs="*", help=f"the goldens to record (default: all): {', '.join(names)}")
     args = ap.parse_args(argv)
     if unknown := [g for g in args.golden if g not in names]:
         ap.error(f"no golden {', '.join(unknown)} (the goldens: {', '.join(names)})")
     images, drift, goldens = images or Images(), [], args.golden or names
     images.prebuild(jobs(goldens), args.workers)
-    for golden in goldens:
+    for family in [g for g in goldens if g in SHIPPED]:
+        make, paths = SHIPPED[family]
+        made, now = make(images, args.workers), kept_files(paths)
+        differs = sorted(rel for rel in made.keys() | now.keys() if made.get(rel) != now.get(rel))
+        drift += [f"{family}: {rel}" for rel in differs]
+        if not args.check and differs:
+            ship({rel: made[rel] for rel in differs if rel in made}, [rel for rel in differs if rel not in made])
+            print(f"wrote: {family} ({len(differs)} files)")
+    for golden in [g for g in goldens if g not in SHIPPED]:
         made, path = record(golden, images), GOLDENS / golden
         held = recorded(golden) if path.exists() else {}
         new, old = rows(golden, made), rows(golden, held)

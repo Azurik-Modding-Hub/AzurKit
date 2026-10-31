@@ -1,5 +1,5 @@
 // The tracker's maps (Step 4.2c3): Modkit's map view (gui/rando_view.py's MapView, R1.41 and R1.43) on a canvas, over
-// the pictures the engine drew from the player's image (web/art.mjs). The world map shows every level's main floor on
+// Modkit's pictures, shipped with the page (web/art.mjs, Step 4.3f). The world map shows every level's main floor on
 // its grid, a line for each pair of levels an exit joins (coloured by what it needs, dashed one way) and, for each
 // level reached now, a badge counting its spots reachable now (amber when only a skip reaches them); a click on a
 // level shows its map. A level's map shows a floor (its floor buttons pick another), its features (save points, key
@@ -10,7 +10,8 @@
 // room as the window resizes. With Gems (R1.43) each gem spot not all taken is a tiny dot in its gem's colour,
 // gone once Live sees it taken, with the gems taken and left under the title and on the floor buttons. With Live,
 // a you-are-here dot (the world map's ring round the player's level); Find me shows it, a zoomed map centred on them.
-// Every verdict is the engine's (sdk.tracker's view): this draws what it says (marks(), the tests' too).
+// Every verdict is the engine's (sdk.tracker's view): this draws what it says (marks(), the tests' too). Before a plan
+// is tracked (no view) the world map shows its picture and the levels' names alone.
 const DARK = "#1b1f24";
 // Modkit's TRACK: reachable now, only by a skip (R1.41's amber), not yet, a live mark or the player
 export const TRACK = { near: "#3fb950", skip: "#ff8800", far: "#6e7681", live: "#58a6ff" };
@@ -312,7 +313,7 @@ export class MapView {
     ctx.fillStyle = DARK;
     ctx.fillRect(0, 0, cw, ch);
     this.hits = [];
-    if (!view) return;
+    if (!view && (this.level !== null || !this.index())) return;
     const pic = this.pictures[this.level === null ? 0 : this.floor]?.bitmap, size = this.pictureSize();
     if (pic && size) {
       const [x, y] = this.at(0, 0);
@@ -560,17 +561,17 @@ export class MapView {
   }
 
   drawWorld(view) {
-    const ctx = this.ctx, index = this.index(), maps = view.world.maps;
+    const ctx = this.ctx, index = this.index(), maps = view?.world.maps;
     const boxes = Object.fromEntries(Object.entries(index.world.levels).map(([lv, [x, y, w, h]]) =>
       [lv, [...this.at(x, y), w * this.s, h * this.s]]));
     const [, , right, below] = this.label(8, 6, index.world.title, "bold 13px system-ui, sans-serif");
     const names = {};
     for (const [lv, [x, y]] of Object.entries(boxes)) {
       names[lv] = this.label(x, x < right ? Math.max(y, below) : y, lv, "9px system-ui, sans-serif");
-      this.hit(x, y, 0, null, () => this.show(lv, true), boxes[lv]);
+      this.hit(x, y, 0, null, view && (() => this.show(lv, true)), boxes[lv]);
     }
     const kinds = [];
-    if (this.on("conn")) {
+    if (this.on("conn") && maps) {
       for (const line of maps.lines) {
         kinds.push(line.kind);
         const [ax, ay, aw, ah] = boxes[line.a], [bx, by, bw, bh] = boxes[line.b];
@@ -584,7 +585,7 @@ export class MapView {
         ctx.setLineDash([]);
       }
     }
-    if (this.on("spot")) {
+    if (this.on("spot") && view) {
       for (const [lv, b] of Object.entries(badges(view))) {
         if (!boxes[lv]) continue;
         const [x, y, w, h] = boxes[lv], [, top, end] = names[lv];
@@ -605,7 +606,7 @@ export class MapView {
           + `, ${b.got} collected`, () => this.show(lv, true));
       }
     }
-    if (this.hooks.gems() && view.gems) {
+    if (this.hooks.gems() && view?.gems) {
       const counts = view.gems.counts;
       const all = Object.values(counts).reduce((a, [g, t]) => [a[0] + g, a[1] + t], [0, 0]);
       this.label(right + 8, 9, `Gems: ${all[0]} taken, ${all[1] - all[0]} left`, "10px system-ui, sans-serif");
@@ -628,6 +629,7 @@ export class MapView {
 
   // The key: the spots' states first (a level's rings, the world's badges), then each colour drawn, two to a row.
   key(kinds) {
+    if (!this.hooks.view()) return this.els.key.replaceChildren();
     const rows = (this.level === null ? [["near", "reachable"], ["skip", "with a skip"]]
       : [["near", "reachable"], ["skip", "with a skip"], ["far", "not yet"]])
       .map(([state, text]) => ({ colour: TRACK[state], text, ring: this.level !== null }));

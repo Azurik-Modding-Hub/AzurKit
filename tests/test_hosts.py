@@ -318,6 +318,31 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     assert box.left() == []
 
 
+def _get(url: str, path: str) -> bytes:
+    """GET ``path`` from the page at ``url`` (its token in the query)."""
+    parts = urllib.parse.urlsplit(url)
+    with urllib.request.urlopen(f"http://{parts.netloc}/{path}?{parts.query}", timeout=60) as reply:
+        return reply.read()
+
+
+def test_the_frozen_app_serves_the_pictures_the_page_ships(frozen_app, tmp_path, monkeypatch):
+    """Step 4.3f (D961): the frozen app (read-only, in a fresh HOME, no
+    image) answers ``api/art`` with the tracker's shipped index and serves
+    each of its pictures from the bundle, the checkout's files byte for
+    byte, and leaves itself as it was."""
+    app_path, before = frozen_app
+    box, v = Sandbox(tmp_path, monkeypatch), tracking.ART_VERSION
+    shipped = record_goldens.kept_files((record_goldens.ART,))
+    with box.serving(app_path) as url:
+        replies = []
+        _post(url, "api/art", {"iso": "", "draw": False}, replies)
+        served = {rel: _get(url, rel.removeprefix("web/")) for rel in shipped if rel.startswith(f"web/art/{v}/")}
+    assert replies == [{"version": v, "index": json.loads(shipped[f"web/art/{v}/maps.json"]),
+                        "icons": json.loads(shipped["web/art/index.json"])["icons"]}]
+    assert served == {rel: data for rel, data in shipped.items() if rel in served} and len(served) == len(shipped) - 1
+    assert _tree(app_path) == before
+
+
 def test_the_frozen_app_dresses_the_player_in_a_species_body_as_its_golden(frozen_app, tmp_path, monkeypatch, usa_iso):
     """``AzurKit build --character`` from the frozen app (the swap, its data
     and numpy in the bundle), read-only in a fresh HOME and TMPDIR, writes
@@ -808,7 +833,7 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
 
     monkeypatch.setattr(game, "Session", Session)
     monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
-    monkeypatch.setattr(app.pictures.Drawing, "start", lambda self, iso: None)   # the maps aren't drawn: the chips show
+    monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")   # no pictures: the chips show
     server = app.serve(_page.WEB)
     shown = """() => [document.getElementById("track-dot").textContent, document.getElementById("track-dot").className,
                       document.getElementById("track-line").textContent, azurkit.tracker.state.level,
@@ -883,12 +908,13 @@ MAP_CLICK = """([x, y]) => {
 }"""
 
 
-def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_remove_its_dots(
-        browser, tmp_path, monkeypatch, usa_iso):
-    """Step 4.2c3 (R1.43, D928): the app draws the tracker's pictures
-    from the image it reads, the first time the Tracker shows (the icons and
-    a level here), into platformdirs' cache folder, and the page shows the
-    level's map in place of its chips: its tracked spots (a click on one
+def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_its_dots(
+        browser, tmp_path, monkeypatch):
+    """Step 4.2c3 (R1.43, D928): the app's page shows the tracker's
+    pictures it ships (Step 4.3f: ``api/art`` and ``art/<version>/``, from
+    its bundle or the checkout, no image read), the world map as soon as
+    the Tracker shows, then a level's map in place of its chips once a click
+    on the world map opens it: its tracked spots (a click on one
     marks it), a click on an exit opens the level it leads to, the wheel
     zooms about the pointer and a double click on ground fits it again, and
     a smaller window fits it smaller. With Gems on, each gem spot of the
@@ -899,13 +925,12 @@ def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_
     from azurkit.tools.randomizer.live import game, link
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("AZURKIT_ISO", str(usa_iso))   # the image the app opens on (this HOME's data folder has none)
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     first = sdk.tracker({"plan": doc, "gems": True})
     near = sorted(loc for loc, s in first["spots"].items() if s["state"] == "near")[0]
     level = first["spots"][near]["level"]
-    monkeypatch.setattr(tracking, "ART_PARTS", ("icons", level))   # a level's map, not every level's (minutes)
+    index = json.loads((app.pictures.folder() / "maps.json").read_text(encoding="utf-8"))
     at = game.Reading("running", game.REGIONS[0], level=level, settle=1, at=(1.0, 2.0, 3.0), yaw=0.5)
     gem = {}   # the gem the game takes: the first of the floor the map opens on, once the map is drawn
 
@@ -934,17 +959,16 @@ def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-randomizer")
         _page.click(page, "rando-view-tracker")
+        _page.until(page, "() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.level === null"
+                          " && Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)", 60)   # before any plan
         page.set_input_files("#track-open", str(tmp_path / "plan.json"))
         _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
-        _page.until(page, "() => azurkit.tracker.art.status.done.length === 2 && !azurkit.tracker.art.status.drawing"
-                          " || azurkit.tracker.art.status.error", 300)
         assert page.evaluate("() => azurkit.tracker.art.status.error") is None
-        kept = app.pictures.folder()
-        assert sorted(p.name for p in kept.glob("*.part.json")) == ["icons.part.json", f"{level}.part.json"]
-        entry = json.loads((kept / f"{level}.part.json").read_text(encoding="utf-8"))["entry"]
+        entry = index["levels"][level]
         gem |= next(g for g in sorted(entry["gems"], key=lambda g: g["id"]) if g["at"][2] == entry["main"])
-        page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
-        _page.until(page, "() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.hits.length")
+        x, y, w, h = index["world"]["levels"][level]
+        page.evaluate(MAP_CLICK, [x + w / 2, y + h / 2])   # the level on the world map
+        _page.until(page, f"() => azurkit.tracker.map.level === '{level}' && azurkit.tracker.map.hits.length")
         assert page.evaluate("() => document.getElementById('track-level').hidden") is True
         place = next(i["at"] for i in entry["items"] + entry["spots"] if i["id"] == near)
         assert place[2] == entry["main"] and "Item spot: reachable now" in page.evaluate(MAP_HITS)
@@ -952,8 +976,7 @@ def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_
         _page.until(page, f"() => !azurkit.tracker.state.running && azurkit.tracker.state.marks.collected?.includes('{near}')")
         exit_ = next(x for x in entry["exits"] if any(p[2] == entry["main"] for p in x["at"]))
         page.evaluate(MAP_CLICK, next(p for p in exit_["at"] if p[2] == entry["main"])[:2])
-        assert page.evaluate("() => [azurkit.tracker.state.level, document.getElementById('track-maps').hidden]") == [
-            exit_["to"], True]   # its map isn't drawn here: its chips show
+        assert page.evaluate("() => [azurkit.tracker.state.level, azurkit.tracker.map.level]") == [exit_["to"]] * 2
         page.evaluate("(level) => azurkit.tracker.map.show(level, true)", level)
         fitted = page.evaluate("() => azurkit.tracker.map.fitted")
         page.evaluate("""() => { const c = document.getElementById("map-canvas"), r = c.getBoundingClientRect();
@@ -986,27 +1009,6 @@ def test_the_apps_tracker_draws_a_levels_map_from_the_image_and_lives_gem_takes_
         _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 1 of {gems}')")
         _page.check_csp(page)
         page.close()
-    finally:
-        server.close()
-
-
-def test_the_apps_tracker_starts_no_drawing_until_the_typed_path_names_a_file(tmp_path, monkeypatch):
-    """Step 4.2c3's looks: the page asks ``api/art`` to draw at each key
-    typed in the image's field; a path that names no file yet (a folder, a
-    name half typed, a path not yet full) starts no drawing and gives no
-    error, so the line shows no raw OS error and no key is lost to a
-    drawing of a half path; the whole path starts it."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    started = []
-    monkeypatch.setattr(app.pictures.Drawing, "start", lambda self, iso: started.append(iso))
-    (whole := tmp_path / "game.iso").touch()
-    server = app.serve(_page.WEB)
-    try:
-        for typed in ("", "/", str(tmp_path), str(tmp_path / "ga"), "game.iso", str(whole)):
-            replies = []
-            _post(server.url, "api/art", {"iso": typed, "draw": True}, replies)
-            assert [(r["drawing"], r["error"]) for r in replies] == [(None, None)], typed
-        assert started == [str(whole)]
     finally:
         server.close()
 
@@ -1215,7 +1217,7 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     level = next(s["level"] for s in sdk.tracker({"plan": doc, "spoiler": True})["spots"].values() if s["icon"] == "key")
-    monkeypatch.setattr(app.pictures.Drawing, "start", lambda self, iso: None)   # the maps aren't drawn: the chips show
+    monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")   # no pictures: the chips show
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()

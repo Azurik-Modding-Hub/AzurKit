@@ -100,7 +100,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   tab's match-Garret values (`matches.json`).
   - Only `scripts/record_goldens.py` writes them, from AzurKit's own builds
     on the player's images (`--check` writes nothing); never edit them by
-    hand. A commit that changes one names each golden it changed and why,
+    hand. It records the page's shipped pictures too, by family (`art`:
+    The maps, below). A commit that changes one names each golden it changed and why,
     and a gameplay byte change to a default build is seen once in xemu.
   - The first recording is Modkit's last cut (the packs and the core:
     oracle-packs-4, Modkit 28d0b4110; the characters: oracle-models-3,
@@ -632,16 +633,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     off and on) checks the game against their journal (that slot, the
     newest live mark's day clock), Reset with Live on reads the game again,
     and an error that ends the feed turns Live off.
-  - **The maps** (Step 4.2c3, R1.41, R1.43; `web/art.mjs`,
-    `web/mapview.mjs`): the first time the Tracker view shows with an image,
-    its pictures are drawn from it (`sdk.art`, one part at a time) and kept
-    under `ART_VERSION`: the site draws them in a worker of their own (the
-    engine with numpy, Pyodide's pinned wheel from the site) into this
-    browser's storage (IndexedDB `azurkit-art`, PNG bytes: WebKit's private
-    storage keeps no Blob), the app on a thread into platformdirs' cache
-    folder (`api/art`, `art/<version>/<name>`; `azurkit.app.art`). A level
-    drawn shows as Modkit's map view on a canvas in place of its chips (the
-    world map once every level is): its picture by floor (the floor
+  - **The maps** (Step 4.2c3, R1.41, R1.43; shipped since Step 4.3f, D961;
+    `web/art.mjs`, `web/mapview.mjs`): Modkit's pictures of every level's
+    floors, the world map and the item icons, with the maps' index
+    (`maps.json`), ship with the page in `web/art/<ART_VERSION>/`, and
+    `web/art/index.json` names that version and the icons. Only
+    `scripts/record_goldens.py`'s `art` family writes them, drawn from the
+    USA image (`sdk.art`, Modkit's drawing; `--check` writes nothing), and
+    `tests/test_art.py` holds them to Modkit's committed pictures
+    (ORACLE.toml's `rando.art`) and to what each release's image draws: a
+    change to what draws them moves `ART_VERSION`, and they are recorded
+    again. No host draws them and none needs an image: the site reads
+    `art/index.json` and its `maps.json`, the app `api/art`
+    (`azurkit.app.art`: its bundle's folder, or the checkout's) and serves
+    `art/<version>/<name>`. The Tracker view shows the world map with every
+    level's picture as soon as it shows, before any plan (its badges and
+    exits once one is tracked), and a level as Modkit's map view on a canvas: its picture by floor (the floor
     buttons), its features, barriers, tracked spots and exits at their
     vanilla places (each spot's ring, icon and check as Modkit's track(), an
     exit's ring by what using it needs, `tracking.world()`'s `maps`), a
@@ -650,7 +657,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     map filling the window as it resizes, and, with Live, the player's dot
     (Follow keeps a zoomed map on them; Find me centres it). The world map:
     each level's main floor, its badge of spots reachable now (amber: only
-    a skip), the exits' lines. **Gems** (off by default, remembered: the
+    a skip), the exits' lines. Where the pictures can't be read, the world
+    map is a grid of the levels and a level's spots are chips. **Gems** (off by default, remembered: the
     tracked plan's `gems`): each gem spot not all taken a tiny dot in its
     gem's colour, under every other overlay, the gems taken and left under
     the title, on the floor buttons and on the world map, and the colour
@@ -658,14 +666,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `gems`) and takes a dot once the game shows its gem taken.
     `web/mapview.mjs`'s `marks` and `badges` are the map's verdicts:
     `tests/test_site.py` holds them to Modkit's (`TRACKER_MAP`, its map
-    view's rules on its own Tracker) at TRACKER's states; the site's drawing
-    in both browsers to Modkit's pictures (the icons and e6); and
-    `tests/test_hosts.py` the app's map, a click, zoom, resize and Live
-    taking a gem's dot. A known flaw (D835): under Pyodide (wasm32, its
-    numpy 2.4.6) 16 of the 162 pictures differ from Modkit's in at most 135
-    pixels each (airship, a3, a5, town and e2: a pixel taking another
-    face's colour), while every `maps.json` entry is the same; the app's
-    (CPython) are Modkit's pixel for pixel.
+    view's rules on its own Tracker) at TRACKER's states and shows the
+    shipped maps with no image and no engine call in both browsers, and
+    `tests/test_hosts.py` the app's map, a click, zoom, resize, Live
+    taking a gem's dot and the frozen app serving the pictures.
   - **The Characters tab** (Step 4.3d, `web/characters.mjs`; Modkit's
     Player page): the models' list, the community group first (D913:
     Azurik-Custom-Content's variant entries beside the species, each marked
@@ -729,7 +733,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Reset to defaults, in the bottom bar (off at the defaults), ticks the
     packs on by default, sets every setting to its default and forgets it.
 - **The site** is the page with Pyodide's core (and numpy's wheel, which the
-  tracker's maps load: `web_tools.PACKAGES`), the wheel and its
+  Characters tab's drawing loads: `web_tools.PACKAGES`), the wheel and its
   `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in
   a module worker started from a `blob:` URL (so the page's CSP holds there),
