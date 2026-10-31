@@ -413,7 +413,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Logic as built, a fresh one each call, so neither checks nor builds.
   - `needs.NOTE` and `generator.NOTE`, None by default, are told the
     tracker's exits ("the maps' exits, k of 22") and the fill's start
-    ("placing the items") for the sdk's progress.
+    ("placing the items") for the sdk's progress: `sdk.image` sets them
+    while it plans (`sdk._noting`, the calling thread's), as records of its
+    `plan` stage, a "k of n" note's count.
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's

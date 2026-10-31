@@ -147,10 +147,11 @@ out with ``spoiler`` false, then :func:`spoiler` of its plan with
 ``built`` gives it) and its plan (``plan``: the plan file's object, which
 :func:`tracker` reads). ``progress(record)`` hears each named stage
 (``core.progress``): checking the image (its bytes, the first time),
-planning the seed, sizing and dressing the body, reading its files,
-applying each pack (done of total), the data edits, laying out the
-image, reading it back against the plan and writing the spoiler; an
-exception it raises stops the build.
+planning the seed (and the planner's notes: placing the items), sizing
+and dressing the body, reading its files, applying each pack (done of
+total), the data edits, laying out the image, reading it back against
+the plan and writing the spoiler; an exception it raises stops the
+build.
 
 
 def save(made: 'iso.Image', out: 'str', *, progress: 'Callable[[dict], object] | None' = None, sha256: 'Callable[[], str] | None' = None) -> 'dict':

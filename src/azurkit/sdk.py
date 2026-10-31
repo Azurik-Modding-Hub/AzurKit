@@ -83,10 +83,12 @@ never a recipe file's path (Q174).
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import hashlib
 import json
 import os
+import re
 import sys
 import threading
 import urllib.parse
@@ -100,7 +102,7 @@ from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
-from azurkit.tools.randomizer import generator, tracking
+from azurkit.tools.randomizer import generator, needs, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
@@ -195,6 +197,36 @@ def _packs(recipe: object) -> dict[str, dict]:
     return packs
 
 
+_NOTES: dict[int, Callable[[str], None]] = {}   # the planner's notes' reporter, by the thread whose call hears them
+
+
+def _note(text: str) -> None:
+    if (told := _NOTES.get(threading.get_ident())) is not None:
+        told(text)
+
+
+@contextlib.contextmanager
+def _noting(steps: Steps, stage: str, label: str):
+    """The planner's notes (``generator.NOTE``: "placing the items";
+    ``needs.NOTE``: "the maps' exits, k of n") told to ``steps`` as
+    ``stage``'s record while this thread's call runs: ``label (note)``, a
+    note's "k of n" its count."""
+    if not steps:
+        yield
+        return
+
+    def told(text: str) -> None:
+        count = re.search(r"(\d+) of (\d+)", text)
+        steps(stage, f"{label} ({text})", *(map(int, count.groups()) if count else ()))
+    ident = threading.get_ident()
+    _NOTES[ident] = told
+    generator.NOTE = needs.NOTE = _note
+    try:
+        yield
+    finally:
+        _NOTES.pop(ident, None)
+
+
 def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None,
                                                          generator.Prepared | None]:
     """The recipe's vanilla image (its build files checked, D27), the files
@@ -211,7 +243,8 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
     prepared = None
     if "randomizer" in recipe and character is None:
         steps("plan")
-        prepared = generator.prepare(recipe["randomizer"], packs)
+        with _noting(steps, "plan", "Planning the seed"):
+            prepared = generator.prepare(recipe["randomizer"], packs)
     elif "randomizer" in recipe:   # checked now; planned below, on the walk and roll the body's size folds
         generator.check(recipe["randomizer"])
     stamp = _stamp(recipe["iso"], steps)
@@ -229,7 +262,8 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
         packs = mods.normalize({name: params.get(name, {}) for name in enabled})
         if "randomizer" in recipe:   # Modkit's randomize-full: the plan stands on the folded sliders (AZ-383)
             steps("plan")
-            prepared = generator.prepare(recipe["randomizer"], packs)
+            with _noting(steps, "plan", "Planning the seed"):
+                prepared = generator.prepare(recipe["randomizer"], packs)
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
     steps("read")
     with iso.Reader(stamp.path) as r:
@@ -516,10 +550,11 @@ def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
     ``built`` gives it) and its plan (``plan``: the plan file's object, which
     :func:`tracker` reads). ``progress(record)`` hears each named stage
     (``core.progress``): checking the image (its bytes, the first time),
-    planning the seed, sizing and dressing the body, reading its files,
-    applying each pack (done of total), the data edits, laying out the
-    image, reading it back against the plan and writing the spoiler; an
-    exception it raises stops the build."""
+    planning the seed (and the planner's notes: placing the items), sizing
+    and dressing the body, reading its files, applying each pack (done of
+    total), the data edits, laying out the image, reading it back against
+    the plan and writing the spoiler; an exception it raises stops the
+    build."""
     steps = Steps(progress)
     stamp, base, layers, judge, prepared = _plan(recipe, steps)
     steps("layout")

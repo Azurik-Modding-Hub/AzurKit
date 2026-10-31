@@ -117,9 +117,10 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
 def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoiler_comes_on_demand(usa_iso, tmp_path,
                                                                                                     monkeypatch):
     """``sdk.image`` reports each named stage of a build as the progress
-    record (``core.progress``), in order; with ``spoiler`` false its report
-    leaves the spoiler out, and ``sdk.spoiler(plan, built=True)`` gives it
-    then. ``sdk.save`` writes the image the build made, without planning it
+    record (``core.progress``), in order, the planner's note among the
+    seed's (Step 4.3m); with ``spoiler`` false its report leaves the
+    spoiler out, and ``sdk.spoiler(plan, built=True)`` gives it then.
+    ``sdk.save`` writes the image the build made, without planning it
     again, its sha256 the image's, following the write in the record."""
     seen, writes = [], []
     monkeypatch.setattr(sdk, "_STAMPS", {})   # the image's first check in this process: its bytes are reported
@@ -129,6 +130,8 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     check = [r for r in seen if r["stage"] == "check"]
     assert (check[0]["label"], check[-1]["percent"]) == ("Checking your image", 100)
     assert [r["label"] for r in seen if r["stage"] == "pack"] == ["Applying qol_alloc_race"]
+    assert [r["label"] for r in seen if r["stage"] == "plan"] == ["Planning the seed",
+                                                                  "Planning the seed (placing the items)"]
     assert "spoiler" not in report and report["randomizer"]["logic_verified"]
     text = sdk.spoiler(report["plan"], built=True)["text"]
     lines = text.splitlines()
