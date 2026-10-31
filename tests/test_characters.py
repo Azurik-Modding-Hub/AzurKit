@@ -695,15 +695,18 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     updated, victim = tmp_path / "updated", tmp_path / "victim.json"
     (updated / "packs/a").mkdir(parents=True)
     victim.write_bytes(b"{}")
-    olds = ("packs/a/old.json", "packs/a/old.txt")   # an older version's .txt goes too, though packs/ now refuses one
-    for old in olds:
+    olds = ("packs/a/old.json", "packs/a/old.txt", "packs/a/Note.md")   # an older version's .txt goes too, though
+    for old in olds:                                                     # packs/ now refuses one; Note.md is renamed
         (updated / old).write_bytes(b"{}")
     (updated / content.INSTALLED).write_text(json.dumps({"a": {"version": 1, "source": "", "files": {
         "../victim.json": "0" * 64, str(victim): "0" * 64} | dict.fromkeys(olds, "0" * 64)}}))
-    content.install(manifest([{"id": "a", "version": 2, "files": [{"path": "packs/a/new.json", "sha256": _sha256(b"[]"),
-                                                                     "size": 2}]}]), "a", lambda _: b"[]", updated)
-    assert victim.is_file() and sorted(p.name for p in (updated / "packs/a").iterdir()) == ["new.json"]   # its own only
-    assert set(content.installed(updated)["a"]["files"]) == {"packs/a/new.json"}   # (SEC-15)
+    news = {"packs/a/new.json": b"[]", "packs/a/note.md": b"# v2\n"}
+    content.install(manifest([{"id": "a", "version": 2, "files": [
+        {"path": path, "sha256": _sha256(data), "size": len(data)} for path, data in news.items()]}]), "a",
+        news.__getitem__, updated)
+    assert victim.is_file() and sorted(p.name for p in (updated / "packs/a").iterdir()) == ["new.json", "note.md"]
+    assert (updated / "packs/a/note.md").read_bytes() == news["packs/a/note.md"]   # a rename by letter case kept
+    assert set(content.installed(updated)["a"]["files"]) == set(news)   # an Update removes only its own (SEC-15)
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
 
 

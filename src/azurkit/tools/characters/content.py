@@ -377,9 +377,10 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     (:func:`verify`'s checks) and written to ``root/.part-<id>/``, so one
     file at a time is held, then each entry read by ``refusal`` (as
     :func:`verify` reads it) from what landed, and a fault writes nothing
-    (the parts removed, D35; D992's SEC-9); once every file is checked,
-    each entry's moved into place, the files its last version held that
-    this one doesn't removed, and ``installed.json`` written last, each
+    (the parts and every folder it made removed, D35; D992's SEC-9); once
+    every file is checked, the files each entry's last version held that
+    this one doesn't are removed (letter case aside, none another entry
+    holds), then its files moved into place, and ``installed.json`` written last, each
     entry's version, ``source`` and files' sha256. An installed entry is
     Updated the same way. Returns :func:`installed`'s record."""
     root = root or ROOT
@@ -418,14 +419,14 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     record = dict(had)
     for name in todo:
         part = root / f".part-{name}"
-        for f in entries[name]["files"]:
+        others = {path.lower() for key in record if key != name for path in _removable(record, key)}
+        for path in sorted(_removable(had, name) - {f["path"] for f in entries[name]["files"]}):
+            if path.lower() not in others:   # another entry's file, letter case aside: one file on APFS and NTFS
+                (root / path).unlink(missing_ok=True)
+        for f in entries[name]["files"]:   # after the dropped files go, so a rename by letter case keeps its file
             (root / f["path"]).parent.mkdir(parents=True, exist_ok=True)
             os.replace(part / f["path"], root / f["path"])
         shutil.rmtree(part, ignore_errors=True)
-        kept = {f["path"] for f in entries[name]["files"]}
-        others = set().union(*(_removable(record, key) for key in record if key != name))
-        for path in sorted(_removable(had, name) - kept - others):
-            (root / path).unlink(missing_ok=True)
         record[name] = {"version": entries[name]["version"], "source": source,
                         "files": {f["path"]: f["sha256"] for f in entries[name]["files"]}}
     part = root / f"{INSTALLED}.part"
