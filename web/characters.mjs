@@ -18,6 +18,7 @@ const SOURCE = "azurkit.content_source";
 const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
 const JIGGLE = ["jiggle_strength", "jiggle_stiffness"];
 const CHOOSE_WEAPONS = "Choose your image to see its weapons";   // the Weapon box with no image read
+const READING = "Reading your image…";   // and while the engine reads the one picked
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
 const box = (v) => typeof v === "number" ? String(v) : v ?? "1";
@@ -56,7 +57,7 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 // installed) hands the site's engine what this browser keeps installed.
 export function characters({ call, app, host, say, image, packs, changed, content }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
-              matching: false, drawn: null, opened: false, installing: null, filter: "", read: null };
+              matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null };
   const fallback = () => host.catalog?.characters?.source ?? "";
   c.source = app ? host.content_source || fallback() : (() => {
     try {
@@ -96,14 +97,14 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       const read = Boolean(c.read) && c.read === image();
       c.view = null;
       if (!read) {   // no answer read the image: G4 and the weapons ask for one again, not "Reading"
-        $("char-weapon").replaceChildren(el("option", { value: "", textContent: CHOOSE_WEAPONS }));
-        $("char-weapon").disabled = true;
-        g4();
+        c.failed = from;
+        unread();
       }
       return;
     }
     c.view = reply;
     c.read = from;   // the image the last answer read
+    c.failed = null;
     render();
     draw();
   };
@@ -259,7 +260,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $("char-mode").value = locked.mode ?? ch.mode ?? defaults.mode;
     $("char-mode").disabled = "mode" in locked;
     const weapons = imaged() ? chosen.weapons   // D979: none until the image is read
-      : [{ name: null, label: image() ? "Reading your image…" : CHOOSE_WEAPONS }];
+      : [{ name: null, label: image() ? READING : CHOOSE_WEAPONS }];
     $("char-weapon").replaceChildren(...weapons.map((w) => {
       const option = el("option", { value: w.name ?? "", textContent: w.label, title: w.tip ?? "" });
       if (w.colour) option.style.color = paint(w.colour);
@@ -348,8 +349,16 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       if (button) button.disabled = c.matching || !imaged();
     }
     $("char-g4-note").textContent = c.matching ? "Measuring the body against garret4…"
-      : imaged() ? "G4 sets a number so the body matches garret4." : image() && c.view ? "Reading your image…"
+      : imaged() ? "G4 sets a number so the body matches garret4." : reading() ? READING
       : "Choose your image to match garret4 (G4).";
+  };
+  // An image picked that no answer has read or refused yet (the engine reads it); with no view, G4 and the Weapon box
+  // say so, or ask for an image (after a refusal of it, Step 4.3m: never "Choose your image…" while one is read).
+  const reading = () => Boolean(image()) && image() !== c.failed;
+  const unread = () => {
+    $("char-weapon").replaceChildren(el("option", { value: "", textContent: reading() ? READING : CHOOSE_WEAPONS }));
+    $("char-weapon").disabled = true;
+    g4();
   };
   const match = async (name) => {
     if (c.matching || !c.view) return;
@@ -477,6 +486,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     imaged: () => {
       c.drawn = null;
       if (c.view) render();   // its weapons and G4 wait for the image's answer
+      else if (c.opened) unread();   // after a refusal: the new image is being read
       if (c.opened) ask();
     },
     set,
