@@ -107,6 +107,21 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The private game-data repo,** `Azurik-Testing/AzurKit-gamedata` (the
   images' parts, for CI only): never make it public, fork or mirror it. Its
   key and how its parts are put back together stay in `$EV`.
+- **Content is untrusted input (D992):** a manifest, a recipe or a picture a
+  player is handed is refused by name, quickly and with little held, before
+  anything reads it whole. A refusal names the entry, the file or the
+  field, never bytes (`tests/test_characters.py`'s untrusted-content table).
+  - `content.check` caps a manifest (1 MiB, 1,000 entries, 10,000 files;
+    an entry's files and an Install 256 MiB) and walks its requires once.
+    Each path is a content path whose suffix its folder takes
+    (`content.SUFFIXES`: no `.html`, `.svg` or `.js`), with no `..`, `:`
+    or Windows device name.
+  - An Install checks each file as it lands, into `.part-<id>/`, and an
+    Update removes only the content paths `installed.json` lists.
+  - A recipe's file fields name files in its folder. A PNG inflates
+    through `core/inflate.py` (at most 4096x4096, and one byte past its
+    rows).
+  - `web/` holds no HTML sink (`tests/test_contracts.py`).
 
 ## The goldens
 
@@ -567,7 +582,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     requires), and `content.install` copies an entry into the content
     folder from what a host fetched (`sdk.content_install`, `azurkit
     content install`: a URL or a folder, `$AZURKIT_CONTENT_SOURCE`
-    winning): every file checked first, nothing written on a mismatch,
+    winning): each file checked as it lands, then the host's `refusal`
+    (a built-in variant's recipe by default), nothing written on a fault,
     `installed.json` last. An installed copy stays at its version until its
     Update. The engine opens no connection: the sdk's CPython calls fetch,
     and the site's page fetches and its worker checks

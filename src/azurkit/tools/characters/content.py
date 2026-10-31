@@ -31,13 +31,15 @@ characters, for the entry's row before its Install). :func:`install` copies
 an entry and those it requires into a content folder from what a host
 fetched (a ``fetch(path) -> bytes`` of the source it reads: a URL or a
 folder, the app's and the CLI's; the site's worker checks what its page
-fetched with :func:`verify`): every file's size and sha256 checked first,
-and the entry's own reading by the host's ``refusal`` (a built-in variant's
+fetched with :func:`verify`): each file's size and sha256 checked as it
+lands, and each entry read by the host's ``refusal`` (a built-in variant's
 recipe, :func:`builtin_refusal`, unless the host names another), nothing
 written on a fault (D35), then the files moved into place and
-``installed.json`` written last. An installed copy stays at its version (pinned) until its
-Update, the same install, which also removes the files the new version
-dropped. Nothing here opens a network connection."""
+``installed.json`` written last. An installed copy stays at its version
+(pinned) until its Update, the same install, which also removes the files
+the new version dropped. A manifest, a file and ``installed.json`` are
+untrusted input (D992): each is capped and its paths held to the content
+folder. Nothing here opens a network connection."""
 
 from __future__ import annotations
 
@@ -119,10 +121,10 @@ def check(manifest: bytes | str | Mapping) -> dict:
     it requires known, with no cycle), each file's path (relative, POSIX,
     under :data:`FOLDERS`, a suffix its folder takes (:data:`SUFFIXES`), no
     ``..``, no ``:`` or name Windows keeps for a device, claimed by one
-    entry only, letter case aside), sha256 (64
-    hex digits) and size (a whole number up to :data:`MAX_FILE`; an entry's
-    files up to :data:`MAX_ENTRY` in all), and at most
-    :data:`MAX_ENTRIES` entries and :data:`MAX_FILES` files in all.
+    entry only, letter case aside), sha256 (64 hex digits) and size (a
+    whole number up to :data:`MAX_FILE`; an entry's files up to
+    :data:`MAX_ENTRY` in all), and at most :data:`MAX_ENTRIES` entries and
+    :data:`MAX_FILES` files in all.
     ``ValueError`` names the first fault, in time linear in the manifest
     (its requires walked once, :func:`needs`)."""
     if isinstance(manifest, (bytes, str)):
@@ -306,8 +308,9 @@ def _checked(e: Mapping, f: Mapping, data) -> bytes:
 
 
 class _Landed(Mapping):
-    """The files ``paths`` below ``folder``, each read when it is asked for
-    (what :func:`builtin_refusal` reads of an entry install has checked)."""
+    """The files ``paths`` below ``folder``, each read when it is asked for:
+    an entry's files, as a host's ``refusal`` reads them once Install has
+    checked them."""
 
     def __init__(self, folder: Path, paths: list[str]):
         self.folder, self.paths = folder, paths
