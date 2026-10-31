@@ -2,9 +2,10 @@
 family's source, ported by the sync): ``core.xbr.append`` (new resources,
 their relocations and named rows, grown payloads), ``index.xbr``'s records,
 the body codec; the character layer's whole-file group; and the swap's XBE
-hooks in the facts. Checked on the player's images and against the oracle
-at its models tag: ``resources.json`` (one sha256 per XBR resource of each
-G3 build that wears a model, Modkit's own builds) and G3's per-file hashes."""
+hooks in the facts. Checked on the player's images against AzurKit's
+goldens (``scripts/record_goldens.py``'s, Step 4.12c; their first recording
+Modkit's at oracle-models-3): ``resources.json`` (one sha256 per XBR
+resource of each G3 build that wears a model) and G3's per-file hashes."""
 
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ import struct
 import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path, PurePath
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -36,12 +37,11 @@ from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_kit, _player_variants, content, ports
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
-from scripts import oracle_sync, record_goldens
+from scripts import record_goldens
 from tests import _pyodide
 
-MODELS = oracle_sync.ORACLE / "models"
 CHARACTERS, FX, INDEX = characters.FILES
-G3 = {"usa": "tests/goldens/pipelines.json", "europe": "tests/goldens/europe/pipelines.json"}
+G3 = {"usa": "pipelines.json", "europe": "europe/pipelines.json"}
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
 
@@ -50,8 +50,18 @@ def _sha256(data) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _oracle(rel: str) -> dict:
-    return json.loads((MODELS / rel).read_text(encoding="utf-8"))
+def _golden(rel: str) -> dict:
+    return record_goldens.recorded(rel)
+
+
+def _resources(release: str) -> dict:
+    """``resources.json``'s rows of the release's G3 cases."""
+    return _golden("resources.json")[f"tests/goldens/{G3[release]}"]
+
+
+def _models(release: str) -> dict[str, dict]:
+    """``{case: its recipe}`` of the release's G3 cases that dress the player."""
+    return {case: spec for case, spec in record_goldens.cases(G3[release]).items() if record_goldens.wears(spec)}
 
 
 def _payload(data: bytes, e) -> bytes:
@@ -102,20 +112,20 @@ def test_every_body_reads_and_encodes_back_and_appended_resources_resolve_by_nam
 
 
 @pytest.mark.parametrize("release", RELEASES)
-def test_each_model_cases_index_xbr_is_modkits_file_for_file(release, request):
+def test_each_model_cases_index_xbr_is_its_goldens_file_for_file(release, request):
     """index.xbr reads back (USA's 3,072 records, Europe's 3,730) and adding
-    no record leaves it as it was. Each G3 case of the
-    oracle's models family on the release that changes index.xbr adds its
-    records (``resources.json``: those its build added, in the order it
+    no record leaves it as it was. Each G3 case that dresses the player on
+    the release and changes index.xbr adds its records
+    (``resources.json``: those its build added, in the order it
     added them, each naming a resource the case appended to its archive
-    with that fourcc), and the file is Modkit's, byte for byte: the sha256
-    of G3's golden and of ``resources.json``'s file."""
+    with that fourcc), and the file is the golden's, byte for byte: the
+    sha256 of G3's golden and of ``resources.json``'s file."""
     with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
         vanilla = r.read(INDEX)
     records = parse_index_xbr(vanilla).records
     assert len(records) == {"usa": 3072, "europe": 3730}[release.name]
     assert add_index_records(vanilla, []) == vanilla
-    golden, built = _oracle(G3[release.name]), _oracle("resources.json")[G3[release.name]]
+    golden, built = _golden(G3[release.name]), _resources(release.name)
     cases = {case: files[INDEX] for case, files in built.items() if INDEX in files}
     assert sorted(cases) == sorted(case for case, files in golden.items() if INDEX in files) and cases
     for case, view in cases.items():
@@ -130,8 +140,8 @@ def test_each_model_cases_index_xbr_is_modkits_file_for_file(release, request):
 
 @pytest.mark.parametrize("release", RELEASES)
 def test_each_releases_xbe_holds_the_swap_sites_vanilla_bytes_and_its_refs_name_its_functions(release, request):
-    """The facts carry the player-model swap's hooks (the oracle's models
-    family, ``swap.json``): each of the 117 vanilla spans it writes holds,
+    """The facts carry the player-model swap's hooks (their addresses edited
+    by hand, each span's sha256 gen_facts's): each of the 117 vanilla spans it writes holds,
     at the release's own address in the player's default.xbe, the bytes
     whose sha256 and size the facts give, and each of the 65 addresses its
     shims call or are handed lies in a section (its memory: a global may lie
@@ -177,13 +187,8 @@ def test_the_character_layer_writes_its_grown_files_whole_into_an_image_that_rea
     assert set(manifest.result) == {CHARACTERS, INDEX, "filelist.txt"} and manifest.conflicts == ()
 
 
-# --- the swap (Step 4.3a2): Modkit's, ported by the sync, its shims prebuilt ----------------------------------
+# --- the swap (Step 4.3a2): Modkit's, ported, AzurKit's own since Step 4.12c, its shims prebuilt ----------------
 
-FIELDS = {"player_character_mode": "mode", "player_character_size": "size", "player_character_scale": "scale",
-          "player_attack_reach": "attack_reach", "player_attack_damage": "attack_damage",
-          "player_attack_speed": "attack_speed", "player_character_anims": "anims",
-          "player_character_sounds": "sounds", "player_weapon": "weapon", "player_jiggle_strength": "jiggle_strength",
-          "player_jiggle_stiffness": "jiggle_stiffness"}
 VARIANTS = ("beamlord", "booblord", "booblord_high", "booblord_human", "booblord_high_human")   # Step 4.3c's
 KIT = {   # a case whose build reads the townsfolk's bare-hands kit or the air elemental's funnel (the package's, D965)
     "randomize-full:player-character=air_elemental": "its gust's funnel mesh (fx/air_elemental/air_funnel.glb)",
@@ -193,51 +198,32 @@ KIT = {   # a case whose build reads the townsfolk's bare-hands kit or the air e
         "player-character=town_male_6,weapon=booblord_spin", "weapon=bare_hands")}}
 
 
-def _character(args: dict) -> dict:
-    """A G3 case's Modkit flags as a recipe's ``character`` (``tools.characters.normalize``): its
-    ``--player-character``, else garret4's own body (Modkit's ``player_species``: a player slider or weapon set)."""
-    out = {"species": args["player_character"] or "garret4"} | {
-        FIELDS[k]: v for k, v in args.items() if k in FIELDS and v is not None}
-    return out | {k.removeprefix("player_"): args[k] == "on" for k in ("player_attack_ground", "player_attack_balance")
-                  if args[k] is not None}
-
-
 def _bodies(kit: bool = False) -> dict[str, dict]:
     """``{case: its recipe}`` of G3's USA cases that wear a species' body and
     build from the player's image and the package alone, but those of
-    :data:`KIT` (with ``kit``, those alone): every models-family case that names a player
-    character, but Modkit's built-in variants (Step 4.3c), a variant file's
+    :data:`KIT` (with ``kit``, those alone): every case that dresses the player,
+    but the built-in variants (Step 4.3c), a variant file's
     and the seed case (level_patches, AZ-009)."""
     out = {}
-    for case, spec in _oracle("cases.json")[G3["usa"]].items():
+    for case, spec in _models("usa").items():
         args = spec["args"]
         if args["player_character"] in VARIANTS or args["player_variant_file"] or args["config_mod"] or (
                 case in KIT) != kit:
             continue
         assert args["no_randomize"] and args["ram"] == 128 and not args["disable_pack"], case
         out[case] = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
-                     "character": _character(args)}
+                     "character": record_goldens.character(spec)}
     return out
-
-
-def _view(vanilla: bytes, built: bytes) -> dict:
-    """``resources.json``'s record of a built archive (Modkit's ``scripts/modkit_resources.py``'s ``_view``)."""
-    old, new = parse_toc(vanilla), parse_toc(built)
-    return {"sha256": _sha256(built), "size": len(built), "count": len(new), "vanilla_count": len(old),
-            "changed": [[e.index, e.tag, e.size, _sha256(_payload(built, e))] for e, v in zip(new, old)
-                        if _payload(built, e) != _payload(vanilla, v)],
-            "new": [[r.name, r.tag, len(r.payload), _sha256(r.payload), list(r.relocs)]
-                    for r in appended(len(old), built)]}
 
 
 def _missed(cases: dict[str, dict], image_path, release=gate.USA, workers: int = 1) -> dict[str, tuple]:
     """``{case: (the files whose sha256 isn't G3's, default.xbe's writes outside the character layer's claims and
     the facts' swap sites, the conflicts)}`` of each of ``cases`` built through ``sdk.image`` from the ``release``
-    image that isn't Modkit's file for file (every file G3 records; a Europe build's XBRs but index.xbr, the USA
-    case's, as G3 checks them) and resource for resource (characters.xbr's and fx.xbr's, as ``resources.json``
-    holds them); ``keylord``'s whole image less its root entries is Modkit's. With ``workers``, that many spawned
+    image that isn't its golden's file for file (every file G3 records; a Europe build's XBRs but index.xbr, the
+    USA case's, as G3 records them) and resource for resource (characters.xbr's and fx.xbr's, as ``resources.json``
+    holds them); ``keylord``'s whole image less its root entries is the golden's. With ``workers``, that many spawned
     processes build the cases (a case's build is the same in any process; the content folder is the process's)."""
-    assert set(cases) <= set(_oracle(G3[release.name]))
+    assert set(cases) <= set(_golden(G3[release.name]))
     jobs = [(case, recipe, str(image_path), release.name) for case, recipe in cases.items()]
     if workers > 1:
         with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
@@ -251,8 +237,7 @@ def _miss(job: tuple) -> tuple[str, tuple | None]:
     """One case of :func:`_missed`: ``(case, why or None)``."""
     case, recipe, image_path, name = job
     release = next(r for r in gate.RELEASES if r.name == name)
-    golden, view, usa = (_oracle(G3[name])[case], _oracle("resources.json")[G3[name]][case],
-                         _oracle(G3["usa"])[case])
+    golden, view, usa = _golden(G3[name])[case], _resources(name)[case], _golden(G3["usa"])[case]
     known = facts.of(release)
     sites = sorted((known.offset(va, s.size), known.offset(va, s.size) + s.size) for va, s in known.swap.items())
     with iso.Reader(image_path) as r:
@@ -270,7 +255,7 @@ def _miss(job: tuple) -> tuple[str, tuple | None]:
     with iso.Reader(made) as r:
         files = {f: r.read(f) for f in want}
     shas = {f: _sha256(data) for f, data in files.items()}
-    resources = {f: _view(vanilla[f], files[f]) for f in (CHARACTERS, FX) if f in files}
+    resources = {f: record_goldens.view(vanilla[f], files[f], f) for f in (CHARACTERS, FX) if f in files}
     if case.endswith("=keylord"):
         changed = {f: data for f, data in files.items() if f != "filelist.txt" and data != base.get(f)}
         assert iso.read(image_path, changed).sha256() == golden["ISO"]
@@ -297,16 +282,16 @@ def no_content(tmp_path, monkeypatch):
     return empty
 
 
-def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_hooks_at_the_facts_sites(
+def test_each_body_case_is_its_goldens_file_for_file_and_resource_for_resource_its_hooks_at_the_facts_sites(
         usa_iso, no_content):
     """Each of G3's body cases (:func:`_bodies`: 20 of its 35 USA model
     cases, weapons and sounds and garret4's own body among them) built through ``sdk.image`` (the
     packs on by default, the body's size folded into the walk and roll, the
-    character layer after them) gives every file G3 records Modkit's
+    character layer after them) gives every file G3 records its
     sha256, characters.xbr's and fx.xbr's resources each as
     ``resources.json`` holds them (each vanilla entry it changed, each it
     appended, by name, size and sha256), and ``keylord``'s whole image less
-    its root entries is Modkit's (the grown files' layout). The character
+    its root entries is G3's (the grown files' layout). The character
     layer writes default.xbe only inside its claims (its shims) and the
     facts' swap sites (:func:`_missed`), with an empty content folder.
     garret4's roll table the roll shim's object holds as zeros, read from
@@ -314,15 +299,15 @@ def test_each_body_case_is_modkits_file_for_file_and_resource_for_resource_its_h
     bodies = _bodies()
     assert len(bodies) == 20 and _missed(bodies, usa_iso) == {}
     roll = coff.parse((shimkit.PLAYER_MODEL / "roll.o").read_bytes())
-    assert coff.normalized_sha256(ports.restored("roll", roll, ports.Vanilla(gate.USA, usa_iso))) == _oracle(
-        "tests/goldens/shims.json")["player_model_roll.o"]["normalized sha256"]
+    assert coff.normalized_sha256(ports.restored("roll", roll, ports.Vanilla(gate.USA, usa_iso))) == _golden(
+        "shims.json")["player_model_roll.o"]["normalized sha256"]
 
 
 def _probe(probe: dict, release, image_path, vanilla: dict, tmp_path) -> tuple[dict, dict, Layer]:
-    """``(Modkit's record, AzurKit's, the character layer)`` of a
+    """``(the golden's record, the build's, the character layer)`` of a
     ``probes.json`` probe built through ``sdk.image`` from ``image_path``,
     the packs on by default (its variant file, if it has one, written in
-    ``tmp_path``): each record the sha256 of every file Modkit's build
+    ``tmp_path``): each record the sha256 of every file the golden's build
     changed, the files the manifest changed but filelist.txt, characters.xbr's
     and fx.xbr's resources and the conflicts."""
     character = probe["character"]
@@ -341,20 +326,19 @@ def _probe(probe: dict, release, image_path, vanilla: dict, tmp_path) -> tuple[d
              "resources": {f: view for f, view in want["resources"].items() if f in keep}, "conflicts": ()},
             {"files": {f: _sha256(data) for f, data in files.items()},
              "changed": sorted(set(manifest.result) - {"filelist.txt"}),
-             "resources": {f: _view(vanilla[f], files[f]) for f in want["resources"] if f in keep},
+             "resources": {f: record_goldens.view(vanilla[f], files[f], f) for f in want["resources"] if f in keep},
              "conflicts": manifest.conflicts},
             next(la for la in layers if la.tool == characters.TOOL))
 
 
 @pytest.mark.parametrize("release", RELEASES)
-def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_modkits_file_for_file(
+def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_their_goldens_file_for_file(
         release, request, no_content, tmp_path):
     """The townsfolk's bare-hands kit (the weaponless townsfolk's weapon,
     ``bare_hands`` and the spin attack) and the air
-    elemental's funnel ship in the package (D965: each file Modkit's at the
-    models tag, ORACLE.toml's ``models.source``), so with an empty content
+    elemental's funnel ship in the package (D965), so with an empty content
     folder a townsman's and the air elemental's own bodies (``probes.json``'s
-    species probes) are Modkit's file for file and resource for resource on
+    species probes) are their goldens' file for file and resource for resource on
     both releases, and on USA so is each G3 case that reads the kit or the
     funnel (:data:`KIT`, :func:`_missed`). A build that needs a file the
     content folder lacks (booblord's clips) fails naming it."""
@@ -363,7 +347,7 @@ def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_modkits_
     image_path = request.getfixturevalue(f"{release.name}_iso")
     with iso.Reader(image_path) as r:
         vanilla = {f: r.read(f) for f in characters.FILES}
-    species = {case: probe for case, probe in _oracle("probes.json").items() if "variants" not in probe}
+    species = {case: probe for case, probe in _golden("probes.json").items() if "variants" not in probe}
     assert sorted(probe["character"]["species"] for probe in species.values()) == ["air_elemental", "town_male_6"]
     built = {case: _probe(probe, release, image_path, vanilla, tmp_path)[:2] for case, probe in species.items()}
     assert {case: got for case, (_, got) in built.items()} == {case: want for case, (want, _) in built.items()}
@@ -444,16 +428,16 @@ def test_a_character_builds_recipe_rebuilds_its_image(release, request):
 
 
 @pytest.mark.parametrize("release", RELEASES)
-def test_each_variant_probe_is_modkits_file_for_file_and_resource_for_resource(release, request, no_content, tmp_path):
-    """Each of ``probes.json``'s variants (Modkit's own build of it at the
-    models tag: a recipe file's variant whose mesh is subdivided, deformed and
+def test_each_variant_probe_is_its_goldens_file_for_file_and_resource_for_resource(release, request, no_content,
+                                                                                   tmp_path):
+    """Each of ``probes.json``'s variants (a recipe file's variant whose mesh is subdivided, deformed and
     grown a tube, its textures painted and coloured, its bones on jiggle
     springs, a shape sized, worn with a weapon), built through ``sdk.image``
-    from its recipe file with an empty content folder, gives every file Modkit's build changed Modkit's
-    sha256 and characters.xbr's and fx.xbr's resources as Modkit's, with no
+    from its recipe file with an empty content folder, gives every file the golden's build changed its
+    sha256 and characters.xbr's and fx.xbr's resources as the golden's, with no
     conflict. The layer's recipe holds the variant's sha, and neither it nor
     a note holds the recipe file's folder."""
-    probes = {case: probe for case, probe in _oracle("probes.json").items() if "variants" in probe}
+    probes = {case: probe for case, probe in _golden("probes.json").items() if "variants" in probe}
     assert probes
     with iso.Reader(image_path := request.getfixturevalue(f"{release.name}_iso")) as r:
         vanilla = {f: r.read(f) for f in characters.FILES}
@@ -619,19 +603,35 @@ def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path
     assert view["chosen"]["locked"]["mode"] == "own" and view["character"] == {"species": "beamlord"}
 
 
-def test_the_g4_buttons_values_are_modkits_garret_match(usa_iso):
-    """``sdk.match`` (P52, D358; Modkit's ``_player_match``, the sync's): keylord's and beamlord's Model size,
-    Attack reach, speed and damage over the packs on by default are Modkit's ``garret_match`` exactly
-    (``matches.json``), each box's text 4 figures rounded up; garret4's own body matches at 1."""
+def test_the_g4_buttons_values_are_their_goldens_garret_match(usa_iso):
+    """``sdk.match`` (P52, D358; Modkit's ``_player_match``, ported): keylord's and beamlord's Model size,
+    Attack reach, speed and damage over the packs on by default are the golden's exactly (``matches.json``,
+    first recorded as Modkit's ``garret_match``), each box's text 4 figures rounded up; garret4's own body
+    matches at 1."""
     packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     keys = dict(zip(characters.MATCHED, ("size", "reach", "speed", "damage")))
-    for name, want in _oracle("matches.json")["usa"].items():
+    for name, want in _golden("matches.json")["usa"].items():
         got = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": name}})
         assert got["values"] == {k: want[v] for k, v in keys.items()} and got["why"] == want["why"], name
         assert all(float(got["text"][k]) >= v and len(got["text"][k].replace(".", "").lstrip("0")) <= 4
                    for k, v in got["values"].items()), name
     garret = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": "garret4"}})
     assert garret["values"] == dict.fromkeys(characters.MATCHED, 1.0) and garret["text"]["scale"] == "1"
+
+
+def test_the_recorder_writes_the_characters_goldens_from_azurkits_own_builds(usa_iso, tmp_path, monkeypatch, capsys):
+    """The characters' goldens are AzurKit's own (Step 4.12c; before it Modkit's oracle bundle):
+    ``scripts/record_goldens.py`` writes ``matches.json`` from ``sdk.match`` on the player's image byte for byte
+    as committed, naming the case it wrote, and ``--check`` names a case that differs."""
+    committed = (record_goldens.GOLDENS / record_goldens.MATCHES).read_text(encoding="utf-8")
+    monkeypatch.setattr(record_goldens, "GOLDENS", tmp_path)
+    images = record_goldens.Images({gate.USA: usa_iso})
+    assert record_goldens.main([record_goldens.MATCHES], images) == 0
+    assert capsys.readouterr().out.splitlines() == ["wrote: matches.json", "changed: matches.json: usa"]
+    assert (tmp_path / record_goldens.MATCHES).read_text(encoding="utf-8") == committed
+    (tmp_path / record_goldens.MATCHES).write_text(record_goldens.text({"usa": {}}), encoding="utf-8")
+    assert record_goldens.main(["--check", record_goldens.MATCHES], images) == 1
+    assert capsys.readouterr().out == "differs: matches.json: usa\n"
 
 
 # --- the built-in variants, the effects templates and a seed with a character (Step 4.3c2) ----------------------
@@ -644,7 +644,7 @@ def _content_source() -> str:
     clone beside the main checkout (as ``$AZURKIT_MODKIT`` finds Modkit)."""
     if env := os.environ.get(sdk.SOURCE_ENV):
         return env
-    common = subprocess.run(["git", "-C", str(oracle_sync.ROOT), "rev-parse", "--path-format=absolute",
+    common = subprocess.run(["git", "-C", str(record_goldens.ROOT), "rev-parse", "--path-format=absolute",
                              "--git-common-dir"], capture_output=True, text=True, check=True).stdout.strip()
     return str(Path(common).parent.parent / "Azurik-Custom-Content")
 
@@ -652,21 +652,18 @@ def _content_source() -> str:
 @pytest.fixture
 def booblords(tmp_path_factory, monkeypatch):
     """Booblord installed from Azurik-Custom-Content (:func:`_content_source`:
-    Install's own path, ``sdk.content_install``, every file checked) into a
-    new content folder, which the build processes read (``AZURKIT_CONTENT``);
-    the files it installs are ORACLE.toml's ``models.content``, Modkit's
-    copies of her clips and voice. A source it can't read stops the test with
-    one message."""
+    Install's own path, ``sdk.content_install``, every file checked against
+    that repository's own manifest) into a new content folder, which the
+    build processes read (``AZURKIT_CONTENT``). A source it can't read stops
+    the test with one message."""
     source, folder = _content_source(), tmp_path_factory.mktemp("content")
     monkeypatch.setattr(content, "ROOT", folder)
     monkeypatch.setenv(content.ENV, str(folder))
     try:
-        record = sdk.content_install({"id": "booblord", "source": source})["installed"]["booblord"]
+        sdk.content_install({"id": "booblord", "source": source})
     except (OSError, ValueError) as exc:
         pytest.fail(f"Azurik-Custom-Content's booblord can't be installed from {source} (set "
                     f"{sdk.SOURCE_ENV}, or clone it beside the main checkout): {exc}", pytrace=False)
-    held = {rel: sha for rel, sha in record["files"].items() if not rel.startswith("variants/")}
-    assert held == oracle_sync.read_index()["models"]["content"], "booblord's files aren't models.content's"
 
 
 def _variants(release, folder: Path) -> dict[str, dict]:
@@ -674,28 +671,21 @@ def _variants(release, folder: Path) -> dict[str, dict]:
     variant: each built-in's (:data:`VARIANTS`, booblord with a weapon
     among them) and the effects case's, a recipe file's (written in
     ``folder``) whose fireball row is made of the effects templates."""
-    out = {}
-    for case, spec in _oracle("cases.json")[G3[release.name]].items():
-        args = spec["args"]
-        if args["player_character"] not in VARIANTS and not args["player_variant_file"]:
-            continue
-        character = _character(args)
-        if rel := args["player_variant_file"]:
-            (path := folder / PurePath(rel).name).write_text(json.dumps(spec["files"][rel]), encoding="utf-8")
-            character["variant_file"] = str(path)
-        out[case] = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
-                     "character": character}
-    return out
+    return {case: {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+                   "character": record_goldens.character(spec, folder)}
+            for case, spec in _models(release.name).items()
+            if spec["args"]["player_character"] in VARIANTS or spec["args"]["player_variant_file"]}
 
 
 @pytest.mark.parametrize("release", RELEASES)
-def test_each_variant_case_is_modkits_file_for_file_and_resource_for_resource(release, request, booblords, tmp_path):
+def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resource(release, request, booblords,
+                                                                                  tmp_path):
     """Each of G3's variant cases (:func:`_variants`: on USA the five
     built-in variants' recipes applied to the player's image, booblord's
     clips and voice installed from Azurik-Custom-Content (:func:`booblords`),
     booblord with a weapon,
     and the effects case; on Europe the effects case) built through
-    ``sdk.image`` is Modkit's file for file and resource for resource, its
+    ``sdk.image`` is its golden's file for file and resource for resource, its
     default.xbe written inside its claims and the facts' swap sites
     (:func:`_missed`, in 4 processes: booblord's builds take minutes)."""
     cases = _variants(release, tmp_path)
@@ -705,25 +695,23 @@ def test_each_variant_case_is_modkits_file_for_file_and_resource_for_resource(re
 
 
 @pytest.mark.parametrize("release", RELEASES)
-def test_a_randomized_build_wears_a_character_as_modkits_seed_0_all(release, request):
+def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release, request):
     """G3's ``seed=0,all`` (Modkit's ``randomize-full --seed 0`` with
     flicken's body, the movement sliders, packs and a config mod, its
     settings flags and obsidian cost; ``record_goldens.recipe``'s
     translation) built through ``sdk.image``: the plan stands on the walk
-    and roll the body's size folds, and every file Modkit's build changed
-    is Modkit's but ``training_room.xbr`` (its level_patches, AZ-009) and
-    filelist.txt, which lists it; the image reads back to the plan, and the
+    and roll the body's size folds, and every file G3 records (Modkit's
+    build changed them all but ``training_room.xbr``, its level_patches,
+    AZ-009, and filelist.txt, which lists it) is the golden's; the image reads back to the plan, and the
     logic is unverified with the packs' reasons and the body's
     (``characters.reasons``: flicken's x0.351 height, in the words of
     Modkit's verdict of this build). A body no
     sitting graded, with no melee idle swing, a weak attack or one that
     never ends gives Modkit's reasons for each."""
     path = request.getfixturevalue(f"{release.name}_iso")
-    spec = _oracle("cases.json")[G3[release.name]][SEEDED]
-    recipe = record_goldens.recipe("pipelines.json", spec, path) | {"character": _character(spec["args"]),
-                                                                     "iso": str(path)}
-    made, report = sdk.image(recipe)
-    usa, golden = _oracle(G3["usa"])[SEEDED], _oracle(G3[release.name])[SEEDED]
+    spec = record_goldens.cases(G3[release.name])[SEEDED]
+    made, report = sdk.image(record_goldens.recipe(G3[release.name], spec, path) | {"iso": str(path)})
+    usa, golden = _golden(G3["usa"])[SEEDED], _golden(G3[release.name])[SEEDED]
     want = {f: sha for f, sha in ({f: sha for f, sha in usa.items() if f.endswith(".xbr")} | golden).items()
             if f not in record_goldens.LEVEL_PATCHED}
     assert {f: report["result"].get(f) for f in want} == want and report["conflicts"] == []
@@ -737,12 +725,12 @@ def test_a_randomized_build_wears_a_character_as_modkits_seed_0_all(release, req
         "not yet tested as a ", "none of its idle swi", "an attack deals x0.2", "--player-attack-spee"]
 
 
-def test_a_body_case_under_pyodide_is_modkits_file_for_file(usa_iso, pyodide):
+def test_a_body_case_under_pyodide_is_its_goldens_file_for_file(usa_iso, pyodide):
     """keylord's case built by ``sdk.image`` under Pyodide on Node (the
     site's runtime, D882: swaps on the site too), from the wheel alone with
-    Pyodide's numpy wheel loaded, changes each file G3 records to Modkit's
+    Pyodide's numpy wheel loaded, changes each file G3 records to its
     sha256."""
     case = "randomize-full:player-character=keylord"
     got = pyodide(image=_bodies()[case] | {"iso": str(usa_iso)}, packages=(_pyodide.numpy(),))
     assert (got["code"], got["platform"]) == (0, "emscripten"), got["stderr"][-2000:]
-    assert got["report"]["result"] == {f: sha for f, sha in _oracle(G3["usa"])[case].items() if f != "ISO"}
+    assert got["report"]["result"] == {f: sha for f, sha in _golden(G3["usa"])[case].items() if f != "ISO"}

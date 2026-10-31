@@ -1,8 +1,9 @@
 """Character swaps and variants; the only package that may import numpy.
 
 The swap is Modkit's (its ``patches/_player_*.py`` and its build-half
-``assets/``, X.100), ported by ``scripts/oracle_sync.py`` (the models
-family: never edit those files by hand): ``_player_character.py`` dresses
+``assets/``, X.100), ported by the models family's oracle sync and
+AzurKit's own source since Step 4.12c (Modkit 1648692, oracle-models-3;
+its goldens are ``tests/goldens/``'s): ``_player_character.py`` dresses
 the player in a species' body (W1-W41: the body and its clips, retargeted
 from garret4's where it lacks one, the sizes, the attacks and their sounds
 and fx) and hooks the 40 ``player_model`` shims into ``default.xbe``

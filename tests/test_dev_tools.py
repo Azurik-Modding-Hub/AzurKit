@@ -47,11 +47,11 @@ def test_a_change_in_the_oracle_or_the_goldens_picks_the_test_files_that_read_th
     (``scripts/oracle_sync.py``'s ORACLE, ``scripts/record_goldens.py``'s
     GOLDENS, ``tests/test_art.py``'s own), not the smoke files alone."""
     deps = fullsuite.graph(ROOT)
-    oracle = fullsuite.plan(["tests/oracle/models/probes.json", "tests/oracle/ORACLE.toml"], deps)
-    assert {f"tests/test_{name}.py" for name in ("characters", "hosts", "shims", "randomizer", "art", "site",
-                                                 "packs")} <= set(oracle) - set(SMOKE)
-    goldens = fullsuite.plan(["tests/goldens/packs.json"], deps)
-    assert {f"tests/test_{name}.py" for name in ("packs", "builds", "shims", "xbr", "fps_unlock")} <= set(goldens)
+    oracle = fullsuite.plan(["tests/oracle/rando/cases.json", "tests/oracle/ORACLE.toml"], deps)
+    assert {f"tests/test_{name}.py" for name in ("hosts", "randomizer", "art", "site")} <= set(oracle) - set(SMOKE)
+    goldens = fullsuite.plan(["tests/goldens/probes.json"], deps)
+    assert {f"tests/test_{name}.py" for name in ("characters", "packs", "builds", "shims", "xbr", "fps_unlock",
+                                                 "hosts")} <= set(goldens)
     assert "tests/test_art.py" not in goldens and "tests/test_xbr.py" not in oracle
 
 

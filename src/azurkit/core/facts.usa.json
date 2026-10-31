@@ -1,5 +1,5 @@
 {
- "_about": "The XBE half (the xbe's sha256, size, base and thunk table, the sections, each site's sha256 and each kernel slot) is written by scripts/gen_facts.py from the player's image, the swap from the models oracle; a site's address and size, the functions and Europe's address map are edited by hand. Hashes, sizes, names and addresses only.",
+ "_about": "The XBE half (the xbe's sha256, size, base and thunk table, the sections, each site's and each swap site's sha256 and each kernel slot) is written by scripts/gen_facts.py from the player's image; a site's address and size, the functions, the swap's sites and refs and Europe's address map are edited by hand. Hashes, sizes, names and addresses only.",
  "functions": {
   "CreateEventA": {
    "arg_bytes": 16,

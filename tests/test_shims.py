@@ -14,7 +14,6 @@ kernel stubs, parameters and carves) are ``tests/test_packs.py``'s,
 from __future__ import annotations
 
 import dataclasses
-import json
 import re
 import struct
 import subprocess
@@ -30,41 +29,38 @@ from azurkit.tools import mods
 from azurkit.tools.characters import ports
 from azurkit.tools.mods import engine
 from scripts import record_goldens
-from scripts.oracle_sync import ORACLE
 
 G2 = record_goldens.recorded("shims.json")
-G2_MODELS = json.loads((ORACLE / "models/tests/goldens/shims.json").read_text(encoding="utf-8"))
 
 
 def test_each_prebuilt_shim_is_its_sources_build_and_holds_its_g2_hash(usa_iso):
     """Every shim source has its object beside it, which zig builds from it
     byte for byte (``shimkit --check``, D895: roll.c's table filled from the
     USA image, so the test is ``vanilla``), and whose normalized sha256
-    is G2's record: the packs' eleven (``tools/mods/shims/<name>.c``, the
-    shared kernel-export resolver's among them; ``tests/goldens/shims.json``,
-    Modkit's build at its last cut) and the swap's forty
-    (``tools/characters/player_model/<stem>.c``, Modkit's, which the
-    sync installs; G2's ``player_model_<stem>.o`` at the models tag). Three
+    is G2's record (``tests/goldens/shims.json``, first recorded as Modkit's
+    build at its last cut): the packs' eleven (``tools/mods/shims/<name>.c``,
+    the shared kernel-export resolver's among them) and the swap's forty
+    (``tools/characters/player_model/<stem>.c``, G2's
+    ``player_model_<stem>.o``). Three
     hold zeros where a build writes back what Modkit's holds
     (``ports.HELD``: garret4's roll motion, read from the image, and
     constants whose bytes meet a vanilla file's by chance), which give
     G2's object back."""
-    folders = {shimkit.SHIMS: ("", G2), shimkit.PLAYER_MODEL: ("player_model_", G2_MODELS)}
-    for folder, (prefix, g2) in folders.items():
+    for folder, prefix in {shimkit.SHIMS: "", shimkit.PLAYER_MODEL: "player_model_"}.items():
         sources = {p.stem for p in folder.glob("*.c")}
         assert sources == {p.stem for p in folder.glob("*.o")} == {
-            name.removeprefix(prefix).removesuffix(".o") for name in g2
+            name.removeprefix(prefix).removesuffix(".o") for name in G2
             if name.startswith("player_model") == bool(prefix)}
         for name in sorted(sources - (set(ports.HELD) if prefix else set())):
             held = coff.normalized_sha256((folder / f"{name}.o").read_bytes())
-            assert held == g2[f"{prefix}{name}.o"]["normalized sha256"], name
+            assert held == G2[f"{prefix}{name}.o"]["normalized sha256"], name
     assert len(list(shimkit.PLAYER_MODEL.glob("*.o"))) == 40
     for stem, held in ports.HELD.items():   # zeros where a build writes back; its constants give G2's object back
         obj = coff.parse((shimkit.PLAYER_MODEL / f"{stem}.o").read_bytes())
         assert all(not any(obj.sections[(s := obj.symbol(name)).section - 1].data[s.value:s.value + 4])
                    for name in held), stem
         if not any(callable(value) for value in held.values()):   # garret4's roll table: tests/test_characters.py
-            assert coff.normalized_sha256(ports.restored(stem, obj)) == G2_MODELS[f"player_model_{stem}.o"][
+            assert coff.normalized_sha256(ports.restored(stem, obj)) == G2[f"player_model_{stem}.o"][
                 "normalized sha256"], stem
     assert shimkit.build(check=True) == []
 

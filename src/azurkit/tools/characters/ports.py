@@ -1,6 +1,6 @@
-"""What the player-model swap's modules (Modkit's, which the oracle sync
-installs: ``scripts/oracle_sync.py``'s ``SOURCES`` and ``FAMILY_REWRITES``)
-call of Modkit's engine, on AzurKit's. Ours, never the sync's.
+"""What the player-model swap's modules (Modkit's, which the models
+family's oracle sync ported, AzurKit's own since Step 4.12c) call of
+Modkit's engine, on AzurKit's.
 
 **The build** (:class:`Build`, :func:`building`): a swap runs inside one,
 which holds the release's vanilla files (:class:`Vanilla`), its facts and the

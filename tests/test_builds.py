@@ -43,6 +43,8 @@ def _cases(path) -> dict[str, tuple[dict, dict, tuple[str, ...]]]:
     for golden in ("pipelines.json", "gui.json"):
         recipes = record_goldens.cases(golden)
         for name, files in record_goldens.recorded(golden).items():
+            if golden == "pipelines.json" and record_goldens.wears(recipes[name]):   # tests/test_characters.py's
+                continue
             left = record_goldens.LEVEL_PATCHED if golden == "pipelines.json" and record_goldens.level_patched(
                 recipes[name]) else ()
             out[name] = (record_goldens.recipe(golden, recipes[name], path), files, left)

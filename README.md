@@ -143,8 +143,9 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Same bytes everywhere:** the page, the app and the command line make the identical image. One known exception
   for now: a weapon a body's moves lift off the floor (keylord's farmer's hoe) can differ in the browser by a few
   animation values too small to see.
-- **Proven exact:** packs, randomized seeds and character swaps are checked byte for byte against Azurik_Modkit,
-  the toolkit AzurKit replaces.
+- **Proven exact:** packs, randomized seeds and character swaps are checked byte for byte: seeds against
+  Azurik_Modkit, the toolkit AzurKit replaces, the packs and swaps against AzurKit's own records, which began as
+  Azurik_Modkit's.
 - **Nothing to compile:** AzurKit's C code for the game ships prebuilt, so nothing compiles on your computer or in
   your browser.
 - **Fast:** from the command line on our Mac: a patched image in about 3 s, a swap in 8 s, a seed under 30 s.
@@ -191,10 +192,10 @@ Azurik: Rise of Perathia or Xbox.*
 ## Development
 
 AzurKit is the lean rewrite of Azurik_Modkit, the proof of concept it replaces.
-The packs' truth is AzurKit's own: [`tests/goldens/`](tests/goldens/), per-file
-sha256s it records from its own builds. The randomizer and the characters are
-still checked against Modkit's recorded outputs, copied into
-[`tests/oracle/`](tests/oracle/).
+The truth of the packs and the characters is AzurKit's own:
+[`tests/goldens/`](tests/goldens/), per-file sha256s it records from its own
+builds. The randomizer is still checked against Modkit's recorded outputs,
+copied into [`tests/oracle/`](tests/oracle/).
 AzurKit never imports Modkit's code. A build's recipe is the two files at its
 image's root, `/azurkit.json` and `/azurkit.bin`.
 

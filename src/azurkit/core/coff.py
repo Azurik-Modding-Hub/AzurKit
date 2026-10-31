@@ -20,7 +20,7 @@ first.
 resolves its relocations: an absolute address (DIR32) or a rel32
 displacement (REL32), each to a symbol of its own or a vanilla function the
 facts name. :func:`normalized_sha256` is an object's identity as the
-oracle's G2 records it.
+golden G2 records it (``tests/goldens/shims.json``).
 """
 
 from __future__ import annotations
@@ -130,7 +130,7 @@ def parse(data: bytes) -> Coff:
 
 def normalized_sha256(data: bytes | Coff) -> str:
     """The sha256 of what decides the object's landed code (an object's
-    bytes, or one parsed), as the oracle's G2 records it: the machine, each
+    bytes, or one parsed), as the golden G2 records it: the machine, each
     landed section and ``.bss`` (name, flags, size, the sha256 of its bytes,
     and its relocations with each symbol by name), and the external symbols
     with their values; not the timestamp or the debug records, which change

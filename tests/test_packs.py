@@ -64,9 +64,13 @@ def test_the_recorder_writes_a_golden_from_its_cases_and_check_names_each_case_t
     changed (the editor's two cases here, into an empty folder; its first
     run on every golden left them all unchanged, Step 4.12a); ``--check``
     writes nothing and exits 1 naming each case that differs. Each built
-    golden holds exactly its recipes' cases, so a deleted row fails here."""
-    for golden in record_goldens.GOLDENS_BUILT:
+    golden holds exactly its recipes' cases (``resources.json`` each G3 case
+    that dresses the player), so a deleted row fails here."""
+    for golden in record_goldens.CASED:
         assert record_goldens.recorded(golden).keys() == record_goldens.cases(golden).keys(), golden
+    assert {g: rows.keys() for g, rows in record_goldens.recorded(record_goldens.RESOURCES).items()} == {
+        f"tests/goldens/{g}": {c for c, spec in record_goldens.cases(g).items() if record_goldens.wears(spec)}
+        for g in record_goldens.G3}
     name = "xbr_editor.json"
     committed = (record_goldens.GOLDENS / name).read_text(encoding="utf-8")
     rows = json.loads(committed)

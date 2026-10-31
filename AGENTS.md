@@ -1,10 +1,11 @@
 # AGENTS.md: rules for agents and contributors
 
 AzurKit is the lean, public rewrite of Azurik_Modkit. Modkit is its reference
-and, for the randomizer and the characters until Steps 4.12b and 4.12c, its
-test oracle: a port is done when its output matches Modkit's byte for byte,
-file by file. The packs' and the core's truth is AzurKit's own (The goldens,
-below). [`README.md`](README.md) says what AzurKit is. These rules bind.
+and, for the randomizer until Step 4.12b, its test oracle: a port is done
+when its output matches Modkit's byte for byte, file by file. Every other
+family's truth is AzurKit's own (The goldens, below): the core's and the
+packs' since Step 4.12a, the characters' since Step 4.12c.
+[`README.md`](README.md) says what AzurKit is. These rules bind.
 
 **README's features:** a change a player would notice adds or updates its
 line in README.md's Features (and Highlights if it earns one), in the same
@@ -82,30 +83,41 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## The goldens
 
-- `tests/goldens/` is AzurKit's own truth for the packs and the core (Step
-  4.12a): what each case of `tests/goldens/cases.json` (its recipe, edited by
-  hand) builds from the vanilla images, as names and sha256: G1 per pack
-  (`packs.json`, `europe/packs.json`), each XBE pack case's bytes at the
-  facts' sites (`sites.json`, `europe/sites.json`), the packs' shim objects
-  (G2, `shims.json`), the Game Data editor's cells (`xbr_editor.json`) and
-  whole builds (G3's packs cases `pipelines.json`, G4's `gui.json`).
+- `tests/goldens/` is AzurKit's own truth for every family but the
+  randomizer's: the packs and the core (Step 4.12a) and the characters
+  (Step 4.12c). It is what each case of `tests/goldens/cases.json` (its
+  recipe, edited by hand) builds from the vanilla images, as names and
+  sha256: G1 per pack (`packs.json`, `europe/packs.json`), each XBE pack
+  case's bytes at the facts' sites (`sites.json`, `europe/sites.json`), the
+  shim objects (G2, `shims.json`: the packs' and the swap's
+  `player_model_<stem>.o`), the Game Data editor's cells
+  (`xbr_editor.json`), whole builds (G3's packs and character cases
+  `pipelines.json` and `europe/pipelines.json`, G4's `gui.json`), each XBR
+  resource of every G3 build that dresses the player (`resources.json`),
+  the character probes no G3 case builds (`probes.json`: a variant's mesh,
+  paint and jiggle without Azurik-Custom-Content's files, a townsman's and
+  the air elemental's own bodies, on both releases) and the Characters
+  tab's match-Garret values (`matches.json`).
   - Only `scripts/record_goldens.py` writes them, from AzurKit's own builds
     on the player's images (`--check` writes nothing); never edit them by
     hand. A commit that changes one names each golden it changed and why,
     and a gameplay byte change to a default build is seen once in xemu.
-  - The first recording is Modkit's last cut (oracle-packs-4, Modkit
-    28d0b4110), which the recorder's first run wrote back unchanged.
+  - The first recording is Modkit's last cut (the packs and the core:
+    oracle-packs-4, Modkit 28d0b4110; the characters: oracle-models-3,
+    Modkit 1648692), which the recorder's first run wrote back unchanged
+    but the files AzurKit can't build (AZ-009: G3's `seed=0,all` leaves out
+    `training_room.xbr`, `filelist.txt` and `ISO`, as the packs' three
+    level-patched cases do).
+  - The cases that wear booblord read her files in the content folder
+    (`AZURKIT_CONTENT`, `azurkit content install booblord`); the builds
+    that dress the player run in `--workers` processes.
   - A new pack adds its cases to `cases.json` (its defaults in `packs.json`,
     `sites.json` and, for an XBE pack, Europe's), then records them.
-  - **The coupling rule until 4.12c:** the models family's G3 hashes of
-    `default.xbe` (`tests/oracle/models/`) still come from Modkit, and they
-    hold the packs on by default. A change that moves a default build's
-    bytes lands in Modkit too, or waits; a pack off by default is free.
 
 ## The oracle
 
-- `tests/oracle/<family>/` is Modkit's bundle for a family (`rando`,
-  `models`), cut at a Modkit tag. `tests/oracle/ORACLE.toml` records
+- `tests/oracle/<family>/` is Modkit's bundle for a family (`rando`, the
+  one left until Step 4.12b), cut at a Modkit tag. `tests/oracle/ORACLE.toml` records
   each family's tag, its commit and every file's sha256, and
   `tests/test_oracle.py` holds them to it.
   - Only `scripts/oracle_sync.py` changes these files; never edit them by hand.
@@ -137,36 +149,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     that still imports Modkit after the rewrites, or a statement `DROPS`
     names that is gone, stops the sync by name before anything is written:
     port what it imports into an AzurKit module, then add a rewrite.
-    Where two families port one Modkit file (`xbr/nodes.py`, `render.py`,
-    `draw.py`: the art's and the swap's), a family's own drops are in
-    `FAMILY_DROPS` and its own rewrites in `FAMILY_REWRITES` (applied first).
-    The rewrites are one table for every family: `tests/test_oracle.py`
-    ports each family's sources again at its recorded commit and holds them
-    to import-linter's contracts, so the suite reads Modkit's history
-    (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout).
-    The models family's sync installs the archive writers a character
-    swap builds on and the swap itself (see Characters below); a line of
-    Modkit's source that holds 8 or more bytes in a row of a vanilla file
-    is rewritten as the sync installs it (`FIXES`, by its path and sha256,
-    kept from before D961 as its default: a hook's vanilla bytes become
-    their size in zeros, PNG's signature is joined from two halves, a
-    recipe's long float gets an exponent, a shim's table of game data
-    becomes zeros), and
-    `NUMBERS` writes a tuple of byte-sized ints as a string's.
-  - **The sync's own files** (`oracle_sync.DERIVED`): the models family's
-    `swap.json` (the `swap` section of Modkit's facts, both releases),
-    `resources.json`, which `scripts/modkit_resources.py` makes by running
-    Modkit's own build of each G3 case that wears a model inside the
-    sync's clone of Modkit (never in AzurKit); each built file's sha256
-    must be G3's, or the sync stops with nothing written;
-    `matches.json`, Modkit's match-Garret values (`garret_match`, P52: the
-    Characters tab's G4 buttons) of a species and a variant on USA, which
-    `sdk.match` is held to; and
-    `probes.json`, its builds of AzurKit's probes
-    (`modkit_resources.probes`: a variant's recipe no G3 case builds
-    without Azurik-Custom-Content's files, and a townsman's and the air
-    elemental's own bodies, which G3 builds on USA only) on both releases,
-    each probe's recipe with its files' sha256 and resources.
+    `tests/test_oracle.py` ports the sources again at the recorded commit
+    and holds them to import-linter's contracts, so the suite reads Modkit's
+    history (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main
+    checkout).
+  - The models family's sync (until Step 4.12c, oracle-models-3, Modkit
+    1648692) installed the swap and the archive writers it builds on (see
+    Characters below); they are AzurKit's own source since, and its truth
+    AzurKit's goldens.
 - AzurKit never imports Modkit.
 - **The facts** (`src/azurkit/core/facts.<release>.json`: each release's XBE
   sha256, its sections, every patch site's size and vanilla sha256, the
@@ -174,11 +164,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   player-model swap's hooks (`swap`: the vanilla spans it writes and the
   addresses its shims call), Europe's address map). `scripts/gen_facts.py`
   writes their XBE half from the player's images (the XBE's sha256, size and
-  header, the sections, each site's vanilla sha256, each kernel slot) and the
-  swap from the models family's oracle (until Step 4.12c); a new site's
-  address and size, a function and Europe's address map are edited by hand,
-  then gen_facts fills in the rest. Run it after such an edit or a models
-  sync. `tests/test_packs.py` holds the files to it.
+  header, the sections, each site's and each swap site's vanilla sha256,
+  each kernel slot); a new site's address and size, a function, the swap's
+  sites (address, size, what writes it) and refs and Europe's address map
+  are edited by hand, then gen_facts fills in the rest (the swap's came from
+  Modkit's facts until Step 4.12c). Run it after such an edit.
+  `tests/test_packs.py` holds the files to it.
 
 ## Packs
 
@@ -246,8 +237,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   by side in `src/azurkit/tools/mods/shims/` (`<name>.c`, `<name>.o`), both
   committed, so no host compiles one: neither the site nor the app needs
   zig (AZ-045).
-  - The player-model swap's 40 shims are Modkit's sources, which the sync
-    installs (`tools/characters/player_model/<stem>.c`), their objects
+  - The player-model swap's 40 shims are Modkit's sources, ported and
+    AzurKit's own since Step 4.12c (`tools/characters/player_model/<stem>.c`), their objects
     beside them: shimkit's header types each game function they call as
     Modkit's header does (`TYPES`), writes the asm thunks for those that take
     an argument in a register (`THUNKS`) and an `azurik.h` for the
@@ -265,8 +256,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - `uv run --locked python -m shimkit` builds every object with the pinned
     zig (`ziglang` 0.16.0, the dev group) and Modkit's flags: the same
     bytes on any machine, whose normalized sha256 is G2's record
-    (`tests/goldens/shims.json` for the packs', the models oracle's for the
-    swap's; `tests/test_shims.py` holds both). Rebuild after editing a source;
+    (`tests/goldens/shims.json`, the packs' and the swap's;
+    `tests/test_shims.py` holds both). Rebuild after editing a source;
     `--check` writes nothing.
   - A shim includes only the headers shimkit writes from the facts at every
     compile (`--headers DIR` writes them out to read), or one of its own
@@ -400,7 +391,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 ## Characters
 
 - **The swap** (Step 4.3a2) is Modkit's, which the models family's sync
-  installs (never edit those files by hand): its `patches/_player_*.py` and
+  installed, AzurKit's own source since Step 4.12c (Modkit takes nothing
+  of it since, D959): its `patches/_player_*.py` and
   the build half of its `assets/` (X.100; never `azurik_mod/authoring`) in
   `tools/characters/`, its recipes and grades (`weapons.json`,
   `variants.json`, `chains.json`, `fx_templates.json`, `*_grades.json`),
@@ -459,8 +451,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     variant whose sha isn't this AzurKit's is named, with what to Install or
     Update. The remembered setup keeps one too (`sdk.SETUP`'s `character`).
   - **The match-Garret values** (Step 4.3d, P52, D358; the G4 buttons):
-    Modkit's `_player_match.py`, which the sync installs, its staging and
-    packs rewritten out (`FAMILY_REWRITES`): `characters.match` hands its
+    Modkit's `_player_match.py`, ported, its staging and
+    packs rewritten out: `characters.match` hands its
     `garret_match` a staging of the image with the build's packs applied,
     and `sdk.match` keeps each recipe's answer for the process (a dress
     takes seconds).
@@ -470,21 +462,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     with its throw, thuds and whooshes) and the worn air elemental's funnel
     (`tools/characters/fx/air_elemental/`), our own work made in Blender
     on the game's rigs, ship in the package and the wheel, so neither swap
-    needs a download. The models family's sync installs Modkit's files as
-    they are (`oracle_sync.SOURCES`), and ORACLE.toml's `models.source`
-    keeps each one's sha256.
+    needs a download.
   - **The content folder** (Step 4.3b, `tools/characters/content.py`): the
     files the swap reads that Azurik-Custom-Content carries, never this
     repository or the wheel (D869, D965: optional extras): booblord's clips
     and voice (`clips/booblord/`, `sounds/booblord/`). It is the folder
     `AZURKIT_CONTENT` names, else `content` in the user data folder (beside
-    the images' links), read once a process; the sync's `FIXES` point
-    `_player_variants`' `SOUNDS` and `CLIPS` at it. The models family's sync
-    writes no content folder (Step 4.3d): ORACLE.toml's `models.content`
-    pins Modkit's copies (`oracle_sync.CONTENT`, less what `SOURCES`
-    ships), which Azurik-Custom-Content's must equal, and Install (below)
-    writes the folder. A build that needs a file the folder lacks fails
-    naming it.
+    the images' links), read once a process (`_player_variants`' `SOUNDS`
+    and `CLIPS`). Install (below) writes the folder, every file held to
+    Azurik-Custom-Content's own manifest, and the five built-in variants
+    stay the engine's (`variants.json`). A build that needs a file the
+    folder lacks fails naming it.
   - **Install and Update** (Step 4.3d, D913, D966): `content.check` reads
     Azurik-Custom-Content's `manifest.json` (its entries, each one's
     version and files with their sha256 and size, the entries it
@@ -520,23 +508,23 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   operations (Modkit's `mod_apply` order).
 - **Its checks** (`tests/test_characters.py`): every body round-trips
   through the codec, appended resources resolve by name with the old ones
-  unmoved, each G3 model case's `index.xbr` is Modkit's byte for byte
+  unmoved, each G3 model case's `index.xbr` is its golden's byte for byte
   (from `resources.json`'s records, on both releases), the swap's XBE
   sites hold their vanilla bytes on both releases, a layer's whole files
   build an image that reads back, and, with an empty content folder, each
   of G3's 27 body cases (its weapon and sound cases, the bare-hands kit's
-  and the funnel's, and garret4's own body among them) is Modkit's file
+  and the funnel's, and garret4's own body among them) is its golden's file
   for file and resource for resource, its default.xbe writes inside its
   claims and the facts' swap sites (keylord's whole image too), and so is
   each probe of `probes.json` (the variant's, a townsman's and the air
   elemental's), on both releases; a build that needs booblord's clips
   fails there naming the file. With booblord installed from Azurik-Custom-Content
   into a new content folder (the `booblords` fixture: Install's own path,
-  from `$AZURKIT_CONTENT_SOURCE`, else the clone beside the main checkout,
-  its files ORACLE.toml's `models.content`), each of G3's 7 variant cases (the five built-ins' recipes
+  from `$AZURKIT_CONTENT_SOURCE`, else the clone beside the main checkout),
+  each of G3's 7 variant cases (the five built-ins' recipes
   applied to the player's image, booblord's with her lods and with a
   weapon, and the effects case, a recipe file's fireball row made of the
-  effects templates) is Modkit's the same way, and the effects case on
+  effects templates) is its golden's the same way, and the effects case on
   Europe too: 34 of G3's 34 USA model cases.
 
 ## The engine's contracts

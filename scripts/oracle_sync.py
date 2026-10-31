@@ -1,6 +1,6 @@
 """Copy Modkit's oracle bundle for the given families into ``tests/oracle/``.
 
-    uv run --locked python scripts/oracle_sync.py --modkit PATH --ref REF --tag NAME --family rando --family models
+    uv run --locked python scripts/oracle_sync.py --modkit PATH --ref REF --tag NAME --family rando
 
 The script clones Modkit at REF into a scratch folder. It uses ``git clone
 --shared``, so Modkit's checkout and refs are left as they are. It then runs
@@ -13,10 +13,12 @@ tag the bundle is cut at), its commit and the sha256 of every file;
 When a family was synced before, the script prints Modkit's commits since that
 sync that touch the family's paths. That list is the port's to-do. AzurKit never
 imports Modkit: the bundle holds sha256s, names and recipes (never game bytes).
-Two families are left, ``rando`` and ``models`` (until Steps 4.12b and 4.12c):
-the core and packs families' truth is AzurKit's own since Step 4.12a, its
-goldens recorded from its own builds (``scripts/record_goldens.py``) and its
-facts' XBE half read from the player's images (``scripts/gen_facts.py``).
+One family is left, ``rando`` (until Step 4.12b): every other family's truth
+is AzurKit's own, the core's and the packs' since Step 4.12a and the
+characters' (models) since Step 4.12c, its goldens recorded from its own
+builds (``scripts/record_goldens.py``) and its facts' XBE half read from the
+player's images (``scripts/gen_facts.py``); the swap's modules the models
+family's sync installed are AzurKit's own source since.
 
 A family's sync also installs the Modkit source it ports as it is
 (:data:`SOURCES`): the randomizer's data (and the movement tiers' margins),
@@ -29,24 +31,7 @@ engine can't hold, a process pool, Modkit's build objects, a file beside
 the ISO). ORACLE.toml's ``source`` table keeps each installed file's
 sha256, so a later Modkit fix arrives by the same sync, never by hand. A
 module that still imports Modkit after its rewrites, or a statement DROPS
-names that is gone, stops the sync before anything is written. The models
-family's installs the archive writers a character swap builds on (Step
-4.3a1): ``xbr/append.py`` (new resources and their relocations, grown
-payloads), ``index.xbr``'s records, ``characters.xbr``'s bodies and clips
-and the body codec, and the townsfolk's bare-hands kit and the air
-elemental's funnel (our own Blender work, as they are, Step 4.3b2).
-
-Four of a family's files are the sync's own (:data:`DERIVED`), not Modkit's
-bundle: the models family's ``swap.json``, the player-model swap's XBE hooks
-(the ``swap`` section of Modkit's facts, both releases: each vanilla span it
-writes as size and sha256, each address its shims call),
-``resources.json``, one sha256 per XBR resource of every G3 build that wears
-a model, which ``scripts/modkit_resources.py`` makes by running Modkit's own
-builds in the clone (checked against G3's per-file hashes first), and
-``probes.json``, its builds of AzurKit's variant probes on both releases
-(a variant's mesh, paint and jiggle, Step 4.3c1: each probe's recipe, its
-files' sha256 and resources), and ``matches.json``, Modkit's G4 match
-values (``garret_match``, P52) of a species and a variant on USA (Step 4.3d).
+names that is gone, stops the sync before anything is written.
 """
 
 from __future__ import annotations
@@ -56,7 +41,6 @@ import ast
 import hashlib
 import json
 import os
-import re
 import shutil
 import struct
 import subprocess
@@ -69,7 +53,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ORACLE = ROOT / "tests" / "oracle"
-FAMILIES = ("rando", "models")
+FAMILIES = ("rando",)
 PATHS = {   # where each family's code and records live in Modkit (its tag bump's commit list)
     "rando": ("azurik_mod/randomizer", "azurik_mod/sim/pages.py", "azurik_mod/sim/recipes.py",
               "tests/goldens/rando_plans.json", "tests/goldens/rando_iso.json",
@@ -78,18 +62,8 @@ PATHS = {   # where each family's code and records live in Modkit (its tag bump'
               *(f"azurik_mod/xbr/{name}" for name in ("nodes.py", "node_types.json", "tern.py", "collision.py",
                                                       "render.py", "draw.py")),
               "scripts/render_level_maps.py", "scripts/render_model_icons.py", "gui/assets/maps", "gui/assets/icons"),
-    "models": ("azurik_mod/patches/player_model", "azurik_mod/patches/_player_*", "azurik_mod/assets",
-               "azurik_mod/xbr/append.py", "azurik_mod/xbr/nodes.py", "azurik_mod/xbr/node_types.json",
-               "azurik_mod/xbr/clone.py", "azurik_mod/xbr/render.py", "azurik_mod/xbr/draw.py", "tests/facts", "tests/goldens/shims.json", "tests/goldens/pipelines.json",
-               "tests/goldens/europe/pipelines.json", "tests/goldens/gui.json"),
 }
-DERIVED = {"models": ("matches.json", "probes.json", "resources.json", "swap.json")}   # the sync's own (docstring)
-SWAP = (("usa", "tests/facts/xbe.json"), ("europe", "tests/facts/xbe.europe.json"))   # Modkit's facts: swap.json's
-
-
 RANDO = "src/azurkit/tools/randomizer"
-CHARACTERS = "src/azurkit/tools/characters"
-CHARACTERS_PKG = "azurkit.tools.characters"
 LIVE = f"{RANDO}/live"   # the app's Live tracker (its link reads a running xemu): the contracts' app-only folder
 ART = f"{RANDO}/art"     # the maps and icons drawn from the player's image (with draft/, the randomizer's numpy)
 SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's folder or file, AzurKit's, through port())
@@ -114,122 +88,13 @@ SOURCES = {   # Modkit's source a family's sync installs in AzurKit's: (Modkit's
                 for name in ("nodes.py", "node_types.json", "tern.py", "collision.py", "render.py", "draw.py")),
               ("scripts/render_level_maps.py", f"{ART}/maps.py", True),
               ("scripts/render_model_icons.py", f"{ART}/icons.py", True)),
-    # the archive writers a swap builds on (Step 4.3a1): append and relocations in core, the rest the tool's;
-    # the swap's build half (Step 4.3a2): Modkit's patches/_player_*.py and its build-half assets/ (X.100: never
-    # azurik_mod/authoring), the 40 player_model shims' sources, the node graphs and their names table (X.102) and
-    # the resource copier in core, the mesh reader and drawer the tool's (numpy)
-    "models": (("azurik_mod/xbr/append.py", "src/azurkit/core/xbr/append.py", True),
-               ("azurik_mod/xbr/nodes.py", "src/azurkit/core/xbr/graph.py", True),
-               ("azurik_mod/xbr/node_types.json", "src/azurkit/core/xbr/node_types.json", False),
-               ("azurik_mod/xbr/clone.py", "src/azurkit/core/xbr/clone.py", True),
-               *((f"azurik_mod/xbr/{name}.py", f"{CHARACTERS}/{name}.py", True) for name in ("render", "draw")),
-               ("azurik_mod/assets/*.py", CHARACTERS, True),
-               *((f"azurik_mod/assets/{name}.json", f"{CHARACTERS}/{name}.json", True)
-                 for name in ("chains", "fx_templates", "mode_grades", "variant_grades", "variants", "weapon_grades",
-                              "weapons")),
-               ("azurik_mod/patches/_player_*.py", CHARACTERS, True),
-               ("azurik_mod/patches/player_model/*.c", f"{CHARACTERS}/player_model", True),
-               # the townsfolk's bare-hands kit and the air elemental's funnel (Step 4.3b2, D965: our own Blender
-               # work, in the package and the wheel), as they are; the rest of CONTENT stays in the content folder
-               ("azurik_mod/assets/clips/townsfolk", f"{CHARACTERS}/clips/townsfolk", False),
-               ("azurik_mod/assets/fx/air_elemental", f"{CHARACTERS}/fx/air_elemental", False)),
 }
 #: The pictures Modkit commits of what it draws from the image (Step 4.2c3): the level maps (``maps.json`` and each
 #: floor's and the world's PNG) and the item icons, recorded in ORACLE.toml's ``<family>.art`` table as each
 #: picture's :func:`pixel_digest` and ``maps.json``'s sha256 (no picture is copied), which AzurKit's drawings
 #: are held to (``tests/test_art.py``).
 ART_FILES = {"rando": ("gui/assets/maps", "gui/assets/icons")}
-OURS = frozenset(f"{CHARACTERS}/{name}.py" for name in ("__init__", "content", "picker", "ports", "pool"))
-"""AzurKit's own files in a folder a glob of :data:`SOURCES` installs into (:func:`installed`)."""
-OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py",   # AzurKit's own instead: tools/randomizer/dbcache.py
-                 # the swap's: tools/characters/__init__.py, pool.py (no child processes: a host's map) and
-                 # ports.py (what the swap calls of Modkit's engine, and the release a file is of); not on the
-                 # build path: filelist.py (its listing)
-                 "azurik_mod/assets/__init__.py", "azurik_mod/assets/pool.py", "azurik_mod/assets/vanilla.py",
-                 "azurik_mod/assets/filelist.py"})
-FAMILY_REWRITES = {   # a family's own rewrites, applied before REWRITES
-    "models": (  # the swap's engine calls: AzurKit's tools/characters/ports.py and core
-        # the G4 match (Step 4.3d, P52): garret_match dresses the staging its host hands it as ``iso``, the
-        # build's packs already applied there (sdk.match), so it stages and applies none of its own
-        ("    from azurik_mod.assets.model_inspect import DEFAULT_RAM, ram_packs\n", ""),
-        ("    from azurik_mod.patching.mod_apply import LayerLog, apply_enabled_packs, build_packs\n"
-         "    from azurik_mod.patching.xbr_staging import IsoStaging\n", ""),
-        ("game, logic = IsoStaging(Path(iso)), AttackLogic()", "game, logic = iso, AttackLogic()"),
-        ('        apply_enabled_packs(game["default.xbe"], build_packs(ram_packs(ram or DEFAULT_RAM)), {}, game, '
-         'LayerLog())\n', ""),
-        ("from azurik_mod.assets.vanilla import xbe_layout\n", "from azurkit.core.facts import xbe_layout\n"),
-        ("from azurik_mod.patching.xbe import resolve_va_to_file\n", "from azurkit.core.xbe import resolve_va_to_file\n"),
-        ("from azurik_mod.xbr.edits import XbrStructuralError\n",
-         "from azurkit.core.xbr.nodes import XbrStructuralError\n"),
-        ("from azurik_mod.xbr.nodes import", "from azurkit.core.xbr.graph import"),
-        ("from azurik_mod.xbr import nodes", "from azurkit.core.xbr import graph as nodes"),
-        ("from azurik_mod.xbr.clone import", "from azurkit.core.xbr.clone import"),
-        ("from azurik_mod.xbr import render", "from azurkit.tools.characters import render"),
-        ("from azurik_mod.xbr.draw import", "from azurkit.tools.characters.draw import"),
-        *((f"from azurik_mod.{module} import", f"from {CHARACTERS_PKG}.ports import")
-          for module in ("xbr", "xbr.edits", "assets.vanilla", "config.keyed_tables", "iso.xiso", "randomizer.levels",
-                         "patching", "patching.apply", "patching.feature", "patching.shim_session",
-                         "patching.shim_toolchain", "patching.spec", "patching.xbe", "patching.xbr_spec",
-                         "patching.xbr_staging", "patching.registry")),
-        ("from azurik_mod.patches import", f"from {CHARACTERS_PKG} import"),
-        ("from azurik_mod.patches._player_", f"from {CHARACTERS_PKG}._player_"),
-        ("from azurik_mod.assets import", f"from {CHARACTERS_PKG} import"),
-        ("from azurik_mod.assets.", f"from {CHARACTERS_PKG}."),
-        ('Path(__file__).resolve().parents[1] / "assets"', "Path(__file__).resolve().parent"),   # one folder
-        # IsoStaging takes the vanilla files a build read (ports.Vanilla), not an image's path
-        ("scratch = IsoStaging(Path(iso))", "scratch = IsoStaging(iso)"),
-        ("game = IsoStaging(Path(iso))", "game = IsoStaging(iso)")),   # a variant's default weapon (Step 4.3c1)
-}
-# Lines of Modkit's source a family's sync installs that hold 8 or more bytes in a row of a vanilla file
-# (the leak guard's rule before D961, kept as its default), by their path and sha256, each with how port() rewrites
-# it (:data:`LINE_FIXES`): a hook's vanilla bytes become their size in zeros (the swap checks the image's own
-# against the facts' swap site, never these); PNG's signature (a format constant every PNG starts with, which
-# default.xbe holds too) is joined from two halves; a recipe's long float is written with an exponent; a shim's
-# table of game data becomes zeros, which each build writes back from the image (``ports.HELD``). Beside them, the
-# lines that name the folders of files Azurik-Custom-Content carries (CONTENT) read them in the content folder.
-FIXES = {
-    **{("azurik_mod/patches/_player_character.py", sha): "vanilla" for sha in (
-        "e1de347bd29487c5e017fd4b64394335ae7ee455c1d17c297e342bdb72a178ed",
-        "a14cfb8e9842da2c19b826e863e6cf94fb77b245a5f053d063fa3989b6cb07d6",
-        "0de27770b13bbd501e11470fd123e76c4bb21dd4792a40e920286e77e3caeed4",
-        "1411f67ef03c6bd7862bf2e538e525db43238dc46ef569d95e04b47ebc5bee70",
-        "d90f28f9e642668fa83bba0c45062accd9fd7a64374404a42aab08e7da2f4058",
-        "b96ccb0a0c3c3f97d63002611d2a71e3a37485f556d102321298a69e1ad82986",
-        "70bb25094ada32d4cb91d3611a3062715446a691c490faff8506782667e1d434",
-        "3da25cb130f7b6408a006977080fd18791abf3efee7f2a170708043a2e799324")},
-    ("azurik_mod/assets/gltf.py", "8bb139c57b773daa80ca100380f15c04747385a9eb6c603ce3a724c5ac943cca"): "png",
-    ("azurik_mod/assets/textures.py", "c0c308295f4fb80e2c3cc4aa3997b58c3f588a54c932414622d2b9a139ce64a4"): "png",
-    ("azurik_mod/xbr/draw.py", "c532301bb2307f594f064e6cfa25830f6851e6a9d6c8b313b0eb61181456e529"): "png",
-    # garret4's roll motion in roll.c's table (game data: the build reads it from the image, ports.HELD)
-    **{("azurik_mod/patches/player_model/roll.c", sha): "zeros" for sha in (
-        "0de73e484c1034838585b85e47f9aff0ece1aab0cb71b3acc12bbb56cb0c60ea",
-        "e47f16bf24786927e86c1a7ef7c89f350b1b13f8e11bfe0a864441bd4204c19d",
-        "aaaa5f1547964271dcc42cb143edf42edac2df712ffdefb5dd79b3b6748f928a",
-        "324cd6142d91d18e2c9d67f7687bec89fd1534332671896aa88c3b0164b18d56",
-        "3aabcb10ee6d90f5431265b3095c813a1b79e8b5fc4a37134f7d78b62c6067e0",
-        "6d59b204d76e9d135ba0cea3b20b057eb177c9caeebd1b802ea6ee18f7727d42",
-        "e219680560ef87f3dc7e6825d8a7905fe871663af561c163efb0e49dc06a354f",
-        "f19ced7318fd0c8f03d61fb3970a0fefca660679fc558e07f2ca24ae2528f069")},
-    **{("azurik_mod/assets/variants.json", sha): "float" for sha in (
-        "5f017cd0135adc40e4d4097749d80987e2d32fe8bada4d5eec2b95d456617c29",
-        "70452ec6ec38dbaac5acd023a983498129d979b9e5e72423483d66df747860eb")},
-    # the built-ins' voice and clips, booblord's (tools/characters/content.py; the kit and the fx are the package's)
-    **{("azurik_mod/patches/_player_variants.py", sha): "content" for sha in (
-        "661880076b1ae3b2bd5b2423515d7a2295954fbc3606c0f0a60e4960c5112dc8",
-        "dbef8fe62b90863016b18c4a5af5dc5cd4ccdf257bae284c46d695b80263ac61")},
-}
-ASSETS = "azurik_mod/assets/"
-CONTENT = {"models": tuple(f"{ASSETS}{name}" for name in ("clips", "sounds", "fx"))}
-"""Modkit's files a family's swap reads that Azurik-Custom-Content carries
-(D869, D965: booblord's clips and voice, optional extras), each but those
-:data:`SOURCES` installs in the package (the townsfolk's kit, the air
-elemental's funnel): ORACLE.toml's ``<family>.content`` keeps each one's
-sha256 at its path below :data:`ASSETS`, the pin Azurik-Custom-Content's
-files are held to; the sync writes no content folder (Step 4.3d: the
-Characters tab's Install does, ``tools/characters/content.py``)."""
-# A top-level tuple of byte-sized ints a family's module defines that holds such a run (the IMA ADPCM step
-# table, the codec's, which default.xbe's own decoder holds too): written as the ints of a string, by name.
-NUMBERS = {"azurik_mod/assets/xbox_adpcm.py": ("_STEP",)}
+OWN = frozenset({"azurik_mod/randomizer/planner/dbcache.py"})   # AzurKit's own instead: tools/randomizer/dbcache.py
 REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.tools.randomizer import dbcache"),
             # the tracker reads Live's events only: the site imports it, never the link
             ("from azurik_mod.randomizer.live import EPS,", "from azurkit.tools.randomizer.live.game import EPS,"),
@@ -246,13 +111,7 @@ REWRITES = (("from azurik_mod.randomizer.planner import dbcache", "from azurkit.
             ("from azurik_mod.randomizer import ", "from azurkit.tools.randomizer import "),
             ("azurik_mod.randomizer.", "azurkit.tools.randomizer."),
             ("from azurik_mod.xbr.nodes import", "from azurkit.core.xbr.nodes import"),
-            # Modkit's xbr/edits.py's error and xbr/sections.py's index records: the core's, in core/xbr/nodes.py
-            ("from azurik_mod.xbr.edits import XbrStructuralError",
-             "from azurkit.core.xbr.nodes import XbrStructuralError"),
-            ("from azurik_mod.xbr.sections import IndexRecordsSection",
-             "from azurkit.core.xbr.nodes import IndexRecordsSection"),
-            ("from azurik_mod.xbr.append import", "from azurkit.core.xbr.append import"),
-            # every family's TOC reader is the core's: a rule sending it into a tool takes another family's too
+            # the TOC reader is the core's
             ("from azurik_mod.xbr.toc_scan import", "from azurkit.core.xbr.nodes import"),
             # the maps' and icons' XBR readers: Modkit's, in art/ (core/xbr is AzurKit's own)
             # the icons' script writes no PNG here (its main is dropped): art.png does, the site's and the app's
@@ -287,36 +146,30 @@ DROPS = {   # top-level statements a ported module loses, by the names they bind
     # the hosts keep the pictures, tools/randomizer/art/)
     "azurik_mod/randomizer/draft/envelope.py": ("l2_xbe", "l2_flight"),
     "azurik_mod/randomizer/levels.py": ("extract", "write_generated"),
-    "azurik_mod/xbr/nodes.py": ("scan_types",),   # (the models' graph.py drops its one helper too: FAMILY_DROPS)
+    "azurik_mod/xbr/nodes.py": ("scan_types",),
+    # the maps' drawer writes no PNG (art.png does)
+    "azurik_mod/xbr/draw.py": ("png_rgba", "_write", "write_preview", "draw_previews"),
     "scripts/render_level_maps.py": ("argparse", "sys", "png", "draw_detail", "main", "__main__"),
     "scripts/render_model_icons.py": ("argparse", "sys", "main", "__main__"),
-}
-FAMILY_DROPS = {   # a family's own DROPS, beside those, where two families port one Modkit file
-    # the maps' drawer writes no PNG (art.png does); the swap's glTF export writes its textures with png_rgba
-    "rando": {"azurik_mod/xbr/draw.py": ("png_rgba", "_write", "write_preview", "draw_previews")},
-    # the names table's maker's one helper, a string reader (X.102): the art's nodes.py keeps it
-    "models": {"azurik_mod/xbr/nodes.py": ("xbe_cstr",)},
 }
 
 
 def read_index(path: Path = ORACLE / "ORACLE.toml") -> dict[str, dict]:
-    """``{family: {"tag", "commit", "files": {path: sha256}[, "source" | "art" | "content": {path: sha256}]}}``; empty when there
-    is no index."""
+    """``{family: {"tag", "commit", "files": {path: sha256}[, "source" | "art": {path: sha256}]}}``; empty when there is no
+    index."""
     return tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def write_index(index: dict[str, dict], path: Path = ORACLE / "ORACLE.toml") -> None:
     lines = ["# Written by scripts/oracle_sync.py, never by hand: tests/test_oracle.py checks every file of",
              "# tests/oracle/<family>/ against its sha256 here; <family>.source each file the sync installed",
-             "# in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.art each picture's digest;",
-             "# <family>.content each of Modkit's files Azurik-Custom-Content carries (CONTENT: the pin its",
-             "# Install is held to, never committed)."]
+             "# in AzurKit's source (scripts/oracle_sync.py's SOURCES); <family>.art each picture's digest."]
     for family in sorted(index):
         entry = index[family]
         lines += ["", f"[{family}]", f"tag = {json.dumps(entry['tag'])}", f"commit = {json.dumps(entry['commit'])}",
                   "", f"[{family}.files]"]
         lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(entry["files"].items())]
-        for table in ("source", "art", "content"):
+        for table in ("source", "art"):
             if rows := entry.get(table):
                 lines += ["", f"[{family}.{table}]"]
                 lines += [f"{json.dumps(rel)} = {json.dumps(sha)}" for rel, sha in sorted(rows.items())]
@@ -333,15 +186,10 @@ def tree_hashes(folder: Path) -> dict[str, str]:
 
 def installed(family: str, root: Path = ROOT) -> list[Path]:
     """Each file the family's :data:`SOURCES` installed in ``root``: every
-    file under a folder or file it copies, and in a glob's folder each file
-    of the glob's name pattern (``*.py``) but AzurKit's own (:data:`OURS`);
-    Python's ``__pycache__`` aside."""
+    file under a folder or file it copies, Python's ``__pycache__`` aside."""
     out = set()
-    for src, dst, _ in SOURCES.get(family, ()):
-        if "*" in src:
-            out |= {p for p in (root / dst).glob(src.rpartition("/")[2])
-                    if p.is_file() and p.relative_to(root).as_posix() not in OURS}
-        elif (root / dst).is_file():
+    for _, dst, _ in SOURCES.get(family, ()):
+        if (root / dst).is_file():
             out.add(root / dst)
         else:
             out |= {p for p in (root / dst).rglob("*") if p.is_file() and "__pycache__" not in p.parts}
@@ -365,79 +213,13 @@ def _binds(node: ast.stmt) -> set[str]:
     return {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
 
 
-def _vanilla_fix(line: str) -> str:
-    """Each ``bytes.fromhex`` literal of ``line`` as zeros of its size (:data:`FIXES`)."""
-    return re.sub(r'bytes\.fromhex\(((?:"[0-9a-fA-F ]*"\s*)+)\)',
-                  lambda m: f"bytes({len(bytes.fromhex(''.join(re.findall(r'\"([^\"]*)\"', m.group(1)))))})", line)
-
-
-def _float_fix(line: str) -> str:
-    """Each number of ``line`` with 12 or more decimals written with an
-    exponent (the same float): its fraction an even number of digits, so
-    with the ``e`` after it no run of hex pairs."""
-    def exponent(m: re.Match) -> str:
-        sign, whole, frac = m.groups()
-        digits = whole + frac
-        lead = len(digits) - len(digits.lstrip("0"))
-        sig, power = digits[lead:], len(whole) - lead - 1
-        point = 1 if (len(sig) - 1) % 2 == 0 else 2
-        return f"{sign}{sig[:point]}.{sig[point:]}e{power - point + 1:+d}"
-    return re.sub(r"(?<![\w.])(-?)(\d+)\.(\d{12,})(?![\w.])", exponent, line)
-
-
-def _content_fix(line: str) -> str:
-    """A folder of Modkit's ``assets/`` (``SOUNDS = BUILTIN.parent /
-    "sounds"``) as the same folder of the content folder (:data:`CONTENT`),
-    imported on the line before it."""
-    return re.sub(r"^(\w+) = BUILTIN\.parent",
-                  r"from azurkit.tools.characters.content import ROOT as CONTENT_ROOT\n\1 = CONTENT_ROOT", line)
-
-
-LINE_FIXES = {"vanilla": _vanilla_fix, "float": _float_fix,
-              "zeros": lambda line: re.sub(r"-?\d+\.\d+(?:e-?\d+)?f", "0.0f", line),
-              "png": lambda line: line.replace('b"\\x89PNG\\r\\n\\x1a\\n"',
-                                               '(b"\\x89PNG" + "\\r\\n\\x1a\\n".encode("latin-1"))'),
-              "content": _content_fix}
-
-
-def fix(rel: str, text: str) -> str:
-    """``text`` (Modkit's ``rel``) with each line :data:`FIXES` names
-    rewritten (:data:`LINE_FIXES`) and each tuple :data:`NUMBERS` names
-    written as the ints of a string; ValueError naming a line or tuple that
-    isn't there, or a fix that left its line as it was."""
-    lines = text.splitlines(keepends=True)
-    for (path, sha), kind in FIXES.items():
-        if path != rel:
-            continue
-        hits = [i for i, line in enumerate(lines) if hashlib.sha256(line.rstrip("\r\n").encode()).hexdigest() == sha]
-        if len(hits) != 1:
-            raise ValueError(f"{rel}: FIXES' {kind} line {sha[:12]} is there {len(hits)} times, not once: update FIXES")
-        fixed = LINE_FIXES[kind](lines[hits[0]])
-        if fixed == lines[hits[0]]:
-            raise ValueError(f"{rel}: FIXES' {kind} fix left line {hits[0] + 1} as it was")
-        lines[hits[0]] = fixed
-    for name in NUMBERS.get(rel, ()):
-        text = "".join(lines)
-        node = next((n for n in ast.parse(text).body if _binds(n) == {name} and isinstance(n, ast.Assign)
-                     and isinstance(n.value, ast.Tuple)), None)
-        if node is None or not all(isinstance(e, ast.Constant) and type(e.value) is int for e in node.value.elts):
-            raise ValueError(f"{rel}: NUMBERS names {name}, which is no top-level tuple of ints: update NUMBERS")
-        joined = "/".join(str(e.value) for e in node.value.elts)
-        lines = text.splitlines(keepends=True)
-        lines[node.lineno - 1:node.end_lineno] = [f'{name} = tuple(int(v) for v in "{joined}".split("/"))\n']
-    return "".join(lines)
-
-
-def port(rel: str, text: str, family: str | None = None) -> str:
-    """Modkit's module ``rel`` as AzurKit holds it: its :func:`fix` es,
-    each top-level statement :data:`DROPS` (and ``family``'s
-    :data:`FAMILY_DROPS`) names for it taken out with the
-    comment lines right above it and the blank lines after it, and from its
-    ``__all__`` list, then ``family``'s :data:`FAMILY_REWRITES` and
+def port(rel: str, text: str) -> str:
+    """Modkit's module ``rel`` as AzurKit holds it: each top-level statement
+    :data:`DROPS` names for it taken out with the comment lines right above
+    it and the blank lines after it, and from its ``__all__`` list, then
     :data:`REWRITES`. ValueError naming a statement DROPS names that isn't
     there (or binds more than it names) and each import of Modkit left."""
-    text = fix(rel, text)
-    drop = {*DROPS.get(rel, ()), *FAMILY_DROPS.get(family, {}).get(rel, ())}
+    drop = set(DROPS.get(rel, ()))
     lines, cut = text.splitlines(keepends=True), set()
     dropped = frozenset(drop)
     for node in ast.parse(text).body:
@@ -464,7 +246,7 @@ def port(rel: str, text: str, family: str | None = None) -> str:
     if drop:
         raise ValueError(f"{rel}: no top-level statement binds {sorted(drop)} (DROPS names them): update DROPS")
     out = "".join(line for i, line in enumerate(lines) if i not in cut).rstrip("\n") + "\n"
-    for old, new in (*FAMILY_REWRITES.get(family, ()), *REWRITES):
+    for old, new in REWRITES:
         out = out.replace(old, new)
     left = [f"{rel}:{node.lineno} imports {name}" for node in ast.walk(ast.parse(out))
             for name in ([a.name for a in node.names] if isinstance(node, ast.Import) else
@@ -481,16 +263,13 @@ def sources(clone: Path, family: str) -> dict[str, bytes]:
     ``clone`` (:data:`OWN` aside); ValueError from :func:`port`."""
     out = {}
     for src, dst, ported in SOURCES.get(family, ()):
-        prefix = src.rpartition("/")[0] if "*" in src else src   # a glob's files go into dst by name
         for rel in sorted(filter(None, _git(clone, "ls-files", "-z", "--", src).split("\0"))):
             if rel in OWN:
                 continue
             data = (clone / rel).read_bytes()
             if ported and rel.endswith(".py"):
-                data = port(rel, data.decode("utf-8"), family).encode("utf-8")
-            elif ported:
-                data = fix(rel, data.decode("utf-8")).encode("utf-8")
-            out[dst + rel.removeprefix(prefix)] = data
+                data = port(rel, data.decode("utf-8")).encode("utf-8")
+            out[dst + rel.removeprefix(src)] = data
     return out
 
 
@@ -555,39 +334,10 @@ def art_hashes(clone: Path, family: str) -> dict[str, str]:
     return out
 
 
-def content_files(clone: Path, family: str) -> dict[str, bytes]:
-    """``{path in the content folder: bytes}``: Modkit's tracked files of the
-    family's :data:`CONTENT` folders in ``clone`` but those its
-    :data:`SOURCES` install, each at its path below :data:`ASSETS`."""
-    shipped = tuple(f"{src}/" for src, _, _ in SOURCES.get(family, ()))
-    return {rel.removeprefix(ASSETS): (clone / rel).read_bytes() for src in CONTENT.get(family, ())
-            for rel in sorted(filter(None, _git(clone, "ls-files", "-z", "--", src).split("\0")))
-            if not rel.startswith(shipped)}
-
-
-def derive(family: str, clone: Path, folder: Path, env: dict[str, str]) -> None:
-    """Write the family's :data:`DERIVED` files into its bundle ``folder``,
-    from Modkit's ``clone``: ``swap.json`` from its facts, ``resources.json``
-    and ``probes.json`` from its builds (``scripts/modkit_resources.py``, run
-    in the clone at nice 15; it stops the sync when a build isn't G3's
-    recorded one)."""
-    if family != "models":
-        return
-    facts = {release: (clone / rel).read_bytes() for release, rel in SWAP}
-    swap = {release: json.loads(raw)["swap"] for release, raw in facts.items()}
-    swap["from"] = {rel: hashlib.sha256(facts[release]).hexdigest() for release, rel in SWAP}
-    (folder / "swap.json").write_text(json.dumps(swap, indent=1, sort_keys=True) + "\n", encoding="utf-8")
-    shutil.copy(ROOT / "scripts" / "modkit_resources.py", clone / "scripts" / "_azurkit_resources.py")
-    subprocess.run(["nice", "-n", "15", "uv", "run", "--locked", "--directory", str(clone), "python",
-                    "scripts/_azurkit_resources.py", str(folder / "resources.json"), "--bundle", str(folder)],
-                   check=True, env=env)
-
-
 def install(root: Path, family: str, files: dict[str, bytes]) -> None:
     """Replace the family's :data:`SOURCES` in the tree ``root`` with
     ``files`` (:func:`sources`' output): the last sync's files go
-    (:func:`installed`), AzurKit's own beside them (:data:`OURS`, a shim's
-    prebuilt object) stay."""
+    (:func:`installed`)."""
     for path in installed(family, root):
         path.unlink()
     for rel, data in files.items():
@@ -616,9 +366,6 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             art = {family: art_hashes(clone, family) for family in families}
         except ValueError as exc:
             raise SystemExit(f"nothing written: {exc}") from None
-        content = {family: content_files(clone, family) for family in families}
-        for family in families:
-            derive(family, clone, bundle / family, env)
         for family in families:
             meta = json.loads((bundle / family / "oracle.json").read_text(encoding="utf-8"))
             if meta["commit"] != commit or meta["dirty"]:
@@ -633,9 +380,6 @@ def sync(modkit: Path, ref: str, tag: str, families: tuple[str, ...]) -> list[st
             index[family] = {"tag": tag, "commit": commit, "files": tree_hashes(ORACLE / family)}
             index[family] |= {"source": source_hashes(family)} if family in SOURCES else {}
             index[family] |= {"art": art[family]} if art.get(family) else {}
-            if family in CONTENT:   # the pin; Azurik-Custom-Content's Install writes the player's folder (Step 4.3d)
-                index[family]["content"] = {rel: hashlib.sha256(data).hexdigest() for rel, data in content[family].items()}
-                out.append(f"{family}: {len(content[family])} content files pinned")
             out.append(f"{family}: {len(index[family]['files'])} files at {tag} ({commit[:12]})")
     write_index(index)
     return out

@@ -2,7 +2,7 @@
 player's images: what each case of ``tests/goldens/cases.json`` (its recipe,
 edited by hand) builds, as names and sha256 only.
 
-    uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]
+    uv run --locked python scripts/record_goldens.py [--check] [--workers N] [GOLDEN ...]
 
 - ``packs.json`` and ``europe/packs.json`` (G1): a pack alone at the case's
   sliders, from the release's vanilla files: ``default.xbe`` and each file
@@ -11,22 +11,40 @@ edited by hand) builds, as names and sha256 only.
 - ``sites.json`` and ``europe/sites.json``: each XBE pack case's bytes at
   every facts site it changes, by the release's own address (USA's ``.text``
   slack, past its section's file bytes, counts).
-- ``shims.json`` (G2): each pack shim's prebuilt object's normalized
-  sha256 (``tests/test_shims.py`` holds each object to its source's build).
+- ``shims.json`` (G2): each shim's prebuilt object's normalized sha256, the
+  packs' and the swap's (``player_model_<stem>.o``, its ``ports.HELD``
+  bytes written back from the USA image); ``tests/test_shims.py`` holds each
+  object to its source's build.
 - ``xbr_editor.json``: ``config.xbr`` after one cell's edit.
-- ``pipelines.json`` (G3) and ``gui.json`` (G4): a whole build's recipe
-  through the sdk (Modkit's flags and GUI ticks, translated by
-  :func:`recipe`): each file it changes, and for G3 the image without the
-  build's root entries (``ISO``). A case that moves a level entity leaves
-  out ``gamedata/training_room.xbr``, ``filelist.txt`` and ``ISO``
-  (:data:`LEVEL_PATCHED`: AZ-009, level_patches isn't ported).
+- ``pipelines.json`` and ``europe/pipelines.json`` (G3) and ``gui.json``
+  (G4): a whole build's recipe through the sdk (Modkit's flags and GUI
+  ticks, translated by :func:`recipe`, a case that dresses the player with
+  its ``character``, :func:`wears`): each file it changes (Europe's but the
+  XBRs both releases hold, :func:`shared`, which its USA case records), and
+  for G3 the image without the build's root entries (``ISO``). A case that
+  moves a level entity leaves out ``gamedata/training_room.xbr``,
+  ``filelist.txt`` and ``ISO`` (:data:`LEVEL_PATCHED`: AZ-009, level_patches
+  isn't ported).
+- ``resources.json``: for each G3 case that dresses the player, each XBR
+  its build changed, resource by resource (:func:`view`).
+- ``probes.json``: the character recipes no G3 case builds without
+  Azurik-Custom-Content's files or on Europe (a variant's mesh, paint and
+  jiggle, a townsman's and the air elemental's own bodies), built over the
+  packs on by default on both releases: each file's sha256 and resources.
+- ``matches.json``: the Characters tab's match-Garret values (``sdk.match``)
+  of each recipe on USA over the packs on by default.
 
-The first recording is Modkit's last cut for the core and packs families
-(oracle-packs-4, Modkit 28d0b4110), which this script's first run wrote
-back unchanged (Step 4.12a). Only it changes these files, and a commit that
-does names each golden it changed and why. ``--check`` writes nothing and
-exits 1 naming each case that differs. The images are the ones the gate
-finds (``AZURKIT_ISO``, ``AZURKIT_ISO_EUROPE``, else the user data folder).
+The first recording is Modkit's last cut: for the core and packs families
+oracle-packs-4 (Modkit 28d0b4110, Step 4.12a), for the models family
+oracle-models-3 (Modkit 1648692, Step 4.12c), which this script's first run
+wrote back unchanged but where AzurKit can't build a file (AZ-009). Only it
+changes these files, and a commit that does names each golden it changed and
+why. ``--check`` writes nothing and exits 1 naming each case that differs.
+The images are the ones the gate finds (``AZURKIT_ISO``,
+``AZURKIT_ISO_EUROPE``, else the user data folder); the cases that wear
+booblord read her clips and voice in the content folder (``AZURKIT_CONTENT``:
+``azurkit content install booblord``). The builds that dress the player run
+in ``--workers`` processes (4).
 """
 
 from __future__ import annotations
@@ -34,9 +52,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import multiprocessing
 import sys
+import tempfile
 from collections.abc import Callable, Mapping
-from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path, PurePath
 
 from azurkit import sdk
 from azurkit.core import coff, facts, gate, iso
@@ -50,6 +71,10 @@ ROOT = Path(__file__).resolve().parent.parent
 GOLDENS = ROOT / "tests" / "goldens"
 CASES = GOLDENS / "cases.json"
 SHIMS = ROOT / "src" / "azurkit" / "tools" / "mods" / "shims"   # shimkit.SHIMS: the packs' shims and objects
+PLAYER_MODEL = ROOT / "src" / "azurkit" / "tools" / "characters" / "player_model"   # shimkit.PLAYER_MODEL: the swap's
+G3 = ("pipelines.json", "europe/pipelines.json")
+RESOURCES, PROBES, MATCHES = "resources.json", "probes.json", "matches.json"
+INDEX = "gamedata/index/index.xbr"
 CONFIG = engine.CONFIG
 NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (Modkit's)
 LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt", "ISO")
@@ -70,6 +95,13 @@ RANDOMIZE = {"gravity": "gravity", "player_walk_scale": "walk_speed_scale", "pla
 FLAG_PACKS = {"gem_popups": "qol_gem_popups", "other_popups": "qol_other_popups", "pickup_anims": "qol_pickup_anims",
               "skip_logo": "qol_skip_logo", "fps_unlock": "fps_unlock"}   # randomize-full's flags that turn a pack on
 SETTINGS = ("skip_ceiling", "movement_tier", "dark_fire")   # randomize-full's settings flags over D144's defaults
+# randomize-full's player flags -> a recipe's character (tools.characters.normalize)
+FIELDS = {"player_character_mode": "mode", "player_character_size": "size", "player_character_scale": "scale",
+          "player_attack_reach": "attack_reach", "player_attack_damage": "attack_damage",
+          "player_attack_speed": "attack_speed", "player_character_anims": "anims",
+          "player_character_sounds": "sounds", "player_weapon": "weapon", "player_jiggle_strength": "jiggle_strength",
+          "player_jiggle_stiffness": "jiggle_stiffness"}
+PLAYER_SLIDERS = ("player_character_scale", "player_attack_reach", "player_attack_damage", "player_attack_speed")
 
 
 def _sha256(data) -> str:
@@ -112,16 +144,45 @@ def _ops(mod: Mapping, path) -> list[dict]:
     return ops
 
 
-def recipe(golden: str, case: Mapping, path) -> dict:
+def wears(case: Mapping) -> bool:
+    """Whether a G3 case dresses the player (Modkit's ``player_species``):
+    randomize-full with ``--player-character``, a ``--player-weapon`` or one
+    of :data:`PLAYER_SLIDERS` other than 1.0 (garret4's own body; no case
+    names one of his own weapons)."""
+    args = case.get("args") or {}
+    return args.get("command") == "randomize-full" and bool(
+        args["player_character"] or args["player_weapon"]
+        or any(args[k] not in (None, 1.0) for k in PLAYER_SLIDERS))
+
+
+def character(case: Mapping, folder: Path | None = None) -> dict:
+    """A G3 case's player flags as a recipe's ``character``: its
+    ``--player-character``, else garret4's own body, and its variant file
+    (the case's ``files``) written into ``folder``."""
+    args = case["args"]
+    out = {"species": args["player_character"] or "garret4"} | {
+        FIELDS[k]: v for k, v in args.items() if k in FIELDS and v is not None}
+    out |= {k.removeprefix("player_"): args[k] == "on" for k in ("player_attack_ground", "player_attack_balance")
+            if args[k] is not None}
+    if rel := args["player_variant_file"]:
+        if folder is None:
+            raise ValueError(f"a G3 case's variant file {rel} needs a folder to be written in")
+        (path := folder / PurePath(rel).name).write_text(json.dumps(case["files"][rel]), encoding="utf-8")
+        out["variant_file"] = str(path)
+    return out
+
+
+def recipe(golden: str, case: Mapping, path, folder: Path | None = None) -> dict:
     """A G3 (``pipelines.json``) or G4 (``gui.json``) case's recipe as a mods
     file's: apply-physics applies player_physics alone; patch,
     randomize-full and MCP pack_build_iso the packs on by default and those
     they name (randomize-full's flags, :data:`FLAG_PACKS`, and
     ``--enable-pack``), then the mod's operations, and randomize-full with
     a seed its ``randomizer`` (the seed, D144's settings with its settings
-    flags, its obsidian cost); a GUI build its ticks over the packs on by
-    default, its sliders and the Game Data editor's cells. A flag AzurKit
-    doesn't translate is refused by name."""
+    flags, its obsidian cost) and the player's ``character`` if it
+    :func:`wears` one (its variant file written into ``folder``); a GUI build
+    its ticks over the packs on by default, its sliders and the Game Data
+    editor's cells. A flag AzurKit doesn't translate is refused by name."""
     if golden == "gui.json":
         kwargs, packs = case["kwargs"], _defaults()
         for name, on in kwargs.get("packs", {}).items():
@@ -143,13 +204,14 @@ def recipe(golden: str, case: Mapping, path) -> dict:
     if not (args["command"] == "randomize-full" and args["ram"] == 128):
         raise ValueError(f"a G3 case AzurKit doesn't translate: {args['command']}")
     if left := [flag for flag in ("disable_pack", "pack_param", "plan", "settings", "share", "skip", "no_skip",
-                                  "exclude_category") if args.get(flag)]:
+                                  "exclude_category", "player_shape", "player_variant_sounds", "player_speed_toggle")
+                if args.get(flag)]:
         raise ValueError(f"a G3 case's flags AzurKit doesn't translate: {', '.join(left)}")
     physics = {RANDOMIZE[k]: v for k, v in args.items() if k in RANDOMIZE and v is not None}
     packs = _defaults() | {FLAG_PACKS[k]: {} for k in FLAG_PACKS if args.get(k)} | {
         name: {} for name in args.get("enable_pack") or ()}
     out = {"packs": packs | ({"player_physics": physics} if physics else {}),
-           "xbr": _ops(args["config_mod"] or {}, path)}
+           "xbr": _ops(args["config_mod"] or {}, path)} | ({"character": character(case, folder)} if wears(case) else {})
     if not args["no_randomize"]:
         from azurkit.tools.randomizer import layer
         from azurkit.tools.randomizer.planner.loader import kept_logic
@@ -169,10 +231,11 @@ def level_patched(case: Mapping) -> bool:
 
 
 class Images:
-    """Each release's verified image and its vanilla files, read once."""
+    """Each release's verified image and its vanilla files, read once, and
+    the builds that dress the player (:meth:`prebuild`), each built once."""
 
     def __init__(self, paths: Mapping[gate.Release, Path] | None = None):
-        self._paths, self._stamps, self._files = dict(paths or {}), {}, {}
+        self._paths, self._stamps, self._files, self._built = dict(paths or {}), {}, {}, {}
 
     def stamp(self, release: gate.Release) -> gate.Stamp:
         if release not in self._stamps:
@@ -187,6 +250,101 @@ class Images:
                 self._files[release, name] = r.read(name)
         return self._files[release, name]
 
+    def built(self, job: tuple) -> tuple:
+        """A job's result (:func:`_job`), built here unless :meth:`prebuild` built it."""
+        if job not in self._built:
+            self._built[job] = _job(self._resolved(job))
+        return self._built[job]
+
+    def prebuild(self, jobs: list[tuple], workers: int) -> None:
+        """Build ``jobs`` (:func:`_job`) in ``workers`` spawned processes, the
+        variants' (booblord's take minutes) first; a build is the same in any
+        process (each reads the content folder ``AZURKIT_CONTENT`` names)."""
+        jobs = sorted({j for j in jobs if j not in self._built}, key=lambda j: ("booblord" not in str(j), j))
+        if workers <= 1 or len(jobs) <= 1:
+            for job in jobs:
+                self.built(job)
+            return
+        with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
+            self._built |= dict(zip(jobs, pool.map(_job, [self._resolved(j) for j in jobs])))
+
+    def _resolved(self, job: tuple) -> tuple:
+        """``job`` with its release's image path."""
+        return (*job, str(self.stamp(_release(job[-1])).path))
+
+
+def _release(name: str) -> gate.Release:
+    return next(r for r in gate.RELEASES if r.name == name)
+
+
+def shared(name: str) -> bool:
+    """An XBR both releases hold byte for byte (all but index.xbr): Europe's G3 records it in its USA case."""
+    return name.endswith(".xbr") and name != INDEX
+
+
+def view(vanilla: bytes, built: bytes, name: str) -> dict:
+    """``resources.json``'s record of a built XBR ``name`` against its vanilla
+    file: its sha256, size, TOC count and vanilla's, each vanilla entry whose
+    payload changed (``[index, tag, size, sha256]``), each appended entry
+    (``[name, tag, size, sha256, relocs]``) and, for ``index.xbr``, the
+    records the build added (``[key, archive, fourcc]``, in the order their
+    strings follow vanilla's)."""
+    from azurkit.core.xbr.append import appended
+    from azurkit.core.xbr.nodes import parse_toc
+    from azurkit.tools.characters.index_xbr import _records
+
+    def payload(data: bytes, e) -> bytes:
+        return data[e.file_offset:e.file_offset + e.size]
+
+    old, new = parse_toc(vanilla), parse_toc(built)
+    out = {"sha256": _sha256(built), "size": len(built), "count": len(new), "vanilla_count": len(old),
+           "changed": [[e.index, e.tag, e.size, _sha256(payload(built, e))] for e, v in zip(new, old)
+                       if payload(built, e) != payload(vanilla, v)],
+           "new": [[r.name, r.tag, len(r.payload), _sha256(r.payload), list(r.relocs)]
+                   for r in appended(len(old), built)]}
+    if name == INDEX:
+        had = {r.key for r, _, _ in _records(vanilla, "index.xbr")[1]}
+        added = sorted((k, r) for r, k, _ in _records(built, "index.xbr")[1] if r.key not in had)
+        out["records"] = [[r.key, r.archive, r.fourcc] for _, r in added]
+    return out
+
+
+def _resources(made, path: str, result: Mapping[str, str]) -> dict[str, dict]:
+    """:func:`view` of each XBR a build changed (``result``)."""
+    with iso.Reader(made) as built, iso.Reader(path) as vanilla:
+        return {name: view(old, new, name) for name in sorted(result) if name.endswith(".xbr")
+                and (new := built.read(name)) != (old := vanilla.read(name))}
+
+
+def _job(job: tuple) -> tuple:
+    """One build: ``("g3", golden, case, release, image)`` gives ``(its G3
+    or G4 row, its resources or None)``; ``("probe", case, release, image)``
+    its probe's record for the release."""
+    kind, *rest, path = job
+    if kind == "probe":
+        case, name = rest
+        probe = cases(PROBES)[case]
+        with tempfile.TemporaryDirectory(prefix="azurkit-record-") as folder:
+            character_ = probe["character"]
+            if "variants" in probe:
+                (recipes := Path(folder) / "probe.json").write_text(json.dumps(probe["variants"]), encoding="utf-8")
+                character_ = character_ | {"variant_file": str(recipes)}
+            made, report = sdk.image({"iso": path, "character": character_, "packs": _defaults()})
+        return {"files": {f: sha for f, sha in report["result"].items() if f != "filelist.txt"},
+                "resources": _resources(made, path, report["result"])}
+    golden, case, name = rest
+    spec = cases(golden)[case]
+    with tempfile.TemporaryDirectory(prefix="azurkit-record-") as folder:
+        made, report = sdk.image(recipe(golden, spec, path, Path(folder)) | {"iso": path})
+    left = LEVEL_PATCHED if golden in G3 and level_patched(spec) else ()
+    out = {f: sha for f, sha in report["result"].items()
+           if f not in left and not (golden != "pipelines.json" and golden in G3 and shared(f))}
+    if golden in G3 and not left:
+        with iso.Reader(made) as r:
+            files = {f: r.read(f) for f in report["result"] if f != "filelist.txt"}
+        out["ISO"] = iso.read(path, files).sha256()
+    return out, _resources(made, path, report["result"]) if wears(spec) else None
+
 
 def _layer(images: Images, release: gate.Release, spec: Mapping):
     pack = mods.PACKS[spec["pack"]]
@@ -195,7 +353,7 @@ def _layer(images: Images, release: gate.Release, spec: Mapping):
     return pack, base, mods.plan(pack, release, base, params)
 
 
-def g1(images: Images, release: gate.Release, spec: Mapping) -> dict[str, str]:
+def g1(images: Images, release: gate.Release, case: str, spec: Mapping) -> dict[str, str]:
     """A G1 case: ``default.xbe`` and each file its pack's layer writes."""
     pack, base, layer = _layer(images, release, spec)
     result = image(images.stamp(release), [layer], base)[1].result
@@ -204,7 +362,7 @@ def g1(images: Images, release: gate.Release, spec: Mapping) -> dict[str, str]:
     return {NAMES.get(name, name): result.get(name, vanilla[name]) for name in written}
 
 
-def sites(images: Images, release: gate.Release, spec: Mapping) -> dict[str, str]:
+def sites(images: Images, release: gate.Release, case: str, spec: Mapping) -> dict[str, str]:
     """An XBE pack case's bytes at each facts site it changes (by sha256)."""
     pack, base, layer = _layer(images, release, spec)
     vanilla = base[engine.XBE]
@@ -218,7 +376,7 @@ def sites(images: Images, release: gate.Release, spec: Mapping) -> dict[str, str
     return out
 
 
-def editor(images: Images, release: gate.Release, spec: Mapping) -> dict[str, str]:
+def editor(images: Images, release: gate.Release, case: str, spec: Mapping) -> dict[str, str]:
     """``config.xbr`` after the case's one edit: a number cell's value, or a string cell's text."""
     data = images.file(release, CONFIG)
     (table, entity, prop, value), = spec["edits"]
@@ -231,17 +389,9 @@ def editor(images: Images, release: gate.Release, spec: Mapping) -> dict[str, st
     return {"config.xbr": _sha256(out)}
 
 
-def build(golden: str) -> Callable[[Images, gate.Release, Mapping], dict[str, str]]:
-    def run(images: Images, release: gate.Release, spec: Mapping) -> dict[str, str]:
-        path = images.stamp(release).path
-        made, report = sdk.image(recipe(golden, spec, path) | {"iso": str(path)})
-        left = LEVEL_PATCHED if golden == "pipelines.json" and level_patched(spec) else ()
-        out = {name: sha for name, sha in report["result"].items() if name not in left}
-        if golden == "pipelines.json" and not left:
-            with iso.Reader(made) as r:
-                files = {name: r.read(name) for name in report["result"] if name != "filelist.txt"}
-            out["ISO"] = iso.read(path, files).sha256()
-        return out
+def build(golden: str) -> Callable[[Images, gate.Release, str, Mapping], dict[str, str]]:
+    def run(images: Images, release: gate.Release, case: str, spec: Mapping) -> dict[str, str]:
+        return images.built(("g3", golden, case, release.name))[0]
     return run
 
 
@@ -249,22 +399,67 @@ GOLDENS_BUILT = {   # golden -> (its release, what builds one case)
     "packs.json": (gate.USA, g1), "europe/packs.json": (gate.EUROPE, g1),
     "sites.json": (gate.USA, sites), "europe/sites.json": (gate.EUROPE, sites),
     "xbr_editor.json": (gate.USA, editor),
-    "pipelines.json": (gate.USA, build("pipelines.json")), "gui.json": (gate.USA, build("gui.json")),
+    "pipelines.json": (gate.USA, build("pipelines.json")),
+    "europe/pipelines.json": (gate.EUROPE, build("europe/pipelines.json")), "gui.json": (gate.USA, build("gui.json")),
 }
+CASED = (*GOLDENS_BUILT, PROBES, MATCHES)
+"""The goldens whose rows are their cases' (``resources.json``'s are G3's that dress the player, ``shims.json``'s
+the objects)."""
 
 
-def shims() -> dict[str, dict]:
-    """G2: each pack shim's prebuilt object, by its normalized sha256."""
-    return {f"{p.stem}.o": {"normalized sha256": coff.normalized_sha256(p.read_bytes())}
-            for p in sorted(SHIMS.glob("*.o"))}
+def shims(images: Images) -> dict[str, dict]:
+    """G2: each shim's prebuilt object, by its normalized sha256: the packs'
+    and the swap's, its held bytes written back (``ports.restored``)."""
+    from azurkit.tools.characters import ports
+
+    vanilla = ports.Vanilla(gate.USA, images.stamp(gate.USA).path)
+    out = {f"{p.stem}.o": {"normalized sha256": coff.normalized_sha256(p.read_bytes())}
+           for p in sorted(SHIMS.glob("*.o"))}
+    return out | {f"player_model_{p.stem}.o": {"normalized sha256": coff.normalized_sha256(
+        ports.restored(p.stem, coff.parse(p.read_bytes()), vanilla))} for p in sorted(PLAYER_MODEL.glob("*.o"))}
+
+
+def matches(images: Images) -> dict[str, dict]:
+    """The match-Garret values (``sdk.match``) of each recipe on USA over the
+    packs on by default: Model size, Attack reach, speed and damage, and why
+    none matches where none does."""
+    from azurkit.tools import characters
+
+    path = str(images.stamp(gate.USA).path)
+    out = {}
+    for name, worn in cases(MATCHES)["usa"].items():
+        got = sdk.match({"iso": path, "packs": _defaults(), "character": worn})
+        out[name] = {k: got["values"][slider] for k, slider in zip(("size", "reach", "speed", "damage"),
+                                                                    characters.MATCHED)} | {"why": got["why"]}
+    return {"usa": out}
+
+
+def jobs(goldens) -> list[tuple]:
+    """The builds that dress the player ``goldens`` need (:func:`_job`)."""
+    out = [("g3", g, case, GOLDENS_BUILT[g][0].name) for g in G3 if g in goldens or RESOURCES in goldens
+           for case, spec in cases(g).items() if wears(spec)]
+    return out + [("probe", case, r.name) for case in (cases(PROBES) if PROBES in goldens else ()) for r in gate.RELEASES]
 
 
 def record(golden: str, images: Images) -> dict[str, dict]:
     """The golden as AzurKit builds it."""
     if golden == "shims.json":
-        return shims()
+        return shims(images)
+    if golden == MATCHES:
+        return matches(images)
+    if golden == PROBES:
+        return {case: probe | {r.name: images.built(("probe", case, r.name)) for r in gate.RELEASES}
+                for case, probe in cases(PROBES).items()}
+    if golden == RESOURCES:
+        return {f"tests/goldens/{g}": {case: images.built(("g3", g, case, GOLDENS_BUILT[g][0].name))[1]
+                                       for case, spec in cases(g).items() if wears(spec)} for g in G3}
     release, one = GOLDENS_BUILT[golden]
-    return {case: one(images, release, spec) for case, spec in cases(golden).items()}
+    return {case: one(images, release, case, spec) for case, spec in cases(golden).items()}
+
+
+def rows(golden: str, data: Mapping) -> Mapping:
+    """A golden's rows by case (``resources.json``'s by its G3 golden and case)."""
+    return {f"{g}: {case}": row for g, held in data.items() for case, row in held.items()} if golden == RESOURCES else data
 
 
 def text(rows: Mapping) -> str:
@@ -272,21 +467,24 @@ def text(rows: Mapping) -> str:
 
 
 def main(argv: list[str] | None = None, images: Images | None = None) -> int:
-    names = [*GOLDENS_BUILT, "shims.json"]
+    names = [*GOLDENS_BUILT, "shims.json", RESOURCES, PROBES, MATCHES]
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--check", action="store_true", help="write nothing; exit 1 naming each case that differs")
+    ap.add_argument("--workers", type=int, default=4, help="processes for the builds that dress the player (4)")
     ap.add_argument("golden", nargs="*", help=f"the goldens to record (default: all): {', '.join(names)}")
     args = ap.parse_args(argv)
     if unknown := [g for g in args.golden if g not in names]:
         ap.error(f"no golden {', '.join(unknown)} (the goldens: {', '.join(names)})")
-    images, drift = images or Images(), []
-    for golden in args.golden or names:
-        rows, path = record(golden, images), GOLDENS / golden
+    images, drift, goldens = images or Images(), [], args.golden or names
+    images.prebuild(jobs(goldens), args.workers)
+    for golden in goldens:
+        made, path = record(golden, images), GOLDENS / golden
         held = recorded(golden) if path.exists() else {}
-        drift += [f"{golden}: {case}" for case in sorted(rows.keys() | held.keys()) if rows.get(case) != held.get(case)]
-        if not args.check and text(rows) != (path.read_text(encoding="utf-8") if path.exists() else None):
+        new, old = rows(golden, made), rows(golden, held)
+        drift += [f"{golden}: {case}" for case in sorted(new.keys() | old.keys()) if new.get(case) != old.get(case)]
+        if not args.check and text(made) != (path.read_text(encoding="utf-8") if path.exists() else None):
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text(rows), encoding="utf-8")
+            path.write_text(text(made), encoding="utf-8")
             print(f"wrote: {golden}")
     for line in drift:
         print(f"{'differs' if args.check else 'changed'}: {line}")

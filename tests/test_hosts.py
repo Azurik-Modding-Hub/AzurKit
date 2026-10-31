@@ -38,7 +38,7 @@ from azurkit import app, cli, sdk
 from azurkit.core import gate, iso
 from azurkit.tools import mods
 from azurkit.tools.randomizer import tracking
-from scripts import freeze
+from scripts import freeze, record_goldens
 from scripts.oracle_sync import ORACLE
 from tests import _g1, _page
 from tests._xiso import fill, image
@@ -318,10 +318,10 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     assert box.left() == []
 
 
-def test_the_frozen_app_dresses_the_player_in_a_species_body_as_modkit(frozen_app, tmp_path, monkeypatch, usa_iso):
+def test_the_frozen_app_dresses_the_player_in_a_species_body_as_its_golden(frozen_app, tmp_path, monkeypatch, usa_iso):
     """``AzurKit build --character`` from the frozen app (the swap, its data
     and numpy in the bundle), read-only in a fresh HOME and TMPDIR, writes
-    G3's keylord case: each file G3 records is Modkit's, and the app and
+    G3's keylord case: each file G3 records is its golden's, and the app and
     the sandbox are as they were but for the build it wrote."""
     app_path, before = frozen_app
     box = Sandbox(tmp_path, monkeypatch)
@@ -332,7 +332,7 @@ def test_the_frozen_app_dresses_the_player_in_a_species_body_as_modkit(frozen_ap
                    json.dumps({"species": "keylord"}), timeout=900)
     try:
         assert done["code"] == 0, done["stderr"][-2000:]
-        golden = json.loads((ORACLE / "models/tests/goldens/pipelines.json").read_text(encoding="utf-8"))[case]
+        golden = record_goldens.recorded("pipelines.json")[case]
         with iso.Reader(out) as r:
             assert {f: hashlib.sha256(r.read(f)).hexdigest() for f in golden if f != "ISO"} == {
                 f: sha for f, sha in golden.items() if f != "ISO"}

@@ -12,12 +12,12 @@ and the air elemental's funnel (``fx/air_elemental/``,
 this package beside the swap's modules (D965), so a townsfolk or an air
 elemental needs no download.
 
-The swap's modules (the models family's sync installs them) read the
-content folder's below :data:`ROOT`: the folder ``AZURKIT_CONTENT`` names,
-else ``content`` in the user data folder (beside the images' links, where
-the app keeps what it installs). A build that needs a file the folder lacks
-fails naming it. ORACLE.toml's ``models.content`` pins Modkit's copies of
-booblord's files, which Azurik-Custom-Content's must equal.
+The swap's modules read the content folder's below :data:`ROOT`: the
+folder ``AZURKIT_CONTENT`` names, else ``content`` in the user data folder
+(beside the images' links, where the app keeps what it installs). A build
+that needs a file the folder lacks fails naming it. What an install copies
+is held to Azurik-Custom-Content's own manifest (below), and the builds
+that wear booblord to AzurKit's goldens (``tests/goldens/``, Step 4.12c).
 
 **Azurik-Custom-Content** (D966; Azurik-Modding-Hub's at 4.4, D395): a file
 has the same path in that repository and in the content folder, and its
@@ -220,8 +220,8 @@ def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes]) -> list[di
 
 def builtin_refusal(entry: Mapping, files: Mapping[str, bytes]) -> str | None:
     """Why a variant entry's recipe can't stand for the engine's built-in of
-    a name it holds, or ``None``: until Step 4.12c the five variants build
-    from the engine's own table (``_player_variants.load_variants`` refuses
+    a name it holds, or ``None``: the five variants build from the engine's
+    own table (Step 4.12c kept them built-ins; ``_player_variants.load_variants`` refuses
     a recipe file naming one), so each recipe of the entry's ``variant.json``
     with a built-in's name must be that built-in's, its sha its sha."""
     if entry["kind"] != "variant":

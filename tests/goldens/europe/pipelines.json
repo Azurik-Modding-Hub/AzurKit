@@ -6,8 +6,6 @@
   "gamedata/index/index.xbr": "5d5b9e297b10070a9e4f4dc84be33df3e7e998d51133565e99312c608487108c"
  },
  "randomize-full:seed=0,all": {
-  "ISO": "79666d62fc65daeec1f1c07c5bc8fb2c22f5eb0adc08f469bce865a29c150de0",
-  "default.xbe": "bdd558ddc174f11316bb49414d11a2ca39d6d0fd011e13cb9909e3a0c2d5036b",
-  "filelist.txt": "da7d6480fc2d6a61562e792cbfe89ec6ecd6497377cc2c0817c2c7697f71aae8"
+  "default.xbe": "bdd558ddc174f11316bb49414d11a2ca39d6d0fd011e13cb9909e3a0c2d5036b"
  }
 }
