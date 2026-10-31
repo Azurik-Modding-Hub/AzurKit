@@ -75,7 +75,7 @@ def normalize(ops: object) -> list[dict]:
         if lost := [key for key in keys if key not in op]:
             failed.append(f"{where}: no {', '.join(lost)}")
         if unknown := sorted(set(op) - set(keys) - set(optional), key=str):
-            failed.append(f"{where}: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(keys + optional)})")
+            failed.append(f"{where}: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(keys)})")
         if lost or unknown:
             continue
         if not (isinstance(op["file"], str) and op["file"].startswith("gamedata/") and op["file"].endswith(".xbr")):

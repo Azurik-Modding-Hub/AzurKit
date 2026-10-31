@@ -249,5 +249,5 @@ def test_a_set_op_fills_an_empty_cell_and_picks_a_repeated_column(tmp_path):
     with pytest.raises(ValueError, match="^" + re.escape(
             "xbr op 1 (set): col '1' is not a column's index (a whole number from 0); xbr op 2 (set): col True is "
             "not a column's index (a whole number from 0); xbr op 3 (set): fill 'yes' is not true or false; "
-            "xbr op 4 (set): no key 'row' (its keys: op, file, table, entity, prop, value, col, fill)") + "$"):
+            "xbr op 4 (set): no key 'row' (its keys: op, file, table, entity, prop, value)") + "$"):
         xbr.normalize([op(col="1"), op(col=True), op(fill="yes"), op(row=1)])
