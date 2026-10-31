@@ -46,7 +46,7 @@ from collections.abc import Callable, Mapping
 from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.core.progress import record
-from azurkit.tools import characters, randomizer
+from azurkit.tools import characters
 from azurkit.tools.characters import pool
 
 
@@ -59,6 +59,8 @@ class Gone(Exception):
 
 
 _WARM = threading.Lock()   # held while the randomizer's logic is built, so a seed's build or plan waits on it
+_WARMING: list[dict] = []   # that warm-up's records, the newest last, which a call waiting on it shows
+_READING = "Reading the randomizer's logic"   # its stage's line
 
 
 class _Built:
@@ -206,24 +208,20 @@ def _preview(recipe: Mapping, progress: Callable[[dict], object] | None = None) 
     return {k: base64.b64encode(v).decode() for k, v in _previewed(recipe).items()}
 
 
-def _plan_spoiler(plan, progress: Callable[[dict], object] | None = None) -> dict:
-    """A plan file's spoiler (the Tools tab's), its stage told again once
-    the randomizer's logic is in (:func:`_warmed` told its reading)."""
-    if progress is not None:
-        progress(record("spoiler"))
-    return {"lines": sdk.spoiler(plan)["lines"]}
-
-
 def _warmed(job: Callable, always: bool = False) -> Callable:
     """``job``, run once a warm-up in flight has built the randomizer's
     logic, when ``always`` or its recipe has a randomizer (its ``progress``
-    told meanwhile)."""
+    told the warm-up's records meanwhile, its checks counted)."""
     def run(recipe, *args, **kwargs):
         if always or not isinstance(recipe, Mapping) or recipe.get("randomizer"):
-            if _WARM.locked() and kwargs.get("progress") is not None:
-                kwargs["progress"](record("plan", "Reading the randomizer's logic"))
-            with _WARM:
-                pass
+            told, report = None, kwargs.get("progress")
+            while not _WARM.acquire(timeout=0.05):
+                newest = _WARMING[-1:]   # a slice: the warm-up may clear it meanwhile
+                if report is not None and newest and newest[0] is not told:
+                    report(told := newest[0])
+            _WARM.release()
+            if told is not None:   # the warm-up's read was told: the call's own (at once now) isn't, from 0 again
+                kwargs["progress"] = lambda step: None if step["label"] == _READING else report(step)
         return job(recipe, *args, **kwargs)
     return run
 
@@ -233,7 +231,8 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                                              always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe)),
                              "spoiler": lambda plan: sdk.spoiler(plan, built=True),
-                             "plan_spoiler": _warmed(_plan_spoiler, always=True)}
+                             "plan_spoiler": _warmed(lambda plan, progress=None: sdk.spoiler(plan, progress=progress),
+                                                     always=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
 ``preview``, ``match`` and ``plan_spoiler``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
 ``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's)."""
@@ -433,10 +432,11 @@ def orphaned() -> None:
 
 
 def _warm_logic() -> None:
-    """Build the randomizer's logic, :data:`_WARM` held (taken by the caller)."""
+    """Build the randomizer's logic, :data:`_WARM` held (taken by the caller), each record in :data:`_WARMING`."""
     try:
-        randomizer.kept_logic()
+        sdk.randomizer_logic(progress=lambda step: _WARMING.append(step))
     finally:
+        _WARMING.clear()
         _WARM.release()
 
 
@@ -503,6 +503,7 @@ def _main(conn, stores: bool = False) -> None:
             _, what, args = message
             if what == "randomizer":   # taken here, before any call this loop reads after it starts
                 _WARM.acquire()
+                _WARMING[:] = [record("plan", _READING)]
             threading.Thread(target=WARMS[what], args=args, name=f"azurkit-warm-{what}", daemon=True).start()
             continue
         _, ident, job, args, follows = message

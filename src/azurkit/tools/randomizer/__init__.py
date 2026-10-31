@@ -160,16 +160,20 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
     return plan_doc(filled, logic.db)
 
 
-def spoiler(doc: Mapping) -> list[str]:
+def spoiler(doc: Mapping, progress: Callable[[dict], object] | None = None) -> list[str]:
     """The spoiler of the plan file's object ``doc``: its settings, the
     spheres with each progression item's obtain and return paths, the traps
-    and the rest (Modkit's ``rando spoiler``). ``ValueError`` names a plan
-    this database can't read (another format, generator or database, an
-    edited one)."""
+    and the rest (Modkit's ``rando spoiler``). ``progress(record)`` hears its
+    two stages (``core.progress``'s, done of 2): the logic read (``plan``)
+    and the spoiler written. ``ValueError`` names a plan this database can't
+    read (another format, generator or database, an edited one)."""
     if not isinstance(doc, Mapping):
         raise ValueError(f"a plan file is a JSON object, not {type(doc).__name__}")
+    steps = Steps(progress)
+    steps("plan", "Reading the randomizer's logic", 0, 2)
     logic = kept_logic()
     planned = load_plan(doc, logic.db)
+    steps("spoiler", None, 1, 2)
     return spoiler_lines(planned, logic_of(logic, planned.settings))
 
 

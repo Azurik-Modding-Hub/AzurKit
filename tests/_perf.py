@@ -65,7 +65,8 @@ class Op:
     title: str
     group: str            # one of GROUPS
     first: bool = True    # each sample in a fresh state (a new HOME or browser context); else repeated in one
-    bar: bool = False     # D982: may pass 3 s with a moving bar (an image's first identity check, the first engine load)
+    bar: bool = False     # D982: may pass 3 s with a moving bar (an image's first identity check, the first
+    #                       engine load; D999 a new shape's first build; D1008 the randomizer's logic's first read)
     content: bool = False  # reads a clone of Azurik-Custom-Content
     browser_bar: str = ""  # D980: the browser's own bar for its write of a file the page handed it (a download only)
     untimed: str = ""     # why the gate can't time it (it is listed as such)
@@ -115,7 +116,7 @@ OPS = {op.id: op for op in (
     Op("A51", "Extract the largest file", "image"),
     Op("A52", "Open a build… (its recipe)", "build"),
     Op("A53", "Save a mods file, then Load it (the slower)", "build"),
-    Op("A54", "a plan file's spoiler, ready to View", "build"),
+    Op("A54", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True),
     Op("A55", "the last build's report, View", "build", first=False),
     Op("S01", "page start, first visit (the engine load)", "start", bar=True),
     Op("S02", "page start, a return visit", "start", first=False),
@@ -150,7 +151,7 @@ OPS = {op.id: op for op in (
     Op("S44", "Extract the largest file (the browser's download)", "image"),
     Op("S45", "Open a build… (its recipe)", "build"),
     Op("S46", "Save a mods file, then Load it (the slower)", "build"),
-    Op("S47", "a plan file's spoiler, ready to View", "build"),
+    Op("S47", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True),
     Op("S48", "the last build's report, View", "build", first=False),
 )}
 

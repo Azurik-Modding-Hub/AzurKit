@@ -428,6 +428,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     stage the call reported last (its label and the note, a "k of n" note
     counted inside that stage's step: the tracker's world map, 50 % to
     100 %; a plan's fill, 33 % to 66 %).
+  - `loader.NOTE` (the logic's checks as a checkout reads it cold:
+    "checking the levels, 5 of 15", then "building its logic") and
+    `planner.plan.NOTE` (a spoiler's two parts: "the spheres, 1 of 2") are
+    folded the same way while `sdk.spoiler` and `sdk.randomizer_logic` run
+    (the app's engine reads the logic ahead with it, and a call waiting on
+    that shows its records, `engine._WARMING`); a note counted short of the
+    last one keeps that one's count, so a bar never goes back (Step 4.7c).
+    `fill.known_traps` solves vanilla's placement once when the settings
+    are the database's defaults: a default plan's spoiler runs two solves,
+    not three.
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's
@@ -880,7 +890,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     link's preset is checked, keeping a `replace_bytes`; Save writes the
     page's recipe), **a plan file's spoiler** (`sdk.spoiler`; the app's
     engine process makes it, its randomizer logic read as the tab opens,
-    its bar saying so while that still runs) and **the last build's
+    `sdk.randomizer_logic`; the bar counts the logic's checks while it is
+    read cold, then the spoiler's two parts; the logic's first read in a
+    launch is D1008's first-time work, so A54 and S47 are bar ops) and **the last build's
     report** (View, Save),
     and **AzurKit's storage** with Clear: the site's own named
     localStorage keys and IndexedDB databases (`tools.mjs`'s `KEPT`), the

@@ -728,9 +728,9 @@ class Server(http.server.ThreadingHTTPServer):
 
     def plan_spoiler(self, body: dict) -> dict:
         """``api/plan_spoiler``: a plan file's spoiler (the engine's), its
-        bar saying the engine still reads the randomizer's logic while it
-        does (the tab's opening started it)."""
-        with self.follow("plan_spoiler", record("spoiler")) as report:
+        bar counting the randomizer's logic's checks while the engine still
+        reads it (the tab's opening started it), then the spoiler's stage."""
+        with self.follow("plan_spoiler", record("plan", "Reading the randomizer's logic")) as report:
             return self.engine.call("plan_spoiler", body.get("plan"), progress=report)
 
     def choose(self, body: dict) -> dict:

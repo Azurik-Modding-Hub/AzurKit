@@ -5,7 +5,8 @@ The one surface a UI calls: :func:`catalog`, :func:`verify`,
 :func:`image`, :func:`save`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
-(its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
+(its tab's), :func:`randomizer_logic` (its logic, read ahead),
+:func:`tracker` (the item tracker's) and :func:`art` and
 :func:`art_world` (its maps and icons, drawn from the player's image),
 :func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
 (its G4 buttons) and :func:`preview`, Azurik-Custom-Content's
@@ -240,17 +241,29 @@ written. A refusal names the setting, or the progression items no
 attempt found a safe spot for.
 
 
-def spoiler(plan: 'Mapping', *, built: 'bool' = False) -> 'dict':
+def spoiler(plan: 'Mapping', *, built: 'bool' = False, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
 
 ``{"lines": [...]}``, the spoiler of a plan file's object: its
 settings, the spheres with each progression item's obtain and return
 paths, the traps and the rest. A plan from another database, format or
-generator, or an edited one, is refused by name. ``built``: the spoiler
-of the randomized build of that plan this engine made last with
+generator, or an edited one, is refused by name. ``progress(record)``
+hears the logic read (``plan``: its checks counted while it is read
+cold, :func:`randomizer_logic`) and the spoiler written. ``built``: the
+spoiler of the randomized build of that plan this engine made last with
 :func:`image`'s ``spoiler`` false (its build's spoiler on the logic the
 build stands on, ``{"lines", "text"}``: the text its report would have
 held), refused by name once this engine keeps it no more (another
 build's since, or another engine).
+
+
+def randomizer_logic(*, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
+
+``{}`` once the randomizer's logic is read, which a process does once
+(``kept_logic``): a host reads it ahead (D1008: the app's engine as the
+Randomizer or Tools tab opens), so a plan, a plan file's spoiler or a
+seed's build doesn't. ``progress(record)`` hears it (``plan``, "Reading
+the randomizer's logic"), its checks counted while it is read cold (a
+checkout's: the wheel and the frozen app ship it checked).
 
 
 def randomizer_settings(given: 'Mapping') -> 'dict':

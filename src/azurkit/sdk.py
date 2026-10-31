@@ -3,7 +3,8 @@
 :func:`image`, :func:`save`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
-(its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
+(its tab's), :func:`randomizer_logic` (its logic, read ahead),
+:func:`tracker` (the item tracker's) and :func:`art` and
 :func:`art_world` (its maps and icons, drawn from the player's image),
 :func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
 (its G4 buttons) and :func:`preview`, Azurik-Custom-Content's
@@ -107,11 +108,13 @@ from azurkit.tools import characters, mods, randomizer
 from azurkit.tools.randomizer import generator, needs, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 from azurkit.tools.randomizer.planner import fill as rando_fill
+from azurkit.tools.randomizer.planner import loader
+from azurkit.tools.randomizer.planner import plan as rando_plan
 
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
-           "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
-           "content", "content_install", "content_check", "pickers", "match", "preview", "image_info", "verify_all",
-           "files", "extract", "mods_file"]
+           "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
+           "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
+           "image_info", "verify_all", "files", "extract", "mods_file"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -323,37 +326,52 @@ def _note(text: str) -> None:
         told(text)
 
 
+def _checked(label: str, done: int, total: int) -> None:
+    """``loader.NOTE``: the randomizer's logic's checks, ``done`` of ``total`` as it starts ``label``."""
+    _note(f"{label}, {done + 1} of {total}")
+
+
 @contextlib.contextmanager
 def _noting(steps: Steps):
     """``steps`` for this thread's call, the planner's notes
     (``generator.NOTE``: "placing the items"; the fill's ``NOTE``: "placing
-    the items, k of n"; ``needs.NOTE``: "the maps' exits, k of n") folded
-    into the stage it reported last through the
+    the items, k of n"; ``needs.NOTE``: "the maps' exits, k of n";
+    ``loader.NOTE``: the logic's checks as it is read cold, "checking the
+    levels, k of n"; ``planner.plan.NOTE``: a spoiler's two parts, "the
+    spheres, 1 of 2") folded into the stage it reported last through the
     ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
     counted inside the stage's step (``done`` of ``total`` as ``done * n +
     k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
-    so its bar moves on, never back."""
+    so its bar moves on, never back (a counted note short of the last
+    counted one keeps that one's count)."""
     if not steps:
         yield steps
         return
     last: list[dict] = []
+    most: list[tuple[int, int]] = []   # the count the last counted note in last's stage told
 
     def heard(step: dict) -> None:
         last[:] = [step]
+        most.clear()
         steps.report(step)
 
     def told(text: str) -> None:
         if not last:   # no stage yet to fold it into
             return
         at, done, total = last[0], last[0]["done"], last[0]["total"]
+        before, most[:] = most[:], []
         if count := re.search(r"(\d+) of (\d+)", text):
             k, n = map(int, count.groups())
             done, total = done * n + k - 1, max(total, 1) * n
+            if before and done * before[0][1] < before[0][0] * total:
+                done, total = before[0]
+            most[:] = [(done, total)]
         steps.report(record(at["stage"], f"{at['label']} ({text})", done, total))
     ident = threading.get_ident()
     outer = _NOTES.get(ident)
     _NOTES[ident] = told
-    generator.NOTE = rando_fill.NOTE = needs.NOTE = _note
+    generator.NOTE = rando_fill.NOTE = needs.NOTE = rando_plan.NOTE = _note
+    loader.NOTE = _checked
     try:
         yield Steps(heard)
     finally:
@@ -921,23 +939,39 @@ def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -
         return randomizer.plan(recipe, steps.report)
 
 
-def spoiler(plan: Mapping, *, built: bool = False) -> dict:
+def spoiler(plan: Mapping, *, built: bool = False, progress: Callable[[dict], object] | None = None) -> dict:
     """``{"lines": [...]}``, the spoiler of a plan file's object: its
     settings, the spheres with each progression item's obtain and return
     paths, the traps and the rest. A plan from another database, format or
-    generator, or an edited one, is refused by name. ``built``: the spoiler
-    of the randomized build of that plan this engine made last with
+    generator, or an edited one, is refused by name. ``progress(record)``
+    hears the logic read (``plan``: its checks counted while it is read
+    cold, :func:`randomizer_logic`) and the spoiler written. ``built``: the
+    spoiler of the randomized build of that plan this engine made last with
     :func:`image`'s ``spoiler`` false (its build's spoiler on the logic the
     build stands on, ``{"lines", "text"}``: the text its report would have
     held), refused by name once this engine keeps it no more (another
     build's since, or another engine)."""
     if not built:
-        return {"lines": randomizer.spoiler(plan)}
+        with _noting(Steps(progress)) as steps:
+            return {"lines": randomizer.spoiler(plan, steps.report)}
     sha = plan.get("sha256") if isinstance(plan, Mapping) else None
     if (kept := _SPOILERS.get(sha)) is None:
         raise ValueError("spoiler: this engine no longer keeps that build's spoiler: build it again")
     text = generator.spoiler(*kept)
     return {"lines": text.splitlines(), "text": text}
+
+
+def randomizer_logic(*, progress: Callable[[dict], object] | None = None) -> dict:
+    """``{}`` once the randomizer's logic is read, which a process does once
+    (``kept_logic``): a host reads it ahead (D1008: the app's engine as the
+    Randomizer or Tools tab opens), so a plan, a plan file's spoiler or a
+    seed's build doesn't. ``progress(record)`` hears it (``plan``, "Reading
+    the randomizer's logic"), its checks counted while it is read cold (a
+    checkout's: the wheel and the frozen app ship it checked)."""
+    with _noting(Steps(progress)) as steps:
+        steps("plan", "Reading the randomizer's logic", 0, 1)
+        randomizer.kept_logic()
+    return {}
 
 
 def randomizer_settings(given: Mapping) -> dict:

@@ -132,6 +132,7 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     seen, writes = [], []
     monkeypatch.setattr(sdk, "_STAMPS", {})   # the image's first check in this process: its bytes are reported
     monkeypatch.setattr(rando_fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills now
+    sdk.randomizer_logic()   # read before (read cold, its checks are counted in the plan stage too: test_hosts)
     made, report = sdk.image({"iso": str(usa_iso), "packs": {"qol_alloc_race": {}}, "randomizer": {"seed": "16"}},
                              progress=seen.append, spoiler=False)
     assert list(dict.fromkeys(r["stage"] for r in seen)) == ["plan", "check", "read", "pack", "layout", "judge"]

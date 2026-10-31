@@ -173,7 +173,7 @@ def engine(request):
                 return js(sdk.files(request.recipe.iso))
             given = json.loads(JSON.stringify(request.given))   # through JSON: a null is None (to_py gives JsNull)
             if request.type == "plan_spoiler":
-                return js({"lines": sdk.spoiler(given)["lines"]})
+                return js({"lines": sdk.spoiler(given, progress=progressed)["lines"]})
             return js(sdk.mods_file(given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})

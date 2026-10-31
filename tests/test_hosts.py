@@ -43,6 +43,7 @@ from azurkit.edits.layer import Change, Layer
 from azurkit.tools import mods
 from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import tracking
+from azurkit.tools.randomizer.planner import loader
 from scripts import freeze, record_goldens
 from tests import _g1, _page
 from tests._xiso import fill, image
@@ -1629,24 +1630,29 @@ def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_t
         server.close()
 
 
-def test_the_apps_plan_file_spoiler_says_the_engine_still_reads_the_randomizers_logic(tmp_path, monkeypatch):
+def test_the_apps_plan_file_spoiler_counts_the_logics_checks_while_the_engine_reads_it_cold(tmp_path, monkeypatch):
     """A plan file's spoiler asked while the engine's warm-up (the Tools
-    tab's opening starts it) still reads the randomizer's logic: its
-    ``api/progress`` record says "Reading the randomizer's logic" until that
-    is in, then the spoiler's stage while the spoiler is written (Step 4.7c)."""
+    tab's opening starts it) reads the randomizer's logic cold, a launch's
+    first read: its ``api/progress`` record counts the logic's checks, its
+    percent moving on and never back ("Reading the randomizer's logic
+    (checking the levels, 5 of 15)"), then the spoiler's stage, so its bar
+    moves (D982, D1008; Step 4.7c)."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    server, replies, seen = app.serve(_page.WEB), [], set()
-    monkeypatch.setattr(sdk, "spoiler", lambda plan, built=False: {
-        "lines": [server.progress()["calls"]["plan_spoiler"]["label"]]})   # the stage it is written on
+    monkeypatch.setattr(loader, "_KEPT", {})   # nothing in this process has read the logic yet
+    plan = record_goldens.recorded(record_goldens.PLANS)["default"]["plan"]
+    server, replies, seen = app.serve(_page.WEB), [], []
     try:
-        with engine._WARM:   # a warm-up in flight
-            asking = threading.Thread(target=_post, args=(server.url, "api/plan_spoiler", {"plan": {}}, replies))
-            asking.start()
-            end = time.monotonic() + 10
-            while "Reading the randomizer's logic" not in seen and time.monotonic() < end:
-                seen.add(server.progress()["calls"].get("plan_spoiler", {}).get("label"))
-                time.sleep(0.02)
-        asking.join(30)
+        engine._WARM.acquire()   # as the engine's loop takes it for a warm message
+        engine._WARMING[:] = [progress_record("plan", "Reading the randomizer's logic")]
+        threading.Thread(target=engine._warm_logic, daemon=True).start()
+        asking = threading.Thread(target=_post, args=(server.url, "api/plan_spoiler", {"plan": plan}, replies))
+        asking.start()
+        while asking.is_alive():
+            if (step := server.progress()["calls"].get("plan_spoiler")) and step not in seen[-1:]:
+                seen.append(step)
+            time.sleep(0.01)
     finally:
         server.close()
-    assert ("Reading the randomizer's logic" in seen, replies) == (True, [{"lines": ["Writing the spoiler"]}])
+    read = [s["percent"] for s in seen if s["stage"] == "plan" and s["percent"] is not None]
+    assert (len(set(read)) >= 3, read == sorted(read), [s["stage"] for s in seen][-1], len(replies[0]["lines"]) > 9) \
+        == (True, True, "spoiler", True), seen
