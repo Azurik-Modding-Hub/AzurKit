@@ -37,6 +37,7 @@ dropped. Nothing here opens a network connection."""
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -54,6 +55,8 @@ FOLDERS = ("variants", "clips", "sounds", "fx", "packs")
 MAX_MANIFEST, MAX_FILE = 1 << 20, 64 << 20
 MAX_ENTRIES, MAX_FILES = 1000, 10000
 """A manifest's entries and its files in all, at most (D992's SEC-6: a small manifest is untrusted input)."""
+MAX_ENTRY = 256 << 20
+"""An entry's files, and an Install's (the entry and those it requires), at most, in bytes (D992's SEC-9)."""
 XISO = b"MICROSOFT*XBOX*MEDIA"
 """An XISO image's media magic (at 0x10000 of an image, and of each of its parts): never content (D960)."""
 _ID = re.compile(r"[a-z][a-z0-9_]*\Z")
@@ -94,8 +97,9 @@ def check(manifest: bytes | str | Mapping) -> dict:
     identifier, a kind of :data:`KINDS`, a version a whole number, the ids
     it requires known, with no cycle), each file's path (relative, POSIX,
     under :data:`FOLDERS`, no ``..``, claimed by one entry only), sha256 (64
-    hex digits) and size (a whole number up to :data:`MAX_FILE`), and at
-    most :data:`MAX_ENTRIES` entries and :data:`MAX_FILES` files in all.
+    hex digits) and size (a whole number up to :data:`MAX_FILE`; an entry's
+    files up to :data:`MAX_ENTRY` in all), and at most
+    :data:`MAX_ENTRIES` entries and :data:`MAX_FILES` files in all.
     ``ValueError`` names the first fault, in time linear in the manifest
     (its requires walked once, :func:`needs`)."""
     if isinstance(manifest, (bytes, str)):
@@ -159,6 +163,8 @@ def check(manifest: bytes | str | Mapping) -> dict:
             if "licence" in f and not (isinstance(f["licence"], str) and f["licence"].strip()):
                 raise ValueError(f"{where}: {path}'s licence is no text")
             files.append({k: f[k] for k in ("path", "sha256", "size", "licence") if k in f})
+        if (size := sum(f["size"] for f in files)) > MAX_ENTRY:
+            raise ValueError(f"{where}: its files are {size:,} bytes, past the {MAX_ENTRY:,} an entry may hold")
         out.append({**{k: given[k] for k in ENTRY if k not in ("files", "requires")}, "files": files,
                     "requires": list(given["requires"])})
     ids = {e["id"]: e for e in out}
@@ -229,26 +235,60 @@ def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes]) -> list[di
     :func:`needs`, those already in ``files``' reach), each file of theirs
     in ``files`` checked: its size and sha256 as the manifest lists them,
     no XISO image or part of one (D960), and a built-in variant's recipe
-    the engine's (:func:`builtin_refusal`). ``ValueError`` names the entry,
-    the path and, for a sha256, both values' first 12 digits."""
+    the engine's (:func:`builtin_refusal`), the whole install at most
+    :data:`MAX_ENTRY`. ``ValueError`` names the entry, the path and, for a
+    sha256, both values' first 12 digits."""
     manifest = check(manifest)
     entries = {e["id"]: e for e in manifest["entries"]}
-    chosen = [entries[name] for name in needs(entry, entries)]
+    chosen = _chosen(entry, entries)
     for e in chosen:
         for f in e["files"]:
-            data = files.get(f["path"])
-            if data is None:
-                raise ValueError(f"{e['id']}: {f['path']} wasn't fetched")
-            data = bytes(data)
-            if len(data) != f["size"]:
-                raise ValueError(f"{e['id']}: {f['path']} is {len(data):,} bytes, not the manifest's {f['size']:,}")
-            if (got := hashlib.sha256(data).hexdigest()) != f["sha256"]:
-                raise ValueError(f"{e['id']}: {f['path']}'s sha256 {got[:12]} isn't the manifest's {f['sha256'][:12]}")
-            if XISO in data:
-                raise ValueError(f"{e['id']}: {f['path']} holds an Xbox disc image's magic: never content (D960)")
+            _checked(e, f, files.get(f["path"]))
         if (why := builtin_refusal(e, files)) is not None:
             raise ValueError(f"{e['id']}: {why}")
     return chosen
+
+
+def _chosen(entry: str, entries: Mapping[str, Mapping]) -> list[dict]:
+    """The entries an install of ``entry`` reaches (:func:`needs`), at most :data:`MAX_ENTRY` in all."""
+    chosen = [entries[name] for name in needs(entry, entries)]
+    if (size := sum(f["size"] for e in chosen for f in e["files"])) > MAX_ENTRY:
+        raise ValueError(f"{entry}: an install of it and the entries it requires is {size:,} bytes, past the "
+                         f"{MAX_ENTRY:,} one may write")
+    return chosen
+
+
+def _checked(e: Mapping, f: Mapping, data) -> bytes:
+    """``data``, a file ``f`` of entry ``e`` as fetched (``None``: not), checked against the manifest."""
+    if data is None:
+        raise ValueError(f"{e['id']}: {f['path']} wasn't fetched")
+    data = bytes(data)
+    if len(data) != f["size"]:
+        raise ValueError(f"{e['id']}: {f['path']} is {len(data):,} bytes, not the manifest's {f['size']:,}")
+    if (got := hashlib.sha256(data).hexdigest()) != f["sha256"]:
+        raise ValueError(f"{e['id']}: {f['path']}'s sha256 {got[:12]} isn't the manifest's {f['sha256'][:12]}")
+    if XISO in data:
+        raise ValueError(f"{e['id']}: {f['path']} holds an Xbox disc image's magic: never content (D960)")
+    return data
+
+
+class _Landed(Mapping):
+    """The files ``paths`` below ``folder``, each read when it is asked for
+    (what :func:`builtin_refusal` reads of an entry install has checked)."""
+
+    def __init__(self, folder: Path, paths: list[str]):
+        self.folder, self.paths = folder, paths
+
+    def __getitem__(self, path: str) -> bytes:
+        if path not in self.paths:
+            raise KeyError(path)
+        return (self.folder / path).read_bytes()
+
+    def __iter__(self):
+        return iter(self.paths)
+
+    def __len__(self) -> int:
+        return len(self.paths)
 
 
 def builtin_refusal(entry: Mapping, files: Mapping[str, bytes]) -> str | None:
@@ -295,29 +335,50 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
             source: str = "") -> dict:
     """Install ``entry`` of ``manifest`` (and each entry it requires that
     isn't installed at its version) into ``root`` (:data:`ROOT`), reading
-    each file through ``fetch``: every file checked first (:func:`verify`),
-    so a mismatch writes nothing; then each entry's files written to
-    ``root/.part-<id>/`` and moved into place, the files its last version
-    held that this one doesn't removed, and ``installed.json`` written last,
-    each entry's version, ``source`` and files' sha256. An installed entry
-    is Updated the same way. Returns :func:`installed`'s record."""
+    each file through ``fetch``: each file checked as it lands
+    (:func:`verify`'s checks) and written to ``root/.part-<id>/``, so one
+    file at a time is held and a mismatch writes nothing (the parts
+    removed, D35; D992's SEC-9); once every file is checked, each entry's
+    moved into place, the files its last version held that this one doesn't
+    removed, and ``installed.json`` written last, each entry's version,
+    ``source`` and files' sha256. An installed entry is Updated the same
+    way. Returns :func:`installed`'s record."""
     root = root or ROOT
     manifest = check(manifest)
     entries = {e["id"]: e for e in manifest["entries"]}
     had = installed(root)
-    todo = [name for name in needs(entry, entries)
-            if name == entry or had.get(name, {}).get("version") != entries[name]["version"]]
-    files = {f["path"]: fetch(f["path"]) for name in todo for f in entries[name]["files"]}
-    verify(manifest, entry, files | {f["path"]: _held(root, f) for name in needs(entry, entries) if name not in todo
-                                     for f in entries[name]["files"]})
+    chosen = _chosen(entry, entries)
+    todo = [e["id"] for e in chosen if e["id"] == entry or had.get(e["id"], {}).get("version") != e["version"]]
+    made, parts = not root.exists(), []
+    try:
+        for e in chosen:
+            paths = [f["path"] for f in e["files"]]
+            if e["id"] not in todo:   # installed at its version: its files read back
+                for f in e["files"]:
+                    _checked(e, f, _held(root, f))
+                landed = _Landed(root, paths)
+            else:
+                parts.append(part := root / f".part-{e['id']}")
+                shutil.rmtree(part, ignore_errors=True)
+                for f in e["files"]:
+                    data = _checked(e, f, fetch(f["path"]))
+                    (part / f["path"]).parent.mkdir(parents=True, exist_ok=True)
+                    (part / f["path"]).write_bytes(data)
+                    del data
+                landed = _Landed(part, paths)
+            if (why := builtin_refusal(e, landed)) is not None:
+                raise ValueError(f"{e['id']}: {why}")
+    except BaseException:
+        for part in parts:
+            shutil.rmtree(part, ignore_errors=True)
+        if made:
+            with contextlib.suppress(OSError):
+                root.rmdir()
+        raise
     root.mkdir(parents=True, exist_ok=True)
     record = dict(had)
     for name in todo:
         part = root / f".part-{name}"
-        shutil.rmtree(part, ignore_errors=True)
-        for f in entries[name]["files"]:
-            (part / f["path"]).parent.mkdir(parents=True, exist_ok=True)
-            (part / f["path"]).write_bytes(bytes(files[f["path"]]))
         for f in entries[name]["files"]:
             (root / f["path"]).parent.mkdir(parents=True, exist_ok=True)
             os.replace(part / f["path"], root / f["path"])

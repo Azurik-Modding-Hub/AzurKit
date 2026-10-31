@@ -590,7 +590,9 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     folder's read-back) and a picture past 4096x4096 (refused before it inflates; SEC-5); a manifest whose
     requires make an 80-entry lattice (checked, each entry walked once), a 5,000-deep chain back to itself
     (named, not a ``RecursionError``), 200,000 brackets, past 1,000 entries or 10,000 files, or a requires
-    that holds no id (SEC-6)."""
+    that holds no id (SEC-6); an Install whose last file is off (each file checked as it lands, into the
+    entry's part folder, so one is held at a time, and nothing written), an entry or an Install past
+    256 MiB (SEC-9)."""
     import time
     import tracemalloc
 
@@ -608,6 +610,18 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     many = manifest([{"id": f"e{k}"} for k in range(content.MAX_ENTRIES + 1)])
     files = manifest([{"id": "a", "files": [{"path": f"packs/a/{k}.json", "sha256": "0" * 64, "size": 0}
                                             for k in range(content.MAX_FILES + 1)]}])
+    five = {"sha256": _sha256(bytes(5 << 20)), "size": 5 << 20}
+    big = manifest([{"id": "a", "files": [{"path": f"packs/a/{k}.json"} | five for k in range(4)]}])
+    big["entries"][0]["files"][3]["size"] += 1   # the last one fetched isn't the manifest's
+    huge = manifest([{"id": "a", "requires": ["b"], "files": [
+        {"path": f"packs/a/{k}.json", "sha256": "0" * 64, "size": content.MAX_FILE} for k in range(3)]},
+        {"id": "b", "files": [{"path": f"packs/b/{k}.json", "sha256": "0" * 64, "size": content.MAX_FILE}
+                              for k in range(2)]}])
+    folder, seen = tmp_path / "content", []
+
+    def fetch(path: str) -> bytes:
+        seen.append((path, sorted(p.name for p in folder.rglob("*.json"))))
+        return bytes(5 << 20)
     rows = {
         "a PNG bomb": (lambda: textures.read_png(bomb), r"^the PNG's image data isn't its size"),
         "a PNG bomb in a glTF folder": (lambda: gltf._read_png(bomb), r"^the PNG's image data isn't its size"),
@@ -620,7 +634,15 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
         "1,001 entries": (lambda: content.check(many), r"^manifest: 1,001 entries, past the 1,000 a manifest may hold"),
         "10,001 files": (lambda: content.check(files), r"^manifest: entry 'a': past the 10,000 files a manifest may "),
         "a requires of no id": (lambda: content.check(manifest([{"id": "a", "requires": [["b"]]}])),
-                                r"^manifest: entry 'a': requires is a list of ids")}
+                                r"^manifest: entry 'a': requires is a list of ids"),
+        "an Install of 4 x 5 MiB, the last file off": (lambda: content.install(big, "a", fetch, folder),
+                                                       r"^a: packs/a/3\.json is 5,242,880 bytes, not the manifest's "),
+        "an entry past 256 MiB": (lambda: content.check(manifest([{"id": "a", "files": [
+            {"path": f"packs/a/{k}.json", "sha256": "0" * 64, "size": content.MAX_FILE} for k in range(5)]}])),
+            r"^manifest: entry 'a': its files are 335,544,320 bytes, past the 268,435,456 an entry may hold"),
+        "an Install past 256 MiB": (lambda: content.install(huge, "a", fetch, folder), r"^a: an install of it and "
+                                    r"the entries it requires is 335,544,320 bytes, past the 268,435,456"),
+    }
     slow = {}
     for row, (call, why) in rows.items():
         tracemalloc.start()
@@ -637,6 +659,8 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
         if took >= 0.1 or held >= 16 << 20:
             slow[row] = f"{took:.3f} s, {held:,} bytes held"
     assert not slow, slow
+    assert seen == [(f"packs/a/{k}.json", [f"{j}.json" for j in range(k)]) for k in range(4)]   # each held alone
+    assert not folder.exists()   # a refused Install writes nothing
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
 
 
