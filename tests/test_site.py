@@ -825,6 +825,40 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         served.close()
 
 
+def test_kept_content_reaches_the_engine_only_at_a_content_path_holding_its_installed_sha256(browser, site):
+    """What this browser keeps installed (IndexedDB, which any script of the site's origin can write) is written into
+    the engine's content folder file by file only where its path is one a manifest may list and installed.json holds
+    its sha256: a planted ``../`` key never reaches Pyodide's file system (one once wrote over the engine's own
+    packages), nor does a file whose bytes aren't the record's; each is left out with a line naming it."""
+    recipe = json.dumps({"beamlord": {}}).encode()   # lists beamlord under its entry wherever it is read
+    planted = "../content/variants/planted/variant.json"   # variants/planted/variant.json, were it written
+    escaped = "../../../lib/python3.14/site-packages/azurkit_planted/__init__.py"
+    installed = {name: {"version": 1, "source": "", "files": {f"variants/{name}/variant.json": hashlib.sha256(recipe).hexdigest()}}
+                 for name in ("kept", "planted", "swapped")}
+    files = {"variants/kept/variant.json": recipe, planted: recipe, escaped: b"raise SystemExit",
+             "variants/swapped/variant.json": b'{"beamlord": 1}'}
+    served, lines = Site(browser, site), []
+    served.context.on("console", lambda m: lines.append(m.text) if m.text.startswith("AzurKit left out") else None)
+    try:
+        page = served.open()
+        listed = page.evaluate("""async ([files, installed]) => {
+            azurkit.engine.content(Object.fromEntries(Object.entries(files).map(([k, v]) => [k, new Uint8Array(v)])),
+                                   installed);
+            const reply = await azurkit.engine.call("pickers", {given: {iso: null}});
+            return Object.fromEntries(reply.community.map((e) => [e.id, e.variants.map((v) => v.name)]));
+        }""", [{k: list(v) for k, v in files.items()}, installed])
+        assert listed == {"kept": ["beamlord"], "planted": [], "swapped": []}
+        end = time.monotonic() + 30
+        while len(lines) < 3 and time.monotonic() < end:   # the worker's lines, as Playwright delivers them
+            page.wait_for_timeout(200)
+        assert sorted(re.sub(r"[0-9a-f]{12}", "#", line) for line in lines) == sorted(
+            [f"AzurKit left out kept content: path {path!r} isn't a file under variants/, clips/, sounds/, fx/, packs/"
+             for path in (planted, escaped)]
+            + ["AzurKit left out kept content: variants/swapped/variant.json's sha256 # isn't installed.json's"])
+    finally:
+        served.close()
+
+
 def test_the_site_serves_the_favicon_the_page_links(browser, site):
     """The page links the favicon (the mark, D892), and the site's folder,
     served as a static host serves it, gives each file the page asks for,

@@ -22,7 +22,8 @@
 //      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
 //      (sdk.pickers, sdk.preview, sdk.match) and {type: "content_check", call, manifest, id, files} (an Install's
 //      check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
-//      into the engine's content folder). A message with a File has the image checked first, once a File (prime).
+//      into the engine's content folder file by file once checked: kept). A message with a File has the image checked
+//      first, once a File (prime).
 // Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages), {type: "built", report, size, segments, heap},
 //      {type: "refused", message, heap}
@@ -47,6 +48,7 @@ const lastLine = (error) => String(error?.message ?? error).trim().split("\n").a
 // past 2 GiB of the heap at its address taken as signed, so a build that held more than that came out with other
 // bytes (a seed wearing keylord: three of its levels).
 const ENGINE = `
+import hashlib
 import json
 
 import pyodide_js
@@ -75,6 +77,33 @@ def handed(value):
     return value
 
 
+def kept(files, installed):
+    """What this browser keeps installed (IndexedDB, which any script of the site's origin may write) written into
+    the engine's content folder: each file only where its path is one a manifest may list (content._path: no "..",
+    under the content folders) and installed.json's record holds its sha256; installed.json last. The reasons the
+    others were left out, each naming its path."""
+    from azurkit.tools.characters import content
+
+    record = installed if isinstance(installed, dict) else {}
+    listed = {path: sha for held in record.values() if isinstance(held, dict) and isinstance(held.get("files"), dict)
+              for path, sha in held["files"].items()}
+    dropped = []
+    for path in Object.keys(files):
+        try:
+            content._path("kept content", path)
+            data = getattr(files, path).to_bytes()
+            if (got := hashlib.sha256(data).hexdigest()) != listed.get(path):
+                raise ValueError(f"kept content: {path}'s sha256 {got[:12]} isn't installed.json's")
+        except (AttributeError, TypeError, ValueError) as exc:
+            dropped.append(str(exc) if isinstance(exc, ValueError) else f"kept content: {path!r} holds no bytes")
+            continue
+        (content.ROOT / path).parent.mkdir(parents=True, exist_ok=True)
+        (content.ROOT / path).write_bytes(data)
+    content.ROOT.mkdir(parents=True, exist_ok=True)
+    (content.ROOT / content.INSTALLED).write_text(json.dumps(installed), encoding="utf-8")
+    return dropped
+
+
 def progressed(record):   # a build's stage, posted while it runs (core/progress.py's record)
     postMessage(to_js({"type": "progress", **record}, dict_converter=Object.fromEntries, create_pyproxies=False))
 
@@ -85,6 +114,9 @@ def engine(request):
 
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
+    if request.type == "content":
+        return js({"dropped": kept(request.files, json.loads(JSON.stringify(getattr(request, "installed", None))
+                                                             or "null"))})
     if request.type == "restore":
         return js(sdk.restore(json.loads(JSON.stringify(request.setup)) if request.setup else request.setup))
     if request.type in ("pickers", "preview", "match", "content_check"):
@@ -316,15 +348,10 @@ const needsNumpy = (data) => CHARACTER.includes(data.type) || data.character || 
   || data.setup?.character || data.type === "decode";
 
 // The content folder the engine reads (./content: the wheel has no user data folder here): what this browser keeps
-// installed, written in whole once per worker.
-function content({ py }, { files, installed }) {
-  const root = `${py.FS.cwd()}/content`;
-  for (const [path, data] of Object.entries(files)) {
-    py.FS.mkdirTree(`${root}/${path.split("/").slice(0, -1).join("/")}`);
-    py.FS.writeFile(`${root}/${path}`, data);
-  }
-  py.FS.mkdirTree(root);
-  py.FS.writeFile(`${root}/installed.json`, JSON.stringify(installed));
+// installed, written in whole once per worker, each file checked first (the engine's kept: a path a manifest may
+// list, the sha256 installed.json holds for it); one that fails is left out with a line naming it, never written.
+function content({ engine }, { files, installed }) {
+  for (const why of engine({ type: "content", files, installed }).dropped) console.warn(`AzurKit left out ${why}`);
 }
 
 // A Characters tab's call, the image mounted for it (none picked: no image).
