@@ -592,7 +592,9 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     (named, not a ``RecursionError``), 200,000 brackets, past 1,000 entries or 10,000 files, or a requires
     that holds no id (SEC-6); an Install whose last file is off (each file checked as it lands, into the
     entry's part folder, so one is held at a time, and nothing written), an entry or an Install past
-    256 MiB (SEC-9)."""
+    256 MiB (SEC-9); a path with a ``:`` or a name Windows keeps for a device, two paths one but for letter
+    case, and an Update whose ``installed.json`` lists a path outside the content folder, which it leaves
+    (SEC-15)."""
     import time
     import tracemalloc
 
@@ -642,6 +644,16 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             r"^manifest: entry 'a': its files are 335,544,320 bytes, past the 268,435,456 an entry may hold"),
         "an Install past 256 MiB": (lambda: content.install(huge, "a", fetch, folder), r"^a: an install of it and "
                                     r"the entries it requires is 335,544,320 bytes, past the 268,435,456"),
+        **{f"a path {what}": (lambda path=path: content.check(manifest([{"id": "a", "files": [
+            {"path": path, "sha256": "0" * 64, "size": 0}]}])), why) for what, path, why in (
+            ("with a ':'", "packs/a/x.json:stream", r"^manifest: entry 'a': path 'packs/a/x\.json:stream' holds a ':'"),
+            ("Windows keeps for a device", "packs/Nul/x.json",
+             r"^manifest: entry 'a': path 'packs/Nul/x\.json': 'Nul' is a name Windows keeps for a device"),
+            ("Windows keeps, with a suffix", "packs/a/com1.json", r"'com1\.json' is a name Windows keeps"))},
+        "two paths one but for letter case": (lambda: content.check(manifest([
+            {"id": "a", "files": [{"path": "packs/a/X.json", "sha256": "0" * 64, "size": 0}]},
+            {"id": "b", "files": [{"path": "packs/a/x.json", "sha256": "0" * 64, "size": 0}]}])),
+            r"^manifest: entry 'b': packs/a/x\.json is entry 'a''s too"),
     }
     slow = {}
     for row, (call, why) in rows.items():
@@ -661,6 +673,15 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     assert not slow, slow
     assert seen == [(f"packs/a/{k}.json", [f"{j}.json" for j in range(k)]) for k in range(4)]   # each held alone
     assert not folder.exists()   # a refused Install writes nothing
+    updated, victim = tmp_path / "updated", tmp_path / "victim.json"
+    (updated / "packs/a").mkdir(parents=True)
+    victim.write_bytes(b"{}")
+    (updated / "packs/a/old.json").write_bytes(b"{}")
+    (updated / content.INSTALLED).write_text(json.dumps({"a": {"version": 1, "source": "", "files": {
+        "../victim.json": "0" * 64, str(victim): "0" * 64, "packs/a/old.json": "0" * 64}}}))
+    content.install(manifest([{"id": "a", "version": 2, "files": [{"path": "packs/a/new.json", "sha256": _sha256(b"[]"),
+                                                                     "size": 2}]}]), "a", lambda _: b"[]", updated)
+    assert victim.is_file() and not (updated / "packs/a/old.json").exists()   # an Update removes only its own (SEC-15)
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
 
 

@@ -61,6 +61,8 @@ XISO = b"MICROSOFT*XBOX*MEDIA"
 """An XISO image's media magic (at 0x10000 of an image, and of each of its parts): never content (D960)."""
 _ID = re.compile(r"[a-z][a-z0-9_]*\Z")
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
+_DEVICE = re.compile(r"(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³]) *(\..*)?\Z", re.IGNORECASE)
+"""A name Windows keeps for a device, with any suffix (``NUL.json``): never a file there."""
 ENTRY = ("id", "kind", "title", "author", "licence", "version", "files", "requires")
 
 
@@ -87,6 +89,10 @@ def _path(where: str, value: object) -> str:
     parts = PurePosixPath(value).parts
     if ".." in parts or "." in parts or len(parts) < 2 or parts[0] not in FOLDERS:
         raise ValueError(f"{where}: path {value!r} isn't a file under {', '.join(f + '/' for f in FOLDERS)}")
+    if ":" in value:   # a drive or an NTFS stream on Windows
+        raise ValueError(f"{where}: path {value!r} holds a ':', which no content path does")
+    if device := next((part for part in parts if _DEVICE.match(part)), None):
+        raise ValueError(f"{where}: path {value!r}: {device!r} is a name Windows keeps for a device (CON, NUL, COM1)")
     return value
 
 
@@ -96,7 +102,8 @@ def check(manifest: bytes | str | Mapping) -> dict:
     is refused by name), each entry's fields (an id unique and an
     identifier, a kind of :data:`KINDS`, a version a whole number, the ids
     it requires known, with no cycle), each file's path (relative, POSIX,
-    under :data:`FOLDERS`, no ``..``, claimed by one entry only), sha256 (64
+    under :data:`FOLDERS`, no ``..``, no ``:`` or name Windows keeps for a
+    device, claimed by one entry only, letter case aside), sha256 (64
     hex digits) and size (a whole number up to :data:`MAX_FILE`; an entry's
     files up to :data:`MAX_ENTRY` in all), and at most
     :data:`MAX_ENTRIES` entries and :data:`MAX_FILES` files in all.
@@ -153,9 +160,9 @@ def check(manifest: bytes | str | Mapping) -> dict:
                                                                                          "licence"}:
                 raise ValueError(f"{where}: a file is an object of path, sha256, size and maybe licence")
             path = _path(where, f["path"])
-            if path in claimed:
-                raise ValueError(f"{where}: {path} is entry {claimed[path]!r}'s too")
-            claimed[path] = given["id"]
+            if path.lower() in claimed:   # one file on a case-blind disk (APFS, NTFS), as scripts/check.py holds
+                raise ValueError(f"{where}: {path} is entry {claimed[path.lower()]!r}'s too")
+            claimed[path.lower()] = given["id"]
             if not isinstance(f["sha256"], str) or not _SHA.match(f["sha256"]):
                 raise ValueError(f"{where}: {path}'s sha256 is no 64 lower-case hex digits")
             if type(f["size"]) is not int or not 0 <= f["size"] <= MAX_FILE:
@@ -348,7 +355,7 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     entries = {e["id"]: e for e in manifest["entries"]}
     had = installed(root)
     chosen = _chosen(entry, entries)
-    todo = [e["id"] for e in chosen if e["id"] == entry or had.get(e["id"], {}).get("version") != e["version"]]
+    todo = [e["id"] for e in chosen if e["id"] == entry or _record(had, e["id"]).get("version") != e["version"]]
     made, parts = not root.exists(), []
     try:
         for e in chosen:
@@ -384,15 +391,33 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
             os.replace(part / f["path"], root / f["path"])
         shutil.rmtree(part, ignore_errors=True)
         kept = {f["path"] for f in entries[name]["files"]}
-        for path in sorted(set(had.get(name, {}).get("files", {})) - kept):
-            if not any(path in other.get("files", {}) for key, other in record.items() if key != name):
-                (root / path).unlink(missing_ok=True)
+        others = set().union(*(_removable(record, key) for key in record if key != name))
+        for path in sorted(_removable(had, name) - kept - others):
+            (root / path).unlink(missing_ok=True)
         record[name] = {"version": entries[name]["version"], "source": source,
                         "files": {f["path"]: f["sha256"] for f in entries[name]["files"]}}
     part = root / f"{INSTALLED}.part"
     part.write_text(json.dumps(record, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(part, root / INSTALLED)
     return record
+
+
+def _record(record: Mapping, name: str) -> Mapping:
+    """``installed.json``'s record of entry ``name`` (``{}``: none, or none AzurKit can read)."""
+    return held if isinstance(held := record.get(name), Mapping) else {}
+
+
+def _removable(record: Mapping, name: str) -> set[str]:
+    """The paths ``installed.json`` lists for entry ``name`` that are content
+    paths (:func:`_path`): only those does an Update remove, so a path a
+    hand-edited record holds outside the content folder is never touched
+    (D992's SEC-15)."""
+    files = _record(record, name).get("files")
+    out = set()
+    for path in files if isinstance(files, Mapping) else ():
+        with contextlib.suppress(ValueError):
+            out.add(_path(INSTALLED, path))
+    return out
 
 
 def _held(root: Path, f: Mapping) -> bytes:
