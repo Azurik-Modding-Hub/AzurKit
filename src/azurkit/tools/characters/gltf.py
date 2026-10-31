@@ -94,6 +94,7 @@ from pathlib import Path
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters.characters import BoneRecord, body_at, bone_records, inverse_binds, mesh_groups
 from azurkit.tools.characters.retarget import FLT_MAX, SAMPLE_HZ, Clip, _linear, _slopes, evaluate, qmul, qnorm, read_clip
 from azurkit.tools.characters import render
@@ -246,10 +247,10 @@ def _hermite(ch: Channel, u: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]
         return v[i], a[i], b[i]
     d = times[i + 1] - times[i]
     s = (u - times[i]) / d
-    val = ((2 * s ** 3 - 3 * s ** 2 + 1) * v[i] + d * (s ** 3 - 2 * s ** 2 + s) * b[i]
-           + (-2 * s ** 3 + 3 * s ** 2) * v[i + 1] + d * (s ** 3 - s ** 2) * a[i + 1])
-    der = ((6 * s ** 2 - 6 * s) * v[i] + d * (3 * s ** 2 - 4 * s + 1) * b[i]
-           + (-6 * s ** 2 + 6 * s) * v[i + 1] + d * (3 * s ** 2 - 2 * s) * a[i + 1]) / d
+    val = ((2 * fdlibm.cube(s) - 3 * fdlibm.sq(s) + 1) * v[i] + d * (fdlibm.cube(s) - 2 * fdlibm.sq(s) + s) * b[i]
+           + (-2 * fdlibm.cube(s) + 3 * fdlibm.sq(s)) * v[i + 1] + d * (fdlibm.cube(s) - fdlibm.sq(s)) * a[i + 1])
+    der = ((6 * fdlibm.sq(s) - 6 * s) * v[i] + d * (3 * fdlibm.sq(s) - 4 * s + 1) * b[i]
+           + (-6 * fdlibm.sq(s) + 6 * s) * v[i + 1] + d * (3 * fdlibm.sq(s) - 2 * s) * a[i + 1]) / d
     return val, der, der
 
 
@@ -905,7 +906,7 @@ def check_export(gltf: Path, characters_xbr: bytes, body: str, clips: Sequence[s
         nrm, src = values[a["NORMAL"]].astype(float), raw[:, 28:40].copy().view("<f4").astype(float)
         keep = np.linalg.norm(src, axis=1) >= 0.5
         cos = np.where(keep, (nrm * src).sum(1) / np.maximum(np.linalg.norm(src, axis=1), 1e-30), 1.0)
-        if cos.min() < math.cos(math.radians(0.1)):
+        if cos.min() < fdlibm.cos(math.radians(0.1)):
             fail("C1", f"group {g.index} vertex {int(np.argmin(cos))}'s normal is off the source's")
         jw, ww = values[a["JOINTS_0"]].astype(np.int64), values[a["WEIGHTS_0"]].astype(float)
         sw = raw[:, 12:28].copy().view("<f4").astype(float)
@@ -972,7 +973,7 @@ def check_export(gltf: Path, characters_xbr: bytes, body: str, clips: Sequence[s
                 pos = float(np.linalg.norm(mine[:3, 3] - e[:3, 3]))
                 ra = mine[:3, :3] / np.linalg.norm(mine[:3, :3], axis=0)
                 re_ = e[:3, :3] / np.linalg.norm(e[:3, :3], axis=0)
-                deg = math.degrees(math.acos(min(1.0, max(-1.0, (np.trace(ra.T @ re_) - 1) / 2))))
+                deg = math.degrees(fdlibm.acos(min(1.0, max(-1.0, (np.trace(ra.T @ re_) - 1) / 2))))
                 if m > clip_m:
                     clip_m, where = m, f"{anim['name']} t={t:.3f} {info.bones[k].name}"
                 clip_pos, clip_deg = max(clip_pos, pos), max(clip_deg, deg)

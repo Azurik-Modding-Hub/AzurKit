@@ -117,6 +117,7 @@ import struct
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import fx_edit, fx_templates
 from azurkit.tools.characters.characters import (
     VERTEX_SIZE,
@@ -1785,7 +1786,7 @@ def _extremes(points) -> tuple[tuple[float, float, float], ...]:
     for i in range(n):
         z = 1.0 - (2 * i + 1) / n
         r, a = math.sqrt(1.0 - z * z), i * math.pi * (3.0 - math.sqrt(5.0))
-        d = (r * math.cos(a), r * math.sin(a), z)
+        d = (r * fdlibm.cos(a), r * fdlibm.sin(a), z)
         keep.add(min(range(len(points)), key=lambda j: sum(c * p for c, p in zip(d, points[j]))))
     return tuple(tuple(points[j]) for j in sorted(keep))
 
@@ -1846,7 +1847,7 @@ def _floor_lift(tip, turn, hand, hull, length: float, up, floor: float, ground: 
     need = floor - dot(up, pivot)
 
     def low(a: float) -> float:
-        c, s_ = math.cos(a), math.sin(a)
+        c, s_ = fdlibm.cos(a), fdlibm.sin(a)
         return min(x * c + y * s_ for x, y in cs) - need
     best, at, cleared = low(0.0), 0.0, False
     steps = range(1, int(round(90.0 / LIFT_STEP)) + 1)   # Step 2.207's turns kept unless ``either``
@@ -1869,7 +1870,7 @@ def _floor_lift(tip, turn, hand, hull, length: float, up, floor: float, ground: 
     fade = min(max((gate - ground + 1e-3 + ramp) / ramp, 0.0), 1.0)   # a token's root: at it
     slide = 0.0 if cleared else -best * fade
     h = at / 2
-    return ((axis[0] * math.sin(h), axis[1] * math.sin(h), axis[2] * math.sin(h), math.cos(h)), pivot,
+    return ((axis[0] * fdlibm.sin(h), axis[1] * fdlibm.sin(h), axis[2] * fdlibm.sin(h), fdlibm.cos(h)), pivot,
             tuple(slide * c for c in up))
 
 
@@ -1978,7 +1979,7 @@ def _euler(degrees: tuple[float, float, float]) -> tuple:
     q = (0.0, 0.0, 0.0, 1.0)
     for axis, d in enumerate(degrees):
         half = math.radians(d) / 2
-        q = qmul(tuple(math.sin(half) if c == axis else 0.0 for c in range(3)) + (math.cos(half),), q)
+        q = qmul(tuple(fdlibm.sin(half) if c == axis else 0.0 for c in range(3)) + (fdlibm.cos(half),), q)
     return q
 
 
@@ -2528,7 +2529,7 @@ def faded_lifted(characters_xbr: bytes, body: str, lo: Loadout, donor: bytes | N
     if not points:
         return characters_xbr, ()
     hull = np.array(_extremes(points))
-    e1, e2 = max(((p, q) for p in hull for q in hull), key=lambda pq: float(np.sum((pq[0] - pq[1]) ** 2)))
+    e1, e2 = max(((p, q) for p in hull for q in hull), key=lambda pq: float(np.sum(fdlibm.sq(pq[0] - pq[1]))))
     chain = sorted({carrier, *rig.ancestors(carrier)}, key=lambda k: len(rig.ancestors(k)))
     row = {k: r for r, k in enumerate(chain)}
     jo = {k: np.array(rig.bones[k].jo) for k in chain}
@@ -2601,7 +2602,8 @@ def faded_lifted(characters_xbr: bytes, body: str, lo: Loadout, donor: bytes | N
 
     def turned(rot, at, pivot, axis, degrees) -> tuple:   # the carrier's local q, t (arrays over ``degrees``)
         h = np.radians(np.atleast_1d(degrees)) / 2
-        r = np.concatenate((axis[None] * np.sin(h)[:, None], np.cos(h)[:, None]), axis=1)
+        sine, cosine = np.vectorize(fdlibm.sin, otypes=[float]), np.vectorize(fdlibm.cos, otypes=[float])
+        r = np.concatenate((axis[None] * sine(h)[:, None], cosine(h)[:, None]), axis=1)
         wc = _qmul(r, np.array(rot[carrier]))
         ac = pivot + _vturn(r, np.array(at[carrier]) - pivot)
         inv = np.array(qinv(rot[parent]))
@@ -2920,7 +2922,7 @@ class Chest:
                     if not len(near):                   # within CHEST_NEAR lies: each row's answer the full scan's
                         continue
                     diff = q[:, None, :] - B[near][None, :, :]
-                    dist = np.sqrt((diff ** 2).sum(-1))
+                    dist = np.sqrt((fdlibm.sq(diff)).sum(-1))
                     j = dist.argmin(1)
                     rows = np.arange(len(q))
                     depth = -(diff[rows, j] * NB[near][j]).sum(-1)

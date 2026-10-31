@@ -72,6 +72,7 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
+from azurkit.core import fdlibm
 from azurkit.core.facts import xbe_layout
 from azurkit.core.xbe import resolve_va_to_file
 from azurkit.core.xbr.nodes import TocEntry, parse_toc
@@ -183,8 +184,8 @@ class Euler:
             raise ValueError(f"rotation order {order} is outside the engine's 0-5 table")
         i, j, k = self.euler_axes[order]
         p = self.euler_parity[order]
-        ci, cj, ck = math.cos(a[i]), math.cos(a[j]), math.cos(a[k])
-        si, sj, sk = p * math.sin(a[i]), p * math.sin(a[j]), p * math.sin(a[k])
+        ci, cj, ck = fdlibm.cos(a[i]), fdlibm.cos(a[j]), fdlibm.cos(a[k])
+        si, sj, sk = p * fdlibm.sin(a[i]), p * fdlibm.sin(a[j]), p * fdlibm.sin(a[k])
         m = [[0.0] * 4 for _ in range(4)]
         m[i][i] = cj * ck
         m[j][i] = cj * sk

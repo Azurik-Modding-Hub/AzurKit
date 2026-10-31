@@ -48,6 +48,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import render
 
 FORMATS = {"dxt1": 0x20, "dxt3": 0x40, "bgra8": 0x10}
@@ -139,8 +140,8 @@ def _dxt(rgba: np.ndarray, fmt: int) -> bytes:
             opaque = [p for p in block if not dxt1 or p[3] >= 128]
             if opaque:   # the block's own colours along its longest colour axis
                 seed = min(opaque, key=lambda p: sum(p[:3]))
-                high = max(opaque, key=lambda p: sum((p[c] - seed[c]) ** 2 for c in range(3)))
-                low = max(opaque, key=lambda p: sum((p[c] - high[c]) ** 2 for c in range(3)))
+                high = max(opaque, key=lambda p: sum(fdlibm.sq(p[c] - seed[c]) for c in range(3)))
+                low = max(opaque, key=lambda p: sum(fdlibm.sq(p[c] - high[c]) for c in range(3)))
             else:
                 low = high = (0, 0, 0, 0)
             a, b = _rgb565(high), _rgb565(low)
@@ -166,7 +167,7 @@ def _dxt(rgba: np.ndarray, fmt: int) -> bytes:
                     choice = 3
                 else:
                     choice = min(range(3 if transparent else 4),
-                                 key=lambda c: sum((p[k] - colors[c][k]) ** 2 for k in range(3)))
+                                 key=lambda c: sum(fdlibm.sq(p[k] - colors[c][k]) for k in range(3)))
                 bits |= choice << (2 * index)
             if not dxt1:
                 out += struct.pack("<Q", sum(((p[3] * 15 + 127) // 255) << (4 * i) for i, p in enumerate(block)))
@@ -254,7 +255,7 @@ def recolor(rgba: np.ndarray, ramp, gamma: float = 1.0, gain: float = 1.0) -> np
             raise ValueError(f"recolor {name} {v!r}: a finite number above 0")
     t, colors = ramp_colors(ramp)
     lum = (rgba[..., 0] * 0.299 + rgba[..., 1] * 0.587 + rgba[..., 2] * 0.114) / 255.0
-    lum = np.clip(lum * gain, 0.0, 1.0) ** gamma
+    lum = np.vectorize(fdlibm.pow, otypes=[float])(np.clip(lum * gain, 0.0, 1.0), gamma)
     out = np.empty_like(rgba, dtype=np.uint8)
     for c in range(3):
         out[..., c] = np.floor(np.clip(np.interp(lum, t, colors[:, c]), 0.0, 1.0) * 255.0 + 0.5)

@@ -877,6 +877,25 @@ def test_a_seed_wearing_a_character_builds_on_the_site_as_cpython_builds_it(brow
         served.close()
 
 
+def test_a_weapon_a_body_lifts_off_the_floor_builds_on_the_site_as_cpython_builds_it(browser, site, usa_iso):
+    """keylord with the Farmer's hoe and the packs on by default, built on the page: CPython's report and segments
+    (AZ-830: the hoe's floor lift turned sin and cos 1 ulp apart, macOS's libm against Pyodide's, into other
+    animation words; every libm call a swap makes is ``core/fdlibm.py``'s now)."""
+    recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+              "character": {"species": "keylord", "weapon": "farmers_hoe"}}
+    made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+    served = Site(browser, site)
+    try:
+        page = served.context.new_page()
+        page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.until(page, "() => globalThis.azurkit?.loaded", 120)
+        page.set_input_files("#iso", str(usa_iso))
+        page.evaluate("() => document.querySelector('#build').click()")
+        assert _built(page) == {"report": report, "segments": _signature(made)}
+    finally:
+        served.close()
+
+
 # The tab's rows that stay vanilla in v1 ([ticked, greyed] each); "vanilla 10" beside its box ([right of it, on its
 # line]); the skip list's rows and whether it shows them all (no inner scroll).
 RANDO_SHOWN = """() => {

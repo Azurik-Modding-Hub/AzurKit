@@ -89,6 +89,7 @@ import struct
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters.characters import (
     DAMAGE_MARKERS,
     BoneRecord,
@@ -139,7 +140,7 @@ def qnorm(q) -> Quat:
 
 def qangle(p: Quat, q: Quat) -> float:
     """Degrees between two rotations."""
-    return math.degrees(2 * math.acos(min(1.0, abs(sum(a * b for a, b in zip(qnorm(p), qnorm(q)))))))
+    return math.degrees(2 * fdlibm.acos(min(1.0, abs(sum(a * b for a, b in zip(qnorm(p), qnorm(q)))))))
 
 
 def _aim(a, b) -> Quat:
@@ -896,7 +897,7 @@ def turned_over(rig: Rig, clip: Clip, k: int, axis, degrees: float, window: tupl
     def at(t: float) -> Quat:
         q = tuple(evaluate(comps[i].keys, t) if i in comps else rest[i] for i in range(4))
         half = math.radians(degrees) * weight(t) / 2.0
-        return qmul((*(math.sin(half) * x for x in ax), math.cos(half)), q)
+        return qmul((*(fdlibm.sin(half) * x for x in ax), fdlibm.cos(half)), q)
 
     n = max(2, math.ceil(clip.length * SAMPLE_HZ) + 1)
     known = sorted({0.0, clip.length} | {key[0] for tr in comps.values() for key in tr.keys if 0.0 <= key[0] <= clip.length})

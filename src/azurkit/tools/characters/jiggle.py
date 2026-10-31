@@ -101,6 +101,7 @@ import struct
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import body_codec, mesh_edit, skeleton
 from azurkit.tools.characters.characters import BoneRecord
 from azurkit.tools.characters.retarget import Clip, Rig, Track, evaluate, qinv, qmul, _turn
@@ -482,8 +483,8 @@ def rig(characters: bytearray, vanilla: bytes, body: str, spec: Spec, mesh: mesh
         if ask:
             skin = [(vid, plain[vid]) for vid in plain if vid[0] == jb.groups[0]]
             nearest = mesh_edit._nearest([p for _, p in skin], [plain[vid] for vid in ask],
-                                         lambda j, p: ((skin[j][1][0] - p[0]) ** 2 + (skin[j][1][1] - p[1]) ** 2
-                                                       + (skin[j][1][2] - p[2]) ** 2, skin[j][0]))
+                                         lambda j, p: (fdlibm.sq(skin[j][1][0] - p[0]) + fdlibm.sq(skin[j][1][1] - p[1])
+                                                       + fdlibm.sq(skin[j][1][2] - p[2]), skin[j][0]))
             known.update((vid, skin[j][0]) for vid, j in zip(ask, nearest))
         for vid in cloth:
             if known[vid] in mine:
@@ -719,7 +720,7 @@ def _cells(rows, cell: float) -> list:
     for n, r in enumerate(rows):
         p = r[0]
         key = (math.floor(p[0] / cell), math.floor(p[1] / cell), math.floor(p[2] / cell))
-        d = sum((p[c] - (key[c] + 0.5) * cell) ** 2 for c in range(3))
+        d = sum(fdlibm.sq(p[c] - (key[c] + 0.5) * cell) for c in range(3))
         if key not in best or (d, n) < best[key][0]:
             best[key] = ((d, n), r)
     return [best[k][1] for k in sorted(best)]
@@ -854,9 +855,9 @@ def _rides(riders: dict, plain: dict, follow: tuple[int, ...], reach: float) -> 
                     for c in range(-span, span + 1):
                         for j in grid.get((ci[0] + a, ci[1] + b, ci[2] + c), ()):
                             p = plain[j]
-                            d = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2
+                            d = fdlibm.sq(p[0] - q[0]) + fdlibm.sq(p[1] - q[1]) + fdlibm.sq(p[2] - q[2])
                             if d < r2:
-                                w = (1.0 - d / r2) ** 2
+                                w = fdlibm.sq(1.0 - d / r2)
                                 total += w
                                 near.append((j, w))
                             if best is None or (d, j) < best:
@@ -1135,7 +1136,8 @@ def keyed(rig: Rig, clip: Clip, placed: tuple[Placed, ...], keys: float, rate: f
             for s in range(2):
                 path[s][-1] = path[s][0]
         span = 2.0 * pl.sides if pl.sides > 0 else 1.0
-        wide = max(math.sqrt(sum(((a + b) / 2.0) ** 2 for a, b in zip(path[0][i][0], path[1][i][0]))) for i in range(n))
+        wide = max(math.sqrt(sum(fdlibm.sq((a + b) / 2.0) for a, b in zip(path[0][i][0], path[1][i][0])))
+                   for i in range(n))
         turned = max(max(abs(path[0][i][0][2] - path[1][i][0][2]), abs(path[1][i][0][1] - path[0][i][0][1])) / span
                      for i in range(n))
         fit = min(1.0, jb.travel / wide if wide > jb.travel else 1.0, jb.turn / turned if turned > jb.turn else 1.0)
@@ -1361,7 +1363,7 @@ def _clear(rig: Rig, clip: Clip, col: Collider, flats: list) -> None:
             e = (0.0, 0.0, 0.0, 1.0)
             for v, axis in ((p, (1.0, 0.0, 0.0)), (s, (0.0, 1.0, 0.0))):   # pitched, then swung about its pitched
                 if v:                                                      # fore-aft axis
-                    e = qmul(e, (*(a * math.sin(v / 2.0) for a in _turn(carried, axis)), math.cos(v / 2.0)))
+                    e = qmul(e, (*(a * fdlibm.sin(v / 2.0) for a in _turn(carried, axis)), fdlibm.cos(v / 2.0)))
             for m in range(c, len(links)):
                 W[m] = qmul(e, W[m])
                 Og[m] = tuple(a + b for a, b in zip(J, _turn(e, tuple(x - y for x, y in zip(Og[m], J)))))

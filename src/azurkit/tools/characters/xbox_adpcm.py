@@ -29,6 +29,7 @@ import struct
 import wave
 from pathlib import Path
 from typing import NamedTuple, Sequence
+from azurkit.core import fdlibm
 
 RATE = 22050
 """The rate every sound the build writes plays at (454 of fx.xbr's 669
@@ -136,8 +137,8 @@ def _resampled(samples: Sequence[int], position: float, ratio: float) -> int:
         if abs(distance) >= radius:
             continue
         x = distance * cutoff
-        sinc = 1.0 if abs(x) < 1e-12 else math.sin(math.pi * x) / (math.pi * x)
-        weight = cutoff * sinc * (0.5 + 0.5 * math.cos(math.pi * distance / radius))
+        sinc = 1.0 if abs(x) < 1e-12 else fdlibm.sin(math.pi * x) / (math.pi * x)
+        weight = cutoff * sinc * (0.5 + 0.5 * fdlibm.cos(math.pi * distance / radius))
         weights += weight
         value += samples[index] * weight
     return max(-32768, min(32767, round(value / weights)))

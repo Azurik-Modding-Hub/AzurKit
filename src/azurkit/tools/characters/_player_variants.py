@@ -156,6 +156,7 @@ import struct
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import fx_edit, fx_templates
 from azurkit.tools.characters import jiggle as jiggles
 from azurkit.tools.characters import jiggle_rt
@@ -653,25 +654,25 @@ def _box_tracks(target: int, length: float, on: float, off: float, centre, exten
 
 
 def _rz(a: float) -> tuple[float, float, float, float]:
-    return (0.0, 0.0, math.sin(a / 2), math.cos(a / 2))
+    return (0.0, 0.0, fdlibm.sin(a / 2), fdlibm.cos(a / 2))
 
 
 def _drz(a: float) -> tuple[float, float, float, float]:
     """d Rz(a) / da."""
-    return (0.0, 0.0, 0.5 * math.cos(a / 2), -0.5 * math.sin(a / 2))
+    return (0.0, 0.0, 0.5 * fdlibm.cos(a / 2), -0.5 * fdlibm.sin(a / 2))
 
 
 def _rx(a: float) -> tuple[float, float, float, float]:
-    return (math.sin(a / 2), 0.0, 0.0, math.cos(a / 2))
+    return (fdlibm.sin(a / 2), 0.0, 0.0, fdlibm.cos(a / 2))
 
 
 def _ry(a: float) -> tuple[float, float, float, float]:
-    return (0.0, math.sin(a / 2), 0.0, math.cos(a / 2))
+    return (0.0, fdlibm.sin(a / 2), 0.0, fdlibm.cos(a / 2))
 
 
 def _dry(a: float) -> tuple[float, float, float, float]:
     """d Ry(a) / da."""
-    return (0.0, 0.5 * math.cos(a / 2), 0.0, -0.5 * math.sin(a / 2))
+    return (0.0, 0.5 * fdlibm.cos(a / 2), 0.0, -0.5 * fdlibm.sin(a / 2))
 
 
 def _turning(target: int, comps: tuple[int, int, int, int], times: list[float], angle, rate: float,
@@ -1051,10 +1052,10 @@ def beam(characters: bytes, body: Body, p: dict, markers: dict[str, int]) -> Cli
     tracks = [_const(damage, 2, cz, length), *(_const(damage, 7 + c, e, length) for c, e in enumerate(extents)),
               _const(damage, 10, 0.5, length), _active(damage, w0, w1, length)]
     if sweep:
-        tracks += [Track(damage, 0, tuple((t, -math.sin(psi(t)) * cy, -math.cos(psi(t)) * cy * rate,
-                                           -math.cos(psi(t)) * cy * rate) for t in times)),
-                   Track(damage, 1, tuple((t, math.cos(psi(t)) * cy, -math.sin(psi(t)) * cy * rate,
-                                           -math.sin(psi(t)) * cy * rate) for t in times))]
+        tracks += [Track(damage, 0, tuple((t, -fdlibm.sin(psi(t)) * cy, -fdlibm.cos(psi(t)) * cy * rate,
+                                           -fdlibm.cos(psi(t)) * cy * rate) for t in times)),
+                   Track(damage, 1, tuple((t, fdlibm.cos(psi(t)) * cy, -fdlibm.sin(psi(t)) * cy * rate,
+                                           -fdlibm.sin(psi(t)) * cy * rate) for t in times))]
         tracks += _turning(damage, (3, 4, 5, 6), times, psi, rate, _rz, _drz)
         tracks += _turning(aim, (3, 4, 5, 6), times, psi, rate, lambda a: qmul(_rz(a), level),
                            lambda a: qmul(_drz(a), level))
@@ -2418,7 +2419,7 @@ def _mesh_op(at: str, op):
         else:
             origin = _num(f"{at}.origin", origin)
         if not 0 <= origin or (not op.get("pair") and (
-                origin >= radius[1] or (origin / radius[1]) ** 2 + (inward / (inner or radius[0])) ** 2 >= 1)):
+                origin >= radius[1] or fdlibm.sq(origin / radius[1]) + fdlibm.sq(inward / (inner or radius[0])) >= 1)):
             raise ValueError(f"{at}.origin: back {origin:g}, in {inward:g} must put the rays' start inside the "
                              "ellipsoid (a pair's may start behind it), back at least 0")
         blend, inner_blend = op["blend"], None
@@ -4122,10 +4123,10 @@ def arm_turns(rig: Rig, degrees: float, forward: float = 0.0) -> dict[int, tuple
         frame = qmul(rig.world[b.parent], b.jo) if b.parent >= 0 else b.jo
         axis = _turn(qinv(frame), (0.0, 1.0, 0.0))
         half = math.radians(sign * degrees) / 2
-        out[k] = (*(math.sin(half) * a for a in axis), math.cos(half))
+        out[k] = (*(fdlibm.sin(half) * a for a in axis), fdlibm.cos(half))
         if forward:
             side, half = _turn(qinv(frame), (1.0, 0.0, 0.0)), math.radians(forward) / 2
-            out[k] = qmul(out[k], (*(math.sin(half) * a for a in side), math.cos(half)))
+            out[k] = qmul(out[k], (*(fdlibm.sin(half) * a for a in side), fdlibm.cos(half)))
     return out
 
 
@@ -4140,7 +4141,7 @@ def bone_turn(rig: Rig, k: int, axis, degrees: float) -> tuple[float, float, flo
     ax = _turn(qinv(frame), axis)
     length = math.sqrt(sum(x * x for x in ax))
     half = math.radians(degrees) / 2
-    return (*(math.sin(half) * x / length for x in ax), math.cos(half))
+    return (*(fdlibm.sin(half) * x / length for x in ax), fdlibm.cos(half))
 
 
 def restyled(before: bytes, after: bytes, first: int, body: str, variant: Variant,

@@ -70,6 +70,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import body_codec, fx_edit, textures
 from azurkit.tools.characters.characters import Body, height, marker_records
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records
@@ -205,7 +206,7 @@ class Plan:
             mult[s.column] = s.mult
         name = SPECIES.encode("ascii")
         out = struct.pack("<ii3f10fiif16s", sum(1 << s.column for s in self.shots), self.bone, 0.0, 0.0, 0.0,
-                          self.speed, self.arc, self.range, self.miss, math.cos(math.radians(self.cone)),
+                          self.speed, self.arc, self.range, self.miss, fdlibm.cos(math.radians(self.cone)),
                           *self.flight, self.pad, self.life, self.pushout, self.anim, self.landing, self.radius,
                           name + bytes(16 - len(name)))
         out += struct.pack(f"<{3 * COLUMNS}f", *spawn, *release, *mult) + struct.pack("<fif", self.low, self.seek, self.miss_z)

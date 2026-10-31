@@ -118,6 +118,7 @@ from pathlib import Path
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import textures
 from azurkit.tools.characters import render
 from azurkit.core.xbr.append import NewResource, append_resources
@@ -272,7 +273,7 @@ def selected(view: View, tris: np.ndarray, region: Region) -> np.ndarray:
         sides.append((o * np.array([-1.0, 1.0, 1.0]), tuple(_mirrored(n) for n in region.only)))
     hit = np.zeros(len(tris), bool)
     for c, only in sides:
-        d = (((centres - c) / np.array(region.radius, float)) ** 2).sum(1) < 1.0
+        d = (fdlibm.sq((centres - c) / np.array(region.radius, float))).sum(1) < 1.0
         if only:
             bones = np.array(sorted(_subtree(view, set(only))))
             d &= np.isin(view.heaviest[tris], bones).all(1)
@@ -307,7 +308,7 @@ def feathered(view: View, tris: np.ndarray, t: np.ndarray, w: np.ndarray, region
         r = np.array(region.radius, float)
         best = np.full(len(t), -np.inf)
         for c in ([o, o * np.array([-1.0, 1.0, 1.0])] if region.mirror else [o]):
-            s = np.sqrt((((rest - c) / r) ** 2).sum(1))
+            s = np.sqrt((fdlibm.sq((rest - c) / r)).sum(1))
             best = np.maximum(best, (1.0 - s) * r.min())
         depth = best
     if region.z is not None:
@@ -374,7 +375,7 @@ def _hsv(rgb: np.ndarray):
     mx, mn = rgb.max(-1), rgb.min(-1)
     sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-9), 0.0)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-    hue = np.degrees(np.arctan2(math.sqrt(3.0) * (g - b), 2.0 * r - g - b)) % 360.0
+    hue = np.degrees(np.vectorize(fdlibm.atan2, otypes=[float])(math.sqrt(3.0) * (g - b), 2.0 * r - g - b)) % 360.0
     return hue, sat, mx
 
 
@@ -429,7 +430,8 @@ def occlusion(view: View, which: np.ndarray, occluders: np.ndarray, reach: float
     k = np.arange(RAYS) + 0.5
     r = np.sqrt(k / RAYS)
     phi = k * math.pi * (3.0 - math.sqrt(5.0))
-    dirs = np.stack([r * np.cos(phi), r * np.sin(phi), np.sqrt(1.0 - r * r)], 1)
+    sine, cosine = np.vectorize(fdlibm.sin, otypes=[float]), np.vectorize(fdlibm.cos, otypes=[float])
+    dirs = np.stack([r * cosine(phi), r * sine(phi), np.sqrt(1.0 - r * r)], 1)
     out = np.zeros(len(which))
     N = view.normals[which]
     N = N / np.maximum(np.linalg.norm(N, axis=1), 1e-12)[:, None]
@@ -513,7 +515,7 @@ def bake(view: View, src: np.ndarray, groups: tuple[int, ...], spec: TextureSpec
             light /= np.linalg.norm(light)
             lit = np.clip(nrm[picked] @ light, 0.0, 1.0)
             c = colour[picked, :3] * (1.0 - op.numbers.get("ao", 0.5) * a)[:, None]
-            c += op.numbers.get("light", 0.0) * (lit ** 2)[:, None] * c
+            c += op.numbers.get("light", 0.0) * (fdlibm.sq(lit))[:, None] * c
             warm = op.numbers.get("warm", 0.0) * (a - 0.5 * lit)[:, None] * np.array([[1.0, -0.6, -0.2]])
             colour[picked, :3] = np.clip(c + warm * c.max(1, keepdims=True), 0.0, 1.0)
         elif op.op == "metal":
@@ -548,18 +550,20 @@ def bake(view: View, src: np.ndarray, groups: tuple[int, ...], spec: TextureSpec
             uv = (view.uvs[tris[t[mask]]] * w[mask][..., None]).sum(1)
             phase = np.random.default_rng(int(op.numbers.get("seed", 1))).uniform(0.0, 2.0 * math.pi, 3)
             k = op.numbers.get("count", 40.0) * np.array([1.0, 1.618, 2.718])
-            wave = (np.sin(2.0 * math.pi * k[0] * uv[:, 0] + phase[0])
-                    + 0.6 * np.sin(2.0 * math.pi * k[1] * uv[:, 0] + phase[1])
-                    + 0.4 * np.sin(2.0 * math.pi * k[2] * uv[:, 0] + phase[2])) / 2.0
+            sine = np.vectorize(fdlibm.sin, otypes=[float])
+            wave = (sine(2.0 * math.pi * k[0] * uv[:, 0] + phase[0])
+                    + 0.6 * sine(2.0 * math.pi * k[1] * uv[:, 0] + phase[1])
+                    + 0.4 * sine(2.0 * math.pi * k[2] * uv[:, 0] + phase[2])) / 2.0
             light = np.array(op.numbers.get("from", (0.0, -0.5, 1.0)), float)
             light /= np.linalg.norm(light)
-            band = np.clip((nrm[mask] @ light - 0.55) / 0.45, 0.0, 1.0) ** 2
-            add = op.numbers.get("value", 0.12) * np.clip(wave, 0.0, 1.0) ** 2 + op.numbers.get("sheen", 0.0) * band
+            band = fdlibm.sq(np.clip((nrm[mask] @ light - 0.55) / 0.45, 0.0, 1.0))
+            add = (op.numbers.get("value", 0.12) * fdlibm.sq(np.clip(wave, 0.0, 1.0))
+                   + op.numbers.get("sheen", 0.0) * band)
             tint = np.array(op.numbers.get("tint", (0.55, 0.62, 0.8)), float)
             colour[mask, :3] = np.clip(colour[mask, :3] + add[:, None] * tint[None, :], 0.0, 1.0)
         elif op.op == "sharpen":
             near = np.unique(t[picked])
-            new, was = _uv_area(view.uvs[tris[near]]) * size * size, _uv_area(corners[near]) * src.shape[0] ** 2
+            new, was = _uv_area(view.uvs[tris[near]]) * size * size, _uv_area(corners[near]) * fdlibm.sq(src.shape[0])
             sigma = op.numbers.get("texels", 1.0) * (math.sqrt(new / was) if was > 0.0 else 1.0)
             have = np.zeros((size, size))      # the blur over the region's own texels (no other island's)
             have[covered] = picked
@@ -591,7 +595,7 @@ def _blurred(img: np.ndarray, sigma: float) -> np.ndarray:
     """``img`` (h, w, c) blurred by a Gaussian of ``sigma`` texels, each axis
     in turn, wrapped as the texture is sampled."""
     r = max(1, int(math.ceil(3.0 * sigma)))
-    k = np.exp(-0.5 * (np.arange(-r, r + 1) / max(sigma, 1e-6)) ** 2)
+    k = np.vectorize(fdlibm.exp, otypes=[float])(-0.5 * fdlibm.sq(np.arange(-r, r + 1) / max(sigma, 1e-6)))
     k /= k.sum()
     for axis in (0, 1):
         img = sum(w * np.roll(img, d, axis) for d, w in zip(range(-r, r + 1), k))
@@ -805,7 +809,9 @@ def colour(rgb: np.ndarray, op: PaintOp) -> tuple[np.ndarray, np.ndarray]:
         hf, sf, vf = (float(c) for c in hsv_of(n["from"]))
         ht, st, vt = (float(c) for c in hsv_of(n["to"]))
         a, b = np.radians(h), math.radians(hf)
-        d = np.hypot(s * np.cos(a) - sf * math.cos(b), s * np.sin(a) - sf * math.sin(b))
+        sine, cosine = np.vectorize(fdlibm.sin, otypes=[float]), np.vectorize(fdlibm.cos, otypes=[float])
+        hypot = np.vectorize(math.hypot, otypes=[float])
+        d = hypot(s * cosine(a) - sf * fdlibm.cos(b), s * sine(a) - sf * fdlibm.sin(b))
         reach = n.get("reach", 0.15)
         w = _step(1.0 - d / reach) if reach > 0.0 else (d <= 0.0).astype(float)
         dh, ks, kv = (ht - hf + 180.0) % 360.0 - 180.0, st / sf, vt / vf

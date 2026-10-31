@@ -122,6 +122,7 @@ from __future__ import annotations
 import math
 import struct
 from dataclasses import dataclass, field, replace
+from azurkit.core import fdlibm
 
 G = 9.8
 """m/s^2, the world's gravity (``0x1980A8``)."""
@@ -417,7 +418,7 @@ def step_matrix(w2: float, beta: float, h: float) -> tuple[tuple[float, ...], tu
     while norm > 0.5 and s < 2000:
         norm *= 0.5
         s += 1
-    scale = 0.5 ** s
+    scale = math.ldexp(1.0, -s)
     b = [[c * scale for c in r] for r in a]
 
     def mm(x, y):
@@ -1226,7 +1227,7 @@ def _drive(rows_: list[Row], bones: int, ticks: list[dict], strength: float, hz:
     raw = {r.role: 0.0 for r in rows_}
     tips: dict[str, list] = {r.role: [] for r in rows_ if r.spring.wall is not None}
     for t in ticks:
-        m = _qmat((0.0, 0.0, math.sin(t["yaw"] / 2.0), math.cos(t["yaw"] / 2.0)), t["origin"])
+        m = _qmat((0.0, 0.0, fdlibm.sin(t["yaw"] / 2.0), fdlibm.cos(t["yaw"] / 2.0)), t["origin"])
         twin.pose(Pose("A", "P", "C", t["now"], t["scale"], m, t["worlds"], t["velocity"], 0, t["state"],
                        t.get("rate", 1.0)))
         for k, r in enumerate(rows_):
@@ -1407,7 +1408,7 @@ def _scenario(name: str, hz: int, poser: _Poser, slots: dict, rates: dict, scale
             y += vy * dt + jump
             z += vz * dt
             psi += om * dt
-        d = (-math.sin(psi) * vy, math.cos(psi) * vy, vz)
+        d = (-fdlibm.sin(psi) * vy, fdlibm.cos(psi) * vy, vz)
         rate = (rates[name] if name.startswith("walk") else run_rate if clip == run_clip and clip != idle
                 else 1.0)
         worlds = (poser.faded(run_clip, 1.5 * run_rate, idle, ct, t - stopped) if stopped is not None
@@ -1594,7 +1595,7 @@ def pose(springs: dict, clips=None, *, hz: int = 30, strength: float = 1.0) -> P
         source = named_clip(springs["characters"], springs["body"], clip)
         twin, frames = Twin(rows_, len(poser.rig.bones), strength), []
         for t in ticks:
-            m = _qmat((0.0, 0.0, math.sin(t["yaw"] / 2.0), math.cos(t["yaw"] / 2.0)), t["origin"])
+            m = _qmat((0.0, 0.0, fdlibm.sin(t["yaw"] / 2.0), fdlibm.cos(t["yaw"] / 2.0)), t["origin"])
             shim = twin.pose(Pose("A", "P", "C", t["now"], t["scale"], m, t["worlds"], t["velocity"], 0,
                                   t["state"], t["rate"]))
             world, moved = gltf._engine(info, source, t["ct"]), [None] * len(parents)

@@ -140,9 +140,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   a path.
 - **Remembers your setup** between visits, never your image, until you Reset to defaults.
 - **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file.
-- **Same bytes everywhere:** the page, the app and the command line make the identical image. One known exception
-  for now: a weapon a body's moves lift off the floor (keylord's farmer's hoe) can differ in the browser by a few
-  animation values too small to see.
+- **Same bytes everywhere:** the page, the app and the command line make the identical image.
 - **Proven exact:** packs, randomized seeds and character swaps are checked byte for byte: seeds against
   Azurik_Modkit, the toolkit AzurKit replaces, the packs and swaps against AzurKit's own records, which began as
   Azurik_Modkit's.

@@ -6525,7 +6525,7 @@
       null,
       "surf",
       174976,
-      "617602406c3ca85640fe7b3938f9ff360a89a11506ff2c8c4aa9cae1e3801dd8",
+      "f0759c8733c851dfc287a306e02a840ba120856813a7dd6141f9de52d1e88965",
       []
      ],
      [
@@ -6539,7 +6539,7 @@
       "characters/townspeople/female_2/g4/360_basic_attack",
       "banm",
       51412,
-      "4c02a0b65b2fde52be18d73b711c5acb09deda18ea4ff03eb2dc7963de1ef7a4",
+      "2a49c10c12d1e17ac5b626255ca1e5dd0b1cfe4d936b536bf3c4eaa6000132d8",
       []
      ],
      [
@@ -6714,7 +6714,7 @@
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
       86956,
-      "31f0c9b5bc440d78a06c813da1d91972156de436f5e7a852647a938935ef0778",
+      "311bddb2c5a88e8aa8ca851ccde464fa2ad05d713b81113e2cd36a0d8df69a9e",
       []
      ],
      [
@@ -6735,7 +6735,7 @@
       "characters/townspeople/female_2/g4/die_1",
       "banm",
       189668,
-      "ba289e01f746048af0487f13af3f7cfaf0c84bffdb5ee8278902d2a686d54f51",
+      "5f1c883c19249a237012458059611f245edcc89c7791c32473b5e630addaa135",
       []
      ],
      [
@@ -6749,7 +6749,7 @@
       "characters/townspeople/female_2/g4/drowning",
       "banm",
       155416,
-      "70fa4d4ce7044e65d3627d7364590b3865c722775408fc41d0b74ba7fd2b053f",
+      "3fe369f11a42d0c3f018c9f16b92d57ff2757e199ad72948a4717619171a8339",
       []
      ],
      [
@@ -6763,14 +6763,14 @@
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "44b95d58189dc56fd5502032304191a74401f984b2bbb19702b976a4073a5390",
+      "fb656ab9aed765f295edcd37b02ad50386cb00e346db7b68aed07a86da9b120c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "21f32277c497f4da9568febdcabf4b9f718a80c5bdb4e3677e4bf755be6f250d",
+      "b02cafc868a35648695e2258fe23f42036086dee37d5c05a4be9d20c9772f12e",
       []
      ],
      [
@@ -6861,7 +6861,7 @@
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       33012,
-      "e14c2de5b96cafc265711070d04e863c42bb35d0a90372e8d7943ceb4981a1fd",
+      "1ce7b4b0e60da5312cee7735c51f84534e6bc4b28f9c2c984e055aec36ed3a92",
       []
      ],
      [
@@ -6945,7 +6945,7 @@
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
       49064,
-      "2abae56e96c65498f5a3322a8607967f82038cc2031c122d8c6b4e4f19ceca03",
+      "ee838ac30bb4bf804c98b6c5305182ce0d1828e28bf38bdee5715e3e1b710e8f",
       []
      ],
      [
@@ -6980,7 +6980,7 @@
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
       49304,
-      "9c6647993ea07a92d7f5671b15b7c329140af42341a1b1eba6f57c6f0e9c79cb",
+      "a22fee67a68a5b5691111288f661d800059f1b2a98d7f633f1bd1c542373502d",
       []
      ],
      [
@@ -7122,7 +7122,7 @@
       ]
      ]
     ],
-    "sha256": "061e63b5c0fee50d1dc276d54dd62ee4f2ee7957e4a541b0b1fdb6c05ba11541",
+    "sha256": "5938f71ec76bab6c3e03908f16b206cc675c27d9b25c6797b6aa14c7b31f0999",
     "size": 78625664,
     "vanilla_count": 3394
    },
@@ -8009,7 +8009,7 @@
       null,
       "surf",
       174976,
-      "617602406c3ca85640fe7b3938f9ff360a89a11506ff2c8c4aa9cae1e3801dd8",
+      "f0759c8733c851dfc287a306e02a840ba120856813a7dd6141f9de52d1e88965",
       []
      ],
      [
@@ -8079,7 +8079,7 @@
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
       73264,
-      "d2672bd868e73f9a81ed453d4be6079fa148f690dc7769cf23825c445ae73077",
+      "5ef03f0d216a3c142473d7424d966a80562e5031dfd98a09e0e45854c36b0e7d",
       []
      ],
      [
@@ -8100,7 +8100,7 @@
       "characters/townspeople/female_2/g4/die_1",
       "banm",
       156488,
-      "ab39d89fb45eb7c654670246fa87249a117e01bbfd0c6f55134fe3b76646bee6",
+      "ad1627b67b6e98a5bd50d037b837d0c3c846f5239c8f7efab60ee3f5a839e572",
       []
      ],
      [
@@ -8114,7 +8114,7 @@
       "characters/townspeople/female_2/g4/drowning",
       "banm",
       108124,
-      "00c61988a763f80288bfb31a403d981b4c2e3652822262c3638f0e7da348eed1",
+      "d067f3424c39336b39d27a1791f7c7122f72c8d817cf178547f8b51270789d9b",
       []
      ],
      [
@@ -8198,7 +8198,7 @@
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       28952,
-      "eec38fe0cc48fc9ceaabdff6940d8cfb7a87577e98aca491c0b86523c4ab41c4",
+      "afb65f3829ad24bf2c0e5fc96378f59e0b989779b473cbadbcc75e3e0f1d856e",
       []
      ],
      [
@@ -8268,7 +8268,7 @@
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
       35372,
-      "c228599e555d4789fda7c8784db1fc80afe5ee351a36d64fc89243a328581a22",
+      "11645c5e8655bf9fc9bce9aa9ebc3ce98fcb9cc5095dae7792135492c72abad0",
       []
      ],
      [
@@ -8310,7 +8310,7 @@
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
       35612,
-      "7b73173562c69a18c3e0c0d65804149980319b766e8db7ca2357c3067dbebc96",
+      "485693a2fb24e5892fec9a0117ec8703cd2331b9f28e400c8ef97a589bb0ab6f",
       []
      ],
      [
@@ -8331,7 +8331,7 @@
       "characters/townspeople/female_2/v/hspin",
       "banm",
       23120,
-      "745aa1a10ebd5b40b3ad8c49db7978b35e9387d881e4f2cf65fe5ca41c09a025",
+      "a4ca9f56ea502d1178ebe5f5f5f76569a50003886a16b8ec35bdfa1c6ea747df",
       []
      ],
      [
@@ -8452,7 +8452,7 @@
       ]
      ]
     ],
-    "sha256": "c3e5b640b5f5fba860e81a1a2ee0ffa4587de6087fbf91c5052bd58c53adb064",
+    "sha256": "7fb8b0c88483ed68c17a25574ce8bc29f263fe327995629710045419e79d49d1",
     "size": 76609426,
     "vanilla_count": 3394
    },
@@ -9407,7 +9407,7 @@
       null,
       "surf",
       699264,
-      "29846e8fbc6582e082d25aecc0e8c5d4c111164103a5f9e0bf272da7010c3a47",
+      "9f112b86d93df66e81149b93f360623ff746cad08c2e0daf4e046f35cc314c65",
       []
      ],
      [
@@ -9477,7 +9477,7 @@
       "characters/townspeople/female_2/g4/attack_13",
       "banm",
       24524,
-      "66d289966f00ac2acba28b6fd13b8cbcdb75094755ae1fb12a6c8585f8e5fc94",
+      "102d199226696ab1e45816ad2c0240d0ebeadd14570e863c0d9cbf031bc068a1",
       []
      ],
      [
@@ -9505,7 +9505,7 @@
       "characters/townspeople/female_2/g4/attack_17",
       "banm",
       35288,
-      "6d4b7804f28fd39dc452419a0a02ae81e1a8d954c17da6d5298c396783f9d307",
+      "558c97437d1c6c7c77663e02270a402a6d88dd0fb76c5ba9dc7ec5661f678dc2",
       []
      ],
      [
@@ -9540,7 +9540,7 @@
       "characters/townspeople/female_2/g4/attack_back",
       "banm",
       27908,
-      "b40484d676a9a10baa515871ec4a9097deac7e6eb29f5ed018b018f4328be1b7",
+      "bf842b7b84508e8c095ef930fe6b14a69c5d9a33c503536d6adad56cb2dc929d",
       []
      ],
      [
@@ -9554,7 +9554,7 @@
       "characters/townspeople/female_2/g4/climb_down",
       "banm",
       87724,
-      "27b4e3d3df7ddfe91db0aec735df6a11ba61b54be1e15396ad66eeae6df2f22c",
+      "0b9137d66b6282e089efc4a21046eb3a625e1bfd85f77c4d3dbcaf6520735cd2",
       []
      ],
      [
@@ -9659,14 +9659,14 @@
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "624d18cae5bbb470fc7328af0dee4554eb93ea763e8c9ff48fefe2c30dea5515",
+      "d37f1b79ccbda0fc40de1b048e3dd1866f29707354de2e3c356db38226c741b4",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "f2f610295e83c60d30ddc342ab763b97d00f11f5e2aafe91405048d6023328e9",
+      "3666f5351a724b72b6771057359d66ba59217b7f4260356157c85162fca3358b",
       []
      ],
      [
@@ -9792,7 +9792,7 @@
       "characters/townspeople/female_2/g4/smash_attack_1",
       "banm",
       43856,
-      "df3e8dbce763ec504180d379da058b9238120e2667e53d440432c31751122b7d",
+      "6192a15064501d2ad5ea8e6a1bd6f926d13e382ad98921d07946387d62a80418",
       []
      ],
      [
@@ -10023,7 +10023,7 @@
       ]
      ]
     ],
-    "sha256": "bc44184fd5f59c1e1ee72a8c81aeba9f09a970c399c0307cca1e7a1b08ae2fca",
+    "sha256": "7e3d81c90977ce66598bceaf495cffe4b4beea8e8650609205f01904176c3c7b",
     "size": 85072896,
     "vanilla_count": 3394
    },
@@ -10910,7 +10910,7 @@
       null,
       "surf",
       699264,
-      "29846e8fbc6582e082d25aecc0e8c5d4c111164103a5f9e0bf272da7010c3a47",
+      "9f112b86d93df66e81149b93f360623ff746cad08c2e0daf4e046f35cc314c65",
       []
      ],
      [
@@ -10980,7 +10980,7 @@
       "characters/townspeople/female_2/g4/attack_13",
       "banm",
       24524,
-      "66d289966f00ac2acba28b6fd13b8cbcdb75094755ae1fb12a6c8585f8e5fc94",
+      "102d199226696ab1e45816ad2c0240d0ebeadd14570e863c0d9cbf031bc068a1",
       []
      ],
      [
@@ -11008,7 +11008,7 @@
       "characters/townspeople/female_2/g4/attack_17",
       "banm",
       35288,
-      "6d4b7804f28fd39dc452419a0a02ae81e1a8d954c17da6d5298c396783f9d307",
+      "558c97437d1c6c7c77663e02270a402a6d88dd0fb76c5ba9dc7ec5661f678dc2",
       []
      ],
      [
@@ -11043,7 +11043,7 @@
       "characters/townspeople/female_2/g4/attack_back",
       "banm",
       27908,
-      "b40484d676a9a10baa515871ec4a9097deac7e6eb29f5ed018b018f4328be1b7",
+      "bf842b7b84508e8c095ef930fe6b14a69c5d9a33c503536d6adad56cb2dc929d",
       []
      ],
      [
@@ -11057,7 +11057,7 @@
       "characters/townspeople/female_2/g4/climb_down",
       "banm",
       87724,
-      "27b4e3d3df7ddfe91db0aec735df6a11ba61b54be1e15396ad66eeae6df2f22c",
+      "0b9137d66b6282e089efc4a21046eb3a625e1bfd85f77c4d3dbcaf6520735cd2",
       []
      ],
      [
@@ -11162,14 +11162,14 @@
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "624d18cae5bbb470fc7328af0dee4554eb93ea763e8c9ff48fefe2c30dea5515",
+      "d37f1b79ccbda0fc40de1b048e3dd1866f29707354de2e3c356db38226c741b4",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "f2f610295e83c60d30ddc342ab763b97d00f11f5e2aafe91405048d6023328e9",
+      "3666f5351a724b72b6771057359d66ba59217b7f4260356157c85162fca3358b",
       []
      ],
      [
@@ -11295,7 +11295,7 @@
       "characters/townspeople/female_2/g4/smash_attack_1",
       "banm",
       43856,
-      "df3e8dbce763ec504180d379da058b9238120e2667e53d440432c31751122b7d",
+      "6192a15064501d2ad5ea8e6a1bd6f926d13e382ad98921d07946387d62a80418",
       []
      ],
      [
@@ -11663,11 +11663,11 @@
       null,
       "surf",
       699264,
-      "7336e46fd9d53f30adb4432ff2c803b095faa07e4ee4acb0ae5f2f82d3068c51",
+      "ee27b4698ff8d275fb81927fb8e7a00c2704086a21c4e8e3abd326af1e719002",
       []
      ]
     ],
-    "sha256": "482e703d8ad866110f0c65d18e671959c66c95be15745c8c80d08d908695f68c",
+    "sha256": "ea64240a10bd7e1c707016447bb720af72e59b51eaa1c5d015d49fbef7d7202a",
     "size": 95661423,
     "vanilla_count": 3394
    },
@@ -12559,7 +12559,7 @@
       null,
       "surf",
       174976,
-      "617602406c3ca85640fe7b3938f9ff360a89a11506ff2c8c4aa9cae1e3801dd8",
+      "f0759c8733c851dfc287a306e02a840ba120856813a7dd6141f9de52d1e88965",
       []
      ],
      [
@@ -12573,7 +12573,7 @@
       "characters/townspeople/female_2/g4/360_basic_attack",
       "banm",
       51412,
-      "4c02a0b65b2fde52be18d73b711c5acb09deda18ea4ff03eb2dc7963de1ef7a4",
+      "2a49c10c12d1e17ac5b626255ca1e5dd0b1cfe4d936b536bf3c4eaa6000132d8",
       []
      ],
      [
@@ -12748,7 +12748,7 @@
       "characters/townspeople/female_2/g4/climb_up",
       "banm",
       86956,
-      "31f0c9b5bc440d78a06c813da1d91972156de436f5e7a852647a938935ef0778",
+      "311bddb2c5a88e8aa8ca851ccde464fa2ad05d713b81113e2cd36a0d8df69a9e",
       []
      ],
      [
@@ -12769,7 +12769,7 @@
       "characters/townspeople/female_2/g4/die_1",
       "banm",
       189668,
-      "ba289e01f746048af0487f13af3f7cfaf0c84bffdb5ee8278902d2a686d54f51",
+      "5f1c883c19249a237012458059611f245edcc89c7791c32473b5e630addaa135",
       []
      ],
      [
@@ -12783,7 +12783,7 @@
       "characters/townspeople/female_2/g4/drowning",
       "banm",
       155416,
-      "70fa4d4ce7044e65d3627d7364590b3865c722775408fc41d0b74ba7fd2b053f",
+      "3fe369f11a42d0c3f018c9f16b92d57ff2757e199ad72948a4717619171a8339",
       []
      ],
      [
@@ -12797,14 +12797,14 @@
       "characters/townspeople/female_2/g4/elemental_attack_2",
       "banm",
       167444,
-      "44b95d58189dc56fd5502032304191a74401f984b2bbb19702b976a4073a5390",
+      "fb656ab9aed765f295edcd37b02ad50386cb00e346db7b68aed07a86da9b120c",
       []
      ],
      [
       "characters/townspeople/female_2/g4/elemental_attack_3",
       "banm",
       198996,
-      "21f32277c497f4da9568febdcabf4b9f718a80c5bdb4e3677e4bf755be6f250d",
+      "b02cafc868a35648695e2258fe23f42036086dee37d5c05a4be9d20c9772f12e",
       []
      ],
      [
@@ -12895,7 +12895,7 @@
       "characters/townspeople/female_2/g4/ouch_1b",
       "banm",
       33012,
-      "e14c2de5b96cafc265711070d04e863c42bb35d0a90372e8d7943ceb4981a1fd",
+      "1ce7b4b0e60da5312cee7735c51f84534e6bc4b28f9c2c984e055aec36ed3a92",
       []
      ],
      [
@@ -12979,7 +12979,7 @@
       "characters/townspeople/female_2/g4/swim_idle_up",
       "banm",
       49064,
-      "2abae56e96c65498f5a3322a8607967f82038cc2031c122d8c6b4e4f19ceca03",
+      "ee838ac30bb4bf804c98b6c5305182ce0d1828e28bf38bdee5715e3e1b710e8f",
       []
      ],
      [
@@ -13014,7 +13014,7 @@
       "characters/townspeople/female_2/s/g4/swim_idle_up",
       "banm",
       49304,
-      "9c6647993ea07a92d7f5671b15b7c329140af42341a1b1eba6f57c6f0e9c79cb",
+      "a22fee67a68a5b5691111288f661d800059f1b2a98d7f633f1bd1c542373502d",
       []
      ],
      [
@@ -13261,11 +13261,11 @@
       null,
       "surf",
       174976,
-      "a216d5f2824000eb41daaa6c98f2c1f8215648e8145549e67dfeae9b73376280",
+      "94c16be54171b6459bd84a9b138e68a5857509f519a51acca401cd7996bfab2e",
       []
      ]
     ],
-    "sha256": "92b7c44a29cf2b36f8c7dc828b21b7db61e7ad6612f4803ac6595c32c3793690",
+    "sha256": "a6e492f56d3c2dbb25a1dea6fb5b4183c5e427e1fa94631b542098034a9454de",
     "size": 82971759,
     "vanilla_count": 3394
    },
@@ -14136,7 +14136,7 @@
       "characters/catalisk/v/hspin",
       "banm",
       7344,
-      "07d7460415202509e8f79524efffef943c999b3c1ae9027be2fe85bcf2a2c3b2",
+      "ae826cb40ae9adce4932cf264cbe2683ca07a28a5d981692356d3154f318d2c7",
       []
      ],
      [
@@ -14161,7 +14161,7 @@
       []
      ]
     ],
-    "sha256": "7c55dd803ab38e753e30c967bae43b3af1a882523fbdc28272f5cafa5b254717",
+    "sha256": "18542bc2f8d187c9dda96989f2a15b7438e7eb1a4f9f257ef87031e0f1ed465a",
     "size": 67820618,
     "vanilla_count": 3394
    },
@@ -14642,7 +14642,7 @@
       854,
       "banm",
       44436,
-      "5268401e3be7e4b4a78bbd17f93e3e1d8c6e8c0090de030bee0ca0c89cfc6e76"
+      "976e12abab48ae30d27f71049a5f5f4e5907f70bd6252fdccf396118d677c9d0"
      ],
      [
       855,
@@ -14654,7 +14654,7 @@
       856,
       "banm",
       48348,
-      "15710a3daf4ef15afa4f808617b145afcb7326ed5ea95f0fa23b5800f18df51f"
+      "50b9d363ce4122c3ef301c89343f687800a5e4d62e49e063bdcd4db312c5cc53"
      ],
      [
       857,
@@ -14666,19 +14666,19 @@
       858,
       "banm",
       67444,
-      "4931c922e39a0181f3b17666595e72c6214627e4eeea1b4b3c3aec311f20df73"
+      "47a973fa6eaf62392bcd4067da4d4ff26108bbf4ee1b995baa40fd50ab987225"
      ],
      [
       859,
       "banm",
       70096,
-      "1eb7c6ec7562c9b5c4f02f8376b7820ea74cbf55e7fb6344c8cf5340e944736e"
+      "ed12a67d94f2f00075d24e17ab4e6f4be032ff1459a1b7385c5ab40bc6924973"
      ],
      [
       860,
       "banm",
       54276,
-      "bf18d7fbfb9348e97a141a0f8e563b8b41ef9d0040aaded2ec22a4674bfede86"
+      "ce10340d0682f1bd04a8a32fb509da9d2a40220645fe74fcd59d1b04ffcc5ec8"
      ],
      [
       861,
@@ -14843,7 +14843,7 @@
       ]
      ]
     ],
-    "sha256": "5e6095cb9923c4af125ce0a8daeeffc326305ed00849c585609c5e2eb4535403",
+    "sha256": "1c0c1613bb16a6defc87c1af996d9e47aaefa21909a5d0c48d8d6e85f185159c",
     "size": 68521034,
     "vanilla_count": 3394
    },
@@ -32896,7 +32896,7 @@
       "characters/townspeople/male_6/v/hspin",
       "banm",
       7344,
-      "4877fe6286847d2d7bfbe71dc200de1d1fdd6011dbe54bf7d654007213248ecc",
+      "911d44dc679500bde8fdaa91c964af05a7e6192fb9a49f871affe7e108eb6048",
       []
      ],
      [
@@ -32921,7 +32921,7 @@
       []
      ]
     ],
-    "sha256": "fbe55fd8a880a44f66c7ff07ff99a5d5d9fb1e70f6176496e63f4b253444f8b3",
+    "sha256": "8b96d301ede448396b8ec957684ed4150ccb6744b9cccdd64ac4fc7d37605b6f",
     "size": 69740151,
     "vanilla_count": 3394
    },
@@ -37919,7 +37919,7 @@
       1543,
       "banm",
       91660,
-      "3f770f64593f16662428656fb9719f3d9053eb8470d5184bc41e13dde022611d"
+      "e27dc1e3953b79403b1ac69fd3ab298cb387e616886d4b2e526b03a6a5209ab2"
      ]
     ],
     "count": 3397,
@@ -37950,7 +37950,7 @@
       ]
      ]
     ],
-    "sha256": "08d8ea6be405b599ebd2e68eb7c5dace1bb1cae84e680ba2ddd44bf815b2f60c",
+    "sha256": "057e0abd828c006c1b20211fcf8487121a381be823e1f67b46b324a7d7ff4ff2",
     "size": 67779371,
     "vanilla_count": 3394
    },

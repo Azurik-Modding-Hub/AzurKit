@@ -42,6 +42,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from typing import NamedTuple
+from azurkit.core import fdlibm
 
 FOV_Y = 55.4
 """The game camera's vertical field of view, degrees [inferred]."""
@@ -70,7 +71,7 @@ class Wearer(NamedTuple):
 def pixel_error(pixels: float, distance: float) -> float:
     """The metres ``pixels`` screen lines span ``distance`` metres from the
     camera: 2 d tan(FOV/2) / 480 a line, about 0.00219 d."""
-    return pixels * 2.0 * distance * math.tan(math.radians(FOV_Y) / 2.0) / LINES
+    return pixels * 2.0 * distance * fdlibm.tan(math.radians(FOV_Y) / 2.0) / LINES
 
 
 def thresholds(cells: Sequence[float | None]) -> list[float]:

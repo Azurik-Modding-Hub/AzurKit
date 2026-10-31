@@ -539,6 +539,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`tools/randomizer/art/`, `draft/`) import numpy, and nothing imports capstone,
   unicorn, zig or Tk. `tests/test_contracts.py` checks these, along with
   import-linter's contracts.
+- **The same bits on every platform (AZ-830):** each platform's libm rounds
+  some sines, cosines and powers otherwise (macOS's for CPython, musl's
+  under Pyodide), so the swap's (`tools/characters/`) and the XBR graphs'
+  (`core/xbr/`) transcendental math is `core/fdlibm.py`'s: fdlibm's
+  algorithms in pure Python, built from correctly rounded operations alone
+  (musl's bits where musl's is fdlibm's), and a power is `fdlibm.sq`, `cube`
+  or `pow` (CPython's `float ** 2` calls the platform's `pow`; numpy's
+  arrays take them as they are). No `math` or numpy libm call and no `**`
+  but an integer's there; the previews' drawer (`draw.py`) writes no built
+  byte and keeps numpy's. `tests/test_contracts.py` holds this.
 
 ## The two hosts (D866)
 

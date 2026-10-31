@@ -279,6 +279,7 @@ from pathlib import Path
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters.characters import (
     VERTEX_SIZE, MeshGroup, body_at, bone_records, inverse_binds, mesh_groups, read_body)
 from azurkit.tools.characters.gltf import HELPER
@@ -1163,7 +1164,7 @@ def _nearest_cells(P: np.ndarray, Q: np.ndarray, queries, key, out: list) -> np.
     leaves (their indices) go to the scan."""
     low = P.min(0)
     span = np.maximum(P.max(0) - low, 1e-9)
-    h = 2.0 * float(np.cbrt(span[0] * span[1] * span[2] / len(P)))
+    h = 2.0 * fdlibm.cbrt(float(span[0] * span[1] * span[2] / len(P)))
     cp = np.floor((P - low) / h).astype(np.int64)
     cq = np.floor((Q - low) / h).astype(np.int64)
     base = np.minimum(cp.min(0), cq.min(0)) - 1
@@ -1176,7 +1177,7 @@ def _nearest_cells(P: np.ndarray, Q: np.ndarray, queries, key, out: list) -> np.
     cells = kq[:, None] + steps[None, :]
     starts = np.searchsorted(sk, cells, "left")
     counts = np.searchsorted(sk, cells, "right") - starts
-    bound = (0.999 * h) ** 2
+    bound = fdlibm.sq(0.999 * h)
     rest = []
     per = counts.sum(1)
     s = 0
@@ -1645,7 +1646,8 @@ def _rounds(mesh: _Mesh, spec: MeshSpec) -> list[list[_Placed]]:
                 and all(k > 0 for k in op.blend)):
             raise ValueError(f"mesh.ops[{i}]: its radius and blend must be above 0 and its origin at least 0 and "
                              "under its radius along (the rays start inside the ellipsoid; a pair's may start behind)")
-        if not op.pair and (op.origin / op.radius[1]) ** 2 + (op.inward / (op.inner or op.radius[0])) ** 2 >= 1.0:
+        if not op.pair and (fdlibm.sq(op.origin / op.radius[1])
+                            + fdlibm.sq(op.inward / (op.inner or op.radius[0]))) >= 1.0:
             raise ValueError(f"mesh.ops[{i}]: its origin and inward put the rays' start outside the ellipsoid")
         if op.bridge < 0 or (op.bridge > 0 and not op.mirror):
             raise ValueError(f"mesh.ops[{i}].bridge: a mirrored op's smooth union, at least 0")
@@ -1709,12 +1711,12 @@ def _drape_inside(op: RoundOp, an: float, at: float, s: float, n: float, t: floa
     across, along, up, _ = op.radius
     if op.inner > 0.0 and s * sign > 0.0:
         across = op.inner
-    k2 = 1.0 - (s / across) ** 2
+    k2 = 1.0 - fdlibm.sq(s / across)
     if not k2 > 0.0:
         return False, 0.0, 0.0
     k = math.sqrt(k2)
     big_a, big_b = along * k, up * k
-    if (n / big_a) ** 2 + (t / big_b) ** 2 <= 1.0:
+    if fdlibm.sq(n / big_a) + fdlibm.sq(t / big_b) <= 1.0:
         return True, 1.0, 0.0
     pn, pt = an / big_a, at / big_b
     d2 = pn * pn + pt * pt
@@ -1727,7 +1729,7 @@ def _drape_inside(op: RoundOp, an: float, at: float, s: float, n: float, t: floa
     if not (an <= n <= tn and tn > an):
         return False, 0.0, 0.0
     lam = (n - an) / (tn - an)
-    return t <= at + (tt - at) * lam, lam, math.sqrt((tn - an) ** 2 + (tt - at) ** 2)
+    return t <= at + (tt - at) * lam, lam, math.sqrt(fdlibm.sq(tn - an) + fdlibm.sq(tt - at))
 
 
 def _drape_exit(op: RoundOp, rays: tuple[float, ...], u: tuple[float, float, float], big_r: float, sign: float = 0.0
@@ -1778,9 +1780,9 @@ def _exit(op: RoundOp, sign: float, o: tuple[float, float, float], u: tuple[floa
     across, along, up, down = op.radius
 
     def solve(across: float, vert: float) -> float:
-        a = (us / across) ** 2 + (un / along) ** 2 + (ut / vert) ** 2
+        a = fdlibm.sq(us / across) + fdlibm.sq(un / along) + fdlibm.sq(ut / vert)
         b = os_ * us / (across * across) + on_ * un / (along * along) + ot_ * ut / (vert * vert)
-        cc = (os_ / across) ** 2 + (on_ / along) ** 2 + (ot_ / vert) ** 2 - 1.0
+        cc = fdlibm.sq(os_ / across) + fdlibm.sq(on_ / along) + fdlibm.sq(ot_ / vert) - 1.0
         disc = b * b - a * cc
         if not disc >= 0.0:
             return 0.0          # a pair's ray from behind the form that misses it: no form along it
@@ -1838,7 +1840,7 @@ def _shape(op: RoundOp, sign: float, s: float, n: float, t: float) -> float:
         along = op.back
     vert = up if t >= 0.0 else down
     across = _across(op, s * sign > 0.0, n, t)
-    return (s / across) ** 2 + (n / along) ** 2 + (t / vert) ** 2
+    return fdlibm.sq(s / across) + fdlibm.sq(n / along) + fdlibm.sq(t / vert)
 
 
 def _exit_tapered(op: RoundOp, sign: float, o: tuple[float, float, float], u: tuple[float, float, float]) -> float:
@@ -2072,8 +2074,8 @@ def _form_distance(p: Vec, side: _Placed) -> float:
         along = op.back
     vert = up if qt >= 0.0 else down
     across = _across(op, qs * side.inward_sign > 0.0, qn, qt)
-    k0 = math.sqrt((qs / across) ** 2 + (qn / along) ** 2 + (qt / vert) ** 2)
-    k1 = math.sqrt((qs / (across * across)) ** 2 + (qn / (along * along)) ** 2 + (qt / (vert * vert)) ** 2)
+    k0 = math.sqrt(fdlibm.sq(qs / across) + fdlibm.sq(qn / along) + fdlibm.sq(qt / vert))
+    k1 = math.sqrt(fdlibm.sq(qs / (across * across)) + fdlibm.sq(qn / (along * along)) + fdlibm.sq(qt / (vert * vert)))
     return k0 * (k0 - 1.0) / k1 if k1 > 0.0 else -min(op.radius)
 
 
@@ -2535,7 +2537,7 @@ class _Region:
 
     def holds(self, p: Vec) -> bool:
         c, r = self.centre, self.radius
-        return ((p[0] - c[0]) / r[0]) ** 2 + ((p[1] - c[1]) / r[1]) ** 2 + ((p[2] - c[2]) / r[2]) ** 2 < 1.0
+        return fdlibm.sq((p[0] - c[0]) / r[0]) + fdlibm.sq((p[1] - c[1]) / r[1]) + fdlibm.sq((p[2] - c[2]) / r[2]) < 1.0
 
     def selects(self, heaviest: int, group: int) -> bool:
         return ((heaviest in self.bones) if self.bones is not None else heaviest not in self.kept) and \
@@ -3020,13 +3022,13 @@ def _smooth_normals(mesh: _Mesh, after: list[Vec], which: set[int],
                 whole = size > 0.0 and _norm(u) > 0.0 and _norm(w) > 0.0
                 if rule == "nearer":
                     if whole:
-                        weight = sign * math.acos(max(-1.0, min(1.0, _dot(u, w) / (_norm(u) * _norm(w))))) / size
+                        weight = sign * fdlibm.acos(max(-1.0, min(1.0, _dot(u, w) / (_norm(u) * _norm(w))))) / size
                         for c in range(3):
                             alt[c] += weight * f[c]
                 else:
                     if not whole:
                         continue
-                    sign *= math.acos(max(-1.0, min(1.0, _dot(u, w) / (_norm(u) * _norm(w))))) / size
+                    sign *= fdlibm.acos(max(-1.0, min(1.0, _dot(u, w) / (_norm(u) * _norm(w))))) / size
             for c in range(3):
                 acc[c] += sign * f[c]
         n = _unit(acc)
@@ -3272,9 +3274,9 @@ def _relax(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> in
             best = 0.0
             for r in regions:
                 c, rad = r.centre, r.radius
-                d2 = sum(((p[j] - c[j]) / rad[j]) ** 2 for j in range(3))
+                d2 = sum(fdlibm.sq((p[j] - c[j]) / rad[j]) for j in range(3))
                 if d2 < 1.0:
-                    best = max(best, (1.0 - d2) ** 2)
+                    best = max(best, fdlibm.sq(1.0 - d2))
             if best > 0.0 and (w not in loop or (op.open and len(loop[w]) == 2)):
                 weight[w] = best
         free = sorted(weight)
@@ -3416,7 +3418,7 @@ class _ReachMix:
         if not len(rows):
             return None
         # Python's float power, as the loop's (libm's pow, which isn't numpy's square for 1 in 800)
-        w = np.array(list(map(math.pow, (1.0 - d / self.r2).tolist(), itertools.repeat(2.0))))
+        w = np.array(list(map(fdlibm.pow, (1.0 - d / self.r2).tolist(), itertools.repeat(2.0))))
         total = np.cumsum(np.concatenate(([0.0], w)))[-1]
         if len(self.bones) < 63:
             held = int(np.bitwise_or.reduce(self.bits[rows]))
@@ -3489,7 +3491,7 @@ def _bind(mesh: _Mesh, spec: MeshSpec, base: list[Vec], final: list[Vec]) -> dic
             f = g
             if op is not None and op.fade:
                 p, cc, rr = base[k], r.centre, r.radius
-                f *= (1.0 - sum(((p[i] - cc[i]) / rr[i]) ** 2 for i in range(3))) ** 2
+                f *= fdlibm.sq(1.0 - sum(fdlibm.sq((p[i] - cc[i]) / rr[i]) for i in range(3)))
             if f < 1.0:
                 mixed = {bone: (1.0 - f) * x for bone, x in (prior.get(k) or mesh.skins[k]).items()}
                 for bone, x in got.items():
@@ -3523,10 +3525,10 @@ def _reweight(mesh: _Mesh, spec: MeshSpec, base: list[Vec], bound: dict[int, dic
             c, rad = r.centre, r.radius
             for k in range(len(base)):
                 p = base[k]
-                d2 = sum(((p[j] - c[j]) / rad[j]) ** 2 for j in range(3))
+                d2 = sum(fdlibm.sq((p[j] - c[j]) / rad[j]) for j in range(3))
                 if not (d2 < 1.0 and r.selects(mesh.heaviest[k], group_of[k])):
                     continue
-                f = op.share * (1.0 - d2) ** 2
+                f = op.share * fdlibm.sq(1.0 - d2)
                 if op.z is not None:
                     f *= _smooth((p[2] - op.z[0]) / (op.z[1] - op.z[0]))
                 if op.x is not None:
@@ -4168,7 +4170,7 @@ def _cut(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> tuple[_Mesh, list[Vec]
 
         def inside(t: int) -> bool:
             q = [sum(approx[v][j] for v in tris[t]) / 3.0 for j in range(3)]
-            return sum(((q[j] - c[j]) / op.radius[j]) ** 2 for j in range(3)) < 1.0
+            return sum(fdlibm.sq((q[j] - c[j]) / op.radius[j]) for j in range(3)) < 1.0
         wid: dict[bytes, int] = {}          # each welded point of the layer: its first vertex there
         for k in sorted(approx):
             wid.setdefault(keys[k], k)
@@ -4547,7 +4549,7 @@ def _tube_weights(mesh: _Mesh, spec: MeshSpec, final: list[Vec], bound: dict[int
                     d = ux * ux + uy * uy + uz * uz
                     inside = d < r2
                     if inside.any():   # Python's float power, as the loop's (libm's pow, not numpy's square)
-                        near = list(zip(js[inside].tolist(), map(math.pow, (1.0 - d[inside] / r2).tolist(),
+                        near = list(zip(js[inside].tolist(), map(fdlibm.pow, (1.0 - d[inside] / r2).tolist(),
                                                                  itertools.repeat(2.0))))
                     least = d.min()
                     nearest = (float(least), int(js[d == least].min()))
@@ -4615,7 +4617,7 @@ def _closest_on_triangles(q: np.ndarray, A: np.ndarray, B: np.ndarray, C: np.nda
         bary[mask] = row[mask]
     bary = np.where(np.isfinite(bary).all(1)[:, None], bary, np.array([1.0, 0.0, 0.0]))
     p = bary[:, :1] * A + bary[:, 1:2] * B + bary[:, 2:] * C
-    return ((p - q) ** 2).sum(1), bary
+    return (fdlibm.sq(p - q)).sum(1), bary
 
 
 def _undered(mesh: _Mesh, op: TubeOp, made: tuple[int, ...], final: list[Vec], got: dict[int, dict[int, float]],
@@ -4641,7 +4643,7 @@ def _undered(mesh: _Mesh, op: TubeOp, made: tuple[int, ...], final: list[Vec], g
         if r == count - 1 and not op.closed:
             ring += list(made[count * width:])
         q = F[ring[:width]].mean(0)
-        near = np.where(((cen - q) ** 2).sum(1) < 0.05 ** 2)[0]
+        near = np.where((fdlibm.sq(cen - q)).sum(1) < fdlibm.sq(0.05))[0]
         if not len(near):
             near = np.arange(len(tris))
         d2, bary = _closest_on_triangles(q, A[near], B[near], C[near])
@@ -4699,7 +4701,7 @@ def _smoothed(op: TubeOp, made: tuple[int, ...], final: list[Vec], got: dict[int
                 d = min(d, loop - d)
             if d > 3.0 * s:
                 continue
-            g = math.exp(-0.5 * (d / s) ** 2)
+            g = fdlibm.exp(-0.5 * fdlibm.sq(d / s))
             total += g
             for bone, x in mean[q].items():
                 mix[bone] = mix.get(bone, 0.0) + g * x
@@ -4798,7 +4800,7 @@ def _press(mesh: _Mesh, spec: MeshSpec, final: list[Vec]) -> int:
             steps[k] = sink * (1.0 - _smooth(d / width))
         for k in skin:
             q = final[k]
-            if sum(((q[j] - c[j]) / op.radius[j]) ** 2 for j in range(3)) >= 1.0:
+            if sum(fdlibm.sq((q[j] - c[j]) / op.radius[j]) for j in range(3)) >= 1.0:
                 continue
             d = near(q)
             if d is None:

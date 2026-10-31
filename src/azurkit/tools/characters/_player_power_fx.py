@@ -86,6 +86,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters.ports import replace_bytes_at
 from azurkit.core.xbr.graph import Euler, Graph, record_offsets
 from azurkit.core.xbr.nodes import named_resources, parse_toc
@@ -193,9 +194,9 @@ def angles(euler: Euler, m, order: int) -> tuple[float, float, float]:
     p = euler.euler_parity[order]
     cy = math.hypot(m[i][i], m[j][i])
     if cy > 1e-9:
-        a = (math.atan2(m[k][j], m[k][k]), math.atan2(-m[k][i], cy), math.atan2(m[j][i], m[i][i]))
+        a = (fdlibm.atan2(m[k][j], m[k][k]), fdlibm.atan2(-m[k][i], cy), fdlibm.atan2(m[j][i], m[i][i]))
     else:
-        a = (math.atan2(-m[j][k], m[j][j]), math.atan2(-m[k][i], cy), 0.0)
+        a = (fdlibm.atan2(-m[j][k], m[j][j]), fdlibm.atan2(-m[k][i], cy), 0.0)
     out = [0.0, 0.0, 0.0]
     for axis, v in zip((i, j, k), a):
         out[axis] = p * v
@@ -253,7 +254,7 @@ def hand_shape(characters: bytes, body: str, hands: tuple[str, str], skip=frozen
         f = (reach or GARRET4_REACH) / GARRET4_REACH
         unit = toward / np.linalg.norm(toward)
         heads[end] = Head(turn_onto(OUT[end], d), (0.0, 0.0, 0.0), HAND * f, False)
-        words.append(f"{bone} {math.degrees(math.acos(min(1.0, abs(float(unit @ np.asarray(d)))))):.0f} deg off "
+        words.append(f"{bone} {math.degrees(fdlibm.acos(min(1.0, abs(float(unit @ np.asarray(d)))))):.0f} deg off "
                      f"its fist, x{HAND * f:.2f}")
     return Shape("hand", heads, SPRITES, 1.0, f"over each fist from the wrist ({'; '.join(words)})")
 

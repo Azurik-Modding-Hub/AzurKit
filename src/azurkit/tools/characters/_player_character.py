@@ -541,6 +541,7 @@ from pathlib import Path
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters.characters import (
     CAMERA_MARKER,
     DAMAGE_MARKERS,
@@ -7012,7 +7013,7 @@ CAMERA_EYE = 0.11
 the near plane is 0.11 m (0x198414)."""
 CAMERA_PITCH = math.radians(30.0)
 """The camera's rest pitch under the horizon."""
-CAMERA_TAN = math.tan(math.radians(35.0))
+CAMERA_TAN = fdlibm.tan(math.radians(35.0))
 """tan of half the projection's 70-degree horizontal field of view; the
 vertical is 0.75 of it (4:3)."""
 FRAME_EDGE = 0.95
@@ -7047,7 +7048,7 @@ POSE_SLOTS = (1, 70, 74)
 two swim slots (swim_idle, swim_2)."""
 POSE_SAMPLES = 21
 """How many times over each clip's length :func:`pose_top` samples it."""
-DRAWN_MIN = 2.0 ** -126
+DRAWN_MIN = math.ldexp(1.0, -126)
 """The least drawn scale with a camera part: the game holds it (the
 critter's +0x188) as a float32 and X8's swim divides by it, so one that
 rounds to 0 or a denormal there (x1e-39, x1e-46) keeps the game's camera,
@@ -7170,7 +7171,7 @@ def frames(low, high, drawn: float, point: float, s: float) -> bool:
     feet: every corner at least 0.11 + 0.1 x ``s`` m in front of the eye
     and inside :data:`FRAME_EDGE` of the frame (the projection's 70 degrees
     at 4:3)."""
-    c, n = math.cos(CAMERA_PITCH), math.sin(CAMERA_PITCH)
+    c, n = fdlibm.cos(CAMERA_PITCH), fdlibm.sin(CAMERA_PITCH)
     eye = (CAMERA_REST + CAMERA_EYE) * s
     ey, ez = -c * eye, point + n * eye
     near, wide, tall = CAMERA_EYE + 0.1 * s, FRAME_EDGE * CAMERA_TAN, FRAME_EDGE * 0.75 * CAMERA_TAN

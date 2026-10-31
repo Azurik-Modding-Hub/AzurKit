@@ -74,6 +74,7 @@ from pathlib import Path
 
 import numpy as np
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import gltf as gx
 from azurkit.tools.characters import mesh_edit
 from azurkit.tools.characters.retarget import FLT_MAX, Clip, Track, _linear, add_clips, evaluate, write_clip
@@ -361,8 +362,8 @@ def _rest(info, target: int, comp: int) -> float:
 def _hermite_at(t0, v0, out0, t1, v1, in1, t):
     d = t1 - t0
     s = (t - t0) / d
-    return ((2 * s ** 3 - 3 * s ** 2 + 1) * v0 + d * (s ** 3 - 2 * s ** 2 + s) * out0
-            + (-2 * s ** 3 + 3 * s ** 2) * v1 + d * (s ** 3 - s ** 2) * in1)
+    return ((2 * fdlibm.cube(s) - 3 * fdlibm.sq(s) + 1) * v0 + d * (fdlibm.cube(s) - 2 * fdlibm.sq(s) + s) * out0
+            + (-2 * fdlibm.cube(s) + 3 * fdlibm.sq(s)) * v1 + d * (fdlibm.cube(s) - fdlibm.sq(s)) * in1)
 
 
 def _thin_track(track: Track, eps: float, rest: float) -> Track | None:
@@ -468,12 +469,12 @@ def _slerp_gap(values: np.ndarray) -> float:
     for p, q in zip(values, values[1:]):
         p, q = p / np.linalg.norm(p), q / np.linalg.norm(q)
         cos = float(np.clip(p @ q, -1.0, 1.0))
-        theta = math.acos(cos)
+        theta = fdlibm.acos(cos)
         if theta < 1e-9:
             continue
         run = (1 - u) * p + u * q
-        arc = (math.sin((1 - u) * theta) * p + math.sin(u * theta) * q) / math.sin(theta)
-        worst = max(worst, math.degrees(2 * math.acos(min(1.0, abs(float(run @ arc) / np.linalg.norm(run))))))
+        arc = (fdlibm.sin((1 - u) * theta) * p + fdlibm.sin(u * theta) * q) / fdlibm.sin(theta)
+        worst = max(worst, math.degrees(2 * fdlibm.acos(min(1.0, abs(float(run @ arc) / np.linalg.norm(run))))))
     return worst
 
 
@@ -499,10 +500,10 @@ def _gltf_value(how, times, v, a, o, t, path, nlerp: bool = False):
     if nlerp:
         r = (1 - s) * p + s * q
         return r / np.linalg.norm(r)
-    theta = math.acos(min(1.0, float(p @ q)))
+    theta = fdlibm.acos(min(1.0, float(p @ q)))
     if theta < 1e-9:
         return p
-    return (math.sin((1 - s) * theta) * p + math.sin(s * theta) * q) / math.sin(theta)
+    return (fdlibm.sin((1 - s) * theta) * p + fdlibm.sin(s * theta) * q) / fdlibm.sin(theta)
 
 
 def _check(info, clip: Clip, doc, buffers, anim, name: str, tolerance: float) -> None:

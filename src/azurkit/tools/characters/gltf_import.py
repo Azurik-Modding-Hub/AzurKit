@@ -61,12 +61,13 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import body_codec, mesh_edit, skeleton
 from azurkit.tools.characters.body_codec import BodyAsset, Group, Vertex
 from azurkit.tools.characters.gltf import HELPER
 
 MODES = ("topology", "weights")
-NORMAL_CHANGE = math.cos(math.radians(2.0))
+NORMAL_CHANGE = fdlibm.cos(math.radians(2.0))
 """An unmoved vertex's normal is the file's only past this cosine (2
 degrees: Blender 5.2.2's round trip turns one of female_2's 0.6)."""
 

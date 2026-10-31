@@ -43,6 +43,7 @@ from __future__ import annotations
 import math
 import re
 
+from azurkit.core import fdlibm
 from azurkit.tools.characters import body_codec, jiggle_rt
 from azurkit.tools.characters.characters import read_body
 from azurkit.tools.characters.retarget import read_clip
@@ -177,7 +178,7 @@ def chains(characters_xbr: bytes, body: str) -> dict:
             links.append(link)
             if j >= n_rows:
                 continue
-            across = length * math.tan(math.radians(_ease(start["angle"], j, n_rows)))
+            across = length * fdlibm.tan(math.radians(_ease(start["angle"], j, n_rows)))
             spring = {"freq": _r(_ease(start["freq"], j, n_rows), 3),
                       "damping": _r(_ease(start["damping"], j, n_rows), 3),
                       "travel": [_r(across * math.sqrt(max(0.0, 1.0 - c * c))) for c in u]} | start["spring"]
@@ -186,7 +187,7 @@ def chains(characters_xbr: bytes, body: str) -> dict:
             jiggle_rt.parse_spring(f"{names[k]}'s row", spring)   # a row printed is a row a recipe takes
             # X41's travel is per bind axis and, at rot_share 1, the offset along the link stays a move: its
             # ellipsoid's reach along a slanted link is how far the link can stretch
-            link["stretch"] = _r(math.sqrt(sum((t * c) ** 2 for t, c in zip(spring["travel"], u))))
+            link["stretch"] = _r(math.sqrt(sum(fdlibm.sq(t * c) for t, c in zip(spring["travel"], u))))
             rows.append({"role": _role(names[k]), "bone": names[k], "parent": names[parents[k]], "spring": spring})
         out["chains"].append({
             "kind": kind[root], "root": names[root], "parent": names[p] if 0 <= p < len(names) else None,

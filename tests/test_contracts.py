@@ -27,6 +27,12 @@ ENGINE_CALLS = {"print", "exit", "quit", "sys.exit", "os._exit", "os.system", "o
 ENGINE_CALL_PREFIXES = ("os.spawn", "os.exec", "os.posix_spawn")
 NEVER = {"capstone", "unicorn", "ziglang", "tkinter"}
 NUMPY_HOME = ("tools/characters/", "tools/randomizer/art/", "tools/randomizer/draft/")
+# AZ-830: what reaches a swap's bytes rounds the same on every platform, its libm calls core/fdlibm.py's (the previews'
+# drawer, draw.py, writes no built byte)
+SAME_BITS = ("tools/characters/", "core/xbr/")
+SAME_BITS_ASIDE = ("tools/characters/draw.py",)
+LIBM = {"sin", "cos", "tan", "asin", "acos", "atan", "atan2", "exp", "expm1", "exp2", "log", "log2", "log10", "log1p",
+        "pow", "cbrt", "sinh", "cosh", "tanh", "arcsin", "arccos", "arctan", "arctan2", "power", "float_power", "hypot"}
 
 
 def violations(source: str, rel: str) -> list[str]:
@@ -51,6 +57,14 @@ def violations(source: str, rel: str) -> list[str]:
             called = ast.unparse(node.func)
             if called in ENGINE_CALLS or called.startswith(ENGINE_CALL_PREFIXES):
                 found.append(f"{rel}:{node.lineno} calls {called}")
+        if rel.startswith(SAME_BITS) and rel not in SAME_BITS_ASIDE:
+            if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.attr in LIBM
+                    and (node.value.id in ("np", "numpy") or node.value.id == "math" and node.attr != "hypot")):
+                found.append(f"{rel}:{node.lineno} calls the platform's {node.value.id}.{node.attr} (fdlibm's)")
+            elif (isinstance(node, (ast.BinOp, ast.AugAssign)) and isinstance(node.op, ast.Pow)
+                  and not (isinstance(base := getattr(node, "left", getattr(node, "target", None)), ast.Constant)
+                           and type(base.value) is int)):
+                found.append(f"{rel}:{node.lineno} raises to a power by the platform's pow (fdlibm.sq, cube, pow)")
     return found
 
 
@@ -65,7 +79,7 @@ def test_import_linter_contracts_hold(capsys):
     assert lint_imports(config_filename=str(ROOT / "pyproject.toml"), no_cache=True) == 0, capsys.readouterr().out
 
 
-def test_the_engine_holds_no_threads_processes_prints_or_exits_and_numpy_stays_in_its_homes():
+def test_the_engine_holds_no_threads_processes_prints_or_exits_numpy_stays_in_its_homes_and_swaps_call_no_libm():
     caught = {   # each form the rules name, in an engine module
         "import threading": "imports threading",
         "from concurrent.futures import ThreadPoolExecutor": "imports concurrent.futures",
@@ -79,6 +93,11 @@ def test_the_engine_holds_no_threads_processes_prints_or_exits_and_numpy_stays_i
     }
     for source, why in caught.items():
         assert any(v.endswith(why) for v in violations(source, "core/x.py")), source
+    for source, why in {"math.sin(x)": "math.sin (fdlibm's)", "np.arctan2(y, x)": "np.arctan2 (fdlibm's)",
+                        "x ** 2": "pow (fdlibm.sq, cube, pow)", "x **= 0.5": "pow (fdlibm.sq, cube, pow)"}.items():
+        assert any(v.endswith(why) for v in violations(source, "tools/characters/x.py")), source   # AZ-830
+    assert violations("2 ** 31 + math.hypot(x, y) + fdlibm.sin(x)", "core/xbr/x.py") == []
+    assert violations("np.sin(x)", "tools/characters/draw.py") == violations("np.sin(x)", "tools/mods/x.py") == []
     assert violations("import numpy\nimport threading", "tools/randomizer/live/x.py") == [
         "tools/randomizer/live/x.py:1 imports numpy"]
     assert violations("import numpy\nprint(numpy)", "cli.py") == ["cli.py:1 imports numpy"]
