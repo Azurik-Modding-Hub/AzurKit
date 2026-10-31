@@ -644,7 +644,8 @@ def app_booblord(d: Driver, app: App, ctx) -> None:
     p = app.launch(d, ctx, None)
     d.act(p, None, typed("iso-path", str(d.iso)), USA)
     p.js(click("tab-characters"))
-    p.wait(SPECIES)
+    p.wait(SPECIES)   # the shipped view lists no community entry: booblord's Install comes with the engine's answer
+    p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
     d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
           """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 600)
     d.act(p, "A18", model("booblord"), chosen("booblord"), 3600)
