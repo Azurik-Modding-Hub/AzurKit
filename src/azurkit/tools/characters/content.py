@@ -25,13 +25,17 @@ has the same path in that repository and in the content folder, and its
 "azurik-custom-content", "schema_version": 1, "entries": [{"id", "kind"
 ("variant" or "pack"), "title", "author", "licence", "version" (a whole
 number, bumped by any change to its files), "files": [{"path", "sha256",
-"size"[, "licence"]}], "requires": [id]}]}``. :func:`install` copies an
-entry and those it requires into a content folder from what a host fetched
-(a ``fetch(path) -> bytes`` of the source it reads: a URL or a folder, the
-app's and the CLI's; the site's worker checks what its page fetched with
-:func:`verify`): every file's size and sha256 checked first, nothing written
-on a mismatch (D35), then the files moved into place and ``installed.json``
-written last. An installed copy stays at its version (pinned) until its
+"size"[, "licence"]}], "requires": [id][, "description"]}]}`` (a
+``description``: one line of plain text, at most :data:`DESCRIPTION`
+characters, for the entry's row before its Install). :func:`install` copies
+an entry and those it requires into a content folder from what a host
+fetched (a ``fetch(path) -> bytes`` of the source it reads: a URL or a
+folder, the app's and the CLI's; the site's worker checks what its page
+fetched with :func:`verify`): every file's size and sha256 checked first,
+and the entry's own reading by the host's ``refusal`` (a built-in variant's
+recipe, :func:`builtin_refusal`, unless the host names another), nothing
+written on a fault (D35), then the files moved into place and
+``installed.json`` written last. An installed copy stays at its version (pinned) until its
 Update, the same install, which also removes the files the new version
 dropped. Nothing here opens a network connection."""
 
@@ -70,6 +74,8 @@ _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _DEVICE = re.compile(r"(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³]) *(\..*)?\Z", re.IGNORECASE)
 """A name Windows keeps for a device, with any suffix (``NUL.json``): never a file there."""
 ENTRY = ("id", "kind", "title", "author", "licence", "version", "files", "requires")
+DESCRIPTION = 200
+"""An entry's optional ``description``: at most this many characters, one line of plain text."""
 
 
 def root() -> Path:
@@ -143,8 +149,8 @@ def check(manifest: bytes | str | Mapping) -> dict:
     out, claimed, seen, count = [], {}, set(), 0
     for k, given in enumerate(entries, 1):
         where = f"manifest: entry {k}"
-        if not isinstance(given, Mapping) or set(given) != set(ENTRY):
-            raise ValueError(f"{where}: an object of {', '.join(ENTRY)}, exactly")
+        if not isinstance(given, Mapping) or not set(ENTRY) <= set(given) <= {*ENTRY, "description"}:
+            raise ValueError(f"{where}: an object of {', '.join(ENTRY)}, exactly, and maybe a description")
         where = f"manifest: entry {given['id']!r}"
         if not isinstance(given["id"], str) or not _ID.match(given["id"]):
             raise ValueError(f"{where}: an id is a lower-case identifier")
@@ -156,6 +162,9 @@ def check(manifest: bytes | str | Mapping) -> dict:
         for field in ("title", "author", "licence"):
             if not isinstance(given[field], str) or not given[field].strip():
                 raise ValueError(f"{where}: {field} is no text")
+        if "description" in given and not (isinstance(text := given["description"], str) and text.strip()
+                                           and len(text) <= DESCRIPTION and text.isprintable()):
+            raise ValueError(f"{where}: description is no line of plain text of at most {DESCRIPTION} characters")
         if type(given["version"]) is not int or given["version"] < 1:
             raise ValueError(f"{where}: version {given['version']!r} is no whole number from 1")
         if not isinstance(given["files"], list) or not isinstance(given["requires"], list):
@@ -183,7 +192,7 @@ def check(manifest: bytes | str | Mapping) -> dict:
         if (size := sum(f["size"] for f in files)) > MAX_ENTRY:
             raise ValueError(f"{where}: its files are {size:,} bytes, past the {MAX_ENTRY:,} an entry may hold")
         out.append({**{k: given[k] for k in ENTRY if k not in ("files", "requires")}, "files": files,
-                    "requires": list(given["requires"])})
+                    "requires": list(given["requires"]), **{k: given[k] for k in ("description",) if k in given}})
     ids = {e["id"]: e for e in out}
     for e in out:
         if lost := [r for r in e["requires"] if r not in ids]:
@@ -247,12 +256,19 @@ def _walk(starts: list[str], entries: Mapping[str, Mapping]) -> list[str]:
     return order
 
 
-def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes]) -> list[dict]:
+Refusal = Callable[[Mapping, Mapping[str, bytes]], str | None]
+"""A host's reading of an entry it installs (``refusal(entry, files)``: why it
+can't be installed, or ``None``; ``files`` its checked files' bytes by path):
+:func:`builtin_refusal` by default, the sdk's for a pack (Step 4.3k)."""
+
+
+def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes], refusal: Refusal | None = None) -> list[dict]:
     """The entries an install of ``entry`` writes (it and those it requires,
     :func:`needs`, those already in ``files``' reach), each file of theirs
     in ``files`` checked: its size and sha256 as the manifest lists them,
-    no XISO image or part of one (D960), and a built-in variant's recipe
-    the engine's (:func:`builtin_refusal`), the whole install at most
+    no XISO image or part of one (D960), and each entry as ``refusal``
+    reads it (:data:`Refusal`; ``None``: a built-in variant's recipe the
+    engine's, :func:`builtin_refusal`), the whole install at most
     :data:`MAX_ENTRY`. ``ValueError`` names the entry, the path and, for a
     sha256, both values' first 12 digits."""
     manifest = check(manifest)
@@ -261,7 +277,7 @@ def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes]) -> list[di
     for e in chosen:
         for f in e["files"]:
             _checked(e, f, files.get(f["path"]))
-        if (why := builtin_refusal(e, files)) is not None:
+        if (why := (refusal or builtin_refusal)(e, {f["path"]: files[f["path"]] for f in e["files"]})) is not None:
             raise ValueError(f"{e['id']}: {why}")
     return chosen
 
@@ -349,17 +365,18 @@ def installed(root: Path | None = None) -> dict:
 
 
 def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: Path | None = None,
-            source: str = "") -> dict:
+            source: str = "", refusal: Refusal | None = None) -> dict:
     """Install ``entry`` of ``manifest`` (and each entry it requires that
     isn't installed at its version) into ``root`` (:data:`ROOT`), reading
     each file through ``fetch``: each file checked as it lands
     (:func:`verify`'s checks) and written to ``root/.part-<id>/``, so one
-    file at a time is held and a mismatch writes nothing (the parts
-    removed, D35; D992's SEC-9); once every file is checked, each entry's
-    moved into place, the files its last version held that this one doesn't
-    removed, and ``installed.json`` written last, each entry's version,
-    ``source`` and files' sha256. An installed entry is Updated the same
-    way. Returns :func:`installed`'s record."""
+    file at a time is held, then each entry read by ``refusal`` (as
+    :func:`verify` reads it) from what landed, and a fault writes nothing
+    (the parts removed, D35; D992's SEC-9); once every file is checked,
+    each entry's moved into place, the files its last version held that
+    this one doesn't removed, and ``installed.json`` written last, each
+    entry's version, ``source`` and files' sha256. An installed entry is
+    Updated the same way. Returns :func:`installed`'s record."""
     root = root or ROOT
     manifest = check(manifest)
     entries = {e["id"]: e for e in manifest["entries"]}
@@ -383,7 +400,7 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
                     (part / f["path"]).write_bytes(data)
                     del data
                 landed = _Landed(part, paths)
-            if (why := builtin_refusal(e, landed)) is not None:
+            if (why := (refusal or builtin_refusal)(e, landed)) is not None:
                 raise ValueError(f"{e['id']}: {why}")
     except BaseException:
         for part in parts:
@@ -444,11 +461,12 @@ def states(manifest: Mapping | None, record: Mapping) -> list[dict]:
     ``state`` ``"install"``, ``"installed"`` (at the manifest's version) or
     ``"update"`` (an older version installed, kept until its Update), and
     ``installed`` (the version held, or ``None``); an entry installed that the
-    manifest no longer lists comes last, ``"installed"``."""
+    manifest no longer lists comes last, ``"installed"``; an entry's
+    ``description``, when it has one, is kept."""
     out = []
     for e in (manifest or {}).get("entries", []):
         held = record.get(e["id"], {}).get("version")
-        out.append({k: e[k] for k in ENTRY} | {
+        out.append({k: e[k] for k in (*ENTRY, "description") if k in e} | {
             "state": "install" if held is None else "installed" if held == e["version"] else "update",
             "installed": held})
     listed = {e["id"] for e in out}

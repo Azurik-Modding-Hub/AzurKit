@@ -704,6 +704,38 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     assert textures.read_png(_png(2, 2, b"\x00" + bytes(8) + b"\x00" + bytes(8))).shape == (2, 2, 4)
 
 
+def test_an_install_takes_its_hosts_refusal_and_an_entry_keeps_its_description(tmp_path):
+    """An entry's optional ``description`` (one line of plain text, at most 200 characters) is kept by
+    ``content.check`` and in the entry's state; another is refused by name. A host's ``refusal`` (Step 4.3k:
+    the sdk's reading of a community pack) reads each entry from its checked files, at ``content.verify``
+    and at ``content.install``, which then writes nothing; with none, a built-in variant's recipe is read
+    (``builtin_refusal``)."""
+    good = _source(tmp_path / "source", {"packs/a/pack.json": b"{}", "packs/b/pack.json": b"[]"},
+                   [{"id": "a", "files": ["packs/a/pack.json"], "requires": ["b"], "description": "Harder fights"},
+                    {"id": "b", "files": ["packs/b/pack.json"]}])
+    checked = content.check(json.dumps(good))
+    assert checked == good and checked["entries"][0]["description"] == "Harder fights"
+    assert [e.get("description") for e in content.states(checked, {})] == ["Harder fights", None]
+    for bad in ("", " ", "x" * 201, "two\nlines", 7):
+        with pytest.raises(ValueError, match=r"^manifest: entry 'a': description is no line of plain text of at "
+                                             r"most 200 characters"):
+            content.check(good | {"entries": [good["entries"][0] | {"description": bad}, good["entries"][1]]})
+    files = {"packs/a/pack.json": b"{}", "packs/b/pack.json": b"[]"}
+    read = []
+
+    def refusal(entry, landed) -> str | None:
+        read.append((entry["id"], {path: landed[path] for path in landed}))
+        return "packs/a/pack.json isn't a community pack" if entry["id"] == "a" else None
+    with pytest.raises(ValueError, match=r"^a: packs/a/pack\.json isn't a community pack"):
+        content.verify(good, "a", files, refusal=refusal)
+    assert read == [("b", {"packs/b/pack.json": b"[]"}), ("a", {"packs/a/pack.json": b"{}"})]
+    folder, read[:] = tmp_path / "content", []
+    with pytest.raises(ValueError, match=r"^a: packs/a/pack\.json isn't a community pack"):
+        content.install(good, "a", lambda path: (tmp_path / "source" / path).read_bytes(), folder, refusal=refusal)
+    assert read == [("b", {"packs/b/pack.json": b"[]"}), ("a", {"packs/a/pack.json": b"{}"})] and not folder.exists()
+    assert set(content.install(good, "a", files.__getitem__, folder, refusal=lambda *_: None)) == {"a", "b"}
+
+
 def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path, monkeypatch):
     """``sdk.pickers`` (the Characters tab, D877): the species the player can wear in ``critters_engine``'s order
     (``player_models``' usable ones), each in its grade's colour as Modkit's picker shows it (60 green, 44 yellow,
