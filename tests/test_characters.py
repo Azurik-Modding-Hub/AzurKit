@@ -767,6 +767,28 @@ def test_a_bodys_answers_kept_in_the_apps_store_build_the_same_image_and_miss_wh
     assert keylord({}) == first and len(kept) == 5
 
 
+def test_a_changed_dress_in_the_sdk_changes_the_key_the_app_keeps_a_characters_match_under(no_content, monkeypatch):
+    """The app keeps a character's G4 match and pictures (``sdk._dress``,
+    through ``sdk.match`` and ``sdk.preview``) under the swap's key, whose
+    code digest holds ``sdk.py``: an AzurKit whose dress changed, with no
+    new version, never answers from what an older one kept."""
+    read, dress = Path.read_bytes, Path(sdk.__file__).resolve()
+    monkeypatch.setattr(characters, "CACHE", {})
+
+    def key() -> str:
+        characters._code.cache_clear()
+        return characters.cache_key("match", characters.normalize({"species": "keylord"}), gate.USA, extra={})
+    try:
+        before = key()
+        monkeypatch.setattr(Path, "read_bytes", lambda p: read(p).replace(b"def _dress(", b"def _dress( ")
+                            if p == dress else read(p))
+        assert key() != before
+        monkeypatch.setattr(Path, "read_bytes", read)
+        assert key() == before
+    finally:
+        characters._code.cache_clear()
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release, request):
     """G3's ``seed=0,all`` (Modkit's ``randomize-full --seed 0`` with

@@ -89,14 +89,17 @@ cache), or ``None`` (each is worked out again): :func:`size` and
 @functools.cache
 def _code() -> str:
     """The sha256 of the code and data a swap's answer comes from (this
-    package, ``core``, ``edits`` and ``tools/mods``, AzurKit's version, and a
-    frozen app's executable): a cache key's first part."""
+    package, ``core``, ``edits``, ``tools/mods`` and ``sdk.py``, whose
+    ``_dress`` makes the G4 match and pictures the app keeps, AzurKit's
+    version, and a frozen app's executable): a cache key's first part."""
     package = Path(__file__).resolve().parents[2]
     h = hashlib.sha256(__version__.encode())
     for top in ("tools/characters", "core", "edits", "tools/mods"):
         for f in sorted((package / top).rglob("*")):
             if f.is_file() and "__pycache__" not in f.parts:
                 h.update(f.relative_to(package).as_posix().encode() + b"\0" + f.read_bytes())
+    if (dress := package / "sdk.py").is_file():
+        h.update(b"sdk.py\0" + dress.read_bytes())
     if getattr(sys, "frozen", False):   # its modules sit in the executable's archive, not as files
         at = Path(sys.executable).stat()
         h.update(f"{at.st_size} {at.st_mtime_ns}".encode())
