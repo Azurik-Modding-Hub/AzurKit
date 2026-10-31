@@ -534,14 +534,14 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
     source, folder = tmp_path / "source", tmp_path / "content"
     monkeypatch.setattr(content, "ROOT", folder)
     monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
-    files = {"packs/a/pack.json": b"{}", "packs/a/old.txt": b"old", "packs/b/pack.json": b"[]"}
-    manifest = _source(source, files, [{"id": "a", "files": ["packs/a/pack.json", "packs/a/old.txt"], "requires": ["b"]},
+    files = {"packs/a/pack.json": b"{}", "packs/a/old.md": b"old", "packs/b/pack.json": b"[]"}
+    manifest = _source(source, files, [{"id": "a", "files": ["packs/a/pack.json", "packs/a/old.md"], "requires": ["b"]},
                                        {"id": "b", "files": ["packs/b/pack.json"]}])
-    (source / "packs/a/old.txt").write_bytes(b"olD")
-    with pytest.raises(ValueError, match=r"^a: packs/a/old\.txt's sha256 [0-9a-f]{12} isn't the manifest's"):
+    (source / "packs/a/old.md").write_bytes(b"olD")
+    with pytest.raises(ValueError, match=r"^a: packs/a/old\.md's sha256 [0-9a-f]{12} isn't the manifest's"):
         sdk.content_install({"id": "a", "source": str(source)})
     assert not folder.exists()
-    (source / "packs/a/old.txt").write_bytes(b"old")
+    (source / "packs/a/old.md").write_bytes(b"old")
     view = sdk.content_install({"id": "a", "source": str(source)})
     shas = {e["id"]: {f["path"]: f["sha256"] for f in e["files"]} for e in manifest["entries"]}
     assert json.loads((folder / content.INSTALLED).read_text()) == view["installed"] == {
@@ -554,9 +554,9 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
              {"id": "b", "files": ["packs/b/pack.json"]}])
     view = sdk.content({"source": str(source)})
     assert [(e["id"], e["state"], e["installed"]) for e in view["entries"]] == [("a", "update", 1), ("b", "installed", 1)]
-    assert (folder / "packs/a/pack.json").read_bytes() == b"{}" and (folder / "packs/a/old.txt").is_file()
+    assert (folder / "packs/a/pack.json").read_bytes() == b"{}" and (folder / "packs/a/old.md").is_file()
     view = sdk.content_install({"id": "a", "source": str(source)})
-    assert view["installed"]["a"]["version"] == 2 and not (folder / "packs/a/old.txt").exists()
+    assert view["installed"]["a"]["version"] == 2 and not (folder / "packs/a/old.md").exists()
     assert (folder / "packs/a/pack.json").read_bytes() == b'{"v": 2}'
     recipe = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"] | {"scale": 1.5}
     _source(source, {"variants/beamlord/variant.json": json.dumps({"beamlord": recipe}).encode()},
@@ -594,7 +594,8 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     entry's part folder, so one is held at a time, and nothing written), an entry or an Install past
     256 MiB (SEC-9); a path with a ``:`` or a name Windows keeps for a device, two paths one but for letter
     case, and an Update whose ``installed.json`` lists a path outside the content folder, which it leaves
-    (SEC-15)."""
+    (SEC-15); a file whose suffix its folder doesn't take (``content.SUFFIXES``: a listed ``.html``, a
+    picture in ``packs/``, a suffix-less file; SEC-3's allow-list)."""
     import time
     import tracemalloc
 
@@ -649,7 +650,11 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             ("with a ':'", "packs/a/x.json:stream", r"^manifest: entry 'a': path 'packs/a/x\.json:stream' holds a ':'"),
             ("Windows keeps for a device", "packs/Nul/x.json",
              r"^manifest: entry 'a': path 'packs/Nul/x\.json': 'Nul' is a name Windows keeps for a device"),
-            ("Windows keeps, with a suffix", "packs/a/com1.json", r"'com1\.json' is a name Windows keeps"))},
+            ("Windows keeps, with a suffix", "packs/a/com1.json", r"'com1\.json' is a name Windows keeps"),
+            ("to a listed .html", "variants/a/index.HTML", r"^manifest: entry 'a': path 'variants/a/index\.HTML' is a "
+             r"\.html file: variants/ holds only \.json, \.glb, \.gltf, \.bin, \.png, \.md files"),
+            ("to a picture in packs/", "packs/a/x.png", r"'packs/a/x\.png' is a \.png file: packs/ holds only \.json, "),
+            ("to a suffix-less file", "sounds/a/x", r"'sounds/a/x' is a suffix-less file: sounds/ holds only \.wav, "))},
         "two paths one but for letter case": (lambda: content.check(manifest([
             {"id": "a", "files": [{"path": "packs/a/X.json", "sha256": "0" * 64, "size": 0}]},
             {"id": "b", "files": [{"path": "packs/a/x.json", "sha256": "0" * 64, "size": 0}]}])),

@@ -90,8 +90,11 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     (root / "web/index.html").write_text("the page\n")
     (clone / "index.html").write_text("planted\n")
     (clone / "packs/x/pack.json").write_text("{}\n")
-    for suffix in (s for s in KINDS if s != ".json"):
-        (clone / f"packs/x/x{suffix}").write_text(f"a {suffix} file\n")
+    kinds = ["packs/x/pack.json", *(f"{'packs' if s == '.md' else 'sounds' if s == '.wav' else 'fx'}/x/x{s}"
+                                    for s in KINDS if s != ".json")]   # each in a folder that takes it (Step S1)
+    for rel in kinds[1:]:
+        (clone / rel).parent.mkdir(parents=True, exist_ok=True)
+        (clone / rel).write_text(f"a {rel} file\n")
     (outside / "secret.json").write_text('"the deployer\'s"\n')
     for suffix in REFUSED:
         (clone / f"packs/x/x{suffix}").write_text("<script>1</script>\n")
@@ -114,7 +117,6 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
              "requires": []}]}))
         return web_tools.site(out, root, built, clone)
 
-    kinds = ["packs/x/pack.json", *(f"packs/x/x{s}" for s in KINDS if s != ".json")]
     good = site(tmp_path / "good", *kinds)
     assert sorted(p.relative_to(good / "content-source").as_posix() for p in (good / "content-source").rglob("*")
                   if p.is_file()) == sorted(["manifest.json", *kinds])

@@ -50,7 +50,13 @@ ENV = "AZURKIT_CONTENT"
 FORMAT, SCHEMA_VERSION = "azurik-custom-content", 1
 MANIFEST, INSTALLED = "manifest.json", "installed.json"
 KINDS = ("variant", "pack")
-FOLDERS = ("variants", "clips", "sounds", "fx", "packs")
+SUFFIXES = {"variants": (".json", ".glb", ".gltf", ".bin", ".png", ".md"), "clips": (".glb", ".gltf", ".bin", ".md"),
+            "sounds": (".wav", ".md"), "fx": (".glb", ".gltf", ".bin", ".png", ".md"), "packs": (".json", ".md")}
+"""The suffixes each folder's files may have (in any letter case), as the content repository's
+``scripts/check.py`` holds: a variant's recipe and the files read beside it (clips and meshes as glTF,
+colours and effects' pictures), clips, sounds, effects' files, a pack's JSON, and a note (``.md``) in
+each; no page, script or document a browser renders (``.html``, ``.svg``, ``.js``, ``.xml``: D992's SEC-3)."""
+FOLDERS = tuple(SUFFIXES)
 """The folders an entry's files lie in (a variant's recipe in ``variants/<id>/variant.json``)."""
 MAX_MANIFEST, MAX_FILE = 1 << 20, 64 << 20
 MAX_ENTRIES, MAX_FILES = 1000, 10000
@@ -93,6 +99,9 @@ def _path(where: str, value: object) -> str:
         raise ValueError(f"{where}: path {value!r} holds a ':', which no content path does")
     if device := next((part for part in parts if _DEVICE.match(part)), None):
         raise ValueError(f"{where}: path {value!r}: {device!r} is a name Windows keeps for a device (CON, NUL, COM1)")
+    if (suffix := PurePosixPath(value).suffix.lower()) not in SUFFIXES[parts[0]]:
+        raise ValueError(f"{where}: path {value!r} is {f'a {suffix}' if suffix else 'a suffix-less'} file: "
+                         f"{parts[0]}/ holds only {', '.join(SUFFIXES[parts[0]])} files")
     return value
 
 
@@ -102,8 +111,9 @@ def check(manifest: bytes | str | Mapping) -> dict:
     is refused by name), each entry's fields (an id unique and an
     identifier, a kind of :data:`KINDS`, a version a whole number, the ids
     it requires known, with no cycle), each file's path (relative, POSIX,
-    under :data:`FOLDERS`, no ``..``, no ``:`` or name Windows keeps for a
-    device, claimed by one entry only, letter case aside), sha256 (64
+    under :data:`FOLDERS`, a suffix its folder takes (:data:`SUFFIXES`), no
+    ``..``, no ``:`` or name Windows keeps for a device, claimed by one
+    entry only, letter case aside), sha256 (64
     hex digits) and size (a whole number up to :data:`MAX_FILE`; an entry's
     files up to :data:`MAX_ENTRY` in all), and at most
     :data:`MAX_ENTRIES` entries and :data:`MAX_FILES` files in all.
