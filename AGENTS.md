@@ -1171,7 +1171,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   Chromium, and Firefox once its first record lands; the site with each File read 200 ms late,
   Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
   app's process tree, and the site's WebKit processes that start during the run).
-  It starts once the normal-priority load is under 40, at nice 10. An op
+  It starts once the normal-priority load is under 40, at nice 10. The
+  clock is the click's (D1006): a Track or Build after a change the player
+  makes (a typed seed, the Randomize tick, an image pick, a model's pick, a
+  slider) is clicked 3 s after it (D1014's head start, `_perf.HEAD_START`), never
+  after a Cancel, a launch, a reopen or a tab's open; work done ahead is
+  free only while the page never freezes, so the page's freeze probe (a
+  50 ms timer) fails a sample whose page froze over 250 ms in a gap between
+  actions (a head start, a dialog's wait, the warm-up's), and logs the
+  lateness inside an action's own wait. The site's samples each take a
+  persistent browser context on a new folder, with the storage a player's
+  browser has. An op
   runs three times (once past 30 s) and its median decides: over 3 s it
   fails, unless `tests/perf_ceilings.toml` lists it, when it fails over its
   ceiling; an image's first check and the site's first engine load may pass

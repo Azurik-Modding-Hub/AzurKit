@@ -26,8 +26,18 @@ page in WebKit), the app capped
 127.0.0.1 from port 8900 up) in WebKit, Chromium or Firefox, and the site with each
 File read 200 ms late (Safari's read model: one checked substitution in the
 served ``worker.mjs``, so no source carries a test hook). First-time ops
-take a fresh state each sample (a new HOME or browser context), so a
-scenario runs again until each of its ops has its samples. Not collected
+take a fresh state each sample (a new HOME, or a browser context: the
+site's a persistent one on a new folder, with the storage a player's
+browser has), so a scenario runs again until each of its ops has its
+samples.
+
+The clock is the click's (D1006): a Track or Build that follows a change
+the player makes (a typed seed, the Randomize tick, an image pick, a
+model's pick, a slider) is clicked :data:`HEAD_START` after it (D1014),
+and the init script's freeze probe, a :data:`TICK_MS` timer, fails a
+sample whose page froze over :data:`FREEZE_MS` in a gap between actions
+(a head start, a dialog's wait, the warm-up's); late ticks inside an
+action's own wait are its work, logged (:class:`Driver`). Not collected
 (no ``test_`` prefix). No game bytes are printed or kept: times, texts of
 the page's status lines, sizes."""
 
@@ -44,6 +54,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -55,6 +66,9 @@ GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")
 LONG = 30.0          # an op with a sample over this runs once (its median is that sample)
 SAVE_DIALOG = 3.0    # a player's Save comes this long after the build (the save dialog)
 DOWNLOAD_BAR = "its download indicator (Safari's toolbar button, Chrome's download bubble, Firefox's downloads arrow)"
+HEAD_START = 3.0     # D1014: a Track or Build after the player's last change comes this long after it
+TICK_MS = 50         # the freeze probe's timer (timers fire in Chromium's headless shell, rAF doesn't)
+FREEZE_MS = 250      # D1006: a page late this long in a gap between actions froze (the sample fails)
 LAG_MS = 200         # Safari's read model: each File read this late (Step 4.1g2 measured about 200 ms)
 PORTS = 8900         # the site's server takes the first free port from here
 
@@ -70,6 +84,7 @@ class Op:
     content: bool = False  # reads a clone of Azurik-Custom-Content
     browser_bar: str = ""  # D980: the browser's own bar for its write of a file the page handed it (a download only)
     untimed: str = ""     # why the gate can't time it (it is listed as such)
+    head_start: bool = False   # D1014: a Track or Build clicked HEAD_START after the scenario's last change
 
     @property
     def host(self) -> str:
@@ -88,26 +103,27 @@ OPS = {op.id: op for op in (
     Op("A09", "Characters tab with the image", "characters"),
     Op("A10", "choose keylord (options and pictures)", "characters"),
     Op("A11", "G4 match, keylord", "characters"),
-    Op("A12", "Build, defaults", "build"),
+    Op("A12", "Build, defaults", "build", head_start=True),
     Op("A13", "Save, defaults, after the save dialog", "build"),
     Op("A14", "Save, defaults, clicked at once", "build"),
-    Op("A15", "Build keylord, first", "build"),
+    Op("A15", "Build keylord, first", "build", head_start=True),
     Op("A16", "Build keylord again", "build", first=False),
     Op("A17", "Save keylord, after the save dialog", "build"),
     Op("A18", "a variant's pictures (booblord), first", "characters", content=True),
     Op("A19", "a variant's pictures again", "characters", first=False, content=True),
-    Op("A20", "Build booblord, first", "build", content=True),
+    Op("A20", "Build booblord, first", "build", content=True, head_start=True),
     Op("A21", "Build booblord again", "build", first=False, content=True),
     Op("A22", "Save booblord, after the save dialog", "build", content=True),
-    Op("A23", "Track this seed (plan and tracker)", "tracker"),
+    Op("A23", "Track this seed (plan and tracker)", "tracker", head_start=True),
     Op("A24", "the Tracker's maps, first view", "tracker"),
     Op("A25", "the Tracker at a second launch", "tracker"),
-    Op("A26", "Build a seed after Track", "randomizer"),
-    Op("A27", "Build a seed, no Track first", "randomizer"),
+    Op("A26", "Build a seed after Track", "randomizer", head_start=True),
+    Op("A27", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("A28", "Save the seed, after the save dialog", "randomizer"),
     Op("A29", "Cancel a build, then Build", "randomizer"),
     Op("A30", "a small ask while a build runs (a model's pictures)", "randomizer"),
-    Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True),   # D999
+    Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True,   # D999
+       head_start=True),
     Op("A32", "the same reshape at the next launch", "build", content=True),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
     Op("A40", "a critter picked, its view", "build", first=False),
@@ -115,7 +131,7 @@ OPS = {op.id: op for op in (
     Op("A42", "All tables: critters_damage's grid", "build", first=False),
     Op("A43", "an edit committed (the engine's check, the view again)", "build", first=False),
     Op("A44", "Undo (the view again)", "build", first=False),
-    Op("A45", "Build, defaults and 100 data edits", "build"),
+    Op("A45", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("A46", "Load a mods file of 1,000 data edits, its view", "build"),
     Op("A47", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("A48", "Verify every file, first", "image", bar=True),
@@ -130,7 +146,7 @@ OPS = {op.id: op for op in (
     Op("S02", "page start, a return visit", "start", first=False),
     Op("S03", "choose the image, first time", "image", bar=True),
     Op("S04", "choose the same image after a reload", "image", first=False),
-    Op("S05", "Build, defaults", "build"),
+    Op("S05", "Build, defaults", "build", head_start=True),
     Op("S06", "Save (the browser's download)", "build", browser_bar=DOWNLOAD_BAR),
     Op("S07", "Characters tab, no image", "characters"),
     Op("S08", "Characters tab with the image", "characters"),
@@ -139,18 +155,18 @@ OPS = {op.id: op for op in (
     Op("S11", "keylord's pictures", "characters"),
     Op("S12", "a reshaped variant's pictures (beamlord)", "characters", content=True),
     Op("S13", "Install beamlord, the list again", "characters", content=True),
-    Op("S14", "Build keylord", "build"),
-    Op("S15", "booblord on the site", "build",
+    Op("S14", "Build keylord", "build", head_start=True),
+    Op("S15", "booblord on the site", "build", head_start=True,
        untimed="out of memory on the site (D835): booblord is the app's until the site can hold it"),
     Op("S16", "Randomizer tab, first ask", "randomizer"),
     Op("S17", "seed typed, its ask", "randomizer"),
-    Op("S18", "Track this seed", "tracker"),
-    Op("S19", "Track click -> the world map with its pictures", "tracker"),
+    Op("S18", "Track this seed", "tracker", head_start=True),
+    Op("S19", "the Tracker view's world map, at Track's click", "tracker"),   # raced with S18: no Track work
     Op("S20", "the maps' first draw", "tracker"),
     Op("S21", "the tracker, a reopen", "tracker"),
     Op("S22", "a level's map", "tracker", first=False),
-    Op("S23", "Build a seed after Track", "randomizer"),
-    Op("S24", "Build a seed, no Track first", "randomizer"),
+    Op("S23", "Build a seed after Track", "randomizer", head_start=True),
+    Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
     Op("S32", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
     Op("S33", "a critter picked, its view", "build", first=False),
@@ -158,7 +174,7 @@ OPS = {op.id: op for op in (
     Op("S35", "All tables: critters_damage's grid", "build", first=False),
     Op("S36", "an edit committed (the engine's check, the view again)", "build", first=False),
     Op("S37", "Undo (the view again)", "build", first=False),
-    Op("S38", "Build, defaults and 100 data edits", "build"),
+    Op("S38", "Build, defaults and 100 data edits", "build", head_start=True),
     Op("S39", "Load a mods file of 1,000 data edits, its view", "build"),
     Op("S40", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("S41", "Verify every file, first", "image", bar=True),
@@ -210,7 +226,11 @@ INIT = """(() => {
   };
   new MutationObserver(look).observe(document, { subtree: true, childList: true, characterData: true,
                                                   attributes: true, attributeFilter: ["hidden", "value"] });
-})();""" % json.dumps(list(WATCH))
+  const late = globalThis.__late = [];   // the freeze probe (D1006): [due, ms] of each tick a tick or more late
+  let tick = performance.now();
+  setInterval(() => { const t = performance.now(); if (t - tick >= 2 * %d) late.push([tick + %d, t - tick - %d]);
+                      tick = t; }, %d);
+})();""" % (json.dumps(list(WATCH)), TICK_MS, TICK_MS, TICK_MS, TICK_MS)
 
 ERROR = ("document.querySelector('#status')?.classList.contains('error') "
          "&& 'error: ' + document.querySelector('#status').textContent")
@@ -297,16 +317,23 @@ def progress_of(events: list, t0: float, t1: float) -> tuple[int, bool]:
 
 
 class Page:
-    """A page with the init script: actions timed by its clock."""
+    """A page with the init script: actions timed by its clock, and the
+    freeze probe's late ticks (``[due, ms]`` by its clock, :attr:`late`)
+    gathered at each read of its events."""
 
     def __init__(self, page):
         self.page = page
+        self.late: list = []
 
     def js(self, fn: str, arg=None):
         return self.page.evaluate(fn, arg)
 
     def now(self) -> float:
         return self.page.evaluate("() => performance.now()")
+
+    def do(self, action: str, arg=None) -> float:
+        """Do the page function ``action``: the page's clock as it starts."""
+        return self.page.evaluate(f"(a) => {{ const t = performance.now(); ({action})(a); return t; }}", arg)
 
     def wait(self, done: str, timeout: float = 900, arg=None) -> tuple[float, object]:
         """(the page's clock, the value) once ``done`` is truthy; polled every 50 ms, then 200 ms after 5 s."""
@@ -319,19 +346,58 @@ class Page:
             time.sleep(0.05 if waited < 5 else 0.2)
         return got[0], got[1]
 
+    def poll(self, dones: list[str]) -> tuple[float, list]:
+        """(the page's clock, each of ``dones``' values: an error text, else true or false) in one evaluate."""
+        each = ", ".join(f"b(({done})())" for done in dones)
+        return self.page.evaluate(f"() => {{ const b = (v) => typeof v === 'string' ? v : Boolean(v); "
+                                  f"return [performance.now(), [{each}]]; }}")
+
+    def settled(self) -> float:
+        """The page's clock once the timers already due have run (a tick the page owes is in the next read)."""
+        return self.page.evaluate("() => new Promise((done) => setTimeout(() => done(performance.now()), 0))")
+
     def events(self) -> list:
-        return self.page.evaluate("() => (globalThis.__perf ?? []).splice(0)")
+        events, late = self.page.evaluate("() => [(globalThis.__perf ?? []).splice(0), "
+                                          "(globalThis.__late ?? []).splice(0)]")
+        self.late += late
+        return events
+
+    def worst(self, t0: float, t1: float) -> float:
+        """The freeze probe's worst lateness (ms) of a tick due in ``[t0,
+        t1]``: a page already busy before ``t0`` is the work before it."""
+        return max((ms for due, ms in self.late if t0 <= due <= t1), default=0.0)
+
+
+WARM = "() => !globalThis.azurkit?.warm || azurkit.warm.done"   # D1008's warm-up over (none yet: at once)
 
 
 class Driver:
     """One run's samples: ``targets`` says how many each wanted op needs;
-    a scenario's steps time an op only while it needs more."""
+    a scenario's steps time an op only while it needs more.
+
+    The click's clock (D1006, D1014): a scenario marks each change the
+    player makes (``change=True``: a typed seed, the Randomize tick, an image
+    pick, a model's pick, a slider), and an op with ``head_start`` (a Track
+    or Build that follows one) is clicked :data:`HEAD_START` after it, the
+    clock still starting at the click. A gap between actions (:meth:`idle`:
+    a head start, a dialog's wait, the warm-up's) in which a tick of the
+    freeze probe was due and came :data:`FREEZE_MS` late fails the next
+    sample the pass records (a head start's: its op's, timed from the
+    change); one no sample takes stops the pass (:meth:`over`). Lateness in
+    an action's own wait is its work: its sample logs it (``late_ms``), as
+    each logs its gaps' worst (``gap_ms``)."""
+
+    sleep = staticmethod(time.sleep)   # a stub clock's in the tests
 
     def __init__(self, run: Run, targets: dict[str, int], scratch: Path, iso: Path, content: Path | None):
         self.run, self.targets, self.scratch, self.iso, self.content = run, targets, scratch, iso, content
         self.samples: dict[str, list[dict]] = {}
         self.log: list[str] = []
         self.ev: list = []
+        self.p: Page | None = None           # the page the pass drives
+        self.changed: float | None = None    # the page's time of the pass's last change
+        self.gap: tuple[float, str, float | None] | None = None   # the worst gap since the last sample: its ms,
+        #                                                           where, and the change a head start counted from
 
     def need(self, op: str) -> bool:
         got = self.samples.get(op, [])
@@ -341,14 +407,29 @@ class Driver:
     def needed(self, ops) -> bool:
         return any(self.need(op) for op in ops)
 
+    def fresh(self, p: Page) -> None:
+        """A new page (its own clock): the events it has logged, no change pending."""
+        self.p, self.changed = p, None
+        self.ev = p.events()
+
     def record(self, op: str | None, seconds: float, events: list, t0: float, t1: float, error: str | None = None,
                page: float | None = None):
         if op is None or not self.need(op):
+            if self.gap and self.gap[2] is not None:   # a head start whose op takes no sample: a gap as any other
+                self.gap = (*self.gap[:2], None)
             return
+        gap, self.gap = self.gap, None
+        if gap and gap[0] > FREEZE_MS:
+            error = f"the page froze {gap[0]:.0f} ms in {gap[1]}" + (f"; {error}" if error else "")
+            if gap[2] is not None:   # in its own head start: no head start (D1006), timed from the change
+                seconds = (t1 - gap[2]) / 1000
         bar, shown = progress_of(events, t0, t1)
-        sample = {"s": round(seconds, 3), "bar": bar, "progress": shown}
+        sample = {"s": round(seconds, 3), "bar": bar, "progress": shown,
+                  "late_ms": round(self.p.worst(t0, t1)) if self.p else 0}
         if page is not None:
             sample["page"] = round(page, 3)
+        if gap:
+            sample["gap_ms"] = round(gap[0])
         if error:
             sample["error"] = error[:300]
         self.samples.setdefault(op, []).append(sample)
@@ -357,18 +438,79 @@ class Driver:
                         f"{' ' + error[:120] if error else ''}")
         print(self.log[-1], flush=True)
 
-    def act(self, p: Page, op: str | None, action: str | Callable[[], None] | None, done: str,
-            timeout: float = 900, arg=None) -> tuple[float, float]:
-        """Do ``action`` (a page function, a Python callable, or nothing) and
-        wait for ``done``; time it as ``op`` by the page's clock. A done-state
-        that reads ``error: …`` (the page's error line) fails the sample."""
+    def change(self, t: float) -> None:
+        """The page's time ``t`` is the pass's last change: D1014's head start counts from it."""
+        self.changed = t
+
+    def idle(self, p: Page, why: str, seconds: float = 0.0, done: str | None = None,
+             since: float | None = None) -> None:
+        """A gap between actions (``why``): ``seconds`` slept, then ``done``
+        waited for; the freeze probe's worst tick due in it is the gap's
+        (``since``: the change a head start counts from)."""
+        g0 = p.now()
+        if seconds > 0:
+            self.sleep(seconds)
+        if done:
+            p.wait(done)
+        g1 = p.settled()
+        self.ev += p.events()
+        worst = p.worst(g0, g1)
+        if self.gap is None or worst >= self.gap[0]:
+            self.gap = (worst, why, since)
+
+    def warmed(self, p: Page) -> None:
+        """Wait, as a gap, for D1008's warm-up to end (at once until the page has one)."""
+        self.idle(p, "the warm-up", done=WARM)
+
+    def state(self, name: str, make: Callable[[Path], None]) -> Path:
+        """A fresh copy of a state (a HOME, a browser profile) made once a
+        run: ``make(folder)`` fills it the first time (one pass), and each
+        call clones it anew (``cp -c``, APFS's clones, on macOS)."""
+        made = self.scratch / "states" / name
+        if not made.is_dir():
+            making = made.with_name(name + ".making")
+            shutil.rmtree(making, ignore_errors=True)   # a make that stopped
+            making.mkdir(parents=True)
+            make(making)
+            making.rename(made)
+        clone = Path(tempfile.mkdtemp(prefix=f"{name}.", dir=made.parent))
+        clone.rmdir()
+        if sys.platform == "darwin":
+            subprocess.run(["cp", "-cR", str(made), str(clone)], check=True)
+        else:
+            shutil.copytree(made, clone, symlinks=True)
+        return clone
+
+    def over(self) -> None:
+        """The pass is over: a freeze no sample took stops it (its ops still needing samples get the error)."""
+        gap, self.gap = self.gap, None
+        if gap and gap[0] > FREEZE_MS:
+            raise RuntimeError(f"the page froze {gap[0]:.0f} ms in {gap[1]}")
+
+    def start(self, p: Page, op: str | None, action: str | Callable[[], None] | None, arg=None) -> float:
+        """Do ``action`` (a page function, a Python callable, or nothing), as
+        ``op``'s click: an op with ``head_start`` comes :data:`HEAD_START`
+        after the pass's last change (slept to: at once when that is past,
+        or with none). The page's clock at the click."""
+        if op in OPS and OPS[op].head_start and self.changed is not None:
+            if (wait := self.changed + HEAD_START * 1000 - p.now()) > 0:
+                self.idle(p, f"the head start before {op}", wait / 1000, since=self.changed)
+            self.changed = None
         if callable(action):
             t0 = p.now()
             action()
-        elif action:
-            t0 = p.js(f"(a) => {{ const t = performance.now(); ({action})(a); return t; }}", arg)
-        else:
-            t0 = p.now()
+            return t0
+        return p.do(action, arg) if action else p.now()
+
+    def act(self, p: Page, op: str | None, action: str | Callable[[], None] | None, done: str,
+            timeout: float = 900, arg=None, change: bool = False) -> tuple[float, float]:
+        """Do ``action`` (:meth:`start`) and wait for ``done``; time it as
+        ``op`` by the page's clock (``change``: the action is a change the
+        player makes). A done-state that reads ``error: …`` (the page's error
+        line) fails the sample."""
+        t0 = self.start(p, op, action, arg)
+        if change:
+            self.change(t0)
         return t0, self.until(p, op, t0, done, timeout)
 
     def until(self, p: Page, op: str | None, t0: float, done: str, timeout: float = 900) -> float:
@@ -386,6 +528,31 @@ class Driver:
         if error:
             raise RuntimeError(f"{op}: {error[:200]}")
         return t1
+
+    def race(self, p: Page, op: str, action: str, dones: dict[str, str], timeout: float = 900,
+             after: dict[str, str] | None = None) -> dict[str, float]:
+        """One click's done-states raced (``dones``: ``{op: done}``): ``action``
+        done as ``op``'s click (:meth:`start`), then every done-state polled
+        in one evaluate; each op is its own first true poll, from the click
+        or, for an op ``after`` names (``{op: another}``), from that one's
+        done. ``{op: the page's clock at its done}``."""
+        t0 = self.start(p, op, action)
+        got: dict[str, tuple[float, object]] = {}
+        began = time.monotonic()
+        while len(got) < len(dones):
+            t, values = p.poll(list(dones.values()))
+            got |= {name: (t, value) for name, value in zip(dones, values) if value and name not in got}
+            if errors := [v for _, v in got.values() if isinstance(v, str) and v.startswith("error: ")]:
+                raise RuntimeError(f"{op}: {errors[0][:200]}")
+            if len(got) < len(dones):
+                if (waited := time.monotonic() - began) > timeout:
+                    raise TimeoutError(f"timed out after {timeout:.0f} s: {[n for n in dones if n not in got]}")
+                self.sleep(0.05 if waited < 5 else 0.2)
+        self.ev += p.events()
+        for name in sorted(dones, key=lambda name: name != op):   # the click's own op first: its head start is its
+            t, begin = got[name][0], got[after[name]][0] if after and name in after else t0
+            self.record(name, max(0.0, t - begin) / 1000, self.ev, begin, max(t, begin))
+        return {name: t for name, (t, _) in got.items()}
 
 
 # ---- the hosts ----------------------------------------------------------------------------------------------------
@@ -495,7 +662,7 @@ class App:
         p = Page(ctx.new_page())
         p.page.goto(url)
         t1, _ = p.wait(READY, 600)
-        d.ev = p.events()   # a new page: its own clock
+        d.fresh(p)
         d.record(op, time.monotonic() - t, d.ev, 0, t1)
         return p
 
@@ -614,7 +781,7 @@ def _save(d: Driver, p: Page, op: str | None, name: str, dialog: bool = True) ->
     out = _out(d, name)
     p.js(typed("out-path", str(out)))
     if dialog:
-        time.sleep(SAVE_DIALOG)
+        d.idle(p, f"the save dialog before {op}", SAVE_DIALOG)
     try:
         d.act(p, op, "() => { azurkit.saved = null; document.querySelector('#save').click(); }", SAVED, 1800)
     finally:
@@ -623,14 +790,14 @@ def _save(d: Driver, p: Page, op: str | None, name: str, dialog: bool = True) ->
 
 def app_build(d: Driver, app: App, ctx) -> None:
     p = app.launch(d, ctx, None)
-    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, change=True)
     d.act(p, "A12", build_js(), BUILT)
     _save(d, p, "A13", "defaults")
     d.act(p, None, build_js(), BUILT)
     _save(d, p, "A14", "defaults", dialog=False)
     p.js(click("tab-characters"))
     p.wait(SPECIES)
-    d.act(p, None, model("keylord"), chosen("keylord"))
+    d.act(p, None, model("keylord"), chosen("keylord"), change=True)
     d.act(p, "A15", build_js(), BUILT, 1800)
     _save(d, p, "A17", "keylord")
     d.act(p, "A16", build_js(), BUILT, 1800)
@@ -642,9 +809,16 @@ def _seeded(d: Driver, p: Page, randomize: bool = True) -> None:
     p.js(click("tab-randomizer"))
     p.wait("() => azurkit.rando.view?.share")
     if randomize:
-        d.act(p, None, SEED_ASK, "() => azurkit.rando.view && document.getElementById('rando-on').checked", 900)
+        d.act(p, None, SEED_ASK, "() => azurkit.rando.view && document.getElementById('rando-on').checked", 900,
+              change=True)
     else:
-        p.js(typed("rando-seed", "azurkit"))
+        d.act(p, None, typed("rando-seed", "azurkit"), "() => document.getElementById('rando-seed').value", change=True)
+
+
+# Build, then Cancel at the build's first stage record (its ask's record: the bar's first stage), else 1 s after
+CANCEL_EARLY = """() => { azurkit.build = null; document.querySelector('#build').click(); const t = performance.now();
+  const at = setInterval(() => { if ([...azurkit.asks.values()].some((a) => a.kind === 'build' && a.record)
+      || performance.now() - t >= 1000) { clearInterval(at); document.querySelector('#cancel').click(); } }, 20); }"""
 
 
 def app_seed(d: Driver, app: App, ctx) -> None:
@@ -654,15 +828,15 @@ def app_seed(d: Driver, app: App, ctx) -> None:
     d.act(p, "A27", build_js(), BUILT, 1800)
     if d.need("A28"):   # a slow step another pass doesn't need is skipped
         _save(d, p, "A28", "seed")
-    if d.need("A29"):
-        d.act(p, None, """() => { azurkit.build = null; document.querySelector('#build').click();
-                           setTimeout(() => document.querySelector('#cancel').click(), 3000); }""",
-              "() => /Cancelled/.test(document.querySelector('#status').textContent)", 600)
+    if d.need("A29"):   # a seed no build has made, so its build runs (D13), cancelled; then Build, no head start
+        d.act(p, None, typed("rando-seed", "2"), "() => document.getElementById('rando-seed').value === '2'",
+              change=True)
+        d.act(p, None, CANCEL_EARLY, "() => /Cancelled/.test(document.querySelector('#status').textContent)", 600)
         d.act(p, "A29", build_js(), BUILT, 1800)
     p.js(click("tab-characters"))
     p.wait(SPECIES)
     p.js(build_js())
-    time.sleep(1.0)
+    d.idle(p, "the build's first second before A30", 1.0)
     d.act(p, "A30", model("keylord"), chosen("keylord"), 1800)
     p.wait(BUILT, 1800)
     app.quit(p)
@@ -671,13 +845,13 @@ def app_seed(d: Driver, app: App, ctx) -> None:
 def app_track(d: Driver, app: App, ctx) -> None:
     p = app.launch(d, ctx, None)
     _seeded(d, p, randomize=False)
-    p.js(click("rando-view-tracker"))
+    d.act(p, None, click("rando-view-tracker"), WORLD, 600)   # its own work, before the head start
     d.act(p, "A23", click("track-seed"), "() => document.getElementById('track-head').textContent.trim()", 1800)
     p.js(click("rando-view-settings"))
     d.act(p, None, typed("iso-path", str(d.iso)), USA)
     d.act(p, None, "() => { azurkit.rando.view = null; const on = document.getElementById('rando-on'); "
                    "if (!on.checked) on.click(); }",
-          "() => azurkit.rando.view && document.getElementById('rando-on').checked")
+          "() => azurkit.rando.view && document.getElementById('rando-on').checked", change=True)
     d.act(p, "A26", build_js(), BUILT, 1800)
     if d.need("A24"):
         d.act(p, "A24", click("rando-view-tracker"), ART_DONE, 3600)
@@ -698,7 +872,7 @@ def app_booblord(d: Driver, app: App, ctx) -> None:
     p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
     d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
           """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 600)
-    d.act(p, "A18", model("booblord"), chosen("booblord"), 3600)
+    d.act(p, "A18", model("booblord"), chosen("booblord"), 3600, change=True)
     d.act(p, "A20", build_js(), BUILT, 3600)
     _save(d, p, "A22", "booblord")
     d.act(p, "A21", build_js(), BUILT, 3600)
@@ -724,7 +898,7 @@ def app_reshape(d: Driver, app: App, ctx) -> None:
     d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
           """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 600)
     d.act(p, None, model("booblord"), chosen("booblord"), 3600)
-    d.act(p, None, RESHAPE, RESHAPED, 600)
+    d.act(p, None, RESHAPE, RESHAPED, 600, change=True)
     d.act(p, "A31", build_js(), BUILT, 3600)
     app.quit(p)
     p = app.launch(d, ctx, None)   # the same HOME: the remembered setup wears the reshape
@@ -740,13 +914,13 @@ def _site_page(d: Driver, ctx, url: str, op: str | None) -> Page:
     p = Page(ctx.new_page())
     p.page.goto(url)
     t1, _ = p.wait(READY, 600)
-    d.ev = p.events()   # a new page: its own clock
+    d.fresh(p)
     d.record(op, t1 / 1000, d.ev, 0, t1)
     return p
 
 
 def _pick(d: Driver, p: Page, op: str | None, done: str = USA) -> None:
-    d.act(p, op, lambda: p.page.set_input_files("#iso", str(d.iso)), done, 1800)
+    d.act(p, op, lambda: p.page.set_input_files("#iso", str(d.iso)), done, 1800, change=True)
 
 
 def _download(d: Driver, p: Page, op: str | None) -> None:
@@ -774,7 +948,7 @@ def site_start(d: Driver, ctx, url: str) -> None:
     p.wait(READY, 600)   # the site's engine is replaced after each build
     d.act(p, "S08", click("tab-characters"), SPECIES, 1800)
     if d.needed(("S10", "S11", "S14")):   # slow steps another pass doesn't need are skipped
-        t0, _ = d.act(p, "S10", model("keylord"), chosen("keylord", pictures=False), 1800)
+        t0, _ = d.act(p, "S10", model("keylord"), chosen("keylord", pictures=False), 1800, change=True)
         d.until(p, "S11", t0, chosen("keylord"), 1800)
         if d.need("S14"):
             d.act(p, "S14", build_js(), BUILT, 1800)
@@ -811,21 +985,15 @@ def site_track(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     _pick(d, p, None)
     _seeded(d, p, randomize=False)
-    p.js(click("rando-view-tracker"))
-    t0, t1 = d.act(p, "S18", click("track-seed"), TRACKED, 1800)
-    if d.needed(("S19", "S20")):
-        d.until(p, "S20", t1, ART_DONE, 3600)
-        d.until(p, "S19", t0, WORLD, 600)
-    else:
-        p.wait(ART_DONE, 3600)
-        p.wait(WORLD, 600)
+    d.act(p, None, click("rando-view-tracker"), WORLD, 600)   # its own work, before the head start
+    d.race(p, "S18", click("track-seed"), {"S18": TRACKED, "S19": WORLD, "S20": ART_DONE}, 3600, after={"S20": "S18"})
     while d.need("S22"):
         d.act(p, "S22", "() => azurkit.tracker.map.show('w1', true)", LEVEL, 600)
         d.act(p, None, click("map-back"), WORLD, 600)
     p.js(click("rando-view-settings"))
     d.act(p, None, "() => { azurkit.rando.view = null; const on = document.getElementById('rando-on'); "
                    "if (!on.checked) on.click(); }",
-          "() => azurkit.rando.view && document.getElementById('rando-on').checked")
+          "() => azurkit.rando.view && document.getElementById('rando-on').checked", change=True)
     d.act(p, "S23", build_js(), BUILT, 1800)
     while d.need("S25"):
         d.act(p, "S25", click("spoiler-view"),
@@ -894,7 +1062,7 @@ def _shown_report(d: Driver, p: Page, op: str) -> None:
 def app_tools(d: Driver, app: App, ctx) -> None:
     plan = _plan_file(d)   # made before the launch: untimed, no head start
     p = app.launch(d, ctx, None)
-    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, change=True)
     _tools(d, p, ("A47", "A54", "A48", "A49", "A50"), plan)
     d.act(p, "A51", LARGEST, f"() => /^Saved .* sha256 /.test({STATUS}) ? 'saved' : {ERROR}", 900)
     p.js(click("tab-patches"))
@@ -1047,7 +1215,7 @@ def _data(d: Driver, p: Page, ops: tuple[str | None, ...], pick: Callable[[], No
         pick()
         p.js(click("tab-tools"))
         d.act(p, None, lambda: p.page.set_input_files("#tools-mods-file", str(_data_mods(d, 100))),
-              f"() => azurkit.xbr.length === 100 || {ERROR}", 600)
+              f"() => azurkit.xbr.length === 100 || {ERROR}", 600, change=True)
         d.act(p, build, build_js(), BUILT, 1800)
         p.wait(READY, 600)   # the site's engine may be replaced after a build
     p.js(click("tab-data"))   # critters_damage's grid shown, whichever ops ran before: the load's view
@@ -1075,7 +1243,7 @@ def app_data(d: Driver, app: App, ctx) -> None:
     config.write_text(json.dumps(kept | {"setup": setup}), encoding="utf-8")
     p = app.launch(d, ctx, None)
     p.wait("() => azurkit.ready && azurkit.xbr.length === 100", 600)
-    d.act(p, None, typed("iso-path", str(d.iso)), USA, 900)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, 900, change=True)
     d.act(p, "A45", build_js(), BUILT, 1800)
     app.quit(p)
 
@@ -1128,7 +1296,7 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
-    {op: [{"s", "bar", "progress"[, "page"][, "error"]}]}, "memory_peak": bytes or None,
+    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"]}]}, "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh
     state each pass, until its ops have their samples (at most ``passes``). An app run serves the app from ``python``
     (:func:`venv`'s; else one made for this run)."""
@@ -1151,25 +1319,32 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
     try:
         with sync_playwright() as pw, (Memory(roots) if run.memory else contextlib.nullcontext()) as memory, \
                 (served(site, run.lag) if run.host == "site" else contextlib.nullcontext()) as url:
-            browser = getattr(pw, run.browser).launch(headless=True, downloads_path=str(scratch))
+            engine = getattr(pw, run.browser)
+            browser = engine.launch(headless=True, downloads_path=str(scratch)) if run.host == "app" else None
             for name, (host, ops, scenario) in SCENARIOS.items():
                 if host != run.host:
                     continue
                 for n in range(passes):
                     if not d.needed(ops):
                         break
+                    d.ev, d.p, d.changed, d.gap = [], None, None, None
                     if content is None and (missing := [op for op in ops if OPS[op].content and d.need(op)]):
                         for op in missing:
                             d.record(op, 0.0, [], 0, 0, "needs a clone of Azurik-Custom-Content (perf.py --content)")
-                    ctx = browser.new_context(accept_downloads=True)
+                    if browser:
+                        profile, ctx = None, browser.new_context(accept_downloads=True)
+                    else:   # the site's in a persistent context on a new folder: an ephemeral one is WebKit's 1 GiB
+                        profile = Path(tempfile.mkdtemp(prefix=f"profile-{name}-{n}.", dir=scratch))   # with no OPFS
+                        ctx = engine.launch_persistent_context(str(profile), headless=True, accept_downloads=True,
+                                                               downloads_path=str(scratch))
                     ctx.add_init_script(INIT)
-                    d.ev = []
                     try:
                         if run.host == "app":
                             current[:] = [App(python, scratch / f"home-{name}-{n}", run, content)]
                             scenario(d, current[0], ctx)
                         else:
                             scenario(d, ctx, url)
+                        d.over()
                     except Exception as exc:   # the op being timed has its error; the rest of this pass is lost
                         d.log.append(f"{run.name} {name} pass {n + 1}: {type(exc).__name__}: {str(exc)[:300]}")
                         print(d.log[-1], flush=True)
@@ -1181,7 +1356,10 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                             app.quit()
                         current.clear()
                         ctx.close()
-            browser.close()
+                        if profile:
+                            shutil.rmtree(profile, ignore_errors=True)
+            if browser:
+                browser.close()
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     return {"samples": d.samples, "memory_peak": memory.peak if run.memory else None,

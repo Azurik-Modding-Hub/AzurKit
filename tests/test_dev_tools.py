@@ -187,6 +187,89 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
         _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))
 
 
+def test_the_perf_gate_clicks_3_s_after_a_change_and_fails_a_sample_whose_page_froze_in_a_gap(tmp_path):
+    """D1006 and D1014 over a stub clock: a Track or Build after a change
+    (an op with ``head_start``) is clicked 3 s after it and timed from the
+    click (at once once the change's own wait passed 3 s; never a Build
+    again); a tick of the freeze probe due in a gap (the head start, a
+    dialog's wait) over 250 ms late fails the next sample, a head start's
+    timed from the change, and one no sample takes stops the pass; a late
+    tick under that, due in an action's own wait or before the gap only
+    logs. One click's done-states race, each its own first true poll (the
+    click's op takes its head start's freeze); a state made once is cloned
+    anew."""
+    from tests import _perf
+
+    class Stub(_perf.Page):   # each action's done-states true some ms after it; the probe's [due, ms] ticks
+        def __init__(self, costs, ticks):
+            super().__init__(None)
+            self.t, self.costs, self.ticks, self.at, self.clicks = 0.0, costs, list(ticks), {}, {}
+
+        def now(self):
+            return self.t
+
+        def do(self, action, arg=None):
+            self.clicks[action] = self.t
+            self.at |= {done: self.t + ms for done, ms in self.costs[action].items()}
+            return self.t
+
+        def wait(self, done, timeout=900, arg=None):
+            self.t = max(self.t, self.at.get(done, self.t))
+            return self.t, True
+
+        def poll(self, dones):
+            return self.t, [self.t >= self.at[done] for done in dones]
+
+        def settled(self):
+            return self.t
+
+        def events(self):
+            self.late += [tick for tick in self.ticks if sum(tick) <= self.t]   # fired by now
+            self.ticks = [tick for tick in self.ticks if sum(tick) > self.t]
+            return []
+
+    def driven(costs, ticks):
+        p = Stub(costs, ticks)
+        d = _perf.Driver(_perf.RUNS["app"], dict.fromkeys(("A12", "A16", "S18", "S19", "S20"), 9), tmp_path,
+                         tmp_path / "usa.iso", None)
+        d.sleep = lambda seconds: setattr(p, "t", p.t + seconds * 1000)
+        d.fresh(p)
+        return p, d
+
+    def run(op, pick, dialog, ticks):   # a pick (the change), a dialog's wait, then Build: (its click, its sample)
+        p, d = driven({"pick": {"picked": pick}, "build": {"built": 2000}}, ticks)
+        d.act(p, None, "pick", "picked", change=True)
+        if dialog:
+            d.idle(p, "the save dialog", dialog)
+        try:
+            d.act(p, op, "build", "built")
+            d.over()
+        except RuntimeError as exc:
+            return "stops", str(exc)
+        s = d.samples[op][0]
+        return p.clicks["build"], s["s"], s.get("error"), s.get("gap_ms"), s["late_ms"]
+    froze = "the page froze 400 ms in "
+    assert [run(*row) for row in (
+        ("A12", 500, 0, []), ("A12", 4000, 0, []), ("A16", 500, 0, []),
+        ("A12", 500, 0, [(1000, 400)]), ("A12", 500, 0, [(1000, 200)]), ("A12", 500, 0, [(300, 400)]),
+        ("A12", 500, 0, [(3500, 400)]), ("A16", 500, 1.0, [(1000, 400)]), (None, 500, 1.0, [(1000, 400)]),
+    )] == [
+        (3000, 2.0, None, 0, 0), (4000, 2.0, None, None, 0), (500, 2.0, None, None, 0),
+        (3000, 5.0, froze + "the head start before A12", 400, 0), (3000, 2.0, None, 200, 0), (3000, 2.0, None, 0, 0),
+        (3000, 2.0, None, 0, 400), (1500, 2.0, froze + "the save dialog", 400, 0), ("stops", froze + "the save dialog"),
+    ]
+    p, d = driven({"seed": {"typed": 0}, "track": {"tracked": 5000, "world": 50, "art": 100}}, [(1000, 400)])
+    d.act(p, None, "seed", "typed", change=True)
+    d.race(p, "S18", "track", {"S19": "world", "S18": "tracked", "S20": "art"}, after={"S20": "S18"})
+    assert p.clicks["track"] == 3000 and {op: (d.samples[op][0]["s"], d.samples[op][0].get("error")) for op in (
+        "S18", "S19", "S20")} == {"S18": (8.0, froze + "the head start before S18"), "S19": (0.05, None),
+                                  "S20": (0.0, None)}
+    made = []
+    one, two = (d.state("home", lambda f: (made.append(f), (f / "a").write_text("x"))) for _ in range(2))
+    (one / "a").write_text("y")
+    assert len(made) == 1 and one != two and (two / "a").read_text() == "x"
+
+
 def test_update_ceilings_on_a_narrow_run_keeps_the_untimed_ops_it_doesnt_reach(tmp_path, monkeypatch):
     """``perf.py --update-ceilings`` on a run that reaches no untimed op
     (a lane lowering its own rows) keeps the list's untimed ops the registry
