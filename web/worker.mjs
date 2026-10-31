@@ -101,7 +101,7 @@ def kept(files, installed):
     return dropped
 
 
-def progressed(record):   # a build's stage, posted while it runs (core/progress.py's record)
+def progressed(record):   # a build's, a plan's or a tracker's stage, posted while it runs (core/progress.py's record)
     postMessage(to_js({"type": "progress", **record}, dict_converter=Object.fromEntries, create_pyproxies=False))
 
 
@@ -143,9 +143,9 @@ def engine(request):
             if request.type == "randomizer":
                 return js(sdk.randomizer_settings(request.given.to_py()))
             if request.type == "tracker":   # through JSON: a mark's null clock is None (to_py gives JsNull)
-                return js(sdk.tracker(json.loads(JSON.stringify(request.given))))
+                return js(sdk.tracker(json.loads(JSON.stringify(request.given)), progress=progressed))
             if request.type == "plan":
-                return js({"plan": sdk.plan(request.recipe.to_py())})
+                return js({"plan": sdk.plan(request.recipe.to_py(), progress=progressed)})
             if request.type == "vanilla":
                 return js(sdk.vanilla(request.recipe.iso))
             if request.type == "open":

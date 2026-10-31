@@ -476,14 +476,14 @@ class Server(http.server.ThreadingHTTPServer):
         journal (a lost link, Live off and on), and Reset reads the game
         again."""
         given = body.get("given")
-        with self.tracking, self.follow("tracker", record("plan", "Reading the seed's logic")):
+        with self.tracking, self.follow("tracker", record("plan", "Reading the seed's logic")) as report:
             feed = self.feed
             plan = given.get("plan") if isinstance(given, dict) else None
             if feed is None or not isinstance(plan, dict) or plan.get("sha256") != feed.sha256:
-                return sdk.tracker(given)
+                return sdk.tracker(given, progress=report)
             events, seen = feed.take()
             slot = seen.pop("slot")
-            out = tracking.view({**given, "kit": seen.pop("kit"), "held": seen.pop("held")}, events)
+            out = tracking.view({**given, "kit": seen.pop("kit"), "held": seen.pop("held")}, events, report)
             t = tracking.tracker_of(plan)
             if slot is not None and slot != t.slot:
                 t.slot = slot
@@ -525,8 +525,8 @@ class Server(http.server.ThreadingHTTPServer):
 
     def plan(self, body: dict) -> dict:
         """``api/plan``: a seed's plan to track (the engine's)."""
-        with self.follow("plan", record("plan")):
-            return {"plan": self.engine.call("plan", body.get("recipe"))}
+        with self.follow("plan", record("plan")) as report:
+            return {"plan": self.engine.call("plan", body.get("recipe"), progress=report)}
 
     def art(self, body: dict) -> dict:
         """``api/art``: the tracker's shipped pictures

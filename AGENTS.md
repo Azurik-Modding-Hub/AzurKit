@@ -576,8 +576,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,
-  percent}` (`sdk.image`, `sdk.save`); `sdk.image(spoiler=False)` leaves a
-  seed's spoiler for `sdk.spoiler(plan, built=True)`; `sdk.save(made, out)`
+  percent}` (`sdk.image`, `sdk.save`, `sdk.plan`, a plan's first
+  `sdk.tracker`); `sdk.image(spoiler=False)` leaves a seed's spoiler for
+  `sdk.spoiler(plan, built=True)`; `sdk.save(made, out)`
   writes the image a Build made without planning it again, refused once its
   input changed since it was read (`iso.Image.origin`), its sha256 hashed as
   written or the host's (`iso.digest` on a thread of the host's, `sha256=`);
@@ -614,8 +615,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the first paint: the site's reads the storage, and the app serves its
     own from its config and opens its window on that theme's ground. A long
     call shows its progress in the bottom bar (D980, Step 4.3i: `#progress`,
-    app.mjs's `progressed()`, one renderer for both hosts): a build's and a
-    save's `core.progress` records (the app's `api/progress`, polled every
+    app.mjs's `progressed()`, one renderer for both hosts): a build's, a
+    save's and Track's (the seed's plan, then its first tracker view)
+    `core.progress` records (the app's `api/progress`, polled every
     250 ms; the site's worker's `progress` posts, the image's check among
     them) as their stage's line and percent, and any other ask the engine
     hasn't answered within 1 s as its line on a moving stripe. A control
@@ -807,9 +809,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and checks each image once (Step 4.3h): its build files hashed
   in WebCrypto (`sdk.layout`, `sdk.prime`), the stamp kept in the browser
   (IndexedDB, by the File's name, size and lastModified) for the next
-  visit. It posts a build's stages as `core/progress.py`'s record, and each
-  build's answer reports the heap, by which the page keeps the worker or
-  replaces it. It returns the build as segments
+  visit. It posts a build's, a plan's and a tracker's stages as
+  `core/progress.py`'s record, and each build's answer reports the heap,
+  by which the page keeps the worker or replaces it. It returns the build
+  as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes, and Save downloads it.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and

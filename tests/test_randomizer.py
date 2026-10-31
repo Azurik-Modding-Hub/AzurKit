@@ -408,3 +408,24 @@ def test_the_trackers_verdicts_are_modkits_at_each_state_and_a_click_marks_what_
                        ({"plan": doc, "marks": {"collected": [1]}}, "by their ids"), ({"plan": doc, "x": 1}, "no key 'x'")):
         with pytest.raises(ValueError, match=why):
             sdk.tracker(given)
+
+
+def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_as_without_them(monkeypatch):
+    """Step 4.3 train (D980): Track's bar on both hosts follows the engine's
+    work. ``sdk.plan`` reports the logic read, the fill and the placements
+    written (``core.progress``'s ``plan``, done of 3); the tracker's first
+    view of the plan its tracker built and the world map read (done of 2),
+    and a view of a kept plan nothing, so a click on a spot shows no bar.
+    Each answers as it does without ``progress``."""
+    seen = []
+    doc = sdk.plan({"seed": "2"}, progress=seen.append)
+    assert doc == PLANS["default"]["plan"]
+    world = tracking.world()
+    monkeypatch.setattr(tracking, "world", functools.cache(lambda: world))   # a process's first view reads it
+    monkeypatch.setattr(tracking, "_KEPT", type(tracking._KEPT)())
+    first, again = (sdk.tracker({"plan": doc}, progress=seen.append) for _ in range(2))
+    assert [(r["stage"], r["label"], r["percent"]) for r in seen] == [
+        ("plan", "Reading the randomizer's logic", 0), ("plan", "Filling the seed", 33),
+        ("plan", "Writing the placements", 66), ("plan", "Reading the seed's logic", 0),
+        ("plan", "Reading the world map", 50)]
+    assert tracking.digest(first) == tracking.digest(again) == tracking.digest(sdk.tracker({"plan": doc}))

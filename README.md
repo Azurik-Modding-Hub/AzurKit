@@ -166,8 +166,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
 - **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.
-- **Progress bars:** a build and a save show their step and percent, as your image's first check does on the web
-  page; in the app that check, like anything slower than a second, shows what it is doing.
+- **Progress bars:** a build, a save and the tracker's Track show their step and percent, as your image's first check
+  does on the web page; in the app that check, like anything slower than a second, shows what it is doing.
 - **Cancel any time:** Cancel stops a build or a save (in the app, a build at once); closing the app mid-build or
   mid-save leaves no half-written file.
 - **The app stays quick while it builds:** a build runs in a process of its own, so picking an image and the other

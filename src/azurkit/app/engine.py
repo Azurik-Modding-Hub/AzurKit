@@ -184,9 +184,10 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 
 
 JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
-                             "plan": _warmed(lambda recipe: sdk.plan(recipe), always=True),
+                             "plan": _warmed(lambda recipe, progress=None: sdk.plan(recipe, progress=progress),
+                                             always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe))}
-"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image`` and ``save``:
+"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save`` and ``plan``:
 ``core.progress`` records)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""

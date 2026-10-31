@@ -37,8 +37,9 @@ import functools
 import json
 import re
 from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
+from azurkit.core.progress import Steps
 from azurkit.tools.randomizer import needs
 from azurkit.tools.randomizer.movement import logic_of
 from azurkit.tools.randomizer.planner.loader import kept_logic
@@ -111,15 +112,17 @@ def world() -> dict:
     return {"grid": {lv: list(at) for lv, at in GRID.items()}, "exits": exits, "maps": needs.overlays(tuple(GRID))}
 
 
-def tracker_of(doc: Mapping) -> Tracker:
+def tracker_of(doc: Mapping, progress: Callable[[dict], object] | None = None) -> Tracker:
     """The tracker of the plan file's object ``doc`` (``ValueError`` naming
-    a plan this database can't read), kept for the process."""
+    a plan this database can't read), kept for the process; ``progress``
+    hears its build (a plan not kept)."""
     if not isinstance(doc, Mapping) or not isinstance(doc.get("sha256"), str):
         raise ValueError("tracker: plan is a plan file's object")
     key = doc["sha256"]
     if key in _KEPT and _KEPT[key].doc == doc:   # the plan it was built on, not one edited since
         _KEPT.move_to_end(key)
         return _KEPT[key]
+    Steps(progress)("plan", "Reading the seed's logic", 0, 2)
     base = kept_logic()
     try:
         plan = load_plan(doc, base.db)
@@ -180,7 +183,7 @@ def head(t: Tracker) -> dict:
             "skips": on}
 
 
-def view(given: Mapping, events: Sequence = ()) -> dict:
+def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], object] | None = None) -> dict:
     """What the tracker shows for ``given``: ``plan`` (a plan file's
     object), ``marks`` (as :func:`.tracker.marks` reads them; none: no
     mark), ``kit`` (Live's element levels, ``{element: level}``; none: the
@@ -190,12 +193,15 @@ def view(given: Mapping, events: Sequence = ()) -> dict:
     (no mark and no veto); ``events``, Live's (the app's feed:
     :mod:`.live.game`'s Took, Level, Held and Reload), are merged into the
     marks first (``Tracker.apply``: a hand mark never dropped, a veto never
-    marked). ``ValueError`` names what it refuses."""
+    marked). ``progress(record)`` hears the slow parts a first view of a plan
+    does (``core.progress``'s ``plan``, done of 2): the seed's logic (its
+    tracker built) and the world map (:func:`world`, once a process); a view
+    of a kept plan reports nothing. ``ValueError`` names what it refuses."""
     if not isinstance(given, Mapping):
         raise ValueError(f"tracker: a JSON object, not {type(given).__name__}")
     if unknown := sorted(set(given) - set(GIVEN), key=str):
         raise ValueError(f"tracker: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(GIVEN)})")
-    t = tracker_of(given.get("plan"))
+    t = tracker_of(given.get("plan"), progress)
     m, spoiler = marks_of(given.get("marks")), bool(given.get("spoiler"))
     held = given.get("held") or {}
     if not (isinstance(held, Mapping) and all(type(v) is int for v in held.values())):
@@ -229,6 +235,8 @@ def view(given: Mapping, events: Sequence = ()) -> dict:
                       "vanilla": item_name(t.logic.vanilla[loc][0])}
     shown = bool(given.get("gems"))
     items, levels = t.table(spoiler, held_counts(held) if held else None, gems=shown)
+    if not world.cache_info().currsize:
+        Steps(progress)("plan", "Reading the world map", 1, 2)
     out = {"head": head(t), "world": world() | {"art": {"version": ART_VERSION, "parts": list(ART_PARTS)}},
            "marks": t.state(),
            "status": {"collected": s.collected, "reachable": s.reachable, "total": s.total, "sphere": s.sphere,

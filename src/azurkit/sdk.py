@@ -690,16 +690,18 @@ def preset_decode(text: str) -> dict:
     return found
 
 
-def plan(recipe: Mapping) -> dict:
+def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
     """A randomizer plan: the fill of ``recipe``'s seed (any string) under
     the database's default settings (D144), a settings file's table
     (``settings``) or a share string (``share``), as Modkit's plan file's
     object (its format and generator, the seed, the attempt that passed,
     the settings, their share string and digest, the database's digest,
     every authored pool location's item, and the sha256 of the rest). The
-    same recipe gives the same plan on every host. A refusal names the
-    setting, or the progression items no attempt found a safe spot for."""
-    return randomizer.plan(recipe)
+    same recipe gives the same plan on every host. ``progress(record)``
+    hears its stages (``core.progress``): the logic read, the fill and the
+    placements written. A refusal names the setting, or the progression
+    items no attempt found a safe spot for."""
+    return randomizer.plan(recipe, progress)
 
 
 def spoiler(plan: Mapping, *, built: bool = False) -> dict:
@@ -747,7 +749,7 @@ def randomizer_settings(given: Mapping) -> dict:
     return view | {"why_not": generator.movement_reasons(packs, catalog()["packs"]) + view["why_not"]}
 
 
-def tracker(given: Mapping) -> dict:
+def tracker(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
     """What the item tracker shows (D189, D249) for ``given``: ``plan`` (a
     plan file's object: :func:`plan`'s, or a randomized build's report's),
     ``marks`` (the spots collected: ``{"collected": [spot], "live": {spot:
@@ -765,8 +767,10 @@ def tracker(given: Mapping) -> dict:
     Table's two trees (``table``: the items by kind and the spots by level,
     each row's collected, reachable now, left, total, where and the game's
     count). Modkit's tracker, the same verdicts on every host
-    (``tools.randomizer.tracking``); a refusal names what it refuses."""
-    return tracking.view(given)
+    (``tools.randomizer.tracking``); ``progress(record)`` hears a plan's
+    first view build its tracker and read the world map; a refusal names
+    what it refuses."""
+    return tracking.view(given, progress=progress)
 
 
 def art(path: str, part: str) -> dict:
