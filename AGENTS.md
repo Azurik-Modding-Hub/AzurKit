@@ -423,8 +423,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - `tests/test_randomizer.py` holds it to its goldens: `rando_plans.json`
     (seed 2's attempt, plan sha256 and spoiler under the strict, default
     and max settings, and the default plan file byte for byte, on CPython
-    and under Pyodide) and G3's seed cases file by file and whole image on
-    both releases.
+    and under Pyodide, the same in two processes under two hash seeds) and
+    G3's seed cases file by file and whole image on both releases.
 - **The tracker** (Step 4.2c2, D189, D249; `tracking.py`, `sdk.tracker`):
   Modkit's `Tracker` on a plan file's object (a randomized build's report
   carries its plan, `plan`), the marks the page keeps (Modkit's state:

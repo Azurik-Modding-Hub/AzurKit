@@ -3,8 +3,8 @@
 recording, Step 4.12b, was Modkit's at oracle-rando-6): its planner (Step
 4.2a; ``rando_plans.json``: seed 2 under the strict, default and max
 settings gives its attempt, plan sha256 and spoiler, and the default plan
-file byte for byte, on CPython and under Pyodide, the site's runtime)
-and its generator layer (Step 4.2b): G3's seed cases build their files
+file byte for byte, on CPython and under Pyodide, the site's runtime, the
+same in two processes under two hash seeds) and its generator layer (Step 4.2b): G3's seed cases build their files
 and image on both releases (``pipelines.json``) and the default case's
 spoiler is the ``--spoiler`` file of its plan, a later layer over a
 placement is a conflict and any other difference a failure, and movement
@@ -19,7 +19,10 @@ import functools
 import hashlib
 import json
 import math
+import os
 import struct
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -256,6 +259,23 @@ def test_the_default_plan_file_is_its_goldens_byte_for_byte_under_pyodide(pyodid
     got = pyodide("plan", "--seed", "2")
     assert (got["code"], got["stderr"]) == (0, ""), got["stderr"][-2000:]
     assert got["stdout"] == DEFAULT_PLAN
+
+
+def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():
+    """D34, AZ-002, AZ-084 (Modkit's ``test_randomizer_determinism``,
+    ported): ``azurkit plan --seed 2``, each in a process of its own under
+    PYTHONHASHSEED 0 and 1, at the database's defaults and at the max
+    profile's share string, prints the same plan file under both: its
+    golden's (the default plan file byte for byte, the max plan's sha256)."""
+    share = _profile("max")["share"]
+    runs = [(seed, args) for args in ((), ("--share", share)) for seed in (0, 1)]
+    procs = [subprocess.Popen([sys.executable, "-m", "azurkit", "plan", "--seed", "2", *args], text=True,
+                              env=os.environ | {"PYTHONHASHSEED": str(seed)}, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE) for seed, args in runs]
+    got = [(p.wait(timeout=600), *p.communicate()) for p in procs]   # four cold plans at once
+    assert got[0] == got[1] and got[0][:2] == (0, DEFAULT_PLAN), got[0][2][-2000:]
+    assert got[2] == got[3] and got[2][0] == 0, got[2][2][-2000:]
+    assert json.loads(got[2][1])["sha256"] == PLANS["max"]["sha256"]
 
 
 def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic(
