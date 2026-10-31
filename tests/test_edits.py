@@ -21,7 +21,7 @@ from azurkit.core import gate, iso
 from azurkit.edits import manifest as edits
 from azurkit.edits import layer, preset
 from azurkit.edits.layer import Change, Layer, compose
-from azurkit.tools.randomizer import needs, tracking
+from azurkit.tools.randomizer import generator, needs, tracking
 from azurkit.tools.randomizer.planner import fill as rando_fill
 from tests._xiso import fill, image
 
@@ -287,6 +287,45 @@ def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(t
         with pytest.raises(ValueError, match=r"is never read; pick a file on this computer$"):
             put.source(path)
     assert put.source(str(tmp_path / "mine.xbr")) == str(tmp_path / "mine.xbr")
+
+
+def test_a_seed_builds_layout_and_read_back_report_each_file_and_a_raised_record_stops_the_build(usa_iso):
+    """``edits.image``'s ``progress(done, total)`` hears each file composed,
+    then each changed file hashed (``total``: the files the layers name,
+    twice, then those and the changed ones), and the randomizer's read-back
+    (``generator.read_back``'s) each level file it reads back, done of
+    total; an exception a record raises stops the build there, so a cancel
+    waits for one file's work at most (Step 4.3v)."""
+    prepared = generator.prepare({"seed": "2"}, {})
+    stamp = sdk._stamp(str(usa_iso))
+    with iso.Reader(stamp.path) as r:
+        base = {file: r.read(file) for file in generator.files(prepared)}
+    planned = generator.plan_layer(prepared, base)
+    laid, read = [], []
+
+    def judge(made: iso.Image, manifest: edits.Manifest, progress=lambda done, total: read.append((done, total))):
+        return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
+                                                    progress=progress)}
+    _, manifest = edits.image(stamp, [planned], base, judge=judge,
+                              progress=lambda done, total: laid.append((done, total)))
+    n, m = len({c.file for c in planned.changes}), len(set(manifest.result) - {"filelist.txt"})
+    assert laid == [(k, 2 * n) for k in range(1, n + 1)] + [(n + k, n + m) for k in range(1, m + 1)]
+    assert read == [(k, read[-1][1]) for k in range(1, read[-1][1] + 1)] and read[-1][1] > 2
+    assert manifest.verdicts[generator.TOOL]["logic_verified"]
+
+    class Stop(Exception):
+        pass
+
+    def stop(at: int):
+        def heard(done: int, total: int) -> None:
+            if done == at:
+                raise Stop(at)
+        return heard
+    for at in (3, n + 1):   # the third file composed, the first hashed
+        with pytest.raises(Stop):
+            edits.image(stamp, [planned], base, progress=stop(at))
+    with pytest.raises(Stop):   # the third level file read back
+        edits.image(stamp, [planned], base, judge=lambda made, manifest: judge(made, manifest, stop(3)))
 
 
 def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoiler_comes_on_demand(usa_iso, tmp_path,

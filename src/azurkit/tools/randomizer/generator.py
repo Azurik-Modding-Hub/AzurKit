@@ -169,17 +169,18 @@ def plan_layer(prepared: Prepared, base: Mapping[str, bytes]) -> Layer:
 
 
 def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], conflicts: Sequence[Conflict],
-              reasons: Sequence[str] = ()) -> dict:
+              reasons: Sequence[str] = (), progress: Callable[[int, int], object] | None = None) -> dict:
     """The randomizer's verdict on the built ``image`` (its ``layers``,
     after ``compose``'s ``conflicts``) after ``reasons`` (the movement's,
     :func:`movement_reasons`): its seed, share string, settings, plan
     sha256, the conflicts a later layer made (D28) and whether the logic
     still holds, with each reason it doesn't. ``ValueError`` names every
-    difference no later layer explains (D35)."""
+    difference no later layer explains (D35). ``progress(done, total)``
+    hears each level file read back (``writer.read_back``)."""
     db, plan = prepared.logic.db, prepared.plan
     locs, later, failures = writer._locations(db), [], []
     dropped = {c.dropped: c.layer for c in conflicts if c.overwrote == LAYER}
-    problems = writer.read_back(image, plan.placement, db)
+    problems = writer.read_back(image, plan.placement, db, progress)
     held: dict[str, bytes] = {}
     for problem in problems:
         lid = problem.split(":", 1)[0]

@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import hashlib
 import struct
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass, field
 
 from azurkit.core import iso
@@ -256,7 +256,8 @@ def write_plan(files: MutableMapping[str, bytearray], placement: Mapping[str, st
     return WriteReport([edits[k] for k in sorted(edits)], shas)
 
 
-def read_back(image, placement: Mapping[str, str], db) -> list[str]:
+def read_back(image, placement: Mapping[str, str], db,
+              progress: Callable[[int, int], object] | None = None) -> list[str]:
     """Every difference between ``image`` (an ISO path or an
     :class:`~azurkit.core.iso.Image`) and ``placement``: each location
     of the database decoded from its file in the image (its node section
@@ -265,7 +266,8 @@ def read_back(image, placement: Mapping[str, str], db) -> list[str]:
     and each level file's ``filelist.txt`` line against the file's md5
     and size (an image's :meth:`~azurkit.core.iso.Image.md5`: a file it
     wrote with its md5 given isn't hashed again).  Empty when the image
-    holds the plan.  One file at a time."""
+    holds the plan.  One file at a time, ``progress(done, total)`` hearing
+    each (an exception it raises stops it)."""
     from azurkit.tools.randomizer.ports import XisoReader
 
     base = {it["name"]: it.get("base", it["name"]) for it in db.items["item"]}
@@ -277,7 +279,7 @@ def read_back(image, placement: Mapping[str, str], db) -> list[str]:
     md5 = image.md5 if isinstance(image, iso.Image) else lambda _, data: hashlib.md5(data).hexdigest()
     with XisoReader(image) as r:
         lines = {e.path.lower(): e for e in listed(r.read_file("filelist.txt"))}
-        for stem, locs in sorted(want.items()):
+        for done, (stem, locs) in enumerate(sorted(want.items()), 1):
             data = r.read_file(path := f"gamedata/{stem}.xbr")
             line = lines.get(f"{stem}.xbr")
             if line is None or (line.md5, line.size) != (md5(path, data), len(data)):
@@ -295,4 +297,6 @@ def read_back(image, placement: Mapping[str, str], db) -> list[str]:
                 name = lstr(s, ro + NAME_FIELD) if ro is not None and lstr(s, ro) == GENERATOR else None
                 if base.get(name, name) != item:
                     out.append(f"{lid}: the plan has {item}, the image {name or 'no critter name'}")
+            if progress is not None:
+                progress(done, len(want))
     return out

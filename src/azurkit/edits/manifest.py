@@ -27,6 +27,7 @@ REORG §12.2). A build with no layer is the vanilla image, byte for byte.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import os
 from collections.abc import Callable, Mapping, Sequence
@@ -116,7 +117,7 @@ def _hashes(data: bytes) -> tuple[str, str]:
 
 def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] | None = None, *,
           root: bool = True, judge: Callable[[iso.Image, Manifest], Mapping] | None = None,
-          map: Callable = map) -> tuple[iso.Image, Manifest]:
+          map: Callable = map, progress: Callable[[int, int], object] | None = None) -> tuple[iso.Image, Manifest]:
     """The image ``layers`` make of the vanilla image ``stamp`` checked,
     unwritten, and its manifest, which the image carries in its root
     (:func:`root_files`) when it has a layer and ``root`` (without them, it
@@ -129,20 +130,31 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     read-back against its plan). The stamp vouches for its build files'
     sha256 (none is hashed again); ``map(fn, items)`` (a host's threads'; the
     built-in by default) hashes each changed file, once a build, and the
-    image keeps each one's md5 for the read-back (:meth:`iso.Image.md5`)."""
+    image keeps each one's md5 for the read-back (:meth:`iso.Image.md5`).
+    ``progress(done, total)`` hears each file composed and each changed
+    file hashed (on ``map``'s threads), and an exception it raises stops
+    the build, with nothing written."""
     names = sorted({c.file for la in layers for c in (*la.changes, *la.claims)})
+    count = itertools.count(len(names) + 1)
+
+    def hashed(data: bytes) -> tuple[str, str]:   # one record a file, after the files composed
+        out = _hashes(data)
+        if progress is not None:
+            progress(next(count), len(names) + len(changed))
+        return out
     base = dict(base or {})
     with iso.Reader(stamp.path) as r:
         base |= {name: r.read(name) for name in names if name not in base}
         known = {name: stamp.release.files[name][1] for name in base
                  if name in stamp.release.files and name.startswith(gate.BUILD_FILES)}
-        files, conflicts = compose(base, layers, known)
+        files, conflicts = compose(base, layers, known,
+                                   None if progress is None else lambda done, _: progress(done, 2 * len(names)))
         changed = {}
         for name in list(files):   # each file's copy freed as it is kept: a randomized build changes 700 MB of levels
             if (data := files.pop(name)) != base[name]:
                 changed[name] = bytes(data)
             del data
-        hashes = dict(zip(changed, map(_hashes, changed.values())))
+        hashes = dict(zip(changed, map(hashed, changed.values())))
         md5s = {name: md5 for name, (_, md5) in hashes.items()}
         made = iso.read(stamp.path, changed, md5s=md5s)
         listing = {}

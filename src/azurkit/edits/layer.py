@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import bisect
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from azurkit.core import xbe
@@ -111,8 +111,8 @@ def claimed(base: Mapping[str, bytes], layers: Sequence[Layer]) -> dict[str, byt
     return out
 
 
-def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[str, str] | None = None
-            ) -> tuple[dict[str, bytearray], list[Conflict]]:
+def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[str, str] | None = None,
+            progress: Callable[[int, int], object] | None = None) -> tuple[dict[str, bytearray], list[Conflict]]:
     """Each file a change or claim names, as ``layers`` leave it over
     ``base`` (its vanilla bytes) with the claims' derived state
     (:func:`claimed`), and every conflict. ``ValueError`` names a change
@@ -121,7 +121,9 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[s
     group writing a file whole, a group of a whole file and ranges, or a
     whole file a claim derives (D35). ``known`` gives the sha256 of a file
     of ``base`` (a stamp's, which vouches for it) where a whole change is
-    planned against it, in place of hashing it.
+    planned against it, in place of hashing it. ``progress(done, total)``
+    hears each file it starts (``done`` of the ``total`` files named), and
+    an exception it raises stops it.
 
     A file's range writes are kept as runs, each its group's, while no two
     groups' meet (:data:`RUNS`): the first write that meets another group's
@@ -130,6 +132,7 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[s
     derived = claimed(base, layers)
     known = {file: sha for file, sha in (known or {}).items() if file not in derived}
     base = {**base, **derived}
+    total = len({c.file for la in layers for c in (*la.changes, *la.claims)})
     files: dict[str, bytearray] = {}
     writers: dict[tuple[str, int], list[tuple[int, str]]] = {}   # a byte -> the range groups holding its value
     members: dict[tuple[int, str], list[Change]] = {}
@@ -140,8 +143,10 @@ def compose(base: Mapping[str, bytes], layers: Sequence[Layer], known: Mapping[s
     written: dict[str, list[tuple[int, int, tuple[int, str]]]] = {}   # -> those writes, in order
     bytewise = set() if RUNS else {c.file for la in layers for c in la.changes}   # files kept in writers
 
-    def start(file: str, data: bytes) -> bytearray:   # the file's own copy, made once
+    def start(file: str, data: bytes) -> bytearray:   # the file's own copy, one record a file
         files[file] = buf = bytearray(data)
+        if progress is not None:
+            progress(len(files), total)
         return buf
 
     def by_byte(file: str) -> None:   # the file's runs replayed into writers, as every write of it from now on
