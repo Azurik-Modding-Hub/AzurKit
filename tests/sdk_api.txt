@@ -1,7 +1,8 @@
 # azurkit.sdk, written by scripts/sdk_api.py, never by hand
 
 The one surface a UI calls: :func:`catalog`, :func:`verify`,
-:func:`vanilla`, :func:`image`, :func:`save`, :func:`build`, :func:`open_build`,
+:func:`vanilla` (and the site's :func:`layout` and :func:`prime`),
+:func:`image`, :func:`save`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
@@ -112,6 +113,22 @@ The vanilla values the image at ``path`` holds for every slider at a
 site of its XBE (``catalog`` gives those ``None``: the wheel holds no
 game constant, Q174), ``{"release", "label", "packs": {pack: {slider:
 value}}}``, so a UI's track can hold them (D42).
+
+
+def layout(path: 'str') -> 'dict':
+
+The site's half of the image's check (``gate.layout``): ``{"files":
+[[path, offset, size]]}``, each file a build reads, whose sha256 a host
+hashes itself (the site's WebCrypto) for :func:`prime`.
+
+
+def prime(path: 'str', digests: 'Mapping[str, str]') -> 'dict':
+
+Check the image at ``path`` with the host's sha256 of each file
+:func:`layout` gave (``{path: sha256}``), as :func:`vanilla` and a build
+check it, for every later call on the image as it is now:
+``{"release", "label"}``; ``gate.NotVanillaError`` names the first file
+that isn't the release's.
 
 
 def image(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True) -> 'tuple[iso.Image, dict]':

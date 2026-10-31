@@ -19,8 +19,9 @@
 //      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
 //      (sdk.pickers, sdk.preview, sdk.match) and {type: "content_check", call, manifest, id, files} (an Install's
 //      check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
-//      into the engine's content folder)
-// Out: {type: "ready", catalog, version}, {type: "built", report, size, segments}, {type: "refused", message}
+//      into the engine's content folder). A message with a File has the image checked first, once a File (prime).
+// Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
+//      record, mid-call), {type: "built", report, size, segments}, {type: "refused", message}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
@@ -89,6 +90,13 @@ def engine(request):
             if mounted := getattr(request, "iso", None):
                 given["iso"] = mounted
             return js({"pickers": sdk.pickers, "preview": sdk.preview, "match": sdk.match}[request.type](given))
+        except (OSError, ValueError) as exc:
+            return js({"refused": str(exc)})
+    if request.type in ("layout", "prime"):
+        try:
+            if request.type == "layout":
+                return js(sdk.layout(request.recipe.iso))
+            return js(sdk.prime(request.recipe.iso, request.digests.to_py()))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     if request.type in ("art", "art_world"):
@@ -196,6 +204,47 @@ function mounted(py, file, fn) {
   }
 }
 
+// The image's check (D27), hashed here once a File: its build files (sdk.layout's offsets, 1.0 GB) in WebCrypto, the
+// browser's native sha256 (about 10x wasm's), RUNS of up to 128 MiB read HASHERS at a time, then handed to the engine
+// (sdk.prime), which checks them against its manifest and keeps the stamp for every later call on the image. Its
+// progress is posted as the engine's record (core/progress.py). A refusal (not an image, a file that differs) is left
+// to the call that follows, which names it.
+const HASHERS = 3, RUN = 128 << 20;
+const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
+async function prime(loaded, file) {
+  const { py, engine } = loaded, id = `${file.name}|${file.size}|${file.lastModified}`;
+  if (loaded.primed === id) return;
+  const listed = mounted(py, file, (iso) => engine({ type: "layout", recipe: { iso } }));
+  if ("refused" in listed) return;
+  const runs = [];
+  for (const entry of [...listed.files].sort((a, b) => a[1] - b[1])) {   // [path, offset, size], by offset
+    const run = runs.at(-1), [, at, size] = entry;
+    if (run && at >= run.end && at + size - run.start <= RUN) {
+      run.files.push(entry);
+      run.end = at + size;
+    } else {
+      runs.push({ start: at, end: at + size, files: [entry] });
+    }
+  }
+  const digests = {}, total = runs.reduce((n, run) => n + run.end - run.start, 0);
+  let done = 0;
+  const checking = () => post({ type: "progress", stage: "check", label: "Checking your image", done, total,
+                                percent: total ? Math.floor(done * 100 / total) : null });
+  checking();
+  await Promise.all(Array.from({ length: HASHERS }, async () => {
+    for (let run; (run = runs.shift());) {
+      const bytes = new Uint8Array(await file.slice(run.start, run.end).arrayBuffer());
+      for (const [path, at, size] of run.files) {
+        digests[path] = hex(await crypto.subtle.digest("SHA-256", bytes.subarray(at - run.start, at - run.start + size)));
+      }
+      done += run.end - run.start;
+      checking();
+    }
+  }));
+  const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
+  if (!("refused" in checked)) loaded.primed = id;
+}
+
 // The image's own values of the sliders at its XBE's sites, or, when it is an AzurKit build, its recipe; the image
 // mounted only for the read: a build mounts it again.
 function vanilla({ py, engine }, file) {
@@ -261,7 +310,8 @@ try {
   self.onmessage = ({ data }) => {
     if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "art",
           "art_world", "content", ...CHARACTER].includes(data?.type)) return;
-    queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null).then(() => handle(data))
+    queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
+      .then(() => data.file ? prime(loaded, data.file).catch(() => null) : null).then(() => handle(data))
       .catch((error) => post({ type: "failed", message: lastLine(error) }));
   };
   const handle = (data) => {

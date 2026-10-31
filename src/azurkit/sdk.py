@@ -1,5 +1,6 @@
 """The one surface a UI calls: :func:`catalog`, :func:`verify`,
-:func:`vanilla`, :func:`image`, :func:`save`, :func:`build`, :func:`open_build`,
+:func:`vanilla` (and the site's :func:`layout` and :func:`prime`),
+:func:`image`, :func:`save`, :func:`build`, :func:`open_build`,
 :func:`read_mods`, :func:`preset_encode`, :func:`preset_decode`, the
 randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
@@ -83,8 +84,11 @@ never a recipe file's path (Q174).
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import os
+import sys
+import threading
 import urllib.parse
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -99,7 +103,7 @@ from azurkit.tools import characters, mods, randomizer
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
-__all__ = ["catalog", "verify", "vanilla", "image", "save", "build", "open_build", "read_mods", "preset_encode",
+__all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods", "preset_encode",
            "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
            "content", "content_install", "content_check", "pickers", "match", "preview"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
@@ -142,6 +146,26 @@ def verify(path: str) -> dict:
     file of it (``gate.NotVanillaError`` names the first that isn't)."""
     stamp = gate.verify(path)
     return {"iso": str(stamp.path), "release": stamp.release.name, "label": stamp.release.label}
+
+
+def layout(path: str) -> dict:
+    """The site's half of the image's check (``gate.layout``): ``{"files":
+    [[path, offset, size]]}``, each file a build reads, whose sha256 a host
+    hashes itself (the site's WebCrypto) for :func:`prime`."""
+    return {"files": [list(f) for f in gate.layout(path)]}
+
+
+def prime(path: str, digests: Mapping[str, str]) -> dict:
+    """Check the image at ``path`` with the host's sha256 of each file
+    :func:`layout` gave (``{path: sha256}``), as :func:`vanilla` and a build
+    check it, for every later call on the image as it is now:
+    ``{"release", "label"}``; ``gate.NotVanillaError`` names the first file
+    that isn't the release's."""
+    if not isinstance(digests, Mapping) or not all(isinstance(k, str) and isinstance(v, str)
+                                                   for k, v in digests.items()):
+        raise ValueError("prime: the digests are {path: sha256}")
+    stamp = _stamp(path, digests=dict(digests))
+    return {"release": stamp.release.name, "label": stamp.release.label}
 
 
 def vanilla(path: str) -> dict:
@@ -264,19 +288,73 @@ _STAMPS: dict[tuple, gate.Stamp] = {}   # the last image's build files checked, 
 _GAME: dict[tuple, tuple] = {}   # its config.xbr and characters.xbr, by the same
 
 
-def _stamp(path: str, steps: Steps = Steps()) -> gate.Stamp:
+THREADS = sys.platform != "emscripten"   # a CPython host's (the app's, the CLI's); the site's worker has none
+CORES_ENV = "AZURKIT_CORES"               # at most this many cores, where set (D984's capped profile)
+
+
+def cores(most: int) -> int:
+    """How many threads a host's parallel work takes: ``most``, at most the
+    machine's cores and ``$AZURKIT_CORES``."""
+    try:
+        cap = int(os.environ.get(CORES_ENV) or 0)
+    except ValueError:
+        cap = 0
+    return max(1, min(most, os.cpu_count() or 1, *([cap] if cap > 0 else [])))
+
+
+def _stamp(path: str, steps: Steps = Steps(), digests: Mapping[str, str] | None = None) -> gate.Stamp:
     """The image at ``path``, its build files checked (D27:
     ``gate.verify``), once for the last image as it is now (its path, size,
     modification and change times): every call that reads it shares the
-    check, and a touched image is checked again. ``steps`` hears the
-    check's bytes."""
+    check, and a touched image is checked again. Its files are hashed on
+    threads where the host has them (:data:`THREADS`), else as ``digests``
+    (a host's) or ``gate.verify`` hash them. ``steps`` hears the check's
+    bytes."""
     at = os.stat(path)
     key = (str(path), at.st_size, at.st_mtime_ns, at.st_ctime_ns)
     if key not in _STAMPS:
-        stamp = gate.verify(path, whole=False, releases=gate.RELEASES, progress=steps.counter("check"))
+        stamp = gate.vouched(path, whole=False, releases=gate.RELEASES, stat=at)
+        if stamp is None:
+            if digests is None and THREADS:
+                digests = _digests(path, steps)
+            stamp = gate.verify(path, whole=False, releases=gate.RELEASES, progress=steps.counter("check"),
+                                digests=digests)
         _STAMPS.clear()
         _STAMPS[key] = stamp
     return _STAMPS[key]
+
+
+def _digests(path: str, steps: Steps) -> dict[str, str]:
+    """``{path: sha256}`` of the image's build files (``gate.layout``),
+    each hashed from its own offsets (``os.pread``: hashlib lets go of the
+    GIL) on :func:`cores` threads, the largest first; a file the image ends
+    inside is left to ``gate.verify``, which names it."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    files = sorted(gate.layout(path), key=lambda f: -f[2])
+    total, done, lock = sum(f[2] for f in files), [0], threading.Lock()
+    report = steps.counter("check")
+
+    def one(file: tuple[str, int, int]) -> tuple[str, str | None]:
+        name, at, left = file
+        digest = hashlib.sha256()
+        while left:
+            data = os.pread(fd, min(iso.CHUNK, left), at)
+            if not data:
+                return name, None
+            digest.update(data)
+            at, left = at + len(data), left - len(data)
+            if report is not None:
+                with lock:
+                    done[0] += len(data)
+                    report(done[0], total)
+        return name, digest.hexdigest()
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        with ThreadPoolExecutor(cores(8), thread_name_prefix="azurkit-check") as pool:
+            return {name: sha for name, sha in pool.map(one, files) if sha is not None}
+    finally:
+        os.close(fd)
 
 
 def _game(path: str) -> tuple[gate.Stamp, bytes, bytes]:

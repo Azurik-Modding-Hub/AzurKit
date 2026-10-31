@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from azurkit import cli
+from azurkit import cli, sdk
 from azurkit.core import filelist, gate, iso
 from tests._xiso import S, fill, image
 
@@ -148,8 +148,10 @@ RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
 def test_an_identity_build_is_the_vanilla_image_and_starts_no_thread(release, request, tmp_path, monkeypatch, capsys):
     """pack(read(v)) is v, byte for byte, for each release: ``azurkit build``
     checks the files a build reads (D27), then, with no pack (``--no-defaults``),
-    writes the image with no edits. The build path starts no thread (the web page's worker has none;
-    Modkit's gate hashed on 8), which the guard here would refuse."""
+    writes the image with no edits. With the sdk's threads off (a CPython host hashes the check on them),
+    the build path starts no thread (the web page's worker has none), which the guard here would refuse."""
+    monkeypatch.setattr(sdk, "THREADS", False)
+
     def refuse(*args, **kwargs):
         raise AssertionError("the build path started a thread")
     for owner, name in ((threading.Thread, "start"), (threading, "_start_joinable_thread"),

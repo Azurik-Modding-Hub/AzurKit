@@ -73,8 +73,9 @@ def test_an_image_is_checked_once_until_it_changes_and_a_hosts_store_vouches_for
     since is checked, and refused, as any other."""
     monkeypatch.setattr(gate, "RELEASES", (_release(tmp_path, "test", VANILLA),))
     monkeypatch.setattr(sdk, "_STAMPS", {})
-    hashed, sha256 = [], gate._sha256
+    hashed, sha256, digests = [], gate._sha256, sdk._digests
     monkeypatch.setattr(gate, "_sha256", lambda r, entry: hashed.append(entry.path) or sha256(r, entry))
+    monkeypatch.setattr(sdk, "_digests", lambda path, steps: hashed.extend(found := digests(path, steps)) or found)
     src = tmp_path / "in.iso"
     src.write_bytes(image(VANILLA))
     first = sdk._stamp(str(src))
@@ -91,6 +92,31 @@ def test_an_image_is_checked_once_until_it_changes_and_a_hosts_store_vouches_for
     sdk._STAMPS.clear()
     with pytest.raises(gate.NotVanillaError, match=r"gamedata/a\.xbr: its contents differ$"):
         sdk._stamp(str(src))
+
+
+def test_the_hosts_hashes_name_the_same_first_difference_and_a_wrong_one_is_refused_by_the_files_name(tmp_path,
+                                                                                                        monkeypatch):
+    """The check hashed on the sdk's threads (a CPython host's) or with a
+    host's digests (the site's WebCrypto, ``sdk.layout`` and
+    ``sdk.prime``) names the same first file that differs as the plain
+    walk; a digest that isn't the file's is refused by its name."""
+    monkeypatch.setattr(gate, "RELEASES", (_release(tmp_path, "test", VANILLA),))
+    monkeypatch.setattr(sdk, "_STAMPS", {})
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(VANILLA | {"gamedata/b.xbr": fill("B", 5000)}))
+    with pytest.raises(gate.NotVanillaError) as plain:
+        gate.verify(src, whole=False, releases=gate.RELEASES)
+    with pytest.raises(gate.NotVanillaError) as threaded:
+        sdk._stamp(str(src))
+    assert str(plain.value) == str(threaded.value) == f"{src} is not the vanilla Test image: gamedata/b.xbr: its contents differ"
+    src.write_bytes(image(VANILLA))
+    files = sdk.layout(str(src))["files"]
+    assert [f[0] for f in files] == ["default.xbe", "filelist.txt", "gamedata/a.xbr", "gamedata/b.xbr"]
+    data = src.read_bytes()
+    digests = {path: hashlib.sha256(data[at:at + size]).hexdigest() for path, at, size in files}
+    with pytest.raises(gate.NotVanillaError, match=r"gamedata/a\.xbr: its contents differ$"):
+        sdk.prime(str(src), digests | {"gamedata/a.xbr": "0" * 64})
+    assert sdk.prime(str(src), digests) == {"release": "test", "label": "Test"}
 
 
 def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path, capsys, monkeypatch):

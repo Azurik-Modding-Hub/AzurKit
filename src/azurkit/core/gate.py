@@ -26,7 +26,7 @@ import functools
 import hashlib
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -115,7 +115,7 @@ def missing(release: Release) -> str:
 
 
 def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Release, ...] = RELEASES,
-           progress: Callable[[int, int], object] | None = None) -> Stamp:
+           progress: Callable[[int, int], object] | None = None, digests: Mapping[str, str] | None = None) -> Stamp:
     """The :class:`Stamp` of the image at ``path`` when it is one of
     ``releases``' vanilla images: every file of it (``whole``), or every one
     a build reads (:data:`BUILD_FILES`; the rest of the image is copied as it
@@ -124,21 +124,39 @@ def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Relea
     release whose ``default.xbe`` the image holds, else the one whose folders
     it has (a modded image), else the first of ``releases``. It reads only on
     the caller's thread; ``progress(done, total)`` follows the bytes it
-    hashes. An image :data:`STAMPS` holds as it is now isn't read."""
+    hashes. ``digests`` (``{path: sha256}``) are a host's hashes of the
+    files :func:`layout` gives, hashed from those bytes (the site's
+    WebCrypto, the app's threads), which it compares in place of its own;
+    a file they don't name it hashes. An image :data:`STAMPS` holds as it
+    is now isn't read."""
     path = Path(path)
     stat = path.stat()
-    keys = [_key(path, stat, w, releases) for w in ((True,) if whole else (False, True))]
-    if STAMPS is not None and (name := next(filter(None, map(STAMPS.get, keys)), None)):
-        if release := next((r for r in releases if r.name == name), None):
-            return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole, stat.st_ctime_ns)
+    if found := vouched(path, whole=whole, releases=releases, stat=stat):
+        return found
     with iso.Reader(path) as r:
         have = {e.path: e for e in r.entries()}
-        release = _release(r, have, releases)
-        if why := _first_difference(r, have, release, whole, progress=progress):
+        release = _release(r, have, releases, digests or {})
+        if why := _first_difference(r, have, release, whole, progress=progress, digests=digests or {}):
             raise NotVanillaError(f"{path} is not the vanilla {release.label} image: {why}")
     if STAMPS is not None:
-        STAMPS.put(keys[0], release.name)
+        STAMPS.put(_key(path, stat, whole, releases), release.name)
     return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole, stat.st_ctime_ns)
+
+
+def vouched(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Release, ...] = RELEASES,
+            stat: os.stat_result | None = None) -> Stamp | None:
+    """The :class:`Stamp` :data:`STAMPS` holds for the image at ``path`` as
+    it is now (``stat``, else its ``os.stat``), checked as :func:`verify`
+    checks it (``whole``, against ``releases``), else ``None``; it reads
+    nothing of the image."""
+    if STAMPS is None:
+        return None
+    path = Path(path)
+    stat = stat or path.stat()
+    for key in [_key(path, stat, w, releases) for w in ((True,) if whole else (False, True))]:
+        if (name := STAMPS.get(key)) and (release := next((r for r in releases if r.name == name), None)):
+            return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole, stat.st_ctime_ns)
+    return None
 
 
 def _key(path: Path, stat: os.stat_result, whole: bool, releases: tuple[Release, ...]) -> str:
@@ -178,11 +196,21 @@ def _sha256(r: iso.Reader, entry: iso.Entry) -> str:
     return digest.hexdigest()
 
 
-def _release(r: iso.Reader, have: dict[str, iso.Entry], releases: tuple[Release, ...]) -> Release:
+def layout(path: str | os.PathLike, prefixes: tuple[str, ...] = BUILD_FILES) -> list[tuple[str, int, int]]:
+    """Each file of the image at ``path`` under ``prefixes`` (:data:`BUILD_FILES`:
+    what a build's :func:`verify` hashes) as ``(path, offset, size)``: the
+    bytes a host hashes itself for its ``digests``."""
+    with iso.Reader(path) as r:
+        return [(e.path, r.base + e.sector * iso.SECTOR, e.size) for e in r.entries()
+                if not e.is_dir and e.path.startswith(prefixes)]
+
+
+def _release(r: iso.Reader, have: dict[str, iso.Entry], releases: tuple[Release, ...],
+             digests: Mapping[str, str]) -> Release:
     """The release whose ``default.xbe`` the image holds, else the one whose
     folders it has (USA's 58 and Europe's 6 differ), else the first."""
     xbe = have.get("default.xbe")
-    sha = _sha256(r, xbe) if xbe and not xbe.is_dir else None
+    sha = (digests.get(xbe.path) or _sha256(r, xbe)) if xbe and not xbe.is_dir else None
     dirs = {path for path, entry in have.items() if entry.is_dir}
     return (next((rel for rel in releases if rel.files.get("default.xbe", [0, ""])[1] == sha), None)
             or next((rel for rel in releases if set(rel.dirs) == dirs), releases[0]))
@@ -190,22 +218,24 @@ def _release(r: iso.Reader, have: dict[str, iso.Entry], releases: tuple[Release,
 
 def _first_difference(r: iso.Reader, have: dict[str, iso.Entry], release: Release, whole: bool,
                       changed: dict[str, str] | None = None, added: tuple[str, ...] = (), *,
-                      progress: Callable[[int, int], object] | None = None) -> str | None:
+                      progress: Callable[[int, int], object] | None = None,
+                      digests: Mapping[str, str] = {}) -> str | None:
     files = release.files | {path: [None, sha] for path, sha in (changed or {}).items()}
     dirs = set(release.dirs)
     checked = sorted(p for p in files.keys() | dirs | have.keys() | set(added) if whole or p.startswith(BUILD_FILES))
-    if progress is not None:
-        total = sum(have[p].size for p in checked if p in have and p in files and not have[p].is_dir)
-        done = [0]
+    hashed = [p for p in checked if p in have and p in files and not have[p].is_dir and p not in digests]
+    total, done = sum(have[p].size for p in hashed), [0]
+    if progress is not None and total:
         progress(0, total)
 
-        def counted(r: iso.Reader, entry: iso.Entry) -> str:
-            sha = _sha256(r, entry)
+    def counted(r: iso.Reader, entry: iso.Entry) -> str:
+        if (sha := digests.get(entry.path)) is not None:
+            return sha
+        sha = _sha256(r, entry)
+        if progress is not None:
             done[0] += entry.size
             progress(done[0], total)
-            return sha
-    else:
-        counted = _sha256
+        return sha
     for path in checked:
         entry = have.get(path)
         if entry is None:
