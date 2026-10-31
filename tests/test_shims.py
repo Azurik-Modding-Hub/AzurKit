@@ -3,8 +3,9 @@ D895) are their sources' builds and hold their G2 hashes, all fifty-one: the
 packs' eleven and the player-model swap's forty; the headers a shim includes are written from the facts
 (AZ-099, Q85: no vendored header), and a shim built against them lands with
 each call at the facts' address (``core.coff``), each of whose functions
-starts a function in its release's code (the prologue drift guard); the
-carve allocator places
+starts a function in its release's code (the prologue drift guard) and pops
+what its declared ABI makes its caller push (AZ-108's guard); the carve
+allocator places
 a shim past every claim the layers before it hold, in ``.text``'s gap or an
 appended section, and the claims, kept in the manifest, derive the header's
 state (``core.xbe.Carver``, ``grown``). The shim packs' G1 cases (their
@@ -20,6 +21,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from capstone import CS_ARCH_X86, CS_GRP_JUMP, CS_MODE_32, Cs
+from capstone.x86 import X86_OP_IMM, X86_OP_MEM, X86_OP_REG
 
 import shimkit
 from azurkit.core import coff, facts, gate, iso, xbe
@@ -122,9 +125,11 @@ PROLOGUE_FIRST_BYTES = frozenset({0x55, 0x53, 0x56, 0x57, 0x51, 0x83, 0x81, 0x8B
                                   0xD9, 0x6A, 0x68, 0x66, 0x80, 0xF6, 0xE9, 0xFF, 0x64})
 
 
-@pytest.mark.parametrize("release", [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
-                                     pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe],
-                                                  id="europe")])
+BOTH = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
+        pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
+
+
+@pytest.mark.parametrize("release", BOTH)
 def test_each_facts_function_starts_a_function_in_its_releases_code(release, request):
     """The prologue drift guard (Modkit's test_va_audit, ported in Step
     4.12a, when the facts' functions became AzurKit's to edit): each
@@ -142,6 +147,79 @@ def test_each_facts_function_starts_a_function_in_its_releases_code(release, req
         elif data[known.offset(f.va)] not in PROLOGUE_FIRST_BYTES:
             opens.append(f"{f.name} at 0x{f.va:08X}")
     assert (outside, opens, len(known.functions)) == ([], [], {"usa": 354, "europe": 254}[release.name])
+
+
+_CAPSTONE = Cs(CS_ARCH_X86, CS_MODE_32)
+_CAPSTONE.detail = True
+
+
+def _ret_pops(data: bytes, table: tuple[xbe.Section, ...], entry: int) -> set[int]:
+    """The ``RET imm16`` pop counts (0 for a plain RET) of every return
+    reachable from ``entry``: both arms of each conditional branch, direct
+    JMPs (tail calls too) and switch tables bounded by the ``CMP index, imm``
+    before them; a CALL falls through, and a path ends at a RET, an INT3 (but
+    the one after ``INT 2Dh``, which the debug service skips) or any other
+    indirect JMP."""
+    def code(va: int, n: int = 16) -> bytes:
+        for s in table:
+            if s.va <= va < s.va + min(s.vsize, s.raw_size):
+                return data[s.raw + va - s.va:s.raw + min(va - s.va + n, s.vsize, s.raw_size)]
+        return b""
+
+    pops, seen, todo = set(), set(), [entry]
+    while todo:
+        va, prev, bound = todo.pop(), None, None
+        while va not in seen:
+            seen.add(va)
+            ins = next(_CAPSTONE.disasm(code(va), va), None)
+            if ins is None:
+                break
+            m, ops = ins.mnemonic, ins.operands
+            if m == "ret":
+                pops.add(ops[0].imm if ops else 0)
+                break
+            if m == "int3" and not (prev and prev.mnemonic == "int" and prev.op_str == "0x2d"):
+                break
+            if m == "cmp" and ops[0].type == X86_OP_REG and ops[1].type == X86_OP_IMM:
+                bound = (ops[0].reg, ops[1].imm + 1)
+            if ins.group(CS_GRP_JUMP):
+                op = ops[0]
+                if op.type == X86_OP_IMM:
+                    if m == "jmp":
+                        va = op.imm
+                    else:
+                        todo.append(op.imm)
+                        va += ins.size
+                    prev = ins
+                    continue
+                if (op.type == X86_OP_MEM and op.mem.base == 0 and op.mem.scale == 4 and bound
+                        and bound[0] == op.mem.index):
+                    cases = op.mem.disp & 0xFFFFFFFF   # a switch's table, bound[1] entries
+                    todo += [struct.unpack("<I", code(cases + 4 * i, 4))[0] for i in range(bound[1])]
+                break
+            va, prev = va + ins.size, ins
+    return pops
+
+
+@pytest.mark.parametrize("release", BOTH)
+def test_each_facts_function_pops_what_its_declared_abi_makes_its_caller_push(release, request):
+    """AZ-108's guard (Modkit's test_va_audit, ported in Step 4.11c): a shim
+    calling a game function through the ABI its release's facts declare
+    leaves the stack balanced, so every RET reachable from the function's
+    address (:func:`_ret_pops`) pops exactly what the declaration makes the
+    caller push: cdecl 0, stdcall and thiscall ``arg_bytes``, fastcall
+    ``arg_bytes`` less the 8 passed in ECX and EDX. A function that pops
+    otherwise has a wrong convention, size or address in the facts: fix that."""
+    with iso.Reader(request.getfixturevalue(f"{release.name}_iso")) as r:
+        data = r.read("default.xbe")
+    known, table = facts.of(release), xbe.sections(data)
+    wrong = []
+    for f in known.functions.values():
+        want = {"cdecl": 0, "stdcall": f.arg_bytes, "thiscall": f.arg_bytes,
+                "fastcall": max(0, f.arg_bytes - 8)}[f.convention]
+        if (pops := _ret_pops(data, table, f.va)) != {want}:
+            wrong.append(f"{f.name} ({f.convention}, {f.arg_bytes}) pops {sorted(pops)}, not {want}")
+    assert (wrong, len(known.functions)) == ([], {"usa": 354, "europe": 254}[release.name])
 
 
 def test_a_shim_lands_past_every_claim_before_it_and_its_claims_derive_the_header(usa_iso):
