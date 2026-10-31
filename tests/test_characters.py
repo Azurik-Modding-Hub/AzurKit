@@ -742,17 +742,22 @@ def test_an_install_takes_its_hosts_refusal_and_an_entry_keeps_its_description(t
     assert set(content.install(good, "a", files.__getitem__, folder, refusal=lambda *_: None)) == {"a", "b"}
 
 
-def test_the_hosts_content_reads_stop_at_a_files_listed_size_and_a_too_deep_manifest_is_refused_by_name(
+def test_the_hosts_content_reads_stop_at_a_files_listed_size_and_a_too_deep_or_big_manifest_is_refused_by_name(
         tmp_path, monkeypatch):
     """The sdk's half of Install (Step 4.3m, SEC-9, SEC-6): a source's file is read to at most one past the size its
-    manifest lists, and one past it is refused by name with nothing written; a manifest whose requires nest too
-    deep to walk is refused by name as any other fault, never a RecursionError (``sdk.content`` lists it as the
-    source's fault, ``sdk.content_check``, the site's, refuses it)."""
+    manifest lists, and one past it is refused by name with nothing written; a manifest past what a manifest may
+    hold is refused as that (it lists no size for itself); a manifest whose requires nest too deep to walk is
+    refused by name as any other fault, never a RecursionError (``sdk.content`` lists it as the source's fault,
+    ``sdk.content_check``, the site's, refuses it)."""
     source, folder = tmp_path / "source", tmp_path / "content"
     monkeypatch.setattr(content, "ROOT", folder)
     _source(source, {"packs/a/pack.json": b"{}"}, [{"id": "a", "files": ["packs/a/pack.json"]}])
     (source / "packs/a/pack.json").write_bytes(b"{}" + b" " * 64)
     with pytest.raises(OSError, match=r"packs/a/pack\.json: past the 2 bytes its manifest lists$"):
+        sdk.content_install({"id": "a", "source": str(source)})
+    listed = (source / content.MANIFEST).read_bytes()
+    (source / content.MANIFEST).write_bytes(listed + b" " * content.MAX_MANIFEST)
+    with pytest.raises(OSError, match=r"manifest\.json: past the 1,048,576 bytes a manifest may hold$"):
         sdk.content_install({"id": "a", "source": str(source)})
     assert not folder.exists()
     entry = {"kind": "pack", "title": "x", "author": "a", "licence": "MIT", "version": 1, "files": []}

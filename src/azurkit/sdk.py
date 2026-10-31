@@ -919,9 +919,10 @@ def _source(given: object = None) -> str:
 def _fetch(source: str) -> Callable[..., bytes]:
     """``fetch(path, size=None)``: the bytes of the file at ``path`` of
     ``source`` (:func:`_source`'s), reading at most one past ``size`` (the
-    manifest's, SEC-9), else the content folder's file limit, and refusing
-    a file past it; ``OSError`` names what failed. CPython hosts' (the
-    app's, the CLI's): the site fetches in its page."""
+    manifest's, SEC-9; for the manifest itself, what a manifest may hold),
+    else the content folder's file limit, and refusing a file past it;
+    ``OSError`` names what failed. CPython hosts' (the app's, the CLI's):
+    the site fetches in its page."""
     from azurkit.tools.characters import content
 
     def fetch(path: str, size: int | None = None) -> bytes:
@@ -941,7 +942,8 @@ def _fetch(source: str) -> Callable[..., bytes]:
                 raise OSError(f"{where}: {getattr(exc, 'reason', exc)}") from None
         if len(data) > most:
             raise OSError(f"{where}: past the {most:,} bytes " + (
-                "a content file may hold" if size is None else "its manifest lists"))
+                "a manifest may hold" if path == content.MANIFEST else "a content file may hold" if size is None
+                else "its manifest lists"))
         return data
     return fetch
 
