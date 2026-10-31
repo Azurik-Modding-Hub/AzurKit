@@ -52,7 +52,7 @@ def _page_on(browser, root: Path):
     return context, page
 
 
-STUBS = """async () => {
+HARNESS = """
     const { workers, canon, KEEP } = await import("/workers.mjs");
     const tag = (m) => [m.type, m.recipe?.seed ?? m.randomizer?.seed].filter(Boolean).join(" ");
     const plan = (seed) => ({ type: "plan", recipe: { seed } });
@@ -74,6 +74,22 @@ STUBS = """async () => {
         return { pool, stubs, readies, f: stubs[0], b: stubs[1] };
     };
     const out = {};
+"""
+"""The stub tests' page: workers.mjs's exports; ``tag`` (what a stub was sent: ``type`` and seed), ``plan`` and
+``build`` (two messages) and ``make(options)`` (a pool on stub workers whose messages a scenario posts by hand, F and B
+loaded). Each scenario fills ``out``."""
+
+
+def _on_stubs(browser, rows: str) -> dict:
+    """``rows``, scenarios on :data:`HARNESS`'s bare page: their ``out``."""
+    context, page = _page_on(browser, web_tools.ROOT / "web")
+    try:
+        return page.evaluate(f"async () => {{{HARNESS}{rows}\n    return out;\n}}")
+    finally:
+        context.close()
+
+
+ROWS = """
     {   // F answers an ask, its records heard; B (loaded after F) is sent nothing
         const { pool, f, b } = make(), records = [];
         const asked = pool.ask({ type: "tracker" }, { progress: (r) => records.push(r.stage) });
@@ -239,8 +255,7 @@ STUBS = """async () => {
     } catch (error) {
         out.canon = [canon({ b: 1, a: [2, { d: 1, c: 2 }], e: undefined }), error.message];
     }
-    return out;
-}"""
+"""
 """Each scenario of :func:`test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click_its_answer`
 on stub workers, whose messages it posts by hand: what each was sent (``type`` and seed), and what the pool did."""
 
@@ -258,11 +273,7 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
     the F after a seed's build past KEEP, and a stopped worker's running
     once ask answers stopped while a plain one goes to the next F; no B
     under 4 cores. A key is canonical JSON, a File refused by name."""
-    context, page = _page_on(browser, web_tools.ROOT / "web")
-    try:
-        got = page.evaluate(STUBS)
-    finally:
-        context.close()
+    got = _on_stubs(browser, ROWS)
     gib = 2 ** 30
     assert got == {
         "asks": [["tracker"], [], ["view"], {"view": 1}, False],
@@ -282,6 +293,32 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "cores": [1],
         "canon": ['{"a":[2,{"c":2,"d":1}],"b":1}', "a key holds [object Blob] at key.file"],
     }
+
+
+def test_a_job_ahead_that_failed_or_whose_worker_stopped_isnt_tried_again_while_its_key_stays_listed(browser):
+    """A job ahead that fails on B, or whose B stops (out of memory, say),
+    isn't sent to the next B while the page's list still holds its key
+    (each B would load the engine and run it again, without end): the next
+    B takes the list's next item, and a click on the key asks F, which
+    shows the failure itself. A list without the key, then with it again,
+    tries it again."""
+    got = _on_stubs(browser, """
+    {
+        const { pool, stubs, f, b } = make();
+        pool.want([{ key: "build k", message: build("k"), heavy: true }, { key: "plan m", message: plan("m") }]);
+        b.say({ type: "failed", message: "MemoryError" });
+        stubs[2].say({ type: "ready", n: 3 });
+        stubs[2].crash("out of memory");
+        stubs[3].say({ type: "ready", n: 4 });
+        const sent = [b.tags(), stubs[2].tags(), stubs[3].tags(), stubs.length];
+        const asked = pool.ask(build("k"), { key: "build k", heavy: true });
+        f.say({ type: "built", report: { size: 4 }, heap: 2 ** 25 });
+        const clicked = [f.tags(), (await asked).report];
+        pool.want([]);
+        pool.want([{ key: "build k", message: build("k"), heavy: true }]);
+        out.failed = [sent, clicked, stubs[3].tags(), pool.state().retired];
+    }""")
+    assert got == {"failed": [[["build k"], ["plan m"], [], 4], [["build k"], {"size": 4}], ["build k"], 2]}
 
 
 SMOKE = """async ({ seed }) => {

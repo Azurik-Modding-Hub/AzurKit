@@ -82,7 +82,8 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
   let timer = null, clock = 0;
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
-  const taken = new Set();               // keys a click took, F runs or trim() freed: B leaves them while listed
+  const taken = new Set();               // keys a click took, F runs, trim() freed or B failed on: B leaves them while
+                                         // listed
   const shared = new Map();              // share()'s messages by type
   const ahead = new WeakSet();           // every message that came from B's work ahead (took())
   const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0 };
@@ -181,7 +182,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
     if (job.ahead && !job.adopted) {
       if (!failed) {
         kept.set(job.key, { messages: job.messages, last: data, bytes: bytesOf(job.messages), at: ++clock });
-      }
+      } else taken.add(job.key);   // not tried again while listed: a click asks F, which shows the failure itself
       if (failed || !(slot.heap < keep)) dropB("retired");   // B after any job past KEEP: its answer is kept
       trim();
     } else {
@@ -193,7 +194,8 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
   };
 
   // A worker stopped (out of memory, say): F's running ask goes to the next F unless it is once or heavy or stopped a
-  // worker before; a job a click took from B goes to F the same way; B's own work is dropped.
+  // worker before; a job a click took from B goes to F the same way; B's own work is dropped, and not tried again while
+  // its key stays listed.
   const stopped = (slot, message) => {
     if (closed || (slot !== f && slot !== b)) return;
     if (!slot.loaded) return heard(slot, { type: "failed", message: `The engine stopped (${message})` });
@@ -201,7 +203,8 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
     slot.job = null;
     if (slot === f) replaceF();
     else dropB("retired");
-    if (job && shown(job)) {
+    if (job && !shown(job)) taken.add(job.key);
+    else if (job) {
       if (job.once || job.heavy || job.tries) job.resolve({ type: "stopped", message });
       else {   // the click's own message, if it took the job from B
         Object.assign(job, { message: job.own ?? job.message, tries: 1, ahead: false, adopted: false, record: null,
