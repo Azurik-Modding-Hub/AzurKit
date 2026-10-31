@@ -31,7 +31,7 @@ the docs and skills cite no step's dated evidence folder
 ```bash
 uv run bootstrap.py                         # once, in the main checkout: uv sync --locked, the pre-push hook, Pyodide
 uv run --locked pytest -q <files>           # targeted tests while you work
-uv run --locked pytest                      # the whole suite
+uv run --locked pytest -n 8 --dist loadgroup   # the whole suite, on 8 workers (fullsuite.py's)
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
 uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
 uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
@@ -82,6 +82,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   in `close()` or `sendto` while DNS or `curl -sI https://github.com` fails
   is an XNU TCP deadlock only a reboot clears: don't kill and retry or start
   another run; report it.
+- **Parallel (D991):** the gate runs the suite on xdist's workers, so a test
+  never leans on another's order or process; tests that share one costly
+  build take one `xdist_group` (`tests/conftest.py` groups the frozen app's).
 - **Lean tests:** the fewest tests that pin a behavior, each in a
   behavior-area file. A fix gets one behavior-named test, in the same commit.
 
@@ -1008,7 +1011,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
   with the gate's USA and Europe test (or the whole suite) in the background
-  under a lock, and prints a key and a receipt path. Its `plan()` picks the
+  under a lock, on 8 workers (pytest-xdist, `--dist loadgroup`), and prints a key and a receipt path. Its `plan()` picks the
   test files that import what changed; every change under `src/` adds the
   files that run the whole package (the wheel's, and those taking the
   `pyodide`, `browser` or `frozen_app` fixture), a change under `web/` the
@@ -1021,7 +1024,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   rule covers run the whole suite. A changed-area run drives the page in
   Chromium alone, the whole suite in every browser (D970), and the receipt
   says which (`browsers`). A run is killed past its
-  cap, 4,500 s, scaled by the host's load per CPU up to twice that, and its log
+  cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
   it is still running, so issue the same command again.
 - **The perf gate (D980-D985):** once pytest passes, the same locked run times

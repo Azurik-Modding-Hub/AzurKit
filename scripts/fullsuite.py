@@ -7,7 +7,8 @@ background, with a receipt (the twin of Modkit's ``fullsuite``).
 It first runs the lint files (:data:`LINT`) in the foreground. A failure
 prints their output and queues nothing (no receipt, exit 1). The run then
 detaches: it waits for the lock (``<receipts>/lock``), runs ``nice -n 10 uv
-run --locked pytest`` in the worktree, killed after :func:`cap` seconds
+run --locked pytest`` in the worktree on :data:`WORKERS` workers (pytest-xdist's
+``--dist loadgroup``), killed after :func:`cap` seconds
 (:data:`CAP`, more on a loaded host), and writes ``<receipts>/suite-<key>.meta``
 (JSON) and ``.log``, whose tail lists the slowest tests. The script prints
 the key and the meta's path; Modkit's ``waitfor`` reads that path too.
@@ -61,9 +62,10 @@ import perf  # noqa: E402
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
 SMOKE = (*LINT, "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
-CAP = 6000        # a run's cap on a host whose load is at most its CPU count (cap())
+CAP = 1800        # a run's cap on a host whose load is at most its CPU count (cap()): ~3x a whole run on 8 workers
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
+WORKERS = 8   # pytest-xdist's workers; --dist loadgroup keeps a group (tests/conftest.py's) on one (D991)
 FINAL = {"done", "capped", "error"}
 PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op in every profile)
 PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
@@ -276,9 +278,11 @@ def lint(wt: Path) -> tuple[bool, str]:
 
 def command(m: dict) -> list[str]:
     """The run's pytest command: its selection (none: the whole suite), a
-    changed-area run's browsers, and the slowest tests at the log's end."""
+    changed-area run's browsers, on :data:`WORKERS` workers, and the slowest
+    tests at the log's end."""
     browsers = [f"--browsers={','.join(m['browsers'])}"] if isinstance(m.get("browsers"), list) else []
-    return ["nice", "-n", "10", "uv", "run", "--locked", "pytest", *m["pytest_args"], *browsers, DURATIONS]
+    return ["nice", "-n", "10", "uv", "run", "--locked", "pytest", *m["pytest_args"], *browsers,
+            f"--numprocesses={WORKERS}", "--dist=loadgroup", DURATIONS]
 
 
 def runner(meta: Path) -> int:

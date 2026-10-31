@@ -188,41 +188,70 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.vanilla)
         if names & {"pyodide", "browser"}:
             item.add_marker(pytest.mark.web)
+        if "frozen_app" in names:   # one frozen app a run: --dist loadgroup keeps its tests on one worker (D991)
+            item.add_marker(pytest.mark.xdist_group("frozen_app"))
         if item.get_closest_marker("europe") and not item.get_closest_marker("vanilla"):
             raise pytest.UsageError(f"{item.nodeid}: a europe test is vanilla too (use the europe_iso fixture)")
         if not item.get_closest_marker("vanilla"):
             item.add_marker(pytest.mark.pure)
 
 
-@pytest.hookimpl(trylast=True)   # after -m deselects
+def _stop(config, items, why: str) -> None:
+    """Stop the run before any test with one message (D26). An xdist worker
+    collects nothing and hands the message to the controller, which stops
+    the run with it (:func:`pytest_testnodedown`)."""
+    if hasattr(config, "workerinput"):
+        config.workeroutput["stop"] = why
+        items.clear()
+    else:
+        pytest.exit(why, returncode=pytest.ExitCode.USAGE_ERROR)
+
+
+@pytest.hookimpl(tryfirst=True)   # after -m deselects; on an xdist worker before it sends its tests (D991)
 def pytest_collection_finish(session):
     global _gated
-    needed = {release for item in session.items if item.get_closest_marker("vanilla")
+    config, items = session.config, session.items
+    needed = {release for item in items if item.get_closest_marker("vanilla")
               for release in ((gate.EUROPE,) if item.get_closest_marker("europe") else ())
               + ((gate.USA,) if "usa_iso" in getattr(item, "fixturenames", ()) or not item.get_closest_marker("europe") else ())}
     for release in sorted(needed, key=gate.RELEASES.index):
         found = _verify(release)
         if isinstance(found, str):
-            pytest.exit(found, returncode=pytest.ExitCode.USAGE_ERROR)
+            return _stop(config, items, found)
         _images[release.name] = found
-    uses = {name for item in session.items if item.get_closest_marker("web")
+    uses = {name for item in items if item.get_closest_marker("web")
             for name in getattr(item, "fixturenames", ())}
-    engines = {item.callspec.params["browser"] for item in session.items
+    engines = {item.callspec.params["browser"] for item in items
                if "browser" in getattr(item, "fixturenames", ())}
     if uses & {"pyodide", "browser"}:
         if "pyodide" in uses and shutil.which("node") is None:
-            pytest.exit('web tests need Node (24 or newer) on PATH, or run `pytest -m "not web"`',
-                        returncode=pytest.ExitCode.USAGE_ERROR)
+            return _stop(config, items, 'web tests need Node (24 or newer) on PATH, or run `pytest -m "not web"`')
         if lost := web_tools.missing(ROOT):
-            pytest.exit(f"web tests need Pyodide {web_tools.VERSION} in {web_tools.pyodide_dir(ROOT)} (it lacks "
-                        f"{', '.join(lost)}): run `uv run bootstrap.py`, or `pytest -m \"not web\"`",
-                        returncode=pytest.ExitCode.USAGE_ERROR)
+            return _stop(config, items, f"web tests need Pyodide {web_tools.VERSION} in {web_tools.pyodide_dir(ROOT)} "
+                                        f"(it lacks {', '.join(lost)}): run `uv run bootstrap.py`, or "
+                                        f'`pytest -m "not web"`')
         for engine in sorted(engines, key=list(web_tools.BROWSERS).index):
             if web_tools.browser_missing(engine, ROOT):
-                pytest.exit(f"web tests need {web_tools.BROWSERS[engine][1]} in {web_tools.browser_dir(engine, ROOT)}: "
-                            f'run `uv run bootstrap.py`, or `pytest -m "not web"`',
-                            returncode=pytest.ExitCode.USAGE_ERROR)
+                return _stop(config, items, f"web tests need {web_tools.BROWSERS[engine][1]} in "
+                                            f"{web_tools.browser_dir(engine, ROOT)}: run `uv run bootstrap.py`, or "
+                                            f'`pytest -m "not web"`')
     _gated = True
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_node_collection_finished(node, ids):
+    """Under xdist the workers collect and gate; the controller sums the tiers."""
+    global _gated
+    _gated = True
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error):
+    """A worker stopped at the gate stops the run with its message, as a run without xdist stops (D26)."""
+    global _gated
+    if why := getattr(node, "workeroutput", {}).get("stop"):
+        _gated = False
+        pytest.exit(why, returncode=pytest.ExitCode.USAGE_ERROR)
 
 
 @pytest.fixture(scope="session")

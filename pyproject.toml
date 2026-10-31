@@ -28,6 +28,7 @@ azurkit = "azurkit.cli:main"
 [dependency-groups]
 dev = [
     "pytest==9.2.0",
+    "pytest-xdist==3.8.0",   # the suite in parallel: -n N --dist loadgroup (scripts/fullsuite.py; D991)
     "import-linter==2.15",
     "playwright==1.64.1",
     "ziglang==0.16.0",
@@ -63,6 +64,7 @@ markers = [
     "vanilla: reads the verified USA image; a run that selects one fails without it, so deselect with -m \"not vanilla\" (D26)",
     "europe: reads the verified Europe image, and is vanilla too; a run that selects one fails without it, so deselect with -m \"not europe\" (D26)",
     "pure: needs no game data; tests/conftest.py marks every test that isn't vanilla",
+    "xdist_group(name): pytest-xdist's --dist loadgroup runs a group on one worker (tests/conftest.py: a module's frozen app)",
     "web: runs under Pyodide on Node (`uv run bootstrap.py` fetches Pyodide); a run that selects one fails without them, so deselect with -m \"not web\"",
 ]
 

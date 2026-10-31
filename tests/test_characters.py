@@ -270,9 +270,11 @@ def no_content(tmp_path, monkeypatch):
     """An empty content folder, as a player who downloaded nothing has it:
     each name a characters module binds to a folder of ``content.ROOT``
     (``_player_variants``' ``CLIPS`` and ``SOUNDS``) rebound to that folder
-    of an empty one."""
+    of an empty one, and ``AZURKIT_CONTENT`` naming it, so the processes
+    :func:`_missed` spawns read it too."""
     empty, root = tmp_path / "content", content.ROOT
     empty.mkdir()
+    monkeypatch.setenv(content.ENV, str(empty))
     for name, module in list(sys.modules.items()):
         if name == characters.__name__ or name.startswith(f"{characters.__name__}."):
             for attr, value in list(vars(module).items()):
@@ -295,9 +297,9 @@ def test_each_body_case_is_its_goldens_file_for_file_and_resource_for_resource_i
     layer writes default.xbe only inside its claims (its shims) and the
     facts' swap sites (:func:`_missed`), with an empty content folder.
     garret4's roll table the roll shim's object holds as zeros, read from
-    the image, gives G2's object back."""
+    the image, gives G2's object back. The cases build in 4 processes."""
     bodies = _bodies()
-    assert len(bodies) == 20 and _missed(bodies, usa_iso) == {}
+    assert len(bodies) == 20 and _missed(bodies, usa_iso, workers=4) == {}
     roll = coff.parse((shimkit.PLAYER_MODEL / "roll.o").read_bytes())
     assert coff.normalized_sha256(ports.restored("roll", roll, ports.Vanilla(gate.USA, usa_iso))) == _golden(
         "shims.json")["player_model_roll.o"]["normalized sha256"]
@@ -353,7 +355,7 @@ def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_their_go
     assert {case: got for case, (_, got) in built.items()} == {case: want for case, (want, _) in built.items()}
     if release is gate.USA:
         cases = _bodies(kit=True)
-        assert sorted(cases) == sorted(KIT) and _missed(cases, image_path) == {}
+        assert sorted(cases) == sorted(KIT) and _missed(cases, image_path, workers=4) == {}   # in 4 processes
     with pytest.raises((OSError, ValueError), match=r"clips[/\\]booblord[/\\]"):
         sdk._plan({"iso": str(image_path), "packs": {}, "character": {"species": "booblord"}})
 

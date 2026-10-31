@@ -96,6 +96,8 @@ def test_a_changed_area_run_drives_the_page_in_chromium_alone_and_a_whole_run_in
     asks = {run: [a for a in fullsuite.command(m) if a.startswith("--browsers")]
             for run, m in (("changed", changed), ("whole", whole))}
     assert asks == {"changed": ["--browsers=chromium"], "whole": []}
+    assert all({f"--numprocesses={fullsuite.WORKERS}", "--dist=loadgroup"} <= set(fullsuite.command(m))
+               for m in (changed, whole))   # D991: every run on xdist's workers, a group on one
     monkeypatch.setattr(fullsuite, "CHANGED_BROWSERS", ("webkit",))
     assert fullsuite.prepare(lane, True, "main")["key"] != changed["key"]
     pytester.makeconftest("from tests.conftest import *  # noqa: F403\n\n\n"
@@ -112,7 +114,7 @@ def test_a_changed_area_run_drives_the_page_in_chromium_alone_and_a_whole_run_in
 def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
     """A run's cap is CAP while the host's 5-minute load is at most one per
     CPU, then grows with it, up to twice CAP (Step 4.1g2)."""
-    assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [6000, 6000, 9000, 12000, 12000]
+    assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [1800, 1800, 2700, 3600, 3600]
 
 
 def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_only_shrinks():

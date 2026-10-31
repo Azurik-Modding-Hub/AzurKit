@@ -36,10 +36,11 @@ def test_a_vanilla_test_without_its_image_stops_the_run_and_an_unlisted_skip_fai
     (fake := tmp_path / "usa.iso").write_bytes(bytes(64))
     monkeypatch.setenv("AZURKIT_ISO", str(fake))
     monkeypatch.setenv("PYTHONPATH", str(ROOT))
-    stopped = pytester.runpytest_subprocess("-p", "no:cacheprovider")
-    assert stopped.ret == 4
-    assert f"{fake} is not the vanilla USA image" in stopped.stdout.str() + stopped.stderr.str()
-    assert "test_pure PASSED" not in stopped.stdout.str()
+    for workers in ((), ("-n", "2")):   # and on xdist's workers (D991)
+        stopped = pytester.runpytest_subprocess("-p", "no:cacheprovider", *workers)
+        assert stopped.ret == 4, workers
+        assert f"{fake} is not the vanilla USA image" in stopped.stdout.str() + stopped.stderr.str()
+        assert "test_pure PASSED" not in stopped.stdout.str()
     pure = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-m", "not vanilla and not web", "-rA")
     pure.assert_outcomes(passed=1, failed=2, deselected=2)
     out = pure.stdout.str()
