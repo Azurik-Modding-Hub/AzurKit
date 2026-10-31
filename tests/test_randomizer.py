@@ -16,6 +16,7 @@ checked database the wheel and the app ship (Step 4.3g)."""
 from __future__ import annotations
 
 import functools
+import gc
 import hashlib
 import json
 import math
@@ -278,7 +279,7 @@ def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():
     assert json.loads(got[2][1])["sha256"] == PLANS["max"]["sha256"]
 
 
-def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic(
+def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic_unwalked(
         tmp_path, monkeypatch):
     """The database the wheel and the app ship (``web_tools.ship_database``:
     checked in a child under PYTHONHASHSEED=0, its root dropped) is keyed by
@@ -286,8 +287,10 @@ def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_th
     that made it (no ``pathlib`` object, nor the checkout's or the home
     folder's path), and reads back (``dbcache.shipped_logic``, as the
     frozen app reads it) into the database and the Logic tables a fresh
-    ``check_database`` gives; the planner's kept Logic is that one, with no
-    database checked and no Logic built (the loader's ``SHIPPED`` hook)."""
+    ``check_database`` gives, frozen out of the cycle collector's walks
+    (train B2: two full walks of it held the app's server 0.8 s); the
+    planner's kept Logic is that one, with no database checked and no Logic
+    built (the loader's ``SHIPPED`` hook)."""
     shipped = web_tools.ship_database(tmp_path)
     blob = shipped.read_bytes()
     assert (shipped.stem, b"pathlib" in blob, str(Path(web_tools.ROOT)).encode() in blob,
@@ -295,7 +298,7 @@ def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_th
     monkeypatch.setattr(dbcache, "SHIPPED", tmp_path)
     monkeypatch.setattr(dbcache, "FROZEN", True)
     got, fresh = dbcache.shipped_logic(loader.DATA_DIR, Logic), Logic(loader.check_database(loader.DATA_DIR).database)
-    assert got.db == fresh.db
+    assert got.db == fresh.db and not any(o is got.db for o in gc.get_objects())
     assert {k: v for k, v in vars(got).items() if k not in loader._MEMOS} == {
         k: v for k, v in vars(fresh).items() if k not in loader._MEMOS}
     assert {k: v for k, v in vars(got).items() if k in loader._MEMOS - {"db"}} == {
@@ -304,6 +307,7 @@ def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_th
     monkeypatch.setattr(loader, "load_database", lambda root: pytest.fail(f"{root}: checked, not the shipped one"))
     kept = kept_logic()
     assert kept.db == fresh.db and kept_logic() is kept
+    gc.unfreeze()   # the rest of this process's tests as they were
 
 
 def test_the_trackers_verdicts_are_their_goldens_at_each_state_and_a_click_marks_what_it_names():

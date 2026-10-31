@@ -18,6 +18,7 @@ lists it) or the frozen app, never from a checkout.
 from __future__ import annotations
 
 import dataclasses
+import gc
 import hashlib
 import importlib.metadata
 import pickle
@@ -49,7 +50,11 @@ def shipped(root: Path) -> tuple | None:
     """(the checked database at ``root``, its Logic's tables, its memos'
     types) as the wheel's or the frozen app's build made them for ``root``'s
     key, its ``root`` put back, or None (no such file, or this isn't the
-    wheel's or the frozen app's own)."""
+    wheel's or the frozen app's own). What it reads (about a million
+    objects, kept for the process) is frozen out of the cycle collector's
+    walks (``gc.freeze``): read at once, two full walks of it (0.4 s each,
+    the GIL held) came with the next call's allocations, which held the app's
+    server, a model's pictures asked meanwhile waiting a second (train B2)."""
     if not SHIPPED.is_dir():
         return None
     name = f"{entry(root).name}.pickle"
@@ -57,6 +62,7 @@ def shipped(root: Path) -> tuple | None:
     if not path.is_file() or not (FROZEN or _installed(path)):
         return None
     db, tables, memos = pickle.loads(path.read_bytes())
+    gc.freeze()
     db.root = Path(root)
     return db, tables, memos
 

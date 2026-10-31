@@ -412,7 +412,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     reads it only from the wheel (its RECORD lists it) or the frozen app: a
     checkout checks the database (about 4 s). `dbcache.shipped_logic`, the
     loader's `SHIPPED` hook (the package sets it), hands `kept_logic` the
-    Logic as built, a fresh one each call, so neither checks nor builds.
+    Logic as built, a fresh one each call, so neither checks nor builds;
+    what it reads is frozen out of the cycle collector's walks (`gc.freeze`:
+    its million objects' full walks held the app's server 0.8 s).
   - `needs.NOTE`, `generator.NOTE` and the fill's `NOTE`, None by
     default, are told the tracker's exits ("the maps' exits, k of 22"), the
     fill's start ("placing the items") and its items placed ("placing the
