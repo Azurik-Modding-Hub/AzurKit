@@ -9,8 +9,10 @@
 // job (or reports none after a heavy one) is replaced (app.mjs's rule: wasm memory never shrinks); when F must go
 // (KEEP, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time: B starts
 // nothing while F builds, and F's build drops B's heavy job. B starts no job, and isn't kept, while the page's tally
-// (both heaps, B's kept answers and the bytes the page holds) reaches TALLY, nor on a computer with fewer than CORES
-// cores. A worker's priority has no web API: B runs at the page's (a known flaw, D835), held small by the rules above.
+// (both heaps, B's kept answers and the bytes the page holds) reaches TALLY, and a new B loads only while the last B's
+// heap when it loaded fits under the line too (or each B would cross it, be retired and load again), nor on a computer
+// with fewer than CORES cores. A worker's priority has no web API: B runs at the page's (a known flaw, D835), held
+// small by the rules above.
 //
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
 // job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "failed"} ends the job and
@@ -79,7 +81,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
                           tally = TALLY, ends: last = ends } = {}) {
   cores ??= globalThis.navigator?.hardwareConcurrency ?? 1;
   let f = null, b = null, dead = null, noB = cores < CORES, closed = false, held = 0, list = [], changed = 0;
-  let timer = null, clock = 0;
+  let timer = null, clock = 0, base = 0;   // base: the last B's heap when it loaded
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
   const taken = new Set();               // keys a click took, F runs, trim() freed or B failed on: B leaves them while
@@ -145,6 +147,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
       if (data?.type === "ready") {
         slot.loaded = true;
         slot.ready = data;
+        if (slot.role === "b") base = heapOf(slot);
         for (const message of shared.values()) slot.worker.postMessage(message);
         if (slot === f) later(ready, data);
       } else if (data?.type === "failed") {   // it didn't load: F's asks get its message, B isn't tried again
@@ -246,7 +249,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
     const spare = queue.findIndex((job) => job.anywhere && !job.heavy);   // a small ask while F works: B answers it
     if (spare >= 0 && (!f?.loaded || f.job) && b?.loaded && !b.job) run(b, queue.splice(spare, 1)[0]);
     if (total() >= tally && b && !b.job) dropB("retired");
-    if (!b && !noB && f?.loaded && !heavyF() && total() < tally) b = spawn("b");
+    if (!b && !noB && f?.loaded && !heavyF() && total() + base < tally) b = spawn("b");
     if (!b?.loaded || b.job || heavyF() || total() >= tally) return;
     const wait = changed + settle - now();
     if (wait > 0) {

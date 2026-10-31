@@ -321,6 +321,23 @@ def test_a_job_ahead_that_failed_or_whose_worker_stopped_isnt_tried_again_while_
     assert got == {"failed": [[["build k"], ["plan m"], [], 4], [["build k"], {"size": 4}], ["build k"], 2]}
 
 
+def test_a_b_retired_at_the_tally_line_isnt_loaded_again_until_a_fresh_bs_heap_fits_under_it(browser):
+    """At the page's 5 GiB tally an idle B is retired, and a new B loads
+    only once the tally plus the last B's heap when it loaded is under the
+    line: one whose load alone would cross it isn't started (each would be
+    retired at its ready and another started, without end)."""
+    got = _on_stubs(browser, """
+    {
+        const { pool, stubs } = make({ heap: 3 * 2 ** 30 });
+        pool.hold(2 * 2 ** 30 - 2 ** 24);   // 16 MiB under the line without B, whose heap when it loaded is 32 MiB
+        const over = [stubs[1].stopped, stubs.length, pool.state().b];
+        pool.hold(2 ** 30);
+        stubs[2].say({ type: "ready", n: 3, heap: 2 ** 25 });
+        out.line = [over, stubs.length, pool.state().b.loaded, stubs[2].stopped, pool.state().retired];
+    }""")
+    assert got == {"line": [[True, 2, None], 3, True, False, 1]}
+
+
 SMOKE = """async ({ seed }) => {
     const { workers } = await import("/workers.mjs");
     const start = () => {   // as app.mjs starts its engine: a blob: URL that imports worker.mjs
