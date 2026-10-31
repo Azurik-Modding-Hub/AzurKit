@@ -108,6 +108,15 @@ OPS = {op.id: op for op in (
     Op("A30", "a small ask while a build runs (a model's pictures)", "randomizer"),
     Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True),   # D999
     Op("A32", "the same reshape at the next launch", "build", content=True),
+    Op("A47", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
+    Op("A48", "Verify every file, first", "image", bar=True),
+    Op("A49", "Verify every file again", "image", first=False),
+    Op("A50", "the image's file list", "image"),
+    Op("A51", "Extract the largest file", "image"),
+    Op("A52", "Open a build… (its recipe)", "build"),
+    Op("A53", "Save a mods file, then Load it (the slower)", "build"),
+    Op("A54", "a plan file's spoiler, ready to View", "build"),
+    Op("A55", "the last build's report, View", "build", first=False),
     Op("S01", "page start, first visit (the engine load)", "start", bar=True),
     Op("S02", "page start, a return visit", "start", first=False),
     Op("S03", "choose the image, first time", "image", bar=True),
@@ -134,6 +143,15 @@ OPS = {op.id: op for op in (
     Op("S23", "Build a seed after Track", "randomizer"),
     Op("S24", "Build a seed, no Track first", "randomizer"),
     Op("S25", "the spoiler's View", "randomizer", first=False),
+    Op("S40", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
+    Op("S41", "Verify every file, first", "image", bar=True),
+    Op("S42", "Verify every file again", "image", first=False),
+    Op("S43", "the image's file list", "image"),
+    Op("S44", "Extract the largest file (the browser's download)", "image"),
+    Op("S45", "Open a build… (its recipe)", "build"),
+    Op("S46", "Save a mods file, then Load it (the slower)", "build"),
+    Op("S47", "a plan file's spoiler, ready to View", "build"),
+    Op("S48", "the last build's report, View", "build", first=False),
 )}
 
 
@@ -811,6 +829,113 @@ def site_seed(d: Driver, ctx, url: str) -> None:
     p.page.close()
 
 
+# ---- the Tools tab (Step 4.7c): the image's info, Verify every file (first, with its bar, D982; again: the kept
+# check), the file list, Extract the largest file, Open a build… (a build of the defaults, saved untimed), a mods file
+# saved and loaded back, a plan file's spoiler and the last build's report.
+INFO = "() => azurkit.tools?.state.info"
+WHOLE = "() => azurkit.tools.state.info?.whole"
+LISTED = "() => azurkit.tools.state.files && !document.getElementById('tools-files').hidden"
+LARGEST = """() => { const f = azurkit.tools.state.files.reduce((a, b) => b[2] > a[2] ? b : a);
+  const box = document.getElementById("tools-filter"); box.value = f[0]; box.dispatchEvent(new Event("input"));
+  document.querySelector("#tools-rows button").click(); }"""
+STATUS = "document.getElementById('status').textContent"
+OPENED = "() => azurkit.tools.state.opened"
+SPOILED = "() => azurkit.tools.state.spoiler"
+REPORTED = "() => !document.getElementById('tools-report-text').hidden"
+
+
+def _plan_file(d: Driver) -> Path:
+    """A plan file (seed ``azurkit``, the default settings), made once a run (``azurkit plan``)."""
+    plan = d.scratch / "azurkit plan.json"
+    if not plan.is_file():
+        subprocess.run([python_of(ROOT), "-m", "azurkit", "plan", "--seed", "azurkit", "--out", str(plan)], cwd=ROOT,
+                       env={k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}, capture_output=True,
+                       check=True, timeout=900)
+    return plan
+
+
+def _tools(d: Driver, p: Page, ops: tuple[str, ...]) -> None:
+    """The Tools tab's image ops (the image picked): its info, Verify every file first and again, the file list."""
+    info, first, again, listed = ops
+    d.act(p, info, click("tab-tools"), INFO, 600)
+    d.act(p, first, click("tools-verify"), WHOLE, 1800)
+    while d.need(again):   # the engine's check is whole now: asked again, it hashes nothing
+        p.js("() => { azurkit.tools.state.info = { ...azurkit.tools.state.info, whole: false }; }")
+        d.act(p, again, click("tools-verify"), WHOLE, 600)
+    d.act(p, listed, click("tools-list"), LISTED, 600)
+
+
+def _shown_report(d: Driver, p: Page, op: str) -> None:
+    while d.need(op):
+        d.act(p, op, click("tools-report-view"), REPORTED)
+        p.js(click("tools-report-view"))
+
+
+def app_tools(d: Driver, app: App, ctx) -> None:
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    _tools(d, p, ("A47", "A48", "A49", "A50"))
+    d.act(p, "A51", LARGEST, f"() => /^Saved .* sha256 /.test({STATUS}) ? 'saved' : {ERROR}", 900)
+    p.js(click("tab-patches"))
+    d.act(p, None, build_js(), BUILT, 1800)
+    out = _out(d, "opened")   # the build, saved untimed: the open below reads it
+    p.js(typed("out-path", str(out)))
+    d.act(p, None, "() => { azurkit.saved = null; document.querySelector('#save').click(); }", SAVED, 1800)
+    p.js(click("tab-tools"))
+    p.js(typed("tools-open-path", str(out)))
+    d.act(p, "A52", click("tools-open"), OPENED, 600)
+    _shown_report(d, p, "A55")
+    mods = app.home / "Downloads" / "AzurKit mods.json"
+    t0, t1 = d.act(p, None, click("tools-mods-save"), f"() => {STATUS}.startsWith('Saved the mods file')", 600)
+    t2, t3 = d.act(p, None, lambda: p.page.set_input_files("#tools-mods-file", str(mods)),
+                   f"() => {STATUS}.startsWith('Loaded') ? 'loaded' : {ERROR}", 600)
+    t0, t1 = max((t0, t1), (t2, t3), key=lambda span: span[1] - span[0])
+    d.record("A53", (t1 - t0) / 1000, d.ev, t0, t1)
+    p.js(click("tab-tools"))
+    plan = _plan_file(d)
+    d.act(p, "A54", lambda: p.page.set_input_files("#tools-plan-file", str(plan)), SPOILED, 900)
+    out.unlink(missing_ok=True)
+    app.quit(p)
+
+
+def site_tools(d: Driver, ctx, url: str) -> None:
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    _tools(d, p, ("S40", "S41", "S42", "S43"))
+    if d.need("S44"):
+        t0 = p.now()
+        with p.page.expect_download(timeout=900_000) as caught:
+            p.js(LARGEST)
+        caught.value.path()
+        t1 = p.now()
+        d.ev += p.events()
+        d.record("S44", (t1 - t0) / 1000, d.ev, t0, t1)
+        caught.value.delete()
+    p.js(click("tab-patches"))
+    d.act(p, None, build_js(), BUILT, 1800)
+    with p.page.expect_download(timeout=1_800_000) as caught:
+        p.js("() => document.querySelector('#save').click()")
+    built = Path(caught.value.path())
+    p.wait(READY, 600)   # the site's engine is replaced after each build
+    p.js(click("tab-tools"))
+    d.act(p, "S45", lambda: p.page.set_input_files("#tools-open-file", str(built)), OPENED, 900)
+    caught.value.delete()
+    _shown_report(d, p, "S48")
+    t0 = p.now()
+    with p.page.expect_download(timeout=600_000) as saved:
+        p.js(click("tools-mods-save"))
+    mods, t1 = saved.value.path(), p.now()
+    t2, t3 = d.act(p, None, lambda: p.page.set_input_files("#tools-mods-file", str(mods)),
+                   f"() => {STATUS}.startsWith('Loaded') ? 'loaded' : {ERROR}", 600)
+    t0, t1 = max((t0, t1), (t2, t3), key=lambda span: span[1] - span[0])
+    d.record("S46", (t1 - t0) / 1000, d.ev, t0, t1)
+    saved.value.delete()
+    p.js(click("tab-tools"))
+    plan = _plan_file(d)
+    d.act(p, "S47", lambda: p.page.set_input_files("#tools-plan-file", str(plan)), SPOILED, 900)
+    p.page.close()
+
+
 SCENARIOS = {   # name: (host, its ops, the driver)
     "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"), app_start),
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
@@ -818,11 +943,13 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-track": ("app", ("A02", "A23", "A24", "A25", "A26"), app_track),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
+    "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "S16", "S17"),
                    site_start),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25"), site_track),
     "site-seed": ("site", ("S24",), site_seed),
+    "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)
