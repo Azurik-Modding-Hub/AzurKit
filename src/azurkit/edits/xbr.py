@@ -46,12 +46,21 @@ HEX = re.compile(r"(?:[0-9a-fA-F]{2})+")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 _COLOR = {"color r": "r", "color g": "g", "color b": "b"}
 #: config.xbr's cells the game reads as an int32, by table and row name (settings_foo's by setting, its column), and
-#: how it makes one: 0xF5A40 truncates; Starting HP's x87 FISTP rounds half to even (D45, D73).
+#: how it makes one: 0xF5A40 truncates; Starting HP's x87 FISTP rounds half to even (D45, D73). critters_damage's
+#: cell for each damage record (the damage table's 57) is the HP its hit takes, which the critter loader truncates
+#: (0xF5A40, called at 0x4A569; AZ-513).
 INT32 = {("armor_properties", name): "trunc" for name in ("Level", "Strong protection hp", "Normal protection hp",
                                                           "Cost", "Hits", "Flaps")} | {
     ("critters_damage", "hitPoints"): "trunc", ("damage", "Level"): "trunc", ("damage", "Damage"): "trunc",
     ("damage", "Cost"): "trunc", ("settings_foo", "initial hp"): "round", ("settings_foo", "fall damage 1"): "trunc",
-    ("settings_foo", "fall damage 2"): "trunc", ("settings_foo", "fall damage 3"): "trunc"}
+    ("settings_foo", "fall damage 2"): "trunc", ("settings_foo", "fall damage 3"): "trunc"} | {
+    ("critters_damage", record): "trunc" for record in (
+        "norm_1 norm_2 norm_3 norm_4 water_1 water_2 water_3 steam_1 steam_2 steam_3 lightning_1 lightning_2 "
+        "lightning_3 acid_1 acid_2 acid_3 fire_1 fire_2 fire_3 wind_1 wind_2 wind_3 wind_4 smash_1 smash_2 smash_3 "
+        "ice_1 ice_2 ice_3 shield_lightning_1 shield_lightning_2 shield_lightning_3 lava_1 lava_2 lava_3 fire_shard "
+        "rock_shard blaze fire_elemental shadow bot_1 bot_2 sleeth lord golem lord_golem octo catalisk catalisk_baby "
+        "tesla fire_wall elemental_1 elemental_2 elemental_3 kill barnacle drown").split()}
+BY_COLUMN = "settings_foo"   # the one table whose cells are named by their column (a setting each), not their row
 WHOLE = {"round": (round, "rounded"), "trunc": (math.trunc, "truncated")}
 RANGE = (-2**31, 2**31 - 1)
 
@@ -143,7 +152,7 @@ def _spelled(names: Sequence[str], given: str, what: str, where: str, aliases: M
 def int32(table: str, entity: str, prop: str) -> str | None:
     """How the game makes an int32 of config.xbr's cell ``table``/``entity``/``prop``
     (:data:`INT32`: ``round`` or ``trunc``), ``None`` where it reads a double."""
-    return INT32.get((table, prop)) or INT32.get((table, entity))
+    return INT32.get((table, entity if table == BY_COLUMN else prop))
 
 
 def _set(table: Table, data: bytes, op: Mapping) -> tuple[str, list[tuple[int, bytes]]]:

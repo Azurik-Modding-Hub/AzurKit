@@ -74,10 +74,10 @@ class _State:
 
 
 def _entry(table: str, entity: str, prop: str) -> tuple[str, dict]:
-    """schema.json's cell of ``table``: by its row's name, else its column's (settings_foo's setting)."""
+    """schema.json's cell of ``table``: by its row's name (settings_foo's by its column's, the setting)."""
     cells = schema()["tables"].get(table, {}).get("cells", {})
-    name = prop if prop in cells else entity if entity in cells else ""
-    return name, cells.get(name, {})
+    name = entity if table == xbr.BY_COLUMN else prop
+    return (name, cells[name]) if name in cells else ("", {})
 
 
 def _default(tables: Mapping[str, Table], ref: views.Ref) -> str | None:
@@ -287,9 +287,10 @@ def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = ()) ->
             if spans and _touched(a.at, spans):
                 touched.append([col, row])
     entries = schema()["tables"].get(name, {}).get("cells", {})
-    rows_meta = [_meta(state, name, 0, r) if was.rows[r] in entries else None for r in range(n)]
+    by_column = name == xbr.BY_COLUMN
+    rows_meta = [_meta(state, name, 0, r) if not by_column and was.rows[r] in entries else None for r in range(n)]
     cols_meta = ([_meta(state, name, c, min(1, n - 1)) if was.cols[c] in entries else None
-                  for c in range(len(was.cols))] if any(c in entries for c in was.cols) else None)
+                  for c in range(len(was.cols))] if by_column else None)
     return {"name": name, "label": label, "category": category, "rows": list(was.rows), "cols": list(was.cols),
             "cells": cells, "changed": changed, "written": touched, "rows_meta": rows_meta, "cols_meta": cols_meta}
 

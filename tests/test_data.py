@@ -92,9 +92,11 @@ def _check(table: str, entity: str, prop: str, value, ops=(), col: int | None = 
 
 def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
     """A number cell takes any finite value, far past its range hint (D23),
-    but NaN and inf, and an int32 cell (schema.json's int32 rows, the
-    sliders' rounding where they write one) what int32 can't hold once the
-    game rounds or truncates it (D45), in the Data tab and in a mods file's
+    but NaN and inf, and an int32 cell (schema.json's int32 rows, among
+    them critters_damage's cell for each damage record, by its row even in
+    a column named as a record; the sliders' rounding where they write one)
+    what int32 can't hold once the game rounds or truncates it (D45), in the
+    Data tab and in a mods file's
     operation alike. A text cell takes a text another cell of its table
     holds (pointed at; a list's words in any order), else one that fits its
     unshared string; a number into a text cell, a text past its slot, a
@@ -107,6 +109,8 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
     dropped = next(v for c in range(len(drops.cols)) if isinstance(v := drops.cell(c, drops.row("drop1")).value, str))
     assert {(t, name) for t, s in data.schema()["tables"].items() for name, e in s["cells"].items()
             if e["type"] == "int32"} == set(xbr.INT32)
+    assert xbr.int32("critters_damage", "golem", "damageType") is None   # golem is a record and a column's name
+    assert data.table("critters_damage")["cols_meta"] is None
     ok = [
         (("settings_foo", "max hp", "Value", "1e300"), 1e300),
         (("settings_foo", "max hp", "Value", -1e300), -1e300),
@@ -146,6 +150,9 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
         (("settings_foo", "max hp", "Value", "abc"), "max hp / Value: a number (64-bit float)"),
         (("critters_damage", "barnacle", "hitPoints", "2147483648"),
          "barnacle / hitPoints: a number the game reads as a 32-bit integer (-2147483648 to 2147483647; it truncates"),
+        (("critters_damage", "barnacle", "norm_1", "2147483648"),
+         "barnacle / norm_1: a number the game reads as a 32-bit integer (-2147483648 to 2147483647; it truncates"),
+        (("critters_damage", "golem", "fire_shard", -3e9), "golem / fire_shard: a number the game reads as a 32-bit"),
         (("settings_foo", "initial hp", "Value", "2147483647.5"),
          "initial hp / Value: a number the game reads as a 32-bit integer (-2147483648 to 2147483647; it rounds"),
         (("critters_engine", own, "body", 5), f"{own} / body holds text, not a number"),

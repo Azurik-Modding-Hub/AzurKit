@@ -1,5 +1,5 @@
 {
- "about": "What config.xbr's cells hold, by the file's own table and row names (settings_foo: each setting's column name): each cell's label, type (number, int32: a number the game reads as a 32-bit integer, text, list: words), unit, range (a hint, never a limit), value set and note. Ported from Modkit's schema.json (its entries checked against the game).",
+ "about": "What config.xbr's cells hold, by the file's own table and row names (settings_foo: each setting's column name): each cell's label, type (number, int32: a number the game reads as a 32-bit integer, text, list: words), unit, range (a hint, never a limit), value set and note. Ported from Modkit's schema.json (its entries checked against the game), with critters_damage's 22 damage records it left out written as its others.",
  "value_sets": {
   "features": [
    "none",
@@ -452,353 +452,573 @@
     },
     "norm_1": {
      "label": "Normal Dmg Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a norm_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a norm_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "norm_2": {
      "label": "Normal Dmg Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a norm_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a norm_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "norm_3": {
      "label": "Normal Dmg Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a norm_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a norm_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "norm_4": {
      "label": "Normal Dmg Tier 4",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a norm_4 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a norm_4 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "water_1": {
      "label": "Water Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a water_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a water_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "water_2": {
      "label": "Water Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a water_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a water_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "water_3": {
      "label": "Water Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a water_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a water_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "steam_1": {
      "label": "Steam Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a steam_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a steam_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "steam_2": {
      "label": "Steam Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a steam_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a steam_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "steam_3": {
      "label": "Steam Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a steam_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a steam_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "lightning_1": {
      "label": "Lightning Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a lightning_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a lightning_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "lightning_2": {
      "label": "Lightning Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a lightning_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a lightning_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "lightning_3": {
      "label": "Lightning Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a lightning_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a lightning_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "acid_1": {
      "label": "Acid Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an acid_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an acid_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "acid_2": {
      "label": "Acid Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an acid_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an acid_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "acid_3": {
      "label": "Acid Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an acid_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an acid_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "fire_1": {
      "label": "Fire Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a fire_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a fire_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "fire_2": {
      "label": "Fire Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a fire_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a fire_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "fire_3": {
      "label": "Fire Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a fire_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a fire_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "wind_1": {
      "label": "Wind Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a wind_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a wind_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "wind_2": {
      "label": "Wind Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a wind_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a wind_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "wind_3": {
      "label": "Wind Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a wind_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a wind_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "wind_4": {
      "label": "Wind Tier 4",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a wind_4 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a wind_4 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "smash_1": {
      "label": "Smash Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a smash_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a smash_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "smash_2": {
      "label": "Smash Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a smash_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a smash_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "smash_3": {
      "label": "Smash Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a smash_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a smash_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "ice_1": {
      "label": "Ice Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an ice_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an ice_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "ice_2": {
      "label": "Ice Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an ice_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an ice_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "ice_3": {
      "label": "Ice Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an ice_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an ice_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "elemental_1": {
      "label": "Elemental Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an elemental_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an elemental_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "elemental_2": {
      "label": "Elemental Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an elemental_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an elemental_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "elemental_3": {
      "label": "Elemental Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP an elemental_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP an elemental_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "lava_1": {
      "label": "Lava Tier 1",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a lava_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a lava_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "lava_2": {
      "label": "Lava Tier 2",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a lava_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a lava_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     },
     "lava_3": {
      "label": "Lava Tier 3",
-     "type": "number",
+     "type": "int32",
      "unit": "HP",
      "range": [
       -100,
       1000
      ],
-     "note": "HP a lava_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+     "note": "HP a lava_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "shield_lightning_1": {
+     "label": "Shield Lightning Tier 1",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a shield_lightning_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "shield_lightning_2": {
+     "label": "Shield Lightning Tier 2",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a shield_lightning_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "shield_lightning_3": {
+     "label": "Shield Lightning Tier 3",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a shield_lightning_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "fire_shard": {
+     "label": "Fire Shard",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a fire_shard hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "rock_shard": {
+     "label": "Rock Shard",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a rock_shard hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "blaze": {
+     "label": "Blaze",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a blaze hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "fire_elemental": {
+     "label": "Fire Elemental",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a fire_elemental hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "shadow": {
+     "label": "Shadow",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a shadow hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "bot_1": {
+     "label": "Bot 1",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a bot_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "bot_2": {
+     "label": "Bot 2",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a bot_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "sleeth": {
+     "label": "Sleeth",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a sleeth hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "lord": {
+     "label": "Lord",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lord hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "golem": {
+     "label": "Golem",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a golem hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "lord_golem": {
+     "label": "Lord Golem",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lord_golem hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "octo": {
+     "label": "Octo",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an octo hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "catalisk": {
+     "label": "Catalisk",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a catalisk hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "catalisk_baby": {
+     "label": "Catalisk Baby",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a catalisk_baby hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "tesla": {
+     "label": "Tesla",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a tesla hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "fire_wall": {
+     "label": "Fire Wall",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a fire_wall hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "kill": {
+     "label": "Kill",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a kill hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "barnacle": {
+     "label": "Barnacle",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a barnacle hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
+    },
+    "drown": {
+     "label": "Drown",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a drown hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals). Truncated to int32 (0xF5A40)."
     }
    }
   },
