@@ -1089,6 +1089,9 @@ def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(
         table["plan"][0] = row
         monkeypatch.setattr(shipped, "OFF", False)
         assert ask() == found, why
+    (tmp_path / content.INSTALLED).write_text(json.dumps(entry))   # an installed entry the body reads: a size miss
+    assert shipped.size({"species": "x"}, gate.USA) is None
+    (tmp_path / content.INSTALLED).unlink()
     monkeypatch.setattr(shipped, "OFF", True)
     assert shipped.size({"species": "x"}, gate.USA) is None
     seen = {k: v for k, v in row.items() if k != "blob"} | {"recipe": {"species": "x", "scale": 1.0}}   # a golden's
