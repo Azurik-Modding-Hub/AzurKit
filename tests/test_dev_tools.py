@@ -110,7 +110,7 @@ def test_a_changed_area_run_drives_the_page_in_chromium_alone_and_a_whole_run_in
 def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
     """A run's cap is CAP while the host's 5-minute load is at most one per
     CPU, then grows with it, up to twice CAP (Step 4.1g2)."""
-    assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [4500, 4500, 6750, 9000, 9000]
+    assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [6000, 6000, 9000, 12000, 12000]
 
 
 def _git(cwd, *args):

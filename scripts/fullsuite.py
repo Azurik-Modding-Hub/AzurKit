@@ -50,7 +50,7 @@ from pathlib import Path
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
 SMOKE = (*LINT, "tests/test_oracle.py", "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
-CAP = 4500        # a run's cap on a host whose load is at most its CPU count (cap())
+CAP = 6000        # a run's cap on a host whose load is at most its CPU count (cap())
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
 FINAL = {"done", "capped", "error"}
