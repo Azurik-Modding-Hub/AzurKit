@@ -17,7 +17,10 @@ that differs. A dump that isn't the whole vanilla image (another trim, or a
 whole disc) passes when its files match. It returns a :class:`Stamp`; it
 writes nothing. A host may keep the images it vouched for across launches
 (:data:`STAMPS`): an image with the same path, size, modification and
-change times as one it passed is not read again.
+change times as one it passed is not read again. A stamp keeps what was
+checked (``whole``): every file of an image whose build files were checked
+first hashes only the rest, and is kept whole, so a check after it, of every
+file or a build's, hashes nothing (the Tools tab's Verify every file).
 """
 
 from __future__ import annotations
@@ -80,7 +83,8 @@ class NotVanillaError(ValueError):
 class Stamp:
     """What :func:`verify` found: the release, and the image it checked as
     that image was then (its size, modification and change times). ``whole``:
-    every file was checked; else only :data:`BUILD_FILES`."""
+    every file was checked (also when only a build's check was asked); else
+    only :data:`BUILD_FILES`."""
     release: Release
     path: Path
     size: int
@@ -92,6 +96,11 @@ class Stamp:
         """Whether the image is still as it was checked (``stat``, its
         ``os.stat`` now)."""
         return (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns) == (self.size, self.mtime_ns, self.ctime_ns)
+
+    def vouches(self, path: str) -> bool:
+        """Whether the image's file at ``path`` was checked (every file
+        when ``whole``)."""
+        return self.whole or path.startswith(BUILD_FILES)
 
 
 def data_path(release: Release) -> Path:
@@ -115,7 +124,8 @@ def missing(release: Release) -> str:
 
 
 def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Release, ...] = RELEASES,
-           progress: Callable[[int, int], object] | None = None, digests: Mapping[str, str] | None = None) -> Stamp:
+           progress: Callable[[int, int], object] | None = None, digests: Mapping[str, str] | None = None,
+           kept: Stamp | None = None) -> Stamp:
     """The :class:`Stamp` of the image at ``path`` when it is one of
     ``releases``' vanilla images: every file of it (``whole``), or every one
     a build reads (:data:`BUILD_FILES`; the rest of the image is copied as it
@@ -124,15 +134,24 @@ def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Relea
     release whose ``default.xbe`` the image holds, else the one whose folders
     it has (a modded image), else the first of ``releases``. It reads only on
     the caller's thread; ``progress(done, total)`` follows the bytes it
-    hashes. ``digests`` (``{path: sha256}``) are a host's hashes of the
-    files :func:`layout` gives, hashed from those bytes (the site's
-    WebCrypto, the app's threads), which it compares in place of its own;
-    a file they don't name it hashes. An image :data:`STAMPS` holds as it
-    is now isn't read."""
+    hashes itself, from 0 to their total. ``digests`` (``{path: sha256}``)
+    are a host's hashes of the files :func:`layout` gives, hashed from those
+    bytes (the site's WebCrypto, the app's threads), which it compares in
+    place of its own; a file they don't name it hashes. ``kept`` is a
+    host's stamp of the image (its build files', the image picked); with it,
+    or :data:`STAMPS`' stamp, of the image as it is now, the files that
+    stamp :meth:`~Stamp.vouches` for aren't hashed again: a whole stamp, or a
+    build's for a build's check, is the answer, and every file after a
+    build's check hashes only the rest. Its stamp keeps ``whole``, what
+    was checked."""
     path = Path(path)
     stat = path.stat()
-    if found := vouched(path, whole=whole, releases=releases, stat=stat):
-        return found
+    held = [s for s in (kept, vouched(path, whole=False, releases=releases, stat=stat))
+            if s is not None and Path(s.path) == path and s.release in releases and s.holds(stat)]
+    if found := max(held, key=lambda s: s.whole, default=None):
+        if found.whole or not whole:
+            return found
+        digests = dict(digests or {}) | {p: sha for p, (_, sha) in found.release.files.items() if found.vouches(p)}
     with iso.Reader(path) as r:
         have = {e.path: e for e in r.entries()}
         release = _release(r, have, releases, digests or {})
@@ -148,14 +167,16 @@ def vouched(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Rele
     """The :class:`Stamp` :data:`STAMPS` holds for the image at ``path`` as
     it is now (``stat``, else its ``os.stat``), checked as :func:`verify`
     checks it (``whole``, against ``releases``), else ``None``; it reads
-    nothing of the image."""
+    nothing of the image. It keeps ``whole``: a build's check asked of an
+    image whose every file was checked is a whole stamp."""
     if STAMPS is None:
         return None
     path = Path(path)
     stat = stat or path.stat()
-    for key in [_key(path, stat, w, releases) for w in ((True,) if whole else (False, True))]:
-        if (name := STAMPS.get(key)) and (release := next((r for r in releases if r.name == name), None)):
-            return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole, stat.st_ctime_ns)
+    for checked in (True,) if whole else (True, False):
+        if ((name := STAMPS.get(_key(path, stat, checked, releases)))
+                and (release := next((r for r in releases if r.name == name), None))):
+            return Stamp(release, path, stat.st_size, stat.st_mtime_ns, checked, stat.st_ctime_ns)
     return None
 
 

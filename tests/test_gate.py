@@ -94,6 +94,45 @@ def test_an_image_is_checked_once_until_it_changes_and_a_hosts_store_vouches_for
         sdk._stamp(str(src))
 
 
+def test_verify_every_file_is_kept_by_the_stamp(tmp_path, monkeypatch):
+    """Every file checked after a build's check of the image as it is now
+    (``kept``: the image picked) hashes only the files that check left, its
+    progress from 0 to their bytes; its stamp is whole, and a check after it,
+    of every file or a build's, hashes nothing, also by a host's store
+    (``gate.STAMPS``) in a later launch. A file the build's check left that
+    differs is named; a touched image is checked again, every file."""
+    test = _release(tmp_path, "test", VANILLA)
+    hashed, sha256 = set(), gate._sha256
+    monkeypatch.setattr(gate, "_sha256", lambda r, entry: hashed.add(entry.path) or sha256(r, entry))
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(VANILLA))
+    builds = {p for p in VANILLA if p.startswith(gate.BUILD_FILES)}
+
+    def verify(**given) -> gate.Stamp:
+        hashed.clear()
+        return gate.verify(src, releases=(test,), **given)
+
+    build = verify(whole=False)
+    assert not build.whole and hashed == builds
+    ticks = []
+    whole = verify(kept=build, progress=lambda done, total: ticks.append((done, total)))
+    rest = len(VANILLA["movies/m.bik"])
+    assert whole.whole and hashed == {"movies/m.bik"} and ticks == [(0, rest), (rest, rest)]
+    assert verify(kept=whole) is whole and verify(whole=False, kept=whole) is whole and not hashed
+    kept = {}
+    monkeypatch.setattr(gate, "STAMPS", types.SimpleNamespace(get=kept.get, put=kept.__setitem__))
+    assert verify(whole=False) == build and verify() == whole and hashed == {"movies/m.bik"}
+    for asked in (True, False):   # a later launch: the store's stamp, whole
+        assert verify(whole=asked) == whole and gate.vouched(src, whole=asked, releases=(test,)).whole
+        assert not hashed
+    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1))
+    assert verify(kept=whole).whole and hashed == set(VANILLA)
+    src.write_bytes(image(VANILLA | {"movies/m.bik": fill("M", 70)}))
+    with pytest.raises(gate.NotVanillaError, match=r"movies/m\.bik: its contents differ$"):
+        verify(kept=verify(whole=False))
+    assert hashed == {"movies/m.bik"}
+
+
 def test_the_hosts_hashes_name_the_same_first_difference_and_a_wrong_one_is_refused_by_the_files_name(tmp_path,
                                                                                                         monkeypatch):
     """The check hashed on the sdk's threads (a CPython host's) or with a
