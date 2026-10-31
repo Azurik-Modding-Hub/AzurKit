@@ -441,7 +441,7 @@ def pickers(given: Mapping) -> dict:
     if isinstance(given.get("iso"), str) and given["iso"]:
         _, config, bodies = _game(given["iso"])
     manifest = (given.get("content") or {}).get("manifest")
-    entries = kit.states(kit.check(manifest) if manifest else None, kit.installed())
+    entries = kit.states(_manifest(kit, manifest) if manifest else None, kit.installed())
     return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
 
 
@@ -916,28 +916,43 @@ def _source(given: object = None) -> str:
     return str(folder)
 
 
-def _fetch(source: str) -> Callable[[str], bytes]:
-    """``fetch(path)``: the bytes of the file at ``path`` of ``source``
-    (:func:`_source`'s), at most the content folder's file limit;
-    ``OSError`` names what failed. CPython hosts' (the app's, the CLI's):
-    the site fetches in its page."""
+def _fetch(source: str) -> Callable[..., bytes]:
+    """``fetch(path, size=None)``: the bytes of the file at ``path`` of
+    ``source`` (:func:`_source`'s), reading at most one past ``size`` (the
+    manifest's, SEC-9), else the content folder's file limit, and refusing
+    a file past it; ``OSError`` names what failed. CPython hosts' (the
+    app's, the CLI's): the site fetches in its page."""
     from azurkit.tools.characters import content
 
-    def fetch(path: str) -> bytes:
+    def fetch(path: str, size: int | None = None) -> bytes:
+        most = content.MAX_FILE if size is None else size
         if not source.startswith(("http://", "https://")):
-            return (Path(source) / path).read_bytes()
-        import urllib.request
+            where = str(Path(source) / path)
+            with open(where, "rb") as f:
+                data = f.read(most + 1)
+        else:
+            import urllib.request
 
-        url = urllib.parse.urljoin(source, urllib.parse.quote(path))
-        try:
-            with urllib.request.urlopen(url, timeout=60) as reply:
-                data = reply.read(content.MAX_FILE + 1)
-        except OSError as exc:   # urllib's HTTPError and URLError are OSErrors
-            raise OSError(f"{url}: {getattr(exc, 'reason', exc)}") from None
-        if len(data) > content.MAX_FILE:
-            raise OSError(f"{url}: past the {content.MAX_FILE:,} bytes a content file may hold")
+            where = urllib.parse.urljoin(source, urllib.parse.quote(path))
+            try:
+                with urllib.request.urlopen(where, timeout=60) as reply:
+                    data = reply.read(most + 1)
+            except OSError as exc:   # urllib's HTTPError and URLError are OSErrors
+                raise OSError(f"{where}: {getattr(exc, 'reason', exc)}") from None
+        if len(data) > most:
+            raise OSError(f"{where}: past the {most:,} bytes " + (
+                "a content file may hold" if size is None else "its manifest lists"))
         return data
     return fetch
+
+
+def _manifest(kit, raw) -> dict:
+    """``kit.check(raw)``: a manifest whose entries nest too deep to walk
+    refused by name as any other (SEC-6: its ``RecursionError``)."""
+    try:
+        return kit.check(raw)
+    except RecursionError:
+        raise ValueError("manifest: its entries require one another too deep to read") from None
 
 
 def content(given: Mapping | None = None) -> dict:
@@ -955,15 +970,15 @@ def content(given: Mapping | None = None) -> dict:
     given = given or {}
     source, why, manifest = _source(given.get("source")), None, None
     try:
-        raw = _fetch(source)(kit.MANIFEST)
-        manifest = kit.check(raw)
+        raw = _fetch(source)(kit.MANIFEST, kit.MAX_MANIFEST)
+        manifest = _manifest(kit, raw)
         kit.ROOT.mkdir(parents=True, exist_ok=True)
         (kit.ROOT / kit.MANIFEST).write_bytes(raw)   # the last fetched, listed while the source can't be read
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         why = f"can't read {source}: {exc}"
         try:
-            manifest = kit.check((kit.ROOT / kit.MANIFEST).read_bytes())
-        except (OSError, ValueError):
+            manifest = _manifest(kit, (kit.ROOT / kit.MANIFEST).read_bytes())
+        except (OSError, ValueError, RecursionError):
             manifest = None
     record = kit.installed()
     return {"source": source, "manifest": manifest, "why": why, "entries": kit.states(manifest, record),
@@ -983,7 +998,10 @@ def content_install(given: Mapping) -> dict:
         raise ValueError("content: name the entry to install")
     source = _source(given.get("source"))
     fetch = _fetch(source)
-    kit.install(kit.check(fetch(kit.MANIFEST)), given["id"], fetch, source=source)
+    manifest = _manifest(kit, fetch(kit.MANIFEST, kit.MAX_MANIFEST))
+    sizes = {f["path"]: f["size"] for e in manifest["entries"] for f in e["files"]}
+    kit.install(manifest, given["id"], lambda path, size=None: fetch(path, sizes.get(path) if size is None else size),
+                source=source)   # each file read to at most its listed size (SEC-9)
     return content({"source": given.get("source")})
 
 
@@ -998,7 +1016,7 @@ def content_check(given: Mapping) -> dict:
 
     if not isinstance(given, Mapping):
         raise ValueError("content: a JSON object")
-    manifest = kit.check(given.get("manifest"))
+    manifest = _manifest(kit, given.get("manifest"))
     if "id" not in given:
         return {"manifest": manifest, "install": []}
     chosen = kit.verify(manifest, given["id"], given.get("files") or {})

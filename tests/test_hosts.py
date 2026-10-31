@@ -1494,22 +1494,35 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
         server.close()
 
 
-def test_the_apps_spoiler_never_replaces_the_image_its_build_read(tmp_path, monkeypatch):
-    """``api/spoiler`` refuses the image the randomized build read (D36),
-    also one outside the data folder that the save dialog chose (its Replace
-    confirmed), and leaves it as it was."""
+def test_the_apps_saves_never_replace_the_image_its_build_read_nor_a_file_another_dialog_chose(tmp_path, monkeypatch):
+    """Each of the app's saves (the image's ``api/save``, ``api/spoiler``,
+    ``api/settings_file``: one ``writable``, SEC-16) refuses the image the
+    randomized build read (D36), even once its save dialog chose it (its
+    Replace confirmed), and a file there that a dialog chose for another
+    save, or whose own dialog was cancelled since; each leaves it as it was."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    picked = tmp_path / "picked.iso"
+    picked, other = tmp_path / "picked.iso", tmp_path / "other.txt"
     picked.write_bytes(bytes(64))
+    other.write_bytes(b"kept")
     monkeypatch.setattr(sdk, "image", lambda recipe, progress=None, spoiler=True: (types.SimpleNamespace(size=64),
                                                                                    {"plan": {"sha256": "2"}}))
     monkeypatch.setattr(sdk, "spoiler", lambda plan, built=False: {"lines": ["seed 2"], "text": "seed 2\n"})
+    answers = []
     server, replies = app.serve(_page.WEB), []
+    server.window = types.SimpleNamespace(create_file_dialog=lambda *args, **kwargs: answers.pop(0))
+    saves = {"out": ("api/save", {"recipe": {}, "build": None}), "spoiler": ("api/spoiler", {}),
+             "settings": ("api/settings_file", {"settings": {}})}
     try:
         _post(server.url, "api/build", {"iso": str(picked)}, replies)
-        server.chosen = picked   # the save dialog's answer
-        _post(server.url, "api/spoiler", {"out": str(picked)}, replies)
+        for kind, (call, body) in saves.items():
+            for answer, kind_asked, out in ((picked, kind, picked), (other, "spoiler" if kind != "spoiler" else "out",
+                                                                     other), (None, kind, other)):
+                answers.append(str(answer) if answer else None)
+                _post(server.url, "api/choose", {"kind": kind_asked, "path": str(out)}, replies)
+                _post(server.url, call, body | {"out": str(out)}, replies)
     finally:
         server.close()
-    assert (replies[1], picked.read_bytes()) == (
-        {"refused": f"{picked}: it is a vanilla image, which AzurKit never writes over"}, bytes(64))
+    vanilla = {"refused": f"{picked}: it is a vanilla image, which AzurKit never writes over"}
+    there = {"refused": f"{other} exists: choose another name, or delete it first"}
+    assert replies[1:] == [{"path": str(picked)}, vanilla, {"path": str(other)}, there, {"path": None}, there] * 3
+    assert (picked.read_bytes(), other.read_bytes()) == (bytes(64), b"kept")

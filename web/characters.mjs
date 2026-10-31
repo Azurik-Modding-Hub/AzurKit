@@ -51,6 +51,25 @@ const idb = (() => {
 
 const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0)) : data;
 
+// An Install's fetches are untrusted (SEC-9): an entry and those it requires hold at most ENTRY bytes as listed, and
+// each file is read to at most its listed size, else refused by name before more is held.
+const ENTRY = 256 << 20;
+async function upTo(reply, size, path) {
+  if (!reply.body) return new Uint8Array(0);
+  const reader = reply.body.getReader(), parts = [];
+  for (let held = 0; ;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    held += value.length;
+    if (held > size) {
+      reader.cancel().catch(() => {});
+      throw new Error(`${path}: past the ${size.toLocaleString("en-US")} bytes its manifest lists`);
+    }
+    parts.push(value);
+  }
+  return new Uint8Array(await new Blob(parts).arrayBuffer());
+}
+
 // characters({call, app, host, say, image, packs, changed, content}): call is the engine's (the site's worker, the
 // app's api), image() the picked image (the site's File, the app's path), packs() the Patches tab's ticks (a dress
 // stands on them), changed() runs when the tab's choice changes (the page remembers it) and content(files,
@@ -160,19 +179,22 @@ export function characters({ call, app, host, say, image, packs, changed, conten
         ({ manifest: c.manifest, why: c.why } = reply);
       } else {
         const ids = new Map(c.manifest.entries.map((e) => [e.id, e]));
-        const need = [], visit = (id) => {
+        const need = [], visit = (id) => {   // those required first, each once (SEC-6)
+          if (need.includes(id)) return;
           for (const r of ids.get(id).requires) visit(r);
           if (!need.includes(id)) need.push(id);
         };
         visit(entry.id);
+        const listed = need.flatMap((id) => ids.get(id).files);
+        if (listed.reduce((n, f) => n + f.size, 0) > ENTRY) {
+          throw new Error(`its files and those it requires pass the ${ENTRY.toLocaleString("en-US")} bytes an entry may hold`);
+        }
         const kept = (await idb.get("files")) ?? {}, record = (await idb.get("installed")) ?? {};
         const files = {};
-        for (const id of need) {
-          for (const f of ids.get(id).files) {
-            const reply = await fetch(new URL(f.path, new URL(c.source, location.href)), { cache: "no-store" });
-            if (!reply.ok) throw new Error(`${f.path}: HTTP ${reply.status}`);
-            files[f.path] = new Uint8Array(await reply.arrayBuffer());
-          }
+        for (const f of listed) {
+          const reply = await fetch(new URL(f.path, new URL(c.source, location.href)), { cache: "no-store" });
+          if (!reply.ok) throw new Error(`${f.path}: HTTP ${reply.status}`);
+          files[f.path] = await upTo(reply, f.size, f.path);
         }
         const checked = await call("content_check", { manifest: JSON.stringify(c.manifest), id: entry.id, files });
         if ("refused" in checked) throw new Error(checked.refused);

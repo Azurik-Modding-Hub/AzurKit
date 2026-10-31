@@ -328,7 +328,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.cancelled = threading.Event()
         self.quitting = False               # set by quit(), before it cancels: no build or save starts after it
         self.deadline: float | None = None  # quit()'s first call's, plus QUIT_WAIT
-        self.chosen: Path | None = None     # the save dialog's last answer, which it asked before replacing
+        self.chosen: tuple[str, Path] | None = None   # the save dialog's last answer and its kind (it asked first)
         self.plan: dict | None = None       # the last randomized build's plan, whose spoiler api/spoiler gives
         self.spoiler: str | None = None     # and that spoiler, once the engine made it
         self.source: Path | None = None     # and the image it was built from, which it never replaces (D36)
@@ -425,10 +425,20 @@ class Server(http.server.ThreadingHTTPServer):
         return {"report": report, "size": built["size"], "recipe": recipe, "build": built["build"],
                 "out": str(user_downloads_path() / f"{stem} (AzurKit).iso")}
 
-    def save(self, body: dict) -> dict:
-        recipe, out = body.get("recipe"), _path(body.get("out"), "saved image")
-        if out.exists() and out != self.chosen:
+    def writable(self, out: Path, kind: str) -> Path:
+        """``out``, where a save of ``kind`` (``out``: the image, ``spoiler``,
+        ``settings``) may write (SEC-16): never over an existing file but the
+        one the save dialog chose for that kind (it asked first), nor the
+        image the last build read or a vanilla image (D36)."""
+        if out.exists() and self.chosen != (kind, out):
             raise ValueError(f"{out} exists: choose another name, or delete it first")
+        if out.exists() and any(image and image.exists() and out.samefile(image)
+                                for image in (self.source, *map(gate.find, gate.RELEASES))):
+            raise ValueError(f"{out}: it is a vanilla image, which AzurKit never writes over")
+        return out
+
+    def save(self, body: dict) -> dict:
+        recipe, out = body.get("recipe"), self.writable(_path(body.get("out"), "saved image"), "out")
 
         with self.busy, self.writing, self.follow("save", record("write")) as report:
             def progress(step: dict) -> None:
@@ -549,19 +559,14 @@ class Server(http.server.ThreadingHTTPServer):
         (D36); whole or not at all."""
         if (plan := self.plan) is None:
             raise ValueError("No spoiler: build with Randomize ticked first")
+        out = self.writable(_path(body["out"], "spoiler"), "spoiler") if body.get("out") else None
         if (text := self.spoiler) is None:
             with self.follow("spoiler", record("spoiler")):
                 text = self.engine.call("spoiler", plan)["text"]
             if self.plan is plan:   # no build since
                 self.spoiler = text
-        if not body.get("out"):
+        if out is None:
             return {"text": text}
-        out = _path(body.get("out"), "spoiler")
-        if out.exists() and out != self.chosen:
-            raise ValueError(f"{out} exists: choose another name, or delete it first")
-        if out.exists() and any(image and image.exists() and out.samefile(image)
-                                for image in (self.source, *map(gate.find, gate.RELEASES))):
-            raise ValueError(f"{out}: it is a vanilla image, which AzurKit never writes over")
         data = text.encode("utf-8")
         part = out.with_name(f"{out.name}.part")
         part.write_bytes(data)
@@ -574,9 +579,8 @@ class Server(http.server.ThreadingHTTPServer):
         file (Modkit's ``--save-settings`` file) to ``out``, never over an
         existing file but the one the save dialog chose; whole or not at all."""
         from platformdirs import user_downloads_path
-        out = _path(body["out"], "settings file") if body.get("out") else user_downloads_path() / "settings.toml"
-        if out.exists() and out != self.chosen:
-            raise ValueError(f"{out} exists: choose another name, or delete it first")
+        out = self.writable(_path(body["out"], "settings file") if body.get("out")
+                            else user_downloads_path() / "settings.toml", "settings")
         data = randomizer.settings_file(body.get("settings")).encode("utf-8")
         part = out.with_name(f"{out.name}.part")
         part.write_bytes(data)
@@ -587,6 +591,7 @@ class Server(http.server.ThreadingHTTPServer):
         """The window's file dialog: an image to read, or where to save one
         (``out``), the spoiler (``spoiler``) or the settings (``settings``)."""
         import webview
+        self.chosen = None   # each dialog's answer is its own: a cancelled one vouches for nothing
         given = Path(body["path"]).expanduser() if isinstance(body.get("path"), str) and body["path"] else None
         folder = str(given.parent) if given else ""
         if body.get("kind") in ("out", "spoiler", "settings"):
@@ -597,7 +602,7 @@ class Server(http.server.ThreadingHTTPServer):
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
         if picked and body.get("kind") in ("out", "spoiler", "settings"):
-            self.chosen = Path(str(picked))
+            self.chosen = (body["kind"], Path(str(picked)))
         return {"path": str(picked) if picked else None}
 
 
