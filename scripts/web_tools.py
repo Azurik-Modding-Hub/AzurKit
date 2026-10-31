@@ -61,8 +61,8 @@ holds (a recipe or manifest, a clip, a sound, its notes) and those it is to
 hold (a glTF's buffers, a texture), each of which its host serves as data,
 not as a page, a script or an XML document the browser renders (where an
 XHTML ``<script>`` runs) on the site's own origin, outside the page's CSP.
-A ``.md`` is text unless the host builds the site with Jekyll, which
-renders one as a page."""
+A Jekyll build renders any text kind with front matter (a ``.json``,
+``.gltf`` or ``.md``) as a page: :func:`site`'s ``.nojekyll`` turns it off."""
 
 
 def _tools(root: Path) -> Path:
@@ -251,8 +251,11 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     """The site in the new folder ``out``: ``web/``'s files, Pyodide's
     core in ``pyodide/``, the wheel (``built``, else built now) and
     ``host.json``, which tells the page its engine is the site's and names
-    the wheel and its sha256 for the worker's fetch (``integrity``). The
-    app's server answers ``host.json`` itself (``azurkit.app``). With
+    the wheel and its sha256 for the worker's fetch (``integrity``), and an
+    empty ``.nojekyll``, so a GitHub Pages build serves each file as it is
+    and makes no page of one with front matter (a content ``.json``,
+    ``.gltf`` or ``.md``). The app's server answers ``host.json`` itself
+    (``azurkit.app``). With
     ``content`` (a clone of Azurik-Custom-Content, before it is public:
     the page reads only its own origin until Step 4.4's CSP), its
     ``manifest.json`` and each file it lists in ``out/content-source/``,
@@ -271,6 +274,7 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
     (out / "host.json").write_text(json.dumps({"engine": "site", "wheel": Path(built).name,
                                                "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8")
+    (out / ".nojekyll").write_bytes(b"")
     for rel, data in published.items():
         (out / "content-source" / rel).parent.mkdir(parents=True, exist_ok=True)
         (out / "content-source" / rel).write_bytes(data)

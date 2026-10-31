@@ -80,7 +80,9 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     suffix (:data:`REFUSED`) and a path that isn't plain (a trailing ``/`` or
     ``/.``, which would publish the page under it) are refused naming the
     file, before the site's first file is written (the three cases SEC-3
-    reproduced, a linked folder with no ``../``, and the trailing ``/``)."""
+    reproduced, a linked folder with no ``../``, and the trailing ``/``).
+    The site's root holds an empty ``.nojekyll``: no Pages build turns a
+    content file with front matter into a page."""
     from azurkit.tools.characters import content
 
     root, clone, outside = tmp_path / "root", tmp_path / "clone", tmp_path / "outside"
@@ -118,7 +120,7 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     assert sorted(p.relative_to(good / "content-source").as_posix() for p in (good / "content-source").rglob("*")
                   if p.is_file()) == sorted(["manifest.json", *kinds])
     assert all((good / "content-source" / rel).read_bytes() == (clone / rel).read_bytes() for rel in kinds)
-    assert (good / "index.html").read_text() == "the page\n"
+    assert (good / "index.html").read_text() == "the page\n" and (good / ".nojekyll").read_bytes() == b""
     with pytest.raises(SystemExit, match=re.escape(bad)):
         site(tmp_path / "bad", "packs/x/pack.json", bad)
     assert not (tmp_path / "bad").exists()
