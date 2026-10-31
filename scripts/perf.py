@@ -19,8 +19,10 @@ built from the same wheel and served on 127.0.0.1, in each of
 late, Safari's read model) and ``capped`` (the app with ``AZURKIT_CORES=4``
 and the site in WebKit, against 9 s, with our processes' peak resident size
 at most 6 GiB). Default: ``app`` and ``site`` in WebKit (a changed area's);
-``--all`` every profile and browser (:data:`BROWSERS`: WebKit, Chromium and
-Firefox, D994; main's full runs).
+``--all`` every profile and browser (:data:`BROWSERS`, main's full runs).
+Firefox (D994) joins :data:`BROWSERS` with its first record, a stack after
+the one that puts :func:`new_browsers` on main: the landing queue lands with
+main's ``scripts/land.py``.
 
 The verdicts (:func:`judge`): each op runs :data:`R` times (an op with a
 sample over 30 s once), first-time ops each in a fresh state, and its median
@@ -74,7 +76,7 @@ LONG = 30.0           # an op past this runs once, and once more on a re-run
 MARGIN = 1.15         # a ceiling is the median times this, rounded up to 0.1 s
 LOAD_LINE = 40.0      # D926/D975: the gate's perf stage starts under this normal-priority load
 PROFILES = ("app", "site", "lag", "capped")
-BROWSERS = ("webkit", "chromium", "firefox")   # the site's (D994: Firefox)
+BROWSERS = ("webkit", "chromium")   # the site's; Firefox joins with its first record (D994)
 #: Which ops a changed path reaches (section 2.4 of round 1's plan): ``(prefix, hosts, groups)``, the first match;
 #: an unlisted path under ``src/`` reaches every op; any other path none.
 REACH = (("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app",), None),
