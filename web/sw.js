@@ -16,9 +16,9 @@
 //   this release's cache; one gone from it (Storage's Clear) is downloaded again and kept only if its sha256 is the
 //   list's, else answered 503: a page never gets another release's bytes. Any other GET goes to the network.
 // - The page's messages, each answered on its port: "release" (this release's name, files and bytes, and how many are
-//   kept), "check" (host.json from the network, compared with this release's: when it differs the registration looks
-//   for the new release, which installs and waits), "reload" (to the waiting release: it takes over when the asking
-//   page is the scope's only one, else it says how many others are open).
+//   kept), "check" (the registration looks for a new release, a new sw.js, which carries a new release's whole list:
+//   one found installs and waits; the answer says whether one is installing or waiting), "reload" (to the waiting
+//   release: it takes over when the asking page is the scope's only one, else it says how many others are open).
 // - The install posts to the scope's pages its progress (core.progress's record, stage "release"), then "installed" or
 //   "failed" (with the file's fault), the release's outcome, which a page may know before its registration shows it
 //   (Firefox shows a new worker after its updatefound).
@@ -125,16 +125,14 @@ async function answer(data, source) {
     return { type: "release", name: RELEASE?.name ?? null, files: files.length, cached,
              bytes: files.reduce((sum, f) => sum + f.size, 0) };
   }
-  if (data?.type === "check") {
-    let reply;
+  if (data?.type === "check") {   // the browser compares sw.js byte for byte: any served file's change is a new one
     try {
-      reply = await fetch(address("host.json"), { cache: "no-store" });
+      await self.registration.update();
     } catch {
       return { type: "checked", update: false, offline: true };
     }
-    const update = reply.ok && await hex(await reply.arrayBuffer()) !== listed("host.json")?.sha256;
-    if (update) await self.registration.update().catch(() => null);
-    return { type: "checked", update, offline: false };
+    const reg = self.registration;
+    return { type: "checked", update: Boolean(reg.installing || reg.waiting), offline: false };
   }
   if (data?.type === "reload") {
     const others = (await pages()).filter((page) => page.id !== source?.id).length;

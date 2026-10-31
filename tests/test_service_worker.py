@@ -75,6 +75,10 @@ globalThis.sw = {
     await reg.update();
     return told;
   },
+  check: async () => {   // the page's own check (the hub's, every 30 min): its answer, and a found release's outcome
+    const told = outcome(), answer = await ask(sw.controller, { type: "check" });
+    return { ...answer, told: answer.update ? await told : "none" };
+  },
   take: async () => {   // the update line's Reload: the waiting release takes over, and the page reloads on it
     const reg = await sw.getRegistration(), reload = () => location.reload();
     if (!reg.waiting) return { type: "reload", ok: false, others: null };   // not shown yet (Firefox shows it late)
@@ -142,12 +146,14 @@ def unfetched(mp) -> None:
 
 @pytest.fixture(scope="module")
 def releases(tmp_path_factory) -> dict[str, Path]:
-    """Sites of releases one, two and three (the same files at the same addresses, each its own bytes), and half:
-    two's half deployed (two's sw.js and list, one's engine.mjs)."""
+    """Sites of releases one, two and three (the same files at the same addresses, each its own bytes); restyled:
+    one with only its page changed (one's wheel, so one's host.json); half: two's half deployed (two's sw.js and list,
+    one's engine.mjs)."""
     tmp = tmp_path_factory.mktemp("releases")
     with pytest.MonkeyPatch.context() as mp:
         unfetched(mp)
         made = {label: _site(tmp, label) for label in ("one", "two", "three")}
+        made["restyled"] = _site(tmp / "restyled", "one", page=PAGE.replace("<body>", "<body><p>restyled</p>"))
     made["half"] = shutil.copytree(made["two"], tmp / "site-half")
     shutil.copy2(made["one"] / "engine.mjs", made["half"] / "engine.mjs")
     return made
@@ -155,10 +161,10 @@ def releases(tmp_path_factory) -> dict[str, Path]:
 
 class Host:
     """``root`` (settable: a deploy) served on 127.0.0.1 as GitHub Pages serves it (``Cache-Control: max-age=600``),
-    every answer whole (no 304), or each a 503 while ``down``."""
+    every answer whole (no 304), or each a 503 while ``down``; ``workers`` counts the requests for ``sw.js``."""
 
     def __init__(self, root: Path):
-        self.root, self.down = root, False
+        self.root, self.down, self.workers = root, False, 0
         host = self
 
         class Handler(http.server.SimpleHTTPRequestHandler):
@@ -169,6 +175,7 @@ class Host:
                 super().__init__(*args, directory=str(host.root), **kwargs)
 
             def send_head(self):
+                host.workers += self.path == f"/{web_tools.WORKER}"
                 if host.down:
                     self.send_error(503)
                     return None
@@ -211,6 +218,17 @@ def started(page, after: int = 0, timeout: float = 60) -> dict:
                 return got
         assert time.monotonic() < end, f"the page didn't start: {page.url}"
         time.sleep(0.1)
+
+
+def settled(page, host: Host, timeout: float = 30) -> None:
+    """Once the browser's own update check after a first visit's reload (1 to 3 s after it, by browser) has asked for
+    ``sw.js`` and ended: a deploy after it is the page's to find, as a check joined to one that read the last release's
+    ``sw.js`` would answer that no release is new."""
+    end = time.monotonic() + timeout
+    while host.workers < 2:   # the registration's and that check's
+        assert time.monotonic() < end, "the browser didn't check for an update after the page's reload"
+        time.sleep(0.05)
+    page.evaluate("async () => { await (await navigator.serviceWorker.getRegistration()).update(); }")
 
 
 def opened(context, host: Host, path: str = "") -> tuple:
@@ -283,15 +301,22 @@ def test_the_page_is_isolated_after_one_reload_and_every_later_page_at_once(brow
 
 
 def test_an_update_waits_until_the_page_takes_it(browser, releases):
-    """A deploy found while a page runs installs beside it and waits: a
-    half-done deploy (a file not the list's) fails its install and the
-    release before stays; a whole one waits, and while it does the open
-    page's new engine and a page opened then are still the open release's,
-    though the network serves the next. Reload is refused while another
-    page of the site is open, naming how many."""
+    """A deploy found while a page runs installs beside it and waits: the
+    page's own check finds one that changes only the page (``host.json``
+    unchanged); a half-done deploy (a file not the list's) fails its
+    install and the release before stays; a whole one waits, and while it
+    does the open page's new engine and a page opened then are still the
+    open release's, though the network serves the next. Reload is refused
+    while another page of the site is open, naming how many."""
     with hosted(browser, releases["one"]) as (host, context):
         page, got = opened(context, host)
         assert shown(got) == runs("one")
+        settled(page, host)
+        restyled, one = releases["restyled"], releases["one"]
+        assert (restyled / "host.json").read_bytes() == (one / "host.json").read_bytes()
+        assert listed(restyled)["name"] != listed(one)["name"]
+        host.root = restyled
+        assert page.evaluate("sw.check()") == {"type": "checked", "update": True, "offline": False, "told": "installed"}
         host.root = releases["half"]
         assert page.evaluate("sw.update()") == "failed"
         host.root = releases["two"]
@@ -313,6 +338,7 @@ def test_a_page_of_the_next_release_never_runs_the_last_ones_engine(browser, rel
     own."""
     with hosted(browser, releases["one"]) as (host, context):
         page, got = opened(context, host)
+        settled(page, host)
         host.root = releases["two"]
         assert page.evaluate("sw.update()") == "installed"
         for _ in range(40):
