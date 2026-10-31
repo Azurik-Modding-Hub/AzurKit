@@ -804,9 +804,29 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   cap, 4,500 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
   it is still running, so issue the same command again.
+- **The perf gate (D980-D985):** once pytest passes, the same locked run times
+  the player-facing operations the changes reach (`scripts/perf.py`; the
+  registry, its ids and drivers in `tests/_perf.py`): a change under `src/`
+  or `web/` times its area's ops in the app's serve mode and on the site in
+  WebKit, and main's own full run times every op in four profiles (the app;
+  the site in WebKit and Chromium; the site with each File read 200 ms late,
+  Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
+  app's process tree, and the site's WebKit processes that start during the run).
+  It starts once the normal-priority load is under 40, at nice 10. An op
+  runs three times (once past 30 s) and its median decides: over 3 s it
+  fails, unless `tests/perf_ceilings.toml` lists it, when it fails over its
+  ceiling; an image's first check and the site's first engine load may pass
+  3 s only with a moving bar (D982); past 1 s an op shows progress unless the
+  list names it a debt (D980). An op over runs three more times and fails
+  only if the median of all six is still over. The list only shrinks: `perf.py
+  --update-ceilings` lowers a ceiling you earned (in your own commit) and
+  drops what is back under, and the gate fails an added op or debt or a
+  raised ceiling against main's.
 - **Landing:** `uv run --locked python scripts/land.py <branch>` fast-forwards
   `main` once a passing receipt covers the branch's head with `vanilla: N run`
-  and `europe: M run`, N and M at least 1 (D26). There is no remote
+  and `europe: M run`, N and M at least 1 (D26), and, for a stack that
+  changes `src/` or `web/`, a passing perf block; `--release` refuses while
+  the perf list holds anything (it is empty for 4.4). There is no remote
   until AzurKit goes public (D137, D91: Azurik-Modding-Hub at 4.4).
 
 ## Environment

@@ -1,5 +1,6 @@
-"""The landing tools: ``scripts/fullsuite.py``'s changed-area plan and
-``scripts/land.py``'s gate: a fast-forward and a passing receipt."""
+"""The landing tools: ``scripts/fullsuite.py``'s changed-area plan,
+``scripts/perf.py``'s verdicts and ``scripts/land.py``'s gate: a
+fast-forward, a passing receipt and its perf block."""
 
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from scripts import fullsuite, land
+from scripts import fullsuite, land, perf
 
 ROOT = Path(__file__).resolve().parent.parent
 SMOKE = sorted(fullsuite.SMOKE)
@@ -35,7 +36,7 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
         {*SMOKE, "tests/test_sdk.py", *fullsuite.SRC_TESTS})
     assert fullsuite.plan(["tests/test_other.py", "AGENTS.md", "tests/sdk_api.txt"], deps) == sorted(
         {*SMOKE, "tests/test_other.py"})
-    assert fullsuite.plan(["bootstrap.py"], deps) == SMOKE
+    assert fullsuite.plan(["bootstrap.py"], deps) == fullsuite.plan(["tests/perf_ceilings.toml"], deps) == SMOKE
     for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "assets/icon/a.icns"):
         assert fullsuite.plan([whole], deps) is None, whole
     assert fullsuite.plan(["src/azurkit/sdk.py"], fullsuite.graph(ROOT)) is not None
@@ -113,6 +114,50 @@ def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
     assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [6000, 6000, 9000, 12000, 12000]
 
 
+def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_only_shrinks():
+    """D981-D985 on fake timings: an op not in the list fails when its
+    median is over 3 s (the capped profile's 9 s); an image's first check
+    passes over it only with a moving bar (D982); past 1 s an op shows
+    progress unless it is a debt (D980); a listed op fails over its ceiling;
+    an op over runs R more times and fails only if the median of all is
+    still over (one spike can't fail it); the list may lower and drop but
+    never add or raise against main's; changes reach the ops of their
+    area."""
+    def s(seconds, bar=0, progress=True):
+        return {"s": seconds, "bar": bar, "progress": progress}
+    slow, moving = [s(3.2), s(3.4), s(3.1)], [s(6.8, bar=5)] * 3
+    assert [perf.judge(*case)["verdict"] for case in (
+        (slow, 3.0), (slow, 9.0), (slow, 3.0, 4.0), ([s(4.7)] * 3, 3.0, 4.0), (moving, 3.0, None, False, True),
+        ([s(6.8, bar=1)] * 3, 3.0, None, False, True), ([s(1.5, progress=False)] * 3, 3.0),
+        ([s(1.5, progress=False)] * 3, 3.0, None, True), ([{**s(2.0), "error": "timed out"}], 3.0))] == [
+        "over", "pass", "listed", "regressed", "bar", "over", "no progress", "pass", "error"]
+    times = {"A12": [[5.0, 3.2, 2.6], [2.4, 2.5, 2.6]], "A15": [[4.0, 4.1, 4.2], [4.0, 4.0, 4.1]], "A24": [[290.0]]}
+    asked = []
+
+    def drive(run, targets):
+        asked.append((run, dict(targets)))
+        return {"samples": {op: [s(t) for batch in times[op][:1 + (n > perf.R)] for t in batch]
+                            for op, n in targets.items()}}
+    lst = {"ceilings": {"A24/app": 300.0}, "debts": [], "memory": {}, "untimed": {}}
+    got, _, _ = perf.measure([("A12", "app"), ("A15", "app"), ("A24", "app")], drive, lst)
+    assert {k: r["verdict"] for k, r in got.items()} == {"A12/app": "pass", "A15/app": "over", "A24/app": "listed"}
+    assert asked == [("app", {"A12": 3, "A15": 3, "A24": 3}), ("app", {"A12": 6, "A15": 6})]
+    main = {"ceilings": {"A15/app": 4.8, "S14/webkit": 21.0}, "debts": ["A15/app"], "memory": {}, "untimed": {}}
+    mine = {**main, "ceilings": {"A15/app": 5.0, "S14/webkit": 21.0, "A06/app": 9.0}, "debts": ["A15/app", "A06/app"]}
+    assert perf.check_list(mine, main) == ["A06/app: added to the list (ceiling 9.0 s)",
+                                           "A15/app: its ceiling raised, 4.8 -> 5.0 s", "A06/app: a new progress debt"]
+    assert perf.check_list(mine, None) == []   # the first record
+    results = {"A15/app": perf.judge([s(4.0)] * 3, 3.0, 4.8, True), "S14/webkit": perf.judge([s(2.0)] * 3, 3.0, 21.0),
+               "A06/app": perf.judge([s(7.0, progress=False)] * 3, 3.0)}
+    assert perf.updated(main, results, {}, first=False) == {
+        "ceilings": {"A15/app": 4.6}, "debts": [], "memory": {}, "untimed": {}}
+    assert perf.updated(perf.listed(None), results, {}, first=True)["ceilings"] == {"A15/app": 4.6, "A06/app": 8.1}
+    assert perf.listed(perf.render(main)) == main
+    assert perf.select(["src/azurkit/tools/randomizer/x.py", "scripts/web_tools.py"]) == {
+        *(("app", g) for g in ("randomizer", "tracker")), *(("site", g) for g in perf.GROUPS)}
+    assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set() and len(perf.select(["web/app.mjs"])) == 12
+
+
 def _git(cwd, *args):
     return subprocess.run(["git", "-C", str(cwd), "-c", "user.name=t", "-c", "user.email=t@t",
                            "-c", "commit.gpgsign=false", *args], capture_output=True, text=True,
@@ -157,3 +202,27 @@ def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lan
     _receipt(receipts, _git(repo, "rev-parse", "HEAD"))
     code, why = land.land(repo, "p2/y")
     assert code == 1 and "doesn't fast-forward from main" in why
+
+
+def test_land_needs_a_passing_perf_block_for_src_or_web_and_an_empty_list_for_a_release(tmp_path, monkeypatch):
+    """D981: a stack changing src/ or web/ lands only on a receipt whose
+    perf block passed; ``--release`` refuses while tests/perf_ceilings.toml
+    lists an op."""
+    repo, lane, receipts, base = _repo(tmp_path, monkeypatch)
+    (lane / "src").mkdir()
+    (lane / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (lane / "tests").mkdir()
+    (lane / perf.CEILINGS).write_text(perf.render({"ceilings": {"A15/app": 4.8}, "debts": [], "memory": {},
+                                                   "untimed": {}}), encoding="utf-8")
+    _git(lane, "add", "src/a.py", perf.CEILINGS)
+    _git(lane, "commit", "-q", "-m", "src")
+    top = _git(lane, "rev-parse", "HEAD")
+    _receipt(receipts, top)
+    code, why = land.land(repo, "p2/x")
+    assert code == 1 and "and a passing perf block" in why
+    _receipt(receipts, top, perf_args=["--select", "app:build"], perf={"passed": False})
+    assert land.land(repo, "p2/x")[0] == 1
+    _receipt(receipts, top, perf_args=["--select", "app:build"], perf={"passed": True})
+    code, why = land.land(repo, "p2/x", dry_run=True, release=True)
+    assert code == 1 and "still lists 1 ops over their budget" in why
+    assert land.land(repo, "p2/x", dry_run=True)[0] == 0

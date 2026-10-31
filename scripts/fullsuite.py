@@ -24,8 +24,17 @@ says which. A changed-area run drives the page in
 :data:`CHANGED_BROWSERS` alone (``--browsers``, ``tests/conftest.py``), a
 whole one in every browser (D970); the meta's ``browsers`` says which.
 
+Once pytest passes, the perf stage runs inside the same lock (D981,
+``scripts/perf.py``): the player-facing ops the changes reach (perf.py's
+``select``) in the app and the site in WebKit, or on main's own head every
+op in every profile and browser; at nice 10, started once the
+normal-priority load is under :data:`perf.LOAD_LINE` (it waits, and the
+receipt's ``perf`` block says how long). A run whose changes reach no op
+has no perf stage. A failing perf block fails the receipt.
+
 The key is built from HEAD, a hash of the uncommitted diff and the untracked
-files, the base, the mode, the selection and a changed-area run's browsers.
+files, the base, the mode, the selection, a changed-area run's browsers and
+the perf stage's arguments.
 A passing receipt with the same key is reused; ``--force`` runs again.
 Receipts live in ``$AZURKIT_RECEIPTS``, else in ``azurkit-receipts/`` in the
 repository's common git dir, shared by its worktrees. ``scripts/land.py``
@@ -48,12 +57,17 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import perf  # noqa: E402
+
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
 SMOKE = (*LINT, "tests/test_oracle.py", "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
 CAP = 6000        # a run's cap on a host whose load is at most its CPU count (cap())
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)
 FINAL = {"done", "capped", "error"}
+PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op in every profile)
+PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
 SESSION = {"tests.conftest", "tests._byte_safe"}   # loaded by every run: a change to what they import is whole
 WHEEL = "tests/test_wheel.py"                      # builds the wheel from every file under src/ and installs it
@@ -142,7 +156,7 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
         if folder := next((folder for folder in DATA if rel.startswith(folder)), None):
             touched.add(folder)   # its readers are the modules whose deps name it
             continue
-        if rel.endswith(DOCS) or rel == ".gitignore":
+        if rel.endswith(DOCS) or rel in (".gitignore", perf.CEILINGS):   # the perf list: the perf stage reads it
             continue
         if (module := module_of(rel)) is None:
             return None
@@ -196,7 +210,10 @@ def status_code(m: dict | None) -> int:
     if m is None:
         return 2
     st = state(m)
-    return 3 if st in ("queued", "running") else 0 if st == "done" and m["exit_code"] == 0 else 1
+    if st in ("queued", "running", "perf"):
+        return 3
+    perf_ok = not m.get("perf_args") or (m.get("perf") or {}).get("passed") is True
+    return 0 if st == "done" and m["exit_code"] == 0 and perf_ok else 1
 
 
 def describe(m: dict, meta: Path) -> str:
@@ -207,6 +224,12 @@ def describe(m: dict, meta: Path) -> str:
         line += (f"\n  {m.get('summary') or 'no summary line'}; vanilla: {m.get('vanilla_run')} run; "
                  f"europe: {m.get('europe_run')} run; wall {m.get('wall_s')} s of its cap {m.get('cap_s')} s "
                  f"(load {m.get('load')})")
+    if m.get("perf_args"):
+        p = m.get("perf") or {}
+        line += (f"\n  perf {' '.join(m['perf_args'])}: " + ("not run" if not p else
+                 f"{'passed' if p.get('passed') else 'failed'}, {len(p.get('cases', {}))} cases in {p.get('wall_s')} s "
+                 f"after {p.get('load_wait_s')} s waiting for the load")
+                 + "".join(f"\n    {f}" for f in p.get("failures", [])[:12]))
     return line + f"\n  meta {meta}\n  log {meta.with_suffix('.log')}"
 
 
@@ -219,17 +242,24 @@ def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
     diff = subprocess.run(["git", "-C", str(wt), "diff", "HEAD", "--binary"], capture_output=True, check=True).stdout
     untracked = sorted(filter(None, git(wt, "ls-files", "-z", "--others", "--exclude-standard").split("\0")))
     selection = None
+    changed = sorted(set(git(wt, "diff", "--name-only", base).split() + untracked)) if base else []
     if changed_area and base:
-        changed = git(wt, "diff", "--name-only", base).split() + untracked
-        selection = plan(sorted(set(changed)), graph(wt))
+        selection = plan(changed, graph(wt))
     mode, browsers = ("full", "all") if selection is None else ("changed", list(CHANGED_BROWSERS))
+    main = git(wt, "rev-parse", "--verify", "-q", "refs/heads/main", check=False).strip()
+    if mode == "full" and head == main and not diff and not untracked:
+        perf_args = ["--all"]   # main's full run: every op, every profile and browser
+    else:
+        pairs = perf.select(changed)
+        perf_args = ["--select", ",".join(sorted(f"{h}:{g}" for h, g in pairs))] if pairs else []
     state_hash = hashlib.sha256(diff)
     for rel in untracked:
         state_hash.update(rel.encode() + b"\0" + ((wt / rel).read_bytes() if (wt / rel).is_file() else b""))
     keyed = [mode, None, None] if selection is None else [mode, base, selection, browsers]   # a whole run's as before
-    state_hash.update(json.dumps(keyed).encode())
+    state_hash.update(json.dumps(keyed + ([perf_args] if perf_args else [])).encode())
     return {"key": f"{head[:12]}-{state_hash.hexdigest()[:12]}", "head": head, "base": base, "mode": mode,
-            "pytest_args": selection or [], "browsers": browsers, "clean": not diff and not untracked,
+            "pytest_args": selection or [], "browsers": browsers, "perf_args": perf_args,
+            "clean": not diff and not untracked,
             "worktree": str(wt),
             "branch": git(wt, "branch", "--show-current").strip(), "subject": git(wt, "log", "-1", "--format=%s").strip()}
 
@@ -276,12 +306,43 @@ def runner(meta: Path) -> int:
         text = meta.with_suffix(".log").read_text(encoding="utf-8", errors="replace")
         tiers = dict(TIER.findall(text))
         summary = SUMMARY.findall(text)
-        m |= {"state": "capped" if capped else "done", "exit_code": code, "finished_at": now(),
-              "wall_s": round(time.time() - t0, 1), "summary": summary[-1] if summary else None,
+        m |= {"exit_code": code, "wall_s": round(time.time() - t0, 1), "summary": summary[-1] if summary else None,
               "vanilla_run": int(tiers["vanilla"]) if "vanilla" in tiers else None,
               "europe_run": int(tiers["europe"]) if "europe" in tiers else None}
+        if code == 0 and not capped and m.get("perf_args"):
+            save(meta, m := m | {"state": "perf"})
+            m["perf"] = perf_stage(meta, m)
+        m |= {"state": "capped" if capped else "done", "finished_at": now()}
         save(meta, m)
     return 0
+
+
+def perf_stage(meta: Path, m: dict) -> dict:
+    """The perf block: ``scripts/perf.py`` on the worktree once the
+    normal-priority load is under :data:`perf.LOAD_LINE` (polled every 30 s,
+    up to :data:`PERF_WAIT`), at nice 10, its output appended to the log."""
+    t0 = time.time()
+    while (load5 := perf.normal_load()) >= perf.LOAD_LINE:
+        if time.time() - t0 > PERF_WAIT:
+            return {"passed": False, "failures": [f"the load stayed at {load5} (>= {perf.LOAD_LINE}) for "
+                                                  f"{PERF_WAIT} s: no perf run"], "load_wait_s": round(time.time() - t0)}
+        time.sleep(30)
+    waited, out = round(time.time() - t0, 1), meta.with_suffix(".perf.json")
+    out.unlink(missing_ok=True)
+    with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
+        log.write(f"\n==== perf {' '.join(m['perf_args'])} (normal-priority load {load5}, waited {waited} s) ====\n")
+        log.flush()
+        proc = subprocess.Popen(["nice", "-n", "10", "uv", "run", "--locked", "python", "scripts/perf.py", m["worktree"],
+                                 *m["perf_args"], "--json", str(out)], cwd=m["worktree"], stdout=log,
+                                stderr=subprocess.STDOUT, start_new_session=True, env=_env())
+        try:
+            proc.wait(timeout=PERF_CAP)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+    block = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {
+        "passed": False, "failures": [f"perf.py wrote no result (exit {proc.returncode}): see the log"]}
+    return block | {"load_wait_s": waited, "load": load5}
 
 
 def wait(meta: Path, secs: float) -> dict | None:
