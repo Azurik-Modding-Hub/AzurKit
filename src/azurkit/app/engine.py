@@ -1,6 +1,6 @@
 """The app's engine (Step 4.3i): where the page's long calls run (:data:`JOBS`:
-a build, a save, a seed's plan and its build's spoiler, a character's pictures
-and its G4 match).
+a build, a save, a seed's plan and its build's spoiler, a plan file's spoiler,
+a character's pictures and its G4 match).
 
 :class:`Here` runs them on the caller's thread, the server's request thread
 (:func:`azurkit.app.serve`'s default, as the app ran them before). :class:`Spawned`,
@@ -224,10 +224,11 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                              "plan": _warmed(lambda recipe, progress=None: sdk.plan(recipe, progress=progress),
                                              always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe)),
-                             "spoiler": lambda plan: sdk.spoiler(plan, built=True)}
+                             "spoiler": lambda plan: sdk.spoiler(plan, built=True),
+                             "plan_spoiler": _warmed(lambda plan: {"lines": sdk.spoiler(plan)["lines"]}, always=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
 ``preview`` and ``match``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
-``spoiler``: the last build's, which ``image`` leaves out)."""
+``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
 

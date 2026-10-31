@@ -36,10 +36,15 @@
 // Azurik-Custom-Content, marked community, with Install and Update), its options and G4 buttons; Build wears it, a link,
 // a build's recipe and the remembered setup carry it.
 //
+// The Tools tab (Step 4.7c, tools.mjs): your image (what it is, Verify every file, its files with Extract), recipes
+// and files (Open a build…, mods files, a plan file's spoiler, the last build's report) and AzurKit's storage with
+// Clear; what waits for an image is greyed until one is picked (D979).
+//
 // A long call shows its progress in the bottom bar (D980, Step 4.3i): its stage and percent (core/progress.py's record)
 // on a bar, from the app's api/progress or the site's worker; any ask the engine hasn't answered within 1 s shows
 // its line there too, until it answers.
 import { characters } from "./characters.mjs";
+import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -140,7 +145,10 @@ const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your imag
                  restore: "Restoring your setup", pickers: "Reading the models", preview: "Drawing the model",
                  match: "Matching garret4", content: "Reading the community content", install: "Installing",
                  content_check: "Checking the download", spoiler: "Writing the spoiler", preset: "Making the link",
-                 decode: "Reading the link" };
+                 decode: "Reading the link", info: "Reading your image", verify_all: "Checking every file",
+                 files: "Listing its files", extract: "Extracting the file", open: "Reading the build",
+                 mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
+                 storage: "Reading AzurKit's storage" };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click; any other ask after 1 s
 let asked = 0, ticking = null;
 
@@ -627,6 +635,7 @@ function pick(id) {
   state.tab = id;
   if (id === "randomizer" && state.packs) askRando();   // the Patches tab's packs may have changed
   if (id === "characters" && state.characters) state.characters.open();
+  if (id === "tools" && state.tools) state.tools.open();
   for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
   for (const panel of document.querySelectorAll("[role=tabpanel]")) panel.hidden = panel.dataset.tab !== id;
   place();
@@ -772,9 +781,22 @@ function unlinked() {
 // page's current build); the link is shown, and copied where the browser lets it.
 function share() {
   if (!state.ready) return say("AzurKit is still loading: try again in a moment", true);
+  state.engine.preset(recipe(), state.build?.report ?? null);
+}
+
+// What the page holds as a recipe (a share link's, a mods file's): the ticked packs, a loaded recipe's config.xbr
+// operations, the randomizer while Randomize is ticked and the character worn.
+function recipe() {
   const randomizer = randoRecipe(), character = state.characters.character();
-  state.engine.preset({ packs: chosen(), xbr: state.xbr, ...(randomizer ? { randomizer } : {}),
-                        ...(character ? { character } : {}) }, state.build?.report ?? null);
+  return { packs: chosen(), xbr: state.xbr, ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) };
+}
+
+// Where the Tools tab's save goes in the app: its save dialog's choice beside the build's output (null: cancelled),
+// else "" (no dialogs: the engine's place, the Downloads folder).
+async function toolsOut(name, kind) {
+  if (!state.dialogs) return "";
+  const beside = $("out-path").value ? $("out-path").value.replace(/[^\\/]*$/, name) : name;
+  return state.engine.choose(kind, beside).catch((error) => (say(error.message, true), null));
 }
 
 function shared(fragment) {
@@ -824,6 +846,9 @@ function ready(catalog, version) {
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
                                     image: () => state.file, packs: chosen, changed: state.changed,
                                     content: state.engine.content });
+    state.tools = tools({ root: $("tools"), call: state.engine.call, app: state.app, say, image: () => state.file,
+                          out: toolsOut, pick: state.dialogs ? () => state.engine.choose("build", "") : null,
+                          setup: recipe, load });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -871,10 +896,12 @@ function built(reply) {
   spoiler(made.spoiler ?? null, !made.plan || made.spoiler ? null : reply.spoiled ? () => reply.spoiled
     : () => state.engine.call("spoiler", {}));   // the app's engine makes it when View or Save asks
   if (made.plan) state.tracker.open(made.plan);   // the Tracker view tracks the build's seed
+  state.tools.built(made);
 }
 
 function saved({ saved: done }) {
   state.saved = done;
+  state.tools.built(done, done);   // the save's report (its build's, or the one it built again) and where it went
   report(`Saved ${done.out} · ${bytes(done.size)} · sha256 ${done.sha256.slice(0, 12)}`);
 }
 
@@ -910,6 +937,7 @@ function pickInApp(host) {
     askVanilla();
     state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
     state.characters?.imaged();
+    state.tools?.imaged();
   };
   picked();
   $("iso-path").addEventListener("input", picked);
@@ -1407,6 +1435,7 @@ async function main() {
       askVanilla();
       state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
       state.characters?.imaged();
+      state.tools?.imaged();
     });
   }
 

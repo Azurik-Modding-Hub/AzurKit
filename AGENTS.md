@@ -862,6 +862,35 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     engine installs into its content folder. A known flaw (D835): on the
     site a detailed variant's dress (booblord's) may run out of wasm
     memory; the page then says to use the app.
+  - **The Tools tab** (Step 4.7c, `web/tools.mjs`; D919's list): **your
+    image** (`sdk.image_info`: its release, size and kind, vanilla with how
+    much of it the gate checked, an AzurKit build with its version and
+    layers, or modded with its first file that differs), **Verify every
+    file** (`sdk.verify_all`: the build files' check `sdk._stamp` keeps is
+    reused, `gate.verify(kept=)`, so only the rest is hashed, on the app's
+    threads or in the site's worker's WebCrypto, `sdk.layout(whole=True)`;
+    the stamp is then whole, so asked again it hashes nothing; a vanilla
+    image only; its bar the bottom bar's), its **files** (`sdk.files`, each
+    with its offset) with a name filter and **Extract** (the site downloads
+    a slice of the player's own File; the app's `sdk.extract` writes a part
+    file renamed into place, never over the image it reads or a vanilla
+    image, D36), then, needing no image, **Open a build…** (any AzurKit
+    build's recipe, `sdk.open_build` of the files it changed: Load it, Save
+    its mods file), **mods files** (`sdk.mods_file`: Load reads one as a
+    link's preset is checked, keeping a `replace_bytes`; Save writes the
+    page's recipe), **a plan file's spoiler** (`sdk.spoiler`; the app's
+    engine process makes it) and **the last build's report** (View, Save),
+    and **AzurKit's storage** with Clear: the site's own named
+    localStorage keys and IndexedDB databases (`tools.mjs`'s `KEPT`), the
+    app's named entries (`app.kept()`: its config, the stamps, the swap's
+    answers, the installed content), removed file by file, never an
+    `.iso` or `.xiso` and never the folder that may hold one (SEC-10: on
+    macOS the config's folder is the user data folder, where an image may
+    be kept). What waits for an image is greyed with "Choose your image
+    first (1.)" until one is picked, or with the engine's refusal of it
+    (D979). The app's saves without a dialog go to the Downloads folder,
+    through `writable` (SEC-16). `tests/test_site.py`, `test_hosts.py` and
+    `test_edits.py` hold it; `tests/_perf.py`'s A47-A55 and S40-S48 time it.
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,

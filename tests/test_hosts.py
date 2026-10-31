@@ -38,6 +38,8 @@ from azurkit import app, cli, sdk
 from azurkit.app import engine
 from azurkit.core import gate, iso, progress
 from azurkit.core.progress import record as progress_record
+from azurkit.edits import manifest as edits
+from azurkit.edits.layer import Change, Layer
 from azurkit.tools import mods
 from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import tracking
@@ -1544,3 +1546,84 @@ def test_the_apps_saves_never_replace_the_image_its_build_read_nor_a_file_anothe
     there = {"refused": f"{other} exists: choose another name, or delete it first"}
     assert replies[1:] == [{"path": str(picked)}, vanilla, {"path": str(other)}, there, {"path": None}, there] * 3
     assert (picked.read_bytes(), other.read_bytes()) == (bytes(64), b"kept")
+
+
+def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_they_name(tmp_path, monkeypatch):
+    """The Tools tab's app calls (Step 4.7c): ``api/open`` reads an AzurKit
+    build's recipe (``sdk.open_build`` of the files it changed), ``api/info``
+    says it is one, ``api/files`` lists its files and ``api/extract`` writes
+    one to a new path, its size and sha256 the file's; never over the image
+    it reads or a vanilla image, even once the save dialog chose it, nor
+    over a file the dialog didn't choose, nor a name the image hasn't (D36).
+    ``api/storage`` lists what the app keeps by name, and Clear removes those
+    entries and nothing else: an image in the user data folder, beside the
+    config, or in an entry's folder stays, and so does the folder (SEC-10)."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    files = {"gamedata/config.xbr": fill("a", 64), "movies/Credits.bik": fill("c", 32)}   # USA's names, ours bytes
+    vanilla, built = tmp_path / "vanilla.iso", tmp_path / "built.iso"
+    vanilla.write_bytes(image(files))
+    monkeypatch.setenv(gate.USA.env, str(vanilla))   # the release's own image: no save writes over it
+    at = vanilla.stat()
+    stamp = gate.Stamp(gate.USA, vanilla, at.st_size, at.st_mtime_ns, False, at.st_ctime_ns)
+    change = Change("gamedata/config.xbr", 0, hashlib.sha256(files["gamedata/config.xbr"][:4]).hexdigest(), b"AAAA",
+                    "a 1")
+    edits.build(stamp, [Layer("pack fps_unlock", "mods", "packs", {"pack": "fps_unlock", "params": {"target_fps": 120}},
+                              [change])], built)
+    images = {path: path.read_bytes() for path in (vanilla, built)}
+    answers, replies = [], []
+    server = app.serve(_page.WEB)
+    server.window = types.SimpleNamespace(create_file_dialog=lambda *args, **kwargs: answers.pop(0))
+
+    def call(path: str, body: dict) -> dict:
+        replies.clear()
+        _post(server.url, path, body, replies)
+        return replies[0]
+
+    def chosen(path: Path) -> None:   # the save dialog chose path (its Replace confirmed)
+        answers.append(str(path))
+        assert call("api/choose", {"kind": "extract", "path": str(path)}) == {"path": str(path)}
+
+    out, there = tmp_path / "config.xbr", tmp_path / "there.txt"
+    there.write_bytes(b"kept")
+    data = platformdirs.user_data_path("AzurKit", appauthor=False)
+    try:
+        assert call("api/open", {"iso": str(built)}) == {"preset": json.loads(json.dumps(sdk.open_build(str(built), whole=False)))}
+        assert call("api/info", {"iso": str(built)}) | {"version": None} == {
+            "release": "usa", "label": "USA", "size": len(images[built]), "kind": "build", "whole": False,
+            "version": None, "layers": ["1 pack"]}
+        listed = {path: size for path, _, size in call("api/files", {"iso": str(built)})["files"]}
+        assert (listed["gamedata/config.xbr"], listed["movies/Credits.bik"], "azurkit.json" in listed) == (64, 32, True)
+        made = b"AAAA" + files["gamedata/config.xbr"][4:]
+        assert call("api/extract", {"iso": str(built), "path": "gamedata/config.xbr", "out": str(out)}) == {
+            "out": str(out), "size": 64, "sha256": hashlib.sha256(made).hexdigest()}
+        assert out.read_bytes() == made
+        refused = [call("api/extract", {"iso": str(built), "path": "gamedata/config.xbr", "out": str(out)}),
+                   call("api/extract", {"iso": str(built), "path": "gamedata/config.xbr", "out": str(there)}),
+                   call("api/extract", {"iso": str(built), "path": "nope.bin", "out": str(tmp_path / "nope")})]
+        chosen(built)
+        refused.append(call("api/extract", {"iso": str(built), "path": "gamedata/config.xbr", "out": str(built)}))
+        chosen(vanilla)
+        refused.append(call("api/extract", {"iso": str(built), "path": "gamedata/config.xbr", "out": str(vanilla)}))
+        assert refused == [{"refused": f"{out} exists: choose another name, or delete it first"},
+                           {"refused": f"{there} exists: choose another name, or delete it first"},
+                           {"refused": "nope.bin: the image has no such file"},
+                           {"refused": f"{built}: it is the image it extracts from, which AzurKit never writes over"},
+                           {"refused": f"{vanilla}: it is a vanilla image, which AzurKit never writes over"}]
+        assert {path: path.read_bytes() for path in images} == images and there.read_bytes() == b"kept"
+        assert not (tmp_path / "nope").exists() and not list(tmp_path.glob("*.part"))
+
+        kept = {app._config(): b"{}", app.swapcache.root() / "stamps.json": b"{}",
+                app.swapcache.root() / "swap" / "k.pickle": b"swap", data / "content" / "v" / "m.glb": b"g",
+                gate.data_path(gate.USA): b"image", data / "content" / "held.iso": b"i"}
+        for path, value in kept.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(value)
+        names = ["settings", "stamps", "swap", "content"]
+        listed = call("api/storage", {})["entries"]
+        assert [(e["name"], e["size"]) for e in listed] == list(zip(names, [2, 2, 4, 2], strict=True))
+        cleared = call("api/storage", {"clear": True})
+        assert (cleared["cleared"], [(e["name"], e["size"]) for e in cleared["entries"]]) == (names, [("content", 1)])
+        assert [path for path in kept if path.exists()] == [gate.data_path(gate.USA), data / "content" / "held.iso"]
+        assert gate.data_path(gate.USA).read_bytes() == b"image" and data.is_dir()
+    finally:
+        server.close()

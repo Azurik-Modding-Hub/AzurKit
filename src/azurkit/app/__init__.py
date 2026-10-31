@@ -88,7 +88,24 @@ pictures as base64 PNG), and Azurik-Custom-Content's ``api/content``
 (``sdk.content_install``, into the content folder); ``api/content_source``
 ``{"source"}`` remembers the tab's Content from (``null``: the default),
 which ``host.json``'s ``content_source`` gives the next page.
-``POST api/choose`` ``{"kind": "iso" | "out", "path"}`` opens the window's
+The Tools tab's calls (Step 4.7c): ``POST api/info`` ``{"iso"}`` says what
+the image is (``sdk.image_info``), ``api/verify_all`` ``{"iso"}`` checks
+every file of it (``sdk.verify_all``: only what its kept check hasn't
+hashed, its bar in ``api/progress``), ``api/files`` ``{"iso"}`` lists its
+files (``sdk.files``) and ``api/extract`` ``{"iso", "path", "out"}``
+writes one (``sdk.extract``); ``api/open`` ``{"iso"}`` reads an AzurKit
+build's recipe (``sdk.open_build`` of the files it changed);
+``api/mods_file`` ``{"text"}`` reads a mods file and ``{"recipe" |
+"preset", "out"}`` writes one (``sdk.mods_file``), ``api/plan_spoiler``
+``{"plan"}`` gives a plan file's spoiler (the engine's ``sdk.spoiler``) and
+``api/report`` ``{"text", "out", "name"}`` writes a text the tab shows (the
+last build's report); each save goes to ``out``, else the Downloads folder,
+never over an existing file but the one the save dialog chose, nor a
+vanilla image or the image it reads (D36). ``api/storage`` ``{"clear"}``
+lists what the app keeps on this computer, by name (:func:`kept`), and
+clears those entries alone: never an image or the folder that may hold one
+(SEC-10).
+``POST api/choose`` ``{"kind": "iso" | "build" | "out" | ..., "path"}`` opens the window's
 file dialog. A POST is JSON from the page's own origin. A refusal (the
 sdk's) comes back as ``{"refused": message}``; one build or save runs at a
 time. Closing the app cancels either (:meth:`Server.quit`, AZ-823) and
@@ -143,6 +160,9 @@ PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "we
 NO_WINDOW = "AZURKIT_NO_WINDOW"   # set: main() opens nothing (the tests' mode)
 MAX_BODY = 1 << 20
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
+SAVES = ("out", "spoiler", "settings", "extract", "mods", "report")   # the kinds of save the save dialog chooses for
+MODS = "AzurKit mods.json"   # the Tools tab's mods file, by default (web/tools.mjs's)
+NEVER_CLEARED = (".iso", ".xiso")   # an image AzurKit's Clear never removes, wherever it is (SEC-10)
 # text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses
 WINDOW = {"title": "AzurKit", "width": 1100, "height": 820, "text_select": True}
 # The page's themes (D897: dark until the player picks light, which the app remembers) and each one's ground
@@ -288,6 +308,71 @@ def _set_source(body: dict) -> dict:
     return {}
 
 
+def _downloads() -> Path:
+    """The Downloads folder (made where it isn't): where a save without a path goes."""
+    from platformdirs import user_downloads_path
+    folder = user_downloads_path()
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+def _written(out: Path, data: bytes) -> dict:
+    """``data`` at ``out``, whole or not at all (a part file renamed into place)."""
+    part = out.with_name(f"{out.name}.part")
+    try:
+        part.write_bytes(data)
+        part.replace(out)
+    finally:
+        part.unlink(missing_ok=True)
+    return {"out": str(out), "size": len(data)}
+
+
+def kept() -> list[tuple[str, str, Path]]:
+    """What the app keeps on this computer (``api/storage``), each a named
+    entry of its own (SEC-10): ``(name, what, path)``."""
+    from platformdirs import user_data_path
+    return [("settings", "Your setup, theme, tracker marks, Content from and the last image's path", _config()),
+            ("stamps", "The images AzurKit checked (each one's path, size and times)", swapcache.root() / "stamps.json"),
+            ("swap", "The characters' dressed bodies, pictures and G4 matches", swapcache.root() / "swap"),
+            ("content", "Installed community content", user_data_path("AzurKit", appauthor=False) / "content")]
+
+
+def _size(path: Path) -> int:
+    if not path.is_dir() or path.is_symlink():
+        return path.lstat().st_size
+    return sum((Path(root) / name).lstat().st_size for root, _, names in os.walk(path) for name in names)
+
+
+def _clear(path: Path) -> bool:
+    """Remove ``path``, a :func:`kept` entry: a file, or a folder's files
+    and then the folders they leave empty; never an image
+    (:data:`NEVER_CLEARED`), nor a folder still holding one (SEC-10).
+    Whether it held anything."""
+    if not (path.exists() or path.is_symlink()):
+        return False
+    if path.is_symlink() or not path.is_dir():
+        if path.suffix.lower() in NEVER_CLEARED:
+            return False
+        path.unlink()
+        return True
+    for root, folders, names in os.walk(path, topdown=False):
+        for name in [*names, *(f for f in folders if (Path(root) / f).is_symlink())]:
+            if Path(name).suffix.lower() not in NEVER_CLEARED:
+                (Path(root) / name).unlink()
+        with contextlib.suppress(OSError):   # it still holds an image
+            Path(root).rmdir()
+    return True
+
+
+def _storage(body: dict) -> dict:
+    """``api/storage``: each :func:`kept` entry there is, its size in bytes;
+    with ``clear``, each removed first (:func:`_clear`) and named in
+    ``cleared``."""
+    cleared = [name for name, _, path in kept() if body.get("clear") and _clear(path)]
+    return {"entries": [{"name": name, "what": what, "size": _size(path)} for name, what, path in kept()
+                        if path.exists() or path.is_symlink()]} | ({"cleared": cleared} if body.get("clear") else {})
+
+
 def _named(name: object) -> bool:
     """``name`` is a pack's or a setting's name (an identifier: never a path)."""
     return isinstance(name, str) and name.isidentifier()
@@ -427,8 +512,8 @@ class Server(http.server.ThreadingHTTPServer):
                 "out": str(user_downloads_path() / f"{stem} (AzurKit).iso")}
 
     def writable(self, out: Path, kind: str) -> Path:
-        """``out``, where a save of ``kind`` (``out``: the image, ``spoiler``,
-        ``settings``) may write (SEC-16): never over an existing file but the
+        """``out``, where a save of ``kind`` (one of :data:`SAVES`: ``out``,
+        the image) may write (SEC-16): never over an existing file but the
         one the save dialog chose for that kind (it asked first), nor the
         image the last build read or a vanilla image (D36)."""
         if out.exists() and self.chosen != (kind, out):
@@ -588,21 +673,72 @@ class Server(http.server.ThreadingHTTPServer):
         part.replace(out)
         return {"saved": {"out": str(out), "size": len(data)}}
 
+    def info(self, body: dict) -> dict:
+        """``api/info``: what the image is (``sdk.image_info``)."""
+        with self.follow("info", record("check", "Reading your image")):
+            return sdk.image_info(str(_path(body.get("iso"), "image")))
+
+    def verify_all(self, body: dict) -> dict:
+        """``api/verify_all``: every file of the image checked, its bytes counted (``sdk.verify_all``)."""
+        with self.follow("verify_all", record("check", sdk.CHECK_ALL)) as report:
+            return sdk.verify_all(str(_path(body.get("iso"), "image")), progress=report)
+
+    def extract(self, body: dict) -> dict:
+        """``api/extract``: the image's file ``path`` written to ``out``,
+        else under its name in the Downloads folder (``sdk.extract``)."""
+        iso, member = _path(body.get("iso"), "image"), body.get("path")
+        if not (isinstance(member, str) and member.strip("/")):
+            raise ValueError("extract: name the image's file")
+        out = self.writable(_path(body["out"], "extracted file") if body.get("out")
+                            else _downloads() / member.rstrip("/").rpartition("/")[2], "extract")
+        with self.follow("extract", record("write", f"Extracting {member}")) as report:
+            return sdk.extract(str(iso), member, str(out), progress=report)
+
+    def mods_file(self, body: dict) -> dict:
+        """``api/mods_file``: ``{"text"}`` read (``sdk.mods_file``'s preset);
+        with ``out``, its ``recipe`` or ``preset`` written there as a mods
+        file, else in the Downloads folder (:data:`MODS`)."""
+        given = {key: body[key] for key in ("text", "recipe", "preset") if key in body}
+        if "out" not in body:
+            return sdk.mods_file(given)
+        text = sdk.mods_file(given)["text"]
+        out = self.writable(_path(body["out"], "mods file") if body["out"] else _downloads() / MODS, "mods")
+        return _written(out, text.encode("utf-8"))
+
+    def report(self, body: dict) -> dict:
+        """``api/report``: a text the Tools tab shows (the last build's
+        report, a plan's spoiler) written to ``out``, else under ``name`` in
+        the Downloads folder; whole or not at all."""
+        text, name = body.get("text"), body.get("name") or "AzurKit build report.txt"
+        if not isinstance(text, str) or len(text) > MAX_BODY:
+            raise ValueError("report: text is the report's text")
+        if not (isinstance(name, str) and name not in (".", "..") and "/" not in name and "\\" not in name):
+            raise ValueError("report: name is a file's name")
+        out = self.writable(_path(body["out"], "report") if body.get("out") else _downloads() / name, "report")
+        return _written(out, text.encode("utf-8"))
+
+    def plan_spoiler(self, body: dict) -> dict:
+        """``api/plan_spoiler``: a plan file's spoiler (the engine's)."""
+        with self.follow("plan_spoiler", record("spoiler")):
+            return self.engine.call("plan_spoiler", body.get("plan"))
+
     def choose(self, body: dict) -> dict:
-        """The window's file dialog: an image to read, or where to save one
-        (``out``), the spoiler (``spoiler``) or the settings (``settings``)."""
+        """The window's file dialog: an image to read (``iso``, an AzurKit
+        ``build``), or where to save one (``out``) or another of
+        :data:`SAVES` (the spoiler, the settings, an extracted file, a mods
+        file, a report)."""
         import webview
         self.chosen = None   # each dialog's answer is its own: a cancelled one vouches for nothing
         given = Path(body["path"]).expanduser() if isinstance(body.get("path"), str) and body["path"] else None
         folder = str(given.parent) if given else ""
-        if body.get("kind") in ("out", "spoiler", "settings"):
+        if body.get("kind") in SAVES:
             picked = self.window.create_file_dialog(webview.FileDialog.SAVE, directory=folder,
                                                     save_filename=given.name if given else "")
         else:
             picked = self.window.create_file_dialog(webview.FileDialog.OPEN, directory=folder, file_types=IMAGES)
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
-        if picked and body.get("kind") in ("out", "spoiler", "settings"):
+        if picked and body.get("kind") in SAVES:
             self.chosen = (body["kind"], Path(str(picked)))
         return {"path": str(picked) if picked else None}
 
@@ -684,6 +820,12 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
                 "/api/content_source": _set_source,
                 "/api/spoiler": self.server.spoiled,
+                "/api/info": self.server.info, "/api/verify_all": self.server.verify_all,
+                "/api/files": lambda body: sdk.files(str(_path(body.get("iso"), "image"))),
+                "/api/extract": self.server.extract,
+                "/api/open": lambda body: {"preset": sdk.open_build(str(_path(body.get("iso"), "build")), whole=False)},
+                "/api/mods_file": self.server.mods_file, "/api/report": self.server.report,
+                "/api/plan_spoiler": self.server.plan_spoiler, "/api/storage": _storage,
                 "/api/cancel": lambda body: self.server.cancel()}.get(url.path)
         if url.path == "/api/choose" and self.server.window is not None:
             call = self.server.choose

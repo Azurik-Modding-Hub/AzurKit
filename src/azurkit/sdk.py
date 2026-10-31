@@ -6,9 +6,11 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
 :func:`art_world` (its maps and icons, drawn from the player's image),
 :func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
-(its G4 buttons) and :func:`preview`, and Azurik-Custom-Content's
+(its G4 buttons) and :func:`preview`, Azurik-Custom-Content's
 :func:`content`, :func:`content_install` and :func:`content_check` (its
-community entries). JSON in and
+community entries), and the Tools tab's :func:`image_info`,
+:func:`verify_all`, :func:`files`, :func:`extract` and :func:`mods_file`
+(the image, its files, and mods files saved and read). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -108,7 +110,8 @@ from azurkit.tools.randomizer.planner import fill as rando_fill
 
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
-           "content", "content_install", "content_check", "pickers", "match", "preview"]
+           "content", "content_install", "content_check", "pickers", "match", "preview", "image_info", "verify_all",
+           "files", "extract", "mods_file"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -117,7 +120,7 @@ SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (th
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
 TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", True), ("characters", "Characters", True),
-        ("data", "Data", False), ("tools", "Tools", False), ("about", "About", True))
+        ("data", "Data", False), ("tools", "Tools", True), ("about", "About", True))
 
 
 def catalog() -> dict:
@@ -151,11 +154,16 @@ def verify(path: str) -> dict:
     return {"iso": str(stamp.path), "release": stamp.release.name, "label": stamp.release.label}
 
 
-def layout(path: str) -> dict:
+def layout(path: str, *, whole: bool = False) -> dict:
     """The site's half of the image's check (``gate.layout``): ``{"files":
     [[path, offset, size]]}``, each file a build reads, whose sha256 a host
-    hashes itself (the site's WebCrypto) for :func:`prime`."""
-    return {"files": [list(f) for f in gate.layout(path)]}
+    hashes itself (the site's WebCrypto) for :func:`prime`; with ``whole``,
+    each file the image's kept check (its build files', :func:`prime`'s)
+    hasn't hashed, for :func:`verify_all`'s ``digests`` (none once every
+    file was checked)."""
+    if not whole:
+        return {"files": [list(f) for f in gate.layout(path)]}
+    return {"files": [list(f) for f in _rest(path, _stamp(path))]}
 
 
 def prime(path: str, digests: Mapping[str, str]) -> dict:
@@ -183,6 +191,115 @@ def vanilla(path: str) -> dict:
     with iso.Reader(stamp.path) as r:
         xbe = r.read("default.xbe")
     return {"release": stamp.release.name, "label": stamp.release.label, "packs": mods.vanilla(stamp.release, xbe)}
+
+
+def image_info(path: str) -> dict:
+    """What the Tools tab says of the image at ``path``: ``{"release",
+    "label", "size", "kind", "whole"}``, its ``kind`` ``vanilla`` (its
+    build files checked, D27: :func:`vanilla`'s check, shared; ``whole``
+    once every file was, :func:`verify_all`), ``build`` (an AzurKit build:
+    AzurKit's ``version`` that made it and its ``layers``, each in a few
+    words, :func:`open_build` of the files it changed) or ``modded``
+    (``differs``: its first file, in path order, that isn't its release's).
+    It hashes nothing the image's kept check vouches for."""
+    size = os.stat(path).st_size
+    try:
+        stamp = _stamp(path)
+    except gate.NotVanillaError as exc:
+        try:
+            found = open_build(path, whole=False)
+        except (OSError, ValueError):
+            release = exc.release or gate.RELEASES[0]
+            return {"release": release.name, "label": release.label, "size": size, "kind": "modded",
+                    "whole": False, "differs": exc.why or str(exc)}
+        release = next(r for r in gate.RELEASES if r.name == found["base"]["release"])
+        return {"release": release.name, "label": release.label, "size": size, "kind": "build", "whole": False,
+                "version": found.get("azurkit"), "layers": [_said(layer) for layer in found["layers"]]}
+    return {"release": stamp.release.name, "label": stamp.release.label, "size": size, "kind": "vanilla",
+            "whole": stamp.whole}
+
+
+def _said(layer: Mapping) -> str:
+    """A build's layer in a few words (the Tools tab's line)."""
+    recipe = layer["recipe"]
+    if layer["tool"] == "mods":
+        return f"{len(recipe)} pack{'' if len(recipe) == 1 else 's'}"
+    if layer["tool"] == generator.TOOL:
+        return f"seed {recipe.get('seed')}"
+    if layer["tool"] == characters.TOOL:
+        return f"wears {recipe.get('species')}"
+    ops = len(recipe.get("ops", []))
+    return f"{ops} data edit{'' if ops == 1 else 's'}"
+
+
+CHECK_ALL = "Checking every file"   # verify_all's line on a host's bar
+
+
+def verify_all(path: str, digests: Mapping[str, str] | None = None, *,
+               progress: Callable[[dict], object] | None = None) -> dict:
+    """Check every file of the image at ``path`` (D27; the Tools tab's
+    Verify every file): its build files' check is the one :func:`vanilla`
+    and a build share (made here first if none is kept), so only the rest
+    are hashed: on threads where the host has them (:data:`THREADS`), else
+    as ``digests`` give them (the site's WebCrypto hashes of :func:`layout`'s
+    ``whole`` files) or ``gate.verify`` hashes them; then the image's kept
+    check is whole, so asked again, or by any later call, it hashes nothing.
+    ``{"release", "label", "whole": true}``; ``gate.NotVanillaError`` names
+    the first file, in path order, that isn't its release's.
+    ``progress(record)`` follows the bytes it hashes (``check``)."""
+    steps = Steps(progress)
+    stamp = _stamp(path, steps)
+    if not stamp.whole:
+        if digests is None and THREADS:
+            digests = _digests(path, steps, _rest(path, stamp), CHECK_ALL)
+        stamp = gate.verify(path, releases=gate.RELEASES, progress=steps.counter("check", CHECK_ALL),
+                            digests=digests, kept=stamp)
+        _STAMPS.clear()   # the image's kept check is whole now, for the image as verify found it
+        _STAMPS[(str(path), stamp.size, stamp.mtime_ns, stamp.ctime_ns)] = stamp
+    return {"release": stamp.release.name, "label": stamp.release.label, "whole": True}
+
+
+def files(path: str) -> dict:
+    """The image's files (the Tools tab's list): ``{"files": [[path,
+    offset, size]]}`` in path order, each where its bytes start in the image
+    (the site's Extract slices them from the player's own File). It reads
+    only the image's folders."""
+    return {"files": sorted([list(f) for f in gate.layout(path, ("",))])}
+
+
+def extract(path: str, member: str, out: str, *, progress: Callable[[dict], object] | None = None) -> dict:
+    """Write the file ``member`` of the image at ``path`` to ``out`` (the
+    app's Extract; the site slices it from the player's File), whole or not
+    at all (a part file renamed into place): ``{"out", "size", "sha256"}``.
+    Never over the image it reads or a vanilla image (D36): those are
+    refused by name, as is a folder or a name the image hasn't.
+    ``progress(record)`` follows the write (``write``, in bytes)."""
+    target, source = Path(out), Path(path)
+    _never_vanilla(target)
+    if target.exists() and target.samefile(source):
+        raise ValueError(f"{target}: it is the image it extracts from, which AzurKit never writes over")
+    report = Steps(progress).counter("write", f"Extracting {member}")
+    with iso.Reader(source) as r:
+        try:
+            entry = r.find(member)
+        except FileNotFoundError:
+            raise ValueError(f"{member}: the image has no such file") from None
+        if entry.is_dir:
+            raise ValueError(f"{member}: a folder, not a file: extract its files one by one")
+        part = target.with_name(f"{target.name}.part")
+        digest, done = hashlib.sha256(), 0
+        try:
+            with part.open("wb") as f:
+                for data in r.chunks(entry):
+                    f.write(data)
+                    digest.update(data)
+                    done += len(data)
+                    if report is not None:
+                        report(done, entry.size)
+            part.replace(target)
+        finally:
+            part.unlink(missing_ok=True)
+    return {"out": str(target), "size": entry.size, "sha256": digest.hexdigest()}
 
 
 def _packs(recipe: object) -> dict[str, dict]:
@@ -367,7 +484,7 @@ def _stamp(path: str, steps: Steps = Steps(), digests: Mapping[str, str] | None 
     (a host's) or ``gate.verify`` hash them. ``steps`` hears the check's
     bytes."""
     at = os.stat(path)
-    key = (str(path), at.st_size, at.st_mtime_ns, at.st_ctime_ns)
+    key = _key(path, at)
     if key not in _STAMPS:
         stamp = gate.vouched(path, whole=False, releases=gate.RELEASES, stat=at)
         if stamp is None:
@@ -378,6 +495,17 @@ def _stamp(path: str, steps: Steps = Steps(), digests: Mapping[str, str] | None 
         _STAMPS.clear()
         _STAMPS[key] = stamp
     return _STAMPS[key]
+
+
+def _key(path: str, at: os.stat_result) -> tuple:
+    """:data:`_STAMPS`' key for the image at ``path`` as ``at`` (its ``os.stat``) finds it."""
+    return str(path), at.st_size, at.st_mtime_ns, at.st_ctime_ns
+
+
+def _rest(path: str, stamp: gate.Stamp) -> list[tuple[str, int, int]]:
+    """Each file of the image at ``path`` (``gate.layout``) that ``stamp``,
+    its kept check, doesn't vouch for."""
+    return [f for f in gate.layout(path, ("",)) if not stamp.vouches(f[0])]
 
 
 def _map(fn: Callable, items) -> list:
@@ -393,16 +521,18 @@ def _map(fn: Callable, items) -> list:
         return list(pool.map(fn, items))
 
 
-def _digests(path: str, steps: Steps) -> dict[str, str]:
-    """``{path: sha256}`` of the image's build files (``gate.layout``),
-    each hashed from its own offsets (``os.pread``: hashlib lets go of the
-    GIL) on :func:`cores` threads, the largest first; a file the image ends
-    inside is left to ``gate.verify``, which names it."""
+def _digests(path: str, steps: Steps, files: list[tuple[str, int, int]] | None = None,
+             label: str | None = None) -> dict[str, str]:
+    """``{path: sha256}`` of ``files`` (``(path, offset, size)``), else the
+    image's build files (``gate.layout``), each hashed from its own offsets
+    (``os.pread``: hashlib lets go of the GIL) on :func:`cores` threads, the
+    largest first, ``steps`` hearing them as ``check`` (its ``label``); a
+    file the image ends inside is left to ``gate.verify``, which names it."""
     from concurrent.futures import ThreadPoolExecutor
 
-    files = sorted(gate.layout(path), key=lambda f: -f[2])
+    files = sorted(gate.layout(path) if files is None else files, key=lambda f: -f[2])
     total, done, lock = sum(f[2] for f in files), [0], threading.Lock()
-    report = steps.counter("check")
+    report = steps.counter("check", label)
 
     def one(file: tuple[str, int, int]) -> tuple[str, str | None]:
         name, at, left = file
@@ -700,6 +830,12 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
     numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
     refused by name; its ``character`` goes by name and numbers (a variant
     with its recipe's sha), and one naming a recipe file is refused."""
+    return preset.encode(_preset(recipe, report))
+
+
+def _preset(recipe: Mapping, report: Mapping | None = None, *, link: bool = True) -> dict:
+    """:func:`preset_encode`'s preset of ``recipe`` (and its build's
+    ``report``); a mods file's (``link`` false) keeps a ``replace_bytes``."""
     packs = _packs(recipe)
     character = _character(recipe["character"])[1] if "character" in recipe else None
     made = {"format": preset.FORMAT, "schema_version": preset.SCHEMA_VERSION, "azurkit": __version__,
@@ -708,7 +844,7 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
     made["layers"].append({"tool": "mods", "kind": "packs", "recipe": packs})
     if character is not None:
         made["layers"].append({"tool": characters.TOOL, "kind": characters.KIND, "recipe": character})
-    if ops := _shared(xbr.normalize(recipe.get("xbr", []))):
+    if ops := (_shared if link else list)(xbr.normalize(recipe.get("xbr", []))):
         made["layers"].append({"tool": xbr.TOOL, "kind": xbr.KIND, "recipe": {"ops": ops}})
     if report is not None:
         name = report.get("release") if isinstance(report, Mapping) else None
@@ -717,7 +853,7 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
             raise ValueError("preset: the report names no release")
         made["base"] = {"kind": "vanilla", "release": release.name, "iso_sha256": release.iso_sha256}
         made["result"] = dict(report.get("result", {}))
-    return preset.encode(made)
+    return made
 
 
 def preset_decode(text: str) -> dict:
@@ -727,12 +863,17 @@ def preset_decode(text: str) -> dict:
     slider refuses, a setting the randomizer refuses, a ``replace_bytes``
     (Q174) or a character naming a recipe file or a variant recipe this
     AzurKit doesn't hold is refused by name."""
-    found = preset.decode(text)
+    return _loaded(preset.decode(text))
+
+
+def _loaded(found: dict, *, link: bool = True) -> dict:
+    """``found``, a checked preset, as a UI loads it (:func:`preset_decode`'s
+    checks); a mods file's (``link`` false) keeps a ``replace_bytes``."""
     for layer in found["layers"]:
         if (layer["tool"], layer["kind"]) == ("mods", "packs"):
             layer["recipe"] = _packs({"packs": layer["recipe"]})
         elif (layer["tool"], layer["kind"]) == (xbr.TOOL, xbr.KIND) and set(layer["recipe"]) == {"ops"}:
-            layer["recipe"] = {"ops": _shared(xbr.normalize(layer["recipe"]["ops"]))}
+            layer["recipe"] = {"ops": (_shared if link else list)(xbr.normalize(layer["recipe"]["ops"]))}
         elif (layer["tool"], layer["kind"]) == (generator.TOOL, generator.KIND):
             layer["recipe"] = generator.check(layer["recipe"])
         elif (layer["tool"], layer["kind"]) == (characters.TOOL, characters.KIND):
@@ -742,6 +883,26 @@ def preset_decode(text: str) -> dict:
                              "(AzurKit's: mods with packs, data with xbr, randomizer with plan, characters with "
                              "characters)")
     return found
+
+
+def mods_file(given: Mapping) -> dict:
+    """The Tools tab's mods files (Q268): ``{"text"}``, a mods file's JSON
+    text (a preset or an AzurKit build's manifest) or a share link, read as
+    a preset and checked as :func:`preset_decode` checks a link's (a
+    ``replace_bytes`` kept: a file may carry bytes), for a UI to load:
+    ``{"preset"}``; ``{"recipe"}`` (a UI's ``packs``, ``xbr``,
+    ``randomizer`` and ``character``, as a build takes them) or
+    ``{"preset"}`` (an AzurKit build's, :func:`open_build`'s) written as a
+    mods file: ``{"text"}``, which ``azurkit build --mods`` and
+    :func:`read_mods` take. Every refusal named."""
+    if not isinstance(given, Mapping) or len(set(given) & {"text", "recipe", "preset"}) != 1:
+        raise ValueError("mods_file: give one of text (a mods file to read), recipe or preset (one to write)")
+    if "text" in given:
+        if not isinstance(given["text"], str):
+            raise ValueError("mods_file: text is a mods file's text")
+        return {"preset": _loaded(preset.read(given["text"]), link=False)}
+    made = _preset(given["recipe"], link=False) if "recipe" in given else given["preset"]
+    return {"text": json.dumps(preset.check(made), indent=1, sort_keys=True, allow_nan=False) + "\n"}
 
 
 def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:

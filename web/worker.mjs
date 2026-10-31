@@ -19,8 +19,12 @@
 //      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
 //      (sdk.pickers, sdk.preview, sdk.match: numpy, Pyodide's pinned wheel from this site, is loaded for them) and
 //      {type: "content_check", call, manifest, id, files} (an Install's check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
-//      into the engine's content folder file by file once checked: kept). A message with a File has the image checked
-//      first, once a File (prime).
+//      into the engine's content folder file by file once checked: kept), and the Tools tab's {type: "info" |
+//      "verify_all" | "files", call, file} (sdk.image_info, sdk.verify_all: the files its kept check hasn't hashed,
+//      hashed here, sdk.files), {type: "open", call, build} (another File: an AzurKit build's recipe, sdk.open_build of
+//      the files it changed), {type: "mods_file", call, text | recipe | preset} (sdk.mods_file) and {type:
+//      "plan_spoiler", call, plan} (sdk.spoiler). A message with a File (file) has the image checked first, once a File
+//      (prime).
 // Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages), {type: "built", report, size, segments, heap} (a seed's
 //      report without its spoiler, which {type: "spoiled", text | refused} brings next: the build shows sooner),
@@ -31,7 +35,8 @@
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
 //      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "reply", call, reply}
-//      (a tracker's or plan's answer: the view, {plan}, or {refused}), {type: "csp", directive, blocked}
+//      (a tracker's, plan's, Characters' or Tools' answer: the view, {plan}, or {refused}), {type: "csp", directive,
+//      blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
@@ -154,8 +159,22 @@ def engine(request):
     if request.type in ("layout", "prime"):
         try:
             if request.type == "layout":
-                return js(sdk.layout(request.recipe.iso))
+                return js(sdk.layout(request.recipe.iso, whole=bool(getattr(request, "whole", False))))
             return js(sdk.prime(request.recipe.iso, request.digests.to_py()))
+        except (OSError, ValueError) as exc:
+            return js({"refused": str(exc)})
+    if request.type in ("info", "verify_all", "files", "mods_file", "plan_spoiler"):   # the Tools tab's
+        try:
+            if request.type == "info":
+                return js(sdk.image_info(request.recipe.iso))
+            if request.type == "verify_all":
+                return js(sdk.verify_all(request.recipe.iso, request.digests.to_py()))
+            if request.type == "files":
+                return js(sdk.files(request.recipe.iso))
+            given = json.loads(JSON.stringify(request.given))   # through JSON: a null is None (to_py gives JsNull)
+            if request.type == "plan_spoiler":
+                return js({"lines": sdk.spoiler(given)["lines"]})
+            return js(sdk.mods_file(given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     if request.type in ("vanilla", "open", "preset", "decode", "randomizer", "tracker", "plan", "spoiler"):
@@ -306,8 +325,18 @@ async function prime(loaded, file) {
   self.azurkitChecks = (self.azurkitChecks ?? 0) + 1;
   const listed = mounted(py, file, (iso) => engine({ type: "layout", recipe: { iso } }));
   if ("refused" in listed) return;
+  const digests = await hashed(file, listed.files, "Checking your image");
+  const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
+  if ("refused" in checked) return;
+  loaded.primed = id;
+  await stamps("readwrite", (store) => store.put({ id, digests }, "last")).catch(() => null);
+}
+
+// {path: sha256} of each of files ([path, offset, size]) of the File, in WebCrypto, RUNS of up to 128 MiB read HASHERS
+// at a time, its progress posted as the engine's record with label (stage check).
+async function hashed(file, files, label) {
   const runs = [];
-  for (const entry of [...listed.files].sort((a, b) => a[1] - b[1])) {   // [path, offset, size], by offset
+  for (const entry of [...files].sort((a, b) => a[1] - b[1])) {   // [path, offset, size], by offset
     const run = runs.at(-1), [, at, size] = entry;
     if (run && at >= run.end && at + size - run.start <= RUN) {
       run.files.push(entry);
@@ -318,7 +347,7 @@ async function prime(loaded, file) {
   }
   const digests = {}, total = runs.reduce((n, run) => n + run.end - run.start, 0);
   let done = 0;
-  const checking = () => post({ type: "progress", stage: "check", label: "Checking your image", done, total,
+  const checking = () => post({ type: "progress", stage: "check", label, done, total,
                                 percent: total ? Math.floor(done * 100 / total) : null });
   checking();
   await Promise.all(Array.from({ length: HASHERS }, async () => {
@@ -332,10 +361,7 @@ async function prime(loaded, file) {
       checking();
     }
   }));
-  const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
-  if ("refused" in checked) return;
-  loaded.primed = id;
-  await stamps("readwrite", (store) => store.put({ id, digests }, "last")).catch(() => null);
+  return digests;
 }
 
 // The image's own values of the sliders at its XBE's sites, or, when it is an AzurKit build, its recipe; the image
@@ -356,7 +382,9 @@ const numpy = (loaded) => loaded.numpy ??= loaded.py.loadPackage("numpy", { mess
                                                                            errorCallback: () => {} });
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
 const needsNumpy = (data) => CHARACTER.includes(data.type) || data.character || data.recipe?.character
-  || data.setup?.character || data.type === "decode";
+  || data.setup?.character || data.type === "decode" || data.type === "mods_file" && (
+    data.preset?.layers?.some((layer) => layer.tool === "characters") || typeof data.text === "string" && (
+      !data.text.trimStart().startsWith("{") || data.text.includes('"characters"')));   // a link: it may wear one
 
 // The content folder the engine reads (./content: the wheel has no user data folder here): what this browser keeps
 // installed, written in whole once per worker, each file checked first (the engine's kept: a path a manifest may
@@ -370,6 +398,24 @@ function character(loaded, data) {
   const { py, engine } = loaded;
   if (!data.file) return post({ type: "reply", call: data.call, reply: engine(data) });
   mounted(py, data.file, (iso) => post({ type: "reply", call: data.call, reply: engine({ ...data, iso }) }));
+}
+
+// A Tools tab's ask (answered whatever happens: the page waits on it): the picked image's (file: mounted, checked
+// first, prime), another File's (build: an AzurKit build to open, mounted only for its read) or none (a mods file, a
+// plan's spoiler). Verify every file hashes here what the image's kept check hasn't (sdk.layout's whole), in
+// WebCrypto as prime does, its bar the bottom bar's, and hands the engine those digests (sdk.verify_all).
+const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler"];
+async function tool({ py, engine }, data) {
+  if (data.type === "open") return mounted(py, data.build, (iso) => engine({ type: "open", recipe: { iso } }));
+  if (data.type === "mods_file" || data.type === "plan_spoiler") {
+    const { type, call, ...given } = data;
+    return engine({ type, given: data.type === "plan_spoiler" ? data.plan : given });
+  }
+  if (data.type !== "verify_all") return mounted(py, data.file, (iso) => engine({ type: data.type, recipe: { iso } }));
+  const rest = mounted(py, data.file, (iso) => engine({ type: "layout", recipe: { iso }, whole: true }));
+  if ("refused" in rest) return rest;
+  const digests = await hashed(data.file, rest.files, "Checking every file");
+  return mounted(py, data.file, (iso) => engine({ type: "verify_all", recipe: { iso }, digests }));
 }
 
 // A build, the image mounted for it and unmounted after; its answer carries the engine's heap then (wasm memory never
@@ -397,7 +443,7 @@ try {
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   self.onmessage = ({ data }) => {
     if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
-          ...CHARACTER].includes(data?.type)) return;
+          ...CHARACTER, ...TOOLS].includes(data?.type)) return;
     queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
       .then(() => data.file ? prime(loaded, data.file).catch(() => null) : null).then(() => handle(data))
       .catch((error) => post({ type: "failed", message: lastLine(error) }));
@@ -413,6 +459,10 @@ try {
         }
       }
       if (data.type === "vanilla") return vanilla(loaded, data.file);
+      if (TOOLS.includes(data.type)) {   // answered whatever happens: the queue waits for its hashing
+        return tool(loaded, data).catch((error) => ({ refused: lastLine(error) }))
+          .then((reply) => post({ type: "reply", call: data.call, reply }));
+      }
       if (data.type === "tracker" || data.type === "plan") {   // answered whatever happens
         let reply;
         try {

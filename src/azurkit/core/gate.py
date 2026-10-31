@@ -76,7 +76,16 @@ def _manifest(path: Path) -> dict:
 
 
 class NotVanillaError(ValueError):
-    """The image isn't a release's vanilla image."""
+    """The image isn't a release's vanilla image: ``release``, the release
+    :func:`verify` checked it against, and ``why``, its first difference
+    (each ``None`` where the refusal names no such check)."""
+
+    def __init__(self, message: str, release: Release | None = None, why: str | None = None):
+        super().__init__(message)
+        self.release, self.why = release, why
+
+    def __reduce__(self):   # its release and why cross a pickle (the app's engine process)
+        return type(self), (str(self), self.release, self.why)
 
 
 @dataclass(frozen=True)
@@ -156,7 +165,7 @@ def verify(path: str | os.PathLike, *, whole: bool = True, releases: tuple[Relea
         have = {e.path: e for e in r.entries()}
         release = _release(r, have, releases, digests or {})
         if why := _first_difference(r, have, release, whole, progress=progress, digests=digests or {}):
-            raise NotVanillaError(f"{path} is not the vanilla {release.label} image: {why}")
+            raise NotVanillaError(f"{path} is not the vanilla {release.label} image: {why}", release, why)
     if STAMPS is not None:
         STAMPS.put(_key(path, stat, whole, releases), release.name)
     return Stamp(release, path, stat.st_size, stat.st_mtime_ns, whole, stat.st_ctime_ns)

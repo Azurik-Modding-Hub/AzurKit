@@ -406,6 +406,30 @@ p.views { margin: 0; padding: 2px 10px; }
 .tables td.where { text-align: left; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 #track-places tbody tr:hover { background: var(--hover); cursor: default; }
 
+/* The Tools tab (tools.mjs): your image, its files (a filtered list), recipes and files, and AzurKit's storage, as
+   dense rows; a text it shows (a spoiler, a report) in a box of its own. */
+.tools { padding: 4px 10px 12px; background: var(--pane); }
+.tools h2 { margin: 8px 0 2px; font-size: 12px; }
+.tools p { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 2px 0; }
+.tools p.note { display: block; }
+.tools input[type="text"], .tools input[type="search"] {
+  height: 22px; padding: 0 6px; font: 11.5px var(--mono); color: var(--text); background: var(--field);
+  border: 1px solid var(--line); border-radius: 3px;
+}
+#tools-open-path { width: 26rem; }
+#tools-filter { width: 16rem; }
+.tools :is(input, button):disabled { color: var(--faint); background: transparent; border-style: dashed; }
+.tools table { border-collapse: collapse; font: 11px var(--mono); }
+.tools th, .tools td { height: 20px; padding: 0 8px 0 0; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--soft); }
+.tools th { color: var(--muted); font-weight: 600; }
+.tools td:nth-child(2) { text-align: right; font-variant-numeric: tabular-nums; }
+.tools td button { height: 18px; padding: 0 8px; font-size: 11px; }
+#tools-files { max-height: 22rem; overflow: auto; }
+.tools pre {
+  margin: 4px 0; padding: 8px 10px; max-height: 24rem; overflow: auto; font: 11px/1.45 var(--mono); white-space: pre-wrap;
+  color: var(--text); background: var(--field); border: 1px solid var(--line); border-radius: 3px;
+}
+
 /* The About tab: a readable column. */
 .about { padding: 10px 16px 24px; background: var(--pane); font-size: 12.5px; line-height: 1.5; }
 .about > * { max-width: 46rem; }

@@ -8,9 +8,11 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 (its tab's), :func:`tracker` (the item tracker's) and :func:`art` and
 :func:`art_world` (its maps and icons, drawn from the player's image),
 :func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
-(its G4 buttons) and :func:`preview`, and Azurik-Custom-Content's
+(its G4 buttons) and :func:`preview`, Azurik-Custom-Content's
 :func:`content`, :func:`content_install` and :func:`content_check` (its
-community entries). JSON in and
+community entries), and the Tools tab's :func:`image_info`,
+:func:`verify_all`, :func:`files`, :func:`extract` and :func:`mods_file`
+(the image, its files, and mods files saved and read). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -115,11 +117,14 @@ game constant, Q174), ``{"release", "label", "packs": {pack: {slider:
 value}}}``, so a UI's track can hold them (D42).
 
 
-def layout(path: 'str') -> 'dict':
+def layout(path: 'str', *, whole: 'bool' = False) -> 'dict':
 
 The site's half of the image's check (``gate.layout``): ``{"files":
 [[path, offset, size]]}``, each file a build reads, whose sha256 a host
-hashes itself (the site's WebCrypto) for :func:`prime`.
+hashes itself (the site's WebCrypto) for :func:`prime`; with ``whole``,
+each file the image's kept check (its build files', :func:`prime`'s)
+hasn't hashed, for :func:`verify_all`'s ``digests`` (none once every
+file was checked).
 
 
 def prime(path: 'str', digests: 'Mapping[str, str]') -> 'dict':
@@ -410,3 +415,60 @@ image at once; a variant's from one dress of it over the recipe's packs
 (the dress :func:`match` reads, kept for this process; seconds, a
 detailed one minutes), never its base's picture. A refusal names the
 species or the image.
+
+
+def image_info(path: 'str') -> 'dict':
+
+What the Tools tab says of the image at ``path``: ``{"release",
+"label", "size", "kind", "whole"}``, its ``kind`` ``vanilla`` (its
+build files checked, D27: :func:`vanilla`'s check, shared; ``whole``
+once every file was, :func:`verify_all`), ``build`` (an AzurKit build:
+AzurKit's ``version`` that made it and its ``layers``, each in a few
+words, :func:`open_build` of the files it changed) or ``modded``
+(``differs``: its first file, in path order, that isn't its release's).
+It hashes nothing the image's kept check vouches for.
+
+
+def verify_all(path: 'str', digests: 'Mapping[str, str] | None' = None, *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
+
+Check every file of the image at ``path`` (D27; the Tools tab's
+Verify every file): its build files' check is the one :func:`vanilla`
+and a build share (made here first if none is kept), so only the rest
+are hashed: on threads where the host has them (:data:`THREADS`), else
+as ``digests`` give them (the site's WebCrypto hashes of :func:`layout`'s
+``whole`` files) or ``gate.verify`` hashes them; then the image's kept
+check is whole, so asked again, or by any later call, it hashes nothing.
+``{"release", "label", "whole": true}``; ``gate.NotVanillaError`` names
+the first file, in path order, that isn't its release's.
+``progress(record)`` follows the bytes it hashes (``check``).
+
+
+def files(path: 'str') -> 'dict':
+
+The image's files (the Tools tab's list): ``{"files": [[path,
+offset, size]]}`` in path order, each where its bytes start in the image
+(the site's Extract slices them from the player's own File). It reads
+only the image's folders.
+
+
+def extract(path: 'str', member: 'str', out: 'str', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
+
+Write the file ``member`` of the image at ``path`` to ``out`` (the
+app's Extract; the site slices it from the player's File), whole or not
+at all (a part file renamed into place): ``{"out", "size", "sha256"}``.
+Never over the image it reads or a vanilla image (D36): those are
+refused by name, as is a folder or a name the image hasn't.
+``progress(record)`` follows the write (``write``, in bytes).
+
+
+def mods_file(given: 'Mapping') -> 'dict':
+
+The Tools tab's mods files (Q268): ``{"text"}``, a mods file's JSON
+text (a preset or an AzurKit build's manifest) or a share link, read as
+a preset and checked as :func:`preset_decode` checks a link's (a
+``replace_bytes`` kept: a file may carry bytes), for a UI to load:
+``{"preset"}``; ``{"recipe"}`` (a UI's ``packs``, ``xbr``,
+``randomizer`` and ``character``, as a build takes them) or
+``{"preset"}`` (an AzurKit build's, :func:`open_build`'s) written as a
+mods file: ``{"text"}``, which ``azurkit build --mods`` and
+:func:`read_mods` take. Every refusal named.

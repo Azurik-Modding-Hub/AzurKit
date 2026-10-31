@@ -7,6 +7,8 @@ turns its flags into the sdk's JSON and prints what comes back.
                   [--pack-param PACK.SLIDER=VALUE ...]
                   [--seed SEED [--settings FILE | --share STRING] [--obsidian-cost N]] [--character JSON]
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
+    azurkit files IMAGE [--extract PATH --out FILE]
+                                          an image's files (each size and path), or one of them written to FILE
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
@@ -38,7 +40,9 @@ of a randomized build (``open``) replays its seed and share string, and one with
 wears it (``--character`` in its place). ``plan`` fills the randomizer's
 authored levels for the seed under the default settings (D144), a settings
 file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.
-``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
+``files`` lists every file of an image, each with its size, in path order,
+and ``--extract`` writes one of them to ``--out`` (never over the image or a
+vanilla image, D36). ``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
 ``--source`` or ``$AZURKIT_CONTENT_SOURCE``, a URL or a folder) and what the
 content folder holds of each; ``install`` and ``update`` copy one in, every
 file's sha256 checked first (a build reads a variant's files from there);
@@ -170,6 +174,23 @@ def _open(args: argparse.Namespace) -> int:
     return 0
 
 
+def _files(args: argparse.Namespace) -> int:
+    try:
+        if (args.extract is None) != (args.out is None):
+            raise ValueError("files: --extract PATH and --out FILE go together")
+        if args.extract is not None:
+            done = sdk.extract(args.image, args.extract, args.out)
+            print(f"{args.extract}: {done['size']:,} B written to {done['out']} (sha256 {done['sha256'][:12]})")
+            return 0
+        listed = sdk.files(args.image)["files"]
+    except (OSError, ValueError) as exc:
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    for path, _, size in listed:
+        print(f"{size:>13,}  {path}")
+    return 0
+
+
 def _plan(args: argparse.Namespace) -> int:
     try:
         given = {"seed": args.seed}
@@ -278,6 +299,14 @@ def main(argv: list[str] | None = None) -> int:
                                           "and print its recipe as a mods file (JSON), which build --mods takes.")
     opened.add_argument("build", metavar="BUILD", help="an image AzurKit built")
     opened.set_defaults(run=_open)
+    listed = verbs.add_parser("files", help="list an image's files, or write one of them to a file",
+                              description="List every file of IMAGE in path order, each with its size, or with "
+                                          "--extract write that file of it to --out (never over IMAGE or a vanilla "
+                                          "image).")
+    listed.add_argument("image", metavar="IMAGE", help="a disc image (vanilla, an AzurKit build or another)")
+    listed.add_argument("--extract", metavar="PATH", help="the image's file to write, as the list names it")
+    listed.add_argument("--out", metavar="FILE", help="where --extract writes it (a part file renamed into place)")
+    listed.set_defaults(run=_files)
     planned = verbs.add_parser("plan", help="fill the randomizer for a seed and print (or write) the plan file",
                                description="Fill the randomizer's authored levels for --seed under the default "
                                            "settings (D144), a settings file's or a share string's, and print the "

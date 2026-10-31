@@ -133,6 +133,20 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **In links and recipes:** a share link and a build's recipe carry the character, by name and numbers; a variant
   whose recipe has changed since is named, with what to install or update.
 
+### Tools
+
+In the page's Tools tab, in the browser and the app alike, or from the command line (`azurkit files`).
+
+- **Your image:** its release, size and kind (original, an AzurKit build with what made it, or modded with the first
+  file that differs); greyed until you pick it.
+- **Verify every file:** all 1,195 checked against the original disc, with a bar; it reads only what the first
+  check left, and asked again it reads nothing.
+- **Its files:** the whole list, with a filter; Extract one (the browser downloads it from your own file, the app
+  writes it where you choose, never over your image).
+- **Recipes and files:** open any AzurKit build for its recipe, load or save a mods file, view or save a plan file's
+  spoiler and the last build's report.
+- **AzurKit's storage:** what AzurKit keeps on this computer, by name, and Clear; never your image.
+
 ### Building and sharing
 
 - **Checks your game first:** the files a build reads against the original USA or Europe disc (`azurkit verify`

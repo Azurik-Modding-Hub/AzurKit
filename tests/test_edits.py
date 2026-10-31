@@ -219,3 +219,32 @@ def test_a_preset_round_trips_and_refuses_what_isnt_one_by_name():
     refuse()
     with concurrent.futures.ThreadPoolExecutor(1) as other:   # another thread's C stack, which json's limit follows
         other.submit(refuse).result()
+
+
+def test_a_mods_file_saved_from_the_setup_loads_back_the_same_recipe():
+    """The Tools tab's mods file (Q268, ``sdk.mods_file``): the page's
+    recipe (a pack with a slider set, a config.xbr ``set`` and a
+    ``replace_bytes``, a seed and a character) saved as a mods file loads
+    back, as a UI loads it, into the same packs, operations, seed and
+    character, and ``azurkit build --mods`` (``sdk.read_mods``) takes it as
+    that recipe. A file keeps the ``replace_bytes`` a share link refuses
+    (Q174), and what it reads is checked as a link's: a pack AzurKit lacks
+    is refused by name."""
+    cell = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
+            "prop": "hitPoints", "value": 321}
+    raw = {"op": "replace_bytes", "file": "gamedata/a1.xbr", "offset": 0x800, "value": "deadbeef",
+           "expected": "00000000"}
+    recipe = {"packs": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell, raw], "randomizer": {"seed": "2"},
+              "character": {"species": "keylord"}}
+    text = sdk.mods_file({"recipe": recipe})["text"]
+    read = sdk.read_mods(text)
+    assert read == {"packs": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell, raw], "randomizer": {"seed": "2"},
+                    "character": read["character"]} and read["character"]["species"] == "keylord"
+    loaded = {layer["tool"]: layer["recipe"] for layer in sdk.mods_file({"text": text})["preset"]["layers"]}
+    assert loaded == {"randomizer": {"seed": "2"}, "mods": read["packs"], "characters": read["character"],
+                      "data": {"ops": [cell, raw]}}
+    assert sdk.mods_file({"recipe": read})["text"] == text
+    with pytest.raises(ValueError, match=re.escape("a share link carries packs and set only (Q174), not xbr op 2")):
+        sdk.preset_encode(recipe)
+    with pytest.raises(ValueError, match=re.escape("recipe: no pack 'nope'")):
+        sdk.mods_file({"text": text.replace('"fps_unlock"', '"nope"')})

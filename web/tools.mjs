@@ -11,28 +11,31 @@
 // that waits for an image is greyed with the line that says so until one is picked (D979). The engine decides every
 // answer; this page asks and draws what comes back, through textContent only (the CSP: no eval).
 //
-// Not yet wired (the hub's half of Step 4.7c): index.html gives the tab an empty panel, app.mjs makes it with
-// tools({...}) once the engine is ready and tells it when the image changes and a build is made, and the hosts answer
-// its asks. tools({root, call, app, say, image, out, pick, setup, load}): root the panel; call(type, body) the
-// engine's ask (the site's worker, the app's api), its reply or {refused}; app whether the host is the app; say(text,
-// error) the status line; image() the picked image (the site's File, the app's path) or null; out(name) (the app's)
-// where a file the tab saves goes (its save dialog, else beside the build's output), a path or null; pick() (the
-// app's, optional) an AzurKit build's path from its open dialog; setup() the page's setup now (what its share link
-// and mods file carry); load(preset, from) sets the page to a preset. The asks (body -> reply), where the site's
-// worker mounts `file` and hands its path to the engine as the app's `iso`:
-//   info        {iso | file}                 -> {release, label, size, kind, whole, version?, layers?, differs?}
-//   verify_all  {iso | file}                 -> {release, label, whole: true}; refused: the first file that differs
-//   files       {iso | file}                 -> {files: [[path, offset, size]]}
-//   extract     {iso, path, out}  (the app)  -> {out, size, sha256}
-//   open        {iso | file}  (a build)      -> {preset}
-//   mods_file   {text}                       -> {preset}; {setup | preset, out?} -> {text} (the site), {out} (the app)
+// app.mjs makes it with tools({...}) once the engine is ready (index.html's #tools panel) and tells it when the image
+// changes and a build is made or saved; the hosts answer its asks (the site's worker, the app's api/<ask>).
+// tools({root, call, app, say, image, out, pick, setup, load}): root the panel; call(type, body) the engine's ask, its
+// reply or {refused}; app whether the host is the app; say(text, error) the status line; image() the picked image
+// (the site's File, the app's path) or null; out(name, kind) (the app's) where a file the tab saves goes: a path (its
+// save dialog's), "" (no dialogs: the engine's place, the Downloads folder) or null (the dialog cancelled); pick()
+// (the app's, with dialogs) an AzurKit build's path from its open dialog, or null; setup() the page's recipe now (what
+// its share link and mods file carry: packs, xbr, randomizer, character); load(preset, from) sets the page to a
+// preset. The asks (body -> reply), where the site's worker mounts `file` (or `build`) and hands its path to the
+// engine as the app's `iso`:
+//   info         {iso | file}                -> {release, label, size, kind, whole, version?, layers?, differs?}
+//   verify_all   {iso | file}                -> {release, label, whole: true}; refused: the first file that differs
+//   files        {iso | file}                -> {files: [[path, offset, size]]}
+//   extract      {iso, path, out}  (the app) -> {out, size, sha256}
+//   open         {iso | build}  (a build)    -> {preset}
+//   mods_file    {text}                      -> {preset}; {recipe | preset} -> {text} (the site), with out (the app)
+//                                               -> {out, size}
 //   plan_spoiler {plan}                      -> {lines}
-//   text_file   {text, out}  (the app)       -> {out, size}: a report or spoiler the tab shows, as a new file
-//   storage     {clear?}  (the app)          -> {entries: [{name, what, size}], cleared?}
+//   report       {text, out, name} (the app) -> {out, size}: a report or spoiler the tab shows, as a new file
+//   storage      {clear?}  (the app)         -> {entries: [{name, what, size}], cleared?}
 // It returns {open(), imaged(), built(report, saved?), state}: open when the tab shows, imaged when the picked image
-// changes (or is refused), built after each build (its report, sdk.image's) and each save ({out, size, sha256}).
+// changes, built after each build (its report, sdk.image's) and each save ({out, size, sha256}).
 
 export const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits for an image
+export const VANILLA = "Only a vanilla image is checked against its release";   // Verify, for another image
 export const MODS = "AzurKit mods.json";
 
 // What the site keeps in this browser, by name: Clear removes these and nothing else.
@@ -99,7 +102,7 @@ function download(blob, name) {   // the site's: the browser's download of a Blo
 
 export function tools({ root, call, app, say, image, out, pick = null, setup, load }) {
   const t = { info: null, files: null, opened: null, plan: null, spoiler: null, report: null, saved: null,
-              shown: false, ticket: 0 };
+              shown: false, ticket: 0, opening: 0, refused: null };
   const asked = () => app ? { iso: image() } : { file: image() };
 
   // The panel, drawn once.
@@ -121,7 +124,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     openLoad: button("tools-open-load", "Load it", () => t.opened && load(t.opened.preset, t.opened.from)),
     openSave: button("tools-open-save", "Save its mods file", () => t.opened && saveMods({ preset: t.opened.preset })),
     mods: chooser("tools-mods-file", ".json,.txt", (event) => loadMods(event.target)),
-    modsSave: button("tools-mods-save", "Save the setup as a mods file…", () => saveMods({ setup: setup() })),
+    modsSave: button("tools-mods-save", "Save the setup as a mods file…", () => saveMods({ recipe: setup() })),
     plan: chooser("tools-plan-file", ".json", (event) => readPlan(event.target)),
     planView: button("tools-plan-view", "View", () => shown(ui.planText, ui.planView)),
     planSave: button("tools-plan-save", "Save", () => saveText(t.spoiler, `${t.plan.stem} spoiler.txt`)),
@@ -153,13 +156,17 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
        ui.storage),
     el("p", {}, ui.clear), ui.storageLine);
 
-  // D979: what waits for an image is greyed with the line that says so; the opened build, the plan and the report
-  // wait for theirs.
+  // D979: what waits for an image is greyed with the line that says so (an image the engine refused: its refusal;
+  // Verify: a vanilla image); the opened build, the plan and the report wait for theirs.
   function lines() {
-    const none = !image() || !t.info;
+    const none = !image() || !t.info, why = !image() ? CHOOSE : t.refused ?? (t.info ? "" : "Reading your image…");
     for (const node of [ui.verify, ui.list, ui.filter]) {
       node.disabled = none;
-      node.title = none ? CHOOSE : "";
+      node.title = why;
+    }
+    if (t.info && t.info.kind !== "vanilla") {
+      ui.verify.disabled = true;
+      ui.verify.title = VANILLA;
     }
     if (none) ui.files.hidden = true;
     ui.openLoad.disabled = ui.openSave.disabled = !t.opened;
@@ -176,7 +183,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
   // The image: what it is, asked once a picked image (and again once it changes).
   async function info() {
     const ticket = ++t.ticket;
-    t.info = t.files = null;
+    t.info = t.files = t.refused = null;
     ui.rows.replaceChildren();
     ui.imageLine.textContent = image() ? "Reading your image…" : CHOOSE;
     lines();
@@ -184,7 +191,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     const reply = await call("info", asked());
     if (ticket !== t.ticket) return;
     if ("refused" in reply) {
-      ui.imageLine.textContent = reply.refused;
+      ui.imageLine.textContent = t.refused = reply.refused;
       return lines();
     }
     t.info = reply;
@@ -246,9 +253,9 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
       download(image().slice(at, at + size), named(path));
       return say(`Saving ${named(path)} (${bytes(size)}): your browser's download shows it`);
     }
-    const where = await out(named(path));
-    if (!where) return;
-    const reply = await call("extract", { iso: image(), path, out: where });
+    const where = await out(named(path), "extract");
+    if (where === null) return;
+    const reply = await call("extract", { iso: image(), path, out: where || null });
     if ("refused" in reply) return say(reply.refused, true);
     say(`Saved ${reply.out} · ${bytes(reply.size)} · sha256 ${reply.sha256.slice(0, 12)}`);
   }
@@ -259,10 +266,12 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     if (input) input.value = "";
     const path = app ? ui.openPath.value.trim() : null;
     if (!(file || path)) return;
+    const ticket = ++t.opening;   // the last open asked is the one shown
     t.opened = null;
     ui.openLine.textContent = "Reading the build…";
     lines();
-    const reply = await call("open", app ? { iso: path } : { file });
+    const reply = await call("open", app ? { iso: path } : { build: file });
+    if (ticket !== t.opening) return;
     if ("refused" in reply) {
       ui.openLine.textContent = reply.refused;
       return lines();
@@ -304,9 +313,9 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
       download(new Blob([reply.text], { type: "application/json" }), MODS);
       return say(`Saving ${MODS}: your browser's download shows it`);
     }
-    const where = await out(MODS);
-    if (!where) return;
-    const reply = await call("mods_file", { ...given, out: where });
+    const where = await out(MODS, "mods");
+    if (where === null) return;
+    const reply = await call("mods_file", { ...given, out: where || null });
     if ("refused" in reply) return say(reply.refused, true);
     say(`Saved the mods file: ${reply.out}`);
   }
@@ -340,9 +349,9 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
       download(new Blob([text], { type: "text/plain" }), name);
       return say(`Saving ${name}: your browser's download shows it`);
     }
-    const where = await out(name);
-    if (!where) return;
-    const reply = await call("text_file", { text, out: where });
+    const where = await out(name, "report");
+    if (where === null) return;
+    const reply = await call("report", { text, out: where || null, name });
     if ("refused" in reply) return say(reply.refused, true);
     say(`Saved ${reply.out}`);
   }

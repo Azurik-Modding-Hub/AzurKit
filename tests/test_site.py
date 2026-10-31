@@ -477,11 +477,11 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert [later.evaluate(GROUND), served.open().evaluate(GROUND)] == [DARK, DARK]
 
         catalog = sdk.catalog()
-        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "Randomizer", "Characters", "About"]
+        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "Randomizer", "Characters", "Tools", "About"]
         assert page.evaluate("""() => [...document.querySelectorAll("#tabs [role=tab]")].map((tab) => [tab.textContent,
             tab.getAttribute("aria-selected"), document.getElementById(tab.getAttribute("aria-controls")).hidden])""") == [
             ["Patches", "true", False], ["Randomizer", "false", True], ["Characters", "false", True],
-            ["About", "false", True]]
+            ["Tools", "false", True], ["About", "false", True]]
         assert [c["title"] for c in catalog["categories"]] == ["Player", "Enemies", "Quality of Life"]
         grouped = [[p for p in mods.PACKS.values() if p.category == c["id"]] for c in catalog["categories"]]
         assert page.evaluate("""() => [...document.querySelectorAll("#packs .group")].map((group) =>
@@ -1075,6 +1075,60 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         served.close()
 
 
+# What the Tools tab greys until an image (D979): [Verify, Show its files and the filter disabled, Verify's title, the
+# image's line]
+TOOLS_GREYED = """() => [...["tools-verify", "tools-list", "tools-filter"].map((id) => document.getElementById(id).disabled),
+    document.getElementById("tools-verify").title, document.getElementById("tools-image-line").textContent]"""
+TOOLS_LINE = "() => document.getElementById('tools-image-line').textContent"
+
+
+def test_the_tools_tab_checks_lists_and_extracts_the_image(browser, site, usa_iso):
+    """Step 4.7c (D979, D982): the Tools tab greys what waits for an image
+    with "Choose your image first (1.)" until one is picked; then it says
+    what the image is (USA, vanilla, its build files checked); Verify every
+    file walks the bottom bar by its percent to 100 and says every file
+    checked; the file list holds the manifest's files, its filter narrows
+    it, and Extract downloads a file of the player's own File whose size
+    and sha256 are the manifest's."""
+    small = min((path for path, (size, _) in gate.USA.files.items() if size and not path.startswith(gate.BUILD_FILES)),
+                key=lambda path: (gate.USA.files[path][0], path))
+    count = f"{len(gate.USA.files):,}"
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-tools")
+        assert page.evaluate(TOOLS_GREYED) == [True, True, True, "Choose your image first (1.)",
+                                               "Choose your image first (1.)"]
+        page.evaluate(BARS)
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.tools.state.info", 300)
+        assert page.evaluate(TOOLS_GREYED)[:4] == [False, False, False, ""]
+        assert page.evaluate(TOOLS_LINE) == f"USA · {gate.USA.iso_size:,} B · vanilla · its build files checked"
+        _page.click(page, "tools-verify")
+        _page.until(page, "() => azurkit.tools.state.info.whole", 300)
+        assert page.evaluate(TOOLS_LINE).endswith(" · vanilla · every file checked")
+        checked = [int(value) for value, line in filter(None, page.evaluate("() => bars"))
+                   if line.startswith("Checking every file") and value is not None]
+        assert len(checked) >= 3 and checked == sorted(checked) and checked[-1] == 100, checked
+        _page.click(page, "tools-list")
+        assert _page.until(page, "() => azurkit.tools.state.files && document.getElementById('tools-count').textContent"
+                           ) == f"{count} files"
+        _page.fill(page, "tools-filter", small)
+        assert page.evaluate("() => document.getElementById('tools-count').textContent") == f"1 of {count} files"
+        with page.expect_download(timeout=120_000) as caught:
+            page.evaluate("() => document.querySelector('#tools-rows button').click()")
+        download = caught.value
+        try:
+            saved = Path(download.path())
+            with open(saved, "rb") as f:
+                got = (download.suggested_filename, saved.stat().st_size, hashlib.file_digest(f, "sha256").hexdigest())
+        finally:
+            download.delete()
+        assert got == (small.rpartition("/")[2], *gate.USA.files[small]) and served.stray() == []
+    finally:
+        served.close()
+
+
 def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_builds_again_as_cpython(
         browser, site, usa_iso):
     """Step 4.3i: the site keeps its engine's worker after a build whose
@@ -1227,7 +1281,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
     try:
         page = served.open()
         assert page.evaluate("() => [...document.querySelectorAll('#tabs [role=tab]')].map((t) => t.textContent)") == [
-            "Patches", "Randomizer", "Characters", "About"]
+            "Patches", "Randomizer", "Characters", "Tools", "About"]
         _page.click(page, "tab-randomizer")
         view = _page.until(page, "() => azurkit.rando.view")
         assert view == sdk.randomizer_settings({"settings": defaults, "packs": mods.normalize(
