@@ -689,7 +689,7 @@ def test_closing_the_app_during_a_long_build_returns_within_2_s_and_leaves_no_pa
     out.mkdir()
     planning, stalled = threading.Event(), threading.Event()
 
-    def image(recipe, progress=None):   # a long build
+    def image(recipe, progress=None, spoiler=True):   # a long build (the engine leaves a seed's spoiler for later)
         planning.set()
         release.wait(60)
         return types.SimpleNamespace(size=0), {}
