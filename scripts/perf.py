@@ -134,7 +134,7 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     if ceiling is not None and median > ceiling:
         verdict = "regressed"
     elif median > budget:
-        verdict = "listed" if ceiling is not None else "bar" if bar and moved else "over"
+        verdict = "bar" if bar and moved else "listed" if ceiling is not None else "over"   # D982 before the list
     else:
         verdict = "pass"
     if verdict in ("pass", "listed", "bar") and median > PROGRESS and not shown and not debt:

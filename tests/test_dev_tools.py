@@ -117,8 +117,9 @@ def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
 def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_only_shrinks():
     """D981-D985 on fake timings: an op not in the list fails when its
     median is over 3 s (the capped profile's 9 s); an image's first check
-    passes over it only with a moving bar (D982); past 1 s an op shows
-    progress unless it is a debt (D980); a listed op fails over its ceiling;
+    passes over it only with a moving bar (D982), and a listed one with a
+    moving bar leaves the list; past 1 s an op shows progress unless it is
+    a debt (D980); a listed op fails over its ceiling;
     an op over runs R more times and fails only if the median of all is
     still over (one spike can't fail it); the list may lower and drop but
     never add or raise against main's; changes reach the ops of their
@@ -128,9 +129,10 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
     slow, moving = [s(3.2), s(3.4), s(3.1)], [s(6.8, bar=5)] * 3
     assert [perf.judge(*case)["verdict"] for case in (
         (slow, 3.0), (slow, 9.0), (slow, 3.0, 4.0), ([s(4.7)] * 3, 3.0, 4.0), (moving, 3.0, None, False, True),
-        ([s(6.8, bar=1)] * 3, 3.0, None, False, True), ([s(1.5, progress=False)] * 3, 3.0),
+        (moving, 3.0, 29.3, False, True), ([s(6.8, bar=1)] * 3, 3.0, None, False, True),
+        ([s(1.5, progress=False)] * 3, 3.0),
         ([s(1.5, progress=False)] * 3, 3.0, None, True), ([{**s(2.0), "error": "timed out"}], 3.0))] == [
-        "over", "pass", "listed", "regressed", "bar", "over", "no progress", "pass", "error"]
+        "over", "pass", "listed", "regressed", "bar", "bar", "over", "no progress", "pass", "error"]
     times = {"A12": [[5.0, 3.2, 2.6], [2.4, 2.5, 2.6]], "A15": [[4.0, 4.1, 4.2], [4.0, 4.0, 4.1]], "A24": [[290.0]]}
     asked = []
 
@@ -142,13 +144,15 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
     got, _, _ = perf.measure([("A12", "app"), ("A15", "app"), ("A24", "app")], drive, lst)
     assert {k: r["verdict"] for k, r in got.items()} == {"A12/app": "pass", "A15/app": "over", "A24/app": "listed"}
     assert asked == [("app", {"A12": 3, "A15": 3, "A24": 3}), ("app", {"A12": 6, "A15": 6})]
-    main = {"ceilings": {"A15/app": 4.8, "S14/webkit": 21.0}, "debts": ["A15/app"], "memory": {}, "untimed": {}}
+    main = {"ceilings": {"A15/app": 4.8, "S14/webkit": 21.0, "S03/lag": 29.3}, "debts": ["A15/app"], "memory": {},
+            "untimed": {}}
     mine = {**main, "ceilings": {"A15/app": 5.0, "S14/webkit": 21.0, "A06/app": 9.0}, "debts": ["A15/app", "A06/app"]}
     assert perf.check_list(mine, main) == ["A06/app: added to the list (ceiling 9.0 s)",
                                            "A15/app: its ceiling raised, 4.8 -> 5.0 s", "A06/app: a new progress debt"]
     assert perf.check_list(mine, None) == []   # the first record
     results = {"A15/app": perf.judge([s(4.0)] * 3, 3.0, 4.8, True), "S14/webkit": perf.judge([s(2.0)] * 3, 3.0, 21.0),
-               "A06/app": perf.judge([s(7.0, progress=False)] * 3, 3.0)}
+               "A06/app": perf.judge([s(7.0, progress=False)] * 3, 3.0),
+               "S03/lag": perf.judge(moving, 3.0, 29.3, False, True)}   # D982: a moving bar leaves the list
     assert perf.updated(main, results, {}, first=False) == {
         "ceilings": {"A15/app": 4.6}, "debts": [], "memory": {}, "untimed": {}}
     assert perf.updated(perf.listed(None), results, {}, first=True)["ceilings"] == {"A15/app": 4.6, "A06/app": 8.1}
