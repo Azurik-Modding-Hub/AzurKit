@@ -605,6 +605,18 @@ def _string(where: str, value) -> str:
     return value
 
 
+def _file(where: str, value) -> str:
+    """A recipe's file field: a file in the recipe's folder (or one below
+    it), as ``mesh_edit._buffer`` holds a glTF's buffers beside it, so a
+    recipe someone hands you reads nothing outside its folder (D992's
+    SEC-14): a relative POSIX path, no empty, ``.`` or ``..`` part, no
+    ``\\``, ``:`` (a drive, a URL's scheme) or NUL."""
+    name = _string(where, value)
+    if name.startswith("/") or any(c in name for c in "\\:\0") or {"", ".", ".."} & set(name.split("/")):
+        raise ValueError(f"{where}: {name!r} is not a file in the recipe's folder (a relative path, no '..')")
+    return name
+
+
 # --- the generators -------------------------------------------------------
 @dataclass(frozen=True)
 class Generator:
@@ -1349,7 +1361,7 @@ a sit's, keeps it over its place (Step 2.168, D660)."""
 
 def _check_gltf(where: str, p: dict) -> None:
     _keys(where, p, ("generator", "file", "sha256", "animation"), ("active", "box", "rate"))
-    _string(f"{where}.file", p["file"])
+    _file(f"{where}.file", p["file"])
     if not isinstance(p["sha256"], str) or not _SHA256.match(p["sha256"]):
         raise ValueError(f"{where}.sha256: {p['sha256']!r} is not 64 lower-case hex digits "
                          "(`azurik-mod model clips` prints it)")
@@ -1430,12 +1442,12 @@ def gltf_clip(characters: bytes, body: Body, p: dict, markers: dict[str, int], *
     from azurkit.tools.characters import clip_import, mesh_edit
     from azurkit.tools.characters.characters import height
 
-    path = Path(folder) / p["file"]
+    path = Path(folder) / _file("gltf: file", p["file"])
     if not path.is_file():
         raise ValueError(f"gltf: file {p['file']!r}: no such file ({path})")
     sha = mesh_edit.file_sha256(path)
     if sha != p["sha256"]:
-        raise ValueError(f"gltf: file {p['file']!r}: its sha256 is {sha}, not the recipe's {p['sha256']} "
+        raise ValueError(f"gltf: file {p['file']!r}: its sha256 is {sha[:12]}, not the recipe's {p['sha256'][:12]} "
                          "(`azurik-mod model clips` prints the row)")
     if builtin:
         doc = mesh_edit._load(path)[0]
@@ -2153,7 +2165,7 @@ def _mesh(where: str, mesh, builtin: bool) -> MeshSpec:
         if not isinstance(sha, str) or not _SHA256.match(sha):
             raise ValueError(f"{where}.gltf.sha256: {sha!r} is not 64 lower-case hex digits "
                              "(`azurik-mod model check` prints it)")
-        gltf = (_string(f"{where}.gltf.file", mesh["gltf"]["file"]), sha)
+        gltf = (_file(f"{where}.gltf.file", mesh["gltf"]["file"]), sha)
         how = mesh["gltf"].get("import", "positions")
         if how not in ("positions", "topology", "weights"):
             raise ValueError(f"{where}.gltf.import {how!r} is not positions, topology or weights")
@@ -3431,7 +3443,7 @@ def _texture(at: str, spec) -> None:
 def _file_ref(at: str, ref) -> None:
     """A recipe's file ({``file``, ``sha256``}), checked with no file read."""
     _keys(at, ref, ("file", "sha256"))
-    _string(f"{at}.file", ref["file"])
+    _file(f"{at}.file", ref["file"])
     if not isinstance(ref["sha256"], str) or not _SHA256.match(ref["sha256"]):
         raise ValueError(f"{at}.sha256: {ref['sha256']!r} is not 64 lower-case hex digits")
 

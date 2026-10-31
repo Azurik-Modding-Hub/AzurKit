@@ -595,7 +595,8 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     256 MiB (SEC-9); a path with a ``:`` or a name Windows keeps for a device, two paths one but for letter
     case, and an Update whose ``installed.json`` lists a path outside the content folder, which it leaves
     (SEC-15); a file whose suffix its folder doesn't take (``content.SUFFIXES``: a listed ``.html``, a
-    picture in ``packs/``, a suffix-less file; SEC-3's allow-list)."""
+    picture in ``packs/``, a suffix-less file; SEC-3's allow-list); and a recipe whose clip or mesh file
+    leaves the recipe's folder (``..``, an absolute path; SEC-14)."""
     import time
     import tracemalloc
 
@@ -621,6 +622,11 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
         {"id": "b", "files": [{"path": f"packs/b/{k}.json", "sha256": "0" * 64, "size": content.MAX_FILE}
                               for k in range(2)]}])
     folder, seen = tmp_path / "content", []
+    booblord = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]
+
+    def recipe(field: str, value: dict) -> str:
+        """booblord's recipe as a user's, ``mine``, with its ``field`` updated by ``value``."""
+        return json.dumps({"mine": booblord | {field: {**booblord[field], **value}}})
 
     def fetch(path: str) -> bytes:
         seen.append((path, sorted(p.name for p in folder.rglob("*.json"))))
@@ -655,11 +661,19 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
              r"\.html file: variants/ holds only \.json, \.glb, \.gltf, \.bin, \.png, \.md files"),
             ("to a picture in packs/", "packs/a/x.png", r"'packs/a/x\.png' is a \.png file: packs/ holds only \.json, "),
             ("to a suffix-less file", "sounds/a/x", r"'sounds/a/x' is a suffix-less file: sounds/ holds only \.wav, "))},
+        **{f"a recipe's {what} outside its folder": (lambda text=text: _player_variants.load_variants(
+            text, str(tmp_path / "variant.json")), rf"^variant 'mine' \([^)]*\): {field}: '{re.escape(name)}' is not "
+            r"a file in the recipe's folder") for what, text, field, name in (
+            ("clip", recipe("clips", {"hip_idle": booblord["clips"]["hip_idle"] | {"file": "../../x.glb"}}),
+             "clips.hip_idle.file", "../../x.glb"),
+            ("mesh", recipe("mesh", {"gltf": {"file": "/etc/x.glb", "sha256": "0" * 64}}), "mesh.gltf.file", "/etc/x.glb"))},
         "two paths one but for letter case": (lambda: content.check(manifest([
             {"id": "a", "files": [{"path": "packs/a/X.json", "sha256": "0" * 64, "size": 0}]},
             {"id": "b", "files": [{"path": "packs/a/x.json", "sha256": "0" * 64, "size": 0}]}])),
             r"^manifest: entry 'b': packs/a/x\.json is entry 'a''s too"),
     }
+    assert list(_player_variants.load_variants(json.dumps({"mine": booblord}), str(tmp_path / "variant.json"))) == [
+        "mine"]   # her own recipe as a user's reads (and the reader is warm)
     slow = {}
     for row, (call, why) in rows.items():
         tracemalloc.start()
