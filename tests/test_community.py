@@ -250,6 +250,22 @@ out.liar = await tried(() => c.install(c.state.manifest.entries.find((e) => e.id
 out.untouched = picture() === before && handed.length === handedBefore;
 out.cycle = await tried(() => needs(new Map([["x", { requires: ["y"] }], ["y", { requires: ["x"] }]]), "x"));
 out.unknown = await tried(() => needs(new Map([["x", { requires: ["z"] }]]), "x"));
+
+const m1 = list(entry("e", [], [["packs/e/pack.json", "e1"], ["packs/shared.json", "s1"]]),
+                entry("f", [], [["packs/f/pack.json", "f1"]]));
+const m2 = list(entry("e", [], [["packs/e/pack.json", "e2"]], 2),
+                entry("f", [], [["packs/f/pack.json", "f2"], ["packs/shared.json", "s2"]], 2));
+Object.assign(bodies, { "manifest.json": JSON.stringify(m1), "packs/e/pack.json": "e1", "packs/shared.json": "s1",
+                        "packs/f/pack.json": "f1" });
+await c.read();
+for (const id of ["e", "f"]) await c.install(c.state.manifest.entries.find((e) => e.id === id));
+Object.assign(bodies, { "manifest.json": JSON.stringify(m2), "packs/e/pack.json": "e2", "packs/shared.json": "s2",
+                        "packs/f/pack.json": "f2" });
+await c.read();
+for (const id of ["f", "e"]) await c.install(c.state.manifest.entries.find((e) => e.id === id));
+out.moved = { f: Object.keys(store.get("installed").f.files).sort(),
+              shared: new TextDecoder().decode(store.get("files")["packs/shared.json"] ?? new Uint8Array()),
+              handed: handed.at(-1).includes("packs/shared.json") };
 console.log(JSON.stringify(out));
 """
 
@@ -261,7 +277,8 @@ def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refu
     (driven on Node with the browser's parts stubbed): an entry and those it
     requires (a diamond) fetched once each, required first, ``k of n``
     heard as each file comes; an Update fetches only what changed and drops
-    the files its new version doesn't hold; an engine refusal, an Install
+    the files its new version doesn't hold, but not one another installed
+    entry holds now (a file moved to it); an engine refusal, an Install
     past MAX_ENTRY (refused before any fetch) and a reply past its listed
     size keep nothing; the requires walk names a cycle and an unknown id."""
     driver = tmp_path / "drive.mjs"
@@ -286,3 +303,4 @@ def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refu
     assert out["untouched"] is True
     assert out["cycle"] == 'entry "x" requires itself (x -> y -> x)'
     assert out["unknown"] == 'no entry "z" in the community list'
+    assert out["moved"] == {"f": ["packs/f/pack.json", "packs/shared.json"], "shared": "s2", "handed": True}

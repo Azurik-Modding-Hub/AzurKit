@@ -205,7 +205,10 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
                                                     files: { ...held, ...fetched } });
       if ("refused" in checked) throw new Error(checked.refused);
       for (const id of todo) {
-        for (const path of Object.keys(record[id]?.files ?? {})) delete files[path];
+        // A path another installed entry holds now stays (content.py's install keeps it too).
+        for (const path of Object.keys(record[id]?.files ?? {})) {
+          if (!Object.entries(record).some(([k, o]) => k !== id && path in (o?.files ?? {}))) delete files[path];
+        }
         record[id] = { version: ids.get(id).version, source: s.source,
                        files: Object.fromEntries(ids.get(id).files.map((f) => [f.path, f.sha256])) };
         for (const f of ids.get(id).files) files[f.path] = fetched[f.path];
