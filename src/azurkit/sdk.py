@@ -109,7 +109,6 @@ from azurkit.tools.randomizer import generator, needs, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 from azurkit.tools.randomizer.planner import fill as rando_fill
 from azurkit.tools.randomizer.planner import loader
-from azurkit.tools.randomizer.planner import plan as rando_plan
 
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
@@ -337,8 +336,7 @@ def _noting(steps: Steps):
     (``generator.NOTE``: "placing the items"; the fill's ``NOTE``: "placing
     the items, k of n"; ``needs.NOTE``: "the maps' exits, k of n";
     ``loader.NOTE``: the logic's checks as it is read cold, "checking the
-    levels, k of n"; ``planner.plan.NOTE``: a spoiler's two parts, "the
-    spheres, 1 of 2") folded into the stage it reported last through the
+    levels, k of n") folded into the stage it reported last through the
     ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
     counted inside the stage's step (``done`` of ``total`` as ``done * n +
     k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
@@ -370,7 +368,7 @@ def _noting(steps: Steps):
     ident = threading.get_ident()
     outer = _NOTES.get(ident)
     _NOTES[ident] = told
-    generator.NOTE = rando_fill.NOTE = needs.NOTE = rando_plan.NOTE = _note
+    generator.NOTE = rando_fill.NOTE = needs.NOTE = _note
     loader.NOTE = _checked
     try:
         yield Steps(heard)
@@ -953,7 +951,10 @@ def spoiler(plan: Mapping, *, built: bool = False, progress: Callable[[dict], ob
     build's since, or another engine)."""
     if not built:
         with _noting(Steps(progress)) as steps:
-            return {"lines": randomizer.spoiler(plan, steps.report)}
+            steps("plan", "Reading the randomizer's logic", 0, 2)
+            randomizer.kept_logic()   # its checks counted while it is read cold
+            steps("spoiler", None, 1, 2)
+            return {"lines": randomizer.spoiler(plan)}
     sha = plan.get("sha256") if isinstance(plan, Mapping) else None
     if (kept := _SPOILERS.get(sha)) is None:
         raise ValueError("spoiler: this engine no longer keeps that build's spoiler: build it again")

@@ -35,7 +35,7 @@ import heapq
 import json
 import math
 import re
-from collections.abc import Callable, Container, Iterable, Mapping
+from collections.abc import Container, Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -64,8 +64,6 @@ from azurkit.tools.randomizer.planner.settings import (
 from azurkit.tools.randomizer.planner.solver import Logic, Reach, _Round, _Rules
 
 PLAN_FORMAT = "azurik-rando-plan/1"
-# A host's hook (Step 4.7c), None by default: NOTE(text) hears :func:`spoiler_lines`' two parts, "k of 2"
-NOTE: Callable[[str], object] | None = None
 _KEYS = {"format", "generator", "seed", "attempt", "settings", "share", "settings_digest", "db_digest", "placement",
          "sha256"}
 
@@ -810,7 +808,6 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
     ]
     if any("saveanywhere" in fam.split("+") for fam in families):
         lines.append("warning: a saveanywhere skip is on (plan §2.14): it never counts as an escape")
-    _note("the spheres, 1 of 2")
     reach, spheres_ = _playthrough(plan, logic)
     won = False
     for sp in spheres_:
@@ -826,13 +823,7 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
                       + (" (with what it picks up on the way)" if s.picks_up else "")]
     if not won:
         lines.append(f"victory ({db.world['victory']}) holds after the last sphere")
-    _note("the traps and the rest, 2 of 2")
     return lines + _dangers(plan, logic, reach, spheres_)
-
-
-def _note(text: str) -> None:
-    if NOTE is not None:
-        NOTE(text)
 
 
 def _dangers(plan: Plan, logic: Logic, reach: Reach, spheres_: list[SpoilerSphere]) -> list[str]:
