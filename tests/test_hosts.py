@@ -37,7 +37,9 @@ from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fu
 from azurkit import app, cli, sdk
 from azurkit.app import engine
 from azurkit.core import gate, iso, progress
+from azurkit.core.progress import record as progress_record
 from azurkit.tools import mods
+from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import tracking
 from scripts import freeze, record_goldens
 from tests import _g1, _page
@@ -789,6 +791,30 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
     finally:
         server.close()
     assert _ended(last)
+
+
+def test_the_apps_engine_counts_the_swaps_items_on_the_stage_its_call_reported_last(monkeypatch):
+    """``pool.TICK``, set by the app's engine as it follows a call (Step
+    4.3m): the swap's items done of total, on the stage the call reported
+    last (its dress's line), each percent once; a call no one follows
+    counts nothing, and another thread's work isn't its."""
+    def dress(recipe, progress=None):
+        if progress is not None:
+            progress(progress_record("dress", "Dressing keylord"))
+        return pool.each(lambda shared, item: item + shared, 1, list(range(8)))
+
+    monkeypatch.setattr(pool, "TICK", pool.TICK)
+    monkeypatch.setattr(pool, "MAP", None)
+    monkeypatch.setitem(engine.JOBS, "dress", dress)
+    seen = []
+    assert engine.Here().call("dress", {}, progress=seen.append) == list(range(1, 9))
+    assert [(r["label"], r["done"], r["total"]) for r in seen] == [("Dressing keylord", 0, 0), *(
+        ("Dressing keylord", k, 8) for k in range(1, 9))]
+    assert engine.Here().call("dress", {}) == list(range(1, 9))
+    other = threading.Thread(target=pool.each, args=(lambda shared, item: item, None, [0] * 8))
+    other.start()
+    other.join()
+    assert len(seen) == 9
 
 
 def test_the_apps_save_writes_the_image_its_build_made_planned_once_and_hashed_from_the_build_on(

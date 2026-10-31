@@ -37,9 +37,12 @@ dialog chose (it asked first), with ``POST api/cancel``. ``GET
 api/progress`` gives the progress of the calls in flight, each a
 ``core.progress`` record (``{"stage", "label", "done", "total",
 "percent"}``): the newest's at its top, and each kind's in ``calls``
-(``build``, ``save``: their named stages; ``preview``, ``match``,
-``plan``, ``tracker``, ``randomizer``, ``restore``, ``vanilla``,
-``spoiler``: the call's own line, no count), which the page shows as its bar.
+(``build``, ``save``: their named stages, the swap's items counted;
+``preview``, ``match``: the call's own line, the swap's items counted;
+``plan``: its logic read, fill and placements; ``tracker``: a plan's
+first view's seed logic and world map; ``randomizer``, ``restore``,
+``vanilla``, ``spoiler``: the call's own line, no count), which the page
+shows as its bar.
 Both run in the engine (:mod:`.engine`): ``serve``'s on the request's own
 thread, the app's (:func:`main`) in a process of its own, with the seed's
 plan and the Characters tab's pictures and G4 match, so the server's own
@@ -524,8 +527,9 @@ class Server(http.server.ThreadingHTTPServer):
         character = recipe.get("character") if isinstance(recipe, dict) else None
         species = character.get("species") if isinstance(character, dict) else None
         what = "draw it" if job == "preview" else "match garret4"
-        with self.follow(job, record("dress", f"Dressing {species} to {what}" if isinstance(species, str) else None)):
-            return self.engine.call(job, recipe)
+        first = record("dress", f"Dressing {species} to {what}" if isinstance(species, str) else None)
+        with self.follow(job, first) as report:   # the swap's items counted on its line (the engine's pool.TICK)
+            return self.engine.call(job, recipe, progress=lambda step: report(step | {"label": first["label"]}))
 
     def plan(self, body: dict) -> dict:
         """``api/plan``: a seed's plan to track (the engine's)."""

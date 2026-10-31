@@ -31,6 +31,7 @@ a call's refusal is the sdk's own exception, with its message."""
 from __future__ import annotations
 
 import base64
+import contextlib
 import itertools
 import multiprocessing
 import multiprocessing.connection
@@ -46,6 +47,7 @@ from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.core.progress import record
 from azurkit.tools import characters, randomizer
+from azurkit.tools.characters import pool
 
 
 class Cancelled(Exception):
@@ -103,6 +105,40 @@ class _Built:
 
 
 _BUILT: dict[str, _Built] = {}   # the last build's image, by its build id (random: a new process never reuses one)
+_FOLLOWED = threading.local()    # this thread's call: its progress, the record it reported last, the last tick's percent
+
+
+@contextlib.contextmanager
+def _following(progress: Callable[[dict], object] | None):
+    """This thread's call followed by ``progress`` (``None``: by no one):
+    the progress it reports through, each record kept as the stage
+    :func:`_ticked` counts the swap's items on (``pool.TICK``, set here)."""
+    if progress is None:
+        yield None
+        return
+    pool.TICK = _ticked
+    _FOLLOWED.progress, _FOLLOWED.last, _FOLLOWED.percent = progress, None, None
+
+    def report(step: dict) -> None:
+        _FOLLOWED.last = step
+        progress(step)
+    try:
+        yield report
+    finally:
+        _FOLLOWED.progress = _FOLLOWED.last = None
+
+
+def _ticked(done: int, total: int) -> None:
+    """``pool.TICK``: the swap's items done of total (``pool.each``'s, in
+    the thread of the call that runs it), on the stage that call reported
+    last (else ``dress``), each percent once."""
+    if (progress := getattr(_FOLLOWED, "progress", None)) is None:
+        return
+    last = _FOLLOWED.last or record("dress")
+    step = record(last["stage"], last["label"], done, total)
+    if step["percent"] != _FOLLOWED.percent:
+        _FOLLOWED.percent = step["percent"]
+        progress(step)
 
 
 def _drop() -> None:
@@ -141,7 +177,7 @@ def _kept(job: str, fn: Callable[[Mapping], dict]) -> Callable[[Mapping], dict]:
     release the image was checked as, the character, the packs as asked and
     the content folder), where there is one and the image is one the gate
     vouched for as it is now (``gate.vouched``); else ``fn``'s answer."""
-    def run(recipe: Mapping) -> dict:
+    def run(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
         key = None
         if characters.CACHE is not None and isinstance(recipe, Mapping) and isinstance(recipe.get("iso"), str):
             try:
@@ -166,7 +202,7 @@ def _kept(job: str, fn: Callable[[Mapping], dict]) -> Callable[[Mapping], dict]:
 _previewed = _kept("preview", lambda recipe: sdk.preview(recipe))
 
 
-def _preview(recipe: Mapping) -> dict:
+def _preview(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
     return {k: base64.b64encode(v).decode() for k, v in _previewed(recipe).items()}
 
 
@@ -189,8 +225,9 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                                              always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe)),
                              "spoiler": lambda plan: sdk.spoiler(plan, built=True)}
-"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save`` and ``plan``:
-``core.progress`` records; ``spoiler``: the last build's, which ``image`` leaves out)."""
+"""The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
+``preview`` and ``match``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
+``spoiler``: the last build's, which ``image`` leaves out)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
 
@@ -200,7 +237,8 @@ class Here:
     answer is the server's to refuse); a save sees it in its progress."""
 
     def call(self, job: str, *args, progress: Callable[[dict], object] | None = None):
-        return JOBS[job](*args, **({"progress": progress} if progress is not None else {}))
+        with _following(progress) as report:
+            return JOBS[job](*args, **({"progress": report} if report is not None else {}))
 
     def cancel(self) -> None:
         pass
@@ -434,7 +472,8 @@ def _main(conn, stores: bool = False) -> None:
             if stop.is_set():
                 raise Cancelled
         try:
-            value = JOBS[job](*args, **({"progress": progress} if follows else {}))
+            with _following(progress if follows else None) as report:
+                value = JOBS[job](*args, **({"progress": report} if follows else {}))
         except BaseException as exc:
             send("raised", ident, exc)
         else:

@@ -54,7 +54,8 @@ from pyodide.ffi import to_js
 
 import azurkit
 from azurkit import sdk
-from azurkit.core import iso
+from azurkit.core import iso, progress
+from azurkit.tools.characters import pool
 
 PIECE = "/tmp/azurkit-piece"
 
@@ -101,11 +102,32 @@ def kept(files, installed):
     return dropped
 
 
-def progressed(record):   # a build's, a plan's or a tracker's stage, posted while it runs (core/progress.py's record)
+LAST = {}   # the call's stage it posted last, and the last tick's percent
+
+
+def posted(record):
     postMessage(to_js({"type": "progress", **record}, dict_converter=Object.fromEntries, create_pyproxies=False))
 
 
+def progressed(record):   # a call's stage, posted while it runs (core/progress.py's record)
+    LAST.update(record=record, percent=None)
+    posted(record)
+
+
+def ticked(done, total):   # pool.TICK: the swap's items, on the call's last stage (else the dress), each percent once
+    last = LAST.get("record") or progress.record("dress")
+    step = progress.record(last["stage"], last["label"], done, total)
+    if step["percent"] != LAST.get("percent"):
+        LAST["percent"] = step["percent"]
+        posted(step)
+
+
+pool.TICK = ticked
+
+
 def engine(request):
+    LAST.clear()
+
     def js(value):
         return to_js(handed(value), dict_converter=Object.fromEntries, create_pyproxies=False)
 

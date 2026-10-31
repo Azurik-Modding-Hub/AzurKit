@@ -512,7 +512,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     against the facts' swap site (`xbe_site`), and config.xbr's keyed tables
     and cell edits. `pool.py` runs the swap's parallel work in order unless
     a host gives it a map (`pool.MAP`, handed each item's cost and a tick),
-    a thread for `later` (`pool.LATER`) and a progress tick (`pool.TICK`).
+    a thread for `later` (`pool.LATER`) and a progress tick (`pool.TICK`),
+    which both hosts set (Step 4.3m): the app's engine and the site's
+    worker count the items on the stage the call in that thread reported
+    last (a dress's line), each percent once.
     The app's engine process gives it `azurkit.app.procpool` (Step 4.3i):
     Modkit's split over spawned children, `min(16, the CPUs,
     $AZURKIT_CORES)` a call, kept for the next, through pipes alone; the
