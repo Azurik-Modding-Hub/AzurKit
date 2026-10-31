@@ -8,10 +8,13 @@ image."""
 from __future__ import annotations
 
 import _thread
+import ctypes
 import hashlib
 import os
 import re
+import stat
 import struct
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -79,6 +82,44 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     with pytest.raises(ValueError, match="it changed after the build read it"):   # D27: the input as the build read it
         iso.pack(built, tmp_path / "late.iso")
     assert not (tmp_path / "late.iso").exists()
+
+
+def _xattrs(path, name: str | None = None) -> list[str]:
+    """The extended attributes' names of the file at ``path``, after
+    setting ``name`` on it."""
+    if sys.platform != "darwin":
+        if name:
+            os.setxattr(path, f"user.{name}", b"1")
+        return os.listxattr(path)
+    libc = ctypes.CDLL(None, use_errno=True)
+    if name:
+        assert libc.setxattr(os.fsencode(path), name.encode(), b"1", 1, 0, 0) == 0
+    names = ctypes.create_string_buffer(4096)
+    size = libc.listxattr(os.fsencode(path), names, 4096, 0)
+    return [n.decode() for n in names.raw[:max(size, 0)].split(b"\0") if n]
+
+
+def test_a_clone_of_the_input_and_the_streamed_copy_write_the_same_image_as_a_fresh_file(tmp_path, monkeypatch):
+    """pack clones the input where its file system can (this Mac's APFS) and
+    writes only the image's writes over the clone; where the clone fails
+    (another volume) it streams the whole image. Either way the bytes and
+    the sha256 are the same, and the file a fresh one's: its mode, and none
+    of the input's extended attributes (its quarantine flag, say)."""
+    src = tmp_path / "in.iso"
+    src.write_bytes(image({"a.bin": fill("a", 90), "gamedata/big.xbr": fill("big", 3 * S), "z.bin": fill("z", 10)}))
+    _xattrs(src, "com.azurkit.test")
+    src.chmod(0o444)   # the player's image, read-only
+    built = iso.read(src, {"a.bin": fill("A", 50), "gamedata/big.xbr": fill("B", 3 * S + 1)})
+    clones, clone = [], iso._clone
+    monkeypatch.setattr(iso, "_clone", lambda source, part: clones.append(fd := clone(source, part)) or fd)
+    cloned, streamed = tmp_path / "cloned.iso", tmp_path / "streamed.iso"
+    sha = iso.pack(built, cloned)
+    assert clones[0] is not None or sys.platform != "darwin"
+    monkeypatch.setattr(iso, "_clone", lambda source, part: None)
+    assert iso.pack(built, streamed) == sha == built.sha256() == _sha256(cloned) == _sha256(streamed)
+    assert cloned.read_bytes() == streamed.read_bytes() and _xattrs(cloned) == []
+    assert stat.S_IMODE(cloned.stat().st_mode) == stat.S_IMODE(streamed.stat().st_mode)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["cloned.iso", "in.iso", "streamed.iso"]
 
 
 def _listing(files: dict[str, bytes]) -> bytes:

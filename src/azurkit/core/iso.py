@@ -27,6 +27,7 @@ import itertools
 import os
 import re
 import struct
+import sys
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -455,16 +456,21 @@ def _origin(stat: os.stat_result) -> tuple[int, int, int]:
 
 def pack(image: Image, out: str | os.PathLike, progress: Callable[[int, int], object] | None = None, *,
          sha256: Callable[[], str] | None = None) -> str:
-    """Write ``image`` to ``out`` and return its sha256, hashed as it is
-    written, or ``sha256()``'s (the same bytes' hash, which a host started
-    earlier: :func:`digest` on a thread of its own), called once the bytes
-    are written. ``out`` appears only once it is whole and on the disk (a
-    fresh ``.part`` beside it, fsynced, then renamed into place; D35), and it
-    may not be the image's input (D36), nor written once that input has
-    changed since :func:`read` read it (``Image.origin``). ``progress(done,
-    total)`` is called before the ``.part`` is made and after each
-    :data:`CHUNK`; an exception it raises cancels the write, and nothing is
-    left behind."""
+    """Write ``image`` to ``out`` and return its sha256, or ``sha256()``'s
+    (the same bytes' hash, which a host started earlier: :func:`digest` on a
+    thread of its own), called once the bytes are written. Where the file
+    system clones (APFS's clonefile, Linux's FICLONE on btrfs or XFS) ``out``
+    is a clone of the input with only the image's writes written over it, in
+    order, then hashed through its segments; else the image is streamed,
+    hashed as it is written (another volume, say: nothing of the clone is
+    left). Either way it is a fresh file's mode and holds none of the
+    input's extended attributes (its quarantine flag, say). ``out`` appears
+    only once it is whole and on the disk (a fresh ``.part`` beside it,
+    fsynced, then renamed into place; D35), and it may not be the image's
+    input (D36), nor written once that input has changed since :func:`read`
+    read it (``Image.origin``). ``progress(done, total)`` is called before
+    the ``.part`` is made and after each :data:`CHUNK` written or hashed; an
+    exception it raises cancels the write, and nothing is left behind."""
     out = Path(out)
     if out.exists() and out.samefile(image.source):
         raise ValueError(f"{out}: it is the build's input, which a build never writes over")
@@ -473,23 +479,108 @@ def pack(image: Image, out: str | os.PathLike, progress: Callable[[int, int], ob
     if progress is not None:
         progress(0, image.size)
     part = out.with_name(f"{out.name}.{os.urandom(4).hex()}.part")
-    digest_, dst = hashlib.sha256(), open(part, "xb")
     try:
-        with dst, image.open() as src:
-            while data := src.read(CHUNK):
-                if sha256 is None:
-                    digest_.update(data)
-                dst.write(data)
+        if (fd := _clone(Path(image.source), part)) is not None:
+            with os.fdopen(fd, "r+b") as dst:
+                _own(dst.fileno(), part)
+                if os.fstat(dst.fileno()).st_size < image.size:
+                    os.ftruncate(dst.fileno(), image.size)   # zeros past the input's end, as the segments' Zero
+                for at, data in image.writes:   # each over those before it, as the segments lay them
+                    view = memoryview(data)
+                    while view:
+                        n = os.pwrite(dst.fileno(), view, at)
+                        view, at = view[n:], at + n
+                os.fsync(dst.fileno())
+            if sha256 is None:
+                sha = digest(image, progress)
+            else:
                 if progress is not None:
-                    progress(src.tell(), image.size)
-            dst.flush()
-            os.fsync(dst.fileno())
-        sha = digest_.hexdigest() if sha256 is None else sha256()
+                    progress(image.size, image.size)
+                sha = sha256()
+        else:
+            sha = _stream(image, part, progress, sha256)
         os.replace(part, out)
     except BaseException:
         part.unlink(missing_ok=True)
         raise
     return sha
+
+
+def _stream(image: Image, part: Path, progress: Callable[[int, int], object] | None,
+            sha256: Callable[[], str] | None) -> str:
+    """:func:`pack`'s copy where nothing clones: every byte written to a
+    fresh ``part``, hashed as it is written (else ``sha256()``)."""
+    digest_ = hashlib.sha256()
+    with open(part, "xb") as dst, image.open() as src:
+        while data := src.read(CHUNK):
+            if sha256 is None:
+                digest_.update(data)
+            dst.write(data)
+            if progress is not None:
+                progress(src.tell(), image.size)
+        dst.flush()
+        os.fsync(dst.fileno())
+    return digest_.hexdigest() if sha256 is None else sha256()
+
+
+def _clone(source: Path, part: Path) -> int | None:
+    """``part`` made as a clone of ``source`` (its blocks shared until
+    either is written), open for writing, where the file system can:
+    APFS's ``clonefile`` on macOS, ``FICLONE`` on Linux; ``None``, with
+    nothing made, where it can't (another volume, another file system,
+    another platform)."""
+    source = Path(os.path.realpath(source))   # a link to the image (the user data folder's) clones its target
+    if sys.platform == "darwin":
+        import ctypes
+
+        libc = ctypes.CDLL(None, use_errno=True)
+        if libc.clonefile(os.fsencode(source), os.fsencode(part), ctypes.c_uint32(0)) != 0:
+            return None
+        try:
+            os.chmod(part, 0o600)   # the clone has the input's mode (a read-only image's); _own gives it a fresh file's
+            return os.open(part, os.O_RDWR)
+        except OSError:
+            part.unlink(missing_ok=True)
+            raise
+    if sys.platform.startswith("linux"):
+        import fcntl
+
+        fd = os.open(part, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o666)
+        try:
+            with open(source, "rb") as src:
+                fcntl.ioctl(fd, 0x40049409, src.fileno())   # FICLONE
+            return fd
+        except OSError:
+            os.close(fd)
+            part.unlink(missing_ok=True)
+            return None
+    return None
+
+
+def _own(fd: int, part: Path) -> None:
+    """The clone ``part`` (open as ``fd``) made a fresh file's: the mode
+    ``open(part, "xb")`` gives, and none of the input's extended attributes
+    (macOS's clonefile copies them: its quarantine flag, say); one the
+    system won't let go of stays (harmless to an image)."""
+    mask = os.umask(0)
+    os.umask(mask)
+    os.fchmod(fd, 0o666 & ~mask)
+    if sys.platform != "darwin":
+        return
+    import ctypes
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.flistxattr.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int]
+    libc.flistxattr.restype = ctypes.c_ssize_t
+    libc.fremovexattr.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+    size = libc.flistxattr(fd, None, 0, 0)
+    if size <= 0:
+        return
+    names = ctypes.create_string_buffer(size)
+    size = libc.flistxattr(fd, names, size, 0)
+    for name in names.raw[:max(size, 0)].split(b"\0"):
+        if name:
+            libc.fremovexattr(fd, name, 0)
 
 
 def digest(image: Image, progress: Callable[[int, int], object] | None = None) -> str:
