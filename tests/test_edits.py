@@ -118,6 +118,92 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
         compose(BASE, [swap], known | {"b.bin": _sha256(b"X")})
 
 
+def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(tmp_path):
+    """Replace files (``edits.files``): a file the player picked stands in
+    whole for the image's own, at any size, in one layer after every other.
+    An earlier group it shadows (an ``xbr`` operation) is dropped whole and
+    named (D28); one whose bytes it holds is kept; a file another layer
+    writes whole (the character layer's) is refused by name. The recipe and
+    the manifest name each file by path, sha256 and size, never its bytes.
+    Refused by name: default.xbe, filelist.txt, /azurkit.json, /azurkit.bin,
+    a path the image hasn't, a rebuild whose file isn't picked this session
+    or is another file (no sha256 echoed), and a computer path on a network
+    share, a device path or under /net/ (SEC-11)."""
+    import dataclasses
+
+    from azurkit.edits import files as put
+    from azurkit.edits import xbr
+
+    game = {"default.xbe": fill("x", 64), "gamedata/config.xbr": fill("c", 96),
+            "gamedata/characters.xbr": fill("h", 48), "movies/Credits.bik": fill("m", 5000)}
+    (tmp_path / "usa.json").write_text(json.dumps({"dirs": ["gamedata", "movies"], "files": {
+        path: [len(data), _sha256(data)] for path, data in game.items()}}))
+    release = dataclasses.replace(gate.USA, manifest=tmp_path / "usa.json")
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(game))
+    stamp = gate.Stamp(release, src, src.stat().st_size, src.stat().st_mtime_ns, False)
+    config, credits = b"NEW!" + game["gamedata/config.xbr"][4:] + b"grown" * 40, fill("s", 700)
+    swap = Layer("player model keylord", "characters", "characters", {"species": "keylord"},
+                 (Change("gamedata/characters.xbr", 0, _sha256(game["gamedata/characters.xbr"]), b"body" * 30,
+                         "swap files", whole=True),))
+    data = xbr.plan(xbr.normalize([
+        {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": 0, "expected": "6363", "value": "4e45"},
+        {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": 32, "expected": "6363", "value": "4f4c"}]),
+        release, game)
+    entries = put.normalize([put.entry("gamedata/config.xbr", config), put.entry("movies/Credits.bik", credits)])
+    picked = {"gamedata/config.xbr": config, "movies/Credits.bik": credits}
+    made, manifest = edits.image(stamp, [swap, data, put.plan(entries, picked, release)])
+    with iso.Reader(made) as r:
+        assert [r.read(path) for path in ("gamedata/config.xbr", "movies/Credits.bik", "gamedata/characters.xbr")] == [
+            config, credits, b"body" * 30]
+    assert [str(conflict) for conflict in manifest.conflicts] == [
+        "gamedata/config.xbr 0x20 (2 B): files put (put gamedata/config.xbr) overwrote data xbr, whose group "
+        "#2 replace_bytes gamedata/config.xbr 0x20 is dropped whole"]
+    assert entries[0] == {"path": "gamedata/config.xbr", "sha256": _sha256(config), "size": len(config)}
+    assert manifest.recipe()["layers"][-1] == {"id": "files put", "tool": "files", "kind": "put",
+                                               "recipe": {"files": entries}}
+    assert manifest.result["movies/Credits.bik"] == _sha256(credits)
+    assert [c.get("whole") for c in manifest.to_json()["layers"][-1]["changes"]] == [True, True]
+    body = put.normalize([put.entry("gamedata/characters.xbr", credits)])
+    with pytest.raises(ValueError, match=r"^files put \(put gamedata/characters\.xbr\): gamedata/characters\.xbr is "
+                                         r"written whole by player model keylord already$"):
+        edits.image(stamp, [swap, put.plan(body, {"gamedata/characters.xbr": credits}, release)])
+    owned = {"default.xbe": "the packs' file, planned against its own layout, is never replaced whole",
+             "filelist.txt": "the build writes it", "/azurkit.json": "a build's manifest, which the build writes",
+             "/AZURKIT.BIN": "a build's manifest, which the build writes"}
+    for path, why in owned.items():
+        with pytest.raises(ValueError, match=f"^files 1 \\({re.escape(path)}\\): {re.escape(why)}$"):
+            put.normalize([entries[0] | {"path": path}])
+    refused = {
+        "files 2 (gamedata/config.xbr): replaced twice (files 1 and 2)": [entries[0], entries[0]],
+        "files 1: no key 'source' (its keys: path, sha256, size)": [entries[0] | {"source": "/Users/x/mine.xbr"}],
+        "files 1 (gamedata/config.xbr): sha256 is not 64 lowercase hex digits": [entries[0] | {"sha256": "AB" * 32}],
+    }
+    for why, given in refused.items():
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            put.normalize(given)
+    other = config[::-1]
+    stops = {
+        "files 1 (gamedata/new.xbr): the USA image has no gamedata/new.xbr (Replace files adds no file)":
+            (put.normalize([put.entry("gamedata/new.xbr", credits)]), {"gamedata/new.xbr": credits}),
+        "files 1 (gamedata/config.xbr): its file isn't picked in this session; pick it again (296 B); files 2 "
+        "(movies/Credits.bik): its file isn't picked in this session; pick it again (700 B)": (entries, {}),
+        "files 1 (gamedata/config.xbr): the picked file isn't the one it names (another sha256)":
+            (entries[:1], {"gamedata/config.xbr": other}),
+        "files 1 (gamedata/config.xbr): the picked file is 4 B, not the 296 B it names":
+            (entries[:1], {"gamedata/config.xbr": b"tiny"}),
+        "files: a file picked for movies/Credits.bik, which no entry replaces": (entries[:1], picked),
+    }
+    for why, (given, files) in stops.items():
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            put.plan(given, files, release)
+    for path in (r"\\host\share\mine.xbr", r"\\?\C:\mine.xbr", r"\\.\pipe\x", "//host/share/mine.xbr",
+                 "/net/host/mine.xbr", "/NET/host/mine.xbr", "/net"):
+        with pytest.raises(ValueError, match=r"is never read; pick a file on this computer$"):
+            put.source(path)
+    assert put.source(str(tmp_path / "mine.xbr")) == str(tmp_path / "mine.xbr")
+
+
 def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoiler_comes_on_demand(usa_iso, tmp_path,
                                                                                                     monkeypatch):
     """``sdk.image`` reports each named stage of a build as the progress
