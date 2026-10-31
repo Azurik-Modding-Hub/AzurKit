@@ -16,7 +16,7 @@ commit. Each line is plain and short, with no step, D or AZ ids, and true on
 
 | Home | Load it for |
 |---|---|
-| This file | the rules: setup and tests, game data, the goldens and the oracle, packs, the randomizer, characters, the engine's contracts, the two hosts, commits and landing |
+| This file | the rules: setup and tests, game data, the goldens, porting from Modkit, packs, the randomizer, characters, the engine's contracts, the two hosts, commits and landing |
 | `azurik-game-reference` (`.claude/skills/`) | VAs, structs, ABIs, measured movement and armor numbers, patches whose bytes landed with no in-game effect |
 | `.claude/agents/` | the seats' roles (D951's `azurik-*` names): `azurik-builder` (Opus: build, fix, gate, sitting), `azurik-reader` (Opus, read-only: RE, reads, reviews, skeptics), `azurik-scout` (Sonnet, read-only: locate and cite), `azurik-mechanic` (Haiku: a command list handed over); `tests/test_agent_files.py` pins each one's model, effort and denied tools |
 | `$EV`, the private evidence folder beside the main checkout | the brief (`$EV/tools/BRIEF.md`), the decisions, the ledger, plans, evidence and the tools the seats run (D951, D952); never copied into the repo |
@@ -72,7 +72,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
 - **When a truth goes red, suspect the code or the address first:** a
-  golden, the oracle, the facts or a drift guard that fails (the prologue
+  golden, the facts or a drift guard that fails (the prologue
   guard in `tests/test_shims.py`, a site's vanilla sha256) means the port
   or the facts' address is wrong. Fix it there; never widen
   `PROLOGUE_FIRST_BYTES`, the skip list or any other allow-list to get green.
@@ -952,7 +952,6 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   never `git add -A` or `.`.
 - **Protected paths:** a commit that changes one names each in its body, and
   why: `tests/goldens/` (only `scripts/record_goldens.py` writes it),
-  `tests/oracle/` and the source it pins (only `scripts/oracle_sync.py`),
   the facts (`src/azurkit/core/facts.<release>.json`), the release
   manifests (`src/azurkit/core/manifests/`), the shim objects (only `python
   -m shimkit`) and `shimkit/`, `tests/sdk_api.txt` (only

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import re
 import subprocess
-import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -105,18 +104,13 @@ def test_no_tracked_text_holds_a_home_path_and_no_doc_cites_a_dated_evidence_fol
     home path: the running user's home written out, or the owner's layout
     under a home folder (HOME_LAYOUT). Nor do the docs and skills (every
     tracked ``.md``) cite one step's dated evidence folder (DATED_EVIDENCE).
-    Binary files are skipped. What only
-    ``scripts/oracle_sync.py`` writes is Modkit's text until its next sync
-    (``tests/oracle/`` and the source ORACLE.toml pins): a hit there is
-    fixed in Modkit. A hit prints its file, line and the match alone."""
-    oracle = tomllib.loads((ROOT / "tests" / "oracle" / "ORACLE.toml").read_text(encoding="utf-8"))
-    synced = {rel for family in oracle.values() if isinstance(family, dict) for rel in family.get("source", {})}
+    Binary files are skipped, and nothing else: the files ported from
+    Modkit are AzurKit's own (the sync ended, Step 4.12b). A hit prints its
+    file, line and the match alone."""
     home = str(Path.home()).rstrip("/\\")
     own_home = re.compile(re.escape(home) + r"[/\\]") if len(home) > 3 else None
     hits = []
     for rel in tracked():
-        if rel.startswith("tests/oracle/") or rel in synced:
-            continue
         data = (ROOT / rel).read_bytes()
         if b"\0" in data:
             continue

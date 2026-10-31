@@ -88,7 +88,7 @@
 #
 # Rules: no world coordinates (heights and distances are relative: to a ledge, a jump point, a waterline or the
 # e6 tree core's axis and base) and no game bytes. VAs and collision words are addresses and flags, not bytes.
-# Paths are relative to $EV/randomizer-plan-2026-10-10/ ($EV = ~/Documents/Azurik/evidence).
+# Paths are relative to $EV/randomizer-plan-2026-10-10/ ($EV: the private evidence folder beside the main checkout).
 # Labels: [verified static] (capstone/ramdis), [verified L2] (the game's own code in Unicorn), [computed] (scripts on
 # the vanilla ISO), [video: id@mm:ss] (community, unverified, D108 Q257), [owner], [inferred]. Nothing here has
 # been seen in xemu yet: every skip stays confidence "assumed" in the database until a sitting or the owner
