@@ -1,0 +1,1151 @@
+{
+ "about": "What config.xbr's cells hold, by the file's own table and row names (settings_foo: each setting's column name): each cell's label, type (number, int32: a number the game reads as a 32-bit integer, text, list: words), unit, range (a hint, never a limit), value set and note. Ported from Modkit's schema.json (its entries checked against the game).",
+ "value_sets": {
+  "features": [
+   "none",
+   "all",
+   "tiny",
+   "small",
+   "normal",
+   "large",
+   "huge",
+   "obstacle",
+   "fixme",
+   "ride",
+   "good",
+   "light",
+   "player",
+   "critter",
+   "item",
+   "camera",
+   "death",
+   "life",
+   "earth",
+   "air",
+   "fire",
+   "water",
+   "waterwalker",
+   "dead",
+   "stunned",
+   "frozen",
+   "mutating",
+   "tasty"
+  ]
+ },
+ "tables": {
+  "armor_hit_fx": {
+   "about": "The effect a hit of each damage record on each armor plays.",
+   "cells": {
+    "armor type": {
+     "label": "Armor",
+     "type": "text",
+     "unit": "",
+     "values_from": [
+      "armor_properties"
+     ],
+     "note": "An armor (armor_properties'), by name."
+    },
+    "damage type": {
+     "label": "Damage Type",
+     "type": "text",
+     "unit": "",
+     "values_from": [
+      "damage"
+     ],
+     "note": "A damage record (damage's), by name."
+    }
+   }
+  },
+  "armor_properties": {
+   "about": "Armor table (15×19 grid), loaded by 0x3C700 as config/armor_properties — edit here for effects that show up in-game (e.g. Flaps per air shield).",
+   "cells": {
+    "Type": {
+     "label": "Type",
+     "type": "text",
+     "unit": "",
+     "note": "The armor's 4-letter type code; a magic armor spell's Armor names it."
+    },
+    "Level": {
+     "label": "Armor Level",
+     "type": "int32",
+     "unit": "tier",
+     "range": [
+      0,
+      10
+     ],
+     "note": "The armor's level (truncated to int32, 0xF5A40)."
+    },
+    "Strong vs": {
+     "label": "Strong vs Damage Type",
+     "type": "list",
+     "unit": "",
+     "values_from": [
+      "damage/Type"
+     ],
+     "max_words": 2,
+     "note": "Up to 2 damage type codes whose hits use Strong protection and Strong protection hp (0x83FE0); a third fails the game's MAX_VS_COUNT assert (0x3C905)."
+    },
+    "Weak vs": {
+     "label": "Weak vs Damage Type",
+     "type": "list",
+     "unit": "",
+     "values_from": [
+      "damage/Type"
+     ],
+     "max_words": 2,
+     "note": "Up to 2 damage type codes whose hit breaks the armor at once, unreduced (0x83FE0); a third fails the game's MAX_VS_COUNT assert (0x3CA24)."
+    },
+    "Strong protection": {
+     "label": "Strong Protection Mult",
+     "type": "number",
+     "unit": "fraction",
+     "range": [
+      0,
+      1
+     ],
+     "note": "Fraction of a hit absorbed when its type is in Strong vs: round(base x this), at most Strong protection hp (0x83FE0)."
+    },
+    "Normal protection": {
+     "label": "Normal Protection Mult",
+     "type": "number",
+     "unit": "fraction",
+     "range": [
+      0,
+      1
+     ],
+     "note": "Fraction of a hit absorbed when its type is in neither list: round(base x this), at most Normal protection hp (0x83FE0)."
+    },
+    "Strong protection hp": {
+     "label": "Strong Prot HP Cap",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      0,
+      1000
+     ],
+     "note": "Most HP the armor absorbs from one hit of a Strong vs type (truncated to int32, 0xF5A40)."
+    },
+    "Normal protection hp": {
+     "label": "Normal Prot HP Cap",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      0,
+      1000
+     ],
+     "note": "Most HP the armor absorbs from one hit of any other type (truncated to int32, 0xF5A40)."
+    },
+    "Cost": {
+     "label": "Fuel Cost",
+     "type": "int32",
+     "unit": "fuel",
+     "range": [
+      0,
+      100
+     ],
+     "note": "Fuel per element to cast this armor (truncated to int32, 0xF5A40); not a price."
+    },
+    "Hits": {
+     "label": "Hits",
+     "type": "int32",
+     "unit": "hits",
+     "range": [
+      0,
+      9999
+     ],
+     "note": "Total the armor absorbs before it breaks (truncated to int32, 0xF5A40)."
+    },
+    "Time": {
+     "label": "Time",
+     "type": "number",
+     "unit": "seconds",
+     "range": [
+      0,
+      9999
+     ],
+     "note": "Seconds the armor lasts (vanilla: the light armors' 5, 10 and 20)."
+    },
+    "Flaps": {
+     "label": "Flap Count",
+     "type": "int32",
+     "unit": "flaps",
+     "range": [
+      0,
+      20
+     ],
+     "note": "Wing flaps the air shield grants (truncated to int32, 0xF5A40); the Air Shield flaps sliders set it."
+    },
+    "Features": {
+     "label": "Features",
+     "type": "list",
+     "unit": "",
+     "values": "features",
+     "note": "The armor's features (vanilla: light on the light armors). Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    }
+   }
+  },
+  "attacks_anims": {
+   "about": "One column per attack move, the player's and the critters': the animation window and root-motion frames it plays, their rate, its aim, and the multipliers on its damage record's damage and fuel (empty = 1).",
+   "cells": {
+    "Damage multiplier": {
+     "label": "Damage Multiplier",
+     "type": "number",
+     "unit": "multiplier",
+     "range": [
+      0,
+      10
+     ],
+     "empty_default": 1,
+     "note": "Scales the hit's base damage against a critter (rounded up); empty = 1.0. Hits on the player ignore it."
+    },
+    "Fuel multiplier": {
+     "label": "Fuel Multiplier",
+     "type": "number",
+     "unit": "multiplier",
+     "range": [
+      0,
+      5
+     ],
+     "empty_default": 1,
+     "note": "Scales the fuel each hit takes from each element of the spell (rounded up); empty = 1.0."
+    },
+    "Aim angle": {
+     "label": "Aim Angle",
+     "type": "number",
+     "unit": "degrees",
+     "range": [
+      -180,
+      180
+     ],
+     "empty_default": "none",
+     "note": "Empty: the move doesn't aim (the loader's sentinel 100000, 0x7F202); what a value does isn't traced."
+    }
+   }
+  },
+  "attacks_transitions": {
+   "about": "Which attack follows which: each column a transition (38), read in order.",
+   "cells": {
+    "search order": {
+     "label": "Search Order",
+     "type": "text",
+     "unit": "",
+     "note": "Unused: the game never reads it (no 'search order' string in the XBE)."
+    },
+    "last move": {
+     "label": "Last Move",
+     "type": "text",
+     "unit": "",
+     "values_from": [
+      "attacks_anims"
+     ],
+     "note": "The move this transition follows: an attack (attacks_anims), or run, jump or jump attack."
+    },
+    "button": {
+     "label": "Button",
+     "type": "number",
+     "unit": "",
+     "values": [
+      1,
+      2,
+      3
+     ],
+     "empty_default": "any",
+     "note": "The attack button, 1, 2 or 3; empty: any."
+    },
+    "touch": {
+     "label": "Touch",
+     "type": "text",
+     "unit": "",
+     "values": [
+      "light",
+      "heavy"
+     ],
+     "note": "light or heavy; empty in every vanilla transition."
+    },
+    "target direction": {
+     "label": "Target Direction",
+     "type": "text",
+     "unit": "",
+     "values": [
+      "forward",
+      "back",
+      "left",
+      "right",
+      "up",
+      "down",
+      "any"
+     ],
+     "note": "forward, back, left, right, up, down or any; whether it is the stick's direction or the target's bearing isn't traced."
+    },
+    "target features": {
+     "label": "Target Features",
+     "type": "list",
+     "unit": "",
+     "values": "features",
+     "note": "The target's features (vanilla: stunned, frozen). Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    },
+    "near cliff": {
+     "label": "Near Cliff",
+     "type": "number",
+     "unit": "",
+     "values": [
+      0,
+      1
+     ],
+     "empty_default": "any",
+     "note": "0 or 1; empty: any (either)."
+    },
+    "long range": {
+     "label": "Long Range",
+     "type": "number",
+     "unit": "",
+     "values": [
+      0,
+      1
+     ],
+     "empty_default": "any",
+     "note": "0 or 1; empty: any (either)."
+    },
+    "damage type": {
+     "label": "Damage Type",
+     "type": "text",
+     "unit": "",
+     "values_from": [
+      "damage"
+     ],
+     "note": "A damage record (damage's), by name."
+    },
+    "next move": {
+     "label": "Next Move",
+     "type": "text",
+     "unit": "",
+     "values_from": [
+      "attacks_anims"
+     ],
+     "note": "The attack (attacks_anims) this transition starts."
+    }
+   }
+  },
+  "critters_critter_data": {
+   "about": "One column per critter or pickup: its run and walk-threshold speeds and their animation rates, attack reach, drowning and corpse timers, pain thresholds and knockbacks, bound and collision radii, five drop slots, the features it fears, follows, attacks and eats, its ranges, sound distances and spawn limits.",
+   "cells": {
+    "noFreeze": {
+     "label": "No Freeze",
+     "type": "number",
+     "unit": "bool",
+     "range": [
+      0,
+      1
+     ],
+     "empty_default": 0,
+     "yes_no": true,
+     "note": "Yes/no: the game keeps whether it isn't 0 (0x49E9A); empty reads 0. By its name the critter can't be frozen; where the game uses it isn't traced."
+    },
+    "hitsThroughWalls": {
+     "label": "Hits Through Walls",
+     "type": "number",
+     "unit": "bool",
+     "range": [
+      0,
+      1
+     ],
+     "empty_default": 0,
+     "yes_no": true,
+     "note": "Yes/no: the game keeps whether it isn't 0 (0x49EE2); empty reads 0. By its name the critter's attacks pass through walls; where the game uses it isn't traced."
+    },
+    "drop1": {
+     "label": "Drop Item 1",
+     "type": "text",
+     "unit": "item_id",
+     "values_from": [
+      "critters_item_data"
+     ],
+     "note": "What drop slot 1 names: a pickup (critters_item_data), or a critter (flicken of peril names itself)."
+    },
+    "drop2": {
+     "label": "Drop Item 2",
+     "type": "text",
+     "unit": "item_id",
+     "values_from": [
+      "critters_item_data"
+     ],
+     "note": "What drop slot 2 names: a pickup (critters_item_data), or a critter (flicken of peril names itself)."
+    },
+    "drop3": {
+     "label": "Drop Item 3",
+     "type": "text",
+     "unit": "item_id",
+     "values_from": [
+      "critters_item_data"
+     ],
+     "note": "What drop slot 3 names: a pickup (critters_item_data), or a critter (flicken of peril names itself)."
+    },
+    "drop4": {
+     "label": "Drop Item 4",
+     "type": "text",
+     "unit": "item_id",
+     "values_from": [
+      "critters_item_data"
+     ],
+     "note": "What drop slot 4 names: a pickup (critters_item_data), or a critter (flicken of peril names itself)."
+    },
+    "drop5": {
+     "label": "Drop Item 5",
+     "type": "text",
+     "unit": "item_id",
+     "values_from": [
+      "critters_item_data"
+     ],
+     "note": "What drop slot 5 names: a pickup (critters_item_data), or a critter (flicken of peril names itself)."
+    },
+    "f.fear": {
+     "label": "Fear Range Tag",
+     "type": "list",
+     "unit": "tag",
+     "values": "features",
+     "note": "The features of what this critter fears, by its name. Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    },
+    "f.follow": {
+     "label": "Follow Target Tag",
+     "type": "list",
+     "unit": "tag",
+     "values": "features",
+     "note": "The features of what this critter follows, by its name. Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    },
+    "f.attack": {
+     "label": "Attack Target Tag",
+     "type": "list",
+     "unit": "tag",
+     "values": "features",
+     "note": "The features of what this critter attacks, by its name. Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    },
+    "f.food": {
+     "label": "Food Target Tag",
+     "type": "list",
+     "unit": "tag",
+     "values": "features",
+     "note": "The features of what this critter eats, by its name. Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    }
+   }
+  },
+  "critters_damage": {
+   "about": "Per-entity HP, the damage record its attacks deal, and the HP each damage record takes from it (absolute HP, not multipliers).",
+   "cells": {
+    "damageType": {
+     "label": "Damage Type",
+     "type": "text",
+     "unit": "",
+     "values_from": [
+      "damage"
+     ],
+     "note": "The damage record this critter's attacks deal, by name (one of damage's records; norm_1 for the player and 28 critters)."
+    },
+    "hitPoints": {
+     "label": "Hit Points",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      1,
+      9999
+     ],
+     "note": "Hit points of a critter of this species (truncated to int32, 0xF5A40). Critter init uses it when a spawn passes a negative HP: level critters from critterGenerators do, the player doesn't (its HP is settings_foo 'initial hp'). Verified statically, not seen in game."
+    },
+    "norm_1": {
+     "label": "Normal Dmg Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a norm_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "norm_2": {
+     "label": "Normal Dmg Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a norm_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "norm_3": {
+     "label": "Normal Dmg Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a norm_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "norm_4": {
+     "label": "Normal Dmg Tier 4",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a norm_4 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "water_1": {
+     "label": "Water Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a water_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "water_2": {
+     "label": "Water Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a water_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "water_3": {
+     "label": "Water Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a water_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "steam_1": {
+     "label": "Steam Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a steam_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "steam_2": {
+     "label": "Steam Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a steam_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "steam_3": {
+     "label": "Steam Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a steam_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "lightning_1": {
+     "label": "Lightning Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lightning_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "lightning_2": {
+     "label": "Lightning Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lightning_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "lightning_3": {
+     "label": "Lightning Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lightning_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "acid_1": {
+     "label": "Acid Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an acid_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "acid_2": {
+     "label": "Acid Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an acid_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "acid_3": {
+     "label": "Acid Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an acid_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "fire_1": {
+     "label": "Fire Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a fire_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "fire_2": {
+     "label": "Fire Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a fire_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "fire_3": {
+     "label": "Fire Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a fire_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "wind_1": {
+     "label": "Wind Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a wind_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "wind_2": {
+     "label": "Wind Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a wind_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "wind_3": {
+     "label": "Wind Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a wind_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "wind_4": {
+     "label": "Wind Tier 4",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a wind_4 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "smash_1": {
+     "label": "Smash Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a smash_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "smash_2": {
+     "label": "Smash Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a smash_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "smash_3": {
+     "label": "Smash Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a smash_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "ice_1": {
+     "label": "Ice Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an ice_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "ice_2": {
+     "label": "Ice Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an ice_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "ice_3": {
+     "label": "Ice Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an ice_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "elemental_1": {
+     "label": "Elemental Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an elemental_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "elemental_2": {
+     "label": "Elemental Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an elemental_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "elemental_3": {
+     "label": "Elemental Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP an elemental_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "lava_1": {
+     "label": "Lava Tier 1",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lava_1 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "lava_2": {
+     "label": "Lava Tier 2",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lava_2 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    },
+    "lava_3": {
+     "label": "Lava Tier 3",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      -100,
+      1000
+     ],
+     "note": "HP a lava_3 hit takes from this critter: absolute, not a multiplier (empty = the record's Damage, 0 = immune, negative heals)."
+    }
+   }
+  },
+  "critters_engine": {
+   "about": "Per-entity engine settings: body, AI, realm, size and features (184 entities: 108 critters, 73 pickups, 3 others).",
+   "cells": {
+    "realm": {
+     "label": "Realm",
+     "type": "list",
+     "unit": "",
+     "values": "features",
+     "note": "The critter's realm features (earth, water, air, fire, death, life). Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    },
+    "size": {
+     "label": "Size",
+     "type": "list",
+     "unit": "",
+     "values": "features",
+     "note": "The critter's size features (tiny, small, normal, large, huge). Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    },
+    "other features": {
+     "label": "Other Features",
+     "type": "list",
+     "unit": "",
+     "values": "features",
+     "note": "Feature names, any number, space-separated: the game ORs them into one mask (0x50D80), and a word it doesn't know sets bit 0x80000000."
+    },
+    "ai": {
+     "label": "AI",
+     "type": "text",
+     "unit": "",
+     "note": "The entity's AI by name: one of the 20 vanilla ones (item, walk, town, flocking, herd, player, a boss's own …)."
+    }
+   }
+  },
+  "critters_item_data": {
+   "about": "Per-pickup inventory data (73 pickups).",
+   "cells": {
+    "invType": {
+     "label": "Inventory Type",
+     "type": "text",
+     "unit": "type code",
+     "note": "The pickup's inventory type code: one of the 58 vanilla ones (gems, fuels, keys, powers …)."
+    }
+   }
+  },
+  "damage": {
+   "about": "One column per damage record (norm_1 to drown), which a spell or the plain staff finds by Type and Level: the HP a hit deals, its delay, the fuel it costs and the freeze it applies.",
+   "cells": {
+    "Level": {
+     "label": "Damage Level",
+     "type": "int32",
+     "unit": "tier",
+     "range": [
+      1,
+      3
+     ],
+     "note": "The record's level: a spell or the plain staff finds its record by Type and Level, the first that matches (0x46A30); truncated to int32 (0x46730)."
+    },
+    "Damage": {
+     "label": "Base Damage",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      0,
+      9999
+     ],
+     "note": "HP a hit deals, unless the critter hit has its own cell for the record in critters_damage; times the move's Damage multiplier against a critter (rounded up). Truncated to int32 (0x46730)."
+    },
+    "Cost": {
+     "label": "Fuel Cost",
+     "type": "int32",
+     "unit": "fuel",
+     "range": [
+      0,
+      100
+     ],
+     "note": "Fuel a hit takes from each element of the spell, times the move's Fuel multiplier (rounded up); truncated to int32 (0x46730)."
+    }
+   }
+  },
+  "magic": {
+   "about": "One column per spell, named by its elements (E, A, F, W; none for the plain staff): a staff or an armor spell, the damage type or the armor it casts, and whether it fires one attack by itself.",
+   "cells": {
+    "Damage": {
+     "label": "Magic Damage",
+     "type": "text",
+     "unit": "type code",
+     "values_from": [
+      "damage/Type"
+     ],
+     "note": "The damage type a staff spell deals, a 4-letter code (only its first 4 characters count) at the level of the spell's lowest element, held to 1-3; empty on armor spells."
+    },
+    "Sequence": {
+     "label": "Elements",
+     "type": "text",
+     "unit": "letters",
+     "note": "The spell's elements as letters (E earth, A air, F fire, W water), as the column's name; none for the plain staff."
+    },
+    "Auto": {
+     "label": "Auto-Activate",
+     "type": "number",
+     "unit": "bool",
+     "range": [
+      0,
+      1
+     ],
+     "empty_default": 0,
+     "yes_no": true,
+     "note": "One-shot: yes (any nonzero; empty reads 0) makes casting fire one attack by itself, then the staff reverts to plain."
+    },
+    "Type": {
+     "label": "Spell Kind",
+     "type": "text",
+     "unit": "",
+     "values": [
+      "staff",
+      "armor"
+     ],
+     "note": "staff (a staff spell) or armor (an armor spell)."
+    },
+    "Armor": {
+     "label": "Armor Cast",
+     "type": "text",
+     "unit": "type code",
+     "values_from": [
+      "armor_properties/Type"
+     ],
+     "note": "The armor an armor spell casts, by armor_properties' Type code; empty on staff spells."
+    }
+   }
+  },
+  "settings_foo": {
+   "about": "Global settings, one column per setting (the column's Key cell is its name), row 'Value'; the game looks each one up by name (0x5E620). Starting fuel and HP, fuel-cap upgrades, the HUD HP scale and fall damage.",
+   "notes": "One value per setting, not one per element: a new game reads a single 'initial fuel' and 'initial fuel cap' (0x57B70; HP research 2026-10-09). Each column is three 16-byte cells (Key, Value, an empty third row). The keys below are labels; each entry's live_name is config.xbr's own column name ('initial hp').",
+   "cells": {
+    "initial fuel": {
+     "label": "Initial Fuel",
+     "type": "number",
+     "unit": "fuel_units",
+     "range": [
+      0,
+      200
+     ],
+     "note": "Starting fuel: a new game and every continue set the four element fuels to it (0x52F50)."
+    },
+    "initial fuel cap": {
+     "label": "Initial Fuel Cap",
+     "type": "number",
+     "unit": "fuel_units",
+     "range": [
+      0,
+      500
+     ],
+     "note": "Starting maximum fuel capacity at a new game (0x57B70)."
+    },
+    "fuel cap inc": {
+     "label": "Fuel Cap Increment",
+     "type": "number",
+     "unit": "fuel_units",
+     "range": [
+      0,
+      100
+     ],
+     "note": "Fuel capacity added per upgrade; how an upgrade is earned, and for which element, is unverified."
+    },
+    "num fuel inc": {
+     "label": "Num Fuel Increments",
+     "type": "number",
+     "unit": "count",
+     "range": [
+      0,
+      20
+     ],
+     "note": "How many fuel capacity upgrades there are in all."
+    },
+    "fuel inc gems": {
+     "label": "Fuel Inc Gem Cost",
+     "type": "number",
+     "unit": "gems",
+     "range": [
+      0,
+      1000
+     ],
+     "note": "Gems per fuel capacity upgrade; which gem raises which element is unverified."
+    },
+    "initial hp": {
+     "label": "Initial HP",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      1,
+      9999
+     ],
+     "note": "Player HP at a new game, current and max; every continue resets current HP to it. Each power_life adds its invAmount (40) to both, uncapped."
+    },
+    "max hp": {
+     "label": "Max HP",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      1,
+      9999
+     ],
+     "note": "The health bar's full scale, read only by the HUD: the bar is max HP / this long and filled to HP / this. Not a cap."
+    },
+    "lev 2 obs": {
+     "label": "Level 2 Obstacle Goal",
+     "type": "number",
+     "unit": "count",
+     "range": [
+      0,
+      9999
+     ],
+     "note": "Unused: the game never reads this setting (no name for it in the XBE)."
+    },
+    "lev 2 hp": {
+     "label": "Level 2 HP Bonus",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      0,
+      999
+     ],
+     "note": "Unused: the game never reads this setting (no name for it in the XBE)."
+    },
+    "lev 3 obs": {
+     "label": "Level 3 Obstacle Goal",
+     "type": "number",
+     "unit": "count",
+     "range": [
+      0,
+      9999
+     ],
+     "note": "Unused: the game never reads this setting (no name for it in the XBE)."
+    },
+    "lev 3 hp": {
+     "label": "Level 3 HP Bonus",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      0,
+      999
+     ],
+     "note": "Unused: the game never reads this setting (no name for it in the XBE)."
+    },
+    "lev 4 obs": {
+     "label": "Level 4 Obstacle Goal",
+     "type": "number",
+     "unit": "count",
+     "range": [
+      0,
+      9999
+     ],
+     "note": "Unused: the game never reads this setting (no name for it in the XBE)."
+    },
+    "lev 4 hp": {
+     "label": "Level 4 HP Bonus",
+     "type": "number",
+     "unit": "HP",
+     "range": [
+      0,
+      999
+     ],
+     "note": "Unused: the game never reads this setting (no name for it in the XBE)."
+    },
+    "fall height 1": {
+     "label": "Fall Height Tier 1",
+     "type": "number",
+     "unit": "units",
+     "range": [
+      0,
+      1000
+     ],
+     "note": "Drop (m) that costs fall damage 1 HP when you land (the graze)."
+    },
+    "fall damage 1": {
+     "label": "Fall Damage Tier 1",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      0,
+      999
+     ],
+     "note": "HP lost landing from fall height 1 up to 2 (truncated to int32, 0x8AD87). Armor doesn't reduce it."
+    },
+    "fall height 2": {
+     "label": "Fall Height Tier 2",
+     "type": "number",
+     "unit": "units",
+     "range": [
+      0,
+      1000
+     ],
+     "note": "Drop (m) that costs fall damage 2 HP instead (a hard landing)."
+    },
+    "fall damage 2": {
+     "label": "Fall Damage Tier 2",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      0,
+      999
+     ],
+     "note": "HP lost landing from fall height 2 up to 3 (truncated to int32)."
+    },
+    "fall height 3": {
+     "label": "Fall Height Tier 3",
+     "type": "number",
+     "unit": "units",
+     "range": [
+      0,
+      1000
+     ],
+     "note": "Drop (m) that costs fall damage 3 HP; vanilla's 1000 kills (game over)."
+    },
+    "fall damage 3": {
+     "label": "Fall Damage Tier 3",
+     "type": "int32",
+     "unit": "HP",
+     "range": [
+      0,
+      999
+     ],
+     "note": "HP lost from fall height 3 up (truncated to int32). Reaching 0 HP is death and game over."
+    },
+    "fall height 4": {
+     "label": "Fall Height Tier 4",
+     "type": "number",
+     "unit": "units",
+     "range": [
+      0,
+      2000
+     ],
+     "note": "Fall (m) past which a flap, a jump or a landing on no floor kills you, whatever your HP (game over). A landing on a floor uses heights 1-3."
+    },
+    "fall min velocity": {
+     "label": "Fall Min Velocity",
+     "type": "number",
+     "unit": "units/s",
+     "range": [
+      0,
+      200
+     ],
+     "note": "Landing speed (m/s, vertical) below which heights 1-3 cost no HP."
+    }
+   }
+  }
+ }
+}

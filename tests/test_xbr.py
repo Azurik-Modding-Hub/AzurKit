@@ -3,7 +3,8 @@ of both releases parses and writes back to its manifest's sha256;
 config.xbr's keyed cells take the
 Game Data editor's two edits as Modkit made them (the oracle's
 ``xbr_editor`` goldens); and, on a synthetic archive (no game bytes), an
-edit writes only its cell and refuses by name, and a config.xbr slider
+edit writes only its cell and refuses by name, a recipe's ``set`` fills
+an empty cell and picks a repeated column, and a config.xbr slider
 (``XbrParametricEdit``) writes any finite value but what the game's int32
 can't hold."""
 
@@ -20,6 +21,7 @@ import pytest
 
 from azurkit.core import gate, iso
 from azurkit.core.xbr import Document, edits
+from azurkit.edits import xbr
 from azurkit.tools import mods
 from azurkit.tools.mods import engine
 from scripts import record_goldens
@@ -216,3 +218,36 @@ def test_a_config_slider_writes_any_finite_value_and_refuses_what_the_games_int3
     with pytest.raises(mods.PackError, match=re.escape(
             f"pack 'one': gamedata/config.xbr <{len(other)} B, sha256 {_sha256(other)[:12]}> is not the vanilla USA one")):
         mods.plan(one, release, {engine.CONFIG: other})
+
+
+def test_a_set_op_fills_an_empty_cell_and_picks_a_repeated_column(tmp_path):
+    """A recipe's ``set`` (``edits.xbr``) on a synthetic archive, the
+    release's manifest naming it: ``col`` picks a column of an entity the
+    table names twice (else its last), and with ``fill`` an empty cell takes
+    a number or a text its table holds, each change's group naming the
+    column; without ``fill`` an empty cell is refused by the operation's
+    number, as a ``col`` the entity doesn't name is, and a ``col`` or
+    ``fill`` of another type is refused by name."""
+    data = _archive(TABLES, ROWS)
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"dirs": [], "files": {engine.CONFIG: [len(data), _sha256(data)]}}))
+    release = dataclasses.replace(gate.USA, manifest=manifest)
+
+    def op(**kw):
+        return {"op": "set", "file": engine.CONFIG, "table": "t", "entity": "b", "prop": "hp", "value": 7} | kw
+
+    ops = xbr.normalize([op(col=1, fill=True), op(prop="note", value="slack", col=1, fill=True), op(value=9)])
+    layer = xbr.plan(ops, release, {engine.CONFIG: data})
+    made = Document(_apply(data, [(c.offset, c.after) for c in layer.changes])).tables["t"]
+    assert (made.cell(1, 1).value, made.cell(1, 3).value, made.cell(2, 1).value) == (7.0, "slack", 9.0)
+    assert sorted({c.group for c in layer.changes}) == ["#1 set t/b/hp (column 1)", "#2 set t/b/note (column 1)",
+                                                        "#3 set t/b/hp (column 2)"]
+    for bad, why in ((op(col=1), "xbr op 1 (set): config table t b/hp is an empty cell, not a number"),
+                     (op(col=0, fill=True), "xbr op 1 (set): config table t: column 0 isn't named 'b'")):
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            xbr.plan(xbr.normalize([bad]), release, {engine.CONFIG: data})
+    with pytest.raises(ValueError, match="^" + re.escape(
+            "xbr op 1 (set): col '1' is not a column's index (a whole number from 0); xbr op 2 (set): col True is "
+            "not a column's index (a whole number from 0); xbr op 3 (set): fill 'yes' is not true or false; "
+            "xbr op 4 (set): no key 'row' (its keys: op, file, table, entity, prop, value, col, fill)") + "$"):
+        xbr.normalize([op(col="1"), op(col=True), op(fill="yes"), op(row=1)])

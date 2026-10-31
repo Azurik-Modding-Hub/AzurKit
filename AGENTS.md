@@ -128,6 +128,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     through `core/inflate.py` (at most 4096x4096, and one byte past its
     rows).
   - `web/` holds no HTML sink (`tests/test_contracts.py`).
+- The Data tab's engine (`src/azurkit/tools/data/`) ships the vanilla
+  config.xbr, both releases' file byte for byte (`tests/test_data.py` holds
+  it to both manifests), and `schema.json`, Modkit's notes on its cells by
+  the file's own names, so the tab works before an image is picked. A build
+  still reads the image's own config.xbr.
 
 ## The goldens
 

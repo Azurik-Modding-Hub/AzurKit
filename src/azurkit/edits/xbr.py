@@ -2,12 +2,17 @@
 the image's XBR files, planned against the vanilla files into one layer
 (tool ``data``, kind ``xbr``; the Data tool's, one layer per tool):
 
-- ``{"op": "set", "file", "table", "entity", "prop", "value"}``: a keyed
-  cell (config.xbr's), by the file's own names with D51's spelling aliases
-  (case-blind, ``_`` read as a space, ``color_r``/``g``/``b`` for the rows
-  ``R``/``G``/``B``; an exact name wins, and a spelling of several names is
-  refused), type-checked per cell: a number into a number cell (any finite
-  value, D23), text into a string cell (``core.xbr.edits``).
+- ``{"op": "set", "file", "table", "entity", "prop", "value"}``, with
+  ``"col"`` and ``"fill"`` optional: a keyed cell (config.xbr's), by the
+  file's own names with D51's spelling aliases (case-blind, ``_`` read as a
+  space, ``color_r``/``g``/``b`` for the rows ``R``/``G``/``B``; an exact
+  name wins, and a spelling of several names is refused), type-checked per
+  cell: a number into a number cell (any finite value, D23, but where the
+  game reads the cell as an int32, :data:`INT32`, what it can't hold once
+  rounded or truncated, D45), text into a string cell
+  (``core.xbr.edits``). ``col`` picks the column by its index where the
+  entity names several (else its last); with ``fill`` an empty cell takes
+  the value, unless its row holds only the other kind.
 - ``{"op": "replace_bytes", "file", "offset", "expected", "value"}``: the
   bytes ``value`` (hex) at ``offset`` of an XBR file, where the vanilla
   file holds ``expected``: their hex, up to 32 B, or ``{"sha256", "size"}``
@@ -23,6 +28,7 @@ name (Q46, Q223). A share link carries ``set`` alone (Q174).
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 from collections.abc import Mapping, Sequence
 
@@ -34,10 +40,20 @@ from azurkit.edits.layer import Change, Layer
 TOOL, KIND, LAYER = "data", "xbr", "data xbr"
 KEYS = {"set": ("op", "file", "table", "entity", "prop", "value"),
         "replace_bytes": ("op", "file", "offset", "expected", "value")}
+OPTIONAL = {"set": ("col", "fill"), "replace_bytes": ()}
 INLINE = 32                                  # the most bytes ``expected`` gives as hex (Q225)
 HEX = re.compile(r"(?:[0-9a-fA-F]{2})+")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 _COLOR = {"color r": "r", "color g": "g", "color b": "b"}
+#: config.xbr's cells the game reads as an int32, by table and row name (settings_foo's by setting, its column), and
+#: how it makes one: 0xF5A40 truncates; Starting HP's x87 FISTP rounds half to even (D45, D73).
+INT32 = {("armor_properties", name): "trunc" for name in ("Level", "Strong protection hp", "Normal protection hp",
+                                                          "Cost", "Hits", "Flaps")} | {
+    ("critters_damage", "hitPoints"): "trunc", ("damage", "Level"): "trunc", ("damage", "Damage"): "trunc",
+    ("damage", "Cost"): "trunc", ("settings_foo", "initial hp"): "round", ("settings_foo", "fall damage 1"): "trunc",
+    ("settings_foo", "fall damage 2"): "trunc", ("settings_foo", "fall damage 3"): "trunc"}
+WHOLE = {"round": (round, "rounded"), "trunc": (math.trunc, "truncated")}
+RANGE = (-2**31, 2**31 - 1)
 
 
 def _digest(data: bytes) -> str:
@@ -55,11 +71,11 @@ def normalize(ops: object) -> list[dict]:
         if not isinstance(op, Mapping) or not isinstance(op.get("op"), str) or op["op"] not in KEYS:
             failed.append(f"{where}: not an operation (op: set | replace_bytes)")
             continue
-        where, keys = f"{where} ({op['op']})", KEYS[op["op"]]
+        where, keys, optional = f"{where} ({op['op']})", KEYS[op["op"]], OPTIONAL[op["op"]]
         if lost := [key for key in keys if key not in op]:
             failed.append(f"{where}: no {', '.join(lost)}")
-        if unknown := sorted(set(op) - set(keys), key=str):
-            failed.append(f"{where}: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(keys)})")
+        if unknown := sorted(set(op) - set(keys) - set(optional), key=str):
+            failed.append(f"{where}: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(keys + optional)})")
         if lost or unknown:
             continue
         if not (isinstance(op["file"], str) and op["file"].startswith("gamedata/") and op["file"].endswith(".xbr")):
@@ -67,6 +83,10 @@ def normalize(ops: object) -> list[dict]:
         if op["op"] == "set":
             if not all(isinstance(op[key], str) for key in ("table", "entity", "prop")):
                 failed.append(f"{where}: table, entity and prop are names")
+            if "col" in op and not (type(op["col"]) is int and op["col"] >= 0):
+                failed.append(f"{where}: col {op['col']!r} is not a column's index (a whole number from 0)")
+            if "fill" in op and type(op["fill"]) is not bool:
+                failed.append(f"{where}: fill {op['fill']!r} is not true or false")
             value = op["value"]
             if isinstance(value, str):
                 if not value.isascii() or "\0" in value:
@@ -120,14 +140,28 @@ def _spelled(names: Sequence[str], given: str, what: str, where: str, aliases: M
     raise LookupError(f"{where} has no {what} {given!r}")
 
 
+def int32(table: str, entity: str, prop: str) -> str | None:
+    """How the game makes an int32 of config.xbr's cell ``table``/``entity``/``prop``
+    (:data:`INT32`: ``round`` or ``trunc``), ``None`` where it reads a double."""
+    return INT32.get((table, prop)) or INT32.get((table, entity))
+
+
 def _set(table: Table, data: bytes, op: Mapping) -> tuple[str, list[tuple[int, bytes]]]:
     where = f"{op['file']} table {table.name}"
     entity = _spelled([c for c in table.cols if c], op["entity"], "entity", where)
     prop = _spelled(table.rows, op["prop"], "prop", where, _COLOR)
-    value = op["value"]
-    writes = (edits.set_text(table, data, entity, prop, value) if isinstance(value, str)
-              else edits.set_number(table, entity, prop, value))
-    return f"set {table.name}/{entity}/{prop}", writes
+    value, col, fill = op["value"], op.get("col"), op.get("fill", False)
+    if isinstance(value, str):
+        writes = edits.set_text(table, data, entity, prop, value, col=col, fill=fill)
+    else:
+        if how := int32(table.name, entity, prop):
+            whole, made = WHOLE[how]
+            if not RANGE[0] <= whole(value) <= RANGE[1]:
+                raise ValueError(f"config table {table.name} {entity}/{prop}: {value:g} doesn't fit the game's "
+                                 f"32-bit integer once {made} ({RANGE[0]}..{RANGE[1]})")
+        writes = edits.set_number(table, entity, prop, value, col=col, fill=fill)
+    column = f" (column {table.column(entity, col)})" if table.cols.count(entity) > 1 else ""
+    return f"set {table.name}/{entity}/{prop}{column}", writes
 
 
 def plan(ops: Sequence[Mapping], release: Release, base: Mapping[str, bytes]) -> Layer:
