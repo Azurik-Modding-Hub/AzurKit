@@ -1,5 +1,5 @@
-// The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, which the page replaces after a build
-// whose heap it won't keep (WEB §3.6; each build's answer reports the heap). The page
+// The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, one worker per build: the page replaces it
+// after each (WEB §3.6); each build's answer reports the heap, for a page that keeps it (Step 4.3i). The page
 // starts it from a blob: URL that imports this file, so the page's CSP holds here too (WEB §6.4). Pyodide comes from
 // this site alone; the wheel, fetched with the integrity host.json gives, is unpacked without its dependencies
 // (WEB §6.3). The player's image is mounted read-only (WORKERFS, read in blocks: readInBlocks) and azurkit.sdk reads
@@ -335,7 +335,8 @@ function character(loaded, data) {
 }
 
 // A build, the image mounted for it and unmounted after; its answer carries the engine's heap then (wasm memory never
-// shrinks: the page keeps a worker whose heap is small enough for another build), undefined where Pyodide hides it.
+// shrinks: a page that keeps the worker keeps one whose heap is small enough for another build, Step 4.3i), undefined
+// where Pyodide hides it.
 function build({ py, engine }, { file, packs, xbr, randomizer, character, spoiler }) {
   const made = mounted(py, file, (iso) => engine({ type: "build", spoiler, recipe: { iso, packs, xbr,
     ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } }));
