@@ -7,12 +7,12 @@
 // at once, and a build it stops whose key the list still holds goes on as work ahead (the plan's D4: kept when it
 // ends, dropped by a change), so Build again waits only for its rest. Memory: a worker whose heap reaches KEEP after a
 // job (or reports none after a heavy one) is replaced (app.mjs's rule: wasm memory never shrinks); when F must go
-// (KEEP, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time: B starts
-// nothing while F builds, and F's build drops B's heavy job. B starts no job, and isn't kept, while the page's tally
-// (both heaps, B's kept answers and the bytes the page holds) reaches TALLY, and a new B loads only while the last B's
-// heap when it loaded fits under the line too (or each B would cross it, be retired and load again), nor on a computer
-// with fewer than CORES cores. A worker's priority has no web API: B runs at the page's (a known flaw, D835), held
-// small by the rules above.
+// (KEEP, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time, and B's work
+// ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead. B starts no
+// job, and isn't kept, while the page's tally (both heaps, B's kept answers and the bytes the page holds) reaches
+// TALLY, and a new B loads only while the last B's heap when it loaded fits under the line too (or each B would cross
+// it, be retired and load again), nor on a computer with fewer than CORES cores. A worker's priority has no web API:
+// B runs at the page's (a known flaw, D835), held small by the rules above.
 //
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
 // job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "failed"} ends the job and
@@ -243,7 +243,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
     if (!f && !dead) f = spawn("f");
     if (f?.loaded && !f.job && queue.length) {
       const job = queue.shift();
-      if (job.heavy && b?.job?.heavy && b.job.ahead && !b.job.adopted) dropB();   // one heavy job at a time
+      if (job.heavy && b?.job?.ahead && !b.job.adopted) dropB();   // none beside F's build: B's job ahead goes
       run(f, job);
     }
     const spare = queue.findIndex((job) => job.anywhere && !job.heavy);   // a small ask while F works: B answers it

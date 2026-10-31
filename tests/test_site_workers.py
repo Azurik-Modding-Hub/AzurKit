@@ -136,10 +136,11 @@ ROWS = """
         pool.ask({ type: "tracker" });
         out.promoted = [f.stopped, readies, b.tags(), stubs.length, stubs[2].role, pool.state().promoted];
     }
-    {   // a busy B doesn't: a new F loads; nor does a build that reports no heap leave F in place
+    {   // a busy B (a small ask beside F's build) doesn't: a new F loads; nor does a build that reports no heap leave F
+        // in place
         const { pool, stubs, readies, f, b } = make();
-        pool.want([{ key: "plan 6", message: plan("6") }]);
         const built = pool.ask(build(), { heavy: true });
+        pool.ask({ type: "randomizer" }, { anywhere: true });
         f.say({ type: "built", report: {}, heap: KEEP });
         await built;
         stubs[2].say({ type: "ready", n: 3 });
@@ -336,6 +337,25 @@ def test_a_b_retired_at_the_tally_line_isnt_loaded_again_until_a_fresh_bs_heap_f
         out.line = [over, stubs.length, pool.state().b.loaded, stubs[2].stopped, pool.state().retired];
     }""")
     assert got == {"line": [[True, 2, None], 3, True, False, 1]}
+
+
+def test_fs_build_drops_bs_plan_ahead_too_so_b_runs_nothing_beside_it_and_plans_again_after(browser):
+    """B's work ahead never runs beside F's build, a light job too: the
+    click's build drops B's plan ahead (a dropped job, its key still
+    listed), no B loads while F builds, and the B after it plans again."""
+    got = _on_stubs(browser, """
+    {
+        const { pool, stubs, f, b } = make();
+        pool.want([{ key: "plan s", message: plan("s") }, { key: "build s", message: build("s"), heavy: true }]);
+        const busy = b.tags();
+        const built = pool.ask(build("s"), { key: "build s", heavy: true });
+        const beside = [b.stopped, stubs.length, pool.state().b];
+        f.say({ type: "built", report: { size: 5 }, heap: 2 ** 26 });
+        const report = (await built).report;
+        stubs[2].say({ type: "ready", n: 3 });
+        out.beside = [busy, f.tags(), beside, report, stubs[2].tags(), pool.state().dropped];
+    }""")
+    assert got == {"beside": [["plan s"], ["build s"], [True, 2, None], {"size": 5}, ["plan s"], 1]}
 
 
 SMOKE = """async ({ seed }) => {
