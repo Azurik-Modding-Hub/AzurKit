@@ -63,6 +63,22 @@ def test_every_agent_role_pins_the_model_that_fits_its_job():
     assert {s for s, h in heads.items() if "\nexperimental:\n  cacheTtl: 1h\n" in h} == {"azurik-builder"}
 
 
+def test_the_roles_gate_with_agents_mds_gate_and_load_only_skills_tracked_here():
+    """A role's commands work on AzurKit: the builder gates with AGENTS.md's
+    gate. ``$EV/tools/land`` and its queue resolve branches and receipts in
+    Modkit until Step 4.16b teaches them AzurKit, and ``waitfor`` finds a
+    receipt by key only there (by its path, anywhere), so no role names the
+    queue or waits on a key. Each skill a role says to load is one tracked
+    in .claude/skills/; one not ported yet is read from Modkit."""
+    gate = re.search(r"\*\*The gate:\*\* run `([^`]+)`", (ROOT / "AGENTS.md").read_text(encoding="utf-8"))
+    bodies = {path.stem: " ".join(path.read_text(encoding="utf-8").split("---\n", 2)[2].split())
+              for path in sorted((ROOT / ".claude" / "agents").glob("*.md"))}
+    assert " ".join(gate.group(1).split()).replace("<worktree>", "<lane>") in bodies["azurik-builder"]
+    assert not [s for s, body in bodies.items() if re.search(r"\$EV/tools/land\b|queue:|waitfor[^`]*<key>", body)]
+    skills = {Path(rel).parent.name for rel in tracked(".claude/skills") if rel.endswith("/SKILL.md")}
+    assert {name for body in bodies.values() for name in re.findall(r"\bload `([\w-]+)`", body)} <= skills
+
+
 def test_no_skill_holds_text_the_skill_loader_runs_as_a_shell_command():
     """Claude Code's Skill tool runs a "!" plus a backtick-quoted span
     (after whitespace) and a fence opened by three backticks and "!" as

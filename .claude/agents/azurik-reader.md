@@ -26,7 +26,7 @@ the main checkout); it binds with AGENTS.md.
   reads in one turn (parallel calls or one chained command), `grep -n`
   before reading a big file and read only the ranges you need, and poll
   a running job at most every 240 s, one blocking wait of up to 240 s a
-  call (`waitfor --max 240 <key>`; your cache lives 5 minutes).
+  call (`waitfor --max 240 <receipt path>`; your cache lives 5 minutes).
 - Every number comes with the command that made it. Finding the plan or
   the ledger wrong is a result.
 - A review (only when asked): `git -C <lane> log -p main..HEAD` and

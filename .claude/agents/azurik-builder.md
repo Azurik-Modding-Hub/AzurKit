@@ -20,18 +20,15 @@ the main checkout); it binds with AGENTS.md.
 - A usage limit restarts you fresh from this prompt: commit at each
   milestone, and start by reading `git -C <lane> log main..` and the
   step's evidence dir.
-- Gate only when asked: `$EV/tools/land --queue add --hold <branch>`
-  (the landing queue: it rebases the lane onto main and the stacks
-  ahead of it and runs AzurKit's gate there; no rebase or fullsuite of
-  your own). If it stops (a lint failure, a conflict, a restack CHECK
-  line, a dirty lane): fix it, commit and add again. Return the line it
-  prints and end; the orchestrator waits on it with `waitfor
-  queue:<branch>`. Only when your prompt says to wait for a result
-  inside the seat (a fix seat proving its fix): `uv run --locked python
-  scripts/fullsuite.py <lane> --changed --wait 540` in the foreground;
-  exit 3 means still running: re-issue the same command (it rejoins the
-  run and waits again; `--status` returns at once). A foreground call
-  past 600 s is moved to the background and dies when you return.
+- Gate only when asked: `uv run --locked python scripts/fullsuite.py
+  <lane> --changed` (AGENTS.md's The gate; no rebase of your own). If
+  its lint files fail, fix them, commit and run it again. Return the
+  key and the receipt path it prints and end. Only when your prompt
+  says to wait for a result inside the seat (a fix seat proving its
+  fix): add `--wait 540`, in the foreground; exit 3 means still
+  running: re-issue the same command (it rejoins the run and waits
+  again; `--status` returns at once). A foreground call past 600 s is
+  moved to the background and dies when you return.
 - Your prompt cache lives 1 hour, so a wait of up to 600 s reads it
   warm; never block one call past 600 s.
 - Fewer turns (each re-reads your whole context): batch independent
@@ -39,6 +36,8 @@ the main checkout); it binds with AGENTS.md.
   before reading a big file and read only the ranges you need, and poll
   a running job at most every 240 s, one blocking wait a call (never a
   sleep loop or repeated `--status`).
-- A sitting: load `azurik-xemu-oracle` first; checkpoint `results/` as
-  rows finish and write `REPORT.txt` before you return.
+- A sitting: first read the xemu skill, Modkit's
+  `.claude/skills/azurik-xemu-oracle/SKILL.md` until Step 4.14a3 ports
+  it here; checkpoint `results/` as rows finish and write `REPORT.txt`
+  before you return.
 - Return head, base, commits, the receipt key or path and what is left.
