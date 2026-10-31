@@ -43,14 +43,20 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 
 from azurkit.core.progress import Steps
-from azurkit.tools.randomizer import layer
+from azurkit.tools.randomizer import dbcache, layer
 from azurkit.tools.randomizer.movement import logic_of, run_floor
+from azurkit.tools.randomizer.planner import loader
 from azurkit.tools.randomizer.planner.fill import fill, starved
 from azurkit.tools.randomizer.planner.loader import DATA_DIR, kept_logic
 from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc, spoiler_lines
 from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES, MOVEMENT_TIERS, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table,
     share_decode, share_encode, turnable)
+from azurkit.tools.randomizer.planner.solver import Logic
+
+# The wheel's and the frozen app's checked database comes with its Logic's tables (Step 4.3g, P4): kept_logic takes
+# that Logic, a fresh one each call, and builds none (Step 2.221's hook; elsewhere it is None and kept_logic builds)
+loader.SHIPPED = functools.partial(dbcache.shipped_logic, logic_type=Logic)
 
 RECIPE = ("seed", "settings", "share")
 #: The tab's offers (§5.5): Movement's three tiers (D261; a loaded safe shows as its own), the skip ceiling's none and

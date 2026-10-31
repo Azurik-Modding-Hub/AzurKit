@@ -267,14 +267,16 @@ def test_the_default_plan_file_is_modkits_byte_for_byte_under_pyodide(pyodide):
     assert got["stdout"] == DEFAULT_PLAN
 
 
-def test_the_shipped_database_is_a_fresh_checks_and_holds_no_absolute_path(tmp_path, monkeypatch):
+def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic(
+        tmp_path, monkeypatch):
     """The database the wheel and the app ship (``web_tools.ship_database``:
     checked in a child under PYTHONHASHSEED=0, its root dropped) is keyed by
     the data and planner it was made from, holds no path of the checkout
     that made it (no ``pathlib`` object, nor the checkout's or the home
     folder's path), and reads back (``dbcache.shipped_logic``, as the
     frozen app reads it) into the database and the Logic tables a fresh
-    ``check_database`` gives."""
+    ``check_database`` gives; the planner's kept Logic is that one, with no
+    database checked and no Logic built (the loader's ``SHIPPED`` hook)."""
     shipped = web_tools.ship_database(tmp_path)
     blob = shipped.read_bytes()
     assert (shipped.stem, b"pathlib" in blob, str(Path(web_tools.ROOT)).encode() in blob,
@@ -287,6 +289,10 @@ def test_the_shipped_database_is_a_fresh_checks_and_holds_no_absolute_path(tmp_p
         k: v for k, v in vars(fresh).items() if k not in loader._MEMOS}
     assert {k: v for k, v in vars(got).items() if k in loader._MEMOS - {"db"}} == {
         k: type(v)() for k, v in vars(fresh).items() if k in loader._MEMOS - {"db"}}
+    monkeypatch.setattr(loader, "_KEPT", {})
+    monkeypatch.setattr(loader, "load_database", lambda root: pytest.fail(f"{root}: checked, not the shipped one"))
+    kept = kept_logic()
+    assert kept.db == fresh.db and kept_logic() is kept
 
 
 # Modkit 3befd6336's tracker on seed 2's default and max plans, each state with the spoiler off and on: the
