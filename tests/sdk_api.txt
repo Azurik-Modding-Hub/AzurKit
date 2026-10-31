@@ -229,9 +229,10 @@ object (its format and generator, the seed, the attempt that passed,
 the settings, their share string and digest, the database's digest,
 every authored pool location's item, and the sha256 of the rest). The
 same recipe gives the same plan on every host. ``progress(record)``
-hears its stages (``core.progress``): the logic read, the fill and the
-placements written. A refusal names the setting, or the progression
-items no attempt found a safe spot for.
+hears its stages (``core.progress``): the logic read, the fill (its
+items placed, k of n, counted inside its step) and the placements
+written. A refusal names the setting, or the progression items no
+attempt found a safe spot for.
 
 
 def spoiler(plan: 'Mapping', *, built: 'bool' = False) -> 'dict':

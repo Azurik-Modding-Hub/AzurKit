@@ -31,7 +31,7 @@ from azurkit import cli, sdk
 from azurkit.core import iso
 from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
-from azurkit.tools.randomizer.planner import loader
+from azurkit.tools.randomizer.planner import fill, loader
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import (
     Settings, picks, settings_from_table, share_decode, share_encode, turnable)
@@ -352,13 +352,25 @@ def test_the_trackers_verdicts_are_their_goldens_at_each_state_and_a_click_marks
 def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_as_without_them(monkeypatch):
     """Step 4.3 train (D980): Track's bar on both hosts follows the engine's
     work. ``sdk.plan`` reports the logic read, the fill and the placements
-    written (``core.progress``'s ``plan``, done of 3); the tracker's first
-    view of the plan its tracker built and the world map read (done of 2),
-    and a view of a kept plan nothing, so a click on a spot shows no bar.
-    Each answers as it does without ``progress``."""
+    written (``core.progress``'s ``plan``, done of 3), the fill's items
+    placed counted inside its step, so the app's bar, polled every 250 ms,
+    moves through the seconds the fill takes once the shipped Logic is read
+    at once (train B2); the tracker's first view of the plan its tracker
+    built and the world map read (done of 2), and a view of a kept plan
+    nothing, so a click on a spot shows no bar. Each answers as it does
+    without ``progress``."""
     seen = []
+    monkeypatch.setattr(fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills now
     doc = sdk.plan({"seed": "2"}, progress=seen.append)
     assert doc == PLANS["default"]["plan"]
+    placing = [r for r in seen if r["label"].startswith("Filling the seed (")]
+    ks = [tuple(map(int, r["label"].removeprefix("Filling the seed (placing the items, ").removesuffix(")").split(
+        " of "))) for r in placing]
+    n = ks[-1][1]
+    assert len(ks) > 20 and ks[0] == (1, n) and ks[-1] == (n, n) and all(a < b for (a, _), (b, _) in zip(ks, ks[1:]))
+    assert [r["percent"] for r in placing] == sorted(r["percent"] for r in placing) and {
+        placing[0]["percent"], placing[-1]["percent"]} == {33, 66}
+    seen = [r for r in seen if r not in placing]
     world = tracking.world()
     monkeypatch.setattr(tracking, "world", functools.cache(lambda: world))   # a process's first view reads it
     monkeypatch.setattr(tracking, "_KEPT", type(tracking._KEPT)())

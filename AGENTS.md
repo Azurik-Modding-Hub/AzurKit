@@ -413,13 +413,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     checkout checks the database (about 4 s). `dbcache.shipped_logic`, the
     loader's `SHIPPED` hook (the package sets it), hands `kept_logic` the
     Logic as built, a fresh one each call, so neither checks nor builds.
-  - `needs.NOTE` and `generator.NOTE`, None by default, are told the
-    tracker's exits ("the maps' exits, k of 22") and the fill's start
-    ("placing the items") for the sdk's progress: `sdk.image` and
-    `sdk.tracker` set them while they run (`sdk._noting`, the calling
-    thread's), each note folded into the stage the call reported last (its
-    label and the note, a "k of n" note counted inside that stage's step:
-    the tracker's world map, 50 % to 100 %).
+  - `needs.NOTE`, `generator.NOTE` and the fill's `NOTE`, None by
+    default, are told the tracker's exits ("the maps' exits, k of 22"), the
+    fill's start ("placing the items") and its items placed ("placing the
+    items, k of n", rising within an attempt) for the sdk's progress:
+    `sdk.image`, `sdk.plan` and `sdk.tracker` set them while they run
+    (`sdk._noting`, the calling thread's), each note folded into the stage
+    the call reported last (its label and the note, a "k of n" note counted
+    inside that stage's step: the tracker's world map, 50 % to 100 %; a
+    plan's fill, 33 % to 66 %).
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's

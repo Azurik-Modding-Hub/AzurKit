@@ -104,6 +104,7 @@ from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
 from azurkit.tools.randomizer import generator, needs, tracking
 from azurkit.tools.randomizer import layer as rando_layer
+from azurkit.tools.randomizer.planner import fill as rando_fill
 
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_settings", "tracker", "art", "art_world", "restore",
@@ -208,8 +209,9 @@ def _note(text: str) -> None:
 @contextlib.contextmanager
 def _noting(steps: Steps):
     """``steps`` for this thread's call, the planner's notes
-    (``generator.NOTE``: "placing the items"; ``needs.NOTE``: "the maps'
-    exits, k of n") folded into the stage it reported last through the
+    (``generator.NOTE``: "placing the items"; the fill's ``NOTE``: "placing
+    the items, k of n"; ``needs.NOTE``: "the maps' exits, k of n") folded
+    into the stage it reported last through the
     ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
     counted inside the stage's step (``done`` of ``total`` as ``done * n +
     k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
@@ -234,7 +236,7 @@ def _noting(steps: Steps):
     ident = threading.get_ident()
     outer = _NOTES.get(ident)
     _NOTES[ident] = told
-    generator.NOTE = needs.NOTE = _note
+    generator.NOTE = rando_fill.NOTE = needs.NOTE = _note
     try:
         yield Steps(heard)
     finally:
@@ -750,10 +752,12 @@ def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -
     the settings, their share string and digest, the database's digest,
     every authored pool location's item, and the sha256 of the rest). The
     same recipe gives the same plan on every host. ``progress(record)``
-    hears its stages (``core.progress``): the logic read, the fill and the
-    placements written. A refusal names the setting, or the progression
-    items no attempt found a safe spot for."""
-    return randomizer.plan(recipe, progress)
+    hears its stages (``core.progress``): the logic read, the fill (its
+    items placed, k of n, counted inside its step) and the placements
+    written. A refusal names the setting, or the progression items no
+    attempt found a safe spot for."""
+    with _noting(Steps(progress)) as steps:
+        return randomizer.plan(recipe, steps.report)
 
 
 def spoiler(plan: Mapping, *, built: bool = False) -> dict:

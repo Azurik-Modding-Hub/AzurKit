@@ -19,6 +19,7 @@ from azurkit.edits import manifest as edits
 from azurkit.edits import preset
 from azurkit.edits.layer import Change, Layer, compose
 from azurkit.tools.randomizer import needs, tracking
+from azurkit.tools.randomizer.planner import fill as rando_fill
 from tests._xiso import fill, image
 
 BASE = {"a.bin": bytes(64), "b.bin": fill("b", 32)}
@@ -127,14 +128,16 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     again, its sha256 the image's, following the write in the record."""
     seen, writes = [], []
     monkeypatch.setattr(sdk, "_STAMPS", {})   # the image's first check in this process: its bytes are reported
+    monkeypatch.setattr(rando_fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills now
     made, report = sdk.image({"iso": str(usa_iso), "packs": {"qol_alloc_race": {}}, "randomizer": {"seed": "2"}},
                              progress=seen.append, spoiler=False)
     assert list(dict.fromkeys(r["stage"] for r in seen)) == ["plan", "check", "read", "pack", "layout", "judge"]
     check = [r for r in seen if r["stage"] == "check"]
     assert (check[0]["label"], check[-1]["percent"]) == ("Checking your image", 100)
     assert [r["label"] for r in seen if r["stage"] == "pack"] == ["Applying qol_alloc_race"]
-    assert [r["label"] for r in seen if r["stage"] == "plan"] == ["Planning the seed",
-                                                                  "Planning the seed (placing the items)"]
+    planned = [r["label"] for r in seen if r["stage"] == "plan"]   # the fill's items placed counted in its stage
+    assert planned[:2] == ["Planning the seed", "Planning the seed (placing the items)"] and len(planned) > 20
+    assert all(re.fullmatch(r"Planning the seed \(placing the items, \d+ of \d+\)", label) for label in planned[2:])
     monkeypatch.setattr(tracking, "_KEPT", type(tracking._KEPT)())   # the plan's first view, in a process that
     for module, name in ((tracking, "world"), (needs, "overlays"), (needs, "exit_edges")):   # reads the maps' exits
         monkeypatch.setattr(module, name, functools.cache(getattr(module, name).__wrapped__))

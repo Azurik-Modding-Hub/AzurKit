@@ -98,8 +98,9 @@ USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward maj
 _DIGEST_DROP = frozenset({"_meta", "note", "description",   # RANDOMIZER_DB §9: no comments, display names or hints
                           "gate_hint", "do_save", "teleport_gate", "enabled_by", "update", "input"})
 _TWO53 = 1 << 53
-NOTE: Callable[[str, int, int | None], object] | None = None   # a host's hook (Step 2.221), None by default:
-#                                                               (label, the reaches so far, None) at each attempt's reach
+NOTE: Callable[[str], object] | None = None   # a host's hook, None by default: "placing the items, k of n" at an
+#                                               attempt's reach for the k-th of the n items reaches place (progression,
+#                                               counted and useful), k rising within an attempt (a repair holds it)
 
 
 class Rng:
@@ -303,7 +304,6 @@ class _Slots:
         self.kind = {loc: ("cluster", locs[loc]["yield"]) if locs[loc]["class"] == "cluster"
                      else locs[loc]["class"] if locs[loc]["class"] == "gem" else "nongem" for loc in self.pool}
         self.major = frozenset(loc for loc in self.pool if locs[loc]["class"] == "major")
-        self.reaches = 0                        # the attempts' reaches so far (NOTE's count)
 
     def holds(self, loc: str, item: str) -> bool:
         """Whether ``loc``'s proven mark holds for ``item`` under these options."""
@@ -412,11 +412,13 @@ class _Slots:
         for loc in nongem:
             by_class[self.cls[self.vanilla[loc]]].append(self.vanilla[loc])
         assumed = collections.Counter(self.vanilla[loc] for loc in todo if self.vanilla[loc] in read)
+        placing, told = len(nongem) - len(by_class["filler"]), 0   # the items a reach places, the last k told
 
         def reach(at: Mapping[str, str] | None = None) -> Reach:
-            if NOTE is not None:
-                self.reaches += 1
-                NOTE("placing the items", self.reaches, None)
+            nonlocal told
+            if NOTE is not None and (k := min(len(placed) - len(base) + 1, placing)) > told:
+                told = k
+                NOTE(f"placing the items, {k} of {placing}")
             return lg.reach(settings, {**placed, **(at or {})}, sorted(assumed.elements()), traps=False)
 
         def put(loc: str, item: str) -> None:
