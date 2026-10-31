@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import multiprocessing
 import os
 import re
@@ -422,8 +423,21 @@ def test_the_speed_toggle_flips_a_worn_bodys_walk_and_roll_to_the_bodys_own(usa_
     alone, _ = physics({"toggle_walk_speed_scale": 1, "toggle_roll_speed_scale": 1})
     assert any(note.endswith("nothing to flip; not installed") for note in alone.notes)
     walk, xbe = physics({"walk_speed_scale": 2.0, "toggle_walk_speed_scale": 1})
-    r = walk.recipe["params"]["walk_speed_scale"] / 2   # sqrt(s), keylord's s 1.0988
+    r = math.sqrt(characters.size({"species": "keylord"}, ports.Vanilla(gate.USA, usa_iso)))   # keylord's s 1.0988
     assert abs(r * r - 1.0988) < 1e-4 and struct.pack("<I2f", 1, 14 * r, 7 * r) in xbe
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_a_character_builds_recipe_rebuilds_its_image(release, request):
+    """keylord over the packs on by default: the build's recipe (``sdk.open_build``, then ``sdk.read_mods``: Load
+    its recipe, ``azurkit build --mods``) holds the walk and roll as asked, not as the body's size folded them, so
+    it rebuilds the same image on each release (AZ-829: they were folded again)."""
+    path = str(request.getfixturevalue(f"{release.name}_iso"))
+    made, _ = sdk.image({"iso": path, "packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+                         "character": {"species": "keylord"}})
+    recipe = sdk.read_mods(sdk.open_build(made))
+    assert recipe["packs"]["player_physics"] == {}
+    assert sdk.image({"iso": path} | recipe)[0].sha256() == made.sha256()
 
 
 # --- variants (Step 4.3c1): a recipe's mesh, paint and jiggle -----------------------------------------------------

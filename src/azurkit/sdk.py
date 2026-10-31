@@ -80,6 +80,7 @@ never a recipe file's path (Q174).
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import urllib.parse
@@ -171,7 +172,7 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
     pack's layer, then its xbr operations' (the Data tool's, after the
     packs), the randomizer's read-back of the built image and its plan
     (``None`` without one); every refusal named."""
-    packs = _packs(recipe)
+    packs = own = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     character = characters.normalize(recipe["character"]) if "character" in recipe else None
     if not isinstance(recipe.get("iso"), str):
@@ -210,6 +211,10 @@ def _plan(recipe: Mapping) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], C
             return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
                                                         reasons)}
     failed += _pack_layers(stamp, chosen, packs, base, layers, inputs)
+    if folded is not None:   # its recipe holds the walk and roll as asked: a rebuild folds the size in again (AZ-829)
+        asked = {"pack": rando_layer.SIZE_PACK, "params": own.get(rando_layer.SIZE_PACK, {})}
+        layers = [dataclasses.replace(la, recipe=asked) if la.id == f"pack {rando_layer.SIZE_PACK}" else la
+                  for la in layers]
     if character is not None and not failed:
         layer, lines, body = characters.plan(character, vanilla, layers,
                                              characters.packs_view(stamp.release, mods.PACKS), folded)
