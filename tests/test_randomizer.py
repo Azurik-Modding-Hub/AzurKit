@@ -615,12 +615,12 @@ def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_
     work. ``sdk.plan`` reports the logic read, the fill and the placements
     written (``core.progress``'s ``plan``, done of 3), the fill counting its
     spots inside its step (Step 4.3u: "placing the items, k of n", each
-    percent of them, never back), so the app's bar, polled every 250 ms,
-    moves through the seconds the fill takes once the shipped Logic is read
-    at once (train B2); the tracker's first view of the plan its tracker
-    built and the world map read (done of 2), and a view of a kept plan
-    nothing, so a click on a spot shows no bar. Each answers as it does
-    without ``progress``."""
+    percent of them, never back in the attempt: seed 2 fills at its first),
+    so the app's bar, polled every 250 ms, moves through the seconds the
+    fill takes once the shipped Logic is read at once (train B2); the
+    tracker's first view of the plan its tracker built and the world map
+    read (done of 2), and a view of a kept plan nothing, so a click on a
+    spot shows no bar. Each answers as it does without ``progress``."""
     seen = []
     monkeypatch.setattr(fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills now
     doc = sdk.plan({"seed": "2"}, progress=seen.append)

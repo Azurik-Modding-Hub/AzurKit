@@ -567,7 +567,9 @@ class _Count:
     """An attempt's progress as :func:`~azurkit.core.progress.note` calls
     (Step 4.3u): "placing the items, k of n" (attempt 2 on: "placing the
     items, attempt 2, k of n"), k the spot being filled of the n the attempt
-    fills, never back (a trade or repair puts spots again). A note each time
+    fills, never back in the attempt (a trade or repair puts spots again);
+    a retried attempt counts from 1 again, so the bar goes back to its
+    start and the label names the attempt. A note each time
     the count passes a percent and at each reach, where the time goes, so
     each is the bar's step and a cancel point no more than one reach apart;
     the fill's :class:`_Making` keeps the last for a thread waiting on it."""

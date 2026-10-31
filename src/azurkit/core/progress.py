@@ -96,8 +96,10 @@ def noting(steps: Steps) -> Iterator[Steps]:
     ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
     counted inside the stage's step (``done`` of ``total`` as ``done * n +
     k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
-    so its bar moves on, never back. A call inside another's folds into its
-    own stages until it ends."""
+    so its bar moves on as the count does: a count that starts again (a
+    retried fill attempt's, whose label names the attempt) takes it back to
+    its own start. A call inside another's folds into its own stages until
+    it ends."""
     if not steps:
         yield steps
         return
