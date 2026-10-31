@@ -2,14 +2,17 @@
 file of AzurKit's own packs and game-data edits, checked at Install and
 again at each build; a recipe names one installed, untouched and pinned;
 its built-in packs merge with the recipe's own, and its edits are a layer of
-their own that a later layer may overwrite, reported (D28). Pure: fixture
-packs in a content repository made in ``tmp_path``, no game bytes (D997: no
-pack ships)."""
+their own that a later layer may overwrite, reported (D28); and the page's
+one Install path (``web/content.mjs``, on Node: ``web``). No game bytes:
+fixture packs in a content repository made in ``tmp_path`` (D997: no pack
+ships)."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -21,6 +24,7 @@ from azurkit.tools.mods import community
 
 GOLEM = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
          "prop": "hitPoints", "value": 321}
+ROOT = Path(__file__).resolve().parent.parent
 HARD = {"format": preset.FORMAT, "schema_version": 1, "layers": [
     {"tool": "mods", "kind": "packs", "recipe": {"enemy_scaling": {"enemy_damage_dealt_scale": 1.5},
                                                  "player_max_hp": {"starting_hp": 150}}},
@@ -161,3 +165,116 @@ def test_a_community_packs_edits_are_its_own_layer_a_later_edit_wins_and_its_bui
     assert preset.decode(preset.encode(found)) == found
     with pytest.raises(ValueError, match="not a 'packs' layer of tool 'community'"):
         preset.read({**record, "layers": [{"tool": "community", "kind": "packs", "recipe": {"id": "hard"}}]})
+
+
+DRIVE = r"""
+const { content, needs } = await import(process.argv[2]);
+const enc = (text) => new TextEncoder().encode(text);
+const entry = (id, requires, files, version = 1) => ({ id, kind: "pack", title: id, version, requires,
+  files: files.map(([path, text, size]) => ({ path, size: size ?? enc(text).length, sha256: `${path}@${version}` })) });
+const list = (...entries) => ({ format: "azurik-custom-content", schema_version: 1, entries });
+let bodies = {}, refuse = null;
+const fetched = [], handed = [], heard = [], store = new Map();
+const fetch = async (url) => {
+  const path = new URL(url).pathname.replace("/content/", ""), text = bodies[path];
+  fetched.push(path);
+  if (text === undefined) return { ok: false, status: 404 };
+  const data = enc(text);
+  let at = 0;
+  return { ok: true, status: 200, headers: { get: () => null }, text: async () => text,
+           body: { getReader: () => ({ cancel: async () => {},
+                                       read: async () => at >= data.length ? { done: true }
+                                         : { done: false, value: data.slice(at, at += 4) } }) } };
+};
+const call = async (type, given) => {
+  const manifest = JSON.parse(given.manifest);
+  if (refuse) return { refused: refuse };
+  return "id" in given ? { manifest, install: needs(new Map(manifest.entries.map((e) => [e.id, e])), given.id) }
+                       : { manifest };
+};
+const kept = { get: async (key) => store.get(key),
+               put: async (entries) => entries.forEach(([k, v]) => store.set(k, v)) };
+const c = content({ call, app: false, fallback: "content/", kept, fetch,
+                    handoff: (files) => handed.push(Object.keys(files)), storage: { getItem: () => null },
+                    location: { href: "http://site.test/", origin: "http://site.test" } });
+const out = {};
+const tried = async (act) => { try { await act(); return null; } catch (error) { return error.message; } };
+const picture = () => JSON.stringify([[...store.keys()], Object.keys(store.get("files") ?? {}),
+                                      store.get("installed")]);
+const progress = (k, n) => heard.push(`${k} of ${n}`);
+
+const v1 = list(entry("a", ["b", "c"], [["packs/a/pack.json", "a1"], ["packs/a/old.json", "o"]]),
+                entry("b", ["d"], [["packs/b/pack.json", "bb"]]), entry("c", ["d"], [["packs/c/pack.json", "cc"]]),
+                entry("d", [], [["packs/d/pack.json", "dd"]]));
+bodies = { "manifest.json": JSON.stringify(v1), "packs/a/pack.json": "a1", "packs/a/old.json": "o",
+           "packs/b/pack.json": "bb", "packs/c/pack.json": "cc", "packs/d/pack.json": "dd" };
+await c.read();
+fetched.length = 0;
+await c.install(c.state.manifest.entries[0], progress);
+out.diamond = { fetched: [...fetched], heard: [...heard], kept: Object.keys(store.get("files")).sort(),
+                installed: Object.keys(store.get("installed")).sort(), handed: handed.length };
+
+const v2 = list({ ...v1.entries[0], version: 2, files: [{ path: "packs/a/pack.json", size: 2, sha256: "a@2" }] },
+                ...v1.entries.slice(1));
+bodies["manifest.json"] = JSON.stringify(v2);
+bodies["packs/a/pack.json"] = "a2";
+await c.read();
+out.states = c.state.entries.map((e) => `${e.id} ${e.state}`);
+fetched.length = heard.length = 0;
+await c.install(c.state.entries[0], progress);
+out.update = { fetched: [...fetched], heard: [...heard], kept: Object.keys(store.get("files")).sort(),
+               a: new TextDecoder().decode(store.get("files")["packs/a/pack.json"]),
+               version: store.get("installed").a.version, states: c.state.entries.map((e) => `${e.id} ${e.state}`) };
+
+const before = picture(), handedBefore = handed.length;
+refuse = "a: packs/a/pack.json's sha256 0123456789ab isn't the manifest's 0123456789ac";
+out.refused = await tried(() => c.install(c.state.entries[0]));
+refuse = null;
+bodies["manifest.json"] = JSON.stringify(list(...v2.entries,
+                                              entry("big", [], [["packs/big/pack.json", "", 2 ** 28 + 1]]),
+                                              entry("liar", [], [["packs/liar/pack.json", "", 2]])));
+bodies["packs/liar/pack.json"] = "ten bytes!";
+await c.read();
+fetched.length = 0;
+out.big = await tried(() => c.install(c.state.manifest.entries.find((e) => e.id === "big")));
+out.bigFetched = fetched.length;
+out.liar = await tried(() => c.install(c.state.manifest.entries.find((e) => e.id === "liar")));
+out.untouched = picture() === before && handed.length === handedBefore;
+out.cycle = await tried(() => needs(new Map([["x", { requires: ["y"] }], ["y", { requires: ["x"] }]]), "x"));
+out.unknown = await tried(() => needs(new Map([["x", { requires: ["z"] }]]), "x"));
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.web
+def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refuses_and_drops_what_an_update_drops(
+        tmp_path):
+    """web/content.mjs, the one Install path of the page's community tabs
+    (driven on Node with the browser's parts stubbed): an entry and those it
+    requires (a diamond) fetched once each, required first, ``k of n``
+    heard as each file comes; an Update fetches only what changed and drops
+    the files its new version doesn't hold; an engine refusal, an Install
+    past MAX_ENTRY (refused before any fetch) and a reply past its listed
+    size keep nothing; the requires walk names a cycle and an unknown id."""
+    driver = tmp_path / "drive.mjs"
+    driver.write_text(DRIVE, encoding="utf-8")
+    module = (ROOT / "web" / "content.mjs").as_uri()
+    done = subprocess.run(["node", str(driver), module], capture_output=True, text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    out = json.loads(done.stdout)
+    pack = "packs/{}/pack.json".format
+    assert out["diamond"] == {"fetched": [pack("d"), pack("b"), pack("c"), pack("a"), "packs/a/old.json"],
+                              "heard": [f"{k} of 5" for k in range(6)], "kept": sorted(
+                                  ["packs/a/old.json", *map(pack, "abcd")]),
+                              "installed": ["a", "b", "c", "d"], "handed": 1}
+    assert out["states"] == ["a update", "b installed", "c installed", "d installed"]
+    assert out["update"] == {"fetched": [pack("a")], "heard": ["0 of 1", "1 of 1"], "kept": sorted(map(pack, "abcd")),
+                             "a": "a2", "version": 2, "states": ["a installed", "b installed", "c installed",
+                                                                  "d installed"]}
+    assert out["refused"] == "a: packs/a/pack.json's sha256 0123456789ab isn't the manifest's 0123456789ac"
+    assert out["big"] == "its files are 268,435,457 bytes, past the 268,435,456 one Install fetches"
+    assert out["bigFetched"] == 0
+    assert out["liar"] == "packs/liar/pack.json: 4 bytes or more, past the community list's 2"
+    assert out["untouched"] is True
+    assert out["cycle"] == 'entry "x" requires itself (x -> y -> x)'
+    assert out["unknown"] == 'no entry "z" in the community list'
