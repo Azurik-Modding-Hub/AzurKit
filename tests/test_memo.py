@@ -31,7 +31,8 @@ def test_a_kept_answer_is_the_engines_byte_for_byte_and_any_change_to_its_key_mi
     tracker.json's), the page's tracker ask and the warm-up's sharing one
     key; another code, database, installed.json, argument or call is
     another key, and Live on, a click that marks or resets, or Live's kit
-    (any kit given, a falsy one the tracker refuses too) has none."""
+    (any kit given, a falsy one the tracker refuses too) or marks the
+    tracker refuses has none."""
     monkeypatch.setattr(kit, "ROOT", tmp_path)
     doc = record_goldens.profile("default")
     asked = {"plan": doc, "marks": {}, "spoiler": False, "gems": False}   # web/tracker.mjs's ask on reopening
@@ -60,7 +61,8 @@ def test_a_kept_answer_is_the_engines_byte_for_byte_and_any_change_to_its_key_mi
     assert len({key, kept.key("restore", SETUP | {"ticked": []}), kept.key("randomizer", SETUP)}) == 3
     assert [kept.key("tracker", asked | extra) for extra in ({"toggle": "x"}, {"reset": True}, {"kit": {"air": 3}},
                                                              {"kit": 0}, {"kit": []}, {"held": {"x": 1}},
-                                                             {"what": 1})] == [None] * 7
+                                                             {"marks": {"collected": None}},
+                                                             {"what": 1})] == [None] * 8
     assert kept.key("restore", SETUP, live=True) is None and kept.key("spoiler", {}) is None
     assert kept.get("tracker", asked, live=True) is None
 

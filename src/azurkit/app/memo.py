@@ -118,7 +118,7 @@ def canonical(call: str, args: object) -> str | None:
             return None
         try:
             marks = tracking.marks_of(args.get("marks"))
-        except ValueError:
+        except (TypeError, ValueError):   # tracker.marks' list() and dict() raise TypeError
             return None
         args = {"plan": args.get("plan"), "marks": marks, "spoiler": bool(args.get("spoiler")),
                 "gems": bool(args.get("gems"))}
