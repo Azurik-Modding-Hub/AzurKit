@@ -1628,6 +1628,79 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
         served.close()
 
 
+# The level map shown: its level, floor, whether its detail picture was drawn, and its canvas's colour at points
+DETAIL_DRAWN = "() => { const f = azurkit.tracker.map.drawnFor; return [f?.level, f?.floor, f?.detail]; }"
+CANVAS_AT = """(points) => { const g = document.getElementById("map-canvas").getContext("2d"), r = devicePixelRatio || 1;
+    return points.map(([x, y]) => [...g.getImageData(Math.floor(x * r), Math.floor(y * r), 1, 1).data.slice(0, 3)]); }"""
+TOP = "() => { const m = azurkit.tracker.map; m.view(m.top()); }"
+
+
+def test_a_level_zoomed_past_its_maps_pixels_shows_its_floors_detail_picture(browser, site, tmp_path):
+    """Step 4.3l (D988): a coarse level's map (``index.json``'s detail),
+    zoomed within a notch of its own pixels, reads its shown floor's detail
+    picture the site ships, once, and past them draws it: the canvas holds
+    the detail picture's colours where the map's own differ. Nothing reads
+    one before (the page's start, the world map, w1 fitted more than a notch
+    under its pixels), another floor's replaces it (the one held closed),
+    Fit shows the map's own pixels again, and a level with none (airship)
+    reads none. No image is picked."""
+    from azurkit.tools.randomizer import art
+
+    shipped, v = site / "art" / tracking.ART_VERSION, tracking.ART_VERSION
+    factors = json.loads((site / "art" / "index.json").read_text(encoding="utf-8"))["detail"]
+    entry = json.loads((shipped / "maps.json").read_text(encoding="utf-8"))["levels"]["w1"]
+    main, other = entry["main"], next(k for k in range(len(entry["floors"])) if k != entry["main"])
+    assert "w1" in factors and "airship" not in factors
+    served = Site(browser, site, viewport={"width": 900, "height": 520})
+
+    def read() -> list[str]:
+        return [url.removeprefix(f"{ORIGIN}/art/{v}/detail/") for _, url, _ in served.requests if "/detail/" in url]
+    try:
+        page = served.open()
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, TRACKED, 300)
+        page.evaluate("() => azurkit.tracker.map.show('w1', true)")
+        _page.until(page, "() => azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
+        assert page.evaluate("() => azurkit.tracker.map.fitted") * 1.25 <= 1 and read() == []
+        page.evaluate("() => document.querySelectorAll('#map-switches input').forEach((b) => b.click())")  # bare
+        page.evaluate(TOP)
+        _page.until(page, "() => azurkit.tracker.map.drawnFor.detail", 60)
+        assert page.evaluate(DETAIL_DRAWN) == ["w1", main, True] and read() == [f"{entry['floors'][main]}.png"]
+        x0, y0, s, factor, (cw, ch) = page.evaluate(
+            "() => { const m = azurkit.tracker.map; return [...m.at(0, 0), m.s, m.factor(), m.room()]; }")
+        finer = art.unpng((shipped / "detail" / f"{entry['floors'][main]}.png").read_bytes())
+        own = art.unpng((shipped / f"{entry['floors'][main]}.png").read_bytes())
+        points, colours = [], []
+        for cy in range(40, ch - 4, 5):   # below the title, each a detail pixel's middle where the map's own differs
+            for cx in range(4, cw - 4, 5):
+                u, w = (cx + 0.5 - x0) * factor / s, (cy + 0.5 - y0) * factor / s
+                if (0.25 < u % 1 < 0.75 and 0.25 < w % 1 < 0.75 and 0 <= w < finer.shape[0] and 0 <= u < finer.shape[1]
+                        and (finer[int(w), int(u)] != own[min(int(w / factor), own.shape[0] - 1),
+                                                     min(int(u / factor), own.shape[1] - 1)]).any()):
+                    points.append([cx, cy])
+                    colours.append(finer[int(w), int(u)].tolist())
+        assert len(points) > 20 and page.evaluate(CANVAS_AT, points) == colours
+        page.evaluate("() => { globalThis.held = azurkit.tracker.map.detail.bitmap; }")
+        page.evaluate("(k) => document.querySelector(`#map-floors input[data-floor='${k}']`).click()", other)
+        _page.until(page, f"() => azurkit.tracker.map.drawnFor.detail && azurkit.tracker.map.drawnFor.floor === {other}")
+        assert read()[1:] == [f"{entry['floors'][other]}.png"] and page.evaluate("() => held.width") == 0
+        _page.click(page, "map-fit")
+        assert page.evaluate(DETAIL_DRAWN) == ["w1", other, False]
+        page.evaluate(TOP)
+        assert page.evaluate(DETAIL_DRAWN) == ["w1", other, True] and len(read()) == 2
+        page.evaluate("() => azurkit.tracker.map.show('airship', true)")
+        _page.until(page, "() => azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
+        page.evaluate(TOP)
+        assert page.evaluate(DETAIL_DRAWN)[::2] == ["airship", False] and len(read()) == 2
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 TRACKED = "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length && azurkit.tracker.state.view"
 # The maps' model of the view shown (web/mapview.mjs's marks() for each level and badges(); the icons the engine draws),
 # as one canonical JSON text: TRACKER_MAP's

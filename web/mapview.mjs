@@ -10,6 +10,8 @@
 // room as the window resizes. With Gems (R1.43) each gem spot not all taken is a tiny dot in its gem's colour,
 // gone once Live sees it taken, with the gems taken and left under the title and on the floor buttons. With Live,
 // a you-are-here dot (the world map's ring round the player's level); Find me shows it, a zoomed map centred on them.
+// Zoomed past its own pixels, a coarse level's map shows its floor's detail picture (Step 4.3l, Modkit's R1.41: the
+// floor drawn again finer, shipped with the page), read when the zoom comes within a notch of needing it.
 // Every verdict is the engine's (sdk.tracker's view): this draws what it says (marks(), the tests' too). Before a plan
 // is tracked (no view) the world map shows its picture and the levels' names alone.
 const DARK = "#1b1f24";
@@ -74,7 +76,8 @@ export class MapView {
   // gems(), toggle(loc), navigated(level, byHand)}
   constructor(els, hooks) {
     Object.assign(this, { els, hooks, level: null, floor: 0, size: null, s: 1, fitted: 1, o: [0, 0], want: 1,
-                          shown: {}, hits: [], press: null, clicked: undefined, here: null, drawnFor: null });
+                          shown: {}, hits: [], press: null, clicked: undefined, here: null, drawnFor: null,
+                          detail: null });
     this.ctx = els.canvas.getContext("2d");
     const c = els.canvas;
     c.addEventListener("wheel", (e) => {
@@ -130,6 +133,8 @@ export class MapView {
   // leaves Follow's level).
   show(level, byHand = false) {
     this.level = level;
+    this.detail = null;   // its detail picture, {name, bitmap, error} (the shown floor's, or another's: one held)
+    this.hooks.art.drop();
     if (!this.ready(level)) {   // not drawn yet: the tracker shows its grid or chips
       this.pictures = [];
       return this.hooks.navigated(level, byHand);
@@ -322,15 +327,38 @@ export class MapView {
     this.hits = [];
     if (!view && (this.level !== null || !this.index())) return;
     const pic = this.pictures[this.level === null ? 0 : this.floor]?.bitmap, size = this.pictureSize();
-    if (pic && size) {
-      const [x, y] = this.at(0, 0);
-      ctx.imageSmoothingEnabled = false;
+    const detail = this.wantDetail(), finer = this.s > 1 ? detail?.bitmap : null, [x, y] = this.at(0, 0);
+    ctx.imageSmoothingEnabled = false;
+    if (finer) {   // a detail pixel is the map's pixel u * factor: drawn at s / factor
+      const r = this.s / this.factor();
+      ctx.drawImage(finer, x, y, finer.width * r, finer.height * r);
+    } else if (pic && size) {
       ctx.drawImage(pic, x, y, size[0] * this.s, size[1] * this.s);
     }
     const kinds = this.level === null ? this.drawWorld(view) : this.drawLevel(view);
     this.key(kinds);
-    this.drawnFor = { level: this.level, floor: this.floor, s: this.s, o: [...this.o] };
+    this.drawnFor = { level: this.level, floor: this.floor, s: this.s, o: [...this.o], detail: Boolean(finer) };
     if (this.here) this.you(this.here.seen, this.here.lost);
+  }
+
+  // How many times finer than its map the shown level's detail pictures are (null: none, index.json's detail).
+  factor() {
+    return this.level === null ? null : this.hooks.art.status.detail?.[this.level] ?? null;
+  }
+
+  // The shown floor's detail picture once it is in (null: not yet, or none): read when the map is zoomed within a
+  // notch of its own pixels (or fits past them), drawn again once it is; a floor's replaces another's.
+  wantDetail() {
+    if (!this.factor()) return null;
+    const name = this.entry(this.level).floors[this.floor];
+    if (this.detail?.name !== name && this.want * STEP > 1) {
+      const held = this.detail = { name, bitmap: null, error: null };
+      this.hooks.art.detail(name).then(({ bitmap, error }) => {
+        Object.assign(held, { bitmap, error });
+        if (this.detail === held) this.draw();
+      });
+    }
+    return this.detail?.name === name ? this.detail : null;
   }
 
   on(kind) {
@@ -563,7 +591,9 @@ export class MapView {
         this.hit(x, y, 12, `${name}: ${STATE[s.state]}`, () => this.hooks.toggle(m.loc));
       }
     }
-    this.els.note.textContent = unplaced.length ? `At the right edge, with no place: ${unplaced.join("; ")}.` : "";
+    const failed = this.s > 1 && this.detail?.error ? `No detail picture for ${level}: ${this.detail.error}.` : "";
+    this.els.note.textContent = [unplaced.length ? `At the right edge, with no place: ${unplaced.join("; ")}.` : "",
+                                 failed].filter(Boolean).join(" ");
     return kinds;
   }
 

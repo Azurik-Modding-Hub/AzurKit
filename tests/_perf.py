@@ -125,6 +125,8 @@ OPS = {op.id: op for op in (
     Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True,   # D999
        head_start=True),
     Op("A32", "the same reshape at the next launch", "build", content=True),
+    Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
+    Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
     Op("A40", "a critter picked, its view", "build", first=False),
     Op("A41", "the picker's search, a few letters", "build", first=False),
@@ -168,6 +170,8 @@ OPS = {op.id: op for op in (
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
+    Op("S30", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
+    Op("S31", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("S32", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
     Op("S33", "a critter picked, its view", "build", first=False),
     Op("S34", "the picker's search, a few letters", "build", first=False),
@@ -248,6 +252,12 @@ WORLD = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker
 LEVEL = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.level === 'w1' "
          "&& azurkit.tracker.map.pictures.length > 0 && azurkit.tracker.map.pictures.every((p) => p.bitmap)")
 SPECIES = "() => azurkit.characters.state.view?.species.length === 178"
+# w1 at the top zoom (Step 4.3l): drawn from its main floor's detail picture (shown and zoomed at once, so the
+# picture is read whatever the fit fetched before)
+TOP = "() => { const m = azurkit.tracker.map; m.view(m.top()); }"
+SHOWN_TOP = "() => { const m = azurkit.tracker.map; m.show('w1', true); m.view(m.top()); }"
+DETAILED = ("() => { const m = azurkit.tracker.map, f = m.drawnFor; "
+            "return f?.level === 'w1' && f.floor === m.entry('w1').main && f.detail; }")
 # The lag model: each File read worker.mjs makes, and that read made LAG_MS late (a FileReaderSync read by a busy wait
 # before it, as WebKit's blocks the worker; an awaited one by a timer before it). lagged() refuses a worker with a read
 # of a File this doesn't list (READS outside these and NOT_FILE), so a lane that adds one adds it here.
@@ -851,6 +861,16 @@ def app_seed(d: Driver, app: App, ctx) -> None:
     app.quit(p)
 
 
+def _detail(d: Driver, p: Page, first: str, again: str) -> None:
+    """w1's map opened and zoomed past its pixels until its detail picture is drawn (``first``), then Fit and the
+    same zoom (``again``: the picture held), back on the world map."""
+    d.act(p, first, SHOWN_TOP, DETAILED, 600)
+    while d.need(again):
+        p.js(click("map-fit"))
+        d.act(p, again, TOP, DETAILED, 600)
+    d.act(p, None, click("map-back"), WORLD, 600)
+
+
 def app_track(d: Driver, app: App, ctx) -> None:
     p = app.launch(d, ctx, None)
     _seeded(d, p, randomize=False)
@@ -864,6 +884,10 @@ def app_track(d: Driver, app: App, ctx) -> None:
     d.act(p, "A26", build_js(), BUILT, 1800)
     if d.need("A24"):
         d.act(p, "A24", click("rando-view-tracker"), ART_DONE, 3600)
+    if d.needed(("A37", "A38")):
+        p.js(click("rando-view-tracker"))
+        p.wait(WORLD, 600)
+        _detail(d, p, "A37", "A38")
     app.quit(p)
     p = app.launch(d, ctx, "A02")
     if d.need("A25"):
@@ -999,6 +1023,8 @@ def site_track(d: Driver, ctx, url: str) -> None:
     while d.need("S22"):
         d.act(p, "S22", "() => azurkit.tracker.map.show('w1', true)", LEVEL, 600)
         d.act(p, None, click("map-back"), WORLD, 600)
+    if d.needed(("S30", "S31")):
+        _detail(d, p, "S30", "S31")
     p.js(click("rando-view-settings"))
     d.act(p, None, "() => { azurkit.rando.view = null; const on = document.getElementById('rando-on'); "
                    "if (!on.checked) on.click(); }",
@@ -1267,7 +1293,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"), app_start),
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
-    "app-track": ("app", ("A02", "A23", "A24", "A25", "A26"), app_track),
+    "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38"), app_track),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
@@ -1275,7 +1301,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "S16", "S17"),
                    site_start),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
-    "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25"), site_track),
+    "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
     "site-seed": ("site", ("S24",), site_seed),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39"), site_data),

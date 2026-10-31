@@ -349,8 +349,9 @@ def _get(url: str, path: str) -> bytes:
 
 def test_the_frozen_app_serves_the_pictures_the_page_ships(frozen_app, tmp_path, monkeypatch):
     """Step 4.3f (D961): the frozen app (read-only, in a fresh HOME, no
-    image) answers ``api/art`` with the tracker's shipped index and serves
-    each of its pictures and the Characters tab's from the bundle, the
+    image) answers ``api/art`` with the tracker's shipped index (with the
+    detail pictures' factors, Step 4.3l) and serves each of its pictures
+    (the detail pictures too) and the Characters tab's from the bundle, the
     checkout's files byte for byte, and leaves itself as it was."""
     app_path, before = frozen_app
     box, v = Sandbox(tmp_path, monkeypatch), tracking.ART_VERSION
@@ -359,8 +360,10 @@ def test_the_frozen_app_serves_the_pictures_the_page_ships(frozen_app, tmp_path,
         replies = []
         _post(url, "api/art", {}, replies)
         served = {rel: _get(url, rel.removeprefix("web/")) for rel in shipped if rel != "web/art/index.json"}
+    named = json.loads(shipped["web/art/index.json"])
     assert replies == [{"version": v, "index": json.loads(shipped[f"web/art/{v}/maps.json"]),
-                        "icons": json.loads(shipped["web/art/index.json"])["icons"]}]
+                        "icons": named["icons"], "detail": named["detail"]}]
+    assert any(rel.startswith(f"web/art/{v}/detail/") for rel in served)
     assert served == {rel: data for rel, data in shipped.items() if rel in served} and len(served) == len(shipped) - 1
     assert _tree(app_path) == before
 
@@ -1253,8 +1256,9 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
     the Tracker shows, then a level's map in place of its chips once a click
     on the world map opens it: its tracked spots (a click on one
     marks it), a click on an exit opens the level it leads to, the wheel
-    zooms about the pointer and a double click on ground fits it again, and
-    a smaller window fits it smaller. With Gems on, each gem spot of the
+    zooms about the pointer and a double click on ground fits it again, w1
+    zoomed past its pixels draws its floor's detail picture (Step 4.3l, from
+    the same folder), and a smaller window fits it smaller. With Gems on, each gem spot of the
     floor shown is a dot, the floor buttons (each on one line, its text on
     its radio's middle) and the count say how many are left, the counter
     row the gems taken of all (R1.43's words), and Live (the app's: a
@@ -1325,6 +1329,9 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
             c.dispatchEvent(new PointerEvent("pointerdown", at)); c.dispatchEvent(new PointerEvent("pointerup", at));
             c.dispatchEvent(new MouseEvent("dblclick", at)); }""")
         assert page.evaluate("() => azurkit.tracker.map.s") == fitted
+        page.evaluate("() => { const m = azurkit.tracker.map; m.show('w1', true); m.view(m.top()); }")
+        _page.until(page, "() => azurkit.tracker.map.drawnFor.level === 'w1' && azurkit.tracker.map.drawnFor.detail", 60)
+        page.evaluate("(level) => azurkit.tracker.map.show(level, true)", level)
         page.set_viewport_size({"width": 900, "height": 640})
         _page.until(page, f"() => azurkit.tracker.map.fitted < {fitted}")
         _page.click(page, "track-gems")

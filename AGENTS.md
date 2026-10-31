@@ -932,7 +932,18 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     first recorded equal to Modkit's map view's) at TRACKER's states and shows the
     shipped maps with no image and no engine call in both browsers, and
     `tests/test_hosts.py` the app's map, a click, zoom, resize, Live
-    taking a gem's dot and the frozen app serving the pictures.
+    taking a gem's dot and the frozen app serving the pictures. **Detail
+    pictures** (Step 4.3l, D988; Modkit's Step 2.97 rule and drawing): each
+    floor of a level whose map is coarser than 1.6 px a metre (18 levels,
+    `art.detail_factor`) ships again at 2 px a metre in
+    `web/art/<ART_VERSION>/detail/<floor>.png` (`art.detail`, the art
+    family's alone), `index.json`'s `detail` names each level's factor (the
+    app's `api/art` too), and the map reads the shown floor's when its zoom
+    comes within a notch of its own pixels and draws it past them (at a fit
+    past them too), one held at a time; a failed read keeps the map's
+    pixels and says why in the column. `tests/test_site.py` holds the page
+    to it (none read before, the detail's pixels drawn, a floor's replacing
+    another's, Fit, a level with none) and `tests/test_hosts.py` the app's.
   - **The Characters tab** (Step 4.3d, `web/characters.mjs`; Modkit's
     Player page): the models' list, the community group first (D913:
     Azurik-Custom-Content's variant entries beside the species, each marked

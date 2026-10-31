@@ -1,7 +1,7 @@
 """The app's pictures for the tracker (Step 4.3f, D961): Modkit's level
-maps, world map and item icons, which ship with the page (``web/art/``,
-drawn once from the game by ``scripts/record_goldens.py``'s art family,
-never in the app): ``api/art`` answers :meth:`Drawing.status` and ``GET
+maps (with their detail pictures, Step 4.3l), world map and item icons,
+which ship with the page (``web/art/``, drawn once from the game by
+``scripts/record_goldens.py``'s art family, never in the app): ``api/art`` answers :meth:`Drawing.status` and ``GET
 art/<version>/<name>`` serves a picture from :func:`folder`, in the frozen
 app's bundle or the checkout.
 """
@@ -33,10 +33,13 @@ class Drawing:
 
     def status(self) -> dict:
         """``{"version", "index": maps.json's object, "icons": the icons'
-        pictures' names}``, ``index`` and ``icons`` null where :attr:`where`
-        holds no pictures (the page then shows the levels' grid and chips)."""
+        pictures' names, "detail": {level: how many times finer its detail
+        pictures are}}`` (Step 4.3l: ``index.json``'s), ``index`` and
+        ``icons`` null and ``detail`` empty where :attr:`where` holds no
+        pictures (the page then shows the levels' grid and chips)."""
         maps, shipped = self.where / "maps.json", self.where.parent / "index.json"
         found = maps.is_file() and shipped.is_file()
+        named = json.loads(shipped.read_text(encoding="utf-8")) if found else {}
         return {"version": tracking.ART_VERSION,
                 "index": json.loads(maps.read_text(encoding="utf-8")) if found else None,
-                "icons": json.loads(shipped.read_text(encoding="utf-8"))["icons"] if found else None}
+                "icons": named.get("icons"), "detail": named.get("detail", {})}

@@ -87,7 +87,8 @@ source ([Development](#development)).
 - **Spoiler-free:** each item stays hidden until you collect it, unless you turn Spoiler on.
 - **Maps at once:** 22 level maps, a world map and 41 icons come with AzurKit, so the world map shows the moment you
   open the tracker, before you pick your image or a seed.
-- **Level maps:** floors, zoom and pan; click a spot to mark it, or an exit to jump to its level.
+- **Level maps:** floors, zoom and pan; click a spot to mark it, or an exit to jump to its level. Sharp when
+  zoomed in: 18 levels carry each floor again at 2 px a metre, up to 5 times finer.
 - **Every lock labelled:** exits, barriers, key locks and disc seals show what they need; save points and
   teleporters are marked.
 - **World map:** each level with a badge of the spots you can reach now.
