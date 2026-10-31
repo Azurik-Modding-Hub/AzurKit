@@ -333,8 +333,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `data` xbr layer only: release-free (no `base` or `result`), data only (no
   randomizer, character, XBE site or code), its packs carrying every pack
   they need (`check`). `refusal` is the content folder's Install check of a
-  pack entry, which the sdk hands `content.verify` (`tools.characters` may
-  not import `tools.mods`). A recipe pins one by id and its pack.json's
+  pack entry, for `content.verify`'s `refusal=` hook (S1's), which the sdk
+  passes from the hub half (H3); until then a pack entry installs with only
+  the size, sha256 and disc-image checks (`tools.characters` may not import
+  `tools.mods`). A recipe pins one by id and its pack.json's
   sha12 (`normalize`), and `resolve` takes it only installed, untouched
   since and at the pin, naming what to Install or Update. Its built-in packs
   `merge` with the recipe's own (a pack two sources set to other values is
