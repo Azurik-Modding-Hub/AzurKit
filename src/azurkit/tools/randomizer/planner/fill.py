@@ -709,7 +709,8 @@ def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
             busy = _MAKING.setdefault(ident, mine := _Making(logic, key))
             if busy is mine and (made := _kept(logic, key)) is None:   # kept since the first look: no fill again
                 break
-            if busy is mine:
+            if busy is mine:   # ended with the kept fill, for a thread whose ask landed on it meanwhile
+                mine.made, mine.ended = made, True
                 del _MAKING[ident]
             else:
                 told = time.monotonic()

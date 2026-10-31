@@ -496,6 +496,46 @@ def test_a_fill_another_thread_makes_is_waited_on_telling_its_count_and_a_cancel
     assert ([r["label"] for r in heard], again[0].placement) == (["Filling the seed"], b[0].placement)
 
 
+def test_an_ask_that_finds_the_fill_kept_after_taking_its_in_flight_slot_ends_it_for_a_thread_waiting_there(
+        monkeypatch):
+    """Step 4.3u (review F1): an ask whose second look finds the fill kept
+    (another maker stored it between its two looks) ends the in-flight slot
+    it took with that fill, so a second ask that landed on the slot in that
+    window gets the fill too instead of waiting on it for ever."""
+    logic, asker, joined, looks, slots, got = kept_logic(), threading.current_thread(), threading.Event(), [], [], []
+    kept = fill.Fill("2", logic.db.defaults, 0, {"a spot": "an item"})
+
+    class Slots(dict):   # the fills in flight, telling when the second ask lands on the first's slot
+        def setdefault(self, key, value):
+            slots.append(slot := super().setdefault(key, value))
+            if threading.current_thread() is not asker:
+                joined.set()
+            return slot
+
+    def looked(of, key):   # the asker's second look finds the fill another maker stored meanwhile
+        if threading.current_thread() is not asker:
+            return None
+        looks.append(key)
+        if len(looks) == 1:
+            return None
+        second.start()
+        assert joined.wait(60)
+        return kept
+
+    monkeypatch.setattr(fill, "_MAKING", Slots())
+    monkeypatch.setattr(fill, "_kept", looked)
+    second = threading.Thread(target=lambda: got.append(fill.fill(logic, "2")), daemon=True)
+    try:
+        first = fill.fill(logic, "2")
+        second.join(5)
+        assert (second.is_alive(), first.placement, [g.placement for g in got], fill._MAKING) == (
+            False, kept.placement, [kept.placement], {})
+    finally:
+        for slot in slots:   # a waiter left on a slot that never ended stops, taking the kept fill
+            slot.made, slot.ended = kept, True
+        second.join(5)
+
+
 def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic_unwalked(
         tmp_path, monkeypatch):
     """The database the wheel and the app ship (``web_tools.ship_database``:
