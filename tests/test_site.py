@@ -943,6 +943,17 @@ BARS = """() => {
     new MutationObserver(look).observe(document.querySelector("footer"), { subtree: true, childList: true,
                                                                             characterData: true, attributes: true });
 }"""
+# The page's clock stopped (only the bar reads it): every answer lands inside a check's moment after it is whole
+STILL = "() => { const at = performance.now(); performance.now = () => at; }"
+# Build, then Cancel, the moment the check's bar first shows: ``cancelled`` is [the asks then, the bar hidden after]
+CANCEL = """() => new MutationObserver((_, seen) => {
+    if (!document.getElementById("progress-line").textContent.startsWith("Checking your image")) return;
+    seen.disconnect();
+    const asks = [...azurkit.asks.values()].map((ask) => ask.kind).join();
+    document.getElementById("build").click();
+    document.getElementById("cancel").click();
+    globalThis.cancelled = [asks, document.getElementById("progress-row").hidden];
+}).observe(document.querySelector("footer"), { subtree: true, childList: true, characterData: true })"""
 
 
 def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stages(browser, site, usa_iso):
@@ -950,11 +961,17 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
     check (its build files hashed, ``sdk.prime``) by its percent up to 100,
     then a build's named stages as the worker posts them (``core.progress``'s
     records: its files read, each pack applied, the image laid out), and
-    hides once the build is ready."""
+    hides once the build is ready, never showing the check again: the
+    worker's answer ends the check before it, whatever the clock says, and so
+    does a Cancel during the check (its worker stopped). The clock is stopped
+    here (:data:`STILL`), as a race made it: Chromium built two packs in
+    0.1 s, inside the 250 ms the check's whole bar stayed for (Step 4.3
+    train)."""
     served = Site(browser, site)
     try:
         page = served.open()
         page.evaluate(BARS)
+        page.evaluate(STILL)
         page.set_input_files("#iso", str(usa_iso))
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.build(page, ["fps_unlock", "qol_skip_logo"])
@@ -966,6 +983,18 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
         assert [any(line.startswith(stage) for line in lines) for stage in (
             "Reading its files", "Applying fps_unlock", "Applying qol_skip_logo", "Laying out the image")] == [True] * 4
         assert bars[-1] is None and served.stray() == []
+    finally:
+        served.close()
+    served = Site(browser, site)   # a fresh browser checks the image again
+    try:
+        page = served.open()
+        page.evaluate(BARS)
+        page.evaluate(STILL)
+        page.evaluate(CANCEL)
+        page.set_input_files("#iso", str(usa_iso))
+        assert _page.until(page, "() => globalThis.cancelled", 120) == ["check", True]
+        _page.until(page, "() => azurkit.ready", 120)   # the worker that replaces the stopped one
+        assert page.evaluate("() => bars.at(-1)") is None and served.stray() == []
     finally:
         served.close()
 

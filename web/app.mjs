@@ -192,7 +192,7 @@ async function tick() {
 }
 
 // The site's worker's record: the build's while one runs; else a check's (before the call it came with: its own,
-// gone a moment after it is whole, or 1.5 s after its last), else the newest ask's.
+// gone with the worker's next answer, else a moment after it is whole or 1.5 s after its last), else the newest ask's.
 function posted(step) {
   const asks = [...state.asks.values()];
   let ask = asks.findLast((a) => a.kind === "build") ?? (step.stage === "check" ? asks.findLast((a) => a.kind === "check")
@@ -202,6 +202,15 @@ function posted(step) {
   ask.record = step;
   if (ask.kind === "check") ask.until = performance.now() + (step.percent === 100 ? 250 : 1500);
   showing();
+}
+
+// The site's worker answered (or stopped): it answers in order, so each check posted before the answer is over and its
+// bar goes, whatever the clock says: a build answered within a check's moment never shows the check again, nor does a
+// Cancel during a check (Step 4.3 train).
+function unchecked() {
+  const checks = [...state.asks].filter(([, ask]) => ask.kind === "check");
+  for (const [id] of checks) state.asks.delete(id);
+  if (checks.length) showing();
 }
 
 // The site's engine: a module worker, started from a blob: URL so that it keeps the page's CSP. It is kept after a
@@ -230,6 +239,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
     worker = new Worker(url, { type: "module" });
     worker.onmessage = ({ data }) => {
+      if (data.type !== "progress") unchecked();
       if (data.type === "ready") {
         URL.revokeObjectURL(url);
         loaded = true;
@@ -284,6 +294,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   };
   const restart = () => {
     worker.terminate();
+    unchecked();   // nor finishes a check
     for (const kind of [...waits.keys()]) end(kind);   // a stopped worker answers none of them
     for (const [call, { once, done }] of pending) {
       if (!once) continue;
