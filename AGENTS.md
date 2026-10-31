@@ -432,7 +432,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     "checking the levels, 5 of 15", then "building its logic") is folded
     the same way while `sdk.spoiler` and `sdk.randomizer_logic` run (the
     app's engine reads the logic ahead with it, and a call waiting on that
-    shows its records, `engine._WARMING`); a note counted short of the last
+    shows its records, `engine._WARMING`, the warm-up counted on a seed
+    plan's scale, its first of 3 steps); a note counted short of the last
     one keeps that one's count, so a bar never goes back (Step 4.7c).
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.

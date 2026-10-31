@@ -968,9 +968,11 @@ def randomizer_logic(*, progress: Callable[[dict], object] | None = None) -> dic
     Randomizer or Tools tab opens), so a plan, a plan file's spoiler or a
     seed's build doesn't. ``progress(record)`` hears it (``plan``, "Reading
     the randomizer's logic"), its checks counted while it is read cold (a
-    checkout's: the wheel and the frozen app ship it checked)."""
+    checkout's: the wheel and the frozen app ship it checked), on a seed
+    plan's scale (its first of 3 steps, the checks under its 33 %), so a
+    call that waits on it goes on in its own stages, never back."""
     with _noting(Steps(progress)) as steps:
-        steps("plan", "Reading the randomizer's logic", 0, 1)
+        steps("plan", "Reading the randomizer's logic", 0, 3)
         randomizer.kept_logic()
     return {}
 

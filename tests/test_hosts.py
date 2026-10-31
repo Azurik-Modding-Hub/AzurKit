@@ -1630,29 +1630,39 @@ def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_t
         server.close()
 
 
-def test_the_apps_plan_file_spoiler_counts_the_logics_checks_while_the_engine_reads_it_cold(tmp_path, monkeypatch):
-    """A plan file's spoiler asked while the engine's warm-up (the Tools
-    tab's opening starts it) reads the randomizer's logic cold, a launch's
-    first read: its ``api/progress`` record counts the logic's checks, its
-    percent moving on and never back ("Reading the randomizer's logic
-    (checking the levels, 5 of 15)"), then the spoiler's stage, so its bar
-    moves (D982, D1008; Step 4.7c)."""
+def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never_fall_back_inside_a_stage(tmp_path,
+                                                                                                           monkeypatch):
+    """A plan file's spoiler and a seed's plan asked while the engine's
+    warm-up (the Tools or Randomizer tab's opening starts it) reads the
+    randomizer's logic cold, a launch's first read: each one's records count
+    the logic's checks ("Reading the randomizer's logic (checking the
+    levels, 5 of 15)"), the spoiler's through ``api/progress``, then go on
+    in their own stages, a percent never lower than the one before it in a
+    stage (the warm-up counts on a seed plan's scale), so the bar moves and
+    never goes back (D982, D1008; Step 4.7c)."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setattr(loader, "_KEPT", {})   # nothing in this process has read the logic yet
     plan = record_goldens.recorded(record_goldens.PLANS)["default"]["plan"]
-    server, replies, seen = app.serve(_page.WEB), [], []
+    server, replies, seen, planned, seeded = app.serve(_page.WEB), [], [], [], []
     try:
         engine._WARM.acquire()   # as the engine's loop takes it for a warm message
         engine._WARMING[:] = [progress_record("plan", "Reading the randomizer's logic")]
         threading.Thread(target=engine._warm_logic, daemon=True).start()
         asking = threading.Thread(target=_post, args=(server.url, "api/plan_spoiler", {"plan": plan}, replies))
-        asking.start()
-        while asking.is_alive():
+        seeding = threading.Thread(target=lambda: seeded.append(engine.JOBS["plan"]({"seed": "2"},
+                                                                                    progress=planned.append)))
+        asking.start(), seeding.start()
+        while asking.is_alive() or seeding.is_alive():
             if (step := server.progress()["calls"].get("plan_spoiler")) and step not in seen[-1:]:
                 seen.append(step)
             time.sleep(0.01)
     finally:
         server.close()
-    read = [s["percent"] for s in seen if s["stage"] == "plan" and s["percent"] is not None]
-    assert (len(set(read)) >= 3, read == sorted(read), [s["stage"] for s in seen][-1], len(replies[0]["lines"]) > 9) \
-        == (True, True, "spoiler", True), seen
+
+    def back(steps: list[dict]) -> list:   # a percent lower than the one before it in the same stage
+        return [(a, b) for a, b in zip(steps, steps[1:])
+                if a["stage"] == b["stage"] and None not in (a["percent"], b["percent"]) and b["percent"] < a["percent"]]
+    read = {s["percent"] for s in seen if s["stage"] == "plan" and s["percent"] is not None}
+    checked = any(s["label"].startswith("Reading the randomizer's logic (") for s in planned)
+    assert (len(read) >= 3, back(seen), seen[-1]["stage"], len(replies[0]["lines"]) > 9, checked, back(planned),
+            len(seeded)) == (True, [], "spoiler", True, True, [], 1), (seen, planned)
