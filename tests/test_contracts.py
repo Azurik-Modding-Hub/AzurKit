@@ -90,6 +90,7 @@ def test_the_engine_holds_no_threads_processes_prints_or_exits_numpy_stays_in_it
         "os.execv('a', [])": "calls os.execv",
         "import numpy as np": "imports numpy",
         "from capstone import Cs": "imports capstone",
+        "import devkit.xemu": "imports devkit.xemu",
     }
     for source, why in caught.items():
         assert any(v.endswith(why) for v in violations(source, "core/x.py")), source
