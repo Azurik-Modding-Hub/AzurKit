@@ -37,7 +37,7 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 
@@ -51,6 +51,8 @@ TOOL, KIND = "randomizer", "plan"
 LAYER = layer.LAYER      # the layer's id, as Modkit names it in a conflict
 RECIPE = ("seed", "settings", "share", "obsidian_cost")
 OBSIDIAN_GROUP = f"{LAYER} obsidian lock thresholds"
+#: Told "placing the items" as :func:`prepare` starts the seed's fill (the sdk sets it; None: told nothing)
+NOTE: Callable[[str], object] | None = None
 
 
 @dataclass
@@ -125,6 +127,8 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
         share = share_encode(settings_from_table(recipe["settings"], _skips(db), "settings"), _skips(db))
     args = SimpleNamespace(plan=None, seed=recipe["seed"], settings=None, share=share, skip_ceiling=None,
                            movement_tier=None, dark_fire=None, skip=None, no_skip=None, exclude_category=None)
+    if NOTE is not None:
+        NOTE("placing the items")
     plan, logic, _, why = layer.plan_for(args, db, sliders(packs))
     made = {"seed": plan.doc["seed"], "share": plan.doc["share"]}
     if "obsidian_cost" in recipe:

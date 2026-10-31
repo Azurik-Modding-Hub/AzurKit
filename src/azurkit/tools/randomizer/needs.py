@@ -21,10 +21,14 @@ from __future__ import annotations
 import collections
 import functools
 import re
+from collections.abc import Callable
 
 from azurkit.tools.randomizer.planner.grammar import ParseError, atoms, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import skips_on
+
+#: Told "the maps' exits, k of n" as :func:`exit_edges` starts each level's (the sdk sets it; None: told nothing)
+NOTE: Callable[[str], object] | None = None
 
 # What a connection needs, one colour each (Modkit's ``NEEDS``, M9)
 NEEDS = {"nothing": "#c9d1d9", "keys": "#ffe8a3", "fragments": "#b98cff", "event": "#ff8fb1",
@@ -71,12 +75,13 @@ def _spare(names: list, ok) -> list:
     return kept
 
 
-def reaching(level: str, sources: list[str], node: str) -> str | None:
+def reaching(lg, level: str, sources: list[str], node: str) -> str | None:
     """What reaching ``node`` from ``sources`` (nodes of ``level``) needs
-    without leaving it, under the default options: each way's counters at
-    the least threshold the logic reads and the other levels' flags it
-    can't spare, the ways or-ed (AZ-432); None when nothing reaches it."""
-    lg = kept_logic()
+    without leaving it, under the default options, on ``lg`` (the kept
+    Logic :func:`exit_edges` holds: one ``kept_logic`` a tracker ask, not
+    one a reach): each way's counters at the least threshold the logic
+    reads and the other levels' flags it can't spare, the ways or-ed
+    (AZ-432); None when nothing reaches it."""
     levels = {c: sorted(ns) for c, ns in thresholds().items()}
     outside = sorted(f for f in lg.db.flags if not f.startswith(f"{level}."))
 
@@ -150,16 +155,18 @@ def exit_edges() -> tuple:
     db = lg.db
     level_of = {n: lvl for n, (lvl, _) in db.nodes.items()}
     on = set(skips_on(db.defaults, lg.skip_tables))
-    out = []
-    for lvl, doc in sorted(db.levels.items()):
+    out, levels = [], sorted(db.levels.items())
+    for k, (lvl, doc) in enumerate(levels, 1):
+        if NOTE is not None:
+            NOTE(f"the maps' exits, {k} of {len(levels)}")
         for e in doc["edge"]:
             if not e.get("from") or e["kind"] != "exit" and not e.get("exit"):
                 continue
             dest, need = level_of.get(e["to"]), _skips_off(e.get("requires", "true"), on)
             if lvl not in db.stubs:
                 there = [n for src, n in arrivals()[lvl] if src != dest]
-                path = (there and reaching(lvl, there, e["from"])) or reaching(
-                    lvl, [n for _, n in arrivals()[lvl]], e["from"]) or "false"
+                path = (there and reaching(lg, lvl, there, e["from"])) or reaching(
+                    lg, lvl, [n for _, n in arrivals()[lvl]], e["from"]) or "false"
                 need = _and(path, need)
             out.append((lvl, dest, e.get("exit", ""), need))
     return tuple(out)
