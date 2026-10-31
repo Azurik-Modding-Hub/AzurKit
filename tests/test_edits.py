@@ -118,14 +118,15 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
         compose(BASE, [swap], known | {"b.bin": _sha256(b"X")})
 
 
-def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(tmp_path):
+def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(tmp_path, monkeypatch):
     """Replace files (``edits.files``): a file the player picked stands in
     whole for the image's own, at any size, in one layer after every other.
     An earlier group it shadows (an ``xbr`` operation) is dropped whole and
     named (D28); one whose bytes it holds is kept; a file another layer
     writes whole (the character layer's) is refused by name. The recipe and
-    the manifest name each file by path, sha256 and size, never its bytes.
-    Refused by name: default.xbe, filelist.txt, /azurkit.json, /azurkit.bin,
+    the manifest name each file by path, sha256 and size, never its bytes:
+    none is in /azurkit.bin, so files past its 256 MiB still make a build
+    AzurKit opens. Refused by name: default.xbe, filelist.txt, /azurkit.json, /azurkit.bin,
     a path the image hasn't, a rebuild whose file isn't picked this session
     or is another file (no sha256 echoed), and a computer path on a network
     share, a device path or under /net/ (SEC-11)."""
@@ -164,6 +165,13 @@ def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(t
                                                "recipe": {"files": entries}}
     assert manifest.result["movies/Credits.bik"] == _sha256(credits)
     assert [c.get("whole") for c in manifest.to_json()["layers"][-1]["changes"]] == [True, True]
+    iso.pack(made, tmp_path / "out.iso")
+    monkeypatch.setattr(gate, "RELEASES", (release,))
+    monkeypatch.setattr(edits, "MAX_BIN", 120)   # the swap's file alone, as /azurkit.bin's limit
+    record = edits.load(tmp_path / "out.iso")[1]
+    assert record["bin"] == {_sha256(b"body" * 30): [0, 120]}
+    assert [c["after"] for c in record["layers"][-1]["changes"]] == [{"sha256": _sha256(config)},
+                                                                     {"sha256": _sha256(credits)}]
     body = put.normalize([put.entry("gamedata/characters.xbr", credits)])
     with pytest.raises(ValueError, match=r"^files put \(put gamedata/characters\.xbr\): gamedata/characters\.xbr is "
                                          r"written whole by player model keylord already$"):

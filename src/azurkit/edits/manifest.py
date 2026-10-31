@@ -14,7 +14,9 @@ A build with any layer carries its manifest (Q66, V10) as two files in the
 image's root, which the game never opens: ``/azurkit.json``
 (:meth:`Manifest.to_json`), where a change's bytes past :data:`INLINE` are
 named by their sha256, and ``/azurkit.bin``, those bytes, each once, at the
-offset and size the JSON's ``bin`` gives (:func:`root_files`). :func:`load`
+offset and size the JSON's ``bin`` gives (:func:`root_files`); a file Replace
+files put (``edits.files``, the last layer) is named only, as the image holds
+it at its path, so a build of large files stays under :data:`MAX_BIN`. :func:`load`
 reads them back from an image, re-verifies each blob, and checks the image
 against them: every file the manifest says the build changed has its
 sha256, and every other is the release's vanilla file (a file no layer
@@ -58,13 +60,16 @@ class Manifest:
     def to_json(self, blobs: dict[str, bytes] | None = None) -> dict:
         """The manifest as JSON. With ``blobs``, a change's bytes past
         :data:`INLINE` are ``{"sha256"}`` there, each kept in ``blobs``
-        once; else every change's are hex."""
+        once; else every change's are hex. A file Replace files put is
+        ``{"sha256"}`` either way, in no blob (the module's docstring)."""
         recipe = self.recipe()
 
-        def after(data: bytes) -> str | dict:
-            if blobs is None or len(data) <= INLINE:
-                return data.hex()
-            blobs.setdefault(sha := _sha256(data), bytes(data))
+        def after(c, tool: str) -> str | dict:
+            if c.whole and tool == "files":   # edits.files.TOOL (that module imports this one)
+                return {"sha256": _sha256(c.after)}
+            if blobs is None or len(c.after) <= INLINE:
+                return c.after.hex()
+            blobs.setdefault(sha := _sha256(c.after), bytes(c.after))
             return {"sha256": sha}
         return {
             "format": FORMAT,
@@ -72,7 +77,7 @@ class Manifest:
             "azurkit": __version__,
             "base": recipe["base"] | {"files": _sha256(self.release.manifest.read_bytes())},
             "layers": [r | {"changes": [{"file": c.file, "offset": c.offset, "size": len(c.after), "before": c.before,
-                                         "after": after(c.after), "group": c.group}
+                                         "after": after(c, la.tool), "group": c.group}
                                         | ({"whole": True} if c.whole else {}) for c in la.changes],
                              "claims": [{"file": c.file, "offset": c.offset, "size": c.size, "owner": c.owner,
                                          "writable": c.writable} for c in la.claims],
