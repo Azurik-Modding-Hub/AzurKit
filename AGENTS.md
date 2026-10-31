@@ -430,7 +430,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     hook's vanilla bytes read from the player's `default.xbe` and checked
     against the facts' swap site (`xbe_site`), and config.xbr's keyed tables
     and cell edits. `pool.py` runs the swap's parallel work in order unless
-    a host gives it a map (`pool.MAP`).
+    a host gives it a map (`pool.MAP`, handed each item's cost and a tick),
+    a thread for `later` (`pool.LATER`) and a progress tick (`pool.TICK`).
+    The app's engine process gives it `azurkit.app.procpool` (Step 4.3i):
+    Modkit's split over spawned children, `min(16, the CPUs,
+    $AZURKIT_CORES)` a call, kept for the next, through pipes alone; the
+    results are each item's in order, so no byte depends on it
+    (`test_characters.py` builds G3's cases under it).
   - A recipe's `character` (`tools.characters.normalize`): `species` and
     Modkit's `randomize-full` options (`mode`, `size`, `scale`, the attack
     sliders, `anims`, `sounds`, `weapon`, `ram`, the jiggle's): the sdk

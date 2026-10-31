@@ -290,7 +290,10 @@ WARMS = {"randomizer": _warm_logic, "image": _warm_image}
 def _main(conn) -> None:
     """The engine's process: each call on a thread of its own, its answers
     and its save's progress sent back as they come."""
+    from . import procpool
+
     orphaned()
+    procpool.install()   # the swap's parallel work in children of this process
     sending, stops = threading.Lock(), {}
 
     def send(kind: str, ident: int, value) -> None:

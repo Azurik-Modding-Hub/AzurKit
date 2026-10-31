@@ -348,20 +348,33 @@ def test_the_frozen_app_dresses_the_player_in_a_species_body_as_its_golden(froze
     """``AzurKit build --character`` from the frozen app (the swap, its data
     and numpy in the bundle), read-only in a fresh HOME and TMPDIR, writes
     G3's keylord case: each file G3 records is its golden's, and the app and
-    the sandbox are as they were but for the build it wrote."""
+    the sandbox are as they were but for the build it wrote. So does its
+    page's Build and Save (``AzurKit serve``: the swap in the app's engine
+    process, its parallel work in that process's pool, both spawned from
+    the bundle, Step 4.3i)."""
     app_path, before = frozen_app
     box = Sandbox(tmp_path, monkeypatch)
     out = tmp_path / "out" / "keylord.iso"
     out.parent.mkdir()
     case = "randomize-full:player-character=keylord"
+    golden = record_goldens.recorded("pipelines.json")[case]
+
+    def files() -> dict[str, str]:
+        with iso.Reader(out) as r:
+            return {f: hashlib.sha256(r.read(f)).hexdigest() for f in golden if f != "ISO"}
     done = box.run(app_path, "build", "--iso", str(usa_iso), "--out", str(out), "--character",
                    json.dumps({"species": "keylord"}), timeout=900)
     try:
         assert done["code"] == 0, done["stderr"][-2000:]
-        golden = record_goldens.recorded("pipelines.json")[case]
-        with iso.Reader(out) as r:
-            assert {f: hashlib.sha256(r.read(f)).hexdigest() for f in golden if f != "ISO"} == {
-                f: sha for f, sha in golden.items() if f != "ISO"}
+        assert files() == {f: sha for f, sha in golden.items() if f != "ISO"}
+        out.unlink()
+        with box.serving(app_path) as url:
+            built, saved = [], []
+            _post(url, "api/build", {"iso": str(usa_iso), "character": {"species": "keylord"}, "packs": {
+                name: {} for name, pack in mods.PACKS.items() if pack.default_on}}, built, timeout=900)
+            _post(url, "api/save", {"recipe": built[0]["recipe"], "out": str(out)}, saved, timeout=900)
+        assert saved[0]["saved"]["out"] == str(out), saved
+        assert files() == {f: sha for f, sha in golden.items() if f != "ISO"}
     finally:
         out.unlink(missing_ok=True)
     assert _tree(app_path) == before
@@ -724,9 +737,10 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
                                                                                        usa_iso):
     """Step 4.3i: the app's builds run in its engine process
     (``app.engine.Spawned``), so the server's own answers (the species list,
-    the setup) come within 0.5 s while keylord builds; Cancel ends that
-    process at once, the build is refused, another process takes the next
-    Build, and closing the app ends it too."""
+    the setup) come within 0.5 s while keylord builds, its swap's work spread
+    over that process's pool (``app.procpool``); Cancel ends that process at
+    once, and its pool's children with it, the build is refused, another
+    process takes the next Build, and closing the app ends it too."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     server = app.serve(_page.WEB, engine.Spawned())
     first, replies = server.engine.pid, []
@@ -745,10 +759,14 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         assert building.is_alive()
         took = [ask("api/pickers", {"given": {}}), ask("api/setup", {"setup": {"ticked": ["fps_unlock"]}})]
         assert [s < 0.5 for s, _ in took] == [True, True] and took[1][1] == {}, took[0][0]
-        assert ask("api/cancel", {})[1] == {}
+        end, pool = time.monotonic() + 10, []
+        while building.is_alive() and not pool and time.monotonic() < end:
+            pool = subprocess.run(["pgrep", "-P", str(first)], capture_output=True, text=True).stdout.split()
+            time.sleep(0.05)
+        assert pool and ask("api/cancel", {})[1] == {}
         building.join(5)
         assert (building.is_alive(), replies) == (False, [{"refused": "Cancelled: nothing was built"}])
-        assert _ended(first) and server.engine.pid != first
+        assert _ended(first) and all(_ended(int(pid)) for pid in pool) and server.engine.pid != first
         took, built = ask("api/build", {"iso": str(usa_iso), "packs": {}})
         assert built["size"] == sdk.image({"iso": str(usa_iso), "packs": {}})[0].size, built
         last = server.engine.pid

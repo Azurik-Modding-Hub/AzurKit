@@ -716,6 +716,29 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     assert _missed(first, request.getfixturevalue(f"{release.name}_iso"), release, workers=4) == {}
 
 
+def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso, no_content, tmp_path, monkeypatch):
+    """Step 4.3i: the app's process pool (``azurkit.app.procpool``, the
+    swap's ``pool.MAP`` and ``LATER``: Modkit's split over spawned
+    children, the dearest items first, and a thread) writes the bytes the
+    swap writes in order: keylord's body case and beamlord's reshaped variant
+    built under it are their goldens' file for file and resource for
+    resource (:func:`_missed`), and its children were used."""
+    from azurkit.app import procpool
+    from azurkit.tools.characters import pool
+
+    monkeypatch.delenv(procpool.CORES, raising=False)
+    monkeypatch.setattr(pool, "MAP", None)
+    monkeypatch.setattr(pool, "LATER", None)
+    assert procpool.install() >= 2 and (pool.MAP, pool.LATER) == (procpool.map_, procpool.later)
+    cases = {case: recipe for case, recipe in (_bodies() | _variants(gate.USA, tmp_path)).items()
+             if case.endswith(("=keylord", "=beamlord"))}
+    try:
+        assert len(cases) == 2 and _missed(cases, usa_iso) == {}
+        assert procpool._IDLE
+    finally:
+        procpool.stop()
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release, request):
     """G3's ``seed=0,all`` (Modkit's ``randomize-full --seed 0`` with
