@@ -31,6 +31,7 @@ import sys
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from stat import UF_COMPRESSED
 
 from azurkit.core import filelist
 
@@ -528,8 +529,10 @@ def _clone(source: Path, part: Path) -> int | None:
     """``part`` made as a clone of ``source`` (its blocks shared until
     either is written), open for writing, where the file system can:
     APFS's ``clonefile`` on macOS, ``FICLONE`` on Linux, without the
-    input's BSD flags; ``None``, with nothing made, where it can't (another
-    volume, another file system, another platform, a flag that won't clear)."""
+    input's BSD flags but its compression (a ``ditto --hfsCompression``
+    input's: without it the clone's blocks read as other bytes); ``None``,
+    with nothing made, where it can't (another volume, another file system,
+    another platform, a flag that won't clear)."""
     source = Path(os.path.realpath(source))   # a link to the image (the user data folder's) clones its target
     if sys.platform == "darwin":
         import ctypes
@@ -538,7 +541,9 @@ def _clone(source: Path, part: Path) -> int | None:
         if libc.clonefile(os.fsencode(source), os.fsencode(part), ctypes.c_uint32(0)) != 0:
             return None
         try:
-            os.chflags(part, 0)   # and its flags: Finder's Locked (uchg) would refuse the writes, hidden hide the save
+            # and its flags: Finder's Locked (uchg) would refuse the writes, hidden hide the save; but
+            # UF_COMPRESSED (decmpfs) stays, the flag that says how its blocks read
+            os.chflags(part, os.stat(part).st_flags & UF_COMPRESSED)
             os.chmod(part, 0o600)   # the clone has the input's mode (a read-only image's); _own gives it a fresh file's
             return os.open(part, os.O_RDWR)
         except OSError:   # a flag the clone took that won't clear, say: the streamed copy instead

@@ -14,6 +14,7 @@ import os
 import re
 import stat
 import struct
+import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -105,30 +106,37 @@ def test_a_clone_of_the_input_and_the_streamed_copy_write_the_same_image_as_a_fr
     (another volume) it streams the whole image. Either way the bytes and
     the sha256 are the same, and the file a fresh one's: its mode, and none
     of the input's extended attributes (its quarantine flag, say) or flags
-    (Finder's Locked: a locked image saves as an unlocked one did)."""
+    (Finder's Locked: a locked image saves as an unlocked one did), and a
+    transparently compressed input (``ditto --hfsCompression``) saves its
+    own bytes."""
     src = tmp_path / "in.iso"
     src.write_bytes(image({"a.bin": fill("a", 90), "gamedata/big.xbr": fill("big", 3 * S), "z.bin": fill("z", 10)}))
+    mac = sys.platform == "darwin"
+    if mac:   # compressed on disk (decmpfs), as a space-saving tool leaves it
+        raw = src.rename(tmp_path / "raw.iso")
+        subprocess.run(["ditto", "--hfsCompression", str(raw), str(src)], check=True, timeout=60)
+        raw.unlink()
+        assert src.stat().st_flags & stat.UF_COMPRESSED
     _xattrs(src, "com.azurkit.test")
     src.chmod(0o444)   # the player's image, read-only
-    locks = sys.platform == "darwin"
-    if locks:
-        os.chflags(src, stat.UF_IMMUTABLE)   # and locked in Finder
+    if mac:
+        os.chflags(src, src.stat().st_flags | stat.UF_IMMUTABLE)   # and locked in Finder
     try:
         built = iso.read(src, {"a.bin": fill("A", 50), "gamedata/big.xbr": fill("B", 3 * S + 1)})
         clones, clone = [], iso._clone
         monkeypatch.setattr(iso, "_clone", lambda source, part: clones.append(fd := clone(source, part)) or fd)
         cloned, streamed = tmp_path / "cloned.iso", tmp_path / "streamed.iso"
         sha = iso.pack(built, cloned)
-        assert clones[0] is not None or not locks
+        assert clones[0] is not None or not mac
         monkeypatch.setattr(iso, "_clone", lambda source, part: None)
         assert iso.pack(built, streamed) == sha == built.sha256() == _sha256(cloned) == _sha256(streamed)
         assert cloned.read_bytes() == streamed.read_bytes() and _xattrs(cloned) == []
         assert stat.S_IMODE(cloned.stat().st_mode) == stat.S_IMODE(streamed.stat().st_mode)
-        assert not locks or cloned.stat().st_flags == streamed.stat().st_flags == 0
+        assert not mac or cloned.stat().st_flags == streamed.stat().st_flags == 0
         assert sorted(p.name for p in tmp_path.iterdir()) == ["cloned.iso", "in.iso", "streamed.iso"]
     finally:
-        if locks:
-            os.chflags(src, 0)   # tmp_path's cleanup can't remove a locked file
+        if mac:
+            os.chflags(src, src.stat().st_flags & ~stat.UF_IMMUTABLE)   # tmp_path's cleanup can't remove a locked file
 
 
 def _listing(files: dict[str, bytes]) -> bytes:
