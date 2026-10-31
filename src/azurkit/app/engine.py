@@ -206,6 +206,14 @@ def _preview(recipe: Mapping, progress: Callable[[dict], object] | None = None) 
     return {k: base64.b64encode(v).decode() for k, v in _previewed(recipe).items()}
 
 
+def _plan_spoiler(plan, progress: Callable[[dict], object] | None = None) -> dict:
+    """A plan file's spoiler (the Tools tab's), its stage told again once
+    the randomizer's logic is in (:func:`_warmed` told its reading)."""
+    if progress is not None:
+        progress(record("spoiler"))
+    return {"lines": sdk.spoiler(plan)["lines"]}
+
+
 def _warmed(job: Callable, always: bool = False) -> Callable:
     """``job``, run once a warm-up in flight has built the randomizer's
     logic, when ``always`` or its recipe has a randomizer (its ``progress``
@@ -225,9 +233,9 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                                              always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe)),
                              "spoiler": lambda plan: sdk.spoiler(plan, built=True),
-                             "plan_spoiler": _warmed(lambda plan: {"lines": sdk.spoiler(plan)["lines"]}, always=True)}
+                             "plan_spoiler": _warmed(_plan_spoiler, always=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
-``preview`` and ``match``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
+``preview``, ``match`` and ``plan_spoiler``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
 ``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""

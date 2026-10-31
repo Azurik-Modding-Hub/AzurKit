@@ -854,10 +854,13 @@ def _plan_file(d: Driver) -> Path:
     return plan
 
 
-def _tools(d: Driver, p: Page, ops: tuple[str, ...]) -> None:
-    """The Tools tab's image ops (the image picked): its info, Verify every file first and again, the file list."""
-    info, first, again, listed = ops
+def _tools(d: Driver, p: Page, ops: tuple[str, ...], plan: Path) -> None:
+    """The Tools tab's first ops (the image picked): its info as the tab opens, a plan file's spoiler asked at once
+    (cold, as a player who goes straight to Tools gets it: nothing has read the randomizer's logic but what the tab's
+    opening started), Verify every file first and again, the file list."""
+    info, spoiler, first, again, listed = ops
     d.act(p, info, click("tab-tools"), INFO, 600)
+    d.act(p, spoiler, lambda: p.page.set_input_files("#tools-plan-file", str(plan)), SPOILED, 900)
     d.act(p, first, click("tools-verify"), WHOLE, 1800)
     while d.need(again):   # the engine's check is whole now: asked again, it hashes nothing
         p.js("() => { azurkit.tools.state.info = { ...azurkit.tools.state.info, whole: false }; }")
@@ -872,9 +875,10 @@ def _shown_report(d: Driver, p: Page, op: str) -> None:
 
 
 def app_tools(d: Driver, app: App, ctx) -> None:
+    plan = _plan_file(d)   # made before the launch: untimed, no head start
     p = app.launch(d, ctx, None)
     d.act(p, None, typed("iso-path", str(d.iso)), USA)
-    _tools(d, p, ("A47", "A48", "A49", "A50"))
+    _tools(d, p, ("A47", "A54", "A48", "A49", "A50"), plan)
     d.act(p, "A51", LARGEST, f"() => /^Saved .* sha256 /.test({STATUS}) ? 'saved' : {ERROR}", 900)
     p.js(click("tab-patches"))
     d.act(p, None, build_js(), BUILT, 1800)
@@ -891,17 +895,15 @@ def app_tools(d: Driver, app: App, ctx) -> None:
                    f"() => {STATUS}.startsWith('Loaded') ? 'loaded' : {ERROR}", 600)
     t0, t1 = max((t0, t1), (t2, t3), key=lambda span: span[1] - span[0])
     d.record("A53", (t1 - t0) / 1000, d.ev, t0, t1)
-    p.js(click("tab-tools"))
-    plan = _plan_file(d)
-    d.act(p, "A54", lambda: p.page.set_input_files("#tools-plan-file", str(plan)), SPOILED, 900)
     out.unlink(missing_ok=True)
     app.quit(p)
 
 
 def site_tools(d: Driver, ctx, url: str) -> None:
+    plan = _plan_file(d)   # made before the page: untimed, no head start
     p = _site_page(d, ctx, url, None)
     _pick(d, p, None)
-    _tools(d, p, ("S40", "S41", "S42", "S43"))
+    _tools(d, p, ("S40", "S47", "S41", "S42", "S43"), plan)
     if d.need("S44"):
         t0 = p.now()
         with p.page.expect_download(timeout=900_000) as caught:
@@ -930,11 +932,6 @@ def site_tools(d: Driver, ctx, url: str) -> None:
     t0, t1 = max((t0, t1), (t2, t3), key=lambda span: span[1] - span[0])
     d.record("S46", (t1 - t0) / 1000, d.ev, t0, t1)
     saved.value.delete()
-    plan = _plan_file(d)
-    p.js(click("tab-randomizer"))   # its first ask reads the randomizer's logic (S16's op), which the spoiler needs
-    p.wait("() => azurkit.rando.view?.share", 900)
-    p.js(click("tab-tools"))
-    d.act(p, "S47", lambda: p.page.set_input_files("#tools-plan-file", str(plan)), SPOILED, 900)
     p.page.close()
 
 

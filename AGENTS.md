@@ -879,7 +879,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     its mods file), **mods files** (`sdk.mods_file`: Load reads one as a
     link's preset is checked, keeping a `replace_bytes`; Save writes the
     page's recipe), **a plan file's spoiler** (`sdk.spoiler`; the app's
-    engine process makes it, its randomizer logic read as the tab opens) and **the last build's report** (View, Save),
+    engine process makes it, its randomizer logic read as the tab opens,
+    its bar saying so while that still runs) and **the last build's
+    report** (View, Save),
     and **AzurKit's storage** with Clear: the site's own named
     localStorage keys and IndexedDB databases (`tools.mjs`'s `KEPT`), the
     app's named entries (`app.kept()`: its config, the stamps, the swap's

@@ -727,9 +727,11 @@ class Server(http.server.ThreadingHTTPServer):
         return _storage(body)
 
     def plan_spoiler(self, body: dict) -> dict:
-        """``api/plan_spoiler``: a plan file's spoiler (the engine's)."""
-        with self.follow("plan_spoiler", record("spoiler")):
-            return self.engine.call("plan_spoiler", body.get("plan"))
+        """``api/plan_spoiler``: a plan file's spoiler (the engine's), its
+        bar saying the engine still reads the randomizer's logic while it
+        does (the tab's opening started it)."""
+        with self.follow("plan_spoiler", record("spoiler")) as report:
+            return self.engine.call("plan_spoiler", body.get("plan"), progress=report)
 
     def choose(self, body: dict) -> dict:
         """The window's file dialog: an image to read (``iso``, an AzurKit

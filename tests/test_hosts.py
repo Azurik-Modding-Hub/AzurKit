@@ -1627,3 +1627,26 @@ def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_t
         assert gate.data_path(gate.USA).read_bytes() == b"image" and data.is_dir()
     finally:
         server.close()
+
+
+def test_the_apps_plan_file_spoiler_says_the_engine_still_reads_the_randomizers_logic(tmp_path, monkeypatch):
+    """A plan file's spoiler asked while the engine's warm-up (the Tools
+    tab's opening starts it) still reads the randomizer's logic: its
+    ``api/progress`` record says "Reading the randomizer's logic" until that
+    is in, then the spoiler's stage while the spoiler is written (Step 4.7c)."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    server, replies, seen = app.serve(_page.WEB), [], set()
+    monkeypatch.setattr(sdk, "spoiler", lambda plan, built=False: {
+        "lines": [server.progress()["calls"]["plan_spoiler"]["label"]]})   # the stage it is written on
+    try:
+        with engine._WARM:   # a warm-up in flight
+            asking = threading.Thread(target=_post, args=(server.url, "api/plan_spoiler", {"plan": {}}, replies))
+            asking.start()
+            end = time.monotonic() + 10
+            while "Reading the randomizer's logic" not in seen and time.monotonic() < end:
+                seen.add(server.progress()["calls"].get("plan_spoiler", {}).get("label"))
+                time.sleep(0.02)
+        asking.join(30)
+    finally:
+        server.close()
+    assert ("Reading the randomizer's logic" in seen, replies) == (True, [{"lines": ["Writing the spoiler"]}])
