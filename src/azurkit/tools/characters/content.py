@@ -386,7 +386,7 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     had = installed(root)
     chosen = _chosen(entry, entries)
     todo = [e["id"] for e in chosen if e["id"] == entry or _record(had, e["id"]).get("version") != e["version"]]
-    made, parts = not root.exists(), []
+    made, parts = [p for p in (root, *root.parents) if not p.exists()], []   # removed deepest first on a fault
     try:
         for e in chosen:
             paths = [f["path"] for f in e["files"]]
@@ -408,9 +408,9 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     except BaseException:
         for part in parts:
             shutil.rmtree(part, ignore_errors=True)
-        if made:
+        for folder in made:
             with contextlib.suppress(OSError):
-                root.rmdir()
+                folder.rmdir()
         raise
     root.mkdir(parents=True, exist_ok=True)
     record = dict(had)

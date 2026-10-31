@@ -621,7 +621,7 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
         {"path": f"packs/a/{k}.json", "sha256": "0" * 64, "size": content.MAX_FILE} for k in range(3)]},
         {"id": "b", "files": [{"path": f"packs/b/{k}.json", "sha256": "0" * 64, "size": content.MAX_FILE}
                               for k in range(2)]}])
-    folder, seen = tmp_path / "content", []
+    folder, seen = tmp_path / "new" / "content", []   # its parent folder made by the Install too
     booblord = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))["booblord"]
 
     def recipe(field: str, value: dict) -> str:
@@ -691,7 +691,7 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
             slow[row] = f"{took:.3f} s, {held:,} bytes held"
     assert not slow, slow
     assert seen == [(f"packs/a/{k}.json", [f"{j}.json" for j in range(k)]) for k in range(4)]   # each held alone
-    assert not folder.exists()   # a refused Install writes nothing
+    assert not (tmp_path / "new").exists()   # a refused Install writes nothing, not even the folders above it
     updated, victim = tmp_path / "updated", tmp_path / "victim.json"
     (updated / "packs/a").mkdir(parents=True)
     victim.write_bytes(b"{}")
