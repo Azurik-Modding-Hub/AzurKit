@@ -85,7 +85,7 @@ from dataclasses import dataclass
 
 from azurkit.tools.randomizer.planner.grammar import atoms, parse
 from azurkit.tools.randomizer.planner.settings import Settings, category, category_table, pick_of, skips_on
-from azurkit.tools.randomizer.planner.solver import Logic, Reach
+from azurkit.tools.randomizer.planner.solver import TRICK_FREE, Logic, Reach
 from azurkit.tools.randomizer.writer import Names, graph_of, layout, string_cost
 
 GENERATOR = "azurik-rando-fill/4"     # the fill's version: bumped when the same inputs give another placement
@@ -401,10 +401,13 @@ class _Slots:
         return f
 
     def attempt(self, settings: Settings, reads: Mapping[str, frozenset[int]], streams: Callable[[str], Rng],
-                known: frozenset[str], repaired: list[str] | None = None) -> dict[str, str]:
+                known: frozenset[str], repaired: list[str] | None = None,
+                reaches: _Reaches | None = None) -> dict[str, str]:
         """One attempt's placement, or :class:`_Stuck`; ``repaired`` gets
-        each trap-gate refusal it went on to repair."""
+        each trap-gate refusal it went on to repair. ``reaches``: the
+        fill's kept reaches under ``settings`` (one of its own when None)."""
         lg = self.logic
+        reaches = reaches if reaches is not None else _Reaches(lg, settings)
         placed, budget = dict(self.prefilled), _Budget(self.names)
         placed.update(self.kept(settings))
         read = {name for name, cs in lg.items.items() if cs.keys() & reads.keys()}
@@ -420,7 +423,7 @@ class _Slots:
             if NOTE is not None and (k := min(len(placed) - len(base) + 1, placing)) > self.told:
                 self.told = k
                 NOTE(f"placing the items, {k} of {placing}")
-            return lg.reach(settings, {**placed, **(at or {})}, sorted(assumed.elements()), traps=False)
+            return reaches({**placed, **(at or {})}, tuple(sorted(assumed.elements())), traps=False)
 
         def put(loc: str, item: str) -> None:
             placed[loc] = item
@@ -502,7 +505,7 @@ class _Slots:
                             put(rng.choice(spots), item)
                             k -= 1
                 trace: list = []
-                r = lg.reach(settings, placed, trace=trace)
+                r = reaches(placed, trace=trace)
                 if not (problems := _problems(lg, r, known)):
                     break
                 if len(problems) > 1 or not new_traps(r, known):
@@ -553,9 +556,41 @@ class _Slots:
                     raise _Stuck(f"no {what} item may go on {loc}")
                 put(loc, items.pop(j))
 
-        if problems := verify(lg, settings, placed, known):
+        if problems := _problems(lg, reaches(placed), known):     # verify's, on the kept reaches
             raise _Stuck("the verify: " + "; ".join(problems))
         return dict(sorted(placed.items()))
+
+
+class _Reaches:
+    """The fill's reaches under one set of options, kept by what they read
+    (Step R2.1): the items placed that a rule of the graphs the reach walks
+    reads, and the items held from the start. Any other item (a useful or
+    filler item no rule reads, an empty spot) changes no counter a rule
+    compares, so its reach is the one kept."""
+
+    def __init__(self, logic: Logic, settings: Settings) -> None:
+        self.logic, self.settings, self.kept = logic, settings, {}
+        graphs = [logic.rules(settings)]
+        self.read = {False: self._read(graphs)}
+        phys = logic.rules(settings, physical=True)
+        graphs += [phys, logic.rules(TRICK_FREE, physical=True) if phys.on else phys]
+        self.read[True] = self._read(graphs)
+
+    def _read(self, graphs) -> frozenset[str]:
+        counters = set().union(*(g.reads for g in graphs))
+        return frozenset(name for name, cs in self.logic.items.items() if cs.keys() & counters)
+
+    def __call__(self, placement: Mapping[str, str | None], items: Iterable[str] = (), traps: bool = True,
+                 trace: list | None = None) -> Reach:
+        read = self.read[traps]
+        key = (traps, frozenset((loc, item) for loc, item in placement.items() if item in read), tuple(items))
+        if trace is None and (r := self.kept.get(key)) is not None:
+            return r
+        r = self.kept[key] = self.logic.reach(self.settings, placement, items, trace=trace, traps=traps)
+        return r
+
+
+_KNOWN: list = [None]   # the process's last known traps: (its Logic, its database, the options' graphs, the traps)
 
 
 def known_traps(logic: Logic, settings: Settings) -> frozenset[str]:
@@ -567,9 +602,15 @@ def known_traps(logic: Logic, settings: Settings) -> frozenset[str]:
     computed rather than listed by hand, and a node vanilla traps a player
     in, such as f4's lava river or town's pits a skip gets into early, is
     vanilla's whatever the options)."""
+    key = (id(logic.rules(settings)), id(logic.rules(logic.db.defaults)))
+    if (last := _KNOWN[0]) is not None and last[0] is logic and last[1] is logic.db and last[2] == key:
+        return last[3]
     signed = {t["node"] for doc in logic.db.levels.values() for t in doc.get("known_traps", ())}
     vanilla = logic.vanilla_placement()
-    return frozenset(signed).union(*(logic.reach(st, vanilla).traps for st in (settings, logic.db.defaults)))
+    traps = [logic.reach(st, vanilla).traps for st in (settings, logic.db.defaults)[:1 + (key[0] != key[1])]]
+    known = frozenset(signed).union(*traps)
+    _KNOWN[0] = (logic, logic.db, key, known)
+    return known
 
 
 def new_traps(reach, known: frozenset[str]) -> list[str]:
@@ -634,11 +675,11 @@ def _fill(logic: Logic, seed: str, st: Settings) -> Fill:
     if (refused := slots.starved(st)) is not None:
         raise refused
     digest, reads, known = settings_digest(st), logic.reads(st), known_traps(logic, st)
-    reasons, stuck = [], set()
+    reasons, stuck, reaches = [], set(), _Reaches(logic, st)
     for k in range(MAX_ATTEMPTS):
         repaired: list[str] = []
         try:
-            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired)
+            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired, reaches)
         except _Stuck as exc:
             reasons.append(f"attempt {k}: {exc}")
             if exc.item is not None:

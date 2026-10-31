@@ -105,8 +105,20 @@ def _all(rules: Iterable[Rule]) -> Rule:
         return _false
     if len(rules) < 2:
         return rules[0] if rules else _true
+    if len(rules) == 2:
+        a, b = rules
+        return lambda c, f: a(c, f) and b(c, f)
+    if len(rules) == 3:
+        a, b, d = rules
+        return lambda c, f: a(c, f) and b(c, f) and d(c, f)
     rules = tuple(rules)
-    return lambda c, f: all(r(c, f) for r in rules)
+
+    def every(c, f):
+        for r in rules:
+            if not r(c, f):
+                return False
+        return True
+    return every
 
 
 def _any(rules: Iterable[Rule]) -> Rule:
@@ -115,8 +127,17 @@ def _any(rules: Iterable[Rule]) -> Rule:
         return _true
     if len(rules) < 2:
         return rules[0] if rules else _false
+    if len(rules) == 2:
+        a, b = rules
+        return lambda c, f: a(c, f) or b(c, f)
     rules = tuple(rules)
-    return lambda c, f: any(r(c, f) for r in rules)
+
+    def some(c, f):
+        for r in rules:
+            if r(c, f):
+                return True
+        return False
+    return some
 
 
 def _counter(name: str, n: int) -> Rule:
@@ -235,6 +256,16 @@ class _Rules:
                 [*(self.gate(g) for g in lg.gated_by[loc]), self.expr(over.get("requires", "true")),
                  *(self.opened(b, node) for b in lg.contained_by.get(loc, ())), self.light_at(node)])))
         self.victory = self.expr(db.world["victory"])
+        # each node's locations, credits and disc teleports, as the escapes read them (Step R2.1)
+        self.loc_at: dict[str, list[tuple[str, Rule]]] = collections.defaultdict(list)
+        for loc, n, rule in self.locations:
+            self.loc_at[n].append((loc, rule))
+        self.cred_at: dict[str, list[tuple[str, Rule]]] = collections.defaultdict(list)
+        for f, n, _, rule in self.credits:
+            self.cred_at[n].append((f, rule))
+        self.tele_at: dict[str, list[tuple[str, Rule, str]]] = collections.defaultdict(list)
+        for a, b, rule, disc in self.teleports:
+            self.tele_at[a].append((b, rule, disc))
 
     # ---- expressions (docs/RANDOMIZER_DB.md §5) --------------------------------------------------------------------
     def expr(self, text: str, bump: tuple[str, int, tuple[str, ...]] | None = None) -> Rule:
@@ -394,6 +425,51 @@ class _Round:
     held: collections.Counter
     got: set               # the locations collected
     safe: set              # the canonical nodes known safe
+
+
+class _Memo:
+    """One solve's escapes on one graph, kept round to round (Step R2.1): the
+    state only grows within a solve and every rule is monotone, so a node's
+    failed escape resumes from its fixpoint (``escapes``) and the fast path's
+    backward search (plan §2.13) goes on from where it stopped."""
+
+    def __init__(self, logic: Logic, rules: _Rules, base: frozenset[str]) -> None:
+        self.rules, self.base, self.escapes = rules, base, {}
+        self.found, self.todo, self.blocked = {logic.start}, [logic.start], []
+        self.unset = [(f, n, rule) for f, n, _, rule in rules.credits if f not in base]
+        self.local: dict[str, set[str]] = collections.defaultdict(set)
+        self.at: dict[str, frozenset[str]] = {}     # a node's flags for the fast path: base and those it sets itself
+
+    def home(self, counters: Mapping) -> set[str]:
+        """The fast path's nodes at ``counters``: a backward search from the
+        start in which an edge is passable on the items held, ``base`` and
+        the flags its own source node can set on them."""
+        base, at, keep = self.base, self.at, []
+        for f, n, rule in self.unset:
+            if rule(counters, base):
+                self.local[n].add(f)
+                at[n] = base | self.local[n]
+            else:
+                keep.append((f, n, rule))
+        self.unset = keep
+        found, todo, radj, keep = self.found, self.todo, self.rules.radj, []
+        for u, rule in self.blocked:
+            if u not in found:
+                if rule(counters, at.get(u, base)):
+                    found.add(u)
+                    todo.append(u)
+                else:
+                    keep.append((u, rule))
+        self.blocked = keep
+        while todo:
+            for u, rule in radj.get(todo.pop(), ()):
+                if u not in found:
+                    if rule(counters, at.get(u, base)):
+                        found.add(u)
+                        todo.append(u)
+                    else:
+                        self.blocked.append((u, rule))
+        return found
 
 
 @dataclass(frozen=True)
@@ -735,27 +811,91 @@ class Logic:
                 self._take(held, counters, loc, placement)
             flags.update(new)
 
-    def _returners(self, rules: _Rules, counters: Mapping, base: frozenset[str]) -> set[str]:
-        """Plan §2.13's fast path: the nodes a backward search from the start
-        finds when an edge is passable on the items held, ``base`` and the
-        flags its own source node can set on them (a barrier destroyed from
-        that side, a button pressed there). Each one's escape holds (its
-        closure takes the same path), so it needs no closure."""
-        local = collections.defaultdict(set)
-        for f, n, _, rule in rules.credits:
-            if f not in base and rule(counters, base):
-                local[n].add(f)
-        at = {n: base | fs for n, fs in local.items()}
-        seen, todo = {self.start}, collections.deque([self.start])
-        while todo:
-            for u, rule in rules.radj.get(todo.popleft(), ()):
-                if u not in seen and rule(counters, at.get(u, base)):
-                    seen.add(u)
-                    todo.append(u)
-        return seen
+    def _shut(self, rules: _Rules, rnd: _Round, node: str, placement: Mapping, flags0: frozenset[str],
+              rec: tuple | None = None) -> tuple[bool, set[str] | None, set[str] | None, tuple | None]:
+        """:meth:`_escape`'s verdict alone (Step R2.1), the same least
+        fixpoint walked once: the search goes on from where it stopped when
+        a location or flag widens the state (rules are monotone: no ``not``),
+        and it stops at the start. Returns (True, None, None, the discs it
+        jumped by) when the escape holds, else (False, the nodes seen, the
+        flags, its record): with that record, at a later round's state
+        (more items and flags, the same jumps open), the walk resumes from
+        its fixpoint, which is inside the new one, and only the edges,
+        locations, flags and teleports at its boundary are tried again."""
+        start, adj, slots, got = self.start, rules.adj, self.slots, rnd.got
+        loc_at, cred_at, tele_at = rules.loc_at, rules.cred_at, rules.tele_at
+        counters, held, took = dict(rnd.counters), collections.Counter(rnd.held), set(got)
+        if rec is None:
+            flags, seen, todo, mine, jumped = set(flags0), {node}, [node], [], []
+            blocked, plocs, pcred, ptele = [], [], [], []
+        else:
+            _, r_flags, r_seen, mine, jumped, blocked, plocs, pcred, ptele = rec
+            mine = list(mine)
+            for loc in mine:
+                if loc not in took:
+                    took.add(loc)
+                    self._take(held, counters, loc, placement)
+            flags, seen, todo = set(r_flags) | flags0, set(r_seen), []
+            jumped, plocs, pcred, ptele = list(jumped), list(plocs), list(pcred), list(ptele)
+        while True:
+            if blocked:
+                keep = []
+                for v, rule in blocked:
+                    if v in seen:
+                        continue
+                    if rule(counters, flags):
+                        if v == start:
+                            return True, None, None, tuple(jumped)
+                        seen.add(v)
+                        todo.append(v)
+                    else:
+                        keep.append((v, rule))
+                blocked = keep
+            while todo:
+                u = todo.pop()
+                for v, rule in adj.get(u, ()):
+                    if v not in seen:
+                        if rule is _true or rule(counters, flags):
+                            if v == start:
+                                return True, None, None, tuple(jumped)
+                            seen.add(v)
+                            todo.append(v)
+                        else:
+                            blocked.append((v, rule))
+                if u in loc_at:
+                    plocs += loc_at[u]
+                if u in cred_at:
+                    pcred += cred_at[u]
+                if u in tele_at:
+                    ptele += tele_at[u]
+            jumps = [(b, disc) for b, rule, disc in ptele if b not in seen and slots[disc] not in got
+                     and rule(counters, flags)]
+            locs = [loc for loc, rule in plocs if loc not in took and rule(counters, flags)]
+            new = [f for f, rule in pcred if f not in flags and rule(counters, flags)]
+            if not (jumps or locs or new):
+                return False, seen, flags, (flags0, flags, seen, mine, jumped, blocked,
+                                            [x for x in plocs if x[0] not in took],
+                                            [x for x in pcred if x[0] not in flags],
+                                            [x for x in ptele if x[0] not in seen])
+            for b, disc in jumps:
+                if b not in seen:
+                    if b == start:
+                        return True, None, None, (*jumped, disc)
+                    seen.add(b)
+                    todo.append(b)
+                    jumped.append(disc)
+            for loc in locs:
+                if loc not in took:
+                    took.add(loc)
+                    mine.append(loc)
+                    self._take(held, counters, loc, placement)
+            flags.update(new)
+            plocs = [x for x in plocs if x[0] not in took]
+            pcred = [x for x in pcred if x[0] not in flags]
+            ptele = [x for x in ptele if x[0] not in seen]
 
     def _escaping(self, rules: _Rules, rnd: _Round, nodes: set[str], placement: Mapping, base: frozenset[str],
-                  forced: Mapping[str, frozenset[str]], credited: Container[str]) -> set[str]:
+                  forced: Mapping[str, frozenset[str]], credited: Container[str], memo: _Memo) -> set[str]:
         """Those of ``nodes`` whose escape on ``rules`` holds at this round's
         state, each starting with ``base`` and its ``forced`` flags that are
         ``credited``: the fast path's need no closure, and a closure that
@@ -764,16 +904,39 @@ class Logic:
         are fixed)."""
         if not nodes:
             return set()
-        home = self._returners(rules, rnd.counters, base)
-        out, dead = nodes & home, set()
+        home, at = memo.home(rnd.counters), memo.at
+        out, dead, escapes, own = nodes & home, set(), memo.escapes, False
+        radj, counters = rules.radj, rnd.counters
         for n in sorted(nodes - home):
+            if n in home:           # a success's backward search found it (below)
+                out.add(n)
+                continue
             if n in dead:
                 continue
-            ok, seen, flags, _ = self._escape(rules, rnd, n, placement, base | (forced.get(n, frozenset()) & credited))
-            if ok:
+            flags0 = base | (forced.get(n, frozenset()) & credited)
+            rec = escapes.get(n)
+            if rec is True:         # it held with no disc teleport at an earlier state: it holds now (monotone)
                 out.add(n)
-            else:
+                continue
+            if rec is not None and not (rec[0] <= flags0 and all(self.slots[d] not in rnd.got for d in rec[4])):
+                rec = None
+            ok, seen, flags, rec = self._shut(rules, rnd, n, placement, flags0, rec)
+            if not ok:
+                escapes[n] = rec
                 dead.update(m for m in seen if forced.get(m, frozenset()) & credited <= flags)
+                continue
+            out.add(n)
+            escapes[n] = True if not rec else None
+            if flags0 == base:      # every node whose search reaches n, as the fast path's, escapes through n
+                if not own:         # this round's own copy: a success by a disc teleport holds only while it is open
+                    home, own = set(home), True
+                todo = [n]
+                home.add(n)
+                while todo:
+                    for u, rule in radj.get(todo.pop(), ()):
+                        if u not in home and rule(counters, at.get(u, base)):
+                            home.add(u)
+                            todo.append(u)
         return out
 
     def _solve(self, settings: Settings, placement: Mapping, counters: dict, held: collections.Counter,
@@ -790,12 +953,33 @@ class Logic:
         traps: set[str] = set()
         free: set[str] = set()
         pending: tuple[set, set] = (set(), set())    # the traps of the rounds since the last sphere
+        memo, memo_phys = _Memo(self, rules, base), _Memo(self, phys_rules, base)   # round to round (Step R2.1)
+        reached, blocked, adj = {self.start}, [], rules.adj
+        todo = [self.start]
         while True:
-            reached = self._bfs(rules, [self.start], counters, flags)
-            rnd.safe |= self._escaping(rules, rnd, reached - rnd.safe, placement, base, self.forced, flags)
+            # the forward reach grows with the state (rules are monotone), so the edges it stopped at are tried again
+            keep = []
+            for v, rule in blocked:
+                if v not in reached:
+                    if rule(counters, flags):
+                        reached.add(v)
+                        todo.append(v)
+                    else:
+                        keep.append((v, rule))
+            blocked = keep
+            while todo:
+                for v, rule in adj.get(todo.pop(), ()):
+                    if v not in reached:
+                        if rule is _true or rule(counters, flags):
+                            reached.add(v)
+                            todo.append(v)
+                        else:
+                            blocked.append((v, rule))
+            rnd.safe |= self._escaping(rules, rnd, reached - rnd.safe, placement, base, self.forced, flags, memo)
             phys, settable = self._closure(phys_rules, counters, flags) if traps_too else (set(), set())
             maybe = phys - rnd.safe
-            found = maybe - self._escaping(phys_rules, rnd, maybe, placement, base, self.forced_phys, settable)
+            found = maybe - self._escaping(phys_rules, rnd, maybe, placement, base, self.forced_phys, settable,
+                                           memo_phys)
             walked = found if free_rules is phys_rules or not found else \
                 found & self._closure(free_rules, counters, flags)[0]
             traps |= found

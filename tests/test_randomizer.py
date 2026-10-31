@@ -11,7 +11,9 @@ placement is a conflict and any other difference a failure, and movement
 sliders plan on the logic re-checked under them; the Randomizer tab's
 settings (Step 4.2c1); the item tracker's verdicts (Step 4.2c2) at
 several states and the maps' model of each (``tracker.json``); the
-checked database the wheel and the app ship (Step 4.3g)."""
+checked database the wheel and the app ship (Step 4.3g); R2.1's solver
+(Step 4.3u): RS1's 80 plans as the solver before it made them and the
+grammar's monotone rules it rests on."""
 
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ import hashlib
 import json
 import math
 import os
+import random
 import struct
 import subprocess
 import sys
@@ -33,6 +36,7 @@ from azurkit.core import iso
 from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
 from azurkit.tools.randomizer.planner import fill, loader
+from azurkit.tools.randomizer.planner.grammar import ParseError, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import (
     Settings, picks, settings_from_table, share_decode, share_encode, turnable)
@@ -49,6 +53,112 @@ TRACKER = {key: row["view"] for key, row in record_goldens.recorded(record_golde
 TRACKER_MAP = {key: row["map"] for key, row in record_goldens.recorded(record_goldens.TRACKER).items()}
 # the hosts' tests (test_site, test_hosts) take these from here: seed 2's plan by case, and tracker.json's states
 _profile, tracker_states, shows_gems = record_goldens.profile, record_goldens.tracker_states, record_goldens.shows_gems
+# RS1's 80 plans (round 2's R2.1, Step 4.3u): seeds 1 to 20 under four option sets (skip ceiling, movement tier,
+# dark_fire; the goldens' strict, default and max and a skip ceiling of 2), each "attempt, the plan's sha256[:12], its
+# spoiler lines' sha256[:12]" as the solver before R2.1 made them (AzurKit 3cd8a44, RS1's proof20-A)
+OPTIONS80 = {"strict": (0, "safe", 2), "default": (0, "standard", 1), "max": (4, "frame_perfect", 1),
+             "ceiling2": (2, "standard", 1)}
+PLANS80 = {
+    "strict": (
+        "0 560d55211d25 af25adac2ba2",
+        "0 2c1114ccb4de ccdd50baffda",
+        "0 72b01f69ea38 28a6a241d31e",
+        "0 65059ebe749a 03f3db9e5ed7",
+        "1 9deb3b38e26c f699536f1576",
+        "1 8daa3c542547 95cb81521efb",
+        "0 0a64449cc22f 4fff5580cf04",
+        "0 7505c33a8657 394f9e0d6ead",
+        "1 c53fca681a63 c77bed991c87",
+        "0 d184d4c6e6e6 1ed182570359",
+        "0 d7a1549d9fc7 91670887951b",
+        "1 f32d0eb20a56 cd21f987f1f4",
+        "0 99c7210abd49 5ccbef2c8839",
+        "0 dfd3bc168487 dcc0db762873",
+        "0 d24fd97d0d67 9cd83797a4b4",
+        "1 bcc1e234892a a855d3573b4f",
+        "0 7caabd6060d1 203c732545b3",
+        "3 e4ce7987187e a968c8bda3e5",
+        "1 dfd573c60472 868fa3c7a9c9",
+        "0 201ec9c1acc9 3b91f83d5d75",
+    ),
+    "default": (
+        "0 ea41d8df6d67 45f92dc9acdb",
+        "0 aa53a70eff1b 4b45b2b18acc",
+        "1 df0581cea90a bb71abb95649",
+        "1 930f7a2d59d0 2f1d73e97253",
+        "1 c399c28257bf b0f3f09d6bc7",
+        "0 83d3a5516a51 3983122f8cb8",
+        "0 39ab8c765d04 ad97ab301f25",
+        "0 ea3fdcc11b2c 9bec35782029",
+        "0 be05ee602619 f34c679fe95b",
+        "0 47e404a7adbb 3cedb92e1a22",
+        "0 5b84b0b6b3af b1f5ac1106dc",
+        "0 8dd9990a0262 54482baeb1f7",
+        "0 f50c622ce41a eadb47f3062b",
+        "0 f58a86869e7a 33658fc44ffa",
+        "0 71e7a3eedc3c 69cb48cee128",
+        "1 9945748459c1 e63e3c938d40",
+        "0 19aaab9966e2 fcebb65dccb8",
+        "0 f1488d060230 577376eb5e8b",
+        "1 6f2c12611755 8cab8a82160c",
+        "0 89a6480485e3 965d9dce1425",
+    ),
+    "max": (
+        "0 8b1366d9ee3f 4ad4ba11115f",
+        "0 33e1c79d103a ebf3d99c54de",
+        "0 fd53f193a51c e78614e773ff",
+        "0 c2717335d41d 061be9299a60",
+        "0 3109934038fb e321f0e8718f",
+        "0 440f4b6646d0 dc3365f09c61",
+        "0 e0913b752b78 3440d55ff005",
+        "0 215449d6cd9e 13d42a8af91f",
+        "0 a2d7bf760c61 9a13a4db1992",
+        "0 1e2b75c1e7ff 4ed887f9d71c",
+        "0 23a6c946d04f 72ec87f24d83",
+        "1 403adfcea844 48cf254201ce",
+        "0 72bdafb66ae5 69f9eb85ad72",
+        "0 a931897bb961 7e86214fba90",
+        "0 afccf3279721 b2454910544c",
+        "0 befeab2b9301 47a9f5432915",
+        "0 2babeb6f84d7 1b16081c3510",
+        "0 239a99a30d89 697aed884195",
+        "0 5afa8b34298e 74ec2bb6234c",
+        "0 4ec9acb0bf28 c14a14a56e06",
+    ),
+    "ceiling2": (
+        "0 2de91e522823 163467646dc6",
+        "0 2298cb7a480a 19efa3094c1f",
+        "0 b61e7ee525b2 b5687f8ce8e7",
+        "0 d35d07810ad1 e30b3720398a",
+        "0 fe18105cb669 2d0fee4f2364",
+        "0 9c0c281ec0b4 83f240e18d31",
+        "0 a52a7c5f5cae c37d299ea325",
+        "0 bf155384a5a1 04015e096268",
+        "0 1229cdd4dd8f 6c3aa0ec7f23",
+        "0 01db9aeb6d87 d6e32939b80f",
+        "0 e4f53ceade3f fe19523da9db",
+        "0 44d0ad3852fa 02a4cbec0df0",
+        "0 8c90c73c9492 dcafa4bb94a9",
+        "0 0d9998be3380 06d6f99b060d",
+        "0 42fe7036a97b 17255b6042ed",
+        "0 61926eb93dfe 8c0539fbe1f6",
+        "0 38ecf2543787 5f9247051a84",
+        "0 edf454c107b2 b33ce16ef3cb",
+        "0 9e207265d974 5b415ce2d4de",
+        "0 bdc762689e11 73d6722e00a9",
+    ),
+}
+_PLANS80 = """
+import hashlib, json, sys
+from azurkit import sdk
+from azurkit.tools.randomizer.planner.fill import settings_table
+from azurkit.tools.randomizer.planner.settings import Settings
+st = settings_table(Settings(*json.loads(sys.argv[1]), {}))
+for seed in range(1, 21):
+    doc = sdk.plan({"seed": str(seed), "settings": st})
+    lines = sdk.spoiler(doc)["lines"]
+    print(doc["attempt"], doc["sha256"][:12], hashlib.sha256("\\n".join(lines).encode()).hexdigest()[:12])
+"""
 
 
 def _share(sliders: dict) -> str:
@@ -277,6 +387,49 @@ def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():
     assert got[0] == got[1] and got[0][:2] == (0, DEFAULT_PLAN), got[0][2][-2000:]
     assert got[2] == got[3] and got[2][0] == 0, got[2][2][-2000:]
     assert json.loads(got[2][1])["sha256"] == PLANS["max"]["sha256"]
+
+
+def test_twenty_seeds_under_four_option_sets_plan_and_spoil_as_the_solver_before_r21_made_them():
+    """Step 4.3u (round 2's R2.1): the solver's resumed escapes, its grown
+    forward reach and the fill's kept reaches and known traps change no
+    plan: each of :data:`PLANS80`'s 80 plans (an option set's 20 seeds in
+    a process of its own, the four at once) has its attempt, sha256 and
+    spoiler."""
+    procs = {name: subprocess.Popen([sys.executable, "-c", _PLANS80, json.dumps(st)], text=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE) for name, st in OPTIONS80.items()}
+    for name, proc in procs.items():
+        out, err = proc.communicate(timeout=1800)
+        assert proc.returncode == 0, err[-2000:]
+        assert tuple(out.splitlines()) == PLANS80[name], name
+
+
+def test_the_grammar_has_no_negation_and_each_rule_the_solver_compiles_holds_at_any_larger_state():
+    """R2.1's exactness rests on monotone rules (a failed escape resumes from
+    its fixpoint at a later, larger state; the forward reach grows rather
+    than searching again): the grammar refuses a negation however it is
+    spelled, and every rule of the default and max options' graphs, logic
+    and physical (edges, teleports, locations, credits, victory), that
+    holds at a random state holds at any larger one (more of each counter,
+    more flags)."""
+    for text in ("not water1", "!water1", "~water1", "-water1", "water1 & !fire1", "!(water1)", "water<1",
+                 "water<=1", "water!=1", "water==0", "water1 & not(fire1)"):
+        with pytest.raises(ParseError):
+            parse(text)
+    logic, rng = kept_logic(), random.Random(0)
+    counters = sorted({c for cs in logic.items.values() for c in cs})
+    for st in (logic.db.defaults, Settings(4, "frame_perfect", 1, {})):
+        for physical in (False, True):
+            g = logic.rules(st, physical)
+            rules = [r for edges in g.adj.values() for _, r in edges] + [t[2] for t in g.teleports] + [
+                r for *_, r in g.locations] + [r for *_, r in g.credits] + [g.victory]
+            flags = sorted({f for f, *_ in g.credits})
+            top = {c: max(g.reads.get(c, ()), default=0) + 1 for c in counters}
+            for _ in range(200):
+                low = {c: rng.randint(0, top[c]) for c in counters}
+                high = {c: n + rng.randint(0, 2) for c, n in low.items()}
+                f_low = {f for f in flags if rng.random() < 0.5}
+                f_high = f_low | {f for f in flags if rng.random() < 0.5}
+                assert not [r for r in rules if r(low, f_low) and not r(high, f_high)], (st, physical)
 
 
 def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic_unwalked(
