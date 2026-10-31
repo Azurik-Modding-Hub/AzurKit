@@ -277,8 +277,10 @@ def content_files(clone: Path) -> dict[str, bytes]:
     written: ``manifest.json`` passes ``content.check`` and each of its
     entries ``content.verify`` (each file's size and sha256 as listed, no
     disc image, a built-in variant's recipe the engine's), as an Install
-    checks them; as the content repository's ``scripts/check.py`` holds,
-    each listed path has no ``:`` and is a regular file reached through
+    checks them; each listed path is a plain path (no trailing ``/``, no
+    ``.`` part: what is checked is what is published); as the content
+    repository's ``scripts/check.py`` holds, it has no ``:`` and is a
+    regular file reached through
     real folders (``lstat``: a link anywhere on it is never followed); and
     none ends in one of :data:`UNSERVED`. ``SystemExit`` names the first
     fault's file."""
@@ -306,6 +308,8 @@ def content_files(clone: Path) -> dict[str, bytes]:
         manifest = content.check(raw)
         files = {}
         for f in (f for e in manifest["entries"] for f in e["files"]):
+            if (plain := PurePosixPath(f["path"]).as_posix()) != f["path"]:
+                raise ValueError(f"{f['path']} isn't a plain path: it would be published as {plain}")
             if ":" in f["path"]:
                 raise ValueError(f"{f['path']} holds a ':', which no content path does")
             if f["path"].lower().endswith(UNSERVED):

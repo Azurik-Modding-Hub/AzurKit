@@ -63,15 +63,16 @@ def site(tmp_path_factory) -> Path:
 
 
 @pytest.mark.parametrize("fault", ["a ../ path through a linked folder", "a linked folder", "a listed link",
-                                   "a listed page"])
+                                   "a listed page", "a page behind a trailing /", "a page behind a trailing /."])
 def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothing(tmp_path, monkeypatch, fault):
     """``web_tools.site(content=)`` publishes a content clone's manifest and
     each regular file it lists in ``content-source/``, checked as an Install
     checks them; a ``../`` path, a link anywhere on a listed file's path (a
-    folder or the file: the deployer's own files) and a page or script
-    suffix (``.html``) are refused naming the file, before the site's first
-    file is written (the three cases SEC-3 reproduced, and a linked folder
-    with no ``../``)."""
+    folder or the file: the deployer's own files), a page or script
+    suffix (``.html``) and a path that isn't plain (a trailing ``/`` or
+    ``/.``, which would publish the page under it) are refused naming the
+    file, before the site's first file is written (the three cases SEC-3
+    reproduced, a linked folder with no ``../``, and the trailing ``/``)."""
     from azurkit.tools.characters import content
 
     root, clone, outside = tmp_path / "root", tmp_path / "clone", tmp_path / "outside"
@@ -87,7 +88,8 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     (clone / "packs/x/leak.json").symlink_to(outside / "secret.json")
     bad = {"a ../ path through a linked folder": "packs/a/../../../index.html",
            "a linked folder": "packs/y/secret.json", "a listed link": "packs/x/leak.json",
-           "a listed page": "packs/x/x.html"}[fault]
+           "a listed page": "packs/x/x.html", "a page behind a trailing /": "packs/x/x.html/",
+           "a page behind a trailing /.": "packs/x/x.html/."}[fault]
     monkeypatch.setattr(web_tools, "missing", lambda _root: [])
     monkeypatch.setattr(web_tools, "pyodide_dir", lambda _root: tmp_path / "pyodide")
     (built := tmp_path / "azurkit-0-py3-none-any.whl").write_bytes(b"a wheel")
