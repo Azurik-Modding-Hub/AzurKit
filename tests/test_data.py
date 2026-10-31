@@ -92,7 +92,7 @@ def _check(table: str, entity: str, prop: str, value, ops=(), col: int | None = 
 
 def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
     """A number cell takes any finite value, far past its range hint (D23),
-    but NaN and inf, and an int32 cell (schema.json's int32 rows, among
+    a whole number up to a double's range too, but NaN and inf, and an int32 cell (schema.json's int32 rows, among
     them critters_damage's cell for each damage record, by its row even in
     a column named as a record; the sliders' rounding where they write one)
     what int32 can't hold once the game rounds or truncates it (D45), in the
@@ -114,6 +114,7 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
     ok = [
         (("settings_foo", "max hp", "Value", "1e300"), 1e300),
         (("settings_foo", "max hp", "Value", -1e300), -1e300),
+        (("settings_foo", "max hp", "Value", 10**308), 1e308),
         (("critters_damage", "barnacle", "hitPoints", "2147483647.9"), 2147483647.9),
         (("critters_damage", "barnacle", "hitPoints", "-2147483648.9"), -2147483648.9),
         (("settings_foo", "initial hp", "Value", "2147483647.4"), 2147483647.4),
@@ -147,6 +148,7 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
     refused = [
         (("settings_foo", "max hp", "Value", "nan"), "max hp / Value: a number (64-bit float)"),
         (("settings_foo", "max hp", "Value", math.inf), "max hp / Value: a number (64-bit float)"),
+        (("settings_foo", "max hp", "Value", 10**309), "max hp / Value: a number (64-bit float)"),
         (("settings_foo", "max hp", "Value", "abc"), "max hp / Value: a number (64-bit float)"),
         (("critters_damage", "barnacle", "hitPoints", "2147483648"),
          "barnacle / hitPoints: a number the game reads as a 32-bit integer (-2147483648 to 2147483647; it truncates"),

@@ -315,7 +315,10 @@ def _number(text: object) -> float | None:
         except ValueError:
             return None
     elif isinstance(text, (int, float)) and not isinstance(text, bool):
-        value = float(text) if not isinstance(text, int) or abs(text) < 2**1023 else math.inf
+        try:
+            value = float(text)
+        except OverflowError:   # a whole number past a double's range
+            return None
     else:
         return None
     return value if math.isfinite(value) else None
