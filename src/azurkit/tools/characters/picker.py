@@ -10,7 +10,10 @@ nothing of its own.
   once installed), and the chosen model's info panel, its Weapon box (each
   pick marked by its fit and coloured by the grade its build would read:
   an untested model's picks grey), which options its recipe decides and
-  the character recipe a build takes from the tab.
+  the character recipe a build takes from the tab. With no image read,
+  the species are those both releases' images give (:data:`SPECIES`,
+  ``species.json``, which ``scripts/record_goldens.py`` records from them),
+  graded as with one, and no weapons.
 - :func:`preview`: a body drawn from the front and from behind by
   ``draw.py`` (D772, numpy, no Blender), a dressed variant's from its
   dress (:func:`dressed`).
@@ -23,6 +26,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from decimal import ROUND_CEILING, Decimal
+from pathlib import Path
 
 STATUS_COLOURS = {"green": "#3fae49", "yellow": "#d4a017", "red": "#e5534b", "unseen": "#8a8a8a"}
 """Each grade's colour (Modkit's, D111 refined; unseen grey)."""
@@ -44,6 +48,7 @@ WEAPON_FITS = {"odd": "odd look", "look + tip hits": "look + tip hits", "look": 
 """How the Weapon box marks a pick's fit (Modkit's; a good fit unmarked)."""
 COMMUNITY = "Community"
 PREVIEW = 160
+SPECIES = Path(__file__).with_name("species.json")   # [species, body] of each the player can wear (module docstring)
 """A preview's side, px (Modkit's gallery picker's)."""
 
 
@@ -153,8 +158,9 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
         listed = [m for m in swap.player_models(config_xbr, characters_xbr, mode, size, scale) if m.status != swap.REFUSED]
         why = ""
     else:
-        listed = [swap.PlayerModel(name, None, *swap.SUPPORT[name]) for name in swap.SUPPORT]
-        why = "Pick your image to list every species, with its weapons."
+        listed = [swap.PlayerModel(name, body, *swap.mode_status(name, mode, size, scale))
+                  for name, body in species_list()]
+        why = "Choose your image to build, and to see each model's weapons."
     bodies = {m.species: m.body for m in listed}
     record = content.installed(root)
     entries = (community or {}).get("entries") or content.states(None, record)
@@ -277,6 +283,11 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
                    "refused": refused},
         "character": build,
     }
+
+
+def species_list() -> list[list[str]]:
+    """:data:`SPECIES`' ``[species, body]`` rows."""
+    return json.loads(SPECIES.read_text(encoding="utf-8"))
 
 
 def _needs_files(entry: Mapping) -> bool:

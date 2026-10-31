@@ -40,6 +40,9 @@ sha256, are recorded the same way, each family by its name:
 - ``art``: the tracker's pictures in ``web/art/`` (:func:`art`), drawn from
   the USA image as the tracker draws them, Modkit's committed files byte
   for byte.
+- ``characters``: the Characters tab's species list (``species.json``) and
+  its pictures and no-image view in ``web/characters/``
+  (:func:`characters`), from both images.
 
 The first recording is Modkit's last cut: for the core and packs families
 oracle-packs-4 (Modkit 28d0b4110, Step 4.12a), for the models family
@@ -86,6 +89,8 @@ CONFIG = engine.CONFIG
 NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (Modkit's)
 LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt", "ISO")
 ART = "web/art"   # the tracker's shipped pictures, from the checkout's root
+PICTURES = "web/characters"   # the Characters tab's
+SPECIES = "src/azurkit/tools/characters/species.json"   # picker.SPECIES
 LONGEST = ("w1", "d2", "w3", "w4")   # the parts that draw longest (CPython 44, 33, 27, 25 s), started first
 # Modkit's flags -> player_physics's sliders: apply-physics's, then randomize-full's
 APPLY = {"gravity": "gravity", "walk_speed": "walk_speed_scale", "swim_speed": "swim_speed_scale",
@@ -468,7 +473,72 @@ def art(images: Images, workers: int) -> dict[str, bytes]:
     return {f"{ART}/{rel}": data for rel, data in out.items()}
 
 
-SHIPPED = {"art": (art, (ART,))}
+def _variant(job: tuple[str, str]) -> tuple[str, dict | str]:
+    """A built-in variant's two pictures at its recipe's defaults over the packs on by default (``sdk.preview``'s
+    dress, as the page asks it), or why the engine refuses it."""
+    path, name = job
+    try:
+        return name, sdk.preview({"iso": path, "packs": _defaults(), "character": {"species": name}})
+    except ValueError as exc:
+        return name, str(exc)
+
+
+def characters(images: Images, workers: int) -> dict[str, bytes]:
+    """The Characters tab's shipped files, by their path: ``species.json``,
+    the ``[species, body]`` of each species the player can wear in
+    ``critters_engine``'s order, as ``player_models`` reads both images
+    (which agree, or this stops naming them); in ``web/characters/`` each
+    body's two pictures (``picker.preview`` on the USA image, the app's
+    draw: Europe's are the same, ``tests/test_characters.py``), each
+    built-in variant's (:func:`_variant`; none for one the engine refuses),
+    drawn again only when its recipe (its ``variants.json`` entry, by
+    sha256) changes, and ``index.json``: the engine's view with no image and
+    no content installed (``picker.view``, garret4 at every default), each
+    species' and variant's pictures' file name and each variant's recipe
+    digest (one refused too, so it isn't dressed at each check)."""
+    from azurkit.tools import characters as kit
+    from azurkit.tools.characters import _player_character as swap
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import content, picker
+
+    read = {r: sdk._game(str(images.stamp(r).path))[1:] for r in gate.RELEASES}
+    rows = {r: [[m.species, m.body] for m in swap.player_models(*read[r]) if m.status != swap.REFUSED] for r in read}
+    if rows[gate.USA] != rows[gate.EUROPE]:
+        raise SystemExit("species.json: the USA and Europe images list different species (player_models)")
+    stem = lambda name: name.replace("/", "--")   # noqa: E731 (a body's file name)
+    out = {SPECIES: (json.dumps(rows[gate.USA], separators=(",", ":")) + "\n").encode()}
+    for body in dict.fromkeys(body for _, body in rows[gate.USA]):
+        out |= {f"{PICTURES}/{stem(body)}.{view}.png": png for view, png in picker.preview(read[gate.USA][1], body).items()}
+    recipes = {name: hashlib.sha256(json.dumps(entry, sort_keys=True).encode()).hexdigest()
+               for name, entry in json.loads(variants.BUILTIN.read_text(encoding="utf-8")).items()}
+    index = ROOT / PICTURES / "index.json"
+    was = json.loads(index.read_text(encoding="utf-8")) if index.is_file() else {"recipes": {}, "variants": {}}
+    files = lambda name: [f"{PICTURES}/variant--{stem(name)}.{view}.png" for view in ("front", "back")]   # noqa: E731
+    kept = {n for n, key in recipes.items() if was["recipes"].get(n) == key
+            and (n not in was["variants"] or all((ROOT / f).is_file() for f in files(n)))}
+    drawn = [n for n in was["variants"] if n in kept]
+    out |= {f: (ROOT / f).read_bytes() for n in drawn for f in files(n)}
+    with ProcessPoolExecutor(max(1, workers), mp_context=multiprocessing.get_context("spawn")) as pool:
+        for name, got in pool.map(_variant, [(str(images.stamp(gate.USA).path), n) for n in recipes if n not in kept]):
+            if isinstance(got, dict):
+                drawn.append(name)
+                out |= dict(zip(files(name), (got["front"], got["back"])))
+    real = picker.species_list
+    picker.species_list = lambda: rows[gate.USA]   # the list just read, whatever species.json holds now
+    try:
+        with tempfile.TemporaryDirectory(prefix="azurkit-record-") as empty:
+            view = picker.view(None, None, kit.normalize({"species": swap.PLAYER}), {"entries": content.states(None, {})},
+                               Path(empty))
+    finally:
+        picker.species_list = real
+    out[f"{PICTURES}/index.json"] = (json.dumps({
+        "view": view, "species": {s: stem(b) for s, b in rows[gate.USA]},
+        "variants": {n: f"variant--{stem(n)}" for n in sorted(drawn)}, "recipes": recipes},
+        sort_keys=True, separators=(",", ":")) + "\n").encode()
+    return out
+
+
+SHIPPED = {"art": (art, (ART,)), "characters": (characters, (PICTURES, SPECIES))}
 """Each family of shipped files: what makes them (``{path: bytes}``, from the checkout's root) and the paths it owns
 (a folder's every file, which a recording leaves holding only what it made)."""
 

@@ -4,7 +4,10 @@
 // not yet tested: the untested greyed and marked, D877); the chosen model's pictures from the front and from behind (D772,
 // D919: the engine's draw.py, on both hosts), its info and its options, each number with a G4 button that sets it to
 // match garret4 (P52). The engine decides everything shown (sdk.pickers, sdk.preview, sdk.match): this page sends the
-// tab's choices and draws what comes back. Content from (the source Azurik-Custom-Content is read from) is remembered:
+// tab's choices and draws what comes back. Its answer with no image and each species' and built-in variant's two
+// pictures ship with the page (Step 4.3f, D961: characters/, scripts/record_goldens.py's characters family), so the
+// list and Garret show at the tab's first click and a model's pictures at its click, before an image and with no
+// engine call; G4 and the Weapon box wait for the image's answer, saying so (D979). Content from (the source Azurik-Custom-Content is read from) is remembered:
 // by the site in this browser's storage, by the app in its config; an Install checks every file's sha256 before
 // anything is kept (the site's worker, sdk.content_check; the app's engine, sdk.content_install), and an installed
 // entry stays at its version until its Update. The site keeps what it installed in this browser's storage (IndexedDB)
@@ -68,16 +71,23 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       if (files && installed) content(files, installed);
     });
 
+  // The shipped answer and pictures (the file name of each species' and variant's), read at the tab's first open.
+  let ships = null, shipping = null;
+  const shipped = () => shipping ??= fetch("characters/index.json").then((reply) => reply.ok ? reply.json() : null)
+    .catch(() => null).then((found) => ships = found);
+  // The engine's answer read the image picked now (D979: G4 and the weapons need it).
+  const imaged = () => Boolean(c.view?.from) && c.view.from === image();
+
   const given = (extra) => app ? { given: { iso: image() || null, ...extra } } : { file: image(), given: { iso: null,
                                                                                                            ...extra } };
   const recipe = (character) => ({ iso: app ? image() || null : null, packs: packs(), character });
 
   // Ask the engine what the tab shows for its choices; an answer to an older ask is dropped.
   const ask = async () => {
-    const mine = ++c.ticket, asked = JSON.stringify(c.character);
+    const mine = ++c.ticket, asked = JSON.stringify(c.character), from = image() || null;
     const reply = await call("pickers", given({ character: c.character, content: { manifest: c.manifest } }));
     if (mine !== c.ticket) return;
-    if (!("refused" in reply)) reply.asked = asked;
+    if (!("refused" in reply)) Object.assign(reply, { asked, from });
     if ("refused" in reply) {
       $("char-refused").hidden = false;
       $("char-refused").textContent = reply.refused;
@@ -101,13 +111,15 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       c.why = null;
       try {
         if (/^(\/|~|[A-Za-z]:\\)/.test(c.source)) {
-          throw new Error("the site reads a URL, not a folder: use the app for a folder of your own");
+          throw Object.assign(new Error("The site reads a URL, not a folder: the desktop app reads a folder of your "
+                                        + "own. Every built-in model below works."), { plain: true });
         }
         if (new URL(c.source, location.href).origin !== location.origin) {   // the page's CSP: connect-src 'self'
-          throw new Error("this site reads community content from its own address until Azurik-Custom-Content is "
-                          + "public; the app reads it from anywhere");
+          throw Object.assign(new Error("Community models come to this site with AzurKit 4.4; the desktop app lists "
+                                        + "them now. Every built-in model below works."), { plain: true });
         }
-        const reply = await fetch(new URL("manifest.json", new URL(c.source, location.href)), { cache: "no-store" });
+        const reply = await fetch(new URL("manifest.json", new URL(c.source, location.href)), { cache: "no-store" })
+          .catch(() => { throw new Error("no answer"); });
         if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
         const text = await reply.text();
         const checked = await call("content_check", { manifest: text });
@@ -115,7 +127,8 @@ export function characters({ call, app, host, say, image, packs, changed, conten
         c.manifest = checked.manifest;
         await idb.put([["manifest", text]]).catch(() => {});
       } catch (error) {
-        c.why = `can't read ${c.source}: ${error.message}`;
+        c.why = error.plain ? error.message : `Couldn't reach the community list at ${c.source} (${error.message}). `
+          + "Every built-in model below works.";
         const kept = await idb.get("manifest");
         if (kept) c.manifest = JSON.parse(kept);
       }
@@ -178,6 +191,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     const keep = Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", ...NUMBERS].includes(k)));
     c.character = { ...keep, species: name };
     changed();
+    if (ships?.species[name] || ships?.variants[name]) draw({ name, variant: !ships.species[name] });   // at once
     ask();
   };
   // A grade's name from the engine's colour, and its colour as drawn: through its theme's --grade-* (app.css), so a
@@ -235,14 +249,16 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $("char-mode").replaceChildren(...view.modes.map((m) => el("option", { value: m.id, textContent: m.title })));
     $("char-mode").value = locked.mode ?? ch.mode ?? defaults.mode;
     $("char-mode").disabled = "mode" in locked;
-    $("char-weapon").replaceChildren(...chosen.weapons.map((w) => {
-      const option = el("option", { value: w.name ?? "", textContent: w.label, title: w.tip });
+    const weapons = imaged() ? chosen.weapons   // D979: none until the image is read
+      : [{ name: null, label: image() ? "Reading your image…" : "Choose your image to see its weapons" }];
+    $("char-weapon").replaceChildren(...weapons.map((w) => {
+      const option = el("option", { value: w.name ?? "", textContent: w.label, title: w.tip ?? "" });
       if (w.colour) option.style.color = paint(w.colour);
       return option;
     }));
-    $("char-weapon").value = chosen.weapon ?? "";
-    $("char-weapon").disabled = chosen.weapons.length < 2;
-    const picked = chosen.weapons.find((w) => w.name === (chosen.weapon ?? null));
+    $("char-weapon").value = imaged() ? chosen.weapon ?? "" : "";
+    $("char-weapon").disabled = weapons.length < 2;
+    const picked = weapons.find((w) => w.name === (chosen.weapon ?? null));
     $("char-weapon").style.color = paint(picked?.colour);
     $("char-clips").checked = (ch.anims ?? defaults.anims) === "own";
     $("char-clips").disabled = !live.anims;
@@ -314,15 +330,17 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     return row;
   };
 
-  // The G4 buttons: live with an image to measure in, greyed while one dress measures (seconds; a detailed variant
-  // minutes, and on the site it may run out of memory: the app then); the value its box takes, 4 figures rounded up.
+  // The G4 buttons: live once the engine has read the image to measure in (D979: greyed, saying so, until then), greyed
+  // while one dress measures (seconds; a detailed variant minutes, and on the site it may run out of memory: the app
+  // then); the value its box takes, 4 figures rounded up.
   const g4 = () => {
     for (const name of NUMBERS) {
       const button = $(`char-g4-${name}`);
-      if (button) button.disabled = c.matching || !image();
+      if (button) button.disabled = c.matching || !imaged();
     }
     $("char-g4-note").textContent = c.matching ? "Measuring the body against garret4…"
-      : image() ? "G4 sets a number so the body matches garret4." : "Pick your image to match garret4 (G4).";
+      : imaged() ? "G4 sets a number so the body matches garret4." : image() ? "Reading your image…"
+      : "Choose your image to match garret4 (G4).";
   };
   const match = async (name) => {
     if (c.matching || !c.view) return;
@@ -338,12 +356,31 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $(`char-${name}`).dispatchEvent(new Event("change"));
   };
 
-  // The chosen model's two pictures: a species' drawn at once from its body in the image, a variant's from a dress of
-  // it ("Drawing…" until it is, never its base's picture).
-  const draw = async () => {
-    const chosen = c.view.chosen, key = `${image()?.name ?? image()}|${chosen.name}`;
+  // The chosen model's two pictures: the page's own where it ships them (no image needed), else a species' drawn at once
+  // from its body in the image, a variant's from a dress of it ("Drawing…" until it is, never its base's picture).
+  const draw = async (chosen = c.view.chosen) => {
+    const file = chosen.variant ? ships?.variants[chosen.name] : ships?.species[chosen.name];
+    let key = file ? `shipped|${file}` : `${image()?.name ?? image()}|${chosen.name}`;
     if (c.drawn === key) return;
     c.drawn = key;
+    if (file) {
+      try {
+        const views = await Promise.all(["front", "back"].map(async (view) => {
+          const reply = await fetch(`characters/${file}.${view}.png`);
+          if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
+          return createImageBitmap(await reply.blob());
+        }));
+        if (c.drawn !== key) return;
+        for (const [i, id] of ["char-front", "char-back"].entries()) {
+          $(id).getContext("2d").clearRect(0, 0, 160, 160);
+          $(id).getContext("2d").drawImage(views[i], 0, 0);
+        }
+        return void ($("char-preview-note").textContent = "From the front and from behind.");
+      } catch {
+        if (c.drawn !== key) return;
+        c.drawn = key = `${image()?.name ?? image()}|${chosen.name}`;   // drawn from the image instead
+      }
+    }
     for (const id of ["char-front", "char-back"]) $(id).getContext("2d").clearRect(0, 0, 160, 160);
     if (!image()) return void ($("char-preview-note").textContent = "Pick your image to see the model.");
     $("char-preview-note").textContent = chosen.variant ? "Drawing… (a variant is dressed first: seconds, a detailed "
@@ -419,13 +456,19 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     open: () => {
       if (!c.opened) {
         c.opened = true;
+        shipped().then(() => {   // the shipped answer for garret4 at every default, until the engine's comes
+          if (!ships || c.view || JSON.stringify(c.character) !== '{"species":"garret4"}') return;
+          c.view = { ...ships.view, asked: JSON.stringify(c.character), from: null };
+          render();
+          draw();
+        });
         kept.then(read);
       } else ask();
     },
     imaged: () => {
       c.drawn = null;
+      if (c.view) render();   // its weapons and G4 wait for the image's answer
       if (c.opened) ask();
-      else if (c.view) g4();
     },
     set,
     character,

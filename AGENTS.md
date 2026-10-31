@@ -101,7 +101,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - Only `scripts/record_goldens.py` writes them, from AzurKit's own builds
     on the player's images (`--check` writes nothing); never edit them by
     hand. It records the page's shipped pictures too, by family (`art`:
-    The maps, below). A commit that changes one names each golden it changed and why,
+    The maps; `characters`: The Characters tab, below). A commit that changes one names each golden it changed and why,
     and a gameplay byte change to a default build is seen once in xemu.
   - The first recording is Modkit's last cut (the packs and the core:
     oracle-packs-4, Modkit 28d0b4110; the characters: oracle-models-3,
@@ -675,7 +675,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Azurik-Custom-Content's variant entries beside the species, each marked
     community, its state Install, installed vN or Update to vM, its
     variants once installed), then every species the player can wear in its
-    grade's colour, the 73 untested greyed and marked (D877); the chosen
+    grade's colour, the 73 untested greyed and marked (D877; with no image,
+    the 178 of `picker.SPECIES`, `species.json`); the chosen
     model's two pictures (D772, D919: `picker.preview`'s draw.py, front and
     back, on both hosts; a variant's from one dress, `sdk.preview`), its
     info and its options (Gameplay, Weapon: each pick marked by its fit and
@@ -687,7 +688,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     draws the answer, and Build, a link and the remembered setup take the
     view's `character` (a variant's recipe-decided options left out). Build
     refuses an uninstalled community variant that needs files, by name.
-    Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
+    **Shipped** (Step 4.3f, D961): `species.json` and, in `web/characters/`,
+    every body's two pictures, each built-in variant's at its recipe's
+    defaults (one the game's memory refuses has none) and the engine's
+    no-image answer (`index.json`), which only `scripts/record_goldens.py`'s
+    `characters` family writes (from both images; a variant is dressed
+    again only when its `variants.json` entry changes) and
+    `tests/test_characters.py` holds to the images and the app's draw: the
+    page shows that answer at the tab's first open and a model's shipped
+    pictures at its click, with no image and no engine call, and G4 and the
+    Weapon box stay greyed, saying the image is needed, until the engine's
+    answer has read it (D979). Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
     at 4.4) is remembered (the site's storage, the app's `content_source`).
     The site reads a source on its own address only (its CSP's
     `connect-src 'self'`; `scripts/web_tools.py --site DIR --content

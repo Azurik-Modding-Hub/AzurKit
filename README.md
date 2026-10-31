@@ -101,7 +101,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Pick by grade:** every creature in its grade's colour and mark, so it reads without colour too: ✓ green fully
   playable, ~ yellow rough edges, ✕ red not playable; the 73 nobody has tested yet are greyed and marked ?, and the
   weapons on them greyed.
-- **See it first:** the chosen model drawn from the front and from behind, from your own game.
+- **See it first:** the chosen model from the front and from behind, at once and before you pick your image; the
+  whole list shows straight away too, and G4 and the weapons say they need your image.
 - **Match Garret in one click:** a G4 button beside model size, attack reach, damage and speed sets the body to
   Garret's height, reach, damage per second or timing.
 - **Play as almost anyone:** 178 of the game's 184 creatures, bosses to critters, on both releases. The 30

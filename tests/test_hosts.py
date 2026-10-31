@@ -328,15 +328,15 @@ def _get(url: str, path: str) -> bytes:
 def test_the_frozen_app_serves_the_pictures_the_page_ships(frozen_app, tmp_path, monkeypatch):
     """Step 4.3f (D961): the frozen app (read-only, in a fresh HOME, no
     image) answers ``api/art`` with the tracker's shipped index and serves
-    each of its pictures from the bundle, the checkout's files byte for
-    byte, and leaves itself as it was."""
+    each of its pictures and the Characters tab's from the bundle, the
+    checkout's files byte for byte, and leaves itself as it was."""
     app_path, before = frozen_app
     box, v = Sandbox(tmp_path, monkeypatch), tracking.ART_VERSION
-    shipped = record_goldens.kept_files((record_goldens.ART,))
+    shipped = record_goldens.kept_files((record_goldens.ART, record_goldens.PICTURES))
     with box.serving(app_path) as url:
         replies = []
         _post(url, "api/art", {"iso": "", "draw": False}, replies)
-        served = {rel: _get(url, rel.removeprefix("web/")) for rel in shipped if rel.startswith(f"web/art/{v}/")}
+        served = {rel: _get(url, rel.removeprefix("web/")) for rel in shipped if rel != "web/art/index.json"}
     assert replies == [{"version": v, "index": json.loads(shipped[f"web/art/{v}/maps.json"]),
                         "icons": json.loads(shipped["web/art/index.json"])["icons"]}]
     assert served == {rel: data for rel, data in shipped.items() if rel in served} and len(served) == len(shipped) - 1

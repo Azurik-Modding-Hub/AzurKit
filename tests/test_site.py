@@ -630,8 +630,8 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     address, the page's CSP's ``connect-src 'self'``) come first, each marked community; Install of an entry whose
     file isn't its manifest's sha256 is refused by name and keeps nothing, and Beamlord's installs, its variant
     then listed under it, installed v1, and a page opened again hands it to its engine before the tab is opened (a
-    build from another tab reads it); a species picked shows its Weapon box and its two pictures (draw.py, under
-    Pyodide), and Content from and its Reset stay in the list's column, the pictures in theirs and every G4 button
+    build from another tab reads it); a species picked shows its Weapon box and its two pictures (the site's own,
+    Step 4.3f), and Content from and its Reset stay in the list's column, the pictures in theirs and every G4 button
     in view at any width, the tab never scrolling sideways. No CSP violation, and no request but GETs of the site's files and the source's."""
     from azurkit.tools.characters import _player_variants, content, picker
 
@@ -662,7 +662,8 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         page = served.open()
         page.set_input_files("#iso", str(usa_iso))
         _page.click(page, "tab-characters")
-        _page.until(page, "() => azurkit.characters.state.view?.species.length === 178", 300)
+        _page.until(page, "() => Boolean(azurkit.characters.state.view?.from) && azurkit.characters.state.view.community"
+                          ".length === 2", 300)   # the engine's answer, the image read
         assert page.evaluate("""() => [document.querySelectorAll("#char-species .model").length,
             document.querySelectorAll("#char-species .model.untested").length]""") == [178, 73]
         marks = page.evaluate("""() => [...document.querySelectorAll("#char-species .model")].map((m) =>
@@ -700,6 +701,45 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         assert _page.until(again, """async () => !azurkit.characters.state.opened && (await azurkit.engine.call(
             "pickers", {given: {iso: null}})).community.map((e) => `${e.id} ${e.state}`).join() === "beamlord installed"
             """, 120)
+    finally:
+        served.close()
+
+
+CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length,
+    document.getElementById("char-count").textContent, ["char-front", "char-back"].map((id) => document.getElementById(id)
+    .getContext("2d").getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0)),
+    [...document.querySelectorAll("#char-numbers .g4")].map((b) => b.disabled), document.getElementById("char-g4-note")
+    .textContent, document.getElementById("char-weapon").disabled, document.getElementById("char-weapon").textContent,
+    asked.filter((t) => ["preview", "match"].includes(t))]"""
+
+
+def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image(browser, site):
+    """Step 4.3f (D961, D979): before an image is picked the Characters tab
+    lists all 178 species the player can wear, the 73 untested among them,
+    with Garret's two pictures, and a click on another shows its own at
+    once: the site's shipped answer and pictures (``tests/test_characters.py``
+    holds them to the images and to the app's draw), no engine call drawing
+    them. G4 and the Weapon box stay greyed, saying the image is needed. No
+    CSP violation, no request but GETs of the site's files."""
+    served = Site(browser, site)
+    served.context.add_init_script(script=ASKED)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 60)
+        assert page.evaluate(CHARS_SHOWN) == [
+            178, "178 species, 73 not yet tested · Choose your image to build, and to see each model's weapons.",
+            [True, True], [True] * 4, "Choose your image to match garret4 (G4).", True,
+            "Choose your image to see its weapons", []]
+        page.evaluate("() => document.querySelector('#char-species .model[data-model=\"keylord\"]').click()")
+        _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 120)
+        assert page.evaluate(CHARS_SHOWN)[2:] == [[True, True], [True] * 4, "Choose your image to match garret4 (G4).",
+                                                  True, "Choose your image to see its weapons", []]
+        index = json.loads((site / "characters" / "index.json").read_text(encoding="utf-8"))
+        assert {f"characters/{index['species'][s]}.{v}.png" for s in ("garret4", "keylord") for v in ("front", "back")} <= {
+            url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests}
+        _page.check_csp(page)
+        assert served.stray() == []
     finally:
         served.close()
 

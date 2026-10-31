@@ -603,6 +603,28 @@ def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path
     assert view["chosen"]["locked"]["mode"] == "own" and view["character"] == {"species": "beamlord"}
 
 
+def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, europe_iso):
+    """The Characters tab's shipped files (Step 4.3f, D961; the page shows them before an image) are what
+    ``scripts/record_goldens.py``'s characters family makes from the images, byte for byte: ``species.json``, the
+    species ``player_models`` reads from USA's image and from Europe's (the same), which the view lists with no image
+    (in their grades), the no-image view itself, and each body's two pictures, ``picker.preview``'s (the app's
+    draw) from USA's image, and from Europe's the same bytes. A built-in variant's are drawn again only when its
+    recipe changes (its dress takes minutes), so here they are the recorded ones."""
+    from azurkit.tools.characters import picker
+
+    made = record_goldens.characters(record_goldens.Images({gate.USA: usa_iso, gate.EUROPE: europe_iso}), 1)
+    shipped = record_goldens.kept_files((record_goldens.PICTURES, record_goldens.SPECIES))
+    assert {rel: _sha256(data) for rel, data in made.items()} == {rel: _sha256(data) for rel, data in shipped.items()}
+    assert picker.species_list() == json.loads(made[record_goldens.SPECIES]) and len(picker.species_list()) == 178
+    with iso.Reader(europe_iso) as r:
+        bodies = r.read(CHARACTERS)
+    drawn = {f"{record_goldens.PICTURES}/{body.replace('/', '--')}.{view}.png": png
+             for body in dict.fromkeys(b for _, b in picker.species_list())
+             for view, png in picker.preview(bodies, body).items()}
+    assert len(drawn) == 272 and {rel: _sha256(png) for rel, png in drawn.items()} == {
+        rel: _sha256(made[rel]) for rel in drawn}
+
+
 def test_the_g4_buttons_values_are_their_goldens_garret_match(usa_iso):
     """``sdk.match`` (P52, D358; Modkit's ``_player_match``, ported): keylord's and beamlord's Model size,
     Attack reach, speed and damage over the packs on by default are the golden's exactly (``matches.json``,
