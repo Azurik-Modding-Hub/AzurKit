@@ -112,7 +112,8 @@ def setup(tmp_path):
                                  key=lambda recipe: ahead.key(recipe, root=root))
 
 
-@pytest.mark.parametrize("when", ["mid-flight", "after it ends", "stopped, then remade", "after an Update"])
+@pytest.mark.parametrize("when", ["mid-flight", "after it ends", "stopped, then remade", "after an Update",
+                                  "a recipe file's character"])
 def test_a_click_takes_the_work_ahead_of_its_key_and_answers_as_a_plain_run(setup, when):
     """A Build that finds its recipe worked out ahead takes that job,
     running (its records followed from the last) or done, and answers as a
@@ -120,7 +121,9 @@ def test_a_click_takes_the_work_ahead_of_its_key_and_answers_as_a_plain_run(setu
     job at its next record, keeping nothing of its fill, and starts once it
     has ended (never two jobs of a slot at once), while an older change's
     offer is refused; an Update changes the key, so the click after it
-    runs again, on the content as it is now (C6)."""
+    runs again, on the content as it is now (C6). A recipe file's
+    character has no key (the file's contents aren't in one), so nothing
+    of it goes ahead and its click runs its own."""
     s, slots = setup.stand, Ahead()
     k = setup.key(setup.seeded)
     if when == "mid-flight":
@@ -147,13 +150,18 @@ def test_a_click_takes_the_work_ahead_of_its_key_and_answers_as_a_plain_run(setu
         assert slots.offer("build", 4, k, s.fn(setup.seeded))
         click = Click(slots, "build", k, s.fn(setup.seeded)).end()
         assert (s.runs, s.most) == (3, 1)
-    else:
+    elif when == "after an Update":
         assert slots.offer("build", 1, k, s.fn(setup.seeded)) and slots.job("build").done.wait(10)
         stale = slots.job("build").value
         (setup.root / content.INSTALLED).write_text(json.dumps({"booblord": {"version": "2", "files": {}}}))
         assert setup.key(setup.seeded) != k
         click = Click(slots, "build", setup.key(setup.seeded), s.fn(setup.seeded)).end()
         assert click.value != stale and s.runs == 2
+    else:
+        worn = setup.seeded | {"character": {"species": "mine", "variant_file": str(setup.root / "recipes.json")}}
+        assert setup.key(worn) is None and not slots.offer("build", 1, setup.key(worn), s.fn(worn))
+        click = Click(slots, "build", setup.key(worn), s.fn(worn)).end()
+        assert s.runs == 1
     assert (click.error, click.value) == (None, Stand(setup.root).make(setup.seeded))
 
 

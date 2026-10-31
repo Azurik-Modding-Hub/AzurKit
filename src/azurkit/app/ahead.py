@@ -83,7 +83,12 @@ def key(recipe: object, extra: object = None, root: Path | None = None) -> str |
     stamp of the image it names (``iso``: its path, size, modification and
     change times), :func:`installed` and AzurKit's version; ``None`` (no
     work ahead: the click names what it refuses) when that image can't be
-    read now or the recipe isn't JSON."""
+    read now or the recipe isn't JSON, and for a recipe file's character
+    (``variant_file``: its contents aren't in the key, as
+    ``characters.cache_key``)."""
+    if isinstance(recipe, Mapping) and isinstance(character := recipe.get("character"), Mapping) \
+            and "variant_file" in character:
+        return None
     stamp = None
     if isinstance(recipe, Mapping) and "iso" in recipe:
         if not isinstance(path := recipe["iso"], str):
