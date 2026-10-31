@@ -253,10 +253,12 @@ def find_strings(data: bytes, pattern: str, *, regex: bool = False, ignore_case:
     """At most ``limit`` runs of printable ASCII in ``.rdata`` and ``.data``,
     each ``min_len`` or more characters long, that hold ``pattern`` (a
     substring, or with ``regex`` a Python regex searched for; one that
-    doesn't compile is a ValueError)."""
+    doesn't compile is a ValueError: re.compile raises OverflowError for a
+    repeat count past its limit and RecursionError for nesting too deep for
+    its parser, besides re.error)."""
     try:
         rx = re.compile(pattern if regex else re.escape(pattern), re.IGNORECASE if ignore_case else 0)
-    except re.error as exc:
+    except (re.error, OverflowError, RecursionError) as exc:
         raise ValueError(f"--regex {pattern!r}: {exc}") from None
     hits: list[String] = []
     for s in xbe.sections(data):

@@ -200,8 +200,9 @@ def test_a_file_that_is_no_xbe_or_whose_section_table_runs_off_it_is_one_line_an
     """Modkit's test_xbe_sections, on core.xbe: a file that is neither an
     image nor an XBE, a header too short for its table or one that claims
     2^31 sections, an address no section maps and a ``--regex`` that
-    doesn't compile, are each one ``xbe:`` line on stderr and exit 2, with
-    nothing on stdout."""
+    doesn't compile (a bad pattern, a repeat count past re's limit, nesting
+    deeper than its parser recurses), are each one ``xbe:`` line on stderr
+    and exit 2, with nothing on stdout."""
     def header(count: int) -> bytes:
         out = bytearray(0x200)
         out[0:4] = b"XBEH"
@@ -214,14 +215,16 @@ def test_a_file_that_is_no_xbe_or_whose_section_table_runs_off_it_is_one_line_an
     refused = []
     for name, data, argv in (("zz.bin", b"ZZZZ" + bytes(0x400), ["sections"]), ("short.xbe", header(100), ["sections"]),
                              ("huge.xbe", header(0x7FFFFFFF), ["sections"]), (good.name, None, ["read", "0x400000"]),
-                             (good.name, None, ["strings", "[", "--regex"])):
+                             (good.name, None, ["strings", "[", "--regex"]),
+                             (good.name, None, ["strings", "a{4294967296}", "--regex"]),
+                             (good.name, None, ["strings", "(" * 100000 + ")" * 100000, "--regex"])):
         path = tmp_path / name
         if data is not None:
             path.write_bytes(data)
         code, out, err = run(capsys, *argv, "--xbe", str(path))
         refused.append((code, out, err.splitlines()[-1].startswith("xbe: "),
                         sum(line.startswith("xbe: ") for line in err.splitlines())))
-    assert refused == [(2, "", True, 1)] * 5
+    assert refused == [(2, "", True, 1)] * 7
 
 
 def test_python_m_devkit_runs_the_re_areas_xbe_verb_and_names_an_xbe_of_neither_release(tmp_path):
