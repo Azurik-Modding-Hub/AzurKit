@@ -30,12 +30,14 @@ import importlib.util
 import json
 import os
 import platform
+import py_compile
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
 import urllib.request
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -49,6 +51,7 @@ CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
 # The web tests' engines (Step 4.1d3): each test that takes the ``browser`` fixture runs in both. Each one's name in
 # Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit")}
+SHIPPED = "azurkit/tools/randomizer/shipped"   # the checked randomizer database's folder (dbcache.SHIPPED)
 
 
 def _tools(root: Path) -> Path:
@@ -169,11 +172,68 @@ def fetch_browser(engine: str, root: Path = ROOT) -> Path:
 
 
 def wheel(out: Path, root: Path = ROOT) -> Path:
-    """The checkout's wheel, built into ``out``."""
+    """The checkout's wheel, built into ``out``, with what lets its engine
+    start at once (Step 4.3g): each module's bytecode
+    (``__pycache__/<name>.cpython-314.pyc``, unchecked-hash, so Pyodide
+    imports it without compiling the source; the ``.py`` stays, for
+    tracebacks) and the checked randomizer database
+    (:func:`ship_database`, from the wheel's own files), in its RECORD."""
     subprocess.run(["uv", "build", "--offline", "--quiet", "--wheel", "--out-dir", str(out), str(root)],
                    check=True, capture_output=True, timeout=300)
     (built,) = out.glob("azurkit-*.whl")
+    with zipfile.ZipFile(built) as zf:
+        entries = [(info, zf.read(info)) for info in zf.infolist()]
+    added = {}
+    with tempfile.TemporaryDirectory(prefix="azurkit-wheel.") as tmp:
+        for info, data in entries:
+            if not info.is_dir():
+                (Path(tmp) / info.filename).parent.mkdir(parents=True, exist_ok=True)
+                (Path(tmp) / info.filename).write_bytes(data)
+        shipped = ship_database(Path(tmp) / SHIPPED, Path(tmp))
+        added[f"{SHIPPED}/{shipped.name}"] = shipped.read_bytes()
+        for info, _ in entries:
+            if info.filename.endswith(".py"):
+                folder, _, name = info.filename.rpartition("/")
+                pyc = Path(tmp) / "module.pyc"
+                py_compile.compile(str(Path(tmp) / info.filename), cfile=str(pyc), dfile=info.filename, doraise=True,
+                                   invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+                added[f"{folder}/__pycache__/{name[:-3]}.{sys.implementation.cache_tag}.pyc"] = pyc.read_bytes()
+    record = next(info.filename for info, _ in entries if info.filename.endswith(".dist-info/RECORD"))
+    meta = record.rpartition("/")[0] + "/"
+    with zipfile.ZipFile(built, "w") as zf:
+        for info, data in entries:
+            if not info.filename.startswith(meta):
+                zf.writestr(info, data)
+        for name, data in added.items():
+            new = zipfile.ZipInfo(name, date_time=entries[0][0].date_time)
+            new.compress_type, new.external_attr = zipfile.ZIP_DEFLATED, 0o644 << 16
+            zf.writestr(new, data)
+        for info, data in entries:
+            if info.filename.startswith(meta) and info.filename != record:
+                zf.writestr(info, data)
+            elif info.filename == record:
+                lines = [line for line in data.decode().splitlines() if line != f"{record},,"]
+                lines += [f"{name},sha256={base64.urlsafe_b64encode(hashlib.sha256(blob).digest()).rstrip(b'=').decode()}"
+                          f",{len(blob)}" for name, blob in added.items()]
+                zf.writestr(info, "\n".join([*lines, f"{record},,", ""]))
     return built
+
+
+def ship_database(out: Path, path: Path | None = None, planner: bool = True) -> Path:
+    """The checked randomizer database (``dbcache.ship``) written into the
+    folder ``out`` by a child Python under PYTHONHASHSEED=0 (never ``-I``,
+    which ignores it), importing the package from ``path`` (an unpacked
+    wheel, whose files key it) or else this environment's; keyed by the
+    data alone when not ``planner`` (the frozen app's key). Its file."""
+    out.mkdir(parents=True, exist_ok=True)
+    env = os.environ | {"PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1"}
+    if path is not None:
+        env["PYTHONPATH"] = os.pathsep.join([str(path), *filter(None, [os.environ.get("PYTHONPATH")])])
+    code = ("import sys; from pathlib import Path; from azurkit.tools.randomizer import dbcache; "
+            f"print(dbcache.ship(Path(sys.argv[1]){'' if planner else ', None'}))")
+    done = subprocess.run([sys.executable, "-P", "-c", code, str(out)], env=env, stdout=subprocess.PIPE, text=True,
+                          check=True, timeout=900)
+    return Path(done.stdout.strip())
 
 
 def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path | None = None) -> Path:

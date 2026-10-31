@@ -8,7 +8,8 @@ default case's spoiler is Modkit's ``--spoiler`` file of its plan, a
 later layer over a placement is a conflict and any other difference a
 failure, and movement sliders plan on the logic re-checked under them;
 the Randomizer tab's settings (Step 4.2c1); the item tracker's verdicts
-(Step 4.2c2), Modkit's at several states."""
+(Step 4.2c2), Modkit's at several states; the checked database the wheel
+and the app ship (Step 4.3g)."""
 
 from __future__ import annotations
 
@@ -17,17 +18,21 @@ import hashlib
 import json
 import math
 import struct
+from pathlib import Path
 
 import pytest
 
 from azurkit import cli, sdk
 from azurkit.core import iso
 from azurkit.tools import mods, randomizer
-from azurkit.tools.randomizer import generator, layer, tracking, writer
+from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
+from azurkit.tools.randomizer.planner import loader
 from azurkit.tools.randomizer.planner.fill import settings_table
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import (
     Settings, picks, settings_from_table, share_decode, share_encode, turnable)
+from azurkit.tools.randomizer.planner.solver import Logic
+from scripts import web_tools
 from scripts.oracle_sync import ORACLE
 
 RANDO = ORACLE / "rando"
@@ -260,6 +265,28 @@ def test_the_default_plan_file_is_modkits_byte_for_byte_under_pyodide(pyodide):
     got = pyodide("plan", "--seed", "2")
     assert (got["code"], got["stderr"]) == (0, ""), got["stderr"][-2000:]
     assert got["stdout"] == DEFAULT_PLAN
+
+
+def test_the_shipped_database_is_a_fresh_checks_and_holds_no_absolute_path(tmp_path, monkeypatch):
+    """The database the wheel and the app ship (``web_tools.ship_database``:
+    checked in a child under PYTHONHASHSEED=0, its root dropped) is keyed by
+    the data and planner it was made from, holds no path of the checkout
+    that made it (no ``pathlib`` object, nor the checkout's or the home
+    folder's path), and reads back (``dbcache.shipped_logic``, as the
+    frozen app reads it) into the database and the Logic tables a fresh
+    ``check_database`` gives."""
+    shipped = web_tools.ship_database(tmp_path)
+    blob = shipped.read_bytes()
+    assert (shipped.stem, b"pathlib" in blob, str(Path(web_tools.ROOT)).encode() in blob,
+            str(Path.home()).encode() in blob) == (dbcache.entry(loader.DATA_DIR).name, False, False, False)
+    monkeypatch.setattr(dbcache, "SHIPPED", tmp_path)
+    monkeypatch.setattr(dbcache, "FROZEN", True)
+    got, fresh = dbcache.shipped_logic(loader.DATA_DIR, Logic), Logic(loader.check_database(loader.DATA_DIR).database)
+    assert got.db == fresh.db
+    assert {k: v for k, v in vars(got).items() if k not in loader._MEMOS} == {
+        k: v for k, v in vars(fresh).items() if k not in loader._MEMOS}
+    assert {k: v for k, v in vars(got).items() if k in loader._MEMOS - {"db"}} == {
+        k: type(v)() for k, v in vars(fresh).items() if k in loader._MEMOS - {"db"}}
 
 
 # Modkit 3befd6336's tracker on seed 2's default and max plans, each state with the spoiler off and on: the

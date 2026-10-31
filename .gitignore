@@ -26,3 +26,6 @@ movies/
 
 # Tools fetched for the tests (Pyodide: scripts/web_tools.py), shared by every lane
 /.tools/
+
+# The checked randomizer database the wheel's and the app's builds ship (dbcache.ship): generated, never in the tree
+/src/azurkit/tools/randomizer/shipped/

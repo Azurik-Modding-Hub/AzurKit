@@ -11,7 +11,10 @@ It prints the app's path: ``DIR/AzurKit.app`` on macOS, else the folder
 leaves out what never ships (:data:`EXCLUDE`: Tk, Unicorn, capstone, zig,
 and the standard library's GPL-linked modules). On macOS its icon is
 AzurKit's (:data:`ICON`, the mark on an azure tile, D892; ``assets/icon/``
-rebuilds it).
+rebuilds it). It carries the checked randomizer database
+(``web_tools.ship_database``, keyed by the data alone, as the frozen app
+keys it: its planner is in its archive, not files), so its Randomizer tab
+doesn't check the database first (Step 4.3g).
 """
 
 from __future__ import annotations
@@ -34,18 +37,28 @@ EXCLUDE = ("tkinter", "_tkinter", "unicorn", "capstone", "ziglang", "readline", 
 def freeze(dist: Path, work: Path) -> Path:
     """Build the app in ``dist``, with PyInstaller's files in ``work``; returns its path."""
     os.environ["PYINSTALLER_CONFIG_DIR"] = str(work / "config")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import web_tools
     from PyInstaller.__main__ import run
+
+    from azurkit.tools.randomizer import dbcache
+
+    shipped = web_tools.ship_database(work / "shipped", planner=False)
 
     run(["--noconfirm", "--clean", "--onedir", "--name", NAME, "--log-level", "WARN",
          *(("--windowed", "--osx-bundle-identifier", BUNDLE_ID, "--icon", str(ICON)) if MACOS else ()),
          "--distpath", str(dist), "--workpath", str(work), "--specpath", str(work),
          "--paths", str(ROOT / "src"), "--collect-data", "azurkit", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
+         "--add-data", f"{shipped}{os.pathsep}{web_tools.SHIPPED}",
          *(arg for module in EXCLUDE for arg in ("--exclude-module", module)),
          str(ROOT / "src" / "azurkit" / "__main__.py")])
     if MACOS:
         shutil.rmtree(dist / NAME)   # the onedir the bundle was made from: the bundle holds all of it
-        return dist / f"{NAME}.app"
-    return dist / NAME
+    app = dist / f"{NAME}.app" if MACOS else dist / NAME
+    data = next(d for f in folders(app) if (d := f / "azurkit/tools/randomizer/data").is_dir())
+    if dbcache.entry(data, None).name != shipped.stem:
+        raise SystemExit(f"the app's randomizer data isn't what its shipped database {shipped.name} was made from")
+    return app
 
 
 def executable(app: Path) -> Path:

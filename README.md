@@ -77,6 +77,8 @@ source ([Development](#development)).
 ### Item tracker
 
 - **Track any seed:** a randomized build, a seed you haven't built yet, or a plan file.
+- **Quick to open:** on our Mac the Randomizer tab opens in about 4 s, and tracking a seed takes about 15 s in
+  the app and 22 s in the browser.
 - **Where you stand:** what you've collected and what you can reach right now, sphere by sphere.
 - **Skips shown apart:** spots you can reach only with a skip have their own colour.
 - **Spoiler-free:** each item stays hidden until you collect it, unless you turn Spoiler on.

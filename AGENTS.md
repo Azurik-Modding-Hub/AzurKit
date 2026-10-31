@@ -316,8 +316,25 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `layer.py`, `tracker.py` and `live/`'s `game.py`, `link.py`, `pages.py`
     and `recipes.py` are Modkit's, installed by the sync (above): never edit
     them by hand. `generator.py`, `tracking.py`, `ports.py`, `dbcache.py`
-    (no cache on disk: a pickle read back from a writable folder runs its
-    code) and `live/`'s `errors.py` and `regions.py` are ours.
+    (no cache on disk: a pickle read back from a folder the program writes
+    runs its code) and `live/`'s `errors.py` and `regions.py` are ours.
+  - **The shipped database** (Step 4.3g): the wheel (`web_tools.wheel`) and
+    the frozen app (`scripts/freeze.py`) carry the checked database, its
+    Logic's tables and its memos' types as `shipped/<key>.pickle` beside
+    `dbcache.py`, written at their build by `web_tools.ship_database`
+    (`dbcache.ship` in a child Python under `PYTHONHASHSEED=0`, never
+    `python -I`, which ignores it, so a build gives the same bytes; the
+    database's `root` dropped, so it holds no path of the checkout). It is
+    generated, never in the tree. `dbcache.load` serves it for the key it
+    was made for (`dbcache.entry`: the data's and the planner's files; the
+    frozen app's, whose planner is in its archive, the data's alone), and
+    reads it only from the wheel (its RECORD lists it) or the frozen app: a
+    checkout checks the database (about 4 s). `dbcache.shipped_logic` hands
+    the loader's `kept_logic` the Logic as built (Modkit's hook, once its
+    sync brings it).
+  - `needs.NOTE` and `generator.NOTE`, None by default, are told the
+    tracker's exits ("the maps' exits, k of 22") and the fill's start
+    ("placing the items") for the sdk's progress.
   - The fill runs in the caller's thread: Modkit's seed roll in a process
     pool (`roll_seed`) isn't ported.
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's
@@ -746,8 +763,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Reset to defaults, in the bottom bar (off at the defaults), ticks the
     packs on by default, sets every setting to its default and forgets it.
 - **The site** is the page with Pyodide's core (and numpy's wheel, which the
-  Characters tab's drawing loads: `web_tools.PACKAGES`), the wheel and its
-  `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
+  Characters tab's drawing loads: `web_tools.PACKAGES`), the wheel (with each module's
+  unchecked-hash bytecode, so Pyodide doesn't compile the source, and the
+  shipped database) and its `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in
   a module worker started from a `blob:` URL (so the page's CSP holds there),
   one worker per build, which reads the image in blocks (WebKit takes about
@@ -777,7 +795,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (1.5 s) at most, then removes it itself (AZ-823, D35). The window sets
   pywebview's `text_select`, or pywebview injects a `<style>` the CSP
   refuses. `scripts/freeze.py` builds
-  the app (`AzurKit.app` on macOS, a windowed onedir); pyinstaller and
+  the app (`AzurKit.app` on macOS, a windowed onedir; with the shipped
+  database, its key checked against the bundle's data); pyinstaller and
   pywebview are the `app` dependency group, never the wheel's. The bundle is
   read-only: every write goes through platformdirs, or to the path the
   player saves to. It carries no Unicorn, zig, capstone or GPL code;
