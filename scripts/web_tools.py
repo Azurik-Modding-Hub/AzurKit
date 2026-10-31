@@ -54,11 +54,15 @@ CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
 # Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit")}
 SHIPPED = "azurkit/tools/randomizer/shipped"   # the checked randomizer database's folder (dbcache.SHIPPED)
-UNSERVED = (".html", ".htm", ".shtml", ".xhtml", ".xht", ".svg", ".svgz", ".js", ".mjs", ".xml", ".xsl", ".xslt", ".rss",
-            ".atom", ".rdf", ".mml")
-"""The suffixes no content file on the site has: its host would serve each
-as a page, a script or an XML document the browser renders (where an XHTML
-``<script>`` runs) on the site's own origin, outside the page's CSP."""
+CONTENT_KINDS = (".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
+"""The suffixes a content file the site publishes may have, and no other
+(none, or any other, is refused by name): the kinds the content repository
+holds (a recipe or manifest, a clip, a sound, its notes) and those it is to
+hold (a glTF's buffers, a texture), each of which its host serves as data,
+not as a page, a script or an XML document the browser renders (where an
+XHTML ``<script>`` runs) on the site's own origin, outside the page's CSP.
+A ``.md`` is text unless the host builds the site with Jekyll, which
+renders one as a page."""
 
 
 def _tools(root: Path) -> Path:
@@ -284,8 +288,8 @@ def content_files(clone: Path) -> dict[str, bytes]:
     repository's ``scripts/check.py`` holds, it has no ``:`` and is a
     regular file reached through
     real folders (``lstat``: a link anywhere on it is never followed); and
-    none ends in one of :data:`UNSERVED`. ``SystemExit`` names the first
-    fault's file."""
+    its suffix is one of :data:`CONTENT_KINDS`, exactly. ``SystemExit``
+    names the first fault's file."""
     from azurkit.tools.characters import content
 
     def read(rel: str, most: int) -> bytes:
@@ -314,9 +318,9 @@ def content_files(clone: Path) -> dict[str, bytes]:
                 raise ValueError(f"{f['path']} isn't a plain path: it would be published as {plain}")
             if ":" in f["path"]:
                 raise ValueError(f"{f['path']} holds a ':', which no content path does")
-            if f["path"].lower().endswith(UNSERVED):
-                raise ValueError(f"{f['path']} is a {PurePosixPath(f['path']).suffix} file, which the site's host "
-                                 "would serve as a page or a script")
+            if (kind := PurePosixPath(f["path"]).suffix) not in CONTENT_KINDS:
+                raise ValueError(f"{f['path']} is {f'a {kind}' if kind else 'a suffix-less'} file: the site publishes "
+                                 f"only {', '.join(CONTENT_KINDS)} files")
             files[f["path"]] = read(f["path"], f["size"])
         for e in manifest["entries"]:
             content.verify(manifest, e["id"], files)
