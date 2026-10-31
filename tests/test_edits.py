@@ -126,10 +126,11 @@ def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(t
     writes whole (the character layer's) is refused by name. The recipe and
     the manifest name each file by path, sha256 and size, never its bytes:
     none is in /azurkit.bin, so files past its 256 MiB still make a build
-    AzurKit opens. Refused by name: default.xbe, filelist.txt, /azurkit.json, /azurkit.bin,
-    a path the image hasn't, a rebuild whose file isn't picked this session
-    or is another file (no sha256 echoed), and a computer path on a network
-    share, a device path or under /net/ (SEC-11)."""
+    AzurKit opens. Refused by name: default.xbe, filelist.txt,
+    /azurkit.json, /azurkit.bin, a path the image hasn't, a size an image's
+    file can't hold, a rebuild whose file isn't picked this session or is
+    another file (no sha256 echoed), and a computer path on a network share,
+    a device path or under /net/ (SEC-11)."""
     import dataclasses
 
     from azurkit.edits import files as put
@@ -186,6 +187,8 @@ def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(t
         "files 2 (gamedata/config.xbr): replaced twice (files 1 and 2)": [entries[0], entries[0]],
         "files 1: no key 'source' (its keys: path, sha256, size)": [entries[0] | {"source": "/Users/x/mine.xbr"}],
         "files 1 (gamedata/config.xbr): sha256 is not 64 lowercase hex digits": [entries[0] | {"sha256": "AB" * 32}],
+        "files 1 (gamedata/config.xbr): 4,294,967,296 B is more than an image's file holds (4,294,967,295 B)":
+            [entries[0] | {"size": 1 << 32}],
     }
     for why, given in refused.items():
         with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):

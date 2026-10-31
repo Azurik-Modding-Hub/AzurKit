@@ -12,7 +12,8 @@ and a mods file name it and nothing more. :func:`entry` makes one of the
 picked bytes. Refused by name: ``default.xbe`` (the packs' file, planned in
 sites and shims against its own layout), ``filelist.txt`` (the build writes
 it), ``/azurkit.json`` and ``/azurkit.bin`` (a build's manifest, the build's
-too) and a path the image hasn't (Replace files adds no file).
+too), a path the image hasn't (Replace files adds no file) and a size past
+:data:`LARGEST`, the most an image's file holds.
 
 A computer path is never part of a recipe (SEC-11): a recipe read from a
 file says which file to pick, and nothing is read until the player picks it
@@ -39,6 +40,7 @@ from azurkit.edits.layer import Change, Layer
 TOOL, KIND, LAYER = "files", "put", "files put"
 KEYS = ("path", "sha256", "size")
 SHA256 = re.compile(r"[0-9a-f]{64}")
+LARGEST = 0xFFFF_FFFF   # an image's file's size field is 32 bits (iso.read packs it "<I")
 OWNED = {"default.xbe": "the packs' file, planned against its own layout, is never replaced whole",
          "filelist.txt": "the build writes it",
          manifest.JSON: "a build's manifest, which the build writes",
@@ -82,6 +84,8 @@ def normalize(entries: object) -> list[dict]:
             failed.append(f"{where}: sha256 is not 64 lowercase hex digits")
         if type(item["size"]) is not int or item["size"] < 0:
             failed.append(f"{where}: size is not a whole number of bytes from 0")
+        elif item["size"] > LARGEST:
+            failed.append(f"{where}: {item['size']:,} B is more than an image's file holds ({LARGEST:,} B)")
     if failed:
         raise ValueError("; ".join(failed))
     return [{key: item[key] for key in KEYS} for item in entries]
