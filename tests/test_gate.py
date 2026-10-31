@@ -99,7 +99,8 @@ def test_the_hosts_hashes_name_the_same_first_difference_and_a_wrong_one_is_refu
     """The check hashed on the sdk's threads (a CPython host's) or with a
     host's digests (the site's WebCrypto, ``sdk.layout`` and
     ``sdk.prime``) names the same first file that differs as the plain
-    walk; a digest that isn't the file's is refused by its name."""
+    walk; a digest that isn't the file's is refused by its name, even after
+    the right ones vouched for the path (the site's look-alike File)."""
     monkeypatch.setattr(gate, "RELEASES", (_release(tmp_path, "test", VANILLA),))
     monkeypatch.setattr(sdk, "_STAMPS", {})
     src = tmp_path / "in.iso"
@@ -115,9 +116,10 @@ def test_the_hosts_hashes_name_the_same_first_difference_and_a_wrong_one_is_refu
     assert [f[0] for f in files] == ["default.xbe", "filelist.txt", "gamedata/a.xbr", "gamedata/b.xbr"]
     data = src.read_bytes()
     digests = {path: hashlib.sha256(data[at:at + size]).hexdigest() for path, at, size in files}
-    with pytest.raises(gate.NotVanillaError, match=r"gamedata/a\.xbr: its contents differ$"):
-        sdk.prime(str(src), digests | {"gamedata/a.xbr": "0" * 64})
-    assert sdk.prime(str(src), digests) == {"release": "test", "label": "Test"}
+    for _ in range(2):   # a wrong digest refused, the right ones vouching, and the wrong one refused again
+        with pytest.raises(gate.NotVanillaError, match=r"gamedata/a\.xbr: its contents differ$"):
+            sdk.prime(str(src), digests | {"gamedata/a.xbr": "0" * 64})
+        assert sdk.prime(str(src), digests) == {"release": "test", "label": "Test"}
 
 
 def test_verify_and_build_refuse_an_image_that_isnt_vanilla_in_one_line(tmp_path, capsys, monkeypatch):

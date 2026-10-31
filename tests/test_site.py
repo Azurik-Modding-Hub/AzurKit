@@ -878,7 +878,7 @@ def test_the_pick_and_the_characters_tab_check_the_image_once_and_a_page_opened_
         browser, site, usa_iso):
     """The site's worker checks the image's build files once a File (hashed in WebCrypto, ``sdk.prime``): picking it
     and then opening the Characters tab hash them once, and a page opened again, the same File picked, hashes them no
-    more (the browser keeps the last image's stamp by its name, size and lastModified)."""
+    more (the browser keeps the last image's stamp by its name, size, lastModified and a sample of its bytes)."""
     served = Site(browser, site)
 
     def hashed(page) -> int:
@@ -896,6 +896,35 @@ def test_the_pick_and_the_characters_tab_check_the_image_once_and_a_page_opened_
         _page.until(again, "() => azurkit.vanilla?.release === 'usa'", 300)
         assert hashed(again) == 0 and again.evaluate("() => azurkit.violations") == []
         assert served.stray() == []
+    finally:
+        served.close()
+
+
+def test_two_files_with_the_same_name_size_and_time_but_other_bytes_get_other_stamps(browser, site, usa_iso):
+    """The site keys an image by its name, size, lastModified and a sample of its bytes (its first and last MiB, the
+    XBE's header among them): a look-alike File with the picked image's name, size and time and one byte of its XBE
+    other is checked as itself and refused by that file's name, never vouched for by the image's stamp nor read from
+    its blocks; the image asked for again is vouched for by the stamp it kept, hashed no more."""
+    (at,) = [offset for path, offset, _ in gate.layout(usa_iso) if path == "default.xbe"]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        answers = page.evaluate("""async (at) => {
+            const real = azurkit.file, [byte] = new Uint8Array(await real.slice(at, at + 1).arrayBuffer());
+            const like = new File([real.slice(0, at), new Uint8Array([byte ^ 0xff]), real.slice(at + 1)], real.name,
+                                  { lastModified: real.lastModified });
+            const ask = async (file) => {
+                const reply = await azurkit.engine.call("pickers", { file, given: {} });
+                return reply.refused ?? reply.species.length;
+            };
+            return [[like.name, like.size, like.lastModified].join() === [real.name, real.size, real.lastModified].join(),
+                    await ask(like), await ask(real)];
+        }""", at)
+        assert answers[0] and answers[2] == 178, answers
+        assert re.search(r"is not the vanilla .*: default\.xbe: its contents differ$", str(answers[1])), answers
+        assert sum(w.evaluate("() => self.azurkitChecks ?? 0") for w in page.workers) == 2   # the pick's, the look-alike's
     finally:
         served.close()
 

@@ -158,12 +158,15 @@ def layout(path: str) -> dict:
 def prime(path: str, digests: Mapping[str, str]) -> dict:
     """Check the image at ``path`` with the host's sha256 of each file
     :func:`layout` gave (``{path: sha256}``), as :func:`vanilla` and a build
-    check it, for every later call on the image as it is now:
+    check it, for every later call on the image as it is now (what an earlier
+    call vouched for at ``path`` is dropped first, whatever the answer):
     ``{"release", "label"}``; ``gate.NotVanillaError`` names the first file
     that isn't the release's."""
     if not isinstance(digests, Mapping) or not all(isinstance(k, str) and isinstance(v, str)
                                                    for k, v in digests.items()):
         raise ValueError("prime: the digests are {path: sha256}")
+    _STAMPS.clear()   # these digests decide, not an earlier stamp of the path: the site's look-alike File has the
+                      # name, size and time of the image picked before it
     stamp = _stamp(path, digests=dict(digests))
     return {"release": stamp.release.name, "label": stamp.release.label}
 

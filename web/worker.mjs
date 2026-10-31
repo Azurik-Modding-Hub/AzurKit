@@ -185,16 +185,16 @@ engine`;
 // tables, which every iso.Reader reads again, and a 4 KiB read after each 8 MiB one): 131 s a build, 4 s in
 // Chromium. So each read is served from what the image's blocks already hold, else from a block read for it: a 1 MiB
 // page for a read under 1 MiB (the tables: USA's 59 lie in 29 pages), else a 64 MiB block (a file's bytes); the last
-// PAGES pages and BLOCKS blocks are kept (256 MiB at most), for the last image only (by its name, size and
-// lastModified: each message brings its own File object of it), from one message to the next, so a worker reads the
-// folders' tables once, not once a call.
+// PAGES pages and BLOCKS blocks are kept (256 MiB at most), for the last image only (by its id, which ids holds for
+// each File: each message brings its own File object of it; a File with none keeps its own), from one message to the
+// next, so a worker reads the folders' tables once, not once a call.
 const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 64, BLOCKS = 3;
-const fileId = (file) => `${file.name}|${file.size}|${file.lastModified}`;
+const ids = new WeakMap();   // a message's File -> its image's id (identify)
 function readInBlocks(WORKERFS) {
   const kept = new Map();   // the last image's id -> its unit -> index -> bytes, the least recently used first
   const units = [[BLOCK, BLOCKS], [PAGE, PAGES]];
   WORKERFS.stream_ops.read = (stream, buffer, offset, length, position) => {
-    const file = stream.node.contents, end = Math.min(position + length, file.size), id = fileId(file);
+    const file = stream.node.contents, end = Math.min(position + length, file.size), id = ids.get(file) ?? file;
     if (!(position < end)) return 0;
     if (!kept.has(id)) {
       kept.clear();
@@ -257,10 +257,23 @@ function mounted(py, file, fn) {
 // (sdk.prime), which checks them against its manifest and keeps the stamp for every later call on the image. Its
 // progress is posted as the engine's record (core/progress.py). A refusal (not an image, a file that differs) is left
 // to the call that follows, which names it. The digests of an image that passed are kept in the browser (IndexedDB,
-// the last image's by its name, size and lastModified), so the same File picked again after a reload is not read
-// again (self.azurkitChecks counts the hashings, for the tests).
-const HASHERS = 3, RUN = 128 << 20, STORE = "azurkit-stamp";
+// the last image's by its id), so the same File picked again after a reload is not read again (self.azurkitChecks
+// counts the hashings, for the tests).
+const HASHERS = 3, RUN = 128 << 20, STORE = "azurkit-stamp", SAMPLE = 1 << 20;
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
+
+// An image's id: its name, size and lastModified and the sha256 of its first and last MiB (the volume's descriptor
+// and tables and, on both releases, the XBE's header, at 532 and 536 KiB; the last file's end), read in one read once
+// a File (ids). A look-alike with the name, size and time of the image picked before it and other bytes there is
+// checked as itself, and its reads never come from the other's blocks.
+async function identify(file) {
+  if (!ids.has(file)) {
+    const ends = new Blob([file.slice(0, SAMPLE), file.slice(Math.max(SAMPLE, file.size - SAMPLE))]);
+    const sample = hex(await crypto.subtle.digest("SHA-256", await ends.arrayBuffer()));
+    ids.set(file, `${file.name}|${file.size}|${file.lastModified}|${sample}`);
+  }
+  return ids.get(file);
+}
 const stamps = (mode, fn) => new Promise((resolve) => {   // the browser's kept stamp; none where storage is refused
   const opened = indexedDB.open(STORE, 1);
   opened.onupgradeneeded = () => opened.result.createObjectStore("stamp");
@@ -272,8 +285,9 @@ const stamps = (mode, fn) => new Promise((resolve) => {   // the browser's kept 
   };
 });
 async function prime(loaded, file) {
-  const { py, engine } = loaded, id = fileId(file);
+  const { py, engine } = loaded, id = await identify(file);
   if (loaded.primed === id) return;
+  loaded.primed = null;   // the engine's stamp is this File's from its prime on (sdk.prime checks it by its digests)
   const kept = await stamps("readonly", (store) => store.get("last")).catch(() => null);
   if (kept?.id === id) {
     const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests: kept.digests }));
