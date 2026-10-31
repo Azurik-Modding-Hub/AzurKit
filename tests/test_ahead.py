@@ -1,0 +1,339 @@
+"""The app's work ahead (Step 4.3w; D1006, D1007, D1014): ``app.ahead``'s
+slots, keyed by the recipe, the image, the content folder's
+``installed.json`` and the page's change number, whose answer a click
+takes; the Cancel that keeps a seed's fill; and ``core.host``'s
+background priority and memory on each OS. The jobs here are stand-ins
+for the engine's build (its wiring is the hub's turn), keeping their fill
+the way the randomizer keeps its own: once it is whole."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sys
+import threading
+import time
+import types
+
+import pytest
+
+from azurkit.app import ahead
+from azurkit.app.ahead import Ahead
+from azurkit.app.engine import Cancelled
+from azurkit.core import host
+from azurkit.core.progress import record
+from azurkit.tools.characters import content
+
+
+class Stand:
+    """A stand-in build: a seed's fill of :attr:`FILL` placements (stage
+    ``plan``, a record each), kept by seed once whole, then a record per
+    pack; its answer the sha256 of the fill, the packs and the content
+    folder's record. :attr:`hold` is the record a run waits at until
+    :attr:`go` is set (:attr:`held` once it has reached it)."""
+
+    FILL = 4
+
+    def __init__(self, root):
+        self.root, self.fills, self.fillings, self.runs, self.running, self.most = root, {}, 0, 0, 0, 0
+        self.hold, self.held, self.go, self.lock = None, threading.Event(), threading.Event(), threading.Lock()
+
+    def fn(self, recipe):
+        return lambda job: self.make(recipe, job.progress)
+
+    def make(self, recipe, progress=lambda step: None) -> str:
+        with self.lock:
+            self.runs, self.running = self.runs + 1, self.running + 1
+            self.most = max(self.most, self.running)
+        try:
+            h = hashlib.sha256(json.dumps(content.installed(self.root), sort_keys=True).encode())
+            if (seed := recipe.get("seed")) is not None:
+                if (fill := self.fills.get(seed)) is None:
+                    self.fillings += 1
+                    placed = []
+                    for i in range(self.FILL):
+                        self._at(progress, record("plan", None, i, self.FILL))
+                        placed.append(hashlib.sha256(f"{seed}:{i}".encode()).hexdigest())
+                    fill = self.fills[seed] = placed   # whole, or not at all
+                h.update("".join(fill).encode())
+            for i, pack in enumerate(recipe["packs"]):
+                self._at(progress, record("pack", f"Applying {pack}", i, len(recipe["packs"])))
+                h.update(pack.encode())
+            return h.hexdigest()
+        finally:
+            with self.lock:
+                self.running -= 1
+
+    def _at(self, progress, step: dict) -> None:
+        progress(step)
+        if self.hold == (step["stage"], step["done"]):
+            self.held.set()
+            assert self.go.wait(10)
+
+
+class Click:
+    """``Ahead.take`` on a thread of its own: its answer or what it raised, and the records it followed."""
+
+    def __init__(self, slots: Ahead, kind: str, key: str | None, fn):
+        self.got, self.value, self.error = [], None, None
+        self.thread = threading.Thread(target=self._run, args=(slots, kind, key, fn), daemon=True)
+        self.thread.start()
+
+    def _run(self, slots, kind, key, fn):
+        try:
+            self.value = slots.take(kind, key, fn, self.got.append)
+        except BaseException as exc:
+            self.error = exc
+
+    def end(self, within: float = 10):
+        self.thread.join(within)
+        assert not self.thread.is_alive()
+        return self
+
+
+def _until(test, within: float = 10) -> None:
+    end = time.monotonic() + within
+    while not test():
+        assert time.monotonic() < end
+        time.sleep(0.01)
+
+
+@pytest.fixture
+def setup(tmp_path):
+    """A content folder, an image to stamp, a seed's recipe, another
+    recipe, and their keys over that folder."""
+    root, image = tmp_path / "content", tmp_path / "in.iso"
+    root.mkdir()
+    image.write_bytes(b"stand-in image")
+    seeded = {"iso": str(image), "packs": ["fps_unlock", "gravity"], "seed": "2"}
+    other = {"iso": str(image), "packs": ["gravity"]}
+    return types.SimpleNamespace(root=root, seeded=seeded, other=other, stand=Stand(root),
+                                 key=lambda recipe: ahead.key(recipe, root=root))
+
+
+@pytest.mark.parametrize("when", ["mid-flight", "after it ends", "stopped, then remade", "after an Update"])
+def test_a_click_takes_the_work_ahead_of_its_key_and_answers_as_a_plain_run(setup, when):
+    """A Build that finds its recipe worked out ahead takes that job,
+    running (its records followed from the last) or done, and answers as a
+    plain run does; an offer of another recipe at a newer change stops the
+    job at its next record, keeping nothing of its fill, and starts once it
+    has ended (never two jobs of a slot at once), while an older change's
+    offer is refused; an Update changes the key, so the click after it
+    runs again, on the content as it is now (C6)."""
+    s, slots = setup.stand, Ahead()
+    k = setup.key(setup.seeded)
+    if when == "mid-flight":
+        s.hold = ("pack", 0)
+        assert slots.offer("build", 1, k, s.fn(setup.seeded)) and s.held.wait(10)
+        click = Click(slots, "build", k, s.fn(setup.seeded))
+        _until(lambda: click.got)
+        s.go.set()
+        assert click.end().got[0] == record("pack", "Applying fps_unlock", 0, 2) and s.runs == 1
+    elif when == "after it ends":
+        assert slots.offer("build", 1, k, s.fn(setup.seeded))
+        assert slots.job("build").done.wait(10)
+        click = Click(slots, "build", k, s.fn(setup.seeded)).end()
+        assert (click.got, s.runs) == ([], 1)
+    elif when == "stopped, then remade":
+        s.hold = ("plan", 1)
+        assert slots.offer("build", 1, k, s.fn(setup.seeded)) and s.held.wait(10)
+        first = slots.job("build")
+        assert slots.offer("build", 3, setup.key(setup.other), s.fn(setup.other))
+        assert not slots.offer("build", 2, k, s.fn(setup.seeded))   # an older change's, arriving late
+        s.go.set()
+        assert first.done.wait(10) and isinstance(first.error, Cancelled) and first.step["stage"] == "plan"
+        assert "2" not in s.fills and slots.job("build").done.wait(10)   # the other recipe's, once it ended
+        assert slots.offer("build", 4, k, s.fn(setup.seeded))
+        click = Click(slots, "build", k, s.fn(setup.seeded)).end()
+        assert (s.runs, s.most) == (3, 1)
+    else:
+        assert slots.offer("build", 1, k, s.fn(setup.seeded)) and slots.job("build").done.wait(10)
+        stale = slots.job("build").value
+        (setup.root / content.INSTALLED).write_text(json.dumps({"booblord": {"version": "2", "files": {}}}))
+        assert setup.key(setup.seeded) != k
+        click = Click(slots, "build", setup.key(setup.seeded), s.fn(setup.seeded)).end()
+        assert click.value != stale and s.runs == 2
+    assert (click.error, click.value) == (None, Stand(setup.root).make(setup.seeded))
+
+
+@pytest.mark.parametrize("then", ["Build while its fill runs on", "Build after its fill", "a change", "silence"])
+def test_cancel_answers_at_once_and_keeps_the_seeds_fill_for_the_same_settings(setup, then, monkeypatch):
+    """The player's Cancel answers Cancelled at once, mid-fill; the job runs
+    on through its fill, kept for the next Build of the same settings, and
+    stops at its first record past it: a Build meanwhile takes the job
+    back, one after it takes the kept fill, each the plain run's answer.
+    A change stops it at its next record, mid-fill, keeping nothing; one
+    that reaches no record within ``GRACE`` is the host's ``kill``."""
+    if then == "silence":
+        monkeypatch.setattr(ahead, "GRACE", 0.3)
+    s, killed = setup.stand, []
+    slots, k = Ahead(kill=killed.append), setup.key(setup.seeded)
+    s.hold = ("plan", 1)
+    first = Click(slots, "build", k, s.fn(setup.seeded))
+    assert s.held.wait(10)
+    job = slots.job("build")
+    began = time.monotonic()
+    assert slots.cancel() and isinstance(first.end().error, Cancelled) and time.monotonic() - began < 1
+    plain = Stand(setup.root).make(setup.seeded)
+    if then == "Build while its fill runs on":
+        again = Click(slots, "build", k, s.fn(setup.seeded))
+        _until(lambda: job.state == "taken")
+        s.go.set()
+        assert (again.end().value, s.runs, s.fillings) == (plain, 1, 1)
+    elif then == "Build after its fill":
+        s.go.set()
+        assert job.done.wait(10) and isinstance(job.error, Cancelled) and job.step["stage"] == "pack"
+        again = Click(slots, "build", k, s.fn(setup.seeded)).end()
+        assert (again.value, s.runs, s.fillings) == (plain, 2, 1)
+    elif then == "a change":
+        assert slots.offer("build", 1, setup.key(setup.other), s.fn(setup.other))
+        s.go.set()
+        assert job.done.wait(10) and isinstance(job.error, Cancelled) and job.step == record("plan", None, 2, 4)
+        assert "2" not in s.fills
+    else:
+        _until(lambda: killed)
+        s.go.set()
+        assert job.done.wait(10)
+    assert killed == ([job] if then == "silence" else [])
+
+
+def test_work_ahead_runs_at_background_priority_and_past_its_fill_waits_at_its_records_for_another_call(
+        setup, monkeypatch):
+    """A job ahead runs on its thread at the host's background priority,
+    back to normal at its next record once a click takes it. While a click
+    or another call is in flight (``Ahead.turn``) it runs on through a
+    seed's fill (a Build of that seed may wait on it) and waits at its
+    first record past it, going on once the call ends. A recipe whose last
+    run peaked over 2 GiB isn't worked ahead on a machine under 16 GiB or
+    of 4 cores or fewer (``ahead.room``)."""
+    calls, s, slots = [], setup.stand, Ahead()
+    monkeypatch.setattr(host, "background", lambda process=False: calls.append(("low", threading.current_thread()))
+                        or 7)
+    def foreground(was, process=False):   # the record its job is at
+        job = slots.job("build")
+        calls.append((was, threading.current_thread(), job.step["done"] if job._thread is threading.current_thread()
+                      else None))
+    monkeypatch.setattr(host, "foreground", foreground)
+    s.hold = ("plan", 1)
+    assert slots.offer("build", 1, setup.key(setup.seeded), s.fn(setup.seeded)) and s.held.wait(10)
+    job = slots.job("build")
+    with slots.turn():
+        s.go.set()
+        _until(lambda: job.records == Stand.FILL + 1)
+        time.sleep(0.2)
+        assert (job.step["stage"], job.records, job.done.is_set()) == ("pack", Stand.FILL + 1, False)
+    assert job.done.wait(10)
+    three = {"iso": setup.other["iso"], "packs": ["a", "b", "c"]}
+    s.hold, s.held, s.go = ("pack", 0), threading.Event(), threading.Event()
+    assert slots.offer("build", 3, setup.key(three), s.fn(three)) and s.held.wait(10)
+    click, taken = Click(slots, "build", setup.key(three), s.fn(three)), slots.job("build")
+    _until(lambda: click.got)
+    s.go.set()
+    assert click.end().error is None
+    assert calls == [("low", job._thread), (7, job._thread, 1), ("low", taken._thread),
+                     (7, taken._thread, 1)]   # taken's at its next record, not at its end's (2)
+    slots.peaked(setup.key(three), 3 << 30)
+    monkeypatch.setattr(host, "ram", lambda: 8 << 30)
+    assert slots.offer("build", 4, setup.key(setup.seeded), s.fn(setup.seeded)) and slots.job("build").done.wait(10)
+    assert not slots.offer("build", 5, setup.key(three), s.fn(three))
+    assert [ahead.room(3 << 30, memory, cores) for memory, cores in ((8 << 30, 16), (192 << 30, 16), (192 << 30, 4),
+                                                                    (None, 16))] + [ahead.room(1 << 30, 8 << 30, 2)] \
+        == [False, True, False, False, True]
+
+
+class _Libc:   # macOS's calls, recorded
+    def __init__(self, log):
+        self.log = log
+
+    def __getattr__(self, name):
+        answers = {"qos_class_self": 0x15, "getpriority": 0}
+        return lambda *args: self.log.append((name, *args)) or answers.get(name, 0)
+
+
+class _Kernel32:   # Windows' calls, recorded
+    def __init__(self, log):
+        self.log = log
+
+    def GlobalMemoryStatusEx(self, ref):
+        ref._obj.ullTotalPhys = 8 << 30
+        return 1
+
+    def __getattr__(self, name):
+        answers = {"GetCurrentThread": "thread", "GetCurrentProcess": "process", "GetThreadPriority": 0,
+                   "GetPriorityClass": 0x20, "SetThreadPriority": 1, "SetPriorityClass": 1}
+        return lambda *args: self.log.append((name, *args)) or answers[name]
+
+
+def _posix(log):   # Linux's nice, recorded: a lower nice needs privilege
+    state = {"nice": 0}
+
+    def setpriority(which, who, nice):
+        log.append(("setpriority", which, who, nice))
+        if nice < state["nice"]:
+            raise PermissionError(13, "Permission denied")
+        state["nice"] = nice
+    return types.SimpleNamespace(PRIO_PROCESS=0, setpriority=setpriority, sysconf={"SC_PHYS_PAGES": 4,
+                                 "SC_PAGE_SIZE": 1 << 30}.__getitem__,
+                                 getpriority=lambda which, who: log.append(("getpriority", which, who)) or state["nice"])
+
+
+def _no_sysconf(name):   # Pyodide's
+    raise ValueError(name)
+
+
+@pytest.mark.parametrize("platform, process, calls, was, back, ram", [
+    ("darwin", False, [("qos_class_self",), ("pthread_set_qos_class_self_np", 0x09, 0),
+                       ("pthread_set_qos_class_self_np", 0x15, 0)], 0x15, True, 4 << 30),
+    ("darwin", True, [("getpriority", 4, 0), ("setpriority", 4, 0, 0x1000), ("setpriority", 4, 0, 0)], 0, True,
+     4 << 30),
+    ("win32", False, [("GetCurrentThread",), ("GetThreadPriority", "thread"), ("SetThreadPriority", "thread", -1),
+                      ("GetCurrentThread",), ("SetThreadPriority", "thread", 0)], 0, True, 8 << 30),
+    ("win32", True, [("GetCurrentProcess",), ("GetPriorityClass", "process"), ("SetPriorityClass", "process", 0x4000),
+                     ("GetCurrentProcess",), ("SetPriorityClass", "process", 0x20)], 0x20, True, 8 << 30),
+    ("linux", False, [("getpriority", 0, 0), ("setpriority", 0, 0, 10), ("getpriority", 0, 0),
+                      ("setpriority", 0, 0, 0)], 0, False, 4 << 30),
+    ("emscripten", False, [], None, False, None),
+])
+def test_the_hosts_background_priority_goes_down_and_back_and_its_memory_reads_per_os(
+        monkeypatch, platform, process, calls, was, back, ram):
+    """``core.host`` on each OS: macOS's thread QoS class and process
+    PRIO_DARWIN_BG, Windows' below-normal thread and process priority, each
+    back to what it was; POSIX's nice 10, which can't come back without
+    privilege; nothing under Pyodide; the machine's memory from sysconf or
+    GlobalMemoryStatusEx. On this host, a thread's own calls go down and
+    back as its OS's row says."""
+    log = []
+    monkeypatch.setattr(host, "sys", types.SimpleNamespace(platform=platform))
+    monkeypatch.setattr(host, "_libc", lambda: _Libc(log))
+    monkeypatch.setattr(host, "_kernel32", lambda: _Kernel32(log))
+    if platform == "emscripten":
+        monkeypatch.setattr(host, "os", types.SimpleNamespace(sysconf=_no_sysconf))
+    else:
+        monkeypatch.setattr(host, "os", _posix(log))
+    got = host.background(process)
+    assert (got, host.foreground(got, process), log, host.ram()) == (was, back, calls, ram)
+
+
+def test_this_hosts_thread_goes_to_background_priority_and_back():
+    """The real calls on this host (``core.host``): a thread's priority read
+    back low, then as it was; POSIX's stays low (its known flaw) unless it
+    was low already."""
+    if sys.platform == "darwin":
+        read, low = (lambda: host._libc().qos_class_self()), (lambda now: now == host.QOS_BACKGROUND)
+    elif sys.platform == "win32":
+        k = host._kernel32()
+        read, low = (lambda: k.GetThreadPriority(k.GetCurrentThread())), (lambda now: now == host.THREAD_BELOW_NORMAL)
+    else:
+        read, low = (lambda: os.getpriority(os.PRIO_PROCESS, 0)), (lambda now: now >= host.NICE)
+    seen = []
+
+    def run():
+        before = read()
+        was = host.background()
+        seen.extend([low(read()), host.foreground(was), read() == before,
+                     sys.platform in ("darwin", "win32") or before >= host.NICE])
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join(10)
+    assert seen[:3] == [True, seen[3], seen[3]] and host.ram() > 0
