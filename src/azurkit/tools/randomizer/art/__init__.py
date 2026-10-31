@@ -18,8 +18,10 @@ map (a few seconds each, w1's longest), whose main floor's thumbnail the
 world map is made of (:func:`world`). Each reads only the files it draws
 from, each checked against its release's vanilla file as it is read
 (:class:`Vanilla`). A host keeps what they give (the app in its cache
-folder, the site in the browser's storage) and draws a part once. numpy
-does the drawing: this package and ``draft/`` are the randomizer's only
+folder, the site in the browser's storage) and draws a part once. A coarse
+level's floors are drawn again finer for the Tracker's zoom (:func:`detail`,
+Modkit's detail pictures, by :func:`detail_factor`), by the recorder alone:
+they ship with the page. numpy does the drawing: this package and ``draft/`` are the randomizer's only
 importers of it, and the site loads it only for them.
 """
 
@@ -42,12 +44,16 @@ if np.dtype(np.intp).itemsize < 8:   # the site's numpy (Pyodide's, wasm32) inde
     np.repeat = lambda a, repeats, axis=None: _repeat(a, _intp(repeats), axis)
     np.bincount = lambda x, weights=None, minlength=0: _bincount(_intp(x), weights, minlength)
 
-from azurkit.core import gate  # noqa: E402
+from azurkit.core import gate, inflate  # noqa: E402
 from azurkit.tools.randomizer.art import icons, maps, nodes  # noqa: E402
 from azurkit.tools.randomizer.ports import XisoReader  # noqa: E402
 
-__all__ = ["Vanilla", "digest", "index", "part", "png", "unpng", "world"]
+__all__ = ["Vanilla", "detail", "detail_factor", "digest", "index", "part", "png", "unpng", "world"]
 SIGNATURE = (0x89504E470D0A1A0A).to_bytes(8, "big")   # a PNG's (the XBE holds one too: no 8-byte literal of it)
+# The detail pictures (Modkit's Step 2.97, D278; shipped since Step 4.3l, D988): a level's map coarser than
+# DETAIL_PX_M / DETAIL_MIN px a metre ships again at DETAIL_PX_M (the reach model's 0.5 m columns), which the
+# Tracker's map shows once it is zoomed past its own pixels (Modkit's gui/rando_view.py's numbers).
+DETAIL_PX_M, DETAIL_MIN = 2.0, 1.25
 
 
 class Vanilla:
@@ -112,7 +118,8 @@ def png(img: np.ndarray) -> bytes:
 
 
 def unpng(data: bytes) -> np.ndarray:
-    """A picture :func:`png` wrote, read back (no filter: ``ValueError`` for another PNG)."""
+    """A picture :func:`png` wrote, read back (no filter: ``ValueError`` for another PNG), its rows
+    inflated through ``core.inflate`` (D992's SEC-5: at most 4096x4096, one byte past its rows)."""
     if data[:8] != SIGNATURE:
         raise ValueError("not a PNG")
     at, idat, head = 8, [], None
@@ -124,7 +131,7 @@ def unpng(data: bytes) -> np.ndarray:
     if head is None or head[2] != 8 or head[3] not in (2, 6) or head[6]:
         raise ValueError("a PNG AzurKit didn't write")
     w, h, c = head[0], head[1], 3 if head[3] == 2 else 4
-    rows = np.frombuffer(zlib.decompress(b"".join(idat)), dtype=np.uint8).reshape(h, w * c + 1)
+    rows = np.frombuffer(inflate.png_rows(b"".join(idat), w, h, c), dtype=np.uint8).reshape(h, w * c + 1)
     if rows[:, 0].any():
         raise ValueError("a PNG AzurKit didn't write (a filtered row)")
     return rows[:, 1:].reshape(h, w, c).copy()
@@ -146,6 +153,25 @@ def part(reader: Vanilla, name: str) -> dict:
         raise ValueError(f"art: no part {name!r} (the icons, or a level of the world map)")
     pictures, entry = maps.render(reader, schema, name)
     return {"pictures": pictures, "entry": entry, "thumb": maps.thumb(pictures[name], maps.THUMB)}
+
+
+def detail_factor(entry: dict) -> float | None:
+    """How many times finer than its map a level's detail pictures are,
+    from its ``maps.json`` entry (its frame's px a metre): None when its map
+    is fine enough to have none (Modkit's ``detail_factor``)."""
+    r = DETAIL_PX_M / entry["frame"][2]
+    return r if r >= DETAIL_MIN else None
+
+
+def detail(reader: Vanilla, level: str, factor: float) -> dict[str, np.ndarray]:
+    """A level's detail pictures from ``reader``'s image (``{"detail/<floor>":
+    RGB}``): each floor of its map drawn ``factor`` times finer
+    (:func:`detail_factor`), on the same floors in the same colours, its
+    pixel u the map's pixel u / ``factor`` (Modkit's ``draw_detail``)."""
+    if level not in maps.GRID:
+        raise ValueError(f"art: no level {level!r} of the world map")
+    pictures, _ = maps.render(reader, nodes.Schema(reader.read_file("default.xbe")), level, factor)
+    return {f"detail/{name}": img for name, img in pictures.items()}
 
 
 def world(thumbs: dict[str, np.ndarray]) -> tuple[np.ndarray, dict]:

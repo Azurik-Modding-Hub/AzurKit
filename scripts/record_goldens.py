@@ -81,7 +81,7 @@ import multiprocessing
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path, PurePath
 
@@ -581,23 +581,42 @@ def _art_part(job: tuple[str, str]) -> tuple[str, dict]:
     return part, sdk.art(path, part)
 
 
-def art(images: Images, workers: int) -> dict[str, bytes]:
+def _art_detail(job: tuple[str, str, float]) -> tuple[str, dict[str, bytes]]:
+    from azurkit.tools.randomizer import art as drawn
+
+    path, level, factor = job
+    with drawn.Vanilla(path) as reader:
+        return level, {name: drawn.png(img) for name, img in drawn.detail(reader, level, factor).items()}
+
+
+def art(images: Images, workers: int, detail: Collection[str] | None = None) -> dict[str, bytes]:
     """The tracker's pictures the page ships, by their path: drawn from the
     USA image (``sdk.art``, one part a process, then ``sdk.art_world``;
     Europe's draw the same, ``tests/test_art.py``) under ``ART_VERSION``
     each picture (``icons/<icon>.png``, each floor's, ``world.png``) and
-    ``maps.json``, and ``index.json``, that version and the icons' names,
-    which the site's page reads first (``web/art.mjs``)."""
+    ``maps.json``, then each coarse level's floors again finer
+    (``detail/<floor>.png``: ``art.detail`` at its ``art.detail_factor``,
+    the largest first; only ``detail``'s levels when it names them, the
+    tests'), and ``index.json``, that version, the icons' names and every
+    coarse level's factor (``detail``), which the site's page reads first
+    (``web/art.mjs``)."""
+    from azurkit.tools.randomizer import art as drawn
     from azurkit.tools.randomizer import tracking
 
     path, v = str(images.stamp(gate.USA).path), tracking.ART_VERSION
     order = sorted(tracking.ART_PARTS, key=lambda p: LONGEST.index(p) if p in LONGEST else len(LONGEST))
     with ProcessPoolExecutor(max(1, workers), mp_context=multiprocessing.get_context("spawn")) as pool:
         got = dict(pool.map(_art_part, [(path, part) for part in order]))
+        factors = {lv: f for lv in tracking.GRID if (f := drawn.detail_factor(got[lv]["entry"])) is not None}
+        finer = dict(pool.map(_art_detail, [(path, lv, factors[lv]) for lv in sorted(
+            set(factors) if detail is None else set(factors) & set(detail),
+            key=lambda lv: -factors[lv] ** 2 * got[lv]["entry"]["size"][0] * got[lv]["entry"]["size"][1])]))
     world = sdk.art_world({lv: {"entry": got[lv]["entry"], "thumb": got[lv]["thumb"]} for lv in tracking.GRID})
     out = {f"{v}/{name}.png": png for part in tracking.ART_PARTS for name, png in got[part]["pictures"].items()}
+    out |= {f"{v}/{name}.png": png for lv in sorted(finer) for name, png in finer[lv].items()}
+    shipped = {"version": v, "icons": sorted(got["icons"]["pictures"]), "detail": factors}
     out |= {f"{v}/world.png": world["pictures"]["world"], f"{v}/maps.json": world["text"].encode(),
-            "index.json": (json.dumps({"version": v, "icons": sorted(got["icons"]["pictures"])}) + "\n").encode()}
+            "index.json": (json.dumps(shipped) + "\n").encode()}
     return {f"{ART}/{rel}": data for rel, data in out.items()}
 
 

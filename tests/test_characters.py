@@ -608,8 +608,8 @@ def _png(width: int, height: int, rows: bytes, channels: int = 4) -> bytes:
 def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     """What a community entry, a recipe or a picture a player is handed can hold (D992's threat model) is
     refused by name, as a ``ValueError``, in under 0.1 s and with under 16 MiB held, or, for a valid one,
-    read as quickly: a PNG bomb (64 MiB of rows behind a 64x64 header, in the textures' reader and in a glTF
-    folder's read-back) and a picture past 4096x4096 (refused before it inflates; SEC-5); a manifest whose
+    read as quickly: a PNG bomb (64 MiB of rows behind a 64x64 header, in the textures' reader, in a glTF
+    folder's read-back and in the tracker's pictures' read-back) and a picture past 4096x4096 (refused before it inflates; SEC-5); a manifest whose
     requires make an 80-entry lattice (checked, each entry walked once), a 5,000-deep chain back to itself
     (named, not a ``RecursionError``), 200,000 brackets, past 1,000 entries or 10,000 files, or a requires
     that holds no id (SEC-6); an Install whose last file is off (each file checked as it lands, into the
@@ -627,6 +627,7 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     from compression import zstd
 
     from azurkit.tools.characters import gltf, textures
+    from azurkit.tools.randomizer import art
 
     bomb, wide = _png(64, 64, bytes(64 << 20)), _png(8192, 4096, bytes(4096 * (8192 * 4 + 1)))
     flood = zstd.compress(bytes(64 << 20), options={zstd.CompressionParameter.window_log: 20})
@@ -673,6 +674,7 @@ def test_untrusted_content_is_refused_quickly_by_name(tmp_path):
     rows = {
         "a PNG bomb": (lambda: textures.read_png(bomb), r"^the PNG's image data isn't its size"),
         "a PNG bomb in a glTF folder": (lambda: gltf._read_png(bomb), r"^the PNG's image data isn't its size"),
+        "a PNG bomb as a tracker's picture": (lambda: art.unpng(bomb), r"^the PNG's image data isn't its size"),
         "a PNG past 4096x4096": (lambda: textures.read_png(wide),
                                  r"^a PNG of 8192x4096: past the 4096x4096 pixels a picture may hold"),
         "an 80-entry lattice of requires": (lambda: content.check(lattice), None),

@@ -62,7 +62,7 @@ SPOT = {"major": "Item spot", "obsidian": "Obsidian spot", "consumable": "Fuel o
 #: host's key for what it keeps (``tests/test_art.py`` holds it to the drawing's source: a sync that changes how
 #: they are drawn changes it).
 ART_PARTS = ("icons", *GRID)
-ART_VERSION = "1-1ebd086fe0ac"
+ART_VERSION = "1-9a4d2d2e0527"
 _KEPT: OrderedDict[str, Tracker] = OrderedDict()
 _LOGIC: dict[str, object] = {}   # a build's plan sha256 -> the logic it was planned on (:func:`prime`)
 
