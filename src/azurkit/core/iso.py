@@ -464,7 +464,8 @@ def pack(image: Image, out: str | os.PathLike, progress: Callable[[int, int], ob
     order, then hashed through its segments; else the image is streamed,
     hashed as it is written (another volume, say: nothing of the clone is
     left). Either way it is a fresh file's mode and holds none of the
-    input's extended attributes (its quarantine flag, say). ``out`` appears
+    input's extended attributes (its quarantine flag, say) or BSD flags
+    (Finder's Locked, say). ``out`` appears
     only once it is whole and on the disk (a fresh ``.part`` beside it,
     fsynced, then renamed into place; D35), and it may not be the image's
     input (D36), nor written once that input has changed since :func:`read`
@@ -526,9 +527,9 @@ def _stream(image: Image, part: Path, progress: Callable[[int, int], object] | N
 def _clone(source: Path, part: Path) -> int | None:
     """``part`` made as a clone of ``source`` (its blocks shared until
     either is written), open for writing, where the file system can:
-    APFS's ``clonefile`` on macOS, ``FICLONE`` on Linux; ``None``, with
-    nothing made, where it can't (another volume, another file system,
-    another platform)."""
+    APFS's ``clonefile`` on macOS, ``FICLONE`` on Linux, without the
+    input's BSD flags; ``None``, with nothing made, where it can't (another
+    volume, another file system, another platform, a flag that won't clear)."""
     source = Path(os.path.realpath(source))   # a link to the image (the user data folder's) clones its target
     if sys.platform == "darwin":
         import ctypes
@@ -537,11 +538,12 @@ def _clone(source: Path, part: Path) -> int | None:
         if libc.clonefile(os.fsencode(source), os.fsencode(part), ctypes.c_uint32(0)) != 0:
             return None
         try:
+            os.chflags(part, 0)   # and its flags: Finder's Locked (uchg) would refuse the writes, hidden hide the save
             os.chmod(part, 0o600)   # the clone has the input's mode (a read-only image's); _own gives it a fresh file's
             return os.open(part, os.O_RDWR)
-        except OSError:
+        except OSError:   # a flag the clone took that won't clear, say: the streamed copy instead
             part.unlink(missing_ok=True)
-            raise
+            return None
     if sys.platform.startswith("linux"):
         import fcntl
 
