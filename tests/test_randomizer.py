@@ -655,6 +655,7 @@ def test_a_retried_fill_counts_on_from_its_stuck_attempt_in_the_one_stream_sdk_p
     heard = []
     for plan in (sdk.plan, randomizer.plan):
         monkeypatch.setattr(fill, "_LAST_FILL", [None])   # each fills
+        monkeypatch.setattr(fill, "_KNOWN", [None])   # and finds its known traps: both calls tell the same notes
         heard.append([])
         doc = plan({"seed": "16"}, progress=heard[-1].append)
     seen = heard[0]
