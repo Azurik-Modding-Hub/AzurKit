@@ -50,7 +50,7 @@ from azurkit.tools.randomizer.planner import fill as planner_fill
 from azurkit.tools.randomizer.planner import loader
 from scripts import freeze, record_goldens
 from devkit.xemu import queue
-from tests import _g1, _page
+from tests import _g1, _page, _speed
 from tests._xiso import fill, image
 from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
 
@@ -885,7 +885,7 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         time.sleep(1.5)   # into the build's Python (it takes about 5 s)
         assert building.is_alive()
         took = [ask("api/pickers", {"given": {}}), ask("api/setup", {"setup": {"ticked": ["fps_unlock"]}})]
-        assert [s < 0.5 for s, _ in took] == [True, True] and took[1][1] == {}, took[0][0]
+        assert all(s < 0.5 or s < 0.5 * _speed.factor() for s, _ in took) and took[1][1] == {}, took
         host, query = urllib.parse.urlsplit(server.url).netloc, urllib.parse.urlsplit(server.url).query
         with urllib.request.urlopen(f"http://{host}/api/progress?{query}", timeout=10) as reply:
             step = json.load(reply)

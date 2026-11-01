@@ -188,12 +188,20 @@ def test_failure_output_redacts_a_long_one_line_repr_in_linear_time():
     """AZ-298: a str literal was tried from every escaped quote of a
     one-line repr, each try running to the line's end once a bytes
     literal's start had stopped the repr's own literal, so a 1.4 MB repr
-    took about a minute. An escaped quote opens no literal: under a
-    second. CPU time (``process_time``), as a loaded host adds waiting,
-    not work (AZ-231)."""
+    took about a minute. An escaped quote opens no literal: four times the
+    line takes about four times as long, where a quadratic takes sixteen,
+    on any host's speed. CPU time (``process_time``), as a loaded host adds
+    waiting, not work (AZ-231); the quicker of two runs, for a shared host's
+    other noise."""
     from tests._byte_safe import _redact
 
-    text = repr("it's " * 233_000 + ' b"x"')  # 1.4 MB: 233,000 escaped quotes, then a bytes start
-    t0 = time.process_time()
-    assert _redact(text) == text
-    assert time.process_time() - t0 < 2.0
+    def took(quotes: int) -> float:
+        text = repr("it's " * quotes + ' b"x"')   # the escaped quotes, then a bytes start
+        runs = []
+        for _ in range(2):
+            t0 = time.process_time()
+            assert _redact(text) == text
+            runs.append(time.process_time() - t0)
+        return min(runs)
+    short, long = took(58_250), took(233_000)   # 0.35 MB and 1.4 MB
+    assert long < 8 * short, (short, long)
