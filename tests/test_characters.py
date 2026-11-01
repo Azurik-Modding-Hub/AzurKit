@@ -404,41 +404,49 @@ def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_their_go
         sdk._plan({"iso": str(image_path), "packs": {}, "character": {"species": "booblord"}})
 
 
-def test_another_hosts_resource_is_close_enough_by_its_floats_last_bits_and_never_by_an_integer_or_a_moved_float():
-    """D1016: ``close.json``'s sketch of a resource holds on another host's float maths with no copy of its bytes: a
-    float a few ULPs off, or noise where one is near zero, passes; a changed integer, a moved float or a float far off
-    doesn't."""
-    floats = np.random.default_rng(7).uniform(-3, 3, 4000).astype("<f4")
-    ints = np.array([5, 0x6D6E6162, 0x00120034], "<u4")
-    payload = ints.tobytes() + floats.tobytes() + bytes(8) + b"xy"
-    held = record_goldens.sketch("body", payload)
+def test_another_hosts_resource_is_close_enough_by_a_clips_floats_last_bits_and_never_by_an_integer_or_a_moved_float():
+    """D1016: ``close.json``'s sketch of a clip holds on another host's float maths with no copy of its bytes: a key a
+    few ULPs off, or noise where one is near zero, passes; a changed integer, a moved float or a float far off doesn't.
+    Every word of any other tag is exact, a strip's pair of indices that reads as a tiny float too."""
+    keys, first = np.random.default_rng(7).uniform(-3, 3, (1000, 4)).astype("<f4"), 0x28 // 4
+    keys[-1] = 0
+    clip = retarget.write_clip(retarget.Clip(2.0, (retarget.Track(7, 1, tuple(map(tuple, keys.tolist()))),), ()))
+    held = record_goldens.sketch("banm", clip)
 
     def near(data: bytes) -> str | None:
-        return record_goldens.near("body", data, held)
+        return record_goldens.near("banm", data, held)
 
-    def changed(at: int, word) -> bytes:   # the payload with its 32-bit word ``at`` another
-        data = np.frombuffer(payload, "<u4", len(payload) // 4).copy()
-        data[at] = word
-        return data.tobytes() + payload[len(data) * 4:]
+    def changed(data: bytes, at: int, word) -> bytes:   # ``data`` with its 32-bit word ``at`` another
+        words = np.frombuffer(data, "<u4", len(data) // 4).copy()
+        words[at] = word
+        return words.tobytes() + data[len(words) * 4:]
 
-    assert near(payload) is None
-    shifted = np.nextafter(floats, np.inf).astype("<f4")   # every float one ULP off, the worst another BLAS does
-    assert near(ints.tobytes() + shifted.tobytes() + bytes(8) + b"xy") is None
-    assert near(changed(3 + 4000, np.array(3e-17, "<f4").view("<u4"))) is None   # noise on a zero
-    for word, value in ((0, 6), (1, 0x6D6E6163), (3 + 4000, 5)):
-        assert near(changed(word, value)) == "an integer or the layout differs"
-    assert near(payload[:-1]) == "an integer or the layout differs"
-    assert "float sums off" in near(changed(3 + 10, np.array(floats[10] + 0.25, "<f4").view("<u4")))
-    moved = floats.copy()
-    moved[[10, 11]] = moved[[11, 10]]
-    assert "float sums off" in near(ints.tobytes() + moved.tobytes() + bytes(8) + b"xy")
-    clip = retarget.write_clip(retarget.Clip(2.0, (retarget.Track(7, 1, tuple((i / 30, 0.5, 0.0, 0.0) for i in range(40))),), ()))
-    kept = record_goldens.sketch("banm", clip)   # a clip's keys are floats whatever their bits, its other words exact
-    noisy = bytearray(clip)
-    noisy[0x28 + 8:0x28 + 12] = (1).to_bytes(4, "little")   # a key's 0.0 another BLAS leaves as 1e-45
-    assert record_goldens.near("banm", bytes(noisy), kept) is None
-    noisy[0x14 + 0xC] = 8   # its target
-    assert record_goldens.near("banm", bytes(noisy), kept) == "an integer or the layout differs"
+    def as_word(value: float):
+        return np.array(value, "<f4").view("<u4")
+
+    def with_keys(new: np.ndarray) -> bytes:
+        return clip[:first * 4] + new.tobytes()
+
+    assert near(clip) is None
+    assert near(with_keys(np.nextafter(keys, np.float32(np.inf)))) is None   # one ULP each; a zero's becomes 1e-45
+    assert near(changed(clip, first + 3999, as_word(3e-17))) is None   # noise on a zero
+    for word, value in ((1, 0x14), (5, 2), (6, 999), (7, 0x13), (8, 8), (9, 2)):   # the pointer, a mode, the count, the keys', target, component
+        assert near(changed(clip, word, value)) == "an integer or the layout differs"
+    assert near(clip[:-1]) == "an integer or the layout differs"
+    assert "float sums off" in near(changed(clip, first + 10, as_word(float(keys.flat[10]) + 0.25)))
+    assert "float sums off" in near(changed(clip, 4, as_word(2.25)))
+    moved = keys.copy()
+    moved[2, [1, 2]] = moved[2, [2, 1]]
+    assert "float sums off" in near(with_keys(moved))
+    pair = 0x00800081   # vertices 0x81 and 0x80: as a float, about 1e-38
+    body = np.array([pair, 5, 0x6D6E6162], "<u4").tobytes() + keys[:300].tobytes() + b"xy"
+    kept = record_goldens.sketch("body", body)
+    assert record_goldens.near("body", body, kept) is None
+    for word, value in ((0, pair + 1), (0, pair + 0x10000), (0, 0x00810080), (1, 6), (2, 0x6D6E6163), (3, np.nextafter(keys[0, 0], np.float32(9)).view("<u4"))):
+        assert record_goldens.near("body", changed(body, word, value), kept) == "an integer or the layout differs"
+    not_a_clip = np.array([1, 0x7000, 0, 0, as_word(1.0)], "<u4").tobytes()   # its track is out of it: every word exact
+    assert record_goldens.near("banm", changed(not_a_clip, 4, as_word(1.5)), record_goldens.sketch("banm", not_a_clip)) == (
+        "an integer or the layout differs")
 
 
 def test_a_built_xbr_is_close_enough_by_its_changed_resources_floats_alone_and_filelist_by_their_md5s(usa_iso):
@@ -452,8 +460,7 @@ def test_a_built_xbr_is_close_enough_by_its_changed_resources_floats_alone_and_f
     with iso.Reader(made) as r, iso.Reader(usa_iso) as v:
         files, vanilla = {f: r.read(f) for f in ("filelist.txt", CHARACTERS)}, v.read(CHARACTERS)
     entry = next(e for e in parse_toc(files[CHARACTERS])[len(parse_toc(vanilla)):] if e.tag == "banm" and e.size > 4096)
-    words = np.frombuffer(files[CHARACTERS], "<f4", entry.size // 4, entry.file_offset)
-    at = entry.file_offset + 4 * int(np.nonzero((np.abs(words) > 0.1) & (np.abs(words) < 2))[0][0])
+    at = entry.file_offset + 0x10   # the clip's length
 
     def apart(data: bytes, listed: bytes | None = None) -> list[str]:
         built = {CHARACTERS: data, "filelist.txt": listed or filelist.rewrite(files["filelist.txt"], {CHARACTERS: data})}

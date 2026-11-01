@@ -176,8 +176,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     map: a few edge pixels), so on any other host a dress's `characters.xbr`
     and `fx.xbr` are compared close enough, with no reference per platform
     and no copy of their bytes: `close.json` holds, by sha256, each changed
-    resource's sketch (every word that isn't float-like exact, the floats'
-    weighed sums within 4 ULPs each) and each file's digest with those
+    resource's sketch (only a clip's length and keys are floats, their
+    weighed sums within 4 ULPs each; every other word of every resource is
+    exact) and each file's digest with those
     resources blanked (`record_goldens.apart`), and the shipped pictures are
     their own reference (`tests/test_art.py`'s `_apart`). Every other file
     stays exact there. A shipped answer's bytes are the recording host's, so

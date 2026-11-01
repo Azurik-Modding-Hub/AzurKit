@@ -120,7 +120,6 @@ NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (
 FLOATS = ("gamedata/characters.xbr", "gamedata/fx.xbr")   # what a dress writes float maths into (D1016): close.json's
 KEY, MOST_SUMS = 16, 64   # close.json: a sha256's digits a row is found by; its sums a resource, at most
 ULPS, NEAR_ZERO = 4, 1e-9   # how far a float may be off, at most: "a few ULPs", and in metres or radians near zero
-SMALLEST, LARGEST = 0x00800000, 0x4B189680   # the bits of the least normal float and 1e7 (_floats: a float's sizes)
 LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt", "ISO")
 ART = "web/art"   # the tracker's shipped pictures, from the checkout's root
 PICTURES = "web/characters"   # the Characters tab's
@@ -391,27 +390,24 @@ def _listed(text: bytes) -> str:
 
 
 def _floats(tag: str, words: np.ndarray) -> np.ndarray:
-    """Which of a resource's 32-bit words are floats, as far as it can tell: of a ``banm``, its length and every key
-    (``retarget.read_clip``'s layout), whatever their bits (another BLAS leaves 1e-45 where this one leaves 0.0);
-    of any other tag and the rest, zero and every normal float's size from :data:`SMALLEST` up to :data:`LARGEST`
-    (a small integer or a packed pair reads as a denormal, a fourcc or a hash as huge, so those stay exact)."""
-    size = words & 0x7FFFFFFF
-    out = (size == 0) | ((size >= SMALLEST) & (size < LARGEST))
+    """Which of a resource's 32-bit words another host's float maths can round: a ``banm``'s length and every key
+    (``retarget.read_clip``'s layout), whatever their bits (another BLAS leaves 1e-45 where this one leaves 0.0). None
+    of any other tag, or of a ``banm`` that isn't a clip: only clips have differed by host, and a word's bits can't say
+    it's a float (a strip's pair of indices reads as a tiny one, inside any float's room)."""
+    out = np.zeros(len(words), bool)
     if tag != "banm" or len(words) < 5:
         return out
-    out[:4], at = False, np.zeros(len(words), bool)
     pointer = words.view("<i4")
     for count, field in ((0, 1), (2, 3)):
         base = field * 4 + int(pointer[field])
         for track in range(max(0, int(pointer[count]))):
             record = (base + 0x14 * track) // 4
-            if not 0 <= record <= len(words) - 5:   # no clip's: every word by its bits
-                return out
+            if not 0 <= record <= len(words) - 5:
+                return np.zeros(len(words), bool)
             keys, n = (record * 4 + 8 + int(pointer[record + 2])) // 4, 4 * max(0, int(pointer[record + 1]))
-            out[record:record + 5] = False
-            at[max(0, keys):keys + n] = True
-    at[4] = True
-    return out | at
+            out[max(0, keys):keys + n] = True
+    out[4] = True
+    return out
 
 
 def _weighed(tag: str, payload: bytes, slots: int | None = None) -> tuple[str, list[float], list[float]]:
@@ -423,7 +419,7 @@ def _weighed(tag: str, payload: bytes, slots: int | None = None) -> tuple[str, l
     digest = _sha256(np.where(float_like, 0, words).astype("<u4").tobytes() + payload[n * 4:])
     at = np.arange(n, dtype=np.uint64)
     weights = 1 + ((at * 2654435761 >> 16) & 0xFFFF).astype(float) / 65536   # so that a moved value moves a sum
-    count = slots or max(1, min(n // 256, MOST_SUMS))
+    count = slots or (max(1, min(n // 256, MOST_SUMS)) if float_like.any() else 1)
     slot = (at % count).astype(np.int64)
     sums = np.bincount(slot, weights * np.where(float_like, values, 0).astype(float), count)
     room = weights * np.where(float_like, ULPS * np.spacing(np.where(float_like, np.abs(values), 0)).astype(float) + NEAR_ZERO, 0)
