@@ -1153,8 +1153,10 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
     red line, the engine's words; Undo, Redo and the cell's Revert move the
     edits; unticking the pack takes its ⚠ off. Its line says the edits wait
     for the image; once one is picked, Build's config.xbr is CPython's of
-    the same recipe, the D28 conflict named. No CSP violation, no request
-    but GETs of the site's files."""
+    the same recipe, the D28 conflict named. Two edits typed before the
+    first's answer both stay, and an edit whose answer comes after Clear
+    edits joins the cleared list. No CSP violation, no request but GETs of
+    the site's files."""
     defaults = [p["name"] for p in sdk.catalog()["packs"] if p["default_on"]]
     packs = {name: {} for name in defaults} | {"player_max_hp": {"starting_hp": 300}}
     hp = next(c for s in sdk.data({"what": "view", "kind": "player", "packs": packs})["sections"] for b in s["blocks"]
@@ -1203,6 +1205,27 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         built = _page.built(page)
         _, report = sdk.image({"iso": str(usa_iso), "packs": mods.normalize(packs), "xbr": [op]})
         assert [built["result"][data.FILE], built["conflicts"]] == [report["result"][data.FILE], report["conflicts"]]
+        player = sdk.data({"what": "view", "kind": "player"})["sections"]
+        refs = {c["name"]: c["ref"] for s in player for b in s["blocks"] for _, cells in b["rows"] for c in cells
+                if c and c.get("ref", [None])[0] == "settings_foo"}
+
+        def answer(name, text, ops):   # CPython's answer to the tab's edit of a settings_foo cell
+            _, c, r = refs[name]
+            return sdk.data_edit({"edit": {"table": "settings_foo", "col": c, "row": r, "value": text}, "ops": ops})
+        two = f"""() => {{ for (const e of [["settings_foo", "initial fuel", "501"],
+            ["settings_foo", "initial fuel cap", "502"]]) ({DATA_EDIT})(e); }}"""
+        cleared = f"""async () => {{   // the worker busy with three grids, so the edit's answer comes after the Clear
+            for (let i = 0; i < 3; i++) {{
+                azurkit.engine.call("data", {{ given: {{ what: "table", table: "critters_damage" }} }}); }}
+            ({DATA_EDIT})(["settings_foo", "initial hp", "600"]);
+            await new Promise((r) => setTimeout(r, 0));
+            ({DATA_PRESS})("Clear edits"); }}"""
+        fuel = answer("initial fuel", "501", [op])["ops"]
+        for script, want in ((two, answer("initial fuel cap", "502", fuel)["ops"]),
+                             (cleared, [answer("initial hp", "600", [])["op"]])):
+            depth = page.evaluate("() => azurkit.data.state.undo.length")
+            page.evaluate(script)
+            assert _page.until(page, f"() => azurkit.data.state.undo.length === {depth + 2} && azurkit.xbr") == want
         assert page.evaluate("() => azurkit.violations") == [] and served.stray() == []
     finally:
         served.close()

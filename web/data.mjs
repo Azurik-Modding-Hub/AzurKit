@@ -255,17 +255,29 @@ export function dataTab({ call, root, say, packs, changed, image }) {
     node.replaceChildren(input, revert);
     input.focus();
   };
-  const edit = async (node, cell, value) => {
-    const [table, col, row] = cell.ref;
-    const reply = await call("data_edit", { given: { edit: { table, col, row, value }, ops: d.ops } });
-    if ("refused" in reply) {
-      draw();
-      const at = body.querySelector(`td[data-cell="${CSS.escape(node.dataset.cell)}"]`)?.closest("table");
-      at?.after(el("p", { className: "refused", textContent: reply.refused }));
-      return;
-    }
-    if (!same(reply.ops, d.ops)) commit(reply.ops);
-    else draw();
+  // One edit asked at a time, each with the edits as they stand once the one before it is in (an edit sent before
+  // the last one's answer would drop it), and asked again if Undo, Redo, Clear, Reset or a load changes the edits while
+  // it waits, so its answer never brings back what they took.
+  let editing = Promise.resolve();
+  const edit = (node, cell, value) => {
+    const job = editing.then(async () => {
+      const [table, col, row] = cell.ref;
+      let sent, reply;
+      do {
+        sent = d.ops;
+        reply = await call("data_edit", { given: { edit: { table, col, row, value }, ops: sent } });
+      } while (sent !== d.ops);
+      if ("refused" in reply) {
+        draw();
+        const at = body.querySelector(`td[data-cell="${CSS.escape(node.dataset.cell)}"]`)?.closest("table");
+        at?.after(el("p", { className: "refused", textContent: reply.refused }));
+        return;
+      }
+      if (!same(reply.ops, d.ops)) commit(reply.ops);
+      else draw();
+    });
+    editing = job.catch(() => {});
+    return job;
   };
   const commit = (ops) => {
     d.undo.push(d.ops);
