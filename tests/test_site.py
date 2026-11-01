@@ -43,7 +43,7 @@ from azurkit.core import gate, iso
 from azurkit.tools import data, mods
 from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.art import icons
-from scripts import record_goldens, web_tools
+from scripts import record_goldens, web_tables, web_tools
 from tests import _g1, _page
 from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
@@ -187,6 +187,14 @@ FLIPPED = ("player_physics", {"jump_speed_scale": "1.5", "toggle_jump_speed_scal
 UNIT = """(id) => document.getElementById(id).parentElement.querySelector(".unit").textContent"""
 TRACK = """(id) => [document.getElementById(id).previousElementSibling.min,
                     document.getElementById(id).previousElementSibling.max]"""
+
+
+@pytest.mark.parametrize("release", RELEASES)
+def test_the_table_pages_the_site_ships_are_the_ones_the_recorder_finds_in_each_release(release, request):
+    """web/tables.json's row of each release, which worker.mjs's ahead() reads in one round, is
+    scripts/web_tables.py's output on that release's image, within the read cache's pages."""
+    key, pages = web_tables.pages(request.getfixturevalue(f"{release.name}_iso"))
+    assert json.loads(web_tables.OUT.read_text(encoding="utf-8"))[key] == pages and len(pages) <= web_tables.PAGES
 
 
 @pytest.mark.parametrize("release", RELEASES)

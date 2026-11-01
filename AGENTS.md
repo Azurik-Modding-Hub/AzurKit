@@ -41,6 +41,7 @@ uv run --locked python -m devkit [AREA [VERB ...]]    # the developer side (D950
 uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # tests/goldens/ from the player's images
 uv run --locked python scripts/record_shipped.py [--check] [--content CLONE]  # the swap's shipped answers (D995)
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
+uv run --locked python scripts/web_tables.py [--check]                    # web/tables.json: each release's table pages (the site's read ahead)
 uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
 ```
 
@@ -1141,7 +1142,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   image in blocks (WebKit takes about 200 ms for each read of a File,
   whatever its size), kept from one message to the next for the last image,
   its folders' tables read ahead in awaited rounds before the engine's first
-  walk (a hint: the engine still reads and checks every byte),
+  walk (one round from `web/tables.json` on a release's root; a hint: the engine still reads and checks every byte),
   and checks each image once (Step 4.3h): its build files hashed
   in WebCrypto (`sdk.layout`, `sdk.prime`), the stamp kept in the browser
   (IndexedDB, by the File's name, size and lastModified) for the next

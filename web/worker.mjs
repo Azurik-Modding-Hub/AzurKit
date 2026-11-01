@@ -276,6 +276,7 @@ function readInBlocks(WORKERFS) {
 const SECTOR = 2048, VD = 32 * SECTOR, PARTITIONS = [0, 0x18300000, 0xFD90000, 0x2080000];   // core/iso.py's
 const SLACK = 128 << 10;   // the engine reads a table through its file's buffer (io.DEFAULT_BUFFER_SIZE, 128 KiB): its pages too
 const MAGIC = Array.from("MICROSOFT*XBOX*MEDIA", (c) => c.charCodeAt(0));
+let TABLES = {};   // web/tables.json: each release's folder-table pages by "base:root sector:root size" (a hint)
 const walked = new Map();   // an image's id -> the pages of its tables (the last image's only)
 async function ahead(file, pages, hint) {
   const asked = new Map();   // index -> the promise of its page's bytes
@@ -306,8 +307,19 @@ async function ahead(file, pages, hint) {
     if (at < 0) return;   // no XDVDFS here: the engine names it
     const base = bases[at], used = new Set(bases.slice(0, at + 1).map((b) => Math.floor((b + VD) / PAGE)));
     const head = new DataView(vds[at].buffer, vds[at].byteOffset, SECTOR);
-    let level = [[head.getUint32(20, true), head.getUint32(24, true)]];
-    const seen = new Set([level[0][0]]);
+    const root = [head.getUint32(20, true), head.getUint32(24, true)];
+    const shipped = TABLES[`${base}:${root[0]}:${root[1]}`];   // a release's tables' pages (web/tables.json): one round
+    if (Array.isArray(shipped) && shipped.every(Number.isInteger)) shipped.forEach((i) => used.add(i));
+    else {   // another image on a release's root (an AzurKit build: its layout is the release's): its pages asked now,
+      for (const [key, list] of Object.entries(TABLES)) {   // so the walk's depths find them asked, in this one round
+        if (key.startsWith(`${base}:${root[0]}:`) && Array.isArray(list)) {
+          list.filter((i) => Number.isInteger(i) && i >= 0 && i * PAGE < file.size).slice(0, PAGES)
+            .forEach((i) => page(i).catch(() => null));
+        }
+      }
+    }
+    let level = Array.isArray(shipped) ? [] : [root];
+    const seen = new Set([root[0]]);
     while (level.length) {   // a depth's tables at once
       for (const [sector, size] of level) {
         const from = base + sector * SECTOR;
@@ -369,6 +381,7 @@ async function load() {
   const archive = await wheel.arrayBuffer();
   starting(2);
   py.unpackArchive(archive, "wheel", { extractDir: py.runPython("import site; site.getsitepackages()[0]") });
+  TABLES = await fetch(new URL("tables.json", base)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
   starting(3);
   return { py, engine: py.runPython(ENGINE), readAhead };
 }
