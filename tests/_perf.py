@@ -109,6 +109,14 @@ OPS = {op.id: op for op in (
     Op("A30", "a small ask while a build runs (a model's pictures)", "randomizer"),
     Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True),   # D999
     Op("A32", "the same reshape at the next launch", "build", content=True),
+    Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
+    Op("A40", "a critter picked, its view", "build", first=False),
+    Op("A41", "the picker's search, a few letters", "build", first=False),
+    Op("A42", "All tables: critters_damage's grid", "build", first=False),
+    Op("A43", "an edit committed (the engine's check, the view again)", "build", first=False),
+    Op("A44", "Undo (the view again)", "build", first=False),
+    Op("A45", "Build, defaults and 100 data edits", "build"),
+    Op("A46", "Load a mods file of 1,000 data edits, its view", "build"),
     Op("A47", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("A48", "Verify every file, first", "image", bar=True),
     Op("A49", "Verify every file again", "image", first=False),
@@ -144,6 +152,14 @@ OPS = {op.id: op for op in (
     Op("S23", "Build a seed after Track", "randomizer"),
     Op("S24", "Build a seed, no Track first", "randomizer"),
     Op("S25", "the spoiler's View", "randomizer", first=False),
+    Op("S32", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
+    Op("S33", "a critter picked, its view", "build", first=False),
+    Op("S34", "the picker's search, a few letters", "build", first=False),
+    Op("S35", "All tables: critters_damage's grid", "build", first=False),
+    Op("S36", "an edit committed (the engine's check, the view again)", "build", first=False),
+    Op("S37", "Undo (the view again)", "build", first=False),
+    Op("S38", "Build, defaults and 100 data edits", "build"),
+    Op("S39", "Load a mods file of 1,000 data edits, its view", "build"),
     Op("S40", "Tools tab, the image's info (the kept check)", "image"),   # Step 4.7c: the Tools tab
     Op("S41", "Verify every file, first", "image", bar=True),
     Op("S42", "Verify every file again", "image", first=False),
@@ -936,6 +952,140 @@ def site_tools(d: Driver, ctx, url: str) -> None:
     p.page.close()
 
 
+# ---- the Data tab (Step 4.7a): its first open (the index and the Player view, no image), a critter's view, the
+# picker's search, critters_damage's grid, an edit committed and its Undo (each the engine's check or view again), a
+# Build of the defaults and 100 data edits (the site's loaded in the Tools tab, the app's its remembered setup at the
+# next launch) and a mods file of 1,000 loaded (the Tools tab's Load), each made once a run (untimed).
+VIEWED = "() => !document.getElementById('data').hidden && azurkit.data?.state.answer"
+CRITTERS = ("air_elemental", "golem")
+
+
+def _view(kind: str, name: str | None = None) -> str:
+    return (f"() => azurkit.data.state.answer?.{'name' if kind == 'table' else 'kind'} === "
+            f"{json.dumps(name if kind == 'table' else kind)}" + (f" && azurkit.data.state.answer.name === "
+                                                                  f"{json.dumps(name)}" if kind != "table" and name
+                                                                  else ""))
+
+
+def _views(label: str) -> str:   # one of the tab's views, by its button's label
+    return (f"() => [...document.querySelectorAll('#data .views button')].find((b) => b.textContent === "
+            f"{json.dumps(label)}).click()")
+
+
+def _entry(name: str) -> str:   # a picker entry's click, the answer dropped first so the done-state waits for its own
+    return (f"() => {{ azurkit.data.state.answer = null; "
+            f"document.querySelector('#data .picker-entry[data-name={json.dumps(name)}]').click(); }}")
+
+
+HP_EDIT = """(text) => { const td = [...document.querySelectorAll("#data td.cell")].find((n) => {
+    const c = JSON.parse(n.dataset.cell); return c.ref[0] === "settings_foo" && c.name === "initial hp"; });
+  azurkit.data.state.answer = null; td.click(); const box = td.querySelector("input"); box.value = text;
+  box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }"""
+UNDO = """() => { azurkit.data.state.answer = null;
+  [...document.querySelectorAll("#data .data-bar button")].find((b) => b.textContent === "Undo").click(); }"""
+SEARCH = """(text) => { const box = document.querySelector("#data .picker-search input"); box.value = text;
+  box.dispatchEvent(new Event("input")); }"""
+MODS_FILE = """
+import json, sys
+from azurkit import sdk
+grid = sdk.data({"what": "table", "table": "critters_damage"})
+ops = [{"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": entity, "prop": prop,
+        "value": value + 1} for c, entity in enumerate(grid["cols"]) if entity and grid["cols"].count(entity) == 1
+       for r, prop in enumerate(grid["rows"][1:], 1)
+       if prop and isinstance(value := grid["cells"][c][r], (int, float)) and grid["rows"].count(prop) == 1]
+n, kind = int(sys.argv[1]), sys.argv[2]
+assert len(ops) >= n, len(ops)
+packs = {p["name"]: {} for p in sdk.catalog()["packs"] if p["default_on"]}
+sys.stdout.write(sdk.mods_file({"recipe": {"packs": packs, "xbr": ops[:n]}})["text"] if kind == "mods"
+                 else json.dumps({"ticked": list(packs), "values": {}, "xbr": ops[:n]}))
+"""
+
+
+def _data_mods(d: Driver, n: int, kind: str = "mods") -> Path:
+    """A mods file (``kind`` mods) or a page's remembered setup (``setup``) of the packs on by default and ``n`` edits
+    of critters_damage's number cells (each its vanilla value plus 1), made once a run."""
+    mods = d.scratch / f"data {n} edits.{kind}.json"
+    if not mods.is_file():
+        done = subprocess.run([python_of(ROOT), "-c", MODS_FILE, str(n), kind], cwd=ROOT, capture_output=True,
+                              text=True, env={k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}, check=True,
+                              timeout=600)
+        mods.write_text(done.stdout, encoding="utf-8")
+    return mods
+
+
+def _data(d: Driver, p: Page, ops: tuple[str | None, ...], pick: Callable[[], None] | None) -> None:
+    """The Data tab's ops in one page; with a Build op, ``pick`` picks the image (untimed) and the Tools tab loads a
+    mods file of 100 edits before it. The Tools tab, whose Load reads the mods files, is opened first."""
+    first, critter, search, grid, edit, undo, build, load = ops
+    thousand = _data_mods(d, 1000)
+    p.js(click("tab-tools"))
+    d.act(p, first, click("tab-data"), f"() => ({VIEWED})() && ({_view('player')})()", 600)
+    k = 0
+    while d.need(edit) or d.need(undo):   # each edit another value, so the engine checks it and the view is asked again
+        k += 1
+        d.act(p, edit, HP_EDIT, f"() => azurkit.data.state.answer && azurkit.xbr[0]?.value === {300 + k}", 600,
+              str(300 + k))
+        d.act(p, undo, UNDO, "() => azurkit.data.state.answer && azurkit.xbr.length === 0", 600)
+    p.js(_views("Critters"))
+    p.wait(VIEWED)
+    k = 0
+    while d.need(critter):
+        k += 1
+        name = CRITTERS[k % 2]
+        d.act(p, critter, _entry(name), _view("critter", name), 600)
+    while d.need(search):
+        d.act(p, search, SEARCH, "() => / of /.test(document.querySelector('#data .picker-search .note').textContent)",
+              60, "elem")
+        p.js(SEARCH, "")
+    p.js(_views("All tables"))
+    p.wait(VIEWED)
+    while d.need(grid):
+        p.js(_entry("magic"))
+        p.wait(_view("table", "magic"))
+        d.act(p, grid, _entry("critters_damage"), _view("table", "critters_damage"), 600)
+    if build is not None and d.need(build):
+        pick()
+        p.js(click("tab-tools"))
+        d.act(p, None, lambda: p.page.set_input_files("#tools-mods-file", str(_data_mods(d, 100))),
+              f"() => azurkit.xbr.length === 100 || {ERROR}", 600)
+        d.act(p, build, build_js(), BUILT, 1800)
+        p.wait(READY, 600)   # the site's engine may be replaced after a build
+    p.js(click("tab-data"))   # critters_damage's grid shown, whichever ops ran before: the load's view
+    p.js(_views("All tables"))
+    p.wait(VIEWED)
+    p.js(_entry("critters_damage"))
+    p.wait(_view("table", "critters_damage"))
+    p.js(click("tab-tools"))
+    d.act(p, load, lambda: p.page.set_input_files("#tools-mods-file", str(thousand)),
+          "() => azurkit.xbr.length === 1000 && azurkit.data.state.answer?.name === 'critters_damage' "
+          f"&& azurkit.data.state.answer.changed.length === 1000 || {ERROR}", 900)
+
+
+def app_data(d: Driver, app: App, ctx) -> None:
+    """A45 at a second launch, from its remembered setup: a Build right after the Tools tab opened would share the
+    engine process with the randomizer's logic it reads ahead (from a checkout 1.1-2.8 s, against 0.12 s once read)."""
+    p = app.launch(d, ctx, None)
+    _data(d, p, ("A39", "A40", "A41", "A42", "A43", "A44", None, "A46"), None)
+    app.quit(p)
+    if not d.need("A45"):
+        return
+    config = app.home / "Library" / "Application Support" / "AzurKit" / "app.json"
+    kept = json.loads(config.read_text(encoding="utf-8")) if config.is_file() else {}
+    setup = json.loads(_data_mods(d, 100, "setup").read_text(encoding="utf-8"))
+    config.write_text(json.dumps(kept | {"setup": setup}), encoding="utf-8")
+    p = app.launch(d, ctx, None)
+    p.wait("() => azurkit.ready && azurkit.xbr.length === 100", 600)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA, 900)
+    d.act(p, "A45", build_js(), BUILT, 1800)
+    app.quit(p)
+
+
+def site_data(d: Driver, ctx, url: str) -> None:
+    p = _site_page(d, ctx, url, None)
+    _data(d, p, ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39"), lambda: _pick(d, p, None))
+    p.page.close()
+
+
 SCENARIOS = {   # name: (host, its ops, the driver)
     "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"), app_start),
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
@@ -944,12 +1094,14 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
+    "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46"), app_data),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "S16", "S17"),
                    site_start),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25"), site_track),
     "site-seed": ("site", ("S24",), site_seed),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
+    "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39"), site_data),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)
