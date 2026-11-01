@@ -219,13 +219,22 @@ def started(page, after: int = 0, timeout: float = 60) -> dict:
 
 def settled(page, host: Host, timeout: float = 30) -> None:
     """Once the browser's own update check after a first visit's reload (1 to 3 s after it, by browser) has asked for
-    ``sw.js`` and ended: a deploy after it is the page's to find, as a check joined to one that read the last release's
-    ``sw.js`` would answer that no release is new."""
+    ``sw.js`` and ended, and any install before it has ended: a deploy after it is the page's to find, as a check joined
+    to one that read the last release's ``sw.js`` would answer that no release is new. So is an update joined to an
+    install: its job ends a moment after the outcome it posts, and Chromium joins an update to it until then, resolved
+    at once, asking the host nothing. So this asks until the host sees an update of its own, which finds what it runs
+    on (the host must still serve the release last installed)."""
     end = time.monotonic() + timeout
     while host.workers < 2:   # the registration's and that check's
         assert time.monotonic() < end, "the browser didn't check for an update after the page's reload"
         time.sleep(0.05)
-    page.evaluate("async () => { await (await navigator.serviceWorker.getRegistration()).update(); }")
+    asked = host.workers
+    while True:
+        page.evaluate("async () => { await (await navigator.serviceWorker.getRegistration()).update(); }")
+        if host.workers > asked:
+            return
+        assert time.monotonic() < end, "the browser's install didn't end"
+        time.sleep(0.05)
 
 
 def opened(context, host: Host, path: str = "") -> tuple:
@@ -314,8 +323,11 @@ def test_an_update_waits_until_the_page_takes_it(browser, releases):
         assert listed(restyled)["name"] != listed(one)["name"]
         host.root = restyled
         assert page.evaluate("sw.check()") == {"type": "checked", "update": True, "offline": False, "told": "installed"}
+        settled(page, host)
         host.root = releases["half"]
         assert page.evaluate("sw.update()") == "failed"
+        host.root = restyled
+        settled(page, host)
         host.root = releases["two"]
         assert page.evaluate("sw.update()") == "installed"
         assert page.evaluate("sw.engine()") == runs("one")["engine"]
