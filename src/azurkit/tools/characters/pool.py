@@ -44,21 +44,35 @@ def each(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
 
 
 class Later:
-    """A result :func:`later` worked out: :meth:`result` gives it, or raises what the work raised."""
+    """A result :func:`later` works out at its first :meth:`result`, from
+    its arguments as they were handed over (pickled then: a caller may
+    change them meanwhile, as a host's thread reads them at once), so work
+    started ahead and never asked for (a cut whose LOD 0 changed before it
+    was taken) costs nothing; :meth:`result` gives it, or raises what the
+    work raised."""
 
     def __init__(self, fn: Callable, args: tuple):
-        try:
-            self._value, self._error = fn(*args), None
-        except Exception as exc:   # raised where Modkit's future raises it: at result()
-            self._value, self._error = None, exc
+        import pickle
+
+        self._fn, self._args, self._done = fn, pickle.dumps(args, pickle.HIGHEST_PROTOCOL), False
+        self._value = self._error = None
 
     def result(self, timeout: float | None = None):
+        if not self._done:
+            import pickle
+
+            try:
+                self._value = self._fn(*pickle.loads(self._args))
+            except Exception as exc:   # raised where Modkit's future raises it: at result()
+                self._error = exc
+            self._fn = self._args = None
+            self._done = True
         if self._error is not None:
             raise self._error
         return self._value
 
     def done(self) -> bool:
-        return True
+        return self._done
 
 
 def later(fn: Callable, *args):

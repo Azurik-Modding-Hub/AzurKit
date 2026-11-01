@@ -36,7 +36,7 @@ from azurkit.edits import preset
 from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
-from azurkit.tools.characters import _player_kit, _player_variants, content, ports, retarget, shipped
+from azurkit.tools.characters import _player_kit, _player_variants, content, pool, ports, retarget, shipped
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens, record_shipped
@@ -1412,6 +1412,32 @@ def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(
         f"the shipped {shipped.name('plan', row)} isn't a fresh dress's (scripts/record_shipped.py)"]
 
 
+def test_a_cut_started_ahead_with_no_host_costs_nothing_until_it_is_taken(monkeypatch):
+    """The pool's serial path (the site's, the CLI's): ``pool.later`` works ``fn`` out at its first ``result()``, once,
+    from its arguments as they were handed over, so work started ahead and never taken never runs, and what it raises
+    is raised there."""
+    monkeypatch.setattr(pool, "LATER", None)
+    ran = []
+
+    def work(data: bytearray) -> bytes:
+        ran.append(bytes(data))
+        if data == b"bad":
+            raise ValueError("refused")
+        return bytes(data)
+    data = bytearray(b"handed")
+    later = pool.later(work, data)
+    data[:] = b"changed"
+    assert not ran and not later.done()
+    assert later.result() == later.result() == b"handed" and ran == [b"handed"] and later.done()
+    pool.later(work, bytearray(b"never taken"))
+    assert ran == [b"handed"]
+    refused = pool.later(work, bytearray(b"bad"))
+    for _ in range(2):
+        with pytest.raises(ValueError, match="refused"):
+            refused.result()
+    assert ran == [b"handed", b"bad"]
+
+
 def _places_rig(monkeypatch, tmp_path) -> tuple:
     """A made-up release, a reshape and its parent, and the ``rig`` calls ``_variant_body`` makes (no real mesh)."""
     swap = characters._swap()
@@ -1425,6 +1451,7 @@ def _places_rig(monkeypatch, tmp_path) -> tuple:
                               plain=None, textures=(), texture_scale=1)
     monkeypatch.setattr(_player_variants, "parent_of", lambda v: parent)
     rigged = []
+    monkeypatch.setattr(pool, "LATER", lambda fn, *a: SimpleNamespace(result=lambda: fn(*a)))   # a host's: nothing pickled
     monkeypatch.setattr(swap.mesh_edit, "plan", lambda *a: SimpleNamespace(mesh=None, late=None, repaint=False, dropped=()))
     monkeypatch.setattr(swap.mesh_edit, "write", lambda *a: None)
     monkeypatch.setattr(swap.jiggles, "rig", lambda *a, at=None, **k: rigged.append(at) or None)
