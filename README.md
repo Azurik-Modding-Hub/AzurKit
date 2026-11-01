@@ -83,7 +83,8 @@ source ([Development](#development)).
 
 ### Item tracker
 
-- **Track any seed:** a randomized build, a seed you haven't built yet, or a plan file.
+- **Track any seed:** a randomized build (the one you just built, or any you open on the Tools tab: Track this
+  build), a seed you haven't built yet, or a plan file.
 - **Quick to open:** on our Mac the Randomizer tab opens in about 4 s, and tracking a seed takes about 15 s in
   the app and 22 s in the browser.
 - **Where you stand:** what you've collected and what you can reach right now, sphere by sphere.

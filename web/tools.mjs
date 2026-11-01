@@ -4,7 +4,8 @@
 // engine's gate against the release's manifest, its bar the bottom bar's, then kept by the image's stamp, so again
 // it reads nothing: core/gate.py); its file list with a name filter; Extract a file (the site: a slice of your own
 // File as a download, no copy; the app: a new file where its dialog says, never the image or iso/, D36). Recipes and
-// files, no image needed: Open a build… (any AzurKit build, its recipe: Load it, Save its mods file), Load a mods
+// files, no image needed: Open a build… (any AzurKit build, its recipe: Load it, Save its mods file, and a randomized
+// one's Track this build: the tracker on its own plan, replayed from its seed and share string), Load a mods
 // file…, Save the setup as a mods file…, a plan file's spoiler (View, Save) and the last build's report (View, Save).
 // AzurKit's storage: what it keeps on this computer, by name, and Clear (the site: its own named keys and databases
 // in this browser; the app: the named entries its engine lists, never an image or the folder, SEC-10). Everything
@@ -19,7 +20,8 @@
 // save dialog's), "" (no dialogs: the engine's place, the Downloads folder) or null (the dialog cancelled); pick()
 // (the app's, with dialogs) an AzurKit build's path from its open dialog, or null; setup() the page's recipe now (what
 // its share link and mods file carry: packs, xbr, randomizer, character); load(preset, from) sets the page to a
-// preset. The asks (body -> reply), where the site's worker mounts `file` (or `build`) and hands its path to the
+// preset; track(preset, from) tracks a randomized build's plan. The asks (body -> reply), where the site's worker
+// mounts `file` (or `build`) and hands its path to the
 // engine as the app's `iso`:
 //   info         {iso | file}                -> {release, label, size, kind, whole, version?, layers?, differs?}
 //   verify_all   {iso | file}                -> {release, label, whole: true}; refused: the first file that differs
@@ -100,7 +102,7 @@ function download(blob, name) {   // the site's: the browser's download of a Blo
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-export function tools({ root, call, app, say, image, out, pick = null, setup, load }) {
+export function tools({ root, call, app, say, image, out, pick = null, setup, load, track }) {
   const t = { info: null, files: null, opened: null, plan: null, spoiler: null, report: null, saved: null,
               shown: false, ticket: 0, opening: 0, refused: null };
   const asked = () => app ? { iso: image() } : { file: image() };
@@ -123,6 +125,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     openLine: line("tools-open-line"),
     openLoad: button("tools-open-load", "Load it", () => t.opened && load(t.opened.preset, t.opened.from)),
     openSave: button("tools-open-save", "Save its mods file", () => t.opened && saveMods({ preset: t.opened.preset })),
+    openTrack: button("tools-open-track", "Track this build", () => t.opened && track(t.opened.preset, t.opened.from)),
     mods: chooser("tools-mods-file", ".json,.txt", (event) => loadMods(event.target)),
     modsSave: button("tools-mods-save", "Save the setup as a mods file…", () => saveMods({ recipe: setup() })),
     plan: chooser("tools-plan-file", ".json", (event) => readPlan(event.target)),
@@ -147,7 +150,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     el("p", {}, "Open a build… ", ...(app ? [ui.openPath, " ", button("tools-open", "Open", () => opened(null)),
                                             ...(pick ? [" ", button("tools-open-choose", "Choose…", choosing)] : [])]
                                          : [ui.openFile])),
-    ui.openLine, el("p", {}, ui.openLoad, " ", ui.openSave),
+    ui.openLine, el("p", {}, ui.openLoad, " ", ui.openSave, " ", ui.openTrack),
     el("p", {}, el("label", {}, "Load a mods file… ", ui.mods), " ", ui.modsSave),
     el("p", {}, el("label", {}, "A plan file's spoiler ", ui.plan), " ", ui.planView, " ", ui.planSave), ui.planText,
     el("p", {}, "The last build's report ", ui.reportView, " ", ui.reportSave), ui.reportLine, ui.reportText,
@@ -170,6 +173,10 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     }
     if (none) ui.files.hidden = true;
     ui.openLoad.disabled = ui.openSave.disabled = !t.opened;
+    const seeded = t.opened?.preset.layers.some((layer) => layer.tool === "randomizer");
+    ui.openTrack.disabled = !seeded;
+    ui.openTrack.title = seeded ? "The tracker on this build's own plan (its seed and share string)"
+      : t.opened ? "This build isn't randomized: it has no plan to track" : "Open a randomized build first";
     ui.planView.disabled = ui.planSave.disabled = !t.spoiler;
     ui.reportView.disabled = ui.reportSave.disabled = !t.report;
     ui.reportLine.hidden = Boolean(t.report);

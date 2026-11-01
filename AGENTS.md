@@ -892,7 +892,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     tab's second view (Settings · Tracker). It opens on a randomized
     build's plan (the report's `plan`), Track this seed (the Settings
     view's seed and share string, planned by the engine: `sdk.plan`, the
-    site's worker, the app's `api/plan`) or a plan file, and asks the
+    site's worker, the app's `api/plan`), an opened build's (the Tools
+    tab's Track this build: its manifest's seed and share string, planned
+    the same way, nothing retyped) or a plan file, and asks the
     engine (`sdk.tracker`: the worker's `tracker` call, the app's
     `api/tracker`) what it shows, one ask at a time, each click one: the
     head line, the counter row, the world map (`tracking.GRID`, each level
@@ -1034,7 +1036,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     file renamed into place, never over the image it reads or a vanilla
     image, D36), then, needing no image, **Open a build…** (any AzurKit
     build's recipe, `sdk.open_build` of the files it changed: Load it, Save
-    its mods file), **mods files** (`sdk.mods_file`: Load reads one as a
+    its mods file, and a randomized one's Track this build, greyed with why
+    for one that isn't), **mods files** (`sdk.mods_file`: Load reads one as a
     link's preset is checked, keeping a `replace_bytes`; Save writes the
     page's recipe), **a plan file's spoiler** (`sdk.spoiler`; the app's
     engine process makes it, its randomizer logic read as the tab opens,

@@ -1856,6 +1856,56 @@ def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_t
         server.close()
 
 
+def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser, tmp_path, monkeypatch):
+    """Track this build (the Tools tab's Open a build…): an opened build
+    that holds a randomizer layer is tracked on its own plan, replayed from
+    the seed and share string its manifest holds, nothing retyped; the
+    Randomizer tab's Tracker shows it. A build with no randomizer greys the
+    button with the line that says why."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")
+    files = {"gamedata/config.xbr": fill("a", 64)}   # USA's name, ours bytes
+    vanilla = tmp_path / "vanilla.iso"
+    vanilla.write_bytes(image(files))
+    monkeypatch.setenv(gate.USA.env, str(vanilla))
+    at = vanilla.stat()
+    stamp = gate.Stamp(gate.USA, vanilla, at.st_size, at.st_mtime_ns, False, at.st_ctime_ns)
+    change = Change("gamedata/config.xbr", 0, hashlib.sha256(files["gamedata/config.xbr"][:4]).hexdigest(), b"AAAA",
+                    "a 1")
+    doc = _profile("default")
+    seeded = Layer("randomizer", "randomizer", "plan", {"seed": doc["seed"], "share": doc["share"]}, [change])
+    plain = Layer("pack fps_unlock", "mods", "packs", {"pack": "fps_unlock", "params": {}}, [change])
+    for name, layer in (("seeded", seeded), ("plain", plain)):
+        edits.build(stamp, [layer], tmp_path / f"{name}.iso")
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        button = "() => [document.getElementById('tools-open-track').disabled, document.getElementById(" \
+                 "'tools-open-track').title]"
+
+        def opened(name: str) -> list:
+            _page.click(page, "tab-tools")
+            _page.fill(page, "tools-open-path", str(tmp_path / f"{name}.iso"))
+            _page.click(page, "tools-open")
+            _page.until(page, f"() => document.getElementById('tools-open-line').textContent.startsWith('{name}.iso:')")
+            return page.evaluate(button)
+
+        assert opened("seeded") == [False, "The tracker on this build's own plan (its seed and share string)"]
+        _page.click(page, "tools-open-track")
+        assert _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running"
+                                 " && azurkit.tracker.state.plan.sha256", 300) == doc["sha256"]
+        assert page.evaluate("() => [azurkit.tab, document.getElementById('tracker').hidden, document.getElementById("
+                             "'status').textContent]") == ["randomizer", False, f"Tracking seed {doc['seed']} "
+                                                           "(seeded.iso): the Randomizer tab's Tracker"]
+        assert opened("plain") == [True, "This build isn't randomized: it has no plan to track"]
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
 def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never_fall_back_inside_a_stage(tmp_path,
                                                                                                            monkeypatch):
     """A plan file's spoiler and a seed's plan asked while the engine's

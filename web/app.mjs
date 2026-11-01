@@ -41,8 +41,8 @@
 // applies after the packs, a link and a mods file carry and the page remembers.
 //
 // The Tools tab (Step 4.7c, tools.mjs): your image (what it is, Verify every file, its files with Extract), recipes
-// and files (Open a build…, mods files, a plan file's spoiler, the last build's report) and AzurKit's storage with
-// Clear; what waits for an image is greyed until one is picked (D979).
+// and files (Open a build… with Track this build, mods files, a plan file's spoiler, the last build's report) and
+// AzurKit's storage with Clear; what waits for an image is greyed until one is picked (D979).
 //
 // A long call shows its progress in the bottom bar (D980, Step 4.3i): its stage and percent (core/progress.py's record)
 // on a bar, from the app's api/progress or the site's worker; any ask the engine hasn't answered within 1 s shows
@@ -871,7 +871,7 @@ function ready(catalog, version) {
                            } });
     state.tools = tools({ root: $("tools"), call: state.engine.call, app: state.app, say, image: () => state.file,
                           out: toolsOut, pick: state.dialogs ? () => state.engine.choose("build", "") : null,
-                          setup: recipe, load });
+                          setup: recipe, load, track: trackBuild });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -1327,6 +1327,22 @@ function storedTracked() {
   } catch {
     return null;
   }
+}
+
+// Track this build (the Tools tab's Open a build…): a randomized build's own plan, replayed by the engine from the seed
+// and share string its manifest holds (sdk.plan: the plan its build wrote), on the Randomizer tab's Tracker; nothing
+// is retyped, and the tab's settings stay as they are.
+async function trackBuild(preset, from) {
+  const rando = preset.layers.find((layer) => layer.tool === "randomizer")?.recipe;
+  if (!rando) return say(`${from} isn't randomized: it has no plan to track`, true);
+  const { seed, share, settings } = rando;
+  say(`Planning ${from}'s seed ${seed} to track it…`);
+  const asked = { seed, ...(share !== undefined ? { share } : { settings }) };
+  const reply = await state.engine.call("plan", { recipe: asked });
+  if ("refused" in reply) return say(reply.refused, true);
+  pick("randomizer");
+  randoPane("tracker");
+  state.tracker.open(reply.plan, from);
 }
 
 // The Randomizer tab's two views: its settings, and the tracker.
