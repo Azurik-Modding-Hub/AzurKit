@@ -63,6 +63,17 @@ def _sectors(size: int) -> int:
     return -(-size // SECTOR)
 
 
+def merged(spans: Iterable[tuple[int, int]]) -> list[tuple[int, int]]:
+    """``(offset, size)`` spans sorted, those that meet as one."""
+    out: list[tuple[int, int]] = []
+    for at, n in sorted(spans):
+        if out and at <= out[-1][0] + out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], at + n - out[-1][0]))
+        else:
+            out.append((at, n))
+    return out
+
+
 @dataclass(frozen=True)
 class Entry:
     path: str      # posix, from the image's root
@@ -198,14 +209,9 @@ class Reader:
     def view(self, path: str, spans: Iterable[tuple[int, int]] = ()) -> View:
         """The file at ``path`` of the image file this reads, holding the
         bytes of ``spans`` (``(file offset, size)``) read now."""
-        entry, held = self.find(path), []
-        for at, n in sorted(spans):
-            if held and at <= held[-1][0] + held[-1][1]:   # spans that meet are read as one
-                held[-1][1] = max(held[-1][1], at + n - held[-1][0])
-            else:
-                held.append([at, n])
+        entry = self.find(path)
         return View(Path(self._source), self.start(entry), entry.size,
-                    tuple((at, self.range(entry, at, n)) for at, n in held))
+                    tuple((at, self.range(entry, at, n)) for at, n in merged(spans)))
 
     def tables(self) -> list[tuple[int, int]]:
         """Each read any build makes whatever its files, ``(image offset,

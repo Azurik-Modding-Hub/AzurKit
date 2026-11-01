@@ -826,7 +826,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
   `web/memo.mjs`), the service worker (`web/sw.js`), community packs
   (`tools/mods/community.py`, `web/content.mjs`), Replace files
-  (`edits/files.py`) and Saves (`tools/saves/`).
+  (`edits/files.py`), Saves (`tools/saves/`), a host's own hashes
+  (`edits.staged`) and the sparse seed build: a base of `iso.View`s
+  (`generator.sections`) carried as patches to the image, with
+  `generator.read_back`'s `sparse` and the host's reads ahead
+  (`generator.heads`, `generator.pages`). It stays off on both hosts until
+  its reads ahead are wired, as 57 late page reads would cost Safari more
+  than it saves.
 - **The page** (`web/`): pick the image, choose packs and set their sliders
   (a box takes any value; the track widens to hold it), Build, then Save. One
   page for both hosts: `host.json` names the host's engine. It decides no

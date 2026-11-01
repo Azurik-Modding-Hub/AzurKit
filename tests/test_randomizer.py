@@ -19,6 +19,7 @@ wait on a fill another thread is making."""
 from __future__ import annotations
 
 import collections
+import dataclasses
 import functools
 import gc
 import hashlib
@@ -37,6 +38,8 @@ import pytest
 
 from azurkit import cli, sdk
 from azurkit.core import iso, native, progress
+from azurkit.core.xbr import nodes
+from azurkit.edits import manifest as edits
 from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
 from azurkit.tools.randomizer.planner import fill, loader
@@ -386,6 +389,129 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     assert found == {"packs": mods.normalize({n: {} for n, p in mods.PACKS.items() if p.default_on}),
                      "randomizer": {"seed": "2", "share": plan["share"]}}
     assert (native.report()["loaded"], bool(kernels), bool(twins)) == (not twin, not twin, twin)
+
+
+@pytest.mark.parametrize("release, recipe", [
+    pytest.param("usa", {"randomizer": {"seed": "2"}}, marks=pytest.mark.vanilla),
+    pytest.param("usa", {"randomizer": {"seed": "2", "obsidian_cost": 20.0}, "packs": {"qol_alloc_race": {}}},
+                 marks=pytest.mark.vanilla),
+    pytest.param("europe", {"randomizer": {"seed": "2"}}, marks=[pytest.mark.vanilla, pytest.mark.europe])])
+def test_a_seed_build_over_sections_reads_only_its_pages_and_is_the_whole_builds_image_manifest_and_verdict(
+        release, recipe, request, monkeypatch):
+    """A seed build over ``generator.sections`` (the sparse path, off on both
+    hosts until its hub half: X4): the plan's layer planned on the views alone
+    is the layer planned on the files, the image and manifest (the verdict in
+    it) are the whole build's, byte for byte, with no level's bytes among the
+    image's writes but its patches, and every read it makes but a host's
+    hashes lies in ``generator.pages``, each level's TOC in ``generator.heads``."""
+    path = str(request.getfixturevalue(f"{release}_iso"))
+    stamp, base, layers, judge, prepared = sdk._plan({"iso": path, **recipe})
+    whole, manifest = edits.image(stamp, layers, base, judge=judge, map=sdk._map)
+    reasons = manifest.verdicts[generator.TOOL]["why_not"][len(prepared.why_not):]
+    reads, tracing = [], [True]
+
+    class Traced:
+        def __init__(self, f):
+            self.f, self.at = f, 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.f.close()
+
+        def close(self):
+            self.f.close()
+
+        def seek(self, at):
+            self.at = at
+            return self.f.seek(at)
+
+        def _read(self, n, fn, arg):
+            if tracing[0]:
+                reads.append((self.at, n))
+            self.at += n
+            return fn(arg)
+
+        def read(self, n):
+            return self._read(n, self.f.read, n)
+
+        def readinto(self, into):
+            return self._read(len(into), self.f.readinto, into)
+
+    monkeypatch.setattr(iso, "open", lambda *a: Traced(open(*a)), raising=False)
+    others = [file for file in base if file not in generator.files(prepared)]
+    with iso.Reader(stamp.path) as r:
+        views = generator.sections(prepared, r, others)
+        ahead, spans = generator.heads(prepared, r), generator.pages(prepared, r, others)
+        tocs = []
+        for stem in writer.graphs(kept_logic().db):
+            entry = r.find(f"gamedata/{stem}.xbr")
+            toc = nodes.read_toc(functools.partial(r.range, entry))
+            tocs.append((r.start(entry), writer.level_spans(toc, entry.size, [])[0][1]))
+    given = {file: data for file, data in base.items() if file not in views} | views
+    assert generator.plan_layer(prepared, given) == layers[0]
+
+    def sparse_judge(made, manifest):
+        return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts, reasons,
+                                                    sparse=True)}
+    run = edits.staged(stamp, layers, given, judge=sparse_judge, map=sdk._map)
+    jobs = next(run)
+    tracing[0] = False
+    hashes = {key: edits._hashes(data) if isinstance(data, iso.Patched) else (hashlib.sha256(data).hexdigest(), None)
+              for key, data in jobs.items()}
+    tracing[0] = True
+    with pytest.raises(StopIteration) as done:
+        run.send({key: sha for key, (sha, _) in hashes.items()} | {
+            key.replace("file:", "md5:"): md5 for key, (_, md5) in hashes.items() if md5})
+    tracing[0] = False
+    made, told = done.value.value
+    assert told.to_json() == manifest.to_json() and made.sha256() == whole.sha256()
+    assert sum(len(data) for _, data in made.writes) < 16 << 20
+    patches = sum(isinstance(data, iso.Patched) for data in jobs.values())
+    assert patches >= 20 and len(made.writes) <= 3 * patches + 16   # the site's Blob takes a part a write (X5)
+
+    def outside(wanted: list, given: list) -> list:
+        return [(at, n) for at, n in wanted if not any(a <= at and at + n <= a + size for a, size in given)]
+    assert reads and not outside(reads, spans), (len(reads), outside(reads, spans)[:5])
+    assert not outside(tocs, ahead), outside(tocs, ahead)[:5]
+
+
+def test_a_sparse_read_back_fails_an_image_its_sections_or_lines_dont_hold_though_the_build_hashed_it(usa_iso):
+    """The read-back of a build over views reads the image's sections, never
+    the patches, and takes a line on trust from nothing but what was hashed: a
+    wrong name field in a patched section, a patch gone, a wrong line of a
+    patched file and a stray write in a level no patch touches each fail it,
+    by name (D35); the build it stands on reads back empty."""
+    prepared = generator.prepare({"seed": "2"}, {})
+    db, placement = kept_logic().db, prepared.plan.placement
+    stamp = sdk._stamp(str(usa_iso))
+    with iso.Reader(stamp.path) as r:
+        views = generator.sections(prepared, r)
+        config = r.read(generator.CONFIG)
+        untouched = r.start(r.find("gamedata/training_room.xbr"))
+        listing = r.start(r.find("filelist.txt"))
+    given = views | {generator.CONFIG: config}
+    made, _ = edits.image(stamp, [generator.plan_layer(prepared, given)], given, root=False, map=sdk._map)
+    assert writer.read_back(made, placement, db, sparse=True) == []
+
+    key, edit = sorted(prepared.edits.items())[0]
+    lid = sorted(edit.repoint)[0]
+    field = writer._locations(db)[lid]["name_ref"]["field"]
+    level = views[f"gamedata/{edit.file}.xbr"]
+    patch = next(w for w in made.writes if w[0] <= level.start + field < w[0] + len(w[1]))
+    filelist_write = next(w for w in made.writes if w[0] == listing)
+    wrong = filelist_write[1].replace(made.md5s[iso.key(f"gamedata/{edit.file}.xbr")][0].encode(), b"0" * 32)
+    assert wrong != filelist_write[1]
+    forged = {
+        f"^{lid}: the plan has": (*made.writes, (level.start + field, bytes(8))),
+        fr"^{lid}: the plan has(?# its patch gone)": tuple(w for w in made.writes if w is not patch),
+        fr"^{re.escape(edit.file)}\.xbr: its filelist\.txt line": tuple((at, wrong if at == listing else data)
+                                                                       for at, data in made.writes),
+        r"^training_room\.xbr: its filelist\.txt line": (*made.writes, (untouched + 64, b"\xff"))}
+    for pattern, writes in forged.items():
+        problems = writer.read_back(dataclasses.replace(made, writes=writes), placement, db, sparse=True)
+        assert any(re.search(pattern, problem) for problem in problems), (pattern, problems[:3])
 
 
 def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_fails_the_build(usa_iso):

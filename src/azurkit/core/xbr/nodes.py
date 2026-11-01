@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import functools
 import struct
+from collections.abc import Callable
 from dataclasses import dataclass
 
 TOC_START = 0x3C      # the first TOC entry, past the 15-word header
@@ -45,10 +46,19 @@ def parse_toc(data: bytes | bytearray | memoryview) -> list[TocEntry]:
     return list(_entries(bytes(data[TOC_START:TOC_START + count * TOC_ROW_SIZE]), data_start))
 
 
+def read_toc(read: Callable[[int, int], bytes]) -> list[TocEntry]:
+    """:func:`parse_toc` of an archive read by ``read(offset, size)``: its
+    header, then its TOC's rows, and no other byte of it."""
+    head = read(0, TOC_START)
+    if head[:4] != b"xobx":
+        raise ValueError(f"not an XBR archive ({len(head)} B, no xobx header)")
+    return parse_toc(head + read(TOC_START, struct.unpack_from("<I", head, 0x0C)[0] * TOC_ROW_SIZE))
+
+
 def _toc_header(data: bytes | bytearray | memoryview) -> tuple[int, int]:
     if bytes(data[:4]) != b"xobx" or len(data) < TOC_START:
         raise ValueError(f"not an XBR archive ({len(data)} B, no xobx header)")
-    count, data_start = struct.unpack_from("<II", data, 0x0C)
+    count, data_start = struct.unpack("<II", data[0x0C:0x14])   # by a slice, as an iso.View has no buffer
     if TOC_START + count * TOC_ROW_SIZE > len(data):
         raise ValueError(f"an XBR archive whose {count} TOC entries run past its {len(data)} B")
     return count, data_start
@@ -67,7 +77,7 @@ def lstr(buf, at: int, limit: int | None = 300) -> str | None:
     """The string field at ``at`` in ``buf`` as text (a byte past ASCII as
     U+FFFD); ``None`` for a length of 0, of ``limit`` or more, or a string
     outside ``buf``."""
-    n, ref = struct.unpack_from("<Ii", buf, at)
+    n, ref = struct.unpack("<Ii", buf[at:at + 8 or None])   # by a slice, as an iso.View has no buffer; at as unpack_from's
     start = at + 4 + ref
     if n == 0 or (limit is not None and n >= limit) or start <= 0 or start + n > len(buf):
         return None

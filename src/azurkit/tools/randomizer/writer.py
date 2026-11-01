@@ -38,21 +38,28 @@ both: the writes as the build's first layer, the read-back on the final
 image (Europe's stale ``filelist.txt`` lines repaired by the packer)
 before it is written (D35).
 
+Both need only a level's TOC and the node sections it names
+(:func:`level_spans`: 13 MB of the levels' 700): :func:`_level_writes` reads an
+:class:`iso.View` of them as it does the whole file, and :func:`read_back`
+with ``sparse`` reads those of the image, and each level's md5 from what the
+build hashed.
+
 Pure stdlib at import (the planner's contract,
 ``tests/test_import_isolation.py``).  Nothing here prints a game byte.
 """
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import struct
-from collections.abc import Callable, Mapping, MutableMapping
+from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 
 from azurkit.core import iso
 
 from azurkit.tools.randomizer.ports import listed
-from azurkit.core.xbr.nodes import lstr, record_offsets
+from azurkit.core.xbr.nodes import TocEntry, lstr, read_toc, record_offsets
 from azurkit.core.xbr.nodes import TOC_ROW_SIZE, TOC_START, parse_toc
 
 NAME_FIELD = 0x1C
@@ -256,8 +263,44 @@ def write_plan(files: MutableMapping[str, bytearray], placement: Mapping[str, st
     return WriteReport([edits[k] for k in sorted(edits)], shas)
 
 
-def read_back(image, placement: Mapping[str, str], db,
-              progress: Callable[[int, int], object] | None = None) -> list[str]:
+def graphs(db) -> dict[str, list[int]]:
+    """Each level's node sections :func:`read_back` reads: those with a
+    location of the database."""
+    out: dict[str, set[int]] = {}
+    for lid in _locations(db):
+        stem, g = lid.split("/")[:2]
+        out.setdefault(stem, set()).add(int(g[1:]))
+    return {stem: sorted(gs) for stem, gs in sorted(out.items())}
+
+
+def level_spans(toc: Sequence[TocEntry], size: int, gs: Iterable[int]) -> list[tuple[int, int]]:
+    """``(file offset, size)`` of what the writer and the read-back read of a
+    level of ``size`` bytes: its header and TOC ``toc``, and each node section
+    of ``gs`` with the gap after it; none for a section it doesn't have."""
+    nodes = [e for e in toc if e.tag == "node"]
+    starts = sorted({e.file_offset for e in toc} | {size})
+    out = [(0, TOC_START + TOC_ROW_SIZE * len(toc))]
+    for g in gs:
+        if g < len(nodes):
+            lo = nodes[g].file_offset
+            out.append((lo, next(s for s in starts if s > lo) - lo))
+    return out
+
+
+def _line_holds(r: iso.Reader, image: iso.Image, entry: iso.Entry, line, given) -> bool:
+    """Whether a level's ``filelist.txt`` ``line`` in ``image`` is right, its
+    bytes unread: a patched file's names its size and the md5 the build
+    hashed over every byte of it, and a file no write meets (the input's, as
+    its stamp vouched for it) has the input's line ``given``."""
+    if line is None or line.size != entry.size:
+        return False
+    if (held := image.held_md5(entry.path)) is not None:
+        return line.md5 == held
+    return line == given and not image.writes_within(r.start(entry), entry.size)
+
+
+def read_back(image, placement: Mapping[str, str], db, progress: Callable[[int, int], object] | None = None, *,
+              sparse: bool = False) -> list[str]:
     """Every difference between ``image`` (an ISO path or an
     :class:`~azurkit.core.iso.Image`) and ``placement``: each location
     of the database decoded from its file in the image (its node section
@@ -267,9 +310,13 @@ def read_back(image, placement: Mapping[str, str], db,
     and size (an image's :meth:`~azurkit.core.iso.Image.md5`: a file it
     wrote with its md5 given isn't hashed again).  Empty when the image
     holds the plan.  One file at a time, ``progress(done, total)`` hearing
-    each (an exception it raises stops it)."""
-    from azurkit.tools.randomizer.ports import XisoReader
+    each (an exception it raises stops it).
 
+    With ``sparse`` (``image`` an :class:`~azurkit.core.iso.Image`, of a build
+    over views), a level's sections are read through the image as ever, and
+    its bytes are read whole only when its line can't be judged without them
+    (:func:`_line_holds`), so a location is still decoded from what the image
+    holds: never from the patches."""
     base = {it["name"]: it.get("base", it["name"]) for it in db.items["item"]}
     want: dict[str, dict[str, str]] = {}
     for lid, loc in sorted(_locations(db).items()):
@@ -277,20 +324,30 @@ def read_back(image, placement: Mapping[str, str], db,
         want.setdefault(lid.split("/", 1)[0], {})[lid] = base.get(item, item)
     out = []
     md5 = image.md5 if isinstance(image, iso.Image) else lambda _, data: hashlib.md5(data).hexdigest()
-    with XisoReader(image) as r:
-        lines = {e.path.lower(): e for e in listed(r.read_file("filelist.txt"))}
+    with iso.Reader(image) as r:
+        lines = {e.path.lower(): e for e in listed(r.read("filelist.txt"))}
+        inputs = None
+        if sparse:
+            with iso.Reader(image.source) as given:
+                inputs = {e.path.lower(): e for e in listed(given.read("filelist.txt"))}
         for done, (stem, locs) in enumerate(sorted(want.items()), 1):
-            data = r.read_file(path := f"gamedata/{stem}.xbr")
+            path, entry = f"gamedata/{stem}.xbr", r.find(f"gamedata/{stem}.xbr")
             line = lines.get(f"{stem}.xbr")
-            if line is None or (line.md5, line.size) != (md5(path, data), len(data)):
-                out.append(f"{stem}.xbr: its filelist.txt line doesn't name its md5 and size")
-            node_entries = [e for e in parse_toc(data) if e.tag == "node"]
-            sections: dict[int, tuple[memoryview, list]] = {}
+            if sparse and _line_holds(r, image, entry, line, inputs.get(f"{stem}.xbr")):
+                data, toc = None, read_toc(functools.partial(r.range, entry))
+            else:
+                data = r.read(entry)
+                if line is None or (line.md5, line.size) != (md5(path, data), len(data)):
+                    out.append(f"{stem}.xbr: its filelist.txt line doesn't name its md5 and size")
+                toc = parse_toc(data)
+            node_entries = [e for e in toc if e.tag == "node"]
+            sections: dict[int, tuple[memoryview | bytes, list]] = {}
             for lid, item in locs.items():
                 g, rec = (int(part[1:]) for part in lid.split("/")[1:])
                 if g not in sections:
                     e = node_entries[g]
-                    s = memoryview(data)[e.file_offset:e.file_offset + e.size]
+                    s = (r.range(entry, e.file_offset, e.size) if data is None
+                         else memoryview(data)[e.file_offset:e.file_offset + e.size])
                     sections[g] = (s, record_offsets(s))
                 s, recs = sections[g]
                 ro = recs[rec] if rec < len(recs) else None

@@ -19,6 +19,11 @@ through the packs' catalog (D83(c)).
   field or the string that names, or a conflict dropped its graph's group)
   is a D28 conflict and the logic unverified, and any other fails the
   build, by name (D35); a contained touch's cells likewise.
+- :func:`sections`, :func:`heads` and :func:`pages`: the same build reading only
+  each level's TOC and node sections (:class:`iso.View` s for
+  ``edits.image``'s base, the host's reads ahead), which no host asks for yet:
+  until one does (X4: 57 page reads, each 200 ms late in Safari, without its
+  reads ahead), ``read_back``'s ``sparse`` stays off and every read as it was.
 - :func:`movement_reasons`: the packs' sliders the logic doesn't model, past
   their ``logic_floor`` (the catalog's), and the speed sliders at 0 or less
   whose move never ends: each leaves the logic unverified, never refused.
@@ -36,6 +41,7 @@ catalog.
 from __future__ import annotations
 
 import collections
+import functools
 import hashlib
 import math
 import struct
@@ -45,7 +51,7 @@ from types import SimpleNamespace
 
 from azurkit.core import iso
 from azurkit.core.progress import note
-from azurkit.core.xbr import Document, edits
+from azurkit.core.xbr import Document, edits, nodes
 from azurkit.edits.layer import Change, Conflict, Layer
 from azurkit.tools.randomizer import layer, physics, writer
 from azurkit.tools.randomizer.planner.loader import kept_logic
@@ -149,6 +155,59 @@ def files(prepared: Prepared) -> list[str]:
     return sorted(names | ({"gamedata/town.xbr"} if "obsidian_cost" in prepared.recipe else set()))
 
 
+def sections(prepared: Prepared, reader: iso.Reader, whole: Sequence[str] = ()) -> dict[str, iso.View]:
+    """:func:`files`' levels as views of the image ``reader`` reads, holding
+    what :func:`plan_layer` reads of each, for ``edits.image``'s base: the rest
+    of that base is read whole, as ``whole`` (a file another layer reads) and
+    config.xbr, of which :func:`contained` reads the tables."""
+    out = {}
+    for file in files(prepared):
+        if file == CONFIG or file in whole:
+            continue
+        entry = reader.find(file)
+        toc = nodes.read_toc(functools.partial(reader.range, entry))
+        gs = sorted(edit.g for edit in prepared.edits.values() if f"gamedata/{edit.file}.xbr" == file)
+        out[file] = reader.view(file, writer.level_spans(toc, entry.size, gs) + _thresholds(prepared, file, entry))
+    return out
+
+
+def _thresholds(prepared: Prepared, file: str, entry: iso.Entry) -> list[tuple[int, int]]:
+    """``(file offset, size)`` of the obsidian cost's lock tables in ``file``."""
+    if file != "gamedata/town.xbr" or "obsidian_cost" not in prepared.recipe:
+        return []
+    tables = [(at, layer.OBSIDIAN_LOCK_COUNT * layer.OBSIDIAN_LOCK_ENTRY_SIZE) for at in layer.OBSIDIAN_LOCK_TABLES]
+    return [(at, n) for at, n in tables if at + n <= entry.size]
+
+
+HEAD = 1 << 18   # a level's first bytes a host reads ahead: the largest TOC is 132 KB
+
+
+def heads(prepared: Prepared, reader: iso.Reader) -> list[tuple[int, int]]:
+    """``(image offset, size)``: what a host reads ahead first of a build over
+    :func:`sections`, reading only the folders' tables itself: each level's
+    header and TOC, which :func:`pages` then reads."""
+    entries = [reader.find(f"gamedata/{stem}.xbr") for stem in writer.graphs(prepared.logic.db)]
+    return iso.merged((reader.start(e), min(HEAD, e.size)) for e in entries)
+
+
+def pages(prepared: Prepared, reader: iso.Reader, whole: Sequence[str] = ()) -> list[tuple[int, int]]:
+    """``(image offset, size)``, sorted and apart, of every read a build over
+    :func:`sections` makes but the changed files' hashes (a host's, each file
+    whole): the volume descriptor and the folders' tables, ``filelist.txt`` and
+    any file whose line it repairs, config.xbr and ``whole``, and each level's
+    TOC and node sections (:func:`writer.level_spans`). A read outside them
+    still answers, only late."""
+    out = reader.tables()
+    entries = [reader.find("filelist.txt"), reader.find(CONFIG), *map(reader.find, whole), *iso.stale(reader)]
+    out += [(reader.start(e), e.size) for e in entries]
+    for stem, gs in writer.graphs(prepared.logic.db).items():
+        entry = reader.find(file := f"gamedata/{stem}.xbr")
+        toc = nodes.read_toc(functools.partial(reader.range, entry))
+        spans = writer.level_spans(toc, entry.size, gs) + _thresholds(prepared, file, entry)
+        out += [(reader.start(entry) + at, n) for at, n in spans]
+    return iso.merged(out)
+
+
 def _change(base: bytes, file: str, offset: int, data: bytes, group: str) -> Change:
     return Change(file, offset, hashlib.sha256(base[offset:offset + len(data)]).hexdigest(), bytes(data), group)
 
@@ -236,7 +295,8 @@ def plan_layer(prepared: Prepared, base: Mapping[str, bytes]) -> Layer:
 
 
 def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], conflicts: Sequence[Conflict],
-              reasons: Sequence[str] = (), progress: Callable[[int, int], object] | None = None) -> dict:
+              reasons: Sequence[str] = (), progress: Callable[[int, int], object] | None = None, *,
+              sparse: bool = False) -> dict:
     """The randomizer's verdict on the built ``image`` (its ``layers``,
     after ``compose``'s ``conflicts``) after ``reasons`` (the movement's,
     :func:`movement_reasons`): its seed, share string, settings, plan
@@ -245,11 +305,12 @@ def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], con
     (:func:`contained`) are read back too: one a later layer changed
     leaves its item takeable through its container. ``ValueError`` names
     every difference no later layer explains (D35). ``progress(done, total)``
-    hears each level file read back (``writer.read_back``)."""
+    hears each level file read back (``writer.read_back``, as its ``sparse``
+    for a build over :func:`sections`)."""
     db, plan = prepared.logic.db, prepared.plan
     locs, later, failures = writer._locations(db), [], []
     dropped = {c.dropped: c.layer for c in conflicts if c.overwrote == LAYER}
-    problems = writer.read_back(image, plan.placement, db, progress)
+    problems = writer.read_back(image, plan.placement, db, progress, sparse=sparse)
     held: dict[str, bytes] = {}
     for problem in problems:
         lid = problem.split(":", 1)[0]
