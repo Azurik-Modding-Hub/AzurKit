@@ -132,3 +132,28 @@ def test_the_page_parses_no_text_as_html():
              if path.suffix in (".mjs", ".js", ".html")
              for k, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1) for m in HTML_SINKS.finditer(line)]
     assert found == []
+
+
+OWN_PLATFORM = {"fcntl", "grp", "posix", "pty", "pwd", "resource", "syslog", "termios", "tty",   # POSIX's
+                "msvcrt", "nt", "winreg", "winsound", "_winapi"}                               # Windows'
+"""Stdlib modules only one platform has: a module that imports one at its top fails to load on the other."""
+TOP_IMPORT = re.compile(r"^(?:import\s+([\w., ]+)|from\s+([\w.]+)\s+import)", re.M)
+
+
+def test_no_module_imports_one_platforms_own_module_at_its_top():
+    """Every Python file of the checkout loads on macOS, Linux and Windows
+    (CI tests all three, D1022): one that needs a module of
+    :data:`OWN_PLATFORM` imports it in the function that uses it
+    (``scripts/fullsuite.py``'s runner locks with ``fcntl``; Windows
+    couldn't collect ``tests/test_dev_tools.py`` while the module imported
+    it at its top, Step 4.4ci2)."""
+    def tops(source: str) -> list[str]:   # an unindented import is a module's own (one in a block is indented)
+        return [name for imported, origin in TOP_IMPORT.findall(source)
+                for name in (map(str.strip, imported.split(",")) if imported else [origin])
+                if name.split()[0].split(".")[0] in OWN_PLATFORM]
+    assert tops("import fcntl\nimport os, pwd as p\nfrom msvcrt import getch\ndef f():\n    import termios\n") == [
+        "fcntl", "pwd as p", "msvcrt"]
+    found = [f"{path.relative_to(ROOT).as_posix()}: {name}" for path in sorted(ROOT.glob("*.py")) + sorted(
+             p for d in ("src", "scripts", "tests", "devkit", "shimkit") for p in (ROOT / d).rglob("*.py"))
+             for name in tops(path.read_text(encoding="utf-8"))]
+    assert found == []

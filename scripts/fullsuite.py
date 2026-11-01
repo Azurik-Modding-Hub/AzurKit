@@ -38,7 +38,9 @@ the perf stage's arguments.
 A passing receipt with the same key is reused; ``--force`` runs again.
 Receipts live in ``$AZURKIT_RECEIPTS``, else in ``azurkit-receipts/`` in the
 repository's common git dir, shared by its worktrees. ``scripts/land.py``
-reads them. Stdlib only, macOS and Linux (it locks with ``fcntl``).
+reads them. Stdlib only; the run itself (:func:`runner`) is macOS and Linux's
+(it locks with ``fcntl``, imported there, so the planning and receipt code the
+tests import loads on Windows too, Step 4.4ci2).
 """
 
 from __future__ import annotations
@@ -46,7 +48,6 @@ from __future__ import annotations
 import argparse
 import ast
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -287,6 +288,8 @@ def command(m: dict) -> list[str]:
 
 def runner(meta: Path) -> int:
     """The detached run: wait for the lock, run pytest, write the receipt."""
+    import fcntl   # POSIX's: only the run locks (the module loads on Windows)
+
     deadline = time.time() + 60
     while (m := load(meta)) is None or m.get("runner_pid") != os.getpid():   # its queuer names it first
         if time.time() > deadline:
