@@ -942,7 +942,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `art/<version>/<name>`. The Tracker view shows the world map with every
     level's picture as soon as it shows, before any plan (its badges and
     exits once one is tracked), and a level as Modkit's map view on a canvas: its picture by floor (the floor
-    buttons), its features, barriers, tracked spots and exits at their
+    buttons, each badged with its tracked spots not collected yet), its features, barriers, tracked spots and exits at their
     vanilla places (each spot's ring, icon and check as Modkit's track(), an
     exit's ring by what using it needs, `tracking.world()`'s `maps`; a
     collected spot leaves the map, and Show collected, remembered, shows

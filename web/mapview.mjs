@@ -241,10 +241,16 @@ export class MapView {
     if (this.els.hint.textContent !== text) this.els.hint.textContent = text;
   }
 
+  // Each floor's button, badged with its tracked spots not collected yet (and with Gems its gems left).
   floorButtons() {
     const { floors } = this.els, e = this.level === null ? null : this.entry(this.level);
     if (!e || e.floors.length < 2) return floors.replaceChildren();
-    const left = new Array(e.floors.length).fill(0), gems = this.hooks.gems() && this.hooks.view()?.gems;
+    const view = this.hooks.view(), left = new Array(e.floors.length).fill(0), gems = this.hooks.gems() && view?.gems;
+    const items = new Array(e.floors.length).fill(0);
+    for (const i of view ? [...e.items, ...e.spots] : []) {
+      const s = view.spots[i.id];
+      if (s && s.state !== "got" && s.state !== "live") items[i.at[2]] += 1;
+    }
     if (gems) {
       for (const g of e.gems ?? []) {
         const s = gems.spots[g.id];
@@ -262,7 +268,12 @@ export class MapView {
           this.draw();
         });
         const label = Object.assign(document.createElement("label"), { className: "on" });
-        label.append(radio, ` ${gems ? `${k + 1} · ${left[k]}` : k + 1}`);
+        label.append(radio, ` ${k + 1}`);
+        if (items[k]) {
+          label.append(Object.assign(document.createElement("b"), { className: "left", textContent: String(items[k]),
+                                                                    title: `${items[k]} not collected on floor ${k + 1}` }));
+        }
+        if (gems) label.append(` · ${left[k]}`);
         return label;
       }));
   }

@@ -1300,7 +1300,7 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
     zoomed past its pixels draws its floor's detail picture (Step 4.3l, from
     the same folder), and a smaller window fits it smaller. With Gems on, each gem spot of the
     floor shown is a dot, the floor buttons (each on one line, its text on
-    its radio's middle) and the count say how many are left, the counter
+    its radio's middle, badged with its spots not collected yet) and the count say how many are left, the counter
     row the gems taken of all (R1.43's words), and Live (the app's: a
     scripted game taking a gem) takes its dot away. No CSP violation."""
     from azurkit.tools.randomizer.live import game, link
@@ -1379,8 +1379,14 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
         dots = sum(1 for g in entry["gems"] if g["at"][2] == entry["main"])
         tips = page.evaluate(MAP_HITS)
         assert sum(t is not None and t.split(" ")[0].lower() in ("diamond", "emerald", "ruby", "sapphire") for t in tips) == dots
-        floors = page.evaluate("() => [...document.querySelectorAll('#map-floors label')].map((l) => l.textContent.trim())")
-        assert len(entry["floors"]) < 2 or floors[entry["main"]] == f"{entry['main'] + 1} · {dots}"
+        floors = page.evaluate("""() => [...document.querySelectorAll('#map-floors label')].map((l) => [
+            [...l.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim(),
+            l.querySelector(".left")?.textContent ?? null])""")
+        states = page.evaluate("() => azurkit.tracker.state.view.spots")
+        left = [sum(1 for i in entry["items"] + entry["spots"] if i["at"][2] == k
+                    and states[i["id"]]["state"] not in ("got", "live")) for k in range(len(entry["floors"]))]
+        assert len(entry["floors"]) < 2 or (floors[entry["main"]][0] == f"{entry['main'] + 1} · {dots}"
+                                            and [b for _, b in floors] == [str(n) if n else None for n in left])
         assert [b for b in page.evaluate(FLOOR_BUTTONS) if b[0] != 1 or b[1] > 1] == []
         gems = sum(n for _, n in first["gems"]["counts"].values())
         _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 0 of {gems}')")
