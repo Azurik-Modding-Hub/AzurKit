@@ -121,15 +121,17 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
                                                                                                     monkeypatch):
     """``sdk.image`` reports each named stage of a build as the progress
     record (``core.progress``), in order, the planner's note among the
-    seed's, and ``sdk.tracker`` a plan's first view's, the maps' exits
-    counted inside its world map's step (Step 4.3m); with ``spoiler`` false
+    seed's, the fill's items placed counted inside its step and never back
+    when an attempt sticks (seed 16's first does), and ``sdk.tracker`` a
+    plan's first view's, the maps' exits counted inside its world map's
+    step (Step 4.3m); with ``spoiler`` false
     its report leaves the spoiler out, and ``sdk.spoiler(plan, built=True)`` gives it then.
     ``sdk.save`` writes the image the build made, without planning it
     again, its sha256 the image's, following the write in the record."""
     seen, writes = [], []
     monkeypatch.setattr(sdk, "_STAMPS", {})   # the image's first check in this process: its bytes are reported
     monkeypatch.setattr(rando_fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills now
-    made, report = sdk.image({"iso": str(usa_iso), "packs": {"qol_alloc_race": {}}, "randomizer": {"seed": "2"}},
+    made, report = sdk.image({"iso": str(usa_iso), "packs": {"qol_alloc_race": {}}, "randomizer": {"seed": "16"}},
                              progress=seen.append, spoiler=False)
     assert list(dict.fromkeys(r["stage"] for r in seen)) == ["plan", "check", "read", "pack", "layout", "judge"]
     check = [r for r in seen if r["stage"] == "check"]
@@ -138,6 +140,8 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     planned = [r["label"] for r in seen if r["stage"] == "plan"]   # the fill's items placed counted in its stage
     assert planned[:2] == ["Planning the seed", "Planning the seed (placing the items)"] and len(planned) > 20
     assert all(re.fullmatch(r"Planning the seed \(placing the items, \d+ of \d+\)", label) for label in planned[2:])
+    percents = [r["percent"] for r in seen if r["stage"] == "plan"][2:]   # attempt 1's bar starts where 0's stuck
+    assert report["plan"]["attempt"] == 1 and percents == sorted(percents)
     monkeypatch.setattr(tracking, "_KEPT", type(tracking._KEPT)())   # the plan's first view, in a process that
     for module, name in ((tracking, "world"), (needs, "overlays"), (needs, "exit_edges")):   # reads the maps' exits
         monkeypatch.setattr(module, name, functools.cache(getattr(module, name).__wrapped__))
