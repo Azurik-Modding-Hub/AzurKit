@@ -20,7 +20,8 @@ late, Safari's read model) and ``capped`` (the app with ``AZURKIT_CORES=4``
 and the site in WebKit, against 9 s, with our processes' peak resident size
 at most 6 GiB). Default: ``app`` and ``site`` in WebKit (a changed area's);
 ``--all`` every profile and browser (:data:`BROWSERS`: WebKit, Chromium and
-Firefox, D994; main's full runs).
+Firefox, D994; main's full runs). Firefox's run logs its tree's peak resident
+size (``tree_peaks``); no verdict reads it.
 
 The verdicts (:func:`judge`): each op runs :data:`R` times (an op with a
 sample over 30 s once), first-time ops each in a fresh state, and its median
@@ -439,7 +440,8 @@ def main(argv: list[str] | None = None) -> int:
     new = new_browsers(wt, "main", "HEAD")   # each one's first record may add its own ops
     t0 = time.monotonic()
     block = {"profiles": profiles, "browsers": browsers, "pairs": sorted(f"{h}:{g}" for h, g in pairs),
-             "cases": {}, "memory": {}, "list": check_list(mine, main_list, new), "untimed": {}, "new": sorted(new)}
+             "cases": {}, "memory": {}, "list": check_list(mine, main_list, new), "untimed": {}, "new": sorted(new),
+             "tree_peaks": {}}
     untimed = {op.id for op in ops if op.untimed}
     block["untimed"] = {op.id: op.untimed for op in ops if op.untimed}
     if cases:
@@ -464,7 +466,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             def drive(run: str, targets: dict[str, int]) -> dict:
                 spec = _perf.RUNS[run]
-                if run == "webkit" and "capped" in profiles:
+                if run == "firefox" or run == "webkit" and "capped" in profiles:
                     spec = dataclasses.replace(spec, memory=True)
                 kept = args.keep / f"{run}.json" if args.keep else None
                 old = json.loads(kept.read_text(encoding="utf-8")) if kept and kept.is_file() else {"samples": {}}
@@ -504,6 +506,8 @@ def main(argv: list[str] | None = None) -> int:
                 ceiling = mine["memory"].get(name)
                 block["memory"][name] = {"peak": peak, "ok": peak <= max(MEMORY, ceiling or 0), "ceiling": ceiling,
                                          "shared": others}   # the site's: another Playwright's WebKit may be in it
+            elif run == "firefox":   # logged, no verdict reads it: the 6 GiB line is the capped profile's
+                block["tree_peaks"][run] = peak
     if args.update_ceilings:
         lst = updated(mine, block["cases"], {k: v["peak"] for k, v in block["memory"].items()}, main_list is None,
                       new)
@@ -527,6 +531,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{k:16} {r['verdict']:12} {r.get('median', '-')!s:>8} s  n {r['n']}  budget {r['budget']}"
               + (f"  ceiling {r['ceiling']}" if r["ceiling"] else "")
               + (f"  starved {r['starved']}" if r.get("starved") else ""))
+    for run, peak in block["tree_peaks"].items():
+        print(f"{run} tree peak {peak / 2**30:.2f} GiB (logged)")
     print(f"perf: {'passed' if block['passed'] else 'failed'}, {len(block['cases'])} cases in {block['wall_s']} s"
           + "".join(f"\n  {line}" for line in block["failures"]))
     if args.json:

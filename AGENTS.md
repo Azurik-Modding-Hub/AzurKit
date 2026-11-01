@@ -1331,7 +1331,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   app's process tree, and the WebKit processes launchd starts for the run's own
   browser (`launchctl print pid/N` holds the mark the run put in its PATH;
   another seat's isn't counted, one launchctl can't say about is);
-  the 4-core / 8 GB computer AzurKit must run well on, D1017). The rule and its
+  the 4-core / 8 GB computer AzurKit must run well on, D1017; Firefox's run
+  logs its tree's peak in the block's `tree_peaks`, and no verdict reads it). The rule and its
   gate hold on this Mac alone; the other platforms are timed later (D1023).
   It starts once the normal-priority load is under 40, at nice 10. The
   clock is the click's (D1006): a Track or Build after a change the player

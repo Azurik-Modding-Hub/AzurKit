@@ -596,6 +596,41 @@ def test_land_needs_a_passing_perf_block_for_src_or_web_a_list_that_only_shrinks
             _git(repo, "reset", "-q", "--hard", "main")
 
 
+def test_the_perf_gate_logs_firefoxs_tree_peak_and_no_verdict_or_list_reads_it(tmp_path, monkeypatch):
+    """Firefox's Save holds gigabytes in its parent, so its first record keeps
+    the tree's peak (``tree_peaks``, the run's kept file too), even over 6 GiB;
+    only the capped profile's peak is judged or listed, so this one fails
+    nothing and adds nothing to the list."""
+    from azurkit.core import gate
+    from scripts import web_tools
+
+    monkeypatch.setattr(perf.signal, "signal", lambda *_: None)
+    monkeypatch.setattr(perf, "R", perf.R)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    repo = tmp_path / "repo"
+    (repo / "tests").mkdir(parents=True)
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    on_main = {"ceilings": {}, "debts": [], "memory": {}, "untimed": {}}
+    (repo / perf.CEILINGS).write_text(perf.render(on_main), encoding="utf-8")
+    _git(repo, "add", perf.CEILINGS)
+    _git(repo, "commit", "-q", "-m", "main")
+    peak = 7 * 2**30
+    image = types.SimpleNamespace(stat=lambda: types.SimpleNamespace(st_size=gate.USA.iso_size))
+    monkeypatch.setattr(gate, "find", lambda release: image)
+    monkeypatch.setattr(web_tools, "wheel", lambda *a, **k: tmp_path / "wheel")
+    monkeypatch.setattr(web_tools, "site", lambda *a, **k: tmp_path / "site")
+    monkeypatch.setattr(perf, "native_failures", lambda *_: [])
+    monkeypatch.setattr(_perf, "drive", lambda wt, spec, todo, *_: {
+        "samples": {op: [{"s": 0.5, "bar": 0, "progress": False}] * n for op, n in todo.items()}, "native": [],
+        "memory_peak": peak if spec.memory else None, "memory_shared": False, "log": []})
+    assert perf.main([str(repo), "--select", "site:build", "--ops", "S05", "--profiles", "site", "--browsers", "firefox",
+                      "--update-ceilings", "--keep", str(tmp_path / "keep"), "--json", str(tmp_path / "perf.json")]) == 0
+    block = json.loads((tmp_path / "perf.json").read_text(encoding="utf-8"))
+    assert (block["tree_peaks"], block["memory"], block["passed"]) == ({"firefox": peak}, {}, True)
+    assert json.loads((tmp_path / "keep" / "firefox.json").read_text(encoding="utf-8"))["memory_peak"] == peak
+    assert perf.listed((repo / perf.CEILINGS).read_text(encoding="utf-8")) == on_main
+
+
 def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_grows(tmp_path, monkeypatch):
     """D994: a browser the stack's perf.py times and main's doesn't
     (``perf.new_browsers``) gets one first record: ``--update-ceilings``
