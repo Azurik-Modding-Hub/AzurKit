@@ -1225,8 +1225,9 @@ def test_the_apps_cache_folder_loads_only_what_this_install_wrote_there(tmp_path
     entry.write_bytes(pickle.dumps(Planted()))
     older.write_bytes(pickle.dumps(Planted()))   # 4.3i's file of it
     monkeypatch.setattr(characters, "CACHE", mine)
-    assert characters._kept(key, lambda: "worked out") == "worked out" and not ran.exists()
-    assert characters._kept(key, lambda: "again") == "worked out"   # what it kept, this install's
+    text = str.encode, bytes.decode
+    assert characters._kept(key, lambda: "worked out", *text) == "worked out" and not ran.exists()
+    assert characters._kept(key, lambda: "again", *text) == "worked out"   # what it kept, this install's
     assert swapcache.settle() and not older.exists() and not ran.exists()
 
     stamps, their_stamps = (swapcache.Stamps(tmp_path / "stamps.json", key=mine_key),
@@ -1307,6 +1308,10 @@ def test_the_store_keeps_its_kinds_in_one_budget_and_reads_no_torn_or_altered_en
         assert kept.get("memos", d) == {"view": [1]} and swapcache._BEHIND.thread.daemon
         written.set()
         assert settle() and swapcache.Kept(folder, most, key).get("memos", d) == {"view": [1]}
+        made = []   # a put of what makes its bytes: made once, behind the answer (a get before the writer answered from them)
+        assert kept.put("swap", d, lambda: made.append(1) or b"made") and settle() and made == [1]
+        assert kept.get("swap", d) == b"made"
+        assert kept.put("swap", a, lambda: 1 / 0) and settle() and kept.get("swap", a) is None   # can't be made: a miss
     assert kept.clear(["swap"]) == ["swap"] and kept.get("swap", c) is None and kept.get("dresses", b) == dress
     kept.clear()
     assert sum(v["size"] for v in kept.usage().values()) == 0

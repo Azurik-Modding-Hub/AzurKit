@@ -6,11 +6,12 @@ A kind (:data:`KINDS`) keeps data only, in its own form: JSON (a value
 :func:`encode` writes canonically and :func:`json.loads` reads back) or
 AZKP1 (bytes that begin with :data:`AZKP1`, the dress's answers), so
 reading an entry of either runs no code: the store never unpickles. One
-kind, ``swap``, keeps bytes it doesn't type: the swap's answers that
-``tools.characters._kept`` and ``app.engine._kept`` pickle today, until
-they move to ``dresses`` (AZKP1) and ``memos`` and ``pictures`` (JSON); then
-it goes. Until then the app's seal (an HMAC under the install's own key) is
-what keeps a pickle it didn't write out (SEC-4).
+kind, ``swap``, keeps bytes it doesn't type: a dress's ``AZKP1`` plan and
+size (``tools.characters._kept``, no pickle) and the match and pictures
+``app.engine._kept`` pickles today, until those move to ``memos`` and
+``pictures`` (JSON), the plans to ``dresses`` with them (the page's Storage
+lists ``swap``); then it goes. Until then the app's seal (an HMAC under the
+install's own key) is what keeps a pickle it didn't write out (SEC-4).
 
 An entry is one file, ``<folder>/<kind>/<key>.kept``: :data:`MAGIC`, the
 body's length, its seal and the body, written whole or not at all (a part

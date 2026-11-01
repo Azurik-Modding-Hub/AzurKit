@@ -50,7 +50,6 @@ import functools
 import hashlib
 import json
 import math
-import pickle
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path, PurePath
@@ -90,10 +89,15 @@ VARIANT_OPTIONS = {   # a recipe's field -> _player_variants.options' keyword (M
     "jiggle_strength": "jiggle_strength", "jiggle_stiffness": "jiggle_stiffness"}
 CACHE = None
 """A host's store of the swap's answers, kept across calls and launches
-(``get(key) -> bytes | None``, ``put(key, bytes)``: the app's, in its user
-cache), or ``None`` (each is worked out again): :func:`size` and
-:func:`plan` keep theirs under :func:`cache_key`; a recipe file's
+(``get(key) -> bytes | None``, ``put(key, bytes or what makes them)``, made
+behind the answer: the app's, in its user cache), or ``None`` (each is
+worked out again): :func:`size` and :func:`plan` keep theirs under
+:func:`cache_key`, a size as ``float.hex``'s text and a plan as ``AZKP1``
+(:mod:`.shipped`'s, at :data:`KEPT_LEVEL`), never a pickle; a recipe file's
 (``variant_file``) never."""
+KEPT_LEVEL = 3
+"""A kept plan's zstd level: booblord's 117 MB of changes in 7.9 MB and 0.26 s behind the answer (the shipped
+files' 19 takes about 11 s for 6.6 MB; a pickle 110 MB)."""
 
 
 @functools.cache
@@ -138,14 +142,19 @@ def cache_key(what: str, recipe: Mapping, release: gate.Release, before: Sequenc
     return h.hexdigest()
 
 
-def _kept(key: str | None, work: Callable[[], object]) -> object:
+def _kept(key: str | None, work: Callable[[], object], dump: Callable[[object], bytes],
+          load: Callable[[bytes], object]) -> object:
     """``work()``'s answer, from :data:`CACHE` under ``key`` when it holds
-    it, else worked out and kept there."""
+    what ``load`` reads (a ``ValueError``: a miss), else worked out and kept
+    there, as ``dump`` makes it behind the answer."""
     if key is not None and (blob := CACHE.get(key)) is not None:
-        return pickle.loads(blob)
+        try:
+            return load(blob)
+        except ValueError:
+            pass
     found = work()
     if key is not None:
-        CACHE.put(key, pickle.dumps(found, pickle.HIGHEST_PROTOCOL))
+        CACHE.put(key, lambda: dump(found))
     return found
 
 
@@ -233,7 +242,8 @@ def size(recipe: Mapping, vanilla) -> float:
     recipe = {k: v for k, v in recipe.items() if k != "chain"}   # the size reads no chain
     if (found := shipped.size(recipe, vanilla.release)) is not None:
         return found
-    found = _kept(cache_key("size", recipe, vanilla.release), lambda: _size(recipe, vanilla))
+    found = _kept(cache_key("size", recipe, vanilla.release), lambda: _size(recipe, vanilla),
+                  lambda value: float(value).hex().encode(), lambda blob: float.fromhex(blob.decode()))
     shipped.heard_size(recipe, vanilla.release, found)
     return found
 
@@ -388,8 +398,11 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
         if (answered := shipped.plan(found, vanilla.release, over[0], over[3])) is not None:
             note(f"Dressing {recipe['species']} (its shipped build)")
             return answered
+    def base() -> dict[str, bytes]:
+        return {f: vanilla.read(f) for f in FILES}   # what a kept plan's whole files are compressed against
     return _kept(cache_key("plan", recipe, vanilla.release, before, folded),
-                 lambda: _plan(recipe, vanilla, before, packs, folded, note, over))
+                 lambda: _plan(recipe, vanilla, before, packs, folded, note, over),
+                 lambda found: shipped.encode(*found, base(), KEPT_LEVEL), lambda blob: shipped.decode(blob, base()))
 
 
 def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object], folded: float | None,

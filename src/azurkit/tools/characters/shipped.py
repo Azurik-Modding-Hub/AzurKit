@@ -208,9 +208,10 @@ def _window(prefix: bytes, size: int) -> int:
     return max(20, (len(prefix) + size).bit_length())
 
 
-def encode(layer: Layer, lines: Sequence[str], reasons: Sequence[str], base: Mapping[str, bytes]) -> bytes:
-    """A plan's answer as an ``AZKP1`` file: each whole file of :data:`base`
-    zstd-compressed at :data:`LEVEL` against its vanilla bytes, the rest as
+def encode(layer: Layer, lines: Sequence[str], reasons: Sequence[str], base: Mapping[str, bytes],
+           level: int = LEVEL) -> bytes:
+    """A plan's answer as an ``AZKP1`` file: each whole file of ``base``
+    zstd-compressed at ``level`` against its vanilla bytes, the rest as
     they are."""
     from compression import zstd
 
@@ -220,7 +221,7 @@ def encode(layer: Layer, lines: Sequence[str], reasons: Sequence[str], base: Map
                    "lines": list(lines), "reasons": list(reasons), "changes": []}, []
     for c in layer.changes:
         if c.whole and c.file in base:
-            options = {zstd.CompressionParameter.compression_level: LEVEL,
+            options = {zstd.CompressionParameter.compression_level: level,
                        zstd.CompressionParameter.window_log: _window(base[c.file], len(c.after)),
                        zstd.CompressionParameter.enable_long_distance_matching: 1}
             data, enc = zstd.compress(c.after, options=options,

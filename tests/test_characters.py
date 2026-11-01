@@ -1318,7 +1318,8 @@ def test_a_bodys_answers_kept_in_the_apps_store_build_the_same_image_and_miss_wh
     (``app.swapcache.Folder`` as ``characters.CACHE``, a launch's on the
     same folder) build keylord's image as a fresh dress builds it, without
     working its size and plan out again; an earlier layer changed (a pack
-    ticked) works out its plan again, and a changed content folder both."""
+    ticked) works out its plan again, and a changed content folder both. The
+    size is its hex and the plan ``AZKP1`` (no pickle), a fraction of its changes."""
     from azurkit.app import swapcache
 
     kept = []
@@ -1334,6 +1335,11 @@ def test_a_bodys_answers_kept_in_the_apps_store_build_the_same_image_and_miss_wh
         return [(at, _sha256(data)) for at, data in made.writes]
     first = keylord({})
     assert len(kept) == 2 and keylord({}) == first and len(kept) == 2   # its size and plan, then from the store
+    assert swapcache.settle()
+    size, plan = sorted((characters.CACHE.get(key) for key in kept), key=len)
+    assert float.fromhex(size.decode()) > 0 and plan.startswith(shipped.MAGIC)
+    layer = shipped.decode(plan, {f: ports.Vanilla(gate.USA, usa_iso).read(f) for f in characters.FILES})[0]
+    assert len(plan) < sum(len(c.after) for c in layer.changes) // 4
     keylord({"fps_unlock": {}})
     assert len(kept) == 3   # the plan over another layer; the size kept
     (content.ROOT / "installed.json").write_text(json.dumps({"booblord": {"version": 1, "source": "", "files": {}}}))

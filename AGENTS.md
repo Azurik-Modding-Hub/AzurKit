@@ -837,8 +837,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   kind, key, length and body: a sha256 by default, the app's an HMAC) and
   read back only whole, sealed and of its kind's form (a torn, altered or
   moved entry is a miss, never decoded). Its kinds keep JSON or AZKP1, never
-  a pickle; `swap` keeps the bytes `characters._kept` and `engine._kept`
-  still pickle, until they move to `dresses` and `memos`/`pictures`. One
+  a pickle; `swap` keeps bytes: `characters._kept`'s (a size's hex, a plan
+  as `AZKP1` at `characters.KEPT_LEVEL`, made on the writer's thread: about
+  7.9 MB for booblord's 110 MB pickle, Step 4.3r4i) and those `engine._kept`
+  still pickles, until those move to `memos`/`pictures`, the plans to
+  `dresses` with them (the page's Storage lists `swap`). One
   budget across the kinds (`store.BUDGET`, 5 GiB): a write past it removes
   the least recently used entry, whatever its kind. It removes only files
   of its own names in its kinds' folders, never a player's settings,

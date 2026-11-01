@@ -12,7 +12,7 @@ that holds nothing, as remembering is a convenience. The keys are the
 engine's: they name the image's path, size and times, and the swap's code,
 recipe, release and earlier layers.
 
-The engine unpickles the swap's answers, so the stores trust only what this
+The engine unpickles a character's match and pictures, so the stores trust only what this
 install wrote (SEC-4): each entry is sealed by an HMAC-SHA256 under the
 install's own key (:func:`key_file`, made once with :mod:`secrets`, in the
 user data folder and never the cache folder a shared "speed-up" zip unpacks
@@ -27,9 +27,10 @@ the creation time, which an unzipper restores), a forged ``stamps.json``
 would vouch for an image the gate never read.
 
 The store's writes go behind the answer (:class:`Kept`): a put hands its
-bytes to the process's one writer thread, which seals, writes and prunes
-them once the call has answered, and a get of what it hasn't written yet is
-answered from them. The thread is a daemon, so a quit never waits on it
+bytes, or what makes them (a dress's ``AZKP1``), to the process's one writer
+thread, which makes, seals, writes and prunes them once the call has
+answered, and a get of what it hasn't written yet is answered from them.
+The thread is a daemon, so a quit never waits on it
 (D1012): a write it cuts short leaves a part file, never an entry (a miss
 at the next launch), which a later write removes."""
 
@@ -41,7 +42,7 @@ import json
 import os
 import secrets
 import threading
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from pathlib import Path
 
 from azurkit import store
@@ -114,6 +115,21 @@ class _Signer:
         return mac.digest()
 
 
+class _Made:
+    """An entry's bytes, made once, by the writer or a get that came first; ``None`` when they can't be."""
+
+    def __init__(self, make: Callable[[], bytes]):
+        self.make, self.lock, self.body = make, threading.Lock(), None
+
+    def __call__(self) -> bytes | None:
+        with self.lock:
+            make, self.make = self.make, None
+            if make is not None:
+                with contextlib.suppress(Exception):   # a store that can't make it holds nothing
+                    self.body = make()
+        return self.body
+
+
 class _Behind:
     """The process's one writer: each entry a :class:`Kept` puts, written
     after the call that put it has answered, the newest put of a key the
@@ -124,7 +140,7 @@ class _Behind:
         self.held: dict[tuple[Path, str, str], tuple[Kept, bytes]] = {}
         self.thread: threading.Thread | None = None
 
-    def put(self, kept: Kept, kind: str, key: str, body: bytes) -> None:
+    def put(self, kept: Kept, kind: str, key: str, body: bytes | _Made) -> None:
         with self.lock:
             self.held[(kept.folder, kind, key)] = (kept, body)
             if self.thread is None or not self.thread.is_alive():
@@ -135,7 +151,7 @@ class _Behind:
     def pending(self, folder: Path, kind: str, key: str) -> bytes | None:
         with self.lock:
             held = self.held.get((folder, kind, key))
-        return None if held is None else held[1]
+        return None if held is None else held[1]() if isinstance(held[1], _Made) else held[1]
 
     def drop(self, folder: Path, kinds: Collection[str] | None) -> None:
         """Forget what it holds of ``kinds`` (every kind) under ``folder``:
@@ -155,7 +171,8 @@ class _Behind:
                 at, item = next(iter(self.held.items()))
             kept, body = item
             try:
-                kept.write(at[1], at[2], body)
+                if (data := body() if isinstance(body, _Made) else body) is not None:
+                    kept.write(at[1], at[2], data)
             except Exception:   # a store that can't be written holds nothing; the next put is written as ever
                 pass
             with self.lock:
@@ -194,9 +211,10 @@ class Kept(store.Store):
 
     def put(self, kind: str, key: str, value: object) -> bool:
         """Hand ``value`` to the writer (refused by name first, as
-        :func:`azurkit.store.encode` refuses, writing nothing); it writes it
+        :func:`azurkit.store.encode` refuses, writing nothing), or a callable
+        that gives it, made there, a refusal keeping nothing; it writes it
         after this answers."""
-        body = store.encode(kind, value)
+        body = _Made(lambda: store.encode(kind, value())) if callable(value) else store.encode(kind, value)
         self.file(kind, key)
         _BEHIND.put(self, kind, key, body)
         return True
@@ -212,8 +230,8 @@ class Kept(store.Store):
 
 class Folder:
     """``tools.characters.CACHE``: the swap's answers (``get(key) -> bytes |
-    None``, ``put(key, bytes)``), the ``swap`` kind of the app's store under
-    ``folder`` (:class:`Kept`, with ``most`` and ``key``)."""
+    None``, ``put(key, bytes or what makes them)``), the ``swap`` kind of the
+    app's store under ``folder`` (:class:`Kept`, with ``most`` and ``key``)."""
 
     def __init__(self, folder: Path, most: int = store.BUDGET, key: Path | None = None):
         self.kept = Kept(folder, most, key)
@@ -221,7 +239,7 @@ class Folder:
     def get(self, key: str) -> bytes | None:
         return self.kept.get("swap", key)
 
-    def put(self, key: str, data: bytes) -> None:
+    def put(self, key: str, data: bytes | Callable[[], bytes]) -> None:
         self.kept.put("swap", key, data)
 
 
