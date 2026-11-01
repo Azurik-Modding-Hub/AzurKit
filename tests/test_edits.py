@@ -346,6 +346,9 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     made, report = sdk.image({"iso": str(usa_iso), "packs": {"qol_alloc_race": {}}, "randomizer": {"seed": "16"}},
                              progress=seen.append, spoiler=False)
     assert list(dict.fromkeys(r["stage"] for r in seen)) == ["plan", "check", "read", "pack", "layout", "judge"]
+    for stage in ("layout", "judge"):   # each file laid out and read back counted, to its whole
+        counted = [r["percent"] for r in seen if r["stage"] == stage and r["percent"] is not None]
+        assert len(counted) >= 2 and max(counted) == 100, (stage, counted[:3], counted[-3:])
     check = [r for r in seen if r["stage"] == "check"]
     assert (check[0]["label"], check[-1]["percent"]) == ("Checking your image", 100)
     assert [r["label"] for r in seen if r["stage"] == "pack"] == ["Applying qol_alloc_race"]

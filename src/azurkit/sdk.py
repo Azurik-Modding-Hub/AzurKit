@@ -366,7 +366,7 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
         def judge(made: iso.Image, manifest: edits.Manifest) -> dict:
             steps("judge")
             return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
-                                                        reasons)}
+                                                        reasons, progress=steps.counter("judge"))}
     failed += _pack_layers(stamp, chosen, packs, base, layers, inputs, steps)
     if folded is not None:   # its recipe holds the walk and roll as asked: a rebuild folds the size in again (AZ-829)
         asked = {"pack": rando_layer.SIZE_PACK, "params": own.get(rando_layer.SIZE_PACK, {})}
@@ -676,13 +676,14 @@ def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
     (``core.progress``): checking the image (its bytes, the first time),
     planning the seed (and the planner's notes: placing the items), sizing
     and dressing the body, reading its files, applying each pack (done of
-    total), the data edits, laying out the image, reading it back against
-    the plan and writing the spoiler; an exception it raises stops the
+    total), the data edits, laying out the image (each file composed and
+    hashed, done of total), reading it back against the plan (each level
+    file, done of total) and writing the spoiler; an exception it raises stops the
     build."""
     steps = Steps(progress)
     stamp, base, layers, judge, prepared = _plan(recipe, steps)
     steps("layout")
-    made, manifest = edits.image(stamp, layers, base, judge=judge, map=_map)
+    made, manifest = edits.image(stamp, layers, base, judge=judge, map=_map, progress=steps.counter("layout"))
     return made, _report(manifest, prepared, steps, spoiler)
 
 

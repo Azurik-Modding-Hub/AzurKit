@@ -160,8 +160,9 @@ out with ``spoiler`` false, then :func:`spoiler` of its plan with
 (``core.progress``): checking the image (its bytes, the first time),
 planning the seed (and the planner's notes: placing the items), sizing
 and dressing the body, reading its files, applying each pack (done of
-total), the data edits, laying out the image, reading it back against
-the plan and writing the spoiler; an exception it raises stops the
+total), the data edits, laying out the image (each file composed and
+hashed, done of total), reading it back against the plan (each level
+file, done of total) and writing the spoiler; an exception it raises stops the
 build.
 
 
