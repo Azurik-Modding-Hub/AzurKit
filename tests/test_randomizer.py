@@ -316,6 +316,21 @@ def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_th
     assert opened[-1] == {"picks": ["f6.mound_climb_air1 (Hard)", difficulty.MOVEMENT], "one_of": True}
 
 
+def test_frame_perfects_line_says_a_seed_may_need_one_only_where_the_table_saw_it_and_says_hards_once():
+    """Frame-perfect plays as Hard: "a few seeds need one" only at Frame-perfect skips, whose row saw some, with nothing
+    kept (no row measures a kept one); where it asks Hard once, the line says what once means."""
+    skips = kept_logic().skip_tables
+
+    def line(ceiling, kept=()):
+        return difficulty.levels(Settings(ceiling, "frame_perfect", 1, {}, frozenset(kept)), skips)["levels"][3][3]
+
+    assert "a few seeds" in line(4)
+    for ceiling in (0, 2, 3):
+        assert "plays as Hard" in line(ceiling) and "a few seeds" not in line(ceiling)
+    assert "a few seeds" not in line(4, ("fragments",))
+    assert difficulty.ONCE_NO_SKIP in line(0) and difficulty.ONCE_POWERS in line(3, ("powers",))
+
+
 @pytest.mark.web
 def test_a_shaped_plan_is_the_same_under_pyodide(pyodide):
     """Under Pyodide, by the compiled reach's side module, the row's first plan is the one CPython makes."""

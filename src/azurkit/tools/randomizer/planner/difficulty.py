@@ -180,7 +180,9 @@ def _line(settings: Settings, skips: Mapping[str, Mapping], ask: Ask) -> str:
     if level == ask.rating:
         return text
     if level == 4 and ask.rating == 3:
-        return "Frame-perfect tricks can't be made needed yet: this level plays as Hard (a few seeds need one anyway)."
+        some = _cell(settings, skips)[0].get("4", {}).get("once") and not settings.exclude_categories & set(KEY_CATEGORIES)
+        return ("Frame-perfect tricks can't be made needed yet: this level plays as Hard"
+                + (" (a few seeds need one anyway)." if some else ".") + (f" {text}" if ask.once else ""))
     return (f"{RATING_NAMES[level]} tricks can't often be made needed at these settings: this level plays as "
             f"{RATING_NAMES[ask.rating]}. {text}")
 
