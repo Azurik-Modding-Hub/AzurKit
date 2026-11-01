@@ -208,7 +208,7 @@ jobs:
           wait "$watcher" || true
           tail -n 60 "$log" | cut -c 1-240
           echo "--- the summary"
-          sed -n '/^vanilla: /,$p' "$log" | head -n 200 | cut -c 1-240
+          sed -n '/^vanilla: /,$p' "$log" | head -n 200 | cut -c 1-240 || true
           echo "--- each failure's heading and E lines"
           grep -E '^(FAILED|ERROR) ' "$log" | cut -c 1-240 || true
           awk '/^_+ .* _+$/ { n = 0; print } /^E  / { if (n++ < 40) print }' "$log" | head -n 600 | cut -c 1-240 || true

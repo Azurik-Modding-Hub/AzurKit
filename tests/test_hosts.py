@@ -244,6 +244,14 @@ def _children(pid: int) -> list[int]:
     return [int(found) for found in subprocess.run(command, capture_output=True, text=True).stdout.split()]
 
 
+def test_ci_prints_each_failure_though_a_summary_outruns_its_head():
+    """CI's steps run under bash's -e and pipefail, where a ``head`` that closes its pipe early fails its pipeline
+    (141): each such line says ``|| true``, or the step stops before the lines after it print the failures."""
+    lines = [line.strip() for file in (Path(__file__).parents[1] / ".github" / "workflows").glob("*.yml")
+             for line in file.read_text(encoding="utf-8").splitlines() if "| head" in line]
+    assert lines and [line for line in lines if not line.endswith("|| true")] == []
+
+
 def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, tmp_path, verify_argv, verdicts,
                                                                     monkeypatch):
     """The app holds no Unicorn, zig, capstone or GPL code (each name in it
