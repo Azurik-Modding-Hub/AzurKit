@@ -61,7 +61,8 @@ ATTR_COUNTS = 0x18        # numGenerated, numAlive, numDead (f32 attributes 6-8)
 DEVICE_PATH = 0x20A       # the save device's slot path, "u:\<id>\" ("" a new game not yet saved)
 INV_READ, INV_PD = 0x1DC, 0x1D8   # the inventory read, its back-pointer to pd
 CR_ENTITY = 0x180
-ENT_CLOCK = 0x18          # the entity: its event clock (f64 s), +8 its critter, +0x20 the feet (3 f32)
+ENT_CLOCK = 0x18          # the entity: its event clock (f64 s), +8 its critter (+0x20, the last contact
+                          # point, holds still in the air and while swimming: Live places the body, CR_BODY)
 EPS = 1 / 600             # a second of game time on the day clock (days)
 JUMP_S = 5.0              # an event-clock jump past this between polls is a discontinuity (an xemu loadvm)
 PAIR_S = 2.0              # event-clock s a rise waits for its item's change
@@ -324,13 +325,13 @@ class Game:
         if not critter:
             return base
         entity = u32(critter + CR_ENTITY)
-        e = self.link.read(entity + ENT_CLOCK, 0x2C)
-        event, back = struct.unpack_from("<dI", e, 0)
+        event, back = struct.unpack("<dI", self.link.read(entity + ENT_CLOCK, 12))
         if back != critter or not math.isfinite(event):
             return base
         quat = struct.unpack("<4f", self.link.read(critter + recipes.CR_QUAT, 16))
         hp, maxhp = struct.unpack("<ii", self.link.read(critter + recipes.CR_HP, 8))
-        at, yaw = struct.unpack_from("<3f", e, 0x20), 2 * math.atan2(quat[2], quat[3])
+        x, y, z = struct.unpack("<3f", self.link.read(critter + recipes.CR_BODY, 12))   # the body centre
+        at, yaw = (x, y, z - recipes.LIFT), 2 * math.atan2(quat[2], quat[3])   # its feet: where the player is
         r = replace(base, state="loading", event=event, hp=hp, maxhp=maxhp,   # a NaN or inf place: none
                     at=at if all(map(math.isfinite, at)) else None, yaw=yaw if math.isfinite(yaw) else None)
         return self._settle(r, pd, graph, (critter, entity), inv_ok)

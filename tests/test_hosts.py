@@ -20,6 +20,7 @@ import multiprocessing
 import os
 import plistlib
 import re
+import struct
 import subprocess
 import sys
 import threading
@@ -1492,6 +1493,74 @@ def test_live_opens_each_session_on_the_marks_journal_and_reads_the_game_again_a
         _post(server.url, "api/live", {"on": False}, [])
         server.close()
 
+
+
+class _Ram:
+    """A running game's guest RAM as Live's reads walk it (``live.game``; the USA release's addresses): the
+    level, the player's entity (its clock and last contact point) and critter (its body centre) and, for
+    ``names`` ({record: the species its critterGenerator names}), each spot's node in the level's main graph."""
+
+    SCENE, PD, CRITTER, ENTITY, INV, GRAPH, VEC, NODES = (0x100000 * k for k in range(1, 9))
+
+    def __init__(self, level: str, names: dict[int, str] | None = None, records: int = 8):
+        from azurkit.tools.randomizer.live import game, recipes
+
+        self.mem: dict[int, int] = {}
+        region, names = game.REGIONS[0], names or {}
+        self.put(game.HEADER, "4s", b"XBEH")
+        self.put(game.HEADER + 0x158, "I", region.thunk_va)
+        self.put(region.va(recipes.SCENE_PTR), "I", self.SCENE)
+        self.put(self.SCENE + game.SCENE_DEVICE, "II", 0, self.PD)
+        self.put(self.PD + recipes.PD_LEVEL, "32s", f"levels/water/{level}".encode())
+        for at, value in ((recipes.PD_PLAYER, self.CRITTER), (game.PD_GRAPH, self.GRAPH), (recipes.PD_INV, self.INV)):
+            self.put(self.PD + at, "I", value)
+        self.put(self.INV + game.INV_PD, "I", self.PD)
+        self.put(self.CRITTER + game.CR_ENTITY, "I", self.ENTITY)
+        self.put(self.CRITTER + recipes.CR_QUAT, "4f", 0, 0, 0, 1)
+        self.put(self.CRITTER + recipes.CR_HP, "ii", 150, 175)
+        self.put(self.GRAPH + game.GRAPH_VEC, "II", self.VEC, self.VEC + 4 * records)
+        for record, species in names.items():
+            node = self.NODES + 0x100 * record
+            self.put(self.VEC + 4 * record, "I", node)
+            self.put(node, "I", region.va(game.ADDRESSES["generator"]))
+            self.put(node + game.NODE_ATTRS, "I", node + 0x80)
+            self.put(node + game.NODE_OWNER, "I", region.va(game.ADDRESSES["owner"]))
+            self.put(node + game.NODE_SPECIES, "I", node + 0x60)
+            self.put(node + 0x60, "I", node + 0xA0)
+            self.put(node + 0xA0, f"{game.NAME_MAX}s", species.encode())
+        self.clock = 100.0
+
+    def put(self, va: int, fmt: str, *values) -> None:
+        for i, b in enumerate(struct.pack("<" + fmt, *values)):
+            self.mem[va + i] = b
+
+    def player(self, contact: tuple, body: tuple) -> None:
+        """The player a poll later: the clock on, their last contact point and body centre where given."""
+        from azurkit.tools.randomizer.live import game, recipes
+
+        self.clock += 0.5
+        self.put(self.ENTITY + game.ENT_CLOCK, "dI", self.clock, self.CRITTER)
+        self.put(self.ENTITY + game.ENT_CLOCK + 0x20, "3f", *contact)
+        self.put(self.CRITTER + recipes.CR_BODY, "3f", *body)
+
+    def read(self, va: int, n: int) -> bytes:
+        return bytes(self.mem.get(va + i, 0) for i in range(n))
+
+    def read_many(self, wants: list) -> list:
+        return [self.read(va, n) for va, n in wants]
+
+
+def test_live_places_the_player_at_their_body_not_where_they_last_touched_the_ground():
+    """Live places the player at the critter's body centre (+0x15C, 1 m
+    over the feet), not at the entity's +0x38, the last contact point,
+    which holds still in the air and while swimming: in a play session's
+    w2 it stayed 14 m (13 px) from the player through a fall."""
+    from azurkit.tools.randomizer.live import game
+
+    ram = _Ram("w2")
+    ram.player(contact=(-139.27, -119.59, 6.04), body=(-130.89, -108.38, -2.54))
+    reading = game.Game(ram, game.SpotTable({}, ())).read()
+    assert reading.level == "w2" and reading.at == pytest.approx((-130.89, -108.38, -3.54), abs=1e-4)
 
 
 def test_live_places_the_player_while_xemu_runs_another_seed_or_build():

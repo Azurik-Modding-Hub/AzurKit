@@ -2140,9 +2140,13 @@ reach stays [inferred].
   one its save list holds), +0xE0 the inventory (0x1D4 saved bytes,
   `SAVE_FORMAT.md` § 4e; +0x1D8 points back at pd). The critter: +0x180
   its entity (+0x18 the event clock, f64 s; +0x20 back to the critter;
-  +0x38 the feet), +0x18C its facing quaternion, +0x210 HP and +0x214 max
-  HP (i32). True on 5 snapshots [RAM], and live in USA and Europe; the
-  page directory sat at physical 0xF000 in both [xemu].
+  +0x38 the last contact point, not the player: it holds still in the air
+  and while swimming), +0x15C the body centre (1 m over the feet: where
+  Live places the player), +0x18C its facing quaternion, +0x210 HP and
+  +0x214 max HP (i32). True on 5 snapshots [RAM], and live in USA and
+  Europe; the page directory sat at physical 0xF000 in both [xemu]. The
+  contact point stood still 14 m from the body through a fall in w2 while
+  the body moved, read from a play session's guest RAM (Step 4.3, 2026-10-31).
 - **The release.** The kernel loads the XBE header at 0x10000 and
   decodes its kernel-thunk word (+0x158) in place: guest RAM holds the
   release's thunk table address itself (USA 0x18F3A0), not the file's
