@@ -43,6 +43,7 @@ from __future__ import annotations
 import collections
 import functools
 import hashlib
+import io
 import math
 import struct
 from collections.abc import Callable, Mapping, Sequence
@@ -195,8 +196,10 @@ def pages(prepared: Prepared, reader: iso.Reader, whole: Sequence[str] = ()) -> 
     :func:`sections` makes but the changed files' hashes (a host's, each file
     whole): the volume descriptor and the folders' tables, ``filelist.txt`` and
     any file whose line it repairs, config.xbr and ``whole``, and each level's
-    TOC and node sections (:func:`writer.level_spans`). A read outside them
-    still answers, only late."""
+    TOC and node sections (:func:`writer.level_spans`), each run on by
+    ``io.DEFAULT_BUFFER_SIZE``, as Python's buffered file reads that far past
+    what it is asked (so a span may run past the image's end). A read outside
+    them still answers, only late."""
     out = reader.tables()
     entries = [reader.find("filelist.txt"), reader.find(CONFIG), *map(reader.find, whole), *iso.stale(reader)]
     out += [(reader.start(e), e.size) for e in entries]
@@ -205,7 +208,7 @@ def pages(prepared: Prepared, reader: iso.Reader, whole: Sequence[str] = ()) -> 
         toc = nodes.read_toc(functools.partial(reader.range, entry))
         spans = writer.level_spans(toc, entry.size, gs) + _thresholds(prepared, file, entry)
         out += [(reader.start(entry) + at, n) for at, n in spans]
-    return iso.merged(out)
+    return iso.merged((at, n + io.DEFAULT_BUFFER_SIZE) for at, n in out)
 
 
 def _change(base: bytes, file: str, offset: int, data: bytes, group: str) -> Change:

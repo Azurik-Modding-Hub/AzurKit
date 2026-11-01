@@ -23,6 +23,7 @@ import dataclasses
 import functools
 import gc
 import hashlib
+import io
 import json
 import math
 import os
@@ -402,45 +403,24 @@ def test_a_seed_build_over_sections_reads_only_its_pages_and_is_the_whole_builds
     hosts until its hub half: X4): the plan's layer planned on the views alone
     is the layer planned on the files, the image and manifest (the verdict in
     it) are the whole build's, byte for byte, with no level's bytes among the
-    image's writes but its patches, and every read it makes but a host's
-    hashes lies in ``generator.pages``, each level's TOC in ``generator.heads``."""
+    image's writes but its patches, and every read the host's file sees of it
+    (under Python's buffer) but a host's hashes lies in ``generator.pages``,
+    each level's TOC in ``generator.heads``."""
     path = str(request.getfixturevalue(f"{release}_iso"))
     stamp, base, layers, judge, prepared = sdk._plan({"iso": path, **recipe})
     whole, manifest = edits.image(stamp, layers, base, judge=judge, map=sdk._map)
     reasons = manifest.verdicts[generator.TOOL]["why_not"][len(prepared.why_not):]
     reads, tracing = [], [True]
 
-    class Traced:
-        def __init__(self, f):
-            self.f, self.at = f, 0
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            self.f.close()
-
-        def close(self):
-            self.f.close()
-
-        def seek(self, at):
-            self.at = at
-            return self.f.seek(at)
-
-        def _read(self, n, fn, arg):
-            if tracing[0]:
-                reads.append((self.at, n))
-            self.at += n
-            return fn(arg)
-
-        def read(self, n):
-            return self._read(n, self.f.read, n)
-
+    class Traced(io.FileIO):
         def readinto(self, into):
-            return self._read(len(into), self.f.readinto, into)
+            at, n = self.tell(), super().readinto(into)
+            if tracing[0] and n:
+                reads.append((at, n))
+            return n
 
-    monkeypatch.setattr(iso, "open", lambda *a: Traced(open(*a)), raising=False)
-    others = [file for file in base if file not in generator.files(prepared)]
+    monkeypatch.setattr(iso, "open", lambda name, mode: io.BufferedReader(Traced(name)), raising=False)
+    others =[file for file in base if file not in generator.files(prepared)]
     with iso.Reader(stamp.path) as r:
         views = generator.sections(prepared, r, others)
         ahead, spans = generator.heads(prepared, r), generator.pages(prepared, r, others)
