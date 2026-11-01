@@ -5,6 +5,7 @@ fast-forward, a passing receipt and its perf block."""
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -220,6 +221,32 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
     added = "const more = await file.slice(0, 1).arrayBuffer();"
     with pytest.raises(SystemExit, match=re.escape(repr(added))):
         _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))
+
+
+def test_the_perf_gates_memory_counts_only_the_webkit_launchd_started_for_its_own_browser(monkeypatch):
+    """The capped-site peak: a WebKit process that started during the run
+    counts when ``launchctl print pid/N`` holds this run's mark in its PATH,
+    or can't say (no record, or launchctl failing: counted, never laxer);
+    another seat's doesn't, and its pid reused by ours, which started later,
+    is asked about again and counted."""
+    mine, theirs = f"PATH => {_perf.MARK}:/usr/bin", "PATH => /usr/bin"
+    said = {"11": mine, "12": theirs, "13": "", "15": theirs}
+
+    def launchctl(argv, **kwargs):
+        asked.append(argv[-1])
+        if argv[-1] == "pid/14":
+            raise subprocess.TimeoutExpired(argv, 10)
+        return types.SimpleNamespace(stdout=said[argv[-1].removeprefix("pid/")])
+    asked: list[str] = []
+    monkeypatch.setattr(_perf.subprocess, "run", launchctl)
+    monkeypatch.setattr(_perf, "_launched", {})
+    xpc = "/x/playwright/webkit-1/Contents/com.apple.WebKit.WebContent.xpc/Contents/MacOS/WebContent"
+    rows = [(10, os.getpid(), "/x/playwright/driver/node", "t0"), (20, 10, "/x/pw_run", "t0"),
+            *((pid, 1, xpc, "t0") for pid in (9, 11, 12, 13, 14, 15)), (16, 1, "/Applications/Safari.xpc/s", "t0")]
+    assert _perf.browser_pids(rows, {9}) == [20, 11, 13, 14]
+    assert _perf.browser_pids(rows, {9}) == [20, 11, 13, 14] and len(asked) == 5   # each process asked about once
+    said["15"] = mine
+    assert _perf.browser_pids([(15, 1, xpc, "t1")], set()) == [15]
 
 
 class _Stub(_perf.Page):

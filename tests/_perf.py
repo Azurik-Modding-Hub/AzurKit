@@ -602,7 +602,7 @@ def kill_tree(pid: int) -> None:
 
 class Memory:
     """The peak resident size of the trees under ``roots(rows)`` (``rows``:
-    ps's ``(pid, ppid, command)``), sampled every 0.2 s."""
+    ps's ``(pid, ppid, command, its start)``), sampled every 0.2 s."""
 
     def __init__(self, roots: Callable[[list[tuple[int, int, str]]], list[int]]):
         self.roots, self.peak, self._stop = roots, 0, threading.Event()
@@ -617,13 +617,13 @@ class Memory:
         self._thread.join(5)
 
     @staticmethod
-    def rows(rss: dict[int, int] | None = None) -> list[tuple[int, int, str]]:
-        """ps's ``(pid, ppid, command)`` rows (each resident KiB into ``rss``)."""
-        out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,rss=,comm="], capture_output=True, text=True).stdout
+    def rows(rss: dict[int, int] | None = None) -> list[tuple[int, int, str, str]]:
+        """ps's ``(pid, ppid, command, its start)`` rows (each resident KiB into ``rss``)."""
+        out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,rss=,lstart=,comm="], capture_output=True, text=True).stdout
         rows = []
-        for row in out.splitlines():
-            if len(f := row.split(None, 3)) == 4 and f[0].isdigit():
-                rows.append((int(f[0]), int(f[1]), f[3]))
+        for row in out.splitlines():   # lstart is five words: "Sun Nov  1 08:22:00 2026"
+            if len(f := row.split(None, 8)) == 9 and f[0].isdigit():
+                rows.append((int(f[0]), int(f[1]), f[8], " ".join(f[3:8])))
                 if rss is not None:
                     rss[int(f[0])] = int(f[2])
         return rows
@@ -633,7 +633,7 @@ class Memory:
             rss: dict[int, int] = {}
             rows = self.rows(rss)
             kids: dict[int, list[int]] = {}
-            for pid, ppid, _ in rows:
+            for pid, ppid, *_ in rows:
                 kids.setdefault(ppid, []).append(pid)
             seen, todo = set(), list(self.roots(rows))
             while todo:
@@ -643,15 +643,36 @@ class Memory:
             self.peak = max(self.peak, sum(rss.get(pid, 0) for pid in seen) * 1024)
 
 
-def browser_pids(rows: list[tuple[int, int, str]], before: set[int]) -> list[int]:
+MARK = f"/nonexistent/azurkit-perf-{os.getpid()}"   # this run's mark in the browsers' PATH (:func:`browser_pids`)
+_launched: dict[tuple[int, str], bool] = {}
+
+
+def ours(pid: int, started: str) -> bool:
+    """Whether launchd started the WebKit XPC process ``pid``, which started
+    at ``started``, for this run's browser: its record (``launchctl print
+    pid/N``) holds the PATH of the UI process that asked for it, which
+    carries :data:`MARK` (macOS). Where launchctl can't say it is counted,
+    and a pid reused is asked about again: never one of ours left out."""
+    if (pid, started) not in _launched:
+        try:
+            out = subprocess.run(["launchctl", "print", f"pid/{pid}"], capture_output=True, text=True, timeout=10).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            out = ""
+        path = re.search(r"PATH => (\S+)", out)
+        _launched[pid, started] = path is None or MARK in path.group(1)
+    return _launched[pid, started]
+
+
+def browser_pids(rows: list[tuple[int, int, str, str]], before: set[int]) -> list[int]:
     """The browsers Playwright's driver (a node child of this process)
     started, and WebKit's own processes (its pages, network and GPU: XPC
     services launchd starts, so outside the tree) that weren't running
-    before this run (``before``): a WebKit another run starts meanwhile is
-    counted too, never one of ours left out."""
-    drivers = [pid for pid, ppid, comm in rows if ppid == os.getpid() and "node" in comm]
-    return [pid for pid, ppid, comm in rows if ppid in drivers or pid not in before and ".xpc/" in comm
-            and "/playwright/webkit" in comm]
+    before this run (``before``) and that launchd started for this run's
+    browser (:func:`ours`): another seat's WebKit, started meanwhile, isn't
+    counted."""
+    drivers = [pid for pid, ppid, comm, _ in rows if ppid == os.getpid() and "node" in comm]
+    return [pid for pid, ppid, comm, started in rows if ppid in drivers or pid not in before and ".xpc/" in comm
+            and "/playwright/webkit" in comm and ours(pid, started)]
 
 
 class App:
@@ -1358,15 +1379,17 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
 
     from scripts import web_tools
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(web_tools.browsers_dir(ROOT))
+    if MARK not in os.environ.get("PATH", ""):   # the browsers inherit it; launchd's record of their processes keeps it
+        os.environ["PATH"] = f"{MARK}{os.pathsep}{os.environ.get('PATH', '')}"
     t = time.monotonic()
     scratch = Path(tempfile.mkdtemp(prefix=f"azurkit-perf-{run.name}.", dir="/tmp"))
     d = Driver(run, targets, scratch, iso, content)
     python = python or (venv(wt, scratch / "app") if run.host == "app" else None)
     current: list[App] = []
-    before, shared = {pid for pid, _, comm in Memory.rows() if ".xpc/" in comm}, []
+    before, shared = {pid for pid, _, comm, _ in Memory.rows() if ".xpc/" in comm}, []
 
     def site_roots(rows):   # another Playwright driver alive: a new WebKit process may be its (said, not dropped)
-        if any(comm.endswith("playwright/driver/node") and ppid != os.getpid() for _, ppid, comm in rows):
+        if any(comm.endswith("playwright/driver/node") and ppid != os.getpid() for _, ppid, comm, _ in rows):
             shared.append(True)
         return browser_pids(rows, before)
     roots = (lambda rows: [pid for app in current for pid in app.pid()]) if run.host == "app" else site_roots

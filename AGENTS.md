@@ -1299,7 +1299,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   run times every op in four profiles (the app; the site in WebKit and
   Chromium, and Firefox once its first record lands; the site with each File read 200 ms late,
   Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
-  app's process tree, and the site's WebKit processes that start during the run;
+  app's process tree, and the WebKit processes launchd starts for the run's own
+  browser (`launchctl print pid/N` holds the mark the run put in its PATH;
+  another seat's isn't counted, one launchctl can't say about is);
   the 4-core / 8 GB computer AzurKit must run well on, D1017). The rule and its
   gate hold on this Mac alone; the other platforms are timed later (D1023).
   It starts once the normal-priority load is under 40, at nice 10. The
