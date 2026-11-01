@@ -109,7 +109,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   raw vanilla spans.
 - The images are read-only. A build writes to an explicit output that isn't
   its input.
-- **The private game-data repo,** `Azurik-Testing/AzurKit-gamedata` (the
+- **The private game-data repo,** `Azurik-Modding-Hub/AzurKit-gamedata` (the
   images' parts, for CI only): never make it public, fork or mirror it. Only
   CI's vanilla job reads it (CI, below), with its read-only deploy key, the
   `gamedata` environment's secret, and the key is never in this repository.

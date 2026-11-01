@@ -63,7 +63,7 @@ devkit reaches each where it lives.
 
 | What | Where it lives | Why |
 |---|---|---|
-| The game images, whole or in parts | the developer's own: `AZURKIT_ISO` and `AZURKIT_ISO_EUROPE`, else `usa.iso` and `europe.iso` in the user data folder; CI's parts only in the private `Azurik-Testing/AzurKit-gamedata` repository, never made public, forked or mirrored | D153, D953, D961 |
+| The game images, whole or in parts | the developer's own: `AZURKIT_ISO` and `AZURKIT_ISO_EUROPE`, else `usa.iso` and `europe.iso` in the user data folder; CI's parts only in the private `Azurik-Modding-Hub/AzurKit-gamedata` repository, never made public, forked or mirrored | D153, D953, D961 |
 | The xemu oracle's fixtures: its drive (`xbox_hdd.qcow2`, with the oracle's save states), `eeprom.bin`, the BIOS and the boot ROM | outside the checkout, reached through `AZURIK_XEMU_FIXTURES`; their README, SHA256SUMS and checklist stay with them | D98; they hold console keys |
 | Guest RAM snapshots (`AZL3SNAP`) and the warm drives | `l3-snapshots/` in the user data folder | D961 |
 | The reach engine's frozen truth set | `reach-truth/` in the user data folder, not the cache, which can be purged | |

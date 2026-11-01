@@ -154,7 +154,7 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes"
           mkdir -p "$RUNNER_TEMP/iso"
           image() {   # image <the parts' folder> <the image's name> [reassemble.py's release argument]
-            git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Testing/AzurKit-gamedata.git "$RUNNER_TEMP/gd"
+            git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Modding-Hub/AzurKit-gamedata.git "$RUNNER_TEMP/gd"
             git -C "$RUNNER_TEMP/gd" sparse-checkout set "$1"
             rm -rf "$RUNNER_TEMP/gd/.git"
             uv run --locked python -I "$RUNNER_TEMP/gd/reassemble.py" "$RUNNER_TEMP/iso/$2" "${@:3}" > /dev/null
