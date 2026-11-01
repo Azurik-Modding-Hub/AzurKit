@@ -10,8 +10,9 @@ ran them, so the server's own answers (the image's check, the species list,
 the setup, the Randomizer tab, the tracker) never wait on a build's Python;
 the process keeps what a call keeps for the next (a dressed body, the
 randomizer's logic), and reads ahead what the page's next calls will
-(:meth:`Spawned.warm`: the image it picked, the randomizer). Cancelling a build kills that process and spawns
-another at once (a build writes nothing, D35); a call of another kind that
+(:meth:`Spawned.warm`: the image it picked, the randomizer; the image's once
+the logic's read and every build are done, :func:`_warm_image`). Cancelling a build kills that process and spawns
+another at once (a build writes nothing, D35), which reads the logic before the image; a call of another kind that
 the kill cut short runs again in the new one. A save is cancelled from its
 progress, as before: it removes its own part file. A build keeps its image
 in the process that made it (the last build's only, a new Build drops it),
@@ -59,6 +60,8 @@ class Gone(Exception):
 
 
 _WARM = threading.Lock()   # held while the randomizer's logic is built, so a seed's build or plan waits on it
+_BUILDING = threading.Condition()   # held to count _BUILDS
+_BUILDS = 0   # the builds (KILLS' calls) this process has read and not yet answered, which an image's warm waits out
 _WARMING: list[dict] = []   # that warm-up's records, the newest last, which a call waiting on it shows
 _READING = "Reading the randomizer's logic"   # its stage's line
 
@@ -302,8 +305,8 @@ class Spawned:
         child = _Child(process, here)
         threading.Thread(target=self._read, args=(child,), name="azurkit-engine-reader", daemon=True).start()
         with child.lock:
-            for what, args in self._warms.items():
-                child.send(("warm", what, args))
+            for message in _warm_messages(self._warms):
+                child.send(message)
         return child
 
     @staticmethod
@@ -441,7 +444,16 @@ def _warm_logic() -> None:
 
 
 def _warm_image(iso: str) -> None:
-    """Check and read the image at ``iso`` as the pictures do (``sdk.pickers``); a refusal is the page's own call's."""
+    """Check and read the image at ``iso`` as the pictures do (``sdk.pickers``),
+    once the randomizer's logic read in flight (:data:`_WARM`) and every build
+    this process has read (:data:`_BUILDS`) are done: after a cancel, the next
+    engine reads its logic and builds the seed with no pictures' read beside
+    them (about 0.3 s of the GIL off "Cancel a build, then Build", A29). A
+    refusal is the page's own call's."""
+    with _WARM:
+        pass
+    with _BUILDING:
+        _BUILDING.wait_for(lambda: not _BUILDS)
     try:
         sdk.pickers({"iso": iso})
     except (OSError, ValueError):
@@ -452,10 +464,18 @@ WARMS = {"randomizer": _warm_logic, "image": _warm_image}
 """What :meth:`Spawned.warm` reads ahead: ``{what: fn(*args)}``."""
 
 
+def _warm_messages(warms: Mapping[str, tuple]) -> list[tuple]:
+    """The ``warm`` messages a new engine gets for ``warms`` (:meth:`Spawned.warm`'s
+    ``{what: args}``), the randomizer's first: a cancel's next engine reads
+    its logic before the image (:func:`_warm_image`)."""
+    return [("warm", what, args) for what, args in sorted(warms.items(), key=lambda warm: warm[0] != "randomizer")]
+
+
 def _main(conn, stores: bool = False) -> None:
     """The engine's process: each call on a thread of its own, its answers
     and its save's progress sent back as they come; with ``stores``, what it
     works out kept across launches (:mod:`.swapcache`)."""
+    global _BUILDS
     from . import procpool, swapcache
 
     orphaned()
@@ -474,6 +494,7 @@ def _main(conn, stores: bool = False) -> None:
             conn.send((kind, ident, value))
 
     def run(ident: int, job: str, args: tuple, follows: bool) -> None:
+        global _BUILDS
         stop = stops[ident]
 
         def progress(step: dict) -> None:
@@ -489,6 +510,10 @@ def _main(conn, stores: bool = False) -> None:
             send("done", ident, value)
         finally:
             stops.pop(ident, None)
+            if job in KILLS:
+                with _BUILDING:
+                    _BUILDS -= 1
+                    _BUILDING.notify_all()
 
     while True:
         try:
@@ -508,4 +533,7 @@ def _main(conn, stores: bool = False) -> None:
             continue
         _, ident, job, args, follows = message
         stops[ident] = threading.Event()
+        if job in KILLS:   # counted as it is read, so an image's warm waiting on the logic's read waits it out too
+            with _BUILDING:
+                _BUILDS += 1
         threading.Thread(target=run, args=(ident, job, args, follows), name=f"azurkit-{job}", daemon=True).start()

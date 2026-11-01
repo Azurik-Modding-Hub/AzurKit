@@ -16,6 +16,7 @@ import hashlib
 import importlib.metadata
 import io
 import json
+import multiprocessing
 import os
 import plistlib
 import re
@@ -814,6 +815,42 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
     finally:
         server.close()
     assert _ended(last)
+
+
+def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_for_its_pictures(monkeypatch):
+    """After Cancel the app's next engine gets the warms the page asked (the
+    image picked first, then the Randomizer tab's logic) and the next Build
+    at once: it reads the randomizer's logic, builds the seed, and only then
+    reads the image as the pictures do, so neither the logic's read nor the
+    build waits on the pictures' Python ("Cancel a build, then Build", A29:
+    about 0.3 s; Step 4.3 round 3)."""
+    from azurkit.app import procpool
+
+    log = []
+
+    def step(name: str, seconds: float = 0.0) -> None:
+        log.append(name)
+        time.sleep(seconds)
+        log.append(f"{name} done")
+    monkeypatch.setattr(engine, "orphaned", lambda: None)   # the loop on a thread of this process, not its own
+    monkeypatch.setattr(procpool, "install", lambda: None)
+    monkeypatch.setattr(sdk, "randomizer_logic", lambda progress=None: step("logic", 0.2))
+    monkeypatch.setattr(sdk, "pickers", lambda given: step("pictures"))
+    monkeypatch.setitem(engine.JOBS, "image", engine._warmed(lambda recipe: step("build", 0.2) or {}))
+    here, there = multiprocessing.Pipe()
+    loop = threading.Thread(target=engine._main, args=(there,), daemon=True)
+    loop.start()
+    for message in engine._warm_messages({"image": ("in.iso",), "randomizer": ()}):
+        here.send(message)
+    here.send(("call", 1, "image", ({"iso": "in.iso", "randomizer": {"seed": "2"}},), False))
+    assert here.recv()[:2] == ("done", 1)
+    end = time.monotonic() + 10
+    while "pictures done" not in log and time.monotonic() < end:
+        time.sleep(0.01)
+    here.close()
+    loop.join(10)
+    assert (log, loop.is_alive(), engine._BUILDS) == (
+        ["logic", "logic done", "build", "build done", "pictures", "pictures done"], False, 0)
 
 
 def test_the_apps_engine_counts_the_swaps_items_on_the_stage_its_call_reported_last(monkeypatch):
