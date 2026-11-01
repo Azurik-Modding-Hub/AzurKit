@@ -6,46 +6,24 @@
 # raised ceiling against main's. Empty for a release (scripts/land.py --release).
 
 [ceilings]
-"A15/app" = 3.9
-"S04/lag" = 8.4
-"S13/lag" = 12.2
+"A15/app" = 3.7
+"S13/lag" = 4.8
 "S14/chromium" = 6.8
 "S14/lag" = 10.2
 "S14/webkit" = 8.0
 "S23/chromium" = 6.1
 "S23/lag" = 14.4
 "S23/webkit" = 9.8
-"S24/capped" = 12.0
-"S24/chromium" = 8.4
-"S24/lag" = 16.7
-"S24/webkit" = 12.0
+"S24/capped" = 10.8
+"S24/chromium" = 7.5
+"S24/lag" = 15.8
+"S24/webkit" = 10.8
 
 [debts]
 keys = [
-    "A02/app",
-    "A11/app",
-    "A11/capped",
-    "A26/capped",
-    "S01/capped",
-    "S01/chromium",
-    "S01/lag",
-    "S01/webkit",
-    "S02/capped",
-    "S02/chromium",
-    "S02/lag",
-    "S02/webkit",
-    "S04/lag",
-    "S10/capped",
-    "S10/lag",
-    "S10/webkit",
-    "S11/capped",
-    "S11/lag",
-    "S11/webkit",
 ]
 
 [memory]   # GiB
-"capped-app" = 7.4
-"capped-site" = 7.0
 
 [untimed]
 S15 = "out of memory on the site (D835): booblord is the app's until the site can hold it"
