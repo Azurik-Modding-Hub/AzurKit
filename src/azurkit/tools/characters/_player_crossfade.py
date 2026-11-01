@@ -14,7 +14,7 @@ sums them by weight, then normalises, and lerps their translations
 (:func:`blend`).  Sitting 2.118's frame-scored ``hang_start`` fits it: at
 ``h_k`` the new layer ``k - 1`` ticks in, the prior advancing, guard_air
 own x2's placed h1-h8 at rms 0.08 m and kingkong own x2's at 0.003 m
-(``$EV/2.118c-hang-hold-2026-10-20/results/build-fit-blend.txt``)."""
+(Step 2.118c's fit of the blend)."""
 
 from __future__ import annotations
 

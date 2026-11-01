@@ -452,7 +452,7 @@ names): the golem's re-posed shins put garret4's idle baked onto it
 and landing -0.017 under, so 0.07 splits the cuts from its own idle
 (Balanced keeps it) into the take-off and back from the landing
 (-0.10 / +0.09; 0.133 would match the idles but drop the landing 0.15:
-``$EV/2.134a-looks-clips-2026-10-21/results/judge_golem_feet``)."""
+Step 2.134a's judging of the golem's feet)."""
 FLOORED: dict[str, frozenset[str]] = {"golem": frozenset({"roll_forward"})}
 """The baked clips (by body, case-folded) :func:`floored` raises through
 the clip (Step 2.134a; D420, the owner: "Garret's roll, lifted";

@@ -1917,7 +1917,7 @@ action = "kill"
 sets = "flag:airship.balthazar.killed"
 requires = "true"
 ok = true
-sources = ["[data: config: the staff cells norm_1..3 are set; the staff always damages him]", "[verified static + xemu 2026-10-12: his armor follows the selected staff power ~2-2.8 s after a damaging hit; staff and EAFW never blocked; $EV/balthazar-armor-2026-10-12]"]
+sources = ["[data: config: the staff cells norm_1..3 are set; the staff always damages him]", "[verified static + xemu 2026-10-12: his armor follows the selected staff power ~2-2.8 s after a damaging hit; staff and EAFW never blocked; the Balthazar armor sitting (2026-10-12)]"]
 
 [[step]]
 step = 148

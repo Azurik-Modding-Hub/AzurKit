@@ -3121,7 +3121,7 @@ exit = "e2/g0/r4902"
 requires = "button:e2.earth_keylock3 & button:e2.earth_keylock4 & button:e2.earth_keylock5"
 confidence = "data"
 
-[[edge]]  # E2_E5 -> e5 (spot); as E2_E6 [verified data]; its arrival E2_E5 rides e5's turning entrance gear and falls into e5.Z014, standing there from tick 227 at rest [verified L3, whole steps, and xemu, placed: TD.2's sitting A, S7 (h22-k0's replay); AZ-585, Step R1.34]; e5.Z581 is a static floor 18.0 m under the arrival point (AZ-538), and the player-tick read with the gear still that put it there ($EV/x16-derive-fixes-2026-10-14/logs/arrival_e5_r1052.log) doesn't hold
+[[edge]]  # E2_E5 -> e5 (spot); as E2_E6 [verified data]; its arrival E2_E5 rides e5's turning entrance gear and falls into e5.Z014, standing there from tick 227 at rest [verified L3, whole steps, and xemu, placed: TD.2's sitting A, S7 (h22-k0's replay); AZ-585, Step R1.34]; e5.Z581 is a static floor 18.0 m under the arrival point (AZ-538), and the player-tick read with the gear still that put it there (Step X.16's arrival run from e5's r1052, 2026-10-14) doesn't hold
 from = "e2_z303"
 to = "e5_z014"
 kind = "exit"
@@ -3148,7 +3148,7 @@ lock = "minecart_e2e7"
 requires = "button:e2.earth_keylock & button:e2.earth_keylock1"
 confidence = "data"
 
-[[edge]]  # levelSwitch5 -> w2 (spot); its trigger hangs 22 m over e2.Z013 and 12-16 m over the nearest floors (two slippery slopes, no zone since Step X.16, AZ-359), and the derive places no zone at it; the vanilla route never takes it, so it stays out of logic until the probe sitting finds its approach (default taken under D115). Its arrival E2_W2 stands on w2's ice: the player slides 219 m across and 132 m down it and stands in w2.Z006 after 39 s, HP 200 [verified L3, player tick, snapshot x7-w2-k0: $EV/x16-derive-fixes-2026-10-14/logs/arrival_r708_long.log]
+[[edge]]  # levelSwitch5 -> w2 (spot); its trigger hangs 22 m over e2.Z013 and 12-16 m over the nearest floors (two slippery slopes, no zone since Step X.16, AZ-359), and the derive places no zone at it; the vanilla route never takes it, so it stays out of logic until the probe sitting finds its approach (default taken under D115). Its arrival E2_W2 stands on w2's ice: the player slides 219 m across and 132 m down it and stands in w2.Z006 after 39 s, HP 200 [verified L3, player tick, snapshot x7-w2-k0: Step X.16's long arrival run from r708 (2026-10-14)]
 from = "e2_z013"
 to = "w2_z006"
 kind = "exit"

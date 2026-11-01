@@ -1259,7 +1259,7 @@ confidence = "data"
 
 # ---- exits ---------------------------------------------------------------------------------
 
-[[edge]]  # E5_E2 -> e2 (spot); the gear-room fall into the turning gear's exit (the owner's demo, X.78, D722 row 03: from the E2_E5 arrival he stood in e5.Z014 about 2.2 min at kit 0, then fell 46 ticks straight into the exit trigger and e2 loaded by E5_E2 at E5b_E2b, with no tick on e5.Z581 [verified xemu, the owner's real input: $EV/x.78-logic-review-demo-2026-10-25/OWNER-CALLS.txt 18:18]). The derive's switch zone e5.Z121, reached only over e5.Z581 by the hand edge e5.Z581 > Z121 (inferred from the vanilla route) until Step R1.24b, was on no route the demo or Step X.78's placed reads took
+[[edge]]  # E5_E2 -> e2 (spot); the gear-room fall into the turning gear's exit (the owner's demo, X.78, D722 row 03: from the E2_E5 arrival he stood in e5.Z014 about 2.2 min at kit 0, then fell 46 ticks straight into the exit trigger and e2 loaded by E5_E2 at E5b_E2b, with no tick on e5.Z581 [verified xemu, the owner's real input: the owner's calls at the X.78 logic-review demo (2026-10-25, 18:18)]). The derive's switch zone e5.Z121, reached only over e5.Z581 by the hand edge e5.Z581 > Z121 (inferred from the vanilla route) until Step R1.24b, was on no route the demo or Step X.78's placed reads took
 from = "e5_z014"
 to = "e2_z156"
 kind = "exit"
@@ -1286,7 +1286,7 @@ disc = "earth"
 requires = "disce>=4"
 confidence = "data"
 
-[[edge]]  # levelSwitch3 -> f2 (spot); its arrival E5_F2 is a spot the derive places on no floor; the probes sitting stood it 8.7 m from F2_E5, on f2's entrance f2.Z003 [verified xemu, $EV/xemu-oracle-2026-10-12-probes exits-oneway.json]
+[[edge]]  # levelSwitch3 -> f2 (spot); its arrival E5_F2 is a spot the derive places on no floor; the probes sitting stood it 8.7 m from F2_E5, on f2's entrance f2.Z003 [verified xemu, the probes sitting's one-way exits (2026-10-12)]
 from = "e5_z059"
 to = "f2_entrance"
 kind = "exit"

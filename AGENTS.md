@@ -23,8 +23,9 @@ commit. Each line is plain and short, with no step, D or AZ ids, and true on
 | Modkit (`$AZURKIT_MODKIT`, else `Azurik_Modkit` beside the main checkout) | the reference: its skills and docs not ported yet |
 
 Tracked files name the private folder as `$EV`, never by a home path, and
-the docs and skills cite no step's dated evidence folder
-(`tests/test_agent_files.py` lints both).
+cite nothing in it but its tools (`$EV/tools/`): a comment, a data file's
+note or a doc names what a claim rests on (a sitting, a step, a
+measurement) in plain words (`tests/test_agent_files.py` lints both).
 
 ## Setup and tests
 

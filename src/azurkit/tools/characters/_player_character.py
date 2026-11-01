@@ -975,18 +975,17 @@ for every species and garret4's exact on a sample (D242): its sitting
 S1 (main's ``71f13956``, census B0's ISOs) graded the bake's headline
 bodies in own body and Balthazar in garret4's exact, and saw every one
 hoist at the owner's X.35 ledges where garret4 does, kingkong
-own's hoist short (AZ-489)
-(``$EV/2.75b-model-regrade-2026-10-16/S1/REPORT.txt``, with its
-skeptic's re-read: town_male_1 and town_girlchild_farmer_1 green).
+own's hoist short (AZ-489) (its report, with its skeptic's re-read:
+town_male_1 and town_girlchild_farmer_1 green).
 Its sitting S2 (main's ``8ec856f7``, the same census ISOs) graded the
 other baked townsfolk and twelve unbaked bodies in own body, and saw
-nine of those hoist short (AZ-489) (``S2/REPORT.txt`` there, with its
-skeptic's re-read: the three water tentacles yellow, their bodies out
+nine of those hoist short (AZ-489) (its report, with its skeptic's
+re-read: the three water tentacles yellow, their bodies out
 of frame); its victories stay unseen.  Its sitting S3 (main's
 ``c21d51a0``, the same census ISOs) graded the other 31 unbaked bodies
 in own body, so every own-body status is a sitting's, and saw 29 of
-them hoist short (AZ-489) (``S3/REPORT.txt`` there, with its skeptic's
-re-read: catalisk_baby yellow, nothing of it in frame at rest in the
+them hoist short (AZ-489) (its report, with its skeptic's re-read:
+catalisk_baby yellow, nothing of it in frame at rest in the
 water; town_child_farmer_1 green, its ground swing landing).  Its
 sitting S4 (main's ``0334b2e4``, the same census ISOs) graded garret4's
 exact on 14 bodies and 9 at garret4's height, so a mode and size it
@@ -994,12 +993,11 @@ left is unseen (D242); every unbaked body there but the water tentacles
 hoists short, as in own body (AZ-489).  It saw S3's left rows: a victory (the request written)
 plays baked in garret4's time and ends at once on a body without
 victory clips (AZ-444), and town_child_farmer_2's ground swings land
-(``S4/REPORT.txt`` there, with its skeptic's re-read: water_tentacle1
+(its report, with its skeptic's re-read: water_tentacle1
 green at garret4's height, its swim's 19 surface switches one dip
 counted unscaled; water_tentacle3 yellow there, its first basic1 hit
 at swing tick 33).  Sitting 2.96 (Step 2.96, on AZ-489's fix,
-``4ac5243f``; ``$EV/2.96-model-fixes-2026-10-18/REPORT.txt``, with its
-skeptic's re-read) saw every short hoist S1-S4 found, in each mode and
+``4ac5243f``; its report, with its skeptic's re-read) saw every short hoist S1-S4 found, in each mode and
 size and on Europe's golem own, hold 0x100 in garret4's time (88-89
 ticks against his 89: a float32 rate crossing a tick early) from his
 window, with his rise, on his spot; firefly own's ladder, over the top,
@@ -1007,44 +1005,40 @@ down edge, hard landing, hang and step up match the control's.  Those
 builds differ from the graded ones in X9's object and its six landings
 alone, so each grade's other checks stand [inferred static]; a grade
 whose one reason was the short hoist is green.  Sitting 2.101 (Step
-2.101, main's ``2ddf6818``; ``$EV/2.101-model-sitting-2026-10-19/
-REPORT.txt``, with its skeptic's re-read) saw Europe's golem own go
+2.101, main's ``2ddf6818``; its report, with its skeptic's re-read) saw Europe's golem own go
 over the top in garret4's 70 ticks, ending on the control's spot
 (AZ-442): golem own is green.
-Sitting 2.103 (Step 2.103's fixes; ``$EV/2.103-model-fixes-2026-10-19/
-REPORT.txt``, with its skeptic's re-read) saw flicken own's victories
+Sitting 2.103 (Step 2.103's fixes; its report, with its skeptic's
+re-read) saw flicken own's victories
 and use play its idle in garret4's time with his hit timer (AZ-444),
 and fire_shard own's swings land in his time (AZ-494); it stays
 yellow, a speck.
-Sitting 2.104 (Step 2.104's fixes; ``$EV/2.104-own-attack-fixes-
-2026-10-19/REPORT.txt``, with its skeptic's re-read) saw own body's
+Sitting 2.104 (Step 2.104's fixes; its report, with its skeptic's
+re-read) saw own body's
 light hits stun at any multiplier (X18, AZ-525) and its basics chain
 inside the stun (W19, X10's ring: AZ-496, AZ-523), so guard_water's,
 guard_fire1's, guard_air's, town_male_farmer_1's, magmar's and
 rock_shard's combos pass basic1 to a finisher, and magmar's attacks
 open by swing tick 30 (AZ-524); no grade changes colour, each yellow
 keeping another reason (a long lone press, its body in frame, AZ-491,
-AZ-495).  Sitting 2.105 (Step 2.105's fixes; ``$EV/2.105-scale-and-
-chain-fixes-2026-10-19/REPORT.txt``, with its skeptic's re-read) saw
+AZ-495).  Sitting 2.105 (Step 2.105's fixes; its report, with its
+skeptic's re-read) saw
 golem own chain onto a sentinel stunned 3.6 m out (X21, AZ-523),
 guard_air own chain onto its stunned target 4 ticks after its swing
 meets it (W19, AZ-495) and rock_shard's drops read as the game's
 facing rule; no grade changes colour (guard_air keeps AZ-495's late
 hits and short columns, rock_shard its long lone press).  Sitting
-2.106 (Step 2.106's fixes; ``$EV/2.106-hang-hoe-columns-2026-10-19/
-REPORT.txt``, with its skeptic's re-read) saw the farmers' hoe in
+2.106 (Step 2.106's fixes; its report, with its skeptic's re-read) saw the farmers' hoe in
 their hands (W20, AZ-491), so town_male_farmer_1 and _2 are green,
 and guard_air own's side columns chain after their hit (W19, AZ-495);
 it stays yellow for its late hits.  Step 2.117's look checks (D284:
-xemu pictures judged by agents, each verdict checked by a judge seat;
-``$EV/2.117-look-checks-2026-10-20/REPORT.txt``) saw the hoe in
+xemu pictures judged by agents, each verdict checked by a judge seat)
+saw the hoe in
 town_male_farmer_3 to 6's hands too, so all six farmers are green.
-Step 2.117b's re-runs of its 8 unsure (``$EV/2.117b-unsure-looks-
-2026-10-20/REPORT.txt``) passed 6 and change no colour: fire_shard
+Step 2.117b's re-runs of its 8 unsure passed 6 and change no colour: fire_shard
 own stays yellow, its body drawn only as a shadow on the ground at
 X25's 0.79 m (AZ-541).  Sitting 2.121 (Step 2.121, D299, D300;
-``$EV/2.121-victory-2026-10-20/REPORT.txt``, each verdict checked by a
-judge seat) saw W21's victories hold state 0x100 garret4's 71-159
+each verdict checked by a judge seat) saw W21's victories hold state 0x100 garret4's 71-159
 ticks on his clip lengths: the bodies' own on guard_water, spideyzar,
 rock_shard, good_noreht, evil_noreht, splinter, guard_air and Europe's
 golem own (AZ-560); no grade changes colour.  The retired fully its
@@ -1104,15 +1098,15 @@ a species' own sounds, Step 2.72, aren't on the checklist), so it
 carries the partner's :data:`MODE_GRADES` grade there; ``sounds_only``:
 their default builds differ in those sounds alone.  From Step 2.75b's
 census B0 (``71f13956``, every usable species in each mode with both
-sounds; ``$EV/2.75b-model-regrade-2026-10-16/logs/census-71f139566e73.tsv``):
+sounds; its census table):
 own body splits 24hr, guard_fire2 and 3, town_male_6B and lava_shard
 from their :data:`SAME_BUILD` partners (their own stride, W7), which
 garret4's exact joins again, with catalisk_baby to catalisk
 and kingkong to golem.  B0 built no pair at garret4's size, so none
 shares there.  Each later sitting's recheck held (sitting S4's on
-``0334b2e4``: ``logs/census-s4-0334b2e4bd4b.tsv``, 546 rows; sitting
-2.96's on AZ-489's fix, whose X9 ISOs no longer hash as these:
-``$EV/2.96-model-fixes-2026-10-18/logs/census-4ac5243ffb77.tsv``).
+``0334b2e4``, its census table of 546 rows; sitting
+2.96's on AZ-489's fix, whose X9 ISOs no longer hash as these: its
+census table).
 Step 2.132's X32 (D333) split the pairs whose NPCs hit with different
 damage records, so their hits show different effects: air_elemental_boss
 (wind_2) and sleeth_x (sleeth) in both modes, and in garret4's exact
@@ -1120,8 +1114,8 @@ kingkong (golem's golem), catalisk_baby and its group (catalisk_baby)
 and lava_shard (rock_shard's rock_shard); since Step 2.180 (D700) every
 body X32 serves shows one flash, which joins sleeth_x again in both
 modes and air_elemental_boss and catalisk_baby(_grp) in garret4's exact
-(kingkong, lava_shard and air_elemental_boss in own body still differ;
-``$EV/2.180-booblord-play-fixes-2026-10-25/fix/results/pairs-check.2``);
+(kingkong, lava_shard and air_elemental_boss in own body still differ:
+Step 2.180's pair check);
 the hashes kept are the census's, from before X32."""
 UNSEEN = ("unseen", "no sitting has graded its build in this mode and size (D242)")
 """The status of a species no sitting graded in a mode and size, and no
@@ -2427,7 +2421,7 @@ def attack_copies(characters: bytes, body: Body, picks: list[str], mode: str,
     from where the attack starts) and X3's box on a hand, which follows
     the drawn hand, stays at or past garret4's box at his for D above 1
     (the hand leads ``m_feet`` at the peak of every lunge's window:
-    ``$EV/2.175-model-leftovers-2026-10-24/clip-copies/results/hand623``).
+    Step 2.175's read of the hand on its clip copies).
     ``switches`` (default: :func:`scripted_switches` in ``characters``)
     names the W22 markers, so a second call after W34's cast, whose clone
     of his graph the player then plays, names the same copies."""
@@ -3974,8 +3968,7 @@ def sent_window(characters_xbr: bytes, owner: str, clip: str, rate: float, w: Da
     horizontal ``m_feet`` there, so a lunge's box stands that much nearer
     the body: the bounds of those boxes, its reach their farthest corner
     and its near the nearest one's.  Step 2.195b's record read each such
-    column to the millimetre (``$EV/2.195b-weapon-reaches-2026-10-27/
-    sitting-rec``, R2: basic2's attack_9 0.425 and 0.481 m back at its
+    column to the millimetre (its sitting's record, R2: basic2's attack_9 0.425 and 0.481 m back at its
     two ticks, basic3's attack_3 0.376 at its first, sweep1's 0.86, the
     finish's attack_10 0.84, where it holds its ``m_feet`` still); ``w``
     itself where ``m_feet`` stays at the origin."""
@@ -4969,7 +4962,7 @@ FLYERS = frozenset({
     "shard", "fire_shard", "air_elemental", "air_elemental_boss", "fire_elemental", "blaze_sentinel",
     "blaze_move", "guard_air", "guard_air_clone"})
 """The species that fly or hover as NPCs (D334, D335, D351; Step 2.132's
-read, ``$EV/2.132-attack-feel-2026-10-21/read-fx-move/results/flyers``): the
+read of the NPCs' effects and moves): the
 flocking flyers with fly clips of their own (bird, the air octopus, the
 bots, the channeler, the firedrake, the firefly, the gargoyle, the shard;
 fire_shard flocks with none), the hoverers whose walk, run and idle hold
@@ -6291,8 +6284,8 @@ HOLD_PRIORS = (*range(1, 10), 13, 14)
 ground state's (idle and its fidgets, walk, run and their backward
 ones), for the hang's set-up 0x8A200 has one caller, the ground state's
 case at 0x8D149 (after the swim, the use and the landing checks, before
-the jump), so a grab starts from the ground [verified static:
-``$EV/2.118c-hang-hold-2026-10-20/results/build-static-hang-entry.txt``].
+the jump), so a grab starts from the ground [verified static: Step
+2.118c's read of the hang's entry].
 Each loops, at X12's rate where X11 times it to garret4's (water_tentacle2's
 walk its idle at x5.9)."""
 HOLD_TICKS = 22

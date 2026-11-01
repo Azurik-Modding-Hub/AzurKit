@@ -1134,7 +1134,7 @@ exit = "f2/g0/r2912"
 requires = "true"
 confidence = "data"
 
-[[edge]]  # levelSwitch3 -> f4 (spot); Step R2.18: or the owner's kit-0 way on to f4 (D648): f2.Z000 > Z001 > f4.Z015 with the armor off, after f2.rjump_interior's roll jumps [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 294724-295630, kit 0]. Before: the conservative-kit rule (the header): the derive doesn't join f2.Z001 to the arrival, so the exit leaves from the arrival with the kit the vanilla run holds when it goes on to f4 (the route's f4/g0/r1531) [computed: route.toml] (default taken under D115)
+[[edge]]  # levelSwitch3 -> f4 (spot); Step R2.18: or the owner's kit-0 way on to f4 (D648): f2.Z000 > Z001 > f4.Z015 with the armor off, after f2.rjump_interior's roll jumps [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 294724-295630, kit 0]. Before: the conservative-kit rule (the header): the derive doesn't join f2.Z001 to the arrival, so the exit leaves from the arrival with the kit the vanilla run holds when it goes on to f4 (the route's f4/g0/r1531) [computed: route.toml] (default taken under D115)
 from = "f2_entrance"
 to = "f4_cliffside"
 kind = "exit"
@@ -1180,22 +1180,22 @@ requires = "true"
 [[location]]
 id = "f2/g0/r1831"
 requires = "water>=2 & fire>=2 & air>=1 & earth>=1 | skip:f2.rjump_interior"
-note = "power_air taken at kit 0 (n 272751) in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "power_air taken at kit 0 (n 272751) in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2297"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2299"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2301"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2303"
@@ -1205,7 +1205,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2305"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2307"
@@ -1215,7 +1215,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2309"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2311"
@@ -1276,12 +1276,12 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2341"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2343"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2345"
@@ -1296,17 +1296,17 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2349"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2351"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2353"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2355"
@@ -1351,7 +1351,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2372"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2374"
@@ -1386,7 +1386,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2387"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2389"
@@ -1411,7 +1411,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2397"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2399"
@@ -1451,12 +1451,12 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2414"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2418"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2422"
@@ -1471,7 +1471,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2427"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2429"
@@ -1491,12 +1491,12 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2438"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2441"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2443"
@@ -1511,7 +1511,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2448"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2450"
@@ -1521,12 +1521,12 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2453"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2455"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2458"
@@ -1536,7 +1536,7 @@ note = "the conservative-kit rule: the kit the vanilla run holds when route.toml
 [[location]]
 id = "f2/g0/r2461"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior & skip:f2.acidblock04_fly_around"
-note = "frag_life_3 taken at air 1 (D649, Step R2.18): from f2.Z000, reached on foot by f2.rjump_interior, one flight of 10 flaps (1 + 9 mid-air casts) by f2.Z278 round AcidBlock_04 to f2.Z007 (f2.acidblock04_fly_around) [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 317345-318005, air 1]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "frag_life_3 taken at air 1 (D649, Step R2.18): from f2.Z000, reached on foot by f2.rjump_interior, one flight of 10 flaps (1 + 9 mid-air casts) by f2.Z278 round AcidBlock_04 to f2.Z007 (f2.acidblock04_fly_around) [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 317345-318005, air 1]; or the conservative-kit rule: the kit the vanilla run holds when route.toml collects it, with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2465"
@@ -1546,12 +1546,12 @@ note = "the conservative-kit rule: the kit the vanilla run holds when the run la
 [[location]]
 id = "f2/g0/r2467"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 [[location]]
 id = "f2/g0/r2470"
 requires = "water>=3 & fire>=3 & air>=3 & earth>=3 | skip:f2.rjump_interior"
-note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: $EV/x.67-skip-demo-prep-2026-10-23/demo/owner-2026-10-24/trace.jsonl.gz, n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
+note = "taken at kit 0 in the owner's kit-0 run (D646, D648, Step R2.18): f2.rjump_interior, roll jumps with every element 0 and no power storage [verified xemu, the owner's real input: the X.67 skip demo's per-tick trace (2026-10-24), n 241737-296393, kit 0]; or the conservative-kit rule: the kit the vanilla run holds when the run last leaves the level (off the route), with the level's route actions before it [computed: route.toml] (default taken under D115)"
 
 # ---- skips: tricks.toml's, projected (FORMAT 4.8) ---------------------------------------------
 

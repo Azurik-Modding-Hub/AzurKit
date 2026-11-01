@@ -113,8 +113,7 @@ VICTORY_CLIPS: dict[str, str] = {
     "water_lizardx": "attack_1",
 }
 """Each body (case-folded) his rig doesn't fit and its most victory-like
-own clip (D300; Step 2.121's read, ``$EV/2.121-victory-2026-10-20``
-``results/own-candidates.tsv``): of its clips but locomotion, deaths,
+own clip (D300; Step 2.121's read of each body's own candidates): of its clips but locomotion, deaths,
 hits, the bind pose (``reference``), telltales, ``disappear``, sitting
 and leaning, the stand-in, any under 0.2 s, any still one (mean bone
 peak under 1 degree) and any that moves ``m_feet``, the first by class

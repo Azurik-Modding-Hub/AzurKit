@@ -1139,7 +1139,7 @@ confidence = "data"
 
 # ---- exits ---------------------------------------------------------------------------------
 
-[[edge]]  # LevelSwitch_F3_F1 -> f1 (spot); F3_F1 is 7.4 m above the main cavern's floor (Z000, 2.7 m aside) with no floor under it within 3 m [computed: the derive's columns]; the probes sitting saw the arrival stand 17 ticks after the load [verified xemu, $EV/xemu-oracle-2026-10-12-probes row 35]: it lands in the cavern (default taken under D115)
+[[edge]]  # LevelSwitch_F3_F1 -> f1 (spot); F3_F1 is 7.4 m above the main cavern's floor (Z000, 2.7 m aside) with no floor under it within 3 m [computed: the derive's columns]; the probes sitting saw the arrival stand 17 ticks after the load [verified xemu, the probes sitting (2026-10-12), row 35]: it lands in the cavern (default taken under D115)
 from = "f3_z052"
 to = "f1_core"
 kind = "exit"

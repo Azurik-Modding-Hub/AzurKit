@@ -28,7 +28,7 @@ confidence = "data"
 
 # ---- barriers, buttons, events and location overrides ----------------------------------------
 
-[[event]]  # Balthazar is on his generator's list at the first player tick after the arrival and comes to the player; plain-staff hits are never blocked by his adaptive armor, so no element is needed [verified xemu, placed: $EV/balthazar-armor-2026-10-12/REPORT.md, fight start 13 of 13 and 74 of 74 contacts; the static RE's 'plain-staff hits are never blocked']
+[[event]]  # Balthazar is on his generator's list at the first player tick after the arrival and comes to the player; plain-staff hits are never blocked by his adaptive armor, so no element is needed [verified xemu, placed: the Balthazar armor sitting (2026-10-12), fight start 13 of 13 and 74 of 74 contacts; the static RE's 'plain-staff hits are never blocked']
 id = "airship.balthazar.killed"
 of = "airship/g0/r11"
 at = "airship_deck"

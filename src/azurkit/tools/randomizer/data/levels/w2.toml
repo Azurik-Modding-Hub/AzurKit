@@ -892,7 +892,7 @@ exit = "w2/g0/r2301"
 requires = "true"
 confidence = "data"
 
-[[edge]]  # levelSwitch1 -> w1 (spot); its arrival W2_W1b stands in the stream's water over w1's cove, where the waterfall ledge it climbed out on is a slippery slope since Step X.16 (AZ-359) and the stream's fall into the cove is not modelled; the player swims and falls down the stream into w1.Z009 in 5 s, HP 200 [verified L3, player tick, untainted, snapshot x7-w1-k0: $EV/x16-derive-fixes-2026-10-14/logs/arrival_w1_r2178.log]
+[[edge]]  # levelSwitch1 -> w1 (spot); its arrival W2_W1b stands in the stream's water over w1's cove, where the waterfall ledge it climbed out on is a slippery slope since Step X.16 (AZ-359) and the stream's fall into the cove is not modelled; the player swims and falls down the stream into w1.Z009 in 5 s, HP 200 [verified L3, player tick, untainted, snapshot x7-w1-k0: Step X.16's arrival run from w1's r2178 (2026-10-14)]
 from = "w2_z011"
 to = "w1_cove"
 kind = "exit"
@@ -960,7 +960,7 @@ requires = "event:w2.hose.on"
 id = "w2/g0/r1346"
 requires = "event:w2.hose.won"
 proven = { by = "route", ref = "rando author: route.toml step 1, its kit within the logic's requirement both ways", unless = ["w2.firewall02_air3"], only = ["power_water", "power_water_a3"] }
-note = "power_water behind the hose: the hose minigame (w2.hose.won, after w2.hose.on at the console) drops the blocker round it (Step R1.8o, AZ-375; the [members] zone alone made it free). Seen in xemu (Step R1.8f, xemu-oracle-2026-10-13-r18f/results/runs.jsonl: hose-1, hose-2): from a new game in w2 with every element 0, placed at the console and then on the joystick, scripts/xemu_minigames.py's hose solver put the six fires out with real input (one round each), and the route pilot walked from the joystick to the altar's trigger and the power: taken 2 of 2. Its proven mark is R1.8e's by-route one (D169), which this sitting stands beside (default taken under D115: one mark a spot, and the same proven set either way)"
+note = "power_water behind the hose: the hose minigame (w2.hose.won, after w2.hose.on at the console) drops the blocker round it (Step R1.8o, AZ-375; the [members] zone alone made it free). Seen in xemu (Step R1.8f, sitting r18f's runs (2026-10-13): hose-1, hose-2): from a new game in w2 with every element 0, placed at the console and then on the joystick, scripts/xemu_minigames.py's hose solver put the six fires out with real input (one round each), and the route pilot walked from the joystick to the altar's trigger and the power: taken 2 of 2. Its proven mark is R1.8e's by-route one (D169), which this sitting stands beside (default taken under D115: one mark a spot, and the same proven set either way)"
 
 [[location]]
 id = "w2/g0/r1351"

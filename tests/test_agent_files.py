@@ -1,7 +1,7 @@
 """The agents' files: each role in ``.claude/agents/`` pins its model, the
-tracked skills hold no text the Skill tool runs as a shell command, no
-tracked text holds a home path, and no doc or skill cites a step's dated
-evidence folder.
+tracked skills hold no text the Skill tool runs as a shell command, and no
+tracked text holds a home path or cites the private evidence folder but
+its tools.
 
 The roles and skills are tracked here under their ``azurik-*`` names
 (D951); the first two guards are Modkit's (``tests/test_retired_names.py``),
@@ -30,9 +30,12 @@ GHIDRA_WRITERS = (
 #: evidence under Documents, the memory and the harness's settings under .claude. The platform's own folders
 #: (the user data folder in Library) are no one's home path.
 HOME_LAYOUT = re.compile(r"(?:~|\$HOME|\$\{HOME\}|/(?:Users|home)/[^/\s\"'`]+)/(?:Documents|\.claude)\b")
-#: A cite of one step's evidence (``$EV/<slug>-<date>/``): private, so a dead link in the public repo.
-#: ``$EV/tools/``, what the seats run, is the folder's interface and stays.
-DATED_EVIDENCE = re.compile(r"\$EV/[^\s/`'\"]*20\d\d-\d\d-\d\d")
+#: A cite of anything in the private evidence folder but its tools (``$EV/tools/``, what the seats run, the
+#: folder's interface): a dead link in the public repo, so a sitting, a step or a measurement is named in words.
+EV_CITE = re.compile(r"\$EV" r"/(?!tools/)[^\s`'\"),;\]]*")
+#: The one cite left, and where: w3's barrier's reason, a value ``db_digest`` hashes into every plan (so into
+#: ``tests/goldens/rando_plans.json``), reworded with the database's next change.
+HASHED = ("src/azurkit/tools/randomizer/data/levels/w3.toml", "override_reason = ")
 
 
 def tracked(*pathspec: str) -> list[str]:
@@ -98,15 +101,17 @@ def test_no_skill_holds_text_the_skill_loader_runs_as_a_shell_command():
         "reword it so no '!' sits directly before a backtick:\n" + "\n".join(hits))
 
 
-def test_no_tracked_text_holds_a_home_path_and_no_doc_cites_a_dated_evidence_folder():
-    """The repo goes public (D951): tracked text names the private evidence
-    folder as ``$EV`` and a checkout's files by relative paths, never a
-    home path: the running user's home written out, or the owner's layout
-    under a home folder (HOME_LAYOUT). Nor do the docs and skills (every
-    tracked ``.md``) cite one step's dated evidence folder (DATED_EVIDENCE).
-    Binary files are skipped, and nothing else: the files ported from
-    Modkit are AzurKit's own (the sync ended, Step 4.12b). A hit prints its
-    file, line and the match alone."""
+def test_no_tracked_text_holds_a_home_path_or_cites_the_private_evidence_folder():
+    """The repo is public (D951, D1024): tracked text names the private
+    evidence folder as ``$EV`` and a checkout's files by relative paths,
+    never a home path: the running user's home written out, or the owner's
+    layout under a home folder (HOME_LAYOUT: its Documents folder among them).
+    Nor does it cite anything in ``$EV`` but its tools (EV_CITE): a code
+    comment, a data file's note or a doc names what a claim rests on (a
+    sitting, a step, a measurement) in plain words (Step 4.4pub2), but the
+    one value the plans hash (HASHED). Binary files are skipped, and
+    nothing else: the files ported from Modkit are AzurKit's own (the sync
+    ended, Step 4.12b). A hit prints its file, line and the match alone."""
     home = str(Path.home()).rstrip("/\\")
     own_home = re.compile(re.escape(home) + r"[/\\]") if len(home) > 3 else None
     hits = []
@@ -115,7 +120,10 @@ def test_no_tracked_text_holds_a_home_path_and_no_doc_cites_a_dated_evidence_fol
         if b"\0" in data:
             continue
         text = data.decode("utf-8", errors="replace")
-        for pattern in (HOME_LAYOUT, own_home, DATED_EVIDENCE if rel.endswith(".md") else None):
+        for pattern in (HOME_LAYOUT, own_home, EV_CITE):
             for m in pattern.finditer(text) if pattern else ():
+                start = text.rfind("\n", 0, m.start()) + 1
+                if pattern is EV_CITE and rel == HASHED[0] and text.startswith(HASHED[1], start):
+                    continue
                 hits.append(f"{rel}:{text.count(chr(10), 0, m.start()) + 1}: {m.group()}")
-    assert not hits, "name $EV or a relative path instead:\n" + "\n".join(hits)
+    assert not hits, "name $EV, a relative path or what a claim rests on in words instead:\n" + "\n".join(hits)
