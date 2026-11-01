@@ -85,8 +85,8 @@ source ([Development](#development)).
 
 - **Track any seed:** a randomized build (the one you just built, or any you open on the Tools tab: Track this
   build), a seed you haven't built yet, or a plan file.
-- **Quick to open:** on our Mac the Randomizer tab opens in about 4 s, and tracking a seed takes about 15 s in
-  the app and 22 s in the browser.
+- **Quick to open:** on our Mac the Randomizer tab opens, and Track this seed shows its plan, within 3 s of the
+  click, in the app and in the browser.
 - **Where you stand:** what you've collected and what you can reach right now, sphere by sphere.
 - **Skips shown apart:** spots you can reach only with a skip have their own colour.
 - **Spoiler-free:** each item stays hidden until you collect it, unless you turn Spoiler on.
@@ -198,11 +198,12 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
   a path.
 - **Remembers your setup** between visits, never your image, until you Reset to defaults.
 - **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file.
-- **Same bytes everywhere:** the page, the app and the command line make the identical image.
+- **Same bytes everywhere:** the page, the app and the command line make the identical image; only a character
+  swap's float maths may round its last digits otherwise in the browser or on another computer.
 - **Proven exact:** packs, randomized seeds and character swaps are checked byte for byte against AzurKit's own
   records, which began as those of Azurik_Modkit, the toolkit AzurKit replaces.
-- **Nothing to compile:** AzurKit's C code for the game ships prebuilt, so nothing compiles on your computer or in
-  your browser.
+- **Nothing to compile:** AzurKit's C code, for the game and for the randomizer's fast search, ships prebuilt for
+  each computer and the browser, so nothing compiles on yours.
 - **Fast:** from the command line on our Mac: a patched image in about 3 s, a swap in 8 s, a seed under 30 s.
 
 ### Where it runs
@@ -215,6 +216,9 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
+- **Unsigned apps:** CI builds the app for Apple Silicon and Intel Macs, Windows and Linux, unsigned. The first time,
+  on a Mac, open it, then choose Open Anyway in System Settings › Privacy & Security; on Windows, choose More info ›
+  Run anyway.
 - **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.
 - **Progress bars:** a build, a save and the tracker's Track show their step and percent, as your image's first check
   does on the web page; in the app that check, like anything slower than a second, shows what it is doing.
@@ -223,8 +227,9 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **The app stays quick while it builds:** a build runs in a process of its own, so picking an image and the other
   tabs answer at once, and dressing a character spreads over your CPU's cores.
 - **Save is quick in the app:** it writes the image Build made, already checked while you chose where to save it.
-- **Dressed once, in the app:** a character's body, pictures and G4 numbers are kept (up to 2 GB in your cache
-  folder), so building or drawing it again, after a relaunch too, takes a second or two.
+- **Dressed once, in the app:** a character's body, pictures and G4 numbers are kept in your cache folder (AzurKit
+  keeps at most about 5 GB, the oldest out first), so building or drawing it again, after a relaunch too, takes a
+  second or two.
 - **A private app:** its page is served only to itself, with a fresh key each launch.
 - **The command line:** `azurkit verify`, `packs`, `build`, `open`, `plan` and `spoiler`; the app doubles as it.
 - **Dark or light:** your pick is remembered, and both are easy to read.
@@ -282,7 +287,7 @@ uv run --locked azurkit spoiler PLAN                     # that plan's spoiler
 uv run --locked azurkit content [install ID | update ID] [--source URL|DIR]   # Azurik-Custom-Content's entries
 uv run --locked python scripts/web_tools.py --site DIR [--content CLONE]   # the site: the page, Pyodide, the wheel
 uv run --locked python -m azurkit [serve]                # the app: the page in a window (serve: only its address)
-uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS
+uv run --locked python scripts/freeze.py --dist DIR      # the app frozen: DIR/AzurKit.app on macOS, else DIR/AzurKit
 uv run --locked python -m shimkit [--check]              # rebuild the prebuilt shim objects (zig, dev only)
 uv run --locked python -m nativekit [--check]            # rebuild the compiled kernels' libraries (zig, dev only)
 uv run --locked --group icon python assets/icon/render.py # rebuild the icon from its sources (macOS)

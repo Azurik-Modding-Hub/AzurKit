@@ -30,7 +30,7 @@ measurement) in plain words (`tests/test_agent_files.py` lints both).
 ## Setup and tests
 
 ```bash
-uv run bootstrap.py                         # once, in the main checkout: uv sync --locked, the pre-push hook, Pyodide
+uv run bootstrap.py                         # once, in the main checkout: uv sync --locked, the pre-push hook, Pyodide, the browsers
 uv run --locked pytest -q <files>           # targeted tests while you work
 uv run --locked pytest -n 8 --dist loadgroup   # the whole suite, on 8 workers (fullsuite.py's)
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
@@ -752,9 +752,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   unicorn, zig, Tk or `devkit` (the developer side, which never ships).
   `tests/test_contracts.py` checks these, along with import-linter's
   contracts.
-- **The same bits on every platform (AZ-830):** each platform's libm rounds
-  some sines, cosines and powers otherwise (macOS's for CPython, musl's
-  under Pyodide), so the swap's (`tools/characters/`) and the XBR graphs'
+- **The same transcendental bits on every platform (AZ-830):** each
+  platform's libm rounds some sines, cosines and powers otherwise
+  (macOS's for CPython, musl's under Pyodide), so the swap's (`tools/characters/`) and the XBR graphs'
   (`core/xbr/`) transcendental math is `core/fdlibm.py`'s: fdlibm's
   algorithms in pure Python, built from correctly rounded operations alone
   (musl's bits where musl's is fdlibm's), and a power is `fdlibm.sq`, `cube`
@@ -762,6 +762,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   arrays take them as they are). No `math` or numpy libm call and no `**`
   but an integer's there; the previews' drawer (`draw.py`) writes no built
   byte and keeps numpy's. `tests/test_contracts.py` holds this.
+  - **Across machines the bits may differ (D1016, AZ-833 accepted):** no
+    test or build requires identical float bits between machines or hosts
+    (numpy's BLAS on each OS, the site's Pyodide); one host's builds stay
+    exact, and so does D35's read-back. Where a build's float maths can
+    differ, a test keeps a reference per platform or compares close enough
+    (integer fields, sizes and layout exact, floats within a few ULPs).
 - **The compiled kernels (D1009):** a hot loop may be C99 in `native/`,
   built by `python -m nativekit` with the pinned zig for six targets from
   one machine (macOS arm64 and x86_64, Linux x86_64 and aarch64 on glibc
@@ -811,6 +817,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## The two hosts (D866)
 
+- **Engine halves no host calls yet** (each tested alone; its hub half wires
+  it): the work ahead (`app/ahead.py`, `web/workers.mjs`), the warm-up
+  (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
+  `web/memo.mjs`), the service worker (`web/sw.js`), community packs
+  (`tools/mods/community.py`, `web/content.mjs`), Replace files
+  (`edits/files.py`) and Saves (`tools/saves/`).
 - **The page** (`web/`): pick the image, choose packs and set their sliders
   (a box takes any value; the track widens to hold it), Build, then Save. One
   page for both hosts: `host.json` names the host's engine. It decides no
@@ -1017,7 +1029,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     pictures at its click, with no image and no engine call, and G4 and the
     Weapon box stay greyed, saying the image is needed, until the engine's
     answer has read it (D979). Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
-    at 4.4) is remembered (the site's storage, the app's `content_source`).
+    since the content repository went public, D1027) is remembered (the
+    site's storage, the app's `content_source`).
     The site reads a source on its own address only (its CSP's
     `connect-src 'self'`; `scripts/web_tools.py --site DIR --content
     CLONE` serves a clone as `./content-source/`), checks an Install in
@@ -1025,7 +1038,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     writes them into its worker's `content/` once a worker; the app's
     engine installs into its content folder. A known flaw (D835): on the
     site a detailed variant's dress (booblord's) may run out of wasm
-    memory; the page then says to use the app.
+    memory; the page then says to use the app. 4.4 waits until every site
+    build fits the capped profile's 6 GiB (D1021: no use-the-app fallback).
   - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data
     editor): config.xbr's cells before an image (`sdk.data`, from the
     vanilla file `tools/data` ships): the Player, Critter, Item, Armor and
@@ -1140,8 +1154,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     FinalizationRegistry, which needs the GIL, and WebKit runs that cleanup
     inside WORKERFS's read of the image, where CPython has released the GIL
     (`NoGilError`, Step 4.1d3).
-  - **The service worker** (D1013, Step 4.3z; `web/sw.js`, which the page
-    registers from its hub turn on): `site()` writes the release into it
+  - **The service worker** (D1013, Step 4.3z; `web/sw.js`, which no page
+    registers yet: the hub's turn, which must also lift `app.mjs`'s `main()`
+    stop on a page a service worker controls): `site()` writes the release
+    into it
     (`web_tools.release`: each file the site serves but `sw.js`,
     `.nojekyll` and `content-source/`, with its sha256 and size; the
     page's CSP, from `index.html`'s meta; a name its files decide). It
@@ -1251,6 +1267,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   reviewer never edits.
 - **Never:** attribution trailers, force-pushes, `--no-verify`, `git stash` or
   git config changes.
+- **Change notes:** each change adds one Markdown bullet in a file of its
+  own, `docs/devlog/<added|changed|removed|fixed>/<step>-<slug>.md` (ids
+  welcome there), which a release joins; a change a player would notice
+  also updates README's Features (above), in plain words.
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
   with the gate's USA and Europe test (or the whole suite) in the background
@@ -1279,7 +1299,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   run times every op in four profiles (the app; the site in WebKit and
   Chromium, and Firefox once its first record lands; the site with each File read 200 ms late,
   Safari's; capped, `AZURKIT_CORES=4` against 9 s with a 6 GiB memory peak: the
-  app's process tree, and the site's WebKit processes that start during the run).
+  app's process tree, and the site's WebKit processes that start during the run;
+  the 4-core / 8 GB computer AzurKit must run well on, D1017). The rule and its
+  gate hold on this Mac alone; the other platforms are timed later (D1023).
   It starts once the normal-priority load is under 40, at nice 10. The
   clock is the click's (D1006): a Track or Build after a change the player
   makes (a typed seed, the Randomize tick, an image pick, a model's pick, a
@@ -1319,7 +1341,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   changes `src/` or `web/`, a passing perf block; it refuses any stack whose
   perf list grows main's (one that changes only the list too); `--release`
   refuses while the list holds anything (it is empty for 4.4).
-- **CI (Step 4.4ci; D1022-D1024):** AzurKit goes public in Azurik-Modding-Hub
+- **CI (Step 4.4ci; D1022-D1024):** AzurKit is public in Azurik-Modding-Hub
   before its release so GitHub Actions tests it, and publishing isn't a
   release: no workflow deploys the site (Pages stays off, D1026), uploads
   to PyPI, tags or makes a release. `.github/workflows/tests.yml` runs the
@@ -1336,10 +1358,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   run with no network as well (Modkit's §12.4 hygiene), and only the
   pytest log's tail and summary are printed. `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
-  --check` on macOS, Windows and Linux once `src/azurkit/core/_native/`
-  exists. `apps.yml` freezes the four apps (`scripts/freeze.py`) on a push
-  to `main`, each a 14-day workflow artifact with its sha256. Workflows
-  hold `permissions: contents: read`, no `pull_request_target`, and actions
+  --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four
+  apps (`scripts/freeze.py`) on a push to `main`, each a 14-day workflow
+  artifact with its sha256. Workflows hold `permissions: contents: read`,
+  no `pull_request_target`, and actions
   pinned by commit sha with their release beside it; `actionlint` passes
   on each. A stack still lands on the local gate (`land.py`); the other
   platforms must pass by 4.4 (D1023), with their own references or
