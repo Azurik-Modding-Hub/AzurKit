@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from azurkit.core import progress
+
 LEAST = 8
 """Modkit's: the fewest items it splits (fewer run in the caller)."""
 MAP: Callable[..., list] | None = None
@@ -26,7 +28,9 @@ TICK: Callable[[int, int], object] | None = None
 
 def each(fn: Callable, shared, items: list, cost: Callable[[int], float] | None = None, least: int = LEAST) -> list:
     """``[fn(shared, item) for item in items]``, by :data:`MAP` when a host
-    gave one (from ``least`` items on), each item counted to :data:`TICK`."""
+    gave one (from ``least`` items on), each item counted to :data:`TICK`;
+    here, each is a record of the call that notes this thread too (its
+    cancel point: :func:`~azurkit.core.progress.note`)."""
     done, tick = 0, TICK
 
     def ticked(count: int) -> None:
@@ -40,6 +44,7 @@ def each(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
     for item in items:
         out.append(fn(shared, item))
         ticked(1)
+        progress.note("the swap's items")
     return out
 
 

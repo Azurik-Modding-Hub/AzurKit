@@ -8904,6 +8904,7 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
         if placing is not None:   # the parent's refusal first, as when its places came first
             placing.result()
         raise
+    _progress.note("the mesh")   # the dress's serial stages, each a record (and a cancel point) for a call that notes them
     if placing is not None:
         at = placing.result()[0]
         shipped.heard_places(current, stored, body, parent, at)
@@ -8916,9 +8917,11 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     if variant.jiggle is not None:   # W29: the jiggle bones, before any reader
         rigged = jiggles.rig(edited, stored, body, variant.jiggle, variant.mesh, folder, asset=assembled, at=at,
                              late=reshaped.late if reshaped is not None else None)
+        _progress.note("the springs")
     painted = []
     if baking is not None:   # W30
         painted = paint.write(edited, stored, body, reshaped, specs, baking.result())
+        _progress.note("the paint")
     made = bytes(edited)
     _KEPT_BODY[0] = (key, current, stored, made, pickle.dumps((reshaped, rigged, painted), pickle.HIGHEST_PROTOCOL))
     return made, reshaped, rigged, painted
@@ -10470,6 +10473,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     if rigged is not None:   # W28's springs (Step 2.143, AZ-648): last, at the rates the written cells play each clip
         rates = playback_rates(characters, doc, body, fills | victory | quiets, picks, drawn, bool(body.clips))
         try:
+            _progress.note("the springs' clips")
             grown, _, peaks = variants.restyled(d.dressed, bytes(game["characters.xbr"]), d.first, body.name,
                                                 variant, rigged, rates, drawn, arms=False)
         except ValueError as exc:
@@ -10544,11 +10548,13 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     laid, lods_bytes = [], 0
     if variant is not None and (variant.lods is not None or variant.mesh is not None):   # W39 (Step 2.166d): its
         try:   # LODs cut from its final LOD 0 (after W33), before W36 (which then adds none) and W38's copy
+            _progress.note("the LODs")
             laid, lods_bytes = write_lods(game, engine, body.name, variant.lods,
                                           game.stored("characters.xbr") if variant.mesh is not None else None)
         except ValueError as exc:
             raise ValueError(f"--player-character {variant.name!r}: W39: {exc}") from None
     try:   # W36 (Step 2.166c): a big one-LOD body's shadow LOD, after every write of its LOD 0 (W32's prop in it)
+        _progress.note("the shadow")
         shadowed, shadow_bytes = write_shadow_lod(game, engine, body.name, None if variant is None else variant.shadow)
     except ValueError as exc:
         raise ValueError(f"--player-character {variant.name if variant is not None else species!r}: W36: {exc}"

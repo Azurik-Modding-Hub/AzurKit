@@ -28,7 +28,7 @@ import pytest
 
 import shimkit
 from azurkit import cli, sdk
-from azurkit.core import coff, facts, filelist, gate, iso
+from azurkit.core import coff, facts, filelist, gate, iso, progress
 from azurkit.core.xbr.append import PAGE, NewResource, append_resources, appended
 from azurkit.core.xbr.nodes import named_resources, parse_toc, runs
 from azurkit.edits import manifest as edits_manifest
@@ -1442,6 +1442,39 @@ def test_a_cut_started_ahead_with_no_host_costs_nothing_until_it_is_taken(monkey
         with pytest.raises(ValueError, match="refused"):
             refused.result()
     assert ran == [b"handed", b"bad"]
+
+
+def test_a_dress_on_the_serial_path_records_each_stage_and_item_and_stops_at_the_next_when_the_host_says(monkeypatch,
+                                                                                                         tmp_path):
+    """D1007's drop (C16): each of a serial dress's stages and of ``pool.each``'s items run here is a record of its
+    stage, none moving its bar, and a host's callback raising at one (a change, a cancel) stops the work there."""
+    swap, stored, _, variant, _ = _places_rig(monkeypatch, tmp_path)
+    monkeypatch.setattr(swap, "_parent_places", lambda shared, _=None: {})
+    monkeypatch.setattr(pool, "MAP", None)
+    labels: list[str] = []
+
+    def heard(step: dict) -> None:
+        labels.append(step["label"])
+        assert step["done"] == 0
+
+    with progress.noting(progress.Steps(heard)) as steps:
+        steps("dress")
+        swap._variant_body(stored, stored, "body", variant)
+        pool.each(lambda _, item: item, None, [1, 2])
+    assert labels[1:] == ["Dressing (the mesh)", "Dressing (the swap's items)", "Dressing (the springs)",
+                          "Dressing (the swap's items)", "Dressing (the swap's items)"]
+
+    class Dropped(Exception):
+        pass
+
+    def drop(step: dict) -> None:
+        if "items" in step["label"]:
+            raise Dropped
+    ran: list[int] = []
+    with pytest.raises(Dropped), progress.noting(progress.Steps(drop)) as steps:
+        steps("dress")
+        pool.each(lambda _, item: ran.append(item), None, [1, 2, 3])
+    assert ran == [1]
 
 
 def _places_rig(monkeypatch, tmp_path) -> tuple:
