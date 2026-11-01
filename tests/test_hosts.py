@@ -1751,7 +1751,8 @@ def test_live_opens_each_session_on_the_marks_journal_and_reads_the_game_again_a
 class _Ram:
     """A running game's guest RAM as Live's reads walk it (``live.game``; the USA release's addresses): the
     level, the player's entity (its clock and last contact point) and critter (its body centre) and, for
-    ``names`` ({record: the species its critterGenerator names}), each spot's node in the level's main graph."""
+    ``names`` ({record: the species its critterGenerator names}), each spot's node in the level's main graph
+    (its attributes at node + 0x80); ``gone``'s [start, end) ranges are unmapped."""
 
     SCENE, PD, CRITTER, ENTITY, INV, GRAPH, VEC, NODES = (0x100000 * k for k in range(1, 9))
 
@@ -1759,6 +1760,7 @@ class _Ram:
         from azurkit.tools.randomizer.live import game, recipes
 
         self.mem: dict[int, int] = {}
+        self.gone: list[tuple[int, int]] = []
         region, names = game.REGIONS[0], names or {}
         self.put(game.HEADER, "4s", b"XBEH")
         self.put(game.HEADER + 0x158, "I", region.thunk_va)
@@ -1797,10 +1799,18 @@ class _Ram:
         self.put(self.CRITTER + recipes.CR_BODY, "3f", *body)
 
     def read(self, va: int, n: int) -> bytes:
+        if any(lo < va + n and va < hi for lo, hi in self.gone):
+            raise OSError(f"{va:#x}: unmapped")
         return bytes(self.mem.get(va + i, 0) for i in range(n))
 
     def read_many(self, wants: list) -> list:
-        return [self.read(va, n) for va, n in wants]
+        out = []
+        for va, n in wants:
+            try:
+                out.append(self.read(va, n))
+            except OSError:
+                out.append(None)
+        return out
 
 
 def test_live_places_the_player_at_their_body_not_where_they_last_touched_the_ground():
@@ -1814,6 +1824,38 @@ def test_live_places_the_player_at_their_body_not_where_they_last_touched_the_gr
     ram.player(contact=(-139.27, -119.59, 6.04), body=(-130.89, -108.38, -2.54))
     reading = game.Game(ram, game.SpotTable({}, ())).read()
     assert reading.level == "w2" and reading.at == pytest.approx((-130.89, -108.38, -3.54), abs=1e-4)
+
+
+def test_live_stays_on_its_level_while_a_spots_counts_dont_read():
+    """A poll whose read of one spot's counts finds no page (its
+    attributes moved, or their page unmapped) is no unload: Live stays
+    settled on the level, where it read "loading" at every poll while the
+    player stood still in a play session's w2, keeps that spot's last
+    count and reads its node's attributes pointer again, so its next take
+    still counts; only the level's graph gone from pd is an unload."""
+    from azurkit.tools.randomizer.live import game
+
+    spots = tuple(game.Spot(f"w2/g0/r{k}", "w2", 0, k, "obsidian", "S", species="obsidian", vanilla="obsidian")
+                  for k in (1, 2))
+    ram, attrs = _Ram("w2", {1: "obsidian", 2: "obsidian"}), 0x900000   # each spot's attributes at attrs + 0x40 k
+    for k in (1, 2):
+        ram.put(_Ram.NODES + 0x100 * k + game.NODE_ATTRS, "I", attrs + 0x40 * k)
+        ram.put(attrs + 0x40 * k + game.ATTR_COUNTS, "3f", 1, 1, 0)
+    live = game.Game(ram, game.SpotTable({"w2": game.LevelSpots("w2", 0, 8, spots)}, spots))
+
+    def poll():
+        ram.player(contact=(0.0, 0.0, 0.0), body=(0.0, 0.0, 1.0))   # standing still
+        r = live.read()
+        return r.state, r.settle, dict(r.dead)
+
+    assert [poll() for _ in range(2)][1] == ("running", 1, {"w2/g0/r1": 0, "w2/g0/r2": 0})
+    ram.gone.append((attrs + 0x40, attrs + 0x80))   # record 1's attributes moved on: their old page reads nothing
+    ram.put(_Ram.NODES + 0x100 + game.NODE_ATTRS, "I", attrs + 0x200)
+    ram.put(attrs + 0x200 + game.ATTR_COUNTS, "3f", 1, 0, 1)
+    assert [poll(), poll()] == [("running", 1, {"w2/g0/r1": 0, "w2/g0/r2": 0}),
+                                ("running", 1, {"w2/g0/r1": 1, "w2/g0/r2": 0})]
+    ram.put(_Ram.PD + game.PD_GRAPH, "I", 0)
+    assert poll()[:2] == ("loading", 0)
 
 
 def test_live_places_the_player_while_xemu_runs_another_seed_or_build():

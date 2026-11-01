@@ -259,6 +259,7 @@ class Game:
         self._player = (0, 0)
         self._event: float | None = None
         self._attrs: dict[str, int] = {}
+        self._nodes: dict[str, int] = {}     # each spot's node, whose attributes pointer is read again on a miss
         self._mismatch = False
         self._odd: tuple[int, int, bool] | None = None
         self._seen: dict[str, float] = {}    # numDead at its spot's full count read twice: not read again
@@ -345,7 +346,10 @@ class Game:
         unchanged for 2 polls, its node vector as long as its records, the player valid, the inventory
         pointing back at pd, a running poll for a first settle, each spot's node a generator of the plan's
         item; an event clock that jumps (back, or more than ``JUMP_S`` on) or a new player under the same graph
-        is a discontinuity, settled anew."""
+        is a discontinuity, settled anew. Only the graph pointer gone from pd under the reads is an unload: a
+        spot whose counts don't read (its attributes moved, or their page unmapped) keeps its last count, its
+        node's attributes pointer read again for the next poll, and the level stays settled (it read
+        "loading" at every poll while the player stood still in w2)."""
         prev, self._event = self._event, r.event
         if graph != self._graph or not graph:
             self._forget()
@@ -374,10 +378,16 @@ class Game:
             return r
         want = [loc for loc in self._attrs if loc not in self._twice]
         got = self.link.read_many([(self._attrs[loc] + ATTR_COUNTS, 12) for loc in want])
-        if self._u32(pd + PD_GRAPH) != graph or None in got:   # an unload began under the reads
+        if self._u32(pd + PD_GRAPH) != graph:   # an unload began under the reads
             self._forget()
             return replace(r, state="loading", settle=0)
+        missed = [loc for loc, b in zip(want, got) if b is None]
+        for loc, b in zip(missed, self.link.read_many([(self._nodes[loc] + NODE_ATTRS, 4) for loc in missed])):
+            if b is not None:
+                self._attrs[loc] = struct.unpack("<I", b)[0]
         for loc, b in zip(want, got):
+            if b is None:
+                continue
             dead, full = struct.unpack("<3f", b)[2], self._full[loc]
             if dead >= full and self._seen.get(loc, 0) >= full:
                 self._twice.add(loc)
@@ -419,6 +429,7 @@ class Game:
         self._mismatch = odd > 0
         self._odd = (odd, len(read), all(name == s.vanilla for s, name in read)) if odd else None
         self._attrs = {s.loc: attrs for s, (_, attrs, _, _) in zip(spots, heads)}
+        self._nodes = {s.loc: struct.unpack("<I", n)[0] for s, n in zip(spots, nodes)}
         self._full = {s.loc: s.full for s in spots}
         return True
 
