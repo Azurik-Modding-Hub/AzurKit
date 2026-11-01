@@ -306,6 +306,11 @@ def test_the_page_is_isolated_after_one_reload_and_every_later_page_at_once(brow
         assert opened(context, host, "index.html?again")[1]["loads"] == 1
 
 
+WAITING = """async () => { const reg = await navigator.serviceWorker.getRegistration();
+  return await new Promise((done) => { const c = new MessageChannel(); c.port1.onmessage = ({ data }) => done(data.name);
+    reg.waiting.postMessage({ type: "release" }, [c.port2]); }); }"""
+
+
 def test_an_update_waits_until_the_page_takes_it(browser, releases):
     """A deploy found while a page runs installs beside it and waits: the
     page's own check finds one that changes only the page (``host.json``
@@ -326,6 +331,8 @@ def test_an_update_waits_until_the_page_takes_it(browser, releases):
         settled(page, host)
         host.root = releases["half"]
         assert page.evaluate("sw.update()") == "failed"
+        assert _page.until(page, "async () => (await navigator.serviceWorker.getRegistration()).installing === null", 10)
+        assert page.evaluate(WAITING) == listed(restyled)["name"], "the half release is waiting"
         host.root = restyled
         settled(page, host)
         host.root = releases["two"]
