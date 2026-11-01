@@ -13,7 +13,10 @@ spawn to the page's ready flag, a page start the page's own clock from its
 navigation. An init script (outside the page's CSP) logs every change of
 the status lines and of any ``<progress>``, so each sample says whether a
 bar moved and whether the page showed progress (a bar, or a "k of n" or
-"N %" text, changing at least once).
+"N %" text, changing at least once). A download's sample also keeps its
+page part, the click to the browser's download starting (Playwright's
+download event): the rest is the browser's own write, which its download
+indicator shows (an op's ``browser_bar``).
 
 A run is one of :data:`RUNS`: the app (``python -m azurkit serve`` from the
 worktree's wheel in a scratch venv, :func:`venv`, so it reads the randomizer
@@ -51,6 +54,7 @@ ROOT = Path(__file__).resolve().parent.parent
 GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")
 LONG = 30.0          # an op with a sample over this runs once (its median is that sample)
 SAVE_DIALOG = 3.0    # a player's Save comes this long after the build (the save dialog)
+DOWNLOAD_BAR = "its download indicator (Safari's toolbar button, Chrome's download bubble, Firefox's downloads arrow)"
 LAG_MS = 200         # Safari's read model: each File read this late (Step 4.1g2 measured about 200 ms)
 PORTS = 8900         # the site's server takes the first free port from here
 
@@ -63,6 +67,7 @@ class Op:
     first: bool = True    # each sample in a fresh state (a new HOME or browser context); else repeated in one
     bar: bool = False     # D982: may pass 3 s with a moving bar (an image's first identity check, the first engine load)
     content: bool = False  # reads a clone of Azurik-Custom-Content
+    browser_bar: str = ""  # D980: the browser's own bar for its write of a file the page handed it (a download only)
     untimed: str = ""     # why the gate can't time it (it is listed as such)
 
     @property
@@ -108,7 +113,7 @@ OPS = {op.id: op for op in (
     Op("S03", "choose the image, first time", "image", bar=True),
     Op("S04", "choose the same image after a reload", "image", first=False),
     Op("S05", "Build, defaults", "build"),
-    Op("S06", "Save (the browser's download)", "build"),
+    Op("S06", "Save (the browser's download)", "build", browser_bar=DOWNLOAD_BAR),
     Op("S07", "Characters tab, no image", "characters"),
     Op("S08", "Characters tab with the image", "characters"),
     Op("S09", "pick -> the weapons answer (the Characters tab open)", "characters"),
@@ -301,16 +306,20 @@ class Driver:
     def needed(self, ops) -> bool:
         return any(self.need(op) for op in ops)
 
-    def record(self, op: str | None, seconds: float, events: list, t0: float, t1: float, error: str | None = None):
+    def record(self, op: str | None, seconds: float, events: list, t0: float, t1: float, error: str | None = None,
+               page: float | None = None):
         if op is None or not self.need(op):
             return
         bar, shown = progress_of(events, t0, t1)
         sample = {"s": round(seconds, 3), "bar": bar, "progress": shown}
+        if page is not None:
+            sample["page"] = round(page, 3)
         if error:
             sample["error"] = error[:300]
         self.samples.setdefault(op, []).append(sample)
-        self.log.append(f"{self.run.name} {op} {seconds:.2f} s{' bar ' + str(bar) if bar else ''}"
-                        f"{' progress' if shown else ''}{' ' + error[:120] if error else ''}")
+        self.log.append(f"{self.run.name} {op} {seconds:.2f} s{f' (page {page:.2f} s)' if page is not None else ''}"
+                        f"{' bar ' + str(bar) if bar else ''}{' progress' if shown else ''}"
+                        f"{' ' + error[:120] if error else ''}")
         print(self.log[-1], flush=True)
 
     def act(self, p: Page, op: str | None, action: str | Callable[[], None] | None, done: str,
@@ -706,13 +715,15 @@ def _pick(d: Driver, p: Page, op: str | None, done: str = USA) -> None:
 
 
 def _download(d: Driver, p: Page, op: str | None) -> None:
+    """The click to the file downloaded, its page part to the download's start (the browser's own bar after)."""
     t0 = p.now()
     with p.page.expect_download(timeout=1_800_000) as caught:
         p.js("() => document.querySelector('#save').click()")
+    started = p.now()
     caught.value.path()
     t1 = p.now()
     d.ev += p.events()
-    d.record(op, (t1 - t0) / 1000, d.ev, t0, t1)
+    d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, page=(started - t0) / 1000)
     caught.value.delete()
 
 
@@ -840,7 +851,7 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
-    {op: [{"s", "bar", "progress"[, "error"]}]}, "memory_peak": bytes or None,
+    {op: [{"s", "bar", "progress"[, "page"][, "error"]}]}, "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh
     state each pass, until its ops have their samples (at most ``passes``). An app run serves the app from ``python``
     (:func:`venv`'s; else one made for this run)."""

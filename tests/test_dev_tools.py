@@ -122,7 +122,9 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
     median is over 3 s (the capped profile's 9 s); an image's first check
     passes over it only with a moving bar (D982), and a listed one with a
     moving bar leaves the list; past 1 s an op shows progress unless it is
-    a debt (D980); a listed op fails over its ceiling;
+    a debt (D980), and a download, whose write the browser's own bar shows,
+    does when its page part is within 1 s (the case keeps that part); a
+    listed op fails over its ceiling;
     an op over runs R more times and fails only if the median of all is
     still over (one spike can't fail it); the list may lower and drop but
     never add or raise against main's; changes reach the ops of their
@@ -130,12 +132,17 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
     def s(seconds, bar=0, progress=True):
         return {"s": seconds, "bar": bar, "progress": progress}
     slow, moving = [s(3.2), s(3.4), s(3.1)], [s(6.8, bar=5)] * 3
+    saved = lambda seconds, page: [{**s(seconds, progress=False), "page": page}] * 3   # noqa: E731
     assert [perf.judge(*case)["verdict"] for case in (
         (slow, 3.0), (slow, 9.0), (slow, 3.0, 4.0), ([s(4.7)] * 3, 3.0, 4.0), (moving, 3.0, None, False, True),
         (moving, 3.0, 29.3, False, True), ([s(6.8, bar=1)] * 3, 3.0, None, False, True),
         ([s(1.5, progress=False)] * 3, 3.0),
-        ([s(1.5, progress=False)] * 3, 3.0, None, True), ([{**s(2.0), "error": "timed out"}], 3.0))] == [
-        "over", "pass", "listed", "regressed", "bar", "bar", "over", "no progress", "pass", "error"]
+        ([s(1.5, progress=False)] * 3, 3.0, None, True), ([{**s(2.0), "error": "timed out"}], 3.0),
+        (saved(1.3, 1.2), 3.0, None, False, False, True), (saved(1.3, 0.01), 3.0, None, False, False, True),
+        (saved(3.3, 0.01), 3.0, None, False, False, True), (saved(1.3, 0.01), 3.0))] == [
+        "over", "pass", "listed", "regressed", "bar", "bar", "over", "no progress", "pass", "error",
+        "no progress", "pass", "over", "no progress"]
+    assert perf.judge(saved(1.3, 0.01), 3.0, browser_bar=True)["page"] == [0.01] * 3
     times = {"A12": [[5.0, 3.2, 2.6], [2.4, 2.5, 2.6]], "A15": [[4.0, 4.1, 4.2], [4.0, 4.0, 4.1]], "A24": [[290.0]]}
     asked = []
 

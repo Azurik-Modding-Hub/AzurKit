@@ -1043,8 +1043,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   fails, unless `tests/perf_ceilings.toml` lists it, when it fails over its
   ceiling; an image's first check and the site's first engine load may pass
   3 s only with a moving bar (D982); past 1 s an op shows progress unless the
-  list names it a debt (D980). An op over runs three more times and fails
-  only if the median of all six is still over. The list only shrinks: `perf.py
+  list names it a debt (D980). A download (the registry's `browser_bar`: the
+  browser writes the file the page handed it, and its download indicator
+  shows that) shows it when each sample's page part, the click to the
+  download's start, is within 1 s or moves the page's own bar; the receipt's
+  case keeps those seconds, and the whole still answers to 3 s. An op over
+  runs three more times and fails only if the median of all six is still over. The list only shrinks: `perf.py
   --update-ceilings` lowers a ceiling you earned (in your own commit) and
   drops what is back under, and the gate and `land.py` fail an added op or
   debt or a raised ceiling against main's, but for a browser main's

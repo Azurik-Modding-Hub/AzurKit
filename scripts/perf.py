@@ -33,10 +33,13 @@ first identity check, the site's first engine load) may pass it only with a
 moving bar (the progress element seen at 2 or more values). A listed op fails
 over its ceiling. An op whose median passes 1 s must show progress (a bar or a
 "k of n" / "N %" line changing at least once, D980) unless it is one of the
-list's progress debts. The list itself fails when it adds an op or a debt or
-raises a ceiling against main's (:func:`check_list`), but for a browser
-main's perf.py doesn't time (:func:`new_browsers`), whose first record may
-add its own ops and debts once.
+list's progress debts; a download (an op's ``browser_bar``: the browser writes
+the file the page handed it, shown by its own download indicator) shows it
+when each sample's page part, the click to the download's start, is within
+1 s or moved the page's own bar. The list itself fails when it adds an op or
+a debt or raises a ceiling against main's (:func:`check_list`), but for a
+browser main's perf.py doesn't time (:func:`new_browsers`), whose first
+record may add its own ops and debts once.
 
 ``--update-ceilings`` rewrites the list from this run (:func:`updated`): it
 lowers a ceiling to the new median x 1.15 (rounded up to 0.1 s) and drops an
@@ -121,15 +124,19 @@ def ceil(seconds: float) -> float:
 
 
 def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt: bool = False,
-          bar: bool = False) -> dict:
+          bar: bool = False, browser_bar: bool = False) -> dict:
     """One op's verdict in one context from its samples (``{"s", "bar",
-    "progress"[, "error"]}``): ``pass``, ``listed`` (over its budget, within
-    its ceiling), ``bar`` (D982: over 3 s with a moving bar), and the
+    "progress"[, "page"][, "error"]}``): ``pass``, ``listed`` (over its
+    budget, within its ceiling), ``bar`` (D982: over 3 s with a moving bar), and the
     failures ``over`` (unlisted, over its budget), ``regressed`` (over its
     ceiling), ``no progress`` (past 1 s with none shown and not a debt) and
-    ``error``."""
+    ``error``. A ``browser_bar`` op's sample (a download) shows progress when
+    its page part, ``"page"``, is within 1 s: the browser's own bar shows its
+    write; the case keeps the page parts."""
     seconds = [s["s"] for s in samples]
     out = {"n": len(samples), "budget": budget, "ceiling": ceiling, "samples": seconds}
+    if browser_bar:
+        out["page"] = [s.get("page") for s in samples]
     if errors := [s["error"] for s in samples if s.get("error")]:
         return out | {"verdict": "error", "ok": False, "error": errors[-1]}
     if not samples:
@@ -137,7 +144,8 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     median = statistics.median(seconds)
     over = [s for s in samples if s["s"] > budget]
     moved = bool(over) and all(s["bar"] >= 2 for s in over)
-    shown = all(s["progress"] for s in samples if s["s"] > PROGRESS)
+    shown = all(s["progress"] or browser_bar and s.get("page", math.inf) <= PROGRESS
+                for s in samples if s["s"] > PROGRESS)
     out |= {"median": round(median, 3), "spread": round(max(seconds) - min(seconds), 3), "progress": shown,
             "moved": moved}
     if ceiling is not None and median > ceiling:
@@ -272,14 +280,15 @@ def rerun(results: dict, samples: list[dict]) -> int:
     return 1 if max(s["s"] for s in samples) > LONG else R
 
 
-def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozenset()) -> dict:
+def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozenset(),
+             browser_bars=frozenset()) -> dict:
     """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst``."""
     return {key(op, c): judge(samples.get((run_of(op, c), op), []), budget_of(c), lst["ceilings"].get(key(op, c)),
-                              key(op, c) in lst["debts"], op in bars) for op, c in cases}
+                              key(op, c) in lst["debts"], op in bars, op in browser_bars) for op, c in cases}
 
 
 def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(), bars=frozenset(),
-            fresh=frozenset()) -> tuple[dict, dict, dict]:
+            fresh=frozenset(), browser_bars=frozenset()) -> tuple[dict, dict, dict]:
     """``({key: verdict}, {run: memory peak}, {(run, op): samples})`` for ``cases`` (``(op,
     context)``): ``drive(run, {op: target})`` returns that run's ``{"samples":
     {op: every sample so far}, "memory_peak"}`` once each op has
@@ -305,7 +314,7 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
         first.setdefault(run_of(op, c), {})[op] = R
     go(first)
     more: dict[str, dict[str, int]] = {}
-    judged = verdicts(timed, samples, lst, bars)
+    judged = verdicts(timed, samples, lst, bars, browser_bars)
     for op, c in timed:
         got = samples.get((run_of(op, c), op), [])
         if c not in fresh and (n := rerun(judged[key(op, c)], got)):
@@ -313,7 +322,8 @@ def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(),
             targets[op] = max(targets.get(op, 0), taken(got) + n)
     if more:
         go(more)
-    return verdicts(timed, samples, lst, bars), {run: (peak, shared.get(run, False)) for run, peak in peaks.items()}, samples
+    peaks_of = {run: (peak, shared.get(run, False)) for run, peak in peaks.items()}
+    return verdicts(timed, samples, lst, bars, browser_bars), peaks_of, samples
 
 
 def normal_load(samples: int = 8, span: float = 4.0) -> float:
@@ -440,9 +450,9 @@ def main(argv: list[str] | None = None) -> int:
                 return {"samples": {op: have.get(op, []) for op in targets}, "memory_peak": peak,
                         "memory_shared": shared}
 
-            bars = {op.id for op in ops if op.bar}
+            bars, browser_bars = {op.id for op in ops if op.bar}, {op.id for op in ops if op.browser_bar}
             fresh = (set(contexts(profiles, browsers)) if main_list is None else new) if args.update_ceilings else ()
-            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh)
+            block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars)
         finally:
             import shutil
             shutil.rmtree(scratch, ignore_errors=True)
@@ -460,7 +470,7 @@ def main(argv: list[str] | None = None) -> int:
         (wt / CEILINGS).write_text(render(lst), encoding="utf-8")
         block["list"] = check_list(lst, main_list, new)
         if cases:   # judged again against the list it wrote
-            block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, lst, bars)
+            block["cases"] = verdicts([oc for oc in cases if oc[0] not in untimed], samples, lst, bars, browser_bars)
             for name, mem in block["memory"].items():
                 mem |= {"ceiling": lst["memory"].get(name), "ok": mem["peak"] <= max(MEMORY, lst["memory"].get(name, 0))}
     failing = [f"{k}: {r['verdict']}" + (f" ({r.get('median')} s, budget {r['budget']}"
