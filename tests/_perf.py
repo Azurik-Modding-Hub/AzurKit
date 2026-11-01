@@ -982,33 +982,37 @@ def app_seed(d: Driver, app: App, ctx) -> None:
     app.quit(p)
 
 
-MEDIAN = "42"   # the median seed's fill (RS1), which the first seed's twins take
+MEDIAN = "42"   # the median seed's fill (RS1), A56-A58's
 
 
-def app_ahead(d: Driver, app: App, ctx) -> None:
-    """The app's work ahead on a seed no pass has filled (each op a launch's first fill): Track, Build, and a Build
-    after a change 1 s into the head start, which also times how fast the stale job drops."""
-    if d.need("A56"):
-        p = app.launch(d, ctx, None)
-        _seeded(d, p, randomize=False, seed=MEDIAN)
-        d.act(p, None, click("rando-view-tracker"), WORLD, 600)
-        d.act(p, "A56", click("track-seed"), "() => document.getElementById('track-head').textContent.trim()", 1800)
-        app.quit(p)
-    if d.need("A57"):
-        p = app.launch(d, ctx, None)
-        d.act(p, None, typed("iso-path", str(d.iso)), USA)
-        _seeded(d, p, seed=MEDIAN)
-        d.act(p, "A57", build_js(), BUILT, 1800)
-        app.quit(p)
-    if d.need("A58"):
-        p = app.launch(d, ctx, None)
-        d.act(p, None, typed("iso-path", str(d.iso)), USA)
-        _seeded(d, p)                                       # "azurkit": its work ahead starts
-        d.idle(p, "the stale seed's second", 1.0)
-        d.act(p, None, typed("rando-seed", MEDIAN), f"() => document.getElementById('rando-seed').value === '{MEDIAN}'",
-              change=True)
-        d.act(p, "A58", build_js(), BUILT, 1800)
-        app.quit(p)
+def app_ahead_track(d: Driver, app: App, ctx) -> None:
+    """Track, on a seed no build has filled."""
+    p = app.launch(d, ctx, None)
+    _seeded(d, p, randomize=False, seed=MEDIAN)
+    d.act(p, None, click("rando-view-tracker"), WORLD, 600)
+    d.act(p, "A56", click("track-seed"), "() => document.getElementById('track-head').textContent.trim()", 1800)
+    app.quit(p)
+
+
+def app_ahead_build(d: Driver, app: App, ctx) -> None:
+    """Build, on a seed no plan has filled."""
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    _seeded(d, p, seed=MEDIAN)
+    d.act(p, "A57", build_js(), BUILT, 1800)
+    app.quit(p)
+
+
+def app_ahead_stale(d: Driver, app: App, ctx) -> None:
+    """Build after a change 1 s into the head start, which also times how fast the stale job drops."""
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    _seeded(d, p)                                       # "azurkit": its work ahead starts
+    d.idle(p, "the stale seed's second", 1.0)
+    d.act(p, None, typed("rando-seed", MEDIAN), f"() => document.getElementById('rando-seed').value === '{MEDIAN}'",
+          change=True)
+    d.act(p, "A58", build_js(), BUILT, 1800)
+    app.quit(p)
 
 
 def _detail(d: Driver, p: Page, first: str, again: str) -> None:
@@ -1447,7 +1451,9 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
     "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38"), app_track),
-    "app-ahead": ("app", ("A56", "A57", "A58"), app_ahead),
+    "app-ahead-track": ("app", ("A56",), app_ahead_track),
+    "app-ahead-build": ("app", ("A57",), app_ahead_build),
+    "app-ahead-stale": ("app", ("A58",), app_ahead_stale),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
