@@ -1033,7 +1033,7 @@ def _plan_file(d: Driver) -> Path:
     """A plan file (seed ``azurkit``, the default settings), made once a run (``azurkit plan``)."""
     plan = d.scratch / "azurkit plan.json"
     if not plan.is_file():
-        subprocess.run([python_of(ROOT), "-m", "azurkit", "plan", "--seed", "azurkit", "--out", str(plan)], cwd=ROOT,
+        subprocess.run([sys.executable, "-m", "azurkit", "plan", "--seed", "azurkit", "--out", str(plan)], cwd=ROOT,
                        env={k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}, capture_output=True,
                        check=True, timeout=900)
     return plan
@@ -1174,7 +1174,7 @@ def _data_mods(d: Driver, n: int, kind: str = "mods") -> Path:
     of critters_damage's number cells (each its vanilla value plus 1), made once a run."""
     mods = d.scratch / f"data {n} edits.{kind}.json"
     if not mods.is_file():
-        done = subprocess.run([python_of(ROOT), "-c", MODS_FILE, str(n), kind], cwd=ROOT, capture_output=True,
+        done = subprocess.run([sys.executable, "-c", MODS_FILE, str(n), kind], cwd=ROOT, capture_output=True,
                               text=True, env={k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}, check=True,
                               timeout=600)
         mods.write_text(done.stdout, encoding="utf-8")

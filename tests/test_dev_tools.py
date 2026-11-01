@@ -493,3 +493,25 @@ def test_firefox_stays_untimed_until_the_stack_after_new_browsers_lands_so_its_f
     commit(on, {**on_main, "ceilings": {"S05/webkit": 4.0, "S05/firefox": 5.8}, "debts": ["S05/firefox"]}, "record")
     assert perf.new_browsers(repo, "main", "p2/r") == {"firefox"}
     assert land.land(repo, "p2/r", dry_run=True)[0] == 0
+
+
+def test_every_name_the_perf_registrys_functions_call_is_one_the_module_has():
+    """tests/_perf.py's drivers run only inside the perf stage, so a helper
+    a lane renames elsewhere (python_of, gone with 4.3n's wheel venv) leaves
+    a driver that fails only there: each global name a function in the
+    module reads is the module's or a builtin."""
+    import builtins
+    import symtable
+
+    path = Path(_perf.__file__)
+    have = set(vars(_perf)) | set(dir(builtins))
+
+    def missing(table: symtable.SymbolTable) -> set[str]:
+        out = {s.get_name() for s in table.get_symbols()
+               if s.is_global() and s.is_referenced() and s.get_name() not in have}
+        for child in table.get_children():
+            out |= missing(child)
+        return out
+
+    top = symtable.symtable(path.read_text(encoding="utf-8"), str(path), "exec")   # its own names are the module's
+    assert set().union(*(missing(child) for child in top.get_children())) == set()
