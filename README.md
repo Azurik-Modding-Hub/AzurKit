@@ -69,6 +69,8 @@ source ([Development](#development)).
 - **Warns before you build** when your settings can't make a seed.
 - **Works with movement mods:** the logic is re-checked under your jump and speed settings; anything it can't model
   is flagged.
+- **Sealed items stay sealed:** an item placed in an ice or acid block, a gem rock or behind a force field can be
+  picked up only once it opens, however wide the item reaches.
 - **Checked before it's saved:** the finished image is read back against its plan, and any mismatch no later
   change explains stops the build.
 - **Logic verdict:** whether the logic still holds, and why not (a pack over an item spot, an unmodelled setting,

@@ -2320,6 +2320,25 @@ offsets only, no positions.
   the 66 items xemu didn't take never spawned [L3, each replay's string
   and 150 neutral ticks in whole steps]; the same string placed in the
   item's own cell took it in the settle (AZ-488).
+- **A container holds in only what the game can't touch through it**
+  (Step 4.3 contained items, AZ-834). An ice or acid block, a force
+  field, a gem rock or a gate's region (derived `enclosed_by`) is no
+  wall to the touch, and the randomizer's writer keeps each location's
+  vanilla point, so an item wider than the vanilla one there was taken
+  from beside the block (w2/g0/r1359's IceBlock_01: frag_air_3, R 2.2,
+  where the obsidian's is 1.45). The generator layer gives a species the
+  image holds once, on a contained spot whose touch isn't inside the
+  vanilla item's (both resting on one floor: Z <= Zv and R² / Z <= Rv² /
+  Zv), that item's `collisionRadius` (at its own scale) and
+  `collisionAspectRatio` in `critters_engine`: it touches, collides and
+  rests as that item did (a fragment's centre 0.3 m lower), its model
+  unchanged. A species held more than once keeps its own touch (the
+  widest the fill puts in a container, the fuels' 1.56 m, is inside the
+  1.8 m the blocks hold). In xemu the fragment was taken from 11 of 14
+  points round w2's block before and none after, and once the ice
+  melted; frag_air_1 (6.0 m) in f1's acid block from 10 of 13, even 14 m
+  below it, before and none after, and once it dissolved [xemu, the
+  research's probe].
 - **An exit's trigger is touched at the body centre.** The player's
   input build calls the volume query 0x60BD0 at 0x85587 with the body
   centre (critter+0x15C) as a point: the objects whose tree bounds hold

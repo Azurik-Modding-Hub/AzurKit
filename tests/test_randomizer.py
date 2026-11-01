@@ -18,6 +18,7 @@ wait on a fill another thread is making."""
 
 from __future__ import annotations
 
+import collections
 import functools
 import gc
 import hashlib
@@ -335,19 +336,23 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
 
 
 def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_fails_the_build(usa_iso):
-    """The plan's layer is each node graph it edits, whole, and the
-    obsidian cost's lock thresholds (x1 to x10 in both of town.xbr's
-    tables; above vanilla's, the logic is unverified). An ``xbr`` operation
-    over a placement's name field drops its graph (D28): the build goes on,
-    its logic unverified, each changed placement of that graph a conflict
-    naming the later layer. An image that doesn't hold the plan (the
-    vanilla one) fails the read-back, by location (D35)."""
+    """The plan's layer is each node graph it edits, whole, the obsidian
+    cost's lock thresholds (x1 to x10 in both of town.xbr's tables; above
+    vanilla's, the logic is unverified) and each contained species' touch
+    (AZ-834). An ``xbr`` operation over a placement's name field drops its
+    graph, and one over a touch's cell its species' touch (D28): the build
+    goes on, its logic unverified, each changed placement of that graph
+    and the touch a conflict naming the later layer. An image that doesn't
+    hold the plan (the vanilla one) fails the read-back, by location
+    (D35)."""
     prepared = generator.prepare({"seed": "2", "obsidian_cost": 20.0}, {})
     with iso.Reader(usa_iso) as r:
         base = {file: r.read(file) for file in generator.files(prepared)}
     planned = generator.plan_layer(prepared, base)
     groups = {c.group for c in planned.changes}
-    assert groups == {f"randomizer {key}" for key in prepared.edits} | {generator.OBSIDIAN_GROUP}
+    (species, _), = generator.contained(prepared.plan.placement, kept_logic().db, base[generator.CONFIG])
+    assert groups == {f"randomizer {key}" for key in prepared.edits} | {
+        generator.OBSIDIAN_GROUP, f"{generator.CONTAINED_GROUP} {species}"}
     lock = [c for c in planned.changes if c.group == generator.OBSIDIAN_GROUP]
     assert sorted(c.after for c in lock) == sorted(struct.pack("<f", 20.0 * k) for k in range(1, 11) for _ in range(2))
     assert prepared.why_not == [layer.obsidian_reason(20.0)]
@@ -360,14 +365,116 @@ def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_f
     held = base[file][at:at + 8]
     op = {"op": "replace_bytes", "file": file, "offset": at, "value": "00" * 8,
           "expected": {"sha256": hashlib.sha256(held).hexdigest(), "size": 8}}
-    _, report = sdk.image({"iso": str(usa_iso), "randomizer": {"seed": "2", "obsidian_cost": 20.0}, "xbr": [op]})
+    cell = {"op": "set", "file": generator.CONFIG, "table": "critters_engine", "entity": species,
+            "prop": "collisionRadius", "value": 0.3}
+    _, report = sdk.image({"iso": str(usa_iso), "randomizer": {"seed": "2", "obsidian_cost": 20.0},
+                           "xbr": [op, cell]})
     plan = report["randomizer"]
     assert plan["logic_verified"] is False and plan["why_not"][0] == layer.obsidian_reason(20.0)
-    assert plan["why_not"][-1] == f"{len(plan['conflicts'])} placement(s) changed by a later layer"
-    assert len(plan["conflicts"]) == sum(1 for loc in edit.repoint) and all(
+    assert plan["why_not"][-2:] == [f"{len(edit.repoint)} placement(s) changed by a later layer",
+                                    "1 contained item(s) given another touch by a later layer, so they may be taken "
+                                    "through their container"]
+    assert len(plan["conflicts"]) == len(edit.repoint) + 1 and all(
         line.startswith(f"{edit.key}/") and line.endswith("data xbr wrote it after the randomizer (D28)")
-        for line in plan["conflicts"])
-    assert [c for c in report["conflicts"] if f"whose group randomizer {key} is dropped whole" in c]
+        for line in plan["conflicts"][:-1])
+    assert plan["conflicts"][-1] == (f"contained touch {species}: config.xbr's critters_engine doesn't hold the "
+                                     "plan's cells: data xbr wrote it after the randomizer (D28)")
+    for group in (key, f"contained touch {species}"):
+        assert [c for c in report["conflicts"] if f"whose group randomizer {group} is dropped whole" in c]
+
+
+# AZ-834 (D1036, D1041): each kind of container that encloses pool spots (derived enclosed_by: the kind of the object
+# its gate is bound to, a barrier's own, else a gate's region), how many it encloses, and the widest item (by touch R,
+# then Z) the fill can put on one, with that spot: of the species an image holds once, and of those it holds more
+# than once whose touch isn't inside the vanilla item's there (None: the fill can put none on that kind)
+CONTAINED = {
+    "acidblock": (5, ("f1/g0/r2176", "frag_air_1"), ("f1/g0/r2176", "all_fuel")),
+    "gate": (40, ("w2/g0/r1346", "frag_air_1"), ("w2/g0/r1346", "all_fuel")),   # a5's smokestacks, w2's hose pool,...
+    "geode": (231, None, None),                                                 # the gem rocks: gems, all one touch
+    "iceblock": (7, ("w2/g0/r1359", "frag_air_1"), ("w3/g1/r2000", "all_fuel")),
+    "keylord": (7, None, None),                                                 # the keylords' fields: their keys
+    "obsidian_lock": (10, ("town/g1/r40", "key_obsidian1"), None),              # the temple's vaults: kept, 1.05
+}
+# The touch (R = Z) a kind's blocks and regions hold in for an item held more than once, which keeps its own touch:
+# the investigation's body-centre model held every ice block to 1.8 m, the acid blocks to 1.8 to 2.2 and the gates'
+# regions to 3.025 (a3's valve) and up, and a sitting saw all_fuel, power_earth and power_air held in w2's and f1's
+# blocks with no touch written (Step 4.3 contained items)
+HELD = {"acidblock": 1.8, "iceblock": 1.8, "gate": 3.025}
+
+
+def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it_waits_for_the_container_to_open():
+    """AZ-834 (the owner took w2's air fragment from beside its ice block,
+    without melting it): the game takes a pickup when the player's centre
+    lies in its touch, an ellipsoid round it through any wall
+    (``generator.touch``), and the writer keeps the vanilla point. So the
+    widest item the fill can put in each kind of container
+    (:data:`CONTAINED`), when the image holds it once, is written the
+    vanilla item's collision there, and its touch in the built config.xbr
+    lies inside that item's; one it holds more than once keeps its own,
+    inside its kind's hold (:data:`HELD`). Seed 110585 under the owner's
+    share puts frag_air_3 in w2's IceBlock_01 and seed 2 a fragment in
+    IceBlock_02: every contained spot of both holds so, frag_air_3 with
+    the obsidian's collision."""
+    from azurkit.core.xbr import Document
+    from azurkit.tools import data
+
+    lg = kept_logic()
+    db, config, slots = lg.db, data.vanilla(), fill._Slots(lg)
+    vanilla, budget, locs = Document(config).tables["critters_engine"], fill._Budget(slots.names), slots.names.locations
+    copies = collections.Counter(loc["template"] for loc in locs.values())
+
+    def kind(gid: str) -> str:
+        gate = next((g for doc in db.derived.values() for g in doc["gates"] if g["id"] == gid), {})
+        for bound in gate.get("bound_to") or ():
+            what, _, oid = bound.partition(":")
+            return db.generated_objects[oid][2]["kind"] if what == "barrier" else what
+        return "gate"
+
+    def built(placement: dict):   # the built image's critters_engine: the plan's touches over the vanilla file
+        out = bytearray(config)
+        for _, writes in generator.contained(placement, db, config):
+            for at, value in writes:
+                out[at:at + len(value)] = value
+        return Document(bytes(out)).tables["critters_engine"]
+
+    def holds(engine, placement: dict, loc: str) -> bool:
+        species = slots.names.target(loc, placement[loc]) or locs[loc]["template"]
+        got, was = generator.touch(engine, species), generator.touch(vanilla, locs[loc]["template"])
+        return generator.inside(got, was) or (copies[species] > 1 and got == generator.touch(vanilla, species) and all(
+            generator.inside(got, (HELD.get(k, 0.0),) * 2) for k in enclosed[loc]))
+
+    enclosed = {loc["id"]: {kind(gid) for gid in loc["enclosed_by"]} for doc in db.derived.values()
+                for loc in doc["locations"] if loc.get("enclosed_by")}
+    count, once, shared = collections.Counter(), {}, {}
+    for loc, kinds in sorted(enclosed.items()):
+        count.update(kinds)
+        offered = {slots.vanilla[x] for x in slots.pool
+                   if slots.kind[x] == slots.kind[loc] and x not in slots.prefilled}
+        for item in [slots.prefilled[loc]] if loc in slots.prefilled else sorted(offered):
+            species = slots.names.target(loc, item) or locs[loc]["template"]
+            own = generator.touch(vanilla, species)
+            if loc not in slots.prefilled and not slots.ok(loc, item, budget):
+                continue
+            widest = once if copies[species] == 1 else None if generator.inside(
+                own, generator.touch(vanilla, locs[loc]["template"])) else shared
+            for k in kinds if widest is not None else ():
+                widest[k] = max(widest.get(k, ((0.0, 0.0), "", "")), (own, loc, item))
+    assert {k: (n, *(t[k][1:] if k in t else None for t in (once, shared))) for k, n in count.items()} == CONTAINED
+
+    vanilla_spot = {item: loc for loc, item in slots.vanilla.items() if copies[locs[loc]["template"]] == 1}
+    for _, loc, item in [*once.values(), *shared.values()]:   # each alone there, swapped with that spot's item
+        placement = dict(slots.vanilla) | ({vanilla_spot[item]: slots.vanilla[loc]} if item in vanilla_spot else {})
+        placement[loc] = item
+        assert holds(built(placement), placement, loc), (loc, item)
+    for recipe in ({"seed": "110585", "share": "AZR-AAIA"}, {"seed": "2"}):
+        placement = sdk.plan(recipe)["placement"]
+        engine = built(placement)
+        assert [loc for loc in sorted(enclosed) if not holds(engine, placement, loc)] == [], recipe
+        if recipe["seed"] == "110585":
+            cr, scale, aspect, _ = generator._cells(engine, "frag_air_3")
+            obsidian = generator._cells(vanilla, "obsidian")
+            assert (placement["w2/g0/r1359"], cr * scale, aspect) == pytest.approx(
+                ("frag_air_3", obsidian[0] * obsidian[1], obsidian[2]))
 
 
 def test_the_default_plan_file_is_its_goldens_byte_for_byte_under_pyodide(pyodide):

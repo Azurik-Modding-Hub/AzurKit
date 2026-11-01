@@ -492,12 +492,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   sliders (Modkit's `layer.plan_for`: a run under garret4's falls back to
   his, AZ-606) and written as the build's first layer, before the packs
   (Modkit's `mod_apply` order): one group a node graph (its new strings,
-  TOC size and repointed name fields land whole) and one for the obsidian
-  locks. `edits.manifest.image`'s `judge` reads the image back against the
+  TOC size and repointed name fields land whole), one for the obsidian
+  locks, and one a species for the contained touches (`contained`, AZ-834:
+  a species the image holds once, on a spot a container encloses, whose
+  pickup reaches further than the vanilla item's there takes that item's
+  `collisionRadius` and `collisionAspectRatio` in config.xbr, so it is
+  taken only once the container opens; one held more than once keeps its
+  own). `edits.manifest.image`'s `judge` reads the image back against the
   plan before anything is written: a difference a later layer explains (it
-  wrote the location's fields or string, or dropped its graph) is a
-  conflict and `logic_verified` false (D28), any other fails the build by
-  location (D35). The movement check reads the packs' catalog (each
+  wrote the location's fields or string or a touch's cells, or dropped its
+  group) is a conflict and `logic_verified` false (D28), any other fails
+  the build by location (D35). The movement check reads the packs' catalog (each
   slider's `logic_floor`, D83(c)); the tools never import each other. The
   report's `randomizer` and the manifest's `verdicts` carry the verdict, and
   a randomized build's mods file replays its seed and share string.
