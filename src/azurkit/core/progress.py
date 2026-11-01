@@ -28,6 +28,7 @@ import re
 from collections.abc import Callable, Iterator
 
 STAGES = {
+    "start": "Starting the engine",        # the site's worker loading, before its first answer
     "check": "Checking your image",        # its build files hashed, the first time (D27, D982)
     "plan": "Planning the seed",           # the randomizer's fill
     "size": "Sizing",                      # a worn body's size, folded into the walk and roll

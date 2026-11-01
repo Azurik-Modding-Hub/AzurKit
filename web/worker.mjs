@@ -28,8 +28,9 @@
 //      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image). A message with a File
 //      (file) has the image checked first, once a File (prime).
 // Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
-//      record, mid-call: the check, then a build's stages), {type: "built", report, size, segments, heap} (a seed's
-//      report without its spoiler, which {type: "spoiled", text | refused} brings next: the build shows sooner),
+//      record, mid-call: the check, then a build's stages; the worker's own: its start before ready, the kept image's
+//      walk), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
+//      "spoiled", text | refused} brings next: the build shows sooner),
 //      {type: "refused", message, heap}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
 //      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
@@ -260,7 +261,15 @@ function readInBlocks(WORKERFS) {
   };
 }
 
+// The worker's own stages (core/progress.py's "start" and "check"): the load's four steps (Pyodide's core, the wheel's
+// fetch, its unpacking, the engine's import) before "ready", each posted as it starts, and the image's walk when its
+// stamp is kept (prime), so a first visit, a return visit and a reload's pick show a bar (D980).
+const stage = (name, label, done, total) => post({ type: "progress", stage: name, label, done, total,
+                                                    percent: Math.floor(done * 100 / total) });
+const starting = (done) => stage("start", "Starting the engine", done, 4);
+
 async function load() {
+  starting(0);
   const site = await (await fetch(new URL("host.json", base))).json();
   const pyodide = new URL("pyodide/", base).href;
   const { loadPyodide } = await import(new URL("pyodide.mjs", pyodide).href);
@@ -269,10 +278,13 @@ async function load() {
     stdout: () => {}, stderr: () => {},
   });
   readInBlocks(py.FS.filesystems.WORKERFS);
+  starting(1);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });
   if (!wheel.ok) throw new Error(`${site.wheel}: HTTP ${wheel.status}`);
-  py.unpackArchive(await wheel.arrayBuffer(), "wheel",
-                   { extractDir: py.runPython("import site; site.getsitepackages()[0]") });
+  const archive = await wheel.arrayBuffer();
+  starting(2);
+  py.unpackArchive(archive, "wheel", { extractDir: py.runPython("import site; site.getsitepackages()[0]") });
+  starting(3);
   return { py, engine: py.runPython(ENGINE) };
 }
 
@@ -328,9 +340,13 @@ async function prime(loaded, file) {
   if (loaded.primed === id) return;
   loaded.primed = null;   // the engine's stamp is this File's from its prime on (sdk.prime checks it by its digests)
   const kept = await stamps("readonly", (store) => store.get("last")).catch(() => null);
-  if (kept?.id === id) {
+  if (kept?.id === id) {   // its walk: the engine's first read of the image's folders in this worker
+    stage("check", "Reading your image", 0, 1);
     const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests: kept.digests }));
-    if (!("refused" in checked)) return void (loaded.primed = id);
+    if (!("refused" in checked)) {
+      stage("check", "Reading your image", 1, 1);
+      return void (loaded.primed = id);
+    }
   }
   self.azurkitChecks = (self.azurkitChecks ?? 0) + 1;
   const listed = mounted(py, file, (iso) => engine({ type: "layout", recipe: { iso } }));

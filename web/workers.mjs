@@ -24,7 +24,7 @@
 //
 // workers({start, ready, told, cores, settle, keep, tally, ends}) -> {ask, want, cancel, share, hold, took, state,
 // close}: start(role) makes a worker ("f" or "b"); ready(data) hears F's ready, again when B takes F's place;
-// told(data, role) hears what no job asked for (a CSP report, F's failed load). Both are called after the pool's own
+// told(data, role) hears what no job asked for (a CSP report, F's failed load, F's start's records). Both are called after the pool's own
 // step (a microtask later), so they may call the pool.
 export const KEEP = 2 ** 30;          // a worker whose heap reaches it after a job is replaced (app.mjs's KEEP)
 export const TALLY = 5 * 2 ** 30;     // the page's line (the plan's default): B starts no job at or past it
@@ -160,7 +160,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
           later(told, data, "f");
           for (const job of queue.splice(0)) job.resolve(data);
         }
-      } else {
+      } else if (data?.type !== "progress" || slot.role === "f") {   // B's start shows no bar: nothing waits on it
         later(told, data, slot.role);
       }
       return pump();

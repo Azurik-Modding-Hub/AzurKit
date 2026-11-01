@@ -146,7 +146,8 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 // newest that is a build, a save, Track this seed's plan or a plan file's spoiler, has a record, or has waited 1 s
 // shows: its label and percent, or a moving stripe while it has no count.
 const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your image", check: "Checking your image",
-                 plan: "Planning the seed", tracker: "Reading the seed's logic", randomizer: "Reading the randomizer",
+                 start: "Starting the engine", plan: "Planning the seed", tracker: "Reading the seed's logic",
+                 randomizer: "Reading the randomizer",
                  restore: "Restoring your setup", pickers: "Reading the models", preview: "Drawing the model",
                  match: "Matching garret4", content: "Reading the community content", install: "Installing",
                  content_check: "Checking the download", spoiler: "Writing the spoiler", preset: "Making the link",
@@ -206,12 +207,13 @@ async function tick() {
   showing();
 }
 
-// The site's worker's record: the build's while one runs; else a check's (before the call it came with: its own,
-// gone with the worker's next answer, else a moment after it is whole or 1.5 s after its last), else the newest ask's.
-function posted(step) {
+// The site's worker's record: its start's on the worker's start ask (siteEngine's, answered at ready); else the
+// build's while one runs; else a check's (before the call it came with: its own, gone with the worker's next answer,
+// else a moment after it is whole or 1.5 s after its last), else the newest ask's.
+function posted(step, start = null) {
   const asks = [...state.asks.values()];
-  let ask = asks.findLast((a) => a.kind === "build") ?? (step.stage === "check" ? asks.findLast((a) => a.kind === "check")
-    : asks.at(-1));
+  let ask = step.stage === "start" ? state.asks.get(start) : asks.findLast((a) => a.kind === "build")
+    ?? (step.stage === "check" ? asks.findLast((a) => a.kind === "check") : asks.at(-1));
   if (!ask && step.stage === "check") ask = state.asks.get(asking("check"));
   if (!ask) return;
   ask.record = step;
@@ -236,6 +238,7 @@ function unchecked() {
 const KEEP = 1 << 30;
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
   let worker = null, loaded = false, calls = 0, content = null, engine = null, spoiled = null, retiring = false;
+  let starting = null;   // the ask a loading worker's start records show on, answered at its ready or its stop
   const waits = new Map();   // the posted asks this worker answers by type (the Randomizer tab's, the restore): ask ids
   const wait = (kind, message) => {
     answered(waits.get(kind));
@@ -252,6 +255,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
                                // ask made while the worker loads or retires waits, unsent, for the next one
   const start = () => {
     loaded = false;
+    answered(starting);
+    starting = asking("start");
     const entry = new URL("worker.mjs", location.href).href;
     const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
     worker = new Worker(url, { type: "module" });
@@ -260,6 +265,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       if (data.type === "ready") {
         URL.revokeObjectURL(url);
         loaded = true;
+        answered(starting);
+        starting = null;
         engine = [data.catalog, data.version];
         state.workers = (state.workers ?? 0) + 1;   // the workers that loaded, for the tests
         if (content) worker.postMessage({ type: "content", ...content });   // what this browser keeps installed
@@ -270,7 +277,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
         ready(data.catalog, data.version);
       } else if (data.type === "progress") {
         const { type, ...step } = data;
-        posted(step);
+        posted(step, starting);
       } else if (data.type === "reply") {
         pending.get(data.call)?.done(data.reply);
         pending.delete(data.call);
@@ -325,6 +332,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     unchecked();   // nor finishes a check
     for (const ask of state.asks.values()) ask.record = null;   // nor runs a stage it reported (Step 4.3 train)
     retiring = false;
+    answered(starting);
+    starting = null;
     spoiled?.({ refused: "The engine stopped before it gave the spoiler: build the seed again" });
     spoiled = null;
     for (const kind of [...waits.keys()]) end(kind);   // a stopped worker answers none of them

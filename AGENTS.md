@@ -1143,8 +1143,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and checks each image once (Step 4.3h): its build files hashed
   in WebCrypto (`sdk.layout`, `sdk.prime`), the stamp kept in the browser
   (IndexedDB, by the File's name, size and lastModified) for the next
-  visit. It posts a build's, a plan's and a tracker's stages as
-  `core/progress.py`'s record, and each build's answer reports the heap,
+  visit. It posts its start's steps, a kept image's walk and a build's, a
+  plan's and a tracker's stages as `core/progress.py`'s record, and each build's answer reports the heap,
   by which the page keeps the worker or replaces it. It returns the build
   as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the

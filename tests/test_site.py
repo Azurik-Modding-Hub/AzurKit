@@ -1921,7 +1921,8 @@ def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_w
         _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
                           f" && ({TRACKED})()", 300)
         seen = page.evaluate("() => seen")
-        assert not seen[0][0] and [s for s in seen if not s[0] and s[1] is not None] == [], seen
+        assert not seen[0][0] and [s for s in seen if not s[0] and s[1] is not None
+                                   and not s[2].startswith("Starting the engine")] == [], seen
         assert seen[-1][1:] == [None, None] and served.stray() == [], seen
     finally:
         served.close()
@@ -2309,7 +2310,7 @@ def test_two_real_engine_workers_plan_a_seed_alike_and_a_change_drops_bs_plan_mi
         state = page.evaluate("() => smoke.pool.state()")
         assert (state["dropped"], state["started"], state["promoted"], state["kept"], state["f"]["job"]) == (
             1, 3, 0, [], None)
-        assert page.evaluate("() => smoke.told") == []
+        assert page.evaluate("() => smoke.told") == ["progress"] * 4   # F's start's steps; neither B's
         page.evaluate("() => smoke.pool.close()")
     finally:
         context.close()
