@@ -1270,8 +1270,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   behind harden-runner's egress block, which starts with the job (its
   pre-step), so its installs' hosts are named too, and on Linux its tests
   run with no network as well (Modkit's §12.4 hygiene), and only the
-  pytest log's tail and summary are printed. The pure tier deselects the
-  one test that clones the private Modkit checkout. `checks.yml` runs the leak
+  pytest log's tail and summary are printed. `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
   --check` on macOS, Windows and Linux once `src/azurkit/core/_native/`
   exists. `apps.yml` freezes the four apps (`scripts/freeze.py`) on a push

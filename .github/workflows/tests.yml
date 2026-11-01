@@ -73,10 +73,7 @@ jobs:
           uv run --locked playwright install-deps "${engines[@]}"
       - name: The pure tier
         # pytest-xdist isn't in uv.lock at this base; once lane 4.3o adds it, -n auto and its --dist join this line.
-        # The oracle's re-sync clones the private Modkit checkout beside this one, which no runner has.
-        run: >-
-          uv run --locked pytest -m "not vanilla"
-          --deselect tests/test_oracle.py::test_a_re_sync_at_each_familys_commit_imports_no_tool_from_another
+        run: uv run --locked pytest -m "not vanilla"
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }})
