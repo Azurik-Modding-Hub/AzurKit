@@ -315,12 +315,13 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     case's fill reaches by the compiled reach's Python twin
     (``AZURKIT_NATIVE=0``), the others by its kernel."""
     path = request.getfixturevalue(f"{release}_iso")
-    twins = []
+    kernels, twins = [], []
     if twin:
         monkeypatch.setenv("AZURKIT_NATIVE", "0")
         monkeypatch.setattr(native, "_LIB", None)
-        monkeypatch.setattr(fill, "_LAST_FILL", [None])   # no fill kept from an earlier test
-        monkeypatch.setattr(native, "_twin", lambda *a, real=native._twin, **k: twins.append(1) or real(*a, **k))
+    monkeypatch.setattr(fill, "_LAST_FILL", [None])   # no fill kept from an earlier test
+    monkeypatch.setattr(native, "_native", lambda *a, real=native._native, **k: kernels.append(1) or real(*a, **k))
+    monkeypatch.setattr(native, "_twin", lambda *a, real=native._twin, **k: twins.append(1) or real(*a, **k))
     args = record_goldens.cases(G3[release])[case]["args"]
     options = {k: args[k] for k in ("skip_ceiling", "movement_tier", "dark_fire") if args[k] is not None}
     settings = layer.settings_doc(kept_logic().db.defaults) | options
@@ -342,7 +343,7 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     found = sdk.read_mods(sdk.open_build(made, whole=False))
     assert found == {"packs": mods.normalize({n: {} for n, p in mods.PACKS.items() if p.default_on}),
                      "randomizer": {"seed": "2", "share": plan["share"]}}
-    assert (native.report()["loaded"], bool(twins)) == (not twin, twin)
+    assert (native.report()["loaded"], bool(kernels), bool(twins)) == (not twin, not twin, twin)
 
 
 def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_fails_the_build(usa_iso):
@@ -491,21 +492,30 @@ _PLAN_UNDER_PYODIDE = """
 import contextlib, io, json
 from azurkit import cli
 from azurkit.core import native
-out, err = io.StringIO(), io.StringIO()
+out, err, calls = io.StringIO(), io.StringIO(), {"kernel": 0, "twin": 0}
+def counted(name, real):
+    def call(*a, **k):
+        calls[name] += 1
+        return real(*a, **k)
+    return call
+native._native, native._twin = counted("kernel", native._native), counted("twin", native._twin)
 with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
     code = cli.main(["plan", "--seed", "2"])
-json.dumps({"code": code, "stdout": out.getvalue(), "stderr": err.getvalue(), "native": native.report()})
+json.dumps({"code": code, "stdout": out.getvalue(), "stderr": err.getvalue(), "native": native.report(),
+            "calls": calls})
 """
 
 
 def test_the_default_plan_file_is_its_goldens_byte_for_byte_under_pyodide_by_the_compiled_reach(pyodide):
     """``azurkit plan --seed 2`` under Pyodide, the site's runtime, reaching
-    by the compiled reach's side module from the wheel, prints the default
-    plan file byte for byte."""
+    by the compiled reach's side module from the wheel (the kernel answers
+    its reaches, never the twin), prints the default plan file byte for
+    byte."""
     got = pyodide(python=_PLAN_UNDER_PYODIDE)
     assert (got["code"], got["stderr"]) == (0, ""), got["stderr"][-2000:]
     assert got["stdout"] == DEFAULT_PLAN
     assert (got["native"]["loaded"], got["native"]["library"]) == (True, "emscripten-wasm32.so"), got["native"]
+    assert got["calls"]["kernel"] > 0 and got["calls"]["twin"] == 0, got["calls"]
 
 
 def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():
