@@ -243,10 +243,11 @@ def test_the_perf_gates_memory_counts_only_the_webkit_launchd_started_for_its_ow
     xpc = "/x/playwright/webkit-1/Contents/com.apple.WebKit.WebContent.xpc/Contents/MacOS/WebContent"
     rows = [(10, os.getpid(), "/x/playwright/driver/node", "t0"), (20, 10, "/x/pw_run", "t0"),
             *((pid, 1, xpc, "t0") for pid in (9, 11, 12, 13, 14, 15)), (16, 1, "/Applications/Safari.xpc/s", "t0")]
-    assert _perf.browser_pids(rows, {9}) == [20, 11, 13, 14]
-    assert _perf.browser_pids(rows, {9}) == [20, 11, 13, 14] and len(asked) == 5   # each process asked about once
+    before = {(9, "t0")}
+    assert _perf.browser_pids(rows, before) == [20, 11, 13, 14]
+    assert _perf.browser_pids(rows, before) == [20, 11, 13, 14] and len(asked) == 5   # each process asked about once
     said["15"] = mine
-    assert _perf.browser_pids([(15, 1, xpc, "t1")], set()) == [15]
+    assert _perf.browser_pids([(15, 1, xpc, "t1")], {(15, "t0")}) == [15]   # a pid reused: asked again, and not "before"
 
 
 class _Stub(_perf.Page):

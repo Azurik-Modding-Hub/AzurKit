@@ -725,16 +725,16 @@ def ours(pid: int, started: str) -> bool:
     return _launched[pid, started]
 
 
-def browser_pids(rows: list[tuple[int, int, str, str]], before: set[int]) -> list[int]:
+def browser_pids(rows: list[tuple[int, int, str, str]], before: set[tuple[int, str]]) -> list[int]:
     """The browsers Playwright's driver (a node child of this process)
     started, and WebKit's own processes (its pages, network and GPU: XPC
     services launchd starts, so outside the tree) that weren't running
-    before this run (``before``) and that launchd started for this run's
-    browser (:func:`ours`): another seat's WebKit, started meanwhile, isn't
-    counted."""
+    before this run (``before``, each by its pid and start, so a pid reused
+    is new) and that launchd started for this run's browser (:func:`ours`):
+    another seat's WebKit, started meanwhile, isn't counted."""
     drivers = [pid for pid, ppid, comm, _ in rows if ppid == os.getpid() and "node" in comm]
-    return [pid for pid, ppid, comm, started in rows if ppid in drivers or pid not in before and ".xpc/" in comm
-            and "/playwright/webkit" in comm and ours(pid, started)]
+    return [pid for pid, ppid, comm, started in rows if ppid in drivers or (pid, started) not in before
+            and ".xpc/" in comm and "/playwright/webkit" in comm and ours(pid, started)]
 
 
 class App:
@@ -1449,7 +1449,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
     d = Driver(run, targets, scratch, iso, content)
     python = python or (venv(wt, scratch / "app") if run.host == "app" else None)
     current: list[App] = []
-    before, shared = {pid for pid, _, comm, _ in Memory.rows() if ".xpc/" in comm}, []
+    before, shared = {(pid, started) for pid, _, comm, started in Memory.rows() if ".xpc/" in comm}, []
 
     def site_roots(rows):   # another Playwright driver alive: a new WebKit process may be its (said, not dropped)
         if any(comm.endswith("playwright/driver/node") and ppid != os.getpid() for _, ppid, comm, _ in rows):
