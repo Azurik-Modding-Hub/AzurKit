@@ -1140,6 +1140,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   replaced, as after a cancel ("Preparing the engine…"), which reads the
   image in blocks (WebKit takes about 200 ms for each read of a File,
   whatever its size), kept from one message to the next for the last image,
+  its folders' tables read ahead in awaited rounds before the engine's first
+  walk (a hint: the engine still reads and checks every byte),
   and checks each image once (Step 4.3h): its build files hashed
   in WebCrypto (`sdk.layout`, `sdk.prime`), the stamp kept in the browser
   (IndexedDB, by the File's name, size and lastModified) for the next

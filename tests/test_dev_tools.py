@@ -217,7 +217,7 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
 
     text = (ROOT / "web" / "worker.mjs").read_text(encoding="utf-8")
     late = _perf.lagged(text)
-    assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 2
+    assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 3
     added = "const more = await file.slice(0, 1).arrayBuffer();"
     with pytest.raises(SystemExit, match=re.escape(repr(added))):
         _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))

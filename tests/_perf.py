@@ -273,6 +273,8 @@ LAG = (
     ("await ends.arrayBuffer()", f"await {_WAIT}ends.arrayBuffer())"),   # identify's sample of the File
     ("await file.slice(run.start, run.end).arrayBuffer()",   # prime's hashers
      f"await {_WAIT}file.slice(run.start, run.end).arrayBuffer())"),
+    ("await file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer()",   # the folders' tables read ahead (R2.5)
+     f"await {_WAIT}file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer())"),
 )
 READS = re.compile(r"readAsArrayBuffer\(|\.arrayBuffer\(\)")
 NOT_FILE = ("await wheel.arrayBuffer()",)   # the wheel's fetch

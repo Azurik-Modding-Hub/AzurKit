@@ -227,20 +227,24 @@ engine`;
 // page for a read under 1 MiB (the tables: USA's 59 lie in 29 pages), else a 64 MiB block (a file's bytes); the last
 // PAGES pages and BLOCKS blocks are kept (256 MiB at most), for the last image only (by its id, which ids holds for
 // each File: each message brings its own File object of it; a File with none keeps its own), from one message to the
-// next, so a worker reads the folders' tables once, not once a call.
+// next, so a worker reads the folders' tables once, not once a call. Before the engine's first walk of an image in a
+// worker, its tables' pages are read ahead (ahead(): R2.5), every folder of a depth at once.
 const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 64, BLOCKS = 3;
 const ids = new WeakMap();   // a message's File -> its image's id (identify)
 function readInBlocks(WORKERFS) {
   const kept = new Map();   // the last image's id -> its unit -> index -> bytes, the least recently used first
   const units = [[BLOCK, BLOCKS], [PAGE, PAGES]];
-  WORKERFS.stream_ops.read = (stream, buffer, offset, length, position) => {
-    const file = stream.node.contents, end = Math.min(position + length, file.size), id = ids.get(file) ?? file;
-    if (!(position < end)) return 0;
+  const cachesOf = (id) => {
     if (!kept.has(id)) {
       kept.clear();
       kept.set(id, new Map(units.map(([unit]) => [unit, new Map()])));
     }
-    const caches = kept.get(id);
+    return kept.get(id);
+  };
+  WORKERFS.stream_ops.read = (stream, buffer, offset, length, position) => {
+    const file = stream.node.contents, end = Math.min(position + length, file.size), id = ids.get(file) ?? file;
+    if (!(position < end)) return 0;
+    const caches = cachesOf(id);
     for (let at = position; at < end;) {
       const [unit, keep] = units.find(([u]) => caches.get(u).has(Math.floor(at / u))) ?? units[length < PAGE ? 1 : 0];
       const cache = caches.get(unit), index = Math.floor(at / unit);
@@ -259,6 +263,87 @@ function readInBlocks(WORKERFS) {
     }
     return end - position;
   };
+  return (file, id, hint) => ahead(file, cachesOf(id).get(PAGE), hint);
+}
+
+// The folders' tables read ahead (R2.5): the engine walks them (iso.Reader) with WORKERFS's reads, one at a time, which
+// WebKit answers about 200 ms late each (Safari: the 34 reads of a first walk, 6.9 s); this walks the same XDVDFS tables
+// first with reads it awaits, all the tables of a depth at once (the volume descriptor's candidates, the root, its
+// folders, theirs), and leaves their 1 MiB pages in the read cache, where the engine's walk finds them. A hint only:
+// the engine still reads and checks every byte, from the File's own bytes, and a table this misreads is read by it as
+// before. The walk's pages are kept per image (walked; and with its stamp in the browser, so a later worker reads them
+// all at once with no walk: hint), so a later call reads again only those the cache let go.
+const SECTOR = 2048, VD = 32 * SECTOR, PARTITIONS = [0, 0x18300000, 0xFD90000, 0x2080000];   // core/iso.py's
+const SLACK = 128 << 10;   // the engine reads a table through its file's buffer (io.DEFAULT_BUFFER_SIZE, 128 KiB): its pages too
+const MAGIC = Array.from("MICROSOFT*XBOX*MEDIA", (c) => c.charCodeAt(0));
+const walked = new Map();   // an image's id -> the pages of its tables (the last image's only)
+async function ahead(file, pages, hint) {
+  const asked = new Map();   // index -> the promise of its page's bytes
+  const fetchPage = async (index) => {
+    const bytes = await file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer();
+    return new Uint8Array(bytes);
+  };
+  const page = (index) => {
+    if (!asked.has(index)) asked.set(index, pages.has(index) ? Promise.resolve(pages.get(index)) : fetchPage(index));
+    return asked.get(index);
+  };
+  const read = async (at, n) => {   // n bytes at at, from their pages, or fewer at the File's end
+    const first = Math.floor(at / PAGE), last = Math.floor((Math.min(at + n, file.size) - 1) / PAGE);
+    const got = await Promise.all(Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => page(first + i)));
+    const out = new Uint8Array(got.reduce((s, b) => s + b.length, 0));
+    got.reduce((o, b) => (out.set(b, o), o + b.length), 0);
+    return out.subarray(at - first * PAGE, at - first * PAGE + n);
+  };
+  const id = ids.get(file) ?? file;
+  if (!walked.has(id) && Array.isArray(hint) && hint.every(Number.isInteger)) {
+    walked.clear();
+    walked.set(id, hint.filter((i) => i >= 0 && i * PAGE < file.size).slice(0, PAGES));
+  }
+  if (!walked.has(id)) {   // else only the pages the cache let go are read again
+    const bases = PARTITIONS.filter((base) => base + VD + SECTOR <= file.size);
+    const vds = await Promise.all(bases.map((base) => read(base + VD, SECTOR)));
+    const at = vds.findIndex((vd) => MAGIC.every((c, i) => vd[i] === c && vd[0x7EC + i] === c));
+    if (at < 0) return;   // no XDVDFS here: the engine names it
+    const base = bases[at], used = new Set(bases.slice(0, at + 1).map((b) => Math.floor((b + VD) / PAGE)));
+    const head = new DataView(vds[at].buffer, vds[at].byteOffset, SECTOR);
+    let level = [[head.getUint32(20, true), head.getUint32(24, true)]];
+    const seen = new Set([level[0][0]]);
+    while (level.length) {   // a depth's tables at once
+      for (const [sector, size] of level) {
+        const from = base + sector * SECTOR;
+        for (let i = Math.floor(from / PAGE); i <= Math.floor((from + size - 1 + SLACK) / PAGE); i++) used.add(i);
+      }
+      if (used.size > PAGES) break;   // more than the cache holds (a damaged table's size): the engine's to read and name
+      const tables = await Promise.all(level.map(([sector, size]) => read(base + sector * SECTOR, size)));
+      level = [];
+      for (const table of tables) {
+        if (table.length < 14 || (table[0] === 0xFF && table[1] === 0xFF)) continue;   // empty, or cut off
+        const view = new DataView(table.buffer, table.byteOffset, table.length);
+        const todo = [0], visited = new Set();
+        while (todo.length && visited.size < 65536) {
+          const rec = todo.pop();
+          if (visited.has(rec) || rec + 14 > table.length) continue;
+          visited.add(rec);
+          const left = view.getUint16(rec, true), right = view.getUint16(rec + 2, true);
+          const start = view.getUint32(rec + 4, true), length = view.getUint32(rec + 8, true);
+          if (view.getUint8(rec + 12) & 0x10 && length && !seen.has(start)) {
+            seen.add(start);
+            level.push([start, length]);
+          }
+          for (const link of [right, left]) if (link) todo.push(link * 4);
+        }
+      }
+    }
+    walked.clear();
+    walked.set(id, [...used].filter((i) => i * PAGE < file.size).sort((a, b) => a - b).slice(0, PAGES));
+  }
+  const listed = walked.get(id) ?? [], got = await Promise.all(listed.map(page));
+  for (const [i, index] of listed.entries()) {   // into the cache (used last now), as the engine's own reads would be
+    const data = got[i];
+    pages.delete(index);
+    if (pages.size >= PAGES) pages.delete(pages.keys().next().value);
+    pages.set(index, data);
+  }
 }
 
 // The worker's own stages (core/progress.py's "start" and "check"): the load's four steps (Pyodide's core, the wheel's
@@ -277,7 +362,7 @@ async function load() {
     indexURL: pyodide, lockFileURL: new URL("pyodide-lock.json", pyodide).href, packageBaseUrl: pyodide,
     stdout: () => {}, stderr: () => {},
   });
-  readInBlocks(py.FS.filesystems.WORKERFS);
+  const readAhead = readInBlocks(py.FS.filesystems.WORKERFS);
   starting(1);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });
   if (!wheel.ok) throw new Error(`${site.wheel}: HTTP ${wheel.status}`);
@@ -285,7 +370,7 @@ async function load() {
   starting(2);
   py.unpackArchive(archive, "wheel", { extractDir: py.runPython("import site; site.getsitepackages()[0]") });
   starting(3);
-  return { py, engine: py.runPython(ENGINE) };
+  return { py, engine: py.runPython(ENGINE), readAhead };
 }
 
 // fn(the path of file mounted read-only at /in), unmounted after it. The mount's times are the File's lastModified
@@ -337,11 +422,12 @@ const stamps = (mode, fn) => new Promise((resolve) => {   // the browser's kept 
 });
 async function prime(loaded, file) {
   const { py, engine } = loaded, id = await identify(file);
-  if (loaded.primed === id) return;
+  const kept = loaded.primed === id ? null : await stamps("readonly", (store) => store.get("last")).catch(() => null);
+  if (kept?.id === id) stage("check", "Reading your image", 0, 1);   // its walk: the first read of its folders here
+  await loaded.readAhead(file, id, kept?.id === id ? kept.pages : null).catch(() => null);   // a hint: a failed read
+  if (loaded.primed === id) return;                                                         // leaves them to the engine
   loaded.primed = null;   // the engine's stamp is this File's from its prime on (sdk.prime checks it by its digests)
-  const kept = await stamps("readonly", (store) => store.get("last")).catch(() => null);
-  if (kept?.id === id) {   // its walk: the engine's first read of the image's folders in this worker
-    stage("check", "Reading your image", 0, 1);
+  if (kept?.id === id) {
     const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests: kept.digests }));
     if (!("refused" in checked)) {
       stage("check", "Reading your image", 1, 1);
@@ -355,7 +441,7 @@ async function prime(loaded, file) {
   const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
   if ("refused" in checked) return;
   loaded.primed = id;
-  await stamps("readwrite", (store) => store.put({ id, digests }, "last")).catch(() => null);
+  await stamps("readwrite", (store) => store.put({ id, digests, pages: walked.get(id) }, "last")).catch(() => null);
 }
 
 // {path: sha256} of each of files ([path, offset, size]) of the File, in WebCrypto, RUNS of up to 128 MiB read HASHERS
