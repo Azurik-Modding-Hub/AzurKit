@@ -356,10 +356,15 @@ class Image:
 
     def held_md5(self, path: str) -> str | None:
         """The md5 :func:`read` was given of the :class:`Patched` file at
-        ``path`` (hashed over every byte of it, which isn't read here), else
-        ``None``."""
+        ``path`` (hashed over every byte of it, which isn't read here), when
+        the image's writes that meet the file are its patches and no others;
+        else ``None``."""
         held = self.md5s.get(key(path))
-        return held[0] if held is not None and isinstance(held[1], Patched) else None
+        if held is None or not isinstance(held[1], Patched):
+            return None
+        file = held[1]
+        writes = [w for w in self.writes if w[0] < file.start + file.size and file.start < w[0] + len(w[1])]
+        return held[0] if writes == [(file.start + at, patch) for at, patch in file.patches] else None
 
     def writes_within(self, start: int, size: int) -> bool:
         """Whether a write of the image meets its ``size`` bytes at ``start``."""

@@ -461,8 +461,9 @@ def test_a_sparse_read_back_fails_an_image_its_sections_or_lines_dont_hold_thoug
     """The read-back of a build over views reads the image's sections, never
     the patches, and takes a line on trust from nothing but what was hashed: a
     wrong name field in a patched section, a patch gone, a wrong line of a
-    patched file and a stray write in a level no patch touches each fail it,
-    by name (D35); the build it stands on reads back empty."""
+    patched file and a stray write in a patched level past its sections or in
+    a level no patch touches each fail it, by name (D35); the build it stands
+    on reads back empty."""
     prepared = generator.prepare({"seed": "2"}, {})
     db, placement = kept_logic().db, prepared.plan.placement
     stamp = sdk._stamp(str(usa_iso))
@@ -482,12 +483,14 @@ def test_a_sparse_read_back_fails_an_image_its_sections_or_lines_dont_hold_thoug
     patch = next(w for w in made.writes if w[0] <= level.start + field < w[0] + len(w[1]))
     filelist_write = next(w for w in made.writes if w[0] == listing)
     wrong = filelist_write[1].replace(made.md5s[iso.key(f"gamedata/{edit.file}.xbr")][0].encode(), b"0" * 32)
-    assert wrong != filelist_write[1]
+    assert wrong != filelist_write[1] and not level.holds(level.size - 1, level.size)
     forged = {
         f"^{lid}: the plan has": (*made.writes, (level.start + field, bytes(8))),
         fr"^{lid}: the plan has(?# its patch gone)": tuple(w for w in made.writes if w is not patch),
         fr"^{re.escape(edit.file)}\.xbr: its filelist\.txt line": tuple((at, wrong if at == listing else data)
                                                                        for at, data in made.writes),
+        fr"^{re.escape(edit.file)}\.xbr: its filelist\.txt line(?# a stray write past its sections)":
+            (*made.writes, (level.start + level.size - 1, bytes([level[-1] ^ 0xff]))),
         r"^training_room\.xbr: its filelist\.txt line": (*made.writes, (untouched + 64, b"\xff"))}
     for pattern, writes in forged.items():
         problems = writer.read_back(dataclasses.replace(made, writes=writes), placement, db, sparse=True)

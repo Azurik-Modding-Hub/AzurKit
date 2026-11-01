@@ -289,9 +289,10 @@ def level_spans(toc: Sequence[TocEntry], size: int, gs: Iterable[int]) -> list[t
 
 def _line_holds(r: iso.Reader, image: iso.Image, entry: iso.Entry, line, given) -> bool:
     """Whether a level's ``filelist.txt`` ``line`` in ``image`` is right, its
-    bytes unread: a patched file's names its size and the md5 the build
-    hashed over every byte of it, and a file no write meets (the input's, as
-    its stamp vouched for it) has the input's line ``given``."""
+    bytes unread: a patched file's, its patches the only writes that meet it,
+    names its size and the md5 the build hashed over every byte of it, and a
+    file no write meets (the input's, as its stamp vouched for it) has the
+    input's line ``given``."""
     if line is None or line.size != entry.size:
         return False
     if (held := image.held_md5(entry.path)) is not None:
