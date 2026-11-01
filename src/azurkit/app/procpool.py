@@ -17,7 +17,9 @@ the process, not a call's alone: a ``later``'s call shares them with the
 call it runs beside (:data:`_BUSY`), so ``$AZURKIT_CORES`` caps what the
 process runs on (one finished is idle at once, for the call beside it). A
 call never waits for them: with none free it takes one child past the cap,
-so a small ask beside a dress answers within its 3 s."""
+so a small ask beside a dress answers within its 3 s. A part of a low call
+(:class:`Low`: work ahead no click follows yet, D1007) runs low in its child,
+and a :func:`later` thread as its caller does."""
 
 from __future__ import annotations
 
@@ -28,6 +30,8 @@ import sys
 import threading
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
+
+from azurkit.core import host
 
 MOST = 16
 """The most children a call splits over (Modkit's)."""
@@ -43,6 +47,40 @@ children holding 250-512 MB through the rest of her dress."""
 _CONTEXT = multiprocessing.get_context("spawn")
 _IDLE: list[_Child] = []
 _LOCK = threading.Lock()
+_THREAD = threading.local()   # .low: the thread's Low is down (lowered())
+
+
+class Low:
+    """A thread's background priority (``core.host``), lowered and put
+    back on that thread alone (made on it: an OS sets a thread's own)."""
+
+    def __init__(self):
+        self.thread, self.was, self.on, self.stuck = threading.current_thread(), None, False, False
+
+    def __call__(self, on: bool) -> None:
+        """Lower the thread (``on``) or put it back, once each way."""
+        if threading.current_thread() is not self.thread or on == self.on:
+            return
+        if on:
+            self.was, self.on = host.background(), True
+            _THREAD.low = self.was is not None
+        else:
+            self.on = False
+            self.stuck = self.stuck or self.was is not None and not host.foreground(self.was)   # POSIX's: no way back
+            _THREAD.low = self.stuck
+
+
+def lowered() -> bool:
+    """Whether the calling thread's :class:`Low` holds it low."""
+    return getattr(_THREAD, "low", False)
+
+
+def inherit() -> Callable[[], object]:
+    """What a thread the caller starts calls first, to run as low as the
+    caller does now: a thread starts at normal priority on macOS and Windows
+    whatever its starter's. It ends low: that thread's its own."""
+    low = lowered()
+    return lambda: Low()(low)
 
 
 def workers() -> int:
@@ -139,7 +177,7 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
     results: list = [None] * len(items)
     if not items:
         return results
-    held = _BUSY.take(min(workers(), len(items)))
+    held, low = _BUSY.take(min(workers(), len(items))), lowered()
     children, here, broken, waiting = [], [], [], {}
     try:
         parts = [part for part in _split(len(items), held, cost) if part]
@@ -151,7 +189,7 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
             try:
                 if child is None:
                     raise OSError("no child")
-                child.conn.send((fn, shared, [items[i] for i in part], RETIRE))   # its line: this process's
+                child.conn.send((fn, shared, [items[i] for i in part], RETIRE, low))   # its line: this process's
                 waiting[child.conn] = (child, part)
             except Exception:   # no child, or fn or its items don't pickle: here
                 here += part
@@ -196,7 +234,7 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
 def later(fn: Callable, *args) -> Future:
     """``fn(*args)`` on a thread of its own, so the caller works on while it
     waits on children (Modkit's): its future."""
-    pool = ThreadPoolExecutor(1)
+    pool = ThreadPoolExecutor(1, initializer=inherit())
     try:
         return pool.submit(fn, *args)
     finally:
@@ -243,24 +281,27 @@ def _work(conn) -> None:
     the parent), holding none of a part's inputs or results while it waits
     for the next; ``leaving`` with the results, then gone, once it has
     peaked at the line its parent sent with the part (the parent's
-    :data:`RETIRE`) or past it."""
+    :data:`RETIRE`) or past it, or after a low part where POSIX's nice has
+    no way back (it would answer the next click's parts low)."""
     from .engine import orphaned
 
     orphaned()
     while True:
         try:
-            fn, shared, items, line = conn.recv()
+            fn, shared, items, line, low = conn.recv()
         except (EOFError, OSError):
             return
         except Exception:   # a part that doesn't unpickle here
             conn.send(("failed", None))
             continue
+        was = host.background() if low else None
         try:
             out = ("done", [fn(shared, item) for item in items])
         except BaseException:
             out = ("failed", None)
+        host.foreground(was)
         fn = shared = items = None   # the part's inputs, never held while this child waits for the next part
-        leaving = out[0] == "done" and _peak() >= line
+        leaving = out[0] == "done" and (_peak() >= line or low and sys.platform not in ("darwin", "win32"))
         try:
             conn.send(("leaving", out[1]) if leaving else out)
         except Exception:   # results that don't pickle

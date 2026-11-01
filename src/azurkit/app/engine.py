@@ -56,6 +56,8 @@ from azurkit.core.progress import record
 from azurkit.tools import characters
 from azurkit.tools.characters import pool
 
+from . import procpool
+
 
 class Cancelled(BaseException):
     """The page cancelled the build or the save, or a change stopped work
@@ -84,9 +86,11 @@ class _Built:
         self.made, self.report = made, report
         self.done, self.sha, self.stopped = 0, None, False
         self.ended = threading.Event()
-        threading.Thread(target=self._hash, name="azurkit-hash-build", daemon=True).start()
+        threading.Thread(target=self._hash, args=(procpool.inherit(),), name="azurkit-hash-build", daemon=True).start()
 
-    def _hash(self) -> None:
+    def _hash(self, lower: Callable[[], object]) -> None:
+        lower()   # as low as the job that built it, if it is
+
         def tick(done: int, total: int) -> None:
             self.done = done
             if self.stopped:
@@ -513,7 +517,7 @@ def _main(conn, stores: bool = False) -> None:
     and its save's progress sent back as they come; with ``stores``, what it
     works out kept across launches (:mod:`.swapcache`)."""
     global _BUILDS
-    from . import ahead, procpool, swapcache
+    from . import ahead, swapcache
 
     orphaned()
     procpool.install()   # the swap's parallel work in children of this process

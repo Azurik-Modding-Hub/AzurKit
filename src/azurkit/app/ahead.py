@@ -58,6 +58,7 @@ from azurkit import __version__
 from azurkit.core import host
 
 from .engine import Cancelled
+from .procpool import Low
 
 KINDS = ("plan", "view", "build")
 """The slots: a seed's plan, its first tracker view, a build."""
@@ -115,24 +116,6 @@ def room(peak: int | None, memory: int | None = None) -> bool:
         return True
     memory = host.ram() if memory is None else memory
     return memory is not None and memory >= SMALL_RAM
-
-
-class Low:
-    """A thread's background priority (``core.host``), lowered and put
-    back on that thread alone (made on it: an OS sets a thread's own)."""
-
-    def __init__(self):
-        self.thread, self.was, self.on = threading.current_thread(), None, False
-
-    def __call__(self, on: bool) -> None:
-        """Lower the thread (``on``) or put it back, once each way."""
-        if threading.current_thread() is not self.thread or on == self.on:
-            return
-        if on:
-            self.was, self.on = host.background(), True
-        else:
-            host.foreground(self.was)
-            self.on = False
 
 
 class Job:

@@ -334,10 +334,8 @@ def test_the_hosts_background_priority_goes_down_and_back_and_its_memory_reads_p
     assert (got, host.foreground(got, process), log, host.ram()) == (was, back, calls, ram)
 
 
-def test_this_hosts_thread_goes_to_background_priority_and_back():
-    """The real calls on this host (``core.host``): a thread's priority read
-    back low, then as it was; POSIX's stays low (its known flaw) unless it
-    was low already."""
+def _reads():
+    """This host's way to read the calling thread's priority, and whether a read is low."""
     if sys.platform == "darwin":
         import ctypes
 
@@ -350,13 +348,18 @@ def test_this_hosts_thread_goes_to_background_priority_and_back():
             libc.pthread_get_qos_class_np(libc.pthread_self(), ctypes.byref(qos), ctypes.byref(relative))
             return relative.value
 
-        def low(now):
-            return now == host.QOS_LOWEST
-    elif sys.platform == "win32":
+        return read, lambda now: now == host.QOS_LOWEST
+    if sys.platform == "win32":
         k = host._kernel32()
-        read, low = (lambda: k.GetThreadPriority(k.GetCurrentThread())), (lambda now: now == host.THREAD_BELOW_NORMAL)
-    else:
-        read, low = (lambda: os.getpriority(os.PRIO_PROCESS, 0)), (lambda now: now >= host.NICE)
+        return (lambda: k.GetThreadPriority(k.GetCurrentThread())), (lambda now: now == host.THREAD_BELOW_NORMAL)
+    return (lambda: os.getpriority(os.PRIO_PROCESS, 0)), (lambda now: now >= host.NICE)
+
+
+def test_this_hosts_thread_goes_to_background_priority_and_back():
+    """The real calls on this host (``core.host``): a thread's priority read
+    back low, then as it was; POSIX's stays low (its known flaw) unless it
+    was low already."""
+    read, low = _reads()
     seen = []
 
     def run():
@@ -368,3 +371,44 @@ def test_this_hosts_thread_goes_to_background_priority_and_back():
     thread.start()
     thread.join(10)
     assert seen[:3] == [True, seen[3], seen[3]] and host.ram() > 0
+
+
+def _is_low(here: int | None = None, item: int = 0) -> bool:   # a pool child's part (``here``: its parent, which fails it)
+    assert os.getpid() != here
+    read, low = _reads()
+    return low(read())
+
+
+def test_a_low_jobs_pool_parts_and_the_threads_it_starts_run_low_and_a_normal_calls_parts_dont(monkeypatch):
+    """What a job ahead no click follows starts runs at its priority (review
+    D3 of Step 4.3r4g: D1007's every core at low priority held its own
+    thread alone): a part in a pool child, a ``later`` thread and its parts, a
+    build's hash. The child comes back up after the part, so a call the
+    player waits on gets normal priority from the same children (POSIX's
+    nice has no way back: a low part's child leaves instead)."""
+    from azurkit.app import engine, procpool
+
+    monkeypatch.delenv(procpool.CORES, raising=False)
+    monkeypatch.setattr(engine.iso, "digest", lambda made, tick: _is_low())
+    here, parts, seen = os.getpid(), [0, 1], {}
+
+    def run(low: bool) -> None:
+        if low:
+            ahead.Low()(True)
+        kept = engine._Built(None, {})
+        kept.ended.wait(60)
+        seen[low] = (procpool.map_(_is_low, here, parts), procpool.later(_is_low).result(),
+                     procpool.later(procpool.map_, _is_low, here, parts).result(), kept.sha)
+    procpool.stop()
+    try:
+        for low in (True, False):
+            thread = threading.Thread(target=run, args=(low,))
+            thread.start()
+            thread.join(120)
+            if low and sys.platform in ("darwin", "win32"):
+                assert len(procpool._IDLE) >= 2   # the same children, for the normal call's parts
+    finally:
+        procpool.stop()
+    normal = _is_low()
+    assert (seen[True], seen[False]) == (([True, True], True, [True, True], True),
+                                         ([normal, normal], normal, [normal, normal], normal))
