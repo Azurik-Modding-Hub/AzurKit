@@ -143,8 +143,8 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 // Progress (D980): one bar for both hosts. Each ask in flight is kept (asking(kind) -> its id, answered(id)) with the
 // last record the engine gave for it (the app's api/progress, polled every 250 ms; the site's worker's posts); the
-// newest that is a build, a save or Track this seed's plan, has a record, or has waited 1 s shows: its label and
-// percent, or a moving stripe while it has no count.
+// newest that is a build, a save, Track this seed's plan or a plan file's spoiler, has a record, or has waited 1 s
+// shows: its label and percent, or a moving stripe while it has no count.
 const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your image", check: "Checking your image",
                  plan: "Planning the seed", tracker: "Reading the seed's logic", randomizer: "Reading the randomizer",
                  restore: "Restoring your setup", pickers: "Reading the models", preview: "Drawing the model",
@@ -155,7 +155,8 @@ const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your imag
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
                  storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit" };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other after 1 s
-const FOLLOWED = new Set([...AT_ONCE, "plan"]);   // shown and polled from the click: Track this seed's plan too
+// shown and polled from the click: Track this seed's plan and a plan file's spoiler (the logic's read) too
+const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler"]);
 let asked = 0, ticking = null;
 
 function progressed(step) {

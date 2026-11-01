@@ -1751,9 +1751,9 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
             len(seeded)) == (True, [], "spoiler", True, True, [], 1), (seen, planned)
 
 
-# Track this seed, clicked: ``bars`` is the bottom bar at each change, [ms since the click, its value (null: a moving
-# stripe), its line], or null while it is hidden
-TRACK_BARS = """() => {
+# The bottom bar from now on: ``bars`` is the bar at each change, [ms since now, its value (null: a moving stripe), its
+# line], or null while it is hidden
+BARS = """() => {
     globalThis.bars = [];
     const t = performance.now();
     new MutationObserver(() => {
@@ -1762,7 +1762,6 @@ TRACK_BARS = """() => {
                                    document.getElementById("progress-line").textContent]);
     }).observe(document.querySelector("footer"), { subtree: true, childList: true, characterData: true,
                                                    attributes: true });
-    document.getElementById("track-seed").click();
 }"""
 
 
@@ -1785,7 +1784,8 @@ def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fi
         _page.click(page, "tab-randomizer")
         _page.until(page, "() => azurkit.rando.view?.share", 300)
         _page.fill(page, "rando-seed", "2")
-        page.evaluate(TRACK_BARS)
+        page.evaluate(BARS)
+        _page.click(page, "track-seed")
         _page.until(page, "() => document.getElementById('track-head').textContent.trim()", 300)
         bars = page.evaluate("() => bars")
         page.close()
@@ -1795,6 +1795,34 @@ def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fi
     counted = {int(b[1]) for b in shown if b[1] is not None and "(placing the items, " in b[2]}
     assert (shown[0][0] < 250, shown[0][2].startswith("Planning the seed"), len(counted) >= 2,
             max(counted, default=0) >= 50) == (True, True, True, True), bars
+
+
+def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(browser, tmp_path, monkeypatch):
+    """Step 4.3 round 3 (A54 under 4 cores, D980): in the app's page, a
+    plan file's spoiler asked while the engine still reads the randomizer's
+    logic cold shows its bar from the pick and polls it at once, as Track's
+    plan (it waited 750 ms to ask, so a spoiler done at 1.1 s showed one
+    value), so the logic's counted checks move it."""
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.setattr(loader, "_KEPT", {})   # nothing in this process has read the logic yet
+    plan = tmp_path / "azurkit plan.json"
+    plan.write_text(json.dumps(record_goldens.recorded(record_goldens.PLANS)["default"]["plan"]), encoding="utf-8")
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-tools")
+        page.evaluate(BARS)
+        page.set_input_files("#tools-plan-file", str(plan))
+        _page.until(page, "() => azurkit.tools.state.spoiler", 300)
+        bars = page.evaluate("() => bars")
+        page.close()
+    finally:
+        server.close()
+    shown = [b for b in bars if b is not None]
+    assert (shown[0][0] < 500, shown[0][2].startswith(("Writing the spoiler", "Reading the randomizer's logic")),
+            len({b[1] for b in shown}) >= 2) == (True, True, True), bars
 
 
 def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_path, monkeypatch, usa_iso):
