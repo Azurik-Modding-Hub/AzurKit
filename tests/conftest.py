@@ -58,6 +58,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from _pytest.nodeid import NodeId
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -83,6 +84,7 @@ pytest_plugins = ["tests._byte_safe", "pytester"]
 ALLOWED_SKIPS: dict[str, str] = tomllib.loads((ROOT / "tests" / "skip_allowlist.toml").read_text(encoding="utf-8"))
 _images: dict[str, Path] = {}         # release name -> its verified image
 _ran: dict[str, set[str]] = {"vanilla": set(), "europe": set(), "web": set()}
+_ungrouped: dict[str, str] = {}       # a grouped test's id (its "@group" suffix, D991) -> its id
 _gated = False
 
 
@@ -194,6 +196,12 @@ def pytest_collection_modifyitems(config, items):
             raise pytest.UsageError(f"{item.nodeid}: a europe test is vanilla too (use the europe_iso fixture)")
         if not item.get_closest_marker("vanilla"):
             item.add_marker(pytest.mark.pure)
+    if getattr(config.option, "loadgroup", False):   # an xdist worker under --dist loadgroup: xdist 3.8 writes
+        for item in items:                           # the group's suffix to _nodeid, which pytest 9.2 doesn't read
+            if groups := sorted({str(m.args[0] if m.args else m.kwargs.get("name", "default"))
+                                 for m in item.iter_markers("xdist_group")}):
+                _ungrouped[grouped := f"{item.nodeid}@{'_'.join(groups)}"] = item.nodeid
+                item._id = NodeId.parse(grouped)
 
 
 def _stop(config, items, why: str) -> None:
@@ -295,7 +303,7 @@ def _fail_unlisted_skip(report):
     """A skip or xfail the allow-list doesn't cover becomes a failure."""
     if report.skipped or hasattr(report, "wasxfail"):
         reason = (getattr(report, "wasxfail", "") or report.longrepr[2]).removeprefix("Skipped: ")
-        allowed = ALLOWED_SKIPS.get(report.nodeid)
+        allowed = ALLOWED_SKIPS.get(_ungrouped.get(report.nodeid, report.nodeid))
         if allowed is None or not re.search(allowed, reason):
             report.outcome = "failed"
             report.longrepr = f"skip not in tests/skip_allowlist.toml: {reason}"
