@@ -41,8 +41,10 @@ About five minutes; prints sizes.
 
 from __future__ import annotations
 
+import base64
 import json
 import re
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -83,6 +85,12 @@ BASE_GAP, BASE_FLAT = 30.0, 1.0   # m: the lowest walkable ground this far under
 LINK = 1.0                      # m: neighbouring drawn tops no one walks on this close in height are one surface
 NEAR = 2.5                      # m: a surface beside a floored top this close in height takes to that floor
 FAINT = 0.25                    # the other floors' share of a floor's picture
+# A point's floor (Step 4.3's floors, the spots' and Live's Follow's one rule): the floor holding the most ground at
+# its height round it, the up-facing tops on a floor within ROOM m of it and ROOM_DZ m of the ground under it (the
+# highest up-facing top at most STEP_UP m over it in its column): the town temple's ten lock rewards stand on
+# pedestal tops no one walks on, which the column alone put on the main floor, and the room round them is town-5
+ROOM, ROOM_DZ, STEP_UP = 3.0, 1.0, 1.5
+STOREY_M = 0.5                  # m: floors.json's unit of height
 BARRIERS = ("firewall", "iceblock", "acidblock", "crystal", "smashwall")
 # A barrier group the vanilla data names for no kind ("other": one under a node named "all", or a shape named
 # polySurfaceShape2) that has a requirement takes the kind its damage gives every named group: water douses
@@ -489,11 +497,59 @@ def volume_tops(vol, fr: Frame, lv, owners=None) -> np.ndarray:
 
 
 # --------------------------------------------------------------------------- places
-def place(A, fr: Frame, of_span, floor_no, x, y, z) -> list:
+class Rooms:
+    """Which of a level's floors a world point is on (Step 4.3's floors):
+    the floor holding the most ground at its height round it. Of the
+    up-facing span tops on a floor (``floor``: each span's floor on the
+    map, -1 none) within ``ROOM`` m of the point and ``ROOM_DZ`` m of the
+    ground under it, the floor most of them are on; :meth:`floor` gives it
+    for the spots (:func:`place`), :func:`storeys` for each pixel's storeys,
+    which Live's Follow reads (``floors.json``)."""
+
+    def __init__(self, A, floor: np.ndarray, n_floors: int):
+        lv, spans = A.lv, A.spans
+        self.A, self.n = A, n_floors
+        self.up = lv.tri_nz[spans.toptri] > 0.05
+        on = np.flatnonzero(self.up & (floor >= 0))
+        self.Z = np.full((n_floors, lv.NY, lv.NX), np.nan, dtype=np.float32)   # a floor holds one top a column (M7)
+        self.Z[floor[on], spans.col[on] // lv.NX, spans.col[on] % lv.NX] = spans.top[on]
+        r = int(ROOM / COLUMN)
+        self.offsets = [(dx, dy) for dy in range(-r, r + 1) for dx in range(-r, r + 1)
+                        if (dx * dx + dy * dy) * COLUMN ** 2 <= ROOM ** 2]
+
+    def votes(self, cols: np.ndarray, g: np.ndarray) -> np.ndarray:
+        """(len(cols), floors): each floor's tops within ``ROOM`` m of each
+        column and ``ROOM_DZ`` m of its height ``g``."""
+        NX, NY = self.A.lv.NX, self.A.lv.NY
+        ix, iy, g = cols % NX, cols // NX, np.asarray(g, dtype=np.float32)
+        out = np.zeros((len(cols), self.n), dtype=np.int32)
+        for dx, dy in self.offsets:
+            jx, jy = ix + dx, iy + dy
+            ok = np.flatnonzero((jx >= 0) & (jx < NX) & (jy >= 0) & (jy < NY))
+            out[ok] += (np.abs(self.Z[:, jy[ok], jx[ok]] - g[ok]) <= ROOM_DZ).T
+        return out
+
+    def floor(self, x: float, y: float, z: float, column: int) -> int:
+        """The floor of the world point (x, y, z): the room vote at the
+        ground under it (the highest up-facing top at most ``STEP_UP`` m over
+        it in its column, else its own height), a tie or no vote ``column``'s
+        (the column rule's floor, -1 none)."""
+        spans = self.A.spans
+        c = self.A.lv.col([x], [y])
+        a, cnt = spans.range_of(c)
+        under = [s for s in range(int(a[0]), int(a[0]) + int(cnt[0])) if self.up[s] and spans.top[s] <= z + STEP_UP]
+        g = max(float(spans.top[s]) for s in under) if under else float(z)
+        v = self.votes(c, [g])[0]
+        if not v.any() or (column >= 0 and v[column] == v.max()):
+            return column
+        return int(np.argmax(v))
+
+
+def place(A, fr: Frame, of_span, floor_no, x, y, z, rooms: Rooms | None = None) -> list:
     """[px, py, floor] of a world point: where it is on the map, in pixels
     to 0.01 (pixel u covers [u, u + 1); not a whole pixel, so a zoomed map
-    shows it where it is, Step 2.97), and the floor of the span top under
-    it (-1: none)."""
+    shows it where it is, Step 2.97), and its floor: the room's
+    (:class:`Rooms`), else that of the span top under it (-1: none)."""
     spans = A.spans
     a, cnt = spans.range_of(A.lv.col([x], [y]))
     f, best = None, None
@@ -502,8 +558,59 @@ def place(A, fr: Frame, of_span, floor_no, x, y, z) -> list:
         if of_span[s] >= 0 and spans.top[s] <= z + 1.5 and (best is None or spans.top[s] > best):
             f, best = of_span[s], spans.top[s]
     px, py = (x - fr.x0) * fr.s, (fr.y1 - y) * fr.s
+    k = floor_no.get(f, -1)
     return [round(float(np.clip(px, 0, fr.w - 0.01)), 2), round(float(np.clip(py, 0, fr.h - 0.01)), 2),
-            floor_no.get(f, -1)]
+            k if rooms is None else rooms.floor(x, y, z, k)]
+
+
+def storeys(A, fr: Frame, floor: np.ndarray, rooms: Rooms) -> str:
+    """``floors.json``'s table of a level (Live's Follow: the floor under
+    the player's feet): in each map pixel, its storeys, the up-facing tops
+    of a floor in the pixel's columns joined where they lie within
+    ``ROOM_DZ`` m of each other in height, each on the room's floor at its
+    middle height (:class:`Rooms`, so the spots and Follow agree), and a
+    pixel's storeys on one floor one, from their lowest top to their
+    highest. Packed (:data:`STOREY_M` m a unit) as zlib's
+    deflate of: each pixel's code (u8, rows top to bottom: 0 no storey, k +
+    1 every storey on floor k, 255 storeys on more than one floor), then for
+    each 255 pixel in order its count of storeys (u8), then for each of
+    those storeys, low to high, its lowest top less the one before it (i16,
+    its low bytes then its high bytes), its highest less its lowest (u8, at
+    most 255) and its floor (u8); base64."""
+    spans = A.spans
+    on = np.flatnonzero(rooms.up & (floor >= 0))
+    k, px, py = footprint(fr, *A.lv.cxy(spans.col[on]))
+    pix, f, z = (py * fr.w + px).astype(np.int64), floor[on][k].astype(np.int64), spans.top[on][k]
+    o = np.lexsort((z, f, pix))
+    pix, f, z = pix[o], f[o], z[o]
+    new = np.r_[True, (pix[1:] != pix[:-1]) | (f[1:] != f[:-1]) | (z[1:] - z[:-1] > ROOM_DZ)]
+    start = np.flatnonzero(new)
+    end = np.r_[start[1:], len(z)]
+    mid, spix, sf = z[(start + end - 1) // 2], pix[start], f[start]
+    v = rooms.votes(A.lv.col(fr.x0 + (spix % fr.w + 0.5) / fr.s, fr.y1 - (spix // fr.w + 0.5) / fr.s), mid)
+    tie = ~v.any(axis=1) | (v[np.arange(len(sf)), sf] == v.max(axis=1))   # a tie or no vote: its own floor
+    room = np.where(tie, sf, np.argmax(v, axis=1))
+    kinds, one = np.unique(spix * 256 + room, return_inverse=True)   # a pixel's storeys on a floor: one
+    lo, hi = np.full(len(kinds), np.inf), np.full(len(kinds), -np.inf)
+    np.minimum.at(lo, one, z[start])
+    np.maximum.at(hi, one, z[end - 1])
+    spix, room = kinds // 256, kinds % 256
+    o = np.lexsort((lo, spix))
+    lo, hi, spix, room = lo[o], hi[o], spix[o], room[o]
+    many = np.bincount(spix, minlength=fr.w * fr.h) > 1
+    code = np.zeros(fr.w * fr.h, dtype=np.int64)
+    code[spix] = room + 1
+    code[many] = 255
+    listed = many[spix]
+    count = np.bincount(spix[listed], minlength=fr.w * fr.h)[many]
+    low = np.round(lo[listed] / STOREY_M).astype(np.int64)
+    step = np.diff(np.r_[0, low])
+    if count.max(initial=0) > 255 or room.max(initial=0) > 254 or np.abs(step).max(initial=0) > 32767:
+        raise ValueError(f"{A.lv.name}: a storey floors.json can't hold")
+    step = step.astype("<i2").view(np.uint8).reshape(-1, 2)
+    span = np.clip(np.round((hi[listed] - lo[listed]) / STOREY_M), 0, 255)
+    packed = b"".join(a.astype(np.uint8).tobytes() for a in (code, count, step[:, 0], step[:, 1], span, room[listed]))
+    return base64.b64encode(zlib.compress(packed, 9)).decode("ascii")
 
 
 def own_tops(A, found: dict, drawn: np.ndarray) -> np.ndarray:
@@ -616,10 +723,11 @@ def layout(A, fr: Frame, F, found: dict, n_floors: int = FLOORS):
 
 
 def render(rd, schema, level: str, detail: float = 1.0):
-    """({picture name: (h, w, 3) uint8}, maps.json's entry for ``level``);
-    with ``detail`` the pictures are ``detail`` times finer (the GUI's
-    detail layer, :func:`draw_detail`), on the same floors in the same
-    colours, the entry the same."""
+    """({picture name: (h, w, 3) uint8}, maps.json's entry for ``level``,
+    its ``floors.json`` table, :func:`storeys`); with ``detail`` the
+    pictures are ``detail`` times finer (the GUI's detail layer,
+    :func:`draw_detail`), on the same floors in the same colours, the entry
+    the same, and no table (None)."""
     data, toc, graphs, A = load(rd, schema, level)
     fr = Frame(A.lv)
     spans = A.spans
@@ -629,6 +737,8 @@ def render(rd, schema, level: str, detail: float = 1.0):
     sp = shown[k]
     z = spans.top[sp]
     floor_no = {f: k for k, f in enumerate(order)}
+    on_map = np.array([floor_no.get(int(f), -1) for f in range(-1, int(of_span.max()) + 1)])[of_span + 1]
+    rooms = Rooms(A, on_map, len(order))
     z0, z1 = float(z.min()), float(z.max())
     area = [int((of_span[sp] == f).sum()) for f in order]      # each floor's pixels on the map
     probe = ground(tops(px, py, z, fr), F)
@@ -671,19 +781,22 @@ def render(rd, schema, level: str, detail: float = 1.0):
     at = [p for e in exits for p in e["at"]] + [i["at"] for i in items + spots] + [p for b in barriers for p in b["at"]]
     held = np.bincount([p[2] for p in at if p[2] >= 0], minlength=len(order))
     main = max(range(len(order)), key=lambda j: (held[j], area[j]))
+    for i, src in zip(items + spots, found["items"] + found["spots"]):   # the spots on their room's floor (the main
+        i["at"][2] = rooms.floor(*src["at"][0], i["at"][2])          # floor still the column rule's: the same pictures)
     feats = []
     for f in features(A, level):      # one marker of a feature to a place
         p = place(A, fr, of_span, floor_no, *f["at"])
         if not any(g["id"] == f["id"] and abs(p[0] - g["at"][0]) + abs(p[1] - g["at"][1]) < 10 for g in feats):
             feats.append({**f, "at": p})
-    gem_at = [{**g, "at": place(A, fr, of_span, floor_no, *g["at"])} for g in gems(A, level)]
+    gem_at = [{**g, "at": place(A, fr, of_span, floor_no, *g["at"], rooms)} for g in gems(A, level)]
     for p in at + [f["at"] for f in feats] + [g["at"] for g in gem_at]:
         p[2] = main if p[2] < 0 else p[2]
     names = [level if j == main else f"{level}-{j + 1}" for j in range(len(order))]
     return dict(zip(names, images)), {"size": [fr.w, fr.h], "floors": names, "main": main,
                                       "exits": exits, "items": items, "spots": spots, "barriers": barriers,
                                       "features": feats, "gems": gem_at,
-                                      "frame": [round(float(fr.x0), 4), round(float(fr.y1), 4), round(float(fr.s), 6)]}
+                                      "frame": [round(float(fr.x0), 4), round(float(fr.y1), 4), round(float(fr.s), 6)]
+                                      }, storeys(A, fr, on_map, rooms) if detail == 1 else None
 
 
 def thumb(img: np.ndarray, box) -> np.ndarray:

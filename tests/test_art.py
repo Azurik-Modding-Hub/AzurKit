@@ -89,3 +89,18 @@ def test_each_coarse_levels_floors_ship_drawn_at_two_pixels_a_metre():
     for name, lv in floors.items():
         size, f = struct.unpack(">II", (root / "detail" / name).read_bytes()[16:24]), detail[lv]
         assert all((n - 1) * f - 1 <= got <= n * f + 1 for n, got in zip(levels[lv]["size"], size)), name
+
+
+def test_a_spot_shows_on_the_floor_of_the_room_it_stands_in():
+    """A spot's floor is the one holding the most ground at its height round
+    it (``maps.Rooms``, the rule ``floors.json`` gives Live's Follow too): the
+    town temple's ten obsidian-lock rewards, each on a pedestal top no one
+    walks on, show on town-5 with the temple's floor, not on the main floor
+    their pedestals' own columns gave six of them; ``floors.json`` holds a
+    table for every level of ``maps.json``."""
+    root = ROOT / SHIPPED
+    levels = json.loads((root / "maps.json").read_text())["levels"]
+    town = levels["town"]
+    at = {i["id"]: i["at"] for i in town["items"] + town["spots"]}
+    assert {town["floors"][at[f"town/g1/r{r}"][2]] for r in range(15, 241, 25)} == {"town-5"}
+    assert sorted(json.loads((root / "floors.json").read_text())["levels"]) == sorted(levels)

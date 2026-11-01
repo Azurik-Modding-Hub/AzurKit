@@ -542,7 +542,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     barrier's, the game's own model at 20 px), or a level's floors seen
     from above, its `maps.json` entry (where its exits, items, spots,
     barriers, features and gems lie, in pixels with their floor; `frame`
-    maps metres to them) and its world-map thumbnail; `sdk.art_world`
+    maps metres to them; an item's, a spot's and a gem's floor is the one
+    holding the most ground at its height round it, `maps.Rooms`, Step 4.3's
+    floors), its `floors.json` table (each pixel's storeys and their
+    floors by the same rule: Live's Follow reads the floor under the
+    player there) and its world-map thumbnail; `sdk.art_world`
     makes the world map and the index from the levels' parts. Modkit's
     scripts draw them (ported), on the reach model's first
     stage (`art/reach.py`, ours: Modkit's `Reach(level, flights=False)` up
@@ -921,7 +925,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **The maps** (Step 4.2c3, R1.41, R1.43; shipped since Step 4.3f, D961;
     `web/art.mjs`, `web/mapview.mjs`): Modkit's pictures of every level's
     floors, the world map and the item icons, with the maps' index
-    (`maps.json`), ship with the page in `web/art/<ART_VERSION>/`, and
+    (`maps.json`) and the floor table (`floors.json`), ship with the page in `web/art/<ART_VERSION>/`, and
     `web/art/index.json` names that version and the icons. Only
     `scripts/record_goldens.py`'s `art` family writes them, drawn from the
     USA image (`sdk.art`, Modkit's drawing; `--check` writes nothing), and

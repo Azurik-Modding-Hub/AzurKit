@@ -593,8 +593,9 @@ def art(images: Images, workers: int, detail: Collection[str] | None = None) -> 
     """The tracker's pictures the page ships, by their path: drawn from the
     USA image (``sdk.art``, one part a process, then ``sdk.art_world``;
     Europe's draw the same, ``tests/test_art.py``) under ``ART_VERSION``
-    each picture (``icons/<icon>.png``, each floor's, ``world.png``) and
-    ``maps.json``, then each coarse level's floors again finer
+    each picture (``icons/<icon>.png``, each floor's, ``world.png``),
+    ``maps.json`` and ``floors.json`` (each level's storeys, the floor under
+    a point, Live's Follow's: ``maps.storeys``), then each coarse level's floors again finer
     (``detail/<floor>.png``: ``art.detail`` at its ``art.detail_factor``,
     the largest first; only ``detail``'s levels when it names them, the
     tests'), and ``index.json``, that version, the icons' names and every
@@ -615,7 +616,9 @@ def art(images: Images, workers: int, detail: Collection[str] | None = None) -> 
     out = {f"{v}/{name}.png": png for part in tracking.ART_PARTS for name, png in got[part]["pictures"].items()}
     out |= {f"{v}/{name}.png": png for lv in sorted(finer) for name, png in finer[lv].items()}
     shipped = {"version": v, "icons": sorted(got["icons"]["pictures"]), "detail": factors}
+    floors = {"unit": drawn.maps.STOREY_M, "levels": {lv: got[lv]["floors"] for lv in sorted(tracking.GRID)}}
     out |= {f"{v}/world.png": world["pictures"]["world"], f"{v}/maps.json": world["text"].encode(),
+            f"{v}/floors.json": (json.dumps(floors, separators=(",", ":")) + "\n").encode(),
             "index.json": (json.dumps(shipped) + "\n").encode()}
     return {f"{ART}/{rel}": data for rel, data in out.items()}
 

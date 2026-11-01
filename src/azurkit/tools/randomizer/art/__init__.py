@@ -143,7 +143,7 @@ def part(reader: Vanilla, name: str) -> dict:
     draws: the items' and barriers' models, each key's own, and the smash
     wall's drawing), or a level of the world map (``{"pictures": {floor:
     RGB}, "entry": its maps.json entry, "thumb": its main floor's world-map
-    thumbnail}``)."""
+    thumbnail, "floors": its floors.json table, Live's Follow's, maps.storeys}``)."""
     schema = nodes.Schema(reader.read_file("default.xbe"))
     if name == "icons":
         cache: dict = {}
@@ -151,8 +151,8 @@ def part(reader: Vanilla, name: str) -> dict:
                              for n in [*icons.ICONS, *icons.DRAWN, *icons.keys()]}}
     if name not in maps.GRID:
         raise ValueError(f"art: no part {name!r} (the icons, or a level of the world map)")
-    pictures, entry = maps.render(reader, schema, name)
-    return {"pictures": pictures, "entry": entry, "thumb": maps.thumb(pictures[name], maps.THUMB)}
+    pictures, entry, floors = maps.render(reader, schema, name)
+    return {"pictures": pictures, "entry": entry, "thumb": maps.thumb(pictures[name], maps.THUMB), "floors": floors}
 
 
 def detail_factor(entry: dict) -> float | None:
@@ -170,7 +170,7 @@ def detail(reader: Vanilla, level: str, factor: float) -> dict[str, np.ndarray]:
     pixel u the map's pixel u / ``factor`` (Modkit's ``draw_detail``)."""
     if level not in maps.GRID:
         raise ValueError(f"art: no level {level!r} of the world map")
-    pictures, _ = maps.render(reader, nodes.Schema(reader.read_file("default.xbe")), level, factor)
+    pictures, _, _ = maps.render(reader, nodes.Schema(reader.read_file("default.xbe")), level, factor)
     return {f"detail/{name}": img for name, img in pictures.items()}
 
 
