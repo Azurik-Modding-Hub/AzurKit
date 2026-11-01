@@ -242,6 +242,10 @@ INIT = """(() => {
 ERROR = ("document.querySelector('#status')?.classList.contains('error') "
          "&& 'error: ' + document.querySelector('#status').textContent")
 READY = "() => globalThis.azurkit?.ready"
+# RS4's steady memory (D17: logged beside the resident peak, which stays the gate's line): the heap the site's engine
+# reported with its build and the bytes of the build's pieces, which the browser holds in Blobs.
+STEADY = """() => { const a = globalThis.azurkit;
+  return a?.heap == null ? null : (a.build?.segments ?? []).reduce((n, s) => n + (s.kind === "bytes" ? s.size : 0), a.heap); }"""
 NATIVE = "() => globalThis.azurkit?.packs?.native ?? null"   # sdk.catalog's: the compiled kernels the engine runs
 USA = "() => azurkit.vanilla?.release === 'usa'"
 BUILT = f"() => azurkit.build ? 'built' : {ERROR}"
@@ -457,7 +461,7 @@ class Driver:
         self.ev = p.events()
 
     def record(self, op: str | None, seconds: float, events: list, t0: float, t1: float, error: str | None = None,
-               page: float | None = None, cpu: float | None = None):
+               page: float | None = None, cpu: float | None = None, steady: int | None = None):
         if op is None or not self.need(op):
             if self.gap and self.gap[2] is not None:   # a head start whose op takes no sample: a gap as any other
                 self.gap = (*self.gap[:2], None)
@@ -480,11 +484,17 @@ class Driver:
             sample["cpu"] = round(cpu, 3)
             if not error and starved(seconds, cpu):
                 sample["starved"] = True
+        if steady is not None:
+            sample["steady"] = steady
+            if self.memory:
+                sample["resident"] = self.memory.peak
         retake = sample.get("starved") and op not in self.retaking and seconds <= LONG
         self.log.append(f"{self.run.name} {op} {seconds:.2f} s{f' (page {page:.2f} s)' if page is not None else ''}"
                         f"{f' cpu {cpu:.2f} s' if cpu is not None else ''}"
                         f"{' starved' if sample.get('starved') else ''}{', taken once more' if retake else ''}"
                         f"{' bar ' + str(bar) if bar else ''}{' progress' if shown else ''}"
+                        f"{f' steady {steady / 2**30:.2f} GiB' if steady is not None else ''}"
+                        f"{f' peak {sample['resident'] / 2**30:.2f} GiB' if 'resident' in sample else ''}"
                         f"{' ' + error[:120] if error else ''}")
         print(self.log[-1], flush=True)
         if retake:
@@ -592,7 +602,8 @@ class Driver:
             raise
         self.ev += p.events()
         error = value if isinstance(value, str) and value.startswith("error: ") else None
-        self.record(op, (t1 - t0) / 1000, self.ev, t0, t1, error, cpu=self.spent(op))
+        self.record(op, (t1 - t0) / 1000, self.ev, t0, t1, error, cpu=self.spent(op),
+                    steady=p.js(STEADY) if done == BUILT and self.run.host == "site" and self.need(op) else None)
         if error:
             raise RuntimeError(f"{op}: {error[:200]}")
         return t1
@@ -1434,7 +1445,8 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
-    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"][, "cpu"][, "starved"][, "retook"]}]},
+    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"][, "cpu"][, "starved"][, "retook"]
+    [, "steady", "resident"]}]},
     "native" (the engine reports its
     pages gave, :meth:`Driver.engine`), "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh

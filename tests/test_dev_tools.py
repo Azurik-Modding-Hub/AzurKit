@@ -455,6 +455,20 @@ class _Seeds(_Stub):
         return self.t, True
 
 
+def test_a_site_builds_sample_logs_its_steady_memory_beside_the_resident_peak(tmp_path):
+    """D17: the gate's line stays the resident peak; a site build's sample
+    also keeps the heap its engine reported plus its pieces' bytes (what a
+    busy browser's caches don't inflate), beside the peak so far."""
+    class Page(_Stub):
+        def js(self, fn, arg=None):
+            return 3 << 30 if fn == _perf.STEADY else super().js(fn, arg)
+    d = _perf.Driver(_perf.RUNS["webkit"], {"S14": 1}, tmp_path, tmp_path, None)
+    d.memory = types.SimpleNamespace(peak=5 << 30, used=4.0, take=lambda: 4.0)
+    d.act(Page({}), "S14", _perf.build_js(), _perf.BUILT)
+    assert (d.samples["S14"][0]["steady"], d.samples["S14"][0]["resident"]) == (3 << 30, 5 << 30)
+    assert d.log[-1].endswith("steady 3.00 GiB peak 5.00 GiB")
+
+
 def test_the_app_seed_pass_picks_its_model_while_a_build_runs_and_waits_for_that_builds_own_answer(tmp_path):
     """Step 4.3 train B3 (the gate's A27-A30 errors, 1,800 s each): A30's
     pick is a small ask made while a build runs, so its build is of a seed
