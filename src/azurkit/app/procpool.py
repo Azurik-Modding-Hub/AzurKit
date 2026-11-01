@@ -12,7 +12,11 @@ order, raising here what the function raises. The children stay for the next
 call (at most :func:`workers` idle; one that grew past :data:`RETIRE` leaves
 after its part), end with their parent (they watch it),
 and pass their work through pipes alone: no semaphore, so a killed engine
-leaves none behind."""
+leaves none behind. :func:`workers` caps the children busy at once across
+the process, not a call's alone: a ``later``'s call shares them with the
+call it runs beside (:data:`_BUSY`), so ``$AZURKIT_CORES`` caps what the
+process runs on and no child is spawned past it (one finished is idle at
+once, for the call beside it)."""
 
 from __future__ import annotations
 
@@ -49,6 +53,31 @@ def workers() -> int:
     except ValueError:
         return most
     return min(most, cap) if cap > 0 else most
+
+
+class _Budget:
+    """The children busy at once in this process (each call's parts), at
+    most :func:`workers`: :meth:`take` waits for one and takes up to
+    ``want``; :meth:`give` hands one back as its part comes home."""
+
+    def __init__(self):
+        self.busy, self.cond = 0, threading.Condition()
+
+    def take(self, want: int) -> int:
+        with self.cond:
+            while self.busy >= workers():
+                self.cond.wait()
+            got = min(want, workers() - self.busy)
+            self.busy += got
+            return got
+
+    def give(self, count: int = 1) -> None:
+        with self.cond:
+            self.busy -= count
+            self.cond.notify_all()
+
+
+_BUSY = _Budget()
 
 
 class _Child:
@@ -111,9 +140,13 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
     results: list = [None] * len(items)
     if not items:
         return results
-    parts = [part for part in _split(len(items), min(workers(), len(items)), cost) if part]
-    children, here, broken, waiting = _take(len(parts)), [], [], {}
+    held = _BUSY.take(min(workers(), len(items)))
+    children, here, broken, waiting = [], [], [], {}
     try:
+        parts = [part for part in _split(len(items), held, cost) if part]
+        _BUSY.give(held - len(parts))
+        held = len(parts)
+        children = _take(len(parts))
         for n, part in enumerate(parts):
             child = children[n] if n < len(children) else None
             try:
@@ -123,6 +156,8 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
                 waiting[child.conn] = (child, part)
             except Exception:   # no child, or fn or its items don't pickle: here
                 here += part
+                held -= 1
+                _BUSY.give()
         while waiting:
             for conn in multiprocessing.connection.wait(list(waiting)):
                 child, part = waiting.pop(conn)
@@ -134,6 +169,11 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
                 if kind == "leaving":   # done, and the child ends: never kept idle
                     kind = "done"
                     broken.append(child)
+                if child not in broken:   # idle before its share goes back, so a call beside this one takes it
+                    children.remove(child)
+                    _give([child])
+                held -= 1
+                _BUSY.give()
                 if kind == "done":
                     for i, value in zip(part, got):
                         results[i] = value
@@ -142,6 +182,7 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
                 else:
                     here += part
     finally:   # a child still at a part (this call was interrupted) is stopped, never kept with its answer due
+        _BUSY.give(held)
         broken += [child for child, _ in waiting.values()]
         _give([child for child in children if child not in broken])
         for child in broken:

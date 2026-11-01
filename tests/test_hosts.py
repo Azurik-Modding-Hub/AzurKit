@@ -889,6 +889,27 @@ def test_a_pool_child_grown_past_the_line_leaves_with_its_results_and_a_small_on
         procpool.stop()
 
 
+def test_calls_beside_each_other_share_the_pools_cores_and_start_no_child_past_them(monkeypatch):
+    """Step 4.3r4c: ``$AZURKIT_CORES`` caps the children across the process,
+    not a call's alone: a ``later``'s call and the call beside it, each
+    asking for work at 2 cores, start 2 children between them (3 before), and
+    every item still answers."""
+    from azurkit.app import procpool
+
+    made, child = [], procpool._Child
+    monkeypatch.setenv(procpool.CORES, "2")
+    monkeypatch.setattr(procpool, "_Child", type("Counted", (child,), {
+        "__init__": lambda self: (made.append(1), child.__init__(self))[1]}))
+    procpool.stop()
+    try:
+        beside = procpool.later(procpool.map_, operator.call, time.sleep, [0.4])
+        assert procpool.map_(operator.call, time.sleep, [0.4, 0.4]) == [None, None]
+        assert beside.result() == [None]
+        assert len(made) <= 2 and procpool._BUSY.busy == 0
+    finally:
+        procpool.stop()
+
+
 def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_stops_it(tmp_path, monkeypatch,
                                                                                        usa_iso):
     """Step 4.3i: the app's builds run in its engine process
