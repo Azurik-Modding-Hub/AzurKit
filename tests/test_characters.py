@@ -886,6 +886,23 @@ def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path
     assert view["chosen"]["locked"]["mode"] == "own" and view["character"] == {"species": "beamlord"}
 
 
+def test_the_characters_view_on_an_image_tells_its_models_read_then_the_view_so_the_sites_bar_moves(usa_iso,
+                                                                                                    monkeypatch):
+    """Step 4.3 round 3 (S10, S11 in Chromium, D980): ``sdk.pickers`` on an
+    image tells its two steps (``read``), the image's model files read and
+    then the models' view, the first only while the image isn't read yet:
+    the site's worker posts them, so a model picked while the tab's own
+    first answer (a new worker's) is worked shows its bar moving (1.4 s
+    with none in Chromium), and never back from one answer to the next."""
+    monkeypatch.setattr(sdk, "_GAME", {})   # the image's model files not kept from another test
+    told: list[dict] = []
+    for species in ("garret4", "keylord"):
+        sdk.pickers({"iso": str(usa_iso), "character": {"species": species}}, progress=told.append)
+    assert [(s["stage"], s["percent"], s["label"]) for s in told] == [
+        ("read", 0, "Reading your image's models"), ("read", 50, "Reading the models"),
+        ("read", 50, "Reading the models")]
+
+
 def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, europe_iso):
     """The Characters tab's shipped files (Step 4.3f, D961; the page shows them before an image) are what
     ``scripts/record_goldens.py``'s characters family makes from the images, byte for byte: ``species.json``, the

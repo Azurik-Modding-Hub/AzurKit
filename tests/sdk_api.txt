@@ -395,7 +395,7 @@ every file verified as :func:`content_install` verifies it
 entry's id it writes, those required first]}``, or the refusal named.
 
 
-def pickers(given: 'Mapping') -> 'dict':
+def pickers(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
 
 What the Characters tab shows (Step 4.3d; Modkit's Player page,
 ``tools.characters.picker``) for ``given``: its ``character`` (a
@@ -408,6 +408,9 @@ and, installed, their variants (``community``), the chosen model's info
 panel, Weapon box, springs, shapes and the options its recipe decides
 (``chosen``), and the character a build takes from the tab
 (``character``). A refusal names the field or the image.
+``progress(record)`` hears its steps on an image (``read``, 2 of them):
+the image's model files read (once an image), then the models' view,
+so a host's bar moves while the tab waits (Step 4.3 round 3).
 
 
 def match(recipe: 'Mapping') -> 'dict':

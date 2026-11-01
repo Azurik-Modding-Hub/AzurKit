@@ -154,7 +154,9 @@ def engine(request):
             given = json.loads(JSON.stringify(request.given if request.type == "pickers" else request.recipe))
             if mounted := getattr(request, "iso", None):
                 given["iso"] = mounted
-            return js({"pickers": sdk.pickers, "preview": sdk.preview, "match": sdk.match}[request.type](given))
+            if request.type == "pickers":   # its steps posted: the tab's bar moves while it waits
+                return js(sdk.pickers(given, progress=progressed))
+            return js({"preview": sdk.preview, "match": sdk.match}[request.type](given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     if request.type in ("data", "data_edit"):   # the Data tab's: through JSON, a null is None (to_py gives JsNull)

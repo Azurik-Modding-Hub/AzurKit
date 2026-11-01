@@ -511,19 +511,22 @@ def _digests(path: str, steps: Steps, files: list[tuple[str, int, int]] | None =
         os.close(fd)
 
 
-def _game(path: str) -> tuple[gate.Stamp, bytes, bytes]:
+def _game(path: str, reading: Callable[[], object] | None = None) -> tuple[gate.Stamp, bytes, bytes]:
     """The image at ``path`` (its build files checked, D27) and its
-    config.xbr and characters.xbr, kept for the last image read."""
+    config.xbr and characters.xbr, kept for the last image read
+    (``reading()`` is called before a read)."""
     stamp = _stamp(path)
     key = (str(stamp.path), stamp.size, stamp.mtime_ns, stamp.ctime_ns)
     if key not in _GAME:
+        if reading is not None:
+            reading()
         with iso.Reader(stamp.path) as r:
             _GAME.clear()
             _GAME[key] = (stamp, r.read(characters.CONFIG), r.read(characters.FILES[0]))
     return _GAME[key]
 
 
-def pickers(given: Mapping) -> dict:
+def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
     """What the Characters tab shows (Step 4.3d; Modkit's Player page,
     ``tools.characters.picker``) for ``given``: its ``character`` (a
     recipe's; garret4 when none) on the image ``iso`` (none: the graded
@@ -534,16 +537,21 @@ def pickers(given: Mapping) -> dict:
     and, installed, their variants (``community``), the chosen model's info
     panel, Weapon box, springs, shapes and the options its recipe decides
     (``chosen``), and the character a build takes from the tab
-    (``character``). A refusal names the field or the image."""
-    from azurkit.tools.characters import content as kit
-    from azurkit.tools.characters import picker
-
+    (``character``). A refusal names the field or the image.
+    ``progress(record)`` hears its steps on an image (``read``, 2 of them):
+    the image's model files read (once an image), then the models' view,
+    so a host's bar moves while the tab waits (Step 4.3 round 3)."""
     if not isinstance(given, Mapping):
         raise ValueError("pickers: a JSON object")
+    steps = Steps(progress)
     character = characters.normalize(given.get("character") or {"species": "garret4"})
     config = bodies = None
     if isinstance(given.get("iso"), str) and given["iso"]:
-        _, config, bodies = _game(given["iso"])
+        _, config, bodies = _game(given["iso"], lambda: steps("read", "Reading your image's models", 0, 2))
+        steps("read", "Reading the models", 1, 2)
+    from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import picker
+
     manifest = (given.get("content") or {}).get("manifest")
     entries = kit.states(kit.check(manifest) if manifest else None, kit.installed())
     return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
