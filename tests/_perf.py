@@ -147,6 +147,10 @@ OPS = {op.id: op for op in (
     Op("A53", "Save a mods file, then Load it (the slower)", "build"),
     Op("A54", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True),
     Op("A55", "the last build's report, View", "build", first=False),
+    Op("A56", "Track a median seed (plan and tracker)", "tracker", head_start=True),   # AM-HUB-A: the app's work ahead
+    Op("A57", "Build a median seed, no Track first", "randomizer", head_start=True),
+    Op("A58", "Build a median seed, another seed's work ahead going stale 1 s into the head start", "randomizer",
+       head_start=True),
     Op("S01", "page start, first visit (the engine load)", "start", bar=True),
     Op("S02", "page start, a return visit", "start", first=False),
     Op("S03", "choose the image, first time", "image", bar=True),
@@ -931,15 +935,15 @@ def app_build(d: Driver, app: App, ctx) -> None:
     app.quit(p)
 
 
-def _seeded(d: Driver, p: Page, randomize: bool = True) -> None:
-    """The Randomizer tab open with seed ``azurkit``, Randomize ticked (its ask answered) or not."""
+def _seeded(d: Driver, p: Page, randomize: bool = True, seed: str = "azurkit") -> None:
+    """The Randomizer tab open with ``seed``, Randomize ticked (its ask answered) or not."""
     p.js(click("tab-randomizer"))
     p.wait("() => azurkit.rando.view?.share")
     if randomize:
-        d.act(p, None, SEED_ASK, "() => azurkit.rando.view && document.getElementById('rando-on').checked", 900,
-              change=True)
+        d.act(p, None, SEED_ASK.replace("'azurkit'", f"'{seed}'"),
+              "() => azurkit.rando.view && document.getElementById('rando-on').checked", 900, change=True)
     else:
-        d.act(p, None, typed("rando-seed", "azurkit"), "() => document.getElementById('rando-seed').value", change=True)
+        d.act(p, None, typed("rando-seed", seed), "() => document.getElementById('rando-seed').value", change=True)
 
 
 # The build's first stage record (its ask's record: the bar's first stage)
@@ -976,6 +980,35 @@ def app_seed(d: Driver, app: App, ctx) -> None:
     d.act(p, "A30", model("keylord"), chosen("keylord"), 1800)
     p.wait(ANSWERED, 1800)
     app.quit(p)
+
+
+MEDIAN = "42"   # the median seed's fill (RS1), which the first seed's twins take
+
+
+def app_ahead(d: Driver, app: App, ctx) -> None:
+    """The app's work ahead on a seed no pass has filled (each op a launch's first fill): Track, Build, and a Build
+    after a change 1 s into the head start, which also times how fast the stale job drops."""
+    if d.need("A56"):
+        p = app.launch(d, ctx, None)
+        _seeded(d, p, randomize=False, seed=MEDIAN)
+        d.act(p, None, click("rando-view-tracker"), WORLD, 600)
+        d.act(p, "A56", click("track-seed"), "() => document.getElementById('track-head').textContent.trim()", 1800)
+        app.quit(p)
+    if d.need("A57"):
+        p = app.launch(d, ctx, None)
+        d.act(p, None, typed("iso-path", str(d.iso)), USA)
+        _seeded(d, p, seed=MEDIAN)
+        d.act(p, "A57", build_js(), BUILT, 1800)
+        app.quit(p)
+    if d.need("A58"):
+        p = app.launch(d, ctx, None)
+        d.act(p, None, typed("iso-path", str(d.iso)), USA)
+        _seeded(d, p)                                       # "azurkit": its work ahead starts
+        d.idle(p, "the stale seed's second", 1.0)
+        d.act(p, None, typed("rando-seed", MEDIAN), f"() => document.getElementById('rando-seed').value === '{MEDIAN}'",
+              change=True)
+        d.act(p, "A58", build_js(), BUILT, 1800)
+        app.quit(p)
 
 
 def _detail(d: Driver, p: Page, first: str, again: str) -> None:
@@ -1414,6 +1447,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
     "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38"), app_track),
+    "app-ahead": ("app", ("A56", "A57", "A58"), app_ahead),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
