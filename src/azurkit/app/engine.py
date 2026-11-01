@@ -169,11 +169,13 @@ def _drop() -> None:
 
 
 def _image(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
+    from . import procpool
+
     _drop()   # before the build: never two builds' images held at once
     made, report = sdk.image(recipe, progress=progress, spoiler=False)   # a seed's spoiler when asked: JOBS' spoiler
     ident = secrets.token_hex(8)
     _BUILT[ident] = _Built(made, report)
-    return {"size": made.size, "report": report, "build": ident}
+    return {"size": made.size, "report": report, "build": ident, "peak": procpool._peak()}
 
 
 def _save(recipe: Mapping, out: str, build: str | None = None,

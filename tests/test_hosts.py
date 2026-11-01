@@ -1042,6 +1042,142 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
     assert _ended(last)
 
 
+def _until(test, within: float = 120) -> None:
+    end = time.monotonic() + within
+    while not test():
+        assert time.monotonic() < end
+        time.sleep(0.05)
+
+
+@pytest.mark.parametrize("packs, more", [({"fps_unlock": {}}, {}), ({}, {"randomizer": {"seed": "2"}})],
+                         ids=["packs", "a seed"])
+def test_the_apps_build_takes_the_build_ahead_of_its_recipe_after_it_mid_flight_and_once_another_stopped_it(
+        tmp_path, monkeypatch, usa_iso, packs, more):
+    """The app's work ahead (D1007, ``app.ahead``): the page's settled setup
+    built ahead (``api/speculate``, at its change ``gen``) is its Build's,
+    taken after it ended, mid-flight, or remade once a newer change's
+    recipe stopped it at its next record, each the plain Build's image and
+    report; an offer of an older change is dropped."""
+    _home(monkeypatch, tmp_path / "home")
+    images, image = [], sdk.image
+    monkeypatch.setattr(sdk, "image", lambda *args, **kwargs: images.append(1) or image(*args, **kwargs))
+    server = app.serve(_page.WEB)
+    a, c = {"iso": str(usa_iso), "packs": packs, **more}, {"iso": str(usa_iso), "packs": {"fps_unlock": {"fps": 30}}}
+
+    def built(recipe: dict) -> tuple[str, dict]:
+        got = []
+        _post(server.url, "api/build", recipe, got)
+        kept = engine._BUILT[got[0]["build"]]
+        assert kept.ended.wait(60)
+        return kept.sha, got[0]["report"]
+
+    def ahead(gen: int, recipe: dict, wait: bool = True) -> None:
+        got = []
+        _post(server.url, "api/speculate", {"gen": gen, **recipe}, got)
+        assert got == [{"ahead": True}] and (not wait or server.slots.job("build").done.wait(120))
+    try:
+        plain = built(a)
+        ahead(1, c)
+        ahead(2, a)
+        took = [built(a), len(images)]   # after it ended: nothing built again
+        ahead(3, c)
+        ahead(4, a, wait=False)
+        took += [built(a), len(images)]  # mid-flight
+        ahead(5, c)
+        ahead(6, a, wait=False)
+        stopped = server.slots.job("build")
+        ahead(7, c, wait=False)
+        late = []
+        _post(server.url, "api/speculate", {"gen": 6, **a}, late)
+        ahead(8, a, wait=False)
+        took += [built(a)]               # remade
+        assert stopped.done.wait(120) and isinstance(stopped.error, engine.Cancelled) and late == [{"ahead": False}]
+        assert took == [plain, 3, plain, 5, plain]
+    finally:
+        server.close()
+        engine._drop()
+
+
+def test_a_seed_build_stopped_at_any_stage_leaves_nothing_half_kept(usa_iso):
+    """A job ahead stopped at its next record, in any stage of a seed's
+    build, keeps nothing that changes the next: the build after each stop
+    gives the plain build's image and report (``app.ahead``'s promise)."""
+    here, recipe = engine.Here(), {"iso": str(usa_iso), "packs": {}, "randomizer": {"seed": "2"}}
+
+    def plain() -> tuple[str, dict]:
+        got = here.call("image", recipe)
+        kept = engine._BUILT[got["build"]]
+        assert kept.ended.wait(120)
+        return kept.sha, got["report"]
+    try:
+        stages = []
+        here.call("image", recipe, progress=lambda step: stages.append(step["stage"]))
+        whole = plain()
+
+        def stop(stage: str):
+            def progress(step: dict) -> None:
+                if step["stage"] == stage:
+                    raise engine.Cancelled
+            return progress
+        for stage in dict.fromkeys(stages):
+            with pytest.raises(engine.Cancelled):
+                here.call("image", recipe, progress=stop(stage))
+            assert plain() == whole, stage
+        assert len(set(stages)) >= 3, stages
+    finally:
+        engine._drop()
+
+
+def test_a_cancel_mid_fill_then_build_keeps_the_engine_and_its_fill_and_answers_the_plain_build(
+        tmp_path, monkeypatch, usa_iso):
+    """The player's Cancel during a seed's fill (D1007): refused at once, the
+    engine's process the same, its job going on; the Build after it takes
+    that job back: the plain build's report."""
+    _home(monkeypatch, tmp_path / "home")
+    server = app.serve(_page.WEB, engine.Spawned())
+    first, recipe, replies, again = server.engine.pid, {"iso": str(usa_iso), "packs": {},
+                                                         "randomizer": {"seed": "2"}}, [], []
+    try:
+        building = threading.Thread(target=_post, args=(server.url, "api/build", recipe, replies))
+        building.start()
+        _until(lambda: (job := server.slots.job("build")) is not None and (job.step or {}).get("stage") == "plan",
+               within=300)
+        job, began = server.slots.job("build"), time.monotonic()
+        _post(server.url, "api/cancel", {}, [])
+        building.join(5)
+        assert replies == [{"refused": "Cancelled: nothing was built"}] and time.monotonic() - began < 5
+        _post(server.url, "api/build", recipe, again, timeout=300)
+        assert server.slots.job("build") is job or job.step["stage"] != "plan"   # taken back, unless its fill had ended
+        assert server.engine.pid == first
+        assert again[0]["report"] == sdk.image(recipe, spoiler=False)[1]
+    finally:
+        server.close()
+
+
+def test_the_apps_track_takes_the_seed_planned_ahead_and_its_first_view(tmp_path, monkeypatch):
+    """A seed typed and settled is planned ahead (``api/prefetch``, as
+    Track asks it: ``{seed, share}``) and that plan's first tracker view
+    read, so Track (``api/plan``) and the tracker's first ask take them:
+    each the plain answer, each worked out once."""
+    _home(monkeypatch, tmp_path / "home")
+    calls, plan, tracker = [], sdk.plan, sdk.tracker
+    monkeypatch.setattr(sdk, "plan", lambda *args, **kwargs: calls.append("plan") or plan(*args, **kwargs))
+    monkeypatch.setattr(sdk, "tracker", lambda *args, **kwargs: calls.append("view") or tracker(*args, **kwargs))
+    server, recipe = app.serve(_page.WEB), {"seed": "azurkit", "share": "AZR-AAEA"}
+    try:
+        got = []
+        _post(server.url, "api/prefetch", {"gen": 1, "recipe": recipe, "view": {"spoiler": False, "gems": False}}, got)
+        assert got == [{"ahead": True}] and server.slots.job("plan").done.wait(120)
+        _until(lambda: server.slots.job("view") is not None and server.slots.job("view").done.is_set())
+        _post(server.url, "api/plan", {"recipe": recipe}, got)
+        given = {"plan": got[1]["plan"], "marks": {}, "spoiler": False, "gems": False}
+        _post(server.url, "api/tracker", {"given": given}, got)
+        assert calls == ["plan", "view"]
+        assert (got[1]["plan"], got[2]) == (plan(recipe), tracker(given))
+    finally:
+        server.close()
+
+
 def test_a_kill_of_a_quiet_job_cancels_it_and_runs_the_call_the_player_waits_on_again():
     """A job ahead that reaches no record ends the engine's process
     (``Spawned.cancel``): that job, no click following it, is cancelled, and

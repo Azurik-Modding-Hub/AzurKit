@@ -58,7 +58,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 packs: null, sent: null, build: null, url: null, saved: null, violations: [],
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
-                later: null, spoiler: null, tracker: null, call: null, asks: new Map(),
+                later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, groups: new Set() } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
@@ -99,10 +99,26 @@ function setup() {
            ...(character ? { character } : {}) };
 }
 
+// The app's work ahead (D1007): once the setup settles, a typed seed planned with its first tracker view, and the
+// setup built, before their click (api/prefetch, api/speculate), with the bodies Track and Build send; each carries
+// state.gen, bumped by every change (from the clock: a reloaded page's are newer), so the engine drops an older one at
+// its next record. The site's is its second worker's, not this one's.
+function ahead() {
+  if (!state.app || !state.ready || state.building || state.saving) return;
+  const seed = R("seed").value.trim(), share = state.rando.view?.share, t = state.tracker?.state;
+  state.engine.prefetch(state.gen, seed && share ? { seed, share } : null, { spoiler: t?.spoiler, gems: t?.gems });
+  const randomizer = randoRecipe();
+  if (!state.file || state.opened || state.build || (randomizer && !randomizer.seed)) return;
+  if (state.characters?.refused() || state.characters?.waiting()) return;   // it offers again once it has answered
+  state.engine.speculate(state.gen, state.file, chosen(), state.xbr, randomizer,
+                         state.characters?.character() ?? null);
+}
+
 // Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
 function remember() {
   clearTimeout(state.later);
   if (!state.packs || state.restoring) return;
+  ahead();
   const kept = setup(), defaults = state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name);
   state.plain = !kept.xbr.length && !Object.keys(kept.values).length && kept.ticked.join() === defaults.join()
     && !kept.randomizer && !kept.character;
@@ -416,11 +432,15 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
     restore: (setup) => followed("restore", ask("api/restore", { setup }, restored)),
     setup: (setup) => post("api/setup", { setup }, true).catch(() => {}),   // remembering is a convenience
+    // a head start only: the click asks again either way
+    prefetch: (gen, recipe, view) => post("api/prefetch", { gen, recipe, view }).catch(() => {}),
+    speculate: (gen, iso, packs, xbr, randomizer, character) => post("api/speculate",
+      { gen, iso, packs, xbr, randomizer, character }).catch(() => {}),
     save: (recipe, out, build) => run("api/save", { recipe, out, build }, saved),   // that build's image, kept
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
     theme: (name) => post("api/theme", { theme: name }).catch(() => {}),   // remembering is a convenience
-    call: (type, body) => followed(type, post(`api/${type}`, body))
+    call: (type, body) => followed(type, post(`api/${type}`, type === "install" ? { ...body, gen: ++state.gen } : body))
       .catch((error) => ({ refused: `The app's engine didn't answer (${error.message}): restart AzurKit` })),
     content: () => {},   // the app's engine reads its content folder itself
     // remembering is a convenience; not keepalive: a plan and its marks may pass keepalive's 64 KiB
@@ -509,6 +529,7 @@ function vanilla(read) {
     }
   }
   lines();
+  ahead();   // the picked image's setup, built ahead
 }
 
 // Ask the engine for the picked image's values once it is ready (the site's is replaced after each build).
@@ -871,7 +892,7 @@ function ready(catalog, version) {
                               image: () => state.file });
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
                                     image: () => state.file, packs: chosen, changed: state.changed,
-                                    content: state.engine.content });
+                                    content: state.engine.content, settled: ahead });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
                            changed: (ops) => {
                              state.xbr = ops;
@@ -961,6 +982,7 @@ function pickInApp(host) {
   const picked = () => {
     forget();
     unopen();
+    state.gen++;
     state.file = $("iso-path").value.trim() || null;
     $("picked").textContent = host.dialogs ? "Type the image's full path, or Choose… it."
       : "Type the image's full path: a browser can't tell AzurKit where a file is.";
@@ -1494,6 +1516,7 @@ async function main() {
   }
 
   const changed = state.changed = () => {
+    state.gen++;   // the work ahead of the setup before is dropped at its next record
     forget();
     unlinked();
     clearTimeout(state.later);

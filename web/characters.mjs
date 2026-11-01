@@ -75,11 +75,11 @@ async function upTo(reply, size, path) {
   return new Uint8Array(await new Blob(parts).arrayBuffer());
 }
 
-// characters({call, app, host, say, image, packs, changed, content}): call is the engine's (the site's worker, the
+// characters({call, app, host, say, image, packs, changed, content, settled}): call is the engine's (the site's worker, the
 // app's api), image() the picked image (the site's File, the app's path), packs() the Patches tab's ticks (a dress
 // stands on them), changed() runs when the tab's choice changes (the page remembers it) and content(files,
 // installed) hands the site's engine what this browser keeps installed.
-export function characters({ call, app, host, say, image, packs, changed, content }) {
+export function characters({ call, app, host, say, image, packs, changed, content, settled }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null };
   const fallback = () => host.catalog?.characters?.source ?? "";
@@ -138,7 +138,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     c.read = from;   // the image the last answer read
     c.failed = null;
     render();
-    draw();
+    draw().finally(settled);
   };
 
   // The source's manifest: the app's engine reads it (a URL or a folder), the site fetches it (an http(s) or relative
@@ -411,6 +411,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
                              { once: true });
     c.matching = false;
     g4();
+    settled();
     if ("refused" in reply) return say(`G4: ${reply.refused}`, true);
     if (reply.values[name] == null) return say(`G4: none for ${c.view.titles[name]}: ${reply.why[name]}`, true);
     $(`char-${name}`).value = reply.text[name];
@@ -548,6 +549,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     character,
     setup: character,
     refused: () => c.view?.asked === JSON.stringify(c.character) ? c.view.chosen.refused : null,
+    waiting: () => c.opened && c.view?.asked !== JSON.stringify(c.character),   // Build's recipe is its answer's
     state: c,
   };
 }

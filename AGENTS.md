@@ -851,7 +851,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 ## The two hosts (D866)
 
 - **Engine halves no host calls yet** (each tested alone; its hub half wires
-  it): the work ahead (`app/ahead.py`, `web/workers.mjs`), the warm-up
+  it): the site's work ahead (`web/workers.mjs`), the warm-up
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
   `web/memo.mjs`), the service worker (`web/sw.js`), community packs
   (`tools/mods/community.py`, `web/content.mjs`), Replace files
@@ -1231,13 +1231,23 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   plan and the Characters tab's pictures and G4 match run in the app's
   engine process (`azurkit.app.engine.Spawned`, spawned, each call on a
   thread of its own), so the server's other answers never wait on a build;
-  Cancel kills that process mid-build and spawns the next (a save cancels
-  itself at its next chunk). A build keeps its image in that process (the
+  a save cancels itself at its next chunk. Work ahead (`azurkit.app.ahead`,
+  D1007): the page's settled setup is built, its typed seed planned and that
+  plan's first tracker view read before their clicks (`api/speculate`,
+  `api/prefetch`), each keyed by its recipe, the image's stamp, the content's
+  `installed.json` and the version, at the page's change number, at background
+  priority and waiting at its records behind a call the player waits on; a
+  change stops it at its next record, Build, Track and the tracker's first ask
+  take it (a repeated Build of one recipe too), and Cancel answers at once,
+  the build's job going on through a seed's fill, so the engine, its Logic and
+  the fill stay for the next Build. A job quiet past `ahead.GRACE` kills that
+  process, unless a save runs, and the next starts: a call the player waits
+  on runs again. A build keeps its image in that process (the
   last build's: a new Build drops it), hashed on a thread from the moment
   it is made (`iso.digest`), and `api/build` answers its id: Save sends it
   back, so `api/save` writes that image (`sdk.save`, the hash taken or
   waited on), or builds the recipe again (`sdk.build`) when the engine keeps
-  it no more (a cancel's new process) or its input changed. `main()`
+  it no more (a kill's new process) or its input changed. `main()`
   keeps, in its process and its engine's (`Spawned(stores=True)`), what
   they work out across launches (`azurkit.app.swapcache`, in platformdirs'
   cache folder): the images the gate vouched for (`gate.STAMPS`,

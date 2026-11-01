@@ -544,8 +544,52 @@ class Server(http.server.ThreadingHTTPServer):
         return recipe | {key: body[key] for key in ("xbr", "randomizer", "character") if body.get(key)}
 
     def _image(self, recipe: dict) -> Callable[[ahead.Job], dict]:
-        """A build of ``recipe`` in the engine, as a slot's job."""
-        return lambda job: self.engine.call("image", recipe, progress=job.progress, fore=job.fore)
+        """A build of ``recipe`` in the engine, as a slot's job, its peak told to the slots (``ahead.room``)."""
+        def run(job: ahead.Job) -> dict:
+            built = self.engine.call("image", recipe, progress=job.progress, fore=job.fore)
+            self.slots.peaked(job.key, built["peak"])
+            return built
+        return run
+
+    def _planned(self, recipe: object) -> Callable[[ahead.Job], dict]:
+        """A seed's plan (``{seed, share}``, as Track asks it) in the engine, as a slot's job."""
+        return lambda job: self.engine.call("plan", recipe, progress=job.progress, fore=job.fore)
+
+    def speculate(self, body: dict) -> dict:
+        """``api/speculate``: build the page's settled recipe ahead at its
+        change ``gen`` (D1007), so its Build takes that build; a seed's fill
+        is the plan's ahead, which the build waits on. No image yet, a save
+        or a dress in flight (the page offers again once it ends): nothing
+        ahead, and what was stops."""
+        gen = body.get("gen")
+        if not isinstance(gen, int) or self.quitting:
+            return {"ahead": False}
+        try:
+            recipe = self._recipe(body)
+        except ValueError:
+            recipe = None
+        with self.following:
+            dressing = any(kind in ("save", "preview", "match") for kind, _ in self.calls.values())
+        key = None if recipe is None or dressing else ahead.key(recipe)
+        return {"ahead": self.slots.offer("build", gen, key, self._image(recipe))}
+
+    def prefetch(self, body: dict) -> dict:
+        """``api/prefetch``: plan the page's typed seed ahead at its change
+        ``gen`` (``recipe``: ``{seed, share}``, as Track asks it; null:
+        nothing ahead), then that plan's first tracker view (``view``: the
+        tracker's ``spoiler`` and ``gems``, as its first ask sends them; none
+        while Live reads the tracker), so Track and its first view take them."""
+        gen, recipe, view = body.get("gen"), body.get("recipe"), body.get("view")
+        if not isinstance(gen, int) or self.quitting:
+            return {"ahead": False}
+        view = {k: view[k] for k in ("spoiler", "gems") if k in view} if isinstance(view, dict) else {}
+
+        def then(job: ahead.Job) -> None:
+            given = {"plan": job.value, "marks": {}, **view}
+            if self.feed is None:
+                self.slots.offer("view", job.gen, ahead.key(given), lambda j: sdk.tracker(given, progress=j.progress))
+        key = ahead.key(recipe) if isinstance(recipe, dict) and recipe.get("seed") else None
+        return {"ahead": self.slots.offer("plan", gen, key, self._planned(recipe), then=then)}
 
     def build(self, body: dict) -> dict:
         recipe = self._recipe(body)
@@ -641,7 +685,14 @@ class Server(http.server.ThreadingHTTPServer):
             feed = self.feed
             plan = given.get("plan") if isinstance(given, dict) else None
             if feed is None or not isinstance(plan, dict) or plan.get("sha256") != feed.sha256:
-                return sdk.tracker(given, progress=report)
+                try:   # a plan's first view, read ahead (api/prefetch) if it was
+                    return self.slots.take("view", ahead.key(given), lambda job: sdk.tracker(given,
+                                                                                            progress=job.progress),
+                                           report=report)
+                except Cancelled:
+                    raise ValueError(QUITTING) from None
+            if (ahead_view := self.slots.job("view")) is not None:   # both read the plan's one tracker
+                ahead_view.done.wait()
             events, seen = feed.take()
             slot = seen.pop("slot")
             out = tracking.view({**given, "kit": seen.pop("kit"), "held": seen.pop("held")}, events, report)
@@ -686,9 +737,24 @@ class Server(http.server.ThreadingHTTPServer):
             return self.engine.call(job, recipe, progress=lambda step: report(step | {"label": first["label"]}))
 
     def plan(self, body: dict) -> dict:
-        """``api/plan``: a seed's plan to track (the engine's)."""
+        """``api/plan``: a seed's plan to track (the engine's; planned
+        ahead, ``api/prefetch``, if its seed was)."""
+        recipe = body.get("recipe")
         with self.follow("plan", record("plan")) as report:
-            return {"plan": self.engine.call("plan", body.get("recipe"), progress=report)}
+            try:
+                return {"plan": self.slots.take("plan", ahead.key(recipe), self._planned(recipe), report=report)}
+            except Cancelled:
+                raise ValueError(QUITTING) from None
+
+    def install(self, body: dict) -> dict:
+        """``api/install``: ``sdk.content_install``; then work ahead of an
+        older change than the page's ``gen`` stops (it read the content
+        before)."""
+        try:
+            return sdk.content_install({"id": body.get("id"), "source": body.get("source")})
+        finally:
+            if isinstance(gen := body.get("gen"), int):
+                self.slots.change(gen)
 
     def art(self, body: dict) -> dict:
         """``api/art``: the tracker's shipped pictures
@@ -885,7 +951,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/preview": lambda body: self.server.dressed("preview", body),
                 "/api/match": lambda body: self.server.dressed("match", body),
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
-                "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
+                "/api/install": self.server.install,
+                "/api/speculate": self.server.speculate, "/api/prefetch": self.server.prefetch,
                 "/api/content_source": _set_source, "/api/show_objects": _set_objects,
                 "/api/spoiler": self.server.spoiled,
                 "/api/data": lambda body: sdk.data(body.get("given")),
