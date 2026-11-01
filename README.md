@@ -6,8 +6,9 @@ alt="AzurKit's icon: a disc of the four elements broken in four, its gold air pi
 Patch packs, sliders, a randomizer and character swaps for *Azurik: Rise of
 Perathia* (Xbox), built from your own copy of the game.
 
-**Public and in development, not released yet:** there are no downloads; the website and the first release come
-with version 1.0, and today you build the macOS app from source ([Development](#development)).
+**Public and in development, not released yet:** there is no release to download (CI keeps each test build of the
+apps for 14 days); the website and the first release come with version 1.0, and today you build the macOS app from
+source ([Development](#development)).
 
 ## Highlights
 

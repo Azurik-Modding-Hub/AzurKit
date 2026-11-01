@@ -1,5 +1,5 @@
 # The four apps (Step 4.4ci; D1022), each frozen by scripts/freeze.py on its own OS on a push to main in this
-# repository: macOS on Apple Silicon (macos-14) and on Intel (macos-15-intel), Windows x64 and Linux x64. Each is kept
+# repository: macOS on Apple Silicon (macos-15) and on Intel (macos-15-intel), Windows x64 and Linux x64. Each is kept
 # as a workflow artifact for 14 days, an archive with its sha256 beside it (also in the run's summary): never a
 # release, a tag or a PyPI upload, and unsigned (D885). The release job, with its attestations, comes with 4.4
 # (D1024). No secret; actions pinned by commit sha, their release beside it.
@@ -29,7 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: macos-14, label: macos-arm64}
+          - {os: macos-15, label: macos-arm64}
           - {os: macos-15-intel, label: macos-x86_64}
           - {os: windows-latest, label: windows-x86_64}
           - {os: ubuntu-latest, label: linux-x86_64}

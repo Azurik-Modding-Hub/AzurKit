@@ -1069,7 +1069,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   in this repository alone the vanilla and europe tiers on the same four:
   each image rebuilt in the runner's temp folder from the game-data repo's
   parts with `GAMEDATA_DEPLOY_KEY` (the only secret a workflow reads), never
-  cached, uploaded or printed, and deleted after. `checks.yml` runs the leak
+  cached, uploaded or printed, and deleted after; on Linux the job runs
+  behind harden-runner's egress block and its tests with no network
+  (Modkit's §12.4 hygiene; macOS and Windows have neither), and only the
+  pytest log's tail and summary are printed. The pure tier deselects the
+  one test that clones the private Modkit checkout. `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
   --check` on macOS, Windows and Linux once `src/azurkit/core/_native/`
   exists. `apps.yml` freezes the four apps (`scripts/freeze.py`) on a push
