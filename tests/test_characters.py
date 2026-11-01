@@ -908,6 +908,19 @@ def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, eur
         rel: _sha256(made[rel]) for rel in drawn}
 
 
+def test_a_variants_shipped_pictures_are_drawn_again_when_the_recipe_it_is_from_changes():
+    """``scripts/record_goldens.py`` draws a built-in variant's shipped pictures again when its key in
+    ``web/characters/index.json`` changes: the sha256 of its recipe as it builds, so booblord's three looks
+    ``from`` her are drawn again with her (Step 4.3: her vase dropped, which none of their own entries names),
+    and beamlord's, from none, is his entry's."""
+    doc = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))
+    keys = record_goldens.recipe_keys(doc)
+    assert keys["beamlord"] == _sha256(json.dumps(doc["beamlord"], sort_keys=True).encode())
+    doc["booblord"]["mesh"]["drop"] = []
+    assert sorted(n for n, key in record_goldens.recipe_keys(doc).items() if key != keys[n]) == [
+        "booblord", "booblord_high", "booblord_high_human", "booblord_human"]
+
+
 def test_the_g4_buttons_values_are_their_goldens_garret_match(usa_iso):
     """``sdk.match`` (P52, D358; Modkit's ``_player_match``, ported): keylord's and beamlord's Model size,
     Attack reach, speed and damage over the packs on by default are the golden's exactly (``matches.json``,

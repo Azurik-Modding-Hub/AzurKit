@@ -630,6 +630,16 @@ def _variant(job: tuple[str, str]) -> tuple[str, dict | str]:
         return name, str(exc)
 
 
+def recipe_keys(doc: Mapping) -> dict[str, str]:
+    """Each built-in variant's key in ``web/characters/index.json``: the sha256 of its recipe as it builds
+    (``recipe_of``: one ``from`` another with that one laid under it), so a look from booblord is drawn again when
+    hers changes (Step 4.3's vase), not only when its own entry does."""
+    from azurkit.tools.characters import _player_variants as variants
+
+    return {name: hashlib.sha256(json.dumps(variants.recipe_of(dict(doc), name, "built-in")[0],
+                                            sort_keys=True).encode()).hexdigest() for name in doc}
+
+
 def characters(images: Images, workers: int) -> dict[str, bytes]:
     """The Characters tab's shipped files, by their path: ``species.json``,
     the ``[species, body]`` of each species the player can wear in
@@ -638,8 +648,8 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
     body's two pictures (``picker.preview`` on the USA image, the app's
     draw: Europe's are the same, ``tests/test_characters.py``), each
     built-in variant's (:func:`_variant`; none for one the engine refuses),
-    drawn again only when its recipe (its ``variants.json`` entry, by
-    sha256) changes, and ``index.json``: the engine's view with no image and
+    drawn again only when its recipe as it builds changes (:func:`recipe_keys`),
+    and ``index.json``: the engine's view with no image and
     no content installed (``picker.view``, garret4 at every default), each
     species' and variant's pictures' file name and each variant's recipe
     digest (one refused too, so it isn't dressed at each check)."""
@@ -656,8 +666,7 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
     out = {SPECIES: (json.dumps(rows[gate.USA], separators=(",", ":")) + "\n").encode()}
     for body in dict.fromkeys(body for _, body in rows[gate.USA]):
         out |= {f"{PICTURES}/{stem(body)}.{view}.png": png for view, png in picker.preview(read[gate.USA][1], body).items()}
-    recipes = {name: hashlib.sha256(json.dumps(entry, sort_keys=True).encode()).hexdigest()
-               for name, entry in json.loads(variants.BUILTIN.read_text(encoding="utf-8")).items()}
+    recipes = recipe_keys(json.loads(variants.BUILTIN.read_text(encoding="utf-8")))
     index = ROOT / PICTURES / "index.json"
     was = json.loads(index.read_text(encoding="utf-8")) if index.is_file() else {"recipes": {}, "variants": {}}
     files = lambda name: [f"{PICTURES}/variant--{stem(name)}.{view}.png" for view in ("front", "back")]   # noqa: E731

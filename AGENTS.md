@@ -967,7 +967,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     defaults (one the game's memory refuses has none) and the engine's
     no-image answer (`index.json`), which only `scripts/record_goldens.py`'s
     `characters` family writes (from both images; a variant is dressed
-    again only when its `variants.json` entry changes) and
+    again only when its recipe as it builds changes, the one it is `from`
+    laid under it) and
     `tests/test_characters.py` holds to the images and the app's draw: the
     page shows that answer at the tab's first open and a model's shipped
     pictures at its click, with no image and no engine call, and G4 and the
