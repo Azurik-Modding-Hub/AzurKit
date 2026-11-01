@@ -889,23 +889,28 @@ def test_a_pool_child_grown_past_the_line_leaves_with_its_results_and_a_small_on
         procpool.stop()
 
 
-def test_calls_beside_each_other_share_the_pools_cores_and_start_no_child_past_them(monkeypatch):
+def test_a_call_beside_every_held_core_takes_one_child_and_never_waits_for_them(monkeypatch):
     """Step 4.3r4c: ``$AZURKIT_CORES`` caps the children across the process,
-    not a call's alone: a ``later``'s call and the call beside it, each
-    asking for work at 2 cores, start 2 children between them (3 before), and
-    every item still answers."""
+    not a call's alone, so a call asking for 2 beside a ``later``'s call
+    holding both cores splits over 1; but it takes that one at once, past the
+    cap, and answers before any held part comes home (G4 beside a capped
+    dress: 18.75 s waiting for a part, 3.27 s not)."""
     from azurkit.app import procpool
 
-    made, child = [], procpool._Child
-    monkeypatch.setenv(procpool.CORES, "2")
-    monkeypatch.setattr(procpool, "_Child", type("Counted", (child,), {
-        "__init__": lambda self: (made.append(1), child.__init__(self))[1]}))
+    splits, split, home = [], procpool._split, []
+    monkeypatch.setattr(procpool, "_split", lambda count, parts, cost: (splits.append(parts), split(count, parts, cost))[1])
+    monkeypatch.setenv(procpool.CORES, "3")
     procpool.stop()
     try:
-        beside = procpool.later(procpool.map_, operator.call, time.sleep, [0.4])
-        assert procpool.map_(operator.call, time.sleep, [0.4, 0.4]) == [None, None]
-        assert beside.result() == [None]
-        assert len(made) <= 2 and procpool._BUSY.busy == 0
+        procpool.map_(operator.add, 1, [1, 2, 3])   # idle children, so no spawn runs out the parts' time below
+        monkeypatch.setenv(procpool.CORES, "2")
+        splits.clear()
+        held = procpool.later(procpool.map_, operator.call, time.sleep, [1.5, 1.5], None, home.append)
+        while not splits:
+            time.sleep(0.01)
+        assert procpool.map_(operator.add, 1, [2, 3]) == [3, 4]
+        assert not home and splits == [2, 1]
+        assert held.result() == [None, None] and procpool._BUSY.busy == 0
     finally:
         procpool.stop()
 

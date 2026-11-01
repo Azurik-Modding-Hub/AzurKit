@@ -15,8 +15,9 @@ and pass their work through pipes alone: no semaphore, so a killed engine
 leaves none behind. :func:`workers` caps the children busy at once across
 the process, not a call's alone: a ``later``'s call shares them with the
 call it runs beside (:data:`_BUSY`), so ``$AZURKIT_CORES`` caps what the
-process runs on and no child is spawned past it (one finished is idle at
-once, for the call beside it)."""
+process runs on (one finished is idle at once, for the call beside it). A
+call never waits for them: with none free it takes one child past the cap,
+so a small ask beside a dress answers within its 3 s."""
 
 from __future__ import annotations
 
@@ -57,24 +58,22 @@ def workers() -> int:
 
 class _Budget:
     """The children busy at once in this process (each call's parts), at
-    most :func:`workers`: :meth:`take` waits for one and takes up to
-    ``want``; :meth:`give` hands one back as its part comes home."""
+    most :func:`workers` but a call's one: :meth:`take` takes up to ``want``
+    of those free, and one when none is, never waiting for a part elsewhere;
+    :meth:`give` hands one back as its part comes home."""
 
     def __init__(self):
-        self.busy, self.cond = 0, threading.Condition()
+        self.busy, self.lock = 0, threading.Lock()
 
     def take(self, want: int) -> int:
-        with self.cond:
-            while self.busy >= workers():
-                self.cond.wait()
-            got = min(want, workers() - self.busy)
+        with self.lock:
+            got = max(1, min(want, workers() - self.busy))
             self.busy += got
             return got
 
     def give(self, count: int = 1) -> None:
-        with self.cond:
+        with self.lock:
             self.busy -= count
-            self.cond.notify_all()
 
 
 _BUSY = _Budget()

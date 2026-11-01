@@ -596,7 +596,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     The app's engine process gives it `azurkit.app.procpool` (Step 4.3i):
     Modkit's split over spawned children, `min(16, the CPUs,
     $AZURKIT_CORES)` busy across the process (a `later`'s call shares them
-    with the call beside it), kept for the next, but one that has peaked
+    with the call beside it, and takes one past them rather than wait), kept for the next, but one that has peaked
     past `RETIRE` (256 MiB; not on Windows, which has no peak to read), which
     leaves after its part so its heap goes back to the OS, through pipes alone; the
     results are each item's in order, so no byte depends on it
