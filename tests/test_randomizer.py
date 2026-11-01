@@ -272,6 +272,34 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
         "the randomizer's settings (settings: dark_fire: 9 is not 1-3)"]
 
 
+def test_the_tab_folds_the_worn_bodys_size_in_as_its_build_does_so_a_seed_planned_there_is_the_builds(usa_iso):
+    """A build that wears a body folds its size into player_physics' walk
+    and roll before it plans (Modkit's size_params); the Randomizer tab
+    folds the Characters tab's body in the same way on the picked image, so
+    its share string, and the plan Track this seed makes of it, are the
+    character build's, with no slider set by hand; with no image it says
+    the plan stands on garret4's. Loaded without the body, the build's
+    share string names the bodies of that size to wear, and a note's
+    sliders read as typing them gives them back."""
+    defaults, worn, iso_path = sdk.catalog()["randomizer"]["defaults"], {"species": "balthazar"}, str(usa_iso)
+    built = sdk._plan({"iso": iso_path, "packs": {}, "character": worn,
+                       "randomizer": {"seed": "2", "settings": defaults}})[4]
+    view = sdk.randomizer_settings({"settings": defaults, "character": worn, "iso": iso_path})
+    assert (view["share"], view["note"], view["body"]) == (built.recipe["share"], None, None)
+    assert sdk.plan({"seed": "2", "share": view["share"]})["sha256"] == built.plan.doc["sha256"]
+    assert sdk.randomizer_settings({"share": view["share"], "character": worn, "iso": iso_path})["note"] is None
+    bare = sdk.randomizer_settings({"share": view["share"]})
+    assert bare["share"] == sdk.randomizer_settings({"settings": defaults})["share"] != view["share"]
+    assert bare["note"] == ("the share string was made for a character build: its walk and roll are x1.02897 the "
+                            "Patches tab's, the size of balthazar or beamlord: wear it on the Characters tab for the "
+                            "same plan")
+    assert sdk.randomizer_settings({"settings": defaults, "character": worn})["body"] == (
+        "Pick your vanilla image (1.) to fold balthazar's size into the walk and roll, as its build does: until then "
+        "the share string and Track this seed stand on garret4's")
+    assert layer.sliders_text({"player_physics": {"walk_speed_scale": 1.028966903909119, "jump_speed_scale": 1.3}}) \
+        == "player_physics jump_speed_scale 1.3, player_physics walk_speed_scale 1.028966903909119"
+
+
 def test_movement_sliders_plan_on_the_logic_rechecked_under_them_and_the_packs_catalog_flags_the_rest():
     """A share string's movement sliders (AZ-383) plan on the logic
     re-checked under them, and its plan reads back into its spoiler; a build

@@ -169,8 +169,10 @@ def size_params(enabled, params: Mapping, s: float) -> tuple[list[str], dict[str
 
 
 def sliders_text(sliders: Mapping) -> str:
-    """Movement sliders (``{pack: {slider: value}}``) in words."""
-    return ", ".join(f"{pack} {name} {v:g}" for pack, values in sorted(sliders.items())
+    """Movement sliders (``{pack: {slider: value}}``) in words, each value
+    as typing it gives it back (a size fold's sqrt(s) whole)."""
+    return ", ".join(f"{pack} {name} {v:g}" if float(f"{v:g}") == v else f"{pack} {name} {float(v)!r}"
+                     for pack, values in sorted(sliders.items())
                      for name, v in sorted(values.items())) or "none (vanilla movement)"
 
 

@@ -92,6 +92,7 @@ import dataclasses
 import functools
 import hashlib
 import json
+import math
 import os
 import sys
 import threading
@@ -345,15 +346,7 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
     folded = vanilla = None
     inputs: dict[str, dict[str, float]] = {}
     if character is not None:   # the worn body's size folds into the walk and roll first (Modkit's size_params)
-        from azurkit.tools.characters import ports
-
-        vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
-        steps("size", f"Sizing {character['species']}")
-        folded = characters.size(character, vanilla)
-        enabled, params = rando_layer.size_params(list(packs), packs, folded)
-        if (fold := params.get(rando_layer.SIZE_PACK, {}).pop(rando_layer.SIZE_FOLD, None)) is not None:
-            inputs[rando_layer.SIZE_PACK] = {rando_layer.SIZE_FOLD: fold}   # the speed toggle's walk and roll
-        packs = mods.normalize({name: params.get(name, {}) for name in enabled})
+        packs, inputs, folded, vanilla = _worn(packs, character, stamp, steps)
         if "randomizer" in recipe:   # Modkit's randomize-full: the plan stands on the folded sliders (AZ-383)
             with noting(steps) as noted:
                 noted("plan")
@@ -397,6 +390,25 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
     if failed:
         raise ValueError("; ".join(failed))
     return stamp, base, layers, judge, prepared
+
+
+def _worn(packs: Mapping, character: Mapping, stamp: gate.Stamp, steps: Steps = Steps()) -> tuple[dict, dict, float,
+                                                                                                    object]:
+    """``packs`` with the worn ``character``'s size s folded into
+    player_physics' walk and roll (Modkit's ``size_params``: each x
+    sqrt(s), the pack on), as a build and the Randomizer tab plan on them;
+    the speed toggle's inputs, s and the image's ``ports.Vanilla`` (the
+    size is the body dressed on its files)."""
+    from azurkit.tools.characters import ports
+
+    vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
+    steps("size", f"Sizing {character['species']}")
+    folded = characters.size(character, vanilla)
+    enabled, params = rando_layer.size_params(list(packs), packs, folded)
+    inputs = {}
+    if (fold := params.get(rando_layer.SIZE_PACK, {}).pop(rando_layer.SIZE_FOLD, None)) is not None:
+        inputs[rando_layer.SIZE_PACK] = {rando_layer.SIZE_FOLD: fold}   # the speed toggle's walk and roll
+    return mods.normalize({name: params.get(name, {}) for name in enabled}), inputs, folded, vanilla
 
 
 def _pack_layers(stamp: gate.Stamp, chosen: Mapping, packs: Mapping, base: Mapping[str, bytes], layers: list[Layer],
@@ -1003,11 +1015,16 @@ def randomizer_settings(given: Mapping) -> dict:
     """What the Randomizer tab shows for ``given``: its ``settings`` (a
     settings file's table), ``share`` (a share string) or ``file`` (a
     settings file's text, D144's Load settings), its
-    ``obsidian_cost`` (vanilla's when not given) and the build's ``packs``
-    (``{pack: {slider: value}}``, normalized): the settings as the tab
+    ``obsidian_cost`` (vanilla's when not given), the build's ``packs``
+    (``{pack: {slider: value}}``, normalized) and ``character`` (the body
+    it wears, whose size folds into the walk and roll as a build's does,
+    from the vanilla image ``iso``; with none, ``body`` says the
+    plan stands on garret4's): the settings as the tab
     holds them (format /2: its categories as they are), their share string
-    with the packs' movement sliders, a ``note`` when a share string holds
-    other sliders, each skip a setting can turn on (``skips``: its pick's
+    with the packs' movement sliders (so a seed planned on it is a build's
+    plan), a ``note`` when a share string holds
+    other sliders (naming the body when a size fold is where they differ),
+    each skip a setting can turn on (``skips``: its pick's
     id, name, rating, the ceiling's state and its toggle; D114, D275), the
     picks held and the forfeitable locations, what a build would leave
     unverified so far (``why_not``: the packs' movement past their logic
@@ -1021,8 +1038,34 @@ def randomizer_settings(given: Mapping) -> dict:
     if not isinstance(given, Mapping):
         raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
     packs = _packs({"packs": given.get("packs", {})})
-    view = randomizer.tab({k: v for k, v in given.items() if k != "packs"}, generator.sliders(packs))
-    return view | {"why_not": generator.movement_reasons(packs, catalog()["packs"]) + view["why_not"]}
+    worn = body = None
+    if given.get("character") is not None:
+        character = characters.normalize(given["character"])
+        try:
+            stamp = _stamp(given["iso"]) if isinstance(given.get("iso"), str) else None
+        except (OSError, gate.NotVanillaError):   # an AzurKit build picked, say: the build's own refusal names it
+            stamp = None
+        if stamp is not None:
+            mine = generator.sliders(packs)
+            packs, _, size, _ = _worn(packs, character, stamp)
+            worn = {"species": character["species"], "fold": math.sqrt(size), "sliders": mine}
+        else:
+            body = (f"Pick your vanilla image (1.) to fold {character['species']}'s size into the walk and roll, as "
+                    "its build does: until then the share string and Track this seed stand on garret4's")
+    view = randomizer.tab({k: v for k, v in given.items() if k not in ("packs", "character", "iso")},
+                          generator.sliders(packs), worn, _bodies)
+    return view | {"why_not": generator.movement_reasons(packs, catalog()["packs"]) + view["why_not"], "body": body}
+
+
+def _bodies(fold: float) -> list[str]:
+    """The species, each as the Characters tab first wears it, whose size
+    folds ``fold`` (sqrt(s)) into the walk and roll on a release, by the
+    swap's shipped sizes (D995)."""
+    from azurkit.tools.characters import shipped
+
+    return sorted({row["recipe"]["species"] for row in shipped.table().get("size", ())
+                   if set(row["recipe"]) == {"species"}
+                   and math.isclose(math.sqrt(float.fromhex(row["value"])), fold, rel_tol=1e-12)})
 
 
 def tracker(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:

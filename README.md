@@ -71,6 +71,8 @@ source ([Development](#development)).
   is flagged.
 - **Sealed items stay sealed:** an item placed in an ice or acid block, a gem rock or behind a force field can be
   picked up only once it opens, however wide the item reaches.
+- **Character builds share alike:** the body you wear folds its size into the share string, so a seed you track or
+  share wearing it is the one its build places.
 - **Checked before it's saved:** the finished image is read back against its plan, and any mismatch no later
   change explains stops the build.
 - **Logic verdict:** whether the logic still holds, and why not (a pack over an item spot, an unmodelled setting,

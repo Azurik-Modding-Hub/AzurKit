@@ -14,7 +14,8 @@
 // In:  {type: "build", file, packs: {name: {parameter: value}}, xbr: [operation], randomizer, character},
 //      {type: "vanilla", file},
 //      {type: "preset", recipe: {packs, xbr, randomizer}, report}, {type: "decode", text}, {type: "restore", setup},
-//      {type: "randomizer", given, ticket} (the Randomizer tab's settings, sdk.randomizer_settings),
+//      {type: "randomizer", given, ticket, file?} (the Randomizer tab's settings, sdk.randomizer_settings; the image
+//      mounted for it while the tab's given wears a character),
 //      {type: "tracker", call, given} (the item tracker's, sdk.tracker), {type: "plan", call, recipe} (sdk.plan),
 //      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
 //      (sdk.pickers, sdk.preview, sdk.match: numpy, Pyodide's pinned wheel from this site, is loaded for them) and
@@ -190,8 +191,8 @@ def engine(request):
         try:
             if request.type == "spoiler":   # the seed just built, its spoiler left out (sdk.image's spoiler false)
                 return js(sdk.spoiler({"sha256": request.sha256}, built=True))
-            if request.type == "randomizer":
-                return js(sdk.randomizer_settings(request.given.to_py()))
+            if request.type == "randomizer":   # through JSON: a character's null is None (to_py gives JsNull)
+                return js(sdk.randomizer_settings(json.loads(JSON.stringify(request.given))))
             if request.type == "tracker":   # through JSON: a mark's null clock is None (to_py gives JsNull)
                 return js(sdk.tracker(json.loads(JSON.stringify(request.given)), progress=progressed))
             if request.type == "plan":
@@ -391,6 +392,7 @@ const numpy = (loaded) => loaded.numpy ??= loaded.py.loadPackage("numpy", { mess
                                                                            errorCallback: () => {} });
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
 const needsNumpy = (data) => CHARACTER.includes(data.type) || data.character || data.recipe?.character
+  || data.given?.character
   || data.setup?.character || data.type === "decode" || data.type === "mods_file" && (
     data.preset?.layers?.some((layer) => layer.tool === "characters") || typeof data.text === "string" && (
       !data.text.trimStart().startsWith("{") || data.text.includes('"characters"')));   // a link: it may wear one
@@ -482,7 +484,10 @@ try {
         }
         return post({ type: "reply", call: data.call, reply });
       }
-      if (data.type === "randomizer") return post({ type: "rando", ticket: data.ticket, reply: loaded.engine(data) });
+      if (data.type === "randomizer") {   // the image mounted while a body is worn: its size folds into the walk and roll
+        return post({ type: "rando", ticket: data.ticket, reply: data.file ? mounted(loaded.py, data.file,
+          (iso) => loaded.engine({ ...data, given: { ...data.given, iso } })) : loaded.engine(data) });
+      }
       if (data.type === "restore") return post({ type: "restored", ...loaded.engine(data) });
       if (data.type === "preset" || data.type === "decode") {
         const reply = loaded.engine(data);

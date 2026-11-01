@@ -869,10 +869,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     a settings table in format /2 (each category as it is) and asks the
     engine what they give (`sdk.randomizer_settings`; the site's worker,
     the app's `api/randomizer`): the share string with the Patches tab's
-    movement sliders, the skips, and a ⚠ line for the preflight's refusal
+    movement sliders and the Characters tab's body's size folded into the
+    walk and roll as its build folds it (`character`, sized on the picked
+    image: the site's worker mounts it for the ask; with none, a ⚠ line says
+    the plan stands on garret4's), so Track this seed plans a character
+    build's plan, the skips, and a ⚠ line for the preflight's refusal
     and what a build would leave unverified (a loaded share string's note
-    of other sliders stays until the tab is edited or the Patches tab's
-    sliders give that share string). With Randomize ticked, Build
+    of other sliders, naming the body where a size fold is the difference,
+    stays until the tab is edited or the Patches tab's sliders and body
+    give that share string). With Randomize ticked, Build
     sends the build's `randomizer` (seed, settings, a cost other than
     vanilla's), planned and written first; its report carries the verdict,
     and the spoiler (Modkit's `--spoiler` file) comes after it, so the

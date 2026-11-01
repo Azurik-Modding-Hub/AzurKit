@@ -255,13 +255,16 @@ def _cost(given: Mapping) -> float | None:
     return None if cost == layer.OBSIDIAN_COST_VANILLA else float(cost)
 
 
-def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]]) -> dict:
+def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mapping | None = None,
+        bodies: Callable[[float], list[str]] | None = None) -> dict:
     """What the tab shows for ``given`` (``settings``, a settings file's
     table, ``share``, a share string, or ``file``, a settings file's text,
     D144's Load settings; and ``obsidian_cost``) on a build's
-    movement ``sliders`` (``physics.slider_values``): the settings
+    movement ``sliders`` (``physics.slider_values``; with a body ``worn``,
+    ``{"species", "fold", "sliders"}``, its size's sqrt(s) folded into the
+    walk and roll of the Patches tab's ``sliders``): the settings
     (:func:`literal`), their share string with those sliders (AZ-383), a
-    ``note`` when a given share string holds other sliders, each skip a
+    ``note`` when a given share string holds other sliders (:func:`slider_note`), each skip a
     setting can turn on (D114; D275: a batch is one pick) with its name,
     rating, the ceiling's state of it (``true``, ``false``, or ``null``:
     some of a batch's variants) and its toggle (``null``: none), the picks
@@ -285,9 +288,8 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]]) -> dict:
     note = None
     if "share" in given:
         st = share_decode(given["share"], skips)
-        if st.sliders and st.sliders != sliders and st.sliders != run_floor(sliders):
-            note = (f"the share string was made with the movement sliders {layer.sliders_text(st.sliders)}: set "
-                    "them on the Patches tab for the same plan")
+        if (st.sliders or worn) and st.sliders != sliders and st.sliders != run_floor(sliders):
+            note = slider_note(st.sliders, sliders, worn, bodies)
     elif "file" in given:
         if not isinstance(given["file"], str):
             raise ValueError("randomizer: file is a settings file's text")
@@ -319,6 +321,46 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]]) -> dict:
             "preflight": refused.reason if refused else None, "file": layer.settings_text(st),
             "groups": [{"id": key, "label": label, "picks": groups[key]} for key, label in SKIP_GROUPS.items()],
             "tiers": list(MOVEMENT_TIERS)}
+
+
+def size_fold(made: Mapping, mine: Mapping) -> float | None:
+    """The factor f when the movement sliders ``made`` are ``mine`` with
+    player_physics' walk and roll both x f (f not 1): a worn body's size s
+    folded in (f = sqrt(s), ``layer.size_params``); else ``None``."""
+    pack, (walk, roll) = layer.SIZE_PACK, layer.SIZE_SLIDERS
+    got, had = made.get(pack, {}), mine.get(pack, {})
+    if walk not in got or roll not in got or not had.get(walk, 1.0) or not had.get(roll, 1.0):
+        return None
+    f, g = got[walk] / had.get(walk, 1.0), got[roll] / had.get(roll, 1.0)
+
+    def rest(sliders: Mapping) -> dict:
+        return {(p, n): v for p, values in sliders.items() for n, v in values.items() if (p, n) not in
+                {(pack, walk), (pack, roll)}}
+
+    return f if math.isclose(f, g, rel_tol=1e-12) and f != 1.0 and rest(made) == rest(mine) else None
+
+
+def slider_note(made: Mapping, sliders: Mapping, worn: Mapping | None = None,
+                bodies: Callable[[float], list[str]] | None = None) -> str:
+    """The tab's note on a share string made with the movement sliders
+    ``made``, not the tab's ``sliders`` (with a body ``worn``, as
+    :func:`tab` takes it): where the difference is a worn body's size (the
+    walk and roll both x one factor, :func:`size_fold`), the body to wear
+    (``bodies(f)``: the species whose size gives that factor), else the
+    sliders to set, each as typing it gives it back."""
+    mine = worn["sliders"] if worn else sliders
+    if (f := size_fold(made, mine)) is not None:
+        names = (bodies or (lambda _: []))(f)
+        who = f"the size of {' or '.join(names[:3])}" if names else "a worn body's size"
+        return (f"the share string was made for a character build: its walk and roll are x{f:.6g} the Patches "
+                f"tab's, {who}" + (f" ({worn['species']}'s is x{worn['fold']:.6g})" if worn else "")
+                + f": wear {'it' if names else 'that body'} on the Characters tab for the same plan")
+    if worn and made == mine:
+        return (f"the share string was made with no body worn, and {worn['species']}'s size folds x{worn['fold']:.6g} "
+                "into the walk and roll: take it off on the Characters tab (garret4) for the same plan")
+    return (f"the share string was made with the movement sliders {layer.sliders_text(made)}: set them on the "
+            "Patches tab" + (f" and take {worn['species']} off on the Characters tab" if worn else "")
+            + " for the same plan")
 
 
 def settings_file(table: object) -> str:

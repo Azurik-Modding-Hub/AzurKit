@@ -278,11 +278,16 @@ def randomizer_settings(given: 'Mapping') -> 'dict':
 What the Randomizer tab shows for ``given``: its ``settings`` (a
 settings file's table), ``share`` (a share string) or ``file`` (a
 settings file's text, D144's Load settings), its
-``obsidian_cost`` (vanilla's when not given) and the build's ``packs``
-(``{pack: {slider: value}}``, normalized): the settings as the tab
+``obsidian_cost`` (vanilla's when not given), the build's ``packs``
+(``{pack: {slider: value}}``, normalized) and ``character`` (the body
+it wears, whose size folds into the walk and roll as a build's does,
+from the vanilla image ``iso``; with none, ``body`` says the
+plan stands on garret4's): the settings as the tab
 holds them (format /2: its categories as they are), their share string
-with the packs' movement sliders, a ``note`` when a share string holds
-other sliders, each skip a setting can turn on (``skips``: its pick's
+with the packs' movement sliders (so a seed planned on it is a build's
+plan), a ``note`` when a share string holds
+other sliders (naming the body when a size fold is where they differ),
+each skip a setting can turn on (``skips``: its pick's
 id, name, rating, the ceiling's state and its toggle; D114, D275), the
 picks held and the forfeitable locations, what a build would leave
 unverified so far (``why_not``: the packs' movement past their logic

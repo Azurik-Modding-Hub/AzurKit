@@ -339,7 +339,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   return {
     build: (file, packs, xbr, randomizer, character) => worker.postMessage({ type: "build", file, packs, xbr, randomizer,
                                                                              character }),
-    randomizer: (given, ticket) => wait("randomizer", { type: "randomizer", given, ticket }),
+    randomizer: (given, ticket, file) => wait("randomizer", { type: "randomizer", given, ticket,
+                                                              ...(file ? { file } : {}) }),
     vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
     preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
     decode: (text) => worker.postMessage({ type: "decode", text }),
@@ -395,7 +396,8 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
   return {
     build: (iso, packs, xbr, randomizer, character) => run("api/build", { iso, packs, xbr, randomizer, character },
                                                            built),
-    randomizer: (given, ticket) => followed("randomizer", post("api/randomizer", { given }))
+    randomizer: (given, ticket, iso) => followed("randomizer", post("api/randomizer", { given: iso ? { ...given, iso }
+                                                                                       : given }))
       .then((reply) => rando(reply, ticket))
       .catch((error) => rando({ refused: `The app's engine didn't answer (${error.message})` }, ticket)),
     spoiler: (out) => ask("api/spoiler", { out }, (reply) => say(`Saved the spoiler: ${reply.spoiler.out}`)),
@@ -1136,7 +1138,9 @@ function askRando(given = null) {
   state.rando.later = setTimeout(() => {
     const asked = state.rando.given ?? { settings: randoSettings() };
     state.rando.given = null;
-    state.engine.randomizer({ ...randoCost(), ...asked, packs: chosen() }, ticket);
+    const character = state.characters?.character() ?? null;   // its size folds into the walk and roll, as a build's
+    state.engine.randomizer({ ...randoCost(), ...asked, packs: chosen(), ...(character ? { character } : {}) }, ticket,
+                            character ? state.file : null);
   }, 100);
 }
 
@@ -1167,6 +1171,7 @@ function randoView(reply, ticket) {
   renderGroups();
   const note = reply.note ?? state.rando.note;
   warn([...(reply.preflight ? [`The build refuses: ${reply.preflight}`] : []), ...(note ? [note] : []),
+        ...(reply.body ? [reply.body] : []),
         ...reply.why_not.map((why) => `Logic unverified (flagged, not refused): ${why}`)], Boolean(reply.preflight));
   remember();
 }
@@ -1457,6 +1462,7 @@ async function main() {
       askVanilla();
       state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
       state.characters?.imaged();
+      if (state.characters?.character()) askRando();   // the worn body's size folds in from the image
       state.data?.imaged();
       state.tools?.imaged();
     });
