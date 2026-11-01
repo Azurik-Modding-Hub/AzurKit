@@ -5,15 +5,18 @@
 #   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
 #   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries.
 # - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main in this repository.
-#   Each image is rebuilt in the runner's temp folder from the private game-data repository's parts, one release
-#   at a time, with its read-only deploy key GAMEDATA_DEPLOY_KEY (the gamedata environment's secret; no other job
+#   Each image is rebuilt in the tier's folder, on the runner's largest disk (Linux's root disk has room for an image or
+#   two, and a Linux build streams a whole image where an APFS one clones it: its tier twice ran out at about 48 min),
+#   from the private game-data repository's parts, one release at a time, with its read-only deploy key GAMEDATA_DEPLOY_KEY (the gamedata environment's secret; no other job
 #   reads a secret). That repository's own reassemble.py checks every part's sha256 and the whole image's, and the
 #   parts go at once. No cache and no artifact hold an image, its path is never printed, and the images are deleted
 #   after the tests. Azurik-Custom-Content (public) gives booblord's tests their files. The image's hygiene
 #   (Modkit's REORG_PLAN §12.4, D125): on every OS harden-runner blocks every host the job doesn't name (its agent
 #   starts in its pre-step, which runs at the job's start whatever the step's if: says, so on macOS and Windows too:
 #   run 41265131863), and on Linux the tests also run with no network and a reset environment (no unshare
-#   elsewhere); on every OS pytest writes to a log and only its tail and summary are printed.
+#   elsewhere); on every OS pytest writes to a log and only its tail and summary are printed. scripts/ci_resources.py
+#   prints the free disk and memory each minute and their lowest (labels and numbers, no path), so a run that is shut
+#   down still names what it ran out of.
 # Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
 # their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
 name: tests
@@ -136,6 +139,17 @@ jobs:
         run: |
           read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
           uv run --locked playwright install-deps "${engines[@]}"
+      - name: The tier's folder, on the runner's largest disk
+        run: |
+          room="$RUNNER_TEMP/tier"
+          if [ "$RUNNER_OS" = Linux ] && [ -d /mnt ] &&
+             [ "$(df -Pk /mnt | awk 'NR==2 {print $4}')" -gt "$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')" ]; then
+            sudo mkdir -p /mnt/azurkit-tier
+            sudo chown "$(id -u):$(id -g)" /mnt/azurkit-tier
+            room=/mnt/azurkit-tier
+          fi
+          mkdir -p "$room/iso" "$room/tmp"
+          echo "TIER_ROOM=$room" >> "$GITHUB_ENV"
       - name: Azurik-Custom-Content, for booblord's tests
         run: git clone --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$RUNNER_TEMP/content"
       - name: The USA and Europe images, from the game-data repository's parts, one release at a time
@@ -149,13 +163,12 @@ jobs:
           # github.com's published ed25519 host key (GET /meta's ssh_keys), so the clone trusts no other host.
           echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$hosts"
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes"
-          mkdir -p "$RUNNER_TEMP/iso"
           image() {   # image <the parts' folder> <the image's name> [reassemble.py's release argument]
-            git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Modding-Hub/AzurKit-gamedata.git "$RUNNER_TEMP/gd"
-            git -C "$RUNNER_TEMP/gd" sparse-checkout set "$1"
-            rm -rf "$RUNNER_TEMP/gd/.git"
-            uv run --locked python -I "$RUNNER_TEMP/gd/reassemble.py" "$RUNNER_TEMP/iso/$2" "${@:3}" > /dev/null
-            rm -rf "$RUNNER_TEMP/gd"
+            git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Modding-Hub/AzurKit-gamedata.git "$TIER_ROOM/gd"
+            git -C "$TIER_ROOM/gd" sparse-checkout set "$1"
+            rm -rf "$TIER_ROOM/gd/.git"
+            uv run --locked python -I "$TIER_ROOM/gd/reassemble.py" "$TIER_ROOM/iso/$2" "${@:3}" > /dev/null
+            rm -rf "$TIER_ROOM/gd"
             echo "$2: rebuilt, each part's and the image's sha256 checked, the parts deleted"
           }
           image parts usa.iso
@@ -166,14 +179,16 @@ jobs:
         # most 200 lines) are printed, each cut at 240 characters (§12.4 item 4). On Linux the tests run under Modkit
         # full.yml's offline() (§12.4 item 3, V13): a network namespace with only loopback up, back as this user with
         # sudo's and setpriv's environment reset, so only the variables named here reach them (no GITHUB_* file, no
-        # runtime token); hence the venv's own python, since uv's cache and settings aren't in that environment.
+        # runtime token); hence the venv's own python, since uv's cache and settings aren't in that environment. Its
+        # temp folder is on the tier's disk too, a test that passed leaves its folder to the next (the retention policy),
+        # and a signal (the runner's shutdown) prints the log's tail, as pytest's own end would never come.
         run: |
-          iso="$RUNNER_TEMP/iso" content="$RUNNER_TEMP/content" log="$RUNNER_TEMP/pytest.log"
+          iso="$TIER_ROOM/iso" content="$RUNNER_TEMP/content" log="$TIER_ROOM/pytest.log" stop="$TIER_ROOM/resources.stop"
           if [ "$RUNNER_OS" = Linux ]; then
             tier() {
               sudo unshare --net -- sh -c 'ip link set lo up && exec "$@"' offline \
                 setpriv --reuid="$(id -u)" --regid="$(id -g)" --init-groups --reset-env -- \
-                env PATH="$PATH" AZURKIT_ISO="$iso/usa.iso" AZURKIT_ISO_EUROPE="$iso/europe.iso" \
+                env PATH="$PATH" TMPDIR="$TIER_ROOM/tmp" AZURKIT_ISO="$iso/usa.iso" AZURKIT_ISO_EUROPE="$iso/europe.iso" \
                 AZURKIT_CONTENT_SOURCE="$content" .venv/bin/python -m pytest "$@"
             }
           else
@@ -182,12 +197,18 @@ jobs:
                 uv run --locked pytest "$@"
             }
           fi
+          uv run --locked python -I scripts/ci_resources.py "$stop" "tier=$TIER_ROOM" "runner=$RUNNER_TEMP" &
+          watcher=$!
+          trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla > "$log" 2>&1 || status=$?
+          tier -m vanilla -o tmp_path_retention_policy=failed > "$log" 2>&1 &
+          wait "$!" || status=$?
+          touch "$stop"
+          wait "$watcher" || true
           tail -n 60 "$log" | cut -c 1-240
           echo "--- the summary"
           sed -n '/^vanilla: /,$p' "$log" | head -n 200 | cut -c 1-240
           exit "$status"
       - name: Delete the images and any parts left
         if: always()
-        run: rm -rf "$RUNNER_TEMP/iso" "$RUNNER_TEMP/gd"
+        run: if [ -n "${TIER_ROOM:-}" ]; then rm -rf "$TIER_ROOM"; fi

@@ -1350,9 +1350,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   Windows x64, Linux x64; the web tier with Node 24 and
   `scripts/web_tools.py`'s Pyodide and browsers), and on a push to `main`
   in this repository alone the vanilla and europe tiers on the same four:
-  each image rebuilt in the runner's temp folder from the game-data repo's
-  parts with `GAMEDATA_DEPLOY_KEY` (the only secret a workflow reads), never
-  cached, uploaded or printed, and deleted after; on every OS the job runs
+  each image rebuilt in the tier's folder, on the runner's largest disk, from
+  the game-data repo's parts with `GAMEDATA_DEPLOY_KEY` (the only secret a
+  workflow reads), never cached, uploaded or printed, and deleted after, with
+  the free disk and memory each minute and their lowest printed
+  (`scripts/ci_resources.py`); on every OS the job runs
   behind harden-runner's egress block, which starts with the job (its
   pre-step), so its installs' hosts are named too, and on Linux its tests
   run with no network as well (Modkit's §12.4 hygiene), and only the

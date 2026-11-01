@@ -607,3 +607,13 @@ def test_every_name_the_perf_registrys_functions_call_is_one_the_module_has():
 
     top = symtable.symtable(path.read_text(encoding="utf-8"), str(path), "exec")   # its own names are the module's
     assert set().union(*(missing(child) for child in top.get_children())) == set()
+
+
+def test_ci_resources_prints_the_lowest_room_by_label_and_never_a_path(tmp_path):
+    """The runner's room as a CI tier ends (a run the runner shut down named nothing): each label's free disk and the
+    free memory, in numbers; never the folders' paths."""
+    (tmp_path / "stop").touch()
+    done = subprocess.run([sys.executable, "-I", "scripts/ci_resources.py", str(tmp_path / "stop"), f"tier={tmp_path}"],
+                          capture_output=True, text=True, timeout=60, cwd=Path(__file__).resolve().parent.parent)
+    assert re.fullmatch(r"resources, the lowest of the tier in 0 min: tier [\d.]+ GiB free, temp [\d.]+ GiB free, "
+                        r"memory [\d.]+ GiB free \(memory of [\d.]+\)\n", done.stdout), (done.stdout, done.stderr)
