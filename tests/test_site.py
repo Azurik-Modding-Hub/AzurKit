@@ -157,9 +157,11 @@ class Site:
     """The site served to a fresh browser context at :data:`ORIGIN` from its
     folder (Playwright's routing, no server), every request logged."""
 
-    def __init__(self, browser, root: Path, **options):
+    def __init__(self, browser, root: Path, profile: Path | None = None, **options):
         self.root, self.requests = root.resolve(), []
-        self.context = browser.new_context(accept_downloads=True, **options)
+        self.context = (browser.browser_type.launch_persistent_context(str(profile), headless=True, accept_downloads=True,
+                                                                       **options) if profile
+                        else browser.new_context(accept_downloads=True, **options))
         self.context.route("**/*", self._serve)
 
     def _serve(self, route, request) -> None:
@@ -1378,6 +1380,66 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
             assert (built["report"], built["segments"]) == (report, _signature(made))
             assert page.evaluate("() => [azurkit.ready, azurkit.workers, azurkit.heap < 1 << 30]") == [True, 1, True]
         assert served.stray() == [] and page.evaluate("() => azurkit.violations") == []
+    finally:
+        served.close()
+
+
+STARTS = """(() => {   // each engine's start, as its "ready" says it
+    const Real = Worker;
+    globalThis.starts = [];
+    globalThis.Worker = class extends Real {
+        constructor(...args) {
+            super(...args);
+            this.addEventListener("message", ({ data }) => { if (data?.type === "ready") starts.push(data.start); });
+        }
+    };
+})();"""
+"""An init script: the page's workers' starts in ``starts`` (the page shows none of them)."""
+SNAPSHOT_KEPT = """() => new Promise((done) => {
+    const opened = indexedDB.open("azurkit-snapshot", 1);
+    opened.onupgradeneeded = () => opened.result.createObjectStore("heap");
+    opened.onsuccess = () => {
+        const asked = opened.result.transaction("heap").objectStore("heap").count();
+        asked.onsuccess = () => { opened.result.close(); done(asked.result === 1); };
+    };
+})"""
+SNAPSHOT_GONE = """() => new Promise((done) => { indexedDB.deleteDatabase("azurkit-snapshot").onsuccess = () => done(true); })"""
+
+
+def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_builds_as_cpython(browser, site, usa_iso,
+                                                                                            tmp_path):
+    """R2.10: the first worker of a wheel starts cold and keeps its heap's
+    snapshot, and the next starts from it, not from the fallback, whose
+    catch would hide a restore that throws; that worker's build is CPython's.
+    A heap grown past Pyodide's initial memory restores too (the grow hook;
+    stock Pyodide throws there)."""
+    served = Site(browser, site, tmp_path / "profile")   # persistent: WebKit's ephemeral storage refuses a big heap's put
+    try:
+        served.context.add_init_script(STARTS)
+        first = served.open()
+        _page.until(first, SNAPSHOT_KEPT, 60)
+        again = served.open()
+        assert (first.evaluate("() => starts"), again.evaluate("() => starts")) == (["cold"], ["snapshot"])
+        again.set_input_files("#iso", str(usa_iso))
+        _page.until(again, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.build(again, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
+        built = _built(again)
+        made, report = sdk.image({"iso": str(usa_iso), "packs": again.evaluate("() => azurkit.sent")})
+        assert (built["report"], built["segments"]) == (report, _signature(made))
+        again.evaluate(SNAPSHOT_GONE)
+        first.close()
+        again.close()
+
+        worker = (site / "worker.mjs").read_text(encoding="utf-8")
+        imports = 'IMPORTS = "import azurkit\\n'
+        assert worker.count(imports) == 1
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(
+            body=worker.replace(imports, f"{imports}import sys\\nsys.azurkit_grown = bytearray(8 << 20)\\n"),
+            content_type="text/javascript"))
+        grew = served.open()
+        _page.until(grew, SNAPSHOT_KEPT, 60)
+        after = served.open()
+        assert (grew.evaluate("() => starts"), after.evaluate("() => starts")) == (["cold"], ["snapshot"])
     finally:
         served.close()
 

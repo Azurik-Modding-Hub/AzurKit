@@ -48,6 +48,7 @@ export const KEPT = {
           ["azurkit.show_objects", "Whether the Characters tab lists objects"],
           ["azurkit.theme", "The light or dark theme"]],
   databases: [["azurkit-stamp", "Your image's check (its files' sha256)"],
+              ["azurkit-snapshot", "The engine's quick start (no image in it)"],
               ["azurkit-content", "Installed community content"]],
 };
 

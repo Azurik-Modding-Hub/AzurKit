@@ -27,7 +27,7 @@
 //      "plan_spoiler", call, plan} (sdk.spoiler), and the Data tab's {type: "data" | "data_edit", call, given}
 //      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image). A message with a File
 //      (file) has the image checked first, once a File (prime).
-// Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
+// Out: {type: "ready", catalog, version, start} (start: "snapshot" or "cold", load()'s), {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages; the worker's own: its start before ready, the kept image's
 //      walk), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
 //      "spoiled", text | refused} brings next: the build shows sooner),
@@ -371,15 +371,49 @@ const stage = (name, label, done, total) => post({ type: "progress", stage: name
                                                     percent: Math.floor(done * 100 / total) });
 const starting = (done) => stage("start", "Starting the engine", done, 4);
 
+const stored = (database, name, mode, fn) => new Promise((resolve) => {   // IndexedDB's record; none where storage is refused
+  const opened = indexedDB.open(database, 1);
+  opened.onupgradeneeded = () => opened.result.createObjectStore(name);
+  opened.onerror = () => resolve(null);
+  opened.onsuccess = () => {
+    const db = opened.result, done = db.transaction(name, mode), asked = fn(done.objectStore(name));
+    done.oncomplete = () => { db.close(); resolve(asked?.result ?? null); };
+    done.onerror = done.onabort = () => { db.close(); resolve(null); };
+  };
+});
+
+// Pyodide's memory snapshot (R2.10): its heap once the engine's modules are imported (IMPORTS, no numpy: a heap holding
+// it can't run after a restore), made by the first worker of a site's wheel and kept in this browser (IndexedDB, the
+// last only, by Pyodide's version and the wheel's integrity), so each later worker (a return visit, the one after a big
+// build) starts from it and skips CPython's start and those imports. The wheel's files are unpacked again (the file
+// system isn't in the heap). The heap holds no image: it is made before any is read. Any fault making, keeping or
+// starting from one starts the worker as before; "ready" says which start it was (start). Stock Pyodide can't restore a
+// heap grown past the module's initial memory, 31,457,280 B (a RangeError), so the restore grows it first (grown).
+const SNAPSHOT = "azurkit-snapshot", IMPORTS = "import azurkit\nfrom azurkit import sdk\nfrom azurkit.core import iso\n";
+const grown = (create, size) => (settings) => {
+  const instantiate = settings.instantiateWasm;
+  settings.instantiateWasm = (imports, ready) => instantiate(imports, (instance, module) => {
+    const { memory } = instance.exports, short = Math.ceil(size / 65536) - memory.buffer.byteLength / 65536;
+    if (short > 0) memory.grow(short);
+    return ready(instance, module);
+  });
+  return create(settings);
+};
+
 async function load() {
   starting(0);
   const site = await (await fetch(new URL("host.json", base))).json();
   const pyodide = new URL("pyodide/", base).href;
-  const { loadPyodide } = await import(new URL("pyodide.mjs", pyodide).href);
-  const py = await loadPyodide({
+  const { loadPyodide, version } = await import(new URL("pyodide.mjs", pyodide).href);
+  const options = {
     indexURL: pyodide, lockFileURL: new URL("pyodide-lock.json", pyodide).href, packageBaseUrl: pyodide,
     stdout: () => {}, stderr: () => {},
-  });
+  };
+  const key = `${version} ${site.integrity}`;
+  const heap = await stored(SNAPSHOT, "heap", "readonly", (store) => store.get(key)).catch(() => null);
+  const restored = heap && await import(new URL("pyodide.asm.mjs", pyodide).href).then(({ default: create }) =>
+    loadPyodide({ ...options, _loadSnapshot: heap, createPyodideModule: grown(create, heap.length) })).catch(() => null);
+  const py = restored ?? await loadPyodide({ ...options, _makeSnapshot: true });
   const readAhead = readInBlocks(py.FS.filesystems.WORKERFS);
   starting(1);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });
@@ -389,22 +423,37 @@ async function load() {
   py.unpackArchive(archive, "wheel", { extractDir: py.runPython("import site; site.getsitepackages()[0]") });
   TABLES = await fetch(new URL("tables.json", base)).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
   starting(3);
-  return { py, engine: py.runPython(ENGINE), readAhead };
+  if (!restored) {
+    try {
+      py.runPython(IMPORTS);
+      const made = py.makeMemorySnapshot();
+      stored(SNAPSHOT, "heap", "readwrite", (store) => { store.clear(); store.put(made, key); }).catch(() => null);   // not awaited
+    } catch {
+      // no snapshot: the next worker starts as this one did
+    }
+  }
+  return { py, engine: py.runPython(ENGINE), readAhead, start: restored ? "snapshot" : "cold" };
 }
 
-// fn(the path of file mounted read-only at /in), unmounted after it. The mount's times are the File's lastModified
-// (WORKERFS takes lastModifiedDate, which WebKit's File lacks, and else the time of the mount), so the engine's check
-// of an image holds from one message to the next (sdk._stamp: by its path, size and times) and a changed File is
-// checked again.
+// fn(the path of file mounted read-only at /in), unmounted after it (after the promise it gives, if it gives one). The
+// mount's times are the File's lastModified (WORKERFS takes lastModifiedDate, which WebKit's File lacks, and else the
+// time of the mount), so the engine's check of an image holds from one message to the next (sdk._stamp: by its path,
+// size and times) and a changed File is checked again.
 function mounted(py, file, fn) {
   if (!file.lastModifiedDate) Object.defineProperty(file, "lastModifiedDate", { value: new Date(file.lastModified) });
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
+  const unmount = () => py.FS.unmount("/in");
+  let done;
   try {
-    return fn(`/in/${file.name}`);
-  } finally {
-    py.FS.unmount("/in");
+    done = fn(`/in/${file.name}`);
+  } catch (error) {
+    unmount();
+    throw error;
   }
+  if (done instanceof Promise) return done.finally(unmount);
+  unmount();
+  return done;
 }
 
 // The image's check (D27), hashed here once a File: its build files (sdk.layout's offsets, 1.0 GB) in WebCrypto, the
@@ -429,16 +478,7 @@ async function identify(file) {
   }
   return ids.get(file);
 }
-const stamps = (mode, fn) => new Promise((resolve) => {   // the browser's kept stamp; none where storage is refused
-  const opened = indexedDB.open(STORE, 1);
-  opened.onupgradeneeded = () => opened.result.createObjectStore("stamp");
-  opened.onerror = () => resolve(null);
-  opened.onsuccess = () => {
-    const db = opened.result, done = db.transaction("stamp", mode), asked = fn(done.objectStore("stamp"));
-    done.oncomplete = () => { db.close(); resolve(asked?.result ?? null); };
-    done.onerror = done.onabort = () => { db.close(); resolve(null); };
-  };
-});
+const stamps = (mode, fn) => stored(STORE, "stamp", mode, fn);   // the browser's kept stamp
 async function prime(loaded, file) {
   const { py, engine } = loaded, id = await identify(file);
   const kept = loaded.primed === id ? null : await stamps("readonly", (store) => store.get("last")).catch(() => null);
@@ -621,7 +661,7 @@ try {
       post({ type: "failed", message: lastLine(error) });
     }
   };
-  post({ type: "ready", ...loaded.engine({ type: "catalog" }) });
+  post({ type: "ready", start: loaded.start, ...loaded.engine({ type: "catalog" }) });
 } catch (error) {
   post({ type: "failed", message: `AzurKit didn't load: ${lastLine(error)}` });
 }

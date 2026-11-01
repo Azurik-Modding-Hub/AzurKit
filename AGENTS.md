@@ -1173,7 +1173,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   a module worker started from a `blob:` URL (so the page's CSP holds there),
   one worker, kept after a build while the heap its answer reports is under
   1 GiB (Step 4.3i: wasm memory never shrinks; app.mjs's `KEEP`), else
-  replaced, as after a cancel ("Preparing the engine…"), which reads the
+  replaced, as after a cancel ("Preparing the engine…"), each later worker
+  starting from Pyodide's memory snapshot, which the first worker of a wheel
+  makes once the engine's modules are imported (no numpy, no image) and the
+  browser keeps (IndexedDB, by Pyodide's version and the wheel's integrity;
+  any fault starts it cold, and its `ready` says which start it was), which reads the
   image in blocks (WebKit takes about 200 ms for each read of a File,
   whatever its size), kept from one message to the next for the last image,
   its folders' tables read ahead in awaited rounds before the engine's first
