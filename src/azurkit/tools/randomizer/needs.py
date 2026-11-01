@@ -21,14 +21,12 @@ from __future__ import annotations
 import collections
 import functools
 import re
-from collections.abc import Callable
 
+from azurkit.core import progress
 from azurkit.tools.randomizer.planner.grammar import ParseError, atoms, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.settings import skips_on
 
-#: Told "the maps' exits, k of n" as :func:`exit_edges` starts each level's (the sdk sets it; None: told nothing)
-NOTE: Callable[[str], object] | None = None
 
 # What a connection needs, one colour each (Modkit's ``NEEDS``, M9)
 NEEDS = {"nothing": "#c9d1d9", "keys": "#ffe8a3", "fragments": "#b98cff", "event": "#ff8fb1",
@@ -157,8 +155,7 @@ def exit_edges() -> tuple:
     on = set(skips_on(db.defaults, lg.skip_tables))
     out, levels = [], sorted(db.levels.items())
     for k, (lvl, doc) in enumerate(levels, 1):
-        if NOTE is not None:
-            NOTE(f"the maps' exits, {k} of {len(levels)}")
+        progress.note(f"the maps' exits, {k} of {len(levels)}")   # core.progress: the call's stage folds it
         for e in doc["edge"]:
             if not e.get("from") or e["kind"] != "exit" and not e.get("exit"):
                 continue

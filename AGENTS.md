@@ -424,32 +424,29 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Logic as built, a fresh one each call, so neither checks nor builds;
     what it reads is frozen out of the cycle collector's walks (`gc.freeze`:
     its million objects' full walks held the app's server 0.8 s).
-  - `needs.NOTE`, `generator.NOTE` and the fill's `NOTE`, None by
-    default, are told the tracker's exits ("the maps' exits, k of 22"), the
-    fill's start ("placing the items") and its items placed ("placing the
-    items, k of n", rising through the fill's attempts) for the sdk's
-    progress: `sdk.image`, `sdk.plan` and `sdk.tracker` set them while they
-    run (`sdk._noting`, the calling thread's), each note folded into the
-    stage the call reported last (its label and the note, a "k of n" note
-    counted inside that stage's step: the tracker's world map, 50 % to
-    100 %; a plan's fill, 33 % to 66 %).
-  - `loader.NOTE` (the logic's checks as a checkout reads it cold:
-    "checking the levels, 5 of 15", then "building its logic") is folded
-    the same way while `sdk.spoiler` and `sdk.randomizer_logic` run (the
-    app's engine reads the logic ahead with it, and a call waiting on that
-    shows its records, `engine._WARMING`, the warm-up counted on a seed
-    plan's scale, its first of 3 steps); a note counted short of the last
-    one keeps that one's count, so a bar never goes back (Step 4.7c).
-  - The fill tells its count (Step 4.3u): `core.progress.note("placing
-    the items, k of n")`, k the spot it is filling of the n its attempt
-    fills, each percent and at each reach, which `core.progress.noting`
-    folds into the stage the call on that thread reported last
-    (`randomizer.plan`'s "Filling the seed"), so each note is the bar's
-    step and a cancel point (a host's callback raises through it). A fill
-    of the same Logic, database, seed and settings digest another thread
-    is making is waited on, the waiter telling its count every
-    `fill.WAIT` s, and copied when it ends; one cancelled or refused is
-    made again by its waiter. The engine holds no threads: the fills in
+  - The engine's progress notes are one stream (Step 4.3 train B3):
+    `core.progress.note(text)` from the fill ("placing the items", then
+    "placing the items, k of n", k the spot it is filling of the n an
+    attempt fills, each percent and at each reach), the logic's checks as
+    a checkout reads it cold ("checking the levels, 5 of 15", then
+    "building its logic") and the tracker's exits ("the maps' exits, k of
+    22"). `core.progress.noting`, the calling thread's (`randomizer.plan`,
+    `sdk.image`, `sdk.tracker`, `sdk.spoiler`, `sdk.randomizer_logic`),
+    folds each into the stage the call reported last: its label and the
+    note, a "k of n" note counted inside that stage's step (the tracker's
+    world map, 50 % to 100 %; a plan's fill, 33 % to 66 %), and a note
+    short of the furthest one told in that stage keeps that one's count,
+    so a bar never goes back. Each note is a cancel point (a host's
+    callback raises through it). The fill's count is one through its
+    attempts: an attempt after a stuck one tells the count the stuck one
+    reached until it passes it (Step 4.3 train B2). The app's engine reads
+    the logic ahead with `sdk.randomizer_logic`, and a call waiting on
+    that shows its records (`engine._WARMING`, the warm-up counted on a
+    seed plan's scale, its first of 3 steps; Step 4.7c).
+  - A fill of the same Logic, database, seed and settings digest another
+    thread is making is waited on (Step 4.3u), the waiter telling its count
+    every `fill.WAIT` s, and copied when it ends; one cancelled or refused
+    is made again by its waiter. The engine holds no threads: the fills in
     flight are a dict whose `setdefault` is atomic, the waiter sleeps
     between looks.
   - The fill runs in the caller's thread: Modkit's seed roll in a process

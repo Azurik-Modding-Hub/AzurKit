@@ -615,12 +615,13 @@ def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_
     work. ``sdk.plan`` reports the logic read, the fill and the placements
     written (``core.progress``'s ``plan``, done of 3), the fill counting its
     spots inside its step (Step 4.3u: "placing the items, k of n", each
-    percent of them, never back in the attempt: seed 2 fills at its first),
+    percent of them, never back),
     so the app's bar, polled every 250 ms, moves through the seconds the
     fill takes once the shipped Logic is read at once (train B2); the
     tracker's first view of the plan its tracker built and the world map
     read (done of 2), and a view of a kept plan nothing, so a click on a
     spot shows no bar. Each answers as it does without ``progress``."""
+    kept_logic()   # read before: a cold read counts the logic's checks in its first stage too (test_hosts)
     seen = []
     monkeypatch.setattr(fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills now
     doc = sdk.plan({"seed": "2"}, progress=seen.append)
@@ -640,6 +641,29 @@ def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_
         ("plan", "Writing the placements", 66), ("plan", "Reading the seed's logic", 0),
         ("plan", "Reading the world map", 50)]
     assert tracking.digest(first) == tracking.digest(again) == tracking.digest(sdk.tracker({"plan": doc}))
+
+
+def test_a_retried_fill_counts_on_from_its_stuck_attempt_in_the_one_stream_sdk_plan_and_randomizer_plan_report(
+        monkeypatch):
+    """Step 4.3 train B3: the fill's notes and the planner's are one stream
+    (``core.progress.note``, each folded by the call's ``noting``), so
+    ``sdk.plan`` reports ``randomizer.plan``'s records as they are; seed 16,
+    whose attempt 0 sticks and attempt 1 passes, counts its spots once
+    through both attempts (no label names an attempt, the count never
+    falls), and no record's done of total is short of the one before it."""
+    kept_logic()   # read before: neither call counts the logic's checks
+    heard = []
+    for plan in (sdk.plan, randomizer.plan):
+        monkeypatch.setattr(fill, "_LAST_FILL", [None])   # each fills
+        heard.append([])
+        doc = plan({"seed": "16"}, progress=heard[-1].append)
+    seen = heard[0]
+    counts = [re.fullmatch(r"Filling the seed \(placing the items(?:, (\d+) of (\d+))?\)", r["label"])
+              for r in seen if r["label"].startswith("Filling the seed (")]
+    ks = [int(m[1]) for m in counts if m[1]]
+    assert (doc["attempt"], heard[0] == heard[1], all(counts), ks == sorted(ks), ks[-1]) == (
+        1, True, True, True, int(counts[-1][2]))
+    assert [r["done"] / r["total"] for r in seen] == sorted(r["done"] / r["total"] for r in seen)
 
 
 @pytest.mark.web

@@ -36,6 +36,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from azurkit.core import progress
 from azurkit.tools.randomizer.planner import proofs as pr
 from azurkit.tools.randomizer.planner.grammar import COUNTERS, DISCS, ParseError, atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
@@ -55,10 +56,10 @@ from azurkit.tools.randomizer.planner.solver import Logic
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 VERSION = 1
-# A host's hooks (Step 2.221), None by default: NOTE(label, done, total) hears each of the checks
-# :func:`check_database` runs and "building its logic"; SHIPPED(root) is a Logic of ``root``'s checked database
-# the host already holds (AzurKit's shipped one), or None, and :func:`kept_logic` builds it as before
-NOTE: Callable[[str, int, int], object] | None = None
+# Each of the checks :func:`check_database` runs and "building its logic" is a core.progress note ("checking the
+# levels, 5 of 15"), which the call on this thread folds into its stage. A host's hook, None by default:
+# SHIPPED(root) is a Logic of ``root``'s checked database the host already holds (AzurKit's shipped one), or None,
+# and :func:`kept_logic` builds it as before
 SHIPPED: Callable[[Path], Logic | None] | None = None
 FORMATS = {kind: f"azurik-rando-{kind}/{VERSION}"
            for kind in ("generated", "derived", "level", "items", "world", "settings", "tricks", "route", "movement",
@@ -1647,8 +1648,7 @@ _CHECKS = (("reading its files", "read"), ("checking their format", "schema"), (
 
 
 def _note(label: str, done: int, total: int) -> None:
-    if NOTE is not None:
-        NOTE(label, done, total)
+    progress.note(f"{label}, {done + 1} of {total}")   # the check that starts, counted
 
 
 def check_database(root: Path | str = DATA_DIR, texts: Mapping[str, str] | None = None) -> Report:

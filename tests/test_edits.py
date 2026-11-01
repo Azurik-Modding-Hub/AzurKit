@@ -349,11 +349,13 @@ def test_save_writes_the_image_a_build_made_its_stages_are_reported_and_its_spoi
     check = [r for r in seen if r["stage"] == "check"]
     assert (check[0]["label"], check[-1]["percent"]) == ("Checking your image", 100)
     assert [r["label"] for r in seen if r["stage"] == "pack"] == ["Applying qol_alloc_race"]
-    planned = [r["label"] for r in seen if r["stage"] == "plan"]   # the fill's items placed counted in its stage
-    assert planned[:2] == ["Planning the seed", "Planning the seed (placing the items)"] and len(planned) > 20
-    assert all(re.fullmatch(r"Planning the seed \(placing the items, \d+ of \d+\)", label) for label in planned[2:])
-    percents = [r["percent"] for r in seen if r["stage"] == "plan"][2:]   # attempt 1's bar starts where 0's stuck
-    assert report["plan"]["attempt"] == 1 and percents == sorted(percents)
+    planned = [r["label"] for r in seen if r["stage"] == "plan"]   # the fill's start, then its spots counted
+    counted = [lb for lb in planned if re.fullmatch(r"Planning the seed \(placing the items, \d+ of \d+\)", lb)]
+    start = len(planned) - len(counted)
+    assert (planned[0], set(planned[1:start]), planned[start:] == counted, len(counted) > 20) == (
+        "Planning the seed", {"Planning the seed (placing the items)"}, True, True)
+    percents = [r["percent"] for r in seen if r["stage"] == "plan" and r["percent"] is not None]
+    assert report["plan"]["attempt"] == 1 and percents == sorted(percents)   # attempt 1 counts on from 0's
     monkeypatch.setattr(tracking, "_KEPT", type(tracking._KEPT)())   # the plan's first view, in a process that
     for module, name in ((tracking, "world"), (needs, "overlays"), (needs, "exit_edges")):   # reads the maps' exits
         monkeypatch.setattr(module, name, functools.cache(getattr(module, name).__wrapped__))

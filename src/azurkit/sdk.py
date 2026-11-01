@@ -88,13 +88,11 @@ never a recipe file's path (Q174).
 
 from __future__ import annotations
 
-import contextlib
 import dataclasses
 import functools
 import hashlib
 import json
 import os
-import re
 import sys
 import threading
 import urllib.parse
@@ -103,17 +101,15 @@ from pathlib import Path
 
 from azurkit import __version__
 from azurkit.core import gate, iso
-from azurkit.core.progress import Steps, record
+from azurkit.core.progress import Steps, noting
 from azurkit.core.xbr import Document
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
 from azurkit.tools import data as datatool
-from azurkit.tools.randomizer import generator, needs, tracking
+from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
-from azurkit.tools.randomizer.planner import fill as rando_fill
-from azurkit.tools.randomizer.planner import loader
 
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
@@ -322,68 +318,6 @@ def _packs(recipe: object) -> dict[str, dict]:
     return packs
 
 
-_NOTES: dict[int, Callable[[str], None]] = {}   # the planner's notes' reporter, by the thread whose call hears them
-
-
-def _note(text: str) -> None:
-    if (told := _NOTES.get(threading.get_ident())) is not None:
-        told(text)
-
-
-def _checked(label: str, done: int, total: int) -> None:
-    """``loader.NOTE``: the randomizer's logic's checks, ``done`` of ``total`` as it starts ``label``."""
-    _note(f"{label}, {done + 1} of {total}")
-
-
-@contextlib.contextmanager
-def _noting(steps: Steps):
-    """``steps`` for this thread's call, the planner's notes
-    (``generator.NOTE``: "placing the items"; the fill's ``NOTE``: "placing
-    the items, k of n"; ``needs.NOTE``: "the maps' exits, k of n";
-    ``loader.NOTE``: the logic's checks as it is read cold, "checking the
-    levels, k of n") folded into the stage it reported last through the
-    ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
-    counted inside the stage's step (``done`` of ``total`` as ``done * n +
-    k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
-    so its bar moves on, never back (a counted note short of the last
-    counted one keeps that one's count)."""
-    if not steps:
-        yield steps
-        return
-    last: list[dict] = []
-    most: list[tuple[int, int]] = []   # the count the last counted note in last's stage told
-
-    def heard(step: dict) -> None:
-        last[:] = [step]
-        most.clear()
-        steps.report(step)
-
-    def told(text: str) -> None:
-        if not last:   # no stage yet to fold it into
-            return
-        at, done, total = last[0], last[0]["done"], last[0]["total"]
-        before, most[:] = most[:], []
-        if count := re.search(r"(\d+) of (\d+)", text):
-            k, n = map(int, count.groups())
-            done, total = done * n + k - 1, max(total, 1) * n
-            if before and done * before[0][1] < before[0][0] * total:
-                done, total = before[0]
-            most[:] = [(done, total)]
-        steps.report(record(at["stage"], f"{at['label']} ({text})", done, total))
-    ident = threading.get_ident()
-    outer = _NOTES.get(ident)
-    _NOTES[ident] = told
-    generator.NOTE = rando_fill.NOTE = needs.NOTE = _note
-    loader.NOTE = _checked
-    try:
-        yield Steps(heard)
-    finally:
-        if outer is None:
-            _NOTES.pop(ident, None)
-        else:
-            _NOTES[ident] = outer
-
-
 def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None,
                                                          generator.Prepared | None]:
     """The recipe's vanilla image (its build files checked, D27), the files
@@ -399,7 +333,7 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
         raise ValueError("recipe: iso names no image")
     prepared = None
     if "randomizer" in recipe and character is None:
-        with _noting(steps) as noted:
+        with noting(steps) as noted:
             noted("plan")
             prepared = generator.prepare(recipe["randomizer"], packs)
     elif "randomizer" in recipe:   # checked now; planned below, on the walk and roll the body's size folds
@@ -418,7 +352,7 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
             inputs[rando_layer.SIZE_PACK] = {rando_layer.SIZE_FOLD: fold}   # the speed toggle's walk and roll
         packs = mods.normalize({name: params.get(name, {}) for name in enabled})
         if "randomizer" in recipe:   # Modkit's randomize-full: the plan stands on the folded sliders (AZ-383)
-            with _noting(steps) as noted:
+            with noting(steps) as noted:
                 noted("plan")
                 prepared = generator.prepare(recipe["randomizer"], packs)
     chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
@@ -1011,8 +945,7 @@ def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -
     items placed, k of n, counted inside its step) and the placements
     written. A refusal names the setting, or the progression items no
     attempt found a safe spot for."""
-    with _noting(Steps(progress)) as steps:
-        return randomizer.plan(recipe, steps.report)
+    return randomizer.plan(recipe, progress)
 
 
 def spoiler(plan: Mapping, *, built: bool = False, progress: Callable[[dict], object] | None = None) -> dict:
@@ -1028,7 +961,7 @@ def spoiler(plan: Mapping, *, built: bool = False, progress: Callable[[dict], ob
     held), refused by name once this engine keeps it no more (another
     build's since, or another engine)."""
     if not built:
-        with _noting(Steps(progress)) as steps:
+        with noting(Steps(progress)) as steps:
             steps("plan", "Reading the randomizer's logic", 0, 2)
             randomizer.kept_logic()   # its checks counted while it is read cold
             steps("spoiler", None, 1, 2)
@@ -1049,7 +982,7 @@ def randomizer_logic(*, progress: Callable[[dict], object] | None = None) -> dic
     checkout's: the wheel and the frozen app ship it checked), on a seed
     plan's scale (its first of 3 steps, the checks under its 33 %), so a
     call that waits on it goes on in its own stages, never back."""
-    with _noting(Steps(progress)) as steps:
+    with noting(Steps(progress)) as steps:
         steps("plan", "Reading the randomizer's logic", 0, 3)
         randomizer.kept_logic()
     return {}
@@ -1102,7 +1035,7 @@ def tracker(given: Mapping, *, progress: Callable[[dict], object] | None = None)
     (``tools.randomizer.tracking``); ``progress(record)`` hears a plan's
     first view build its tracker and read the world map, the maps' exits
     counted on it; a refusal names what it refuses."""
-    with _noting(Steps(progress)) as steps:
+    with noting(Steps(progress)) as steps:
         return tracking.view(given, progress=steps.report)
 
 

@@ -96,17 +96,21 @@ def noting(steps: Steps) -> Iterator[Steps]:
     ``Steps`` this yields: that stage's ``label (note)``, a "k of n" note
     counted inside the stage's step (``done`` of ``total`` as ``done * n +
     k - 1`` of ``total * n``; ``k - 1`` of ``n`` in a stage with no count),
-    so its bar moves on as the count does: a count that starts again (a
-    retried fill attempt's, whose label names the attempt) takes it back to
-    its own start. A call inside another's folds into its own stages until
-    it ends."""
+    so its bar moves on as the count does and never back: a note short of
+    the furthest one told in that stage (a count that starts again, a note
+    with no count after a counted one) keeps that one's ``done`` of
+    ``total`` (Step 4.3 train B3). The engine's every note is one of these
+    (the fill's, the logic's checks, the maps' exits), so a host hears one
+    stream. A call inside another's folds into its own stages until it
+    ends."""
     if not steps:
         yield steps
         return
     last: list[dict] = []
+    far: list[tuple[int, int]] = []   # the furthest done of total told in last's stage
 
     def heard(step: dict) -> None:
-        last[:] = [step]
+        last[:], far[:] = [step], [(step["done"], step["total"])]
         steps.report(step)
 
     def told(text: str) -> None:
@@ -116,6 +120,9 @@ def noting(steps: Steps) -> Iterator[Steps]:
         if count := re.search(r"(\d+) of (\d+)", text):
             k, n = map(int, count.groups())
             done, total = done * n + k - 1, max(total, 1) * n
+        if done * max(far[0][1], 1) < far[0][0] * max(total, 1):   # short of the furthest: kept there
+            done, total = far[0]
+        far[:] = [(done, total)]
         steps.report(record(at["stage"], f"{at['label']} ({text})", done, total))
     token = _TOLD.set(told)
     try:

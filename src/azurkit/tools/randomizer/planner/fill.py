@@ -564,24 +564,23 @@ class _Slots:
 
 
 class _Count:
-    """An attempt's progress as :func:`~azurkit.core.progress.note` calls
-    (Step 4.3u): "placing the items, k of n" (attempt 2 on: "placing the
-    items, attempt 2, k of n"), k the spot being filled of the n the attempt
-    fills, never back in the attempt (a trade or repair puts spots again);
-    a retried attempt counts from 1 again, so the bar goes back to its
-    start and the label names the attempt. A note each time
-    the count passes a percent and at each reach, where the time goes, so
-    each is the bar's step and a cancel point no more than one reach apart;
-    the fill's :class:`_Making` keeps the last for a thread waiting on it."""
+    """The fill's progress as :func:`~azurkit.core.progress.note` calls
+    (Step 4.3u): "placing the items, k of n", k the spot being filled of the
+    n an attempt fills, one count through the fill's attempts that never
+    falls (Step 4.3 train B3: an attempt after a stuck one tells the count
+    the stuck one reached until it passes it; a trade or repair puts spots
+    again). A note each time the count passes a percent and at each reach,
+    where the time goes, so each is the bar's step and a cancel point no
+    more than one reach apart, a retried attempt's too; the fill's
+    :class:`_Making` keeps the last for a thread waiting on it."""
 
     SILENT: _Count
 
-    def __init__(self, attempt: int = 0, making: _Making | None = None) -> None:
-        self.head = "placing the items" if attempt == 0 else f"placing the items, attempt {attempt + 1}"
+    def __init__(self, making: _Making | None = None) -> None:
         self.making, self.n, self.k, self.percent = making, 1, 0, -1
 
     def begin(self, n: int) -> None:
-        self.n, self.k, self.percent = max(n, 1), 0, -1
+        self.n = max(n, 1)
         self(0, True)
 
     def __call__(self, placed: int, reach: bool = False) -> None:
@@ -589,7 +588,7 @@ class _Count:
         if self.making is None or not (reach or k * 100 // self.n != self.percent):
             return
         self.percent = k * 100 // self.n
-        self.making.text = text = f"{self.head}, {k} of {self.n}"
+        self.making.text = text = f"placing the items, {k} of {self.n}"
         progress.note(text)
 
 
@@ -767,12 +766,11 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
     progress.note("placing the items")
     known = known_traps(logic, st)
     progress.note("placing the items")
-    reasons, stuck, reaches = [], set(), _Reaches(logic, st)
+    reasons, stuck, reaches, count = [], set(), _Reaches(logic, st), _Count(making)
     for k in range(MAX_ATTEMPTS):
         repaired: list[str] = []
         try:
-            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired, reaches,
-                                      _Count(k, making))
+            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired, reaches, count)
         except _Stuck as exc:
             reasons.append(f"attempt {k}: {exc}")
             if exc.item is not None:

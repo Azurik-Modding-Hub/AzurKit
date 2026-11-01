@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 
 from azurkit.core import iso
+from azurkit.core.progress import note
 from azurkit.edits.layer import Change, Conflict, Layer
 from azurkit.tools.randomizer import layer, physics, writer
 from azurkit.tools.randomizer.planner.loader import kept_logic
@@ -51,8 +52,6 @@ TOOL, KIND = "randomizer", "plan"
 LAYER = layer.LAYER      # the layer's id, as Modkit names it in a conflict
 RECIPE = ("seed", "settings", "share", "obsidian_cost")
 OBSIDIAN_GROUP = f"{LAYER} obsidian lock thresholds"
-#: Told "placing the items" as :func:`prepare` starts the seed's fill (the sdk sets it; None: told nothing)
-NOTE: Callable[[str], object] | None = None
 
 
 @dataclass
@@ -127,8 +126,7 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
         share = share_encode(settings_from_table(recipe["settings"], _skips(db), "settings"), _skips(db))
     args = SimpleNamespace(plan=None, seed=recipe["seed"], settings=None, share=share, skip_ceiling=None,
                            movement_tier=None, dark_fire=None, skip=None, no_skip=None, exclude_category=None)
-    if NOTE is not None:
-        NOTE("placing the items")
+    note("placing the items")   # the seed's fill starts (core.progress: the call's stage folds it)
     plan, logic, _, why = layer.plan_for(args, db, sliders(packs))
     made = {"seed": plan.doc["seed"], "share": plan.doc["share"]}
     if "obsidian_cost" in recipe:
