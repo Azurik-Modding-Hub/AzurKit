@@ -55,7 +55,8 @@ variant as it measures any build.
   Step 2.142: ``gltf`` {``file``, ``sha256``, ``import``: ``positions``
   by default, or ``topology`` or ``weights``, Step 2.154}, an edited glTF of the
   base's body, user recipes only; ``keep``, bones whose vertices the ops
-  leave; ``ops``, deform ops: :mod:`azurik_mod.assets.mesh_edit`) and
+  leave; ``drop``, bones whose vertices leave the mesh, Step 4.3; ``ops``,
+  deform ops: :mod:`azurik_mod.assets.mesh_edit`) and
   ``arms`` ({``out_deg``}: both ``*_arm_1`` turned out in every clip the
   body plays but the recipe's own, W28, Step 2.143: :func:`restyled`)
   and ``jiggle`` (leaf bones on springs baked into every clip but its
@@ -2155,7 +2156,7 @@ def _mesh(where: str, mesh, builtin: bool) -> MeshSpec:
     """The recipe's ``mesh`` (W24, Step 2.142), checked with no game data:
     the body's bones, the glTF and the folds are the build's to check."""
     where = f"{where}: mesh"
-    _keys(where, mesh, (), ("gltf", "keep", "ops"))
+    _keys(where, mesh, (), ("gltf", "keep", "ops", "drop"))
     gltf = None
     if "gltf" in mesh:
         if builtin:
@@ -2175,10 +2176,11 @@ def _mesh(where: str, mesh, builtin: bool) -> MeshSpec:
     parsed = []
     for i, op in enumerate(ops):
         parsed.append(_mesh_op(f"{where}.ops[{i}]", op))
-    if gltf is None and not parsed:
-        raise ValueError(f"{where}: neither a gltf nor ops")
+    drop = _names(f"{where}.drop", mesh.get("drop", []))
+    if gltf is None and not parsed and not drop:
+        raise ValueError(f"{where}: neither a gltf, ops nor a drop")
     return MeshSpec(gltf, _names(f"{where}.keep", mesh.get("keep", [])), tuple(parsed),
-                    mesh["gltf"].get("import", "positions") if gltf else "positions")
+                    mesh["gltf"].get("import", "positions") if gltf else "positions", drop)
 
 
 _OP_KEYS = {

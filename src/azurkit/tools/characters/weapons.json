@@ -61,7 +61,7 @@
  },
  "fits": {
   "balthazar_airship": {"clips": {"attack_1": [0, 15], "attack_10": [0, 15], "attack_15": [0, 15], "attack_back_kick": [0, 15], "elemental_attack": [10, 15], "elemental_attack_3": [0, 15], "hose_attack_3": [0, 15], "smash_attack_1": [30, 0]}},
-  "booblord": {"sha": "1d7ad4bcbc8d", "clips": {"360_basic_attack": [10, 0], "attack_1": [0, 15], "attack_12": [0, 15], "attack_13": [0, 15], "attack_17": [0, 15], "attack_2": [0, 15], "attack_3": [0, 15], "attack_8": [0, 15], "attack_9": [20, 15], "attack_back": [0, 15], "attack_back_kick": [0, 15], "elemental_attack": [0, 15], "elemental_attack_3": [0, 15]}},
+  "booblord": {"sha": "481c4cfffa90", "clips": {"360_basic_attack": [10, 0], "attack_1": [0, 15], "attack_12": [0, 15], "attack_13": [0, 15], "attack_17": [0, 15], "attack_2": [0, 15], "attack_3": [0, 15], "attack_8": [0, 15], "attack_9": [20, 15], "attack_back": [0, 15], "attack_back_kick": [0, 15], "elemental_attack": [0, 15], "elemental_attack_3": [0, 15]}},
   "keylord": {"clips": {"360_ledge": [0, 15], "360_sweep": [10, 0], "attack_10": [10, 15], "attack_14": [0, 15], "attack_15": [0, 15], "attack_17": [10, 0], "elemental_attack": [10, 15], "elemental_attack_3": [10, 15], "smash_attack_1": [30, 0], "smash_attack_2": [10, 0]}},
   "overlord": {"clips": {"360_ledge": [10, 0], "360_sweep": [10, 0], "attack_10": [10, 15], "elemental_attack": [0, 15], "elemental_attack_3": [0, 15], "smash_attack_1": [30, 0]}},
   "townspeople/child_1": {"clips": {"360_ledge": [10, 0], "360_sweep": [10, 0], "attack_10": [0, 15], "attack_15": [10, 0], "attack_17": [20, 0], "attack_back_kick": [10, 0], "elemental_attack": [10, 0], "elemental_attack_3": [0, 15], "smash_attack_1": [10, 0], "smash_attack_2": [10, 0]}},

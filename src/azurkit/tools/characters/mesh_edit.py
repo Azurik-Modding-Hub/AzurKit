@@ -248,6 +248,14 @@ same ops (Step MK.3a: ``azurik-mod model rest``, a shape slider's ends).
   A sum of field ops can fold, so the Jacobian's determinant (analytic)
   must stay above 0 at every vertex a field op moves and at the centroid
   of every triangle it moves.  Nothing is clamped (D23).
+- **The drop** (Step 4.3, ``mesh.drop``: booblord's vase): the bone
+  subtrees whose vertices (by their heaviest weight) leave LOD 0 with
+  every triangle that uses one, before every op (:func:`_drop`).  They
+  must be whole groups, the LOD's last, so no other group's number or
+  vertex moves; the bones stay (a clip keys a bone by its index).  Her
+  base's vase, group 5 on ``vase_joint``, which every clip she plays keys
+  at a scale of 0 or 1e-12, drew only in her bind pose (the Characters
+  tab's pictures), round her legs.
 - **The checks on the result**: vertices vanilla keeps together (a
   bit-identical position) stay within :data:`COPIES`; LOD 1+ isn't
   edited (a build cuts a body's own LODs anew from its edited LOD 0 at
@@ -885,6 +893,8 @@ class MeshSpec:
     """How the glTF is read: ``positions`` (Step 2.142, the same topology),
     or (Step 2.154) ``topology`` or ``weights``
     (:mod:`azurik_mod.assets.gltf_import`)."""
+    drop: tuple[str, ...] = ()
+    """The bone subtrees whose vertices leave LOD 0 (the module docstring's drop, :func:`_drop`)."""
 
 
 SIZES = {RoundOp: "round", ScaleOp: "scale"}
@@ -993,6 +1003,8 @@ class MeshPlan:
     """Each ``late`` scale's move by vertex (group, index) (Step 2.187):
     in the written positions, which W29 takes back off to place its jiggle
     bones (:func:`~azurik_mod.assets.jiggle.rig`'s ``late``)."""
+    dropped: tuple[int, ...] = ()
+    """The LOD-0 groups the drop took off (Step 4.3: :func:`_drop`), which :func:`assemble` leaves out."""
 
 
 # --------------------------------------------------------------------------- the body
@@ -5098,6 +5110,43 @@ def _atlas(mesh: _Mesh, spec: MeshSpec, uvs: dict[int, tuple[float, float]], isl
 
 
 # --------------------------------------------------------------------------- the plan and the write
+def _drop(mesh: _Mesh, spec: MeshSpec, base: list[Vec]) -> tuple[_Mesh, list[Vec]]:
+    """``mesh`` and ``base`` without the vertices of :attr:`MeshSpec.drop`'s
+    bone subtrees (by their heaviest weight) and the triangles that use
+    them (the module docstring's drop).  :class:`ValueError` names a bone
+    the body lacks, a drop that takes no vertex, a group it takes only part
+    of and one that isn't among the LOD's last."""
+    if not spec.drop:
+        return mesh, base
+    for name in spec.drop:
+        if name not in mesh.names:
+            raise ValueError(f"mesh.drop: {mesh.body} has no bone {name!r}")
+    bones, named = _subtree(mesh, set(spec.drop)), ", ".join(spec.drop)
+    gone = {k for k, b in enumerate(mesh.heaviest) if b in bones}
+    groups = sorted({mesh.ids[k][0] for k in gone})
+    if not groups:
+        raise ValueError(f"mesh.drop: no vertex of {mesh.body} weighs most on {named}")
+    for g in groups:
+        if any(mesh.ids[k][0] == g and k not in gone for k in range(len(mesh.ids))):
+            raise ValueError(f"mesh.drop: {mesh.body} group {g} holds vertices off {named} too: a drop takes "
+                             "whole groups")
+    order = [g.index for g in mesh.groups]
+    if order[len(order) - len(groups):] != groups:
+        raise ValueError(f"mesh.drop: {mesh.body} group {groups[0]} isn't among its last LOD-0 groups: a drop "
+                         "takes them off the end, so no other group's number moves")
+    kept = [k for k in range(len(mesh.ids)) if k not in gone]
+    new = {k: i for i, k in enumerate(kept)}
+    tris = [t for t in range(len(mesh.triangles)) if all(v in new for v in mesh.triangles[t])]
+
+    def each(values: tuple) -> tuple:
+        return tuple(values[k] for k in kept)
+    return replace(mesh, groups=tuple(g for g in mesh.groups if g.index not in groups), ids=each(mesh.ids),
+                   keys=each(mesh.keys), positions=each(mesh.positions), normals=each(mesh.normals),
+                   uvs=each(mesh.uvs), skins=each(mesh.skins), heaviest=each(mesh.heaviest),
+                   triangles=tuple(tuple(new[v] for v in mesh.triangles[t]) for t in tris),
+                   corners=tuple(mesh.corners[t] for t in tris) if mesh.corners else ()), [base[k] for k in kept]
+
+
 def _base(mesh: _Mesh, spec: MeshSpec, base_dir: Path | None) -> tuple[list[Vec], GltfEdit | None]:
     """The positions the ops act on: vanilla's, the glTF's where it moves
     them (its file resolved against ``base_dir`` and checked)."""
@@ -5199,6 +5248,7 @@ def _prepare(characters_xbr: bytes, body: str, spec: MeshSpec, base_dir: Path | 
     else:
         mesh = _read_mesh(characters_xbr, body)
         base, edit = _base(mesh, spec, base_dir)
+    mesh, base = _drop(mesh, spec, base)
     count = len(mesh.ids)
     mesh, base, smooth = _subdivide(mesh, spec, base)
     before = len(mesh.ids)
@@ -5547,14 +5597,21 @@ def plan(characters_xbr: bytes, body: str, spec: MeshSpec, base_dir: Path | None
                  and _dot(_face(mesh.positions, t), _face(after, t)) < 0)
     largest = max((_norm(_sub(after[k], mesh.positions[k])) for k in moved), default=0.0)
     added = len(mesh.ids) - vanilla_count
+    dropped = ()
+    if spec.drop:   # the groups the drop took off (the LOD's last: _drop)
+        held = {g.index for g in mesh.groups}
+        stored = len(imported.asset.lods[0].groups) if imported is not None else \
+            sum(1 for g in mesh_groups(characters_xbr, body) if g.lod == 0)
+        dropped = tuple(g for g in range(stored) if g not in held)
     every = ()
-    whole = bool(added) or imported is not None or bool(remapped) or bool(bound)
+    whole = bool(added) or imported is not None or bool(remapped) or bool(bound) or bool(dropped)
     if whole:
         every = tuple(by_index.get(k) or (mesh.normals[k] if k < vanilla_count else
                                           _f32(_unit(mesh.normals[k]) or (0.0, 0.0, 1.0))) for k in range(len(mesh.ids)))
     return MeshPlan(mesh.body, len(mesh.positions), at, normals, largest, len(spec.ops), placed, turned,
                     det_min, edit, tucked, added, mesh if whole else None, tuple(after) if whole else (), every,
-                    imported, rounded, remapped, bound, repaint, {mesh.ids[k]: d for k, d in sorted(late.items())})
+                    imported, rounded, remapped, bound, repaint, {mesh.ids[k]: d for k, d in sorted(late.items())},
+                    dropped)
 
 
 def _vanilla_here(before: bytes, plan: MeshPlan, vanilla_xbr: bytes) -> None:
@@ -5611,6 +5668,7 @@ def assemble(characters: bytes, plan: MeshPlan, vanilla_xbr: bytes):
     for t in mesh.triangles:
         g = mesh.ids[t[0]][0]
         groups[g].triangles.append(tuple(local[v] for v in t))
+    asset.lods[0].groups = [grp for g, grp in groups.items() if g not in plan.dropped]   # the drop's (Step 4.3)
     return asset
 
 

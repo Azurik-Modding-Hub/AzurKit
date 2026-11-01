@@ -1,11 +1,11 @@
 {
  "plan": [
   {
-   "answer": "1292732f9e2dae1b0f3204d8c41505125fd5d1c9d7e89b356bdd4a9fb6d38ad0",
+   "answer": "1324f2d85f794c84ff3ce28109f34bc6faa909492693444470d4b1806457b094",
    "blob": {
-    "path": "variants/booblord/shipped/usa-6ef66938464b.azkp",
-    "sha256": "6ef66938464b8cf28b88897416c2d7d8dcdf2edf9a34b58c4e8548be5d967735",
-    "size": 6591397
+    "path": "variants/booblord/shipped/usa-ef28260f20ee.azkp",
+    "sha256": "ef28260f20ee403e0d68ed30e10227c6d0f03a56632a58dad4c3fda72605aa98",
+    "size": 6590224
    },
    "entries": {
     "booblord": {
@@ -20,7 +20,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "folded": "0x1.0000000000000p+0",
@@ -110,11 +110,11 @@
    ]
   },
   {
-   "answer": "70c854a555b5a91d8e7e3f6475e875f39e0bafca0712654627951c45ac1430b7",
+   "answer": "290cf6c1b32cbf567a5cd29b5482348f50f73fcf6a712ee8ef685e1609e8e271",
    "blob": {
-    "path": "variants/booblord/shipped/europe-17d629747530.azkp",
-    "sha256": "17d629747530d2092909f1a8bdba74a4659c4134fb37564b018f48bcc64ec8fd",
-    "size": 6586052
+    "path": "variants/booblord/shipped/europe-c92a8aab9741.azkp",
+    "sha256": "c92a8aab97415015b067a4e2df2ff3fb2935d0e9a06bd589f9b284b5c65eb660",
+    "size": 6584879
    },
    "entries": {
     "booblord": {
@@ -129,7 +129,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "folded": "0x1.0000000000000p+0",
@@ -330,7 +330,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {
@@ -353,7 +353,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {
@@ -376,7 +376,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {
@@ -399,7 +399,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {
@@ -1854,7 +1854,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {
@@ -1877,7 +1877,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {
@@ -1900,7 +1900,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {
@@ -1923,7 +1923,7 @@
      "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
      "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
      "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
-     "variants/booblord/variant.json": "c6710ebb74e7514d63eacc659263b24dc67fbd280d9b47ca038314817f347e8c"
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
     }
    },
    "recipe": {

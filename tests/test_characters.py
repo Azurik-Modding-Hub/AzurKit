@@ -485,6 +485,36 @@ def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_th
         characters.variant({"species": "beamlord", "mode": {"own": "garret4", "garret4": "own"}[own]}, None)
 
 
+def test_a_mesh_drop_takes_its_bones_last_groups_off_lod_0_and_refuses_any_other_by_name(usa_iso):
+    """``mesh.drop`` (Step 4.3: booblord's vase) takes the LOD-0 vertices of
+    its bones' subtrees off a body with every triangle that uses one:
+    town_female_2's vase, her last group (5) on ``vase_joint``, 202 vertices
+    and 231 triangles, while every other group's vertices and triangles and
+    every bone stay as they were. A bone the body lacks, one whose vertices
+    share a group with others (her head and hair) and one no vertex weighs most on
+    are refused by name, nothing written."""
+    from azurkit.tools.characters import mesh_edit
+
+    with iso.Reader(usa_iso) as r:
+        data = r.read(CHARACTERS)
+    body = "townspeople/female_2"
+    before = bc.read_asset(data, body)
+    plan = mesh_edit.plan(data, body, mesh_edit.MeshSpec(drop=("vase_joint",)))
+    written = bytearray(data)
+    mesh_edit.write(written, plan, data)
+    after = bc.read_asset(bytes(written), body)
+    assert plan.dropped == (5,) and (len(before.lods[0].groups[5].vertices), len(before.lods[0].groups[5].triangles)) \
+        == (202, 231)
+    assert [(g.vertices, g.triangles) for g in after.lods[0].groups] == [
+        (g.vertices, g.triangles) for g in before.lods[0].groups[:5]]
+    assert after.bone_names == before.bone_names
+    for drop, why in (("nope", "townspeople/female_2 has no bone 'nope'"),
+                      ("head", "townspeople/female_2 group 0 holds vertices off head too: a drop takes whole groups"),
+                      ("joint77", "no vertex of townspeople/female_2 weighs most on joint77")):
+        with pytest.raises(ValueError, match=f"^mesh\\.drop: {re.escape(why)}"):
+            mesh_edit.plan(data, body, mesh_edit.MeshSpec(drop=(drop,)))
+
+
 # --- Azurik-Custom-Content's Install and Update (Step 4.3d) ----------------------------------------------------
 
 

@@ -8836,7 +8836,8 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     at = placing.result()[0] if placing is not None else None
     baking, specs = None, variant.textures
     if variant.texture_scale != 1:   # Step 2.177: every row at that many times its size
-        specs = paint.scaled(stored, body, specs, variant.texture_scale)
+        specs = paint.scaled(stored, body, specs, variant.texture_scale,
+                             reshaped.dropped if reshaped is not None else ())
     if specs or (reshaped is not None and reshaped.repaint):   # W30's bakes, in children while W29 rigs
         baking = pool.later(paint.bakes, stored, body, reshaped, specs)
     if variant.jiggle is not None:   # W29: the jiggle bones, before any reader

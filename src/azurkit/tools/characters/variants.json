@@ -66,7 +66,7 @@
  },
  "booblord": {
   "title": "Booblord",
-  "notes": "A townswoman who carries Garret's Axion staff and swings his moves with it, crying out in her own voice (D939); her own spins are a weapon to pick (Booblord spin), spun in her T-pose: fast, short, light hits all round her, moving with the stick while she spins; on B she plants a hand on the floor and swings her whole body round it, a wider, slower sweep; holding attack chains her spins, a jump carries her spin into the air, and she lands straight back to walking; her v4 body, sculpted over thirteen rounds and set by the owner's own sliders: an hourglass figure, her bust full, round and soft, spilling over a sash cut diagonally across her right, a squishy bubble butt on wide hips, a thin waist, smooth blue skin, long black hair in a ponytail that hangs against her back and swings on its own bones, and a necklace whose gem hangs into her cleavage; her bust, butt and hair on live springs (D332, D370, D376, D403, D512, D513, D529, D617, D621, D627, D631; D377, D378, D380, D381, D383); her own voice in the owner's sounds: a cry when hit (two takes), a roll, a hup as she jumps, a thud at a long fall's landing, a grunt as she hoists herself up, every spin of hers whooshing (her attack cries with any other weapon) and her death silent (D386, D405-D408, D699, D705); standing, her weight on one leg and a hand on her hip, now and then she sits cross-legged on the ground, bounces her bust in her hands looking down at it, fixes her sash's edge and presses it flat against her breast, looks back at her behind with a squeeze or stretches, never the same twice in a row (D553, D580, D660, D684); she walks a line with her hips swaying and runs with them swinging, her arms wide of her forms and her feet keeping pace with the ground, lands light on the balls of her feet (D769), whips her ponytail round in a spin in her casts and wins with a hand on her hip and a toss of her ponytail (D487, D534, D535, D440).",
+  "notes": "A townswoman who carries Garret's Axion staff and swings his moves with it, crying out in her own voice (D939); her own spins are a weapon to pick (Booblord spin), spun in her T-pose: fast, short, light hits all round her, moving with the stick while she spins; on B she plants a hand on the floor and swings her whole body round it, a wider, slower sweep; holding attack chains her spins, a jump carries her spin into the air, and she lands straight back to walking; her v4 body, sculpted over thirteen rounds and set by the owner's own sliders: an hourglass figure, her bust full, round and soft, spilling over a sash cut diagonally across her right, a squishy bubble butt on wide hips, a thin waist, smooth blue skin, long black hair in a ponytail that hangs against her back and swings on its own bones, and a necklace whose gem hangs into her cleavage; her bust, butt and hair on live springs (D332, D370, D376, D403, D512, D513, D529, D617, D621, D627, D631; D377, D378, D380, D381, D383); her own voice in the owner's sounds: a cry when hit (two takes), a roll, a hup as she jumps, a thud at a long fall's landing, a grunt as she hoists herself up, every spin of hers whooshing (her attack cries with any other weapon) and her death silent (D386, D405-D408, D699, D705); standing, her weight on one leg and a hand on her hip, now and then she sits cross-legged on the ground, bounces her bust in her hands looking down at it, fixes her sash's edge and presses it flat against her breast, looks back at her behind with a squeeze or stretches, never the same twice in a row (D553, D580, D660, D684); she walks a line with her hips swaying and runs with them swinging, her arms wide of her forms and her feet keeping pace with the ground, lands light on the balls of her feet (D769), whips her ponytail round in a spin in her casts and wins with a hand on her hip and a toss of her ponytail (D487, D534, D535, D440); her base's vase, which none of her clips draws, is gone from her mesh.",
   "base": "town_female_2",
   "mode": "own",
   "size": "own",
@@ -146,7 +146,8 @@
   "wavs": {"hurt": ["hit.wav", "attack1.wav"], "roll": ["roll.wav"], "jump": ["hup.wav"], "fall": ["fall.wav"],
            "climb": ["grunt.wav"]},
   "mesh": {
-   "keep": ["loincloth_front_1", "loincloth_back_1", "vase_joint"],
+   "keep": ["loincloth_front_1", "loincloth_back_1"],
+   "drop": ["vase_joint"],
    "ops": [
     {"op": "subdivide", "name": "bust fine", "bone": "spine_2", "offset": [0.0, 0.17, 0.035],
      "radius": [0.3, 0.16, 0.24], "edge": 0.013, "groups": [1, 4]},
@@ -954,7 +955,7 @@
              "detail": 0.0, "lift": 1.04, "bone": "spine_2", "offset": [0.1, 0.16, 0.04],
              "radius": [0.22, 0.26, 0.24], "mirror": true, "z": [1.215, 1.62], "groups": [1],
              "feather": 0.03},
-            {"op": "shade", "ao": 0.7, "reach": 0.12, "light": 0.22, "warm": 0.12, "skip": [5], "bone": "spine_2",
+            {"op": "shade", "ao": 0.7, "reach": 0.12, "light": 0.22, "warm": 0.12, "bone": "spine_2",
              "offset": [0.1, 0.16, 0.04], "radius": [0.22, 0.26, 0.24], "mirror": true, "z": [1.215, 1.62],
              "groups": [1], "feather": 0.03},
             {"op": "metal", "hue": [30, 75], "sat": 0.1, "value": 0.35, "clean": 0.6, "contrast": 1.35, "gain": 1.15,
@@ -975,7 +976,7 @@
  },
  "booblord_high": {
   "title": "Booblord High",
-  "notes": "Booblord's high-detail variant for 128 MiB builds (D593, D664): her recipe as it is, every texture of her body at twice its width and height (D672, D680): her skin, face, hair and armbands baked anew with her paint at the new size, her top, sash and vase the game's own textures sampled at it (Step 2.177); her bust, glutes and thighs subdivided once more where she curves and squishes, booblord's finest edges halved, each region ringed by a feather at the edge between, her bust's kept 20 mm from her top's open edges, so her skin can't rise through its lip (Step 2.177b, D691: round 2's pick A with its judge's F1), its normals weighed by each face's angle, so her top's crack slivers leave no dark speck (Step 2.177c, D695), each point's by the nearer of that and its area weights to its ring, so the crack's own notch keeps its shade (Step 2.188, D727); her ponytail's rings doubled, so its bend shows no corners, her sash 6 mm thick with rims on its open edges, and her face's detail painted into her face texture at its own scale, her face's shape untouched (Step 2.177d, D698, D721: round 3's pick C with its judge's F1); her shape, moves, springs and sounds are booblord's, and follow them, her jiggle bones where booblord's build puts them.",
+  "notes": "Booblord's high-detail variant for 128 MiB builds (D593, D664): her recipe as it is, every texture of her body at twice its width and height (D672, D680): her skin, face, hair and armbands baked anew with her paint at the new size, her top and sash the game's own textures sampled at it (Step 2.177); her bust, glutes and thighs subdivided once more where she curves and squishes, booblord's finest edges halved, each region ringed by a feather at the edge between, her bust's kept 20 mm from her top's open edges, so her skin can't rise through its lip (Step 2.177b, D691: round 2's pick A with its judge's F1), its normals weighed by each face's angle, so her top's crack slivers leave no dark speck (Step 2.177c, D695), each point's by the nearer of that and its area weights to its ring, so the crack's own notch keeps its shade (Step 2.188, D727); her ponytail's rings doubled, so its bend shows no corners, her sash 6 mm thick with rims on its open edges, and her face's detail painted into her face texture at its own scale, her face's shape untouched (Step 2.177d, D698, D721: round 3's pick C with its judge's F1); her shape, moves, springs and sounds are booblord's, and follow them, her jiggle bones where booblord's build puts them.",
   "from": "booblord",
   "texture_scale": 2,
   "mesh_ops": [
@@ -1001,7 +1002,7 @@
     {"row": 1, "ops": [
       {"op": "sharpen", "amount": 0.5, "texels": 1.0, "bone": "head", "offset": [0.0, 0.067, 0.026],
        "radius": [0.085, 0.07, 0.115], "groups": [1, 2], "only": ["head"], "feather": 0.01},
-      {"op": "shade", "ao": 0.4, "reach": 0.025, "light": 0.25, "warm": 0.06, "skip": [5], "bone": "head",
+      {"op": "shade", "ao": 0.4, "reach": 0.025, "light": 0.25, "warm": 0.06, "bone": "head",
        "offset": [0.0, 0.067, 0.026], "radius": [0.085, 0.07, 0.115], "groups": [1, 2], "only": ["head"],
        "feather": 0.01}
     ]}

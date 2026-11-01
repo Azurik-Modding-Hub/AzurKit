@@ -692,18 +692,21 @@ def bakes(vanilla_xbr: bytes, body: str, plan, specs: tuple[TextureSpec, ...]) -
     return out
 
 
-def scaled(vanilla_xbr: bytes, body: str, specs: tuple[TextureSpec, ...], scale: int) -> tuple[TextureSpec, ...]:
+def scaled(vanilla_xbr: bytes, body: str, specs: tuple[TextureSpec, ...], scale: int,
+           dropped: tuple[int, ...] = ()) -> tuple[TextureSpec, ...]:
     """``specs`` with every material row of ``body`` at ``scale`` times its
     width and height (a recipe's ``texture_scale``, Step 2.177, D680): each
     spec's row at its size times it, then each other row from its vanilla
     texture at that texture's size times it in its format, with no ops (the
-    game's look sampled anew through the mesh).  :class:`ValueError` names
-    a row whose vanilla texture isn't square or whose size passes 4,096."""
+    game's look sampled anew through the mesh), but a row only ``dropped``
+    groups drew (a mesh's drop, Step 4.3: no triangle left to sample it
+    through).  :class:`ValueError` names a row whose vanilla texture isn't
+    square or whose size passes 4,096."""
     out = [replace(s, size=s.size * scale) for s in specs]
     vtoc, painted = parse_toc(vanilla_xbr), {s.row for s in specs}
     names = {v: k for k, v in textures.FORMATS.items()}
-    for row, (gshd, _) in sorted(_rows(vanilla_xbr, body).items()):
-        if row in painted:
+    for row, (gshd, groups) in sorted(_rows(vanilla_xbr, body).items()):
+        if row in painted or set(groups) <= set(dropped):
             continue
         old = struct.unpack_from("<I", vanilla_xbr, render.material_row(vanilla_xbr, vtoc, gshd, row) + 100)[0]
         t = vtoc[old]
