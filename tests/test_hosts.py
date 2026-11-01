@@ -1204,6 +1204,39 @@ def test_a_dress_beside_a_build_ahead_stops_that_build_and_answers_plain(tmp_pat
         server.close()
 
 
+def test_randomize_ticked_with_no_seed_in_the_apps_page_stops_the_build_ahead(browser, tmp_path, monkeypatch, usa_iso):
+    """A change that leaves the page nothing to build (review D2 of Step
+    4.3r4g: Randomize with no seed; no image, a refused body and an opened
+    build return the same way) drops the build ahead at its next record, not
+    at its end, and nothing takes its slot."""
+    _home(monkeypatch, tmp_path / "home")
+    server = app.serve(_page.WEB)
+
+    def build(job) -> None:
+        while True:
+            job.progress(progress_record("dress"))
+            time.sleep(0.01)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.fill(page, "iso-path", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla")
+        _until(lambda: server.slots.job("build") is not None and server.slots.job("build").done.is_set())
+        assert server.slots.offer("build", server.slots.gen, "ahead", build)
+        job = server.slots.job("build")
+        page.evaluate("""() => {
+            const on = document.getElementById("rando-on");
+            document.getElementById("rando-seed").value = "";
+            on.checked = true;
+            on.dispatchEvent(new Event("change", { bubbles: true }));
+        }""")
+        assert job.done.wait(60) and isinstance(job.error, engine.Cancelled) and server.slots.job("build") is job
+        page.close()
+    finally:
+        server.close()
+
+
 def test_a_kill_of_a_quiet_job_cancels_it_and_runs_the_call_the_player_waits_on_again():
     """A job ahead that reaches no record ends the engine's process
     (``Spawned.cancel``): that job, no click following it, is cancelled, and

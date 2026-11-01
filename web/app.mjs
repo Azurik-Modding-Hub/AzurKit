@@ -102,14 +102,16 @@ function setup() {
 // The app's work ahead (D1007): once the setup settles, a typed seed planned with its first tracker view, and the
 // setup built, before their click (api/prefetch, api/speculate), with the bodies Track and Build send; each carries
 // state.gen, bumped by every change (from the clock: a reloaded page's are newer), so the engine drops an older one at
-// its next record. The site's is its second worker's, not this one's.
+// its next record, and a setup with nothing to build yet drops it too (the Characters tab offers again once it answers).
+// The site's is its second worker's, not this one's.
 function ahead() {
   if (!state.app || !state.ready || state.building || state.saving) return;
   const seed = R("seed").value.trim(), share = state.rando.view?.share, t = state.tracker?.state;
   state.engine.prefetch(state.gen, seed && share ? { seed, share } : null, { spoiler: t?.spoiler, gems: t?.gems });
   const randomizer = randoRecipe();
-  if (!state.file || state.opened || state.build || (randomizer && !randomizer.seed)) return;
-  if (state.characters?.refused() || state.characters?.waiting()) return;   // it offers again once it has answered
+  if (state.build) return;
+  if (!state.file || state.opened || (randomizer && !randomizer.seed) || state.characters?.refused()
+      || state.characters?.waiting()) return void state.engine.speculate(state.gen, null);
   state.engine.speculate(state.gen, state.file, chosen(), state.xbr, randomizer,
                          state.characters?.character() ?? null);
 }
