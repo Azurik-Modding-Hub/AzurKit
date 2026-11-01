@@ -9,13 +9,16 @@
 "A15/app" = 3.7
 "S13/lag" = 4.8
 "S14/chromium" = 6.8
+"S14/firefox" = 9.1
 "S14/lag" = 10.2
 "S14/webkit" = 8.0
 "S23/chromium" = 6.1
+"S23/firefox" = 6.8
 "S23/lag" = 14.4
 "S23/webkit" = 9.8
 "S24/capped" = 10.8
 "S24/chromium" = 7.5
+"S24/firefox" = 7.8
 "S24/lag" = 15.8
 "S24/webkit" = 10.8
 
