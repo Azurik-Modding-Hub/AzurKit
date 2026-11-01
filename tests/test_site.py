@@ -1431,7 +1431,7 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
             with open(saved, "rb") as f:
                 got = (download.suggested_filename, saved.stat().st_size, hashlib.file_digest(f, "sha256").hexdigest())
             made, _ = sdk.image({"iso": str(usa_iso), "packs": {name: {} for name in mods.PACKS}})
-            assert got == (f"{usa_iso.stem} (AzurKit).iso", made.size, made.sha256())
+            assert got == (_page.saved_name(browser, f"{usa_iso.stem} (AzurKit).iso"), made.size, made.sha256())
             _page.tick(page, [])
             page.set_input_files("#iso", str(saved))
             opened = _page.until(page, "() => azurkit.opened")
@@ -1509,7 +1509,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         with page.expect_download(timeout=60_000) as caught:
             _page.click(page, "spoiler-save")
         assert (caught.value.suggested_filename, Path(caught.value.path()).read_text(encoding="utf-8")) == (
-            f"{usa_iso.stem} (AzurKit) spoiler.txt", report["spoiler"])
+            _page.saved_name(browser, f"{usa_iso.stem} (AzurKit) spoiler.txt"), report["spoiler"])
         caught.value.delete()
 
         _page.until(page, "() => azurkit.ready", 120)   # the site's engine, replaced after the build

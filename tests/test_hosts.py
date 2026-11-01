@@ -60,6 +60,9 @@ NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
 OURS = {"azurkit", "__main__", "web", freeze.ICON.name}
 # The bootloader is under PyInstaller's Bootloader Exception; the loader and runtime hooks it bundles are Apache-2.0.
 PYINSTALLER_RUNTIME = ("pyimod", "pyiboot", "pyi_rth_", "_pyi_rth_utils")
+# The system's libraries numpy's Linux wheel links (read from its ELF files) and PyInstaller's exclude list keeps.
+LINKED = {"libstdc++.so.6": "GCC's C++ runtime (its Runtime Library Exception)",
+          "libgcc_s.so.1": "GCC's runtime (its Runtime Library Exception)", "libz.so.1": "zlib (Zlib)"}
 WINDOW_REFUSED = f"azurkit: no window while {app.NO_WINDOW} is set (the tests' mode)\n"
 
 
@@ -126,6 +129,11 @@ def _owners(app_path: Path) -> dict[str, str]:
         elif name.endswith(".dist-info"):   # a distribution's metadata (numpy's, which PyInstaller's hook keeps)
             dist = name.removesuffix(".dist-info").rsplit("-", 1)[0]
             owners[name] = f"{dist} ({_licence(dist)})"
+        elif name.endswith(".libs"):   # a wheel's own libraries (numpy's on Linux and Windows), under no module's name
+            dist = name.removesuffix(".libs")
+            owners[name] = f"{dist} ({_licence(dist)})"
+        elif name in LINKED:
+            owners[name] = LINKED[name]
         else:
             owners[name] = ", ".join(f"{d} ({_licence(d)})" for d in sorted(set(dists.get(name, ())))) or "unknown"
     return owners
@@ -223,8 +231,9 @@ class Sandbox:
 def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, tmp_path, verify_argv, verdicts,
                                                                     monkeypatch):
     """The app holds no Unicorn, zig, capstone or GPL code (each name in it
-    is Python's, PyInstaller's runtime, AzurKit's or a distribution's whose
-    licence isn't GPL; the runtime's readline is editline). On macOS its
+    is Python's, PyInstaller's runtime, AzurKit's, a distribution's whose
+    licence isn't GPL or a library :data:`LINKED` names; the runtime's
+    readline is editline). On macOS its
     icon is AzurKit's: the .icns its Info.plist names is ``freeze.ICON``,
     byte for byte. Run read-only, with a fresh HOME and TMPDIR from an empty
     folder and the tests' no-window mode, its window path exits 1 at once,
@@ -2258,7 +2267,7 @@ def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_t
     ``api/storage`` lists what the app keeps by name, and Clear removes those
     entries and nothing else: an image in the user data folder, beside the
     config, or in an entry's folder stays, and so does the folder (SEC-10)."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     files = {"gamedata/config.xbr": fill("a", 64), "movies/Credits.bik": fill("c", 32)}   # USA's names, ours bytes
     vanilla, built = tmp_path / "vanilla.iso", tmp_path / "built.iso"
     vanilla.write_bytes(image(files))
@@ -2335,7 +2344,7 @@ def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser
     the seed and share string its manifest holds, nothing retyped; the
     Randomizer tab's Tracker shows it. A build with no randomizer greys the
     button with the line that says why."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")
     files = {"gamedata/config.xbr": fill("a", 64)}   # USA's name, ours bytes
     vanilla = tmp_path / "vanilla.iso"
@@ -2389,7 +2398,7 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
     in their own stages, a percent never lower than the one before it in a
     stage (the warm-up counts on a seed plan's scale), so the bar moves and
     never goes back (D982, D1008; Step 4.7c)."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(loader, "_KEPT", {})   # nothing in this process has read the logic yet
     plan = record_goldens.recorded(record_goldens.PLANS)["default"]["plan"]
     server, replies, seen, planned, seeded = app.serve(_page.WEB), [], [], [], []
@@ -2503,7 +2512,7 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
     tab's line naming it; once the image's path is typed, Build applies it
     after the packs, its config.xbr CPython's of the same recipe."""
     from tests.test_site import DATA_CELL, DATA_EDIT
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     hp = next(c for s in sdk.data({"what": "view", "kind": "player"})["sections"] for b in s["blocks"]
               for _, cells in b["rows"] for c in cells if c and c.get("name") == "initial hp")
     _, col, row = hp["ref"]

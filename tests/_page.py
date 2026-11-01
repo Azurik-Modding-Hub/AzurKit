@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import http.server
+import sys
 import time
 from pathlib import Path
 
@@ -24,6 +25,12 @@ class Static(http.server.SimpleHTTPRequestHandler):
 
     def guess_type(self, path) -> str:
         return content_type(str(path))
+
+
+def saved_name(browser, name: str) -> str:
+    """A download named ``name``'s ``suggested_filename``: WebKit on Linux gives each space in it as ``_``
+    (run 41328160086's ``usa_(AzurKit)_spoiler.txt``); the page names it the same in every browser."""
+    return name.replace(" ", "_") if sys.platform == "linux" and browser.browser_type.name == "webkit" else name
 
 
 def until(page, js: str, timeout: float = 600):
