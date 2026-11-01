@@ -192,6 +192,36 @@ def test_a_builds_image_gives_the_md5_its_layout_hashed_only_for_the_bytes_hashe
     assert told.md5("b.bin", BASE["b.bin"]) == hashlib.md5(BASE["b.bin"]).hexdigest()
 
 
+def test_a_host_hashes_a_builds_changed_files_and_blobs_and_gets_images_bytes(tmp_path):
+    """``edits.staged`` hands a host each changed file, its bytes the ones
+    the build composed, and each change's bytes the root files hold by their
+    sha256, and with the host's sha256s it makes :func:`image`'s image and
+    manifest, byte for byte; a sha256 it wasn't given is refused by name
+    (R3-0's staged())."""
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(BASE))
+    stamp = gate.Stamp(gate.USA, src, src.stat().st_size, src.stat().st_mtime_ns, False)
+    long = b"L" * (edits.INLINE + 1)
+    layers = [_layer("a", _change("a.bin", 0, b"AAAA", "a 1")), _layer("b", _change("a.bin", 8, long, "b 1"))]
+    whole, manifest = edits.image(stamp, layers)
+    composed = b"AAAA" + bytes(4) + long + bytes(23)
+
+    def drive(answer) -> tuple[iso.Image, edits.Manifest]:
+        run = edits.staged(stamp, layers)
+        jobs = next(run)
+        assert jobs == {"file:a.bin": composed, "blob:0": long}
+        assert run.send(None) is None
+        with pytest.raises(StopIteration) as done:
+            run.send(answer(jobs))
+        return done.value.value
+
+    made, told = drive(lambda jobs: {key: _sha256(data) for key, data in jobs.items()})
+    assert made.sha256() == whole.sha256() and told.to_json() == manifest.to_json()
+    assert told.result["a.bin"] == _sha256(composed) == manifest.result["a.bin"]
+    with pytest.raises(ValueError, match="^blob:0: the host gave no sha256 of it$"):
+        drive(lambda jobs: {"file:a.bin": "0" * 64})
+
+
 def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(tmp_path, monkeypatch):
     """Replace files (``edits.files``): a file the player picked stands in
     whole for the image's own, at any size, in one layer after every other.

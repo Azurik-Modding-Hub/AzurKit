@@ -58,20 +58,25 @@ class Manifest:
         return {"base": {"kind": "vanilla", "release": self.release.name, "iso_sha256": self.release.iso_sha256},
                 "layers": [{"id": la.id, "tool": la.tool, "kind": la.kind, "recipe": la.recipe} for la in self.layers]}
 
-    def to_json(self, blobs: dict[str, bytes] | None = None) -> dict:
+    def to_json(self, blobs: dict[str, bytes] | None = None, shas: Mapping[int, str] | None = None) -> dict:
         """The manifest as JSON. With ``blobs``, a change's bytes past
         :data:`INLINE` are ``{"sha256"}`` there, each kept in ``blobs``
         once; else every change's are hex. A file Replace files put is
-        ``{"sha256"}`` either way, in no blob (the module's docstring)."""
+        ``{"sha256"}`` either way, in no blob (the module's docstring).
+        ``shas`` (``{id(bytes): sha256}``) holds a change's sha256 a host
+        hashed already (:func:`staged`)."""
         recipe = self.recipe()
+
+        def sha(data: bytes) -> str:
+            return (shas or {}).get(id(data)) or _sha256(data)
 
         def after(c, tool: str) -> str | dict:
             if c.whole and tool == "files":   # edits.files.TOOL (that module imports this one)
-                return {"sha256": _sha256(c.after)}
+                return {"sha256": sha(c.after)}
             if blobs is None or len(c.after) <= INLINE:
                 return c.after.hex()
-            blobs.setdefault(sha := _sha256(c.after), bytes(c.after))
-            return {"sha256": sha}
+            blobs.setdefault(named := sha(c.after), bytes(c.after))
+            return {"sha256": named}
         return {
             "format": FORMAT,
             "schema_version": SCHEMA_VERSION,
@@ -91,11 +96,11 @@ class Manifest:
         }
 
 
-def root_files(made: Manifest) -> dict[str, bytes]:
+def root_files(made: Manifest, shas: Mapping[int, str] | None = None) -> dict[str, bytes]:
     """``{"azurkit.json": …, "azurkit.bin": …}``: the manifest's two root
-    files (the module's docstring)."""
+    files (the module's docstring); ``shas`` as :meth:`Manifest.to_json`'s."""
     blobs: dict[str, bytes] = {}
-    record = made.to_json(blobs)
+    record = made.to_json(blobs, shas)
     at, index = 0, {}
     for sha, data in blobs.items():
         index[sha] = [at, len(data)]
@@ -134,14 +139,37 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     ``progress(done, total)`` hears each file composed and each changed
     file hashed (on ``map``'s threads), and an exception it raises stops
     the build, with nothing written."""
+    run = staged(stamp, layers, base, root=root, judge=judge, map=map, progress=progress, host=False)
+    try:
+        next(run)
+    except StopIteration as done:
+        return done.value
+    raise AssertionError("a build hashed here yields nothing")
+
+
+def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] | None = None, *,
+           root: bool = True, judge: Callable[[iso.Image, Manifest], Mapping] | None = None, map: Callable = map,
+           progress: Callable[[int, int], object] | None = None, host: bool = True):
+    """:func:`image` as a generator, for a host that hashes the changed
+    files' sha256 itself (the site: the browser's own, off its engine's
+    thread, R2.6). It yields ``{key: bytes}``: each changed file as
+    ``file:<path>`` and each change's bytes the root files hold by their
+    sha256 as ``blob:<n>``. It is resumed with ``send(None)`` while the host
+    hashes them (the files' md5s and the image's layout run meanwhile),
+    yields ``None``, is sent ``{key: sha256}`` and returns :func:`image`'s
+    ``(image, manifest)``, the same bytes (its ``StopIteration``'s value). A
+    key missing from the shas is a ``ValueError`` naming it. ``host`` false:
+    hashed here, as :func:`image` does, yielding nothing."""
     names = sorted({c.file for la in layers for c in (*la.changes, *la.claims)})
     count = itertools.count(len(names) + 1)
 
-    def hashed(data: bytes) -> tuple[str, str]:   # one record a file, after the files composed
-        out = _hashes(data)
-        if progress is not None:
-            progress(next(count), len(names) + len(changed))
-        return out
+    def heard(fn: Callable) -> Callable:   # one record a file, after the files composed
+        def hashed(data: bytes):
+            out = fn(data)
+            if progress is not None:
+                progress(next(count), len(names) + len(changed))
+            return out
+        return hashed
     base = dict(base or {})
     with iso.Reader(stamp.path) as r:
         base |= {name: r.read(name) for name in names if name not in base}
@@ -154,8 +182,14 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
             if (data := files.pop(name)) != base[name]:
                 changed[name] = bytes(data)
             del data
-        hashes = dict(zip(changed, map(hashed, changed.values())))
-        md5s = {name: md5 for name, (_, md5) in hashes.items()}
+        if host:
+            payloads = list({id(c.after): c.after for la in layers for c in la.changes if len(c.after) > INLINE}.values())
+            yield {f"file:{name}": data for name, data in changed.items()} | {
+                f"blob:{n}": data for n, data in enumerate(payloads)}
+            md5s = dict(zip(changed, map(heard(filelist.md5), changed.values())))
+        else:
+            hashes = dict(zip(changed, map(heard(_hashes), changed.values())))
+            md5s = {name: md5 for name, (_, md5) in hashes.items()}
         made = iso.read(stamp.path, changed, md5s=md5s)
         listing = {}
         if changed:
@@ -163,7 +197,16 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
                 listing["filelist.txt"] = r.read("filelist.txt")
             except FileNotFoundError:
                 pass
-    result = {name: sha for name, (sha, _) in hashes.items()}
+    if host:
+        shas = yield None
+        keys = [f"file:{name}" for name in changed] + [f"blob:{n}" for n in range(len(payloads))]
+        if lost := [key for key in keys if not isinstance((shas or {}).get(key), str)]:
+            raise ValueError(f"{lost[0]}: the host gave no sha256 of it")
+        result = {name: shas[f"file:{name}"] for name in changed}
+        by_id = {id(data): shas[f"blob:{n}"] for n, data in enumerate(payloads)}
+    else:
+        by_id = None
+        result = {name: sha for name, (sha, _) in hashes.items()}
     if listing:
         with iso.Reader(made) as r:
             if (new := r.read("filelist.txt")) != listing["filelist.txt"]:
@@ -172,7 +215,7 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     if judge is not None:
         manifest = replace(manifest, verdicts=dict(judge(made, manifest)))
     if root and layers:
-        made = iso.read(stamp.path, changed, add=root_files(manifest), md5s=md5s)
+        made = iso.read(stamp.path, changed, add=root_files(manifest, by_id), md5s=md5s)
     held = (stamp.size, stamp.mtime_ns, stamp.ctime_ns)[:3 if stamp.ctime_ns else 2]
     if made.origin[:len(held)] != held:   # the stamp vouches for the image as it was checked
         raise ValueError(f"{stamp.path}: it changed after it was checked (D27); choose it again")
