@@ -595,7 +595,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     last (a dress's line), each percent once.
     The app's engine process gives it `azurkit.app.procpool` (Step 4.3i):
     Modkit's split over spawned children, `min(16, the CPUs,
-    $AZURKIT_CORES)` a call, kept for the next, through pipes alone; the
+    $AZURKIT_CORES)` a call, kept for the next, but one that has peaked
+    past `RETIRE` (256 MiB; not on Windows, which has no peak to read), which
+    leaves after its part so its heap goes back to the OS, through pipes alone; the
     results are each item's in order, so no byte depends on it
     (`test_characters.py` builds G3's cases under it).
   - A recipe's `character` (`tools.characters.normalize`): `species` and

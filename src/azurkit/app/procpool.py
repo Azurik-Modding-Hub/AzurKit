@@ -9,7 +9,8 @@ each to the part with the least, a part a spawned child. The results are the
 function's on each item in order, whichever child ran it, so what a build
 writes doesn't depend on the split; a part whose child fails runs here, in
 order, raising here what the function raises. The children stay for the next
-call (at most :func:`workers` idle), end with their parent (they watch it),
+call (at most :func:`workers` idle; one that grew past :data:`RETIRE` leaves
+after its part), end with their parent (they watch it),
 and pass their work through pipes alone: no semaphore, so a killed engine
 leaves none behind."""
 
@@ -18,6 +19,7 @@ from __future__ import annotations
 import multiprocessing
 import multiprocessing.connection
 import os
+import sys
 import threading
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -26,6 +28,12 @@ MOST = 16
 """The most children a call splits over (Modkit's)."""
 CORES = "AZURKIT_CORES"
 """A positive whole number: the most cores AzurKit's parallel work takes (the capped profile's, D984)."""
+RETIRE = 256 << 20
+"""A child whose resident size has peaked past this many bytes leaves once
+it has sent a part's results, so the heap that part grew goes back to the
+OS (a collection or the allocator's trim returns none of it) and the next
+call takes a fresh child: booblord's jiggle keying leaves each of 4
+children holding 250-512 MB through the rest of her dress."""
 
 _CONTEXT = multiprocessing.get_context("spawn")
 _IDLE: list[_Child] = []
@@ -111,7 +119,7 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
             try:
                 if child is None:
                     raise OSError("no child")
-                child.conn.send((fn, shared, [items[i] for i in part]))
+                child.conn.send((fn, shared, [items[i] for i in part], RETIRE))   # its line: this process's
                 waiting[child.conn] = (child, part)
             except Exception:   # no child, or fn or its items don't pickle: here
                 here += part
@@ -122,6 +130,9 @@ def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None 
                     kind, got = conn.recv()
                 except Exception:   # it died, or its answer doesn't read here
                     kind, got = "failed", None
+                    broken.append(child)
+                if kind == "leaving":   # done, and the child ends: never kept idle
+                    kind = "done"
                     broken.append(child)
                 if kind == "done":
                     for i, value in zip(part, got):
@@ -171,14 +182,34 @@ def stop() -> None:
         child.stop()
 
 
+def _peak() -> int:
+    """This process's peak resident size in bytes, 0 where it can't be read
+    (Windows, whose children stay, as before): macOS's ``getrusage``; Linux's
+    ``VmHWM``, as its ``getrusage`` starts a spawned child at its parent's
+    peak (exec keeps it), past the line whatever the child did."""
+    if sys.platform == "darwin":
+        import resource
+
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    try:
+        with open("/proc/self/status") as status:
+            return next(int(line.split()[1]) * 1024 for line in status if line.startswith("VmHWM:"))
+    except (OSError, StopIteration):
+        return 0
+
+
 def _work(conn) -> None:
-    """A child: each part's results, or ``failed`` (its items then run in the parent)."""
+    """A child: each part's results, or ``failed`` (its items then run in
+    the parent), holding none of a part's inputs or results while it waits
+    for the next; ``leaving`` with the results, then gone, once it has
+    peaked at the line its parent sent with the part (the parent's
+    :data:`RETIRE`) or past it."""
     from .engine import orphaned
 
     orphaned()
     while True:
         try:
-            fn, shared, items = conn.recv()
+            fn, shared, items, line = conn.recv()
         except (EOFError, OSError):
             return
         except Exception:   # a part that doesn't unpickle here
@@ -188,7 +219,13 @@ def _work(conn) -> None:
             out = ("done", [fn(shared, item) for item in items])
         except BaseException:
             out = ("failed", None)
+        fn = shared = items = None   # the part's inputs, never held while this child waits for the next part
+        leaving = out[0] == "done" and _peak() >= line
         try:
-            conn.send(out)
+            conn.send(("leaving", out[1]) if leaving else out)
         except Exception:   # results that don't pickle
             conn.send(("failed", None))
+            leaving = False
+        out = None   # nor its results
+        if leaving:
+            return

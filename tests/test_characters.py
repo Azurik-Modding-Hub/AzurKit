@@ -1124,19 +1124,24 @@ def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso
     children, the dearest items first, and a thread) writes the bytes the
     swap writes in order: keylord's body case and beamlord's reshaped variant
     built under it are their goldens' file for file and resource for
-    resource (:func:`_missed`), and its children were used."""
+    resource (:func:`_missed`), and its children were used, with every child
+    leaving after its part (``RETIRE`` 0: a fresh child each part)."""
     from azurkit.app import procpool
     from azurkit.tools.characters import pool
 
+    made, child = [], procpool._Child
     monkeypatch.delenv(procpool.CORES, raising=False)
     monkeypatch.setattr(pool, "MAP", None)
     monkeypatch.setattr(pool, "LATER", None)
+    monkeypatch.setattr(procpool, "RETIRE", 0)
+    monkeypatch.setattr(procpool, "_Child", type("Counted", (child,), {
+        "__init__": lambda self: (made.append(1), child.__init__(self))[1]}))
     assert procpool.install() >= 2 and (pool.MAP, pool.LATER) == (procpool.map_, procpool.later)
     cases = {case: recipe for case, recipe in (_bodies() | _variants(gate.USA, tmp_path)).items()
              if case.endswith(("=keylord", "=beamlord"))}
     try:
         assert len(cases) == 2 and _missed(cases, usa_iso) == {}
-        assert procpool._IDLE
+        assert made and not procpool._IDLE   # children did the parts, and none stayed past RETIRE
     finally:
         procpool.stop()
 
