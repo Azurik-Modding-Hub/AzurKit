@@ -256,7 +256,7 @@ def _miss(job: tuple) -> tuple[str, tuple | None, list[str]]:
         stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": image_path})
     finally:
         seen, shipped.SEEN = shipped.SEEN, None
-    held = [_held(s) for s in seen]
+    held = [shipped.held(s) for s in seen]
     good, stale = [n for g, _ in held for n in g], [w for _, s in held for w in s]
     if case.startswith(PINNED):
         return case, tuple(stale) or None, good
@@ -286,16 +286,6 @@ def _miss(job: tuple) -> tuple[str, tuple | None, list[str]]:
             {k: view[f][k] for k in resources[f]} != resources[f] for f in resources)):
         return case, (other, loose, manifest.conflicts, stale), good
     return case, None, good
-
-
-def _held(seen: dict) -> tuple[list[str], list[str]]:
-    """``shipped.held``: off the recording host (D1016) a row's answer is the recording host's bytes, so a fresh dress
-    is held only to what the row stands on, and the build to its golden close enough (:func:`_other`)."""
-    if _hosts.recording():
-        return shipped.held(seen)
-    kind = next(k for k in shipped.KEYS if k in seen)
-    answer = {shipped.ANSWERS[kind]: seen[kind][shipped.ANSWERS[kind]]}
-    return shipped.held(seen, {kind: [row | answer for row in shipped.table().get(kind, ())]})
 
 
 def _other(want: dict[str, str], files: dict[str, bytes], views: dict, vanilla: dict[str, bytes]) -> list[str]:
@@ -1567,6 +1557,24 @@ def test_a_shipped_answer_holds_to_a_fresh_one_exactly_on_its_recording_host_and
     assert shipped.same_size(1.5, 1.5) and not shipped.same_size(near, 1.5)
     monkeypatch.setattr(shipped, "table", lambda: there)
     assert shipped.same_size(near, 1.5) and not shipped.same_size(far, 1.5)
+
+
+def test_the_re_record_pin_holds_a_fresh_answer_to_its_row_off_the_recording_host_and_never_to_itself(monkeypatch):
+    """D1016 (X11), the goldens' pin (:func:`_miss`) on another host: a dress's places are held to the row they stand
+    on, so its own hold and places far from it are stale there too (how close is close: ``shipped.held``'s test)."""
+    def places(origin: float) -> dict:
+        return {"release": "r", "recipe": {"species": "x"}, "entries": {}, "reads": {},
+                "places": {"a": [[float(origin).hex(), (0.0).hex(), (2.0).hex()], (0.25).hex()]}}
+
+    def pin(origin: float) -> tuple:
+        monkeypatch.setattr(sdk, "_plan", lambda recipe: shipped.SEEN.append({"places": places(origin)}) or (None,) * 5)
+        return _miss((PINNED, {}, "image", "usa"))[1:]
+
+    monkeypatch.setattr(_hosts, "recording", lambda: False)
+    monkeypatch.setattr(shipped, "table", lambda: {"host": "another host", "places": [places(1.5)]})
+    assert pin(1.5) == (None, [shipped.name("places", places(1.5))])
+    assert pin(1001.5) == ((f"the shipped {shipped.name('places', places(1.5))} isn't a fresh dress's "
+                            "(scripts/record_shipped.py)",), [])
 
 
 def test_a_changed_dress_in_the_sdk_changes_the_key_the_app_keeps_a_characters_match_under(no_content, monkeypatch):
