@@ -76,6 +76,13 @@ def site(tmp_path_factory) -> Path:
     return web_tools.site(tmp_path_factory.mktemp("site") / "site")
 
 
+def test_the_site_built_with_its_own_wheel_holds_no_dotfile_but_nojekyll(site):
+    """Pages' artifact leaves dotfiles out, and the service worker's release
+    fetches each file it lists: a listed dotfile (``uv build``'s ``.gitignore``
+    beside the wheel) would 404 and fail the worker's install on the real site."""
+    assert [p.relative_to(site).as_posix() for p in site.rglob(".*")] == [".nojekyll"]
+
+
 KINDS = (".azkp", ".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
 """The content kinds the site publishes, each served as data (mime-db's types: no page, script or rendered document;
 a variant's shipped answer, ``.azkp``, no type's, so ``application/octet-stream``)."""

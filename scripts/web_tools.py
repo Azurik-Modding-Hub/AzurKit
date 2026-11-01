@@ -315,7 +315,8 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     if lost := missing(root):
         raise SystemExit(f"Pyodide {VERSION} lacks {', '.join(lost)}: run `uv run bootstrap.py`")
     shutil.copytree(pyodide_dir(root), out / "pyodide")
-    built = shutil.copy2(built, out) if built else wheel(out, root)
+    with tempfile.TemporaryDirectory(prefix="azurkit-site.") as tmp:   # not in out: uv build leaves a .gitignore beside
+        built = shutil.copy2(built or wheel(Path(tmp), root), out)     # the wheel, and Pages' artifact drops dotfiles
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
     (out / "host.json").write_text(json.dumps({"engine": "site", "wheel": Path(built).name,
                                                "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8", newline="\n")
