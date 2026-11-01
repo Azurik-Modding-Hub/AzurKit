@@ -110,8 +110,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - The images are read-only. A build writes to an explicit output that isn't
   its input.
 - **The private game-data repo,** `Azurik-Testing/AzurKit-gamedata` (the
-  images' parts, for CI only): never make it public, fork or mirror it. Its
-  key and how its parts are put back together stay in `$EV`.
+  images' parts, for CI only): never make it public, fork or mirror it. Only
+  CI's vanilla job reads it (CI, below), with its read-only deploy key, the
+  `gamedata` environment's secret, and the key is never in this repository.
 - **Content is untrusted input (D992):** a manifest, a recipe or a picture a
   player is handed is refused by name, quickly and with little held, before
   anything reads it whole. A refusal names the entry, the file or the
@@ -1056,8 +1057,28 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and `europe: M run`, N and M at least 1 (D26), and, for a stack that
   changes `src/` or `web/`, a passing perf block; it refuses any stack whose
   perf list grows main's (one that changes only the list too); `--release`
-  refuses while the list holds anything (it is empty for 4.4). There is no remote
-  until AzurKit goes public (D137, D91: Azurik-Modding-Hub at 4.4).
+  refuses while the list holds anything (it is empty for 4.4).
+- **CI (Step 4.4ci; D1022-D1024):** AzurKit goes public in Azurik-Modding-Hub
+  before its release so GitHub Actions tests it, and publishing isn't a
+  release: no workflow deploys the site (Pages stays off, D1026), uploads
+  to PyPI, tags or makes a release. `.github/workflows/tests.yml` runs the
+  pure tier on every push to `main` and every pull request on the four
+  platforms the apps ship for (macOS on Apple Silicon and on Intel,
+  Windows x64, Linux x64; the web tier with Node 24 and
+  `scripts/web_tools.py`'s Pyodide and browsers), and on a push to `main`
+  in this repository alone the vanilla and europe tiers on the same four:
+  each image rebuilt in the runner's temp folder from the game-data repo's
+  parts with `GAMEDATA_DEPLOY_KEY` (the only secret a workflow reads), never
+  cached, uploaded or printed, and deleted after. `checks.yml` runs the leak
+  guard over the checkout and every commit, and `python -m nativekit
+  --check` on macOS, Windows and Linux once `src/azurkit/core/_native/`
+  exists. `apps.yml` freezes the four apps (`scripts/freeze.py`) on a push
+  to `main`, each a 14-day workflow artifact with its sha256. Workflows
+  hold `permissions: contents: read`, no `pull_request_target`, and actions
+  pinned by commit sha with their release beside it; `actionlint` passes
+  on each. A stack still lands on the local gate (`land.py`); the other
+  platforms must pass by 4.4 (D1023), with their own references or
+  close-enough comparisons where float maths differ (D1016).
 
 ## Environment
 

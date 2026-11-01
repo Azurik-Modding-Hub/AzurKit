@@ -1,0 +1,147 @@
+# AzurKit's tests on GitHub Actions (Step 4.4ci; D1022-D1024), on the four platforms the apps ship for: macOS on
+# Apple Silicon (macos-14) and on Intel (macos-15-intel, GitHub's Intel image since it retired macos-13), Windows x64
+# and Linux x64.
+# - pure: the pure tier (-m "not vanilla") on every push to main and every pull request. The web tier is in it: Node
+#   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
+#   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries.
+# - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main in this repository.
+#   Each image is rebuilt in the runner's temp folder from the private game-data repository's parts, one release
+#   at a time, with its read-only deploy key GAMEDATA_DEPLOY_KEY (the gamedata environment's secret; no other job
+#   reads a secret). That repository's own reassemble.py checks every part's sha256 and the whole image's, and the
+#   parts go at once. No cache and no artifact hold an image, its path is never printed, and the images are deleted
+#   after the tests. Azurik-Custom-Content (public) gives booblord's tests their files.
+# Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
+# their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  pure:
+    name: pure (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-14, label: macos-arm64}
+          - {os: macos-15-intel, label: macos-x86_64}
+          - {os: windows-latest, label: windows-x86_64}
+          - {os: ubuntu-latest, label: linux-x86_64}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: uv sync --locked
+      - name: Pyodide and the browsers (scripts/web_tools.py)
+        run: uv run --locked python scripts/web_tools.py
+      - name: The browsers' system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
+          uv run --locked playwright install-deps "${engines[@]}"
+      - name: The pure tier
+        # pytest-xdist isn't in uv.lock at this base; once lane 4.3o adds it, -n auto and its --dist join this line.
+        run: uv run --locked pytest -m "not vanilla"
+
+  vanilla:
+    name: vanilla and europe (${{ matrix.label }})
+    if: github.event_name == 'push' && github.repository == 'Azurik-Modding-Hub/AzurKit' && github.ref == 'refs/heads/main'
+    runs-on: ${{ matrix.os }}
+    environment: gamedata
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-14, label: macos-arm64}
+          - {os: macos-15-intel, label: macos-x86_64}
+          - {os: windows-latest, label: windows-x86_64}
+          - {os: ubuntu-latest, label: linux-x86_64}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+          enable-cache: false   # no cache in a job that holds the images (a pull request can restore main's)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: uv sync --locked, before the key or an image is on the runner
+        run: uv sync --locked
+      - name: Pyodide and the browsers (scripts/web_tools.py)
+        run: uv run --locked python scripts/web_tools.py
+      - name: The browsers' system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
+          uv run --locked playwright install-deps "${engines[@]}"
+      - name: Azurik-Custom-Content, for booblord's tests
+        run: git clone --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$RUNNER_TEMP/content"
+      - name: The USA and Europe images, from the game-data repository's parts, one release at a time
+        env:
+          GAMEDATA_DEPLOY_KEY: ${{ secrets.GAMEDATA_DEPLOY_KEY }}
+        run: |
+          key="$(mktemp)" hosts="$(mktemp)"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          chmod 600 "$key"
+          printf '%s\n' "$GAMEDATA_DEPLOY_KEY" > "$key"
+          # github.com's published ed25519 host key (GET /meta's ssh_keys), so the clone trusts no other host.
+          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes"
+          mkdir -p "$RUNNER_TEMP/iso"
+          image() {   # image <the parts' folder> <the image's name> [reassemble.py's release argument]
+            git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Testing/AzurKit-gamedata.git "$RUNNER_TEMP/gd"
+            git -C "$RUNNER_TEMP/gd" sparse-checkout set "$1"
+            rm -rf "$RUNNER_TEMP/gd/.git"
+            uv run --locked python -I "$RUNNER_TEMP/gd/reassemble.py" "$RUNNER_TEMP/iso/$2" "${@:3}" > /dev/null
+            rm -rf "$RUNNER_TEMP/gd"
+            echo "$2: rebuilt, each part's and the image's sha256 checked, the parts deleted"
+          }
+          image parts usa.iso
+          image europe europe.iso europe
+      - name: The vanilla and europe tiers
+        # pytest-xdist isn't in uv.lock at this base; once lane 4.3o adds it, -n auto and its --dist join this line.
+        run: |
+          export AZURKIT_ISO="$RUNNER_TEMP/iso/usa.iso" AZURKIT_ISO_EUROPE="$RUNNER_TEMP/iso/europe.iso"
+          export AZURKIT_CONTENT_SOURCE="$RUNNER_TEMP/content"
+          uv run --locked pytest -m vanilla
+      - name: Delete the images and any parts left
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/iso" "$RUNNER_TEMP/gd"

@@ -1,0 +1,76 @@
+# The four apps (Step 4.4ci; D1022), each frozen by scripts/freeze.py on its own OS on a push to main in this
+# repository: macOS on Apple Silicon (macos-14) and on Intel (macos-15-intel), Windows x64 and Linux x64. Each is kept
+# as a workflow artifact for 14 days, an archive with its sha256 beside it (also in the run's summary): never a
+# release, a tag or a PyPI upload, and unsigned (D885). The release job, with its attestations, comes with 4.4
+# (D1024). No secret; actions pinned by commit sha, their release beside it.
+name: apps
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  freeze:
+    name: freeze (${{ matrix.label }})
+    if: github.repository == 'Azurik-Modding-Hub/AzurKit'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-14, label: macos-arm64}
+          - {os: macos-15-intel, label: macos-x86_64}
+          - {os: windows-latest, label: windows-x86_64}
+          - {os: ubuntu-latest, label: linux-x86_64}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+      - run: uv sync --locked
+      - name: Freeze the app, archive it and write its sha256
+        id: app
+        env:
+          LABEL: ${{ matrix.label }}
+        run: |
+          dist="$RUNNER_TEMP/dist" out="$RUNNER_TEMP/app"
+          uv run --locked python scripts/freeze.py --dist "$dist" --work "$RUNNER_TEMP/work"
+          name="AzurKit-$LABEL-${GITHUB_SHA:0:12}"
+          mkdir -p "$out"
+          case "$RUNNER_OS" in
+            macOS) file="$name.zip"; ditto -c -k --keepParent "$dist/AzurKit.app" "$out/$file" ;;
+            Linux) file="$name.tar.gz"; tar -C "$dist" -czf "$out/$file" AzurKit ;;
+            Windows) file="$name.zip"
+              uv run --locked python -I -c 'import shutil, sys; shutil.make_archive(sys.argv[1], "zip", sys.argv[2], "AzurKit")' \
+                "$out/$name" "$dist" ;;
+          esac
+          cd "$out"
+          if command -v sha256sum > /dev/null; then sha256sum "$file"; else shasum -a 256 "$file"; fi > "$file.sha256"
+          cat "$file.sha256"
+          { echo '```'; cat "$file.sha256"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ${{ steps.app.outputs.name }}
+          path: ${{ runner.temp }}/app/
+          retention-days: 14
+          if-no-files-found: error

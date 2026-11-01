@@ -1,0 +1,74 @@
+# Checks beside the tests (Step 4.4ci), on every push to main and every pull request:
+# - leak-guard: tests/_leak_guard.py over the checkout's files, then, as the pre-push hook does, over every file every
+#   commit of the whole history adds or changes (a file a later commit deleted too; D961: no image or part of one, no
+#   xemu disk, EEPROM dump, RAM snapshot or private key).
+# - native: `python -m nativekit --check` rebuilds the committed native libraries from their sources and checks each
+#   one's sha256 (D1019) on macOS, Windows and Linux. It is a no-op on a commit without src/azurkit/core/_native/
+#   (lane 4.3t adds it).
+# No secret, no pull_request_target; actions pinned by commit sha, their release beside it.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  leak-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0   # every commit, for the history's scan
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+      - name: The checkout's files
+        run: uv run --locked python -I tests/_leak_guard.py
+      - name: Every file every commit adds or changes (the pre-push hook's scan, no remote ref left out)
+        run: |
+          printf 'HEAD %s refs/heads/ci 0000000000000000000000000000000000000000\n' "$(git rev-parse HEAD)" |
+            uv run --locked python -I tests/_leak_guard.py --pre-push no-remote
+
+  native:
+    name: native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest, ubuntu-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Is src/azurkit/core/_native/ on this commit?
+        id: native
+        run: |
+          if [ -d src/azurkit/core/_native ]; then echo "here=true" >> "$GITHUB_OUTPUT"
+          else echo "src/azurkit/core/_native/ isn't on this commit: nothing to check"; fi
+      - if: steps.native.outputs.here == 'true'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+      - name: nativekit --check
+        if: steps.native.outputs.here == 'true'
+        run: uv run --locked python -m nativekit --check
