@@ -1384,17 +1384,53 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
         served.close()
 
 
-STARTS = """(() => {   // each engine's start, as its "ready" says it
+HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, each digest
     const Real = Worker;
-    globalThis.starts = [];
+    Object.assign(globalThis, { starts: [], digests: [] });
     globalThis.Worker = class extends Real {
         constructor(...args) {
             super(...args);
-            this.addEventListener("message", ({ data }) => { if (data?.type === "ready") starts.push(data.start); });
+            this.addEventListener("message", ({ data }) => {
+                if (data?.type === "ready") starts.push(data.start);
+                if (data?.type === "digest") digests.push(data);
+            });
         }
     };
 })();"""
-"""An init script: the page's workers' starts in ``starts`` (the page shows none of them)."""
+"""An init script: the page's workers' starts in ``starts``, their digests (DIGESTS) in ``digests``."""
+DIGESTS = """self.azurkitDigest = crypto.subtle.digest.bind(crypto.subtle);
+crypto.subtle.digest = async (name, data) => {
+    const out = await azurkitDigest(name, data);
+    postMessage({ type: "digest", size: data.byteLength,
+                  sha256: Array.from(new Uint8Array(out), (b) => b.toString(16).padStart(2, "0")).join("") });
+    return out;
+};
+"""
+"""The worker's first lines in the next test: it posts each WebCrypto digest (HEARD holds them)."""
+def test_a_site_build_hashes_its_changed_files_in_webcrypto_and_is_cpythons_build(browser, site, usa_iso):
+    """R2.6: each file a build changes gets its report's sha256 from the
+    browser's WebCrypto, and the build is CPython's, byte for byte."""
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script(HEARD)
+        worker = (site / "worker.mjs").read_text(encoding="utf-8")
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(
+            body=DIGESTS + worker, content_type="text/javascript"))
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        page.evaluate("() => { digests.length = 0; }")   # the image's check's
+        _page.build(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
+        built = _built(page)
+        made, report = sdk.image({"iso": str(usa_iso), "packs": page.evaluate("() => azurkit.sent")})
+        assert (built["report"], built["segments"]) == (report, _signature(made))
+        heard = {d["sha256"] for d in page.evaluate("() => digests")}
+        changed = {sha for name, sha in report["result"].items() if name != "filelist.txt"}   # the manifest's own
+        assert changed and changed <= heard
+    finally:
+        served.close()
+
+
 SNAPSHOT_KEPT = """() => new Promise((done) => {
     const opened = indexedDB.open("azurkit-snapshot", 1);
     opened.onupgradeneeded = () => opened.result.createObjectStore("heap");
@@ -1415,7 +1451,7 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
     stock Pyodide throws there)."""
     served = Site(browser, site, tmp_path / "profile")   # persistent: WebKit's ephemeral storage refuses a big heap's put
     try:
-        served.context.add_init_script(STARTS)
+        served.context.add_init_script(HEARD)
         first = served.open()
         _page.until(first, SNAPSHOT_KEPT, 60)
         again = served.open()

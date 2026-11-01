@@ -166,6 +166,18 @@ file, done of total) and writing the spoiler; an exception it raises stops the
 build.
 
 
+def image_staged(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True):
+
+:func:`image` for a host that hashes the build's changed files itself
+(the site's worker: WebCrypto, off its engine's thread), as a generator
+(``edits.staged``): it yields ``{key: bytes}`` once they are composed and
+is sent ``{key: sha256}``, each one's (``None`` first, if the host hashes
+them while the image's layout runs, then the shas at the next yield), and
+returns ``(image, report)``, :func:`image`'s, byte for byte, as its
+``StopIteration``'s value. Its refusals are :func:`image`'s; a key missing
+from the shas is a ``ValueError`` naming it.
+
+
 def save(made: 'iso.Image', out: 'str', *, progress: 'Callable[[dict], object] | None' = None, sha256: 'Callable[[], str] | None' = None) -> 'dict':
 
 Write ``made``, an image :func:`image` returned, to ``out`` (never its

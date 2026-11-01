@@ -117,6 +117,7 @@ def kept(files, installed):
 
 
 LAST = {}   # the call's stage it posted last, and the last tick's percent
+STAGED = None   # a build between its calls (sdk.image_staged, build()): its generator and the bytes it gave to hash
 
 
 def posted(record):
@@ -214,10 +215,22 @@ def engine(request):
             return js({"preset": sdk.preset_decode(request.text)})
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
+    global STAGED
     try:
-        image, report = sdk.image(request.recipe.to_py(), progress=progressed, spoiler=False)
+        if request.type == "build":   # to its composed files, which the worker hashes (build())
+            run = sdk.image_staged(request.recipe.to_py(), progress=progressed, spoiler=False)
+            STAGED = run, next(run)
+            return js({"hash": list(STAGED[1])})
+        if request.type == "hash":
+            return js({"data": STAGED[1][request.key]})
+        STAGED[0].send(json.loads(JSON.stringify(request.shas)))   # "hashed": the layout, the manifest, the read-back
+        raise RuntimeError("the staged build asked for more")
+    except StopIteration as done:
+        image, report = done.value
     except (OSError, ValueError) as exc:
+        STAGED = None
         return js({"refused": str(exc)})
+    STAGED = None
     pieces = [{"kind": "copy", "offset": p.offset, "size": p.size} if isinstance(p, iso.Copy)
               else {"kind": "zero", "size": p.size} if isinstance(p, iso.Zero)
               else {"kind": "bytes", "size": p.size, "data": blobbed(p.data)} for p in image.segments()]
@@ -594,10 +607,20 @@ async function tool({ py, engine }, data) {
 // A build, the image mounted for it and unmounted after; its answer carries the engine's heap then (wasm memory never
 // shrinks: a page that keeps the worker keeps one whose heap is small enough for another build, Step 4.3i), undefined
 // where Pyodide hides it. A seed's spoiler comes after it (the page shows the build meanwhile, and replaces a worker
-// it doesn't keep only once it has it).
-function build({ py, engine }, { file, packs, xbr, randomizer, character }) {
-  const made = mounted(py, file, (iso) => engine({ type: "build", recipe: { iso, packs, xbr,
-    ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } }));
+// it doesn't keep only once it has it). The build's changed files and the bytes its root files hold are hashed by the
+// browser's SHA-256 (R2.6: about 10x wasm's), one at a time, as 14 at once take WebKit 8x as long, each handed over only
+// for its digest, so the worker's JS holds one file beside the engine's heap (a seed's are 668 MiB in all).
+async function build({ py, engine }, { file, packs, xbr, randomizer, character }) {
+  const made = await mounted(py, file, async (iso) => {
+    const composed = engine({ type: "build", recipe: { iso, packs, xbr,
+      ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } });
+    if ("refused" in composed) return composed;
+    const shas = {};
+    for (const key of composed.hash) {
+      shas[key] = hex(await crypto.subtle.digest("SHA-256", engine({ type: "hash", key }).data));
+    }
+    return engine({ type: "hashed", shas });
+  });
   const heap = py._module?.HEAPU8?.length;
   if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
   post({ type: "built", ...made, heap });   // each piece's bytes a Blob (blobbed): nothing to transfer
@@ -656,7 +679,7 @@ try {
         return post(data.type === "preset" ? { type: "preset", fragment: reply.fragment }
           : { type: "decoded", preset: reply.preset });
       }
-      build(loaded, data);
+      return build(loaded, data);   // its failure is the queue's to post
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });
     }

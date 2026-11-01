@@ -112,7 +112,7 @@ from azurkit.tools import data as datatool
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
-__all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
+__all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_staged", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
            "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file"]
@@ -689,6 +689,23 @@ def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
     stamp, base, layers, judge, prepared = _plan(recipe, steps)
     steps("layout")
     made, manifest = edits.image(stamp, layers, base, judge=judge, map=_map, progress=steps.counter("layout"))
+    return made, _report(manifest, prepared, steps, spoiler)
+
+
+def image_staged(recipe: Mapping, *, progress: Callable[[dict], object] | None = None, spoiler: bool = True):
+    """:func:`image` for a host that hashes the build's changed files itself
+    (the site's worker: WebCrypto, off its engine's thread), as a generator
+    (``edits.staged``): it yields ``{key: bytes}`` once they are composed and
+    is sent ``{key: sha256}``, each one's (``None`` first, if the host hashes
+    them while the image's layout runs, then the shas at the next yield), and
+    returns ``(image, report)``, :func:`image`'s, byte for byte, as its
+    ``StopIteration``'s value. Its refusals are :func:`image`'s; a key missing
+    from the shas is a ``ValueError`` naming it."""
+    steps = Steps(progress)
+    stamp, base, layers, judge, prepared = _plan(recipe, steps)
+    steps("layout")
+    made, manifest = yield from edits.staged(stamp, layers, base, judge=judge, map=_map,
+                                             progress=steps.counter("layout"))
     return made, _report(manifest, prepared, steps, spoiler)
 
 
