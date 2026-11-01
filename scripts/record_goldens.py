@@ -120,7 +120,7 @@ NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (
 FLOATS = ("gamedata/characters.xbr", "gamedata/fx.xbr")   # what a dress writes float maths into (D1016): close.json's
 KEY, MOST_SUMS = 16, 64   # close.json: a sha256's digits a row is found by; its sums a resource, at most
 ULPS, NEAR_ZERO = 4, 1e-9   # how far a float may be off, at most: "a few ULPs", and in metres or radians near zero
-SMALLEST, LARGEST = 1e-30, 1e7   # the sizes a 32-bit word that reads as a float has, but zero (sketch)
+SMALLEST, LARGEST = 0x00800000, 0x4B189680   # the bits of the least normal float and 1e7 (_floats: a float's sizes)
 LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt", "ISO")
 ART = "web/art"   # the tracker's shipped pictures, from the checkout's root
 PICTURES = "web/characters"   # the Characters tab's
@@ -365,8 +365,9 @@ def view(vanilla: bytes, built: bytes, name: str) -> dict:
     return out
 
 
-def parts(vanilla: bytes, built: bytes) -> tuple[dict[str, bytes], str]:
-    """The resources a built XBR changed or added by their sha256, and the sha256 of the file with them blanked."""
+def parts(vanilla: bytes, built: bytes) -> tuple[dict[str, tuple[str, bytes]], str]:
+    """The resources a built XBR changed or added, ``{sha256: (tag, payload)}``, and the sha256 of the file with them
+    blanked."""
     from azurkit.core.xbr.nodes import parse_toc
 
     old, new = parse_toc(vanilla), parse_toc(built)
@@ -374,7 +375,8 @@ def parts(vanilla: bytes, built: bytes) -> tuple[dict[str, bytes], str]:
              != vanilla[v.file_offset:v.file_offset + v.size]] + new[len(old):]
     frame, held = bytearray(built), {}
     for e in spans:
-        held[_sha256(built[e.file_offset:e.file_offset + e.size])] = built[e.file_offset:e.file_offset + e.size]
+        payload = built[e.file_offset:e.file_offset + e.size]
+        held[_sha256(payload)] = (e.tag, payload)
         frame[e.file_offset:e.file_offset + e.size] = bytes(e.size)
     return held, _sha256(frame)
 
@@ -388,13 +390,36 @@ def _listed(text: bytes) -> str:
     return _sha256("".join(lines).encode("latin-1"))
 
 
-def _weighed(payload: bytes, slots: int | None = None) -> tuple[str, list[float], list[float]]:
+def _floats(tag: str, words: np.ndarray) -> np.ndarray:
+    """Which of a resource's 32-bit words are floats, as far as it can tell: of a ``banm``, its length and every key
+    (``retarget.read_clip``'s layout), whatever their bits (another BLAS leaves 1e-45 where this one leaves 0.0);
+    of any other tag and the rest, zero and every normal float's size from :data:`SMALLEST` up to :data:`LARGEST`
+    (a small integer or a packed pair reads as a denormal, a fourcc or a hash as huge, so those stay exact)."""
+    size = words & 0x7FFFFFFF
+    out = (size == 0) | ((size >= SMALLEST) & (size < LARGEST))
+    if tag != "banm" or len(words) < 5:
+        return out
+    out[:4], at = False, np.zeros(len(words), bool)
+    pointer = words.view("<i4")
+    for count, field in ((0, 1), (2, 3)):
+        base = field * 4 + int(pointer[field])
+        for track in range(max(0, int(pointer[count]))):
+            record = (base + 0x14 * track) // 4
+            if not 0 <= record <= len(words) - 5:   # no clip's: every word by its bits
+                return out
+            keys, n = (record * 4 + 8 + int(pointer[record + 2])) // 4, 4 * max(0, int(pointer[record + 1]))
+            out[record:record + 5] = False
+            at[max(0, keys):keys + n] = True
+    at[4] = True
+    return out | at
+
+
+def _weighed(tag: str, payload: bytes, slots: int | None = None) -> tuple[str, list[float], list[float]]:
     """A resource as :func:`sketch` reads it: ``(its digest, its sums, how far each may be off)``."""
     n = len(payload) // 4
     words = np.frombuffer(payload, "<u4", n)
     values = words.view("<f4")
-    size = np.abs(values).astype(float)
-    float_like = ((words << 1) == 0) | ((size >= SMALLEST) & (size < LARGEST))
+    float_like = _floats(tag, words) & np.isfinite(values)
     digest = _sha256(np.where(float_like, 0, words).astype("<u4").tobytes() + payload[n * 4:])
     at = np.arange(n, dtype=np.uint64)
     weights = 1 + ((at * 2654435761 >> 16) & 0xFFFF).astype(float) / 65536   # so that a moved value moves a sum
@@ -405,22 +430,21 @@ def _weighed(payload: bytes, slots: int | None = None) -> tuple[str, list[float]
     return digest, sums.tolist(), np.bincount(slot, room, count).tolist()
 
 
-def sketch(payload: bytes) -> str:
+def sketch(tag: str, payload: bytes) -> str:
     """``close.json``'s record of a resource, its text: the first 16 digits of the sha256 of its 32-bit words with
-    each one that reads as a float blanked (zero, or a size from :data:`SMALLEST` to :data:`LARGEST`: a small integer
-    or a packed pair reads as a denormal, a fourcc or a hash as huge, so those stay exact), then the floats' sums, by
-    word's place modulo up to :data:`MOST_SUMS` slots (one per 256 words), each float weighed by its place."""
-    digest, sums, _ = _weighed(payload)
+    each float (:func:`_floats`) blanked, then the floats' sums, by word's place modulo up to :data:`MOST_SUMS` slots
+    (one per 256 words), each float weighed by its place."""
+    digest, sums, _ = _weighed(tag, payload)
     return " ".join([digest[:KEY], *(f"{value:.10g}" for value in sums)])
 
 
-def near(payload: bytes, held: str) -> str | None:
+def near(tag: str, payload: bytes, held: str) -> str | None:
     """Whether ``payload`` is close enough to the resource a :func:`sketch` ``held`` records: None, or how it isn't.
     Every integer and the layout exact; each sum within what :data:`ULPS` ULPs on each of its floats (:data:`NEAR_ZERO`
     on one near zero, where another BLAS's rounding is a difference of about 1e-16 and no ULPs measure it) add up to.
     A float further off than its slot's room, a moved float or a changed integer is not."""
     digest, *sums = held.split()
-    mine, got, room = _weighed(payload, len(sums))
+    mine, got, room = _weighed(tag, payload, len(sums))
     if mine[:KEY] != digest:
         return "an integer or the layout differs"
     off = [(abs(g - float(w)), r) for g, w, r in zip(got, sums, room, strict=True) if abs(g - float(w)) > r]
@@ -454,7 +478,7 @@ def apart(name: str, built: Mapping[str, bytes], want: str, view_: Mapping | Non
             out.append(f"{name}: its {kind} resources aren't the golden's (their number, names, sizes or relocations)")
             continue
         out += [f"{name}: {mine[:3]}: {why}" for mine, row in zip(got[kind], view_[kind], strict=True) if mine != row
-                and (why := near(payloads[0][mine[3]], held["payloads"].get(row[3][:KEY], f"{'0' * KEY}")))]
+                and (why := near(*payloads[0][mine[3]], held["payloads"].get(row[3][:KEY], "0" * KEY)))]
     return out
 
 
@@ -475,7 +499,7 @@ def _sketches(made, path: str, result: Mapping[str, str]) -> dict[str, dict[str,
             elif name in FLOATS:
                 held, frame = parts(vanilla.read(name), new := built.read(name))
                 frames[_sha256(new)[:KEY]] = frame[:KEY]
-                payloads |= {sha[:KEY]: sketch(payload) for sha, payload in held.items()}
+                payloads |= {sha[:KEY]: sketch(*part) for sha, part in held.items()}
     return {"frames": frames, "payloads": payloads}
 
 

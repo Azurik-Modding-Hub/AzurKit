@@ -176,8 +176,8 @@ jobs:
       - name: The vanilla and europe tiers
         # pytest-xdist isn't in uv.lock at this base; once lane 4.3o adds it, -n auto and its --dist join this line.
         # pytest writes to a log, of which only the last 60 lines, the summary from conftest's "vanilla: N run" (at most
-        # 200 lines) and each failure's heading and E lines (at most 400; byte-safe, tests/_byte_safe.py) are printed,
-        # each cut at 240 characters (§12.4 item 4). On Linux the tests run under Modkit
+        # 200 lines), every FAILED line and each failure's heading and first 40 E lines (at most 600; byte-safe,
+        # tests/_byte_safe.py) are printed, each cut at 240 characters (§12.4 item 4). On Linux the tests run under Modkit
         # full.yml's offline() (§12.4 item 3, V13): a network namespace with only loopback up, back as this user with
         # sudo's and setpriv's environment reset, so only the variables named here reach them (no GITHUB_* file, no
         # runtime token); hence the venv's own python, since uv's cache and settings aren't in that environment. Its
@@ -210,7 +210,8 @@ jobs:
           echo "--- the summary"
           sed -n '/^vanilla: /,$p' "$log" | head -n 200 | cut -c 1-240
           echo "--- each failure's heading and E lines"
-          grep -E '^(_{3,} .* _{3,}$|E  )' "$log" | head -n 400 | cut -c 1-240 || true
+          grep -E '^(FAILED|ERROR) ' "$log" | cut -c 1-240 || true
+          awk '/^_+ .* _+$/ { n = 0; print } /^E  / { if (n++ < 40) print }' "$log" | head -n 600 | cut -c 1-240 || true
           exit "$status"
       - name: Delete the images and any parts left
         if: always()

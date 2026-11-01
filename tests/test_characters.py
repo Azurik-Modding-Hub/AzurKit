@@ -36,7 +36,7 @@ from azurkit.edits import preset
 from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
-from azurkit.tools.characters import _player_kit, _player_variants, content, ports, shipped
+from azurkit.tools.characters import _player_kit, _player_variants, content, ports, retarget, shipped
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens, record_shipped
@@ -411,26 +411,34 @@ def test_another_hosts_resource_is_close_enough_by_its_floats_last_bits_and_neve
     floats = np.random.default_rng(7).uniform(-3, 3, 4000).astype("<f4")
     ints = np.array([5, 0x6D6E6162, 0x00120034], "<u4")
     payload = ints.tobytes() + floats.tobytes() + bytes(8) + b"xy"
-    held = record_goldens.sketch(payload)
+    held = record_goldens.sketch("body", payload)
+
+    def near(data: bytes) -> str | None:
+        return record_goldens.near("body", data, held)
 
     def changed(at: int, word) -> bytes:   # the payload with its 32-bit word ``at`` another
         data = np.frombuffer(payload, "<u4", len(payload) // 4).copy()
         data[at] = word
         return data.tobytes() + payload[len(data) * 4:]
 
-    assert record_goldens.near(payload, held) is None
-    shifted = np.nextafter(floats, np.inf).astype("<f4")   # every float one ULP off, the worst another BLAS can do
-    assert record_goldens.near(ints.tobytes() + shifted.tobytes() + bytes(8) + b"xy", held) is None
-    assert record_goldens.near(changed(3 + 4000, np.array(3e-17, "<f4").view("<u4")), held) is None   # noise on a zero
-    assert record_goldens.near(changed(0, 6), held) == "an integer or the layout differs"
-    assert record_goldens.near(changed(1, 0x6D6E6163), held) == "an integer or the layout differs"
-    assert record_goldens.near(changed(3 + 4000, 5), held) == "an integer or the layout differs"
-    assert record_goldens.near(payload[:-1], held) == "an integer or the layout differs"
-    far = np.array(floats[10] + 0.25, "<f4").view("<u4")
-    assert "float sums off" in record_goldens.near(changed(3 + 10, far), held)
+    assert near(payload) is None
+    shifted = np.nextafter(floats, np.inf).astype("<f4")   # every float one ULP off, the worst another BLAS does
+    assert near(ints.tobytes() + shifted.tobytes() + bytes(8) + b"xy") is None
+    assert near(changed(3 + 4000, np.array(3e-17, "<f4").view("<u4"))) is None   # noise on a zero
+    for word, value in ((0, 6), (1, 0x6D6E6163), (3 + 4000, 5)):
+        assert near(changed(word, value)) == "an integer or the layout differs"
+    assert near(payload[:-1]) == "an integer or the layout differs"
+    assert "float sums off" in near(changed(3 + 10, np.array(floats[10] + 0.25, "<f4").view("<u4")))
     moved = floats.copy()
     moved[[10, 11]] = moved[[11, 10]]
-    assert "float sums off" in record_goldens.near(ints.tobytes() + moved.tobytes() + bytes(8) + b"xy", held)
+    assert "float sums off" in near(ints.tobytes() + moved.tobytes() + bytes(8) + b"xy")
+    clip = retarget.write_clip(retarget.Clip(2.0, (retarget.Track(7, 1, tuple((i / 30, 0.5, 0.0, 0.0) for i in range(40))),), ()))
+    kept = record_goldens.sketch("banm", clip)   # a clip's keys are floats whatever their bits, its other words exact
+    noisy = bytearray(clip)
+    noisy[0x28 + 8:0x28 + 12] = (1).to_bytes(4, "little")   # a key's 0.0 another BLAS leaves as 1e-45
+    assert record_goldens.near("banm", bytes(noisy), kept) is None
+    noisy[0x14 + 0xC] = 8   # its target
+    assert record_goldens.near("banm", bytes(noisy), kept) == "an integer or the layout differs"
 
 
 def test_a_built_xbr_is_close_enough_by_its_changed_resources_floats_alone_and_filelist_by_their_md5s(usa_iso):
