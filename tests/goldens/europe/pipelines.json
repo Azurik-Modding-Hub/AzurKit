@@ -1,12 +1,12 @@
 {
  "randomize-full:player-character=firelord,variant-file=tests/fixtures/effects.json": {
-  "ISO": "687c0ee0bcb4e074667da513c4fd030858ffc800315daa2caa19c3c8139ca23b",
-  "default.xbe": "e23867d5f695e922fbb9e7e3c397e032a51e1c3317ab0fd1ee369d916354478c",
-  "filelist.txt": "59613db91ed07d38254841004d32b409a589f7b753721b64e0421c3870d15cd5",
+  "ISO": "39584a6d7ea812f79828d7b948495329bf72bf6fe20bc320c52ba1c121b30b3b",
+  "default.xbe": "78176a95b5f4b3d5e48bb4bb7d855945dabaf7ab1110d4f0aba44ac9e4cd0132",
+  "filelist.txt": "fbfc4460a096bdb316d7e68ec48dc48d9b74a349ac1d2a59c1544f5667de265f",
   "gamedata/index/index.xbr": "5d5b9e297b10070a9e4f4dc84be33df3e7e998d51133565e99312c608487108c"
  },
  "randomize-full:seed=0,all": {
-  "default.xbe": "bdd558ddc174f11316bb49414d11a2ca39d6d0fd011e13cb9909e3a0c2d5036b"
+  "default.xbe": "fd17734bd223ad09d240328fb441399f9c88ae8f8b5961942479ad67974db149"
  },
  "randomize-full:seed=2,default": {
   "ISO": "d922128a5668d5fccfb5a509a088623b9d0f641cb437e85eb2b55ee0a40ef53e",

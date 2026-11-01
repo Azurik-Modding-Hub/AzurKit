@@ -73,7 +73,17 @@ FIELDS = {   # a recipe's field -> (its type, apply_player_model's keyword)
     "attack_balance": (bool, "attack_balance"), "attack_damage": (float, "attack_damage"),
     "attack_speed": (float, "attack_speed"), "anims": (str, "missing_anims"), "sounds": (str, "sounds"),
     "weapon": (str, "weapon"), "ram": (int, "ram"), "jiggle_strength": (float, "jiggle_strength"),
-    "jiggle_stiffness": (float, "jiggle_stiffness"), "variant_file": (str, None), "shapes": (dict, None)}
+    "jiggle_stiffness": (float, "jiggle_stiffness"), "chain": (str, "chain"), "variant_file": (str, None),
+    "shapes": (dict, None)}
+CHAINS = ("hit", "any")
+"""A recipe's ``chain`` (D1045, the owner: "make it default not chain on
+any press, with the option to turn on the chain on any press, for any
+model"): ``"hit"``, the default, the combo's second to fourth attacks
+follow only onto the target the last one stunned, as garret4's do (rows
+28-31's gate, kept); ``"any"``, on a press in the window, hit or miss
+(Step 2.153's rule, D432, every swapped body's before). A link, mods file
+or setup without the field reads ``"hit"``."""
+DEFAULT_CHAIN = "hit"
 VARIANT_OPTIONS = {   # a recipe's field -> _player_variants.options' keyword (Modkit's variant_options)
     "mode": "mode", "size": "size", "sounds": "sounds", "attack_balance": "balance", "attack_ground": "ground",
     "anims": "anims", "scale": "scale", "attack_reach": "reach", "attack_damage": "damage", "attack_speed": "speed",
@@ -142,8 +152,8 @@ def _kept(key: str | None, work: Callable[[], object]) -> object:
 def normalize(given: object) -> dict:
     """``given``, a recipe's ``character``: ``species`` (a ``critters_engine``
     name or a variant's, :func:`variant`) and any of :data:`FIELDS`, each of
-    its type (a number any finite one, D23); unknown fields and other types
-    refused by name."""
+    its type (a number any finite one, D23), ``chain`` one of :data:`CHAINS`;
+    unknown fields, other types and another chain refused by name."""
     if not isinstance(given, Mapping) or not isinstance(given.get("species"), str):
         raise ValueError("character: a recipe's character is an object naming its species")
     out = {}
@@ -161,6 +171,8 @@ def normalize(given: object) -> dict:
     for shape, x in out.get("shapes", {}).items():
         if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):
             raise ValueError(f"character: shapes.{shape} {x!r} is not a finite number")
+    if out.get("chain", DEFAULT_CHAIN) not in CHAINS:
+        raise ValueError(f"character: chain {out['chain']!r} is not one of {', '.join(map(repr, CHAINS))}")
     return out
 
 
@@ -218,6 +230,7 @@ def size(recipe: Mapping, vanilla) -> float:
     use. Kept in :data:`CACHE`; a shipped one (:mod:`.shipped`, D995) taken first."""
     from azurkit.tools.characters import shipped
 
+    recipe = {k: v for k, v in recipe.items() if k != "chain"}   # the size reads no chain
     if (found := shipped.size(recipe, vanilla.release)) is not None:
         return found
     found = _kept(cache_key("size", recipe, vanilla.release), lambda: _size(recipe, vanilla))
@@ -394,7 +407,7 @@ def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str,
         worn, options = variant(recipe, vanilla)
         if worn is not None:   # Modkit's randomize-full: the base dressed with the variant's recipe
             lines = swap.apply_player_model(staging, worn.base, variant=worn, logic=attack, weapon=recipe.get("weapon"),
-                                            ram=recipe.get("ram"), **options)
+                                            ram=recipe.get("ram"), chain=recipe.get("chain", DEFAULT_CHAIN), **options)
         else:
             kwargs = {FIELDS[k][1]: v for k, v in recipe.items() if FIELDS[k][1] is not None}
             lines = swap.apply_player_model(staging, recipe["species"], logic=attack, **kwargs)

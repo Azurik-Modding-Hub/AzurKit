@@ -269,7 +269,10 @@ X25's camera rig when the body is drawn at another size than his:
   0x30C1C) makes the player's melee hit there level 1, a stun, as
   garret4's is, whatever its multiplier, so the combo, whose next basic
   needs a stunned target, can chain; its damage stays the multiplier's
-  (:func:`install_light_hit_shim`).
+  (:func:`install_light_hit_shim`).  So is the hit of a set's first three
+  attacks (X36's, standing for basic1-3) whose column's multiplier is 1.0
+  or more (Step 4.3, D1045: :func:`set_unstunned`), read from X36's state,
+  so every set's combo chains on a hit.
 - **X19** (Step 2.104, AZ-520) ``default.xbe``, when the camera point
   (X8's, or a body's own ``m_head`` at rest: Balthazar's drawn larger)
   sits above garret4's eye height (:func:`camera_plan`'s lift): the C shim
@@ -567,6 +570,7 @@ from azurkit.tools.characters.characters import (
     near,
     read_body,
 )
+from azurkit.tools.characters import CHAINS, DEFAULT_CHAIN
 from azurkit.tools.characters import fx_edit, fx_templates
 from azurkit.tools.characters import jiggle as jiggles
 from azurkit.tools.characters import jiggle_rt
@@ -4532,6 +4536,11 @@ LIGHT_COLUMNS = FloatParam(
     label="Player model light-hit columns (X18)",
     description="The attacks_anims columns (a 24-bit mask) in which the player's hit stuns whatever "
                 "its Damage multiplier: those whose vanilla multiplier is under 1.0.")
+LIGHT_SETS_AT = BytesParam(
+    name="light_sets_at", symbol="_player_model_light_sets_at", size=4,
+    label="Player model light hits: X36's state (X18)")
+"""X36's search landing's state (:data:`SETS_STATE`): its VA, four bytes,
+so a set's swing standing for basic1-3 stuns too; 0 on a body with one set."""
 LIGHT_HIT_HOOK = TrampolinePatch(
     name=LIGHT_HIT_SHIM_NAME,
     label=f"Player model light hits: garret4's stun in his light columns (X18) at VA 0x{LIGHT_HIT_HOOK_VA:X}",
@@ -4540,6 +4549,7 @@ LIGHT_HIT_HOOK = TrampolinePatch(
     shim_object=LIGHT_HIT_SHIM.object_path(LIGHT_HIT_SHIM_NAME, CHECKOUT),
     shim_symbol="_c_player_model_light_hit",
     float_params=(LIGHT_COLUMNS,),
+    bytes_params=(LIGHT_SETS_AT,),
 )
 LIGHT = 1.0
 """The Damage multiplier under which a hit is level 1, a stun (0x30C11
@@ -4556,14 +4566,36 @@ def light_columns(vanilla) -> int:
         and cell.double_value < LIGHT))
 
 
-def install_light_hit_shim(xbe: bytearray, columns: int) -> None:
+def install_light_hit_shim(xbe: bytearray, columns: int, sets_state: int = 0) -> None:
     """Install X18 (``player_model/light_hit.c``) at VA 0x30C1C in ``xbe``:
     a hit whose Damage multiplier is under 1.0 is level 1, a stun, as in
     the game, and so is the player's own melee hit in one of ``columns``
     (:func:`light_columns`) whatever its multiplier, so a balanced or
     slider-raised light attack stuns where garret4's does and the combo
-    can chain; its damage stays the multiplier's (:func:`_install`)."""
-    _install(xbe, LIGHT_HIT_HOOK, LIGHT_HIT_SHIM, "light-hit", {LIGHT_COLUMNS.name: float(columns)})
+    can chain; with ``sets_state`` (X36's state's VA, installed before it)
+    the hit of a set's swing standing for basic1-3 too (D1045); its damage
+    stays the multiplier's (:func:`_install`)."""
+    _install(xbe, LIGHT_HIT_HOOK, LIGHT_HIT_SHIM, "light-hit", {LIGHT_COLUMNS.name: float(columns),
+                                                                LIGHT_SETS_AT.name: struct.pack("<I", sets_state)})
+
+
+def set_unstunned(columns: list[str], sets: list[list[int]], anims, carry=None) -> int:
+    """The columns (a mask) a set past the first (:func:`attack_sets`)
+    plays for basic1-3 whose hit doesn't stun: its written ``Damage
+    multiplier`` (an empty cell 1.0) or an X10 ring entry's there at
+    :data:`LIGHT` or more (``carry``, W14's), so without X18 the set's
+    next attack, which needs a stunned target (rows 28-31), never follows
+    it (Step 4.3, D1045: air_elemental's gust, the shards' and
+    the tentacles' sweeps, beamlord's second set, the farmers' and
+    booblord's sets 2-6)."""
+    out = 0
+    for cols in sets[1:]:
+        for c in cols[:len(CHAINED)]:
+            cell = anims.find_cell(columns[c], MULTIPLIER, c)
+            m = cell.double_value if cell is not None and cell.type_code == 1 else 1.0
+            if m >= LIGHT or any(c < len(row) and row[c] >= LIGHT for _, row in carry or ()):
+                out |= 1 << c
+    return out
 
 
 # --- X31: the player's hits give a no-hit window shortened by the attack speed (Step 2.126, AZ-573) ---
@@ -5184,12 +5216,25 @@ game's."""
 CHAIN_GATES = (28, 29, 30, 31)
 """The ``attacks_transitions`` columns (the combo's chain rows: basic1 ->
 basic2, basic2 -> basic3, basic3 -> finish3 and basic3 -> finish) whose
-``target features`` cell ("stunned frozen") X36's bodies clear (Step
-2.153, D432: "on swapped bodies a WHITE set's 2nd-4th attacks chain on a
-press in the window, hit or miss"): 0x7F137 reads an empty mask as no
-gate.  Column 32 (finish2 on a stunned target, searched before row 35, so
-cleared it would play on every fresh press) and 16 keep theirs; Europe
-reads the same ``config.xbr``."""
+``target features`` cell ("stunned frozen") a build with ``chain`` "any"
+clears on any body (Step 4.3, D1045, the owner: "make it default not
+chain on any press, with the option to turn on the chain on any press,
+for any model"; Step 2.153's D432 cleared it on every X36 body): 0x7F137
+reads an empty mask as no gate.  By default ("hit") they keep it, so the
+combo goes on only onto the target the last attack stunned, as
+garret4's (X18 stuns a set's swings too).  Column 32 (finish2 on a
+stunned target, searched before row 35, so cleared it would play on
+every fresh press) and 16 keep theirs; Europe reads the same
+``config.xbr``."""
+
+
+def lift_chain_gates(doc) -> None:
+    """``chain`` "any" (D1045) in ``doc`` (config.xbr's): :data:`CHAIN_GATES`'
+    ``target features`` cleared, so the combo's next attack follows a
+    press in its window, hit or miss."""
+    transitions = doc.keyed_section("attacks_transitions")
+    for c in CHAIN_GATES:
+        clear_keyed_cell(transitions, "a", "target features", col=c)
 
 
 def install_attack_sets_shim(xbe: bytearray, sets: list[list[int]], lines: list[str]) -> None:
@@ -8431,8 +8476,8 @@ def _his_tail(game, recipe: _Recipe, who: str, engine, added: list) -> tuple[lis
 
 def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage: float, attack_speed: float,
                    attack_balance: bool | None, attack_ground: bool | None, logic: AttackLogic | None,
-                   lo: Loadout | None = None, mode: str = DEFAULT_MODE, recipe: "_Recipe | None" = None
-                   ) -> list[str]:
+                   lo: Loadout | None = None, mode: str = DEFAULT_MODE, recipe: "_Recipe | None" = None,
+                   chain: str = DEFAULT_CHAIN) -> list[str]:
     """:func:`apply_player_model` for garret4's own body (Step 2.123,
     D302, D312): drawn ``model_scale`` times his size, W2's scale and his
     bound grown with it, and the size parts his body needs (X9's zipline
@@ -8478,7 +8523,8 @@ def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage:
     effects rows (X42, X38's bound keys), its fx clone (X40), its sounds
     (X14, X15, W9), its springs (W28, X41), LODs (W39, W36) and its
     hitsThroughWalls (W22); the rest his own build's (no W5, W14 balance,
-    W19, X3 or X36 on his columns)."""
+    W19, X3 or X36 on his columns).  ``chain`` "any" (D1045) lifts his
+    combo's gate (:func:`lift_chain_gates`)."""
     armed = lo is not None and lo.picked
     if not armed:
         refuse_garret4_attacks(attack_balance, attack_ground)
@@ -8518,7 +8564,7 @@ def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage:
         logic.size = movement_size(SizeShape(shape, None, 1.0), model_scale)   # Step 2.133
     colour, why = mode_status(PLAYER, model_scale=model_scale)
     if (model_scale, attack_reach, attack_damage, attack_speed) == (1.0, 1.0, 1.0, 1.0) and not armed and not (
-            variant is not None and _layered(variant, worn, recipe.drop)):
+            variant is not None and _layered(variant, worn, recipe.drop)) and chain != "any":
         return [f"  Player model: {PLAYER}, the vanilla player ({colour}); nothing written"]
     doc = _load_doc_for_edit(game, "config.xbr")
     engine, anims = doc.keyed_section("critters_engine"), doc.keyed_section("attacks_anims")
@@ -8572,6 +8618,8 @@ def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage:
         if worn is not None:   # the recipe's cells (Step 2.206): W22's hitsThroughWalls, W37, W7, X42's species
             stride, looped, toss, toss_rows = _his_cells(game, doc, anims, characters, body, worn, lo, columns,
                                                          picks, fills, model_scale, shot, who)
+        if chain == "any":   # D1045: his combo on any press too
+            lift_chain_gates(doc)
     except XbrStructuralError as exc:
         raise ValueError(f"{_named(PLAYER)}: {exc}") from None
     light = light_columns(vanilla)
@@ -8656,7 +8704,8 @@ def _apply_garret4(game, model_scale: float, attack_reach: float, attack_damage:
         if sized and lunges else []) + (
         [f"attack damage x{attack_damage:g}"] if attack_damage != 1.0 else []) + (
         [f"attack speed x{attack_speed:g}" + (f", {', '.join(chained)} chaining inside the stun" if chained else "")]
-        if attack_speed != 1.0 else [])
+        if attack_speed != 1.0 else []) + (
+        ["the combo's next attack on any press in its window, hit or miss (chain any, D1045)"] if chain == "any" else [])
     if armed:
         colour, why = weapon_grade(PLAYER, mode, lo, weapon_seen("own", model_scale), (colour, why)) or (colour, why)
         done = [f"the {lo.prop.title} on his {lo.weapon.style.held[0]} in {propped} LODs (W32), his staff cut from "
@@ -9515,7 +9564,7 @@ def _garret4_recipe(game, variant, sound_files, options: dict) -> list[str] | No
         log = _apply_garret4(game, o["model_scale"], o["attack_reach"], o["attack_damage"], o["attack_speed"],
                              o["attack_balance"], o["attack_ground"], o["logic"], lo, o["mode"],
                              _Recipe(variant, worn, drop, o["jiggle_strength"], o["jiggle_stiffness"],
-                                     o["springs_out"], o["plans"], o["ram"]))
+                                     o["springs_out"], o["plans"], o["ram"]), chain=o["chain"])
         if not log[0].endswith("; nothing written"):
             return log
     else:   # the style it wears, the recipe's or the one picked over it
@@ -9544,7 +9593,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                        sound_files: str | Path | None = None, jiggle_strength: float = 1.0,
                        jiggle_stiffness: float = 1.0, springs_out: dict | None = None,
                        weapon: str | None = None, ram: int | None = None, plans: list | None = None,
-                       player_only: bool = True) -> list[str]:
+                       player_only: bool = True, chain: str = DEFAULT_CHAIN) -> list[str]:
     """Dress the player in ``species``' body (W1-W7 above, and the shims
     it needs) in ``game``'s staged files (an
     :class:`~azurik_mod.patching.xbr_staging.IsoStaging`) in gameplay
@@ -9608,7 +9657,11 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     MiB the build is for, 64, 128 or 256 (:data:`~azurik_mod.assets.model_inspect.RAMS`;
     ``None``, :data:`~azurik_mod.assets.model_inspect.DEFAULT_RAM`, 128
     since D588): the own runs' size lines it is weighed against
-    (:func:`_load_budget`).
+    (:func:`_load_budget`).  ``chain`` (Step 4.3, D1045;
+    :data:`~azurkit.tools.characters.CHAINS`): "hit", the combo's next
+    attack only onto the target the last one stunned (rows 28-31's gate
+    kept, as garret4's); "any", on any press in its window
+    (:func:`lift_chain_gates`), on any body, garret4's own too.
     ``plans``, when given, receives W24's plan (the variant's
     :class:`~azurik_mod.assets.mesh_edit.MeshPlan`, the one the build
     writes; none for a recipe with no ``mesh``: ``azurik-mod model dress``).
@@ -9641,6 +9694,8 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         raise ValueError(f"--player-character-mode {mode!r}: not one of {', '.join(MODES)}")
     if size not in SIZES:
         raise ValueError(f"--player-character-size {size!r}: not one of {', '.join(SIZES)}")
+    if chain not in CHAINS:
+        raise ValueError(f"character: chain {chain!r} is not one of {', '.join(map(repr, CHAINS))}")
     check_player_model(game, species)
     if sound_files is not None and variant is None:
         raise ValueError(f"--player-variant-sounds {sound_files}: it fills a variant's sounds, and "
@@ -9653,7 +9708,8 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
             mode=mode, size=size, model_scale=model_scale, attack_reach=attack_reach, attack_ground=attack_ground,
             attack_balance=attack_balance, attack_damage=attack_damage, attack_speed=attack_speed,
             missing_anims=missing_anims, sounds=sounds, logic=logic, jiggle_strength=jiggle_strength,
-            jiggle_stiffness=jiggle_stiffness, springs_out=springs_out, weapon=weapon, ram=ram, plans=plans))
+            jiggle_stiffness=jiggle_stiffness, springs_out=springs_out, weapon=weapon, ram=ram, plans=plans,
+            chain=chain))
         if made is not None:
             return made
     if variant is not None:
@@ -9666,7 +9722,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
             raise ValueError(f"--player-character {species!r}: {exc}") from None
         if lo.kit is None:   # his staff, or (Step 2.161d) a prop on his staff chain: his own attacks
             return _apply_garret4(game, model_scale, attack_reach, attack_damage, attack_speed, attack_balance,
-                                  attack_ground, logic, lo, mode)
+                                  attack_ground, logic, lo, mode, chain=chain)
         # Step 2.161d: a style baked onto his own rig (bare hands, Balthazar's magic), dressed below as a
         # swapped body's attacks, the parts of his body his own build's (`himself` in _dress and below); the
         # balance and the reach-to-ground the mode's, as on every body swinging a style (D222, D223, D225)
@@ -9992,10 +10048,8 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         looped = (planted_chain(anims, doc.keyed_section("attacks_transitions"), tuple(loop["plant"]),
                                 float(loop["turns"]), float(loop["hold"]))
                   if loop is not None else None)   # W37 (Step 2.180, D701)
-        if sets:   # X36's chain on any press (Step 2.153, D432): rows 28-31's stunned-target gate lifted
-            transitions = doc.keyed_section("attacks_transitions")
-            for c in CHAIN_GATES:
-                clear_keyed_cell(transitions, "a", "target features", col=c)
+        if chain == "any":   # D1045's option (Step 2.153's D432 rule): rows 28-31's stunned-target gate lifted
+            lift_chain_gates(doc)
         # what the columns play: a creature's cast in a body's k/ copies or a clipless body's g4/ timers (Step 2.204;
         # the train review's N1: its picks, the plain clips, key no cast, so X37 aimed none of its bolts)
         column_clips = cast_plays(picks, copies, clips, d.cast) if d.cast else picks
@@ -10204,11 +10258,6 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
             install_staff_walls_off(game["default.xbe"])
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
-    if heavy:   # X18 (Step 2.104, AZ-525)
-        try:
-            install_light_hit_shim(game["default.xbe"], light_columns(vanilla_anims))
-        except ValueError as exc:
-            raise ValueError(f"--player-character {species!r}: {exc}") from None
     windowed = bool(picks or timers) and shortens_hit_delay(attack_speed)
     if windowed:   # X31 (Step 2.126, AZ-573, D318): W14's Rates sped up, the hits' no-hit window shortened
         try:
@@ -10252,6 +10301,16 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     if sets:   # X36 (Step 2.135; D325, D326, D352; D441): WHITE cycles the sets, direction picks none
         try:
             install_attack_sets_shim(game["default.xbe"], sets, lines)
+        except ValueError as exc:
+            raise ValueError(f"--player-character {species!r}: {exc}") from None
+    # X18 (Step 2.104, AZ-525), after X36, whose state it reads: a light column's hit, and (Step 4.3, D1045) a set's
+    # swing standing for basic1-3, stuns whatever its multiplier, so the combo chains on a hit in every set
+    unstunned = set_unstunned(columns, sets, anims, carry) if sets else 0
+    if heavy or unstunned:
+        try:
+            state = (trampoline_symbol_va(game["default.xbe"], SETS_HOOKS[0], SETS_STATE, CHECKOUT,
+                                          shim_source=SETS_SHIM.source_path()) if len(sets) > 1 else 0)
+            install_light_hit_shim(game["default.xbe"], light_columns(vanilla_anims), state)
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
     # X21 (Step 2.105, AZ-523): own body's combo on a stunned target out to its basics' reach
@@ -10631,9 +10690,14 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                       f", {bump.bit_count()} short melee attacks reaching x{REACH_BUMP:g} (X13)" if bump else ""))
     if (picks or timers) and attack_damage != 1.0:
         reach += f", attack damage x{attack_damage:g}"
-    if heavy:
-        reach += (f", its hits stunning as garret4's in the {heavy.bit_count()} light columns whose damage "
-                  "multiplier reaches 1.0 (X18)")
+    if heavy or unstunned:
+        reach += (", its hits stunning as garret4's in the "
+                  + " and ".join(([f"{heavy.bit_count()} light columns"] if heavy else [])
+                                 + ([f"{unstunned.bit_count()} columns its sets play for basic1-3"]
+                                    if unstunned else []))
+                  + " whose damage multiplier reaches 1.0 (X18)")
+    if chain == "any":
+        reach += ", the combo's next attack on any press in its window, hit or miss (chain any, D1045)"
     if chained:
         reach += (f", the combo chaining {CHAIN_AFTER_HIT:g} s after the first hit, or {round(30 * STUN_LAG)} "
                   f"ticks after the box meets a target ahead, in {', '.join(chained)} (W19)")
@@ -11374,6 +11438,8 @@ __all__ = [
     "drain_columns",
     "install_drain_shim",
     "CHAIN_GATES",
+    "lift_chain_gates",
+    "set_unstunned",
     "SETS_HOOKS",
     "attack_sets",
     "install_attack_sets_shim",

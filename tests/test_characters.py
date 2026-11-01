@@ -446,6 +446,51 @@ def test_a_character_builds_recipe_rebuilds_its_image(release, request):
     assert sdk.image({"iso": path} | recipe)[0].sha256() == made.sha256()
 
 
+def test_a_worn_combo_chains_only_on_a_stun_unless_chain_is_any_and_every_sets_first_three_attacks_stun(
+        usa_iso, no_content, monkeypatch):
+    """D1045: by default (``chain`` "hit", as a link or mods file without the field reads) the combo's rows 28-31
+    keep the game's stunned-target gate, so its next attack follows only a hit, as garret4's; ``chain`` "any" lifts
+    it, on a boss, a creature, a townsman and a variant (and garret4's own body); any other chain is refused by name.
+    Each set's first three attacks stun a target (their multiplier under 1.0, or X18: a light column, or a set's
+    swing read from X36's state), so every set's combo can chain on a hit (Step 4.3: air_elemental's gust,
+    beamlord's second set and the townsman's second set never stunned)."""
+    from azurkit.tools.characters import _player_character as swap
+
+    with pytest.raises(ValueError, match=r"^character: chain 'press' is not one of 'hit', 'any'"):
+        characters.normalize({"species": "keylord", "chain": "press"})
+    seen, attack_sets, light_hit = {}, swap.attack_sets, swap.install_light_hit_shim
+
+    def sets(columns, picks):   # the sets the build plays and X18 as it lands, recorded
+        seen["sets"] = attack_sets(columns, picks)
+        return seen["sets"]
+
+    def x18(xbe, columns, sets_state=0):
+        seen["x18"] = columns, sets_state
+        light_hit(xbe, columns, sets_state)
+    monkeypatch.setattr(swap, "attack_sets", sets)
+    monkeypatch.setattr(swap, "install_light_hit_shim", x18)
+    for species in ("balthazar", "air_elemental", "town_male_1", "beamlord", "garret4"):
+        for chain in ("hit", "any"):
+            seen.clear()
+            _, base, layers, _, _ = sdk._plan({"iso": str(usa_iso), "character": {"species": species} | (
+                {"chain": chain} if chain == "any" else {})})
+            doc = ports.XbrDocument(bytearray(compose(base, layers)[0].get(characters.CONFIG, base[characters.CONFIG])))
+            gates = doc.keyed_section("attacks_transitions")
+            at = gates.row_names().index("target features")
+            assert [c.string_value if (c := gates.read_cell(col, at)).type_code else None
+                    for col in swap.CHAIN_GATES] == (["stunned frozen"] * 4 if chain == "hit" else [None] * 4), (
+                species, chain)
+            if chain == "any":
+                continue
+            anims = doc.keyed_section("attacks_anims")
+            columns, (mask, state) = anims.col_names(), seen.get("x18", (0, 0))
+            for k, cols in enumerate(seen.get("sets") or [[0, 1, 2]]):
+                for c in cols[:3]:
+                    m = anims.find_cell(columns[c], swap.MULTIPLIER, c)
+                    assert (m is not None and m.type_code == 1 and m.double_value < swap.LIGHT) or "x18" in seen and (
+                        mask >> c & 1 or k and state), (species, k, columns[c])
+
+
 # --- variants (Step 4.3c1): a recipe's mesh, paint and jiggle -----------------------------------------------------
 
 

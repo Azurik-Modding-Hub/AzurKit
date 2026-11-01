@@ -591,7 +591,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (`test_characters.py` builds G3's cases under it).
   - A recipe's `character` (`tools.characters.normalize`): `species` and
     Modkit's `randomize-full` options (`mode`, `size`, `scale`, the attack
-    sliders, `anims`, `sounds`, `weapon`, `ram`, the jiggle's): the sdk
+    sliders, `anims`, `sounds`, `weapon`, `ram`, the jiggle's) and `chain`
+    (D1045: `"hit"`, the default and how a recipe without it reads, the
+    combo's next attack only onto the target the last one stunned; `"any"`,
+    on any press, for any body): the sdk
     folds the body's size into player_physics' walk and roll first
     (Modkit's `size_params`; its `size_fold`, the speed toggle's walk and
     roll for the body, goes to player_physics as a `Pack.inputs`, never a

@@ -146,6 +146,7 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     recipe's, :func:`~azurkit.tools.characters.normalize` d), Azurik-Custom-
     Content as ``sdk.content`` gives it (``community``: its ``entries`` with
     their states; ``None``: none read) and the content folder ``root``."""
+    from azurkit.tools.characters import DEFAULT_CHAIN
     from azurkit.tools.characters import _player_character as swap
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content, jiggle_rt
@@ -249,6 +250,8 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
         del build["size"]
     if build.get("sounds") == "own":
         del build["sounds"]
+    if build.get("chain") == DEFAULT_CHAIN:   # D1045's default, as an older recipe without it reads
+        del build["chain"]
     if build.get("anims") == swap.MODE_ANIMS[wear_mode]:
         del build["anims"]
     if not build.get("shapes"):

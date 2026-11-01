@@ -33,9 +33,19 @@
  * PlayerControl (critter+0x180) plays (+0x134) is one of
  * player_model_light_columns (a 24-bit mask: the columns whose vanilla
  * Damage multiplier is under 1.0, written by the build), EBX := 1, as
- * garret4's hit there is.  Damage stays the multiplier's; every other
- * hit (an enemy's on the player, AI on AI, the player's heavy columns, a
- * hit whose multiplier isn't the attack's) keeps the game's level.
+ * garret4's hit there is.  So is it (Step 4.3, D1045) when X36's attack
+ * sets are on and the swing is a set's standing for basic1-3: X36's
+ * state (its search landing's, its VA in the bytes param
+ * player_model_light_sets_at; 0 on a body with one set) holds the combo
+ * column the swing stands for (+4, logical: 0-2) and the column it plays
+ * (+8, source) while that swing plays, and the column is that one.  A
+ * set's column (a gust, a sweep, a cast) is often heavy in the game
+ * (sweep1's multiplier 1.0), so without this its hit never stunned and
+ * the set's combo, which by default chains only onto a stunned target
+ * (rows 28-31's gate kept), never went past its first attack.  Damage
+ * stays the multiplier's; every other hit (an enemy's on the player, AI
+ * on AI, the player's heavy columns, B's sweeps, a set's fourth, a hit
+ * whose multiplier isn't the attack's) keeps the game's level.
  *
  * ABI: at the CALL, AX holds the FPU status FNSTSW stored, EBX the
  * level, ECX the hit record, ESI the target's species, EDI the target
@@ -55,15 +65,20 @@
 #define HIT_ATTACKER 0x004   /* hit record -> its attacker                */
 #define HIT_MULTIPLY 0x00C   /* hit record: its Damage multiplier          */
 #define COLUMNS      24
+#define SET_LOGICAL  0x004   /* X36's state: the combo column a set's swing stands for; -1 */
+#define SET_SOURCE   0x008   /* X36's state: the column it plays          */
+#define BASICS       3       /* basic1-3: the combo columns a chain leaves */
 
 AZURIK_FLOAT_PARAM(player_model_light_columns, 0.0f);
+AZURIK_BYTES_PARAM(player_model_light_sets_at, 4);
 
-/* Whether the hit is the player's melee in a light column. */
+/* Whether the hit is the player's melee in a light column, or in a set's
+ * swing standing for basic1-3. */
 __attribute__((used))
 int light_hit(const char *hit, const char *target)
 {
     const char *world = *(const char *const *)(target + CR_WORLD);
-    const char *player, *control;
+    const char *player, *control, *sets;
     unsigned column;
 
     if (!world)
@@ -76,7 +91,18 @@ int light_hit(const char *hit, const char *target)
     if (!control)
         return 0;
     column = *(const unsigned *)(control + PC_COLUMN);
-    return column < COLUMNS && (((unsigned)(int)player_model_light_columns >> column) & 1);
+    if (column >= COLUMNS)
+        return 0;
+    if (((unsigned)(int)player_model_light_columns >> column) & 1)
+        return 1;
+    sets = *(const char *const volatile *)player_model_light_sets_at;
+    if (!sets)
+        return 0;
+    {
+        int logical = *(const volatile int *)(sets + SET_LOGICAL);
+
+        return logical >= 0 && logical < BASICS && *(const volatile unsigned *)(sets + SET_SOURCE) == column;
+    }
 }
 
 /* 0x30C1C: TEST AH,5 / JP 0x30C26 / MOV EBX,1, then the player's light

@@ -5,9 +5,9 @@
   },
   "europe": {
    "files": {
-    "default.xbe": "e98c909f76c3d674ac4d4b937006151b75ae4f0a052d26265e1c07745318050a",
+    "default.xbe": "bfbd6383a26d102053eb727fcf380239be26ccfd2edd922e605987d5fe3a6d75",
     "gamedata/characters.xbr": "faa63d760cd56330c3971245be38fd997fad9c10bb14bb5eef9f9e8c13eb4a02",
-    "gamedata/config.xbr": "b83af8d34b693fab0c89df7390431812d3f8ff34faadcfdc1d60ea937fa4f2d3",
+    "gamedata/config.xbr": "eac3c3227bb00887386826c1b6ddc4edab21b029794efe1797b8e6eff631f44e",
     "gamedata/fx.xbr": "b0c30141c6f5f8609b452c321f646df66cf2fcbebef083862e009a0d551708cb",
     "gamedata/index/index.xbr": "6a1831c53d43c968e30e4f3ccd4ee92adf2edae1ba82df344cc9c2667296a76c"
    },
@@ -389,12 +389,6 @@
        "a1f66b9ebeba7c2f301e4f55d2be0f9333522ea51dcf5f968faef2987cb6cf5b"
       ],
       [
-       3,
-       "tabl",
-       7247,
-       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
-      ],
-      [
        4,
        "tabl",
        69880,
@@ -415,7 +409,7 @@
      ],
      "count": 18,
      "new": [],
-     "sha256": "b83af8d34b693fab0c89df7390431812d3f8ff34faadcfdc1d60ea937fa4f2d3",
+     "sha256": "eac3c3227bb00887386826c1b6ddc4edab21b029794efe1797b8e6eff631f44e",
      "size": 565818,
      "vanilla_count": 18
     },
@@ -903,9 +897,9 @@
   },
   "usa": {
    "files": {
-    "default.xbe": "50bcf8919ba0021feab142f8c85d09770c149558b31e0e2c3520309d30693161",
+    "default.xbe": "ffb525577707d5a943be44a15c403e8e1991355e20972173bcb6fde3b87436b6",
     "gamedata/characters.xbr": "faa63d760cd56330c3971245be38fd997fad9c10bb14bb5eef9f9e8c13eb4a02",
-    "gamedata/config.xbr": "b83af8d34b693fab0c89df7390431812d3f8ff34faadcfdc1d60ea937fa4f2d3",
+    "gamedata/config.xbr": "eac3c3227bb00887386826c1b6ddc4edab21b029794efe1797b8e6eff631f44e",
     "gamedata/fx.xbr": "b0c30141c6f5f8609b452c321f646df66cf2fcbebef083862e009a0d551708cb",
     "gamedata/index/index.xbr": "2f3373c3663c51639c23fcefbbe5ffd652863e2e6273cabde77db396322eb399"
    },
@@ -1287,12 +1281,6 @@
        "a1f66b9ebeba7c2f301e4f55d2be0f9333522ea51dcf5f968faef2987cb6cf5b"
       ],
       [
-       3,
-       "tabl",
-       7247,
-       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
-      ],
-      [
        4,
        "tabl",
        69880,
@@ -1313,7 +1301,7 @@
      ],
      "count": 18,
      "new": [],
-     "sha256": "b83af8d34b693fab0c89df7390431812d3f8ff34faadcfdc1d60ea937fa4f2d3",
+     "sha256": "eac3c3227bb00887386826c1b6ddc4edab21b029794efe1797b8e6eff631f44e",
      "size": 565818,
      "vanilla_count": 18
     },
@@ -1808,7 +1796,7 @@
    "files": {
     "default.xbe": "45380853eab60a9952439ffa55f0904363bf298a35733a41e1199765d034ffa6",
     "gamedata/characters.xbr": "fb5094d41a5a69698dfed06f71e5969400383f15f144bb8d4dd3ffd33cd29db6",
-    "gamedata/config.xbr": "bdbcbac66df589fbbfd9ec62d064e25d1535cd42e126976f010b04ca7033ce07",
+    "gamedata/config.xbr": "8facae4ec45cb8002dd73d527c33b8a081550cda6eec4a4d2b8aacc37be6b96a",
     "gamedata/fx.xbr": "585b9aa9cd9ddc0bc4ca1a868ac19e3e165db86afb1c88264f6f0904e586eb36",
     "gamedata/index/index.xbr": "6b2dfe687a4b0613630cabafcc9a2a6375a7d7b350b61410d3e07a81323808d8"
    },
@@ -2493,12 +2481,6 @@
        "b36c2cc06715f0a604ddfbcf7552493e1f901e5faa2b3a914908dac172b5628c"
       ],
       [
-       3,
-       "tabl",
-       7247,
-       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
-      ],
-      [
        4,
        "tabl",
        69880,
@@ -2525,7 +2507,7 @@
      ],
      "count": 18,
      "new": [],
-     "sha256": "bdbcbac66df589fbbfd9ec62d064e25d1535cd42e126976f010b04ca7033ce07",
+     "sha256": "8facae4ec45cb8002dd73d527c33b8a081550cda6eec4a4d2b8aacc37be6b96a",
      "size": 565818,
      "vanilla_count": 18
     },
@@ -3256,7 +3238,7 @@
    "files": {
     "default.xbe": "a4fc2568f7dbc17decb92f6f4b6575c120227e690f1f40577c607073cf8cab07",
     "gamedata/characters.xbr": "fb5094d41a5a69698dfed06f71e5969400383f15f144bb8d4dd3ffd33cd29db6",
-    "gamedata/config.xbr": "bdbcbac66df589fbbfd9ec62d064e25d1535cd42e126976f010b04ca7033ce07",
+    "gamedata/config.xbr": "8facae4ec45cb8002dd73d527c33b8a081550cda6eec4a4d2b8aacc37be6b96a",
     "gamedata/fx.xbr": "585b9aa9cd9ddc0bc4ca1a868ac19e3e165db86afb1c88264f6f0904e586eb36",
     "gamedata/index/index.xbr": "e5e72d100fdfdb7bdd3d9a8386cf89a7c85925829bf0068c23ece33bd7efebd6"
    },
@@ -3941,12 +3923,6 @@
        "b36c2cc06715f0a604ddfbcf7552493e1f901e5faa2b3a914908dac172b5628c"
       ],
       [
-       3,
-       "tabl",
-       7247,
-       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
-      ],
-      [
        4,
        "tabl",
        69880,
@@ -3973,7 +3949,7 @@
      ],
      "count": 18,
      "new": [],
-     "sha256": "bdbcbac66df589fbbfd9ec62d064e25d1535cd42e126976f010b04ca7033ce07",
+     "sha256": "8facae4ec45cb8002dd73d527c33b8a081550cda6eec4a4d2b8aacc37be6b96a",
      "size": 565818,
      "vanilla_count": 18
     },
@@ -4711,9 +4687,9 @@
   },
   "europe": {
    "files": {
-    "default.xbe": "568071fb592da39385bca4738b39780caccd6fa07c5f86e26c90d50173414335",
+    "default.xbe": "a1aa1b926b09b1c0f0211408dc9109d0aabe5649e2e41258e9a3796f51c01475",
     "gamedata/characters.xbr": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
-    "gamedata/config.xbr": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+    "gamedata/config.xbr": "e1df7f0f520281e1ca29b01942b53861548349475dd8ef14900d5674f5a60e63",
     "gamedata/fx.xbr": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",
     "gamedata/index/index.xbr": "7acc608a05d3f00060f1071c30b3d7111a7dbb68cda280f09c95d3a1cb86d426"
    },
@@ -5395,12 +5371,6 @@
        "0d28a30049a45b85833d00e8624eee7f3b66c5673548f49b6817b2f3877358d5"
       ],
       [
-       3,
-       "tabl",
-       7247,
-       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
-      ],
-      [
        4,
        "tabl",
        69880,
@@ -5415,7 +5385,7 @@
      ],
      "count": 18,
      "new": [],
-     "sha256": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+     "sha256": "e1df7f0f520281e1ca29b01942b53861548349475dd8ef14900d5674f5a60e63",
      "size": 565818,
      "vanilla_count": 18
     },
@@ -6085,9 +6055,9 @@
   },
   "usa": {
    "files": {
-    "default.xbe": "0436428b52e8f536f5cd39e1796bc364d2e49910c78d0cefdd161c6fa2dbcfb9",
+    "default.xbe": "54bb2f9226a598d7ef1412843a503494880a08511cfb94dd453fbbc04f8fcb67",
     "gamedata/characters.xbr": "1943c673e3921c15057134f0e7a034669edc56934a09c629e94d8153e2edda65",
-    "gamedata/config.xbr": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+    "gamedata/config.xbr": "e1df7f0f520281e1ca29b01942b53861548349475dd8ef14900d5674f5a60e63",
     "gamedata/fx.xbr": "5a359097dd3e61df902e29c199d59a45b163409246706a70145692e76b7d1a48",
     "gamedata/index/index.xbr": "39246c1120f6b99bf00b38fb5f5f3d014b2184b2b91a505865dc6f819f45cc46"
    },
@@ -6769,12 +6739,6 @@
        "0d28a30049a45b85833d00e8624eee7f3b66c5673548f49b6817b2f3877358d5"
       ],
       [
-       3,
-       "tabl",
-       7247,
-       "6cb74af53e85ef66546b2f7ea387542dc30a7ed13ef29bee08ff97ac35ecb128"
-      ],
-      [
        4,
        "tabl",
        69880,
@@ -6789,7 +6753,7 @@
      ],
      "count": 18,
      "new": [],
-     "sha256": "a7e3abfa874c6365c6eb02cb6a12075b8d5629e951bff0b61a25f2c9f0de2663",
+     "sha256": "e1df7f0f520281e1ca29b01942b53861548349475dd8ef14900d5674f5a60e63",
      "size": 565818,
      "vanilla_count": 18
     },
