@@ -300,6 +300,20 @@ def test_the_tab_folds_the_worn_bodys_size_in_as_its_build_does_so_a_seed_planne
         == "player_physics jump_speed_scale 1.3, player_physics walk_speed_scale 1.028966903909119"
 
 
+def test_track_this_seed_plans_a_body_smaller_than_garret4_on_his_run_where_its_build_does(usa_iso):
+    """A body smaller than garret4 folds a walk under his 7 m/s run into
+    the tab's share string; where no plan fills on the logic re-checked at
+    it, its build plans on his run (``layer.plan_for``, AZ-606) and records
+    that run in its share string, and Track this seed on the tab's share
+    string gives that plan, not "no plan" (D35)."""
+    defaults, worn, iso_path = sdk.catalog()["randomizer"]["defaults"], {"species": "overlord"}, str(usa_iso)
+    built = sdk._plan({"iso": iso_path, "packs": {}, "character": worn,
+                       "randomizer": {"seed": "2", "settings": defaults}})[4]
+    share = sdk.randomizer_settings({"settings": defaults, "character": worn, "iso": iso_path})["share"]
+    planned = sdk.plan({"seed": "2", "share": share})
+    assert planned["sha256"] == built.plan.doc["sha256"] and planned["share"] != share
+
+
 def test_movement_sliders_plan_on_the_logic_rechecked_under_them_and_the_packs_catalog_flags_the_rest():
     """A share string's movement sliders (AZ-383) plan on the logic
     re-checked under them, and its plan reads back into its spoiler; a build

@@ -43,6 +43,7 @@ import math
 import tomllib
 from collections.abc import Callable, Mapping
 from dataclasses import replace
+from types import SimpleNamespace
 
 from azurkit.core.progress import Steps, noting
 from azurkit.tools.randomizer import dbcache, layer
@@ -137,7 +138,10 @@ def _settings(recipe: Mapping, db) -> Settings:
 def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
     """The plan file's object for ``recipe``: the first of the fill's
     attempts that passes the verify, on the logic re-checked under the share
-    string's movement sliders. ``progress(record)`` hears its three stages
+    string's movement sliders; a run under garret4's 7 m/s (a worn body's
+    size folded into the walk) plans as its build does
+    (``layer.plan_for``: on his run when none fills at it, its share string
+    then recording that run). ``progress(record)`` hears its three stages
     (``core.progress``'s ``plan``, done of 3): the logic read, the fill and
     the placements written, the fill's notes ("placing the items, k of n",
     ``core.progress.noting``) counted inside its stage. ``ValueError`` names
@@ -156,6 +160,11 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
         logic = kept_logic()
         settings = _settings(recipe, logic.db)
         steps("plan", "Filling the seed", 1, 3)
+        if run_floor(settings.sliders) is not None:   # only a share string holds sliders
+            doc = layer.plan_for(SimpleNamespace(seed=recipe["seed"], share=recipe["share"]), logic.db,
+                                 settings.sliders)[0].doc
+            steps("plan", "Writing the placements", 2, 3)
+            return doc
         filled = fill(logic_of(logic, settings), recipe["seed"], settings)
         steps("plan", "Writing the placements", 2, 3)
         return plan_doc(filled, logic.db)
