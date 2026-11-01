@@ -143,8 +143,8 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 // Progress (D980): one bar for both hosts. Each ask in flight is kept (asking(kind) -> its id, answered(id)) with the
 // last record the engine gave for it (the app's api/progress, polled every 250 ms; the site's worker's posts); the
-// newest that is a build or a save, has a record, or has waited 1 s shows: its label and percent, or a moving stripe
-// while it has no count.
+// newest that is a build, a save or Track this seed's plan, has a record, or has waited 1 s shows: its label and
+// percent, or a moving stripe while it has no count.
 const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your image", check: "Checking your image",
                  plan: "Planning the seed", tracker: "Reading the seed's logic", randomizer: "Reading the randomizer",
                  restore: "Restoring your setup", pickers: "Reading the models", preview: "Drawing the model",
@@ -154,7 +154,8 @@ const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your imag
                  files: "Listing its files", extract: "Extracting the file", open: "Reading the build",
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
                  storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit" };
-const AT_ONCE = new Set(["build", "save"]);   // shown from the click; any other ask after 1 s
+const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other after 1 s
+const FOLLOWED = new Set([...AT_ONCE, "plan"]);   // shown and polled from the click: Track this seed's plan too
 let asked = 0, ticking = null;
 
 function progressed(step) {
@@ -183,7 +184,7 @@ function answered(id) {
 function showing() {
   const now = performance.now();
   for (const [id, ask] of state.asks) if (ask.until !== null && now > ask.until) state.asks.delete(id);
-  const ask = [...state.asks.values()].findLast((a) => a.record || AT_ONCE.has(a.kind) || now - a.since >= 1000);
+  const ask = [...state.asks.values()].findLast((a) => a.record || FOLLOWED.has(a.kind) || now - a.since >= 1000);
   progressed(ask && (ask.record ?? { label: LABELS[ask.kind] ?? "Working", percent: null }));
 }
 
@@ -194,7 +195,7 @@ async function tick() {
     return progressed(null);
   }
   const now = performance.now();
-  if (state.app && [...state.asks.values()].some((a) => AT_ONCE.has(a.kind) || now - a.since >= 750)) {
+  if (state.app && [...state.asks.values()].some((a) => FOLLOWED.has(a.kind) || now - a.since >= 750)) {
     const reply = await state.engine.progress().catch(() => null);
     for (const ask of state.asks.values()) {
       const step = reply?.calls?.[ask.kind];

@@ -43,6 +43,7 @@ from azurkit.edits.layer import Change, Layer
 from azurkit.tools import mods
 from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import tracking
+from azurkit.tools.randomizer.planner import fill as planner_fill
 from azurkit.tools.randomizer.planner import loader
 from scripts import freeze, record_goldens
 from tests import _g1, _page
@@ -1741,6 +1742,52 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
     checked = any(s["label"].startswith("Reading the randomizer's logic (") for s in planned)
     assert (len(read) >= 3, back(seen), seen[-1]["stage"], len(replies[0]["lines"]) > 9, checked, back(planned),
             len(seeded)) == (True, [], "spoiler", True, True, [], 1), (seen, planned)
+
+
+# Track this seed, clicked: ``bars`` is the bottom bar at each change, [ms since the click, its value (null: a moving
+# stripe), its line], or null while it is hidden
+TRACK_BARS = """() => {
+    globalThis.bars = [];
+    const t = performance.now();
+    new MutationObserver(() => {
+        const hidden = document.getElementById("progress-row").hidden;
+        bars.push(hidden ? null : [performance.now() - t, document.getElementById("progress").getAttribute("value"),
+                                   document.getElementById("progress-line").textContent]);
+    }).observe(document.querySelector("footer"), { subtree: true, childList: true, characterData: true,
+                                                   attributes: true });
+    document.getElementById("track-seed").click();
+}"""
+
+
+def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fill_moves_it_through_its_reaches(
+        browser, tmp_path, monkeypatch):
+    """Step 4.3 train B3 (A23, D980): in the app's page, Track this seed's
+    bar is its plan's from the click, polled at once as a build's (it used
+    to wait 750 ms, by when a quick fill had told its last count), and the
+    fill's count moves it through the time its reaches take (each item a
+    reach places a step, the rest at once its last: counted by spots, the
+    bar sat under 37 % until the plan was written), its records the one
+    stream's (``core.progress.note``, folded into the plan's stage)."""
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.setattr(planner_fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-randomizer")
+        _page.until(page, "() => azurkit.rando.view?.share", 300)
+        _page.fill(page, "rando-seed", "2")
+        page.evaluate(TRACK_BARS)
+        _page.until(page, "() => document.getElementById('track-head').textContent.trim()", 300)
+        bars = page.evaluate("() => bars")
+        page.close()
+    finally:
+        server.close()
+    shown = [b for b in bars if b is not None]
+    counted = {int(b[1]) for b in shown if b[1] is not None and "(placing the items, " in b[2]}
+    assert (shown[0][0] < 250, shown[0][2].startswith("Planning the seed"), len(counted) >= 2,
+            max(counted, default=0) >= 50) == (True, True, True, True), bars
 
 
 def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_path, monkeypatch, usa_iso):

@@ -405,7 +405,7 @@ class _Slots:
         """One attempt's placement, or :class:`_Stuck`; ``repaired`` gets
         each trap-gate refusal it went on to repair. ``reaches``: the
         fill's kept reaches under ``settings`` (one of its own when None);
-        ``told`` hears the spots it fills and each reach (:class:`_Count`)."""
+        ``told`` hears the items it places and each reach (:class:`_Count`)."""
         lg = self.logic
         reaches = reaches if reaches is not None else _Reaches(lg, settings)
         placed, budget = dict(self.prefilled), _Budget(self.names)
@@ -413,11 +413,11 @@ class _Slots:
         read = {name for name, cs in lg.items.items() if cs.keys() & reads.keys()}
         todo = [loc for loc in self.pool if loc not in placed]
         told, start = told or _Count.SILENT, len(placed)
-        told.begin(len(todo))
         nongem = [loc for loc in todo if self.kind[loc] == "nongem"]
         by_class = collections.defaultdict(list)
         for loc in nongem:
             by_class[self.cls[self.vanilla[loc]]].append(self.vanilla[loc])
+        told.begin(sum(len(by_class[cls]) for cls in _Count.REACHED) + 1)
         assumed = collections.Counter(self.vanilla[loc] for loc in todo if self.vanilla[loc] in read)
 
         def reach(at: Mapping[str, str] | None = None) -> Reach:
@@ -565,16 +565,21 @@ class _Slots:
 
 class _Count:
     """The fill's progress as :func:`~azurkit.core.progress.note` calls
-    (Step 4.3u): "placing the items, k of n", k the spot being filled of the
-    n an attempt fills, one count through the fill's attempts that never
-    falls (Step 4.3 train B3: an attempt after a stuck one tells the count
-    the stuck one reached until it passes it; a trade or repair puts spots
-    again). A note each time the count passes a percent and at each reach,
-    where the time goes, so each is the bar's step and a cancel point no
-    more than one reach apart, a retried attempt's too; the fill's
-    :class:`_Making` keeps the last for a thread waiting on it."""
+    (Step 4.3u): "placing the items, k of n", k the item being placed of
+    the n steps an attempt takes, each item a reach places (:data:`REACHED`:
+    where its time goes) a step and the rest, placed at once, its last
+    (Step 4.3 train B3: counted by spots, the bar sat in its first tenth
+    while the reaches ran), one count through the fill's attempts that
+    never falls (an attempt after a stuck one tells the count the stuck one
+    reached until it passes it; a trade or repair puts items again). A note
+    each time the count passes a percent and at each reach, so each is the
+    bar's step and a cancel point no more than one reach apart, a retried
+    attempt's too; the fill's :class:`_Making` keeps the last for a thread
+    waiting on it."""
 
     SILENT: _Count
+    REACHED = ("progression", "progression_counted", "useful")
+    """The item classes the fill places by a reach, each a step of its count."""
 
     def __init__(self, making: _Making | None = None) -> None:
         self.making, self.n, self.k, self.percent = making, 1, 0, -1

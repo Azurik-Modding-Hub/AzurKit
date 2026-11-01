@@ -614,8 +614,8 @@ def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_
     """Step 4.3 train (D980): Track's bar on both hosts follows the engine's
     work. ``sdk.plan`` reports the logic read, the fill and the placements
     written (``core.progress``'s ``plan``, done of 3), the fill counting its
-    spots inside its step (Step 4.3u: "placing the items, k of n", each
-    percent of them, never back),
+    items inside its step (Step 4.3u: "placing the items, k of n", each
+    item a reach places a step, each percent of them, never back),
     so the app's bar, polled every 250 ms, moves through the seconds the
     fill takes once the shipped Logic is read at once (train B2); the
     tracker's first view of the plan its tracker built and the world map
@@ -648,7 +648,7 @@ def test_a_retried_fill_counts_on_from_its_stuck_attempt_in_the_one_stream_sdk_p
     """Step 4.3 train B3: the fill's notes and the planner's are one stream
     (``core.progress.note``, each folded by the call's ``noting``), so
     ``sdk.plan`` reports ``randomizer.plan``'s records as they are; seed 16,
-    whose attempt 0 sticks and attempt 1 passes, counts its spots once
+    whose attempt 0 sticks and attempt 1 passes, counts its items once
     through both attempts (no label names an attempt, the count never
     falls), and no record's done of total is short of the one before it."""
     kept_logic()   # read before: neither call counts the logic's checks

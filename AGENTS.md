@@ -459,8 +459,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     its million objects' full walks held the app's server 0.8 s).
   - The engine's progress notes are one stream (Step 4.3 train B3):
     `core.progress.note(text)` from the fill ("placing the items", then
-    "placing the items, k of n", k the spot it is filling of the n an
-    attempt fills, each percent and at each reach), the logic's checks as
+    "placing the items, k of n", k the item it is placing of the n steps
+    an attempt takes, each item a reach places a step and the rest, placed
+    at once, its last, so the count moves as the reaches' time goes; each
+    percent and at each reach), the logic's checks as
     a checkout reads it cold ("checking the levels, 5 of 15", then
     "building its logic") and the tracker's exits ("the maps' exits, k of
     22"). `core.progress.noting`, the calling thread's (`randomizer.plan`,
@@ -820,7 +822,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     own from its config and opens its window on that theme's ground. A long
     call shows its progress in the bottom bar (D980, Step 4.3i: `#progress`,
     app.mjs's `progressed()`, one renderer for both hosts): a build's, a
-    save's and Track's (the seed's plan, then its first tracker view)
+    save's and Track's (the seed's plan, from its click as a build's, then
+    its first tracker view)
     `core.progress` records (the app's `api/progress`, polled every
     250 ms; the site's worker's `progress` posts, the image's check among
     them) as their stage's line and percent, and any other ask the engine
