@@ -4,6 +4,7 @@ of its files replaced.
     read(path)          the image as it is, an :class:`Image`
     read(path, files)   the image with ``files`` ({path: new bytes}) in place of the files of those names
     read(path, files, add=root)   and ``root`` ({name: bytes}) as new files in its root folder
+    View, Patched       a file read only where it is asked (a build's base), and one written only where it changes
     Image.segments()    the image as :class:`Copy`, :class:`Bytes` and :class:`Zero` pieces, in order
     pack(image, out)    writes the image; returns its sha256
     digest(image)       the image's sha256, read through its segments (for a host's thread: pack's sha256=)
@@ -28,7 +29,7 @@ import os
 import re
 import struct
 import sys
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from stat import UF_COMPRESSED
@@ -37,6 +38,8 @@ from azurkit.core import filelist
 
 SECTOR = 2048
 CHUNK = 8 << 20                       # every read of a file's bytes, and every write of an image
+RANGE = 1 << 19                       # a Reader.range's largest read: the site's worker serves a read under 1 MiB from
+                                      # its 1 MiB pages, a larger one from a 64 MiB block
 MAGIC = b"MICROSOFT*XBOX*MEDIA"
 _VD_SECTOR = 32
 _PARTITIONS = (0, 0x18300000, 0xFD90000, 0x2080000)   # where the game partition starts: an XISO, then disc images
@@ -74,6 +77,7 @@ class Reader:
 
     def __init__(self, source: str | os.PathLike | Image):
         self._f = source.open() if isinstance(source, Image) else open(source, "rb")
+        self._source = source
         self._index: dict[str, Entry] | None = None
         for base in _PARTITIONS:
             vd = self._read(base + _VD_SECTOR * SECTOR, SECTOR)
@@ -177,6 +181,44 @@ class Reader:
         """A whole file's bytes."""
         return b"".join(self.chunks(path if isinstance(path, Entry) else self.find(path)))
 
+    def start(self, entry: Entry) -> int:
+        """Where a file's first byte lies in the image."""
+        return self.base + entry.sector * SECTOR
+
+    def range(self, entry: Entry, at: int, n: int) -> bytes:
+        """``n`` bytes of a file from its byte ``at``, in reads of at most
+        :data:`RANGE`; ``ValueError`` when they run past it or the image."""
+        if at < 0 or n < 0 or at + n > entry.size:
+            raise ValueError(f"{entry.path}: {n} B at {at} run past its {entry.size} B")
+        data = b"".join(self._read(self.start(entry) + at + k, min(RANGE, n - k)) for k in range(0, n, RANGE))
+        if len(data) != n:
+            raise ValueError(f"{entry.path}: it runs past the end of the image")
+        return data
+
+    def view(self, path: str, spans: Iterable[tuple[int, int]] = ()) -> View:
+        """The file at ``path`` of the image file this reads, holding the
+        bytes of ``spans`` (``(file offset, size)``) read now."""
+        entry, held = self.find(path), []
+        for at, n in sorted(spans):
+            if held and at <= held[-1][0] + held[-1][1]:   # spans that meet are read as one
+                held[-1][1] = max(held[-1][1], at + n - held[-1][0])
+            else:
+                held.append([at, n])
+        return View(Path(self._source), self.start(entry), entry.size,
+                    tuple((at, self.range(entry, at, n)) for at, n in held))
+
+    def tables(self) -> list[tuple[int, int]]:
+        """Each read any build makes whatever its files, ``(image offset,
+        size)``: the volume descriptor as it is looked for, and every
+        folder's table."""
+        out = []
+        for base in _PARTITIONS:
+            out.append((base + _VD_SECTOR * SECTOR, SECTOR))
+            if base == self.base:
+                break
+        out.append((self.base + self._root[0] * SECTOR, self._root[1]))
+        return out + [(self.base + e.sector * SECTOR, e.size) for e in self.entries() if e.is_dir and e.size]
+
 
 @dataclass(frozen=True)
 class Copy:
@@ -202,6 +244,88 @@ class Zero:
 
 
 @dataclass(frozen=True)
+class View:
+    """A file of the image at ``source``, read only where a caller asks, for
+    a build that needs a few parts of it (``edits.image``'s base; a whole
+    build holds the file's bytes): ``len`` is its size, and an index or a
+    slice its bytes, as ``bytes`` gives them, from ``spans`` (``(file offset,
+    bytes)``, sorted and apart) where they hold them, else read then."""
+    source: Path
+    start: int     # its first byte in the image
+    size: int
+    spans: tuple[tuple[int, bytes], ...] = field(default=(), repr=False)
+
+    def __len__(self) -> int:
+        return self.size
+
+    def _span(self, a: int, b: int) -> tuple[int, bytes] | None:
+        i = bisect.bisect_right(self.spans, a, key=lambda span: span[0]) - 1
+        return self.spans[i] if i >= 0 and b <= self.spans[i][0] + len(self.spans[i][1]) else None
+
+    def holds(self, a: int, b: int) -> bool:
+        """Whether ``[a, b)`` can be given without a read."""
+        return self._span(a, b) is not None
+
+    def __getitem__(self, where: int | slice) -> int | bytes:
+        if isinstance(where, int):
+            at = where + self.size if where < 0 else where
+            if not 0 <= at < self.size:
+                raise IndexError(where)
+            return self[at:at + 1][0]
+        a, b, step = where.indices(self.size)
+        if step != 1:
+            raise ValueError("a View's slices have no step")
+        if b <= a:
+            return b""
+        if (span := self._span(a, b)) is not None:
+            return span[1][a - span[0]:b - span[0]]
+        with open(self.source, "rb") as f:
+            f.seek(self.start + a)
+            data = f.read(b - a)
+        if len(data) != b - a:
+            raise ValueError(f"{self.source}: it got shorter while a build read it")
+        return data
+
+
+@dataclass(frozen=True)
+class Patched:
+    """A file a build changes in place, unread: the ``size`` bytes at
+    ``start`` of the image ``source`` with ``patches`` (``(file offset,
+    bytes)``, sorted and apart) over them; :func:`read` takes it for its
+    bytes and writes only the patches."""
+    source: Path
+    start: int
+    size: int
+    patches: tuple[tuple[int, bytes], ...] = field(repr=False)
+
+    def __len__(self) -> int:
+        return self.size
+
+    def chunks(self) -> Iterator[bytes | bytearray]:
+        """Every byte of the file, :data:`CHUNK` at a time, on a handle of
+        its own (a host's threads hash files side by side)."""
+        i, at = 0, 0
+        with open(self.source, "rb") as f:
+            f.seek(self.start)
+            while at < self.size:
+                data = f.read(min(CHUNK, self.size - at))
+                if not data:
+                    raise ValueError(f"{self.source}: it got shorter while a build read it")
+                end = at + len(data)
+                if i < len(self.patches) and self.patches[i][0] < end:
+                    data = bytearray(data)
+                    while i < len(self.patches) and self.patches[i][0] < end:
+                        where, patch = self.patches[i]
+                        a, b = max(where, at), min(where + len(patch), end)
+                        data[a - at:b - at] = patch[a - where:b - where]
+                        if where + len(patch) > end:   # it goes on in the next chunk
+                            break
+                        i += 1
+                yield data
+                at = end
+
+
+@dataclass(frozen=True)
 class Image:
     """An image a build makes, unwritten until :func:`pack` writes it: the
     input ``source`` with ``writes`` (``(offset, bytes)``, each laid over
@@ -223,6 +347,17 @@ class Image:
         when ``data`` is those bytes (compared, never assumed), else hashed."""
         held = self.md5s.get(key(path))
         return held[0] if held is not None and data == held[1] else filelist.md5(data)
+
+    def held_md5(self, path: str) -> str | None:
+        """The md5 :func:`read` was given of the :class:`Patched` file at
+        ``path`` (hashed over every byte of it, which isn't read here), else
+        ``None``."""
+        held = self.md5s.get(key(path))
+        return held[0] if held is not None and isinstance(held[1], Patched) else None
+
+    def writes_within(self, start: int, size: int) -> bool:
+        """Whether a write of the image meets its ``size`` bytes at ``start``."""
+        return any(at < start + size and start < at + len(data) for at, data in self.writes)
 
     def segments(self) -> list[Copy | Bytes | Zero]:
         """The image as pieces that cover it once, in order, each as large
@@ -339,7 +474,10 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
     (a truncated input, say), and ``FileNotFoundError`` a name the image
     doesn't have, before anything is written (D35). ``md5s`` (``{path:
     md5}``) gives the md5 of a file of ``files`` a caller hashed already
-    (``filelist.rewrite``'s), which the image keeps (:meth:`Image.md5`)."""
+    (``filelist.rewrite``'s), which the image keeps (:meth:`Image.md5`). A
+    file of ``files`` may be a :class:`Patched` of this image's file, which
+    keeps its sectors and size, its md5 given: only its patches are written,
+    so the image's bytes are the same as for the file's whole bytes."""
     path = Path(path)
     stat = path.stat()
     have = stat.st_size
@@ -357,6 +495,14 @@ def read(path: str | os.PathLike, files: Mapping[str, bytes] | None = None,
                 raise IsADirectoryError(f"{name}: a folder, not a file")
             if entry.record in records:
                 raise ValueError(f"{name}: the same file is replaced twice")
+            if isinstance(data, Patched):
+                if (data.source, data.start, data.size) != (path, r.start(entry), entry.size):
+                    raise ValueError(f"{name}: its patches are another file's")
+                if name not in (md5s or {}):
+                    raise ValueError(f"{name}: its patches came with no md5 of the whole file")
+                records[entry.record] = (entry.sector, entry.size)
+                writes += [(data.start + at, patch) for at, patch in data.patches]
+                continue
             sector = entry.sector
             if len(data) > _sectors(entry.size) * SECTOR:
                 sector, end = end, end + max(1, _sectors(len(data)))
@@ -450,15 +596,31 @@ def _listing(r: Reader, files: Mapping[str, bytes], md5s: Mapping[str, str] | No
         text = files[name] if name in files else r.read(name)
     except FileNotFoundError:
         return {}
-    replaced, stale = {key(p) for p in files}, {}
+    stale = {path: r.read(entry) for path, entry in _stale(r, text, {key(p) for p in files}).items()}
+    return {name: filelist.rewrite(text, stale | dict(files), md5s)}
+
+
+def _stale(r: Reader, text: bytes, replaced: set[str]) -> dict[str, Entry]:
+    """The files ``filelist.txt`` (its bytes ``text``) lists at a size other
+    than their own (:func:`read`), but for the ``replaced``."""
+    stale = {}
     for row in filelist.rows(text):
         try:
             entry = r.find(row.path)
         except FileNotFoundError:
             continue
         if not entry.is_dir and entry.size != row.size and key(row.path) not in replaced:
-            stale[row.path] = r.read(entry)
-    return {name: filelist.rewrite(text, stale | dict(files), md5s)}
+            stale[row.path] = entry
+    return stale
+
+
+def stale(r: Reader) -> list[Entry]:
+    """The files any layout of the image reads whole to repair their
+    ``filelist.txt`` lines (:func:`read`)."""
+    try:
+        return list(_stale(r, r.read("filelist.txt"), set()).values())
+    except FileNotFoundError:
+        return []
 
 
 def _check(image: Image) -> None:

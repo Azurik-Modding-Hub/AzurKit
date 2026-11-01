@@ -22,6 +22,11 @@ against them: every file the manifest says the build changed has its
 sha256, and every other is the release's vanilla file (a file no layer
 wrote that differs is drift, refused by name: AzurKit can only discard it,
 REORG §12.2). A build with no layer is the vanilla image, byte for byte.
+
+A file of a build's ``base`` may be an :class:`iso.View`: what the layers
+change of it goes on as patches (``layer.Overlay``, ``iso.Patched``), never its
+whole bytes, and is hashed whole by reading the input past the patches. The
+image and manifest are the same, byte for byte.
 """
 
 from __future__ import annotations
@@ -35,7 +40,7 @@ from dataclasses import dataclass, field, replace
 
 from azurkit import __version__
 from azurkit.core import filelist, gate, iso
-from azurkit.edits.layer import Conflict, Layer, compose
+from azurkit.edits.layer import Conflict, Layer, Overlay, compose
 
 FORMAT = "azurkit-manifest"
 SCHEMA_VERSION = 1
@@ -114,13 +119,19 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _hashes(data: bytes) -> tuple[str, str]:
+def _hashes(data: bytes | iso.Patched) -> tuple[str, str]:
     """A changed file's sha256 (the manifest's result) and md5 (its
-    ``filelist.txt`` line's)."""
-    return _sha256(data), filelist.md5(data)
+    ``filelist.txt`` line's), over every byte of it."""
+    if not isinstance(data, iso.Patched):
+        return _sha256(data), filelist.md5(data)
+    sha, md5 = hashlib.sha256(), hashlib.md5(usedforsecurity=False)
+    for chunk in data.chunks():
+        sha.update(chunk)
+        md5.update(chunk)
+    return sha.hexdigest(), md5.hexdigest()
 
 
-def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] | None = None, *,
+def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes | iso.View] | None = None, *,
           root: bool = True, judge: Callable[[iso.Image, Manifest], Mapping] | None = None,
           map: Callable = map, progress: Callable[[int, int], object] | None = None) -> tuple[iso.Image, Manifest]:
     """The image ``layers`` make of the vanilla image ``stamp`` checked,
@@ -129,7 +140,8 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     is Modkit's image of the same recipe, byte for byte). ``base`` holds
     files already read from it (the rest are read here). The image's
     ``filelist.txt`` is derived state (:func:`iso.read`), in the result when
-    it differs. ``judge`` reads the image without the root files back and
+    it differs; a file of ``base`` may be an :class:`iso.View` of it (the
+    module's docstring). ``judge`` reads the image without the root files back and
     gives the manifest's verdicts (``{tool: verdict}``), or raises
     ``ValueError`` naming why the build fails (D35: the randomizer's
     read-back against its plan). The stamp vouches for its build files'
@@ -147,7 +159,7 @@ def image(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] 
     raise AssertionError("a build hashed here yields nothing")
 
 
-def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes] | None = None, *,
+def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes | iso.View] | None = None, *,
            root: bool = True, judge: Callable[[iso.Image, Manifest], Mapping] | None = None, map: Callable = map,
            progress: Callable[[int, int], object] | None = None, host: bool = True):
     """:func:`image` as a generator, for a host that hashes the changed
@@ -159,7 +171,13 @@ def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes]
     yields ``None``, is sent ``{key: sha256}`` and returns :func:`image`'s
     ``(image, manifest)``, the same bytes (its ``StopIteration``'s value). A
     key missing from the shas is a ``ValueError`` naming it. ``host`` false:
-    hashed here, as :func:`image` does, yielding nothing."""
+    hashed here, as :func:`image` does, yielding nothing.
+
+    A file over an :class:`iso.View` is yielded as its :class:`iso.Patched`,
+    and its md5 is the host's too, as the layout needs it: the host hashes
+    every byte of such a file before it resumes the build, and sends all it
+    has at once (``{key: sha256, "md5:<path>": md5}``), for which no second
+    yield comes."""
     names = sorted({c.file for la in layers for c in (*la.changes, *la.claims)})
     count = itertools.count(len(names) + 1)
 
@@ -179,14 +197,23 @@ def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes]
                                    None if progress is None else lambda done, _: progress(done, 2 * len(names)))
         changed = {}
         for name in list(files):   # each file's copy freed as it is kept: a randomized build changes 700 MB of levels
-            if (data := files.pop(name)) != base[name]:
+            data = files.pop(name)
+            if isinstance(data, Overlay):
+                if (patched := data.patched()) is not None:
+                    changed[name] = patched
+            elif data != (r.read(name) if isinstance(base[name], iso.View) else base[name]):   # a whole file over a view
                 changed[name] = bytes(data)
             del data
         if host:
             payloads = list({id(c.after): c.after for la in layers for c in la.changes if len(c.after) > INLINE}.values())
-            yield {f"file:{name}": data for name, data in changed.items()} | {
+            shas = yield {f"file:{name}": data for name, data in changed.items()} | {
                 f"blob:{n}": data for n, data in enumerate(payloads)}
-            md5s = dict(zip(changed, map(heard(filelist.md5), changed.values())))
+            whole = {name: data for name, data in changed.items() if not isinstance(data, iso.Patched)}
+            md5s = dict(zip(whole, map(heard(filelist.md5), whole.values())))
+            for name in changed.keys() - whole.keys():
+                if not isinstance(md5 := (shas or {}).get(f"md5:{name}"), str):
+                    raise ValueError(f"md5:{name}: the host gave no md5 of it")
+                md5s[name] = md5
         else:
             hashes = dict(zip(changed, map(heard(_hashes), changed.values())))
             md5s = {name: md5 for name, (_, md5) in hashes.items()}
@@ -198,7 +225,8 @@ def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes]
             except FileNotFoundError:
                 pass
     if host:
-        shas = yield None
+        if shas is None:
+            shas = yield None
         keys = [f"file:{name}" for name in changed] + [f"blob:{n}" for n in range(len(payloads))]
         if lost := [key for key in keys if not isinstance((shas or {}).get(key), str)]:
             raise ValueError(f"{lost[0]}: the host gave no sha256 of it")
@@ -291,7 +319,7 @@ def load(path: str | os.PathLike, *, whole: bool = True) -> tuple[gate.Release, 
     return release, record
 
 
-def build(stamp: gate.Stamp, layers: Sequence[Layer], out, *, base: Mapping[str, bytes] | None = None,
+def build(stamp: gate.Stamp, layers: Sequence[Layer], out, *, base: Mapping[str, bytes | iso.View] | None = None,
           progress: Callable[[int, int], object] | None = None,
           judge: Callable[[iso.Image, Manifest], Mapping] | None = None, map: Callable = map) -> tuple[str, Manifest]:
     """Write the image (:func:`image`, with ``judge`` and ``map``) to

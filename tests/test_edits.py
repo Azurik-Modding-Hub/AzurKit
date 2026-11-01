@@ -129,20 +129,39 @@ COMPOSE_SETS = {   # each row's random layer sets: seed, sets, files and groups 
 }
 
 
-def test_compose_with_runs_makes_the_files_conflicts_and_refusals_byte_by_byte_compose_makes(monkeypatch):
+def test_compose_with_runs_or_over_views_makes_the_files_conflicts_and_refusals_byte_by_byte_compose_makes(monkeypatch,
+                                                                                                          tmp_path):
     """``compose`` keeps a file's range writes as runs until another
     group's write meets one (``layer.RUNS``), and over random layer sets
     (range and whole-file changes over small files of four byte values,
     overlapping or not, by the same group again or another, some planned
     against other bytes) it gives the files, the conflicts and the refusals
-    it gives keeping every byte's writers (Step 4.3v)."""
-    def composed(base: dict, layers: list, runs: bool) -> tuple | str:
+    it gives keeping every byte's writers (Step 4.3v). So it does over
+    ``iso.View`` s holding part of each file, keeping only the bytes written
+    (``layer.Overlay``), each file the patches its overlay gives over its
+    bytes (Step 4.3r4d)."""
+    def composed(base: dict, layers: list, runs: bool, views: bool = False) -> tuple | str:
         monkeypatch.setattr(layer, "RUNS", runs)
+        given = base
+        if views:
+            at, given = 0, {}
+            for name, data in base.items():
+                given[name] = iso.View(held, at, len(data), ((len(data) // 2, data[len(data) // 2:]),))
+                at += len(data)
         try:
-            files, conflicts = compose(base, layers)
+            files, conflicts = compose(given, layers)
         except ValueError as exc:
             return str(exc)
-        return {name: bytes(data) for name, data in files.items()}, conflicts
+        out = {}
+        for name, data in files.items():
+            if isinstance(data, layer.Overlay):
+                patched, data = data.patched(), bytearray(base[name])
+                for at, patch in patched.patches if patched else ():
+                    data[at:at + len(patch)] = patch
+            out[name] = bytes(data)
+        return out, conflicts
+
+    held = tmp_path / "views.bin"
 
     seen = collections.Counter()
     for row, (seed, sets, most, groups, whole, other) in COMPOSE_SETS.items():
@@ -168,9 +187,59 @@ def test_compose_with_runs_makes_the_files_conflicts_and_refusals_byte_by_byte_c
                 layers.append(Layer(f"layer {at_layer}", "t", "k", {}, tuple(changes)))
             runs = composed(base, layers, True)
             assert runs == composed(base, layers, False), (row, k)
+            held.write_bytes(b"".join(base.values()))
+            assert runs == composed(base, layers, True, views=True) == composed(base, layers, False, views=True), (row, k)
             seen[row, "refused" if isinstance(runs, str) else "conflicts" if runs[1] else "clean"] += 1
     assert all(seen[row, "clean"] and seen[row, "conflicts"] for row in COMPOSE_SETS), seen
     assert seen["refusals among them", "refused"] and seen["whole files under and over ranges", "refused"], seen
+
+
+def test_a_build_over_views_writes_only_its_patches_and_is_the_whole_builds_image_and_manifest(tmp_path, monkeypatch):
+    """A build whose base holds ``iso.View`` s reads no file whole, its image
+    writes only the patches (near ones as one, ``layer.MERGE``; a patch
+    crossing an ``iso.CHUNK`` hashed whole), and its image and manifest are
+    the whole build's, byte for byte: with a group a conflict drops back to
+    vanilla, a write of a file's own bytes (not changed, in no result), a
+    whole file over a view, and a host's hashes, whose md5 of a patched file
+    is owed before the layout."""
+    monkeypatch.setattr(iso, "CHUNK", 16)
+    files = {"a.bin": fill("a", 128), "b.bin": fill("b", 64), "c.bin": fill("c", 32), "d.bin": fill("d", 32)}
+    src = tmp_path / "in.iso"
+    src.write_bytes(image(files))
+    stamp = gate.Stamp(gate.USA, src, src.stat().st_size, src.stat().st_mtime_ns, False)
+
+    def change(file: str, at: int, data: bytes, group: str) -> Change:
+        return Change(file, at, _sha256(files[file][at:at + len(data)]), data, group)
+    layers = [_layer("a", change("a.bin", 2, b"XX" * 12, "a 1"), change("a.bin", 40, b"YY", "a 2"),
+                     change("b.bin", 3, b"QQ", "dropped"), change("c.bin", 0, files["c.bin"][:4], "own bytes")),
+              _layer("b", change("b.bin", 4, b"ZZ", "wins"), change("a.bin", 120, b"W", "b 1"),
+                     Change("d.bin", 0, _sha256(files["d.bin"]), b"whole", "whole file", whole=True))]
+    whole, manifest = edits.image(stamp, layers)
+    with iso.Reader(src) as r:
+        views = {name: r.view(name, [(0, 8), (2, 40), (118, 10)] if name == "a.bin" else [(0, 8)]) for name in files}
+        starts = {name: r.start(r.find(name)) for name in files}
+    assert views["a.bin"].spans == ((0, files["a.bin"][:42]), (118, files["a.bin"][118:128]))
+    assert views["a.bin"][40:44] == files["a.bin"][40:44] and views["a.bin"][-1] == files["a.bin"][-1]
+    made, told = edits.image(stamp, layers, views)
+    assert made.sha256() == whole.sha256() and told.to_json() == manifest.to_json()
+    assert sorted(manifest.result) == ["a.bin", "b.bin", "d.bin"]
+    written = {at: len(data) for at, data in made.writes}
+    assert written[starts["a.bin"] + 2] == 40 and written[starts["a.bin"] + 120] == 1   # two writes as one, then one
+    assert written[starts["b.bin"] + 3] == 3 and not any(starts["c.bin"] <= at < starts["c.bin"] + 32 for at in written)
+
+    run = edits.staged(stamp, layers, views)
+    jobs = next(run)
+    assert isinstance(jobs["file:a.bin"], iso.Patched) and jobs["file:d.bin"] == b"whole"
+    bytes_of = {key: b"".join(data.chunks()) if isinstance(data, iso.Patched) else data for key, data in jobs.items()}
+    assert {key.removeprefix("file:"): _sha256(data) for key, data in bytes_of.items()} == manifest.result
+    with pytest.raises(StopIteration) as done:
+        run.send({key: _sha256(data) for key, data in bytes_of.items()} | {
+            key.replace("file:", "md5:"): hashlib.md5(data).hexdigest() for key, data in bytes_of.items()})
+    assert done.value.value[0].sha256() == whole.sha256() and done.value.value[1].to_json() == manifest.to_json()
+    run = edits.staged(stamp, layers, views)
+    next(run)
+    with pytest.raises(ValueError, match=r"^md5:[ab]\.bin: the host gave no md5 of it$"):
+        run.send(None)
 
 
 def test_a_builds_image_gives_the_md5_its_layout_hashed_only_for_the_bytes_hashed(tmp_path):
