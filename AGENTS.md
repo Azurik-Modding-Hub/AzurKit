@@ -1151,7 +1151,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   by which the page keeps the worker or replaces it. It returns the build
   as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
-  player's file and the bytes the build writes, and Save downloads it.
+  player's file and the bytes the build writes (Blobs from the worker on, so
+  the page holds none of them), and Save downloads it.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
   `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
   and Firefox.

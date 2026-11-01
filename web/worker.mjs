@@ -51,13 +51,13 @@ const lastLine = (error) => String(error?.message ?? error).trim().split("\n").a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
 // as a Uint8Array of their own through the file system: Pyodide 314.0.7's to_js (and assign, getBuffer) reads a buffer
 // past 2 GiB of the heap at its address taken as signed, so a build that held more than that came out with other
-// bytes (a seed wearing keylord: three of its levels).
+// bytes (a seed wearing keylord: three of its levels). A build's pieces reach the page as Blobs (blobbed).
 const ENGINE = `
 import hashlib
 import json
 
 import pyodide_js
-from js import JSON, Object, postMessage
+from js import JSON, Blob, Object, postMessage
 from pyodide.ffi import to_js
 
 import azurkit
@@ -81,6 +81,12 @@ def handed(value):
     if isinstance(value, (list, tuple)):
         return [handed(v) for v in value]
     return value
+
+
+def blobbed(data):
+    """One piece of a build as a Blob, made as soon as its bytes reach JS, so the worker holds one piece's bytes in JS
+    at a time and the page none (mem-site L2): the browser keeps a Blob's bytes outside the page's heap."""
+    return Blob.new(to_js([handed(data)], create_pyproxies=False))
 
 
 def kept(files, installed):
@@ -214,7 +220,7 @@ def engine(request):
         return js({"refused": str(exc)})
     pieces = [{"kind": "copy", "offset": p.offset, "size": p.size} if isinstance(p, iso.Copy)
               else {"kind": "zero", "size": p.size} if isinstance(p, iso.Zero)
-              else {"kind": "bytes", "size": p.size, "data": p.data} for p in image.segments()]
+              else {"kind": "bytes", "size": p.size, "data": blobbed(p.data)} for p in image.segments()]
     return js({"report": report, "size": image.size, "segments": pieces})
 
 
@@ -554,7 +560,7 @@ function build({ py, engine }, { file, packs, xbr, randomizer, character }) {
     ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } }));
   const heap = py._module?.HEAPU8?.length;
   if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
-  post({ type: "built", ...made, heap }, made.segments.flatMap((s) => s.kind === "bytes" ? [s.data.buffer] : []));
+  post({ type: "built", ...made, heap });   // each piece's bytes a Blob (blobbed): nothing to transfer
   if (!made.report.plan) return;
   let reply;
   try {

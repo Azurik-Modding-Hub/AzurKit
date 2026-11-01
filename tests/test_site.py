@@ -50,10 +50,24 @@ from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tr
 ORIGIN = "https://azurkit.test"
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
-SIGNATURE = """async () => Promise.all(azurkit.build.segments.map(async (s) => s.kind !== "bytes"
-    ? (s.kind === "copy" ? ["copy", s.offset, s.size] : ["zero", s.size])
-    : ["bytes", s.size, [...new Uint8Array(await crypto.subtle.digest("SHA-256", s.data))]
-                          .map((b) => b.toString(16).padStart(2, "0")).join("")]))"""
+# A piece at a time, in slices: WebKit answers a whole read of a Blob held in memory over about 100 MB with
+# NotReadableError (one the page made itself too). The page never reads one: Save hands the browser the joined Blob.
+SIGNATURE = """async () => {
+  const out = [], step = 32 << 20;
+  for (const s of azurkit.build.segments) {
+    if (s.kind !== "bytes") {
+      out.push(s.kind === "copy" ? ["copy", s.offset, s.size] : ["zero", s.size]);
+      continue;
+    }
+    const whole = new Uint8Array(s.size);
+    for (let at = 0; at < s.size; at += step) {
+      whole.set(new Uint8Array(await s.data.slice(at, at + step).arrayBuffer()), at);
+    }
+    out.push(["bytes", s.size, [...new Uint8Array(await crypto.subtle.digest("SHA-256", whole))]
+                                 .map((b) => b.toString(16).padStart(2, "0")).join("")]);
+  }
+  return out;
+}"""
 
 
 @pytest.fixture(scope="module")
