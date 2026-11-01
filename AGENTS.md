@@ -982,12 +982,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     to it (none read before, the detail's pixels drawn, a floor's replacing
     another's, Fit, a level with none) and `tests/test_hosts.py` the app's.
   - **The Characters tab** (Step 4.3d, `web/characters.mjs`; Modkit's
-    Player page): the models' list, the community group first (D913:
-    Azurik-Custom-Content's variant entries beside the species, each marked
-    community, its state Install, installed vN or Update to vM, its
-    variants once installed), then every species the player can wear in its
-    grade's colour, the 73 untested greyed and marked (D877; with no image,
-    the 178 of `picker.SPECIES`, `species.json`); the chosen
+    Player page): the models' list, every species the player can wear in
+    its grade's colour, the 73 untested greyed and marked (D877; with no
+    image, the 178 of `picker.SPECIES`, `species.json`), then under it the
+    community group beside Content from (D1035; D913: Azurik-Custom-Content's
+    variant entries beside the species, each marked community, its state
+    Install, installed vN or Update to vM, its variants once installed); the chosen
     model's two pictures (D772, D919: `picker.preview`'s draw.py, front and
     back, on both hosts; a variant's from one dress, `sdk.preview`), its
     info and its options (Gameplay, Weapon: each pick marked by its fit and

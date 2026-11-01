@@ -533,8 +533,9 @@ p.views { margin: 0; padding: 2px 10px; }
   .world .cell { grid-column: auto !important; grid-row: auto !important; }
 }
 
-/* The Characters tab (Step 4.3d): the models' list (the community group, then every species in its grade's colour,
-   the untested greyed), the chosen one's pictures and info, and its options with a G4 button beside each number. */
+/* The Characters tab (Step 4.3d): the models' list (every species in its grade's colour, the untested greyed, then the
+   community group under it beside Content from, D1035), the chosen one's pictures and info, and its options with a G4
+   button beside each number. */
 /* The list gives way first: the pictures keep their 2 x 160 px and the options a number row with its G4 button;
    narrower, the options go under the list and the pictures, then all three in one column. */
 .chars-cols { display: grid; grid-template-columns: minmax(0, 20rem) minmax(20.5rem, 22rem) minmax(22rem, 1fr);

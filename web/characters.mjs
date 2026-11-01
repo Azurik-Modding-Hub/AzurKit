@@ -1,7 +1,7 @@
-// The Characters tab (Step 4.3d; Modkit's Player page): the models' list, the community group first (D913: our variants
-// from Azurik-Custom-Content beside the built-ins, each marked community, with Install and Update) then every species
-// the player can wear, in its grade's colour and mark (green fully playable, yellow rough edges, red not playable, grey
-// not yet tested: the untested greyed and marked, D877); the chosen model's pictures from the front and from behind (D772,
+// The Characters tab (Step 4.3d; Modkit's Player page): the models' list, every species the player can wear, in its
+// grade's colour and mark (green fully playable, yellow rough edges, red not playable, grey not yet tested: the untested
+// greyed and marked, D877), then under it the community group beside Content from (D1035; D913: our variants from
+// Azurik-Custom-Content beside the built-ins, each marked community, with Install and Update); the chosen model's pictures from the front and from behind (D772,
 // D919: the engine's draw.py, on both hosts), its info and its options, each number with a G4 button that sets it to
 // match garret4 (P52). The engine decides everything shown (sdk.pickers, sdk.preview, sdk.match): this page sends the
 // tab's choices and draws what comes back. Its answer with no image and each species' and built-in variant's two
@@ -219,8 +219,8 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     await ask();
   };
 
-  // The models' list: the community entries (each marked, its state and its variants once installed), then the
-  // species, each in its grade's colour, filtered by the search box.
+  // The models' list: the species, each in its grade's colour, then the community entries under them (each marked,
+  // its state and its variants once installed), filtered by the search box.
   const pick = (name) => {
     if (name === c.character.species) return;
     const keep = Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", ...NUMBERS].includes(k)));

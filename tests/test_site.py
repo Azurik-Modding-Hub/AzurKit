@@ -341,14 +341,20 @@ COLUMNS = """(pack) => {
 }"""
 # The Characters tab's layout at the page's width: [Content from and its Reset inside the list's column, on one line;
 # no sideways scroll, every G4 button in view; the pictures inside their column].
+# The Characters tab's columns (D1035: the community group under the species, Content from under it, all in the list's
+# column): [Content from and Reset in the list's column, no sideways scroll with every G4 in view, the pictures in
+# theirs, the species then the community entries (each with its button) then Content from].
 CHARS_LAYOUT = """() => {
     const r = (el) => el.getBoundingClientRect(), tab = document.getElementById("characters");
     const [list, info] = [".chars-list", ".chars-info"].map((s) => r(document.querySelector(s)));
-    const [source, reset] = ["char-source", "char-source-reset"].map((id) => r(document.getElementById(id)));
-    const g4 = [...tab.querySelectorAll(".g4")];
+    const [source, reset, species, community] = ["char-source", "char-source-reset", "char-species", "char-community"]
+        .map((id) => r(document.getElementById(id)));
+    const g4 = [...tab.querySelectorAll(".g4")], entries = [...document.querySelectorAll("#char-community .entry")];
     return [source.right <= list.right && reset.right <= list.right && Math.abs(reset.top - source.top) < 2,
             tab.scrollWidth <= tab.clientWidth && g4.length > 0 && g4.every((b) => r(b).right <= innerWidth),
-            r(document.getElementById("char-back")).right <= info.right];
+            r(document.getElementById("char-back")).right <= info.right,
+            entries.length > 0 && entries.every((e) => e.querySelector("button, .note")) && species.bottom <= community.top
+            && community.bottom <= source.top && community.left >= list.left && community.right <= list.right];
 }"""
 # Every visible text drawn in --faint (given true: in a grade's colour, on the Characters tab), and its contrast with
 # the ground it sits on (WCAG's ratio): [what, ratio].
@@ -723,7 +729,8 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     """The Characters tab (Step 4.3d, D877, D913) on the site: with the image picked it lists the 178 species the
     player can wear, the 73 untested greyed, each row's grade read without colour too (its mark and its words as its
     title); Azurik-Custom-Content's entries (its source served from the site's own
-    address, the page's CSP's ``connect-src 'self'``) come first, each marked community; Install of an entry whose
+    address, the page's CSP's ``connect-src 'self'``) come under the species, beside Content from (D1035), each marked
+    community; Install of an entry whose
     file isn't its manifest's sha256, or is past its listed size (read no further, Step 4.3m, SEC-9), is refused by
     name and keeps nothing, and Beamlord's installs, its variant
     then listed under it, installed v1, and a page opened again hands it to its engine before the tab is opened (a
@@ -798,7 +805,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         assert page.evaluate("() => document.querySelectorAll('#char-weapon option').length") > 1
         for width in (1280, 1024, 900, 700):   # the list gives way, then the options drop under it, then one column
             page.set_viewport_size({"width": width, "height": 800})
-            assert page.evaluate(CHARS_LAYOUT) == [True] * 3, width
+            assert page.evaluate(CHARS_LAYOUT) == [True] * 4, width
         _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 300)
         assert page.evaluate("""() => ["char-front", "char-back"].map((id) => document.getElementById(id).getContext("2d")
             .getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0))""") == [True, True]

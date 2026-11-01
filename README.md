@@ -137,7 +137,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's four
   need her own moves and voice, extra files from our Azurik-Custom-Content; a build without them stops, naming
   the file.
-- **Community variants:** ours from Azurik-Custom-Content sit beside the species, marked community, with Install
+- **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install
   and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
   download keeps nothing, and an installed one stays at its version until you update it. In the browser, Booblord's
   pictures and G4 values can run out of memory: the app draws them.

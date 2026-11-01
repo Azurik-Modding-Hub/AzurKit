@@ -591,12 +591,9 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
         server.close()
 
 
-def test_the_apps_characters_tab_installs_from_a_folder_source_and_draws_a_models_two_pictures(
-        tmp_path, monkeypatch, usa_iso):
-    """The app's half of the Characters tab (Step 4.3d): ``api/content`` reads Azurik-Custom-Content from a folder
-    (a clone), ``api/install`` copies an entry into the content folder, every file checked, and ``api/pickers``
-    lists its variant marked community; ``api/content_source`` remembers the folder for the next page
-    (``host.json``); ``api/preview`` draws the chosen model from the front and from behind, two PNGs."""
+def _beamlord_source(tmp_path: Path, monkeypatch) -> Path:
+    """A folder source (a clone of Azurik-Custom-Content) listing Beamlord alone, an empty content folder, the app's
+    config under ``tmp_path`` and no source from the environment."""
     from azurkit.tools.characters import _player_variants, content
 
     _home(monkeypatch, tmp_path / "home")   # where the app remembers
@@ -611,6 +608,16 @@ def test_the_apps_characters_tab_installs_from_a_folder_source_and_draws_a_model
             "id": "beamlord", "kind": "variant", "title": "Beamlord", "author": "Azurik-Modding-Hub", "licence": "MIT",
             "version": 1, "files": [{"path": "variants/beamlord/variant.json"}], "requires": []}]},
         lambda path: (source / path).read_bytes())), encoding="utf-8")
+    return source
+
+
+def test_the_apps_characters_tab_installs_from_a_folder_source_and_draws_a_models_two_pictures(
+        tmp_path, monkeypatch, usa_iso):
+    """The app's half of the Characters tab (Step 4.3d): ``api/content`` reads Azurik-Custom-Content from a folder
+    (a clone), ``api/install`` copies an entry into the content folder, every file checked, and ``api/pickers``
+    lists its variant marked community; ``api/content_source`` remembers the folder for the next page
+    (``host.json``); ``api/preview`` draws the chosen model from the front and from behind, two PNGs."""
+    source = _beamlord_source(tmp_path, monkeypatch)
     (page := tmp_path / "page").mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
     server = app.serve(page)
@@ -635,6 +642,34 @@ def test_the_apps_characters_tab_installs_from_a_folder_source_and_draws_a_model
         drawn = call("api/preview", {"recipe": {"iso": str(usa_iso), "character": {"species": "keylord"}}})
         pictures = [base64.b64decode(drawn[v]) for v in ("front", "back")]
         assert all(len(png) > 1000 and png[1:4] == b"PNG" for png in pictures) and pictures[0] != pictures[1]
+    finally:
+        server.close()
+
+
+def test_the_apps_characters_tab_lists_the_community_models_under_the_species_beside_content_from(
+        browser, tmp_path, monkeypatch):
+    """D1035 in the app's page: the community entries (its remembered folder source's Beamlord, with its Install
+    button) sit under the species list and above Content from and its Reset, all in the list's column, at every
+    width (``test_site.py``'s ``CHARS_LAYOUT``, which the site's Characters test reads too); Install installs it."""
+    from tests.test_site import CHARS_LAYOUT
+
+    app._remember(content_source=str(_beamlord_source(tmp_path, monkeypatch)))
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-characters")
+        entry = """document.querySelector('#char-community .entry[data-entry="beamlord"]')"""
+        _page.until(page, f"() => {entry}?.querySelector('button')?.textContent === 'Install'", 120)
+        for width in (1280, 1024, 900, 700):
+            page.set_viewport_size({"width": width, "height": 800})
+            assert page.evaluate(CHARS_LAYOUT) == [True] * 4, width
+        page.evaluate(f"() => {entry}.querySelector('button').click()")
+        _page.until(page, f"() => {entry}?.querySelector('.model[data-model=\"beamlord\"]')", 120)
+        assert page.evaluate(CHARS_LAYOUT)[3] is True
+        _page.check_csp(page)
+        page.close()
     finally:
         server.close()
 
