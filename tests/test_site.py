@@ -27,7 +27,9 @@ import contextlib
 import functools
 import hashlib
 import http.server
+import itertools
 import json
+import os
 import re
 import threading
 import time
@@ -192,7 +194,7 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
     """One page per pack, one with fps_unlock's slider typed to 120 FPS,
     one with enemy_damage's sliders at a G1 case's values (config.xbr's
     cells) and one with photo mode's fly speed past float32's range, built
-    at once: each page's report and segments are CPython's for the values
+    as many at once as the host has cores: each page's report and segments are CPython's for the values
     it sent, and the packs at their defaults and the slider case hold their
     G1 golden's files (and only ``filelist.txt`` besides); the fly speed
     is written as infinity with Q110's note, which the page shows, and one
@@ -210,39 +212,42 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
              + [FPS, ("enemy_damage", {k: str(v) for k, v in golden[SLID].params.items()}, SLID)]
              + [("qol_photo_mode", {"fly_speed": "1e39"}, None), FLIPPED])
     served = Site(browser, site)
+    read = sdk.vanilla(str(path))
+    assert {pack: set(sliders) for pack, sliders in read["packs"].items()} == {
+        name: {s.name for s in pack.sliders() if s.catalog()["vanilla"] is None and release.name in pack.releases}
+        for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
     try:
-        pages = [served.open() for _ in cases]
-        fps = pages[cases.index(FPS)]
-        _page.tick(fps, ["fps_unlock"])   # which unlocks its settings (D907)
-        assert _page.slide(fps, "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
-        assert _page.slide(fps, "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
-        read = sdk.vanilla(str(path))
-        assert {pack: set(sliders) for pack, sliders in read["packs"].items()} == {
-            name: {s.name for s in pack.sliders() if s.catalog()["vanilla"] is None and release.name in pack.releases}
-            for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
-        for (name, values, _), page in zip(cases, pages):
-            page.set_input_files("#iso", str(path))
-            if name in read["packs"]:
-                assert _page.until(page, "() => azurkit.vanilla") == read
-                for slider, value in read["packs"][name].items():
-                    low, high = page.evaluate(TRACK, f"{name}.{slider}")
-                    assert float(low) <= value <= float(high)
-                    assert page.evaluate(UNIT, f"{name}.{slider}").endswith(f" · vanilla {value:g}")
-            _page.build(page, [name], {name: values})
-        for (name, values, case), page in zip(cases, pages):
-            built, sent = _built(page), page.evaluate("() => azurkit.sent")
-            assert sent == {other: {s.name: float(values.get(s.name, s.default) if other == name else s.default)
-                                    for s in mods.PACKS[other].sliders()}
-                            for other in (name, *mods.PACKS[name].requires)}
-            made, report = sdk.image({"iso": str(path), "packs": sent})
-            if case:
-                _g1.check(built["report"]["result"], golden[case], case)
-            if values.get("fly_speed") == "1e39":
-                note = "qol_photo_mode fly_speed: 1e+39 is past float32's range: written as inf (Q110)"
-                assert built["report"]["notes"] == [note]
-                assert f" · note: {note} · changed: " in page.evaluate(STATUS)   # before the files, which run long
-            assert (built["report"], built["segments"]) == (report, _signature(made)), (name, values)
-            _page.check_csp(page)
+        # A page and its engine a core: all 21 open on a 3-core runner, Firefox's next ran out of its 120 s to start
+        for group in itertools.batched(cases, max(2, os.cpu_count() or 2)):
+            pages = [served.open() for _ in group]
+            for (name, values, case), page in zip(group, pages):
+                if (name, values, case) == FPS:
+                    _page.tick(page, ["fps_unlock"])   # which unlocks its settings (D907)
+                    assert _page.slide(page, "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
+                    assert _page.slide(page, "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
+                page.set_input_files("#iso", str(path))
+                if name in read["packs"]:
+                    assert _page.until(page, "() => azurkit.vanilla") == read
+                    for slider, value in read["packs"][name].items():
+                        low, high = page.evaluate(TRACK, f"{name}.{slider}")
+                        assert float(low) <= value <= float(high)
+                        assert page.evaluate(UNIT, f"{name}.{slider}").endswith(f" · vanilla {value:g}")
+                _page.build(page, [name], {name: values})
+            for (name, values, case), page in zip(group, pages):
+                built, sent = _built(page), page.evaluate("() => azurkit.sent")
+                assert sent == {other: {s.name: float(values.get(s.name, s.default) if other == name else s.default)
+                                        for s in mods.PACKS[other].sliders()}
+                                for other in (name, *mods.PACKS[name].requires)}
+                made, report = sdk.image({"iso": str(path), "packs": sent})
+                if case:
+                    _g1.check(built["report"]["result"], golden[case], case)
+                if values.get("fly_speed") == "1e39":
+                    note = "qol_photo_mode fly_speed: 1e+39 is past float32's range: written as inf (Q110)"
+                    assert built["report"]["notes"] == [note]
+                    assert f" · note: {note} · changed: " in page.evaluate(STATUS)   # before the files, which run long
+                assert (built["report"], built["segments"]) == (report, _signature(made)), (name, values)
+                _page.check_csp(page)
+                page.close()
         assert served.stray() == []
     finally:
         served.close()
