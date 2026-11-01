@@ -3,8 +3,8 @@ slots, keyed by the recipe, the image, the content folder's
 ``installed.json`` and the page's change number, whose answer a click
 takes; the Cancel that keeps a seed's fill; and ``core.host``'s
 background priority and memory on each OS. The jobs here are stand-ins
-for the engine's build (its wiring is the hub's turn), keeping their fill
-the way the randomizer keeps its own: once it is whole."""
+for the engine's build (``tests/test_hosts.py`` holds the wiring), keeping
+their fill the way the randomizer keeps its own: once it is whole."""
 
 from __future__ import annotations
 
