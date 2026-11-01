@@ -1666,3 +1666,53 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
     checked = any(s["label"].startswith("Reading the randomizer's logic (") for s in planned)
     assert (len(read) >= 3, back(seen), seen[-1]["stage"], len(replies[0]["lines"]) > 9, checked, back(planned),
             len(seeded)) == (True, [], "spoiler", True, True, [], 1), (seen, planned)
+
+
+def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_path, monkeypatch, usa_iso):
+    """Step 4.7a in the app's page: a Data tab edit made before an image
+    (api/data, api/data_edit) is the setup the app remembers (api/setup),
+    so the next launch's page holds it, its cell marked ● and the Patches
+    tab's line naming it; once the image's path is typed, Build applies it
+    after the packs, its config.xbr CPython's of the same recipe."""
+    from tests.test_site import DATA_CELL, DATA_EDIT
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    hp = next(c for s in sdk.data({"what": "view", "kind": "player"})["sections"] for b in s["blocks"]
+              for _, cells in b["rows"] for c in cells if c and c.get("name") == "initial hp")
+    _, col, row = hp["ref"]
+    op = sdk.data_edit({"edit": {"table": "settings_foo", "col": col, "row": row, "value": "500"}})["op"]
+    cell = ["settings_foo", "initial hp"]
+    for launch in (1, 2):
+        server = app.serve(_page.WEB)
+        try:
+            page = browser.new_page()
+            page.goto(server.url)
+            _page.until(page, "() => globalThis.azurkit?.ready", 120)
+            if launch == 1:
+                _page.click(page, "tab-data")
+                _page.until(page, f"() => azurkit.data.state.answer && ({DATA_CELL})({json.dumps(cell)})")
+                page.evaluate(DATA_EDIT, [*cell, "500"])
+                _page.until(page, "() => azurkit.xbr.length === 1")
+                for _ in range(50):   # the page remembers its setup a moment after a change (api/setup)
+                    if app._kept().get("setup", {}).get("xbr"):
+                        break
+                    time.sleep(0.1)
+                assert app._kept()["setup"]["xbr"] == [op]
+            else:
+                assert _page.until(page, "() => azurkit.xbr.length && azurkit.xbr") == [op]
+                assert page.evaluate("() => document.getElementById('xbr-note').textContent") == (
+                    "The Data tab holds 1 config.xbr edit, which each build applies.")
+                _page.click(page, "tab-data")
+                assert _page.until(page, f"() => azurkit.data.state.answer && ({DATA_CELL})({json.dumps(cell)})"
+                                   )[:2] == ["● 500", "cell changed"]
+                _page.fill(page, "iso-path", str(usa_iso))
+                _page.until(page, "() => azurkit.vanilla")
+                page.evaluate("() => document.querySelector('#build').click()")
+                built = _page.built(page)
+                defaults = {p["name"]: {} for p in sdk.catalog()["packs"] if p["default_on"]}
+                _, report = sdk.image({"iso": str(usa_iso), "packs": defaults, "xbr": [op]})
+                assert built["result"]["gamedata/config.xbr"] == report["result"]["gamedata/config.xbr"]
+                assert built["result"] == report["result"]
+            _page.check_csp(page)
+            page.close()
+        finally:
+            server.close()

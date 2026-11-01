@@ -312,7 +312,7 @@ class ParametricPatch(NamedTuple):
 class PackView:
     """A pack as the swap reads it (:func:`get_pack`): whether it is on by
     default, its sliders and its hooks (the sdk makes these from the packs'
-    catalog: the three tools never import each other)."""
+    catalog: the four tools never import each other)."""
     name: str
     default_on: bool
     sliders: tuple[ParametricPatch, ...] = ()

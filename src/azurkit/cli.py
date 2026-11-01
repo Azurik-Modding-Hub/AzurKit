@@ -9,6 +9,7 @@ turns its flags into the sdk's JSON and prints what comes back.
     azurkit open BUILD                    an AzurKit build's recipe, as a mods file (JSON on stdout)
     azurkit files IMAGE [--extract PATH --out FILE]
                                           an image's files (each size and path), or one of them written to FILE
+    azurkit data [TABLE [ENTITY]]         config.xbr's tables, a table's entities, or an entity's cells
     azurkit plan --seed SEED [--settings FILE | --share STRING] [--out FILE]
                                           a randomizer plan file (JSON on stdout, or written to FILE)
     azurkit spoiler PLAN                  a plan file's spoiler
@@ -42,7 +43,10 @@ authored levels for the seed under the default settings (D144), a settings
 file's (TOML) or a share string's, and ``spoiler`` reads a plan file back.
 ``files`` lists every file of an image, each with its size, in path order,
 and ``--extract`` writes one of them to ``--out`` (never over the image or a
-vanilla image, D36). ``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
+vanilla image, D36). ``data`` reads config.xbr as the Data tab does (the vanilla file AzurKit
+ships; no image): its tables by category, a table's entities, or each cell
+of an entity by its property's name (a repeated entity, each column).
+``content`` lists Azurik-Custom-Content's entries (its source: the hub's,
 ``--source`` or ``$AZURKIT_CONTENT_SOURCE``, a URL or a folder) and what the
 content folder holds of each; ``install`` and ``update`` copy one in, every
 file's sha256 checked first (a build reads a variant's files from there);
@@ -191,6 +195,31 @@ def _files(args: argparse.Namespace) -> int:
     return 0
 
 
+def _data(args: argparse.Namespace) -> int:
+    try:
+        if args.table is None:
+            for t in sdk.data({"what": "index"})["tables"]:
+                print(f"{t['category']:<9} {t['name']:<26} {t['cols']:>4} x {t['rows']:<4} {t['label']}")
+            return 0
+        grid = sdk.data({"what": "table", "table": args.table})
+        cols = [c for c, name in enumerate(grid["cols"]) if args.entity in (None, name)]
+        if args.entity is not None and not cols:
+            raise ValueError(f"config table {args.table} has no entity {args.entity!r}")
+    except (OSError, ValueError) as exc:
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    if args.entity is None:
+        print("\n".join(name or "(no name)" for name in grid["cols"]))
+        return 0
+    for c in cols:
+        if len(cols) > 1:
+            print(f"{args.entity} (column {c})")
+        for r, prop in enumerate(grid["rows"][1:], 1):
+            value = grid["cells"][c][r]
+            print(f"{prop or '(no name)'}: {'(empty)' if value is None else json.dumps(value)}")
+    return 0
+
+
 def _plan(args: argparse.Namespace) -> int:
     try:
         given = {"seed": args.seed}
@@ -307,6 +336,13 @@ def main(argv: list[str] | None = None) -> int:
     listed.add_argument("--extract", metavar="PATH", help="the image's file to write, as the list names it")
     listed.add_argument("--out", metavar="FILE", help="where --extract writes it (a part file renamed into place)")
     listed.set_defaults(run=_files)
+    read = verbs.add_parser("data", help="read config.xbr's tables, as the Data tab shows them",
+                            description="List config.xbr's tables by category (each entities x properties), "
+                                        "TABLE's entities, or each cell of ENTITY in TABLE by its property's name. "
+                                        "It reads the vanilla config.xbr AzurKit ships (both releases hold it).")
+    read.add_argument("table", nargs="?", metavar="TABLE", help="a table (azurkit data lists them)")
+    read.add_argument("entity", nargs="?", metavar="ENTITY", help="an entity of TABLE (a column)")
+    read.set_defaults(run=_data)
     planned = verbs.add_parser("plan", help="fill the randomizer for a seed and print (or write) the plan file",
                                description="Fill the randomizer's authored levels for --seed under the default "
                                            "settings (D144), a settings file's or a share string's, and print the "

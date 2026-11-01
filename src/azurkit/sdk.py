@@ -9,9 +9,11 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 :func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
 (its G4 buttons) and :func:`preview`, Azurik-Custom-Content's
 :func:`content`, :func:`content_install` and :func:`content_check` (its
-community entries), and the Tools tab's :func:`image_info`,
-:func:`verify_all`, :func:`files`, :func:`extract` and :func:`mods_file`
-(the image, its files, and mods files saved and read). JSON in and
+community entries), the Data tab's :func:`data` and :func:`data_edit`
+(config.xbr's cells, edited before an image is picked), and the Tools
+tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
+:func:`extract` and :func:`mods_file` (the image, its files, and mods
+files saved and read). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -88,6 +90,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import functools
 import hashlib
 import json
 import os
@@ -101,10 +104,12 @@ from pathlib import Path
 from azurkit import __version__
 from azurkit.core import gate, iso
 from azurkit.core.progress import Steps, record
+from azurkit.core.xbr import Document
 from azurkit.edits import manifest as edits
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
+from azurkit.tools import data as datatool
 from azurkit.tools.randomizer import generator, needs, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 from azurkit.tools.randomizer.planner import fill as rando_fill
@@ -113,7 +118,7 @@ from azurkit.tools.randomizer.planner import loader
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
-           "image_info", "verify_all", "files", "extract", "mods_file"]
+           "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -122,7 +127,7 @@ SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (th
 #: A UI's tabs, one an area, in the owner's order (D901), each with whether
 #: its area works yet: a tab shows only once it does (D902).
 TABS = (("patches", "Patches", True), ("randomizer", "Randomizer", True), ("characters", "Characters", True),
-        ("data", "Data", False), ("tools", "Tools", True), ("about", "About", True))
+        ("data", "Data", True), ("tools", "Tools", True), ("about", "About", True))
 
 
 def catalog() -> dict:
@@ -919,6 +924,75 @@ def mods_file(given: Mapping) -> dict:
         return {"preset": _loaded(preset.read(given["text"]), link=False)}
     made = _preset(given["recipe"], link=False) if "recipe" in given else given["preset"]
     return {"text": json.dumps(preset.check(made), indent=1, sort_keys=True, allow_nan=False) + "\n"}
+
+
+DATA = ("what", "ops", "packs", "kind", "name", "table")   # what a Data tab's ask holds (:func:`data`)
+
+
+def data(given: Mapping) -> dict:
+    """The Data tab's config.xbr (Step 4.7a; ``tools.data``, from the
+    vanilla file AzurKit ships, so before an image): ``{"what": "index"}``
+    the tables by category and the pickers' lists, ``{"what": "view",
+    "kind", "name"}`` one entity's cells (``kind`` player, critter, item,
+    armor or weapon; the player has no ``name``), ``{"what": "table",
+    "table"}`` a table as a grid. Each shows the tables as the recipe's
+    ``xbr`` operations ``ops`` make them, every changed cell with its
+    vanilla value, and marks each cell a slider of ``packs`` (the recipe's
+    ticked packs and their values) also writes: the data edit wins, its
+    layer last (D28). A pack whose values a build would refuse marks
+    nothing here (the build names it). A refusal names the key, the view
+    or the table."""
+    if not isinstance(given, Mapping):
+        raise ValueError("data: a JSON object")
+    if unknown := sorted(set(given) - set(DATA), key=str):
+        raise ValueError(f"data: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(DATA)})")
+    ops, what = given.get("ops") or [], given.get("what")
+    if what == "index":
+        return datatool.index(ops)
+    if what not in ("view", "table"):
+        raise ValueError(f"data: what is index, view or table, not {what!r}")
+    written = _written(given.get("packs") or {})
+    if what == "view":
+        return datatool.view(given.get("kind"), given.get("name"), ops, written)
+    return datatool.table(given.get("table"), ops, written)
+
+
+@functools.cache
+def _config_tables() -> Mapping:
+    return Document(datatool.vanilla()).tables
+
+
+def _written(packs: object) -> list[tuple[int, int]]:
+    """The spans ``(offset, size)`` of config.xbr each slider of ``packs``
+    writes at its value, as a build plans it; what a build would refuse
+    (``mods.salvage``'s) writes none here."""
+    kept, _ = mods.salvage(packs)
+    spans = []
+    for name, params in kept.items():
+        pack = mods.PACKS[name]
+        values = pack.values(params)
+        for spec in pack.sites:
+            if not (isinstance(spec, mods.XbrParametricEdit) and spec.file == datatool.FILE):
+                continue
+            try:
+                spans += [(at, len(after)) for _, at, after in spec.writes(_config_tables(), values[spec.name])]
+            except (LookupError, ValueError):   # a cell it can't write: the build names it
+                continue
+    return spans
+
+
+def data_edit(given: Mapping) -> dict:
+    """A Data tab's edit, ``{"edit": {"table", "col", "row", "value"},
+    "ops"}`` (a cell by position, as :func:`data` gives it, and the
+    recipe's ``xbr`` operations): ``{"op", "ops"}``, the cell's ``set``
+    operation (``None``: the cell back as vanilla) and ``ops`` with the
+    cell's earlier operations dropped and it last (``tools.data.check``).
+    A number cell takes any finite number (D23) but what int32 can't hold
+    where the game reads one (D45); a refusal says why, with the cell's
+    type and an example, never game bytes."""
+    if not (isinstance(given, Mapping) and "edit" in given and set(given) <= {"edit", "ops"}):
+        raise ValueError("data_edit: {edit: {table, col, row, value}, ops}")
+    return datatool.check(given["edit"], given.get("ops") or [])
 
 
 def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:

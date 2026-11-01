@@ -12,7 +12,10 @@
 // anything is kept (the site's worker, sdk.content_check; the app's engine, sdk.content_install), and an installed
 // entry stays at its version until its Update. The site keeps what it installed in this browser's storage (IndexedDB)
 // and hands it to its engine as the page starts (a build from any tab, a link's or the remembered setup's, reads it);
-// the app writes it into its content folder.
+// the app writes it into its content folder. The species' list is the shared gallery picker (web/picker.mjs) in the
+// tab's own search box and list.
+import { option as pickerOption, picker } from "./picker.mjs";
+
 const $ = (id) => document.getElementById(id);
 const SOURCE = "azurkit.content_source";
 const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
@@ -233,26 +236,29 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     const grade = gradeOf(colour);
     return grade ? `var(--grade-${grade}, ${colour})` : colour ?? "";
   };
-  // A model's row, its grade read without colour too: its mark (app.css's data-grade ::after) and the grade's words as
-  // its title.
-  const row = (name, label, colour, untested = false) => {
+  // A model's row (the picker's option), its grade read without colour too: its mark (app.css's data-grade ::after)
+  // and the grade's words as its title.
+  const decorate = (button, { name, colour, untested }) => {
     const grade = gradeOf(colour);
-    const button = el("button", { type: "button", className: `model${untested ? " untested" : ""}`, textContent: label,
-                                  title: untested ? "Not yet tested: no sitting has graded it"
-                                    : c.view.grade_words[grade] ?? name });
+    button.classList.add("model");
+    button.classList.toggle("untested", Boolean(untested));
+    button.title = untested ? "Not yet tested: no sitting has graded it" : c.view.grade_words[grade] ?? name;
     button.dataset.model = name;
     if (grade) button.dataset.grade = grade;
-    button.setAttribute("role", "option");
-    button.setAttribute("aria-selected", String(name === c.character.species));
     button.style.color = paint(colour);
+  };
+  const species = picker({ label: "Species", pick, decorate, search: $("char-filter"), list: $("char-species"),
+                           count: null });
+  const row = (name, label, colour) => {
+    const button = pickerOption({ name, label, colour }, c.character.species, decorate);
     button.addEventListener("click", () => pick(name));
     return button;
   };
   const render = () => {
     if (!c.view) return;
     const view = c.view, chosen = view.chosen, filter = c.filter.toLowerCase();
-    const species = view.species.filter((s) => !filter || s.label.toLowerCase().includes(filter));
-    $("char-species").replaceChildren(...species.map((s) => row(s.name, s.label, s.colour, s.untested)));
+    species.set(view.species.map((s) => ({ name: s.name, label: s.label, colour: s.colour, untested: s.untested })),
+                c.character.species);
     $("char-count").textContent = `${view.species.length} species, ${view.species.filter((s) => s.untested).length} `
       + "not yet tested" + (view.why ? ` · ${view.why}` : "");
     const groups = view.community.map((e) => {

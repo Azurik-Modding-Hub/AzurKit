@@ -662,8 +662,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## The engine's contracts
 
-- **Layers:** `core <- edits <- tools <- sdk <- {cli, app}`. The three tools
-  (`mods`, `randomizer`, `characters`) never import each other. import-linter
+- **Layers:** `core <- edits <- tools <- sdk <- {cli, app}`. The four tools
+  (`mods`, `randomizer`, `characters`, `data`) never import each other. import-linter
   holds this (see `pyproject.toml`).
 - **AST rules:** `core`, `edits` and `tools` hold no threads, processes,
   subprocesses, prints or exits, so the web page's worker runs them as they
@@ -874,6 +874,23 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     engine installs into its content folder. A known flaw (D835): on the
     site a detailed variant's dress (booblord's) may run out of wasm
     memory; the page then says to use the app.
+  - **The Data tab** (Step 4.7a, `web/data.mjs`; D986, Modkit's Game Data
+    editor): config.xbr's cells before an image (`sdk.data`, from the
+    vanilla file `tools/data` ships): the Player, Critter, Item, Armor and
+    Weapon views and All tables (a grid: sort, Changed only), its entities
+    in the shared picker (`web/picker.mjs`, whose species list and rows
+    the Characters tab uses too). A cell's edit is checked by the engine
+    (`sdk.data_edit`: any finite number, D23; refused only where the
+    cell's encoding can't hold it, D45) into the recipe's `xbr` `set`
+    operations, which the tab keeps (Undo, Redo, Revert, Reset table,
+    Clear edits) and the page builds with (after the packs), remembers and
+    links (`state.xbr`; the Patches tab's line names them); ⚠ marks a cell
+    a ticked pack's slider also writes (`sdk._written`: each config.xbr
+    slider's spans as a build plans them; a pack a build would refuse
+    marks none). The tab asks again each time it shows, so the marks
+    follow the ticks; its line says the edits wait for the image to build
+    (D979). `tests/test_data.py`, `test_site.py` and `test_hosts.py` hold
+    it; `tests/_perf.py`'s A39-A46 and S32-S39 time it.
   - **The Tools tab** (Step 4.7c, `web/tools.mjs`; D919's list): **your
     image** (`sdk.image_info`: its release, size and kind, vanilla with how
     much of it the gate checked, an AzurKit build with its version and

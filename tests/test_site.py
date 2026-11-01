@@ -39,7 +39,7 @@ import pytest
 
 from azurkit import sdk
 from azurkit.core import gate, iso
-from azurkit.tools import mods
+from azurkit.tools import data, mods
 from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tools
@@ -290,7 +290,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         again.goto(with_cell)
         _page.until(again, "() => globalThis.azurkit?.loaded")
         assert again.evaluate("() => [azurkit.xbr, document.querySelector('#xbr-note').textContent]") == [
-            [cell], "The loaded recipe also sets 1 config.xbr value, which each build applies."]
+            [cell], "The Data tab holds 1 config.xbr edit, which each build applies."]
         assert _locks(again)["fps_unlock"] == [False, "locked"]
         _page.click(again, "share")
         assert _page.until(again, "() => azurkit.link") == with_cell
@@ -477,11 +477,12 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert [later.evaluate(GROUND), served.open().evaluate(GROUND)] == [DARK, DARK]
 
         catalog = sdk.catalog()
-        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "Randomizer", "Characters", "Tools", "About"]
+        assert [tab["title"] for tab in catalog["tabs"]] == ["Patches", "Randomizer", "Characters", "Data", "Tools",
+                                                             "About"]
         assert page.evaluate("""() => [...document.querySelectorAll("#tabs [role=tab]")].map((tab) => [tab.textContent,
             tab.getAttribute("aria-selected"), document.getElementById(tab.getAttribute("aria-controls")).hidden])""") == [
             ["Patches", "true", False], ["Randomizer", "false", True], ["Characters", "false", True],
-            ["Tools", "false", True], ["About", "false", True]]
+            ["Data", "false", True], ["Tools", "false", True], ["About", "false", True]]
         assert [c["title"] for c in catalog["categories"]] == ["Player", "Enemies", "Quality of Life"]
         grouped = [[p for p in mods.PACKS.values() if p.category == c["id"]] for c in catalog["categories"]]
         assert page.evaluate("""() => [...document.querySelectorAll("#packs .group")].map((group) =>
@@ -1129,6 +1130,84 @@ def test_the_tools_tab_checks_lists_and_extracts_the_image(browser, site, usa_is
         served.close()
 
 
+# The Data tab (Step 4.7a): a cell of the view by its table and name ([its text, its classes, its note]); an edit typed
+# into it and committed with Enter; one of the tab's bar buttons by its label.
+DATA_FIND = """const td = [...document.querySelectorAll("#data td.cell")].find((n) => {
+    const c = JSON.parse(n.dataset.cell); return c.ref[0] === table && c.name === name; });"""
+DATA_CELL = f"""([table, name]) => {{ {DATA_FIND}
+    return td ? [td.textContent, [...td.classList].sort().join(" "), td.title] : null; }}"""
+DATA_EDIT = f"""([table, name, text]) => {{ {DATA_FIND}
+    td.click(); const box = td.querySelector("input"); box.value = text;
+    box.dispatchEvent(new KeyboardEvent("keydown", {{ key: "Enter", bubbles: true }})); }}"""
+DATA_PRESS = """(label) => [...document.querySelectorAll("#data .data-bar button")].find((b) => b.textContent === label).click()"""
+DATA_LINES = """() => [document.querySelector("#data .data-bar .note").textContent, azurkit.xbr,
+    document.getElementById("xbr-note").textContent, document.querySelector("#data .data-builds").textContent]"""
+
+
+def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, usa_iso):
+    """Step 4.7a (D986, D979): with no image the Data tab shows the Player
+    view of the config.xbr AzurKit ships, Starting HP's cell marked ⚠ while
+    its pack is ticked; an edit there is the engine's set operation, the
+    cell tinted ● with its vanilla value in its note, counted, kept for the
+    build and named in the Patches tab; a value the cell can't hold is one
+    red line, the engine's words; Undo, Redo and the cell's Revert move the
+    edits; unticking the pack takes its ⚠ off. Its line says the edits wait
+    for the image; once one is picked, Build's config.xbr is CPython's of
+    the same recipe, the D28 conflict named. No CSP violation, no request
+    but GETs of the site's files."""
+    defaults = [p["name"] for p in sdk.catalog()["packs"] if p["default_on"]]
+    packs = {name: {} for name in defaults} | {"player_max_hp": {"starting_hp": 300}}
+    hp = next(c for s in sdk.data({"what": "view", "kind": "player", "packs": packs})["sections"] for b in s["blocks"]
+              for _, cells in b["rows"] for c in cells if c and c.get("name") == "initial hp")
+    _, col, row = hp["ref"]
+    op = sdk.data_edit({"edit": {"table": "settings_foo", "col": col, "row": row, "value": "500"}})["op"]
+    with pytest.raises(ValueError) as refused:
+        sdk.data_edit({"edit": {"table": "settings_foo", "col": col, "row": row, "value": "2147483647.5"}})
+    cell, waiting = ["settings_foo", "initial hp"], "Your edits join each build, after the packs"
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.tick(page, list(packs), {"player_max_hp": {"starting_hp": "300"}})
+        _page.click(page, "tab-data")
+        shown = _page.until(page, f"() => azurkit.data.state.answer && ({DATA_CELL})({json.dumps(cell)})")
+        assert shown[:2] == [f"{hp['text']} ⚠", "cell written"] and shown[2].endswith(
+            "A ticked pack's slider also writes this cell; your edit wins, and the build says so.")
+        assert page.evaluate(DATA_LINES) == ["0 edits", [], "", f"{waiting}: pick your image (1.) to build."]
+        page.evaluate(DATA_EDIT, [*cell, "500"])
+        shown = _page.until(page, f"() => azurkit.data.state.ops.length && ({DATA_CELL})({json.dumps(cell)})")
+        assert shown[:2] == ["● 500 ⚠", "cell changed written"] and "Changed: vanilla 200." in shown[2]
+        edited = ["1 edit", [op], "The Data tab holds 1 config.xbr edit, which each build applies.",
+                  f"{waiting}: pick your image (1.) to build."]
+        assert page.evaluate(DATA_LINES) == edited
+        page.evaluate(DATA_EDIT, [*cell, "2147483647.5"])
+        assert _page.until(page, "() => document.querySelector('#data p.refused')?.textContent") == str(refused.value)
+        assert page.evaluate(DATA_LINES) == edited
+        for press, n, classes in (("Undo", 0, "cell written"), ("Redo", 1, "cell changed written")):
+            page.evaluate(DATA_PRESS, press)
+            _page.until(page, f"() => azurkit.xbr.length === {n} && ({DATA_CELL})({json.dumps(cell)})[1] === '{classes}'")
+        assert page.evaluate("() => azurkit.xbr") == [op]
+        page.evaluate(f"""() => {{ const table = "settings_foo", name = "initial hp"; {DATA_FIND} td.click();
+            [...td.querySelectorAll("button")].find((b) => b.textContent === "Revert").click(); }}""")
+        _page.until(page, f"() => !azurkit.xbr.length && ({DATA_CELL})({json.dumps(cell)})[0] === '{hp['text']} ⚠'")
+        page.evaluate(DATA_PRESS, "Undo")
+        _page.until(page, "() => azurkit.xbr.length === 1")
+        _page.tick(page, defaults)
+        _page.click(page, "tab-data")
+        assert _page.until(page, f"""() => {{ const c = ({DATA_CELL})({json.dumps(cell)});
+            return c && !c[1].includes("written") && c[0]; }}""") == "● 500"
+        _page.tick(page, list(packs), {"player_max_hp": {"starting_hp": "300"}})
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla")
+        assert page.evaluate(DATA_LINES)[3] == f"{waiting}."
+        page.evaluate("() => document.querySelector('#build').click()")
+        built = _page.built(page)
+        _, report = sdk.image({"iso": str(usa_iso), "packs": mods.normalize(packs), "xbr": [op]})
+        assert [built["result"][data.FILE], built["conflicts"]] == [report["result"][data.FILE], report["conflicts"]]
+        assert page.evaluate("() => azurkit.violations") == [] and served.stray() == []
+    finally:
+        served.close()
+
+
 def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_builds_again_as_cpython(
         browser, site, usa_iso):
     """Step 4.3i: the site keeps its engine's worker after a build whose
@@ -1281,7 +1360,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
     try:
         page = served.open()
         assert page.evaluate("() => [...document.querySelectorAll('#tabs [role=tab]')].map((t) => t.textContent)") == [
-            "Patches", "Randomizer", "Characters", "Tools", "About"]
+            "Patches", "Randomizer", "Characters", "Data", "Tools", "About"]
         _page.click(page, "tab-randomizer")
         view = _page.until(page, "() => azurkit.rando.view")
         assert view == sdk.randomizer_settings({"settings": defaults, "packs": mods.normalize(

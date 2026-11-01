@@ -88,6 +88,10 @@ pictures as base64 PNG), and Azurik-Custom-Content's ``api/content``
 (``sdk.content_install``, into the content folder); ``api/content_source``
 ``{"source"}`` remembers the tab's Content from (``null``: the default),
 which ``host.json``'s ``content_source`` gives the next page.
+The Data tab's calls (Step 4.7a): ``POST api/data`` ``{"given"}`` gives a
+view of config.xbr's cells (``sdk.data``: the vanilla file AzurKit ships,
+no image) and ``api/data_edit`` ``{"given"}`` checks a cell's edit into the
+recipe's ``xbr`` operations (``sdk.data_edit``); the page keeps them.
 The Tools tab's calls (Step 4.7c): ``POST api/info`` ``{"iso"}`` says what
 the image is (``sdk.image_info``), ``api/verify_all`` ``{"iso"}`` checks
 every file of it (``sdk.verify_all``: only what its kept check hasn't
@@ -831,6 +835,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
                 "/api/content_source": _set_source,
                 "/api/spoiler": self.server.spoiled,
+                "/api/data": lambda body: sdk.data(body.get("given")),
+                "/api/data_edit": lambda body: sdk.data_edit(body.get("given")),
                 "/api/info": self.server.info, "/api/verify_all": self.server.verify_all,
                 "/api/files": lambda body: sdk.files(str(_path(body.get("iso"), "image"))),
                 "/api/extract": self.server.extract,

@@ -11,9 +11,11 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 :func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
 (its G4 buttons) and :func:`preview`, Azurik-Custom-Content's
 :func:`content`, :func:`content_install` and :func:`content_check` (its
-community entries), and the Tools tab's :func:`image_info`,
-:func:`verify_all`, :func:`files`, :func:`extract` and :func:`mods_file`
-(the image, its files, and mods files saved and read). JSON in and
+community entries), the Data tab's :func:`data` and :func:`data_edit`
+(config.xbr's cells, edited before an image is picked), and the Tools
+tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
+:func:`extract` and :func:`mods_file` (the image, its files, and mods
+files saved and read). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -430,6 +432,34 @@ image at once; a variant's from one dress of it over the recipe's packs
 (the dress :func:`match` reads, kept for this process; seconds, a
 detailed one minutes), never its base's picture. A refusal names the
 species or the image.
+
+
+def data(given: 'Mapping') -> 'dict':
+
+The Data tab's config.xbr (Step 4.7a; ``tools.data``, from the
+vanilla file AzurKit ships, so before an image): ``{"what": "index"}``
+the tables by category and the pickers' lists, ``{"what": "view",
+"kind", "name"}`` one entity's cells (``kind`` player, critter, item,
+armor or weapon; the player has no ``name``), ``{"what": "table",
+"table"}`` a table as a grid. Each shows the tables as the recipe's
+``xbr`` operations ``ops`` make them, every changed cell with its
+vanilla value, and marks each cell a slider of ``packs`` (the recipe's
+ticked packs and their values) also writes: the data edit wins, its
+layer last (D28). A pack whose values a build would refuse marks
+nothing here (the build names it). A refusal names the key, the view
+or the table.
+
+
+def data_edit(given: 'Mapping') -> 'dict':
+
+A Data tab's edit, ``{"edit": {"table", "col", "row", "value"},
+"ops"}`` (a cell by position, as :func:`data` gives it, and the
+recipe's ``xbr`` operations): ``{"op", "ops"}``, the cell's ``set``
+operation (``None``: the cell back as vanilla) and ``ops`` with the
+cell's earlier operations dropped and it last (``tools.data.check``).
+A number cell takes any finite number (D23) but what int32 can't hold
+where the game reads one (D45); a refusal says why, with the cell's
+type and an example, never game bytes.
 
 
 def image_info(path: 'str') -> 'dict':

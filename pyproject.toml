@@ -84,10 +84,11 @@ layers = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "the three tools never import each other"
+name = "the four tools never import each other"
 type = "independence"
 modules = [
     "azurkit.tools.mods",
     "azurkit.tools.randomizer",
     "azurkit.tools.characters",
+    "azurkit.tools.data",
 ]

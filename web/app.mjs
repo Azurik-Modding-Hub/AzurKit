@@ -36,6 +36,10 @@
 // Azurik-Custom-Content, marked community, with Install and Update), its options and G4 buttons; Build wears it, a link,
 // a build's recipe and the remembered setup carry it.
 //
+// The Data tab (Step 4.7a, data.mjs): config.xbr's cells in Modkit's views and as grids, edited before an image is
+// picked (the engine reads the vanilla file AzurKit ships); its edits are the recipe's xbr set operations, which Build
+// applies after the packs, a link and a mods file carry and the page remembers.
+//
 // The Tools tab (Step 4.7c, tools.mjs): your image (what it is, Verify every file, its files with Extract), recipes
 // and files (Open a build…, mods files, a plan file's spoiler, the last build's report) and AzurKit's storage with
 // Clear; what waits for an image is greyed until one is picked (D979).
@@ -44,6 +48,7 @@
 // on a bar, from the app's api/progress or the site's worker; any ask the engine hasn't answered within 1 s shows
 // its line there too, until it answers.
 import { characters } from "./characters.mjs";
+import { dataTab } from "./data.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 
@@ -148,7 +153,7 @@ const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your imag
                  decode: "Reading the link", info: "Reading your image", verify_all: "Checking every file",
                  files: "Listing its files", extract: "Extracting the file", open: "Reading the build",
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
-                 storage: "Reading AzurKit's storage" };
+                 storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit" };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click; any other ask after 1 s
 let asked = 0, ticking = null;
 
@@ -635,6 +640,7 @@ function pick(id) {
   state.tab = id;
   if (id === "randomizer" && state.packs) askRando();   // the Patches tab's packs may have changed
   if (id === "characters" && state.characters) state.characters.open();
+  if (id === "data" && state.data) state.data.open();   // the Patches tab's ticks may have changed: its ⚠ marks
   if (id === "tools" && state.tools) state.tools.open();
   for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
   for (const panel of document.querySelectorAll("[role=tabpanel]")) panel.hidden = panel.dataset.tab !== id;
@@ -721,8 +727,15 @@ function setTo(on, values, xbr, from = null) {
   tally();
   lock();
   state.xbr = xbr;
-  $("xbr-note").textContent = xbr.length ? `The loaded recipe also sets ${xbr.length} config.xbr `
-    + `value${xbr.length > 1 ? "s" : ""}, which each build applies.` : "";
+  state.data?.load(xbr);
+  noteXbr();
+}
+
+// The Patches tab's line for the Data tab's edits (the recipe's xbr operations), which each build applies.
+function noteXbr() {
+  const n = state.xbr.length;
+  $("xbr-note").textContent = n ? `The Data tab holds ${n} config.xbr edit${n > 1 ? "s" : ""}, which each build `
+    + "applies." : "";
 }
 
 // Load a recipe (a share link's, or an AzurKit build's: a preset, already checked by the engine) into the page, marked,
@@ -846,6 +859,12 @@ function ready(catalog, version) {
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
                                     image: () => state.file, packs: chosen, changed: state.changed,
                                     content: state.engine.content });
+    state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
+                           changed: (ops) => {
+                             state.xbr = ops;
+                             noteXbr();
+                             state.changed();
+                           } });
     state.tools = tools({ root: $("tools"), call: state.engine.call, app: state.app, say, image: () => state.file,
                           out: toolsOut, pick: state.dialogs ? () => state.engine.choose("build", "") : null,
                           setup: recipe, load });
@@ -937,6 +956,7 @@ function pickInApp(host) {
     askVanilla();
     state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
     state.characters?.imaged();
+    state.data?.imaged();
     state.tools?.imaged();
   };
   picked();
@@ -1435,6 +1455,7 @@ async function main() {
       askVanilla();
       state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
       state.characters?.imaged();
+      state.data?.imaged();
       state.tools?.imaged();
     });
   }

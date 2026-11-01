@@ -9,13 +9,15 @@
 // A changed cell is marked ● with its vanilla value in its note, a cell a ticked pack's slider also writes ⚠ (the data
 // edit wins: the build says so). Revert (a cell), Reset table, Undo, Redo, Clear edits and the count of edits. The edits
 // are the recipe's xbr set operations, which this tab keeps (ops(), load(ops)) and the page builds with, remembers and
-// links; byte edits a mods file brought list read-only, removable. The engine decides everything shown (sdk.data,
-// sdk.data_edit): this page sends the tab's choices and draws what comes back. Text only (textContent), no eval.
+// links; byte edits a mods file brought list read-only, removable. The tab needs no image: its line says the edits join
+// each build, which waits for the image (D979). The engine decides everything shown (sdk.data, sdk.data_edit): this
+// page sends the tab's choices and draws what comes back. Text only (textContent), no eval.
 import { picker } from "./picker.mjs";
 
 const VIEWS = [["player", "Player"], ["critter", "Critters"], ["item", "Items"], ["armor", "Armor"],
                ["weapon", "Weapons"], ["tables", "All tables"]];
 const WRITTEN = "A ticked pack's slider also writes this cell; your edit wins, and the build says so.";
+const BUILDS = "Your edits join each build, after the packs";
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);
@@ -23,11 +25,12 @@ const el = (tag, props = {}, ...children) => {
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// dataTab({ call, root, say, packs, changed }): call is the engine's (the site's worker, the app's api), root the tab's
-// panel, say(text) the page's status line, packs() the Patches tab's ticks (the engine marks the cells they write) and
-// changed(ops) runs when the edits change (the page remembers them). The page calls open() when the tab first shows,
-// ops() for a build's recipe, and load(ops) when a mods file, a link or the remembered setup brings edits.
-export function dataTab({ call, root, say, packs, changed }) {
+// dataTab({ call, root, say, packs, changed, image }): call is the engine's (the site's worker, the app's api), root
+// the tab's panel, say(text) the page's status line, packs() the Patches tab's ticks (the engine marks the cells they
+// write), changed(ops) runs when the edits change (the page builds with them and remembers them) and image() the
+// picked image, if any. The page calls open() each time the tab shows (the ticks may have changed), ops() for a
+// build's recipe, load(ops) when a mods file, a link or the remembered setup brings edits, and imaged() on each pick.
+export function dataTab({ call, root, say, packs, changed, image }) {
   const d = { ops: [], undo: [], redo: [], index: null, view: "player", chosen: {}, table: null, answer: null,
               ticket: 0, changedOnly: false, sort: null, opened: false };
   const tabs = VIEWS.map(([id, label]) => {
@@ -60,7 +63,13 @@ export function dataTab({ call, root, say, packs, changed }) {
   const others = el("p", { className: "note" });
   const body = el("div", { className: "data-view" });
   const note = el("p", { className: "note data-note" });
-  root.replaceChildren(bar, el("div", { className: "data-body" }, pick.element, el("div", {}, others, body, note)));
+  const builds = el("p", { className: "note data-builds" });
+  const imaged = () => {
+    builds.textContent = image() ? `${BUILDS}.` : `${BUILDS}: pick your image (1.) to build.`;
+  };
+  imaged();
+  root.replaceChildren(bar, builds,
+                       el("div", { className: "data-body" }, pick.element, el("div", {}, others, body, note)));
 
   const ask = (what, given = {}) => call("data", { given: { what, ops: d.ops, packs: packs(), ...given } });
   const refused = (reply) => {
@@ -127,6 +136,8 @@ export function dataTab({ call, root, say, packs, changed }) {
     const shown = cell.text || (cell.default != null ? `${cell.default} (default)` : "");
     const node = el("td", { className: "cell", textContent: shown, tabIndex: 0, title: noteOf(cell) });
     node.classList.toggle("empty", !cell.text);
+    node.classList.toggle("changed", "vanilla" in cell);
+    node.classList.toggle("written", Boolean(cell.written));
     if ("vanilla" in cell) node.prepend("● ");
     if (cell.written) node.append(" ⚠");
     node.dataset.cell = JSON.stringify(cell);
@@ -295,7 +306,7 @@ export function dataTab({ call, root, say, packs, changed }) {
       d.redo = [];
       if (d.opened) show();
     },
-    // the Patches tab's ticks changed: the ⚠ marks follow them
-    packs: () => d.opened && show(),
+    imaged,
+    state: d,   // the tests' and the perf gate's
   };
 }

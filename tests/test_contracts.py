@@ -1,6 +1,6 @@
 """The engine's contracts: the sdk's API is its snapshot (``tests/sdk_api.txt``,
 written by ``scripts/sdk_api.py``), import-linter's (``pyproject.toml``: the
-layers and the three tools' independence) and the rules it can't express,
+layers and the four tools' independence) and the rules it can't express,
 read from the AST: ``core``, ``edits`` and ``tools`` hold no threads, processes,
 subprocesses, prints or exits (the web page's worker runs them as they are;
 the app-only ``tools/randomizer/live/`` is exempt), only ``tools/characters``

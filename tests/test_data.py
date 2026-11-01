@@ -3,18 +3,22 @@ tables and views by the file's own names (Modkit's Game Data editor's,
 D262), read from the vanilla file AzurKit ships, which is both releases'
 file byte for byte; and a cell's edit checked into the recipe's ``set``
 operation, refused only where the cell's encoding can't hold it (D23,
-D45). Pure: the shipped file and the manifests, no image."""
+D45). Pure (the shipped file and the manifests), but a build of a data
+edit over a pack's slider (vanilla: the USA image)."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 from collections import Counter
 
 import pytest
 
+from azurkit import cli, sdk
 from azurkit.core import gate
+from azurkit.core.xbr import Document
 from azurkit.edits import xbr
 from azurkit.tools import data
 from azurkit.tools.data import views
@@ -178,3 +182,38 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
                                                    "2.14748e+09 doesn't fit the game's 32-bit integer once rounded")):
         xbr.plan([{"op": "set", "file": data.FILE, "table": "settings_foo", "entity": "initial hp", "prop": "Value",
                    "value": 2147483647.5}], gate.USA, {data.FILE: data.vanilla()})
+
+
+def test_a_cell_a_ticked_packs_slider_writes_is_marked_and_the_data_edit_wins(usa_iso, capsys):
+    """sdk.data marks ⚠ (``written``) each cell a ticked pack's slider also
+    writes, as a build plans it (Starting HP's settings_foo initial hp, in
+    the Player view and in the grid), and nothing a pack left unticked or
+    its slider at its default leaves alone; the cell's data edit
+    (sdk.data_edit) builds last: the build names the D28 conflict and its
+    config.xbr holds the edit's value, the file the data layer alone makes.
+    ``azurkit data`` prints the grid's cells by name."""
+    packs = {"player_max_hp": {"starting_hp": 300}}
+
+    def initial_hp(given: dict) -> dict:
+        return next(c for c in _cells(sdk.data({"what": "view", "kind": "player"} | given))
+                    if c.get("ref", [None])[0] == "settings_foo" and c.get("name") == "initial hp")
+    hp = initial_hp({"packs": packs})
+    assert hp["written"] is True and "written" not in initial_hp({}) and "written" not in initial_hp(
+        {"packs": {"player_physics": {}}})
+    _, col, row = hp["ref"]
+    grid = sdk.data({"what": "table", "table": "settings_foo", "packs": packs})
+    assert [col, row] in grid["written"] and sdk.data({"what": "table", "table": "settings_foo"})["written"] == []
+    walk = sdk.data({"what": "table", "table": "critters_critter_data", "packs": {"player_physics": {}}})
+    assert walk["written"] == []   # a multiplier at its default writes nothing
+    edit = sdk.data_edit({"edit": {"table": "settings_foo", "col": col, "row": row, "value": "500"}, "ops": []})
+    assert edit["ops"] == [edit["op"]] and initial_hp({"packs": packs, "ops": edit["ops"]})["vanilla"] == "200"
+    made, report = sdk.image({"iso": str(usa_iso), "packs": packs, "xbr": edit["ops"]})
+    [conflict] = [c for c in report["conflicts"] if c.startswith(data.FILE)]
+    assert "data" in conflict and "pack player_max_hp" in conflict, conflict
+    alone = data._state(edit["ops"]).data
+    assert report["result"][data.FILE] == hashlib.sha256(alone).hexdigest()
+    assert Document(alone).tables["settings_foo"].cell(col, row).value == 500
+    assert cli.main(["data", "settings_foo", "initial hp"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        f"{prop or '(no name)'}: {'(empty)' if grid['cells'][col][r] is None else json.dumps(grid['cells'][col][r])}"
+        for r, prop in enumerate(grid["rows"][1:], 1)]

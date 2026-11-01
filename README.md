@@ -21,6 +21,7 @@ source ([Development](#development)).
   and seen from front and back before you build.
 - **Builds carry their recipe.** Open any AzurKit build to get back the packs, settings and seed that made it.
 - **No hard limits.** 17 packs and 47 settings on both USA and Europe, and no setting is ever clamped.
+- **Edit the game's data.** Every critter's, item's, armor's and spell's numbers, before you even pick your image.
 
 ## Features
 
@@ -132,6 +133,20 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   walk and roll, and the verdict says what the body changes (its height, its attacks).
 - **In links and recipes:** a share link and a build's recipe carry the character, by name and numbers; a variant
   whose recipe has changed since is named, with what to install or update.
+
+### Data
+
+In the page's Data tab, in the browser and the app alike, or read from the command line (`azurkit data`). It works
+before you pick your image: AzurKit ships the game's original config.xbr, the same on both releases.
+
+- **Views:** the Player, Critters, Items, Armor and Weapons, each entity's numbers from every table that holds them,
+  with a search box; All tables, each as a grid you can sort, or show only what you changed.
+- **Edit any cell:** any number, never clamped; only a value the game can't store is refused, saying why. Each cell
+  has a note on what it does.
+- **Marks:** ● on what you changed, with the original value; ⚠ where a ticked pack also writes it (your edit wins,
+  and the build says so).
+- **Undo and Redo,** Revert a cell, Reset a table, Clear edits. Your edits join each build after the packs, and a
+  link, a mods file and the remembered setup keep them.
 
 ### Tools
 

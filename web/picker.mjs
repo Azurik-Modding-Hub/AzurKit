@@ -1,38 +1,53 @@
 // The shared gallery picker (D262; Step 4.7a): a search box over a list of entries in groups, each a button (role
 // option) with its picture where one ships (the Characters tab's species, Step 4.3f) or its text alone (armor, staffs,
-// critters, pickups), the chosen one marked. The Data tab's pickers use it, and the Characters tab's list moves onto it
-// with the Data tab's wiring (its grade colours and marks through decorate). Text only (textContent), no eval: the
-// page's CSP.
+// critters, pickups), the chosen one marked. The Data tab's pickers use it, and the Characters tab's species list (its
+// grade colours and marks through decorate, in its own search box, list and count) and its community variants' rows
+// (option). Text only (textContent), no eval: the page's CSP.
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
   node.append(...children);
   return node;
 };
 
-// picker({ label, placeholder, pick, decorate }): pick(name) runs on a click, decorate(button, entry) adds a tab's own
-// marks. Its element goes where the tab wants it; set(entries, chosen) lists entries ({ name, label?, group?, title?,
-// picture? }) in their groups' first-seen order, filter(text) narrows them by name or label (case-blind), choose(name)
-// moves the mark.
-export function picker({ label, placeholder = "Search", pick, decorate = () => {} }) {
-  const search = el("input", { type: "search", placeholder, spellcheck: false, autocomplete: "off" });
-  search.setAttribute("aria-label", placeholder);
-  const count = el("span", { className: "note" });
-  const list = el("div", { className: "picker-list" });
+// An entry's button ({ name, label?, title?, picture? }: its picture and label, else its label alone), marked when it is
+// the chosen one; decorate(button, entry) adds a tab's own marks.
+export function option(entry, chosen, decorate = () => {}) {
+  const button = el("button", { type: "button", className: "picker-entry", title: entry.title ?? entry.name });
+  const label = entry.label ?? entry.name;
+  if (entry.picture) {
+    button.append(el("img", { src: entry.picture, alt: "", loading: "lazy", decoding: "async" }),
+                  el("span", { textContent: label }));
+  } else {
+    button.textContent = label;
+  }
+  button.dataset.name = entry.name;
+  button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", String(entry.name === chosen));
+  decorate(button, entry);
+  return button;
+}
+
+// picker({ label, placeholder, pick, decorate, search, list, count }): pick(name) runs on a click, decorate(button,
+// entry) adds a tab's own marks. It makes its search box, list and count in its element, which goes where the tab
+// wants it, or takes a tab's own (count null: the tab writes its own; element null). set(entries, chosen) lists
+// entries ({ name, label?, group?, title?, picture? }) in their groups' first-seen order, filter(text) narrows them by
+// name or label (case-blind), choose(name) moves the mark.
+export function picker({ label, placeholder = "Search", pick, decorate = () => {}, search = null, list = null,
+                         count }) {
+  const own = !list;
+  if (!search) {
+    search = el("input", { type: "search", placeholder, spellcheck: false, autocomplete: "off" });
+    search.setAttribute("aria-label", placeholder);
+  }
+  if (count === undefined) count = el("span", { className: "note" });
+  list ??= el("div", { className: "picker-list" });
   list.setAttribute("role", "listbox");
   list.setAttribute("aria-label", label);
-  const element = el("div", { className: "picker" }, el("p", { className: "picker-search" }, search, " ", count), list);
+  const element = own ? el("div", { className: "picker" },
+                           el("p", { className: "picker-search" }, search, " ", count ?? ""), list) : null;
   const p = { entries: [], chosen: null, filter: "" };
 
-  const row = (entry) => {
-    const button = el("button", { type: "button", className: "picker-entry", title: entry.title ?? entry.name });
-    if (entry.picture) button.append(el("img", { src: entry.picture, alt: "", loading: "lazy", decoding: "async" }));
-    button.append(el("span", { textContent: entry.label ?? entry.name }));
-    button.dataset.name = entry.name;
-    button.setAttribute("role", "option");
-    button.setAttribute("aria-selected", String(entry.name === p.chosen));
-    decorate(button, entry);
-    return button;
-  };
+  const row = (entry) => option(entry, p.chosen, decorate);
   const render = () => {
     const wanted = p.filter.toLowerCase();
     const shown = p.entries.filter((e) => !wanted || e.name.toLowerCase().includes(wanted)
@@ -45,7 +60,7 @@ export function picker({ label, placeholder = "Search", pick, decorate = () => {
     }
     list.replaceChildren(...[...groups].flatMap(([group, entries]) => [
       ...group ? [el("h3", { className: "picker-group", textContent: group })] : [], ...entries.map(row)]));
-    count.textContent = shown.length === p.entries.length ? `${p.entries.length}`
+    if (count) count.textContent = shown.length === p.entries.length ? `${p.entries.length}`
       : `${shown.length} of ${p.entries.length}`;
   };
   list.addEventListener("click", (event) => {

@@ -23,8 +23,9 @@
 //      "verify_all" | "files", call, file} (sdk.image_info, sdk.verify_all: the files its kept check hasn't hashed,
 //      hashed here, sdk.files), {type: "open", call, build} (another File: an AzurKit build's recipe, sdk.open_build of
 //      the files it changed), {type: "mods_file", call, text | recipe | preset} (sdk.mods_file) and {type:
-//      "plan_spoiler", call, plan} (sdk.spoiler). A message with a File (file) has the image checked first, once a File
-//      (prime).
+//      "plan_spoiler", call, plan} (sdk.spoiler), and the Data tab's {type: "data" | "data_edit", call, given}
+//      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image). A message with a File
+//      (file) has the image checked first, once a File (prime).
 // Out: {type: "ready", catalog, version}, {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages), {type: "built", report, size, segments, heap} (a seed's
 //      report without its spoiler, which {type: "spoiled", text | refused} brings next: the build shows sooner),
@@ -35,7 +36,7 @@
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
 //      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "reply", call, reply}
-//      (a tracker's, plan's, Characters' or Tools' answer: the view, {plan}, or {refused}), {type: "csp", directive,
+//      (a tracker's, plan's, Characters', Data or Tools' answer: the view, {plan}, or {refused}), {type: "csp", directive,
 //      blocked}
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
@@ -154,6 +155,12 @@ def engine(request):
             if mounted := getattr(request, "iso", None):
                 given["iso"] = mounted
             return js({"pickers": sdk.pickers, "preview": sdk.preview, "match": sdk.match}[request.type](given))
+        except (OSError, ValueError) as exc:
+            return js({"refused": str(exc)})
+    if request.type in ("data", "data_edit"):   # the Data tab's: through JSON, a null is None (to_py gives JsNull)
+        try:
+            given = json.loads(JSON.stringify(request.given))
+            return js((sdk.data if request.type == "data" else sdk.data_edit)(given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
     if request.type in ("layout", "prime"):
@@ -405,6 +412,7 @@ function character(loaded, data) {
 // plan's spoiler). Verify every file hashes here what the image's kept check hasn't (sdk.layout's whole), in
 // WebCrypto as prime does, its bar the bottom bar's, and hands the engine those digests (sdk.verify_all).
 const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler"];
+const DATA = ["data", "data_edit"];   // the Data tab's asks: no image
 async function tool({ py, engine }, data) {
   if (data.type === "open") return mounted(py, data.build, (iso) => engine({ type: "open", recipe: { iso } }));
   if (data.type === "mods_file" || data.type === "plan_spoiler") {
@@ -443,7 +451,7 @@ try {
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   self.onmessage = ({ data }) => {
     if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
-          ...CHARACTER, ...TOOLS].includes(data?.type)) return;
+          ...CHARACTER, ...TOOLS, ...DATA].includes(data?.type)) return;
     queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
       .then(() => data.file ? prime(loaded, data.file).catch(() => null) : null).then(() => handle(data))
       .catch((error) => post({ type: "failed", message: lastLine(error) }));
@@ -463,7 +471,7 @@ try {
         return tool(loaded, data).catch((error) => ({ refused: lastLine(error) }))
           .then((reply) => post({ type: "reply", call: data.call, reply }));
       }
-      if (data.type === "tracker" || data.type === "plan") {   // answered whatever happens
+      if (data.type === "tracker" || data.type === "plan" || DATA.includes(data.type)) {   // answered whatever happens
         let reply;
         try {
           reply = loaded.engine(data);
