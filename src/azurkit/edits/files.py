@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import posixpath
 import re
 from collections.abc import Mapping, Sequence
 
@@ -134,7 +135,8 @@ def source(path: str | os.PathLike) -> str:
         raise ValueError(f"{text!r}: a device path (\\\\?\\ or \\\\.\\) is never read; pick a file on this computer")
     if flat.startswith("//"):
         raise ValueError(f"{text!r}: a network share is never read; pick a file on this computer")
-    full = os.path.abspath(flat).replace("\\", "/").casefold()
+    # /net from the root, whichever drive that is on Windows, where abspath would hide it behind this folder's drive
+    full = posixpath.normpath(flat if flat.startswith("/") else os.path.abspath(flat).replace("\\", "/")).casefold()
     if full == "/net" or full.startswith("/net/"):
         raise ValueError(f"{text!r}: a path under /net/ (the automounter's other computers) is never read; "
                          f"pick a file on this computer")

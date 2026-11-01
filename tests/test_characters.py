@@ -888,7 +888,7 @@ def test_the_hosts_content_reads_stop_at_a_files_listed_size_and_a_too_deep_or_b
     monkeypatch.setattr(content, "ROOT", folder)
     _source(source, {"packs/a/pack.json": b"{}"}, [{"id": "a", "files": ["packs/a/pack.json"]}])
     (source / "packs/a/pack.json").write_bytes(b"{}" + b" " * 64)
-    with pytest.raises(OSError, match=r"packs/a/pack\.json: past the 2 bytes its manifest lists$"):
+    with pytest.raises(OSError, match=r"packs[/\\]a[/\\]pack\.json: past the 2 bytes its manifest lists$"):
         sdk.content_install({"id": "a", "source": str(source)})
     listed = (source / content.MANIFEST).read_bytes()
     (source / content.MANIFEST).write_bytes(listed + b" " * content.MAX_MANIFEST)

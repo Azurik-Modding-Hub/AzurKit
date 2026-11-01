@@ -79,7 +79,7 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
     assert len(data) % 0x10000 == 0
     assert iso.pack(built, tmp_path / "given.iso", sha256=lambda: "given") == "given"   # a host's hash, from Build on
     assert _sha256(tmp_path / "given.iso") == built.sha256() == iso.digest(built)
-    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1))
+    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1000))   # NTFS keeps 100 ns
     with pytest.raises(ValueError, match="it changed after the build read it"):   # D27: the input as the build read it
         iso.pack(built, tmp_path / "late.iso")
     assert not (tmp_path / "late.iso").exists()
@@ -87,7 +87,9 @@ def test_a_file_that_fits_is_written_in_place_and_one_that_outgrows_its_sectors_
 
 def _xattrs(path, name: str | None = None) -> list[str]:
     """The extended attributes' names of the file at ``path``, after
-    setting ``name`` on it."""
+    setting ``name`` on it (Windows has none)."""
+    if os.name == "nt":
+        return []
     if sys.platform != "darwin":
         if name:
             os.setxattr(path, f"user.{name}", b"1")

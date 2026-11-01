@@ -540,7 +540,7 @@ def _stream(image: Image, part: Path, progress: Callable[[int, int], object] | N
     """:func:`pack`'s copy where nothing clones: every byte written to a
     fresh ``part``, hashed as it is written (else ``sha256()``)."""
     digest_ = hashlib.sha256()
-    with open(part, "xb") as dst, image.open() as src:
+    with open(part, "xb", opener=_removable if os.name == "nt" else None) as dst, image.open() as src:
         while data := src.read(CHUNK):
             if sha256 is None:
                 digest_.update(data)
@@ -550,6 +550,23 @@ def _stream(image: Image, part: Path, progress: Callable[[int, int], object] | N
         dst.flush()
         os.fsync(dst.fileno())
     return digest_.hexdigest() if sha256 is None else sha256()
+
+
+def _removable(path: str | os.PathLike, flags: int) -> int:
+    """Windows's way to a new part file for ``open``: with ``FILE_SHARE_DELETE`` too (Python's own ``open`` leaves it
+    out), so closing the app can remove the part file a stalled save still holds (AZ-823), as everywhere else."""
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    create = ctypes.WinDLL("kernel32", use_last_error=True).CreateFileW
+    create.restype = wintypes.HANDLE
+    create.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD,
+                       wintypes.DWORD, wintypes.HANDLE)
+    handle = create(os.fspath(path), 0x40000000, 7, None, 1, 0x80, None)   # GENERIC_WRITE; every share; CREATE_NEW; NORMAL
+    if handle == wintypes.HANDLE(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    return msvcrt.open_osfhandle(handle, os.O_BINARY)
 
 
 def _clone(source: Path, part: Path) -> int | None:

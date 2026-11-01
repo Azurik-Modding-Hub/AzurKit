@@ -495,7 +495,7 @@ def _digests(path: str, steps: Steps, files: list[tuple[str, int, int]] | None =
              label: str | None = None) -> dict[str, str]:
     """``{path: sha256}`` of ``files`` (``(path, offset, size)``), else the
     image's build files (``gate.layout``), each hashed from its own offsets
-    (``os.pread``: hashlib lets go of the GIL) on :func:`cores` threads, the
+    (a file object of its own: hashlib lets go of the GIL) on :func:`cores` threads, the
     largest first, ``steps`` hearing them as ``check`` (its ``label``); a
     file the image ends inside is left to ``gate.verify``, which names it."""
     from concurrent.futures import ThreadPoolExecutor
@@ -507,23 +507,20 @@ def _digests(path: str, steps: Steps, files: list[tuple[str, int, int]] | None =
     def one(file: tuple[str, int, int]) -> tuple[str, str | None]:
         name, at, left = file
         digest = hashlib.sha256()
-        while left:
-            data = os.pread(fd, min(iso.CHUNK, left), at)
-            if not data:
-                return name, None
-            digest.update(data)
-            at, left = at + len(data), left - len(data)
-            if report is not None:
-                with lock:
-                    done[0] += len(data)
-                    report(done[0], total)
+        with open(path, "rb", buffering=0) as f:
+            f.seek(at)
+            while left:
+                if not (data := f.read(min(iso.CHUNK, left))):
+                    return name, None
+                digest.update(data)
+                left -= len(data)
+                if report is not None:
+                    with lock:
+                        done[0] += len(data)
+                        report(done[0], total)
         return name, digest.hexdigest()
-    fd = os.open(path, os.O_RDONLY)
-    try:
-        with ThreadPoolExecutor(cores(8), thread_name_prefix="azurkit-check") as pool:
-            return {name: sha for name, sha in pool.map(one, files) if sha is not None}
-    finally:
-        os.close(fd)
+    with ThreadPoolExecutor(cores(8), thread_name_prefix="azurkit-check") as pool:
+        return {name: sha for name, sha in pool.map(one, files) if sha is not None}
 
 
 def _game(path: str, reading: Callable[[], object] | None = None) -> tuple[gate.Stamp, bytes, bytes]:

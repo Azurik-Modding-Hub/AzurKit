@@ -903,7 +903,7 @@ def _vanilla(body: dict) -> dict:
 def _unpart(out: Path) -> None:
     """Remove a save's part files beside ``out`` (``iso.pack``'s), its writer ended (D35)."""
     for part in out.parent.glob(f"{glob.escape(out.name)}.*.part"):
-        with contextlib.suppress(OSError):   # still open on Windows: nothing more to do here
+        with contextlib.suppress(OSError):   # a disk that won't: nothing more to do here
             part.unlink(missing_ok=True)
 
 

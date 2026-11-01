@@ -113,8 +113,8 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     (built := tmp_path / "azurkit-0-py3-none-any.whl").write_bytes(b"a wheel")
 
     def site(out: Path, *paths: str) -> Path:
-        files = [{"path": p, "sha256": hashlib.sha256(data := (clone / p).read_bytes()).hexdigest(), "size": len(data)}
-                 for p in paths]
+        listed = {p: (clone / p).read_bytes() if (clone / p).is_file() else b"its ../ folded by name (Windows)" for p in paths}
+        files = [{"path": p, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)} for p, data in listed.items()]
         (clone / "manifest.json").write_text(json.dumps({"format": content.FORMAT, "schema_version": 1, "entries": [
             {"id": "x", "kind": "pack", "title": "X", "author": "A", "licence": "MIT", "version": 1, "files": files,
              "requires": []}]}))

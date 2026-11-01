@@ -7,10 +7,14 @@ byte for byte, and nothing else is shipped."""
 
 from __future__ import annotations
 
+import base64
+import binascii
+import contextlib
 import hashlib
 import json
 import multiprocessing
 import struct
+import zlib
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -33,6 +37,28 @@ def _sha256(files: dict[str, bytes]) -> dict[str, str]:
     return {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
 
 
+def _inflated(value):
+    """A JSON value with each deflated string (``maps.storeys``'s) inflated."""
+    if isinstance(value, dict):
+        return {k: _inflated(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_inflated(v) for v in value]
+    with contextlib.suppress(binascii.Error, ValueError, TypeError, zlib.error):
+        return hashlib.sha256(zlib.decompress(base64.b64decode(value, validate=True))).hexdigest()
+    return value
+
+
+def _drawn(files: dict[str, bytes], kept: dict[str, bytes]) -> dict[str, str]:
+    """The files' digests, by what they hold where this host's zlib doesn't deflate as the one they were recorded
+    with (the first shipped picture says; Windows's Python 3.14 has zlib-ng), so its pictures' pixels and its
+    floors' rows are compared, not the bytes of their deflate; else ``_sha256``, byte for byte."""
+    first = next(data for rel, data in sorted(kept.items()) if rel.endswith(".png"))
+    if art.png(art.unpng(first)) == first:
+        return _sha256(files)
+    return {rel: (art.digest(art.unpng(data)) if rel.endswith(".png") else hashlib.sha256(
+        json.dumps(_inflated(json.loads(data)), sort_keys=True).encode()).hexdigest()) for rel, data in files.items()}
+
+
 def test_the_shipped_maps_are_what_the_tracker_draws_from_each_image(usa_iso, europe_iso):
     """From the USA image every part (the icons, each level's floors, then
     the world map and maps.json from their entries and thumbnails), a6's
@@ -48,7 +74,8 @@ def test_the_shipped_maps_are_what_the_tracker_draws_from_each_image(usa_iso, eu
     levels = json.loads(made[f"{SHIPPED}maps.json"])["levels"]
     finer = {f"{SHIPPED}detail/{floor}.png" for lv in DETAIL for floor in levels[lv]["floors"]}
     kept = record_goldens.kept_files((record_goldens.ART,))
-    assert _sha256(made) == _sha256({rel: data for rel, data in kept.items() if "/detail/" not in rel or rel in finer})
+    assert _drawn(made, kept) == _drawn({rel: data for rel, data in kept.items() if "/detail/" not in rel or rel in finer},
+                                        kept)
     with ProcessPoolExecutor(2, mp_context=multiprocessing.get_context("spawn")) as pool:
         europe = dict(pool.map(record_goldens._art_part, [(str(europe_iso), part) for part in ("icons", "e6")]))
     drawn = {f"{SHIPPED}{name}.png": png for part in europe.values() for name, png in part["pictures"].items()}

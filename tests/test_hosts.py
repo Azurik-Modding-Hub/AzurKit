@@ -49,6 +49,7 @@ from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.planner import fill as planner_fill
 from azurkit.tools.randomizer.planner import loader
 from scripts import freeze, record_goldens
+from devkit.xemu import queue
 from tests import _g1, _page
 from tests._xiso import fill, image
 from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
@@ -852,9 +853,7 @@ def _ended(pid: int, within: float = 10) -> bool:
     """The process ``pid`` has ended (and been reaped) within ``within`` seconds."""
     end = time.monotonic() + within
     while time.monotonic() < end:
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
+        if not queue.alive(pid):
             return True
         time.sleep(0.05)
     return False
@@ -1070,7 +1069,7 @@ def test_the_apps_cache_folder_loads_only_what_this_install_wrote_there(tmp_path
     assert not swapcache.key_file().is_relative_to(swapcache.root())
     mine.put(key, b"mine")
     assert swapcache.settle() and mine.get(key) == b"mine" and len(mine_key.read_bytes()) == 32
-    assert stat.S_IMODE(mine_key.stat().st_mode) == 0o600
+    assert os.name != "posix" or stat.S_IMODE(mine_key.stat().st_mode) == 0o600   # modes say nothing on Windows
     theirs.put(key, b"theirs")
     assert swapcache.settle()
     entry.write_bytes(theirs.kept.file("swap", key).read_bytes())

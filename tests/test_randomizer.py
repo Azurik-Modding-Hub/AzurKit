@@ -571,7 +571,11 @@ def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():
     procs = [subprocess.Popen([sys.executable, "-m", "azurkit", "plan", "--seed", "2", *args], text=True,
                               env=os.environ | {"PYTHONHASHSEED": str(seed)}, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE) for seed, args in runs]
-    got = [(p.wait(timeout=600), *p.communicate()) for p in procs]   # four cold plans at once
+
+    def ended(proc: subprocess.Popen) -> tuple:   # its pipes read as it runs: Windows's hold 4 KiB of a plan
+        out, err = proc.communicate(timeout=600)
+        return proc.returncode, out, err
+    got = [ended(p) for p in procs]   # four cold plans at once
     assert got[0] == got[1] and got[0][:2] == (0, DEFAULT_PLAN), got[0][2][-2000:]
     assert got[2] == got[3] and got[2][0] == 0, got[2][2][-2000:]
     assert json.loads(got[2][1])["sha256"] == PLANS["max"]["sha256"]

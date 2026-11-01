@@ -81,8 +81,8 @@ def test_an_image_is_checked_once_until_it_changes_and_a_hosts_store_vouches_for
     first = sdk._stamp(str(src))
     once = len(hashed)
     assert once and sdk._stamp(str(src)) is first and len(hashed) == once
-    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1))
-    assert sdk._stamp(str(src)).mtime_ns == first.mtime_ns + 1 and len(hashed) == 2 * once
+    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1000))   # NTFS keeps 100 ns
+    assert sdk._stamp(str(src)).mtime_ns == first.mtime_ns + 1000 and len(hashed) == 2 * once
     kept = {}
     monkeypatch.setattr(gate, "STAMPS", types.SimpleNamespace(get=kept.get, put=kept.__setitem__))
     for launch in range(2):
@@ -125,7 +125,7 @@ def test_verify_every_file_is_kept_by_the_stamp(tmp_path, monkeypatch):
     for asked in (True, False):   # a later launch: the store's stamp, whole
         assert verify(whole=asked) == whole and gate.vouched(src, whole=asked, releases=(test,)).whole
         assert not hashed
-    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1))
+    os.utime(src, ns=(src.stat().st_atime_ns, src.stat().st_mtime_ns + 1000))   # NTFS keeps 100 ns
     assert verify(kept=whole).whole and hashed == set(VANILLA)
     src.write_bytes(image(VANILLA | {"movies/m.bik": fill("M", 70)}))
     with pytest.raises(gate.NotVanillaError, match=r"movies/m\.bik: its contents differ$"):

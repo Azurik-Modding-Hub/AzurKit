@@ -318,13 +318,13 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     built = shutil.copy2(built, out) if built else wheel(out, root)
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
     (out / "host.json").write_text(json.dumps({"engine": "site", "wheel": Path(built).name,
-                                               "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8")
+                                               "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8", newline="\n")
     (out / ".nojekyll").write_bytes(b"")
     for rel, data in published.items():
         (out / "content-source" / rel).parent.mkdir(parents=True, exist_ok=True)
         (out / "content-source" / rel).write_bytes(data)
     listed = json.dumps(release(out, policy[0]), sort_keys=True)
-    (out / WORKER).write_text(worker.replace(RELEASE_LINE, f"const RELEASE = {listed};"), encoding="utf-8")
+    (out / WORKER).write_text(worker.replace(RELEASE_LINE, f"const RELEASE = {listed};"), encoding="utf-8", newline="\n")
     return out
 
 
