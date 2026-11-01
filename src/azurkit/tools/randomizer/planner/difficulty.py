@@ -53,7 +53,6 @@ FORCE_LINE = Fraction(1, 3)   # a toggle mix whose picks open under this share o
 FORCING = Path(__file__).resolve().parent.parent / "data" / "forcing.json"
 FORCING_FORMAT = "azurkit-seed-forcing/1"
 MOVEMENT = "(movement)"       # an opener that is the tier, not a pick
-ONE_OF = "one of"             # a step-up no single pick opens: an irreducible set of them
 NOTE = "shaping the seed"     # the acceptance's notes: each a cancel point
 KEY_CATEGORIES = ("fragments", "powers")   # the categories that hold a needed item the fill moves (keys never move)
 ANY_LINE = "Items go wherever the logic allows, as before. A seed may need none of the tricks you allowed."
@@ -445,7 +444,8 @@ def _opener_text(opener: Mapping) -> str:
 def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int = 2) -> list[dict]:
     """Each of play_r's step-ups' openers, as ``{"picks": [...], "one_of": bool}``, a pick with its rating: the picks
     rated >= r whose removal from the settings loses some of that round's new progression, ``(movement)`` when only
-    the tier does, and "one of" an irreducible set when no single pick does. Each removal is a new option set, its
+    the tier does, and "one of" an irreducible set when neither does: picks, and ``(movement)`` when all of them off
+    still open the round, so that the set only loses it with the tier lowered too. Each removal is a new option set, its
     rules compiled on the Logic (a host's job ahead, or the View's bar, pays that) and kept for the next plan at these
     settings; another settings' openers drop them (about 20 MiB a set)."""
     skips = logic.skip_tables
@@ -461,10 +461,12 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     on = picks_on(settings, skips)
     hi = sorted(pid for pid, ids in on.items() if _rated(ids, skips) >= rating)
     made = play(logic, settings, placement, rating)
+    tier = rung(settings, rating, skips).movement_tier
+    below = rung_logic(logic, settings, tier)
 
-    def reached(st: Settings, got: frozenset[str]) -> Reach:
+    def reached(st: Settings, got: frozenset[str], at: Logic = logic) -> Reach:
         progress.note(NOTE)
-        return logic.reach(st, placement, collected=got, traps=False, replay=True)
+        return at.reach(st, placement, collected=got, traps=False, replay=True)
 
     def without(off: Sequence[str]) -> Settings:
         return replace(settings, skip_override={**settings.skip_override, **dict.fromkeys(off, False)})
@@ -478,21 +480,24 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
         if lost:
             out.append({"picks": [named(p) for p in lost], "one_of": False})
             continue
-        low = replace(settings, movement_tier=rung(settings, rating, skips).movement_tier)
-        if gain - reached(low, got).locations:
+        if gain - reached(replace(settings, movement_tier=tier), got, below).locations:
             out.append({"picks": [MOVEMENT], "one_of": False})
             continue
         some = list(hi)     # no single one: put each back that the rest lose it without (their sets kept by no plan)
-        rules, tables = set(logic._compiled), set(logic._native)
+        rules = [(at, set(at._compiled), set(at._native)) for at in ((logic,) if below is logic else (logic, below))]
+        by_tier = not gain - reached(without(hi), got).locations    # every pick off still opens it: the tier is a way too
         for p in hi:
             rest = [q for q in some if q != p]
-            if rest and gain - reached(without(rest), got).locations:
+            st = without(rest)
+            left = reached(replace(st, movement_tier=tier), got, below) if by_tier else reached(st, got)
+            if gain - left.locations:
                 some = rest
-        for key in set(logic._compiled) - rules:
-            del logic._compiled[key]
-        for key in set(logic._native) - tables:
-            del logic._native[key]
-        out.append({"picks": [named(p) for p in some], "one_of": True})
+        for at, compiled, native in rules:
+            for key in set(at._compiled) - compiled:
+                del at._compiled[key]
+            for key in set(at._native) - native:
+                del at._native[key]
+        out.append({"picks": [named(p) for p in some] + [MOVEMENT] * by_tier, "one_of": True})
     logic._opener_sets = (mine, (held[1] if held else set()) | (set(logic._compiled) - before[0]),
                           (held[2] if held else set()) | (set(logic._native) - before[1]))
     return out

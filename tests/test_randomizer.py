@@ -180,7 +180,7 @@ for seed in range(1, 21):
 # recorded under PYTHONHASHSEED=0 by this test's own script.
 SHAPED = {
     "standard-hard-hard": (("hard", 3, 2, [], []), 8, (2, False), 7,
-        ("0 6fc1e9fd1957 f0548053ee80 1", "3 12871e919805 9da2ec3b6fad 1", "0 13e63bdd551c 9ac8a22b93f5 1",
+        ("0 6fc1e9fd1957 f0548053ee80 1", "3 12871e919805 9da2ec3b6fad 1", "0 13e63bdd551c b144b655ec67 1",
          "0 ea5ac121132c a43b90843151 1", "2 ff12ea536bc5 8d88ebe3b1a4 1", "1 3b55c186458e e19d512aefc7 1",
          "0 b44c740b3c15 4e64d05fab00 1", "2 6096ee8d7c42 37f3971e05d3 1")),
     "hard-hard-hard": (("hard", 3, 3, [], []), 8, (3, False), 7,
@@ -196,7 +196,7 @@ SHAPED = {
          "0 b3edbb20ea6b 3394e2d121e0 0", "4 0a86599c0b92 015aa6123c9d 0")),
     "fp-fp-fp": (("frame_perfect", 4, 4, [], []), 4, (3, False), 4,
         ("0 d0c9d5369d39 08a9a734472e 1", "1 82207cb625e1 07511c6de8dc 1", "1 494c66eab000 55780d122e03 1",
-         "2 1db527fa7270 cdcbfd2c3f87 1")),
+         "2 1db527fa7270 5f5c52184246 1")),
     "hard-hard-none": (("hard", 0, 3, [], []), 4, (3, True), 4,
         ("0 735704232e2c a1f49c4d5379 1", "0 e47169804324 f88898d5af4e 1", "1 a659aec9e488 3ee442580f35 1",
          "0 1f9606b463ce d8491cf2497d 1")),
@@ -207,7 +207,7 @@ SHAPED = {
                           (2, False), 2,
         ("0 b393fcf924f0 b66d86402602 1", "0 c20642f1a0de 01e528e499be 1")),
     "hard-powers-kept": (("hard", 3, 3, [], ["powers"]), 2, (3, True), 2,
-        ("0 5a1970005516 0cd32f4e0fbe 1", "2 d7bb20472aca e907482c710f 1")),
+        ("0 5a1970005516 310394a2364c 1", "2 d7bb20472aca f7dd0c8918df 1")),
     "hard-fragments-kept": (("hard", 3, 3, [], ["fragments"]), 2, (3, False), 1,
         ("3 c168e10758f7 71690aec2c16 1", "3 7c2fd6fe569a af9e9a9384d9 1")),
     "loaded-standard-none": (("standard", 0, 2, [], []), 2, (0, False), 0,
@@ -305,6 +305,15 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close():
     assert slid["settings"]["seed_difficulty"] == 3    # the rungs on the Logic re-checked at each tier under the slider
     assert sdk.tracker({"plan": slid})["head"]["requires"]["asks"] == 3
     randomizer.openers_ahead(slid)
+
+
+def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_the_tier():
+    """Hard/Hard seed 21's last step-up opens with Hard movement and no pick, or with the tier lowered by one pick: its
+    "one of" names those two, not every pick rated high enough."""
+    logic = kept_logic()
+    st = Settings(3, "hard", 1, {}, seed_difficulty=3)
+    opened = difficulty.openers(logic, st, fill.fill(logic, "21", st).placement)
+    assert opened[-1] == {"picks": ["f6.mound_climb_air1 (Hard)", difficulty.MOVEMENT], "one_of": True}
 
 
 @pytest.mark.web
