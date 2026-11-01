@@ -169,6 +169,19 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and the item tracker's verdicts on the default and max plans at five
   states, the spoiler off and on (`tracker.json`: each view's digest and
   that of the maps' model `web/mapview.mjs` draws of it, under `node`).
+  - **Off the host they were recorded on (D1016):** macOS on Apple Silicon
+    with numpy on Accelerate (`tests/_hosts.py`) compares every golden byte
+    for byte. Another BLAS or libm rounds otherwise (booblord: a few hundred
+    of 19 MB of `banm` floats, each at most 8 ULPs or 2e-12 near zero; a
+    map: a few edge pixels), so on any other host a dress's `characters.xbr`
+    and `fx.xbr` are compared close enough, with no reference per platform
+    and no copy of their bytes: `close.json` holds, by sha256, each changed
+    resource's sketch (every word that isn't float-like exact, the floats'
+    weighed sums within 4 ULPs each) and each file's digest with those
+    resources blanked (`record_goldens.apart`), and the shipped pictures are
+    their own reference (`tests/test_art.py`'s `_apart`). Every other file
+    stays exact there. A shipped answer's bytes are the recording host's, so
+    only what it stands on is held off it.
   - Only `scripts/record_goldens.py` writes them, from AzurKit's own builds
     on the player's images (`--check` writes nothing); never edit them by
     hand. It records the page's shipped pictures too, by family (`art`:

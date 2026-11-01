@@ -216,8 +216,8 @@ class Sandbox:
                 url = served.stdout.readline().strip()
                 assert url.startswith("http://127.0.0.1:"), served.stderr.read()
                 yield url
-            except BaseException:
-                served.kill()
+            except BaseException as exc:
+                _ended_with(served, exc)
                 raise
             served.stdin.close()
             assert (served.wait(30), served.stderr.read()) == (0, "")
@@ -226,6 +226,22 @@ class Sandbox:
         kept = [Path(getattr(self.dirs, f"user_{kind}_dir")) for kind in ("data", "config", "cache", "state", "log")]
         return [*self.cwd.iterdir(), *(p for p in [*self.home.rglob("*"), *self.tmp.rglob("*")]
                                        if p.is_file() and not any(map(p.is_relative_to, kept)))]
+
+
+def _ended_with(served: subprocess.Popen, exc: BaseException) -> None:
+    """Kill the app ``served`` a test's failure ``exc`` stopped, and note on it what the app printed to its stderr
+    (its last 1,500 characters: tests.yml prints a failure's E lines, so the next CI run shows them)."""
+    served.kill()
+    with contextlib.suppress(subprocess.TimeoutExpired, ValueError, OSError):
+        exc.add_note(f"the app's stderr: {served.communicate(timeout=30)[1][-1500:]!r}")
+
+
+def _children(pid: int) -> list[int]:
+    """The process ``pid``'s children, on each OS."""
+    command = (["powershell", "-NoProfile", "-Command",
+                f"(Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}').ProcessId"] if os.name == "nt"
+               else ["pgrep", "-P", str(pid)])
+    return [int(found) for found in subprocess.run(command, capture_output=True, text=True).stdout.split()]
 
 
 def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, tmp_path, verify_argv, verdicts,
@@ -773,22 +789,30 @@ def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monke
     def save_until_writing(url: str, name: str) -> None:
         """POST a save to the page's server at ``url`` and return once it writes."""
         host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"   # the token
-        threading.Thread(target=_post, args=(url, "api/save", {"recipe": recipe, "out": str(out / name)}, []),
+        replies: list = []
+        threading.Thread(target=_post, args=(url, "api/save", {"recipe": recipe, "out": str(out / name)}, replies),
                          daemon=True).start()
         end = time.monotonic() + 120
         while True:
             with urllib.request.urlopen(f"http://{host}/api/progress{query}", timeout=10) as reply:
-                if json.load(reply)["done"]:
-                    return
-            assert time.monotonic() < end, "the save never started writing"
+                step = json.load(reply)
+            if step["done"]:
+                return
+            assert time.monotonic() < end, f"the save never started writing: its progress {step}, {replies}"
             time.sleep(0.05)
 
     with subprocess.Popen([sys.executable, "-m", "azurkit", "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE, text=True, env=os.environ | {"HOME": str(tmp_path / "home")}) as served:
         try:
-            save_until_writing(served.stdout.readline().strip(), "served.iso")
-        except BaseException:
-            served.kill()
+            url = served.stdout.readline().strip()
+            first_engines = _children(served.pid)
+            try:
+                save_until_writing(url, "served.iso")
+            except AssertionError as exc:   # a hung engine's the same process, one that dies at its start another's
+                exc.add_note(f"the app's engine processes: {first_engines} at the start, {_children(served.pid)} at the end")
+                raise
+        except BaseException as exc:
+            _ended_with(served, exc)
             raise
         served.stdin.close()
         assert (served.wait(60), served.stderr.read()) == (0, "")
@@ -957,12 +981,12 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         assert step["calls"]["build"]["stage"] in progress.STAGES and step["stage"] == step["calls"]["build"]["stage"]
         end, pool = time.monotonic() + 10, []
         while building.is_alive() and not pool and time.monotonic() < end:
-            pool = subprocess.run(["pgrep", "-P", str(first)], capture_output=True, text=True).stdout.split()
+            pool = _children(first)
             time.sleep(0.05)
         assert pool and ask("api/cancel", {})[1] == {}
         building.join(5)
         assert (building.is_alive(), replies) == (False, [{"refused": "Cancelled: nothing was built"}])
-        assert _ended(first) and all(_ended(int(pid)) for pid in pool) and server.engine.pid != first
+        assert _ended(first) and all(_ended(pid) for pid in pool) and server.engine.pid != first
         took, built = ask("api/build", {"iso": str(usa_iso), "packs": {}})
         assert built["size"] == sdk.image({"iso": str(usa_iso), "packs": {}})[0].size, built
         last = server.engine.pid

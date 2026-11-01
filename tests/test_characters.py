@@ -23,11 +23,12 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 import shimkit
 from azurkit import cli, sdk
-from azurkit.core import coff, facts, gate, iso
+from azurkit.core import coff, facts, filelist, gate, iso
 from azurkit.core.xbr.append import PAGE, NewResource, append_resources, appended
 from azurkit.core.xbr.nodes import named_resources, parse_toc, runs
 from azurkit.edits import manifest as edits_manifest
@@ -39,8 +40,7 @@ from azurkit.tools.characters import _player_kit, _player_variants, content, por
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens, record_shipped
-from tests import _speed
-from tests import _pyodide
+from tests import _hosts, _pyodide, _speed
 
 CHARACTERS, FX, INDEX = characters.FILES
 G3 = {"usa": "pipelines.json", "europe": "europe/pipelines.json"}
@@ -256,7 +256,7 @@ def _miss(job: tuple) -> tuple[str, tuple | None, list[str]]:
         stamp, base, layers, _, _ = sdk._plan(recipe | {"iso": image_path})
     finally:
         seen, shipped.SEEN = shipped.SEEN, None
-    held = [shipped.held(s) for s in seen]
+    held = [_held(s) for s in seen]
     good, stale = [n for g, _ in held for n in g], [w for _, s in held for w in s]
     if case.startswith(PINNED):
         return case, tuple(stale) or None, good
@@ -278,13 +278,33 @@ def _miss(job: tuple) -> tuple[str, tuple | None, list[str]]:
         files = {f: r.read(f) for f in want}
     shas = {f: _sha256(data) for f, data in files.items()}
     resources = {f: record_goldens.view(vanilla[f], files[f], f) for f in (CHARACTERS, FX) if f in files}
-    if case.endswith("=keylord"):
+    if case.endswith("=keylord") and shas == want:
         changed = {f: data for f, data in files.items() if f != "filelist.txt" and data != base.get(f)}
         assert iso.read(image_path, changed).sha256() == golden["ISO"]
-    if shas != want or loose or manifest.conflicts or stale or any(
-            {k: view[f][k] for k in resources[f]} != resources[f] for f in resources):
-        return case, (sorted(f for f in want if shas.get(f) != want[f]), loose, manifest.conflicts, stale), good
+    other = _other(want, files, view, vanilla)
+    if other or loose or manifest.conflicts or stale or (_hosts.recording() and any(
+            {k: view[f][k] for k in resources[f]} != resources[f] for f in resources)):
+        return case, (other, loose, manifest.conflicts, stale), good
     return case, None, good
+
+
+def _held(seen: dict) -> tuple[list[str], list[str]]:
+    """``shipped.held``: off the recording host (D1016) a row's answer is the recording host's bytes, so a fresh dress
+    is held only to what the row stands on, and the build to its golden close enough (:func:`_other`)."""
+    if _hosts.recording():
+        return shipped.held(seen)
+    kind = next(k for k in shipped.KEYS if k in seen)
+    answer = {shipped.ANSWERS[kind]: seen[kind][shipped.ANSWERS[kind]]}
+    return shipped.held(seen, {kind: [row | answer for row in shipped.table().get(kind, ())]})
+
+
+def _other(want: dict[str, str], files: dict[str, bytes], views: dict, vanilla: dict[str, bytes]) -> list[str]:
+    """The built ``files`` that aren't their goldens': by sha256 on the recording host; on another host's float maths
+    (D1016) what keeps each from being close enough (``record_goldens.apart``)."""
+    differ = sorted(f for f in want if _sha256(files[f]) != want[f])
+    if _hosts.recording():
+        return differ
+    return [why for f in differ for why in record_goldens.apart(f, files, want[f], views.get(f), vanilla.get(f))]
 
 
 @pytest.fixture
@@ -345,12 +365,14 @@ def _probe(probe: dict, release, image_path, vanilla: dict, tmp_path) -> tuple[d
     want = probe[release.name]
     with iso.Reader(made) as r:
         files = {f: r.read(f) for f in want["files"]}
-    keep = (CHARACTERS, FX)
-    return ({"files": want["files"], "changed": sorted(set(want["files"]) - {"filelist.txt"}),
-             "resources": {f: view for f, view in want["resources"].items() if f in keep}, "conflicts": ()},
-            {"files": {f: _sha256(data) for f, data in files.items()},
-             "changed": sorted(set(manifest.result) - {"filelist.txt"}),
-             "resources": {f: record_goldens.view(vanilla[f], files[f], f) for f in want["resources"] if f in keep},
+    views = {f: view for f, view in want["resources"].items() if f in (CHARACTERS, FX)}
+    shas, seen = {f: _sha256(data) for f, data in files.items()}, {f: record_goldens.view(vanilla[f], files[f], f) for f in views}
+    if not _hosts.recording():   # close enough (D1016), or named here: then the record is the golden's
+        assert not (other := _other(want["files"], files, want["resources"], vanilla)), other
+        shas, seen = want["files"], views
+    return ({"files": want["files"], "changed": sorted(set(want["files"]) - {"filelist.txt"}), "resources": views,
+             "conflicts": ()},
+            {"files": shas, "changed": sorted(set(manifest.result) - {"filelist.txt"}), "resources": seen,
              "conflicts": manifest.conflicts},
             next(la for la in layers if la.tool == characters.TOOL))
 
@@ -380,6 +402,69 @@ def test_a_townsfolk_and_an_air_elemental_swap_need_no_download_and_are_their_go
         assert sorted(cases) == sorted(KIT) and _missed(cases, image_path, workers=4) == {}   # in 4 processes
     with pytest.raises((OSError, ValueError), match=r"clips[/\\]booblord[/\\]"):
         sdk._plan({"iso": str(image_path), "packs": {}, "character": {"species": "booblord"}})
+
+
+def test_another_hosts_resource_is_close_enough_by_its_floats_last_bits_and_never_by_an_integer_or_a_moved_float():
+    """D1016: ``close.json``'s sketch of a resource holds on another host's float maths with no copy of its bytes: a
+    float a few ULPs off, or noise where one is near zero, passes; a changed integer, a moved float or a float far off
+    doesn't."""
+    floats = np.random.default_rng(7).uniform(-3, 3, 4000).astype("<f4")
+    ints = np.array([5, 0x6D6E6162, 0x00120034], "<u4")
+    payload = ints.tobytes() + floats.tobytes() + bytes(8) + b"xy"
+    held = record_goldens.sketch(payload)
+
+    def changed(at: int, word) -> bytes:   # the payload with its 32-bit word ``at`` another
+        data = np.frombuffer(payload, "<u4", len(payload) // 4).copy()
+        data[at] = word
+        return data.tobytes() + payload[len(data) * 4:]
+
+    assert record_goldens.near(payload, held) is None
+    shifted = np.nextafter(floats, np.inf).astype("<f4")   # every float one ULP off, the worst another BLAS can do
+    assert record_goldens.near(ints.tobytes() + shifted.tobytes() + bytes(8) + b"xy", held) is None
+    assert record_goldens.near(changed(3 + 4000, np.array(3e-17, "<f4").view("<u4")), held) is None   # noise on a zero
+    assert record_goldens.near(changed(0, 6), held) == "an integer or the layout differs"
+    assert record_goldens.near(changed(1, 0x6D6E6163), held) == "an integer or the layout differs"
+    assert record_goldens.near(changed(3 + 4000, 5), held) == "an integer or the layout differs"
+    assert record_goldens.near(payload[:-1], held) == "an integer or the layout differs"
+    far = np.array(floats[10] + 0.25, "<f4").view("<u4")
+    assert "float sums off" in record_goldens.near(changed(3 + 10, far), held)
+    moved = floats.copy()
+    moved[[10, 11]] = moved[[11, 10]]
+    assert "float sums off" in record_goldens.near(ints.tobytes() + moved.tobytes() + bytes(8) + b"xy", held)
+
+
+def test_a_built_xbr_is_close_enough_by_its_changed_resources_floats_alone_and_filelist_by_their_md5s(usa_iso):
+    """``record_goldens.apart``, on keylord's USA build: its golden is close enough to itself and to itself with a float
+    in an added resource a ULP off, with that file's md5 in ``filelist.txt``. A float far off, a byte outside the
+    changed resources, a stale md5 and another line of ``filelist.txt`` are each named."""
+    case = "randomize-full:player-character=keylord"
+    stamp, base, layers, _, _ = sdk._plan(_bodies()[case] | {"iso": str(usa_iso)})
+    made, _ = edits_manifest.image(stamp, layers, base)
+    golden, view = _golden(G3["usa"])[case], _resources("usa")[case]
+    with iso.Reader(made) as r, iso.Reader(usa_iso) as v:
+        files, vanilla = {f: r.read(f) for f in ("filelist.txt", CHARACTERS)}, v.read(CHARACTERS)
+    entry = next(e for e in parse_toc(files[CHARACTERS])[len(parse_toc(vanilla)):] if e.tag == "banm" and e.size > 4096)
+    words = np.frombuffer(files[CHARACTERS], "<f4", entry.size // 4, entry.file_offset)
+    at = entry.file_offset + 4 * int(np.nonzero((np.abs(words) > 0.1) & (np.abs(words) < 2))[0][0])
+
+    def apart(data: bytes, listed: bytes | None = None) -> list[str]:
+        built = {CHARACTERS: data, "filelist.txt": listed or filelist.rewrite(files["filelist.txt"], {CHARACTERS: data})}
+        return [*record_goldens.apart(CHARACTERS, built, golden[CHARACTERS], view[CHARACTERS], vanilla),
+                *record_goldens.apart("filelist.txt", built, golden["filelist.txt"], None, None)]
+
+    def word(value: float) -> bytes:
+        return files[CHARACTERS][:at] + struct.pack("<f", value) + files[CHARACTERS][at + 4:]
+
+    value = struct.unpack_from("<f", files[CHARACTERS], at)[0]
+    assert apart(files[CHARACTERS]) == []
+    assert apart(word(float(np.nextafter(np.float32(value), np.float32(9))))) == []
+    assert "float sums off" in apart(word(value + 0.25))[0]
+    outside = next(e for e in parse_toc(vanilla) if e.tag != "banm" and e.size > 64).file_offset
+    assert "a byte outside" in apart(files[CHARACTERS][:outside] + bytes([files[CHARACTERS][outside] ^ 1])
+                                     + files[CHARACTERS][outside + 1:])[0]
+    assert "isn't its file's" in apart(word(value + 0.25), files["filelist.txt"])[-1]
+    other = files["filelist.txt"].replace(b"\\", b"\\\\", 1)
+    assert apart(files[CHARACTERS], other)[-1] == "filelist.txt: a line differs"
 
 
 def test_a_share_link_and_a_mods_file_carry_a_character():

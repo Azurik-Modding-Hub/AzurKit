@@ -27,6 +27,12 @@ edited by hand) builds, as names and sha256 only.
   isn't ported).
 - ``resources.json``: for each G3 case that dresses the player, each XBR
   its build changed, resource by resource (:func:`view`).
+- ``close.json``: what lets another host's float maths (D1016: another BLAS
+  rounds a matrix product otherwise, :func:`apart`) be compared to those
+  builds with no reference file per platform, and no copy of their bytes:
+  by sha256, each changed or added XBR resource's :func:`sketch` and each
+  file's digest with those resources blanked (:func:`parts`), and each
+  ``filelist.txt``'s without their md5s.
 - ``probes.json``: the character recipes no G3 case builds without
   Azurik-Custom-Content's files or on Europe (a variant's mesh, paint and
   jiggle, a townsman's and the air elemental's own bodies), built over the
@@ -78,6 +84,7 @@ import functools
 import hashlib
 import json
 import multiprocessing
+import re
 import subprocess
 import sys
 import tempfile
@@ -85,8 +92,10 @@ from collections.abc import Callable, Collection, Mapping
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path, PurePath
 
+import numpy as np
+
 from azurkit import sdk
-from azurkit.core import coff, facts, gate, iso
+from azurkit.core import coff, facts, filelist, gate, iso
 from azurkit.core.xbr import Document, edits
 from azurkit.edits.layer import compose
 from azurkit.edits.manifest import image
@@ -101,13 +110,17 @@ CASES = GOLDENS / "cases.json"
 SHIMS = ROOT / "src" / "azurkit" / "tools" / "mods" / "shims"   # shimkit.SHIMS: the packs' shims and objects
 PLAYER_MODEL = ROOT / "src" / "azurkit" / "tools" / "characters" / "player_model"   # shimkit.PLAYER_MODEL: the swap's
 G3 = ("pipelines.json", "europe/pipelines.json")
-RESOURCES, PROBES, MATCHES = "resources.json", "probes.json", "matches.json"
+RESOURCES, PROBES, MATCHES, CLOSE = "resources.json", "probes.json", "matches.json", "close.json"
 PLANS, TRACKER = "rando_plans.json", "tracker.json"   # the randomizer's
 MAPVIEW = ROOT / "web" / "mapview.mjs"   # the page's maps, whose model of a tracker view tracker.json records
 KIT = {"air": 3, "water": 3, "fire": 3, "earth": 3}   # Live's kit at tracker.json's "kit" state
 INDEX = "gamedata/index/index.xbr"
 CONFIG = engine.CONFIG
 NAMES = {CONFIG: "config.xbr"}   # a file's name in G1 and the editor's golden (Modkit's)
+FLOATS = ("gamedata/characters.xbr", "gamedata/fx.xbr")   # what a dress writes float maths into (D1016): close.json's
+KEY, MOST_SUMS = 16, 64   # close.json: a sha256's digits a row is found by; its sums a resource, at most
+ULPS, NEAR_ZERO = 4, 1e-9   # how far a float may be off, at most: "a few ULPs", and in metres or radians near zero
+SMALLEST, LARGEST = 1e-30, 1e7   # the sizes a 32-bit word that reads as a float has, but zero (sketch)
 LEVEL_PATCHED = ("gamedata/training_room.xbr", "filelist.txt", "ISO")
 ART = "web/art"   # the tracker's shipped pictures, from the checkout's root
 PICTURES = "web/characters"   # the Characters tab's
@@ -352,6 +365,99 @@ def view(vanilla: bytes, built: bytes, name: str) -> dict:
     return out
 
 
+def parts(vanilla: bytes, built: bytes) -> tuple[dict[str, bytes], str]:
+    """The resources a built XBR changed or added by their sha256, and the sha256 of the file with them blanked."""
+    from azurkit.core.xbr.nodes import parse_toc
+
+    old, new = parse_toc(vanilla), parse_toc(built)
+    spans = [e for e, v in zip(new, old) if built[e.file_offset:e.file_offset + e.size]
+             != vanilla[v.file_offset:v.file_offset + v.size]] + new[len(old):]
+    frame, held = bytearray(built), {}
+    for e in spans:
+        held[_sha256(built[e.file_offset:e.file_offset + e.size])] = built[e.file_offset:e.file_offset + e.size]
+        frame[e.file_offset:e.file_offset + e.size] = bytes(e.size)
+    return held, _sha256(frame)
+
+
+def _listed(text: bytes) -> str:
+    """The sha256 of ``filelist.txt``'s bytes without the md5s of the XBRs a dress writes floats into."""
+    lines = text.decode("latin-1").splitlines(keepends=True)
+    for row in filelist.rows(text):
+        if row.path in FLOATS:
+            lines[row.line] = re.sub(row.md5, "", lines[row.line], flags=re.IGNORECASE)
+    return _sha256("".join(lines).encode("latin-1"))
+
+
+def _weighed(payload: bytes, slots: int | None = None) -> tuple[str, list[float], list[float]]:
+    """A resource as :func:`sketch` reads it: ``(its digest, its sums, how far each may be off)``."""
+    n = len(payload) // 4
+    words = np.frombuffer(payload, "<u4", n)
+    values = words.view("<f4")
+    size = np.abs(values).astype(float)
+    float_like = ((words << 1) == 0) | ((size >= SMALLEST) & (size < LARGEST))
+    digest = _sha256(np.where(float_like, 0, words).astype("<u4").tobytes() + payload[n * 4:])
+    at = np.arange(n, dtype=np.uint64)
+    weights = 1 + ((at * 2654435761 >> 16) & 0xFFFF).astype(float) / 65536   # so that a moved value moves a sum
+    count = slots or max(1, min(n // 256, MOST_SUMS))
+    slot = (at % count).astype(np.int64)
+    sums = np.bincount(slot, weights * np.where(float_like, values, 0).astype(float), count)
+    room = weights * np.where(float_like, ULPS * np.spacing(np.where(float_like, np.abs(values), 0)).astype(float) + NEAR_ZERO, 0)
+    return digest, sums.tolist(), np.bincount(slot, room, count).tolist()
+
+
+def sketch(payload: bytes) -> str:
+    """``close.json``'s record of a resource, its text: the first 16 digits of the sha256 of its 32-bit words with
+    each one that reads as a float blanked (zero, or a size from :data:`SMALLEST` to :data:`LARGEST`: a small integer
+    or a packed pair reads as a denormal, a fourcc or a hash as huge, so those stay exact), then the floats' sums, by
+    word's place modulo up to :data:`MOST_SUMS` slots (one per 256 words), each float weighed by its place."""
+    digest, sums, _ = _weighed(payload)
+    return " ".join([digest[:KEY], *(f"{value:.10g}" for value in sums)])
+
+
+def near(payload: bytes, held: str) -> str | None:
+    """Whether ``payload`` is close enough to the resource a :func:`sketch` ``held`` records: None, or how it isn't.
+    Every integer and the layout exact; each sum within what :data:`ULPS` ULPs on each of its floats (:data:`NEAR_ZERO`
+    on one near zero, where another BLAS's rounding is a difference of about 1e-16 and no ULPs measure it) add up to.
+    A float further off than its slot's room, a moved float or a changed integer is not."""
+    digest, *sums = held.split()
+    mine, got, room = _weighed(payload, len(sums))
+    if mine[:KEY] != digest:
+        return "an integer or the layout differs"
+    off = [(abs(g - float(w)), r) for g, w, r in zip(got, sums, room, strict=True) if abs(g - float(w)) > r]
+    return f"{len(off)} of {len(sums)} float sums off, by {max(off)[0]:.3g} (room {max(off)[1]:.3g})" if off else None
+
+
+@functools.cache
+def _close() -> dict:
+    return recorded(CLOSE)
+
+
+def apart(name: str, built: Mapping[str, bytes], want: str, view_: Mapping | None, vanilla: bytes | None) -> list[str]:
+    """How the built file ``name`` isn't close enough to the golden build's (its sha256 ``want``, for an XBR the
+    golden's :func:`view` of it against ``vanilla``) on another host's float maths (D1016): nothing, or what differs.
+    An XBR's sizes, tags, names, relocations, records and every byte outside its changed resources are exact, each
+    changed resource :func:`near` its sketch; ``filelist.txt`` the same but for those XBRs' md5s, each its own
+    file's. Any other file is exact: no float maths have reached one."""
+    data, held = built[name], _close()
+    if name == "filelist.txt":
+        wrong = [row.path for row in filelist.rows(data) if row.path in built and row.md5 != filelist.md5(built[row.path])]
+        return [f"filelist.txt: {path}'s md5 isn't its file's" for path in wrong] + (
+            [] if held["frames"].get(want[:KEY]) == _listed(data)[:KEY] else ["filelist.txt: a line differs"])
+    if name not in FLOATS or view_ is None or vanilla is None:
+        return [f"{name}: sha256 {_sha256(data)[:12]}, not {want[:12]}"]
+    got, payloads = view(vanilla, data, name), parts(vanilla, data)
+    out = [f"{name}: {key}" for key in view_ if key not in ("sha256", "changed", "new") and got[key] != view_[key]]
+    if held["frames"].get(want[:KEY]) != payloads[1][:KEY]:
+        out.append(f"{name}: a byte outside its changed resources differs")
+    for kind in ("changed", "new"):
+        if [row[:3] + row[4:] for row in got[kind]] != [row[:3] + row[4:] for row in view_[kind]]:
+            out.append(f"{name}: its {kind} resources aren't the golden's (their number, names, sizes or relocations)")
+            continue
+        out += [f"{name}: {mine[:3]}: {why}" for mine, row in zip(got[kind], view_[kind], strict=True) if mine != row
+                and (why := near(payloads[0][mine[3]], held["payloads"].get(row[3][:KEY], f"{'0' * KEY}")))]
+    return out
+
+
 def _resources(made, path: str, result: Mapping[str, str]) -> dict[str, dict]:
     """:func:`view` of each XBR a build changed (``result``)."""
     with iso.Reader(made) as built, iso.Reader(path) as vanilla:
@@ -359,10 +465,25 @@ def _resources(made, path: str, result: Mapping[str, str]) -> dict[str, dict]:
                 and (new := built.read(name)) != (old := vanilla.read(name))}
 
 
+def _sketches(made, path: str, result: Mapping[str, str]) -> dict[str, dict[str, str]]:
+    """``close.json``'s rows of a build."""
+    frames, payloads = {}, {}
+    with iso.Reader(made) as built, iso.Reader(path) as vanilla:
+        for name in result:
+            if name == "filelist.txt":
+                frames[result[name][:KEY]] = _listed(built.read(name))[:KEY]
+            elif name in FLOATS:
+                held, frame = parts(vanilla.read(name), new := built.read(name))
+                frames[_sha256(new)[:KEY]] = frame[:KEY]
+                payloads |= {sha[:KEY]: sketch(payload) for sha, payload in held.items()}
+    return {"frames": frames, "payloads": payloads}
+
+
 def _job(job: tuple) -> tuple:
     """One build: ``("g3", golden, case, release, image)`` gives ``(its G3
-    or G4 row, its resources or None)``; ``("probe", case, release, image)``
-    its probe's record for the release."""
+    or G4 row, its resources or None, its ``close.json`` rows or None)``;
+    ``("probe", case, release, image)`` its probe's record for the release
+    and those rows."""
     kind, *rest, path = job
     if kind == "probe":
         case, name = rest
@@ -373,8 +494,8 @@ def _job(job: tuple) -> tuple:
                 (recipes := Path(folder) / "probe.json").write_text(json.dumps(probe["variants"]), encoding="utf-8")
                 character_ = character_ | {"variant_file": str(recipes)}
             made, report = sdk.image({"iso": path, "character": character_, "packs": _defaults()})
-        return {"files": {f: sha for f, sha in report["result"].items() if f != "filelist.txt"},
-                "resources": _resources(made, path, report["result"])}
+        return ({"files": {f: sha for f, sha in report["result"].items() if f != "filelist.txt"},
+                 "resources": _resources(made, path, report["result"])}, _sketches(made, path, report["result"]))
     golden, case, name = rest
     spec = cases(golden)[case]
     with tempfile.TemporaryDirectory(prefix="azurkit-record-") as folder:
@@ -386,7 +507,9 @@ def _job(job: tuple) -> tuple:
         with iso.Reader(made) as r:
             files = {f: r.read(f) for f in report["result"] if f != "filelist.txt"}
         out["ISO"] = iso.read(path, files).sha256()
-    return out, _resources(made, path, report["result"]) if wears(spec) else None
+    dressed = wears(spec)
+    return (out, _resources(made, path, report["result"]) if dressed else None,
+            _sketches(made, path, report["result"]) if dressed else None)
 
 
 def _layer(images: Images, release: gate.Release, spec: Mapping):
@@ -733,9 +856,10 @@ def ship(made: Mapping[str, bytes], gone) -> None:
 
 def jobs(goldens) -> list[tuple]:
     """The builds that dress the player ``goldens`` need (:func:`_job`)."""
-    out = [("g3", g, case, GOLDENS_BUILT[g][0].name) for g in G3 if g in goldens or RESOURCES in goldens
+    out = [("g3", g, case, GOLDENS_BUILT[g][0].name) for g in G3 if g in goldens or RESOURCES in goldens or CLOSE in goldens
            for case, spec in cases(g).items() if wears(spec)]
-    return out + [("probe", case, r.name) for case in (cases(PROBES) if PROBES in goldens else ()) for r in gate.RELEASES]
+    return out + [("probe", case, r.name) for case in (cases(PROBES) if PROBES in goldens or CLOSE in goldens else ())
+                  for r in gate.RELEASES]
 
 
 def record(golden: str, images: Images) -> dict[str, dict]:
@@ -749,8 +873,14 @@ def record(golden: str, images: Images) -> dict[str, dict]:
     if golden == TRACKER:
         return tracker()
     if golden == PROBES:
-        return {case: probe | {r.name: images.built(("probe", case, r.name)) for r in gate.RELEASES}
+        return {case: probe | {r.name: images.built(("probe", case, r.name))[0] for r in gate.RELEASES}
                 for case, probe in cases(PROBES).items()}
+    if golden == CLOSE:
+        made = {"frames": {}, "payloads": {}}
+        for job in jobs((CLOSE,)):
+            for key, held in images.built(job)[-1].items():
+                made[key] |= held
+        return made
     if golden == RESOURCES:
         return {f"tests/goldens/{g}": {case: images.built(("g3", g, case, GOLDENS_BUILT[g][0].name))[1]
                                        for case, spec in cases(g).items() if wears(spec)} for g in G3}
@@ -768,7 +898,7 @@ def text(rows: Mapping) -> str:
 
 
 def main(argv: list[str] | None = None, images: Images | None = None) -> int:
-    names = [*GOLDENS_BUILT, "shims.json", RESOURCES, PROBES, MATCHES, PLANS, TRACKER, *SHIPPED]
+    names = [*GOLDENS_BUILT, "shims.json", RESOURCES, CLOSE, PROBES, MATCHES, PLANS, TRACKER, *SHIPPED]
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--check", action="store_true", help="write nothing; exit 1 naming each case that differs")
     ap.add_argument("--workers", type=int, default=4,

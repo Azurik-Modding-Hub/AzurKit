@@ -79,8 +79,10 @@ def freeze(dist: Path, work: Path, check: bool = False) -> Path:
 
 
 def executable(app: Path) -> Path:
-    """The app's program (in an ``.app``, its ``Contents/MacOS``)."""
-    return app / "Contents" / "MacOS" / NAME if app.suffix == ".app" else app / NAME
+    """The app's program (in an ``.app``, its ``Contents/MacOS``; on Windows, its ``.exe``)."""
+    if app.suffix == ".app":
+        return app / "Contents" / "MacOS" / NAME
+    return app / (f"{NAME}.exe" if sys.platform == "win32" else NAME)
 
 
 def folders(app: Path) -> list[Path]:

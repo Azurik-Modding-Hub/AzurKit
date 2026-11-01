@@ -12,18 +12,21 @@ import binascii
 import contextlib
 import hashlib
 import json
+import math
 import multiprocessing
 import struct
 import zlib
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from azurkit import sdk
 from azurkit.core import gate
 from azurkit.tools.randomizer import art, tracking
 from scripts import record_goldens
+from tests import _hosts
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKERS = 4      # the levels drawn at once (a few seconds each, w1's longest; D926: a bench's most above load 40)
@@ -31,39 +34,76 @@ ART = ROOT / "src" / "azurkit" / "tools" / "randomizer"
 DRAWN = ("draft", "art", "levels.py", "data/generated")   # what draws them: the version names its sources
 SHIPPED = f"{record_goldens.ART}/{tracking.ART_VERSION}/"
 DETAIL = ("a6", "f2")   # the coarse levels whose detail pictures the test draws (4.7 + 7.2 s; the rest: --check)
+APART, FEW = 200, 4   # close enough (D1016): at most one pixel or table byte in this many other, or this few pixels
 
 
 def _sha256(files: dict[str, bytes]) -> dict[str, str]:
     return {rel: hashlib.sha256(data).hexdigest() for rel, data in files.items()}
 
 
-def _inflated(value):
-    """A JSON value with each deflated string (``maps.storeys``'s) inflated."""
-    if isinstance(value, dict):
-        return {k: _inflated(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_inflated(v) for v in value]
+def _inflated(text):
+    """A JSON string's deflated bytes (``maps.storeys``'s), or None for any other string."""
     with contextlib.suppress(binascii.Error, ValueError, TypeError, zlib.error):
-        return hashlib.sha256(zlib.decompress(base64.b64decode(value, validate=True))).hexdigest()
-    return value
+        return zlib.decompress(base64.b64decode(text, validate=True))
+    return None
 
 
-def _drawn(files: dict[str, bytes], kept: dict[str, bytes]) -> dict[str, str]:
-    """The files' digests, by what they hold where this host's zlib doesn't deflate as the one they were recorded
-    with (the first shipped picture says; Windows's Python 3.14 has zlib-ng), so its pictures' pixels and its
-    floors' rows are compared, not the bytes of their deflate; else ``_sha256``, byte for byte."""
-    first = next(data for rel, data in sorted(kept.items()) if rel.endswith(".png"))
-    if art.png(art.unpng(first)) == first:
-        return _sha256(files)
-    return {rel: (art.digest(art.unpng(data)) if rel.endswith(".png") else hashlib.sha256(
-        json.dumps(_inflated(json.loads(data)), sort_keys=True).encode()).hexdigest()) for rel, data in files.items()}
+def _near(got, want, path: str = "") -> list[str]:
+    """How one host's ``maps.json`` or ``floors.json`` value is not another's: ints, keys, lengths and strings exact,
+    floats within 1e-9 (one part in a billion, their shortest repr's last digits), a deflated table's rows the same
+    length with at most one byte in :data:`APART` differing."""
+    if isinstance(want, dict) and isinstance(got, dict) and got.keys() == want.keys():
+        return [why for key in want for why in _near(got[key], want[key], f"{path}/{key}")]
+    if isinstance(want, list) and isinstance(got, list) and len(got) == len(want):
+        return [why for i, (g, w) in enumerate(zip(got, want, strict=True)) for why in _near(g, w, f"{path}/{i}")]
+    if isinstance(want, float) and isinstance(got, float) and math.isclose(got, want, rel_tol=1e-9, abs_tol=1e-9):
+        return []
+    if isinstance(want, str) and isinstance(got, str) and (rows := _inflated(want)) is not None and (
+            made := _inflated(got)) is not None:
+        if len(made) != len(rows):
+            return [f"{path}: {len(made)} rows' bytes, not {len(rows)}"]
+        off = sum(a != b for a, b in zip(made, rows, strict=True))
+        return [f"{path}: {off} of {len(rows)} bytes differ"] if off > len(rows) // APART else []
+    if got == want and type(got) is type(want):
+        return []
+    return [f"{path}: {type(got).__name__} vs {type(want).__name__}" + (f", {got} vs {want}" if isinstance(
+        want, (int, float)) else "")]
+
+
+def _apart(files: dict[str, bytes], kept: dict[str, bytes], exact: bool) -> dict[str, list[str]]:
+    """``{rel: how it is not the kept file}``, nothing for a file that is. ``exact``: byte for byte (sha256s). Else
+    close enough (D1016; the kept files are the reference, so no host records its own): a picture's size exact and
+    at most :data:`APART`'s share of its pixels other, as an edge's rounding moves a few (x86 under Rosetta: 250 of
+    226,080 at most; Windows' zlib-ng deflates otherwise too, so its pixels are read, not its bytes), each JSON
+    file by :func:`_near`."""
+    out = {}
+    for rel, data in files.items():
+        if data == kept[rel]:
+            continue
+        if exact:
+            why = [f"sha256 {hashlib.sha256(data).hexdigest()[:12]}, not {hashlib.sha256(kept[rel]).hexdigest()[:12]}"]
+        elif rel.endswith(".png"):
+            got, want = art.unpng(data), art.unpng(kept[rel])
+            if got.shape != want.shape:
+                why = [f"{got.shape} pixels, not {want.shape}"]
+            else:
+                off = (got != want).any(axis=-1)
+                worst = int(np.abs(got.astype(int) - want.astype(int)).max())
+                why = [f"{int(off.sum())} of {off.size} pixels differ, by at most {worst}"] if off.sum() > max(
+                    FEW, off.size // APART) else []
+        else:
+            why = _near(json.loads(data), json.loads(kept[rel]))
+        if why:
+            out[rel] = why[:8]
+    return out
 
 
 def test_the_shipped_maps_are_what_the_tracker_draws_from_each_image(usa_iso, europe_iso):
     """From the USA image every part (the icons, each level's floors, then
     the world map and maps.json from their entries and thumbnails), a6's
     and f2's detail pictures and the index (``ART_VERSION``, the icons'
-    names and the detail factors) is the shipped file byte for byte, and
+    names and the detail factors) is the shipped file byte for byte (on
+    another host's float maths, close enough: :func:`_apart`, D1016), and
     no other file is shipped but the other levels' detail pictures.
     Europe's image holds the same level, character and effect files (both
     manifests), so its maps differ only by
@@ -74,8 +114,8 @@ def test_the_shipped_maps_are_what_the_tracker_draws_from_each_image(usa_iso, eu
     levels = json.loads(made[f"{SHIPPED}maps.json"])["levels"]
     finer = {f"{SHIPPED}detail/{floor}.png" for lv in DETAIL for floor in levels[lv]["floors"]}
     kept = record_goldens.kept_files((record_goldens.ART,))
-    assert _drawn(made, kept) == _drawn({rel: data for rel, data in kept.items() if "/detail/" not in rel or rel in finer},
-                                        kept)
+    assert sorted(made) == sorted(rel for rel in kept if "/detail/" not in rel or rel in finer)
+    assert _apart(made, kept, _hosts.recording()) == {}
     with ProcessPoolExecutor(2, mp_context=multiprocessing.get_context("spawn")) as pool:
         europe = dict(pool.map(record_goldens._art_part, [(str(europe_iso), part) for part in ("icons", "e6")]))
     drawn = {f"{SHIPPED}{name}.png": png for part in europe.values() for name, png in part["pictures"].items()}
@@ -85,6 +125,28 @@ def test_the_shipped_maps_are_what_the_tracker_draws_from_each_image(usa_iso, eu
     assert read and all(vanilla[0][p] == vanilla[1][p] for p in read)
     with pytest.raises(ValueError, match="no part 'w9'"):
         sdk.art(str(usa_iso), "w9")
+
+
+def test_another_hosts_pictures_are_close_enough_only_by_a_few_edge_pixels_and_its_floats_last_digits():
+    """D1016: off the recording host a picture may have a few other pixels and a JSON float its last digits, nothing
+    more: many pixels, another size, an integer, a key or a float far off is named; on it, any byte is."""
+    img = np.zeros((100, 100, 3), np.uint8)
+    edge, many, table = img.copy(), img.copy(), base64.b64encode(zlib.compress(bytes(1000))).decode()
+    edge[0, 0], many[:10] = 90, 90
+    doc = {"frame": [1.5, 2.0], "count": 3, "name": "a", "rows": table}
+    def apart(file: str, data: bytes, want: bytes, exact: bool = False) -> list[str]:
+        return _apart({file: data}, {file: want}, exact).get(file, [])
+
+    assert apart("a.png", art.png(edge), art.png(img)) == []
+    assert "1000 of 10000 pixels differ" in apart("a.png", art.png(many), art.png(img))[0]
+    assert "pixels, not" in apart("a.png", art.png(img[:50]), art.png(img))[0]
+    assert apart("a.png", art.png(edge), art.png(img), exact=True)[0].startswith("sha256")
+    near = doc | {"frame": [1.5 * (1 + 1e-12), 2.0]}
+    assert apart("m.json", json.dumps(near).encode(), json.dumps(doc).encode()) == []
+    assert apart("m.json", json.dumps(near).encode(), json.dumps(doc).encode(), exact=True)[0].startswith("sha256")
+    for other in ({"frame": [1.6, 2.0]}, {"count": 4}, {"name": "b"}, {"rows": base64.b64encode(zlib.compress(
+            bytes(999))).decode()}, {"rows": base64.b64encode(zlib.compress(b"\1" * 1000)).decode()}, {"more": 1}):
+        assert apart("m.json", json.dumps(doc | other).encode(), json.dumps(doc).encode())
 
 
 def test_the_art_version_names_the_drawings_sources():
