@@ -823,11 +823,8 @@ class App:
     from; quit by closing its input."""
 
     def __init__(self, python: str, home: Path, run: Run, content: Path | None):
-        self.python, self.home, self.run = python, home, run
-        config = home / "Library" / "Application Support" / "AzurKit"
-        config.mkdir(parents=True, exist_ok=True)
-        if content is not None:
-            (config / "app.json").write_text(json.dumps({"content_source": str(content)}), encoding="utf-8")
+        self.python, self.home, self.run, self.content = python, home, run, content
+        self.first_time()
         self.env = {k: v for k, v in os.environ.items()
                     if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE", "VIRTUAL_ENV", "PYTHONPATH", "AZURKIT_CORES", "AZURKIT_RAM")}
         self.env |= {"HOME": str(home), "AZURKIT_NO_WINDOW": "1"}
@@ -836,6 +833,14 @@ class App:
         if run.ram:
             self.env["AZURKIT_RAM"] = str(run.ram)
         self.proc = None
+
+    def first_time(self) -> None:
+        """The home as a first launch finds it: no setup, tracker or cache of a launch before."""
+        shutil.rmtree(self.home, ignore_errors=True)
+        config = self.home / "Library" / "Application Support" / "AzurKit"
+        config.mkdir(parents=True)
+        if self.content is not None:
+            (config / "app.json").write_text(json.dumps({"content_source": str(self.content)}), encoding="utf-8")
 
     def launch(self, d: Driver, ctx, op: str | None) -> Page:
         """Spawn the server and open its page: ``op`` timed from the spawn to the page's ready flag."""
@@ -1105,8 +1110,8 @@ def _shaped_share(tier: str, ceiling: int, level: int, kept: tuple) -> str:
 
 
 def app_shaped(d: Driver, app: App, ctx) -> None:
-    """Each op on a fresh launch: its share string typed (the page's select is the next lane's), its seed typed, then
-    the click after the head start."""
+    """Each op on a first launch (a remembered setup would be on, a remembered tracker's head already its done-state):
+    its share string typed (the page's select is the next lane's), its seed typed, then the click after the head start."""
     for op, (kind, tier, ceiling, level, kept, seed) in SHAPED.items():
         if not d.needed((op, "A75") if op == "A80" else (op,)):
             continue
@@ -1136,6 +1141,7 @@ def app_shaped(d: Driver, app: App, ctx) -> None:
                 d.act(p, "A75", click("spoiler-view"), "() => !document.getElementById('spoiler').hidden "
                                                        "&& document.getElementById('spoiler').textContent.length", 900)
         app.quit(p)
+        app.first_time()
 
 
 def _detail(d: Driver, p: Page, first: str, again: str) -> None:
