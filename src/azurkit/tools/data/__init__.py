@@ -272,7 +272,7 @@ def table(name: str, ops: object = (), written: Iterable[Sequence[int]] = ()) ->
     ``[col, row]``, and each row's meta (``rows_meta``; settings_foo's by
     column, ``cols_meta``)."""
     state = _state(ops)
-    if name not in state.was:
+    if not isinstance(name, str) or name not in state.was:
         raise ValueError(f"config.xbr has no table {name!r}")
     now, was, spans = state.now[name], state.was[name], _spans(written)
     n = len(was.rows)
@@ -336,7 +336,7 @@ def check(edit: Mapping, ops: object = ()) -> dict:
         raise ValueError("an edit is {table, col, row, value}")
     name, col, row, given = edit["table"], edit["col"], edit["row"], edit["value"]
     tables = _vanilla_tables()
-    if name not in tables:
+    if not isinstance(name, str) or name not in tables:
         raise ValueError(f"config.xbr has no table {name!r}")
     t = tables[name]
     if not (type(col) is int and type(row) is int and 0 <= col < len(t.cols) and 0 <= row < len(t.rows)):

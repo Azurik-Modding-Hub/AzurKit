@@ -107,7 +107,9 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
     shared string, a list past the game's word cap and an empty cell of a
     text row given a text none holds are refused, saying why. An empty
     cell takes a number (filled), empty text or the vanilla value puts a
-    cell back, and an edit whose string another edit points at is refused."""
+    cell back, and an edit whose string another edit points at is refused.
+    A table or ops of the wrong type is refused by name, as the hosts
+    answer a refusal (never a TypeError)."""
     tables = data._vanilla_tables()
     drops = tables["critters_critter_data"]
     dropped = next(v for c in range(len(drops.cols)) if isinstance(v := drops.cell(c, drops.row("drop1")).value, str))
@@ -173,6 +175,13 @@ def test_an_edit_is_refused_only_where_the_cells_encoding_cant_hold_it():
     for (table, entity, prop, value), why in refused:
         with pytest.raises(ValueError, match=f"^{re.escape(why)}"):
             _check(table, entity, prop, value)
+    hp = {"table": "settings_foo", "col": 0, "row": 0, "value": "1"}
+    for ask, given, why in [(sdk.data, {"what": "table", "table": []}, "config.xbr has no table []"),
+                            (sdk.data, {"what": "index", "ops": 5}, "data: ops is a list of xbr operations"),
+                            (sdk.data_edit, {"edit": hp | {"table": []}}, "config.xbr has no table []"),
+                            (sdk.data_edit, {"edit": hp, "ops": 5}, "data_edit: ops is a list of xbr operations")]:
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            ask(given)
     other = next(n for n in engine.cols if n and n != own)
     pointed = _check("critters_engine", other, "body", body)
     assert pointed["op"]["value"] == body and _check("critters_engine", own, "body", body[:-1])["op"]

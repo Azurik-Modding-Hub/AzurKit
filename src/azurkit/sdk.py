@@ -947,6 +947,8 @@ def data(given: Mapping) -> dict:
     if unknown := sorted(set(given) - set(DATA), key=str):
         raise ValueError(f"data: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(DATA)})")
     ops, what = given.get("ops") or [], given.get("what")
+    if not isinstance(ops, list):
+        raise ValueError("data: ops is a list of xbr operations")
     if what == "index":
         return datatool.index(ops)
     if what not in ("view", "table"):
@@ -992,7 +994,9 @@ def data_edit(given: Mapping) -> dict:
     type and an example, never game bytes."""
     if not (isinstance(given, Mapping) and "edit" in given and set(given) <= {"edit", "ops"}):
         raise ValueError("data_edit: {edit: {table, col, row, value}, ops}")
-    return datatool.check(given["edit"], given.get("ops") or [])
+    if not isinstance(ops := given.get("ops") or [], list):
+        raise ValueError("data_edit: ops is a list of xbr operations")
+    return datatool.check(given["edit"], ops)
 
 
 def plan(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
