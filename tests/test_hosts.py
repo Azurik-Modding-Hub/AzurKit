@@ -1561,7 +1561,9 @@ def test_follow_shows_the_floor_the_player_stands_on_and_keeps_a_floor_picked_by
     pixel with two floors' storeys by height, and at a seam the floor
     they were on holds while its ground lies within 2 m. A floor picked
     by hand stays until the player's floor changes, and with Follow off
-    the map keeps the floor shown wherever they go."""
+    the map keeps the floor shown wherever they go. In the town temple
+    (the tower's lock rewards), a player on its floor coming into town
+    sees town-5, though town's main floor has ground above and below."""
     import numpy as np
 
     entry, code, storeys = _floor_table("w2")
@@ -1607,6 +1609,13 @@ def test_follow_shows_the_floor_the_player_stands_on_and_keeps_a_floor_picked_by
         assert stand(world(seam[2], seam[1])) == upper and stand(world(*far)) == upper
         page.evaluate(f"() => document.querySelector(\"#map-floors input[data-floor='{main}']\").click()")
         assert stand(world(seam[2], seam[1])) == main
+        page.evaluate("() => document.getElementById('track-follow').click()")   # Follow on: into town, its main shown
+        town, _, at_town = _floor_table("town")
+        (tx0, ty1, ts), temple = town["frame"], town["floors"].index("town-5")
+        px, py, _ = next(i["at"] for i in town["items"] if i["id"] == "town/g1/r15")
+        z = next(lo for lo, _, f in at_town[(int(px), int(py))] if f == temple)   # the temple's floor at the reward
+        played.level, played.at = "town", (tx0 + px / ts, ty1 - py / ts, z)
+        _page.until(page, f"() => azurkit.tracker.map.level === 'town' && azurkit.tracker.map.floor === {temple}")
         _page.check_csp(page)
         page.close()
     finally:

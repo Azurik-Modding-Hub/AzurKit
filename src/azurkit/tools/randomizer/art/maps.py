@@ -569,8 +569,10 @@ def storeys(A, fr: Frame, floor: np.ndarray, rooms: Rooms) -> str:
     of a floor in the pixel's columns joined where they lie within
     ``ROOM_DZ`` m of each other in height, each on the room's floor at its
     middle height (:class:`Rooms`, so the spots and Follow agree), and a
-    pixel's storeys on one floor one, from their lowest top to their
-    highest. Packed (:data:`STOREY_M` m a unit) as zlib's
+    pixel's storeys of one floor with no other floor's between them in
+    height one, from their lowest top to their highest (never all of a
+    floor's in a pixel: its span would reach over another floor's
+    storeys, as town's main floor's does over the temple's). Packed (:data:`STOREY_M` m a unit) as zlib's
     deflate of: each pixel's code (u8, rows top to bottom: 0 no storey, k +
     1 every storey on floor k, 255 storeys on more than one floor), then for
     each 255 pixel in order its count of storeys (u8), then for each of
@@ -590,13 +592,10 @@ def storeys(A, fr: Frame, floor: np.ndarray, rooms: Rooms) -> str:
     v = rooms.votes(A.lv.col(fr.x0 + (spix % fr.w + 0.5) / fr.s, fr.y1 - (spix // fr.w + 0.5) / fr.s), mid)
     tie = ~v.any(axis=1) | (v[np.arange(len(sf)), sf] == v.max(axis=1))   # a tie or no vote: its own floor
     room = np.where(tie, sf, np.argmax(v, axis=1))
-    kinds, one = np.unique(spix * 256 + room, return_inverse=True)   # a pixel's storeys on a floor: one
-    lo, hi = np.full(len(kinds), np.inf), np.full(len(kinds), -np.inf)
-    np.minimum.at(lo, one, z[start])
-    np.maximum.at(hi, one, z[end - 1])
-    spix, room = kinds // 256, kinds % 256
-    o = np.lexsort((lo, spix))
-    lo, hi, spix, room = lo[o], hi[o], spix[o], room[o]
+    o = np.lexsort((z[end - 1], z[start], spix))   # each pixel's storeys low to high
+    lo, hi, spix, room = z[start][o], z[end - 1][o], spix[o], room[o]
+    run = np.flatnonzero(np.r_[True, (spix[1:] != spix[:-1]) | (room[1:] != room[:-1])])   # one floor's, none between
+    lo, hi, spix, room = lo[run], np.maximum.reduceat(hi, run), spix[run], room[run]
     many = np.bincount(spix, minlength=fr.w * fr.h) > 1
     code = np.zeros(fr.w * fr.h, dtype=np.int64)
     code[spix] = room + 1
