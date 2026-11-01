@@ -302,7 +302,8 @@ p.views { margin: 0; padding: 2px 10px; }
 #track-levels.other { color: var(--error); }
 .tracker .count { padding: 2px 10px; font-weight: 700; font-size: 12.5px; }
 /* Live's bar keeps its size from poll to poll (its dot, line and the ask's "…"), so the map under it never moves */
-#track-status { font-family: var(--mono); display: inline-block; width: 1.5em; }
+#track-status { font-family: var(--mono); display: inline-block; width: 1.5em; height: 1.2em; vertical-align: top;
+                overflow: hidden; }
 #track-endpoints { width: 18rem; }
 #track-dot { font-size: 11px; display: inline-block; width: 1.2em; text-align: center; }
 #track-dot.live { color: var(--near); } #track-dot.warn, #track-dot.lost { color: var(--air); }

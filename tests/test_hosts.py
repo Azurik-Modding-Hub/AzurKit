@@ -1628,7 +1628,7 @@ def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_mo
     i am zoomed in, it is shaking"): Live's reads of a player standing
     still jitter, and none of them moves a zoomed map (Follow on, the
     player in the middle of the view) or the map's room (Live's bar keeps
-    its size from poll to poll); a player who walks out of the view's
+    its size from poll to poll, the ask's "…" or none, at any width); a player who walks out of the view's
     middle has the map ease after them (several frames, then centred);
     with Follow off a refresh never moves the zoomed map."""
     entry = json.loads((app.pictures.folder() / "maps.json").read_text())["levels"]["w2"]
@@ -1660,6 +1660,14 @@ def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_mo
         page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off
         moved = stand((middle[0] + 60, middle[1] + 80, 0.0))
         assert stand((middle[0] + 60, middle[1] - 80, 0.0))[:5] == moved[:5] == after[:5]
+        busy = """() => { const st = document.getElementById("track-status"), was = st.textContent;
+            const top = (text) => { st.textContent = text; return document.getElementById("map-room")
+                .getBoundingClientRect().top; };
+            const out = [top(""), top("\u2026")]; st.textContent = was; return out; }"""
+        for width in (640, 900, 1040, 1380):   # where Live's bar wraps, or doesn't
+            page.set_viewport_size({"width": width, "height": 820})
+            idle, asking = page.evaluate(busy)
+            assert idle == asking, width
         _page.check_csp(page)
         page.close()
     finally:
