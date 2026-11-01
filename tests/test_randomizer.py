@@ -36,7 +36,7 @@ from pathlib import Path
 import pytest
 
 from azurkit import cli, sdk
-from azurkit.core import iso, progress
+from azurkit.core import iso, native, progress
 from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
 from azurkit.tools.randomizer.planner import fill, loader
@@ -298,11 +298,12 @@ def test_movement_sliders_plan_on_the_logic_rechecked_under_them_and_the_packs_c
         "enemy_scaling boss_health_scale 2 is above vanilla's 1, enemy strength the logic doesn't model (D83(c))"]
 
 
-@pytest.mark.parametrize("release, case", [
-    pytest.param("usa", "randomize-full:seed=2,default", marks=pytest.mark.vanilla),
-    pytest.param("usa", "randomize-full:seed=2,ceiling2", marks=pytest.mark.vanilla),
-    pytest.param("europe", "randomize-full:seed=2,default", marks=[pytest.mark.vanilla, pytest.mark.europe])])
-def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_their_recipe(release, case, request):
+@pytest.mark.parametrize("release, case, twin", [
+    pytest.param("usa", "randomize-full:seed=2,default", False, marks=pytest.mark.vanilla),
+    pytest.param("usa", "randomize-full:seed=2,ceiling2", True, marks=pytest.mark.vanilla),
+    pytest.param("europe", "randomize-full:seed=2,default", False, marks=[pytest.mark.vanilla, pytest.mark.europe])])
+def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_their_recipe(release, case, twin, request,
+                                                                                             monkeypatch):
     """G3's seed cases (J1's model-free seed case on both releases): the
     packs on by default and the plan of the case's seed and options,
     through the CLI's recipe, change each file the golden names to its
@@ -310,8 +311,16 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     the USA case's), the image less its root entries is the golden's (the
     default case's of ``rando_plans.json``'s default plan), the image reads
     back to the plan with its logic verified, its report carrying the plan
-    (the tracker's), and the build opens back into its recipe."""
+    (the tracker's), and the build opens back into its recipe. The ceiling2
+    case's fill reaches by the compiled reach's Python twin
+    (``AZURKIT_NATIVE=0``), the others by its kernel."""
     path = request.getfixturevalue(f"{release}_iso")
+    twins = []
+    if twin:
+        monkeypatch.setenv("AZURKIT_NATIVE", "0")
+        monkeypatch.setattr(native, "_LIB", None)
+        monkeypatch.setattr(fill, "_LAST_FILL", [None])   # no fill kept from an earlier test
+        monkeypatch.setattr(native, "_twin", lambda *a, real=native._twin, **k: twins.append(1) or real(*a, **k))
     args = record_goldens.cases(G3[release])[case]["args"]
     options = {k: args[k] for k in ("skip_ceiling", "movement_tier", "dark_fire") if args[k] is not None}
     settings = layer.settings_doc(kept_logic().db.defaults) | options
@@ -333,6 +342,7 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     found = sdk.read_mods(sdk.open_build(made, whole=False))
     assert found == {"packs": mods.normalize({n: {} for n, p in mods.PACKS.items() if p.default_on}),
                      "randomizer": {"seed": "2", "share": plan["share"]}}
+    assert (native.report()["loaded"], bool(twins)) == (not twin, twin)
 
 
 def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_fails_the_build(usa_iso):
@@ -477,10 +487,25 @@ def test_an_item_in_a_container_is_touched_only_where_its_vanilla_item_was_so_it
                 ("frag_air_3", obsidian[0] * obsidian[1], obsidian[2]))
 
 
-def test_the_default_plan_file_is_its_goldens_byte_for_byte_under_pyodide(pyodide):
-    got = pyodide("plan", "--seed", "2")
+_PLAN_UNDER_PYODIDE = """
+import contextlib, io, json
+from azurkit import cli
+from azurkit.core import native
+out, err = io.StringIO(), io.StringIO()
+with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+    code = cli.main(["plan", "--seed", "2"])
+json.dumps({"code": code, "stdout": out.getvalue(), "stderr": err.getvalue(), "native": native.report()})
+"""
+
+
+def test_the_default_plan_file_is_its_goldens_byte_for_byte_under_pyodide_by_the_compiled_reach(pyodide):
+    """``azurkit plan --seed 2`` under Pyodide, the site's runtime, reaching
+    by the compiled reach's side module from the wheel, prints the default
+    plan file byte for byte."""
+    got = pyodide(python=_PLAN_UNDER_PYODIDE)
     assert (got["code"], got["stderr"]) == (0, ""), got["stderr"][-2000:]
     assert got["stdout"] == DEFAULT_PLAN
+    assert (got["native"]["loaded"], got["native"]["library"]) == (True, "emscripten-wasm32.so"), got["native"]
 
 
 def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():
@@ -501,11 +526,11 @@ def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():
 
 
 def test_twenty_seeds_under_four_option_sets_plan_and_spoil_as_the_solver_before_r21_made_them():
-    """Step 4.3u (round 2's R2.1): the solver's resumed escapes, its grown
-    forward reach and the fill's kept reaches and known traps change no
-    plan: each of :data:`PLANS80`'s 80 plans (an option set's 20 seeds in
-    a process of its own, the four at once) has its attempt, sha256 and
-    spoiler."""
+    """Step 4.3u (round 2's R2.1) and Step 4.3 native reach: the fill's kept
+    reaches and known traps and the compiled reach (its spheres replayed
+    from its rounds) change no plan: each of :data:`PLANS80`'s 80 plans (an
+    option set's 20 seeds in a process of its own, the four at once) has
+    its attempt, sha256 and spoiler."""
     procs = {name: subprocess.Popen([sys.executable, "-c", _PLANS80, json.dumps(st)], text=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE) for name, st in OPTIONS80.items()}
     for name, proc in procs.items():
@@ -515,9 +540,9 @@ def test_twenty_seeds_under_four_option_sets_plan_and_spoil_as_the_solver_before
 
 
 def test_the_grammar_has_no_negation_and_each_rule_the_solver_compiles_holds_at_any_larger_state():
-    """R2.1's exactness rests on monotone rules (a failed escape resumes from
-    its fixpoint at a later, larger state; the forward reach grows rather
-    than searching again): the grammar refuses a negation however it is
+    """The reach's escapes rest on monotone rules (a failed escape fails
+    every node it saw whose starting flags it held, their escapes inside
+    its own): the grammar refuses a negation however it is
     spelled, and every rule of the default and max options' graphs, logic
     and physical (edges, teleports, locations, credits, victory), that
     holds at a random state holds at any larger one (more of each counter,

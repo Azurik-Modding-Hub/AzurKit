@@ -1669,7 +1669,7 @@ def load_database(root: Path | str = DATA_DIR) -> Database:
 
 
 _KEPT: dict[Path, tuple[str, Database, bytes, Logic]] = {}   # root -> (its cache key, its database, its tables' digest)
-_MEMOS = frozenset({"db", "_compiled", "_defaults", "_inside", "_kit_memo"})   # what a Logic fills in as it is asked
+_MEMOS = frozenset({"db", "_compiled", "_native", "_defaults", "_inside", "_kit_memo"})   # what a Logic fills in as it is asked
 
 
 def kept_logic(root: Path | str = DATA_DIR) -> Logic:

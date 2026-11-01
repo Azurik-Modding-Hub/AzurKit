@@ -239,6 +239,7 @@ INIT = """(() => {
 ERROR = ("document.querySelector('#status')?.classList.contains('error') "
          "&& 'error: ' + document.querySelector('#status').textContent")
 READY = "() => globalThis.azurkit?.ready"
+NATIVE = "() => globalThis.azurkit?.packs?.native ?? null"   # sdk.catalog's: the compiled kernels the engine runs
 USA = "() => azurkit.vanilla?.release === 'usa'"
 BUILT = f"() => azurkit.build ? 'built' : {ERROR}"
 SAVED = f"() => azurkit.saved ? 'saved' : {ERROR}"
@@ -403,6 +404,7 @@ class Driver:
         self.run, self.targets, self.scratch, self.iso, self.content = run, targets, scratch, iso, content
         self.samples: dict[str, list[dict]] = {}
         self.log: list[str] = []
+        self.native: list[dict | None] = []   # each engine report its pages gave (:meth:`engine`)
         self.ev: list = []
         self.p: Page | None = None           # the page the pass drives
         self.changed: float | None = None    # the page's time of the pass's last change
@@ -416,6 +418,17 @@ class Driver:
 
     def needed(self, ops) -> bool:
         return any(self.need(op) for op in ops)
+
+    def engine(self, p: Page) -> None:
+        """The compiled kernels the page's engine runs (``sdk.catalog``'s
+        ``native``), kept for the run's record (:attr:`native`): one running
+        without its library stops the pass, its ops failing, so no time its
+        Python twins take is ever a sample or a ceiling."""
+        report = p.js(NATIVE)
+        if report not in self.native:
+            self.native.append(report)
+        if not (report or {}).get("loaded"):
+            raise RuntimeError(f"the engine runs without its native library ({(report or {}).get('why')})")
 
     def fresh(self, p: Page) -> None:
         """A new page (its own clock): the events it has logged, no change pending."""
@@ -672,6 +685,7 @@ class App:
         p = Page(ctx.new_page())
         p.page.goto(url)
         t1, _ = p.wait(READY, 600)
+        d.engine(p)
         d.fresh(p)
         d.record(op, time.monotonic() - t, d.ev, 0, t1)
         return p
@@ -947,6 +961,7 @@ def _site_page(d: Driver, ctx, url: str, op: str | None) -> Page:
     p = Page(ctx.new_page())
     p.page.goto(url)
     t1, _ = p.wait(READY, 600)
+    d.engine(p)
     d.fresh(p)
     d.record(op, t1 / 1000, d.ev, 0, t1)
     return p
@@ -1331,7 +1346,8 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
-    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"]}]}, "memory_peak": bytes or None,
+    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"]}]}, "native" (the engine reports its
+    pages gave, :meth:`Driver.engine`), "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh
     state each pass, until its ops have their samples (at most ``passes``). An app run serves the app from ``python``
     (:func:`venv`'s; else one made for this run)."""
@@ -1397,5 +1413,5 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                 browser.close()
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
-    return {"samples": d.samples, "memory_peak": memory.peak if run.memory else None,
+    return {"samples": d.samples, "native": d.native, "memory_peak": memory.peak if run.memory else None,
             "memory_shared": bool(shared), "wall_s": round(time.monotonic() - t, 1), "log": d.log}

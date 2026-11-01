@@ -39,7 +39,11 @@ when each sample's page part, the click to the download's start, is within
 1 s or moved the page's own bar. The list itself fails when it adds an op or
 a debt or raises a ceiling against main's (:func:`check_list`), but for a
 browser main's perf.py doesn't time (:func:`new_browsers`), whose first
-record may add its own ops and debts once.
+record may add its own ops and debts once. A run whose engine answers
+without the compiled kernels' library the worktree ships for its host
+(:func:`native_failures`: its pages' ``sdk.catalog`` ``native``, loaded,
+that library, those bytes) fails, its ops with it, so a time the Python
+twins took is never a sample or a ceiling.
 
 ``--update-ceilings`` rewrites the list from this run (:func:`updated`): it
 lowers a ceiling to the new median x 1.15 (rounded up to 0.1 s) and drops an
@@ -56,6 +60,7 @@ from __future__ import annotations
 import argparse
 import ast
 import dataclasses
+import hashlib
 import json
 import math
 import os
@@ -87,6 +92,8 @@ REACH = (("src/azurkit/app/", ("app",), None), ("src/azurkit/__main__.py", ("app
          ("src/azurkit/tools/characters/", ("app", "site"), ("characters", "build")),
          ("src/", ("app", "site"), None), ("web/", ("app", "site"), None), ("scripts/web_tools.py", ("site",), None))
 GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")   # tests/_perf.py's
+NATIVE = "src/azurkit/core/_native"   # the compiled kernels' libraries a worktree ships (core/native.py)
+SIDE_MODULE = "emscripten-wasm32.so"  # the site's (its Pyodide's); the app's is this machine's, core.native.target()
 
 
 def select(paths: list[str]) -> set[tuple[str, str]]:
@@ -157,6 +164,31 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     if verdict in ("pass", "listed", "bar") and median > PROGRESS and not shown and not debt:
         verdict = "no progress"
     return out | {"verdict": verdict, "ok": verdict in ("pass", "listed", "bar")}
+
+
+def shipped(wt: Path, library: str | None) -> tuple[str | None, str | None]:
+    """(``library``, the sha256[:12] of the worktree's copy, or None when it ships none)."""
+    path = wt / NATIVE / library if library else None
+    return library, hashlib.sha256(path.read_bytes()).hexdigest()[:12] if path and path.is_file() else None
+
+
+def native_failures(natives: dict[str, list], want: dict[str, tuple[str | None, str | None]]) -> list[str]:
+    """A failure for each run (``{run: the engine reports its pages gave}``)
+    with no report or one whose engine answered without the library the
+    worktree ships for its host (``want``: ``{run: (library, sha256[:12])}``,
+    :func:`shipped`), loaded, with those bytes: a time its Python twins took
+    is never a sample or a ceiling."""
+    out = []
+    for run, reports in sorted(natives.items()):
+        library, sha12 = want[run]
+        if not reports:
+            out.append(f"native {run}: its engine reported no compiled kernels")
+        for r in reports:
+            r = r or {}
+            if not (r.get("loaded") and (r.get("library"), r.get("sha12")) == (library, sha12) and sha12):
+                out.append(f"native {run}: the engine ran {r.get('library') or 'no library'} "
+                           f"({r.get('sha12') or r.get('why')}), not the shipped {library} ({sha12})")
+    return out
 
 
 def key(op: str, context: str) -> str:
@@ -418,6 +450,7 @@ def main(argv: list[str] | None = None) -> int:
         import tempfile
         scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site.", dir="/tmp"))
         built: dict[str, Path | str] = {}
+        natives: dict[str, list] = {}
 
         def made(what: str) -> Path | str:   # each made once, the first time a run needs it: one wheel for both hosts
             if what not in built:
@@ -440,11 +473,14 @@ def main(argv: list[str] | None = None) -> int:
                        else {"samples": {}, "log": []})
                 for op, more in got["samples"].items():
                     have.setdefault(op, []).extend(more)
+                seen = natives.setdefault(run, [])
+                seen += [r for r in old.get("native", []) + got.get("native", []) if r not in seen]
                 peak = max(filter(None, (old.get("memory_peak"), got.get("memory_peak"))), default=None)
                 shared = bool(old.get("memory_shared") or got.get("memory_shared"))
                 if kept:
                     kept.parent.mkdir(parents=True, exist_ok=True)
-                    kept.write_text(json.dumps({"samples": have, "memory_peak": peak, "memory_shared": shared,
+                    kept.write_text(json.dumps({"samples": have, "native": seen, "memory_peak": peak,
+                                                "memory_shared": shared,
                                                 "log": old.get("log", []) + got.get("log", [])}, indent=1),
                                     encoding="utf-8")
                 return {"samples": {op: have.get(op, []) for op in targets}, "memory_peak": peak,
@@ -453,6 +489,10 @@ def main(argv: list[str] | None = None) -> int:
             bars, browser_bars = {op.id for op in ops if op.bar}, {op.id for op in ops if op.browser_bar}
             fresh = (set(contexts(profiles, browsers)) if main_list is None else new) if args.update_ceilings else ()
             block["cases"], peaks, samples = measure(cases, drive, mine, untimed, bars, fresh, browser_bars)
+            from azurkit.core import native
+            block["native"] = natives
+            block["native_failures"] = native_failures(natives, {
+                run: shipped(wt, native.target() if _perf.RUNS[run].host == "app" else SIDE_MODULE) for run in natives})
         finally:
             import shutil
             shutil.rmtree(scratch, ignore_errors=True)
@@ -478,6 +518,7 @@ def main(argv: list[str] | None = None) -> int:
                                          if "median" in r else f" ({r.get('error')})")
                for k, r in block["cases"].items() if not r["ok"]]
     failing += [f"memory {k}: {v['peak'] / 2**30:.2f} GiB" for k, v in block["memory"].items() if not v["ok"]]
+    failing += block.get("native_failures", [])
     block |= {"failures": failing + block["list"], "passed": not failing and not block["list"],
               "wall_s": round(time.monotonic() - t0, 1)}
     for k, r in block["cases"].items():

@@ -62,7 +62,12 @@ held (their closures are inside its own: the cache).
 
 Requirements are compiled once per option set into closures over the
 counters and flags, with the skips that are off and the edges above the
-movement tier compiled away (§3.4). Nothing here reads a file: the database
+movement tier compiled away (§3.4), each closure carrying its rule
+(``ast``). The fixpoint itself runs in ``core.native`` (Step 4.3 native
+reach, D1009): an option set's graphs and rules as integer tables, built
+once (:meth:`Logic._tables`), solved by the compiled kernel when this
+platform's library is loaded and by its Python twin otherwise, the same
+answer. Nothing here reads a file: the database
 is the loader's, and an edge's movement tier is its ``difficulty`` number
 (the envelope's tiers, ``draft/tiers.toml``, which the planner never
 imports).
@@ -74,6 +79,7 @@ import collections
 from collections.abc import Callable, Container, Iterable, Mapping
 from dataclasses import dataclass
 
+from azurkit.core import native
 from azurkit.tools.randomizer.planner.grammar import DISCS, parse
 from azurkit.tools.randomizer.planner.settings import (
     MOVEMENT_TIERS,
@@ -91,12 +97,25 @@ STRICTEST = Settings(0, "safe", 1, {})               # no skip, the safe tier (r
 _ALL = 1 << 30                                        # a counter "with every item"
 
 
+def _rule(fn: Rule, ast: tuple) -> Rule:
+    """``fn`` with its rule as the compiled reach reads it, ``fn.ast``:
+    ``("true",)``, ``("false",)``, ``("counter", name, n)``, ``("flag",
+    name)``, ``("sum", n, (counter, ...))`` or ``("and" | "or", (rule,
+    ...))``, its children the closures it calls (:meth:`Logic._tables`
+    numbers them for ``core.native``)."""
+    fn.ast = ast
+    return fn
+
+
 def _true(c, f):
     return True
 
 
 def _false(c, f):
     return False
+
+
+_true.ast, _false.ast = ("true",), ("false",)
 
 
 def _all(rules: Iterable[Rule]) -> Rule:
@@ -107,10 +126,10 @@ def _all(rules: Iterable[Rule]) -> Rule:
         return rules[0] if rules else _true
     if len(rules) == 2:
         a, b = rules
-        return lambda c, f: a(c, f) and b(c, f)
+        return _rule(lambda c, f: a(c, f) and b(c, f), ("and", (a, b)))
     if len(rules) == 3:
         a, b, d = rules
-        return lambda c, f: a(c, f) and b(c, f) and d(c, f)
+        return _rule(lambda c, f: a(c, f) and b(c, f) and d(c, f), ("and", (a, b, d)))
     rules = tuple(rules)
 
     def every(c, f):
@@ -118,7 +137,7 @@ def _all(rules: Iterable[Rule]) -> Rule:
             if not r(c, f):
                 return False
         return True
-    return every
+    return _rule(every, ("and", rules))
 
 
 def _any(rules: Iterable[Rule]) -> Rule:
@@ -129,7 +148,7 @@ def _any(rules: Iterable[Rule]) -> Rule:
         return rules[0] if rules else _false
     if len(rules) == 2:
         a, b = rules
-        return lambda c, f: a(c, f) or b(c, f)
+        return _rule(lambda c, f: a(c, f) or b(c, f), ("or", (a, b)))
     rules = tuple(rules)
 
     def some(c, f):
@@ -137,15 +156,15 @@ def _any(rules: Iterable[Rule]) -> Rule:
             if r(c, f):
                 return True
         return False
-    return some
+    return _rule(some, ("or", rules))
 
 
 def _counter(name: str, n: int) -> Rule:
-    return lambda c, f: c.get(name, 0) >= n
+    return _rule(lambda c, f: c.get(name, 0) >= n, ("counter", name, n))
 
 
 def _flag(name: str) -> Rule:
-    return lambda c, f: name in f
+    return _rule(lambda c, f: name in f, ("flag", name))
 
 
 class _EveryFlag:
@@ -256,16 +275,6 @@ class _Rules:
                 [*(self.gate(g) for g in lg.gated_by[loc]), self.expr(over.get("requires", "true")),
                  *(self.opened(b, node) for b in lg.contained_by.get(loc, ())), self.light_at(node)])))
         self.victory = self.expr(db.world["victory"])
-        # each node's locations, credits and disc teleports, as the escapes read them (Step R2.1)
-        self.loc_at: dict[str, list[tuple[str, Rule]]] = collections.defaultdict(list)
-        for loc, n, rule in self.locations:
-            self.loc_at[n].append((loc, rule))
-        self.cred_at: dict[str, list[tuple[str, Rule]]] = collections.defaultdict(list)
-        for f, n, _, rule in self.credits:
-            self.cred_at[n].append((f, rule))
-        self.tele_at: dict[str, list[tuple[str, Rule, str]]] = collections.defaultdict(list)
-        for a, b, rule, disc in self.teleports:
-            self.tele_at[a].append((b, rule, disc))
 
     # ---- expressions (docs/RANDOMIZER_DB.md §5) --------------------------------------------------------------------
     def expr(self, text: str, bump: tuple[str, int, tuple[str, ...]] | None = None) -> Rule:
@@ -303,7 +312,8 @@ class _Rules:
         if not pending:
             return self.counter(name, n)
         self.reads[name].update(k for k in range(n - len(pending), n + 1) if k > 0)
-        return lambda c, f: c.get(name, 0) + sum(c.get(p, 0) for p in pending) >= n
+        return _rule(lambda c, f: c.get(name, 0) + sum(c.get(p, 0) for p in pending) >= n,
+                     ("sum", n, (name, *pending)))
 
     def memoised(self, key: tuple, build: Callable[[], Rule]) -> Rule:
         if key not in self.memo:
@@ -427,49 +437,22 @@ class _Round:
     safe: set              # the canonical nodes known safe
 
 
-class _Memo:
-    """One solve's escapes on one graph, kept round to round (Step R2.1): the
-    state only grows within a solve and every rule is monotone, so a node's
-    failed escape resumes from its fixpoint (``escapes``) and the fast path's
-    backward search (plan §2.13) goes on from where it stopped."""
-
-    def __init__(self, logic: Logic, rules: _Rules, base: frozenset[str]) -> None:
-        self.rules, self.base, self.escapes = rules, base, {}
-        self.found, self.todo, self.blocked = {logic.start}, [logic.start], []
-        self.unset = [(f, n, rule) for f, n, _, rule in rules.credits if f not in base]
-        self.local: dict[str, set[str]] = collections.defaultdict(set)
-        self.at: dict[str, frozenset[str]] = {}     # a node's flags for the fast path: base and those it sets itself
-
-    def home(self, counters: Mapping) -> set[str]:
-        """The fast path's nodes at ``counters``: a backward search from the
-        start in which an edge is passable on the items held, ``base`` and
-        the flags its own source node can set on them."""
-        base, at, keep = self.base, self.at, []
-        for f, n, rule in self.unset:
-            if rule(counters, base):
-                self.local[n].add(f)
-                at[n] = base | self.local[n]
-            else:
-                keep.append((f, n, rule))
-        self.unset = keep
-        found, todo, radj, keep = self.found, self.todo, self.rules.radj, []
-        for u, rule in self.blocked:
-            if u not in found:
-                if rule(counters, at.get(u, base)):
-                    found.add(u)
-                    todo.append(u)
-                else:
-                    keep.append((u, rule))
-        self.blocked = keep
-        while todo:
-            for u, rule in radj.get(todo.pop(), ()):
-                if u not in found:
-                    if rule(counters, at.get(u, base)):
-                        found.add(u)
-                        todo.append(u)
-                    else:
-                        self.blocked.append((u, rule))
-        return found
+@dataclass(frozen=True)
+class _Native:
+    """One option set's :class:`~azurkit.core.native.Tables` (``tables``),
+    with each id's name (``nodes``, ``locs``, ``items``, ``flags``), each
+    name's id (``loc``, ``item``, ``flag``, ``counter``) and its logic,
+    physical and trick-free physical graphs' indices."""
+    tables: native.Tables
+    nodes: tuple[str, ...]
+    locs: tuple[str, ...]
+    items: tuple[str, ...]
+    flags: tuple[str, ...]
+    loc: dict[str, int]
+    item: dict[str, int]
+    flag: dict[str, int]
+    counter: dict[str, int]
+    graphs: tuple[int, int, int]
 
 
 @dataclass(frozen=True)
@@ -495,7 +478,8 @@ class Logic:
     def __init__(self, db):
         self.db = db
         self._compiled: dict[tuple, _Rules] = {}
-        self.items = {it["name"]: dict(it["counters"]) for it in db.items["item"]}
+        self._native: dict[tuple, _Native] = {}     # the compiled reach's tables, by option set (:meth:`_tables`)
+        self.items ={it["name"]: dict(it["counters"]) for it in db.items["item"]}
         self.skip_tables = {sid: s for sid, (_, s) in db.skips.items()}
         self.handling = {m["id"]: m["handling"] for m in db.world["mechanism"]}
         self.kinds = collections.defaultdict(set)
@@ -811,204 +795,129 @@ class Logic:
                 self._take(held, counters, loc, placement)
             flags.update(new)
 
-    def _shut(self, rules: _Rules, rnd: _Round, node: str, placement: Mapping, flags0: frozenset[str],
-              rec: tuple | None = None) -> tuple[bool, set[str] | None, set[str] | None, tuple | None]:
-        """:meth:`_escape`'s verdict alone (Step R2.1), the same least
-        fixpoint walked once: the search goes on from where it stopped when
-        a location or flag widens the state (rules are monotone: no ``not``),
-        and it stops at the start. Returns (True, None, None, the discs it
-        jumped by) when the escape holds, else (False, the nodes seen, the
-        flags, its record): with that record, at a later round's state
-        (more items and flags, the same jumps open), the walk resumes from
-        its fixpoint, which is inside the new one, and only the edges,
-        locations, flags and teleports at its boundary are tried again."""
-        start, adj, slots, got = self.start, rules.adj, self.slots, rnd.got
-        loc_at, cred_at, tele_at = rules.loc_at, rules.cred_at, rules.tele_at
-        counters, held, took = dict(rnd.counters), collections.Counter(rnd.held), set(got)
-        if rec is None:
-            flags, seen, todo, mine, jumped = set(flags0), {node}, [node], [], []
-            blocked, plocs, pcred, ptele = [], [], [], []
-        else:
-            _, r_flags, r_seen, mine, jumped, blocked, plocs, pcred, ptele = rec
-            mine = list(mine)
-            for loc in mine:
-                if loc not in took:
-                    took.add(loc)
-                    self._take(held, counters, loc, placement)
-            flags, seen, todo = set(r_flags) | flags0, set(r_seen), []
-            jumped, plocs, pcred, ptele = list(jumped), list(plocs), list(pcred), list(ptele)
-        while True:
-            if blocked:
-                keep = []
-                for v, rule in blocked:
-                    if v in seen:
-                        continue
-                    if rule(counters, flags):
-                        if v == start:
-                            return True, None, None, tuple(jumped)
-                        seen.add(v)
-                        todo.append(v)
-                    else:
-                        keep.append((v, rule))
-                blocked = keep
-            while todo:
-                u = todo.pop()
-                for v, rule in adj.get(u, ()):
-                    if v not in seen:
-                        if rule is _true or rule(counters, flags):
-                            if v == start:
-                                return True, None, None, tuple(jumped)
-                            seen.add(v)
-                            todo.append(v)
-                        else:
-                            blocked.append((v, rule))
-                if u in loc_at:
-                    plocs += loc_at[u]
-                if u in cred_at:
-                    pcred += cred_at[u]
-                if u in tele_at:
-                    ptele += tele_at[u]
-            jumps = [(b, disc) for b, rule, disc in ptele if b not in seen and slots[disc] not in got
-                     and rule(counters, flags)]
-            locs = [loc for loc, rule in plocs if loc not in took and rule(counters, flags)]
-            new = [f for f, rule in pcred if f not in flags and rule(counters, flags)]
-            if not (jumps or locs or new):
-                return False, seen, flags, (flags0, flags, seen, mine, jumped, blocked,
-                                            [x for x in plocs if x[0] not in took],
-                                            [x for x in pcred if x[0] not in flags],
-                                            [x for x in ptele if x[0] not in seen])
-            for b, disc in jumps:
-                if b not in seen:
-                    if b == start:
-                        return True, None, None, (*jumped, disc)
-                    seen.add(b)
-                    todo.append(b)
-                    jumped.append(disc)
-            for loc in locs:
-                if loc not in took:
-                    took.add(loc)
-                    mine.append(loc)
-                    self._take(held, counters, loc, placement)
-            flags.update(new)
-            plocs = [x for x in plocs if x[0] not in took]
-            pcred = [x for x in pcred if x[0] not in flags]
-            ptele = [x for x in ptele if x[0] not in seen]
+    def _tables(self, settings: Settings) -> _Native:
+        """``settings``' graphs as the compiled reach reads them (Step 4.3
+        native reach), built once an option set: the logic graph, the
+        physical one and the trick-free physical one when the options turn
+        a skip on (else the physical again), each name an id (the canonical
+        nodes, locations and items in sorted order) and each rule its
+        closures' ``ast``, numbered children first."""
+        key = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire,
+               tuple(sorted(settings.skip_override.items())))
+        if (got := self._native.get(key)) is not None:
+            return got
+        logic, phys = self.rules(settings), self.rules(settings, physical=True)
+        graphs = [logic, phys, *([self.rules(TRICK_FREE, physical=True)] if phys.on else [])]
+        names = {self.canon(n) for n in self.db.nodes} | {self.start, *self.forced, *self.forced_phys}
+        names.update(*self.regions.values())
+        for g in graphs:
+            for u, out in g.adj.items():
+                names.add(u)
+                names.update(v for v, _ in out)
+            names.update(n for _, n, _, _ in g.credits)
+            names.update(n for _, n, _ in g.locations)
+            names.update(x for a, b, _, _ in g.teleports for x in (a, b))
+        nodes, locs, items = tuple(sorted(names)), tuple(sorted(self.pool)), tuple(sorted(self.items))
+        node, loc, item = ({x: i for i, x in enumerate(xs)} for xs in (nodes, locs, items))
+        flag = {f: i for i, f in enumerate(sorted(set(self.db.flags).union(
+            (f for g in graphs for f, *_ in g.credits), *self.forced.values(), *self.forced_phys.values())))}
+        counter = {c: i for i, c in enumerate(sorted(self.everything))}
+        rules, done = [], {}
 
-    def _escaping(self, rules: _Rules, rnd: _Round, nodes: set[str], placement: Mapping, base: frozenset[str],
-                  forced: Mapping[str, frozenset[str]], credited: Container[str], memo: _Memo) -> set[str]:
-        """Those of ``nodes`` whose escape on ``rules`` holds at this round's
-        state, each starting with ``base`` and its ``forced`` flags that are
-        ``credited``: the fast path's need no closure, and a closure that
-        fails fails every node it saw whose starting flags it held, since
-        their closures are inside its own (the cache: the round's counters
-        are fixed)."""
-        if not nodes:
-            return set()
-        home, at = memo.home(rnd.counters), memo.at
-        out, dead, escapes, own = nodes & home, set(), memo.escapes, False
-        radj, counters = rules.radj, rnd.counters
-        for n in sorted(nodes - home):
-            if n in home:           # a success's backward search found it (below)
-                out.add(n)
-                continue
-            if n in dead:
-                continue
-            flags0 = base | (forced.get(n, frozenset()) & credited)
-            rec = escapes.get(n)
-            if rec is True:         # it held with no disc teleport at an earlier state: it holds now (monotone)
-                out.add(n)
-                continue
-            if rec is not None and not (rec[0] <= flags0 and all(self.slots[d] not in rnd.got for d in rec[4])):
-                rec = None
-            ok, seen, flags, rec = self._shut(rules, rnd, n, placement, flags0, rec)
-            if not ok:
-                escapes[n] = rec
-                dead.update(m for m in seen if forced.get(m, frozenset()) & credited <= flags)
-                continue
-            out.add(n)
-            escapes[n] = True if not rec else None
-            if flags0 == base:      # every node whose search reaches n, as the fast path's, escapes through n
-                if not own:         # this round's own copy: a success by a disc teleport holds only while it is open
-                    home, own = set(home), True
-                todo = [n]
-                home.add(n)
-                while todo:
-                    for u, rule in radj.get(todo.pop(), ()):
-                        if u not in home and rule(counters, at.get(u, base)):
-                            home.add(u)
-                            todo.append(u)
-        return out
+        def rule(fn: Rule) -> int:
+            if (i := done.get(id(fn))) is not None:
+                return i
+            ast = fn.ast
+            op = ast[0]
+            if op in ("and", "or"):
+                ast = (op, tuple(rule(k) for k in ast[1]))
+            elif op == "counter":
+                ast = (op, counter.setdefault(ast[1], len(counter)), ast[2])
+            elif op == "flag":
+                ast = (op, flag.setdefault(ast[1], len(flag)))
+            elif op == "sum":
+                ast = (op, ast[1], tuple(counter.setdefault(c, len(counter)) for c in ast[2]))
+            done[id(fn)] = i = len(rules)
+            rules.append(ast)
+            return i
+        compiled = tuple(native.Graph(
+            tuple(tuple((node[v], rule(r)) for v, r in g.adj.get(u, ())) for u in nodes),
+            tuple((flag[f], node[n], bool(terminal), rule(r)) for f, n, terminal, r in g.credits),
+            tuple((loc[x], node[n], rule(r)) for x, n, r in g.locations),
+            tuple((node[a], node[b], rule(r), loc[self.slots[disc]]) for a, b, r, disc in g.teleports),
+            rule(g.victory)) for g in graphs)
+        t = native.Tables(
+            len(nodes), len(flag), len(locs), len(counter), node[self.start], tuple(rules),
+            tuple(tuple((counter[c], inc) for c, inc in self.items[x].items()) for x in items),
+            frozenset(i for c, i in counter.items() if c.startswith("disc")),
+            tuple(self.vanilla[x][1] for x in locs),
+            tuple((counter[self.refund[x][0]], counter[self.refund[x][1]]) if x in self.refund else (-1, -1)
+                  for x in locs),
+            *(tuple(tuple(sorted(flag[f] for f in forced.get(n, ()))) for n in nodes)
+              for forced in (self.forced, self.forced_phys)),
+            tuple((loc[self.slots[disc]], tuple(sorted(node[n] for n in self.regions[disc])))
+                  for disc in sorted(self.regions) if disc in self.slots),
+            compiled)
+        flags = [None] * len(flag)
+        for f, i in flag.items():
+            flags[i] = f
+        self._native[key] = got = _Native(t, nodes, locs, items, tuple(flags), loc, item, flag, counter,
+                                          (0, 1, 2 if phys.on else 1))
+        return got
 
     def _solve(self, settings: Settings, placement: Mapping, counters: dict, held: collections.Counter,
                flags: Iterable[str], trace: list | None = None, traps_too: bool = True,
                got: Iterable[str] | None = None, late: frozenset[str] = frozenset(),
                ) -> tuple[set, set, set, set, set, set, set, bool, set]:
-        rules, phys_rules = self.rules(settings), self.rules(settings, physical=True)
-        free_rules = self.rules(TRICK_FREE, physical=True) if phys_rules.on else phys_rules
-        base, flags = frozenset(flags), set(flags)
-        rnd = _Round(counters, held, set(got or ()), {self.start})
-        self._pending(counters, placement, rnd.got)
-        rnd.got -= late             # collected from the round that reaches it (``reach``'s ``replay``)
-        now: set[str] = set()       # with ``got``: the locations reached, never collected
-        traps: set[str] = set()
-        free: set[str] = set()
-        pending: tuple[set, set] = (set(), set())    # the traps of the rounds since the last sphere
-        memo, memo_phys = _Memo(self, rules, base), _Memo(self, phys_rules, base)   # round to round (Step R2.1)
-        reached, blocked, adj = {self.start}, [], rules.adj
-        todo = [self.start]
-        while True:
-            # the forward reach grows with the state (rules are monotone), so the edges it stopped at are tried again
-            keep = []
-            for v, rule in blocked:
-                if v not in reached:
-                    if rule(counters, flags):
-                        reached.add(v)
-                        todo.append(v)
-                    else:
-                        keep.append((v, rule))
-            blocked = keep
-            while todo:
-                for v, rule in adj.get(todo.pop(), ()):
-                    if v not in reached:
-                        if rule is _true or rule(counters, flags):
-                            reached.add(v)
-                            todo.append(v)
-                        else:
-                            blocked.append((v, rule))
-            rnd.safe |= self._escaping(rules, rnd, reached - rnd.safe, placement, base, self.forced, flags, memo)
-            phys, settable = self._closure(phys_rules, counters, flags) if traps_too else (set(), set())
-            maybe = phys - rnd.safe
-            found = maybe - self._escaping(phys_rules, rnd, maybe, placement, base, self.forced_phys, settable,
-                                           memo_phys)
-            walked = found if free_rules is phys_rules or not found else \
-                found & self._closure(free_rules, counters, flags)[0]
-            traps |= found
-            free |= walked
-            pending[0].update(found)
-            pending[1].update(walked)
-            locs = [loc for loc, n, rule in rules.locations
-                    if loc not in rnd.got and loc not in now and n in rnd.safe and rule(counters, flags)]
-            new = [f for f, n, terminal, rule in rules.credits if f not in flags
-                   and (n in rnd.safe or terminal and n in reached) and rule(counters, flags)]
-            if not (locs or new):
-                rnd.got |= late
-                after = {n for disc, slot in self.slots.items() if slot in rnd.got
-                         for n in self.regions.get(disc, ()) if n in phys}
-                return (reached, rnd.safe, phys, traps, after, rnd.got | now, flags, rules.victory(counters, flags),
-                        free)
-            if got is not None:
-                rnd.got.update(late.intersection(locs))
-                now.update(locs)
-                flags.update(new)
-                continue
-            if trace is not None and locs:
-                trace.append(Sphere(tuple(locs), dict(counters), collections.Counter(held), frozenset(flags),
-                                    frozenset(rnd.got), frozenset(pending[0]), frozenset(pending[1])))
-                pending = (set(), set())
-            for loc in locs:
-                rnd.got.add(loc)
-                self._take(held, counters, loc, placement)
-            flags.update(new)
+        """The fixpoint (the module's loop) in ``core.native``'s reach: its
+        compiled kernel when this platform's library is loaded, else its
+        Python twin (``AZURKIT_NATIVE=0``), the same answer. A ``trace``
+        gets its spheres from the kernel's rounds, replayed here."""
+        nt = self._tables(settings)
+        c = [0] * nt.tables.counters
+        for name, n in counters.items():
+            if (i := nt.counter.get(name)) is not None:   # a counter no rule or item reads changes nothing
+                c[i] = n
+        base = frozenset(flags)
+        log = trace is not None and got is None
+        s = native.solve(nt.tables, *nt.graphs, counters=c, held=[held.get(x, 0) for x in nt.items],
+                         flags=[nt.flag[f] for f in base],
+                         gives=[nt.item.get(self._item(x, placement), -1) for x in nt.locs],
+                         got=None if got is None else [nt.loc[x] for x in got], late=[nt.loc[x] for x in late],
+                         traps=traps_too, log=log)
+        if log:
+            self._spheres(trace, s, nt, placement, dict(counters), collections.Counter(held), base)
+        nodes, locs, fl = nt.nodes, nt.locs, nt.flags
+        return ({nodes[i] for i in s.reached}, {nodes[i] for i in s.safe}, {nodes[i] for i in s.phys},
+                {nodes[i] for i in s.traps}, {nodes[i] for i in s.after}, {locs[i] for i in s.got},
+                {fl[i] for i in s.flags}, s.victory, {nodes[i] for i in s.free})
+
+    def _spheres(self, trace: list, s: native.Solved, nt: _Native, placement: Mapping, counters: dict,
+                 held: collections.Counter, flags: frozenset[str]) -> None:
+        """``trace``'s :class:`Sphere` s from the kernel's rounds: each round
+        that collects something, the state it read (the counters and items
+        as each earlier round's locations left them, the flags credited in
+        the rounds before it) and the traps found since the last such round."""
+        self._pending(counters, placement, ())
+        flags, got, found, walked = set(flags), set(), set(), set()
+        locs, credited = collections.defaultdict(list), collections.defaultdict(list)
+        for i, r in enumerate(s.loc_round):
+            if r >= 0:
+                locs[r].append(nt.locs[i])
+        for i, r in enumerate(s.flag_round):
+            if r >= 0:
+                credited[r].append(nt.flags[i])
+        for r in range(s.rounds - 1):            # the last round collects and credits nothing
+            found.update(nt.nodes[i] for i in s.found_log[r])
+            walked.update(nt.nodes[i] for i in s.walked_log[r])
+            if locs[r]:
+                trace.append(Sphere(tuple(locs[r]), dict(counters), collections.Counter(held), frozenset(flags),
+                                    frozenset(got), frozenset(found), frozenset(walked)))
+                found, walked = set(), set()
+            for x in locs[r]:
+                got.add(x)
+                self._take(held, counters, x, placement)
+            flags.update(credited[r])
 
     def anchored(self) -> bool:
         """Rule 10 (plan §2.13 rule 1): with every item, under the strictest

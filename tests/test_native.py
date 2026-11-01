@@ -1,10 +1,12 @@
 """The compiled kernels (D1009): each library is its sources' build
 (``nativekit --check``), this platform's loads, and each kernel gives its
 Python twin's answer bit for bit, here and as the side module under
-Pyodide, over seeded random inputs; ``AZURKIT_NATIVE=0`` runs the twin."""
+Pyodide, over seeded random inputs (the reach's on the randomizer's own
+tables too); ``AZURKIT_NATIVE=0`` runs the twin."""
 
 from __future__ import annotations
 
+import collections
 import inspect
 import json
 import random
@@ -115,6 +117,40 @@ def test_the_reach_kernel_gives_its_twins_answer_bit_for_bit_and_this_platforms_
     assert lib is not None and native.report()["library"] == native.target(), native.report()
     for t, call in _cases(1400, 300):
         assert native._native(lib, t, **call) == native._twin(t, **call)
+
+
+def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables():
+    """The planner's own tables (``Logic._tables`` of its database) under
+    RS1's four option sets, each over seeded placements (the pool's items
+    shuffled), kits, flags and tracker states: reach.c's answer is its
+    twin's bit for bit, each round's log too."""
+    from azurkit.tools.randomizer.planner.loader import kept_logic
+    from azurkit.tools.randomizer.planner.settings import Settings
+    logic, rng, lib = kept_logic(), random.Random(1403), native.library()
+    spots = [x for x, lvl in sorted(logic.pool.items()) if lvl not in logic.db.stubs and x not in logic.guardian]
+    for st in (Settings(0, "safe", 2, {}), logic.db.defaults, Settings(2, "standard", 1, {}),
+               Settings(4, "frame_perfect", 1, {})):
+        nt = logic._tables(st)
+        for _ in range(6):
+            stock = [logic.vanilla[x][0] for x in spots]
+            rng.shuffle(stock)
+            placement = dict(zip(spots, stock))
+            held, counters = collections.Counter(), {}
+            for name in sorted(logic.items):
+                if rng.random() < 0.15:
+                    logic._add(held, counters, name, rng.choice((1, 1, 2)))
+            got = sorted(rng.sample(sorted(logic.pool), rng.randrange(len(logic.pool)))) if rng.random() < 0.4 else None
+            c = [0] * nt.tables.counters
+            for name, n in counters.items():
+                c[nt.counter[name]] = n
+            call = {"graph": nt.graphs[0], "phys": nt.graphs[1], "free": nt.graphs[2], "counters": c,
+                    "held": [held[x] for x in nt.items],
+                    "flags": [nt.flag[f] for f in rng.sample(sorted(logic.db.flags), rng.randint(0, 4))],
+                    "gives": [nt.item.get(logic._item(x, placement), -1) for x in nt.locs],
+                    "got": None if got is None else [nt.loc[x] for x in got],
+                    "late": [nt.loc[x] for x in got or () if x in logic.guardian],
+                    "traps": rng.random() < 0.8, "log": rng.random() < 0.5}
+            assert native._native(lib, nt.tables, **call) == native._twin(nt.tables, **call), st
 
 
 def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path):

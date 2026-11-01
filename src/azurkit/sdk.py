@@ -100,7 +100,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from azurkit import __version__
-from azurkit.core import gate, iso
+from azurkit.core import gate, iso, native
 from azurkit.core.progress import Steps, noting
 from azurkit.core.xbr import Document
 from azurkit.edits import manifest as edits
@@ -140,14 +140,17 @@ def catalog() -> dict:
     which a randomized build's logic is unverified, D83(c); ``None``).
     ``randomizer``: what the Randomizer tab offers, with D144's defaults
     (``tools.randomizer.options``); ``characters``: the Characters tab's
-    default Content from (:data:`SOURCE`)."""
+    default Content from (:data:`SOURCE`); ``native``: the compiled kernels
+    the engine runs (``core.native.report``: the library loaded and its
+    sha256[:12], else why their Python twins run), which the perf gate
+    reads."""
     return {"tabs": [{"id": tab, "title": title} for tab, title, works in TABS if works],
             "categories": [{"id": category, "title": title, "description": line}
                            for category, (title, line) in mods.CATEGORIES.items()],
             "packs": [{"name": p.name, "description": p.description, "category": p.category,
                        "default_on": p.default_on, "releases": list(p.releases), "requires": list(p.requires),
                        "sliders": [s.catalog() for s in p.sliders()]} for p in mods.PACKS.values()],
-            "randomizer": randomizer.options(), "characters": {"source": SOURCE}}
+            "randomizer": randomizer.options(), "characters": {"source": SOURCE}, "native": native.report()}
 
 
 def verify(path: str) -> dict:

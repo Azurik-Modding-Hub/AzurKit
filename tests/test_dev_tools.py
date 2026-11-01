@@ -174,6 +174,39 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
     assert perf.select(["AGENTS.md", "tests/test_x.py"]) == set() and len(perf.select(["web/app.mjs"])) == 12
 
 
+def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_library_its_worktree_ships():
+    """The perf gate's native assert (Step 4.3 native reach): each run's
+    engine reports (``sdk.catalog``'s ``native``) are the library the
+    worktree ships for the host, loaded, with its bytes' sha256[:12]; a
+    twin's run, another library's bytes or no report fails, and a page
+    whose engine runs without its library stops its pass
+    (``Driver.engine``)."""
+    from azurkit.core import native
+    app = perf.shipped(Path(perf.ROOT), native.target())
+    site = perf.shipped(Path(perf.ROOT), perf.SIDE_MODULE)
+    assert app[1] and site[1] and perf.shipped(Path(perf.ROOT), None) == (None, None)
+    ran = {"loaded": True, "library": app[0], "sha12": app[1], "kernels": ["reach"], "why": None}
+    twin = {"loaded": False, "library": None, "sha12": None, "kernels": [], "why": "AZURKIT_NATIVE=0"}
+    assert perf.native_failures({"app": [ran], "webkit": [ran | {"library": site[0], "sha12": site[1]}]},
+                                {"app": app, "webkit": site}) == []
+    assert perf.native_failures({"app": [twin], "webkit": [ran], "lag": []}, {"app": app, "webkit": site, "lag": site}) == [
+        f"native app: the engine ran no library (AZURKIT_NATIVE=0), not the shipped {app[0]} ({app[1]})",
+        "native lag: its engine reported no compiled kernels",
+        f"native webkit: the engine ran {app[0]} ({app[1]}), not the shipped {site[0]} ({site[1]})"]
+
+    class Stub(_perf.Page):
+        def __init__(self, report):
+            self.report = report
+
+        def js(self, fn, arg=None):
+            return self.report if fn == _perf.NATIVE else pytest.fail(fn)
+    d = _perf.Driver(_perf.RUNS["app"], {}, Path(perf.ROOT), Path(perf.ROOT), None)
+    d.engine(Stub(ran))
+    with pytest.raises(RuntimeError, match=r"^the engine runs without its native library \(AZURKIT_NATIVE=0\)$"):
+        d.engine(Stub(twin))
+    assert d.native == [ran, twin]
+
+
 def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_one_it_doesnt_know():
     """Safari's read model (the perf gate's lag run) makes every read of the
     player's File in ``web/worker.mjs`` 200 ms late, the blocks' FileReaderSync
@@ -206,7 +239,8 @@ class _Stub(_perf.Page):
         self.at |= {done: self.t + ms for done, ms in self.costs.get(action, {}).items()}
         return self.t
 
-    js = do
+    def js(self, fn, arg=None):   # an engine with its compiled kernels (Driver.engine)
+        return {"loaded": True} if fn == _perf.NATIVE else self.do(fn, arg)
 
     def wait(self, done, timeout=900, arg=None):
         self.t = max(self.t, self.at.get(done, self.t))

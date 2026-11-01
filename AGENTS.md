@@ -772,8 +772,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   without a library, when the library can't hold a call's numbers, and
   under `AZURKIT_NATIVE=0`, with the same answer bit for bit
   (`tests/test_native.py`, over seeded random inputs, natively and under
-  Pyodide). The first is the randomizer's reach (`native.solve`, the
-  solver's `_solve` over `native.Tables`), not wired into the planner yet.
+  Pyodide). The first is the randomizer's reach (`native.solve` over
+  `native.Tables`): every reach the planner, the fill and the tracker ask
+  runs it (`Logic._solve`; an option set's tables built once, in about
+  0.02 s, by `Logic._tables` from its rules' closures' `ast`, a trace's
+  spheres replayed from the kernel's rounds), on the app's CPython and,
+  by the side module from the wheel, in the site's worker.
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,
@@ -1263,7 +1267,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   browser writes the file the page handed it, and its download indicator
   shows that) shows it when each sample's page part, the click to the
   download's start, is within 1 s or moves the page's own bar; the receipt's
-  case keeps those seconds, and the whole still answers to 3 s. An op over
+  case keeps those seconds, and the whole still answers to 3 s. Each page's
+  engine reports its compiled kernels (`sdk.catalog`'s `native`): a run
+  whose engine answers without the library the worktree ships for its
+  host (this machine's, the site's side module), loaded, with those bytes'
+  sha256[:12], fails, its ops with it, so the Python twins' times never
+  become a ceiling. An op over
   runs three more times and fails only if the median of all six is still over. The list only shrinks: `perf.py
   --update-ceilings` lowers a ceiling you earned (in your own commit) and
   drops what is back under, and the gate and `land.py` fail an added op or
