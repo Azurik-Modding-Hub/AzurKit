@@ -63,8 +63,9 @@ KINDS = ("plan", "view", "build")
 """The slots: a seed's plan, its first tracker view, a build."""
 KEEPS = frozenset({"plan"})
 """The stages a cancelled job runs on through: the randomizer's logic read and its fill, which it keeps."""
-GRACE = 2.0
-"""Seconds a stopped or demoted job has to reach its next record before the host's ``kill``."""
+GRACE = 5.0
+"""Seconds a stopped or demoted job has to reach its next record before the host's ``kill``: past keylord's longest
+stretch with no record (its files written, about 3 s), as a kill costs the next seed's click the logic's read."""
 PEAK, SMALL_RAM = 2 << 30, 16 << 30
 """A job whose last run peaked over ``PEAK`` bytes runs ahead only on a machine with ``SMALL_RAM`` or more
 (:func:`room`): memory, not cores, is what a heavy job ahead takes from a small machine (it runs at background

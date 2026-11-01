@@ -8,10 +8,14 @@ process) and returns what it was, which :func:`foreground` puts back. Each
 is a call a process makes on itself: macOS reads nothing back from a
 parent's call on its child's pid, so a child lowers itself. Per OS:
 
-- **macOS:** a thread's QoS class (``pthread_set_qos_class_self_np``:
-  background, and back to the class it had); a process's
-  ``PRIO_DARWIN_BG`` (``setpriority(PRIO_DARWIN_PROCESS)``, which throttles
-  its disk too). Both go down and back up from the process itself.
+- **macOS:** a thread's priority within the default QoS class
+  (``pthread_set_qos_class_self_np``, the lowest relative priority, and back
+  to the class it had): under the utility class's scheduling priority, on
+  every core, where the background class holds a thread to the efficiency
+  cores (keylord's build on a loaded Mac: 2.2 s normal and here, 3 s
+  utility, 7-10 s background, D1007); a process's ``PRIO_DARWIN_BG``
+  (``setpriority(PRIO_DARWIN_PROCESS)``, which throttles its disk too). Both
+  go down and back up from the process itself.
 - **Windows:** ``SetThreadPriority`` and ``SetPriorityClass`` below
   normal, and back to what they were.
 - **Linux and other POSIX:** nice at least :data:`NICE`
@@ -34,7 +38,7 @@ import sys
 
 NICE = 10
 """POSIX's low priority: at least this nice."""
-QOS_BACKGROUND, QOS_DEFAULT = 0x09, 0x15            # <sys/qos.h>
+QOS_DEFAULT, QOS_LOWEST = 0x15, -15                  # <sys/qos.h>: its class and QOS_MIN_RELATIVE_PRIORITY
 PRIO_DARWIN_PROCESS, PRIO_DARWIN_BG = 4, 0x1000     # <sys/resource.h>
 THREAD_BELOW_NORMAL, PROCESS_BELOW_NORMAL = -1, 0x4000   # <winbase.h>
 _THREAD_ERROR = 0x7FFFFFFF                          # GetThreadPriority's THREAD_PRIORITY_ERROR_RETURN
@@ -77,7 +81,7 @@ def background(process: bool = False) -> int | None:
                 was = libc.getpriority(PRIO_DARWIN_PROCESS, 0)
                 return was if libc.setpriority(PRIO_DARWIN_PROCESS, 0, PRIO_DARWIN_BG) == 0 else None
             was = libc.qos_class_self() or QOS_DEFAULT   # unspecified: the default class it runs at
-            return was if libc.pthread_set_qos_class_self_np(QOS_BACKGROUND, 0) == 0 else None
+            return was if libc.pthread_set_qos_class_self_np(QOS_DEFAULT, QOS_LOWEST) == 0 else None
         if sys.platform == "win32":
             k = _kernel32()
             if process:

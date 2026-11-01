@@ -302,7 +302,7 @@ def _no_sysconf(name):   # Pyodide's
 
 
 @pytest.mark.parametrize("platform, process, calls, was, back, ram", [
-    ("darwin", False, [("qos_class_self",), ("pthread_set_qos_class_self_np", 0x09, 0),
+    ("darwin", False, [("qos_class_self",), ("pthread_set_qos_class_self_np", 0x15, -15),
                        ("pthread_set_qos_class_self_np", 0x15, 0)], 0x15, True, 4 << 30),
     ("darwin", True, [("getpriority", 4, 0), ("setpriority", 4, 0, 0x1000), ("setpriority", 4, 0, 0)], 0, True,
      4 << 30),
@@ -339,7 +339,19 @@ def test_this_hosts_thread_goes_to_background_priority_and_back():
     back low, then as it was; POSIX's stays low (its known flaw) unless it
     was low already."""
     if sys.platform == "darwin":
-        read, low = (lambda: host._libc().qos_class_self()), (lambda now: now == host.QOS_BACKGROUND)
+        import ctypes
+
+        libc = ctypes.CDLL(None)
+        libc.pthread_self.restype = ctypes.c_void_p
+        libc.pthread_get_qos_class_np.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+
+        def read():   # the thread's relative priority
+            qos, relative = ctypes.c_uint(), ctypes.c_int()
+            libc.pthread_get_qos_class_np(libc.pthread_self(), ctypes.byref(qos), ctypes.byref(relative))
+            return relative.value
+
+        def low(now):
+            return now == host.QOS_LOWEST
     elif sys.platform == "win32":
         k = host._kernel32()
         read, low = (lambda: k.GetThreadPriority(k.GetCurrentThread())), (lambda now: now == host.THREAD_BELOW_NORMAL)
