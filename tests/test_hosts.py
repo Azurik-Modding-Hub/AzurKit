@@ -150,6 +150,22 @@ def frozen_app(tmp_path_factory):
             path.chmod(path.stat().st_mode | 0o200)
 
 
+def _home(monkeypatch, home: Path) -> None:
+    """This process's user folders, and its children's, under ``home``:
+    HOME, and every folder platformdirs finds the app's config, data, cache
+    and downloads in before HOME, whatever the host sets: no XDG_*_HOME (a
+    GitHub Linux runner sets XDG_CONFIG_HOME, so every test's app.json was
+    one file there, Step 4.4ci2) and, on Windows, whose known folders don't
+    follow HOME, platformdirs' WIN_PD_OVERRIDE_* and USERPROFILE."""
+    monkeypatch.setenv("HOME", str(home))
+    for name in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    if os.name == "nt":
+        monkeypatch.setenv("USERPROFILE", str(home))
+        for kind in ("APPDATA", "LOCAL_APPDATA", "DOWNLOADS"):
+            monkeypatch.setenv(f"WIN_PD_OVERRIDE_{kind}", str(home / kind))
+
+
 class Sandbox:
     """Where the frozen app runs: a fresh HOME and TMPDIR, an empty working
     folder, no image variables and the tests' no-window mode (:attr:`env`;
@@ -160,9 +176,9 @@ class Sandbox:
         self.home, self.tmp, self.cwd = tmp_path / "home", tmp_path / "tmp", tmp_path / "cwd"
         for folder in (self.home, self.tmp, self.cwd):
             folder.mkdir()
+        _home(monkeypatch, self.home)
         self.env = {k: v for k, v in os.environ.items() if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE")}
-        self.env |= {"HOME": str(self.home), "TMPDIR": str(self.tmp), app.NO_WINDOW: "1"}
-        monkeypatch.setenv("HOME", str(self.home))
+        self.env |= {"TMPDIR": str(self.tmp), app.NO_WINDOW: "1"}
         monkeypatch.delenv("AZURKIT_ISO", raising=False)
         monkeypatch.delenv("AZURKIT_ISO_EUROPE", raising=False)
         self.dirs = platformdirs.PlatformDirs("AzurKit", appauthor=False)
@@ -407,7 +423,7 @@ def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch, tmp_pat
     monkeypatch.setattr(characters, "CACHE", characters.CACHE)
     monkeypatch.setattr(swapcache, "root", lambda: tmp_path / "cache")
     monkeypatch.setattr(swapcache, "key_file", lambda: tmp_path / "data" / "cache.key")
-    monkeypatch.setenv("HOME", str(tmp_path))   # the engine process's platformdirs
+    _home(monkeypatch, tmp_path)   # the engine process's platformdirs
 
     def opened(*args, **kwargs):
         raise AssertionError("the window path ran under the tests")
@@ -515,7 +531,7 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
     anything but pack and setting names, numbers and config.xbr ``set``
     cells (an image's path as a pack or setting name, a ``replace_bytes``,
     a character's recipe file) is refused by name, the config as it was."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
+    _home(monkeypatch, tmp_path / "home")   # where the app remembers
     (page := tmp_path / "page").mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
     server = app.serve(page)
@@ -573,7 +589,7 @@ def test_the_apps_characters_tab_installs_from_a_folder_source_and_draws_a_model
     (``host.json``); ``api/preview`` draws the chosen model from the front and from behind, two PNGs."""
     from azurkit.tools.characters import _player_variants, content
 
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
+    _home(monkeypatch, tmp_path / "home")   # where the app remembers
     monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
     monkeypatch.setattr(content, "ROOT", tmp_path / "content")
     source = tmp_path / "clone"
@@ -631,7 +647,7 @@ def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monke
     after which no ``finally`` runs). Nothing is left where it saved. Both
     run the save in the app's engine process (``app.engine.Spawned``)."""
     import webview
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers the image
+    _home(monkeypatch, tmp_path / "home")   # where the app remembers the image
     out = tmp_path / "out"
     out.mkdir()
     recipe = {"iso": str(usa_iso), "packs": {"fps_unlock": {}}}
@@ -684,7 +700,7 @@ def test_closing_the_app_during_a_long_build_returns_within_2_s_and_leaves_no_pa
     to remove its part file, ``app.QUIT_WAIT`` in all; a save whose disk
     stalls past that has its part file removed by the close (D35) and then
     fails, so nothing is left where it saved, even if the app exits then."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     out, release = tmp_path / "out", threading.Event()
     out.mkdir()
     planning, stalled = threading.Event(), threading.Event()
@@ -755,7 +771,7 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
     process's pool (``app.procpool``); Cancel ends that process at once, and
     its pool's children with it, the build is refused, another process
     takes the next Build, and closing the app ends it too."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     server = app.serve(_page.WEB, engine.Spawned())
     first, replies = server.engine.pid, []
 
@@ -825,7 +841,7 @@ def test_the_apps_save_writes_the_image_its_build_made_planned_once_and_hashed_f
     output's path, size and sha256, as ``sdk.build`` gives them. A save
     whose build the engine keeps no more (another Build's since, or a
     cancel's new process) builds its recipe again: the same image."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     planned, plan = [], sdk._plan
     monkeypatch.setattr(sdk, "_plan", lambda *args, **kwargs: planned.append(1) or plan(*args, **kwargs))
     server, recipe = app.serve(_page.WEB), {"iso": str(usa_iso), "packs": {"fps_unlock": {}}}
@@ -957,7 +973,7 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
     kit too, on the build's plan (its report's) and the max plan, and
     ``api/tracked`` remembers the plan and its marks, refusing anything
     else by name."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))   # where the app remembers
+    _home(monkeypatch, tmp_path / "home")   # where the app remembers
     server = app.serve(_page.WEB)
     defaults = sdk.catalog()["randomizer"]["defaults"]
     packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
@@ -1038,7 +1054,7 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
     the step's evidence)."""
     from azurkit.tools.randomizer.live import game, link
 
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     near = sorted(loc for loc, s in sdk.tracker({"plan": doc})["spots"].items() if s["state"] == "near")[0]
@@ -1166,7 +1182,7 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
     scripted game taking a gem) takes its dot away. No CSP violation."""
     from azurkit.tools.randomizer.live import game, link
 
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     first = sdk.tracker({"plan": doc, "gems": True})
@@ -1266,7 +1282,7 @@ def test_live_opens_each_session_on_the_marks_journal_and_reads_the_game_again_a
     next poll. Once the link is lost, the player isn't placed ("here")."""
     from azurkit.tools.randomizer.live import game, link
 
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(app.live, "RETRY_S", 0.05)
     doc = _profile("default")
     spots = sdk.tracker({"plan": doc})["spots"]
@@ -1455,7 +1471,7 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
     cells' text and a Where cut short shows whole in its tip; and scrolled
     down, the Level table's column heads stay in view under the tab's
     caption."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
     level = next(s["level"] for s in sdk.tracker({"plan": doc, "spoiler": True})["spots"].values() if s["icon"] == "key")
@@ -1502,7 +1518,7 @@ def test_the_apps_saves_never_replace_the_image_its_build_read_nor_a_file_anothe
     randomized build read (D36), even once its save dialog chose it (its
     Replace confirmed), and a file there that a dialog chose for another
     save, or whose own dialog was cancelled since; each leaves it as it was."""
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    _home(monkeypatch, tmp_path / "home")
     picked, other = tmp_path / "picked.iso", tmp_path / "other.txt"
     picked.write_bytes(bytes(64))
     other.write_bytes(b"kept")
