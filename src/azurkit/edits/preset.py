@@ -34,7 +34,7 @@ import re
 import zlib
 from collections.abc import Mapping
 
-from azurkit.core import gate
+from azurkit.core import gate, jsondepth
 
 FORMAT = "azurkit-preset"
 MANIFEST = "azurkit-manifest"
@@ -95,14 +95,6 @@ def encode(preset: Mapping) -> str:
     return text
 
 
-def _depth(value: object) -> int:
-    if isinstance(value, Mapping):
-        return 1 + max(map(_depth, value.values()), default=0)
-    if isinstance(value, list):
-        return 1 + max(map(_depth, value), default=0)
-    return 0
-
-
 def _object(pairs: list[tuple[str, object]]) -> dict:
     if len({k for k, _ in pairs}) != len(pairs):
         raise ValueError("preset: a key given twice")
@@ -115,16 +107,15 @@ def _constant(name: str) -> None:
 
 def _json(data: bytes) -> object:
     try:
-        found = json.loads(data.decode("utf-8"), object_pairs_hook=_object, parse_constant=_constant)
-    except RecursionError:
-        raise ValueError(f"preset: JSON nested deeper than {MAX_DEPTH}") from None
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"preset: not JSON ({exc.msg} at {exc.pos})") from None
+        text = data.decode("utf-8")
     except UnicodeDecodeError:
         raise ValueError("preset: not UTF-8") from None
-    if _depth(found) > MAX_DEPTH:
+    if jsondepth.deeper(text, MAX_DEPTH):   # before json parses it: its own limit differs by platform
         raise ValueError(f"preset: JSON nested deeper than {MAX_DEPTH}")
-    return found
+    try:
+        return json.loads(text, object_pairs_hook=_object, parse_constant=_constant)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"preset: not JSON ({exc.msg} at {exc.pos})") from None
 
 
 def from_manifest(record: Mapping) -> dict:

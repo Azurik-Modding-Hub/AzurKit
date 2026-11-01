@@ -52,6 +52,8 @@ import shutil
 from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
 
+from azurkit.core import jsondepth
+
 ENV = "AZURKIT_CONTENT"
 FORMAT, SCHEMA_VERSION = "azurik-custom-content", 1
 MANIFEST, INSTALLED = "manifest.json", "installed.json"
@@ -66,6 +68,7 @@ FOLDERS = tuple(SUFFIXES)
 """The folders an entry's files lie in (a variant's recipe in ``variants/<id>/variant.json``)."""
 MAX_MANIFEST, MAX_FILE = 1 << 20, 64 << 20
 MAX_ENTRIES, MAX_FILES = 1000, 10000
+MAX_NESTING = 32   # a manifest nests 5 deep (its entries' files); deeper is refused before json parses it
 """A manifest's entries and its files in all, at most (D992's SEC-6: a small manifest is untrusted input)."""
 MAX_ENTRY = 256 << 20
 """An entry's files, and an Install's (the entry and those it requires), at most, in bytes (D992's SEC-9)."""
@@ -134,11 +137,12 @@ def check(manifest: bytes | str | Mapping) -> dict:
         if len(raw) > MAX_MANIFEST:
             raise ValueError(f"manifest: {len(raw):,} bytes, past the {MAX_MANIFEST:,} a manifest may hold")
         try:
-            manifest = json.loads(raw)
+            text = raw.decode(json.detect_encoding(raw), "surrogatepass")   # as json.loads reads bytes
+            if jsondepth.deeper(text, MAX_NESTING):   # before json parses it: its own limit differs by platform
+                raise ValueError("manifest: not JSON (nested too deep)")
+            manifest = json.loads(text)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ValueError(f"manifest: not JSON ({exc})") from None
-        except RecursionError:
-            raise ValueError("manifest: not JSON (nested too deep)") from None
     if not isinstance(manifest, Mapping):
         raise ValueError("manifest: not a JSON object")
     if manifest.get("format") != FORMAT:

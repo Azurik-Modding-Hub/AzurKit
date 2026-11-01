@@ -5,6 +5,7 @@ share preset carries a recipe (WEB §4.2, Q174)."""
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import functools
 import hashlib
 import json
@@ -175,7 +176,9 @@ def test_a_preset_round_trips_and_refuses_what_isnt_one_by_name():
     never the image's path. ``sdk.preset_decode`` gives it back from the
     fragment or a whole link, and encoding that again gives the same link.
     A fragment is untrusted (WEB §4.2): each thing that isn't a preset is
-    refused by name, within the caps (8 KB a link, 64 KB inflated, 8 deep)."""
+    refused by name, within the caps (8 KB a link, 64 KB inflated, 8 deep),
+    alike in any thread (``core.jsondepth``: json's own depth limit is the
+    C stack's, which differs by thread and platform)."""
     recipe = {"iso": "/Users/someone/games/usa.iso", "packs": {"qol_alloc_race": {}, "fps_unlock": {"target_fps": 120.0}}}
     report = {"release": "usa", "result": {"default.xbe": "ab" * 32, "filelist.txt": "cd" * 32}}
     link = sdk.preset_encode(recipe, report)
@@ -208,6 +211,11 @@ def test_a_preset_round_trips_and_refuses_what_isnt_one_by_name():
         "#p=" + "A" * 8192: "preset: no #p= and base64url of at most 8192 B",
         "fps_unlock=120": "preset: no #p=",
     }
-    for text, why in refused.items():
-        with pytest.raises(ValueError, match="^" + re.escape(why)):
-            sdk.preset_decode(text)
+
+    def refuse() -> None:
+        for text, why in refused.items():
+            with pytest.raises(ValueError, match="^" + re.escape(why)):
+                sdk.preset_decode(text)
+    refuse()
+    with concurrent.futures.ThreadPoolExecutor(1) as other:   # another thread's C stack, which json's limit follows
+        other.submit(refuse).result()
