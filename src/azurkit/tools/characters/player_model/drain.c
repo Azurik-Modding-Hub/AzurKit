@@ -198,6 +198,17 @@
  *   and the handler never reads it again, so after the send +0x24 and
  *   +0x28 := 0: the target hops where it stands (main's 12 m box, centred
  *   on it, knocked it straight up) and stays in his next swing's line.
+ *   While a sent hit goes to its critter, X18's drain slot (its VA in the
+ *   bytes param player_model_drain_light_at; 0 on a build without X18)
+ *   names it, so the hit-level chooser gives the drain's hit the level
+ *   the player's own hit in the column playing gets (Step 4.3, D1045: a
+ *   stun in a light column or a set's swing standing for basic1-3, where
+ *   the game's level 2 cleared the stun the swing's box had just given
+ *   and the combo, chaining only onto a stunned target, restarted:
+ *   beamlord's set 2 at its drain, sitting row S5); when X18 made it
+ *   light, X37 holds its own touches off that critter for the rest of the
+ *   window, as the heavy reaction's window (1 s or more, over a field of
+ *   1 s at x1) did, so the drain still hits it once a window.
  *   Every other touch is the game's.  The player is read from the
  *   platform's own world (+0x154, the world's +0xC0) on every touch,
  *   never cached.
@@ -305,6 +316,7 @@ AZURIK_BYTES_PARAM(player_model_drain_radius_at, 4);
 AZURIK_BYTES_PARAM(player_model_drain_state_at, 4);
 AZURIK_BYTES_PARAM(player_model_drain_fx, 32);   /* _player_character.DRAIN_FX_SIZE */
 AZURIK_BYTES_PARAM(player_model_drain_aim, 4);   /* the aim nodes: their count, then each one's record */
+AZURIK_BYTES_PARAM(player_model_drain_light_at, 4);   /* X18's drain slot (Step 4.3): its VA, 0 none */
 
 struct kept {         /* a critter kept across ticks, with its identity (AZ-682) */
     char *critter;    /* 0 none, or gone                                */
@@ -329,6 +341,11 @@ struct drain_state {
 };
 
 _Static_assert(sizeof(struct held) == 16 && sizeof(struct drain_state) == 384, "fx_ring.c's DrainState");
+
+struct light_drain {   /* light_hit.c's: the critter a sent hit goes to, and whether X18 made it level 1 */
+    const char *target;
+    int made;
+};
 
 struct drain_state player_model_drain_state = {0, {0, 0, 0}, 0, 0, -1e300, {0}, {{0, {0, 0, 0}}}, {0}};
 
@@ -357,6 +374,11 @@ static int mine(const char *player, const char *instance)
 
     return own && instance
         && (instance == own || *(const int *)(instance + IN_ASSET) == *(const int *)(own + IN_ASSET));
+}
+
+static volatile struct light_drain *light(void)
+{
+    return (volatile struct light_drain *)*(const volatile unsigned *)player_model_drain_light_at;
 }
 
 static struct drain_state *state(void)
@@ -777,6 +799,7 @@ __attribute__((used))
 int drain_touch_before(char *toucher, const char *platform)
 {
     struct drain_state *s = state();
+    volatile struct light_drain *l = light();
     const char *world = *(const char *const *)(platform + CR_WORLD);
     char *player = world ? *(char *const *)(world + WD_PLAYER) : 0;
     const char *node = *(const char *const *)(platform + PF_NODE), *pc;
@@ -807,6 +830,10 @@ int drain_touch_before(char *toucher, const char *platform)
     sent_now = now;
     heal_player = player;
     hp_before = *(const int *)(toucher + CR_HP);
+    if (l) {   /* X18: the hit the player's own would be in the column playing */
+        l->target = toucher;
+        l->made = 0;
+    }
     return 2;
 }
 
@@ -814,8 +841,14 @@ __attribute__((used))
 void drain_touch_after(char *toucher, int what, const char *hit)
 {
     char *player = heal_player, *control;
-    int lost, heal, hp;
+    volatile struct light_drain *l = light();
+    int lost, heal, hp, made = 0;
 
+    if (l) {
+        made = l->made;
+        l->target = 0;
+        l->made = 0;
+    }
     if (what != 2 || !player)
         return;
     if (window_critter == toucher) {   /* the critter's window: the longer of its old and the hit's */
@@ -828,6 +861,8 @@ void drain_touch_after(char *toucher, int what, const char *hit)
     lost = hp_before - *(const int *)(toucher + CR_HP);
     if (lost > 0 && sent_at >= 0)   /* AZ-765: a light hit's window, the drain held off */
         hold_off(toucher, hit, state(), sent_at);
+    if (lost > 0 && sent_at >= 0 && made)   /* X18 made it light: held off for the rest of the window */
+        state()->hold[sent_at] = 1e300;
     if (lost > 0 && (control = ai_control(toucher)) != 0) {   /* AZ-672: it hops where it stands */
         *(float *)(control + CT_KNOCK) = 0.0f;
         *(float *)(control + CT_KNOCK + 4) = 0.0f;

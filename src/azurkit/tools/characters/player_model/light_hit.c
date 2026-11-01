@@ -47,6 +47,19 @@
  * on AI, the player's heavy columns, B's sweeps, a set's fourth, a hit
  * whose multiplier isn't the attack's) keeps the game's level.
  *
+ * X37's drain (Step 4.3, D1045): the drain's hits are a platform's (its
+ * box's touch, sent by X37's touch landing), not the player's melee, so
+ * at the game's level 2 they cleared the stun the swing's own hit had
+ * just given its target, and a set whose drain stands for basic3
+ * (beamlord's 8, 9, 10, 13) never chained past it.  While X37 sends one
+ * it names the target in player_model_light_drain (its bytes param
+ * player_model_drain_light_at holds that struct's VA), and a hit on that
+ * target takes the same column rule as the player's own, so the drain's
+ * hit stuns where the swing's does; X18 sets made when it lowered the
+ * level, and X37 then holds its own touches off that critter for the
+ * rest of the window, as the heavy reaction's window it no longer gives
+ * did (one drain hit a window, its damage and heal unchanged).
+ *
  * ABI: at the CALL, AX holds the FPU status FNSTSW stored, EBX the
  * level, ECX the hit record, ESI the target's species, EDI the target
  * critter, EBP the caller's argument; 0x30C26 on reads EBX, ECX, ESI,
@@ -72,20 +85,30 @@
 AZURIK_FLOAT_PARAM(player_model_light_columns, 0.0f);
 AZURIK_BYTES_PARAM(player_model_light_sets_at, 4);
 
-/* Whether the hit is the player's melee in a light column, or in a set's
- * swing standing for basic1-3. */
+/* X37's drain hit while X37 sends it: its target, and whether this hook
+ * made it level 1 (X37 writes the first and reads the second). */
+struct light_drain {
+    const char *target;
+    int made;
+};
+
+volatile struct light_drain player_model_light_drain = {0, 0};
+
+/* Whether the hit (the game's ``level``) is the player's melee, or X37's
+ * drain, in a light column or in a set's swing standing for basic1-3. */
 __attribute__((used))
-int light_hit(const char *hit, const char *target)
+int light_hit(const char *hit, const char *target, int level)
 {
     const char *world = *(const char *const *)(target + CR_WORLD);
     const char *player, *control, *sets;
     unsigned column;
+    int drained = target == player_model_light_drain.target, light;
 
     if (!world)
         return 0;
     player = *(const char *const *)(world + WD_PLAYER);
-    if (!player || *(const char *const *)(hit + HIT_ATTACKER) != player
-            || *(const unsigned *)(hit + HIT_MULTIPLY) != *(const unsigned *)(player + CR_MULTIPLY))
+    if (!player || (!drained && (*(const char *const *)(hit + HIT_ATTACKER) != player
+            || *(const unsigned *)(hit + HIT_MULTIPLY) != *(const unsigned *)(player + CR_MULTIPLY))))
         return 0;
     control = *(const char *const *)(player + CR_CONTROL);
     if (!control)
@@ -93,16 +116,16 @@ int light_hit(const char *hit, const char *target)
     column = *(const unsigned *)(control + PC_COLUMN);
     if (column >= COLUMNS)
         return 0;
-    if (((unsigned)(int)player_model_light_columns >> column) & 1)
-        return 1;
+    light = ((unsigned)(int)player_model_light_columns >> column) & 1;
     sets = *(const char *const volatile *)player_model_light_sets_at;
-    if (!sets)
-        return 0;
-    {
+    if (!light && sets) {
         int logical = *(const volatile int *)(sets + SET_LOGICAL);
 
-        return logical >= 0 && logical < BASICS && *(const volatile unsigned *)(sets + SET_SOURCE) == column;
+        light = logical >= 0 && logical < BASICS && *(const volatile unsigned *)(sets + SET_SOURCE) == column;
     }
+    if (light && drained && level != 1)
+        player_model_light_drain.made = 1;
+    return light;
 }
 
 /* 0x30C1C: TEST AH,5 / JP 0x30C26 / MOV EBX,1, then the player's light
@@ -117,10 +140,11 @@ void c_player_model_light_hit(void)
         "retl                     \n\t"
         "1:                       \n\t"
         "pushl %%ecx              \n\t"
+        "pushl %%ebx              \n\t"   /* the game's level */
         "pushl %%edi              \n\t"   /* the target     */
         "pushl %%ecx              \n\t"   /* the hit record */
         "calll _light_hit         \n\t"
-        "addl $8, %%esp           \n\t"
+        "addl $12, %%esp          \n\t"
         "popl %%ecx               \n\t"
         "testl %%eax, %%eax       \n\t"
         "jz 2f                    \n\t"

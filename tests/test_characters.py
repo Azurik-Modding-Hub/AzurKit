@@ -453,12 +453,14 @@ def test_a_worn_combo_chains_only_on_a_stun_unless_chain_is_any_and_every_sets_f
     it, on a boss, a creature, a townsman and a variant (and garret4's own body); any other chain is refused by name.
     Each set's first three attacks stun a target (their multiplier under 1.0, or X18: a light column, or a set's
     swing read from X36's state), so every set's combo can chain on a hit (Step 4.3: air_elemental's gust,
-    beamlord's second set and the townsman's second set never stunned)."""
+    beamlord's second set and the townsman's second set never stunned), and so does a drain among them (X37 names
+    its hit's target in X18's slot: its level 2 cleared the swing's stun, beamlord's set 2 at its drain, Balthazar's
+    basic2)."""
     from azurkit.tools.characters import _player_character as swap
 
     with pytest.raises(ValueError, match=r"^character: chain 'press' is not one of 'hit', 'any'"):
         characters.normalize({"species": "keylord", "chain": "press"})
-    seen, attack_sets, light_hit = {}, swap.attack_sets, swap.install_light_hit_shim
+    seen, attack_sets, light_hit, drain = {}, swap.attack_sets, swap.install_light_hit_shim, swap.install_drain_shim
 
     def sets(columns, picks):   # the sets the build plays and X18 as it lands, recorded
         seen["sets"] = attack_sets(columns, picks)
@@ -467,8 +469,13 @@ def test_a_worn_combo_chains_only_on_a_stun_unless_chain_is_any_and_every_sets_f
     def x18(xbe, columns, sets_state=0):
         seen["x18"] = columns, sets_state
         light_hit(xbe, columns, sets_state)
+
+    def x37(xbe, columns, *args):   # its drain's columns and X18's slot as it lands
+        seen["x37"] = columns, args[5] if len(args) > 5 else 0
+        drain(xbe, columns, *args)
     monkeypatch.setattr(swap, "attack_sets", sets)
     monkeypatch.setattr(swap, "install_light_hit_shim", x18)
+    monkeypatch.setattr(swap, "install_drain_shim", x37)
     for species in ("balthazar", "air_elemental", "town_male_1", "beamlord", "garret4"):
         for chain in ("hit", "any"):
             seen.clear()
@@ -483,12 +490,16 @@ def test_a_worn_combo_chains_only_on_a_stun_unless_chain_is_any_and_every_sets_f
             if chain == "any":
                 continue
             anims = doc.keyed_section("attacks_anims")
-            columns, (mask, state) = anims.col_names(), seen.get("x18", (0, 0))
+            columns, (mask, state), (drains, slot) = anims.col_names(), seen.get("x18", (0, 0)), seen.get("x37", (0, 0))
             for k, cols in enumerate(seen.get("sets") or [[0, 1, 2]]):
                 for c in cols[:3]:
                     m = anims.find_cell(columns[c], swap.MULTIPLIER, c)
                     assert (m is not None and m.type_code == 1 and m.double_value < swap.LIGHT) or "x18" in seen and (
                         mask >> c & 1 or k and state), (species, k, columns[c])
+                    assert not drains >> c & 1 or "x18" in seen and slot and (mask >> c & 1 or k and state), (
+                        species, k, columns[c], "drain")
+            assert species not in ("balthazar", "beamlord") or drains & sum(  # each has a drain the combo chains from
+                1 << c for cols in seen["sets"] for c in cols[:3]), species
 
 
 # --- variants (Step 4.3c1): a recipe's mesh, paint and jiggle -----------------------------------------------------

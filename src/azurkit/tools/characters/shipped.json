@@ -1,11 +1,11 @@
 {
  "plan": [
   {
-   "answer": "fce297ccb85026db064b6b8dbbb411408bdfbdef5db0a94137af788bc62d33df",
+   "answer": "62bba944f2a9f8f973e4ae8e9cdd1b4aacd62416f13e87d16636e45963fd785d",
    "blob": {
-    "path": "variants/booblord/shipped/usa-3ef5459db120.azkp",
-    "sha256": "3ef5459db12016122c7f3f439672122cea0bb754393970a76559d0dfe675d16c",
-    "size": 6591595
+    "path": "variants/booblord/shipped/usa-72ca94916d6d.azkp",
+    "sha256": "72ca94916d6dccc7922ef147e007631d2d050a30f0d5e76a7666975323e98a8a",
+    "size": 6597452
    },
    "entries": {
     "booblord": {
@@ -110,11 +110,11 @@
    ]
   },
   {
-   "answer": "8e2a502b2d79ca8de75501d162c0ce35a8dde9dee6c6e12091af3ae7bdbcc155",
+   "answer": "6d66f90823ee76b854b9bba3230ea446a9820418e0f62ce72464f13e0ac07230",
    "blob": {
-    "path": "variants/booblord/shipped/europe-0befa55dd830.azkp",
-    "sha256": "0befa55dd830174eb746ff7c4c5b35835a7585544d8290a552a1264086ace42b",
-    "size": 6584457
+    "path": "variants/booblord/shipped/europe-fbd58d2351b0.azkp",
+    "sha256": "fbd58d2351b0e2eb0a16620cb33be3e1fb51c734ea5727f8c17779207dccdef7",
+    "size": 6586092
    },
    "entries": {
     "booblord": {

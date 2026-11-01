@@ -33,7 +33,7 @@
   "normalized sha256": "e8559772950bca1ed128b863278a2245553aa9766ad08cd949eb497243ce90b5"
  },
  "player_model_drain.o": {
-  "normalized sha256": "ef682c7d4a583a387893971325c2bede7001c54d1a291ea05973e7dbe550d120"
+  "normalized sha256": "4d4f9c145c40ea2eb7b731e245c08a09ba1d806f224ab3e39d1953990679e3b2"
  },
  "player_model_eye.o": {
   "normalized sha256": "0841ad671cbb1f7fa938d74975b151f0f5a6e0ca1b58a750cca955bf4f5f3fad"
@@ -78,7 +78,7 @@
   "normalized sha256": "241ee3a2c3beecbe4c357bb57dd4b4b36bfea59af96064081e6410172b6f06cb"
  },
  "player_model_light_hit.o": {
-  "normalized sha256": "843e99991a3a67d44016f26923cb64aa33a20f3f8833c3887cb7e6166b2bebd3"
+  "normalized sha256": "e07579a49b8052d45422adccaf85c2b35df5b18cdce3af9993618902a7be8546"
  },
  "player_model_near_draw.o": {
   "normalized sha256": "bd18ccaf19e1059d703651397ba6709e2402ac9cffdc25cae859f5c6b9a3c76a"

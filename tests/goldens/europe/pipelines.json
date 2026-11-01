@@ -1,12 +1,12 @@
 {
  "randomize-full:player-character=firelord,variant-file=tests/fixtures/effects.json": {
-  "ISO": "39584a6d7ea812f79828d7b948495329bf72bf6fe20bc320c52ba1c121b30b3b",
-  "default.xbe": "78176a95b5f4b3d5e48bb4bb7d855945dabaf7ab1110d4f0aba44ac9e4cd0132",
+  "ISO": "3512495c26d2819a92d3bd43eebb3de18e8c41409390f4aced65ebaffdace1de",
+  "default.xbe": "646f8852438f9cc2b772ed48e2fde876910b6062c77eb180482e2a86573045fb",
   "filelist.txt": "fbfc4460a096bdb316d7e68ec48dc48d9b74a349ac1d2a59c1544f5667de265f",
   "gamedata/index/index.xbr": "5d5b9e297b10070a9e4f4dc84be33df3e7e998d51133565e99312c608487108c"
  },
  "randomize-full:seed=0,all": {
-  "default.xbe": "fd17734bd223ad09d240328fb441399f9c88ae8f8b5961942479ad67974db149"
+  "default.xbe": "36cfd7689de300ad814189055162810723f3f7841e2ca64f6e9546dbd00bf354"
  },
  "randomize-full:seed=2,default": {
   "ISO": "d922128a5668d5fccfb5a509a088623b9d0f641cb437e85eb2b55ee0a40ef53e",

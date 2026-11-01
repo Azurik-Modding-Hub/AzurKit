@@ -272,7 +272,10 @@ X25's camera rig when the body is drawn at another size than his:
   (:func:`install_light_hit_shim`).  So is the hit of a set's first three
   attacks (X36's, standing for basic1-3) whose column's multiplier is 1.0
   or more (Step 4.3, D1045: :func:`set_unstunned`), read from X36's state,
-  so every set's combo chains on a hit.
+  so every set's combo chains on a hit, and so is X37's drain's hit there
+  (its box's touch, which the game's level 2 made clear the swing's stun:
+  beamlord's set 2 restarted at its drain), X37 naming its target while
+  it sends it (:data:`LIGHT_DRAIN`).
 - **X19** (Step 2.104, AZ-520) ``default.xbe``, when the camera point
   (X8's, or a body's own ``m_head`` at rest: Balthazar's drawn larger)
   sits above garret4's eye height (:func:`camera_plan`'s lift): the C shim
@@ -4541,6 +4544,11 @@ LIGHT_SETS_AT = BytesParam(
     label="Player model light hits: X36's state (X18)")
 """X36's search landing's state (:data:`SETS_STATE`): its VA, four bytes,
 so a set's swing standing for basic1-3 stuns too; 0 on a body with one set."""
+LIGHT_DRAIN = "_player_model_light_drain"
+"""X18's drain slot (Step 4.3, D1045): the critter X37's touch sends the
+drain's hit to while it sends it, which X18 then gives the player's own
+hit's level in the column playing, and whether it made it level 1 (X37
+then holds its touches off that critter for the rest of the window)."""
 LIGHT_HIT_HOOK = TrampolinePatch(
     name=LIGHT_HIT_SHIM_NAME,
     label=f"Player model light hits: garret4's stun in his light columns (X18) at VA 0x{LIGHT_HIT_HOOK_VA:X}",
@@ -5380,6 +5388,12 @@ DRAIN_STATE_AT = BytesParam(
 """The anchor's and the touch's pointer to the finder landing's state (each
 hook lands its own copy of ``drain.c``): its VA; 0 in the finder's own."""
 DRAIN_STATE = "_player_model_drain_state"
+DRAIN_LIGHT_AT = BytesParam(
+    name="drain_light_at", symbol="_player_model_drain_light_at", size=4,
+    label="Player model drain: X18's drain slot (X37)")
+"""X18's :data:`LIGHT_DRAIN`: its VA, four bytes, so the drain's hit stuns
+where the player's own in the column playing does (Step 4.3, D1045); 0 on a
+build without X18."""
 DRAIN_FX_SIZE = 32
 """The bytes param :data:`DRAIN_FX` holds: a key and its NUL."""
 DRAIN_FX = BytesParam(
@@ -5486,7 +5500,7 @@ DRAIN_HOOKS = tuple(TrampolinePatch(
     shim_symbol=f"_c_player_model_drain_{what}",
     float_params=(DRAIN_COLUMNS, DRAIN_SHARE_PARAM, DRAIN_RANGE_PARAM, DRAIN_EVERY, DRAIN_CHEST, DRAIN_BONES,
                   DRAIN_FEET, DRAIN_DRAWN, DRAIN_SINK, DRAIN_BEAMS, DRAIN_AIM_REACH, DRAIN_AIM_CHEST, DRAIN_AIM_HALF),
-    bytes_params=(DRAIN_RADIUS_AT, DRAIN_STATE_AT, DRAIN_FX, DRAIN_AIM),
+    bytes_params=(DRAIN_RADIUS_AT, DRAIN_STATE_AT, DRAIN_FX, DRAIN_AIM, DRAIN_LIGHT_AT),
 ) for what, why, va, replaced in (
     ("find", "the target finder's candidate kept", 0x7EE3B, "8b9668010000"),       # mov edx, [esi+0x168]
     ("anchor", "the worn drain placed on its target", 0x68A49, "8bb0c0000000"),     # mov esi, [eax+0xc0]
@@ -5543,7 +5557,8 @@ def aim_records(edits) -> tuple[int, ...]:
 
 def install_drain_shim(xbe: bytearray, columns: int, radius: int, every: bool, stream: str,
                        rig: tuple[float, int, float, float],
-                       aim: tuple[int, tuple[int, ...], float, float, float] = (0, (), 0.0, 0.0, 0.0)) -> None:
+                       aim: tuple[int, tuple[int, ...], float, float, float] = (0, (), 0.0, 0.0, 0.0),
+                       light_at: int = 0) -> None:
     """Install X37 (``player_model/drain.c``) at VAs 0x7EE3B, 0x68A49 and
     0x7A1CA in ``xbe`` (either release): while the player swings a column
     of ``columns`` (a mask), the drain's mode-7 nodes (its stream and its
@@ -5567,7 +5582,10 @@ def install_drain_shim(xbe: bytearray, columns: int, radius: int, every: bool, s
     columns, a mask; its bolt targets' records, :func:`aim_records`; its
     reach, its box's half-width and its height straight ahead, m) the
     beam's bolts go on its target's chest while it plays, a critter in its
-    box, else straight ahead to its reach (AZ-769).
+    box, else straight ahead to its reach (AZ-769); with ``light_at`` (X18's
+    :data:`LIGHT_DRAIN`, a VA; installed before it) the drain's hit stuns
+    where the player's own in the column playing does, then holds off its
+    critter for the rest of the window (Step 4.3, D1045).
     :class:`ValueError` for a key its slot can't hold or a rig or aim value
     that isn't finite (D35)."""
     chest, bones, feet, drawn = rig
@@ -5587,7 +5605,8 @@ def install_drain_shim(xbe: bytearray, columns: int, radius: int, every: bool, s
               DRAIN_BEAMS.name: float(beams) if records else 0.0, DRAIN_AIM_REACH.name: float(reach),
               DRAIN_AIM_CHEST.name: float(height), DRAIN_AIM_HALF.name: float(half),
               DRAIN_AIM.name: bytes([len(records), *records]).ljust(DRAIN_AIM.size, b"\0"),
-              DRAIN_RADIUS_AT.name: struct.pack("<I", radius), DRAIN_FX.name: raw + bytes(DRAIN_FX_SIZE - len(raw))}
+              DRAIN_RADIUS_AT.name: struct.pack("<I", radius), DRAIN_FX.name: raw + bytes(DRAIN_FX_SIZE - len(raw)),
+              DRAIN_LIGHT_AT.name: struct.pack("<I", light_at)}
     find, *rest = DRAIN_HOOKS
     _install(xbe, find, DRAIN_SHIM, "drain", params)
     state = trampoline_symbol_va(xbe, find, DRAIN_STATE, CHECKOUT, shim_source=DRAIN_SHIM.source_path())
@@ -10304,13 +10323,18 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
     # X18 (Step 2.104, AZ-525), after X36, whose state it reads: a light column's hit, and (Step 4.3, D1045) a set's
-    # swing standing for basic1-3, stuns whatever its multiplier, so the combo chains on a hit in every set
+    # swing standing for basic1-3, stuns whatever its multiplier, so the combo chains on a hit in every set; and X37's
+    # drain's hit there (its slot, light_at), whose level 2 cleared the swing's stun (beamlord's set 2)
     unstunned = set_unstunned(columns, sets, anims, carry) if sets else 0
-    if heavy or unstunned:
+    drain = drain_columns(columns, picks, self_drains(characters, body)) if mode == "own" and picks else 0
+    light_at = 0
+    if heavy or unstunned or drain & sum(1 << c for cols in sets for c in cols[:len(CHAINED)]):
         try:
             state = (trampoline_symbol_va(game["default.xbe"], SETS_HOOKS[0], SETS_STATE, CHECKOUT,
                                           shim_source=SETS_SHIM.source_path()) if len(sets) > 1 else 0)
             install_light_hit_shim(game["default.xbe"], light_columns(vanilla_anims), state)
+            light_at = (trampoline_symbol_va(game["default.xbe"], LIGHT_HIT_HOOK, LIGHT_DRAIN, CHECKOUT,
+                                             shim_source=LIGHT_HIT_SHIM.source_path()) if drain else 0)
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
     # X21 (Step 2.105, AZ-523): own body's combo on a stunned target out to its basics' reach
@@ -10324,7 +10348,6 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     hold = (hold_plan(characters, body, fills, drawn, hung, picks[columns.index(ROLL)] if picks else None,
                       lo.carriers)
             if hang_eased(body, hung) else None)
-    drain = drain_columns(columns, picks, self_drains(characters, body)) if mode == "own" and picks else 0
     seek = variants.seeking(worn, columns) if worn is not None and mode == "own" else 0
     chest = CHEST[1] * body_height(characters, body) * drawn   # X37's stream's pull and sink (AZ-759, AZ-764)
     rig = (chest, len(body.bones), min((p[2] for _n, p in body.bones), default=0.0), drawn)
@@ -10353,7 +10376,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         try:
             install_drain_shim(game["default.xbe"], drain, trampoline_symbol_va(
                 game["default.xbe"], SEARCH_HOOK, SEARCH_RADIUS_SYMBOL, CHECKOUT, shim_source=SEARCH_SHIM.source_path()),
-                every, DRAIN_STREAM if drain else "", rig, bolts)
+                every, DRAIN_STREAM if drain else "", rig, bolts, light_at)
         except ValueError as exc:
             raise ValueError(f"--player-character {species!r}: {exc}") from None
     if ranged:   # W40's line (Step 2.197b, D797; Step 2.202, D804 (b)): a target past the blast's reach is long range
@@ -10695,7 +10718,9 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                   + " and ".join(([f"{heavy.bit_count()} light columns"] if heavy else [])
                                  + ([f"{unstunned.bit_count()} columns its sets play for basic1-3"]
                                     if unstunned else []))
-                  + " whose damage multiplier reaches 1.0 (X18)")
+                  + " whose damage multiplier reaches 1.0 (X18)" + (", its drain's hits there too" if light_at else ""))
+    elif light_at:
+        reach += ", its drain's hits stunning where its own do (X18)"
     if chain == "any":
         reach += ", the combo's next attack on any press in its window, hit or miss (chain any, D1045)"
     if chained:
