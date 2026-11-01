@@ -30,6 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+import zlib
 from pathlib import Path
 
 import platformdirs
@@ -1382,6 +1383,7 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
         assert [b for b in page.evaluate(FLOOR_BUTTONS) if b[0] != 1 or b[1] > 1] == []
         gems = sum(n for _, n in first["gems"]["counts"].values())
         _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 0 of {gems}')")
+        page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off: the floor shown stays
         _page.click(page, "track-live")
         _page.until(page, f"() => azurkit.tracker.state.view.gems.spots['{gem['id']}'].taken === 1"
                           " && !azurkit.tracker.state.running")
@@ -1389,6 +1391,145 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
                           f".test(h.tip ?? '')).length === {dots - 1}")
         assert page.evaluate("() => azurkit.tracker.state.marks.gems") == {gem["id"]: [0.75]}
         _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 1 of {gems}')")
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
+class _Played:
+    """A running game for the app's Live, scripted by the test: the player's level and place (``at``, the feet), and
+    the takes the next poll reports (``takes``)."""
+
+    def __init__(self, level: str, at: tuple):
+        self.level, self.at, self.takes = level, at, []
+
+
+def _live_map(browser, tmp_path, monkeypatch, played: _Played, doc: dict):
+    """The app's page (its server in-process, headless) tracking ``doc`` with Live on over ``played``'s game: (the
+    server, the page), once Live sees the player."""
+    from azurkit.tools.randomizer.live import game, link
+
+    _home(monkeypatch, tmp_path / "home")
+    (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
+
+    class Session:
+        period = 0.02
+
+        def __init__(self, xemu, spots, journal):
+            pass
+
+        def describe(self) -> str:
+            return "xemu, scripted"
+
+        def poll(self):
+            takes, played.takes = tuple(played.takes), []
+            return game.Update(game.Reading("running", game.REGIONS[0], level=played.level, settle=1, at=played.at,
+                                            yaw=0.0), takes)
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(game, "Session", Session)
+    monkeypatch.setattr(link, "open_first", lambda eps: "xemu")
+    server = app.serve(_page.WEB)
+    page = browser.new_page(viewport={"width": 1100, "height": 820})
+    page.goto(server.url)
+    _page.until(page, "() => globalThis.azurkit?.ready", 120)
+    _page.click(page, "tab-randomizer")
+    _page.click(page, "rando-view-tracker")
+    page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+    _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+    _page.click(page, "track-live")
+    _page.until(page, f"() => azurkit.tracker.state.live?.here === '{played.level}'"
+                      f" && azurkit.tracker.map.level === '{played.level}'")
+    return server, page
+
+
+# Whether Live's last reading the page shows puts the player at ``at`` (the scripted game's place, through the app)
+SEEN = """(at) => azurkit.tracker.state.live?.seen?.at.every((v, k) => Math.abs(v - at[k]) < 1e-6)"""
+
+
+def _floor_table(level: str):
+    """``level``'s shipped floor table (``floors.json``, maps.storeys' packing): (its maps.json entry, each pixel's
+    code as rows, {(px, py): [(lowest, highest, floor)]} of the pixels on several floors)."""
+    import numpy as np
+
+    root = app.pictures.folder()
+    entry = json.loads((root / "maps.json").read_text())["levels"][level]
+    shipped = json.loads((root / "floors.json").read_text())
+    raw = zlib.decompress(base64.b64decode(shipped["levels"][level]))
+    (w, h), unit = entry["size"], shipped["unit"]
+    code = np.frombuffer(raw[:w * h], np.uint8)
+    many = np.flatnonzero(code == 255)
+    count = np.frombuffer(raw[w * h:w * h + len(many)], np.uint8).astype(int)
+    n, at = int(count.sum()), w * h + len(many)
+    step = np.frombuffer(raw[at:at + 2 * n], np.uint8).astype(int)
+    lo = np.cumsum(np.where((v := step[:n] | step[n:] << 8) >= 0x8000, v - 0x10000, v)) * unit
+    span = np.frombuffer(raw[at + 2 * n:at + 3 * n], np.uint8) * unit
+    floor = np.frombuffer(raw[at + 3 * n:at + 4 * n], np.uint8)
+    first = np.r_[0, np.cumsum(count)]
+    storeys = {(int(p % w), int(p // w)): [(float(lo[i]), float(lo[i] + span[i]), int(floor[i]))
+                                           for i in range(first[k], first[k + 1])] for k, p in enumerate(many)}
+    return entry, code.reshape(h, w), storeys
+
+
+def test_follow_shows_the_floor_the_player_stands_on_and_keeps_a_floor_picked_by_hand(browser, tmp_path, monkeypatch):
+    """Step 4.3 live tracker (the owner, 2026-11-01: "can you make it
+    automatically switch to the floor the player is on?"): with Follow
+    on, the app's map shows the floor under the player's feet by the
+    shipped floor table (floors.json), the floor all of their pixel's
+    storeys are on, else the storey nearest their height: in w2 the
+    ledge the owner stood on (floor 2, its main floor water there), a
+    pixel with two floors' storeys by height, and at a seam the floor
+    they were on holds while its ground lies within 2 m. A floor picked
+    by hand stays until the player's floor changes, and with Follow off
+    the map keeps the floor shown wherever they go."""
+    import numpy as np
+
+    entry, code, storeys = _floor_table("w2")
+    (x0, y1, s), main = entry["frame"], entry["main"]
+    world = lambda px, py, z=0.0: (x0 + (px + 0.5) / s, y1 - (py + 0.5) / s, z)   # noqa: E731 (a pixel's middle)
+    r = int(np.ceil(2 * s)) + 2
+
+    def alone(px, py, floor):   # every pixel round it within r all on that floor (or none)
+        box = code[max(py - r, 0):py + r + 1, max(px - r, 0):px + r + 1]
+        return bool(np.isin(box, (0, floor + 1)).all())
+    upper = next(k for k in range(len(entry["floors"])) if k != main)
+    ys, xs = np.nonzero(code == main + 1)
+    far = next((x, y) for x, y in zip(xs, ys) if alone(x, y, main))
+    seam = next((x, y, x + dx) for x, y in zip(xs, ys) for dx in (-1, 1)
+                if 0 <= x + dx < code.shape[1] and code[y, x + dx] == upper + 1)
+
+    def apart(xy, a, b):   # every pixel round it holds a's and b's storeys alone, b's over 2 m above a's lowest
+        sts = [storeys.get((xy[0] + dx, xy[1] + dy)) for dy in range(-r, r + 1) for dx in range(-r, r + 1)]
+        return all(st and {f for *_, f in st} == {a[2], b[2]} and all(lo - a[0] > 2 for lo, _, f in st if f == b[2])
+                   for st in sts)
+    stacked = next((xy, a, b) for xy, st in sorted(storeys.items()) for a in st for b in st
+                   if a[2] != b[2] and b[0] - a[1] > 4 and apart(xy, a, b))
+    played = _Played("w2", (-51.546, -84.284, 8.063))   # the owner's ledge: floor 2 (w2-2), the main floor water
+    server, page = _live_map(browser, tmp_path, monkeypatch, played, _profile("default"))
+
+    def stand(at, floor=None) -> int:
+        played.at = tuple(float(v) for v in at)
+        _page.until(page, f"() => ({SEEN})({json.dumps(list(played.at))})"
+                    + (f" && azurkit.tracker.map.floor === {floor}" if floor is not None else ""))
+        return page.evaluate("() => azurkit.tracker.map.floor")
+
+    try:
+        _page.until(page, "() => azurkit.tracker.map.floor === 1")
+        assert stand(world(seam[2], seam[1]), upper) == upper
+        assert stand(world(seam[0], seam[1])) == upper   # the seam: the floor they came from holds
+        assert stand(world(*far), main) == main
+        (px, py), a, b = stacked
+        assert stand(world(px, py, b[0]), b[2]) == b[2] and stand(world(px, py, a[0]), a[2]) == a[2]
+        assert stand(world(*far), main) == main
+        page.evaluate(f"() => document.querySelector(\"#map-floors input[data-floor='{upper}']\").click()")
+        assert stand(world(far[0], far[1], 0.25)) == upper   # picked by hand: theirs is the same
+        page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off
+        assert stand(world(seam[2], seam[1])) == upper and stand(world(*far)) == upper
+        page.evaluate(f"() => document.querySelector(\"#map-floors input[data-floor='{main}']\").click()")
+        assert stand(world(seam[2], seam[1])) == main
         _page.check_csp(page)
         page.close()
     finally:

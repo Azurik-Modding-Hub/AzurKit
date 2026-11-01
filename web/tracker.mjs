@@ -87,6 +87,7 @@ export function tracker({ call, app, say, kept, keep }) {
                             switches: $("map-switches"), floors: $("map-floors"), key: $("map-key"),
                             note: $("map-note"), hint: $("map-hint"), tip: $("map-tip") }, {
     view: () => t.view, art, spoiler: () => t.spoiler, gems: () => t.gems,
+    following: () => Boolean(t.live?.here) && $("track-follow").checked,
     toggle: (loc) => ask({ toggle: loc }),
     navigated: (level, byHand) => {
       if (byHand && t.live?.followed && level !== t.live.followed) {
@@ -160,13 +161,13 @@ export function tracker({ call, app, say, kept, keep }) {
     levelMap();
   };
 
-  // The player on the map view: where Live saw them (grey once it lost xemu); Follow keeps a zoomed map on them.
+  // The player on the map view: where Live saw them (grey once it lost xemu); Follow shows the floor they stand on and
+  // keeps a zoomed map on them.
   const placed = () => {
     const seen = t.live?.seen;
     if (!seen || $("track-maps").hidden) return map.here && map.place(null);
     map.place(seen, !t.live.here);
-    const at = map.level === seen.level && map.pixel(seen);
-    if (at && $("track-follow").checked && t.live.here) map.see(...at);
+    if ($("track-follow").checked && t.live.here) map.follow(seen);
   };
 
   const counts = (level) => {
@@ -331,8 +332,7 @@ export function tracker({ call, app, say, kept, keep }) {
   const findMe = () => {
     if (!t.live?.seen) return;
     show(t.live.seen.level, false);
-    const at = map.pixel(t.live.seen);
-    if (at && !$("track-maps").hidden) map.see(...at, true);
+    if (!$("track-maps").hidden) map.follow(t.live.seen, true);   // their floor, centred
   };
 
   $("track-world").addEventListener("click", (e) => {

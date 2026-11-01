@@ -916,8 +916,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     body, not the last point it touched the ground; while xemu runs another
     seed or build, how many of a level's item spots differ from the plan's,
     or that none was randomized, and what to check),
-    which the page asks for every 0.7 s; Follow shows the player's level,
-    Find me (key F) shows it once. As Modkit's: the marks keep the saved
+    which the page asks for every 0.7 s; Follow shows the player's level
+    and the floor under their feet as it changes (`floors.json`'s table:
+    the floor all their pixel's storeys are on, else the storey nearest
+    their height; at a seam the floor they were on holds while its ground
+    lies within 2 m; a floor picked by hand stays until theirs changes, and
+    Follow off never switches), Find me (key F) shows it once. As Modkit's: the marks keep the saved
     slot the game last showed, each session Live opens (the link back, Live
     off and on) checks the game against their journal (that slot, the
     newest live mark's day clock), Reset with Live on reads the game again,

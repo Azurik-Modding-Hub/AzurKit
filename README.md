@@ -101,7 +101,8 @@ source ([Development](#development)).
 - **Table view:** the same as a list of items and places.
 - **Gems:** a coloured dot for each of the 1,215 gem spots, and the gems taken and left on each level.
 - **Remembers your marks** for your last 20 seeds, never your image; Reset clears them.
-- **Live, in the app:** marks what you pick up in a running xemu and shows where you are, with Follow and Find me.
+- **Live, in the app:** marks what you pick up in a running xemu and shows where you are, with Find me and Follow,
+  which switches the map to the floor you stand on.
 - **Live only reads:** it never launches xemu, writes to it or pauses the game.
 - **Live keeps up:** it finds an xemu started with QMP on port 4444, tells USA from Europe and follows deaths,
   reloads and save states.

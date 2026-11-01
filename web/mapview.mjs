@@ -9,7 +9,8 @@
 // zooms about the pointer, a drag pans a zoomed map, a double click (or Fit) shows it whole, and the map fills its
 // room as the window resizes. With Gems (R1.43) each gem spot not all taken is a tiny dot in its gem's colour,
 // gone once Live sees it taken, with the gems taken and left under the title and on the floor buttons. With Live,
-// a you-are-here dot (the world map's ring round the player's level); Find me shows it, a zoomed map centred on them.
+// a you-are-here dot (the world map's ring round the player's level); Find me shows it, a zoomed map centred on them,
+// and Follow shows the floor they stand on (floors.json's table, Step 4.3's floors) as it changes.
 // Zoomed past its own pixels, a coarse level's map shows its floor's detail picture (Step 4.3l, Modkit's R1.41: the
 // floor drawn again finer, shipped with the page), read when the zoom comes within a notch of needing it.
 // Every verdict is the engine's (sdk.tracker's view): this draws what it says (marks(), the tests' too). Before a plan
@@ -24,6 +25,9 @@ const STATE = { got: "collected", live: "collected (live)", skip: "reachable now
                 far: "not reachable yet" };
 const BADGE_AT = [[8, 8], [-8, 8], [8, -8], [-8, -8]];
 const STEP = 1.25, METRE_PX = 8, DRAG_PX = 4, MARGIN = 40, MIN_ROOM = 320;
+// Follow's floor (Step 4.3's floors): ground this near the feet is what they stand on; at a seam the floor they were
+// on holds while its ground lies this near
+const FOOT_M = 1.5, HOLD_M = 2;
 const KINDS = { level: [["conn", "Connections"], ["item", "Items"], ["barrier", "Barriers"], ["feature", "Features"]],
                 world: [["conn", "Connections"], ["spot", "Spots"]] };
 const NEED_ORDER = ["nothing", "keys", "fragments", "event", "air", "water", "fire", "earth", "ice block",
@@ -71,9 +75,47 @@ export function badges(view) {
   return out;
 }
 
+// The floor under a point of a level (floors.json's table, art.mjs's decodeFloors) at its pixel (px, py) and height
+// z: the floor all the pixel's storeys are on, else that of the storey nearest z within FOOT_M m (the higher on a
+// tie); null where none is (no ground there, or the point in the air).
+export function floorAt(t, px, py, z) {
+  const x = Math.floor(px), y = Math.floor(py);
+  if (!t || x < 0 || y < 0 || x >= t.w || y >= t.h) return null;
+  const p = y * t.w + x, c = t.code[p];
+  if (c !== 255) return c ? c - 1 : null;
+  let best = -1, gap = Infinity;
+  for (let i = t.first[p]; i < t.first[p] + t.count[p]; i++) {
+    const g = Math.max(t.lo[i] - z, z - t.hi[i], 0);
+    if (g <= FOOT_M && (g < gap || (g === gap && t.lo[i] > t.lo[best]))) [best, gap] = [i, g];
+  }
+  return best < 0 ? null : t.floor[best];
+}
+
+// The floor the player is on, from the one they were on (held): floorAt's, but held at a seam while held's ground
+// lies within HOLD_M m round them (s: the map's px a metre), and held where floorAt finds none.
+export function floorUnder(t, px, py, z, held, s) {
+  const here = floorAt(t, px, py, z);
+  if (here === null || here === held || held === null || held === undefined) return here ?? held ?? null;
+  const r = Math.max(1, Math.ceil(HOLD_M * s));
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy > r * r) continue;
+      const x = Math.floor(px) + dx, y = Math.floor(py) + dy;
+      if (x < 0 || y < 0 || x >= t.w || y >= t.h) continue;
+      const p = y * t.w + x, c = t.code[p];
+      if (c === held + 1) return held;
+      if (c !== 255) continue;
+      for (let i = t.first[p]; i < t.first[p] + t.count[p]; i++) {
+        if (t.floor[i] === held && Math.max(t.lo[i] - z, z - t.hi[i], 0) <= FOOT_M) return held;
+      }
+    }
+  }
+  return here;
+}
+
 export class MapView {
   // els: {side, room, canvas, back, fit, switches, floors, key, note, hint, tip}; hooks: {view(), art, spoiler(),
-  // gems(), toggle(loc), navigated(level, byHand)}
+  // gems(), toggle(loc), navigated(level, byHand), following(): Follow is on}
   constructor(els, hooks) {
     Object.assign(this, { els, hooks, level: null, floor: 0, size: null, s: 1, fitted: 1, o: [0, 0], want: 1,
                           shown: {}, hits: [], press: null, clicked: undefined, here: null, drawnFor: null,
@@ -141,6 +183,7 @@ export class MapView {
     }
     const e = level === null ? null : this.entry(level);
     this.floor = e ? e.main : 0;
+    this.onFloor = null;   // the floor Follow last found the player on
     const pictures = this.pictures = (e ? e.floors : ["world"]).map((name) => ({ name, bitmap: null }));
     for (const p of pictures) {
       this.hooks.art.bitmap(p.name).then((b) => {
@@ -363,10 +406,6 @@ export class MapView {
 
   on(kind) {
     return this.shown[kind] !== false;
-  }
-
-  floorOf(at) {
-    return at[2];
   }
 
   label(x, y, text, font, box = true) {
@@ -728,6 +767,32 @@ export class MapView {
     ctx.strokeStyle = DARK;
     ctx.stroke();
     this.hit(x, y, 6, `You (height ${seen.at[2].toFixed(1)} m)`);
+  }
+
+  // Follow (Live's): the floor shown is the one under the player each time that changes (or they come into the level;
+  // a floor picked by hand stays until then), and a zoomed map keeps them in view (see; centre: Find me's, centred).
+  follow(seen, centre = false) {
+    if (this.level === null || seen.level !== this.level || !this.entry(this.level)) return;
+    const level = this.level, e = this.entry(level), [px, py] = this.pixel(seen);
+    this.tables ??= new Map();
+    if (!this.tables.has(level)) {   // read once; Follow goes on once it is
+      this.tables.set(level, null);
+      this.hooks.art.floors(level).then((t) => {
+        this.tables.set(level, t);
+        if (t && this.level === level && this.here && this.hooks.following()) this.follow(this.here.seen);
+      });
+    }
+    const t = this.tables.get(level), held = this.onFloor?.level === level ? this.onFloor.floor : this.floor;
+    const f = t ? floorUnder(t, px, py, seen.at[2], held, e.frame[2]) : held;
+    if (this.onFloor?.level !== level || this.onFloor.floor !== f) {
+      this.onFloor = { level, floor: f };
+      if (f !== this.floor && f !== null && f < e.floors.length) {
+        this.floor = f;
+        this.floorButtons();
+        this.draw();
+      }
+    }
+    this.see(px, py, centre);
   }
 
   // The player's place on the shown level's picture, in its pixels.
