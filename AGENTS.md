@@ -1244,7 +1244,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   the build's job going on through a seed's fill, so the engine, its Logic and
   the fill stay for the next Build. A job quiet past `ahead.GRACE` kills that
   process, unless a save runs, and the next starts: a call the player waits
-  on runs again. A build keeps its image in that process (the
+  on runs again. A build's dress notes nothing (`sdk.image` holds no
+  `noting` round it, `pool.each`'s notes and the serial stages' reach
+  `sdk.match`'s dress alone), so a stale first dress caught in a gap of its
+  records (26-30 s) takes that kill, and the next seed's click reads the
+  logic again (a known flaw, measured at 45 s). A build keeps its image in
+  that process (the
   last build's: a new Build drops it), hashed on a thread from the moment
   it is made (`iso.digest`), and `api/build` answers its id: Save sends it
   back, so `api/save` writes that image (`sdk.save`, the hash taken or
