@@ -75,14 +75,14 @@ SESSION = {"tests.conftest", "tests._byte_safe"}   # loaded by every run: a chan
 WHEEL = "tests/test_wheel.py"                      # builds the wheel from every file under src/ and installs it
 #: The test files that run every module under src/ outside the import graph: the wheel's, and those whose tests
 #: take the pyodide, browser or frozen_app fixture (the wheel under Pyodide, the site in a browser, the frozen app).
-SRC_TESTS = (WHEEL, "tests/test_characters.py", "tests/test_hosts.py", "tests/test_native.py", "tests/test_randomizer.py",
-             "tests/test_site.py")
+SRC_TESTS = (WHEEL, "tests/test_characters.py", "tests/test_hosts.py", "tests/test_native.py",
+             "tests/test_randomizer.py", "tests/test_service_worker.py", "tests/test_site.py")
 DOCS = (".md", ".txt")
 ABOUT = "tests/test_site.py::test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_always_in_view"
 #: A path's own tests (a folder's ends in "/"), what reads it outside the import graph: the page (web/) is the
-#: site's, the app's (it serves it and freezes it in) and the favicons'; the About tab restates LICENSE and
-#: NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme).
-RULES = (("web/", ("tests/test_site.py", "tests/test_hosts.py", "tests/test_icon.py")),
+#: site's, its service worker's, the app's (it serves it and freezes it in) and the favicons'; the About tab restates
+#: LICENSE and NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme).
+RULES = (("web/", ("tests/test_site.py", "tests/test_service_worker.py", "tests/test_hosts.py", "tests/test_icon.py")),
          ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)))
 #: The data folders the tests read by path, not by import (AzurKit's goldens): each is named by the modules that hold
 #: its last name as a string (``ROOT / "tests" / "goldens"``: ``scripts/record_goldens.py``), so a change in it picks
