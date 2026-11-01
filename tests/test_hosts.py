@@ -229,11 +229,12 @@ class Sandbox:
 
 
 def _ended_with(served: subprocess.Popen, exc: BaseException) -> None:
-    """Kill the app ``served`` a test's failure ``exc`` stopped, and note on it what the app printed to its stderr
-    (its last 1,500 characters: tests.yml prints a failure's E lines, so the next CI run shows them)."""
+    """Kill the app ``served`` a test's failure ``exc`` stopped, and note on it the end of what it printed to its stderr,
+    line by line: tests.yml prints a failure's first 40 E lines, each cut at 240 characters, so a traceback's end, its
+    exception, has to fit both."""
     served.kill()
     with contextlib.suppress(subprocess.TimeoutExpired, ValueError, OSError):
-        exc.add_note(f"the app's stderr: {served.communicate(timeout=30)[1][-1500:]!r}")
+        exc.add_note("the app's stderr:\n" + served.communicate(timeout=30)[1][-1000:])
 
 
 def _children(pid: int) -> list[int]:
@@ -242,6 +243,21 @@ def _children(pid: int) -> list[int]:
                 f"(Get-CimInstance Win32_Process -Filter 'ParentProcessId={pid}').ProcessId"] if os.name == "nt"
                else ["pgrep", "-P", str(pid)])
     return [int(found) for found in subprocess.run(command, capture_output=True, text=True).stdout.split()]
+
+
+def test_a_failures_note_ends_with_the_exception_the_app_printed_on_lines_ci_keeps():
+    """:func:`_ended_with`: the note is the end of the app's stderr as its own lines, not one line's repr of it, which
+    CI's cut at 240 characters would end long before the exception."""
+    frames = "\n".join(f'  File "frame_{i}.py", line {i}, in frame' for i in range(100))
+    code = f"import sys; print({frames!r} + '\\nOSError: the cause', file=sys.stderr, flush=True); print('up', flush=True); sys.stdin.read()"
+    served = subprocess.Popen([sys.executable, "-c", code], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True)
+    assert served.stdout.readline() == "up\n"
+    failure = AssertionError("the page timed out")
+    _ended_with(served, failure)
+    note = failure.__notes__[0].splitlines()
+    assert (note[0], note[-1]) == ("the app's stderr:", "OSError: the cause") and 2 < len(note) < 30
+    assert max(map(len, note)) < 240
 
 
 def test_ci_prints_each_failure_though_a_summary_outruns_its_head():
