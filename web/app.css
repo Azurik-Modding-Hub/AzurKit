@@ -176,6 +176,9 @@ button:disabled { color: var(--faint); background: transparent; }
 }
 /* A pack without settings keeps the opener's slot (unseen and out of the tab order), so the releases line up. */
 #packs .toggle[hidden] { display: block !important; visibility: hidden; }
+/* Every opener as wide as the longest it can say, in the font in use (an unseen line of no height): a wide sans
+   (Linux's DejaVu, Verdana) puts a two-digit count past 9em, which moved the releases on its rows (Step 4.4ci2). */
+#packs .toggle::before { content: "Settings · 00 ›"; display: block; height: 0; visibility: hidden; }
 #packs .toggle::after { content: " ›"; }
 #packs .pack:not(.open):has(input.changed, .slider .mark:not(:empty)) .toggle { color: var(--mark); border-color: var(--mark); }
 #packs .pack.open:has(input.changed, .slider .mark:not(:empty)) .toggle { box-shadow: 0 0 0 1.5px var(--mark); }

@@ -414,6 +414,12 @@ SHOWN = """() => [...document.querySelectorAll("#packs .pack")].filter((item) =>
     })"""
 RELEASES = """() => new Set([...document.querySelectorAll("#packs .releases")].filter((r) => r.checkVisibility())
     .map((r) => Math.round(r.getBoundingClientRect().right))).size"""
+# RELEASES with every opener in the platform's monospace, wider than 9em on each ("Settings · 13 ›"), then as it was.
+WIDE_OPENERS = f"""() => {{ const openers = document.querySelectorAll("#packs .toggle");
+    openers.forEach((t) => {{ t.style.fontFamily = "monospace"; }});
+    const releases = ({RELEASES})();
+    openers.forEach((t) => {{ t.style.fontFamily = ""; }});
+    return releases; }}"""
 LONG_READOUT = """() => {
     const readout = document.getElementById("status");
     readout.textContent = "a long refusal ".repeat(60);
@@ -448,7 +454,8 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
     setting's, D909), which shows them beside the list and
     closes the one open before (the first with settings opens first), and
     one without has none; the settings start beside their pack's row, in
-    view however far the list is scrolled, the releases line up, and a
+    view however far the list is scrolled, the releases line up (in a
+    wide font too), and a
     slider whose vanilla value is unread yet says nothing of it. Build and
     Save sit in a bar along the window's bottom, there however far the packs
     scroll, and at a narrow window's foot too; a long readout scrolls in it
@@ -497,6 +504,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         page.evaluate("""() => document.querySelector('#packs .pack[data-pack="enemy_damage"] .toggle').click()""")
         assert page.evaluate(SHOWN) == [["enemy_damage", "true", True, True]]
         assert page.evaluate(RELEASES) == 1
+        assert page.evaluate(WIDE_OPENERS) == 1   # in a font past 9em too (Linux's DejaVu was, Step 4.4ci2)
         assert "undefined" not in page.evaluate("() => document.getElementById('packs').textContent")
 
         assert page.evaluate(BAR) == [True, True]
