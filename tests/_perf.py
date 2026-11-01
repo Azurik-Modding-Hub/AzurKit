@@ -66,6 +66,7 @@ from tests import _page
 ROOT = Path(__file__).resolve().parent.parent
 GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")
 LONG = 30.0          # an op with a sample over this runs once (its median is that sample)
+STARVED = 1.3        # a sample past 1 s whose wall is over this x its tree's CPU seconds waited for a core
 SAVE_DIALOG = 3.0    # a player's Save comes this long after the build (the save dialog)
 DOWNLOAD_BAR = "its download indicator (Safari's toolbar button, Chrome's download bubble, Firefox's downloads arrow)"
 HEAD_START = 3.0     # D1014: a Track or Build after the player's last change comes this long after it
@@ -384,6 +385,12 @@ class Page:
 WARM = "() => !globalThis.azurkit?.warm || azurkit.warm.done"   # D1008's warm-up over (none yet: at once)
 
 
+def starved(seconds: float, cpu: float) -> bool:
+    """Whether a sample past 1 s (D980's line) waited for a core: its wall
+    passes :data:`STARVED` x the CPU seconds its tree used."""
+    return seconds > 1.0 and seconds > STARVED * cpu
+
+
 class Driver:
     """One run's samples: ``targets`` says how many each wanted op needs;
     a scenario's steps time an op only while it needs more.
@@ -398,7 +405,14 @@ class Driver:
     sample the pass records (a head start's: its op's, timed from the
     change); one no sample takes stops the pass (:meth:`over`). Lateness in
     an action's own wait is its work: its sample logs it (``late_ms``), as
-    each logs its gaps' worst (``gap_ms``)."""
+    each logs its gaps' worst (``gap_ms``).
+
+    The click's CPU (:attr:`memory`, a run's :class:`Memory`): an op timed
+    from a click keeps the CPU seconds its tree used (``cpu``). A
+    :func:`starved` sample (a busy machine, not the op's work) is taken once
+    more; the next one takes its place (``retook``: its seconds), and, starved
+    too, is recorded with its tag (``starved``), as one past :data:`LONG` is at
+    once (it runs once)."""
 
     sleep = staticmethod(time.sleep)   # a stub clock's in the tests
 
@@ -412,6 +426,9 @@ class Driver:
         self.changed: float | None = None    # the page's time of the pass's last change
         self.gap: tuple[float, str, float | None] | None = None   # the worst gap since the last sample: its ms,
         #                                                           where, and the change a head start counted from
+        self.memory: Memory | None = None    # the run's tree's CPU seconds (none: its samples have no ``cpu``)
+        self.clicked = 0.0                   # those seconds at the last click
+        self.retaking: dict[str, dict] = {}  # each op's starved sample, while it is taken once more
 
     def need(self, op: str) -> bool:
         got = self.samples.get(op, [])
@@ -438,7 +455,7 @@ class Driver:
         self.ev = p.events()
 
     def record(self, op: str | None, seconds: float, events: list, t0: float, t1: float, error: str | None = None,
-               page: float | None = None):
+               page: float | None = None, cpu: float | None = None):
         if op is None or not self.need(op):
             if self.gap and self.gap[2] is not None:   # a head start whose op takes no sample: a gap as any other
                 self.gap = (*self.gap[:2], None)
@@ -457,11 +474,33 @@ class Driver:
             sample["gap_ms"] = round(gap[0])
         if error:
             sample["error"] = error[:300]
-        self.samples.setdefault(op, []).append(sample)
+        if cpu is not None:
+            sample["cpu"] = round(cpu, 3)
+            if not error and starved(seconds, cpu):
+                sample["starved"] = True
+        retake = sample.get("starved") and op not in self.retaking and seconds <= LONG
         self.log.append(f"{self.run.name} {op} {seconds:.2f} s{f' (page {page:.2f} s)' if page is not None else ''}"
+                        f"{f' cpu {cpu:.2f} s' if cpu is not None else ''}"
+                        f"{' starved' if sample.get('starved') else ''}{', taken once more' if retake else ''}"
                         f"{' bar ' + str(bar) if bar else ''}{' progress' if shown else ''}"
                         f"{' ' + error[:120] if error else ''}")
         print(self.log[-1], flush=True)
+        if retake:
+            self.retaking[op] = sample
+            return
+        if first := self.retaking.pop(op, None):
+            sample["retook"] = first["s"]
+        self.samples.setdefault(op, []).append(sample)
+
+    def spent(self, op: str | None) -> float | None:
+        """The CPU seconds since the last click, for ``op`` while it needs a sample."""
+        return self.memory.take() - self.clicked if self.memory and self.need(op) else None
+
+    def finish(self) -> None:
+        """The run is over: a starved sample whose second take never came stands."""
+        for op, sample in self.retaking.items():
+            self.samples.setdefault(op, []).append(sample)
+        self.retaking.clear()
 
     def change(self, t: float) -> None:
         """The page's time ``t`` is the pass's last change: D1014's head start counts from it."""
@@ -521,6 +560,8 @@ class Driver:
             if (wait := self.changed + HEAD_START * 1000 - p.now()) > 0:
                 self.idle(p, f"the head start before {op}", wait / 1000, since=self.changed)
             self.changed = None
+        if self.memory:   # the sampler's last figure, up to its 0.2 s old: nothing between the head start and the click
+            self.clicked = self.memory.used
         if callable(action):
             t0 = p.now()
             action()
@@ -549,7 +590,7 @@ class Driver:
             raise
         self.ev += p.events()
         error = value if isinstance(value, str) and value.startswith("error: ") else None
-        self.record(op, (t1 - t0) / 1000, self.ev, t0, t1, error)
+        self.record(op, (t1 - t0) / 1000, self.ev, t0, t1, error, cpu=self.spent(op))
         if error:
             raise RuntimeError(f"{op}: {error[:200]}")
         return t1
@@ -574,9 +615,11 @@ class Driver:
                     raise TimeoutError(f"timed out after {timeout:.0f} s: {[n for n in dones if n not in got]}")
                 self.sleep(0.05 if waited < 5 else 0.2)
         self.ev += p.events()
+        cpu = self.spent(op)   # the click's own op's, read at the race's end: its other dones' CPU in it, never under
         for name in sorted(dones, key=lambda name: name != op):   # the click's own op first: its head start is its
             t, begin = got[name][0], got[after[name]][0] if after and name in after else t0
-            self.record(name, max(0.0, t - begin) / 1000, self.ev, begin, max(t, begin))
+            self.record(name, max(0.0, t - begin) / 1000, self.ev, begin, max(t, begin),
+                        cpu=cpu if name == op else None)
         return {name: t for name, (t, _) in got.items()}
 
 
@@ -602,10 +645,14 @@ def kill_tree(pid: int) -> None:
 
 class Memory:
     """The peak resident size of the trees under ``roots(rows)`` (``rows``:
-    ps's ``(pid, ppid, command, its start)``), sampled every 0.2 s."""
+    ps's ``(pid, ppid, command, its start)``), sampled every 0.2 s, and the
+    CPU seconds they have used (:attr:`used`): each process's highest figure
+    stays when it exits, so a child gone mid-op keeps what it used."""
 
-    def __init__(self, roots: Callable[[list[tuple[int, int, str]]], list[int]]):
-        self.roots, self.peak, self._stop = roots, 0, threading.Event()
+    def __init__(self, roots: Callable[[list[tuple[int, int, str, str]]], list[int]]):
+        self.roots, self.peak, self.used, self._stop = roots, 0, 0.0, threading.Event()
+        self._cpu: dict[tuple[int, str], float] = {}   # by pid and start: a pid reused is another process
+        self._lock = threading.Lock()
         self._thread = threading.Thread(target=self._sample, daemon=True)
 
     def __enter__(self):
@@ -617,21 +664,27 @@ class Memory:
         self._thread.join(5)
 
     @staticmethod
-    def rows(rss: dict[int, int] | None = None) -> list[tuple[int, int, str, str]]:
-        """ps's ``(pid, ppid, command, its start)`` rows (each resident KiB into ``rss``)."""
-        out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,rss=,lstart=,comm="], capture_output=True, text=True).stdout
+    def rows(rss: dict[int, int] | None = None, cpu: dict[int, float] | None = None) -> list[tuple[int, int, str, str]]:
+        """ps's ``(pid, ppid, command, its start)`` rows (each resident KiB into ``rss``, CPU seconds into ``cpu``)."""
+        out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,rss=,time=,lstart=,comm="], capture_output=True,
+                             text=True).stdout
         rows = []
         for row in out.splitlines():   # lstart is five words: "Sun Nov  1 08:22:00 2026"
-            if len(f := row.split(None, 8)) == 9 and f[0].isdigit():
-                rows.append((int(f[0]), int(f[1]), f[8], " ".join(f[3:8])))
+            if len(f := row.split(None, 9)) == 10 and f[0].isdigit():
+                rows.append((int(f[0]), int(f[1]), f[9], " ".join(f[4:9])))
                 if rss is not None:
                     rss[int(f[0])] = int(f[2])
+                if cpu is not None:   # [[dd-]hh:]mm:ss.cc: user + system
+                    cpu[int(f[0])] = functools.reduce(lambda s, part: s * 60 + float(part),
+                                                      f[3].replace("-", ":").split(":"), 0.0)
         return rows
 
-    def _sample(self):
-        while not self._stop.wait(0.2):
+    def take(self) -> float:
+        """One sample now: :attr:`used`, as it stands."""
+        with self._lock:
             rss: dict[int, int] = {}
-            rows = self.rows(rss)
+            cpu: dict[int, float] = {}
+            rows = self.rows(rss, cpu)
             kids: dict[int, list[int]] = {}
             for pid, ppid, *_ in rows:
                 kids.setdefault(ppid, []).append(pid)
@@ -641,6 +694,15 @@ class Memory:
                     seen.add(pid)
                     todo += kids.get(pid, [])
             self.peak = max(self.peak, sum(rss.get(pid, 0) for pid in seen) * 1024)
+            for pid, _, _, start in rows:
+                if pid in seen:   # the most seen: a zombie, a killed child not reaped yet, reads 0:00.00
+                    self._cpu[pid, start] = max(self._cpu.get((pid, start), 0.0), cpu[pid])
+            self.used = sum(self._cpu.values())
+            return self.used
+
+    def _sample(self):
+        while not self._stop.wait(0.2):
+            self.take()
 
 
 MARK = f"/nonexistent/azurkit-perf-{os.getpid()}"   # this run's mark in the browsers' PATH (:func:`browser_pids`)
@@ -1370,7 +1432,8 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
 def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path | None, site: Path | None,
           python: str | None = None, passes: int = 7) -> dict:
     """``run``'s samples for ``targets`` (``{op: samples wanted}``): ``{"samples":
-    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"]}]}, "native" (the engine reports its
+    {op: [{"s", "bar", "progress", "late_ms"[, "page"][, "gap_ms"][, "error"][, "cpu"][, "starved"][, "retook"]}]},
+    "native" (the engine reports its
     pages gave, :meth:`Driver.engine`), "memory_peak": bytes or None,
     "memory_shared" (another Playwright ran meanwhile), "wall_s", "log"}``. Each scenario holding a wanted op runs, in a fresh
     state each pass, until its ops have their samples (at most ``passes``). An app run serves the app from ``python``
@@ -1394,8 +1457,9 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
         return browser_pids(rows, before)
     roots = (lambda rows: [pid for app in current for pid in app.pid()]) if run.host == "app" else site_roots
     try:
-        with sync_playwright() as pw, (Memory(roots) if run.memory else contextlib.nullcontext()) as memory, \
+        with sync_playwright() as pw, Memory(roots) as memory, \
                 (served(site, run.lag) if run.host == "site" else contextlib.nullcontext()) as url:
+            d.memory = None if run.lag else memory   # the lag run's reads wait by design: not a busy machine's waits
             engine = getattr(pw, run.browser)
             browser = engine.launch(headless=True, downloads_path=str(scratch)) if run.host == "app" else None
             for name, (host, ops, scenario) in SCENARIOS.items():
@@ -1437,6 +1501,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                             shutil.rmtree(profile, ignore_errors=True)
             if browser:
                 browser.close()
+            d.finish()
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     return {"samples": d.samples, "native": d.native, "memory_peak": memory.peak if run.memory else None,

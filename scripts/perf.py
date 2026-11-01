@@ -139,7 +139,9 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
     ceiling), ``no progress`` (past 1 s with none shown and not a debt) and
     ``error``. A ``browser_bar`` op's sample (a download) shows progress when
     its page part, ``"page"``, is within 1 s: the browser's own bar shows its
-    write; the case keeps the page parts."""
+    write; the case keeps the page parts. A sample the driver tagged
+    ``starved`` (it waited for a core, ``_perf.starved``) is named in the
+    case; no verdict reads it."""
     seconds = [s["s"] for s in samples]
     out = {"n": len(samples), "budget": budget, "ceiling": ceiling, "samples": seconds}
     if browser_bar:
@@ -155,6 +157,8 @@ def judge(samples: list[dict], budget: float, ceiling: float | None = None, debt
                 for s in samples if s["s"] > PROGRESS)
     out |= {"median": round(median, 3), "spread": round(max(seconds) - min(seconds), 3), "progress": shown,
             "moved": moved}
+    if starved := [s["s"] for s in samples if s.get("starved")]:
+        out["starved"] = starved
     if ceiling is not None and median > ceiling:
         verdict = "regressed"
     elif median > budget:
@@ -523,7 +527,8 @@ def main(argv: list[str] | None = None) -> int:
               "wall_s": round(time.monotonic() - t0, 1)}
     for k, r in block["cases"].items():
         print(f"{k:16} {r['verdict']:12} {r.get('median', '-')!s:>8} s  n {r['n']}  budget {r['budget']}"
-              + (f"  ceiling {r['ceiling']}" if r["ceiling"] else ""))
+              + (f"  ceiling {r['ceiling']}" if r["ceiling"] else "")
+              + (f"  starved {r['starved']}" if r.get("starved") else ""))
     print(f"perf: {'passed' if block['passed'] else 'failed'}, {len(block['cases'])} cases in {block['wall_s']} s"
           + "".join(f"\n  {line}" for line in block["failures"]))
     if args.json:

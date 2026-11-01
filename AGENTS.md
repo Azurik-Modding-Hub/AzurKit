@@ -1328,7 +1328,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   whose engine answers without the library the worktree ships for its
   host (this machine's, the site's side module), loaded, with those bytes'
   sha256[:12], fails, its ops with it, so the Python twins' times never
-  become a ceiling. An op over
+  become a ceiling. A sample past 1 s whose wall passes 1.3x the CPU seconds
+  its tree used (each process's highest figure, so a child gone mid-op
+  keeps its own) waited for a core: it is taken once more and, starved again
+  or past 30 s, stands with its tag (`starved`, `perf.judge` names it and no
+  verdict reads it; `retook` keeps the first take's seconds); the lag run,
+  whose reads wait by design, has no CPU figure. An op over
   runs three more times and fails only if the median of all six is still over. The list only shrinks: `perf.py
   --update-ceilings` lowers a ceiling you earned (in your own commit) and
   drops what is back under, and the gate and `land.py` fail an added op or
