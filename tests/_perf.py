@@ -815,10 +815,16 @@ def _seeded(d: Driver, p: Page, randomize: bool = True) -> None:
         d.act(p, None, typed("rando-seed", "azurkit"), "() => document.getElementById('rando-seed').value", change=True)
 
 
-# Build, then Cancel at the build's first stage record (its ask's record: the bar's first stage), else 1 s after
+# The build's first stage record (its ask's record: the bar's first stage)
+STAGED = "() => [...azurkit.asks.values()].some((a) => a.kind === 'build' && a.record)"
+# Build, then Cancel at its first stage record, else 1 s after
 CANCEL_EARLY = """() => { azurkit.build = null; document.querySelector('#build').click(); const t = performance.now();
-  const at = setInterval(() => { if ([...azurkit.asks.values()].some((a) => a.kind === 'build' && a.record)
-      || performance.now() - t >= 1000) { clearInterval(at); document.querySelector('#cancel').click(); } }, 20); }"""
+  const at = setInterval(() => { if ((%s)() || performance.now() - t >= 1000) {
+      clearInterval(at); document.querySelector('#cancel').click(); } }, 20); }""" % STAGED
+# The build's own answer, its ask over: its "Ready" line or its error, whatever came after it (a change once it has
+# answered, a model's pick, forgets azurkit.build, which BUILT reads)
+ANSWERED = (f"() => !azurkit.building && (document.querySelector('#status').textContent.startsWith('Ready') "
+            f"? 'built' : {ERROR})")
 
 
 def app_seed(d: Driver, app: App, ctx) -> None:
@@ -833,12 +839,15 @@ def app_seed(d: Driver, app: App, ctx) -> None:
               change=True)
         d.act(p, None, CANCEL_EARLY, "() => /Cancelled/.test(document.querySelector('#status').textContent)", 600)
         d.act(p, "A29", build_js(), BUILT, 1800)
+    # A30's build: a seed no build has made, so it still runs at the pick (one of a kept plan answers within 1 s)
+    d.act(p, None, typed("rando-seed", "3"), "() => document.getElementById('rando-seed').value === '3'",
+          change=True)
     p.js(click("tab-characters"))
     p.wait(SPECIES)
     p.js(build_js())
-    d.idle(p, "the build's first second before A30", 1.0)
+    d.idle(p, "the build's first stage before A30", done=STAGED)
     d.act(p, "A30", model("keylord"), chosen("keylord"), 1800)
-    p.wait(BUILT, 1800)
+    p.wait(ANSWERED, 1800)
     app.quit(p)
 
 

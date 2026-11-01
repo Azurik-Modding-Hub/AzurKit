@@ -303,6 +303,64 @@ def test_the_sites_tracker_view_times_its_world_map_from_its_own_click_and_track
         (3000, {"S18": 5.0, "S19": 0.05, "S20": 0.0}), (30_000, {"S18": 5.0, "S19": 30.0, "S20": 0.0})]
 
 
+class _Seeds(_Stub):
+    """The app's page over a stub clock as Build, Cancel and a pick make it:
+    a build answers 3 s after its click, 0.5 s for a seed this engine
+    process built (a kept plan), its first stage record 0.25 s after it; a
+    Cancel ends the process; a model's pick, a change, forgets a build that
+    has answered, so ``BUILT`` never comes again (the page's wait times out)."""
+
+    def __init__(self):
+        super().__init__({})
+        self.seed, self.made, self.answers, self.staged, self.forgot, self.picks = "", set(), 0.0, 0.0, False, []
+
+    def do(self, action, arg=None):
+        if action == _perf.SEED_ASK:
+            self.seed = "azurkit"
+        elif typed := re.fullmatch(r".*getElementById\(\"rando-seed\"\); b\.value = \"(\w+)\".*", action, re.S):
+            self.seed = typed[1]
+        elif action in (_perf.build_js(), _perf.CANCEL_EARLY):
+            self.answers = self.t + (500 if self.seed in self.made else 3000)
+            self.staged, self.forgot = self.t + 250, False
+            if action == _perf.CANCEL_EARLY:
+                self.made, self.answers = set(), self.t   # the process killed, another spawned
+            else:
+                self.made.add(self.seed)
+        elif action == _perf.model("keylord"):
+            self.picks.append(self.t < self.answers)
+            self.forgot = self.t >= self.answers
+        return super().do(action, arg)
+
+    js = do
+
+    def wait(self, done, timeout=900, arg=None):
+        if done == _perf.BUILT and self.forgot:
+            raise TimeoutError(f"timed out after {timeout:.0f} s: {done[:100]}")
+        at = {_perf.BUILT: self.answers, _perf.ANSWERED: self.answers, _perf.STAGED: self.staged}.get(done)
+        self.t = max(self.t, at if at is not None else self.t)
+        return self.t, True
+
+
+def test_the_app_seed_pass_picks_its_model_while_a_build_runs_and_waits_for_that_builds_own_answer(tmp_path):
+    """Step 4.3 train B3 (the gate's A27-A30 errors, 1,800 s each): A30's
+    pick is a small ask made while a build runs, so its build is of a seed
+    no build has made (one of a kept plan answers within the second A30
+    used to wait), the pick comes at the build's first stage record, and
+    the pass waits for that build's own answer, never ``azurkit.build``,
+    which a pick after the answer forgets: the pass ends with every op
+    sampled."""
+    page = _Seeds()
+    d = _perf.Driver(_perf.RUNS["app"], dict.fromkeys(("A27", "A28", "A29", "A30"), 1), tmp_path,
+                     tmp_path / "usa.iso", None)
+    d.sleep = lambda seconds: setattr(page, "t", page.t + seconds * 1000)
+    app = types.SimpleNamespace(launch=lambda d, ctx, op: (d.fresh(page), page)[1], quit=lambda p=None: None)
+    _perf.app_seed(d, app, None)
+    d.over()
+    assert (page.picks, {op: len(d.samples[op]) for op in ("A27", "A28", "A29", "A30")},
+            [s.get("error") for op in ("A27", "A28", "A29", "A30") for s in d.samples[op]]) == (
+        [True], dict.fromkeys(("A27", "A28", "A29", "A30"), 1), [None] * 4)
+
+
 def test_update_ceilings_on_a_narrow_run_keeps_the_untimed_ops_it_doesnt_reach(tmp_path, monkeypatch):
     """``perf.py --update-ceilings`` on a run that reaches no untimed op
     (a lane lowering its own rows) keeps the list's untimed ops the registry
