@@ -11,9 +11,15 @@ the setup, the Randomizer tab, the tracker) never wait on a build's Python;
 the process keeps what a call keeps for the next (a dressed body, the
 randomizer's logic), and reads ahead what the page's next calls will
 (:meth:`Spawned.warm`: the image it picked, the randomizer; the image's once
-the logic's read and every build are done, :func:`_warm_image`). Cancelling a build kills that process and spawns
-another at once (a build writes nothing, D35), which reads the logic before the image; a call of another kind that
-the kill cut short runs again in the new one. A save is cancelled from its
+the logic's read and every build are done, :func:`_warm_image`). A call the
+server's work ahead makes (``fore=``, :mod:`.ahead`) runs there at background
+priority and, past a seed's fill, waits at its records while a call the player
+waits on is in flight. The player's Cancel lets the build go on as work ahead
+(``ahead.Ahead.cancel``), keeping this process, its logic and its fill; a job
+that reaches no record within ``ahead.GRACE`` kills it (:meth:`Spawned.cancel`)
+and another starts at once (a build writes nothing, D35), which reads the logic
+before the image; a call the player waits on that the kill cut short runs again
+in the new one. A save is cancelled from its
 progress, as before: it removes its own part file. A build keeps its image
 in the process that made it (the last build's only, a new Build drops it),
 hashed there on a thread from the moment it is made, so its Save writes
@@ -51,8 +57,10 @@ from azurkit.tools import characters
 from azurkit.tools.characters import pool
 
 
-class Cancelled(Exception):
-    """The page cancelled the build or the save."""
+class Cancelled(BaseException):
+    """The page cancelled the build or the save, or a change stopped work
+    ahead: a BaseException, as KeyboardInterrupt is, so no broad ``except
+    Exception`` on its way up swallows it."""
 
 
 class Gone(Exception):
@@ -255,7 +263,8 @@ class Here:
     """The engine on the caller's thread: a build runs on after Cancel (its
     answer is the server's to refuse); a save sees it in its progress."""
 
-    def call(self, job: str, *args, progress: Callable[[dict], object] | None = None):
+    def call(self, job: str, *args, progress: Callable[[dict], object] | None = None,
+             fore: threading.Event | None = None):
         with _following(progress) as report:
             return JOBS[job](*args, **({"progress": report} if report is not None else {}))
 
@@ -337,10 +346,15 @@ class Spawned:
         child.process.join()
         child.conn.close()
 
-    def call(self, job: str, *args, progress: Callable[[dict], object] | None = None):
+    def call(self, job: str, *args, progress: Callable[[dict], object] | None = None,
+             fore: threading.Event | None = None):
         """``JOBS[job](*args)`` in the engine's process: its result, or what
-        it raised; :class:`Cancelled` when a cancel killed it, :class:`Gone`
-        when the process ended otherwise (a later call spawns another)."""
+        it raised; :class:`Cancelled` when a kill cut short a build or work
+        ahead no click follows (one the player waits on runs again),
+        :class:`Gone` when the process ended otherwise (a later call spawns
+        another). ``fore``: a slot's job's (``ahead.Job.fore``), a click
+        following it while it is set: the call runs low and waits behind the
+        player's calls while it isn't."""
         while True:
             with self._lock:
                 if self._closed:
@@ -350,7 +364,8 @@ class Spawned:
                 child = self._child
             ident, answers = next(self._ids), queue.SimpleQueue()
             with child.lock:
-                sent = not child.dead and child.send(("call", ident, job, args, progress is not None))
+                sent = not child.dead and child.send(("call", ident, job, args, progress is not None,
+                                                      None if fore is None else fore.is_set()))
                 if sent:
                     child.calls[ident] = (job, answers)
                 else:
@@ -358,7 +373,7 @@ class Spawned:
             if not sent:
                 continue
             try:
-                done, value = self._wait(child, ident, job, answers, progress)
+                done, value = self._wait(child, ident, job, answers, progress, fore)
             finally:
                 with child.lock:
                     child.calls.pop(ident, None)
@@ -366,19 +381,30 @@ class Spawned:
                 return value
             if self._closed:
                 raise Gone("AzurKit is quitting")
-            if child.killed and job in KILLS:
+            if child.killed and (job in KILLS if fore is None else not fore.is_set()):
                 raise Cancelled
             if not child.killed:
                 raise Gone("AzurKit's engine stopped (out of memory?): try again")
-            # cut short by a cancel of another call: run again in the new process
+            # cut short by a kill of another call: run again in the new process
 
     @staticmethod
-    def _wait(child: _Child, ident: int, job: str, answers: queue.SimpleQueue, progress) -> tuple[bool, object]:
+    def _wait(child: _Child, ident: int, job: str, answers: queue.SimpleQueue, progress,
+              fore: threading.Event | None = None) -> tuple[bool, object]:
         """``(True, the call's result)``, raising what it raised; ``(False,
-        None)`` when its process ended first."""
-        stopping = False
+        None)`` when its process ended first. ``fore``'s changes are sent
+        on as they come (polled)."""
+        stopping, told = False, None if fore is None else fore.is_set()
         while True:
-            kind, value = answers.get()
+            try:
+                kind, value = answers.get(timeout=None if fore is None else 0.05)
+            except queue.Empty:
+                kind = None
+            if fore is not None and fore.is_set() != told:
+                told = fore.is_set()
+                with child.lock:
+                    child.send(("fore", ident, told))
+            if kind is None:
+                continue
             if kind == "gone":
                 return False, None
             if kind == "progress":
@@ -399,13 +425,14 @@ class Spawned:
             return True, value
 
     def cancel(self) -> None:
-        """Kill a build in flight (the process, at once) and spawn the next
-        engine; nothing when none is in flight."""
+        """Kill the process (work ahead that reaches no record:
+        ``ahead.Ahead``'s kill) and spawn the next engine; nothing when no
+        call is in flight."""
         with self._lock:
             child = self._child
             with child.lock:
-                building = any(job in KILLS for job, _ in child.calls.values())
-            if self._closed or not building:
+                calling = bool(child.calls)
+            if self._closed or not calling:
                 return
             child.killed = True
             child.process.kill()
@@ -484,13 +511,17 @@ def _main(conn, stores: bool = False) -> None:
     and its save's progress sent back as they come; with ``stores``, what it
     works out kept across launches (:mod:`.swapcache`)."""
     global _BUILDS
-    from . import procpool, swapcache
+    from . import ahead, procpool, swapcache
 
     orphaned()
     procpool.install()   # the swap's parallel work in children of this process
     if stores:
         swapcache.install()
-    sending, stops = threading.Lock(), {}
+    sending, stops, fores = threading.Lock(), {}, {}   # fores: each call's ahead.Job.fore (None: the player's)
+
+    def waited(ident: int) -> bool:
+        """Whether a call the player waits on, other than ``ident``, is in flight."""
+        return any(other != ident and (fore is None or fore.is_set()) for other, fore in list(fores.items()))
 
     def send(kind: str, ident: int, value) -> None:
         if kind != "progress":
@@ -503,12 +534,17 @@ def _main(conn, stores: bool = False) -> None:
 
     def run(ident: int, job: str, args: tuple, follows: bool) -> None:
         global _BUILDS
-        stop = stops[ident]
+        stop, fore, low = stops[ident], fores[ident], ahead.Low()
+        low(fore is not None and not fore.is_set())
 
         def progress(step: dict) -> None:
             send("progress", ident, step)
+            if fore is not None and not (isinstance(step, dict) and step.get("stage") in ahead.KEEPS):
+                while not fore.is_set() and not stop.is_set() and waited(ident):   # never within a fill
+                    stop.wait(0.05)
             if stop.is_set():
                 raise Cancelled
+            low(fore is not None and not fore.is_set())
         try:
             with _following(progress if follows else None) as report:
                 value = JOBS[job](*args, **({"progress": report} if follows else {}))
@@ -517,7 +553,9 @@ def _main(conn, stores: bool = False) -> None:
         else:
             send("done", ident, value)
         finally:
+            low(False)
             stops.pop(ident, None)
+            fores.pop(ident, None)
             if job in KILLS:
                 with _BUILDING:
                     _BUILDS -= 1
@@ -532,6 +570,10 @@ def _main(conn, stores: bool = False) -> None:
             if (stop := stops.get(message[1])) is not None:
                 stop.set()
             continue
+        if message[0] == "fore":
+            if (fore := fores.get(message[1])) is not None:
+                fore.set() if message[2] else fore.clear()
+            continue
         if message[0] == "warm":
             _, what, args = message
             if what == "randomizer":   # taken here, before any call this loop reads after it starts
@@ -539,8 +581,10 @@ def _main(conn, stores: bool = False) -> None:
                 _WARMING[:] = [record("plan", _READING)]
             threading.Thread(target=WARMS[what], args=args, name=f"azurkit-warm-{what}", daemon=True).start()
             continue
-        _, ident, job, args, follows = message
-        stops[ident] = threading.Event()
+        _, ident, job, args, follows, followed = message
+        stops[ident], fores[ident] = threading.Event(), None if followed is None else threading.Event()
+        if followed:
+            fores[ident].set()
         if job in KILLS:   # counted as it is read, so an image's warm waiting on the logic's read waits it out too
             with _BUILDING:
                 _BUILDS += 1

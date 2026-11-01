@@ -44,10 +44,16 @@ first view's seed logic and world map, the maps' exits counted on it
 outside Live's view; ``randomizer``, ``restore``,
 ``vanilla``, ``spoiler``: the call's own line, no count), which the page
 shows as its bar.
-Both run in the engine (:mod:`.engine`): ``serve``'s on the request's own
-thread, the app's (:func:`main`) in a process of its own, with the seed's
+Both run in the engine (:mod:`.engine`): ``serve``'s on a thread of the
+server, the app's (:func:`main`) in a process of its own, with the seed's
 plan and the Characters tab's pictures and G4 match, so the server's own
-answers never wait on a build, and Cancel stops a build at once.
+answers never wait on a build, and Cancel answers at once.
+Work ahead (:mod:`.ahead`, D1007): ``POST api/prefetch`` ``{"gen", "recipe",
+"view"}`` plans the page's typed seed (``{seed, share}``, as Track asks it)
+and reads that plan's first tracker view, and ``POST api/speculate`` ``{"gen",
+"iso", "packs", "xbr", "randomizer", "character"}`` builds the page's settled
+setup, each at the page's change number; Track, the tracker's first ask and
+Build take them. ``api/install`` carries ``gen`` too.
 ``POST api/spoiler`` ``{}`` gives the last randomized build's spoiler
 (``{"text"}``), which the build leaves out (``sdk.image``'s ``spoiler``
 false) and the engine makes from the plan it kept the first time it is
@@ -145,6 +151,7 @@ import threading
 import time
 import urllib.parse
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
 
 from azurkit import __version__, sdk
@@ -155,9 +162,9 @@ from azurkit.tools import randomizer
 from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.live import link
 
+from . import ahead, live, swapcache
 from . import art as pictures
 from . import engine as engines
-from . import live, swapcache
 from .engine import Cancelled
 
 SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), which the app's share links open
@@ -449,6 +456,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
         self.feed: live.Feed | None = None  # Live, while it is on
         self.drawing = pictures.Drawing()   # the tracker's maps and icons, shipped with the page
+        self.slots = ahead.Ahead(kill=self._quiet)   # the work ahead, each click's way to it (D1007)
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
@@ -465,6 +473,7 @@ class Server(http.server.ThreadingHTTPServer):
         ``quitting``, before its part file is made and after each chunk."""
         self.quitting = True
         self.cancelled.set()
+        self.slots.close()   # every job ahead stops, and a click on one is let go (D1012)
         if (feed := self.feed) is not None:
             feed.stop()
         self.deadline = self.deadline or time.monotonic() + QUIT_WAIT
@@ -480,11 +489,24 @@ class Server(http.server.ThreadingHTTPServer):
         self.server_close()
 
     def cancel(self) -> dict:
-        """``api/cancel``: a save stops at its next chunk; a build in the
-        app's engine process at once (it ends, and another starts)."""
+        """``api/cancel``: a save stops at its next chunk; a build answers
+        Cancelled at once, and its work runs on as work ahead through a
+        seed's fill, for the next Build of these settings (:mod:`.ahead`),
+        then stops at its next record."""
         self.cancelled.set()
-        self.engine.cancel()
+        self.slots.cancel("build")
         return {}
+
+    def _quiet(self, job: ahead.Job) -> None:
+        """``job``, stopped or cancelled, reached no record within
+        ``ahead.GRACE``: the engine's process ends and another takes its
+        place, but for a view (the server's own) and beside a save, which
+        that would write again from nothing: that job ends at its next
+        record."""
+        with self.following:
+            saving = any(kind == "save" for kind, _ in self.calls.values())
+        if job.kind != "view" and not saving:
+            self.engine.cancel()
 
     @contextlib.contextmanager
     def follow(self, kind: str, first: dict = IDLE):
@@ -516,16 +538,24 @@ class Server(http.server.ThreadingHTTPServer):
                 "setup": _kept().get("setup"), "tracker": _kept().get("tracker"),
                 "content_source": _kept().get("content_source"), "show_objects": _kept().get("show_objects") is True}
 
-    def build(self, body: dict) -> dict:
+    @staticmethod
+    def _recipe(body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
-        recipe |= {key: body[key] for key in ("xbr", "randomizer", "character") if body.get(key)}
+        return recipe | {key: body[key] for key in ("xbr", "randomizer", "character") if body.get(key)}
+
+    def _image(self, recipe: dict) -> Callable[[ahead.Job], dict]:
+        """A build of ``recipe`` in the engine, as a slot's job."""
+        return lambda job: self.engine.call("image", recipe, progress=job.progress, fore=job.fore)
+
+    def build(self, body: dict) -> dict:
+        recipe = self._recipe(body)
         with self.busy, self.follow("build") as report:
             if self.quitting:
                 raise ValueError(QUITTING)
-            try:
-                built = self.engine.call("image", recipe, progress=report)
+            try:   # the job of this recipe, if there is one (its records from its last)
+                built = self.slots.take("build", ahead.key(recipe), self._image(recipe), report=report)
             except Cancelled:
-                raise ValueError("Cancelled: nothing was built") from None
+                raise ValueError(QUITTING if self.quitting else "Cancelled: nothing was built") from None
             except engines.Gone as exc:
                 raise ValueError(QUITTING if self.quitting else str(exc)) from None
         if self.quitting:   # closed while it built (AZ-823)
@@ -652,7 +682,7 @@ class Server(http.server.ThreadingHTTPServer):
         species = character.get("species") if isinstance(character, dict) else None
         what = "draw it" if job == "preview" else "match garret4"
         first = record("dress", f"Dressing {species} to {what}" if isinstance(species, str) else None)
-        with self.follow(job, first) as report:   # the swap's items counted on its line (the engine's pool.TICK)
+        with self.follow(job, first) as report, self.slots.turn():   # the swap's items counted on its line
             return self.engine.call(job, recipe, progress=lambda step: report(step | {"label": first["label"]}))
 
     def plan(self, body: dict) -> dict:

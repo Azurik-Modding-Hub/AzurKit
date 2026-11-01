@@ -1000,9 +1000,10 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
     (``app.engine.Spawned``), so the server's own answers (the species list,
     the setup, the build's progress: its stage's ``core.progress`` record)
     come within 0.5 s while keylord builds, its swap's work spread over that
-    process's pool (``app.procpool``); Cancel ends that process at once, and
-    its pool's children with it, the build is refused, another process
-    takes the next Build, and closing the app ends it too."""
+    process's pool (``app.procpool``); Cancel refuses the build at once and
+    stops it at its next record, so the same process, its logic and its
+    pool, takes the next Build (``app.ahead``, D1007), and closing the app
+    ends it."""
     _home(monkeypatch, tmp_path / "home")
     server = app.serve(_page.WEB, engine.Spawned())
     first, replies = server.engine.pid, []
@@ -1032,13 +1033,43 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         assert pool and ask("api/cancel", {})[1] == {}
         building.join(5)
         assert (building.is_alive(), replies) == (False, [{"refused": "Cancelled: nothing was built"}])
-        assert _ended(first) and all(_ended(pid) for pid in pool) and server.engine.pid != first
+        assert server.engine.pid == first
         took, built = ask("api/build", {"iso": str(usa_iso), "packs": {}})
         assert built["size"] == sdk.image({"iso": str(usa_iso), "packs": {}})[0].size, built
         last = server.engine.pid
     finally:
         server.close()
     assert _ended(last)
+
+
+def test_a_kill_of_a_quiet_job_cancels_it_and_runs_the_call_the_player_waits_on_again():
+    """A job ahead that reaches no record ends the engine's process
+    (``Spawned.cancel``): that job, no click following it, is cancelled, and
+    the call the player waits on beside it runs again in the next process, to
+    the plain answer (not "AzurKit is quitting", review H1 of Step 4.3w)."""
+    spawned, recipe = engine.Spawned(), {"seed": "azurkit", "share": "AZR-AAEA"}
+    seen, answers = threading.Event(), {}
+    followed, quiet = threading.Event(), threading.Event()
+    followed.set()
+
+    def call(name: str, fore: threading.Event) -> None:
+        try:
+            answers[name] = spawned.call("plan", recipe, progress=lambda step: seen.set(), fore=fore)
+        except BaseException as exc:
+            answers[name] = exc
+    try:
+        first, threads = spawned.pid, [threading.Thread(target=call, args=each)
+                                       for each in (("click", followed), ("ahead", quiet))]
+        for thread in threads:
+            thread.start()
+        assert seen.wait(120)
+        spawned.cancel()
+        for thread in threads:
+            thread.join(120)
+        assert isinstance(answers["ahead"], engine.Cancelled) and spawned.pid != first
+        assert answers["click"] == sdk.plan(recipe)
+    finally:
+        spawned.close()
 
 
 def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_for_its_pictures(monkeypatch):
@@ -1066,7 +1097,7 @@ def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_
     loop.start()
     for message in engine._warm_messages({"image": ("in.iso",), "randomizer": ()}):
         here.send(message)
-    here.send(("call", 1, "image", ({"iso": "in.iso", "randomizer": {"seed": "2"}},), False))
+    here.send(("call", 1, "image", ({"iso": "in.iso", "randomizer": {"seed": "2"}},), False, None))
     assert here.recv()[:2] == ("done", 1)
     end = time.monotonic() + 10
     while "pictures done" not in log and time.monotonic() < end:
@@ -1118,8 +1149,8 @@ def test_the_apps_save_writes_the_image_its_build_made_planned_once_and_hashed_f
     its Build made, kept in the engine and hashed there from the moment it
     was made, without planning it again: the build's report with the
     output's path, size and sha256, as ``sdk.build`` gives them. A save
-    whose build the engine keeps no more (another Build's since, or a
-    cancel's new process) builds its recipe again: the same image."""
+    whose build the engine keeps no more (another recipe's Build since, or
+    a kill's new process) builds its recipe again: the same image."""
     _home(monkeypatch, tmp_path / "home")
     planned, plan = [], sdk._plan
     monkeypatch.setattr(sdk, "_plan", lambda *args, **kwargs: planned.append(1) or plan(*args, **kwargs))
@@ -1141,8 +1172,8 @@ def test_the_apps_save_writes_the_image_its_build_made_planned_once_and_hashed_f
         assert saved == [{"saved": built[0]["report"] | {"out": str(out / "a.iso"), "size": made.size,
                                                           "sha256": kept.sha}}]
         assert (sha256, (out / "a.iso").stat().st_size) == (kept.sha, made.size)
-        _post(server.url, "api/build", recipe, built)
-        assert list(engine._BUILT) == [built[1]["build"]]   # a new Build drops the last one's image
+        _post(server.url, "api/build", {"iso": str(usa_iso), "packs": {}}, built)
+        assert list(engine._BUILT) == [built[1]["build"]]   # another recipe's Build drops the last one's image
         _post(server.url, "api/save", {"recipe": built[0]["recipe"], "out": str(out / "b.iso"),
                                        "build": built[0]["build"]}, again)
         assert (len(planned), again[0]["saved"]["sha256"]) == (4, kept.sha)
