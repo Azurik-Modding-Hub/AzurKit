@@ -39,7 +39,8 @@ recipe, :func:`builtin_refusal`, unless the host names another), nothing
 written on a fault (D35), then the files moved into place and
 ``installed.json`` written last. An installed copy stays at its version
 (pinned) until its Update, the same install, which also removes the files
-the new version dropped. A manifest, a file and ``installed.json`` are
+the new version dropped, and goes only up, from the source it came from
+(:func:`held_to`, SEC-8). A manifest, a file and ``installed.json`` are
 untrusted input (D992): each is capped and its paths held to the content
 folder. Nothing here opens a network connection."""
 
@@ -51,7 +52,7 @@ import json
 import os
 import re
 import shutil
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path, PurePosixPath
 
 from azurkit.core import jsondepth
@@ -275,6 +276,22 @@ can't be installed, or ``None``; ``files`` its checked files' bytes by path):
 :func:`builtin_refusal` by default, the sdk's for a pack (Step 4.3k)."""
 
 
+def held_to(chosen: Iterable[Mapping], record: Mapping, source: str | None = None) -> None:
+    """Refuse by name an install of ``chosen`` that takes an entry of
+    ``record`` (:func:`installed`) below its installed version or, with a
+    ``source``, from another source than the one it came from (SEC-8): the
+    manifest that lists the files is what names their checksums, so a fetched
+    manifest can't be let roll an entry back or move it elsewhere."""
+    for e in chosen:
+        held = _record(record, e["id"])
+        version, origin = held.get("version"), held.get("source")
+        if isinstance(version, int) and e["version"] < version:
+            raise ValueError(f"{e['id']}: v{e['version']} is older than the v{version} installed: an Update only goes up")
+        if source is not None and origin and origin != source:
+            raise ValueError(f"{e['id']}: it was installed from {origin}, not {source}: an Update comes from where it "
+                             "was installed (clear the installed content to take it from elsewhere)")
+
+
 def verify(manifest: Mapping, entry: str, files: Mapping[str, bytes], refusal: Refusal | None = None) -> list[dict]:
     """The entries an install of ``entry`` writes (it and those it requires,
     :func:`needs`, those already in ``files``' reach), each file of theirs
@@ -391,13 +408,15 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     this one doesn't are removed (letter case aside, none another entry
     holds), then its files moved into place, and ``installed.json`` written last, each
     entry's version, ``source`` and files' sha256. An installed entry is
-    Updated the same way. Returns :func:`installed`'s record."""
+    Updated the same way, held to :func:`held_to` before anything is
+    fetched. Returns :func:`installed`'s record."""
     root = root or ROOT
     manifest = check(manifest)
     entries = {e["id"]: e for e in manifest["entries"]}
     had = installed(root)
     chosen = _chosen(entry, entries)
     todo = [e["id"] for e in chosen if e["id"] == entry or _record(had, e["id"]).get("version") != e["version"]]
+    held_to([entries[name] for name in todo], had, source)
     made, parts = [p for p in (root, *root.parents) if not p.exists()], []   # removed deepest first on a fault
     try:
         for e in chosen:
@@ -475,7 +494,8 @@ def states(manifest: Mapping | None, record: Mapping) -> list[dict]:
     """Each entry of ``manifest`` (checked; ``None``: none fetched) with what
     the content folder's ``record`` (:func:`installed`) makes of it:
     ``state`` ``"install"``, ``"installed"`` (at the manifest's version) or
-    ``"update"`` (an older version installed, kept until its Update), and
+    ``"update"`` (an older version installed, kept until its Update; a
+    newer one installed is ``"installed"``: no Update goes down, SEC-8), and
     ``installed`` (the version held, or ``None``); an entry installed that the
     manifest no longer lists comes last, ``"installed"``; an entry's
     ``description``, when it has one, is kept."""
@@ -483,7 +503,8 @@ def states(manifest: Mapping | None, record: Mapping) -> list[dict]:
     for e in (manifest or {}).get("entries", []):
         held = record.get(e["id"], {}).get("version")
         out.append({k: e[k] for k in (*ENTRY, "description") if k in e} | {
-            "state": "install" if held is None else "installed" if held == e["version"] else "update",
+            "state": "install" if held is None else "installed" if isinstance(held, int) and held >= e["version"]
+            else "update",
             "installed": held})
     listed = {e["id"] for e in out}
     out += [{"id": name, "kind": "variant" if any(p.startswith("variants/") for p in held.get("files", {})) else "pack",

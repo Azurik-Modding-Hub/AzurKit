@@ -1188,19 +1188,27 @@ def restore(setup: object) -> dict:
             "dropped": list(dict.fromkeys(dropped + why))} | rando
 
 
+def _secure(url: str) -> bool:
+    """Whether content may come over ``url``: https, or http to this computer alone (SEC-8)."""
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme == "https" or parts.scheme == "http" and parts.hostname in ("localhost", "127.0.0.1", "::1")
+
+
 def _source(given: object = None) -> str:
     """The content source: ``$AZURKIT_CONTENT_SOURCE``, else ``given`` (a
-    host's setting), else :data:`SOURCE`; an http(s) URL or a folder's
-    absolute path (``~`` expanded), refused by name otherwise."""
+    host's setting), else :data:`SOURCE`; an https URL (:func:`_secure`) or
+    a folder's absolute path (``~`` expanded), refused by name otherwise."""
     source = os.environ.get(SOURCE_ENV) or given or SOURCE
     if not isinstance(source, str) or not source.strip():
-        raise ValueError("content: the source is an http(s) URL or a folder's path")
+        raise ValueError("content: the source is an https URL or a folder's path")
     source = source.strip()
     if urllib.parse.urlsplit(source).scheme in ("http", "https"):
+        if not _secure(source):
+            raise ValueError(f"content: {source} is plain http: a URL source is https (http only on this computer)")
         return source if source.endswith("/") else source + "/"
     folder = Path(source).expanduser()
     if not folder.is_absolute():
-        raise ValueError(f"content: {source} is neither an http(s) URL nor a folder's full path")
+        raise ValueError(f"content: {source} is neither an https URL nor a folder's full path")
     return str(folder)
 
 
@@ -1225,6 +1233,8 @@ def _fetch(source: str) -> Callable[..., bytes]:
             where = urllib.parse.urljoin(source, urllib.parse.quote(path))
             try:
                 with urllib.request.urlopen(where, timeout=60) as reply:
+                    if not _secure(reply.geturl()):   # a redirect's end is held to the source's rule
+                        raise OSError(f"redirected to {reply.geturl()}, which isn't https")
                     data = reply.read(most + 1)
             except OSError as exc:   # urllib's HTTPError and URLError are OSErrors
                 raise OSError(f"{where}: {getattr(exc, 'reason', exc)}") from None
@@ -1292,7 +1302,9 @@ def content_check(given: Mapping) -> dict:
     bytes}``, what the page fetched of the entry and those it requires)
     every file verified as :func:`content_install` verifies it
     (``tools.characters.content.verify``): ``{"manifest", "install": [each
-    entry's id it writes, those required first]}``, or the refusal named."""
+    entry's id it writes, those required first]}``, or the refusal named: none
+    goes below its installed version (``tools.characters.content.held_to``;
+    the page reads only its own origin, so its source stays one)."""
     from azurkit.tools.characters import content as kit
 
     if not isinstance(given, Mapping):
@@ -1301,4 +1313,5 @@ def content_check(given: Mapping) -> dict:
     if "id" not in given:
         return {"manifest": manifest, "install": []}
     chosen = kit.verify(manifest, given["id"], given.get("files") or {})
+    kit.held_to(chosen, kit.installed())
     return {"manifest": manifest, "install": [e["id"] for e in chosen]}

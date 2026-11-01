@@ -10,6 +10,7 @@ resource of each G3 build that wears a model) and G3's per-file hashes."""
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 import multiprocessing
@@ -674,6 +675,46 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
                                          r"[0-9a-f]{12}, not the built-in beamlord's 628f6d09ad7b"):
         sdk.content_install({"id": "beamlord", "source": str(source)})
     assert "beamlord" not in content.installed()
+
+
+def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_https(tmp_path, monkeypatch):
+    """SEC-8: a manifest listing an older version offers no Update, and an install from it (the app's, the site's
+    check) is refused by name; so is one from another source than the entry's own, a plain http source (only this
+    computer's is let through) and a redirect that ends on one. Each refusal changes nothing; the entry's own source
+    at a higher version still Updates."""
+    home, other, folder = tmp_path / "home", tmp_path / "other", tmp_path / "content"
+    monkeypatch.setattr(content, "ROOT", folder)
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    path = "packs/a/pack.json"
+    at = lambda where, version, data: _source(where, {path: data}, [{"id": "a", "version": version, "files": [path]}])  # noqa: E731
+    at(home, 2, b"{}")
+    sdk.content_install({"id": "a", "source": str(home)})
+    record = content.installed()
+    older = at(home, 1, b"[]")
+    at(other, 3, b"[1]")
+    assert [(e["state"], e["installed"]) for e in sdk.content({"source": str(home)})["entries"]] == [("installed", 2)]
+    for name, refused, why in [
+        ("a downgrade", lambda: sdk.content_install({"id": "a", "source": str(home)}), r"^a: v1 is older than the v2"),
+        ("the site's", lambda: sdk.content_check({"manifest": older, "id": "a", "files": {path: b"[]"}}), r"^a: v1 is older"),
+        ("another source", lambda: sdk.content_install({"id": "a", "source": str(other)}), r"^a: it was installed from "),
+        ("http", lambda: sdk.content_install({"id": "a", "source": "http://example.test/c"}), r"is plain http"),
+        ("http read", lambda: sdk.content({"source": "http://localhost.example.test/"}), r"is plain http"),
+    ]:
+        with pytest.raises(ValueError, match=why):
+            refused()
+        assert content.installed() == record and (folder / path).read_bytes() == b"{}", name
+    assert [sdk._source(url) for url in ("https://example.test/c", "http://localhost:8000/c", "http://127.0.0.1:8000/",
+                                         "http://[::1]:8000/")] == [
+        "https://example.test/c/", "http://localhost:8000/c/", "http://127.0.0.1:8000/", "http://[::1]:8000/"]
+
+    class Redirected(io.BytesIO):
+        geturl = staticmethod(lambda: "http://example.test/manifest.json")
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_, **__: Redirected(b"{}"))
+    with pytest.raises(OSError, match=r"redirected to http://example\.test/manifest\.json, which isn't https"):
+        sdk._fetch("https://example.test/")(content.MANIFEST)
+    at(home, 3, b"[3]")
+    assert sdk.content_install({"id": "a", "source": str(home)})["installed"]["a"]["version"] == 3
+    assert (folder / path).read_bytes() == b"[3]"
 
 
 # --- untrusted content (D992's SEC-5, 6, 9, 14, 15 and the allow-list; Step S1) -----------------------------

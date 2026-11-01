@@ -401,7 +401,9 @@ The site's half of Install (its page fetches, this checks):
 bytes}``, what the page fetched of the entry and those it requires)
 every file verified as :func:`content_install` verifies it
 (``tools.characters.content.verify``): ``{"manifest", "install": [each
-entry's id it writes, those required first]}``, or the refusal named.
+entry's id it writes, those required first]}``, or the refusal named: none
+goes below its installed version (``tools.characters.content.held_to``;
+the page reads only its own origin, so its source stays one).
 
 
 def pickers(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':

@@ -674,7 +674,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     winning): each file checked as it lands, then the host's `refusal`
     (a built-in variant's recipe by default), nothing written on a fault,
     `installed.json` last. An installed copy stays at its version until its
-    Update. The engine opens no connection: the sdk's CPython calls fetch,
+    Update, which only goes up and only from the source it came from
+    (`content.held_to`, SEC-8); a URL source is https, http only on this
+    computer (`sdk._secure`, a redirect's end too). The engine opens no connection: the sdk's CPython calls fetch,
     and the site's page fetches and its worker checks
     (`sdk.content_check`).
   - **Shipped answers** (D995, `tools/characters/shipped.py`): each
