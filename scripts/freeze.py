@@ -3,7 +3,7 @@
 ``azurkit`` command) with the page (``web/``), from this checkout's
 environment. On macOS the onedir is a windowed app, ``AzurKit.app``.
 
-    uv run --locked python scripts/freeze.py --dist DIR [--work DIR]
+    uv run --locked python scripts/freeze.py --dist DIR [--work DIR] [--check]
 
 It prints the app's path: ``DIR/AzurKit.app`` on macOS, else the folder
 ``DIR/AzurKit``. PyInstaller writes only under ``--dist`` and ``--work``
@@ -14,16 +14,26 @@ AzurKit's (:data:`ICON`, the mark on an azure tile, D892; ``assets/icon/``
 rebuilds it). It carries the checked randomizer database
 (``web_tools.ship_database``, keyed by the data alone, as the frozen app
 keys it: its planner is in its archive, not files), so its Randomizer tab
-doesn't check the database first (Step 4.3g).
+doesn't check the database first (Step 4.3g). It carries this platform's
+compiled library (``core/native.py``), named on its own because
+``--collect-data`` skips every ``.so`` (Python's extension suffix) and
+``--collect-binaries`` every ``.so`` not named ``lib*`` (Step 4.3r4e); macOS's
+build rewrites and re-signs it, so its sha12 there isn't the committed file's.
+``--check`` then runs the app (``serve``: no window, in this user's folders,
+so a CI runner's) and refuses one whose report says the library didn't load.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,15 +44,19 @@ ICON = ROOT / "assets" / "icon" / "AzurKit.icns"   # the .app's icon (its Info.p
 EXCLUDE = ("tkinter", "_tkinter", "unicorn", "capstone", "ziglang", "readline", "dbm", "_dbm", "_gdbm")
 
 
-def freeze(dist: Path, work: Path) -> Path:
-    """Build the app in ``dist``, with PyInstaller's files in ``work``; returns its path."""
+def freeze(dist: Path, work: Path, check: bool = False) -> Path:
+    """Build the app in ``dist``, with PyInstaller's files in ``work``; returns
+    its path. ``check``: refuse an app whose compiled library doesn't load."""
     os.environ["PYINSTALLER_CONFIG_DIR"] = str(work / "config")
     sys.path.insert(0, str(ROOT / "scripts"))
     import web_tools
     from PyInstaller.__main__ import run
 
+    from azurkit.core import native
     from azurkit.tools.randomizer import dbcache
 
+    if (library := native.target()) is None:
+        raise SystemExit(native.report()["why"])
     shipped = web_tools.ship_database(work / "shipped", planner=False)
 
     run(["--noconfirm", "--clean", "--onedir", "--name", NAME, "--log-level", "WARN",
@@ -50,6 +64,7 @@ def freeze(dist: Path, work: Path) -> Path:
          "--distpath", str(dist), "--workpath", str(work), "--specpath", str(work),
          "--paths", str(ROOT / "src"), "--collect-data", "azurkit", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
          "--add-data", f"{shipped}{os.pathsep}{web_tools.SHIPPED}",
+         "--add-binary", f"{native.FOLDER / library}{os.pathsep}azurkit/core/_native",
          *(arg for module in EXCLUDE for arg in ("--exclude-module", module)),
          str(ROOT / "src" / "azurkit" / "__main__.py")])
     if MACOS:
@@ -58,6 +73,8 @@ def freeze(dist: Path, work: Path) -> Path:
     data = next(d for f in folders(app) if (d := f / "azurkit/tools/randomizer/data").is_dir())
     if dbcache.entry(data, None).name != shipped.stem:
         raise SystemExit(f"the app's randomizer data isn't what its shipped database {shipped.name} was made from")
+    if check and not (loaded := report(app))["loaded"]:
+        raise SystemExit(f"the app runs the Python twins, not its compiled library: {loaded['why']}")
     return app
 
 
@@ -73,16 +90,28 @@ def folders(app: Path) -> list[Path]:
     return [app / "_internal"]
 
 
+def report(app: Path, **popen) -> dict:
+    """The app's own report of its compiled kernels (``sdk.catalog``'s
+    ``native``), from its ``serve``; ``popen``: how to run it (``env``, ``cwd``)."""
+    with subprocess.Popen([str(executable(app)), "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+                          **popen) as served:
+        url = urllib.parse.urlsplit(served.stdout.readline().strip())
+        with urllib.request.urlopen(f"http://{url.netloc}/host.json?{url.query}", timeout=120) as host:
+            return json.load(host)["catalog"]["native"]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--dist", type=Path, required=True, help="where the app's folder goes")
     ap.add_argument("--work", type=Path, help="PyInstaller's build files (default: a temporary folder)")
+    ap.add_argument("--check", action="store_true",
+                    help="then run the app (no window; in this user's folders) and refuse it unless its library loads")
     args = ap.parse_args(argv)
     if args.work:
-        print(freeze(args.dist.resolve(), args.work.resolve()))
+        print(freeze(args.dist.resolve(), args.work.resolve(), args.check))
         return 0
     with tempfile.TemporaryDirectory(prefix="azurkit-freeze.") as work:
-        print(freeze(args.dist.resolve(), Path(work)))
+        print(freeze(args.dist.resolve(), Path(work), args.check))
     return 0
 
 

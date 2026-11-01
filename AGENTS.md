@@ -1361,7 +1361,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   pytest log's tail and summary are printed. `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
   --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four
-  apps (`scripts/freeze.py`) on a push to `main`, each a 14-day workflow
+  apps (`scripts/freeze.py --check`, which refuses one whose compiled library
+  doesn't load) on a push to `main`, each a 14-day workflow
   artifact with its sha256. Workflows hold `permissions: contents: read`,
   no `pull_request_target`, and actions
   pinned by commit sha with their release beside it; `actionlint` passes

@@ -351,6 +351,15 @@ def _get(url: str, path: str) -> bytes:
         return reply.read()
 
 
+def test_the_frozen_app_loads_this_platforms_compiled_library(frozen_app, tmp_path, monkeypatch):
+    """Step 4.3r4e: the frozen app reports this platform's library loaded,
+    not the Python twins (Linux's ``.so`` was left out of the app, so that
+    app ran them with no error)."""
+    box = Sandbox(tmp_path, monkeypatch)
+    got = freeze.report(frozen_app[0], env=box.env, cwd=box.cwd)
+    assert (got["loaded"], got["library"], got["kernels"]) == (True, native.target(), list(native.KERNELS))
+
+
 def test_the_frozen_app_serves_the_pictures_the_page_ships(frozen_app, tmp_path, monkeypatch):
     """Step 4.3f (D961): the frozen app (read-only, in a fresh HOME, no
     image) answers ``api/art`` with the tracker's shipped index (with the

@@ -47,13 +47,13 @@ jobs:
         with:
           version: "0.12.24"
       - run: uv sync --locked
-      - name: Freeze the app, archive it and write its sha256
+      - name: Freeze the app, check its report says its compiled library loaded, archive it and write its sha256
         id: app
         env:
           LABEL: ${{ matrix.label }}
         run: |
           dist="$RUNNER_TEMP/dist" out="$RUNNER_TEMP/app"
-          uv run --locked python scripts/freeze.py --dist "$dist" --work "$RUNNER_TEMP/work"
+          uv run --locked python scripts/freeze.py --dist "$dist" --work "$RUNNER_TEMP/work" --check
           name="AzurKit-$LABEL-${GITHUB_SHA:0:12}"
           mkdir -p "$out"
           case "$RUNNER_OS" in
