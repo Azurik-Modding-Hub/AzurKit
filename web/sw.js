@@ -30,6 +30,7 @@ const NAME = RELEASE && PREFIX + RELEASE.name;
 const ISOLATED = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp",
                    "Cross-Origin-Resource-Policy": "same-origin" };
 const AT_ONCE = 6;   // the downloads the install runs at once
+const LATE = 2000;   // ms a check gives a found release to show on this worker's registration
 
 const hex = async (data) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", data))]
   .map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -118,6 +119,16 @@ async function serve(rel, request) {
   return isolated(reply);
 }
 
+// Whether a new release is installing or waiting, once update() has resolved: a worker's registration can show it a
+// moment after the promise (WebKit's, a worker restarted after its idle: its page's registration shows it at once), so
+// no new release is only said after LATE. The moment costs a check nothing: the install's own "installed" tells the pages.
+async function found(reg) {
+  for (const end = Date.now() + LATE; !reg.installing && !reg.waiting && Date.now() < end;) {
+    await new Promise((done) => setTimeout(done, 50));
+  }
+  return Boolean(reg.installing || reg.waiting);
+}
+
 async function answer(data, source) {
   if (data?.type === "release") {
     const cached = NAME ? (await (await caches.open(NAME)).keys()).length : 0;
@@ -131,8 +142,7 @@ async function answer(data, source) {
     } catch {
       return { type: "checked", update: false, offline: true };
     }
-    const reg = self.registration;
-    return { type: "checked", update: Boolean(reg.installing || reg.waiting), offline: false };
+    return { type: "checked", update: await found(self.registration), offline: false };
   }
   if (data?.type === "reload") {
     const others = (await pages()).filter((page) => page.id !== source?.id).length;

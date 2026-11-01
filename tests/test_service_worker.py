@@ -325,6 +325,27 @@ def test_an_update_waits_until_the_page_takes_it(browser, releases):
         assert other.evaluate("sw.take()") == {"type": "reload", "ok": False, "others": 1}
 
 
+def test_a_check_waits_for_a_found_release_to_show_on_its_workers_registration(browser):
+    """``registration.update()`` can resolve before the worker's own registration shows the release it found (WebKit's,
+    a worker restarted after its 30 s idle, about one check in four, on every slower machine's first one too): the
+    check still says so; with none found it says none, a moment later."""
+    context = browser.new_context()
+    try:
+        answers = context.new_page().evaluate("""async (source) => {
+          const check = (shows) => new Promise((done) => {
+            const handlers = {}, reg = { scope: "https://x/", installing: null, waiting: null, update: async () => {
+              if (shows) setTimeout(() => { reg.installing = {}; }, 300);
+            } };
+            new Function("self", source)({ registration: reg, addEventListener: (name, f) => { handlers[name] = f; } });
+            handlers.message({ data: { type: "check" }, ports: [{ postMessage: done }] });
+          });
+          return [await check(true), await check(false)];
+        }""", (WEB / web_tools.WORKER).read_text(encoding="utf-8"))
+    finally:
+        context.close()
+    assert [answer["update"] for answer in answers] == [True, False]
+
+
 def test_a_page_of_the_next_release_never_runs_the_last_ones_engine(browser, releases):
     """Once the page takes the waiting release it reloads onto it whole:
     its page and engine are the new release's, the last release's cache is
