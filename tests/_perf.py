@@ -192,6 +192,8 @@ OPS = {op.id: op for op in (
     Op("S46", "Save a mods file, then Load it (the slower)", "build"),
     Op("S47", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True),
     Op("S48", "the last build's report, View", "build", first=False),
+    Op("R14", "the engine ready again after Build keylord", "build"),   # the next op's wait: the same or a new worker
+    Op("R24", "the engine ready again after a seed's build", "randomizer"),
 )}
 
 
@@ -1093,12 +1095,12 @@ def site_start(d: Driver, ctx, url: str) -> None:
     _download(d, p, "S06")
     p.wait(READY, 600)   # the site's engine is replaced after each build
     d.act(p, "S08", click("tab-characters"), SPECIES, 1800)
-    if d.needed(("S10", "S11", "S14")):   # slow steps another pass doesn't need are skipped
+    if d.needed(("S10", "S11", "S14", "R14")):   # slow steps another pass doesn't need are skipped
         t0, _ = d.act(p, "S10", model("keylord"), chosen("keylord", pictures=False), 1800, change=True)
         d.until(p, "S11", t0, chosen("keylord"), 1800)
-        if d.need("S14"):
-            d.act(p, "S14", build_js(), BUILT, 1800)
-            p.wait(READY, 600)
+        if d.needed(("S14", "R14")):
+            _, built = d.act(p, "S14", build_js(), BUILT, 1800)
+            d.until(p, "R14", built, READY, 600)
     p.page.close()
     while d.needed(("S02", "S04")):
         p = _site_page(d, ctx, url + "?again", "S02")
@@ -1159,7 +1161,8 @@ def site_seed(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     _pick(d, p, None)
     _seeded(d, p)
-    d.act(p, "S24", build_js(), BUILT, 1800)
+    _, built = d.act(p, "S24", build_js(), BUILT, 1800)
+    d.until(p, "R24", built, READY, 600)
     p.page.close()
 
 
@@ -1412,11 +1415,11 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46"), app_data),
-    "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "S16", "S17"),
+    "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S16", "S17"),
                    site_start),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
-    "site-seed": ("site", ("S24",), site_seed),
+    "site-seed": ("site", ("S24", "R24"), site_seed),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39"), site_data),
 }

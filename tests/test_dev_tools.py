@@ -469,6 +469,17 @@ def test_a_site_builds_sample_logs_its_steady_memory_beside_the_resident_peak(tm
     assert d.log[-1].endswith("steady 3.00 GiB peak 5.00 GiB")
 
 
+def test_the_engine_ready_again_after_a_seeds_build_is_timed_from_the_builds_answer(tmp_path, monkeypatch):
+    """R24 (R14's twin): the next op's wait after a big build, the worker
+    replaced, counts from the build's answer, not its click."""
+    page = _Stub({_perf.build_js(): {_perf.BUILT: 5000, _perf.READY: 6200}})
+    monkeypatch.setattr(_perf, "Page", lambda _: page)
+    d = _perf.Driver(_perf.RUNS["webkit"], {"S24": 1, "R24": 1}, tmp_path, tmp_path / "usa.iso", None)
+    d.sleep = lambda seconds: setattr(page, "t", page.t + seconds * 1000)
+    _perf.site_seed(d, types.SimpleNamespace(new_page=dict), "http://127.0.0.1:9800/")
+    assert (d.samples["S24"][0]["s"], d.samples["R24"][0]["s"]) == (5.0, 1.2)
+
+
 def test_the_app_seed_pass_picks_its_model_while_a_build_runs_and_waits_for_that_builds_own_answer(tmp_path):
     """Step 4.3 train B3 (the gate's A27-A30 errors, 1,800 s each): A30's
     pick is a small ask made while a build runs, so its build is of a seed
