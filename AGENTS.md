@@ -1073,9 +1073,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   in this repository alone the vanilla and europe tiers on the same four:
   each image rebuilt in the runner's temp folder from the game-data repo's
   parts with `GAMEDATA_DEPLOY_KEY` (the only secret a workflow reads), never
-  cached, uploaded or printed, and deleted after; on Linux the job runs
-  behind harden-runner's egress block and its tests with no network
-  (Modkit's §12.4 hygiene; macOS and Windows have neither), and only the
+  cached, uploaded or printed, and deleted after; on every OS the job runs
+  behind harden-runner's egress block, which starts with the job (its
+  pre-step), so its installs' hosts are named too, and on Linux its tests
+  run with no network as well (Modkit's §12.4 hygiene), and only the
   pytest log's tail and summary are printed. The pure tier deselects the
   one test that clones the private Modkit checkout. `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit

@@ -10,9 +10,10 @@
 #   reads a secret). That repository's own reassemble.py checks every part's sha256 and the whole image's, and the
 #   parts go at once. No cache and no artifact hold an image, its path is never printed, and the images are deleted
 #   after the tests. Azurik-Custom-Content (public) gives booblord's tests their files. The image's hygiene
-#   (Modkit's REORG_PLAN §12.4, D125): on Linux harden-runner blocks every host the job doesn't name, and the tests
-#   run with no network and a reset environment; on every OS pytest writes to a log and only its tail and summary
-#   are printed. macOS and Windows have no egress block (harden-runner audits only there) and no unshare.
+#   (Modkit's REORG_PLAN §12.4, D125): on every OS harden-runner blocks every host the job doesn't name (its agent
+#   starts in its pre-step, which runs at the job's start whatever the step's if: says, so on macOS and Windows too:
+#   run 41265131863), and on Linux the tests also run with no network and a reset environment (no unshare
+#   elsewhere); on every OS pytest writes to a log and only its tail and summary are printed.
 # Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
 # their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
 name: tests
@@ -95,12 +96,14 @@ jobs:
       run:
         shell: bash
     steps:
-      # First, on Linux (its only OS with a block): only the hosts the steps below need. github.com (443: the checkout,
-      # the content clone, Pyodide's core; 22: the game data's SSH clone) and GitHub's release downloads; api and raw
-      # for setup-node's manifest; releases.astral.sh for uv and its Python; PyPI for uv sync; nodejs.org for Node;
-      # jsDelivr for Pyodide's wheels; Playwright's two CDNs; the runner's apt sources for install-deps.
+      # First, on every OS (the block starts in harden-runner's pre-step, at the job's start, so the installs below run
+      # behind it too): only the hosts the steps below need. github.com (443: the checkout, the content clone,
+      # Pyodide's core; 22: the game data's SSH clone) and GitHub's release downloads; api and raw for setup-node's
+      # manifest; releases.astral.sh for uv and its Python; PyPI for uv sync; nodejs.org for Node; jsDelivr for
+      # Pyodide's wheels; Playwright's CDN and the two it redirects to (Microsoft's for WebKit, Firefox and FFmpeg;
+      # Chrome for Testing's bucket on storage.googleapis.com for Chromium's headless shell); the runner's apt sources
+      # for install-deps.
       - name: harden-runner, egress blocked
-        if: runner.os == 'Linux'
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: block
@@ -108,7 +111,7 @@ jobs:
             github.com:443 github.com:22 api.github.com:443 raw.githubusercontent.com:443
             release-assets.githubusercontent.com:443 objects.githubusercontent.com:443
             releases.astral.sh:443 pypi.org:443 files.pythonhosted.org:443 nodejs.org:443 cdn.jsdelivr.net:443
-            cdn.playwright.dev:443 playwright.download.prss.microsoft.com:443
+            cdn.playwright.dev:443 playwright.download.prss.microsoft.com:443 storage.googleapis.com:443
             azure.archive.ubuntu.com:80 security.ubuntu.com:80 packages.microsoft.com:443
             ppa.launchpadcontent.net:443
       - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
