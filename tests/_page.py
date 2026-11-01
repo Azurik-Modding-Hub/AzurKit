@@ -10,11 +10,21 @@ handlers) and poll with ``page.evaluate``."""
 from __future__ import annotations
 
 import hashlib
+import http.server
 import time
 from pathlib import Path
 
+from azurkit.app import content_type
+
 WEB = Path(__file__).resolve().parent.parent / "web"
 ICONS = {"favicon.ico": "16x16 32x32 48x48", "favicon-32.png": "32x32"}   # the favicon (D892): the mark, free
+
+class Static(http.server.SimpleHTTPRequestHandler):
+    """A static host: the tests' servers answer each file with the app's type for it, never the registry's guess."""
+
+    def guess_type(self, path) -> str:
+        return content_type(str(path))
+
 
 def until(page, js: str, timeout: float = 600):
     """``js``'s value once it is truthy."""

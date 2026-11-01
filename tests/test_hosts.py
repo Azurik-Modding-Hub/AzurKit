@@ -709,6 +709,24 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
             server.close()
 
 
+def test_the_apps_server_types_each_file_from_its_table_never_the_systems_guess(tmp_path, monkeypatch):
+    """A browser refuses a module served as anything but JavaScript, and on Windows ``mimetypes`` reads the registry,
+    which often says ``text/plain``: the page would never start. The app's answers are its own table's."""
+    import mimetypes
+
+    monkeypatch.setattr(mimetypes, "guess_type", lambda *args, **kwargs: ("text/plain", None))
+    _home(monkeypatch, tmp_path / "home")
+    server = app.serve()
+    try:
+        query = urllib.parse.urlsplit(server.url).query
+        for name, kind in (("app.mjs", "text/javascript"), ("sw.js", "text/javascript"), ("index.html", "text/html"),
+                           ("favicon-32.png", "image/png")):
+            with urllib.request.urlopen(f"http://{server.host}/{name}?{query}", timeout=60) as reply:
+                assert (name, reply.headers["Content-Type"]) == (name, kind)
+    finally:
+        server.close()
+
+
 def _post(url: str, call: str, body: dict, replies: list, timeout: float = 120) -> None:
     """POST ``body`` to the engine's ``call`` (``api/save``, say) from the
     page at ``url`` (its token in the query); its reply goes in ``replies``."""

@@ -167,10 +167,7 @@ class Host:
         self.root, self.down, self.workers = root, False, 0
         host = self
 
-        class Handler(http.server.SimpleHTTPRequestHandler):
-            extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".mjs": "text/javascript",
-                              ".js": "text/javascript", ".json": "application/json"}
-
+        class Handler(_page.Static):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, directory=str(host.root), **kwargs)
 

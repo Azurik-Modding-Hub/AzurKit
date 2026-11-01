@@ -61,6 +61,8 @@ import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
+from tests import _page
+
 ROOT = Path(__file__).resolve().parent.parent
 GROUPS = ("start", "image", "build", "characters", "randomizer", "tracker")
 LONG = 30.0          # an op with a sample over this runs once (its median is that sample)
@@ -706,7 +708,7 @@ class App:
         return [self.proc.pid] if self.proc and self.proc.poll() is None else []
 
 
-class _Quiet(http.server.SimpleHTTPRequestHandler):
+class _Quiet(_page.Static):
     worker: str | None = None   # the lag model's worker.mjs, served in place of the file
 
     def log_message(self, *args):

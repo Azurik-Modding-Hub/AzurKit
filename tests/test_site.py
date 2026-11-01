@@ -28,7 +28,6 @@ import functools
 import hashlib
 import http.server
 import json
-import mimetypes
 import re
 import threading
 import time
@@ -148,7 +147,7 @@ class Site:
         file = (self.root / (urllib.parse.unquote(url.path).lstrip("/") or "index.html")).resolve()
         if f"{url.scheme}://{url.netloc}" != ORIGIN or not file.is_relative_to(self.root) or not file.is_file():
             return route.fulfill(status=404, body="")
-        route.fulfill(path=str(file), content_type=mimetypes.guess_type(file.name)[0] or "application/octet-stream")
+        route.fulfill(path=str(file), content_type=_page.content_type(file.name))
 
     def open(self):
         """A new page, its engine loaded."""
@@ -703,7 +702,7 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
         served.close()
 
 
-class _Quiet(http.server.SimpleHTTPRequestHandler):
+class _Quiet(_page.Static):
     def log_message(self, *args) -> None:
         pass
 
@@ -1947,7 +1946,7 @@ def _bare_page(browser, root: Path):
         file = (root / path).resolve()
         if not request.url.startswith(f"{ORIGIN}/") or not file.is_relative_to(root.resolve()) or not file.is_file():
             return route.fulfill(status=404, body="")
-        route.fulfill(path=str(file), content_type=mimetypes.guess_type(file.name)[0] or "application/octet-stream")
+        route.fulfill(path=str(file), content_type=_page.content_type(file.name))
 
     context.route("**/*", serve)
     page = context.new_page()

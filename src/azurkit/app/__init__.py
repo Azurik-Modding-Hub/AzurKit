@@ -138,7 +138,6 @@ import hmac
 import http.server
 import json
 import math
-import mimetypes
 import os
 import secrets
 import sys
@@ -178,7 +177,19 @@ GROUNDS = {"dark": "#0d1117", "light": "#e8ecf1"}
 THEMES = tuple(GROUNDS)
 QUIT_WAIT = 1.5   # seconds a close waits, in all, for a cancelled save to remove its part file (AZ-823)
 QUITTING = "AzurKit is quitting: nothing was written"
+CONTENT_TYPES = {".css": "text/css", ".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".html": "text/html",
+                 ".ico": "image/x-icon", ".js": "text/javascript", ".json": "application/json", ".md": "text/markdown",
+                 ".mjs": "text/javascript", ".png": "image/png", ".wasm": "application/wasm", ".wav": "audio/x-wav",
+                 ".zip": "application/zip"}
+"""What a browser is told of each kind of file the page, Pyodide's core and the content folder hold: this table, never
+``mimetypes``, whose guess on Windows is the registry's (``text/plain`` for a ``.mjs`` on many a machine, which a browser
+refuses to run as a module, so the page never starts)."""
 IDLE = {"stage": None, "label": "", "done": 0, "total": 0, "percent": None}   # api/progress with nothing in flight
+
+
+def content_type(name: str) -> str:
+    """The ``Content-Type`` of a file called ``name``: :data:`CONTENT_TYPES`'s, else plain bytes."""
+    return CONTENT_TYPES.get(Path(name).suffix.lower(), "application/octet-stream")
 
 
 def _config() -> Path:
@@ -815,7 +826,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             file = (root / rel).resolve()
             ok = version == tracking.ART_VERSION and file.suffix in (".png", ".json") and file.is_relative_to(
                 root.resolve()) and file.is_file()
-            return self._send(file.read_bytes(), mimetypes.guess_type(file.name)[0]) if ok else self.send_error(404)
+            return self._send(file.read_bytes(), content_type(file.name)) if ok else self.send_error(404)
         try:
             file = (self.server.page / (urllib.parse.unquote(url.path).lstrip("/") or "index.html")).resolve()
             data = file.read_bytes() if file.is_relative_to(self.server.page) and file.is_file() else None
@@ -823,7 +834,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             data = None
         if data is None:
             return self.send_error(404)
-        self._send(data, mimetypes.guess_type(file.name)[0] or "application/octet-stream",
+        self._send(data, content_type(file.name),
                    cookie="token" in urllib.parse.parse_qs(url.query))
 
     def do_POST(self) -> None:
