@@ -948,7 +948,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     click marking a spot or opening an exit's level, the wheel zooming about
     the pointer, a drag panning, a double click or Fit showing it whole, the
     map filling the window as it resizes, and, with Live, the player's dot
-    (Follow keeps a zoomed map on them; Find me centres it). The world map:
+    (Follow keeps a zoomed map on them, easing after them once they leave
+    the view's middle half, so the reads' jitter never moves it, and Live's
+    bar keeps its size from poll to poll; Find me centres it). The world map:
     each level's main floor, its badge of spots reachable now (amber: only
     a skip), the exits' lines. Where the pictures can't be read, the world
     map is a grid of the levels and a level's spots are chips. **Gems** (off by default, remembered: the

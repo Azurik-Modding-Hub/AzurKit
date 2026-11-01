@@ -1536,6 +1536,50 @@ def test_follow_shows_the_floor_the_player_stands_on_and_keeps_a_floor_picked_by
         server.close()
 
 
+def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_moves_a_zoomed_map(
+        browser, tmp_path, monkeypatch):
+    """Step 4.3 live tracker (the owner: "every time the map refreshes while
+    i am zoomed in, it is shaking"): Live's reads of a player standing
+    still jitter, and none of them moves a zoomed map (Follow on, the
+    player in the middle of the view) or the map's room (Live's bar keeps
+    its size from poll to poll); a player who walks out of the view's
+    middle has the map ease after them (several frames, then centred);
+    with Follow off a refresh never moves the zoomed map."""
+    entry = json.loads((app.pictures.folder() / "maps.json").read_text())["levels"]["w2"]
+    (x0, y1, s), (w, h) = entry["frame"], entry["size"]
+    middle = (x0 + w / 2 / s, y1 - h / 2 / s, 0.0)
+    played = _Played("w2", middle)
+    server, page = _live_map(browser, tmp_path, monkeypatch, played, _profile("default"))
+    view = """() => { const m = azurkit.tracker.map, r = document.getElementById("map-room").getBoundingClientRect();
+                      return [m.s, ...m.o, r.top, r.height, ...m.at(...m.pixel(azurkit.tracker.state.live.seen))]; }"""
+
+    def stand(at) -> list:
+        played.at = tuple(float(v) for v in at)
+        _page.until(page, f"() => ({SEEN})({json.dumps(list(played.at))}) && !azurkit.tracker.map.ease")
+        return page.evaluate(view)
+
+    try:
+        page.evaluate("() => { const m = azurkit.tracker.map; m.view(m.fitted * 4); "
+                      "m.see(...m.pixel(azurkit.tracker.state.live.seen), true); }")
+        held = stand(middle)
+        for k in range(6):   # the reads' jitter, a few cm each poll
+            assert stand((middle[0] + 0.04 * (-1) ** k, middle[1] - 0.03 * k % 2, 0.01 * k))[:5] == held[:5]
+        page.evaluate("() => { const m = azurkit.tracker.map; m.drawn = []; const draw = m.draw.bind(m); "
+                      "m.draw = () => { draw(); m.drawn.push(m.o[0]); }; }")   # each frame's view
+        after = stand((middle[0] + 60, middle[1], 0.0))   # out of the view's middle
+        frames = page.evaluate("() => azurkit.tracker.map.drawn")
+        cw = page.evaluate("() => azurkit.tracker.map.room()[0]")
+        between = {o for o in frames if held[1] < o < after[1]}
+        assert len(between) >= 3 and frames[-1] == after[1] and abs(after[5] - cw / 2) < 2
+        page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off
+        moved = stand((middle[0] + 60, middle[1] + 80, 0.0))
+        assert stand((middle[0] + 60, middle[1] - 80, 0.0))[:5] == moved[:5] == after[:5]
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
 def test_live_opens_each_session_on_the_marks_journal_and_reads_the_game_again_after_a_reset(tmp_path, monkeypatch):
     """Step 4.2c2's review (Modkit's tracker window): with Live on, the
     marks keep the saved slot the game last showed, and each session Live

@@ -24,7 +24,11 @@ const SPOT = { major: "Item spot", obsidian: "Obsidian spot", consumable: "Fuel 
 const STATE = { got: "collected", live: "collected (live)", skip: "reachable now with a skip", near: "reachable now",
                 far: "not reachable yet" };
 const BADGE_AT = [[8, 8], [-8, 8], [8, -8], [-8, -8]];
-const STEP = 1.25, METRE_PX = 8, DRAG_PX = 4, MARGIN = 40, MIN_ROOM = 320;
+const STEP = 1.25, METRE_PX = 8, DRAG_PX = 4, MIN_ROOM = 320;
+// Follow's view: the player moves freely in the middle of the view (DEAD of its width and height each side of its
+// centre), so the reads' jitter never moves the map; past it the map eases (EASE_MS) to centre them again
+const DEAD = 0.25, EASE_MS = 450;
+const still = () => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 // Follow's floor (Step 4.3's floors): ground this near the feet is what they stand on; at a seam the floor they were
 // on holds while its ground lies this near
 const FOOT_M = 1.5, HOLD_M = 2;
@@ -175,6 +179,7 @@ export class MapView {
   // leaves Follow's level).
   show(level, byHand = false) {
     this.level = level;
+    this.ease = null;
     this.detail = null;   // its detail picture, {name, bitmap, error} (the shown floor's, or another's: one held)
     this.hooks.art.drop();
     if (!this.ready(level)) {   // not drawn yet: the tracker shows its grid or chips
@@ -284,6 +289,7 @@ export class MapView {
   }
 
   fitWhole(redraw = true) {
+    this.ease = null;
     const size = this.pictureSize(), [cw, ch] = this.room();
     this.fitted = size ? Math.min(cw / size[0], ch / size[1]) : 1;
     this.s = this.want = this.fitted;
@@ -303,6 +309,7 @@ export class MapView {
   }
 
   view(want, at = null) {
+    this.ease = null;
     if (want <= this.fitted * 1.0001) return this.fitWhole();
     const [cw, ch] = this.room(), [cx, cy] = at ?? [cw / 2, ch / 2];
     const [mx, my] = this.margin();
@@ -314,10 +321,13 @@ export class MapView {
     this.draw();
   }
 
-  move(ox, oy) {
+  clamp(ox, oy) {
     const [w, h] = this.pictureSize(), [cw, ch] = this.room();
-    const next = [Math.min(Math.max(ox, 0), Math.max(w * this.s - cw, 0)),
-                  Math.min(Math.max(oy, 0), Math.max(h * this.s - ch, 0))];
+    return [Math.min(Math.max(ox, 0), Math.max(w * this.s - cw, 0)), Math.min(Math.max(oy, 0), Math.max(h * this.s - ch, 0))];
+  }
+
+  move(ox, oy) {
+    const next = this.clamp(ox, oy);
     const moved = [this.o[0] - next[0], this.o[1] - next[1]];
     this.o = next;
     return moved;
@@ -327,6 +337,7 @@ export class MapView {
     if (!this.press || this.s <= this.fitted * 1.0001) return;
     const [x0, y0, dragging] = this.press;
     if (!dragging && Math.abs(x - x0) + Math.abs(y - y0) < DRAG_PX) return;
+    this.ease = null;
     this.move(this.o[0] - (x - x0), this.o[1] - (y - y0));
     this.press = [x, y, true];
     this.draw();
@@ -338,17 +349,32 @@ export class MapView {
     const size = this.pictureSize(), [cw, ch] = this.room();
     this.fitted = Math.min(cw / size[0], ch / size[1]);
     if (!zoomed) return this.fitWhole();
-    this.view(Math.max(this.want, this.fitted));
+    this.view(Math.max(this.want, this.fitted), [0, 0]);   // its top left corner holds: a room grown below moves nothing
   }
 
-  // Keep the picture's pixel (x, y) in view (Follow): a zoomed map it lies off, or near the edge of, moves to centre
-  // it (centre, Find me: wherever it lies).
+  // Keep the picture's pixel (x, y) in view (Follow): a zoomed map eases to centre it once it leaves the middle of
+  // the view (DEAD), never for a move inside it (centre, Find me: centred at once, wherever it lies).
   see(x, y, centre = false) {
     if (!this.pictureSize() || this.want <= this.fitted * 1.0001 || this.press?.[2]) return;
-    const [cx, cy] = this.at(x, y), [cw, ch] = this.room();
-    if (!centre && MARGIN <= cx && cx <= cw - MARGIN && MARGIN <= cy && cy <= ch - MARGIN) return;
-    this.move(x * this.s - cw / 2, y * this.s - ch / 2);
-    this.draw();
+    const [cx, cy] = this.at(x, y), [cw, ch] = this.room(), to = this.clamp(x * this.s - cw / 2, y * this.s - ch / 2);
+    if (centre || still()) {
+      this.ease = null;
+      this.move(...to);
+      return this.draw();
+    }
+    if (this.ease) return (this.ease.to = to);   // easing already: toward where they are now
+    if (Math.abs(cx - cw / 2) <= cw * DEAD && Math.abs(cy - ch / 2) <= ch * DEAD) return;
+    if (Math.abs(to[0] - this.o[0]) + Math.abs(to[1] - this.o[1]) < 1) return;   // at the picture's edge: as near as it goes
+    const ease = this.ease = { from: [...this.o], to, t0: performance.now() };
+    const step = () => {
+      if (this.ease !== ease) return;
+      const k = Math.min(1, (performance.now() - ease.t0) / EASE_MS), f = 1 - (1 - k) ** 3;
+      this.move(ease.from[0] + (ease.to[0] - ease.from[0]) * f, ease.from[1] + (ease.to[1] - ease.from[1]) * f);
+      if (k >= 1) this.ease = null;
+      else setTimeout(step, 16);   // (a headless Chromium never fires requestAnimationFrame)
+      this.draw();
+    };
+    step();
   }
 
   // ---- drawing

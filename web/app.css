@@ -301,12 +301,15 @@ p.views { margin: 0; padding: 2px 10px; }
 #track-head, #track-levels { padding: 2px 10px; }
 #track-levels.other { color: var(--error); }
 .tracker .count { padding: 2px 10px; font-weight: 700; font-size: 12.5px; }
-#track-status { font-family: var(--mono); }
+/* Live's bar keeps its size from poll to poll (its dot, line and the ask's "…"), so the map under it never moves */
+#track-status { font-family: var(--mono); display: inline-block; width: 1.5em; }
 #track-endpoints { width: 18rem; }
-#track-dot { font-size: 11px; }
+#track-dot { font-size: 11px; display: inline-block; width: 1.2em; text-align: center; }
 #track-dot.live { color: var(--near); } #track-dot.warn, #track-dot.lost { color: var(--air); }
 #track-dot.other { color: var(--error); }
-#track-line { max-width: 40rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#track-line { display: inline-block; width: 32rem; max-width: 100%; vertical-align: bottom; overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+#track-line:empty { width: auto; }
 .world {
   display: grid; grid-template-columns: repeat(6, minmax(5.5rem, 9rem)); grid-auto-rows: 3.4rem; gap: 6px;
   padding: 6px 10px 10px;
