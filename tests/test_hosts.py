@@ -1110,9 +1110,8 @@ def test_a_seed_build_stopped_at_any_stage_leaves_nothing_half_kept(usa_iso):
         assert kept.ended.wait(120)
         return kept.sha, got["report"]
     try:
-        stages = []
+        whole, stages = plain(), []   # first: a first build's check and logic read are stages no other has
         here.call("image", recipe, progress=lambda step: stages.append(step["stage"]))
-        whole = plain()
 
         def stop(stage: str):
             def progress(step: dict) -> None:
