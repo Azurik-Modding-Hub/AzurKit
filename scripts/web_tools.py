@@ -231,6 +231,30 @@ def wheel(out: Path, root: Path = ROOT) -> Path:
     return built
 
 
+def install(wheel: Path, venv: Path, root: Path = ROOT, env: dict[str, str] | None = None) -> str:
+    """The checkout's ``wheel`` installed in a new venv at ``venv`` as a
+    player's install has it, with only its declared dependencies, at the
+    versions ``uv.lock`` pins: those (the project's own, no group, from
+    ``uv export``'s ``pylock.toml``), then the wheel, which resolves against
+    them. Offline, from the wheels ``uv sync --locked`` left in uv's cache: a
+    locked sync fetches no index pages, so an install that resolves from the
+    index finds none on a fresh runner (CI, Step 4.4ci2). The venv's python;
+    ``RuntimeError`` gives uv's own words when a step fails."""
+    def uv(*argv: str) -> None:
+        done = subprocess.run(["uv", *argv], capture_output=True, text=True, timeout=300, env=env)
+        if done.returncode:
+            raise RuntimeError(f"uv {' '.join(argv[:2])}: {done.stderr.strip()[-2000:]}")
+    uv("venv", "--quiet", "--python", "3.14", str(venv))
+    python = str(venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+    with tempfile.TemporaryDirectory(prefix="azurkit-lock.") as tmp:
+        lock = Path(tmp) / "pylock.toml"
+        uv("export", "--project", str(root), "--frozen", "--format", "pylock.toml", "--no-default-groups",
+           "--no-emit-project", "--quiet", "-o", str(lock))
+        uv("pip", "install", "--offline", "--quiet", "--python", python, "-r", str(lock))
+    uv("pip", "install", "--offline", "--quiet", "--python", python, str(wheel))
+    return python
+
+
 def ship_database(out: Path, path: Path | None = None, planner: bool = True) -> Path:
     """The checked randomizer database (``dbcache.ship``) written into the
     folder ``out`` by a child Python under PYTHONHASHSEED=0 (never ``-I``,

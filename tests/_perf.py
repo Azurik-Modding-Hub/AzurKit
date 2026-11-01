@@ -839,11 +839,9 @@ def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
     from scripts import web_tools
     wheel = wheel or web_tools.wheel(folder / "dist", wt)
     env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
-    run = functools.partial(subprocess.run, env=env, capture_output=True, text=True, check=True, timeout=600)
-    run(["uv", "venv", "--quiet", "--python", "3.14", str(folder / "venv")])
-    python = str(folder / "venv" / ("Scripts" if os.name == "nt" else "bin") / "python")
-    run(["uv", "pip", "install", "--offline", "--quiet", "--python", python, str(wheel)])
-    purelib = run([python, "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"]).stdout.strip()
+    python = web_tools.install(wheel, folder / "venv", wt, env)
+    purelib = subprocess.run([python, "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], env=env,
+                             capture_output=True, text=True, check=True, timeout=600).stdout.strip()
     shutil.copytree(wt / "web", Path(purelib).parent / "web")
     return python
 

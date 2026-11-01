@@ -1,13 +1,13 @@
 """The wheel: built from this checkout (``web_tools.wheel``), it carries
 every file of the package, each module's bytecode and the checked
 randomizer database (Step 4.3g), and nothing the leak guard refuses, and
-installs alone in a clean venv (only its declared dependencies) where every
+installs alone in a clean venv (only its declared dependencies, at the
+lock's versions, offline: ``web_tools.install``) where every
 module imports, the ``azurkit`` command runs and the database loads as
 shipped, never checked again."""
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 import zipfile
@@ -39,10 +39,8 @@ def test_the_wheel_carries_the_package_and_installs_alone_in_a_clean_venv(tmp_pa
            for folder, _, name in (rel.rpartition("/") for rel in package if rel.endswith(".py"))}
     (shipped,) = {n for n in names if n.startswith(f"{web_tools.SHIPPED}/") and n.endswith(".pickle")}
     assert {n for n in names if not n.startswith(f"azurkit-{__version__}.dist-info/")} == package | pyc | {shipped}
-    run("uv", "venv", "--quiet", "--python", "3.14", str(tmp_path / "venv"))
-    scripts = tmp_path / "venv" / ("Scripts" if os.name == "nt" else "bin")
-    python = str(scripts / "python")
-    run("uv", "pip", "install", "--offline", "--quiet", "--python", python, str(wheel))
+    python = web_tools.install(wheel, tmp_path / "venv")
+    scripts = Path(python).parent
     run(python, "-I", "-c", IMPORT_ALL)
     run(python, "-I", "-c", SHIPPED_ONLY)
     assert run(str(scripts / "azurkit"), "--version").strip() == f"azurkit {__version__}"
