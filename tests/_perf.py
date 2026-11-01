@@ -137,6 +137,19 @@ OPS = {op.id: op for op in (
     Op("A34", "Install a community pack -> its row tickable", "build"),
     Op("A35", "tick it -> its rows set and locked", "build"),
     Op("A36", "Build with it", "build", head_start=True),
+    Op("A77", "Track, Seed difficulty Standard at Standard movement and skips", "tracker", head_start=True),
+    Op("A78", "Build, Seed difficulty Standard at Hard movement and skips, no Track first", "randomizer", head_start=True),
+    Op("A79", "Track, Seed difficulty Hard at Hard movement and skips", "tracker", head_start=True),
+    Op("A80", "Build, Seed difficulty Hard at Hard movement and skips, no Track first", "randomizer", head_start=True),
+    Op("A70", "Track, Seed difficulty Hard at Hard movement, Standard skips", "tracker", head_start=True),
+    Op("A71", "Track, Seed difficulty Hard at Hard movement and skips, the fragments kept", "tracker", head_start=True),
+    Op("A72", "Track, Seed difficulty Frame-perfect at Frame-perfect movement and skips", "tracker", head_start=True),
+    Op("A73", "Build, Seed difficulty Frame-perfect at Frame-perfect movement and skips, no Track first", "randomizer",
+       head_start=True),
+    Op("A74", "Track, Seed difficulty Hard at Hard movement with a movement slider, no skip (each tier's re-check, "
+              "first time)", "tracker", bar=True, head_start=True),
+    Op("A75", "the spoiler's View, Seed difficulty Hard at Hard movement and skips (its openers, first time)",
+       "randomizer", bar=True),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -1065,6 +1078,66 @@ def app_ahead_stale(d: Driver, app: App, ctx) -> None:
     app.quit(p)
 
 
+# Seed difficulty's ops (its design's sec. 4.3): Track or Build at a level's costliest settings, each op's seed the one
+# of "0".."99" whose plan there takes the most fill reaches (scripts/seed_forcing.py --rows; A74's with no slider):
+# op: (Track or Build, A80's the spoiler's View after it, movement tier, skip ceiling, level, categories kept, seed)
+SHAPED = {
+    "A77": ("track", "standard", 2, 2, (), "80"),
+    "A78": ("build", "hard", 3, 2, (), "77"),
+    "A79": ("track", "hard", 3, 3, (), "53"),
+    "A80": ("build", "hard", 3, 3, (), "53"),
+    "A70": ("track", "hard", 2, 3, (), "19"),
+    "A71": ("track", "hard", 3, 3, ("fragments",), "31"),
+    "A72": ("track", "frame_perfect", 4, 4, (), "15"),
+    "A73": ("build", "frame_perfect", 4, 4, (), "15"),
+    "A74": ("track", "hard", 0, 3, (), "83"),
+}
+SHAPED_SLIDER = """() => { const box = document.querySelector('#packs input[data-pack="player_physics"]');
+  if (!box.checked) box.click();
+  const field = document.getElementById('player_physics.jump_speed_scale');
+  field.value = '1.3'; field.dispatchEvent(new Event('input', { bubbles: true })); }"""
+
+
+def _shaped_share(tier: str, ceiling: int, level: int, kept: tuple) -> str:
+    from azurkit.tools.randomizer.planner.settings import Settings, share_encode
+
+    return share_encode(Settings(ceiling, tier, 1, {}, frozenset(kept), seed_difficulty=level), [])
+
+
+def app_shaped(d: Driver, app: App, ctx) -> None:
+    """Each op on a fresh launch: its share string typed (the page's select is the next lane's), its seed typed, then
+    the click after the head start."""
+    for op, (kind, tier, ceiling, level, kept, seed) in SHAPED.items():
+        if not d.needed((op, "A75") if op == "A80" else (op,)):
+            continue
+        p = app.launch(d, ctx, None)
+        if kind == "build":
+            d.act(p, None, typed("iso-path", str(d.iso)), USA)
+        if op == "A74":
+            p.js(SHAPED_SLIDER)
+        p.js(click("tab-randomizer"))
+        p.wait("() => azurkit.rando.view?.share")
+        if kind == "build":
+            d.act(p, None, UNTICK.replace("if (on.checked)", "if (!on.checked)"),
+                  "() => azurkit.rando.view && document.getElementById('rando-on').checked", 900)
+        share = _shaped_share(tier, ceiling, level, kept)
+        d.act(p, None, "() => { const b = document.getElementById('rando-share'); b.value = %s; "
+                       "b.dispatchEvent(new Event('change')); }" % json.dumps(share),
+              "() => azurkit.rando.view?.settings.seed_difficulty === %d" % level, 900, change=True)
+        d.act(p, None, typed("rando-seed", seed), "() => document.getElementById('rando-seed').value === %s" % json.dumps(seed),
+              change=True)
+        if kind == "track":
+            d.act(p, None, click("rando-view-tracker"), WORLD, 600)
+            d.act(p, op, click("track-seed"),
+                  "() => /seed difficulty/.test(document.getElementById('track-head').textContent)", 1800)
+        else:
+            d.act(p, op, build_js(), BUILT, 1800)
+            if op == "A80" and d.need("A75"):
+                d.act(p, "A75", click("spoiler-view"), "() => !document.getElementById('spoiler').hidden "
+                                                       "&& document.getElementById('spoiler').textContent.length", 900)
+        app.quit(p)
+
+
 def _detail(d: Driver, p: Page, first: str, again: str) -> None:
     """w1's map opened and zoomed past its pixels until its detail picture is drawn (``first``), then Fit and the
     same zoom (``again``: the picture held), back on the world map."""
@@ -1696,6 +1769,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-ahead-track": ("app", ("A56",), app_ahead_track),
     "app-ahead-build": ("app", ("A57",), app_ahead_build),
     "app-ahead-stale": ("app", ("A58",), app_ahead_stale),
+    "app-shaped": ("app", (*SHAPED, "A75"), app_shaped),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-reshape-pictures": ("app", ("A59", "A60", "A61"), app_reshape_pictures),

@@ -113,8 +113,9 @@ def settings_doc(settings: Settings) -> dict:
     """A settings file's table: every option, the toggles and the excluded
     categories (§7.2), in format /1 unless it needs /2 (:func:`category_table`)."""
     form, kept = category_table(settings.exclude_categories)
+    level = {"seed_difficulty": settings.seed_difficulty} if settings.seed_difficulty else {}
     return {"format": form, "skip_ceiling": settings.skip_ceiling,
-            "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire,
+            "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire, **level,
             "exclude_categories": kept, "skip_override": dict(sorted(settings.skip_override.items()))}
 
 
@@ -123,6 +124,7 @@ def settings_text(settings: Settings) -> str:
     t = settings_doc(settings)
     lines = [f'format = "{t["format"]}"', f"skip_ceiling = {t['skip_ceiling']}",
              f'movement_tier = "{t["movement_tier"]}"', f"dark_fire = {t['dark_fire']}",
+             *([f"seed_difficulty = {t['seed_difficulty']}"] if "seed_difficulty" in t else []),
              "exclude_categories = [" + ", ".join(f'"{c}"' for c in t["exclude_categories"]) + "]",
              "", "[skip_override]"]
     lines += [f'"{sid}" = {"true" if on else "false"}' for sid, on in t["skip_override"].items()]

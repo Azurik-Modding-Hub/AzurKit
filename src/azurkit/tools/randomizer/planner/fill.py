@@ -66,6 +66,23 @@ counts and what to shuffle (:meth:`_Slots.starved`); any other settings
 fill as before. :func:`roll` finds no seed for them at once, and the
 Randomize page names them (:func:`starved`).
 
+**Seed difficulty** (D1037; :mod:`.difficulty`), at a level over 0 that its
+settings can shape; level 0 enters none of it. **The pin:** in the progression
+pass, an item the win needs at the ladder's lowest rung (:class:`_Pin`, once a
+fill) whose spots are its reach's safe ones takes one of those the most rungs of
+the level's ladder miss, with the placement so far and the items still assumed,
+preferring a map level that holds no pinned item yet; when no rung misses any,
+today's draw. Own spots, trades, the trap gate's repairs, vaults and AZ-725's
+marks stay in charge, and every attempt is verified as today. **The acceptance**
+(:class:`_Accept`): each attempt that passes is a candidate; the first that
+meets the promise is the plan, else, after :data:`~.difficulty.BOUND` of them or
+:data:`MAX_ATTEMPTS` attempts, the highest score, the first on a tie. Attempt k
+is a pure function of the seed, k, the settings digest and the database, so a
+host may run several at once (:func:`one_attempt`, :func:`accepted`): the same
+plan at any width. D1038's optional rewards take no code of their own: the
+obsidians already lie past a trick by the shaping, and the useful items all
+fill the vaults (Q290).
+
 **Streams** (plan §3.5): ``sub_seed(name)`` is the first 8 bytes of the
 sha256 of ``seed``, ``name`` and :func:`settings_digest`, NUL-separated;
 attempt k > 0 names its streams ``attempt<k>/<pass>``. Only
@@ -82,11 +99,19 @@ import json
 import random
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from azurkit.core import progress
+from azurkit.tools.randomizer.planner.difficulty import BOUND, Shape, asked
 from azurkit.tools.randomizer.planner.grammar import atoms, parse
-from azurkit.tools.randomizer.planner.settings import Settings, category, category_table, pick_of, skips_on
+from azurkit.tools.randomizer.planner.settings import (
+    SEED_DIFFICULTY_FILL,
+    Settings,
+    category,
+    category_table,
+    pick_of,
+    skips_on,
+)
 from azurkit.tools.randomizer.planner.solver import TRICK_FREE, Logic, Reach
 from azurkit.tools.randomizer.writer import Names, graph_of, layout, string_cost
 
@@ -147,13 +172,17 @@ def settings_table(settings: Settings) -> dict:
     """The options as a settings file holds them (RANDOMIZER_DB §7.2):
     D144's, and ``exclude_categories`` only when it names one, so a
     setting without it keeps its digest (and both powers rows kept are
-    format /1's ``powers``, so an old setting's too, Step 2.90a)."""
+    format /1's ``powers``, so an old setting's too, Step 2.90a); a seed
+    difficulty and its fill's version likewise only when over 0, so a level 0
+    plan is today's."""
     form, kept = category_table(settings.exclude_categories)
     table = {"format": form, "skip_ceiling": settings.skip_ceiling,
              "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire,
              "skip_override": dict(sorted(settings.skip_override.items()))}
     if kept:
         table["exclude_categories"] = kept
+    if settings.seed_difficulty:
+        table["seed_difficulty"], table["seed_difficulty_fill"] = settings.seed_difficulty, SEED_DIFFICULTY_FILL
     return table
 
 
@@ -401,11 +430,12 @@ class _Slots:
 
     def attempt(self, settings: Settings, reads: Mapping[str, frozenset[int]], streams: Callable[[str], Rng],
                 known: frozenset[str], repaired: list[str] | None = None,
-                reaches: _Reaches | None = None, told: _Count | None = None) -> dict[str, str]:
+                reaches: _Reaches | None = None, told: _Count | None = None, pin: _Pin | None = None) -> dict[str, str]:
         """One attempt's placement, or :class:`_Stuck`; ``repaired`` gets
         each trap-gate refusal it went on to repair. ``reaches``: the
         fill's kept reaches under ``settings`` (one of its own when None);
-        ``told`` hears the items it places and each reach (:class:`_Count`)."""
+        ``told`` hears the items it places and each reach (:class:`_Count`);
+        ``pin``: a seed difficulty's (:class:`_Pin`)."""
         lg = self.logic
         reaches = reaches if reaches is not None else _Reaches(lg, settings)
         placed, budget = dict(self.prefilled), _Budget(self.names)
@@ -474,10 +504,11 @@ class _Slots:
 
         node, base = lg.db.node_of, dict(placed)
         rng = streams("progression")
+        pinned: set[str] = set()     # this attempt's pinned spots
         for item in rng.shuffle(sorted(by_class["progression"])):
             assumed[item] -= item in read
             if spots := spots_for(item, r := reach()):
-                put(rng.choice(spots), item)
+                put(rng.choice(spots) if pin is None else pin.pick(rng, item, spots, r, placed, assumed, pinned), item)
             elif not trade(item, r):
                 raise _Stuck(f"no safe proven spot for {item}", item, r.locations)
         prog = {loc: item for loc, item in placed.items() if loc not in base}
@@ -575,26 +606,37 @@ class _Count:
     each time the count passes a percent and at each reach, so each is the
     bar's step and a cancel point no more than one reach apart, a retried
     attempt's too; the fill's :class:`_Making` keeps the last for a thread
-    waiting on it."""
+    waiting on it. A seed difficulty's fill counts up to its :data:`~.difficulty.BOUND`
+    candidates, each ``tries``' share of the bar, so it moves through all of
+    them; a shaped fill's first candidate that meets its promise ends it there."""
 
     SILENT: _Count
     REACHED = ("progression", "progression_counted", "useful")
     """The item classes the fill places by a reach, each a step of its count."""
 
-    def __init__(self, making: _Making | None = None) -> None:
+    def __init__(self, making: _Making | None = None, tries: int = 1) -> None:
         self.making, self.n, self.k, self.percent = making, 1, 0, -1
+        self.tries, self.tried, self.say = tries, 0, ""
 
     def begin(self, n: int) -> None:
         self.n = max(n, 1)
         self(0, True)
 
     def __call__(self, placed: int, reach: bool = False) -> None:
-        self.k = k = min(max(self.k, placed + 1), self.n)
-        if self.making is None or not (reach or k * 100 // self.n != self.percent):
+        whole = self.n * self.tries
+        self.k = k = min(max(self.k, self.tried * self.n + placed + 1), whole)
+        if self.making is None or not (reach or k * 100 // whole != self.percent):
             return
-        self.percent = k * 100 // self.n
-        self.making.text = text = f"placing the items, {k} of {self.n}"
+        self.percent = k * 100 // whole
+        self.making.text = text = f"{self.say}placing the items, {k} of {whole}"
         progress.note(text)
+
+    def tried_one(self, tried: int) -> None:
+        """``tried`` candidates rejected: the next one's words and its share of the count (a cancel point)."""
+        self.tried, self.say = tried, f"shaping the seed: try {tried + 1} of up to {BOUND}, "
+        if self.making is not None:
+            self.making.text = self.say.removesuffix(", ")
+        progress.note(self.say.removesuffix(", "))
 
 
 _Count.SILENT = _Count()
@@ -605,12 +647,15 @@ class _Reaches:
     (Step R2.1): the items placed that a rule of the graphs the reach walks
     reads, and the items held from the start. Any other item (a useful or
     filler item no rule reads, an empty spot) changes no counter a rule
-    compares, so its reach is the one kept."""
+    compares, so its reach is the one kept. ``physical`` false: only
+    ``traps=False`` reaches are asked, so the physical graphs aren't compiled."""
 
-    def __init__(self, logic: Logic, settings: Settings) -> None:
+    def __init__(self, logic: Logic, settings: Settings, physical: bool = True) -> None:
         self.logic, self.settings, self.kept = logic, settings, {}
         graphs = [logic.rules(settings)]
         self.read = {False: self._read(graphs)}
+        if not physical:
+            return
         phys = logic.rules(settings, physical=True)
         graphs += [phys, logic.rules(TRICK_FREE, physical=True) if phys.on else phys]
         self.read[True] = self._read(graphs)
@@ -627,6 +672,48 @@ class _Reaches:
             return r
         r = self.kept[key] = self.logic.reach(self.settings, placement, items, trace=trace, traps=traps)
         return r
+
+
+class _Pin:
+    """A seed difficulty's pin in one fill (the module docstring): the items the win needs at the ladder's lowest rung
+    with every other pool item held, one reach an item, and the ladder's reaches, each on the logical graph alone.
+    Under movement sliders it reads the vanilla-movement Logic: it only steers, the attempt's verify and the
+    acceptance read the plan's own."""
+
+    def __init__(self, logic: Logic, slots: _Slots, settings: Settings, ladder: Sequence[Settings]) -> None:
+        if settings.sliders:
+            from azurkit.tools.randomizer.planner.loader import kept_logic
+            logic = kept_logic()
+        self.rungs, self.level_of = [_Reaches(logic, st, physical=False) for st in ladder], logic.pool
+        base = {**slots.prefilled, **slots.kept(settings)}
+        rest = collections.Counter(slots.vanilla[loc] for loc in slots.pool if loc not in base)
+        needed = set()
+        for item in sorted(item for item in rest if slots.cls[item] == "progression"):
+            held = rest.copy()
+            held[item] -= 1
+            progress.note("placing the items")
+            if not logic.reach(ladder[-1], base, sorted(held.elements()), traps=False).victory:
+                needed.add(item)
+        self.needed = frozenset(needed)
+
+    def pick(self, rng: Rng, item: str, spots: list[str], r: Reach, placed: Mapping[str, str],
+             assumed: collections.Counter, pinned: set[str]) -> str:
+        """``item``'s spot among its ``spots`` (:class:`_Slots`' own or safe ones, sorted; ``r``, its reach)."""
+        if item not in self.needed or spots[0] not in r.locations:   # an own spot comes first, as today
+            return rng.choice(spots)
+        held = tuple(sorted(assumed.elements()))
+        missed = [0] * len(spots)
+        for rung in self.rungs:
+            got = rung(placed, held, traps=False).locations
+            missed = [m + (s not in got) for m, s in zip(missed, spots)]
+        if not (top := max(missed)):
+            return rng.choice(spots)
+        best = [s for s, m in zip(spots, missed) if m == top]
+        used = {self.level_of[loc] for loc in pinned}
+        best = [s for s in best if self.level_of[s] not in used] or best
+        pick = rng.choice(best)
+        pinned.add(pick)
+        return pick
 
 
 _KNOWN: list = [None]   # the process's last known traps: (its Logic, its database, the options' graphs, the traps)
@@ -747,6 +834,114 @@ def _copy(made: Fill, st: Settings) -> Fill:
     return Fill(made.seed, st, made.attempt, dict(made.placement), made.failed, made.repaired)
 
 
+@dataclass(frozen=True)
+class Outcome:
+    """Attempt ``k`` of a fill: its ``placement`` and each trap-gate refusal it ``repaired``, or (no placement) why it
+    is stuck and the item; ``why_not``, why a passing one misses its seed difficulty's promise (``None``: it meets it,
+    or no promise)."""
+    k: int
+    placement: dict[str, str] | None
+    reason: str = ""
+    item: str | None = None
+    repaired: tuple[str, ...] = ()
+    why_not: str | None = None
+
+
+class _Run:
+    """What a fill's attempts share: only caches and what a seed's every attempt reads alike."""
+
+    def __init__(self, logic: Logic, st: Settings, making: _Making | None = None) -> None:
+        progress.note("placing the items")    # and between the options' first graphs and reaches (cancel points)
+        self.logic, self.st, self.slots = logic, st, _Slots(logic, st)
+        if (refused := self.slots.starved(st)) is not None:
+            raise refused
+        self.digest, self.reads = settings_digest(st), logic.reads(st)
+        progress.note("placing the items")
+        self.known = known_traps(logic, st)
+        progress.note("placing the items")
+        self.reaches = _Reaches(logic, st)
+        ask = asked(st, logic.skip_tables) if st.seed_difficulty else None
+        self.shape = None if ask is None else Shape(logic, st, ask)
+        self.pin = None if ask is None else _Pin(logic, self.slots, st, self.shape.ladder)
+        self.count = _Count(making, 1 if ask is None else BOUND)
+
+    def attempt(self, seed: str, k: int, count: _Count | None = None) -> Outcome:
+        repaired: list[str] = []
+        try:
+            placement = self.slots.attempt(self.st, self.reads, _streams(seed, k, self.digest), self.known, repaired,
+                                           self.reaches, count or self.count, self.pin)
+        except _Stuck as exc:
+            return Outcome(k, None, str(exc), exc.item)
+        layout(placement, self.logic.db)     # the writer's own check (never over a budget): a WriteError is a bug
+        return Outcome(k, placement, repaired=tuple(repaired),
+                       why_not=None if self.shape is None else self.shape.why_not(placement))
+
+
+class _Accept:
+    """A fill's outcomes in attempt order to its plan (the module docstring)."""
+
+    def __init__(self, run: _Run, seed: str) -> None:
+        self.run, self.seed, self.reasons, self.stuck, self.candidates = run, seed, [], set(), []
+
+    def add(self, o: Outcome) -> Fill | None:
+        """``o``, the next attempt's: the plan, once the outcomes so far decide it."""
+        if o.placement is None:
+            self.reasons.append(f"attempt {o.k}: {o.reason}")
+            if o.item is not None:
+                self.stuck.add(o.item)
+            return None
+        made = Fill(self.seed, self.run.st, o.k, o.placement, tuple(self.reasons),
+                    tuple(f"attempt {o.k}: {r}" for r in o.repaired))
+        if o.why_not is None:
+            return made
+        self.reasons.append(f"attempt {o.k}: passed, but {o.why_not}")
+        self.candidates.append(made)
+        if len(self.candidates) >= BOUND:
+            return self.closest()
+        self.run.count.tried_one(len(self.candidates))
+        return None
+
+    def closest(self) -> Fill | None:
+        """The candidate with the highest score, the first on a tie; none: ``None``."""
+        if not self.candidates:
+            return None
+        kept = max(self.candidates, key=lambda made: self.run.shape.score(made.placement))
+        return replace(kept, failed=tuple(self.reasons))
+
+    def end(self) -> Fill:
+        """Every attempt told: the closest, or no plan (D35)."""
+        if (kept := self.closest()) is not None:
+            return kept
+        raise FillError(f"{MAX_ATTEMPTS} attempts failed; the last: {self.reasons[-1]}", sorted(self.stuck),
+                        self.run.slots.open_proven(), self.reasons)
+
+
+_RUN: list = [None]   # one_attempt's: the process's last _Run, its Logic and database held, by the settings' digest
+
+
+def one_attempt(logic: Logic, seed: str, settings: Settings, k: int) -> Outcome:
+    """Attempt ``k`` alone: a pure function of the seed, k, the settings and the database, so a host's worker (with a
+    Logic of its own) may run it beside others, and :func:`accepted` keeps the same plan as one attempt at a time."""
+    last = _RUN[0]
+    if last is None or last.logic is not logic or last.logic.db is not logic.db or last.digest != settings_digest(settings):
+        last = _RUN[0] = _Run(logic, settings)
+    return last.attempt(str(seed), k, _Count.SILENT)
+
+
+def accepted(logic: Logic, seed: str, settings: Settings, width: int,
+             each: Callable[[Callable[[int], Outcome], Iterable[int]], Iterable[Outcome]] = map) -> Fill:
+    """:func:`fill`'s plan with ``width`` attempts at a time (``each``, a pool's ``map``: :func:`one_attempt` in attempt
+    order): the first that meets the promise in attempt order, else the highest score, the first on a tie, whatever
+    the width; the width never enters the plan."""
+    run = _RUN[0] = _Run(logic, settings)
+    accept = _Accept(run, str(seed))
+    for first in range(0, MAX_ATTEMPTS, width):
+        for o in each(lambda k: one_attempt(logic, seed, settings, k), range(first, min(first + width, MAX_ATTEMPTS))):
+            if (made := accept.add(o)) is not None:
+                return made
+    return accept.end()
+
+
 class _Making:
     """A fill in flight (:func:`fill`): its Logic and database (held, so
     their ids stay theirs), the note it told last, the fill once made and
@@ -763,28 +958,12 @@ _MAKING: dict[tuple, _Making] = {}   # the fills in flight, by their Logic's and
 
 
 def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) -> Fill:
-    progress.note("placing the items")    # and between the options' first graphs and reaches (cancel points)
-    slots = _Slots(logic, st)
-    if (refused := slots.starved(st)) is not None:
-        raise refused
-    digest, reads = settings_digest(st), logic.reads(st)
-    progress.note("placing the items")
-    known = known_traps(logic, st)
-    progress.note("placing the items")
-    reasons, stuck, reaches, count = [], set(), _Reaches(logic, st), _Count(making)
+    run = _Run(logic, st, making)
+    accept = _Accept(run, seed)
     for k in range(MAX_ATTEMPTS):
-        repaired: list[str] = []
-        try:
-            placement = slots.attempt(st, reads, _streams(seed, k, digest), known, repaired, reaches, count)
-        except _Stuck as exc:
-            reasons.append(f"attempt {k}: {exc}")
-            if exc.item is not None:
-                stuck.add(exc.item)
-            continue
-        layout(placement, logic.db)     # the writer's own check (never over a budget): a WriteError is a bug
-        return Fill(seed, st, k, placement, tuple(reasons), tuple(f"attempt {k}: {r}" for r in repaired))
-    raise FillError(f"{MAX_ATTEMPTS} attempts failed; the last: {reasons[-1]}", sorted(stuck), slots.open_proven(),
-                    reasons)
+        if (made := accept.add(run.attempt(seed, k))) is not None:
+            return made
+    return accept.end()
 
 
 def starved(logic: Logic, settings: Settings | None = None) -> Starved | None:

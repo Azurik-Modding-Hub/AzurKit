@@ -15,6 +15,13 @@ movement sliders that aren't vanilla's, which the logic is re-checked
 under; a settings file can't hold them (its format stays /1), the share
 string does (its version 2).
 
+``Settings.seed_difficulty`` (D1031, D1037, D1039; :mod:`.difficulty`) is the
+level the fill shapes a seed to: 0 (Any, the default: today's seeds), or a
+rating, 2 Standard, 3 Hard, 4 Frame-perfect, never above what the movement
+tier and the skips on allow (:func:`top_rating`). A file writes
+``seed_difficulty`` only when it is over 0, and a share string takes version 4
+then, so every other file and string is as before.
+
 D275 (Step R1.31): skips that cross the same thing and differ only in the
 kit they need are variants of one batch (each variant's ``batch`` and
 ``batch_name``). A toggle, and so a share string's registry, names a pick:
@@ -42,6 +49,9 @@ OPTIONS = ("skip_ceiling", "movement_tier", "dark_fire")
 # exclude_categories' values and the share string's mask bits: append only (a bit is its index)
 CATEGORIES = ("fragments", "powers", "gems", "obsidians", "consumables", "upgrades")
 UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # "upgrades"; the other power_* "powers"
+SEED_DIFFICULTIES = (0, 2, 3, 4)   # the ratings a seed may be shaped to, 0 none: no Safe level, a Safe rating needs no trick
+SEED_DIFFICULTY_FILL = 1           # level > 0's algorithm: bumped when the same inputs give such a seed another placement
+RATING_NAMES = ("None", "Safe", "Standard", "Hard", "Frame-perfect")   # a rating's name, 0 none
 RETIRED_KEYS = ("name", "default", "knobs", "tricks")             # the presets' keys (D113, D144)
 SHARE_PREFIX = "AZR-"
 SHARE_VERSION = 0   # the payload's byte 0: its first layout (§7.3)
@@ -50,6 +60,9 @@ SHARE_VERSION_SLIDERS = 2      # version 1 plus, after the mask, the movement sl
 #                                slider's index in SHARE_SLIDERS and its value (float64, little-endian)
 SHARE_VERSION_ELEMENTAL = 3    # version 2 (its slider count may be 0) whose mask's "powers" bit is the
 #                                elemental powers alone; before it, that bit keeps the upgrades too
+SHARE_VERSION_DIFFICULTY = 4   # a seed difficulty over 0: the head, the toggles, a literal category mask (a bit per
+#                                CATEGORIES entry, never folded), the slider count (0 too) and sliders, then one byte,
+#                                SEED_DIFFICULTY_FILL << 3 | the level
 # The movement sliders (physics.SLIDERS) by their share-string index: append only, an index never changes
 SHARE_SLIDERS = (
     ("player_physics", "walk_speed_scale"), ("player_physics", "gravity"), ("player_physics", "jump_speed_scale"),
@@ -86,6 +99,7 @@ class Settings:
     skip_override: Mapping[str, bool] = field(default_factory=dict)
     exclude_categories: frozenset[str] = frozenset()
     sliders: Mapping[str, Mapping[str, float]] = field(default_factory=dict)   # {pack: {slider: value}}, AZ-383
+    seed_difficulty: int = 0   # D1037: one of SEED_DIFFICULTIES
 
 
 D144_DEFAULTS = Settings(0, "standard", 1, {})   # D186: standard movement (was hard, D144)
@@ -162,7 +176,7 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
     for key in table:
         if key in RETIRED_KEYS:
             out.append(("settings_retired_key", key, "a retired preset key (D144: no presets)"))
-        elif key not in ("format", "skip_override", "exclude_categories", *OPTIONS):
+        elif key not in ("format", "skip_override", "exclude_categories", "seed_difficulty", *OPTIONS):
             out.append(("unknown_key", key, "not a settings key"))
     if table.get("format") not in (SETTINGS_FORMAT, SETTINGS_FORMAT_ELEMENTAL):
         out.append(("unknown_format", "format", f"{table.get('format')!r}, not {SETTINGS_FORMAT!r} "
@@ -177,6 +191,9 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
                     f"{table['movement_tier']!r} is not one of {', '.join(MOVEMENT_TIERS)}"))
     if "dark_fire" in table and not _int_in(table["dark_fire"], DARK_FIRES):
         out.append(("settings_bad_dark_fire", "dark_fire", f"{table['dark_fire']!r} is not 1-3"))
+    level = table.get("seed_difficulty", 0)
+    if not _int_in(level, SEED_DIFFICULTIES):
+        out.append(("settings_bad_seed_difficulty", "seed_difficulty", f"{level!r} is not one of 0, 2, 3, 4"))
     excluded = table.get("exclude_categories", [])
     if not (isinstance(excluded, list) and all(c in CATEGORIES for c in excluded)
             and excluded == sorted(set(excluded), key=CATEGORIES.index)):
@@ -198,6 +215,12 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
             why = next((s for s in ("held", "manual") if s in status), "unconfirmed")
             out.append(("settings_enables_held_or_manual_skip", key,
                         f"turns on a {why} skip; a toggle never does (D144, D114)"))
+    if level and not out:
+        top = top_rating(Settings(table["skip_ceiling"], table["movement_tier"], 1, _folded(toggles, skips)), skips)
+        if level > top:
+            out.append(("settings_seed_difficulty_above_top", "seed_difficulty",
+                        f"{level} asks for {RATING_NAMES[level]} tricks; Movement and Skips allow "
+                        f"{RATING_NAMES[top]} at most"))
     return out
 
 
@@ -210,7 +233,8 @@ def settings_from_table(table: Mapping, skips: Mapping[str, Mapping], where: str
     if "powers" in excluded and table["format"] == SETTINGS_FORMAT:
         excluded.add("upgrades")      # /1's powers keep the upgrades too
     return Settings(table["skip_ceiling"], table["movement_tier"], table["dark_fire"],
-                    _folded(table.get("skip_override", {}), skips), frozenset(excluded))
+                    _folded(table.get("skip_override", {}), skips), frozenset(excluded),
+                    seed_difficulty=table.get("seed_difficulty", 0))
 
 
 def skips_on(settings: Settings, skips: Mapping[str, Mapping]) -> list[str]:
@@ -227,6 +251,13 @@ def picks_on(settings: Settings, skips: Mapping[str, Mapping]) -> dict[str, list
     for sid in skips_on(settings, skips):
         out.setdefault(pick_of(sid, skips), []).append(sid)
     return dict(sorted(out.items()))
+
+
+def top_rating(settings: Settings, skips: Mapping[str, Mapping]) -> int:
+    """The highest rating ``settings`` allow: their movement tier's, or that of a skip they turn on (the ceiling's or
+    a toggle's, D258)."""
+    return max(MOVEMENT_TIERS.index(settings.movement_tier) + 1,
+               *(skips[sid].get("difficulty", 0) for sid in skips_on(settings, skips)), 0)
 
 
 def registry_tag(skip_ids: Iterable[str]) -> bytes:
@@ -254,12 +285,13 @@ def _encode(settings: Settings, registry: list[str]) -> str:
     toggles = settings.skip_override
     head = (settings.skip_ceiling | MOVEMENT_TIERS.index(settings.movement_tier) << 3
             | (settings.dark_fire - 1) << 5 | (0x80 if toggles else 0))
+    level = settings.seed_difficulty
     form, kept = category_table(settings.exclude_categories)
-    mask = sum(1 << CATEGORIES.index(c) for c in kept)
+    mask = sum(1 << CATEGORIES.index(c) for c in (settings.exclude_categories if level else kept))
     sliders = sorted((SHARE_SLIDERS.index((pack, name)), float(v))
                      for pack, values in settings.sliders.items() for name, v in values.items())
-    version = SHARE_VERSION_ELEMENTAL if form == SETTINGS_FORMAT_ELEMENTAL else SHARE_VERSION_SLIDERS if sliders \
-        else SHARE_VERSION_CATEGORIES if mask else SHARE_VERSION
+    version = SHARE_VERSION_DIFFICULTY if level else SHARE_VERSION_ELEMENTAL if form == SETTINGS_FORMAT_ELEMENTAL \
+        else SHARE_VERSION_SLIDERS if sliders else SHARE_VERSION_CATEGORIES if mask else SHARE_VERSION
     out = bytearray([version, head])
     if toggles:
         out += registry_tag(registry) + _varint(len(toggles))
@@ -269,10 +301,12 @@ def _encode(settings: Settings, registry: list[str]) -> str:
             prev = index
     if version != SHARE_VERSION:
         out.append(mask)
-    if sliders or version == SHARE_VERSION_ELEMENTAL:
+    if sliders or version in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY):
         out.append(len(sliders))
         for index, v in sliders:
             out += bytes([index]) + struct.pack("<d", v)
+    if level:
+        out.append(SEED_DIFFICULTY_FILL << 3 | level)
     return SHARE_PREFIX + base64.b32encode(bytes(out)).decode().rstrip("=")
 
 
@@ -285,7 +319,8 @@ def share_sliders(text: str, skips: Mapping[str, Mapping]) -> dict[str, dict[str
     except ValueError:
         version = b""
     return {p: dict(v) for p, v in share_decode(text, skips).sliders.items()} \
-        if version in (bytes([SHARE_VERSION_SLIDERS]), bytes([SHARE_VERSION_ELEMENTAL])) else {}
+        if version in (bytes([SHARE_VERSION_SLIDERS]), bytes([SHARE_VERSION_ELEMENTAL]),
+                       bytes([SHARE_VERSION_DIFFICULTY])) else {}
 
 
 def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
@@ -305,10 +340,11 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
     except ValueError as exc:
         fail(f"not base32 ({exc})")
     if len(raw) < 2 or raw[0] not in (SHARE_VERSION, SHARE_VERSION_CATEGORIES, SHARE_VERSION_SLIDERS,
-                                      SHARE_VERSION_ELEMENTAL):
+                                      SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY):
         fail(f"unknown version {raw[0] if raw else None!r}")
     head, k = raw[1], 2
-    table = {"format": SETTINGS_FORMAT_ELEMENTAL if raw[0] == SHARE_VERSION_ELEMENTAL else SETTINGS_FORMAT,
+    table = {"format": SETTINGS_FORMAT_ELEMENTAL if raw[0] in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY)
+             else SETTINGS_FORMAT,
              "skip_ceiling": head & 7, "movement_tier": MOVEMENT_TIERS[head >> 3 & 3],
              "dark_fire": (head >> 5 & 3) + 1, "skip_override": {}}
     if head & 0x80:
@@ -345,7 +381,7 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
         table["exclude_categories"] = [c for i, c in enumerate(CATEGORIES) if raw[k] >> i & 1]
         k += 1
     sliders: dict[str, dict[str, float]] = {}
-    if raw[0] in (SHARE_VERSION_SLIDERS, SHARE_VERSION_ELEMENTAL):
+    if raw[0] in (SHARE_VERSION_SLIDERS, SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY):
         count, k = (raw[k], k + 1) if k < len(raw) else (-1, k)
         if count < (raw[0] == SHARE_VERSION_SLIDERS) or k + 9 * count > len(raw):
             fail("no movement slider, or a truncated one")
@@ -356,6 +392,17 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
                 fail(f"slider {index}: no such slider, or a value that isn't a number")
             pack, name = SHARE_SLIDERS[index]
             sliders.setdefault(pack, {})[name] = value
+    if raw[0] == SHARE_VERSION_DIFFICULTY:
+        if k >= len(raw):
+            fail("no seed difficulty")
+        level, made = raw[k] & 7, raw[k] >> 3
+        k += 1
+        if made != SEED_DIFFICULTY_FILL:
+            fail(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill {SEED_DIFFICULTY_FILL}: "
+                 "the same seed would place items differently")
+        if level not in SEED_DIFFICULTIES[1:]:
+            fail(f"seed difficulty {level} is not one of 2, 3, 4")
+        table["seed_difficulty"] = level
     if k != len(raw):
         fail("trailing bytes")
     settings = replace(settings_from_table(table, skips, "share string"), sliders=sliders)

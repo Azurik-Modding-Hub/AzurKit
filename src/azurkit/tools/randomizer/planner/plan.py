@@ -39,6 +39,7 @@ from collections.abc import Container, Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from azurkit.tools.randomizer.planner import difficulty
 from azurkit.tools.randomizer.planner.fill import (
     GENERATOR,
     Fill,
@@ -52,6 +53,7 @@ from azurkit.tools.randomizer.planner.fill import (
 from azurkit.tools.randomizer.planner.grammar import DISCS, atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES,
+    SEED_DIFFICULTY_FILL,
     Settings,
     SettingsError,
     picks,
@@ -108,8 +110,13 @@ def load_plan(source: Path | str | Mapping, db) -> Plan:
         raise PlanError(f"made from another database (db_digest {doc['db_digest'][:12]}, this one's "
                         f"{db_digest(db)[:12]}): replay is refused (plan §3.5)")
     skips = {sid: s for sid, (_, s) in db.skips.items()}
+    table = dict(doc["settings"]) if isinstance(doc["settings"], Mapping) else doc["settings"]
+    made = table.pop("seed_difficulty_fill", None) if isinstance(table, dict) else None
+    if isinstance(table, dict) and table.get("seed_difficulty") and made != SEED_DIFFICULTY_FILL:
+        raise PlanError(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill "
+                        f"{SEED_DIFFICULTY_FILL}: the same seed would place items differently")
     try:     # the movement sliders it was filled under ride in its share string (AZ-383)
-        settings = replace(settings_from_table(doc["settings"], skips, "plan settings"),
+        settings = replace(settings_from_table(table, skips, "plan settings"),
                            sliders=share_sliders(doc["share"], skips))
     except SettingsError as exc:
         raise PlanError(str(exc)) from exc
@@ -798,6 +805,7 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
     lines = [
         f"plan {doc['sha256'][:12]}: seed {doc['seed']!r}, attempt {doc['attempt']}, {doc['generator']}",
         f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {st.movement_tier}, dark_fire {st.dark_fire}, "
+        + (f"seed_difficulty {st.seed_difficulty}, " if st.seed_difficulty else "") +
         f"toggles: {toggles}" + (f", kept vanilla: {kept}" if kept else "") + f"; share {doc['share']} "
         f"(skip registry tag {registry_tag(picks(logic.skip_tables)).hex()})",
         f"database {doc['db_digest'][:12]}: the plan places {len(plan.placement)} locations of "
@@ -809,6 +817,12 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
     if any("saveanywhere" in fam.split("+") for fam in families):
         lines.append("warning: a saveanywhere skip is on (plan §2.14): it never counts as an escape")
     reach, spheres_ = _playthrough(plan, logic)
+    if st.seed_difficulty:   # right after the skips on
+        known = known_traps(logic, st)
+        prof = difficulty.profile(logic, st, plan.placement)
+        lines[4:4] = difficulty.spoiler_lines(
+            prof, difficulty.openers(logic, st, plan.placement) if prof["asks"] else [],
+            sorted(reach.traps - reach.after_completion - known))
     won = False
     for sp in spheres_:
         if sp.victory and not won:

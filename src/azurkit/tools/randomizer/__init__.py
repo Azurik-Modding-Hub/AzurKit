@@ -48,7 +48,7 @@ from types import SimpleNamespace
 from azurkit.core.progress import Steps, noting
 from azurkit.tools.randomizer import dbcache, layer
 from azurkit.tools.randomizer.movement import logic_of, run_floor
-from azurkit.tools.randomizer.planner import loader
+from azurkit.tools.randomizer.planner import difficulty, loader
 from azurkit.tools.randomizer.planner.fill import fill, starved
 from azurkit.tools.randomizer.planner.loader import DATA_DIR, kept_logic
 from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc, spoiler_lines
@@ -72,6 +72,12 @@ MOVEMENT_TIP = ("How tight the jumps and flaps the logic may ask for are. Standa
                 "straight, flaps nearly perfect. Frame-perfect: the physics limit: the perfect frame, a straight "
                 "stick, ideal flaps.")
 CEILING_TIP = "Turns on every skip rated at or below it; a skip's own toggle wins over it."
+#: The Seed difficulty levels (D1031, D1037): the ratings, as the ceilings' values are, Any (today's seeds, D1039) first.
+SEED_DIFFICULTY = ((0, "Any"), (2, "Standard"), (3, "Hard"), (4, "Frame-perfect"))
+SEED_DIFFICULTY_TIP = ("How much of the game makes you use the tricks Movement and Skips allow. Higher levels put key "
+                       "items where your tricks are needed, at several points through the game, not just one. The "
+                       "seed is always beatable within your settings, and the tracker and spoiler say what it needs. "
+                       "When a seed can't be made to match, you get the closest the fill found, and they say how close.")
 RATINGS = ("Unrated", "Safe", "Standard", "Hard", "Frame-perfect")   # a skip's difficulty 1-4 (the ceiling's names)
 BARRIERS = "Stay vanilla in v1 (R2.2)."
 #: The item rows (Modkit's Randomize page): each its category, ticked to shuffle it, or None, greyed: it stays vanilla;
@@ -183,13 +189,23 @@ def spoiler(doc: Mapping) -> list[str]:
     return spoiler_lines(planned, logic_of(logic, planned.settings))
 
 
+def openers_ahead(doc: Mapping) -> None:
+    """Work out a shaped plan's spoiler openers ahead (each a rules' compile the kept Logic then keeps): a host's
+    background job after Track, so the spoiler's View needn't wait on them. Nothing at level 0 or with nothing to shape."""
+    logic = kept_logic()
+    planned = load_plan(doc, logic.db)
+    if planned.settings.seed_difficulty and difficulty.asked(planned.settings, logic.skip_tables) is not None:
+        difficulty.openers(logic_of(logic, planned.settings), planned.settings, planned.placement)
+
+
 def literal(settings: Settings) -> dict:
     """``settings`` as the tab holds them: a settings file's table in format
     /2, whose ``exclude_categories`` are exactly the categories kept vanilla
     (format /1's ``powers`` keeps the upgrades too), so a page reads and
-    sets each row's box as it is."""
+    sets each row's box as it is; a seed difficulty only when over 0."""
+    level = {"seed_difficulty": settings.seed_difficulty} if settings.seed_difficulty else {}
     return {"format": SETTINGS_FORMAT_ELEMENTAL, "skip_ceiling": settings.skip_ceiling,
-            "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire,
+            "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire, **level,
             "exclude_categories": sorted(settings.exclude_categories, key=CATEGORIES.index),
             "skip_override": dict(sorted(settings.skip_override.items()))}
 
@@ -231,7 +247,8 @@ def base_counts() -> dict[str, int]:
 def options() -> dict:
     """What the Randomizer tab offers, read without the database: D144's
     defaults (``data/settings/defaults.toml``, :func:`literal`), Movement's
-    tiers, the skip ceilings and the fire levels, each ``[value, label]``
+    tiers, the skip ceilings, the seed difficulty levels and the fire levels,
+    each ``[value, label]``
     (``loaded``: those offered only when a loaded setting holds them), the
     item rows (each ``[category or None, label, note]``) and the categories
     in the order a settings table lists them, the vanilla
@@ -241,9 +258,11 @@ def options() -> dict:
     counts = base_counts()
     return {"defaults": literal(settings_from_table(table, {}, "settings/defaults.toml")),
             "movement": [list(m) for m in MOVEMENT], "ceilings": [list(c) for c in CEILINGS], "loaded": LOADED,
+            "seed_difficulty": [list(level) for level in SEED_DIFFICULTY],
             "dark_fire": [1, 2, 3], "categories": list(CATEGORIES),
             "items": [[category, label, note, counts[kind], list(icons)] for category, label, note, kind, icons in ITEMS],
-            "obsidian_cost": layer.OBSIDIAN_COST_VANILLA, "tips": {"movement": MOVEMENT_TIP, "ceiling": CEILING_TIP}}
+            "obsidian_cost": layer.OBSIDIAN_COST_VANILLA, "tips": {"movement": MOVEMENT_TIP, "ceiling": CEILING_TIP,
+                                                                      "seed_difficulty": SEED_DIFFICULTY_TIP}}
 
 
 def _rating(rows: list[Mapping]) -> str:
@@ -284,7 +303,10 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     file of them (``file``: Save settings' text, Modkit's ``--save-settings``
     file) and the skip groups (``groups``, D258: each group's picks a
     setting can turn on, each with its in-logic variants' ratings, which
-    the page compares with the Movement tier). ``ValueError`` names a key,
+    the page compares with the Movement tier) and the seed difficulty's
+    levels (``difficulty``: each ``[value, name, enabled, line]``, read from
+    the shipped rate table with no reach, and a loaded level's ``note``:
+    :func:`.planner.difficulty.levels`). ``ValueError`` names a key,
     setting, share string or settings file refused."""
     if not isinstance(given, Mapping):
         raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
@@ -329,7 +351,7 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
             "held": len(every) - len(rows), "forfeitable": len(logic.forfeitable), "why_not": why,
             "preflight": refused.reason if refused else None, "file": layer.settings_text(st),
             "groups": [{"id": key, "label": label, "picks": groups[key]} for key, label in SKIP_GROUPS.items()],
-            "tiers": list(MOVEMENT_TIERS)}
+            "tiers": list(MOVEMENT_TIERS), "difficulty": difficulty.levels(st, skips)}
 
 
 def size_fold(made: Mapping, mine: Mapping) -> float | None:

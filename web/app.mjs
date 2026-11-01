@@ -1181,7 +1181,8 @@ function randoSettings() {
     if (!(pick.id in overrides) && !pick.levels.every((level) => level <= ceiling)) overrides[pick.id] = true;
   }
   return { format: defaults.format, skip_ceiling: ceiling, movement_tier: R("movement").value,
-           dark_fire: Number(R("dark").value), exclude_categories: categories.filter((c) => kept.has(c)),
+           dark_fire: Number(R("dark").value), ...(state.rando.level ? { seed_difficulty: state.rando.level } : {}),
+           exclude_categories: categories.filter((c) => kept.has(c)),
            skip_override: Object.fromEntries(Object.entries(overrides).sort()) };
 }
 
@@ -1246,6 +1247,7 @@ function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
     box.checked = !settings.exclude_categories.includes(box.dataset.category);
   }
   state.rando.overrides = { ...settings.skip_override };
+  state.rando.level = settings.seed_difficulty ?? 0;   // a loaded seed difficulty stays the tab's
   R("cost").value = String(cost ?? randoOptions().obsidian_cost);
   const mark = $("randomizer").querySelector(".on .mark");
   mark.textContent = from && JSON.stringify(randoSetup()) !== before ? "●" : "";

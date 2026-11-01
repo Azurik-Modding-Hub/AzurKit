@@ -42,9 +42,10 @@ from collections.abc import Callable, Mapping, Sequence
 from azurkit.core.progress import Steps
 from azurkit.tools.randomizer import needs
 from azurkit.tools.randomizer.movement import logic_of
+from azurkit.tools.randomizer.planner import difficulty
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
-from azurkit.tools.randomizer.planner.settings import CATEGORIES, picks_on
+from azurkit.tools.randomizer.planner.settings import CATEGORIES, RATING_NAMES, picks_on
 from azurkit.tools.randomizer.tracker import ELEMENTS, Row, Tracker, held_counts, marks
 
 KEEP = 3                     # the plans whose trackers the process keeps
@@ -125,7 +126,7 @@ def tracker_of(doc: Mapping, progress: Callable[[dict], object] | None = None) -
         raise ValueError(f"tracker: {exc}") from None
     logic = _LOGIC.get(key) or logic_of(base, plan.settings)
     _KEPT[key] = made = Tracker(logic, plan.settings, plan.placement)
-    made.doc = plan.doc
+    made.doc, made.profile, made.opened = plan.doc, None, None
     while len(_KEPT) > KEEP:
         _KEPT.popitem(last=False)
     return made
@@ -165,17 +166,29 @@ def _row(row: Row) -> dict:
             "total": row.total, "where": row.where, "game": row.game, "children": [_row(c) for c in row.children]}
 
 
-def head(t: Tracker) -> dict:
+def _requires(t: Tracker, spoiler: bool) -> dict:
+    """A shaped plan's ``head.requires``: its profile once per plan on the tracker's Logic, its openers (each a rules'
+    compile, D1031) only when Spoiler asks; each kept on the tracker."""
+    if t.profile is None:
+        t.profile = difficulty.profile(t.logic, t.settings, t.placement)
+    if spoiler and t.opened is None:
+        t.opened = difficulty.openers(t.logic, t.settings, t.placement) if t.profile["asks"] else []
+    return difficulty.requires(t.profile, spoiler=spoiler, openers=t.opened if spoiler else None)
+
+
+def head(t: Tracker, spoiler: bool = False) -> dict:
     """The tracker's head line (Modkit's): the seed, its share string, the skip ceiling, the movement tier,
-    the fire dark areas need, the categories kept vanilla and each skip on (a batch once, D275)."""
+    the fire dark areas need, the categories kept vanilla and each skip on (a batch once, D275); with a seed
+    difficulty over 0, the level and ``requires`` (:func:`.planner.difficulty.requires`)."""
     st, doc = t.settings, t.doc
     on = [pid if ids == [pid] else f"{pid} ({', '.join(ids)})" for pid, ids in picks_on(st, t.logic.skip_tables).items()]
     kept = [c for c in CATEGORIES if c in st.exclude_categories]
+    level = f" · seed difficulty {RATING_NAMES[st.seed_difficulty]}" if st.seed_difficulty else ""
     return {"seed": doc["seed"], "share": doc["share"], "sha256": doc["sha256"],
             "text": (f"Seed {doc['seed']} · {doc['share']} · skips {RATINGS[st.skip_ceiling]}, movement "
                      f"{st.movement_tier.replace('_', '-')}, Fire {st.dark_fire}"
-                     + (f", vanilla {' '.join(kept)}" if kept else "") + f" · {len(on)} skips on"),
-            "skips": on}
+                     + (f", vanilla {' '.join(kept)}" if kept else "") + f" · {len(on)} skips on{level}"),
+            "skips": on} | ({"requires": _requires(t, spoiler)} if st.seed_difficulty else {})
 
 
 def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], object] | None = None) -> dict:
@@ -232,7 +245,7 @@ def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], objec
     items, levels = t.table(spoiler, held_counts(held) if held else None, gems=shown)
     if not world.cache_info().currsize:
         Steps(progress)("plan", "Reading the world map", 1, 2)
-    out = {"head": head(t), "world": world() | {"art": {"version": ART_VERSION, "parts": list(ART_PARTS)}},
+    out = {"head": head(t, spoiler), "world": world() | {"art": {"version": ART_VERSION, "parts": list(ART_PARTS)}},
            "marks": t.state(),
            "status": {"collected": s.collected, "reachable": s.reachable, "total": s.total, "sphere": s.sphere,
                       "victory": s.victory, "levels": list(s.levels), "skipped": s.skipped},
