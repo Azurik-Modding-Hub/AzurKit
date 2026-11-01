@@ -227,8 +227,7 @@ def load(path: str | os.PathLike, *, whole: bool = True) -> tuple[gate.Release, 
     why it is no AzurKit build or what drifted, never game bytes."""
     try:
         with iso.Reader(path) as r:
-            entries = {e.path: e for e in r.entries()}
-            found = [entries.get(name) for name in (JSON, BIN)]
+            found = [r.lookup(name) for name in (JSON, BIN)]   # the root's table alone
             if found[0] is None:
                 raise ValueError(f"{path}: no /{JSON}, so it isn't an AzurKit build")
             if found[0].size > MAX_JSON or (found[1] is not None and found[1].size > MAX_BIN):

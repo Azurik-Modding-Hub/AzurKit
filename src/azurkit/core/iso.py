@@ -147,6 +147,22 @@ class Reader:
         except KeyError:
             raise FileNotFoundError(path) from None
 
+    def lookup(self, path: str) -> Entry | None:
+        """The entry at ``path``, case-blind, or ``None``: only the tables of
+        the folders on its way are read, each checked as :meth:`entries`
+        checks it (:meth:`find` reads every folder's: an opened build's
+        recipe needs its root and the files it changed, and the site's File
+        reads are each about 200 ms late in Safari)."""
+        prefix, (sector, size), names = "", self._root, path.strip("/").split("/")
+        for i, name in enumerate(names):
+            entry = next((e for e in self._table(prefix, sector, size) if key(e.path[len(prefix):]) == key(name)), None)
+            if entry is None or i == len(names) - 1:
+                return entry
+            if not entry.is_dir:
+                return None
+            prefix, sector, size = entry.path + "/", entry.sector, entry.size
+        return None
+
     def chunks(self, entry: Entry) -> Iterator[bytes]:
         """A file's bytes, :data:`CHUNK` at a time."""
         at, left = self.base + entry.sector * SECTOR, entry.size

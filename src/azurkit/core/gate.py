@@ -206,15 +206,16 @@ def check(path: str | os.PathLike, release: Release, changed: dict[str, str], ad
     image at ``path`` that isn't ``release``'s vanilla file, or for one of
     ``changed`` (``{path: sha256}``), that sha256's; ``added`` names files
     it holds besides (an AzurKit build's root files). Every file is read
-    (``whole``), else only ``changed``'s, on the caller's thread."""
+    (``whole``), else only ``changed``'s, and the tables of the folders on
+    their way (``iso.Reader.lookup``), on the caller's thread."""
     with iso.Reader(path) as r:
-        have = {e.path: e for e in r.entries()}
         if whole:
-            why = _first_difference(r, have, release, True, changed, added)
+            why = _first_difference(r, {e.path: e for e in r.entries()}, release, True, changed, added)
         else:
-            why = next((f"{p}: {'missing' if p not in have or have[p].is_dir else 'its contents differ'}"
+            have = {p: r.lookup(p) for p in changed}
+            why = next((f"{p}: {'missing' if have[p] is None or have[p].is_dir else 'its contents differ'}"
                         for p, sha in sorted(changed.items())
-                        if p not in have or have[p].is_dir or _sha256(r, have[p]) != sha), None)
+                        if have[p] is None or have[p].is_dir or _sha256(r, have[p]) != sha), None)
         if why:
             raise NotVanillaError(why)
 

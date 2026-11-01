@@ -170,6 +170,23 @@ def test_a_mods_file_names_each_operation_it_refuses_and_a_drifted_build(usa_iso
         sdk.open_build(bent)
 
 
+def test_opening_a_build_the_pages_way_reads_only_the_folders_on_its_changed_files_paths(usa_iso, monkeypatch):
+    """Step 4.3 round 3 (S45 under lag): ``sdk.open_build`` with ``whole``
+    false finds /azurkit.json, /azurkit.bin and each file the build changed
+    by its path, reading the root's table and those of the folders on the
+    way (``iso.Reader.lookup``), not every folder's: the site reads a File
+    a page at a time, each about 200 ms late in Safari, and the whole walk
+    was 34 of its 36 reads. Its recipe is the whole check's."""
+    made, report = sdk.image({"iso": str(usa_iso), "packs": {}, "xbr": [
+        {"op": "set", "file": CONFIG, "table": "critters_damage", "entity": "golem", "prop": "hitPoints",
+         "value": 321}]})
+    read, table = [], iso.Reader._table
+    monkeypatch.setattr(iso.Reader, "_table", lambda self, prefix, *a: read.append(prefix) or table(self, prefix, *a))
+    found = sdk.open_build(made, whole=False)
+    folders = {""} | {file.rsplit("/", 1)[0] + "/" for file in report["result"] if "/" in file}
+    assert (set(read), found) == (folders, sdk.open_build(made)), read
+
+
 def test_a_conflict_on_a_config_cell_names_the_cell_on_both_sides(usa_iso):
     """AZ-130: a pack's config.xbr cell (player_max_hp's Starting HP) that
     a mods file's ``set`` rewrites (named in D51's spellings) is a D28
