@@ -1236,8 +1236,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   plan's first tracker view read before their clicks (`api/speculate`,
   `api/prefetch`), each keyed by its recipe, the image's stamp, the content's
   `installed.json` and the version, at the page's change number, at background
-  priority (with its pool parts and the threads it starts; `sdk.py`'s hash pools
-  not yet) and waiting at its records behind a call the player waits on; a
+  priority (with its pool parts, the threads it starts and `sdk.py`'s hash pools)
+  and waiting at its records behind a call the player waits on; a
   change, or a preview or G4 match beside a build ahead (no dress runs beside
   its GiBs: D1017), stops it at its next record, Build, Track and the tracker's first ask
   take it (a repeated Build of one recipe too), and Cancel answers at once,

@@ -379,18 +379,30 @@ def _is_low(here: int | None = None, item: int = 0) -> bool:   # a pool child's 
     return low(read())
 
 
-def test_a_low_jobs_pool_parts_and_the_threads_it_starts_run_low_and_a_normal_calls_parts_dont(monkeypatch):
+def test_a_low_jobs_pool_parts_and_the_threads_it_starts_run_low_and_a_normal_calls_parts_dont(monkeypatch, tmp_path):
     """What a job ahead no click follows starts runs at its priority (review
     D3 of Step 4.3r4g: D1007's every core at low priority held its own
     thread alone): a part in a pool child, a ``later`` thread and its parts, a
-    build's hash. The child comes back up after the part, so a call the
+    build's hash, the sdk's two hash pools. The child comes back up after the part, so a call the
     player waits on gets normal priority from the same children (POSIX's
     nice has no way back: a low part's child leaves instead)."""
+    from azurkit import sdk
     from azurkit.app import engine, procpool
+    from azurkit.tools.characters import pool
 
     monkeypatch.delenv(procpool.CORES, raising=False)
     monkeypatch.setattr(engine.iso, "digest", lambda made, tick: _is_low())
+    for module, name in ((sdk, "INHERIT"), (pool, "MAP"), (pool, "LATER")):   # the engine's install, put back after
+        monkeypatch.setattr(module, name, getattr(module, name))
+    procpool.install()
     here, parts, seen = os.getpid(), [0, 1], {}
+    (tmp_path / "a").write_bytes(b"a")
+
+    def checked() -> list[bool]:   # sdk._digests' threads, as each file's hash reports
+        lows = []
+        steps = types.SimpleNamespace(counter=lambda stage, label: lambda done, total: lows.append(_is_low()))
+        sdk._digests(str(tmp_path / "a"), steps, [("a", 0, 1)])
+        return lows
 
     def run(low: bool) -> None:
         if low:
@@ -398,7 +410,8 @@ def test_a_low_jobs_pool_parts_and_the_threads_it_starts_run_low_and_a_normal_ca
         kept = engine._Built(None, {})
         kept.ended.wait(60)
         seen[low] = (procpool.map_(_is_low, here, parts), procpool.later(_is_low).result(),
-                     procpool.later(procpool.map_, _is_low, here, parts).result(), kept.sha)
+                     procpool.later(procpool.map_, _is_low, here, parts).result(), kept.sha,
+                     sdk._map(_is_low, parts), checked())
     procpool.stop()
     try:
         for low in (True, False):
@@ -410,5 +423,5 @@ def test_a_low_jobs_pool_parts_and_the_threads_it_starts_run_low_and_a_normal_ca
     finally:
         procpool.stop()
     normal = _is_low()
-    assert (seen[True], seen[False]) == (([True, True], True, [True, True], True),
-                                         ([normal, normal], normal, [normal, normal], normal))
+    assert (seen[True], seen[False]) == (([True, True], True, [True, True], True, [True, True], [True]),
+                                         ([normal, normal], normal, [normal, normal], normal, [normal, normal], [normal]))

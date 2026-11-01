@@ -433,6 +433,10 @@ _GAME: dict[tuple, tuple] = {}   # its config.xbr and characters.xbr, by the sam
 
 THREADS = sys.platform != "emscripten"   # a CPython host's (the app's, the CLI's); the site's worker has none
 CORES_ENV = "AZURKIT_CORES"               # at most this many cores, where set (D984's capped profile)
+INHERIT: Callable[[], Callable[[], object]] | None = None
+"""A host's: asked on the caller's thread as a hash pool starts, what each of
+that pool's threads calls first, so they run at the caller's priority (the
+engine's ``procpool.inherit``: a job ahead's hash runs as low as the job)."""
 
 
 def cores(most: int) -> int:
@@ -478,6 +482,13 @@ def _rest(path: str, stamp: gate.Stamp) -> list[tuple[str, int, int]]:
     return [f for f in gate.layout(path, ("",)) if not stamp.vouches(f[0])]
 
 
+def _hashers(name: str):
+    """A pool of :func:`cores` threads, at the caller's priority (:data:`INHERIT`)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    return ThreadPoolExecutor(cores(8), thread_name_prefix=name, initializer=INHERIT and INHERIT())
+
+
 def _map(fn: Callable, items) -> list:
     """``map(fn, items)`` as a list, on :func:`cores` threads where the host
     has them (the engine's hashes of a build's changed files: hashlib lets go
@@ -485,9 +496,7 @@ def _map(fn: Callable, items) -> list:
     items = list(items)
     if not THREADS or len(items) < 2:
         return list(map(fn, items))
-    from concurrent.futures import ThreadPoolExecutor
-
-    with ThreadPoolExecutor(cores(8), thread_name_prefix="azurkit-hash") as pool:
+    with _hashers("azurkit-hash") as pool:
         return list(pool.map(fn, items))
 
 
@@ -498,8 +507,6 @@ def _digests(path: str, steps: Steps, files: list[tuple[str, int, int]] | None =
     (a file object of its own: hashlib lets go of the GIL) on :func:`cores` threads, the
     largest first, ``steps`` hearing them as ``check`` (its ``label``); a
     file the image ends inside is left to ``gate.verify``, which names it."""
-    from concurrent.futures import ThreadPoolExecutor
-
     files = sorted(gate.layout(path) if files is None else files, key=lambda f: -f[2])
     total, done, lock = sum(f[2] for f in files), [0], threading.Lock()
     report = steps.counter("check", label)
@@ -519,7 +526,7 @@ def _digests(path: str, steps: Steps, files: list[tuple[str, int, int]] | None =
                         done[0] += len(data)
                         report(done[0], total)
         return name, digest.hexdigest()
-    with ThreadPoolExecutor(cores(8), thread_name_prefix="azurkit-check") as pool:
+    with _hashers("azurkit-check") as pool:
         return {name: sha for name, sha in pool.map(one, files) if sha is not None}
 
 

@@ -243,9 +243,12 @@ def later(fn: Callable, *args) -> Future:
 
 def install() -> int:
     """Hand the swap this pool (from two workers on; with one it runs as
-    before, in order, here): the workers a call takes."""
+    before, in order, here), and the sdk's hash pools :func:`inherit`: the
+    workers a call takes."""
+    from azurkit import sdk
     from azurkit.tools.characters import pool
 
+    sdk.INHERIT = inherit
     if (count := workers()) >= 2:
         pool.MAP, pool.LATER = map_, later
     return count
