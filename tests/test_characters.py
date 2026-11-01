@@ -37,7 +37,7 @@ from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_kit, _player_variants, content, ports, shipped
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
-from scripts import record_goldens
+from scripts import record_goldens, record_shipped
 from tests import _pyodide
 
 CHARACTERS, FX, INDEX = characters.FILES
@@ -985,6 +985,15 @@ def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, eur
              for view, png in picker.preview(bodies, body).items()}
     assert len(drawn) == 272 and {rel: _sha256(png) for rel, png in drawn.items()} == {
         rel: _sha256(made[rel]) for rel in drawn}
+
+
+def test_the_shipped_sizes_are_each_listed_species_and_built_in_variant_on_both_releases():
+    """``scripts/record_shipped.py`` sizes each species ``species.json`` lists (its ``[species, body, object]``
+    rows) and each built-in variant, at its defaults, and ``shipped.json`` holds a size of each on both releases
+    (D995): the recorder reads the list as its rows are, so it can re-record them."""
+    want = {(release.iso_sha256, json.dumps(shipped._json(recipe), sort_keys=True))
+            for release in gate.RELEASES for recipe in record_shipped.recipes()}
+    assert len(want) == 2 * 183 and {record_shipped._key(row) for row in shipped.table()["size"]} == want
 
 
 def test_a_variants_shipped_pictures_are_drawn_again_when_the_recipe_it_is_from_changes():

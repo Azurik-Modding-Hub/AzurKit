@@ -36,8 +36,7 @@ from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import characters, mods
 from azurkit.tools.characters import _player_variants as variants
-from azurkit.tools.characters import ports, shipped
-from azurkit.tools.characters.picker import SPECIES
+from azurkit.tools.characters import picker, ports, shipped
 
 shipped.OFF = True   # every dress fresh, in each process that imports this
 PLANS = ({"species": "booblord"},)
@@ -49,7 +48,7 @@ _VANILLA: dict[str, ports.Vanilla] = {}
 def recipes() -> list[dict]:
     """The recipes whose size is shipped: each species the Characters tab
     lists and each built-in variant, at its defaults."""
-    names = [name for name, _ in json.loads(SPECIES.read_text(encoding="utf-8"))] + list(variants.builtins())
+    names = [row[0] for row in picker.species_list()] + list(variants.builtins())
     return [characters.normalize({"species": name}) for name in dict.fromkeys(names)]
 
 
