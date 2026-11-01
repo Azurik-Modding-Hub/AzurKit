@@ -1,0 +1,272 @@
+# A release of AzurKit (Step 4.3r4j; D1022, D885, D1026), in two runs, each only on what starts it:
+# - A pushed v* tag builds the draft. check: the tag names pyproject's version and its commit is on main. apps: the four
+#   apps, each frozen on its own OS (Mac arm64, Mac Intel, Windows x64, Linux x64), unsigned (D885). python: the wheel and
+#   the sdist. site: the site, built here only so a broken one stops the draft. attest: SHA256SUMS and the build's
+#   provenance over every file. draft: a DRAFT GitHub release holding them. Nothing public changes.
+# - The owner's Publish on that draft goes live. check runs again and the site is rebuilt from the tag's commit, pypi
+#   uploads the draft's own wheel and sdist (read back and checked against their attestation) by trusted publishing, and
+#   only after that upload pages deploys the site.
+# PyPI's pending publisher reads azurkit / Azurik-Modding-Hub / AzurKit / release.yml / pypi: this file's name and the
+# pypi job's environment must not change.
+# Before the first Publish (repository settings, not made here): Pages' source is GitHub Actions (D1026: off until the
+# release), and the github-pages environment admits the tag rule v*, because a release's run is on its tag and that
+# environment admits only main by default, which would fail the pages job after PyPI's upload. check holds "from main
+# only": a tag off main stops every job.
+# No secret: the OIDC tokens are the pypi, pages and attest jobs' own, and no pull request runs this file. The game's
+# images are never touched. Each job holds only its own permissions. Actions are pinned by commit sha, their release
+# beside it. setup-uv keeps no Actions cache here, so nothing another run saved reaches a release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  check:
+    name: the tag is this version's, on main
+    if: github.repository == 'Azurik-Modding-Hub/AzurKit' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0   # main's history, for the check below
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+          enable-cache: false
+      - id: version
+        run: |
+          version="$(uv version --short)"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::the tag $GITHUB_REF_NAME isn't pyproject.toml's version $version"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_SHA isn't on main: a release comes from main only"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  apps:
+    name: freeze (${{ matrix.label }})
+    needs: check
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true   # one app missing is no release (D35)
+      matrix:
+        include:
+          - {os: macos-15, label: macos-arm64}
+          - {os: macos-15-intel, label: macos-x86_64}
+          - {os: windows-latest, label: windows-x86_64}
+          - {os: ubuntu-latest, label: linux-x86_64}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+          enable-cache: false
+      - run: uv sync --locked
+      - name: Freeze the app and archive it
+        env:
+          NAME: AzurKit-${{ needs.check.outputs.version }}-${{ matrix.label }}
+        run: |
+          dist="$RUNNER_TEMP/dist" out="$RUNNER_TEMP/app"
+          uv run --locked python scripts/freeze.py --dist "$dist" --work "$RUNNER_TEMP/work"
+          mkdir -p "$out"
+          case "$RUNNER_OS" in
+            macOS) ditto -c -k --keepParent "$dist/AzurKit.app" "$out/$NAME.zip" ;;
+            Linux) tar -C "$dist" -czf "$out/$NAME.tar.gz" AzurKit ;;
+            Windows)
+              uv run --locked python -I -c 'import shutil, sys; shutil.make_archive(sys.argv[1], "zip", sys.argv[2], "AzurKit")' \
+                "$out/$NAME" "$dist" ;;
+          esac
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: release-app-${{ matrix.label }}
+          path: ${{ runner.temp }}/app/
+          retention-days: 7
+          if-no-files-found: error
+
+  python:
+    name: the wheel and the sdist
+    needs: check
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+          enable-cache: false
+      - run: uv sync --locked
+      - name: Build them (the wheel as the site's, its bytecode and checked database in it)
+        run: |
+          uv run --locked python -c 'import sys; from pathlib import Path; from scripts import web_tools; web_tools.wheel(Path(sys.argv[1]))' \
+            "$RUNNER_TEMP/python"
+          uv build --offline --sdist --out-dir "$RUNNER_TEMP/python"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: release-python
+          path: |
+            ${{ runner.temp }}/python/azurkit-*.whl
+            ${{ runner.temp }}/python/azurkit-*.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
+  site:
+    name: the site
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+          enable-cache: false
+      - run: uv sync --locked
+      - name: Pyodide's pinned core and the site
+        run: |
+          uv run --locked python -c 'from scripts import web_tools; web_tools.fetch()'
+          uv run --locked python scripts/web_tools.py --site "$RUNNER_TEMP/site"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
+        with:
+          path: ${{ runner.temp }}/site
+
+  attest:
+    name: SHA256SUMS and the provenance
+    needs: [apps, python, site]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: files
+      - name: SHA256SUMS
+        working-directory: files
+        run: |
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: files/*
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: release-sums
+          path: files/SHA256SUMS
+          retention-days: 7
+          if-no-files-found: error
+
+  draft:
+    name: the draft release
+    needs: [check, attest]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: files
+      - name: Create the draft, its files as SHA256SUMS lists them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        working-directory: files
+        run: |
+          sha256sum -c SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" ./* --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+            --title "AzurKit $VERSION" \
+            --notes "Download and check it: https://github.com/$GITHUB_REPOSITORY#download-and-check-it"
+
+  pypi:
+    name: upload to PyPI
+    needs: [check, site]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pypi
+    permissions:
+      contents: read
+      attestations: read
+      id-token: write
+    steps:
+      - name: The published draft's own wheel and sdist, checked
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir files \
+            --pattern 'azurkit-*' --pattern SHA256SUMS
+          mkdir dist
+          cd files
+          grep '  azurkit-' SHA256SUMS | sha256sum -c -
+          for file in azurkit-*; do
+            gh attestation verify "$file" --repo "$GITHUB_REPOSITORY"
+            mv "$file" ../dist/
+          done
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
+        with:
+          packages-dir: dist
+
+  pages:
+    name: deploy the site to Pages
+    needs: [check, site, pypi]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

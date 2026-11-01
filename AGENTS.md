@@ -1363,8 +1363,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   refuses while the list holds anything (it is empty for 4.4).
 - **CI (Step 4.4ci; D1022-D1024):** AzurKit is public in Azurik-Modding-Hub
   before its release so GitHub Actions tests it, and publishing isn't a
-  release: no workflow deploys the site (Pages stays off, D1026), uploads
-  to PyPI, tags or makes a release. `.github/workflows/tests.yml` runs the
+  release: only `release.yml`, below, deploys the site (Pages stays off
+  until then, D1026), uploads to PyPI or makes a release, and no workflow
+  tags. `.github/workflows/tests.yml` runs the
   pure tier on every push to `main` and every pull request on the four
   platforms the apps ship for (macOS on Apple Silicon and on Intel,
   Windows x64, Linux x64; the web tier with Node 24 and
@@ -1383,10 +1384,20 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four
   apps (`scripts/freeze.py --check`, which refuses one whose compiled library
   doesn't load) on a push to `main`, each a 14-day workflow
-  artifact with its sha256. Workflows hold `permissions: contents: read`,
-  no `pull_request_target`, and actions
-  pinned by commit sha with their release beside it; `actionlint` passes
-  on each. A stack still lands on the local gate (`land.py`); the other
+  artifact with its sha256. `release.yml` (Step 4.3r4j; D885) starts only
+  on a `v*` tag and on a release's publishing: a tag whose name is
+  pyproject's version and whose commit is on `main` builds the four apps,
+  the wheel, the sdist, `SHA256SUMS`, their attestations and a draft
+  release; the owner's Publish on it uploads that draft's wheel and sdist
+  to PyPI by trusted publishing and then deploys the site to Pages. PyPI's
+  pending publisher names the file and its `pypi` environment: neither
+  changes. Before the first Publish, Pages' source must be GitHub Actions
+  and the `github-pages` environment must admit the tag rule `v*`, or the
+  deploy fails after the upload. Workflows hold `permissions: contents:
+  read` (`release.yml`: none at its top, each job its own, held by
+  `tests/test_contracts.py`), no `pull_request_target`, and actions pinned
+  by commit sha with their release beside it; `actionlint` passes on each.
+  A stack still lands on the local gate (`land.py`); the other
   platforms must pass by 4.4 (D1023), with their own references or
   close-enough comparisons where float maths differ (D1016).
 

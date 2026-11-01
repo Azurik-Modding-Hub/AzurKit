@@ -157,3 +157,45 @@ def test_no_module_imports_one_platforms_own_module_at_its_top():
              p for d in ("src", "scripts", "tests", "devkit", "shimkit") for p in (ROOT / d).rglob("*.py"))
              for name in tops(path.read_text(encoding="utf-8"))]
     assert found == []
+
+
+WORKFLOWS = ROOT / ".github" / "workflows"
+USES = re.compile(r"^\s*(?:- )?uses:\s*(.*?)\s*$", re.M)
+PINNED = re.compile(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}\s+#\s*v\d\S*\Z")
+RELEASE_PERMISSIONS = {
+    "check": {"contents": "read"}, "apps": {"contents": "read"}, "python": {"contents": "read"},
+    "site": {"contents": "read"}, "attest": {"id-token": "write", "attestations": "write"},
+    "draft": {"contents": "write"}, "pypi": {"contents": "read", "attestations": "read", "id-token": "write"},
+    "pages": {"pages": "write", "id-token": "write"}}
+"""What each job of ``release.yml`` may do, and no more (a new job names its own)."""
+
+
+def test_the_release_workflow_runs_only_on_a_v_tag_and_its_published_draft_with_every_action_pinned_by_sha():
+    """``release.yml`` (D1022, D885): its name and the pypi job's environment
+    are what PyPI's pending publisher reads; it starts only on a v* tag and
+    on a release's publishing, never on a branch's push, a pull request or a
+    dispatch; the first run ends in a draft and only the second uploads or
+    deploys; each job holds :data:`RELEASE_PERMISSIONS` under an empty top;
+    it reads no secret and no game image. Every action of every workflow is
+    pinned by a commit's sha, its release beside it."""
+    text = re.sub(r"(?m)^\s*#.*\n", "", (WORKFLOWS / "release.yml").read_text(encoding="utf-8"))
+    head, jobs = text.split("\njobs:\n")
+    assert head[head.index("on:\n"):head.index("permissions:")].split() == [
+        "on:", "push:", "tags:", '["v*"]', "release:", "types:", "[published]"]
+    assert "permissions: {}" in head
+    assert not re.search(r"secrets\.|gamedata|\.iso\b|AZURKIT_ISO|pull_request|workflow_dispatch|workflow_run|branches:",
+                         text, re.I)
+    parts = re.split(r"(?m)^  ([a-z]+):\n", "\n" + jobs)
+    bodies = dict(zip(parts[1::2], parts[2::2]))
+    assert {name: dict(re.findall(r"^      ([a-z-]+): (read|write)$", body[body.index("permissions:"):], re.M))
+            for name, body in bodies.items()} == RELEASE_PERMISSIONS
+    assert re.findall(r"(?m)^    environment: (\w+)$", jobs) == ["pypi"] and "environment: pypi" in bodies["pypi"]
+    assert "pypa/gh-action-pypi-publish@" in bodies["pypi"] and "actions/deploy-pages@" in bodies["pages"]
+    assert "--draft" in bodies["draft"] and "release create" in bodies["draft"]
+    for name in ("apps", "python", "attest", "draft"):
+        assert "if: github.event_name == 'push'" in bodies[name], name
+    for name in ("pypi", "pages"):
+        assert "if: github.event_name == 'release'" in bodies[name], name
+    unpinned = [f"{path.name}: {use}" for path in sorted(WORKFLOWS.glob("*.yml"))
+                for use in USES.findall(path.read_text(encoding="utf-8")) if not PINNED.fullmatch(use)]
+    assert unpinned == []

@@ -216,9 +216,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
-- **Unsigned apps:** CI builds the app for Apple Silicon and Intel Macs, Windows and Linux, unsigned. The first time,
-  on a Mac, open it, then choose Open Anyway in System Settings › Privacy & Security; on Windows, choose More info ›
-  Run anyway.
+- **Unsigned apps:** CI builds the app for Apple Silicon and Intel Macs, Windows and Linux, unsigned, each with a
+  checksum and a build attestation ([Download and check it](#download-and-check-it)).
 - **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.
 - **Progress bars:** a build, a save and the tracker's Track show their step and percent, as your image's first check
   does on the web page; in the app that check, like anything slower than a second, shows what it is doing.
@@ -233,6 +232,24 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **A private app:** its page is served only to itself, with a fresh key each launch.
 - **The command line:** `azurkit verify`, `packs`, `build`, `open`, `plan` and `spoiler`; the app doubles as it.
 - **Dark or light:** your pick is remembered, and both are easy to read.
+
+## Download and check it
+
+These hold from the first release (there is none yet):
+
+- **Download only from [Releases](https://github.com/Azurik-Modding-Hub/AzurKit/releases).** An app is code that runs as
+  you, and a copy posted anywhere else may not be ours. Each release holds `AzurKit-<version>-macos-arm64.zip`,
+  `-macos-x86_64.zip` (Intel), `-windows-x86_64.zip` and `-linux-x86_64.tar.gz`, the wheel and sdist, and `SHA256SUMS`.
+- **The command line alone:** `uv tool install azurkit` or `pipx install azurkit` (Python 3.14), from PyPI.
+- **Opening it the first time:** the apps are unsigned. On a Mac, open it, then choose Open Anyway in System Settings ›
+  Privacy & Security; never turn Gatekeeper off. On Windows, choose More info › Run anyway.
+- **Checking it:** GitHub signed a record of the run that built each file, so this says it came from this repository's
+  own release job ([GitHub CLI](https://cli.github.com)):
+
+  ```bash
+  gh attestation verify AzurKit-<version>-macos-arm64.zip --repo Azurik-Modding-Hub/AzurKit
+  shasum -a 256 -c SHA256SUMS --ignore-missing   # the same file's checksum (Linux: sha256sum -c)
+  ```
 
 ## xemu only
 
