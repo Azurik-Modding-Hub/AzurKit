@@ -901,7 +901,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     logic, which held the page's start). **Live** is the app's alone (D882):
     `api/live` starts `azurkit.app.live`'s feed (a thread) for the plan,
     and each `api/tracker` ask merges its events and the element levels the
-    game holds and returns `live` (the status, where it saw the player),
+    game holds and returns `live` (the status, where it saw the player: the
+    body, not the last point it touched the ground; while xemu runs another
+    seed or build, how many of a level's item spots differ from the plan's,
+    or that none was randomized, and what to check),
     which the page asks for every 0.7 s; Follow shows the player's level,
     Find me (key F) shows it once. As Modkit's: the marks keep the saved
     slot the game last showed, each session Live opens (the link back, Live

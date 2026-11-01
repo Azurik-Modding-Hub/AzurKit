@@ -312,7 +312,7 @@ export function tracker({ call, app, say, kept, keep }) {
     t.live.level = t.live.here;
     t.live.reading = live.status === "live" || live.status === "warn";
     t.live.other = live.status === "other" ? `xemu runs another seed or build: what this shows is seed `
-      + `${t.plan.seed}'s, not your game's. ` : "";
+      + `${t.plan.seed}'s plan (share string ${t.plan.share}), not your game's (Live's line says what to check). ` : "";
     $("track-dot").textContent = DOTS[live.status] ?? "";
     $("track-dot").className = live.status;
     $("track-line").textContent = live.text + (live.unpaired ? ` · ${live.unpaired} pickups seen without the item's `

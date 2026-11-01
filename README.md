@@ -101,6 +101,8 @@ source ([Development](#development)).
 - **Live only reads:** it never launches xemu, writes to it or pauses the game.
 - **Live keeps up:** it finds an xemu started with QMP on port 4444, tells USA from Europe and follows deaths,
   reloads and save states.
+- **Live says what's off:** if xemu runs another seed or build, it counts the level's spots that differ and says
+  what to check, or that the game isn't randomized.
 
 ### Characters
 

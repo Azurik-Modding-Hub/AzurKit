@@ -82,7 +82,8 @@ class Spot:
     ``C`` characters graph; a gem spot ``G`` saved, ``g`` unsaved), the inventory field that holds its item
     from this spot only (None: none), the species its node names for that item ("": the item; a ``_move``
     spot's vanilla item keeps its template, ``obsidian_move``, as the writer does; a gem's isn't checked) and
-    how many pickups its generator holds (a gem cluster's gems; else 1)."""
+    how many pickups its generator holds (a gem cluster's gems; else 1) and the species its node names in the
+    base game (its location's template: an image no seed wrote)."""
     loc: str
     level: str
     graph: int | None
@@ -92,6 +93,7 @@ class Spot:
     field: str | None = None
     species: str = ""
     full: int = 1
+    vanilla: str = ""
 
     @property
     def gem(self) -> bool:
@@ -139,7 +141,7 @@ def spot_table(tracker, gems: bool = False) -> SpotTable:
             by_level.setdefault(level, []).append(Spot(
                 loc["id"], level, None if kind == "C" else int(g[1:]), None if kind == "C" else int(r[1:]), item,
                 kind, unique_field(item, fourcc) if items.count(item) == 1 else None,
-                "" if kind == "C" else names.target(loc["id"], item) or loc["template"]))
+                "" if kind == "C" else names.target(loc["id"], item) or loc["template"], vanilla=loc["template"]))
     levels = {}
     for level, spots in by_level.items():
         main = next(g for g in db.generated[level]["graphs"] if g.get("saved_nodes", 0) > 0)
@@ -188,6 +190,7 @@ class Reading:
     level: str | None = None
     settle: int = 0
     mismatch: bool = False
+    odd: tuple[int, int, bool] | None = None   # a mismatch's spots: how many differ, of how many read, all vanilla's
     clock: float | None = None       # the inventory's day clock (days)
     event: float | None = None       # the player entity's event clock (s)
     slot: str | None = None          # the save device's slot path; None: unknown
@@ -257,6 +260,7 @@ class Game:
         self._event: float | None = None
         self._attrs: dict[str, int] = {}
         self._mismatch = False
+        self._odd: tuple[int, int, bool] | None = None
         self._seen: dict[str, float] = {}    # numDead at its spot's full count read twice: not read again
         self._twice: set[str] = set()        # this settle
         self._full: dict[str, int] = {}
@@ -364,7 +368,8 @@ class Game:
                 return r
             self._settled = True
             self._settles += 1
-        r = replace(r, state="running" if running else "hold", settle=self._settles, mismatch=self._mismatch)
+        r = replace(r, state="running" if running else "hold", settle=self._settles, mismatch=self._mismatch,
+                    odd=self._odd)
         if self._mismatch or not self._attrs:
             return r
         want = [loc for loc in self._attrs if loc not in self._twice]
@@ -382,7 +387,7 @@ class Game:
     def _resolve(self, lv: LevelSpots, vec: int) -> bool:
         """Each spot's attributes, once a load: False while a node isn't a critterGenerator yet; a tracked
         spot's species that isn't the plan's item as the writer names it (:attr:`Spot.species`) is a mismatch
-        (another seed or build)."""
+        (another seed or build; :attr:`Reading.odd` counts them and tells an image no seed wrote)."""
         spots = [s for s in lv.spots if s.kind != "C" and s.graph == lv.graph]
         try:
             nodes = self.link.read_many([(vec + 4 * s.record, 4) for s in spots])
@@ -409,7 +414,10 @@ class Game:
                 names[k] += more
         except OSError:
             return False
-        self._mismatch = any(_cstr(n) != (s.species or s.item) for s, n in zip(spots, names) if not s.gem)
+        read = [(s, _cstr(n)) for s, n in zip(spots, names) if not s.gem]
+        odd = sum(name != (s.species or s.item) for s, name in read)
+        self._mismatch = odd > 0
+        self._odd = (odd, len(read), all(name == s.vanilla for s, name in read)) if odd else None
         self._attrs = {s.loc: attrs for s, (_, attrs, _, _) in zip(spots, heads)}
         self._full = {s.loc: s.full for s in spots}
         return True

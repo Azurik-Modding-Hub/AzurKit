@@ -1577,6 +1577,43 @@ def test_live_places_the_player_while_xemu_runs_another_seed_or_build():
     assert (live["status"], live["here"], live["seen"]["level"]) == ("other", True, "w1")
 
 
+def test_lives_line_on_another_seed_or_build_counts_the_spots_that_differ_and_names_what_to_check():
+    """While xemu runs another seed or build, Live's line names the level
+    and how many of the item spots it read hold other items than the
+    tracked plan's (seed and share string), and what to check against the
+    build (the seed, the share string's settings, the packs, the body worn)
+    or how to track the build itself; where each spot holds the base
+    game's item, it says the image isn't randomized."""
+    from azurkit.tools.randomizer.live import game
+
+    spots = tuple(game.Spot(f"w2/g0/r{k}", "w2", 0, k, item, "S", species=item, vanilla=vanilla)
+                  for k, item, vanilla in ((1, "power_water", "power_water"), (2, "obsidian", "diamond"),
+                                           (3, "all_fuel", "emerald")))
+    table, plan = game.SpotTable({"w2": game.LevelSpots("w2", 0, 8, spots)}, spots), _profile("default")
+
+    def line(names: dict[int, str]) -> tuple:
+        ram = _Ram("w2", names)
+        live = game.Game(ram, table)
+        for _ in range(2):   # a level settles on its second running poll
+            ram.player(contact=(0.0, 0.0, 0.0), body=(0.0, 0.0, 1.0))
+            reading = live.read()
+        feed = app.live.Feed(plan, None)
+        feed._update(game.Update(reading))
+        return reading.odd, feed.take()[1]["status"], feed.text
+
+    odd, status, text = line({1: "power_water", 2: "diamond", 3: "all_fuel"})
+    assert (odd, status) == ((1, 3, False), "other")
+    assert text == (f"xemu runs another seed or build: 1 of the 3 item spots Live read in w2 hold other items than "
+                    f"seed {plan['seed']}'s plan (share string {plan['share']}): check the seed, the share string's "
+                    "settings, the packs' movement and the body worn on the Characters tab (its size folds into the "
+                    "walk and roll) against the build's, or track the build itself (Tools: Open a build…, Track this "
+                    "build).")
+    odd, status, text = line({1: "power_water", 2: "diamond", 3: "emerald"})
+    assert (odd, status) == ((2, 3, True), "other") and text == (
+        "xemu runs another seed or build: the 3 item spots Live read in w2 hold the base game's items, so the image "
+        "isn't randomized: boot the randomized build you track.")
+
+
 def test_lives_line_with_no_xemu_names_only_what_the_page_offers(monkeypatch):
     """Step 4.1k (the retire inventory's F1): with no xemu answering, Live's
     line on any OS (macOS's too) names the QMP argument to start xemu with

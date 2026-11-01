@@ -13,7 +13,9 @@ The status the page shows (Modkit's): ``connecting`` (no xemu answers
 yet, and the one fix), ``waiting`` (xemu runs no Azurik), ``live``,
 ``warn`` (the game hasn't advanced: paused, or xemu stopped), ``lost``
 (the link closed; it reconnects by itself), ``other`` (xemu runs another
-seed or build) or ``stopped`` (an error ended the feed).
+seed or build: its line names the level and how many of the item spots
+Live read differ, or an image no seed wrote, and what to check) or
+``stopped`` (an error ended the feed).
 """
 
 from __future__ import annotations
@@ -27,7 +29,10 @@ from azurkit.tools.randomizer.live import game, link
 
 RETRY_S = 2.0   # s between looks for xemu while none answers, or after one is lost
 NOT_AZURIK = "xemu is running, but not Azurik yet: boot the seed's ISO."
-OTHER_SEED = "xemu runs another seed or build: open the tracker of the build you're playing."
+OTHER_SEED = "xemu runs another seed or build"
+CHECK = ("check the seed, the share string's settings, the packs' movement and the body worn on the Characters tab "
+         "(its size folds into the walk and roll) against the build's, or track the build itself (Tools: Open a "
+         "build…, Track this build)")
 PAUSED = "The game isn't advancing: paused in xemu, or xemu quit."
 NO_XEMU = f"No xemu answers. Start xemu with {link.QMP_ARG}, or enter where yours listens in Endpoints."
 
@@ -51,7 +56,7 @@ class Feed:
     def __init__(self, plan: Mapping, marks: Mapping | None, endpoints: str = "", gems: bool = False):
         tracking.view({"plan": plan, "marks": marks})   # the plan and marks checked; the journal is the marks'
         t = tracking.tracker_of(plan)
-        self.sha256 = plan["sha256"]
+        self.sha256, self.seed, self.share = plan["sha256"], plan["seed"], plan["share"]
         # the gem spots too while the tracker shows them (R1.43: each read is one more of a poll's)
         self.spots, self.journal = game.spot_table(t, gems=gems), t.journal()
         self.items = {loc: t.item(loc) for loc in t.spots}
@@ -135,11 +140,22 @@ class Feed:
             if r.state == "waiting":
                 self.status, self.text = "waiting", NOT_AZURIK
             elif r.mismatch:
-                self.status, self.text = "other", OTHER_SEED
+                self.status, self.text = "other", self._other(r)
             elif u.paused:
                 self.status, self.text = "warn", PAUSED
             else:
                 self.status, self.text = "live", self._line(r)
+
+    def _other(self, r: game.Reading) -> str:
+        """What differs while xemu runs another seed or build, and what to check: the level's item spots Live
+        read that hold other items than the plan's, or, when each holds the base game's, an image no seed wrote."""
+        n, of, vanilla = r.odd or (0, 0, False)
+        where = f" in {r.level}" if r.level else ""
+        if vanilla:
+            return (f"{OTHER_SEED}: the {of} item spots Live read{where} hold the base game's items, so the image "
+                    "isn't randomized: boot the randomized build you track.")
+        differ = f": {n} of the {of} item spots Live read{where} hold other items" if of else ""
+        return f"{OTHER_SEED}{differ} than seed {self.seed}'s plan (share string {self.share}): {CHECK}."
 
     def _line(self, r: game.Reading) -> str:
         """``<level> · <release> · <which xemu> · last: <item> (<level>), <m:ss> ago`` (Modkit's)."""
