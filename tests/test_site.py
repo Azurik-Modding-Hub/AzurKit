@@ -1175,8 +1175,9 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         assert shown[:2] == [f"{hp['text']} ⚠", "cell written"] and shown[2].endswith(
             "A ticked pack's slider also writes this cell; your edit wins, and the build says so.")
         assert page.evaluate(DATA_LINES) == ["0 edits", [], "", f"{waiting}: pick your image (1.) to build."]
-        page.evaluate(DATA_EDIT, [*cell, "500"])
-        shown = _page.until(page, f"() => azurkit.data.state.ops.length && ({DATA_CELL})({json.dumps(cell)})")
+        page.evaluate(DATA_EDIT, [*cell, "500"])   # the edit is in once its cell is drawn again, changed
+        shown = _page.until(page, f"""() => {{ const c = azurkit.data.state.ops.length && ({DATA_CELL})({json.dumps(cell)});
+            return c && c[1].includes("changed") && c; }}""")
         assert shown[:2] == ["● 500 ⚠", "cell changed written"] and "Changed: vanilla 200." in shown[2]
         edited = ["1 edit", [op], "The Data tab holds 1 config.xbr edit, which each build applies.",
                   f"{waiting}: pick your image (1.) to build."]
