@@ -1,4 +1,180 @@
 {
+ "host": "darwin-arm64-accelerate",
+ "places": [
+  {
+   "entries": {
+    "booblord": {
+     "clips/booblord/idles.glb": "0ecfdef65e6e2e3b48335b198eaba5b99f9f779360a79f3b7e9fd2837d16779c",
+     "clips/booblord/moves.glb": "292490a410f46ec5722715029285a6eff3f48528c6dd12545ec96d9e5fe3e7ab",
+     "sounds/booblord/README.md": "6281732c9d6e76475022550409317ace7842291ba5ab327e11c8ac6765615371",
+     "sounds/booblord/attack1.wav": "c12307a2c7c0759ba1e9e005c86e6f272e29162d93302161f234058227429b17",
+     "sounds/booblord/attack2.wav": "48a7724da6646ee105afb663c92b0f7be711416fdddf1b5382f9525cdb4f92ed",
+     "sounds/booblord/fall.wav": "495c8f7976c00f01c483d6df515266ecc8f539bc86aa16592838b3ce534cab0c",
+     "sounds/booblord/grunt.wav": "b2a5414fefeddb5e724d81e5e58160f14b8bb9fcd6b2747ffd6db581c1001b0c",
+     "sounds/booblord/hit.wav": "4c7f4ef7fd86f051098330c33886d4c337fa7b4033ce4122ef7e35921e660d43",
+     "sounds/booblord/hup.wav": "44ccda1eb27bb6d14ed6f7039679f9cfb41df187cddcbda393bd7b4c77038dfc",
+     "sounds/booblord/roll.wav": "353b09e9fa256668dfd7cd8f4ed42d06b4467f82b6c554cbc51a7193f45fe40c",
+     "sounds/booblord/shout.wav": "971d18a88af243a817932f462a372c73c137afa958f421823b7150e12817d29c",
+     "variants/booblord/variant.json": "e561d20323632b96e51f8ec9be62f81e142ec346bc3d3487fc4e3a718b1365d3"
+    }
+   },
+   "places": {
+    "breast_left": [
+     [
+      "-0x1.41b12eac87abdp-4",
+      "0x1.a6f72e4a9dd54p-3",
+      "0x1.5998c50d3ddf4p+0"
+     ],
+     "0x1.9e8ecc6c9550ep-5"
+    ],
+    "breast_right": [
+     [
+      "0x1.28e0633dfc28dp-4",
+      "0x1.bbda0a3bbaaa5p-3",
+      "0x1.590163dc90d48p+0"
+     ],
+     "0x1.76bed34df7889p-5"
+    ],
+    "glute_left": [
+     [
+      "-0x1.a8a7be5e3d78ep-4",
+      "-0x1.0211a9b8b12ccp-3",
+      "0x1.0ba7b48a4c3fdp+0"
+     ],
+     "0x1.be2b1a4de624ep-5"
+    ],
+    "glute_right": [
+     [
+      "0x1.a3e8d38558fcbp-4",
+      "-0x1.00ae71b085867p-3",
+      "0x1.0b4fe1ecd2224p+0"
+     ],
+     "0x1.c2ea01a393e09p-5"
+    ],
+    "ponytail_1": [
+     [
+      "0x1.919965e27bf50p-11",
+      "-0x1.3b2b2bfbe4c0dp-3",
+      "0x1.934b2bd001000p+0"
+     ],
+     "0x1.0bc4e6a80cec2p-6"
+    ],
+    "ponytail_2": [
+     [
+      "0x1.a6ba456245ffap-11",
+      "-0x1.76548f359c076p-3",
+      "0x1.7be0913b8c0b5p+0"
+     ],
+     "0x1.19db6000b9fa9p-6"
+    ],
+    "ponytail_3": [
+     [
+      "0x1.7cda9f415d053p-11",
+      "-0x1.99547aad59ac2p-3",
+      "0x1.643c23c0b4600p+0"
+     ],
+     "0x1.fbdfab492b0edp-7"
+    ],
+    "ponytail_4": [
+     [
+      "0x1.181b64440dcc0p-11",
+      "-0x1.99eb2200ad523p-3",
+      "0x1.4b4e49073846ep+0"
+     ],
+     "0x1.7586068859e2dp-7"
+    ],
+    "ponytail_5": [
+     [
+      "0x1.5515af3dc5abfp-12",
+      "-0x1.9a0ebda8034ccp-3",
+      "0x1.3a12d4b19e577p+0"
+     ],
+     "0x1.c6e9604e59cabp-8"
+    ],
+    "squish_glute_r": [
+     [
+      "0x1.0733af542d2e8p-3",
+      "-0x1.6d79f076282d7p-3",
+      "0x1.e5a8a8e594e7bp-1"
+     ],
+     "0x1.5d0e33526e80dp-6"
+    ],
+    "squish_glute_rim_r": [
+     [
+      "0x1.11f3e36cc500ap-3",
+      "-0x1.4210c5d3359c9p-3",
+      "0x1.e366401f590a4p-1"
+     ],
+     "0x1.070272adbd76ap-5"
+    ],
+    "squish_press_r": [
+     [
+      "0x1.320eebd07cb14p-4",
+      "0x1.301fb50c13afdp-2",
+      "0x1.5966d1290b57fp+0"
+     ],
+     "0x1.799764c6f5329p-6"
+    ],
+    "squish_sash_r": [
+     [
+      "0x1.c234ddc585115p-5",
+      "0x1.0ba7718018865p-2",
+      "0x1.692a1450a17a6p+0"
+     ],
+     "0x1.4d59dc19912d2p-6"
+    ],
+    "squish_side_l": [
+     [
+      "-0x1.4b9f60deb1acbp-3",
+      "0x1.4eafe93dbd11ep-3",
+      "0x1.4d653e7399139p+0"
+     ],
+     "0x1.413d50770a69ep-6"
+    ],
+    "squish_side_r": [
+     [
+      "0x1.43152791c7a69p-3",
+      "0x1.516dd1b26185bp-3",
+      "0x1.4ce46ce37e935p+0"
+     ],
+     "0x1.1c10867548fafp-6"
+    ],
+    "squish_top_l": [
+     [
+      "-0x1.5f8eaf7fef1b3p-4",
+      "0x1.a5ef1323b9932p-3",
+      "0x1.701223463577ap+0"
+     ],
+     "0x1.176a3dea5d21fp-5"
+    ],
+    "squish_under_l": [
+     [
+      "-0x1.0662b90d287b9p-4",
+      "0x1.65ee9c82d176dp-3",
+      "0x1.36a6bdfdc8516p+0"
+     ],
+     "0x1.dc41dc1fd655bp-6"
+    ],
+    "squish_under_r": [
+     [
+      "0x1.0cc20ab940a24p-4",
+      "0x1.66ffda89fb264p-3",
+      "0x1.36971296e863bp+0"
+     ],
+     "0x1.dc73fd44fb0fep-6"
+    ]
+   },
+   "reads": {
+    "gamedata/characters.xbr": "0bb4264b0e16615c805cd9ca84f0068c374bc6623223d02271fed9d5910945e6"
+   },
+   "recipe": {
+    "body": "townspeople/female_2",
+    "spec": "615c302be82509821f3cb51681be15222ccc24a1845d0347635362f017e78bf8",
+    "species": "booblord"
+   },
+   "release": "6989c84e96ebcb5d668ccdd9942f737d2e36843e7db459996ed077e6161d84be"
+  }
+ ],
  "plan": [
   {
    "answer": "62bba944f2a9f8f973e4ae8e9cdd1b4aacd62416f13e87d16636e45963fd785d",

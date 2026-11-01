@@ -716,6 +716,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
       files at a new version. `--check` re-derives every row (the release
       check's, and the only pin of the sizes no golden builds: a stale one
       fails that body's build by name, D35, its size not the folded one).
+    - A reshape's parent (R3-CP1, X11): booblord's jiggle places at her
+      defaults, a child's minute of each reshape's dress, are a `places` row
+      (`shipped.places`, a few hundred bytes) that stands on the parent's
+      specs, her content and the staged `characters.xbr`, so a pack or
+      Data-tab edit to that file works them out; USA's and Europe's files
+      are one, so one row serves both. The table names its recording host
+      (`host`): off it (D1016) the pin and `--check` hold a size and places
+      within `shipped.ULPS` float32 steps and a plan to what it stands on
+      (`shipped.agrees`), and a build takes a fresh size close to a shipped
+      one (`shipped.same_size`), exact on that host.
 - **What a swap writes with** (Step 4.3a1): `core/xbr/append.py`
   (`append_resources`: new resources on pages after the last payload, their
   named rows, names and relocation rows; `rewrite_payloads`: a payload

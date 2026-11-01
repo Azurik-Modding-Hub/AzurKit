@@ -413,7 +413,7 @@ def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str,
             lines = swap.apply_player_model(staging, recipe["species"], logic=attack, **kwargs)
     if worn is not None and worn.source != "built-in":   # the log names the recipe's file: its name only
         lines = [line.replace(worn.source, PurePath(worn.source).name) for line in lines]
-    if folded is not None and attack.size != folded:
+    if folded is not None and not shipped.same_size(attack.size, folded):
         raise ValueError(f"character: the dressed body's size x{attack.size:.6g} isn't the x{folded:.6g} the walk "
                          "and roll were folded with")
     note(f"Dressing {recipe['species']} (writing its files)")

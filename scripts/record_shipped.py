@@ -1,7 +1,8 @@
 """Record the swap's shipped answers (D995; ``src/azurkit/tools/characters/
 shipped.py``) from fresh dresses on the player's images, on both releases:
 each species' and built-in variant's size at its defaults (``shipped.json``'s
-``size`` rows) and the whole plan of each of :data:`PLANS` at the page's
+``size`` rows), the jiggle places of a parent those dresses work out
+(``places`` rows) and the whole plan of each of :data:`PLANS` at the page's
 defaults, the packs on by default (its ``plan`` rows, each answer an
 ``AZKP1`` file in a clone of Azurik-Custom-Content, ``--content``).
 
@@ -14,7 +15,8 @@ other answers removed), and its entry then takes them at a new version
 (``azurkit content check --write`` there, the version bumped by hand).
 ``--check`` writes nothing and exits 1 naming each row a fresh dress
 doesn't give and, with ``--content``, each answer file there that isn't
-its row's (the release check's). The images are the ones the gate finds;
+its row's (the release check's); off the table's recording host a row holds
+close enough (D1016, ``shipped.agrees``). The images are the ones the gate finds;
 the plans, and the sizes of the variants that wear booblord, read her files
 in the content folder (``AZURKIT_CONTENT``: ``azurkit content install
 booblord``). The dresses run in ``--workers`` processes (4). No game byte
@@ -64,15 +66,18 @@ def _vanilla(name: str, path: str) -> ports.Vanilla:
     return _VANILLA[name]
 
 
-def _size(job: tuple) -> dict | None:
-    """``(recipe, release, image)``'s size row, or ``None`` for a body the swap refuses (a build of it is refused the
-    same way)."""
+def _size(job: tuple) -> tuple[dict | None, list[dict]]:
+    """``(recipe, release, image)``'s size row, ``None`` for a body the swap refuses (a build of it is refused the
+    same way), and the places rows of the parent its dress worked out."""
     recipe, name, path = job
+    shipped.SEEN = []
     try:
         value = characters.size(recipe, _vanilla(name, path))
     except ValueError:
-        return None
-    return shipped.size_row(recipe, _release(name), value)
+        return None, []
+    finally:
+        seen, shipped.SEEN = shipped.SEEN, None
+    return shipped.size_row(recipe, _release(name), value), [s["places"] for s in seen if "places" in s]
 
 
 def _plan(job: tuple) -> tuple[dict, bytes]:
@@ -104,6 +109,15 @@ def _key(row: dict) -> tuple:
     return row["release"], json.dumps(row["recipe"], sort_keys=True)
 
 
+def _differs(kind: str, old: dict | None, new: dict | None, exact: bool) -> bool:
+    """Whether a row (but its file) a fresh dress gave isn't the table's (:func:`shipped.agrees`)."""
+    if old is None or new is None:
+        return True
+    answer = shipped.ANSWERS[kind]
+    return ({k: v for k, v in old.items() if k != answer} != {k: v for k, v in new.items() if k != answer}
+            or not shipped.agrees(kind, old[answer], new[answer], exact))
+
+
 def text(table: dict) -> str:
     return json.dumps(table, indent=1, sort_keys=True) + "\n"
 
@@ -129,14 +143,17 @@ def main(argv: list[str] | None = None) -> int:
         planned = [pool.submit(_plan, (r, name, path)) for r in PLANS for name, path in paths.items()]
         sized = [pool.submit(_size, (r, name, path)) for name, path in paths.items() for r in recipes()]
         plans = [f.result() for f in planned]
-        sizes = [row for f in sized if (row := f.result()) is not None]
-    made = {"plan": sorted((row for row, _ in plans), key=_key), "size": sorted(sizes, key=_key)}
+        done = [f.result() for f in sized]
+    sizes = [row for row, _ in done if row is not None]
+    places = {_key(row): row for _, heard in done for row in heard}
+    made = {"host": shipped.host(), "places": sorted(places.values(), key=_key),
+            "plan": sorted((row for row, _ in plans), key=_key), "size": sorted(sizes, key=_key)}
     held, drift = shipped.table(), []
-    for kind in ("plan", "size"):
+    for kind in ("places", "plan", "size"):
         new = {_key(r): {k: v for k, v in r.items() if k != "blob"} for r in made[kind]}
         old = {_key(r): {k: v for k, v in r.items() if k != "blob"} for r in held.get(kind, ())}
         drift += [shipped.name(kind, (new.get(k) or old[k])) for k in sorted(new.keys() | old.keys())
-                  if new.get(k) != old.get(k)]
+                  if _differs(kind, old.get(k), new.get(k), held.get("host") == shipped.host())]
     if args.check:
         for row in held.get("plan", ()) if args.content else ():
             with iso.Reader(paths[next(r.name for r in gate.RELEASES if r.iso_sha256 == row["release"])]) as r:
@@ -155,7 +172,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote: {row['blob']['path']} ({len(blob):,} bytes, {row['blob']['sha256'][:12]})")
         if text(made) != (shipped.TABLE.read_text(encoding="utf-8") if shipped.TABLE.is_file() else None):
             shipped.TABLE.write_text(text(made), encoding="utf-8")
-            print(f"wrote: {shipped.TABLE.name} ({len(made['plan'])} plans, {len(made['size'])} sizes)")
+            print(f"wrote: {shipped.TABLE.name} ({len(made['plan'])} plans, {len(made['size'])} sizes, "
+                  f"{len(made['places'])} places)")
     for line in drift:
         print(f"{'differs' if args.check else 'changed'}: {line}")
     print(f"{len(plans)} plans and {len(sizes)} sizes in {time.perf_counter() - start:.0f} s")

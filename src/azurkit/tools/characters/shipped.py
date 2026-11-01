@@ -24,22 +24,42 @@ rule); no pickle. Its whole answer's digest (:func:`answer`) is the row's
 too, so the answer taken is the one the re-record pin held to a fresh
 dress: ``tests/test_characters.py``'s goldens build with :data:`OFF` and
 hold each answer they make to its row (:func:`held`), so a change to the
-swap's bytes is red until it re-records."""
+swap's bytes is red until it re-records.
+
+A third kind stands for a part of a dress: a reshape of a body (one slider
+moved, D999, or a variant ``from`` her) places its jiggle bones where her
+own build at her defaults puts them (``_player_character._parent_places``,
+a child's minute of work), and those places are the same for each of her
+reshapes, so they ship as a ``places`` row (:func:`places`, a few hundred
+bytes), taken where it stands on what they'd read: the release, her recipe,
+her content and the staged ``characters.xbr``, so a pack or a Data-tab edit
+to it misses (its release, the first that holds the image's file: USA's and
+Europe's are one, so one row serves both).
+
+Each row's floats are its recording host's (:data:`TABLE`'s ``host``,
+:func:`host`). Another host's maths may round otherwise and that's close
+enough (D1016), so there the pin holds a size and places within
+:data:`ULPS` and a plan to what it stands on (:func:`agrees`), and a build
+takes them as they are, a body's fresh size close to a shipped one
+(:func:`same_size`)."""
 
 from __future__ import annotations
 
 import functools
 import hashlib
 import json
+import platform
 import struct
+import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from azurkit.edits.layer import Change, Claim, Layer
 
 TABLE = Path(__file__).with_name("shipped.json")
-"""The rows, ``{"size": [...], "plan": [...]}`` (the recorder's)."""
+"""The rows, ``{"host": ..., "size": [...], "plan": [...], "places": [...]}`` (the recorder's)."""
 MAGIC = b"AZKP1\0"
+CHARACTERS = "gamedata/characters.xbr"
 LEVEL = 19
 """The recorder's zstd level (booblord's 117 MB of changes in about 6.6 MB a release)."""
 MAX_HEAD = 16 << 20
@@ -49,9 +69,14 @@ OFF = False
 fresh (``scripts/record_goldens.py`` and ``scripts/record_shipped.py`` set
 it, and the tests through the first)."""
 SEEN: list | None = None
-"""A list: each size and plan the swap works out fresh is appended to it,
-``{"size": row}`` or ``{"plan": row, "found": (layer, lines, reasons)}``
-(the row it would have; the recorder's and the pin's)."""
+"""A list: each size, plan and parent's places the swap works out fresh is
+appended to it, ``{"size": row}``, ``{"plan": row, "found": (layer, lines,
+reasons)}`` or ``{"places": row}`` (the row it would have; the recorder's
+and the pin's)."""
+ULPS = 8
+"""How many float32 steps apart another host's float may be (D1016: what a dress writes is float32; AZ-833 saw 8)."""
+NEAR = 2e-12
+"""How far apart two floats near zero may be, in place of :data:`ULPS` (another host's noise on a zero)."""
 
 
 @functools.cache
@@ -260,6 +285,56 @@ def _decode(blob: bytes, base: Mapping[str, bytes], asked: Mapping
     return found, answer(*found, asked, digests)
 
 
+def _places_recipe(body: str, parent) -> dict:
+    """What a parent's places are of: ``body``, whose content they read
+    (``species``, :func:`entries`') and the sha256 of its mesh and jiggle
+    specs by ``repr`` (a zero's sign counts, as ``_kept_key``'s)."""
+    return {"body": body, "species": parent.files or parent.name,
+            "spec": hashlib.sha256(repr((parent.mesh, parent.jiggle)).encode()).hexdigest()}
+
+
+def _places_stood(current: bytes, stored: bytes) -> dict | None:
+    """The first release whose ``characters.xbr`` is ``stored`` and the sha256
+    of ``current`` (the file a dress was handed, as the layers left it), or
+    ``None``: a file of no release."""
+    from azurkit.core import gate
+
+    sha = hashlib.sha256(stored).hexdigest()
+    release = next((r for r in gate.RELEASES if r.files.get(CHARACTERS, (None, None))[1] == sha), None)
+    if release is None:
+        return None
+    return {"release": release.iso_sha256,
+            "reads": {CHARACTERS: sha if current == stored else hashlib.sha256(current).hexdigest()}}
+
+
+def places(current: bytes, stored: bytes, body: str, parent) -> dict | None:
+    """``{role: (origin, sides)}`` of ``parent``'s jiggle bones on ``body``
+    from the row that stands on the staged ``current`` over the image's
+    ``stored``, ``parent``'s specs and the content they read, or ``None``
+    (they're worked out)."""
+    if OFF:
+        return None
+    want = _places_recipe(body, parent)
+    if not (found := [row for row in table().get("places", ()) if row["recipe"] == want]):
+        return None
+    if (stood := _places_stood(current, stored)) is None:
+        return None
+    held = entries(want)
+    for row in found:
+        if row["entries"] == held and all(row[k] == v for k, v in stood.items()):
+            return {role: (tuple(float.fromhex(x) for x in origin), float.fromhex(sides))
+                    for role, (origin, sides) in row["places"].items()}
+    return None
+
+
+def heard_places(current: bytes, stored: bytes, body: str, parent, at: Mapping) -> None:
+    """Hear a parent's places worked out fresh (:data:`SEEN`), on a release's file."""
+    if SEEN is not None and (stood := _places_stood(current, stored)) is not None:
+        want = _places_recipe(body, parent)
+        SEEN.append({"places": stood | {"recipe": want, "entries": entries(want), "places": {
+            role: [[float(x).hex() for x in origin], float(sides).hex()] for role, (origin, sides) in at.items()}}})
+
+
 def size_row(recipe: Mapping, release, value: float) -> dict:
     """The row a size of ``recipe`` on ``release`` is shipped under."""
     return {"release": release.iso_sha256, "recipe": _json(recipe), "entries": entries(recipe),
@@ -284,9 +359,10 @@ def heard_plan(recipe: Mapping, release, folded: float | None, before: Sequence[
         SEEN.append({"plan": plan_row(recipe, release, folded, before, found, staging), "found": found})
 
 
-KEYS = {"size": ("release", "recipe", "entries"), "plan": ("release", "recipe", "folded", "taken", "entries", "reads")}
+KEYS = {"size": ("release", "recipe", "entries"), "plan": ("release", "recipe", "folded", "taken", "entries", "reads"),
+        "places": ("release", "recipe", "entries", "reads")}
 """What a row stands on, by kind (the rest is its answer)."""
-ANSWERS = {"size": "value", "plan": "answer"}
+ANSWERS = {"size": "value", "plan": "answer", "places": "places"}
 SLIDERS = ("scale", "attack_reach", "attack_damage", "attack_speed", "jiggle_strength", "jiggle_stiffness")
 """The recipe's multipliers: at 1.0 one is as if not given (the page leaves it out; Modkit's flags, the goldens',
 give it)."""
@@ -305,18 +381,66 @@ def name(kind: str, row: Mapping) -> str:
     return f"{kind} of {json.dumps(row['recipe'], sort_keys=True)} on {release}"
 
 
+@functools.cache
+def host() -> str:
+    """Whose float maths this process does: its OS, its CPU and numpy's BLAS."""
+    import numpy as np
+
+    blas = np.show_config(mode="dicts").get("Build Dependencies", {}).get("blas", {}).get("name", "")
+    return f"{sys.platform}-{platform.machine()}-{blas}"
+
+
+def near(a: float, b: float) -> bool:
+    """Whether two floats are as close as another host's float maths leaves
+    them (D1016): at most :data:`ULPS` float32 steps apart, or :data:`NEAR` where they're about zero."""
+    if abs(a - b) <= NEAR:
+        return True
+    x, y = struct.unpack("<2i", struct.pack("<2f", a, b))
+    return abs(x - y) <= ULPS
+
+
+def same_size(fresh: float, folded: float) -> bool:
+    """Whether a dressed body's ``fresh`` size is the ``folded`` one its build
+    needs (D35): equal; off the table's recording host, whose number a shipped one is, close enough."""
+    return fresh == folded or (table().get("host") != host() and near(fresh, folded))
+
+
+def _floats(answer: object) -> list[float]:
+    """The floats of a row's size or places, in order."""
+    if isinstance(answer, str):
+        return [float.fromhex(answer)]
+    if isinstance(answer, Mapping):
+        return [x for role in sorted(answer) for x in _floats(answer[role])]
+    return [x for part in answer for x in _floats(part)]
+
+
+def agrees(kind: str, row: object, fresh: object, exact: bool) -> bool:
+    """Whether a row's answer ``row`` holds the ``fresh`` one: equal on the
+    recording host (``exact``); off it (D1016) a plan's digest, the
+    recording host's bytes, says nothing and a size's or places' roles are
+    equal and its floats :func:`near` (:data:`ULPS`)."""
+    if exact or row == fresh:
+        return row == fresh
+    if kind == "plan":
+        return True
+    if kind == "places" and sorted(row) != sorted(fresh):
+        return False
+    return all(near(a, b) for a, b in zip(_floats(row), _floats(fresh), strict=True))
+
+
 def held(seen: Mapping, rows_: Mapping | None = None) -> tuple[list[str], list[str]]:
     """What the table (``rows_``, else :func:`table`'s) makes of a fresh
     answer ``seen`` (one of :data:`SEEN`'s): the rows that stand on what it
-    stood on and hold its answer (by :func:`name`), and a fault for each
-    such row whose answer isn't it (stale: re-record), a recipe that gives
-    a slider at 1.0 standing for the page's (:func:`_page`: the goldens'
-    recipes give them, and dress the same)."""
+    stood on and hold its answer (by :func:`name`, :func:`agrees`), and a
+    fault for each such row whose answer isn't it (stale: re-record), a
+    recipe that gives a slider at 1.0 standing for the page's (:func:`_page`:
+    the goldens' recipes give them, and dress the same)."""
     kind = next(k for k in KEYS if k in seen)
     fresh, good, stale = seen[kind] | {"recipe": _page(seen[kind]["recipe"])}, [], []
-    for row in (rows_ if rows_ is not None else table()).get(kind, ()):
+    rows_ = rows_ if rows_ is not None else table()
+    for row in rows_.get(kind, ()):
         if all(row[k] == fresh[k] for k in KEYS[kind]):
-            if row[ANSWERS[kind]] == fresh[ANSWERS[kind]]:
+            if agrees(kind, row[ANSWERS[kind]], fresh[ANSWERS[kind]], rows_.get("host") == host()):
                 good.append(name(kind, row))
             else:
                 stale.append(f"the shipped {name(kind, row)} isn't a fresh dress's (scripts/record_shipped.py)")

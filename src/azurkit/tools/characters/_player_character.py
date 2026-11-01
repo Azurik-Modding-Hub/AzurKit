@@ -8863,7 +8863,8 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     ``from`` another whose mesh differs places its jiggle bones where that
     one's build does (:func:`_parent_places`, Step 2.177b), and so does one
     whose shapes sized its mesh, where its build at its shapes' 1.0 does
-    (Step 2.164b: her clips' rests hold).
+    (Step 2.164b: her clips' rests hold); where a shipped row stands for
+    those places (:func:`~azurkit.tools.characters.shipped.places`) none is worked out.
     :class:`ValueError` names the step that fails (nothing kept)."""
     import pickle
 
@@ -8886,9 +8887,10 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
     kept = _KEPT_BODY[0]
     if kept is not None and kept[0] == key and kept[1] == current and kept[2] == stored:
         return kept[3], *pickle.loads(kept[4])
-    from azurkit.tools.characters import paint, pool
+    from azurkit.tools.characters import paint, pool, shipped
     reshaped = assembled = rigged = None
-    placing = None if parent is None else pool.later(   # in a child while hers is planned (Step 2.179)
+    at = shipped.places(current, stored, body, parent) if parent is not None else None   # her defaults' (R3-CP1)
+    placing = None if parent is None or at is not None else pool.later(   # in a child while hers is planned (Step 2.179)
         pool.each, _parent_places, (current, stored, body, parent.mesh, parent.jiggle, folder), [None], None, 1)
     edited = bytearray(current)
     try:
@@ -8902,7 +8904,9 @@ def _variant_body(current: bytes, stored: bytes, body: str, variant
         if placing is not None:   # the parent's refusal first, as when its places came first
             placing.result()
         raise
-    at = placing.result()[0] if placing is not None else None
+    if placing is not None:
+        at = placing.result()[0]
+        shipped.heard_places(current, stored, body, parent, at)
     baking, specs = None, variant.textures
     if variant.texture_scale != 1:   # Step 2.177: every row at that many times its size
         specs = paint.scaled(stored, body, specs, variant.texture_scale,

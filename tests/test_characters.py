@@ -1245,7 +1245,10 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     the release's shipped plans (``shipped.json``, D995: booblord's at the
     page's defaults) is the answer of a fresh dress that reads what it stood on:
     on USA booblord's case's, on Europe one built for it (:data:`PINNED`), so a
-    change to her bytes is red until ``scripts/record_shipped.py`` re-records."""
+    change to her bytes is red until ``scripts/record_shipped.py`` re-records.
+    Its parent's shipped places (the row of the first release that holds the
+    file: USA's and Europe's ``characters.xbr`` are one) are too, a fresh
+    ``_parent_places`` in booblord_high's case."""
     cases = _variants(release, tmp_path)
     assert len(cases) == {"usa": 7, "europe": 1}[release.name]
     plans = [row for row in shipped.table().get("plan", ()) if row["release"] == release.iso_sha256]
@@ -1257,6 +1260,8 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     held: set[str] = set()
     assert _missed(first, request.getfixturevalue(f"{release.name}_iso"), release, workers=4, held=held) == {}
     assert plans and {shipped.name("plan", row) for row in plans} <= held
+    places = [row for row in shipped.table().get("places", ()) if row["release"] == release.iso_sha256]
+    assert bool(places) == (release.name == "usa") and {shipped.name("places", row) for row in places} <= held
 
 
 def test_a_dress_scans_the_levels_once_a_release_and_keeps_none_of_them(usa_iso, monkeypatch):
@@ -1368,6 +1373,7 @@ def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(
     table = {"plan": [row], "size": [shipped.size_row({"species": "x"}, gate.USA, 1.25)]}
     monkeypatch.setattr(shipped, "table", lambda: table)
     monkeypatch.setattr(shipped, "OFF", False)
+    table["host"] = shipped.host()
 
     class Store(dict):
         put = dict.__setitem__
@@ -1404,6 +1410,97 @@ def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(
     assert shipped.held({"plan": seen}, table) == ([shipped.name("plan", row)], [])   # the re-record pin's reading
     assert shipped.held({"plan": seen | {"answer": "0" * 64}}, table)[1] == [
         f"the shipped {shipped.name('plan', row)} isn't a fresh dress's (scripts/record_shipped.py)"]
+
+
+def _places_rig(monkeypatch, tmp_path) -> tuple:
+    """A made-up release, a reshape and its parent, and the ``rig`` calls ``_variant_body`` makes (no real mesh)."""
+    swap = characters._swap()
+    stored = b"her image's characters.xbr"
+    release = SimpleNamespace(iso_sha256="a release", name="made up", files={CHARACTERS: (len(stored), _sha256(stored))})
+    monkeypatch.setattr(gate, "RELEASES", (release,))
+    monkeypatch.setattr(content, "ROOT", tmp_path)
+    monkeypatch.setattr(swap, "_KEPT_BODY", [None])
+    parent = SimpleNamespace(files="", name="her", mesh=("plain", 0.0), jiggle=("springs",))
+    variant = SimpleNamespace(source="built-in", mesh=SimpleNamespace(gltf=None, name="sized"), jiggle=("springs",),
+                              plain=None, textures=(), texture_scale=1)
+    monkeypatch.setattr(_player_variants, "parent_of", lambda v: parent)
+    rigged = []
+    monkeypatch.setattr(swap.mesh_edit, "plan", lambda *a: SimpleNamespace(mesh=None, late=None, repaint=False, dropped=()))
+    monkeypatch.setattr(swap.mesh_edit, "write", lambda *a: None)
+    monkeypatch.setattr(swap.jiggles, "rig", lambda *a, at=None, **k: rigged.append(at) or None)
+    return swap, stored, parent, variant, rigged
+
+
+def test_a_reshape_takes_its_parents_shipped_places_where_they_stand_on_what_their_build_reads(tmp_path, monkeypatch):
+    """R3-CP1 (X11): a reshape's ``_variant_body`` places its jiggle bones where the row of its parent's build says,
+    bit for bit and working out nothing, where the row stands on the release, the parent's specs, the content they read
+    and the staged ``characters.xbr``; a pack's edit to that file, another spec (a zero's sign), body or installed entry
+    and ``shipped.OFF`` each miss, and the build works them out (``SEEN`` hears the row it would have)."""
+    swap, stored, parent, variant, rigged = _places_rig(monkeypatch, tmp_path)
+    worked = {"a": ((0.5, -0.0, 1e-30), 0.25)}
+    worked_out = []
+    monkeypatch.setattr(swap, "_parent_places", lambda shared, _=None: worked_out.append(shared) or worked)
+    monkeypatch.setattr(shipped, "OFF", False)
+    monkeypatch.setattr(shipped, "table", lambda: {})
+    monkeypatch.setattr(shipped, "SEEN", [])
+
+    def built(current: bytes = stored) -> tuple:
+        swap._KEPT_BODY[0] = None
+        worked_out.clear()
+        swap._variant_body(current, stored, "body", variant)
+        return len(worked_out), repr(rigged[-1])
+
+    assert built() == (1, repr(worked))
+    row = shipped.SEEN[0]["places"]
+    assert row["reads"] == {CHARACTERS: _sha256(stored)} and row["release"] == "a release"
+    monkeypatch.setattr(shipped, "table", lambda: {"places": [row]})
+    assert built() == (0, repr(worked))
+    assert built(b"a pack's edit") == (1, repr(worked))   # a staged file another than the row's
+    other = SimpleNamespace(**vars(parent) | {"mesh": ("plain", -0.0)})
+    assert shipped.places(stored, stored, "body", other) is None
+    assert shipped.places(stored, stored, "another body", parent) is None
+    assert shipped.places(stored, b"no release's file", "body", parent) is None
+    monkeypatch.setattr(shipped, "OFF", True)
+    assert built() == (1, repr(worked))
+    monkeypatch.setattr(shipped, "OFF", False)
+    (tmp_path / content.INSTALLED).write_text(json.dumps({"her": {"version": 1, "source": "", "files": {"a.glb": "0"}}}))
+    assert built() == (1, repr(worked))   # an installed entry its build reads
+
+
+def test_a_shipped_answer_holds_to_a_fresh_one_exactly_on_its_recording_host_and_close_enough_off_it(monkeypatch):
+    """D1016 (X11): on the table's ``host`` a fresh answer must be a row's, bit for bit, or it names the row stale; off
+    it a size and places hold within ``shipped.ULPS`` float32 steps (noise near zero too) and their roles exactly, a plan
+    (a digest of the recording host's bytes) by what it stands on, and a build takes a close size for a shipped one."""
+    def step(x: float, n: int) -> float:   # ``x``, ``n`` float32 steps on
+        return struct.unpack("<f", struct.pack("<I", struct.unpack("<I", struct.pack("<f", x))[0] + n))[0]
+
+    def places(origin: float, role: str = "a") -> dict:
+        return {"release": "r", "recipe": {"species": "x"}, "entries": {}, "reads": {}, "places": {
+            role: [[float(origin).hex(), (0.0).hex(), (2.0).hex()], (0.25).hex()]}}
+
+    def size(value: float) -> dict:
+        return {"release": "r", "recipe": {"species": "x"}, "entries": {}, "value": float(value).hex()}
+
+    plan = {"release": "r", "recipe": {"species": "x"}, "folded": None, "taken": [], "entries": {}, "reads": {}}
+    rows = {"places": [places(1.5)], "size": [size(1.5)], "plan": [plan | {"answer": "0" * 64}]}
+    near, far = step(1.5, shipped.ULPS), step(1.5, shipped.ULPS + 1)
+    here = rows | {"host": shipped.host()}
+    there = rows | {"host": "another host"}
+
+    def verdict(seen: dict, table: dict) -> tuple[int, int]:
+        return tuple(map(len, shipped.held(seen, table)))
+    for seen, good in (({"places": places(near)}, 1), ({"places": places(far)}, 0), ({"size": size(near)}, 1),
+                       ({"size": size(far)}, 0), ({"places": places(1.5, "b")}, 0),
+                       ({"plan": plan | {"answer": "1" * 64}}, 1)):
+        assert verdict(seen, there) == (good, 1 - good), seen
+    assert verdict({"places": places(near)}, here) == verdict({"size": size(near)}, here) == (0, 1)
+    assert verdict({"plan": plan | {"answer": "1" * 64}}, here) == (0, 1)
+    assert verdict({"places": places(1.5)}, here) == verdict({"size": size(1.5)}, here) == (1, 0)
+    assert shipped.near(3e-13, -1e-12) and not shipped.near(1e-9, -1e-9)
+    monkeypatch.setattr(shipped, "table", lambda: here)
+    assert shipped.same_size(1.5, 1.5) and not shipped.same_size(near, 1.5)
+    monkeypatch.setattr(shipped, "table", lambda: there)
+    assert shipped.same_size(near, 1.5) and not shipped.same_size(far, 1.5)
 
 
 def test_a_changed_dress_in_the_sdk_changes_the_key_the_app_keeps_a_characters_match_under(no_content, monkeypatch):
