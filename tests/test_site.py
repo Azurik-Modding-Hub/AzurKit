@@ -773,6 +773,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         _page.click(page, "tab-characters")
         _page.until(page, "() => Boolean(azurkit.characters.state.view?.from) && azurkit.characters.state.view.community"
                           ".length === 3", 300)   # the engine's answer, the image read
+        _page.click(page, "char-objects")   # every species, the objects too (D1034)
         assert page.evaluate("""() => [document.querySelectorAll("#char-species .model").length,
             document.querySelectorAll("#char-species .model.untested").length]""") == [178, 73]
         marks = page.evaluate("""() => [...document.querySelectorAll("#char-species .model")].map((m) =>
@@ -840,7 +841,7 @@ CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length
 
 def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image(browser, site, tmp_path, usa_iso):
     """Step 4.3f (D961, D979): before an image is picked the Characters tab
-    lists all 178 species the player can wear, the 73 untested among them,
+    lists the 178 species the player can wear but the 76 objects (D1034),
     with Garret's two pictures, and a click on another shows its own at
     once: the site's shipped answer and pictures (``tests/test_characters.py``
     holds them to the images and to the app's draw), no engine call drawing
@@ -856,7 +857,7 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         _page.click(page, "tab-characters")
         _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 60)
         assert page.evaluate(CHARS_SHOWN) == [
-            178, "178 species, 73 not yet tested · Choose your image to build, and to see each model's weapons.",
+            102, "102 species, 76 objects hidden · Choose your image to build, and to see each model's weapons.",
             [True, True], [True] * 4, "Choose your image to match garret4 (G4).", True,
             "Choose your image to see its weapons", []]
         page.evaluate("() => document.querySelector('#char-species .model[data-model=\"keylord\"]').click()")
@@ -875,6 +876,63 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         index = json.loads((site / "characters" / "index.json").read_text(encoding="utf-8"))
         assert {f"characters/{index['species'][s]}.{v}.png" for s in ("garret4", "keylord") for v in ("front", "back")} <= {
             url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests}
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+SPECIES_SHOWN = """() => [document.getElementById("char-objects").checked, document.getElementById("char-count").textContent
+    .split(" · ")[0], [...document.querySelectorAll("#char-species .model")].map((m) => m.dataset.model),
+    document.querySelector("#char-species .model[aria-selected=true]")?.dataset.model ?? null]"""
+
+
+def test_the_characters_tab_hides_the_objects_until_show_objects_and_keeps_a_worn_one_listed(browser, site):
+    """D1034 on the site, before an image: the species list leaves out the 76 objects (the engine's: one or two rigid
+    bones and no clip but an idle or a sit; the 73 pickups and keys, gargoylestone and the tesla trees, never the
+    boulder), its count line saying how many; Show objects lists all 178 and this browser remembers it for the next
+    page, and Clear on the Tools tab names it; a model worn when the objects are hidden (diamond, and a page opened
+    again on the setup that remembered it) stays listed, chosen and worn, its count one more. No CSP violation."""
+    from azurkit.tools.characters import picker
+
+    objects = {name for name, _, thing in picker.species_list() if thing}
+    untested = {s["name"] for s in sdk.pickers({"iso": None})["species"] if s["untested"]}
+    assert len(objects) == 76 and untested < objects and objects - untested == {"gargoylestone", "tesla_tree",
+                                                                                 "tesla_tree_x"}
+    every = [name for name, _, _ in picker.species_list()]
+    creatures = [name for name in every if name not in objects]
+    assert "boulder" in creatures and len(creatures) == 102
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view", 60)
+        assert page.evaluate(SPECIES_SHOWN) == [False, "102 species, 76 objects hidden", creatures, "garret4"]
+        _page.click(page, "char-objects")
+        assert page.evaluate(SPECIES_SHOWN) == [True, "178 species, 73 not yet tested", every, "garret4"]
+        assert page.evaluate("() => localStorage.getItem('azurkit.show_objects')") == "1"
+        page.evaluate("() => document.querySelector('#char-species .model[data-model=\"diamond\"]').click()")
+        _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'diamond'", 120)
+        _page.until(page, "() => JSON.parse(localStorage.getItem('azurkit.setup'))?.character?.species === 'diamond'")
+        page = served.open()   # Show objects remembered
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'diamond'", 120)
+        assert page.evaluate(SPECIES_SHOWN) == [True, "178 species, 73 not yet tested", every, "diamond"]
+        _page.click(page, "char-objects")   # hidden again: the worn one stays, and stays worn
+        shown = [name for name in every if name not in objects or name == "diamond"]
+        assert page.evaluate(SPECIES_SHOWN) == [False, "103 species, 1 not yet tested, 75 objects hidden", shown,
+                                                "diamond"]
+        assert page.evaluate("() => [localStorage.getItem('azurkit.show_objects'), azurkit.characters.character()]") == [
+            None, {"species": "diamond"}]
+        page = served.open()   # the setup remembered wearing it, the objects hidden
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'diamond'", 120)
+        assert page.evaluate(SPECIES_SHOWN) == [False, "103 species, 1 not yet tested, 75 objects hidden", shown,
+                                                "diamond"]
+        _page.click(page, "char-objects")
+        _page.click(page, "tab-tools")
+        assert _page.until(page, """() => [...document.querySelectorAll("#tools li, #tools tr")].map((e) =>
+            e.textContent).find((t) => t.includes("Whether the Characters tab lists objects"))""")
         _page.check_csp(page)
         assert served.stray() == []
     finally:

@@ -5,6 +5,8 @@ nothing of its own.
 
 - :func:`view`: every usable species in ``critters_engine``'s order in its
   grade's colour (D111; the untested greyed and marked, D877, AZ-807),
+  each an object or not (D1034: ``characters.object_bodies``; the page
+  lists the objects only with Show objects),
   Azurik-Custom-Content's entries as the community group (D913: each
   marked community, its state Install, installed or Update, its variants
   once installed), and the chosen model's info panel, its Weapon box (each
@@ -12,8 +14,8 @@ nothing of its own.
   an untested model's picks grey), which options its recipe decides and
   the character recipe a build takes from the tab. With no image read,
   the species are those both releases' images give (:data:`SPECIES`,
-  ``species.json``, which ``scripts/record_goldens.py`` records from them),
-  graded as with one, and no weapons.
+  ``species.json``, which ``scripts/record_goldens.py`` records from them,
+  each body's object or not too), graded as with one, and no weapons.
 - :func:`preview`: a body drawn from the front and from behind by
   ``draw.py`` (D772, numpy, no Blender), a dressed variant's from its
   dress (:func:`dressed`).
@@ -48,7 +50,7 @@ WEAPON_FITS = {"odd": "odd look", "look + tip hits": "look + tip hits", "look": 
 """How the Weapon box marks a pick's fit (Modkit's; a good fit unmarked)."""
 COMMUNITY = "Community"
 PREVIEW = 160
-SPECIES = Path(__file__).with_name("species.json")   # [species, body] of each the player can wear (module docstring)
+SPECIES = Path(__file__).with_name("species.json")   # [species, body, object] of each the player can wear (above)
 """A preview's side, px (Modkit's gallery picker's)."""
 
 
@@ -70,6 +72,7 @@ def grade(species: str, mode: str, size: str, scale: float = 1.0) -> str:
 
 
 _OFFERS: dict[tuple, dict] = {}   # a body's Weapon box offers by (characters.xbr's digest, species, mode, variant)
+_OBJECTS: dict[str, frozenset[str]] = {}   # characters.object_bodies by characters.xbr's digest
 
 
 def _offers(characters_xbr: bytes, digest: str, body: str | None, mode: str, variant) -> dict[str, tuple[str, str]]:
@@ -151,16 +154,22 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content, jiggle_rt
     from azurkit.tools.characters._player_weapons import DEFAULT, attack_recipe, pick_grade, seen, weapons
+    from azurkit.tools.characters.characters import object_bodies
 
     species = character.get("species", swap.PLAYER)
     mode, size = character.get("mode", swap.DEFAULT_MODE), character.get("size", swap.DEFAULT_SIZE)
     scale = character.get("scale", 1.0)
+    digest = hashlib.sha256(characters_xbr).hexdigest() if characters_xbr is not None else ""
     if config_xbr is not None and characters_xbr is not None:
         listed = [m for m in swap.player_models(config_xbr, characters_xbr, mode, size, scale) if m.status != swap.REFUSED]
+        if digest not in _OBJECTS:
+            _OBJECTS[digest] = object_bodies(characters_xbr)
+        objects = {m.species for m in listed if (m.body or "").casefold() in _OBJECTS[digest]}
         why = ""
     else:
-        listed = [swap.PlayerModel(name, body, *swap.mode_status(name, mode, size, scale))
-                  for name, body in species_list()]
+        rows = species_list()
+        listed = [swap.PlayerModel(name, body, *swap.mode_status(name, mode, size, scale)) for name, body, _ in rows]
+        objects = {name for name, _, thing in rows if thing}
         why = "Choose your image to build, and to see each model's weapons."
     bodies = {m.species: m.body for m in listed}
     record = content.installed(root)
@@ -171,7 +180,6 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     if worn is not None and character.get("shapes"):
         worn = variants.reshaped(worn, character["shapes"])
     unit = worn.scale * scale if worn is not None else scale
-    digest = hashlib.sha256(characters_xbr).hexdigest() if characters_xbr is not None else ""
     base = worn.base if worn is not None else species
     wear_mode = worn.mode if worn is not None else mode
     offered = _offers(characters_xbr, digest, bodies.get(base), wear_mode, worn) if characters_xbr else {}
@@ -272,7 +280,7 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
         "tracks": TRACKS, "titles": TITLES, "match_tips": MATCH_TIPS, "colours": STATUS_COLOURS, "grade_words": GRADE_WORDS,
         "why": why,
         "species": [{"name": m.species, "body": m.body, "colour": STATUS_COLOURS[grade(m.species, mode, size, scale)],
-                     "untested": swap.status(m.species) == swap.UNTESTED,
+                     "untested": swap.status(m.species) == swap.UNTESTED, "object": m.species in objects,
                      "label": f"{m.species}  (not yet tested)" if swap.status(m.species) == swap.UNTESTED
                      else m.species} for m in listed],
         "community": groups,
@@ -288,8 +296,8 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     }
 
 
-def species_list() -> list[list[str]]:
-    """:data:`SPECIES`' ``[species, body]`` rows."""
+def species_list() -> list[list]:
+    """:data:`SPECIES`' ``[species, body, object]`` rows (``object``: its body is one, ``characters.object_bodies``)."""
     return json.loads(SPECIES.read_text(encoding="utf-8"))
 
 

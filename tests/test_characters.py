@@ -909,7 +909,9 @@ def test_the_hosts_content_reads_stop_at_a_files_listed_size_and_a_too_deep_or_b
 def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path, monkeypatch):
     """``sdk.pickers`` (the Characters tab, D877): the species the player can wear in ``critters_engine``'s order
     (``player_models``' usable ones), each in its grade's colour as Modkit's picker shows it (60 green, 44 yellow,
-    73 untested and marked, 1 unseen: Modkit's map-scope record, 2026-10-28), the untested greyed; a weapon on an
+    73 untested and marked, 1 unseen: Modkit's map-scope record, 2026-10-28), the untested greyed; 76 of them objects
+    (D1034: ``characters.object_bodies``, the untested and the three clipless statues; species.json's the same with no
+    image); a weapon on an
     untested model reads grey, never better than the model (AZ-807); a community entry before Install is one row,
     marked, and a variant's options its recipe decides are locked and left out of the build's character."""
     from azurkit.tools.characters import _player_character as swap
@@ -928,6 +930,10 @@ def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path
         "green": 60, "yellow": 44, "red": 0, "unseen": 1, "untested": 73}
     assert all(s["colour"] == picker.STATUS_COLOURS["unseen"] and s["label"].endswith("(not yet tested)")
                for s in view["species"] if s["untested"])
+    objects = {s["name"] for s in view["species"] if s["object"]}   # D1034: the 73 pickups and the clipless statues
+    assert objects == {s["name"] for s in view["species"] if s["untested"]} | {"gargoylestone", "tesla_tree",
+                                                                                 "tesla_tree_x"} and len(objects) == 76
+    assert objects == {s["name"] for s in sdk.pickers({"iso": None})["species"] if s["object"]}   # species.json's
     untested = next(s["name"] for s in view["species"] if s["untested"])
     picks = sdk.pickers({"iso": str(usa_iso), "character": {"species": untested}})["chosen"]["weapons"]
     assert len(picks) > 1 and {p["colour"] for p in picks[1:] if p.get("fit") not in ("default", "same")} == {
@@ -975,7 +981,7 @@ def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, eur
     with iso.Reader(europe_iso) as r:
         bodies = r.read(CHARACTERS)
     drawn = {f"{record_goldens.PICTURES}/{body.replace('/', '--')}.{view}.png": png
-             for body in dict.fromkeys(b for _, b in picker.species_list())
+             for body in dict.fromkeys(b for _, b, _ in picker.species_list())
              for view, png in picker.preview(bodies, body).items()}
     assert len(drawn) == 272 and {rel: _sha256(png) for rel, png in drawn.items()} == {
         rel: _sha256(made[rel]) for rel in drawn}

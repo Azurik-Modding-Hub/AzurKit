@@ -1018,7 +1018,8 @@ def site_characters(d: Driver, ctx, url: str) -> None:
                        "b.dispatchEvent(new Event('change')); }",
               "() => document.querySelector('#char-community .entry[data-entry=beamlord]')", 600)
     _pick(d, p, "S09", "() => azurkit.characters.state.view?.species.length === 178 && "
-                       "document.querySelectorAll('#char-species .model').length === 178")
+                       "document.querySelectorAll('#char-species .model').length === "
+                       "azurkit.characters.state.view.species.filter((s) => !s.object).length")
     if d.content is not None:
         d.act(p, "S13", """() => { azurkit.characters.state.view.perfOld = true;
                             document.querySelector('#char-community .entry[data-entry="beamlord"] button').click(); }""",

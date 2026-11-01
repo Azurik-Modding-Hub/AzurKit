@@ -984,7 +984,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **The Characters tab** (Step 4.3d, `web/characters.mjs`; Modkit's
     Player page): the models' list, every species the player can wear in
     its grade's colour, the 73 untested greyed and marked (D877; with no
-    image, the 178 of `picker.SPECIES`, `species.json`), then under it the
+    image, the 178 of `picker.SPECIES`, `species.json`), the 76 objects
+    only with Show objects (D1034: off by default and remembered, the site's
+    storage, the app's `show_objects`; an object is the engine's rule,
+    `characters.object_bodies`: at most two bones and no clip but an idle or
+    a sit, so the 73 pickups and the clipless statues, never the boulder;
+    the count line says how many are hidden, and a model worn stays listed),
+    then under it the
     community group beside Content from (D1035; D913: Azurik-Custom-Content's
     variant entries beside the species, each marked community, its state
     Install, installed vN or Update to vM, its variants once installed); the chosen

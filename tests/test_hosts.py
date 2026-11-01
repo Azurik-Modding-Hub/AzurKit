@@ -674,6 +674,41 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
         server.close()
 
 
+def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browser, tmp_path, monkeypatch):
+    """D1034 in the app's page: Show objects, off at first (102 species listed, the count line naming the 76 objects
+    hidden), ticked is remembered in the app's config (``api/show_objects``), so the next launch's page lists all 178;
+    unticked, the config forgets it; ``api/show_objects`` refuses anything but true or false, the config as it was."""
+    _home(monkeypatch, tmp_path / "home")
+    shown = """() => [document.getElementById("char-objects").checked, document.getElementById("char-count").textContent
+        .split(" · ")[0], document.querySelectorAll("#char-species .model").length]"""
+    for launch, ticked in ((1, False), (2, True)):
+        server = app.serve(_page.WEB)
+        try:
+            page = browser.new_page()
+            page.goto(server.url)
+            _page.until(page, "() => globalThis.azurkit?.ready", 120)
+            _page.click(page, "tab-characters")
+            _page.until(page, "() => azurkit.characters.state.view", 120)
+            assert page.evaluate(shown) == ([True, "178 species, 73 not yet tested", 178] if ticked
+                                            else [False, "102 species, 76 objects hidden", 102]), launch
+            _page.click(page, "char-objects")
+            want = None if ticked else True
+            for _ in range(50):   # the app's engine writes it a moment after the click
+                if app._kept().get("show_objects") is want:
+                    break
+                time.sleep(0.1)
+            assert app._kept().get("show_objects") is want, launch
+            _page.check_csp(page)
+            page.close()
+            if launch == 2:
+                replies = []
+                _post(server.url, "api/show_objects", {"show": "yes"}, replies)
+                assert replies == [{"refused": "show_objects: show is true or false"}]
+                assert "show_objects" not in app._kept()
+        finally:
+            server.close()
+
+
 def _post(url: str, call: str, body: dict, replies: list, timeout: float = 120) -> None:
     """POST ``body`` to the engine's ``call`` (``api/save``, say) from the
     page at ``url`` (its token in the query); its reply goes in ``replies``."""

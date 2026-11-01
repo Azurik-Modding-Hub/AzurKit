@@ -45,6 +45,7 @@ export const KEPT = {
   local: [["azurkit.setup", "Your setup (packs, settings and choices)"],
           ["azurkit.tracker", "The tracker's plans and marks"],
           ["azurkit.content_source", "Where community content comes from"],
+          ["azurkit.show_objects", "Whether the Characters tab lists objects"],
           ["azurkit.theme", "The light or dark theme"]],
   databases: [["azurkit-stamp", "Your image's check (its files' sha256)"],
               ["azurkit-content", "Installed community content"]],

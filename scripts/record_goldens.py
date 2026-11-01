@@ -645,9 +645,10 @@ def recipe_keys(doc: Mapping) -> dict[str, str]:
 
 def characters(images: Images, workers: int) -> dict[str, bytes]:
     """The Characters tab's shipped files, by their path: ``species.json``,
-    the ``[species, body]`` of each species the player can wear in
-    ``critters_engine``'s order, as ``player_models`` reads both images
-    (which agree, or this stops naming them); in ``web/characters/`` each
+    the ``[species, body, object]`` of each species the player can wear in
+    ``critters_engine``'s order, as ``player_models`` and
+    ``characters.object_bodies`` read both images (which agree, or this
+    stops naming them); in ``web/characters/`` each
     body's two pictures (``picker.preview`` on the USA image, the app's
     draw: Europe's are the same, ``tests/test_characters.py``), each
     built-in variant's (:func:`_variant`; none for one the engine refuses),
@@ -660,14 +661,17 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
     from azurkit.tools.characters import _player_character as swap
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content, picker
+    from azurkit.tools.characters.characters import object_bodies
 
     read = {r: sdk._game(str(images.stamp(r).path))[1:] for r in gate.RELEASES}
-    rows = {r: [[m.species, m.body] for m in swap.player_models(*read[r]) if m.status != swap.REFUSED] for r in read}
+    things = {r: object_bodies(read[r][1]) for r in read}
+    rows = {r: [[m.species, m.body, m.body.casefold() in things[r]] for m in swap.player_models(*read[r])
+                if m.status != swap.REFUSED] for r in read}
     if rows[gate.USA] != rows[gate.EUROPE]:
         raise SystemExit("species.json: the USA and Europe images list different species (player_models)")
     stem = lambda name: name.replace("/", "--")   # noqa: E731 (a body's file name)
     out = {SPECIES: (json.dumps(rows[gate.USA], separators=(",", ":")) + "\n").encode()}
-    for body in dict.fromkeys(body for _, body in rows[gate.USA]):
+    for body in dict.fromkeys(body for _, body, _ in rows[gate.USA]):
         out |= {f"{PICTURES}/{stem(body)}.{view}.png": png for view, png in picker.preview(read[gate.USA][1], body).items()}
     recipes = recipe_keys(json.loads(variants.BUILTIN.read_text(encoding="utf-8")))
     index = ROOT / PICTURES / "index.json"
@@ -691,7 +695,7 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
     finally:
         picker.species_list = real
     out[f"{PICTURES}/index.json"] = (json.dumps({
-        "view": view, "species": {s: stem(b) for s, b in rows[gate.USA]},
+        "view": view, "species": {s: stem(b) for s, b, _ in rows[gate.USA]},
         "variants": {n: f"variant--{stem(n)}" for n in sorted(drawn)}, "recipes": recipes},
         sort_keys=True, separators=(",", ":")) + "\n").encode()
     return out

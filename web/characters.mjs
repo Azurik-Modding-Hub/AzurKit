@@ -1,7 +1,8 @@
 // The Characters tab (Step 4.3d; Modkit's Player page): the models' list, every species the player can wear, in its
 // grade's colour and mark (green fully playable, yellow rough edges, red not playable, grey not yet tested: the untested
-// greyed and marked, D877), then under it the community group beside Content from (D1035; D913: our variants from
-// Azurik-Custom-Content beside the built-ins, each marked community, with Install and Update); the chosen model's pictures from the front and from behind (D772,
+// greyed and marked, D877; the objects only with Show objects, D1034), then under it the community group beside Content
+// from (D1035; D913: our variants from Azurik-Custom-Content beside the built-ins, each marked community, with Install
+// and Update); the chosen model's pictures from the front and from behind (D772,
 // D919: the engine's draw.py, on both hosts), its info and its options, each number with a G4 button that sets it to
 // match garret4 (P52). The engine decides everything shown (sdk.pickers, sdk.preview, sdk.match): this page sends the
 // tab's choices and draws what comes back. Its answer with no image and each species' and built-in variant's two
@@ -18,6 +19,7 @@ import { option as pickerOption, picker } from "./picker.mjs";
 
 const $ = (id) => document.getElementById(id);
 const SOURCE = "azurkit.content_source";
+const OBJECTS = "azurkit.show_objects";   // the site's remembered Show objects (the app's: host.json's show_objects)
 const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
 const JIGGLE = ["jiggle_strength", "jiggle_stiffness"];
 const CHOOSE_WEAPONS = "Choose your image to see its weapons";   // the Weapon box with no image read
@@ -81,6 +83,14 @@ export function characters({ call, app, host, say, image, packs, changed, conten
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null };
   const fallback = () => host.catalog?.characters?.source ?? "";
+  // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
+  c.objects = app ? host.show_objects === true : (() => {
+    try {
+      return localStorage.getItem(OBJECTS) === "1";
+    } catch {
+      return false;
+    }
+  })();
   c.source = app ? host.content_source || fallback() : (() => {
     try {
       return localStorage.getItem(SOURCE) || fallback();
@@ -257,10 +267,15 @@ export function characters({ call, app, host, say, image, packs, changed, conten
   const render = () => {
     if (!c.view) return;
     const view = c.view, chosen = view.chosen, filter = c.filter.toLowerCase();
-    species.set(view.species.map((s) => ({ name: s.name, label: s.label, colour: s.colour, untested: s.untested })),
+    // the objects (the engine's: one or two rigid bones, no move of their own) only with Show objects, but the one worn:
+    // a remembered pick of one stays listed and worn (D1034: the player's character never changes silently)
+    const listed = view.species.filter((s) => c.objects || !s.object || s.name === c.character.species);
+    const untested = listed.filter((s) => s.untested).length, hidden = view.species.length - listed.length;
+    species.set(listed.map((s) => ({ name: s.name, label: s.label, colour: s.colour, untested: s.untested })),
                 c.character.species);
-    $("char-count").textContent = `${view.species.length} species, ${view.species.filter((s) => s.untested).length} `
-      + "not yet tested" + (view.why ? ` · ${view.why}` : "");
+    $("char-count").textContent = [`${listed.length} species`, untested && `${untested} not yet tested`,
+                                   hidden && `${hidden} objects hidden`].filter(Boolean).join(", ")
+      + (view.why ? ` · ${view.why}` : "");
     const groups = view.community.map((e) => {
       const state = e.state === "install" ? "Install" : e.state === "update" ? `Update to v${e.version}` : null;
       const action = state && el("button", { type: "button", textContent: state, disabled: !!c.installing });
@@ -465,6 +480,18 @@ export function characters({ call, app, host, say, image, packs, changed, conten
   $("char-ground").addEventListener("change", () => option("attack_ground", $("char-ground").checked,
                                                            defaults().attack_ground));
   $("char-reset").addEventListener("click", () => set(null));
+  $("char-objects").checked = c.objects;
+  $("char-objects").addEventListener("change", () => {
+    c.objects = $("char-objects").checked;
+    if (app) call("show_objects", { show: c.objects });
+    else {
+      try {
+        if (c.objects) localStorage.setItem(OBJECTS, "1");
+        else localStorage.removeItem(OBJECTS);
+      } catch {}   // storage refused (a private window, say): it lasts this visit
+    }
+    render();
+  });
   $("char-source").value = c.source;
   $("char-source").addEventListener("change", () => source($("char-source").value.trim() || fallback()));
   $("char-source-reset").addEventListener("click", () => source(fallback()));

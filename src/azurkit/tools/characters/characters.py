@@ -214,6 +214,32 @@ def body_names(characters_xbr: bytes) -> frozenset[str]:
                      if toc[i].tag == "body" and name.startswith("characters/"))
 
 
+STILL_CLIPS = frozenset({"idle", "sit"})
+"""The clips an object's body may hold (:func:`object_bodies`): a rest pose, nothing that moves it."""
+
+
+def object_bodies(characters_xbr: bytes) -> frozenset[str]:
+    """The bodies ``characters_xbr`` has that are objects, not creatures,
+    case-folded (D1034: the Characters tab's Show objects): at most two
+    bones (one rigid bone, obsidian's two) and no clip directly under it
+    but :data:`STILL_CLIPS` (none for a statue or a fragment). On the
+    vanilla discs the 73 pickups' and the clipless gargoylestone's and
+    tesla_tree's; the boulder's own run and die make it a creature."""
+    toc, bodies, clips = parse_toc(characters_xbr), {}, {}
+    for i, name in named_resources(characters_xbr).items():
+        key = name.casefold()
+        if not key.startswith("characters/"):
+            continue
+        rest = key[len("characters/"):]
+        if toc[i].tag == "body":
+            bodies[rest] = toc[i].file_offset
+        elif toc[i].tag == "banm":
+            body, _, clip = rest.rpartition("/")
+            clips.setdefault(body, set()).add(clip)
+    return frozenset(body for body, at in bodies.items()
+                     if _i32(characters_xbr, at) <= 2 and clips.get(body, set()) <= STILL_CLIPS)
+
+
 def read_body(characters_xbr: bytes, body: str, dirs: tuple[str, ...] = ()) -> Body | None:
     """The body ``characters/<body>`` of ``characters_xbr``, or ``None``
     if it has none: its clips are the clips directly under it and, for

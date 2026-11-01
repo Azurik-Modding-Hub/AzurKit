@@ -87,7 +87,9 @@ pictures as base64 PNG), and Azurik-Custom-Content's ``api/content``
 ``{"source"}`` (``sdk.content``) and ``api/install`` ``{"id", "source"}``
 (``sdk.content_install``, into the content folder); ``api/content_source``
 ``{"source"}`` remembers the tab's Content from (``null``: the default),
-which ``host.json``'s ``content_source`` gives the next page.
+which ``host.json``'s ``content_source`` gives the next page, and
+``api/show_objects`` ``{"show"}`` its Show objects (D1034: ``false``, the
+default, hides the objects), ``host.json``'s ``show_objects``.
 The Data tab's calls (Step 4.7a): ``POST api/data`` ``{"given"}`` gives a
 view of config.xbr's cells (``sdk.data``: the vanilla file AzurKit ships,
 no image) and ``api/data_edit`` ``{"given"}`` checks a cell's edit into the
@@ -313,6 +315,15 @@ def _set_source(body: dict) -> dict:
     return {}
 
 
+def _set_objects(body: dict) -> dict:
+    """``api/show_objects``: remember the Characters tab's Show objects
+    (``true``; ``false`` forgets it: the objects hidden, the default)."""
+    if not isinstance(show := body.get("show"), bool):
+        raise ValueError("show_objects: show is true or false")
+    _remember(show_objects=show or None)
+    return {}
+
+
 def _downloads() -> Path:
     """The Downloads folder (made where it isn't): where a save without a path goes."""
     from platformdirs import user_downloads_path
@@ -491,7 +502,7 @@ class Server(http.server.ThreadingHTTPServer):
         return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
                 "setup": _kept().get("setup"), "tracker": _kept().get("tracker"),
-                "content_source": _kept().get("content_source")}
+                "content_source": _kept().get("content_source"), "show_objects": _kept().get("show_objects") is True}
 
     def build(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
@@ -833,7 +844,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/match": lambda body: self.server.dressed("match", body),
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
                 "/api/install": lambda body: sdk.content_install({"id": body.get("id"), "source": body.get("source")}),
-                "/api/content_source": _set_source,
+                "/api/content_source": _set_source, "/api/show_objects": _set_objects,
                 "/api/spoiler": self.server.spoiled,
                 "/api/data": lambda body: sdk.data(body.get("given")),
                 "/api/data_edit": lambda body: sdk.data_edit(body.get("given")),
