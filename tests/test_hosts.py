@@ -245,6 +245,28 @@ def _children(pid: int) -> list[int]:
     return [int(found) for found in subprocess.run(command, capture_output=True, text=True).stdout.split()]
 
 
+def _descendants(pid: int) -> list[int]:
+    """The process ``pid``'s whole tree below it: on Windows a venv's ``python.exe`` is a redirector whose one child is
+    the real Python, so the app's engine is its grandchild there."""
+    return [found for child in _children(pid) for found in (child, *_descendants(child))]
+
+
+def test_a_processs_descendants_reach_its_grandchildren():
+    """:func:`_descendants`, what ``test_quitting_the_app_mid_save...`` notes of the app's engines: on Windows the app's
+    direct child isn't an engine, so its children alone read the same whether an engine hangs or respawns."""
+    def over(code: str) -> str:   # a process that runs ``code`` in a child
+        return f"import subprocess, sys; subprocess.run([sys.executable, '-c', {code!r}])"
+
+    tree_of_three = over(over("import sys; print(1, flush=True); sys.stdin.read()"))
+    with subprocess.Popen([sys.executable, "-c", tree_of_three], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as parent:
+        try:
+            assert parent.stdout.readline().strip() == "1"   # the last process has started
+            tree = _descendants(parent.pid)
+            assert len(tree) > len(_children(parent.pid)) >= 1
+        finally:
+            parent.stdin.close()
+
+
 def test_a_failures_note_ends_with_the_exception_the_app_printed_on_lines_ci_keeps():
     """:func:`_ended_with`: the note is the end of the app's stderr as its own lines, not one line's repr of it, which
     CI's cut at 240 characters would end long before the exception."""
@@ -829,11 +851,11 @@ def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monke
                           stderr=subprocess.PIPE, text=True, env=os.environ | {"HOME": str(tmp_path / "home")}) as served:
         try:
             url = served.stdout.readline().strip()
-            first_engines = _children(served.pid)
+            first_engines = _descendants(served.pid)
             try:
                 save_until_writing(url, "served.iso")
             except AssertionError as exc:   # a hung engine's the same process, one that dies at its start another's
-                exc.add_note(f"the app's engine processes: {first_engines} at the start, {_children(served.pid)} at the end")
+                exc.add_note(f"the app's engine processes: {first_engines} at the start, {_descendants(served.pid)} at the end")
                 raise
         except BaseException as exc:
             _ended_with(served, exc)
