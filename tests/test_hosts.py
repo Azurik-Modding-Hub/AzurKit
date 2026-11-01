@@ -1177,6 +1177,33 @@ def test_the_apps_track_takes_the_seed_planned_ahead_and_its_first_view(tmp_path
         server.close()
 
 
+@pytest.mark.parametrize("call", ["match", "preview"])
+def test_a_dress_beside_a_build_ahead_stops_that_build_and_answers_plain(tmp_path, monkeypatch, call):
+    """G4's match or a preview beside a heavy build ahead (review D1 of Step
+    4.3r4g): holding that build through the dress passed D1017's 6 GiB (6.12-6.32
+    GiB on 8 GiB, 5.13 stopped first), so it ends at its next record, nothing
+    takes its slot, and the call answers as it does alone."""
+    _home(monkeypatch, tmp_path / "home")
+    server, recipe = app.serve(_page.WEB), {"iso": "/a.iso", "packs": {}, "character": {"species": "booblord"}}
+    running = threading.Event()
+
+    def build(job) -> None:
+        while True:
+            job.progress(progress_record("dress"))
+            running.set()
+            time.sleep(0.01)
+    asked = []
+    monkeypatch.setattr(server.engine, "call", lambda *args, progress=None: asked.append(args) or {"plain": True})
+    try:
+        assert server.slots.offer("build", 1, "ahead", build) and running.wait(60)
+        job, got = server.slots.job("build"), []
+        _post(server.url, f"api/{call}", {"recipe": recipe}, got)
+        assert got == [{"plain": True}] and asked == [(call, recipe)]
+        assert job.done.wait(60) and isinstance(job.error, engine.Cancelled) and server.slots.job("build") is job
+    finally:
+        server.close()
+
+
 def test_a_kill_of_a_quiet_job_cancels_it_and_runs_the_call_the_player_waits_on_again():
     """A job ahead that reaches no record ends the engine's process
     (``Spawned.cancel``): that job, no click following it, is cancelled, and

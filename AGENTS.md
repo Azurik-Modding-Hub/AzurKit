@@ -1237,7 +1237,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `api/prefetch`), each keyed by its recipe, the image's stamp, the content's
   `installed.json` and the version, at the page's change number, at background
   priority and waiting at its records behind a call the player waits on; a
-  change stops it at its next record, Build, Track and the tracker's first ask
+  change, or a preview or G4 match beside a build ahead (no dress runs beside
+  its GiBs: D1017), stops it at its next record, Build, Track and the tracker's first ask
   take it (a repeated Build of one recipe too), and Cancel answers at once,
   the build's job going on through a seed's fill, so the engine, its Logic and
   the fill stay for the next Build. A job quiet past `ahead.GRACE` kills that

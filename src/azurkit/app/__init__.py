@@ -727,13 +727,15 @@ class Server(http.server.ThreadingHTTPServer):
         return {}
 
     def dressed(self, job: str, body: dict) -> dict:
-        """``api/preview`` and ``api/match``: the engine's, followed by its line (a variant's dress takes minutes)."""
+        """``api/preview`` and ``api/match``: the engine's, followed by its line (a variant's dress takes minutes); the
+        build ahead stops at its next record, as no dress runs beside it, and the page offers it again once this ends."""
         recipe = body.get("recipe")
         character = recipe.get("character") if isinstance(recipe, dict) else None
         species = character.get("species") if isinstance(character, dict) else None
         what = "draw it" if job == "preview" else "match garret4"
         first = record("dress", f"Dressing {species} to {what}" if isinstance(species, str) else None)
         with self.follow(job, first) as report, self.slots.turn():   # the swap's items counted on its line
+            self.slots.offer("build", self.slots.gen, None, None)   # a dress beside its GiBs passes 6 (D1017): it stops
             return self.engine.call(job, recipe, progress=lambda step: report(step | {"label": first["label"]}))
 
     def plan(self, body: dict) -> dict:
