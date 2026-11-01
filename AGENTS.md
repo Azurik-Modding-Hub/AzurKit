@@ -855,8 +855,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
   `web/memo.mjs`), the service worker (`web/sw.js`), community packs
   (`tools/mods/community.py`, `web/content.mjs`), Replace files
-  (`edits/files.py`), Saves (`tools/saves/`), a host's own hashes
-  (`edits.staged`) and the sparse seed build: a base of `iso.View`s
+  (`edits/files.py`), Saves (`tools/saves/`) and the sparse seed build: a base of `iso.View`s
   (`generator.sections`) carried as patches to the image, with
   `generator.read_back`'s `sparse` and the host's reads ahead
   (`generator.heads`, `generator.pages`). It stays off on both hosts until
@@ -1185,7 +1184,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and checks each image once (Step 4.3h): its build files hashed
   in WebCrypto (`sdk.layout`, `sdk.prime`), the stamp kept in the browser
   (IndexedDB, by the File's name, size and lastModified) for the next
-  visit. It posts its start's steps, a kept image's walk and a build's, a
+  visit. A build's changed files are hashed there too (`sdk.image_staged`,
+  `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, and each build's answer reports the heap,
   by which the page keeps the worker or replaces it. It returns the build
   as segments
