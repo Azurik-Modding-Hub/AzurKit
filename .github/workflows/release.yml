@@ -100,7 +100,7 @@ jobs:
           NAME: AzurKit-${{ needs.check.outputs.version }}-${{ matrix.label }}
         run: |
           dist="$RUNNER_TEMP/dist" out="$RUNNER_TEMP/app"
-          uv run --locked python scripts/freeze.py --dist "$dist" --work "$RUNNER_TEMP/work"
+          uv run --locked python scripts/freeze.py --dist "$dist" --work "$RUNNER_TEMP/work" --check
           mkdir -p "$out"
           case "$RUNNER_OS" in
             macOS) ditto -c -k --keepParent "$dist/AzurKit.app" "$out/$NAME.zip" ;;
