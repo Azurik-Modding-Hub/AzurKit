@@ -68,8 +68,8 @@ FOLDERS = tuple(SUFFIXES)
 """The folders an entry's files lie in (a variant's recipe in ``variants/<id>/variant.json``)."""
 MAX_MANIFEST, MAX_FILE = 1 << 20, 64 << 20
 MAX_ENTRIES, MAX_FILES = 1000, 10000
-MAX_NESTING = 32   # a manifest nests 5 deep (its entries' files); deeper is refused before json parses it
 """A manifest's entries and its files in all, at most (D992's SEC-6: a small manifest is untrusted input)."""
+MAX_NESTING = 32   # a manifest nests 5 deep (its entries' files); deeper is refused before json parses it
 MAX_ENTRY = 256 << 20
 """An entry's files, and an Install's (the entry and those it requires), at most, in bytes (D992's SEC-9)."""
 XISO = b"MICROSOFT*XBOX*MEDIA"
