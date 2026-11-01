@@ -54,7 +54,7 @@ import threading
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from azurkit import __version__, sdk
+from azurkit import __version__
 from azurkit.core import host
 
 from .engine import Cancelled
@@ -65,9 +65,10 @@ KEEPS = frozenset({"plan"})
 """The stages a cancelled job runs on through: the randomizer's logic read and its fill, which it keeps."""
 GRACE = 2.0
 """Seconds a stopped or demoted job has to reach its next record before the host's ``kill``."""
-PEAK, SMALL_RAM, SMALL_CORES = 2 << 30, 16 << 30, 4
-"""A job whose last run peaked over ``PEAK`` bytes runs ahead only on a machine with ``SMALL_RAM`` or more and over
-``SMALL_CORES`` cores (:func:`room`)."""
+PEAK, SMALL_RAM = 2 << 30, 16 << 30
+"""A job whose last run peaked over ``PEAK`` bytes runs ahead only on a machine with ``SMALL_RAM`` or more
+(:func:`room`): memory, not cores, is what a heavy job ahead takes from a small machine (it runs at background
+priority, so a 4-core machine's player keeps the foreground; the site's second worker runs at 4 cores too)."""
 
 
 def installed(root: Path | None = None) -> str:
@@ -105,16 +106,14 @@ def key(recipe: object, extra: object = None, root: Path | None = None) -> str |
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def room(peak: int | None, memory: int | None = None, cores: int | None = None) -> bool:
+def room(peak: int | None, memory: int | None = None) -> bool:
     """Whether a job whose last run peaked at ``peak`` bytes may run ahead:
-    always, but over :data:`PEAK` only with ``memory`` (``host.ram``; an
-    unknown is small) of :data:`SMALL_RAM` or more and over
-    :data:`SMALL_CORES` cores (``sdk.cores``: ``$AZURKIT_CORES`` too)."""
+    always, but over :data:`PEAK` only with ``memory`` (``host.ram``:
+    ``$AZURKIT_RAM`` too; an unknown is small) of :data:`SMALL_RAM` or more."""
     if peak is None or peak <= PEAK:
         return True
     memory = host.ram() if memory is None else memory
-    cores = sdk.cores(SMALL_CORES + 1) if cores is None else cores
-    return memory is not None and memory >= SMALL_RAM and cores > SMALL_CORES
+    return memory is not None and memory >= SMALL_RAM
 
 
 class Low:

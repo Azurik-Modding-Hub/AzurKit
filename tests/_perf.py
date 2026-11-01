@@ -203,13 +203,14 @@ class Run:
     host: str              # app | site
     browser: str           # the page's engine
     cores: int | None = None   # AZURKIT_CORES for the app (the capped profile)
+    ram: int | None = None     # AZURKIT_RAM for the app (the capped profile's 8 GiB)
     lag: bool = False      # the site's File reads LAG_MS late
     memory: bool = False   # sample our processes' peak resident size
 
 
 RUNS = {run.name: run for run in (
     Run("app", "app", "webkit"),
-    Run("app-capped", "app", "webkit", cores=4, memory=True),
+    Run("app-capped", "app", "webkit", cores=4, ram=8 << 30, memory=True),
     Run("webkit", "site", "webkit"),
     Run("chromium", "site", "chromium"),
     Run("firefox", "site", "firefox"),
@@ -765,10 +766,12 @@ class App:
         if content is not None:
             (config / "app.json").write_text(json.dumps({"content_source": str(content)}), encoding="utf-8")
         self.env = {k: v for k, v in os.environ.items()
-                    if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE", "VIRTUAL_ENV", "PYTHONPATH", "AZURKIT_CORES")}
+                    if k not in ("AZURKIT_ISO", "AZURKIT_ISO_EUROPE", "VIRTUAL_ENV", "PYTHONPATH", "AZURKIT_CORES", "AZURKIT_RAM")}
         self.env |= {"HOME": str(home), "AZURKIT_NO_WINDOW": "1"}
         if run.cores:
             self.env["AZURKIT_CORES"] = str(run.cores)
+        if run.ram:
+            self.env["AZURKIT_RAM"] = str(run.ram)
         self.proc = None
 
     def launch(self, d: Driver, ctx, op: str | None) -> Page:

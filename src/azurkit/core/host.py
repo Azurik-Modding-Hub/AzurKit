@@ -123,7 +123,23 @@ def foreground(was: int | None, process: bool = False) -> bool:
     return False
 
 
+RAM = "AZURKIT_RAM"
+"""A positive whole number of bytes: the most memory :func:`ram` reports (the capped profile's 8 GiB, D984/D1017), as
+``$AZURKIT_CORES`` caps the cores."""
+
+
 def ram() -> int | None:
+    """The machine's physical memory in bytes, at most ``$AZURKIT_RAM``;
+    ``None`` where it can't be read and no cap is set."""
+    try:
+        cap = int(os.environ.get(RAM) or 0)
+    except ValueError:
+        cap = 0
+    real = _physical()
+    return (min(real, cap) if real else cap) if cap > 0 else real
+
+
+def _physical() -> int | None:
     """The machine's physical memory in bytes (``sysconf``'s pages, or
     Windows' ``GlobalMemoryStatusEx``); ``None`` where it can't be read."""
     try:

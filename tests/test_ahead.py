@@ -221,8 +221,8 @@ def test_work_ahead_runs_at_background_priority_and_past_its_fill_waits_at_its_r
     or another call is in flight (``Ahead.turn``) it runs on through a
     seed's fill (a Build of that seed may wait on it) and waits at its
     first record past it, going on once the call ends. A recipe whose last
-    run peaked over 2 GiB isn't worked ahead on a machine under 16 GiB or
-    of 4 cores or fewer (``ahead.room``)."""
+    run peaked over 2 GiB isn't worked ahead on a machine under 16 GiB
+    (``ahead.room``), which ``$AZURKIT_RAM`` makes of any machine."""
     calls, s, slots = [], setup.stand, Ahead()
     monkeypatch.setattr(host, "background", lambda process=False: calls.append(("low", threading.current_thread()))
                         or 7)
@@ -253,9 +253,12 @@ def test_work_ahead_runs_at_background_priority_and_past_its_fill_waits_at_its_r
     monkeypatch.setattr(host, "ram", lambda: 8 << 30)
     assert slots.offer("build", 4, setup.key(setup.seeded), s.fn(setup.seeded)) and slots.job("build").done.wait(10)
     assert not slots.offer("build", 5, setup.key(three), s.fn(three))
-    assert [ahead.room(3 << 30, memory, cores) for memory, cores in ((8 << 30, 16), (192 << 30, 16), (192 << 30, 4),
-                                                                    (None, 16))] + [ahead.room(1 << 30, 8 << 30, 2)] \
-        == [False, True, False, False, True]
+    assert [ahead.room(3 << 30, memory) for memory in (8 << 30, 192 << 30, None)] + [ahead.room(1 << 30, 8 << 30)] \
+        == [False, True, False, True]
+    monkeypatch.undo()
+    monkeypatch.setattr(host, "_physical", lambda: 192 << 30)
+    monkeypatch.setenv(host.RAM, str(8 << 30))
+    assert (host.ram(), ahead.room(3 << 30)) == (8 << 30, False)
 
 
 class _Libc:   # macOS's calls, recorded
@@ -289,7 +292,7 @@ def _posix(log):   # Linux's nice, recorded: a lower nice needs privilege
         if nice < state["nice"]:
             raise PermissionError(13, "Permission denied")
         state["nice"] = nice
-    return types.SimpleNamespace(PRIO_PROCESS=0, setpriority=setpriority, sysconf={"SC_PHYS_PAGES": 4,
+    return types.SimpleNamespace(PRIO_PROCESS=0, environ={}, setpriority=setpriority, sysconf={"SC_PHYS_PAGES": 4,
                                  "SC_PAGE_SIZE": 1 << 30}.__getitem__,
                                  getpriority=lambda which, who: log.append(("getpriority", which, who)) or state["nice"])
 
@@ -324,7 +327,7 @@ def test_the_hosts_background_priority_goes_down_and_back_and_its_memory_reads_p
     monkeypatch.setattr(host, "_libc", lambda: _Libc(log))
     monkeypatch.setattr(host, "_kernel32", lambda: _Kernel32(log))
     if platform == "emscripten":
-        monkeypatch.setattr(host, "os", types.SimpleNamespace(sysconf=_no_sysconf))
+        monkeypatch.setattr(host, "os", types.SimpleNamespace(environ={}, sysconf=_no_sysconf))
     else:
         monkeypatch.setattr(host, "os", _posix(log))
     got = host.background(process)
