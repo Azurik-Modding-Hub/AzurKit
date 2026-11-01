@@ -162,7 +162,7 @@ OPS = {op.id: op for op in (
     Op("S13", "Install beamlord, the list again", "characters", content=True),
     Op("S14", "Build keylord", "build", head_start=True),
     Op("S15", "booblord on the site", "build", head_start=True,
-       untimed="out of memory on the site (D835): booblord is the app's until the site can hold it"),
+       untimed="3.7 s under the lag model (X6, 4.3r4f; WebKit 2.2, Chromium 1.9): timed once the reads ahead come (4.3r4k)"),
     Op("S16", "Randomizer tab, first ask", "randomizer"),
     Op("S17", "seed typed, its ask", "randomizer"),
     Op("S18", "Track this seed", "tracker", head_start=True),
