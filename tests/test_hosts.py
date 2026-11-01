@@ -1242,7 +1242,8 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
         assert (dot, state, follows, you) == ("●", "live", level, "● you are here")
         item = sdk.tracker({"plan": doc, "spoiler": True})["spots"][near]["name"]
         assert line.startswith(f"{level} · USA · xemu, scripted · last: {item} ({level}), 0:0")
-        assert page.evaluate(f"() => document.querySelector(`#track-level .spot[data-loc='{near}']`).className") == "spot live"
+        assert page.evaluate(f"() => document.querySelector(`#track-level .spot[data-loc='{near}']`).className").split()[:2] == [
+            "spot", "live"]   # (and "fresh" while its pickup flashes)
         page.evaluate("() => document.querySelector('#track-level .back').click()")   # by hand: Follow goes off
         assert page.evaluate("() => [azurkit.tracker.state.level, document.getElementById('track-follow').checked]") == [
             None, False]
@@ -1574,6 +1575,67 @@ def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_mo
         page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off
         moved = stand((middle[0] + 60, middle[1] + 80, 0.0))
         assert stand((middle[0] + 60, middle[1] - 80, 0.0))[:5] == moved[:5] == after[:5]
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
+def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what_was_got(browser, tmp_path, monkeypatch):
+    """Step 4.3 live tracker (the owner, 2026-11-01: "when an item is
+    collected on the tracker, can you remove it from the map, with a toggle
+    option for showing them instead? And make it more noticeable when they
+    are collected"): a spot marked collected (a click, or Live) leaves the
+    level's map; Show collected (remembered) shows it again, dimmed and
+    clickable; a Live pickup flashes its spot a moment before it leaves,
+    flashes the Got count and says "Got: <item> · <level>" for a few
+    seconds; with reduced motion the line and the count are a plain
+    highlight, nothing animated."""
+    from azurkit.tools.randomizer.live import game
+
+    doc = _profile("default")
+    index = json.loads((app.pictures.folder() / "maps.json").read_text(encoding="utf-8"))["levels"]
+    spots = sdk.tracker({"plan": doc, "spoiler": True})["spots"]
+    where = {i["id"]: i["at"] for e in index.values() for i in e["items"] + e["spots"]}
+    on_main = {}   # each level's tracked spots on its main floor
+    for loc, s in sorted(spots.items()):
+        if loc in where and where[loc][2] == index[s["level"]]["main"]:
+            on_main.setdefault(s["level"], []).append(loc)
+    level, clicked, got, still = next((lv, near[0], *[loc for loc in locs if loc != near[0]][:2])
+                                      for lv, locs in on_main.items() if len(locs) >= 3
+                                      and (near := [loc for loc in locs if spots[loc]["state"] == "near"]))
+    x0, y1, sc = index[level]["frame"]
+    played = _Played(level, (x0 + where[got][0] / sc, y1 - where[got][1] / sc, 0.0))
+    server, page = _live_map(browser, tmp_path, monkeypatch, played, doc)
+    drawn = """(loc) => { const m = azurkit.tracker.map, e = m.entry(m.level);
+        const at = [...e.items, ...e.spots].find((i) => i.id === loc).at, [x, y] = m.at(at[0], at[1]);
+        return m.hits.filter((h) => h.act && Math.hypot(h.x - x, h.y - y) < 1).map((h) => h.tip); }"""
+    try:
+        page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off: the floor stays
+        page.evaluate(f"() => {{ const m = azurkit.tracker.map; m.floor = {index[level]['main']}; m.draw(); }}")
+        assert page.evaluate(drawn, clicked)   # reachable now: on the map
+        page.evaluate(MAP_CLICK, where[clicked][:2])
+        _page.until(page, f"() => azurkit.tracker.state.marks.collected?.includes('{clicked}')"
+                          " && !azurkit.tracker.state.running")
+        assert page.evaluate(drawn, clicked) == []
+        _page.click(page, "track-collected")
+        assert page.evaluate(drawn, clicked) == [f"{spots[clicked]['name']}: collected"]
+        assert page.evaluate("() => azurkit.tracker.state.kept.collected") is True
+        _page.click(page, "track-collected")
+        played.takes.append(game.Took(got, 0.5))
+        _page.until(page, "() => !document.getElementById('track-got').hidden")
+        assert page.evaluate("() => document.getElementById('track-got').textContent") == (
+            f"Got: {spots[got]['name']} · {level}")
+        assert page.evaluate(drawn, got) == [f"{spots[got]['name']}: collected (live)"]   # flashing, on the map
+        assert page.evaluate("() => [document.querySelector('#track-count .got.fresh')?.textContent,"
+                             " getComputedStyle(document.getElementById('track-got')).animationName]") == [
+            "Collected 2", "track-got"]
+        _page.until(page, f"() => !({drawn})('{got}').length && document.getElementById('track-got').hidden", 30)
+        page.emulate_media(reduced_motion="reduce")
+        played.takes.append(game.Took(still, 0.6))
+        _page.until(page, "() => !document.getElementById('track-got').hidden")
+        assert page.evaluate("""() => [getComputedStyle(document.getElementById('track-got')).animationName,
+            document.querySelector('#track-count .got.fresh')?.getAnimations().length]""") == ["none", 0]
         _page.check_csp(page)
         page.close()
     finally:

@@ -29,6 +29,9 @@ const STEP = 1.25, METRE_PX = 8, DRAG_PX = 4, MIN_ROOM = 320;
 // centre), so the reads' jitter never moves the map; past it the map eases (EASE_MS) to centre them again
 const DEAD = 0.25, EASE_MS = 450;
 const still = () => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+// A collected spot leaves the map (Show collected: dimmed to DIM); a Live pickup's flashes (FLASH_MS, its last FADE_MS
+// fading it out), a plain ring with reduced motion
+const DIM = 0.4, FLASH_MS = 2600, FADE_MS = 900, PULSE_MS = 650;
 // Follow's floor (Step 4.3's floors): ground this near the feet is what they stand on; at a seam the floor they were
 // on holds while its ground lies this near
 const FOOT_M = 1.5, HOLD_M = 2;
@@ -119,7 +122,8 @@ export function floorUnder(t, px, py, z, held, s) {
 
 export class MapView {
   // els: {side, room, canvas, back, fit, switches, floors, key, note, hint, tip}; hooks: {view(), art, spoiler(),
-  // gems(), toggle(loc), navigated(level, byHand), following(): Follow is on}
+  // gems(), toggle(loc), navigated(level, byHand), following(): Follow is on, collected(): Show collected,
+  // fresh(): Live's pickups, Map(loc -> when, ms)}
   constructor(els, hooks) {
     Object.assign(this, { els, hooks, level: null, floor: 0, size: null, s: 1, fitted: 1, o: [0, 0], want: 1,
                           shown: {}, hits: [], press: null, clicked: undefined, here: null, drawnFor: null,
@@ -485,9 +489,10 @@ export class MapView {
     if (name === "fire_barrier") return this.flame(x, y);
     const b = this.iconCache?.[name];
     if (b) {
-      this.ctx.globalAlpha = faint ? 0.35 : 1;
+      const alpha = this.ctx.globalAlpha;
+      this.ctx.globalAlpha = alpha * (faint ? 0.35 : 1);
       this.ctx.drawImage(b, x - b.width / 2, y - b.height / 2);
-      this.ctx.globalAlpha = 1;
+      this.ctx.globalAlpha = alpha;
       return;
     }
     this.iconCache ??= {};
@@ -628,13 +633,24 @@ export class MapView {
       ctx.textAlign = "start";
       this.hit(x, y, 6, tip);
     }
-    // the tracked spots, over the barriers so each stays clickable
+    // the tracked spots, over the barriers so each stays clickable: a collected one off the map (Show collected:
+    // dimmed), a Live pickup's flashing a moment first
     if (this.on("item")) {
       const where = Object.fromEntries([...e.items, ...e.spots].map((i) => [i.id, i.at]));
+      const show = this.hooks.collected?.() ?? false, fresh = this.hooks.fresh?.() ?? new Map(), now = performance.now();
+      let next = Infinity;   // ms to the next frame a flash needs
       for (const m of marks(view, level, have).spots) {
         const at = where[m.loc];
         if (!at || !here(at)) continue;
-        const [x, y] = this.at(at[0], at[1]), s = view.spots[m.loc];
+        const age = fresh.has(m.loc) ? now - fresh.get(m.loc) : Infinity, flashing = Boolean(m.check) && age < FLASH_MS;
+        if (m.check && !show && !flashing) continue;
+        const [x, y] = this.at(at[0], at[1]), s = view.spots[m.loc], rest = m.check && show ? DIM : 0;
+        ctx.globalAlpha = !m.check ? 1 : !flashing ? DIM : still() ? 1
+          : rest + (1 - rest) * Math.min(1, (FLASH_MS - age) / FADE_MS);
+        if (flashing) {
+          next = Math.min(next, still() ? FLASH_MS - age : 40);
+          this.flash(x, y, age);
+        }
         this.halo(x, y, 12, TRACK[m.ring], m.near ? 2.5 : 1.5);
         if (m.icon) {
           this.icon(x, y, m.icon, m.faint);
@@ -652,14 +668,32 @@ export class MapView {
           ctx.fillText("✓", x + 9, y + 8);
           ctx.textAlign = "start";
         }
+        ctx.globalAlpha = 1;
         const name = m.icon ? s.name : SPOT[s.class];
         this.hit(x, y, 12, `${name}: ${STATE[s.state]}`, () => this.hooks.toggle(m.loc));
+      }
+      if (next < Infinity) {
+        clearTimeout(this.flashing);
+        this.flashing = setTimeout(() => this.draw(), Math.max(16, next + 5));
       }
     }
     const failed = this.s > 1 && this.detail?.error ? `No detail picture for ${level}: ${this.detail.error}.` : "";
     this.els.note.textContent = [unplaced.length ? `At the right edge, with no place: ${unplaced.join("; ")}.` : "",
                                  failed].filter(Boolean).join(" ");
     return kinds;
+  }
+
+  // A Live pickup's flash round its spot: a ring swelling and fading out, again each PULSE_MS (reduced motion: one
+  // plain ring, still).
+  flash(x, y, age) {
+    const ctx = this.ctx, alpha = ctx.globalAlpha, k = still() ? 0 : (age % PULSE_MS) / PULSE_MS;
+    ctx.globalAlpha = still() ? 1 : 1 - k;
+    ctx.beginPath();
+    ctx.arc(x, y, 15 + 12 * k, 0, 2 * Math.PI);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = TRACK.live;
+    ctx.stroke();
+    ctx.globalAlpha = alpha;
   }
 
   drawWorld(view) {

@@ -181,5 +181,6 @@ class Feed:
                 "status": self.status, "text": self.text, "unpaired": self.unpaired,
                 "here": r is not None and r.settled and seen is r and self.status in ("live", "warn", "other"),
                 "seen": None if seen is None else {"level": seen.level, "at": list(seen.at), "yaw": seen.yaw or 0.0},
+                "took": [e.loc for e in events if isinstance(e, game.Took)],   # the fresh pickups, the page's flash
                 "kit": dict(self.kit), "held": dict(r.inv) if r is not None and r.inv and not r.mismatch else {},
                 "slot": r.slot if r is not None and game.is_slot(r.slot) else None}

@@ -26,6 +26,18 @@ const COLUMNS = { got: "Got", now: "Now", left: "Left", total: "Total", game: "I
 // Live's status (the app's): its dot, and what the levels row says while xemu runs another seed or build (R1.41)
 const DOTS = { connecting: "○", waiting: "○", live: "●", warn: "▲", lost: "▲", other: "■", stopped: "" };
 const POLL_MS = 700;
+// A Live pickup (Step 4.3 live tracker): its spot flashes on the map, its rows and the Got count flash (FRESH_MS), and
+// "Got: <item> · <level>" shows for GOT_MS
+const FRESH_MS = 2600, GOT_MS = 4000;
+// The Table's row of an item (tracker.py's kind_of): its group's and its kind's
+const rowKeys = (item) => {
+  const frag = /^frag_([a-z]+)_\d$/.exec(item), power = { staff1: "staff", staff2: "staff", water_a3: "water" };
+  if (frag) return ["frag", `frag/${frag[1]}`];
+  if (item.startsWith("power_")) return ["power", `power/${power[item.slice(6)] ?? item.slice(6)}`];
+  if (item.startsWith("key_")) return ["key", `key/${item.slice(4)}`];
+  if (item === "all_fuel" || item === "all_health") return ["consumable", `consumable/${item.slice(4)}`];
+  return item === "obsidian" ? ["obsidian"] : ["other", `other/${item}`];
+};
 
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
@@ -35,7 +47,7 @@ const el = (tag, props = {}, ...children) => {
 
 export function tracker({ call, app, say, kept, keep }) {
   const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, gems: false, queue: [],
-              running: null,
+              running: null, collected: false, fresh: new Map(),   // fresh: Live's pickups, loc -> when (ms)
               kept: kept ?? { plan: null, marks: {} }, live: null };
 
   // The engine's asks, one at a time and in order (each click is one, sent with the marks the last answer gave;
@@ -73,7 +85,8 @@ export function tracker({ call, app, say, kept, keep }) {
     const marks = Object.fromEntries(Object.entries(t.kept.marks).filter(([k]) => k !== sha));
     marks[sha] = t.marks;
     t.kept = { plan: t.plan, marks: Object.fromEntries(Object.entries(marks).slice(-KEEP)),
-               ...(t.kept.endpoints ? { endpoints: t.kept.endpoints } : {}), ...(t.gems ? { gems: true } : {}) };
+               ...(t.kept.endpoints ? { endpoints: t.kept.endpoints } : {}), ...(t.gems ? { gems: true } : {}),
+               ...(t.collected ? { collected: true } : {}) };
     keep(t.kept);
   };
 
@@ -88,6 +101,7 @@ export function tracker({ call, app, say, kept, keep }) {
                             note: $("map-note"), hint: $("map-hint"), tip: $("map-tip") }, {
     view: () => t.view, art, spoiler: () => t.spoiler, gems: () => t.gems,
     following: () => Boolean(t.live?.here) && $("track-follow").checked,
+    collected: () => t.collected, fresh: () => t.fresh,
     toggle: (loc) => ask({ toggle: loc }),
     navigated: (level, byHand) => {
       if (byHand && t.live?.followed && level !== t.live.followed) {
@@ -110,7 +124,7 @@ export function tracker({ call, app, say, kept, keep }) {
     art.load();
     if (!map.ready(null)) return;
     $("track-body").hidden = false;
-    for (const node of $("track-body").children) node.hidden = node.id !== "track-maps";
+    for (const node of $("track-body").children) if (node.id !== "track-got") node.hidden = node.id !== "track-maps";
     if (map.level !== null || !map.pictures?.length) map.show(null);
     else map.draw();
   };
@@ -133,15 +147,18 @@ export function tracker({ call, app, say, kept, keep }) {
   const draw = () => {
     const v = t.view, s = v.status;
     if (!$("tracker").hidden) art.load();   // the maps: read once the Tracker view shows
-    for (const node of $("track-body").children) node.hidden = false;   // (the world map alone before: preview())
+    for (const node of $("track-body").children) {   // (the world map alone before: preview(); the Got line its own)
+      if (node.id !== "track-got") node.hidden = false;
+    }
     artLine();
     $("track-status").textContent = "";
     $("track-head").textContent = v.head.text;
     $("track-head").title = v.head.skips.join("\n") || "No skip is on.";
     const gems = t.gems && v.gems ? Object.values(v.gems.counts) : null;   // with Gems: taken and in all (R1.43)
-    $("track-count").textContent = `Collected ${s.collected} of ${s.total} · Reachable ${s.reachable}`
+    const got = fresh(el("span", { className: "got", textContent: `Collected ${s.collected}` }), t.bumped, 900);
+    $("track-count").replaceChildren(got, ` of ${s.total} · Reachable ${s.reachable}`
       + (s.skipped ? ` (${s.skipped} with a skip)` : "") + ` · Sphere ${s.sphere}` + (s.victory ? " · Victory in reach" : "")
-      + (gems ? ` · Gems ${gems.reduce((n, [got]) => n + got, 0)} of ${gems.reduce((n, [, all]) => n + all, 0)}` : "");
+      + (gems ? ` · Gems ${gems.reduce((n, [got]) => n + got, 0)} of ${gems.reduce((n, [, all]) => n + all, 0)}` : ""));
     $("track-levels").textContent = `${t.live?.other ? t.live.other : ""}Levels now: ${s.levels.join(", ")}`;
     $("track-levels").classList.toggle("other", Boolean(t.live?.other));
     for (const mode of ["map", "table"]) $(`track-${mode}`).setAttribute("aria-selected", String(t.mode === mode));
@@ -168,6 +185,52 @@ export function tracker({ call, app, say, kept, keep }) {
     if (!seen || $("track-maps").hidden) return map.here && map.place(null);
     map.place(seen, !t.live.here);
     if ($("track-follow").checked && t.live.here) map.follow(seen);
+  };
+
+  // A node a Live pickup flashes (CSS's .fresh): while it is fresh, drawn again where its flash had got to.
+  const fresh = (node, at, ms = FRESH_MS) => {
+    const age = at === undefined ? Infinity : performance.now() - at;
+    if (age < ms) {
+      node.classList.add("fresh");
+      node.style.animationDelay = `${-Math.round(age)}ms`;
+    }
+    return node;
+  };
+  // The rows (Table keys) and chips Live's fresh pickups flash: {key or loc: when}.
+  const flashed = () => {
+    const out = {};
+    for (const [loc, at] of t.fresh) {
+      const s = t.view?.spots[loc];
+      if (!s) continue;
+      for (const key of [loc, s.level, ...(s.item ? rowKeys(s.item) : [])]) out[key] = Math.max(out[key] ?? 0, at);
+    }
+    return out;
+  };
+
+  // Live's fresh pickups (its took: Took events, not a level's catch-up): flashed on the map, the rows and the count,
+  // and named a few seconds ("Got: <item> · <level>").
+  const picked = (locs) => {
+    const now = performance.now(), names = [];
+    for (const loc of locs) {
+      const s = t.view?.spots[loc];
+      if (s?.state !== "live" || t.fresh.has(loc)) continue;
+      t.fresh.set(loc, now);
+      names.push(`${s.name ?? s.vanilla} · ${s.level}`);
+    }
+    if (!names.length) return;
+    t.bumped = now;
+    const line = $("track-got");
+    line.hidden = true;   // shown anew: its animation from the start
+    line.textContent = `Got: ${names.join(", ")}`;
+    void line.offsetWidth;
+    line.hidden = false;
+    clearTimeout(t.gotTimer);
+    t.gotTimer = setTimeout(() => (line.hidden = true), GOT_MS);
+    clearTimeout(t.freshTimer);
+    t.freshTimer = setTimeout(() => {   // the flashes over: drawn once more without them
+      for (const [loc, at] of t.fresh) if (performance.now() - at >= FRESH_MS) t.fresh.delete(loc);
+      if (t.view) draw();
+    }, FRESH_MS + 50);
   };
 
   const counts = (level) => {
@@ -224,8 +287,9 @@ export function tracker({ call, app, say, kept, keep }) {
     const shown = Boolean(s.item), got = s.state === "got" || s.state === "live";
     // A spot not shown is told by what the base game puts there (and its record), never by what the seed put there
     const where = `where vanilla has ${s.vanilla}, ${loc}`;
-    const button = el("button", { type: "button", className: `spot ${s.state}`,
-                                  title: `${shown ? s.name : SPOT[s.class]}: ${STATES[s.state]} (${where})` });
+    const button = fresh(el("button", { type: "button", className: `spot ${s.state}`,
+                                        title: `${shown ? s.name : SPOT[s.class]}: ${STATES[s.state]} (${where})` }),
+                         flashed()[loc]);
     button.dataset.loc = loc;
     button.append(el("span", { className: shown ? `glyph ${s.icon}` : "glyph dot" }),
                   el("span", { className: "name", textContent: shown ? s.name : `vanilla: ${s.vanilla} · ${loc.split("/").at(-1)}` }));
@@ -238,14 +302,15 @@ export function tracker({ call, app, say, kept, keep }) {
   const tables = () => {
     const spoiler = t.spoiler, game = Boolean(t.live?.reading);
     const items = ["got", ...(spoiler ? ["now"] : []), "left", "total", ...(game ? ["game"] : []), ...(spoiler ? ["where"] : [])];
-    $("track-items").replaceChildren(...table("Item", items, t.view.table.items));
-    $("track-places").replaceChildren(...table("Level", ["got", "now", "left", "total"], t.view.table.levels));
+    const lit = flashed();
+    $("track-items").replaceChildren(...table("Item", items, t.view.table.items, lit));
+    $("track-places").replaceChildren(...table("Level", ["got", "now", "left", "total"], t.view.table.levels, lit));
   };
 
-  const table = (head, columns, rows) => {
+  const table = (head, columns, rows, lit = {}) => {
     const body = el("tbody");
     const add = (row, depth) => {
-      const tr = el("tr", { className: row.key === "all" ? "sum" : depth ? "" : "group" });
+      const tr = fresh(el("tr", { className: row.key === "all" ? "sum" : depth ? "" : "group" }), lit[row.key]);
       tr.dataset.key = row.key;
       const label = el("th", { scope: "row", textContent: row.label });
       label.style.paddingLeft = `${6 + 14 * depth}px`;
@@ -312,6 +377,7 @@ export function tracker({ call, app, say, kept, keep }) {
     t.live.here = live.here ? live.seen.level : null;
     t.live.level = t.live.here;
     t.live.reading = live.status === "live" || live.status === "warn";
+    picked(live.took ?? []);
     t.live.other = live.status === "other" ? `xemu runs another seed or build: what this shows is seed `
       + `${t.plan.seed}'s plan (share string ${t.plan.share}), not your game's (Live's line says what to check). ` : "";
     $("track-dot").textContent = DOTS[live.status] ?? "";
@@ -360,6 +426,13 @@ export function tracker({ call, app, say, kept, keep }) {
     if (t.plan) remember();
     if (t.live) liveOn();
     ask();
+  });
+  // Show collected: off by default (a collected spot leaves the map), remembered; on, they show dimmed
+  $("track-collected").checked = t.collected = Boolean(t.kept.collected);
+  $("track-collected").addEventListener("change", () => {
+    t.collected = $("track-collected").checked;
+    if (t.plan) remember();
+    if (t.view) draw();
   });
   $("track-reset").addEventListener("click", () => ask({ reset: true }));
   for (const mode of ["map", "table"]) {

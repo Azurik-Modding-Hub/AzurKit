@@ -100,6 +100,8 @@ source ([Development](#development)).
 - **World map:** each level with a badge of the spots you can reach now.
 - **Table view:** the same as a list of items and places.
 - **Gems:** a coloured dot for each of the 1,215 gem spots, and the gems taken and left on each level.
+- **Collected spots leave the map:** Show collected brings them back, dimmed. A pickup Live sees flashes on the map
+  and says what you got.
 - **Remembers your marks** for your last 20 seeds, never your image; Reset clears them.
 - **Live, in the app:** marks what you pick up in a running xemu and shows where you are, with Find me and Follow,
   which switches the map to the floor you stand on.

@@ -310,6 +310,25 @@ p.views { margin: 0; padding: 2px 10px; }
 #track-line { display: inline-block; width: 32rem; max-width: 100%; vertical-align: bottom; overflow: hidden;
                text-overflow: ellipsis; white-space: nowrap; }
 #track-line:empty { width: auto; }
+/* A Live pickup (Step 4.3 live tracker): its spot flashes on the map (mapview.mjs), its rows and the Got count
+   flash, and "Got: <item> · <level>" shows a few seconds, over the bar (it moves nothing); reduced motion: a plain
+   highlight, no animation */
+#track-body { position: relative; }
+.got-line { position: absolute; z-index: 3; top: 2px; right: 10px; margin: 0; padding: 3px 10px; border-radius: 4px;
+            font-weight: 700; color: var(--on); background: var(--live); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+            animation: track-got 4s ease-out both; pointer-events: none; }
+@keyframes track-got { 0% { opacity: 0; transform: translateY(-4px); } 8%, 80% { opacity: 1; transform: none; }
+                       100% { opacity: 0; } }
+@keyframes track-fresh { 0%, 55% { background-color: rgba(88, 166, 255, 0.45); } 100% { background-color: transparent; } }
+.tracker .fresh { animation: track-fresh 2.6s ease-out both; }
+#track-count .got { display: inline-block; }
+@keyframes track-bump { 0% { transform: none; } 25% { transform: scale(1.3); color: var(--live); } 100% { transform: none; } }
+#track-count .got.fresh { animation: track-bump 0.9s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .got-line { animation: none; }
+  .tracker .fresh { animation: none; background-color: rgba(88, 166, 255, 0.35); }
+  #track-count .got.fresh { animation: none; background-color: transparent; color: var(--live); }
+}
 .world {
   display: grid; grid-template-columns: repeat(6, minmax(5.5rem, 9rem)); grid-auto-rows: 3.4rem; gap: 6px;
   padding: 6px 10px 10px;

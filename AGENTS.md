@@ -944,7 +944,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     exits once one is tracked), and a level as Modkit's map view on a canvas: its picture by floor (the floor
     buttons), its features, barriers, tracked spots and exits at their
     vanilla places (each spot's ring, icon and check as Modkit's track(), an
-    exit's ring by what using it needs, `tracking.world()`'s `maps`), a
+    exit's ring by what using it needs, `tracking.world()`'s `maps`; a
+    collected spot leaves the map, and Show collected, remembered, shows
+    it dimmed; a Live pickup, Live's `took`, flashes its spot a moment
+    before it leaves, flashes its rows and the Got count and says "Got:
+    <item> · <level>" for a few seconds, a plain highlight with reduced
+    motion), a
     click marking a spot or opening an exit's level, the wheel zooming about
     the pointer, a drag panning, a double click or Fit showing it whole, the
     map filling the window as it resizes, and, with Live, the player's dot
