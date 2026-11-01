@@ -422,7 +422,7 @@ the image's model files read (once an image), then the models' view,
 so a host's bar moves while the tab waits (Step 4.3 round 3).
 
 
-def match(recipe: 'Mapping') -> 'dict':
+def match(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
 
 The G4 buttons' values (P52, D358: Modkit's match-Garret) for
 ``recipe``'s character dressed from its image over its packs:
@@ -433,6 +433,9 @@ and damage (at the recipe's Attack speed), each read at the other
 sliders as set; garret4's own body matches at 1 throughout
 (``tools.characters.match``). The answer of a recipe once matched is
 kept for this process. A refusal names what can't dress.
+``progress(record)`` hears its dress on the ``dress`` stage, its serial
+steps counted ("the dress, k of n", ``core.progress.note``) and the
+swap's items inside each (the host's ``pool.TICK``).
 
 
 def preview(recipe: 'Mapping') -> 'dict':

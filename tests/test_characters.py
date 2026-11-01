@@ -1017,11 +1017,14 @@ def test_the_g4_buttons_values_are_their_goldens_garret_match(usa_iso):
     """``sdk.match`` (P52, D358; Modkit's ``_player_match``, ported): keylord's and beamlord's Model size,
     Attack reach, speed and damage over the packs on by default are the golden's exactly (``matches.json``,
     first recorded as Modkit's ``garret_match``), each box's text 4 figures rounded up; garret4's own body
-    matches at 1."""
+    matches at 1; its ``progress`` hears the dress's serial steps counted on the dress stage, never back."""
     packs = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     keys = dict(zip(characters.MATCHED, ("size", "reach", "speed", "damage")))
     for name, want in _golden("matches.json")["usa"].items():
-        got = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": name}})
+        seen = []
+        got = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": name}}, progress=seen.append)
+        counted = [r["percent"] for r in seen if r["stage"] == "dress" and r["percent"] is not None]
+        assert len(set(counted)) >= 5 and counted == sorted(counted), (name, counted)
         assert got["values"] == {k: want[v] for k, v in keys.items()} and got["why"] == want["why"], name
         assert all(float(got["text"][k]) >= v and len(got["text"][k].replace(".", "").lstrip("0")) <= 4
                    for k, v in got["values"].items()), name

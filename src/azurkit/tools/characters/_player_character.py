@@ -548,6 +548,7 @@ from pathlib import Path
 import numpy as np
 
 from azurkit.core import fdlibm
+from azurkit.core import progress as _progress
 from azurkit.tools.characters.characters import (
     CAMERA_MARKER,
     DAMAGE_MARKERS,
@@ -9751,6 +9752,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     attack_ground = ground if attack_ground is None else attack_ground
     colour, why = (mode_status(species, mode, size, model_scale) if variant is None else
                    variants.status(variant, model_scale, attack_reach, attack_damage, attack_speed))
+    _progress.note("the dress, 1 of 5")   # its serial steps, counted for a call that notes them (sdk.match)
     d = _dress(game, species, mode, missing_anims, size, model_scale, variant, weapon)
     if plans is not None and d.reshaped is not None:
         plans.append(d.reshaped)
@@ -9793,6 +9795,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     stride: dict[str, float] = {}
     timed = {i: length for i, (_, length) in fills.items() if length > 0}
     borrow_hooks = needed_hooks(timed, (timers or bool(borrowed)) and not d.ahead)
+    _progress.note("the dress, 2 of 5")   # the attacks, the reach and the stride
     try:
         # W1, W2 (garret4's exact: garret4's scale and bounds, D131; sized,
         # garret4's height in any mode, Step 2.68), times the model scale
@@ -10120,6 +10123,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         armor = fit_armor(fx, characters, body)   # W15 (Step 2.77b)
     except XbrStructuralError as exc:
         raise ValueError(f"--player-character {species!r}: {exc}") from None
+    _progress.note("the dress, 3 of 5")   # the shims and the camera
     if roll_shim:   # X4
         try:
             install_roll_shim(game["default.xbe"])
@@ -10226,6 +10230,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
         logic.size = size_s
         logic.height, logic.combo = height(characters, body) * size_scaled, combo   # D358's match (Step 2.165b)
     # the clips the build's Anims play (W17's copies as their clips)
+    _progress.note("the dress, 4 of 5")   # the sounds
     roles = sound_roles(game, species, dict(zip(columns, picks)) if picks else None) if sounds == "own" else None
     heard = worn if variant is not None else None   # Step 2.161g (D585): its moves' sfx go with its moveset,
     if heard is not None:   # so under another weapon (unarmed) they and their WAVs drop, its shouts the one sfx
@@ -10345,6 +10350,7 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
                         model_scale=model_scale)
            if mode == "own" and picks else SEARCH_RADIUS)
     # X28 (Step 2.118, AZ-529 (b); Step 2.118c): where X22 eases a hang deeper than garret4's
+    _progress.note("the dress, 5 of 5")   # the holds, the fades and the writes
     hold = (hold_plan(characters, body, fills, drawn, hung, picks[columns.index(ROLL)] if picks else None,
                       lo.carriers)
             if hang_eased(body, hung) else None)

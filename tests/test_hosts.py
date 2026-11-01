@@ -954,12 +954,19 @@ def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_
 def test_the_apps_engine_counts_the_swaps_items_on_the_stage_its_call_reported_last(monkeypatch):
     """``pool.TICK``, set by the app's engine as it follows a call (Step
     4.3m): the swap's items done of total, on the stage the call reported
-    last (its dress's line), each percent once; a call no one follows
-    counts nothing, and another thread's work isn't its."""
+    last (its dress's line), each percent once; on a counted step they count
+    inside it, never back; a call no one follows counts nothing, and another
+    thread's work isn't its."""
     def dress(recipe, progress=None):
         if progress is not None:
             progress(progress_record("dress", "Dressing keylord"))
         return pool.each(lambda shared, item: item + shared, 1, list(range(8)))
+
+    def counted(recipe, progress):   # the match's "the dress, 2 of 5": two pools inside its step
+        progress(progress_record("dress", "Dressing keylord", 1, 5))
+        pool.each(lambda shared, item: item, None, list(range(8)))
+        pool.each(lambda shared, item: item, None, list(range(8)))
+        progress(progress_record("dress", "Dressing keylord", 2, 5))
 
     monkeypatch.setattr(pool, "TICK", pool.TICK)
     monkeypatch.setattr(pool, "MAP", None)
@@ -973,6 +980,10 @@ def test_the_apps_engine_counts_the_swaps_items_on_the_stage_its_call_reported_l
     other.start()
     other.join()
     assert len(seen) == 9
+    monkeypatch.setitem(engine.JOBS, "counted", counted)
+    seen.clear()
+    engine.Here().call("counted", {}, progress=seen.append)
+    assert [r["percent"] for r in seen] == [20, 22, 25, 27, 30, 32, 35, 37, 40, 40]
 
 
 def test_the_apps_save_writes_the_image_its_build_made_planned_once_and_hashed_from_the_build_on(
@@ -1035,14 +1046,16 @@ def test_a_second_launch_of_the_app_hashes_no_image_it_checked_and_dresses_no_bo
     def launch() -> tuple[dict, dict]:   # this process's memos gone, as a new launch's
         sdk._STAMPS.clear()
         sdk._MATCHES.clear()
-        return sdk.vanilla(str(usa_iso)), engine.JOBS["match"](recipe)
+        return sdk.vanilla(str(usa_iso)), engine.JOBS["match"](recipe, progress=told.append)
+    told = []
     try:
         first = launch()
-        assert (hashed, dressed) == ([1], [1])
+        assert (hashed, dressed) == ([1], [1]) and told[0]["stage"] == "dress"   # the job's progress reaches its dress
         swapcache.install(tmp_path / "cache", tmp_path / "cache.key")
         assert launch() == first and (hashed, dressed) == ([1, 1], [1, 1])
         swapcache.install(tmp_path / "cache", tmp_path / "cache.key")   # the next launch's stores, on the same folder
-        assert launch() == first and (hashed, dressed) == ([1, 1], [1, 1])
+        told.clear()
+        assert launch() == first and (hashed, dressed) == ([1, 1], [1, 1]) and not told
     finally:
         sdk._STAMPS.clear()
         sdk._MATCHES.clear()

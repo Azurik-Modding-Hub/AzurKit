@@ -602,7 +602,7 @@ def _dress(recipe: Mapping) -> dict:
     return _MATCHES[key]
 
 
-def match(recipe: Mapping) -> dict:
+def match(recipe: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
     """The G4 buttons' values (P52, D358: Modkit's match-Garret) for
     ``recipe``'s character dressed from its image over its packs:
     ``{"values": {slider: value or None}, "text": {slider: what its box
@@ -611,8 +611,13 @@ def match(recipe: Mapping) -> dict:
     and damage (at the recipe's Attack speed), each read at the other
     sliders as set; garret4's own body matches at 1 throughout
     (``tools.characters.match``). The answer of a recipe once matched is
-    kept for this process. A refusal names what can't dress."""
-    found = _dress(recipe)
+    kept for this process. A refusal names what can't dress.
+    ``progress(record)`` hears its dress on the ``dress`` stage, its serial
+    steps counted ("the dress, k of n", ``core.progress.note``) and the
+    swap's items inside each (the host's ``pool.TICK``)."""
+    with noting(Steps(progress)) as steps:
+        steps("dress")
+        found = _dress(recipe)
     return {k: json.loads(json.dumps(found[k])) for k in ("values", "text", "why")}
 
 

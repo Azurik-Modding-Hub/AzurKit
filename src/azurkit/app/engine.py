@@ -125,7 +125,7 @@ def _following(progress: Callable[[dict], object] | None):
     _FOLLOWED.progress, _FOLLOWED.last, _FOLLOWED.percent = progress, None, None
 
     def report(step: dict) -> None:
-        _FOLLOWED.last = step
+        _FOLLOWED.last, _FOLLOWED.percent = step, step["percent"]
         progress(step)
     try:
         yield report
@@ -136,11 +136,18 @@ def _following(progress: Callable[[dict], object] | None):
 def _ticked(done: int, total: int) -> None:
     """``pool.TICK``: the swap's items done of total (``pool.each``'s, in
     the thread of the call that runs it), on the stage that call reported
-    last (else ``dress``), each percent once."""
+    last (else ``dress``), each percent once. On a counted step (a note's k
+    of n: ``sdk.match``'s dress) they count inside it, so its bar never goes
+    back, a second ``pool.each`` in the step included."""
     if (progress := getattr(_FOLLOWED, "progress", None)) is None:
         return
     last = _FOLLOWED.last or record("dress")
-    step = record(last["stage"], last["label"], done, total)
+    if last["total"]:
+        step = record(last["stage"], last["label"], last["done"] * total + done, last["total"] * total)
+        if step["percent"] < (_FOLLOWED.percent or 0):
+            return
+    else:
+        step = record(last["stage"], last["label"], done, total)
     if step["percent"] != _FOLLOWED.percent:
         _FOLLOWED.percent = step["percent"]
         progress(step)
@@ -175,7 +182,7 @@ def _save(recipe: Mapping, out: str, build: str | None = None,
     return sdk.build(recipe, out, progress=lambda done, total: report(record("write", None, done, total)))
 
 
-def _kept(job: str, fn: Callable[[Mapping], dict]) -> Callable[[Mapping], dict]:
+def _kept(job: str, fn: Callable[[Mapping, Callable | None], dict]) -> Callable[..., dict]:
     """``fn`` (``sdk.preview``, ``sdk.match``), its answer kept in
     ``tools.characters.CACHE`` (the app's store, across launches) under the
     swap's key (``characters.cache_key``: the swap's code, the vanilla
@@ -197,14 +204,14 @@ def _kept(job: str, fn: Callable[[Mapping], dict]) -> Callable[[Mapping], dict]:
                 return pickle.loads(blob)
             except Exception:   # a store from another AzurKit: worked out again
                 pass
-        found = fn(recipe)
+        found = fn(recipe, progress)
         if key is not None:
             characters.CACHE.put(key, pickle.dumps(found, pickle.HIGHEST_PROTOCOL))
         return found
     return run
 
 
-_previewed = _kept("preview", lambda recipe: sdk.preview(recipe))
+_previewed = _kept("preview", lambda recipe, progress=None: sdk.preview(recipe))
 
 
 def _preview(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
@@ -232,7 +239,8 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
                              "plan": _warmed(lambda recipe, progress=None: sdk.plan(recipe, progress=progress),
                                              always=True),
-                             "preview": _preview, "match": _kept("match", lambda recipe: sdk.match(recipe)),
+                             "preview": _preview, "match": _kept("match", lambda recipe, progress=None:
+                                                                    sdk.match(recipe, progress=progress)),
                              "spoiler": lambda plan: sdk.spoiler(plan, built=True),
                              "plan_spoiler": _warmed(lambda plan, progress=None: sdk.spoiler(plan, progress=progress),
                                                      always=True)}
