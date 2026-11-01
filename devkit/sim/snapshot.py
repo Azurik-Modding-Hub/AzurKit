@@ -110,6 +110,8 @@ def store(folder: str | Path | None = None) -> Path:
 
 
 def _private(folder: Path) -> None:
+    if os.name != "posix":   # a mode says nothing there: the user data folder's own access list keeps it private
+        return
     if (mode := folder.stat().st_mode & 0o777) & 0o077:
         raise ValueError(f"{folder} is mode {mode:o}: an L3 snapshot store must be private (mode 700)")
 

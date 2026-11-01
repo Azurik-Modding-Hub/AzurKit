@@ -58,6 +58,21 @@ PRIO_DARWIN_PROCESS, PRIO_DARWIN_BG = 4, 0x1000   # <sys/resource.h>: setpriorit
 def alive(pid: int | None) -> bool:
     if not pid:
         return False
+    if os.name == "nt":   # no signal 0 there: os.kill(pid, 0) sends a Ctrl-C, and tells nothing
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        if not (handle := kernel32.OpenProcess(0x00100000, False, pid)):   # SYNCHRONIZE; refused: another user's, or gone
+            return ctypes.get_last_error() == 5   # ERROR_ACCESS_DENIED: it runs
+        try:
+            return kernel32.WaitForSingleObject(handle, 0) == 0x102   # WAIT_TIMEOUT: not signalled, so still running
+        finally:
+            kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -65,6 +80,27 @@ def alive(pid: int | None) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def lock(fd: int, wait: bool = True) -> None:
+    """The file open as ``fd`` locked for this process until the descriptor closes; with ``wait`` false, ``OSError``
+    while another holds it. ``flock``, and on Windows ``msvcrt.locking`` over its first byte, whose wait gives up after
+    10 s and so is taken again."""
+    if os.name != "nt":
+        import fcntl
+
+        fcntl.flock(fd, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
+        return
+    import msvcrt
+
+    os.lseek(fd, 0, os.SEEK_SET)
+    while True:
+        try:
+            msvcrt.locking(fd, msvcrt.LK_LOCK if wait else msvcrt.LK_NBLCK, 1)
+            return
+        except OSError:
+            if not wait:
+                raise
 
 
 def pid_command(pid: int) -> str:
@@ -90,13 +126,12 @@ def _write(path: Path, doc: dict) -> None:
 def take_ticket(info: dict, root: Path = ROOT) -> Path:
     """A new ticket for this process, numbered after every earlier one
     (a counter under the queue's own lock); ``info`` (its W) is kept in
-    it. Returns its path. POSIX only, like the harness."""
-    import fcntl
+    it. Returns its path."""
     q = root / "queue"
     q.mkdir(parents=True, exist_ok=True)
     fd = os.open(q / ".lock", os.O_RDWR | os.O_CREAT, 0o644)
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        lock(fd)
         try:
             n = int((q / ".next").read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -105,7 +140,7 @@ def take_ticket(info: dict, root: Path = ROOT) -> Path:
         path = q / f"{n:09d}.json"
         _write(path, {"n": n, "pid": os.getpid(), "since": time.time(), "why": None, **info})
     finally:
-        os.close(fd)   # closing the descriptor drops its flock
+        os.close(fd)   # closing the descriptor drops its lock
     return path
 
 

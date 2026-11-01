@@ -32,6 +32,8 @@ import sys
 import time
 from pathlib import Path
 
+from devkit.xemu import queue
+
 INDEX = "warm.json"   # {"key", "n", "drives": {drive name: {state tag: {"disc", "level", "saved"}}}}
 HDD = "xbox_hdd.qcow2"   # a sandbox's drive in its W
 IDLE_S = 2 * 3600.0   # a store no sandbox adopted from or published to for this long goes at the next open: 99.9 %
@@ -62,20 +64,18 @@ class WarmStore:
 
     @contextlib.contextmanager
     def _locked(self):
-        """The store's lock and its index; a lock file ``sweep`` deleted while this waited is taken again. POSIX only,
-        like the harness."""
-        import fcntl
+        """The store's lock and its index; a lock file ``sweep`` deleted while this waited is taken again."""
         while True:
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
             self.dir.mkdir(mode=0o700, exist_ok=True)
             fd = os.open(self.dir / ".lock", os.O_RDWR | os.O_CREAT, 0o600)
             try:
-                fcntl.flock(fd, fcntl.LOCK_EX)
+                queue.lock(fd)
                 if os.fstat(fd).st_nlink:
                     yield self._read()
                     return
             finally:
-                os.close(fd)   # closing the descriptor drops its flock
+                os.close(fd)   # closing the descriptor drops its lock
 
     def _read(self) -> dict:
         try:
@@ -158,7 +158,6 @@ def sweep(root: Path | str, idle_s: float = IDLE_S, now: float | None = None) ->
     """Delete the stores under ``root`` no sandbox adopted from or published to for ``idle_s`` (their index's
     mtime, else the folder's), each under its own lock, taken without waiting (a store in use is left); returns
     their names."""
-    import fcntl
     now = time.time() if now is None else now
     gone = []
     for d in sorted(Path(root).glob("*")):
@@ -172,11 +171,15 @@ def sweep(root: Path | str, idle_s: float = IDLE_S, now: float | None = None) ->
         except OSError:   # gone meanwhile
             continue
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            queue.lock(fd, wait=False)
+            if os.name == "nt":   # no file open there can be removed: its lock file's lock ends here
+                os.close(fd)
+                fd = None
             shutil.rmtree(d)
             gone.append(d.name)
         except OSError:   # in use (the lock)
             continue
         finally:
-            os.close(fd)
+            if fd is not None:
+                os.close(fd)
     return gone

@@ -158,9 +158,11 @@ def test_the_private_store_keeps_snapshots_and_results_mode_600_and_reads_each_s
     shared = tmp_path / "shared"
     shared.mkdir()
     shared.chmod(0o755)
-    with pytest.raises(ValueError, match="must be private"):
-        snapshot.store(shared)
-    assert snapshot.snapshot_path("w1-start", tmp_path / "s").parent.stat().st_mode & 0o777 == 0o700
+    posix = os.name == "posix"   # modes say nothing on Windows
+    if posix:
+        with pytest.raises(ValueError, match="must be private"):
+            snapshot.store(shared)
+    assert not posix or snapshot.snapshot_path("w1-start", tmp_path / "s").parent.stat().st_mode & 0o777 == 0o700
     with pytest.raises(ValueError, match="bad snapshot label"):
         snapshot.snapshot_path("../w1", tmp_path / "s")
 
@@ -180,7 +182,7 @@ def test_the_private_store_keeps_snapshots_and_results_mode_600_and_reads_each_s
     low = pages[0x10000] + pages[0x11000] + pages[0x20000]
     assert info == {"pages": 3, "runs": 2, "high_pages": 2, "bytes": 0x3000,
                     "sha12": hashlib.sha256(low).hexdigest()[:12]}
-    assert (store / "s.l3snap").stat().st_mode & 0o777 == 0o600 and snapshot.read_meta(store / "s.l3snap") == meta
+    assert (not posix or (store / "s.l3snap").stat().st_mode & 0o777 == 0o600) and snapshot.read_meta(store / "s.l3snap") == meta
     snap = snapshot.read_snapshot(store / "s.l3snap")
     want = [(0x10000, low[:0x2000]), (0x20000, low[0x2000:]), (0x80010000, pages[0x80010000] + pages[0x80011000])]
     assert ([(va, bytes(d)) for va, d in snap.runs], snap.regs, snap.meta) == (want, {"fs_base": 0x80035BDC}, meta)
@@ -202,7 +204,7 @@ def test_the_private_store_keeps_snapshots_and_results_mode_600_and_reads_each_s
     second = snapshot.private_out(store / "r.json", {"run": 2})
     assert (first.name, second.name) == ("r.json", "r.2.json")
     assert [json.loads(p.read_text(encoding="utf-8")) for p in (first, second)] == [{"run": 1}, {"run": 2}]
-    assert {p.stat().st_mode & 0o777 for p in (first, second)} == {0o600}
+    assert not posix or {p.stat().st_mode & 0o777 for p in (first, second)} == {0o600}
 
 
 def test_an_observation_reads_the_players_fields_and_hashes_through_any_reader():
