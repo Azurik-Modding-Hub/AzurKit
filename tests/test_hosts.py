@@ -1220,7 +1220,7 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
         tracked = {"plan": report["plan"], "marks": {report["plan"]["sha256"]: {"collected": ["w1/g0/r1717"]}}}
         assert call("api/tracked", {"tracker": tracked}) == {}
         assert call("api/tracked", {"tracker": tracked | {"iso": str(usa_iso)}}) == {
-            "refused": "tracker: an object of plan, marks, endpoints and gems only, or null"}
+            "refused": "tracker: an object of plan, marks, endpoints, gems and collected only, or null"}
         assert call("api/tracked", {"tracker": tracked | {"endpoints": "gdb:1234"}})["refused"].startswith(
             "tracker: endpoints: 'gdb:1234': Live reads no gdbstub")
         assert app.Server.host_info(server)["tracker"] == tracked
@@ -1671,8 +1671,8 @@ def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what
     collected on the tracker, can you remove it from the map, with a toggle
     option for showing them instead? And make it more noticeable when they
     are collected"): a spot marked collected (a click, or Live) leaves the
-    level's map; Show collected (remembered) shows it again, dimmed and
-    clickable; a Live pickup flashes its spot a moment before it leaves,
+    level's map; Show collected (remembered, by the app too) shows it again,
+    dimmed and clickable; a Live pickup flashes its spot a moment before it leaves,
     flashes the Got count and says "Got: <item> · <level>" for a few
     seconds; with reduced motion the line and the count are a plain
     highlight, nothing animated."""
@@ -1706,6 +1706,11 @@ def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what
         _page.click(page, "track-collected")
         assert page.evaluate(drawn, clicked) == [f"{spots[clicked]['name']}: collected"]
         assert page.evaluate("() => azurkit.tracker.state.kept.collected") is True
+        end = time.monotonic() + 30   # the app keeps it with the marks (api/tracked), for the page it opens next
+        while not (app.Server.host_info(server)["tracker"] or {}).get("collected") and time.monotonic() < end:
+            time.sleep(0.05)
+        kept = app.Server.host_info(server)["tracker"] or {}
+        assert [kept.get("collected"), clicked in kept["marks"][doc["sha256"]]["collected"]] == [True, True]
         _page.click(page, "track-collected")
         played.takes.append(game.Took(got, 0.5))
         _page.until(page, "() => !document.getElementById('track-got').hidden")

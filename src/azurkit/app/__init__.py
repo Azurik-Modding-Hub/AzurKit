@@ -279,12 +279,13 @@ TRACKED = 20   # the plans whose marks the app keeps (the page's KEEP)
 def _set_tracked(body: dict) -> dict:
     """``api/tracked``: remember the tracker's plan last tracked (a plan
     file's object: the randomizer's names and numbers) and the marks of
-    the last :data:`TRACKED` plans (``{sha256: marks}``), or forget them
-    (``null``); marks the tracker can't read are refused by name."""
+    the last :data:`TRACKED` plans (``{sha256: marks}``), Live's endpoints,
+    Gems and Show collected, or forget them (``null``); marks the tracker
+    can't read are refused by name."""
     if (kept := body.get("tracker")) is not None:
-        if not (isinstance(kept, dict) and set(kept) <= {"plan", "marks", "endpoints", "gems"}
-                and kept.get("gems", False) in (True, False)):
-            raise ValueError("tracker: an object of plan, marks, endpoints and gems only, or null")
+        if not (isinstance(kept, dict) and set(kept) <= {"plan", "marks", "endpoints", "gems", "collected"}
+                and all(kept.get(k, False) in (True, False) for k in ("gems", "collected"))):
+            raise ValueError("tracker: an object of plan, marks, endpoints, gems and collected only, or null")
         if not isinstance(endpoints := kept.get("endpoints", ""), str):
             raise ValueError("tracker: endpoints is a list's text")
         try:
