@@ -1118,6 +1118,26 @@ def test_each_variant_case_is_its_goldens_file_for_file_and_resource_for_resourc
     assert plans and {shipped.name("plan", row) for row in plans} <= held
 
 
+def test_a_dress_scans_the_levels_once_a_release_and_keeps_none_of_them(usa_iso, monkeypatch):
+    """Step 4.3r4c: the species the levels place (D361's town) are worked out
+    once a release, the levels read without being kept (850 MiB a dress never
+    otherwise reads), and the next ``Vanilla`` of that release reads no level;
+    files handed over as ``{path: bytes}``, which nothing checked, answer for
+    themselves and never for the release."""
+    from azurkit.tools.characters import model_inspect, ports
+
+    monkeypatch.setattr(model_inspect, "_PLACED", {})
+    level = re.compile(r"gamedata/[^/]+\.xbr", re.I)
+    first, again = ports.Vanilla(gate.USA, usa_iso), ports.Vanilla(gate.USA, usa_iso)
+    handed = ports.Vanilla(gate.USA, {"default.xbe": first.read("default.xbe")})
+
+    assert model_inspect.placed_species(handed) == frozenset() and model_inspect._PLACED == {}
+    placed = model_inspect.placed_species(first)
+    assert "town_female_3" in placed and "town_female_2" not in placed
+    assert sum(map(bool, map(level.fullmatch, first.digests))) > 1 and not any(map(level.fullmatch, first._cache))
+    assert model_inspect.placed_species(again) == placed and not any(map(level.fullmatch, again.digests))
+
+
 def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso, no_content, tmp_path, monkeypatch):
     """Step 4.3i: the app's process pool (``azurkit.app.procpool``, the
     swap's ``pool.MAP`` and ``LATER``: Modkit's split over spawned

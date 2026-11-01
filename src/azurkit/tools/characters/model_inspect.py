@@ -355,27 +355,39 @@ def own_runs(characters_xbr: bytes, body: str, fx_xbr: bytes | None = None, *, b
     return total
 
 
+_PLACED: dict[str, frozenset[str]] = {}
+""":func:`placed_species` by the release it read (``Vanilla.release_key``)."""
+
+
 def placed_species(iso) -> frozenset[str]:
     """The ``critters_engine`` species some level of the image ``iso``
     places (AZ-761, Step 2.198): each ``critterGenerator``'s critter in the
     node graphs of every ``gamedata/*.xbr`` (its name up to a ``:`` path,
     case-folded; about 0.25 s over the USA image's 41 files).  The USA
     image's town places town_female_3, _4 and _sleep, town_girlchild_1 and
-    town_male_3, _6 and _sleep, and no level town_female_2 (D361)."""
+    town_male_3, _6 and _sleep, and no level town_female_2 (D361).  Worked
+    out once a release (:data:`_PLACED`), each level read with ``iso.peek``,
+    so the 850 MiB of levels a dress never otherwise reads aren't held
+    through it."""
     import re
 
     from azurkit.tools.characters.ports import XisoReader
     from azurkit.core.xbr import graph as nodes
 
+    release = iso.release_key
+    if release in _PLACED:
+        return _PLACED[release]
     out = set()
     with XisoReader(iso) as rd:
         schema = nodes.Schema(bytes(rd.read_file("default.xbe")))
         for path, entry in rd.walk():
             if entry.is_dir or not re.fullmatch(r"gamedata/[^/]+\.xbr", path.lower()):
                 continue
-            for g in nodes.graphs(rd.read_file(path), schema):
+            for g in nodes.graphs(iso.peek(path), schema):
                 out |= {name.split(":")[0].casefold() for i, kind in enumerate(g.types)
                         if kind == "critterGenerator" and (name := g.pstr(g.recs[i], 0x1C))}
+    if release is not None:
+        _PLACED[release] = frozenset(out)
     return frozenset(out)
 
 

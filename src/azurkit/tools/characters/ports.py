@@ -94,20 +94,38 @@ class Vanilla:
             with iso.Reader(source) as r:
                 self.paths = tuple(e.path for e in r.entries() if not e.is_dir)
 
+    def _checked(self, path: str) -> bytes:
+        """The file ``path`` of the image, checked against the manifest."""
+        if isinstance(self._source, Mapping):
+            raise KeyError(f"{path}: not one of the files read from the image")
+        with iso.Reader(self._source) as r:
+            data = r.read(path)
+        size, sha256 = self.release.files.get(path, (None, None))
+        vouched = (self._stamped is not None and sha256 is not None and path.startswith(gate.BUILD_FILES)
+                   and self._stamped.holds(os.stat(self._source)))
+        if (len(data), sha256 if vouched else hashlib.sha256(data).hexdigest()) != (size, sha256):
+            raise ValueError(f"{path}: not the vanilla {self.release.label} file (D27)")
+        self.digests[path] = sha256
+        return data
+
     def read(self, path: str) -> bytes:
         if path not in self._cache:
-            if isinstance(self._source, Mapping):
-                raise KeyError(f"{path}: not one of the files read from the image")
-            with iso.Reader(self._source) as r:
-                data = r.read(path)
-            size, sha256 = self.release.files.get(path, (None, None))
-            vouched = (self._stamped is not None and sha256 is not None and path.startswith(gate.BUILD_FILES)
-                       and self._stamped.holds(os.stat(self._source)))
-            if (len(data), sha256 if vouched else hashlib.sha256(data).hexdigest()) != (size, sha256):
-                raise ValueError(f"{path}: not the vanilla {self.release.label} file (D27)")
-            self.digests[path] = sha256
-            self._cache[path] = data
+            self._cache[path] = self._checked(path)
         return self._cache[path]
+
+    def peek(self, path: str) -> bytes:
+        """:meth:`read`'s bytes, without keeping them when they weren't kept
+        yet: a file read once to scan (every level's placements,
+        :func:`~azurkit.tools.characters.model_inspect.placed_species`)."""
+        data = self._cache.get(path)
+        return self._checked(path) if data is None else data
+
+    @property
+    def release_key(self) -> str | None:
+        """The image's sha256 where every file is its release's by
+        :meth:`read`'s check, so an answer read from them is the release's own;
+        ``None`` for ``{path: bytes}``, which nothing here checked."""
+        return None if isinstance(self._source, Mapping) else self.release.iso_sha256
 
 
 @dataclass
