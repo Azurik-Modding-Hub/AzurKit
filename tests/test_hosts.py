@@ -39,7 +39,7 @@ import pytest
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli, sdk
 from azurkit.app import engine
-from azurkit.core import gate, iso, progress
+from azurkit.core import gate, iso, native, progress
 from azurkit.core.progress import record as progress_record
 from azurkit.edits import manifest as edits
 from azurkit.edits.layer import Change, Layer
@@ -2353,9 +2353,14 @@ def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fi
     fill's count moves it through the time its reaches take (each item a
     reach places a step, the rest at once its last: counted by spots, the
     bar sat under 37 % until the plan was written), its records the one
-    stream's (``core.progress.note``, folded into the plan's stage)."""
+    stream's (``core.progress.note``, folded into the plan's stage). Its
+    fill reaches by the compiled reach's Python twin (``AZURKIT_NATIVE=0``,
+    a host the library doesn't load on): the kernel's fill ends inside one
+    of the bar's polls, its Track under D980's 1 s, so it owes no moving bar."""
     _home(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(planner_fill, "_LAST_FILL", [None])   # the seed's fill not kept from another test: it fills
+    monkeypatch.setenv("AZURKIT_NATIVE", "0")
+    monkeypatch.setattr(native, "_LIB", None)
     server = app.serve(_page.WEB)
     try:
         page = browser.new_page()
