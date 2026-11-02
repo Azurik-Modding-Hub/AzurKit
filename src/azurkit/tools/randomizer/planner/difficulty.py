@@ -238,28 +238,6 @@ def rung(settings: Settings, rating: int, skips: Mapping[str, Mapping]) -> Setti
     return Settings(ceiling, tier, {**settings.skip_override, **off})
 
 
-_RUNG_LOGIC: dict[tuple, tuple] = {}    # the sliders' Logic at a tier below a plan's, kept for the process's last ones:
-#                                         (the database it was read from, held so its id stays its, that Logic)
-
-
-def rung_logic(logic: Logic, settings: Settings, tier: str) -> Logic:
-    """The Logic a rung at ``tier`` stands on: the plan's own, or under movement sliders that re-check a tier by its
-    own top, the Logic re-checked at ``tier``."""
-    if not settings.sliders or tier == settings.movement_tier:
-        return logic
-    from azurkit.tools.randomizer.movement import Movement, logic_for
-    from azurkit.tools.randomizer.planner.loader import kept_logic
-
-    db = kept_logic().db
-    key = (id(db), json.dumps(settings.sliders, sort_keys=True), tier)
-    if key not in _RUNG_LOGIC:
-        progress.note(NOTE)
-        _RUNG_LOGIC[key] = db, logic_for(db, Movement.from_params(settings.sliders), tier)[0]
-        while len(_RUNG_LOGIC) > 4:
-            _RUNG_LOGIC.pop(next(iter(_RUNG_LOGIC)))
-    return _RUNG_LOGIC[key][1]
-
-
 def progression(logic: Logic, placement: Mapping[str, str]) -> frozenset[str]:
     """The locations holding a progression item, the placement over vanilla (71 in all, wherever they lie)."""
     cls = {it["name"]: it["class"] for it in logic.db.items["item"]}
@@ -292,17 +270,17 @@ class Play:
 def need(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> bool:
     """need_r: one reach."""
     e = rung(settings, rating, logic.skip_tables)
-    return not rung_logic(logic, settings, e.movement_tier).reach(e, placement, traps=False).victory
+    return not logic.reach(e, placement, traps=False).victory
 
 
 def play(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int, *, stop: int | None = None,
          needed: bool = False) -> Play | None:
-    """play_r (the module docstring), the plan's own Logic for its S rounds. ``needed``: need_r is known true (a reach
-    saved). ``stop``: ``None`` as soon as a stage passes it."""
+    """play_r (the module docstring). ``needed``: need_r is known true (a reach saved). ``stop``: ``None`` as soon as a
+    stage passes it."""
     if not needed and not need(logic, settings, placement, rating):
         return Play(False, (len(progression(logic, placement)),), ())
     e = rung(settings, rating, logic.skip_tables)
-    low, prog = rung_logic(logic, settings, e.movement_tier), progression(logic, placement)
+    low, prog = logic, progression(logic, placement)
     got, stages, rounds, cur = frozenset(), [], [], 0
     while True:
         while True:
@@ -343,12 +321,6 @@ class Shape:
         skips = logic.skip_tables
         self.ladder = tuple(rung(settings, r, skips) for r in range(ask.rating, 1, -1))
         self.limit = len(progression(logic, {})) // 2
-
-    def rungs_read(self) -> None:
-        """The Logic each rung the acceptance can read stands on, read now on the calling thread (a first read under
-        sliders takes seconds): attempts at once would each read it, with no note, past a cancel's grace."""
-        for st in self.ladder[:1] if self.ask.once else self.ladder:
-            rung_logic(self.logic, self.settings, st.movement_tier)
 
     def why_not(self, placement: Mapping[str, str]) -> str | None:
         """Whether a passing candidate meets the promise (``None``) or why not, lazily: need_L, one reach, then play_2
@@ -500,8 +472,7 @@ def _worked_out(logic: Logic, settings: Settings, placement: Mapping[str, str], 
     on = picks_on(settings, skips)
     hi = sorted(pid for pid, ids in on.items() if _rated(ids, skips) >= rating)
     made = play(logic, settings, placement, rating)
-    tier = rung(settings, rating, skips).movement_tier
-    below, lowered = rung_logic(logic, settings, tier), replace(settings, movement_tier=tier)
+    lowered = replace(settings, movement_tier=rung(settings, rating, skips).movement_tier)
 
     told, whole = [0], len(made.rounds) * (len(hi) + 1)    # a round's picks and its one try without them or the tier
 
@@ -509,9 +480,8 @@ def _worked_out(logic: Logic, settings: Settings, placement: Mapping[str, str], 
         """The reach with the picks ``off`` turned off, the tier lowered when ``low``."""
         told[0] = min(told[0] + 1, whole)
         progress.note(f"reading what opens each step, {told[0]} of {whole}")
-        at, st = (below, lowered) if low else (logic, settings)
-        return at.reach(st, placement, collected=got, traps=False, replay=True,
-                        off=frozenset(sid for p in off for sid in on[p]))
+        return logic.reach(lowered if low else settings, placement, collected=got, traps=False, replay=True,
+                           off=frozenset(sid for p in off for sid in on[p]))
 
     def named(pid: str) -> str:
         return f"{pid} ({RATING_NAMES[_rated(on[pid], skips)]})"

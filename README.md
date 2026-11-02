@@ -72,8 +72,9 @@ source ([Development](#development)).
 - **Share strings and files:** one `AZR-` string holds every setting; settings files save and load,
   Azurik_Modkit's too.
 - **Warns before you build** when your settings can't make a seed.
-- **Works with movement mods:** the logic is re-checked under your jump and speed settings; anything it can't model
-  is flagged.
+- **Works with movement mods:** your jump, speed, gravity and flap settings pick the movement difficulty the seed is
+  made at (stronger moves play like Hard or Frame-perfect, weaker like Safe), in no time and never refused; a seed
+  with any moved setting isn't promised beatable, and the page and spoiler say so.
 - **Sealed items stay sealed:** an item placed in an ice or acid block, a gem rock or behind a force field can be
   picked up only once it opens, however wide the item reaches.
 - **Character builds share alike:** the body you wear folds its size into the share string, so a seed you track or
@@ -160,8 +161,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   as before.
 - **Effects of its own:** a recipe can give its attacks a fireball, ice shard, arrow, bubble, dome, barrier, stream,
   bolts or laser, made from the game's own effects.
-- **Works with every pack and the randomizer:** a seed can wear a character, its logic re-checked at the body's
-  walk and roll, and the verdict says what the body changes (its height, its attacks).
+- **Works with every pack and the randomizer:** a seed can wear a character, made at the movement difficulty the
+  body's walk and roll play like, and the verdict says what the body changes (its height, its attacks).
 - **In links and recipes:** a share link and a build's recipe carry the character, by name and numbers; a variant
   whose recipe has changed since is named, with what to install or update.
 

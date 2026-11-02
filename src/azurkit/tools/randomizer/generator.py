@@ -4,10 +4,9 @@ read-back of the built image against it (D28, D35), and the movement check
 through the packs' catalog (D83(c)).
 
 - :func:`prepare`: the recipe checked, the build's movement sliders
-  (``physics.slider_values`` of its packs), and the plan Modkit's
-  ``layer.plan_for`` makes on the logic re-checked under them (a run under
-  garret4's falls back to his, AZ-606), with each reason that leaves its
-  logic unverified.
+  (``physics.slider_values`` of its packs), and the plan ``layer.plan_for``
+  makes, at the tier they pick (``movement.played``, D1066), with each
+  reason that leaves its logic unverified.
 - :func:`plan_layer`: the writer's writes (``writer.layout`` and its
   per-file writes, each computed from the vanilla bytes), one group a node
   graph (its new strings, its TOC size and each location it repoints land
@@ -23,9 +22,11 @@ through the packs' catalog (D83(c)).
   level's TOC and node sections (:class:`iso.View` s for ``edits.image``'s
   base), and the reads a host whose reads are late takes ahead, two rounds
   (one by one, 57 pages at Safari's 200 ms a read would cost 11.4 s).
-- :func:`movement_reasons`: the packs' sliders the logic doesn't model, past
-  their ``logic_floor`` (the catalog's), and the speed sliders at 0 or less
-  whose move never ends: each leaves the logic unverified, never refused.
+- :func:`movement_reasons`: a gameplay slider moved, which a seed's promise
+  doesn't hold under (D1064), first; the packs' sliders the logic doesn't
+  model, past their ``logic_floor`` (the catalog's), and the speed sliders
+  at 0 or less whose move never ends: each leaves the logic unverified,
+  never refused.
   A worn body's are the characters' (``tools.characters.reasons``), which
   the sdk joins to these (Step 4.3c2).
 - :func:`spoiler`: the build's spoiler, Modkit's ``--spoiler`` file (Step
@@ -128,19 +129,20 @@ def check(recipe: object) -> dict:
 
 def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepared:
     """The plan :func:`normalize`'s ``recipe`` makes under the build's
-    ``packs`` (``{pack: {slider: value}}``, normalized), on the logic
-    re-checked under their movement sliders; a share string made for other
-    sliders is refused (AZ-383). ``ValueError`` names a setting refused or
-    the items no attempt found a safe spot for (D35)."""
+    ``packs`` (``{pack: {slider: value}}``, normalized), at the tier their
+    movement sliders pick (D1066); a share string made for other sliders is
+    refused (AZ-383). ``ValueError`` names a setting refused or the items no
+    attempt found a safe spot for (D35)."""
     recipe = normalize(recipe)
-    db = kept_logic().db
+    logic = kept_logic()
+    db = logic.db
     share = recipe.get("share")
     if "settings" in recipe:
         share = share_encode(settings_from_table(recipe["settings"], _skips(db), "settings"), _skips(db))
     args = SimpleNamespace(plan=None, seed=recipe["seed"], settings=None, share=share, skip_ceiling=None,
                            movement_tier=None, skip=None, no_skip=None, exclude_category=None)
     note("placing the items")   # the seed's fill starts (core.progress: the call's stage folds it)
-    plan, logic, _, why = layer.plan_for(args, db, sliders(packs))
+    plan, why = layer.plan_for(args, logic, sliders(packs))
     made = {"seed": plan.doc["seed"], "share": plan.doc["share"]}
     if "obsidian_cost" in recipe:
         made["obsidian_cost"] = recipe["obsidian_cost"]
@@ -392,7 +394,7 @@ def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], con
     if failures:
         shown = "; ".join(failures[:20]) + (f"; ... and {len(failures) - 20} more" if len(failures) > 20 else "")
         raise ValueError(f"the image doesn't read back to the plan ({len(failures)}): {shown}")
-    why = list(prepared.why_not) + list(reasons)
+    why = list(reasons) + list(prepared.why_not)   # a moved slider's first (movement_reasons)
     if later:
         why.append(f"{len(later)} placement(s) changed by a later layer")
     if opened:
@@ -400,25 +402,34 @@ def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], con
                    "through their container")
     if rows:
         why.append(f"{len(rows)} item(s) in a row of their own changed by a later layer, so they may be out of reach")
-    return {"seed": plan.doc["seed"], "share": plan.doc["share"], "settings": layer.settings_doc(plan.settings),
+    return {"seed": plan.doc["seed"], "share": plan.doc["share"], "settings": layer.settings_doc(plan.asked),
             "plan": plan.doc["sha256"], "attempt": plan.doc["attempt"],
-            "sliders": {pack: dict(values) for pack, values in sorted(plan.settings.sliders.items())},
+            "sliders": {pack: dict(values) for pack, values in sorted(plan.asked.sliders.items())},
             "obsidian_cost": prepared.recipe.get("obsidian_cost"), "logic_verified": not why,
             "why_not": why, "conflicts": later + opened + rows}
 
 
 def movement_reasons(packs: Mapping[str, Mapping[str, float]], catalog: Sequence[Mapping]) -> list[str]:
-    """Why the build's ``packs`` (``{pack: {slider: value}}``; a slider not
-    given holds its default) leave a plan's logic unverified, by the packs'
-    ``catalog`` (each pack's name and sliders, each with its ``default`` and
-    ``logic_floor``): a slider no certificate reads (``movement.MODELLED``:
-    the roll, the swim; the enemies) past its floor, below vanilla's
-    (``"min"``) or above (``"max"``), and a speed slider at 0 or less whose
-    move never ends (``layer.LOCKS``) or that leaves enemies unkillable
-    (``layer.UNKILLABLE``). Modkit's ``layer.movement_reasons`` for packs."""
-    from azurkit.tools.randomizer.movement import MODELLED
+    """Why the build's ``packs`` (``{pack: {slider: value}}``, normalized: a
+    slider not given holds its default) leave a plan's logic unverified, by
+    the packs' ``catalog`` (each pack's name, category and sliders, each with
+    its ``default`` and ``logic_floor``): first, any gameplay slider moved
+    (a movement slider, or one of a pack outside the "qol" category; an L3
+    toggle isn't one), under which a seed isn't promised beatable (D1064);
+    then a slider the tier doesn't read (``movement.MODELLED``: the roll,
+    the swim; the enemies) past its floor, below vanilla's (``"min"``) or
+    above (``"max"``), and a speed slider at 0 or less whose move never ends
+    (``layer.LOCKS``) or that leaves enemies unkillable (``layer.UNKILLABLE``).
+    Modkit's ``layer.movement_reasons`` for packs."""
+    from azurkit.tools.randomizer.movement import MODELLED, PROMISE, sliders_text
 
-    why = []
+    moved = sliders(packs)
+    for pack in catalog:
+        if pack.get("category") != "qol" and (values := {name: v for name, v in packs.get(pack["name"], {}).items()
+                                                          if (pack["name"], name) not in physics.SLIDERS
+                                                          and not name.startswith("toggle_")}):
+            moved[pack["name"]] = values
+    why = [f"you moved sliders ({sliders_text(moved)}), and {PROMISE}"] if moved else []
     for pack in catalog:
         if pack["name"] not in packs or not any(s.get("logic_floor") for s in pack["sliders"]):
             continue
@@ -426,7 +437,7 @@ def movement_reasons(packs: Mapping[str, Mapping[str, float]], catalog: Sequence
         for s in pack["sliders"]:
             key = (pack["name"], s["name"])
             if physics.SLIDERS.get(key, (None,))[0] in MODELLED:
-                continue    # the logic re-checks it (plan_for)
+                continue    # the tier reads it (movement.played)
             value = values.get(s["name"], s["default"])
             below = s.get("logic_floor") == "min" and value < s["default"]
             above = s.get("logic_floor") == "max" and value > s["default"]

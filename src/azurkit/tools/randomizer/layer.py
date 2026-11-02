@@ -7,11 +7,10 @@ read-back of the final image.
   file (``--settings``) or a share string (``--share``), then each option
   flag given on the command line (D144's, ``--skip``/``--no-skip`` and
   ``--exclude-category``), checked as a settings file is (§7.2).
-- :func:`plan_for`: ``--plan FILE`` (refused when its ``db_digest``
-  differs), else the fill of ``--seed`` under those settings, on the logic
-  of the build's own movement sliders (:func:`build_sliders`, Step R1.14b:
-  :func:`~.movement.logic_for` re-checks every modelled flight), which the
-  settings, so the plan's share string, then hold (AZ-383).
+- :func:`plan_for`: the fill of ``--seed`` under those settings with the
+  build's own movement sliders (:func:`build_sliders`), which the
+  settings, so the plan's share string, then hold (AZ-383); moved, they
+  pick the tier the seed is filled at (:func:`~.movement.played`, D1066).
 - :func:`write_layer`: the plan through :func:`~.writer.write_plan`, and
   ``--obsidian-cost``'s lock thresholds, as the layer ``randomizer`` of
   the build's :class:`~azurik_mod.patching.mod_apply.LayerLog`.
@@ -23,9 +22,7 @@ read-back of the final image.
   Step R1.14b): a slider the logic doesn't model (the roll, the swim) past
   its ``logic_floor``, a name no slider has or a swapped body no
   sitting has graded (D260) makes ``logic_verified`` false
-  (:func:`movement_reasons`, which the GUI shows live, Step R1.14); so
-  does movement that breaks what the logic's
-  nodes stand on (:func:`plan_for`'s reasons).
+  (:func:`movement_reasons`, which the GUI shows live, Step R1.14).
 
 Outputs beside the ISO (D36's rules): the placement file the GUI's maps
 and its Spoiler Save… read (:mod:`~.placements`), and on request the
@@ -41,6 +38,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from azurkit.tools.randomizer.movement import sliders_text
 from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES,
     DARK_FIRE,
@@ -135,8 +133,8 @@ def settings_text(settings: Settings) -> str:
 def build_sliders(enabled, params: Mapping) -> dict[str, dict[str, float]]:
     """The build's movement sliders (``physics.SLIDERS``) that aren't
     vanilla's, of its ``enabled`` packs in ``params`` (``{pack: {slider:
-    value}}``; :func:`~.physics.slider_values`): what its logic is
-    re-checked under and its share string and placement file record
+    value}}``; :func:`~.physics.slider_values`): what picks the tier its
+    seed is made at and its share string and placement file record
     (AZ-383); a name no slider has is :func:`movement_reasons`' to name."""
     from azurkit.tools.randomizer.physics import slider_values
 
@@ -171,90 +169,31 @@ def size_params(enabled, params: Mapping, s: float) -> tuple[list[str], dict[str
     return list(enabled) + ([SIZE_PACK] if SIZE_PACK not in enabled else []), folded
 
 
-def sliders_text(sliders: Mapping) -> str:
-    """Movement sliders (``{pack: {slider: value}}``) in words, each value
-    as typing it gives it back (a size fold's sqrt(s) whole)."""
-    return ", ".join(f"{pack} {name} {v:g}" if float(f"{v:g}") == v else f"{pack} {name} {float(v)!r}"
-                     for pack, values in sorted(sliders.items())
-                     for name, v in sorted(values.items())) or "none (vanilla movement)"
-
-
-def plan_for(args, db, sliders=None):
-    """The build's plan and the logic it stands on, as (plan, logic,
-    recheck, why): ``--plan`` (checked against ``db``), else the fill of
-    ``--seed`` (default ``"42"``) under :func:`settings_from_args` with the
-    build's movement ``sliders`` (:func:`build_sliders`; none: vanilla's),
-    on the logic of ``db`` under them at the settings' tier
-    (:func:`~.movement.logic_for`). A ``--share`` made for other sliders is
-    refused (:class:`LayerError`): its plan stands on other logic (AZ-383).
-    ``why`` names what leaves that logic unverified: free movement the
-    nodes stand on that the movement breaks, a ``--plan`` that verifies
-    at the movement it was planned for but not at this build's (a plan
-    that doesn't verify there is trusted, as before), else a slider weaker
-    or taller-jumping over a hop the re-check can't judge (:func:`unjudged_reasons`).
-    A run under garret4's 7 m/s (the walk slider, a worn body's size
-    folded in: Step 2.133, D353) fills on the logic re-checked at it
-    and, when none fills there, on his 7 m/s logic (:func:`~.movement.run_floor`;
-    its share string records that run, which a ``--share`` may then hold)
-    with :func:`floor_reason` (AZ-606: it raised "no plan" before).
-    Raises the planner's errors (D35)."""
-    from azurkit.tools.randomizer.movement import logic_for, run_floor, taller, weaker
-    from azurkit.tools.randomizer.physics import Movement
-    from azurkit.tools.randomizer.planner.fill import FillError, fill, verify
+def plan_for(args, logic, sliders=None):
+    """The build's plan and why its logic is unverified so far, as (plan,
+    why): the fill of ``--seed`` (default ``"42"``) under
+    :func:`settings_from_args` with the build's movement ``sliders``
+    (:func:`build_sliders`; none: vanilla's), on ``logic`` (the logic as
+    authored); moved, they pick the tier it is filled at, so the seed is that
+    tier's (:func:`~.movement.played`, D1066). A ``--share`` made for other
+    sliders is refused (:class:`LayerError`): its sliders pick its tier, so
+    its world differs (AZ-383). ``why``: :func:`roll_reasons`. Raises the
+    planner's errors (D35)."""
+    from azurkit.tools.randomizer.movement import played
+    from azurkit.tools.randomizer.planner.fill import fill
     from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc
 
     sliders = dict(sliders or {})
-    m = Movement.from_params(sliders)
-    if _given(args, "plan"):
-        plan = load_plan(Path(args.plan), db)
-        logic, rc = logic_for(db, m, plan.settings.movement_tier)
-        why = list(rc.broken)
-        own = Movement.from_params(plan.settings.sliders)
-        if own != m and (lost := verify(logic, plan.settings, plan.placement)) \
-                and not verify(logic_for(db, own, plan.settings.movement_tier)[0], plan.settings, plan.placement):
-            why += [f"the plan verifies at the movement it was planned for but not at this build's: {p}"
-                    for p in lost]
-        if not why and (weaker(sliders) or taller(sliders)) and not verify(logic, plan.settings, plan.placement):
-            why += unjudged_reasons(plan, logic, db, sliders)
-        return plan, logic, rc, why + roll_reasons(plan.settings, db, sliders)
-    settings = settings_from_args(args, db)
-    floor = run_floor(sliders)
-    if settings.sliders and settings.sliders != sliders and settings.sliders != floor:
+    settings = settings_from_args(args, logic.db)
+    if settings.sliders and settings.sliders != sliders:
         raise LayerError(f"--share holds the movement sliders {sliders_text(settings.sliders)}, and this build's "
-                         f"are {sliders_text(sliders)}: its plan stands on their logic, so set the same sliders "
-                         f"(AZ-383); a worn body's size folds into the walk and roll sliders, so build the same "
-                         f"body at the same size (Step 2.133)")
+                         f"are {sliders_text(sliders)}: its sliders pick the tier its seed is made at, so set the "
+                         f"same sliders (AZ-383); a worn body's size folds into the walk and roll sliders, so build "
+                         f"the same body at the same size (Step 2.133)")
     seed = str(args.seed if getattr(args, "seed", None) is not None else "42")
-    slower = replace(settings, sliders=sliders)
-    slow, rc = logic_for(db, m, settings.movement_tier)
-    if (floor is None or not settings.sliders or settings.sliders != floor) and (   # a --share on his run stands on it
-            floor is None or not unreachable(slow, slower)):   # a location no plan collects there: none fills
-        try:
-            plan = load_plan(plan_doc(fill(slow, seed, slower), db), db)
-        except FillError:
-            if floor is None:
-                raise
-        else:
-            return plan, slow, rc, (list(rc.broken) or unjudged_reasons(plan, slow, db, sliders)) + roll_reasons(
-                slower, db, sliders)
-    settings = replace(settings, sliders=floor)
-    logic, rc = logic_for(db, Movement.from_params(floor), settings.movement_tier)
-    plan = load_plan(plan_doc(fill(logic, seed, settings), db), db)
-    return plan, logic, rc, [floor_reason(m, verify(slow, slower, plan.placement))] + (
-        list(rc.broken) or unjudged_reasons(plan, logic, db, floor)) + roll_reasons(settings, db, sliders)
-
-
-def unreachable(logic, settings) -> list[str]:
-    """The pool locations ``logic`` reaches under ``settings`` with no
-    item placed and every item held (``Logic.reach`` grows with what is
-    held), but for the forfeitable: none a plan can collect, so a fill
-    there can only fail its verify (D122's every location), and
-    :func:`plan_for` falls back without its attempts (Step 2.133: 20 of
-    them took 3 min at a 6.3 m/s run)."""
-    held = [item for item in logic.vanilla_placement().values() if item]
-    got = logic.reach(settings, {}, held, traps=False).locations
-    return [loc for loc, lvl in sorted(logic.pool.items())
-            if lvl not in logic.db.stubs and loc not in got and loc not in logic.forfeitable]
+    asked = replace(settings, sliders=sliders)
+    plan = load_plan(plan_doc(fill(logic, seed, played(asked)), logic.db, asked), logic.db)
+    return plan, roll_reasons(asked, logic.db, sliders)
 
 
 def roll_reasons(settings, db, sliders: Mapping) -> list[str]:
@@ -274,44 +213,6 @@ def roll_reasons(settings, db, sliders: Mapping) -> list[str]:
                         + [f"plays x{m.roll_time_scale:.3g} his speed"] * (m.roll_time_scale != 1.0))
     on = set(skips_on(settings, {sid: s for sid, (_, s) in db.skips.items()})) & rolling_skips(db)
     return [f"skip {sid} is on and the roll {roll}: it was proven at his x1 roll" for sid in sorted(on)]
-
-
-def floor_reason(m, lost) -> str:
-    """Why a plan that fell back to garret4's run (:func:`plan_for`,
-    Step 2.133, AZ-606) leaves its logic unverified: movement ``m``'s run,
-    and what the logic re-checked at it says of the plan (``lost``:
-    :func:`~.planner.fill.verify`'s problems there, its new traps and the
-    locations it never collects)."""
-    from azurkit.tools.randomizer.physics import RUN_SPEED
-
-    return (f"the run is {m.run_speed:.2f} m/s, under garret4's {RUN_SPEED:g} m/s (the walk slider, a worn body's "
-            f"size folded in: D353), and no plan fills on the logic re-checked at it, so the plan stands on his "
-            f"{RUN_SPEED:g} m/s logic (its share string records that run, AZ-606)"
-            + (f"; on the slower logic it fails ({'; '.join(lost)})" if lost else "")
-            + ", so the logic can't count on its routes")
-
-
-def unjudged_reasons(plan, logic, db, sliders: Mapping) -> list[str]:
-    """AZ-384's conservative half: with a modelled slider weaker than
-    vanilla (:func:`~.movement.weaker`), or one that raises the jump's arc
-    (:func:`~.movement.taller`: no such hop has a known roof, so a taller
-    arc may meet one, AZ-407), each hop of the plan's playthrough on
-    ``logic`` that the re-check can't judge (:func:`~.movement.unjudged`:
-    a hand edge, a ride, a probed walk, an edge past an undecoded gate)
-    leaves its logic unverified; a reason per side names the first and
-    counts the rest."""
-    from azurkit.tools.randomizer.movement import taller, unjudged, weaker
-
-    weak, tall = weaker(sliders), taller(sliders)
-    hops = unjudged(plan, logic, db) if weak or tall else []
-    if not hops:
-        return []
-    more = f" and {len(hops) - 1} more" if len(hops) > 1 else ""
-    return [f"{', '.join(names)} {what}, and the plan crosses a hop the movement re-check can't judge{roof}: "
-            f"{hops[0]}{more} ({az})"
-            for names, what, roof, az in ((weak, "is weaker than vanilla", "", "AZ-384"),
-                                          (tall, "raises the jump's arc over vanilla's",
-                                           ", where a roof may clip the taller arc", "AZ-407")) if names]
 
 
 def _thresholds(town, cost: float) -> list[tuple[int, float]]:
@@ -397,6 +298,5 @@ def spoiler_text(plan, logic, logic_verified: bool, why_not=()) -> str:
 
 
 __all__ = ["CATEGORIES", "LAYER", "LayerError", "LayerReport", "SIZE_FOLD", "SIZE_PACK", "SIZE_SLIDERS",
-           "build_sliders", "floor_reason", "obsidian_reason", "plan_for", "roll_reasons", "unreachable",
-           "read_settings", "size_params", "sliders_text", "settings_from_args", "settings_text", "spoiler_text",
-           "unjudged_reasons"]
+           "build_sliders", "obsidian_reason", "plan_for", "roll_reasons", "read_settings", "size_params",
+           "sliders_text", "settings_from_args", "settings_text", "spoiler_text"]

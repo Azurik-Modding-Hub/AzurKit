@@ -146,8 +146,8 @@ OPS = {op.id: op for op in (
     Op("A72", "Track, Seed difficulty Frame-perfect at Frame-perfect movement and skips", "tracker", head_start=True),
     Op("A73", "Build, Seed difficulty Frame-perfect at Frame-perfect movement and skips, no Track first", "randomizer",
        head_start=True),
-    Op("A74", "Track, Seed difficulty Hard at Hard movement with a movement slider, no skip (each tier's re-check, "
-              "first time)", "tracker", bar=True, head_start=True),
+    Op("A74", "Track, Seed difficulty Hard at Hard movement with a movement slider, no skip (jump 1.3: "
+              "Frame-perfect's seed)", "tracker", head_start=True),
     Op("A75", "the spoiler's View clicked as Build ends, Seed difficulty Hard at Hard movement and skips (its openers)",
        "randomizer"),
     Op("A76", "the tracker's Spoiler ticked as Track ends, Seed difficulty Hard at Hard movement and skips (its openers)",

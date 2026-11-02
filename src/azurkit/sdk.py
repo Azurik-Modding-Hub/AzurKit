@@ -50,11 +50,12 @@ are hints, never limits, and nothing is clamped (``mods.normalize``).
 A randomizer plan needs no image: :func:`plan` takes a seed and its
 settings (``tools.randomizer``'s recipe) and returns Modkit's plan file. A
 build recipe's ``randomizer`` (that recipe, and an ``obsidian_cost``) plans
-it on the logic re-checked under the build's movement sliders and writes it
+it at the movement tier the build's movement sliders pick (D1066) and writes it
 as the build's first layer, before the packs (Modkit's ``mod_apply``
 order); the built image is read back against the plan before anything is
 written: a placement a later layer changed is a conflict that leaves the
-logic unverified (D28), any other difference fails the build (D35), and the
+logic unverified (D28), as does any moved slider, under which a seed isn't
+promised beatable (D1064); any other difference fails the build (D35), and the
 report's ``randomizer`` gives the verdict (``tools.randomizer.generator``)
 and its ``spoiler`` the build's spoiler (Modkit's ``--spoiler`` file)::
 
@@ -747,8 +748,7 @@ def _report(made: edits.Manifest, prepared: generator.Prepared | None, steps: St
            "notes": [note for la in made.layers for note in la.notes]}
     if prepared is not None:
         verdict = made.verdicts[generator.TOOL]
-        tracking.prime(prepared.plan.doc, prepared.logic)
-        out |= {"randomizer": verdict, "plan": prepared.plan.doc}
+        out |={"randomizer": verdict, "plan": prepared.plan.doc}
         if spoiler:
             steps("spoiler")
             out["spoiler"] = generator.spoiler(prepared, verdict)

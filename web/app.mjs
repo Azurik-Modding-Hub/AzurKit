@@ -1006,8 +1006,8 @@ function built(reply) {
     state.url = URL.createObjectURL(blob);
   }
   const changed = Object.keys(made.result), rz = made.randomizer;
-  const verdict = !rz ? "" : ` · seed ${rz.seed} · ${rz.share} · ${rz.logic_verified ? "logic verified"
-    : `⚠ logic unverified: ${rz.why_not[0]}${rz.why_not.length > 1 ? ` (+${rz.why_not.length - 1} more)` : ""}`}`;
+  const verdict = !rz ? "" : ` · seed ${rz.seed} · ${rz.share} · ${rz.logic_verified ? "promised beatable"
+    : `⚠ not promised beatable: ${rz.why_not[0]}${rz.why_not.length > 1 ? ` (+${rz.why_not.length - 1} more)` : ""}`}`;
   const communal = made.layers.filter((layer) => layer.id.startsWith("community ")).map((layer) => ` · ${layer.id}`);
   report(`Ready · ${made.label} · ${bytes(size)}${verdict}${communal.join("")}` + made.conflicts.map((c) => ` · conflict: ${c}`).join("")
          + made.notes.map((n) => ` · note: ${n}`).join("")
@@ -1345,7 +1345,7 @@ function randoView(reply, ticket) {
   const note = reply.note ?? state.rando.note;
   warn([...(reply.preflight ? [`The build refuses: ${reply.preflight}`] : []), ...(note ? [note] : []),
         ...(reply.body ? [reply.body] : []),
-        ...reply.why_not.map((why) => `Logic unverified (flagged, not refused): ${why}`)], Boolean(reply.preflight));
+        ...reply.why_not.map((why) => `Not promised beatable (flagged, not refused): ${why}`)], Boolean(reply.preflight));
   remember();
 }
 

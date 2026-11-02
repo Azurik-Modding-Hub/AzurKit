@@ -11,8 +11,9 @@ for a landing ``dh`` above the takeoff (negative: a drop) and, optionally,
 a ceiling, the longest horizontal flight of each air rank (0 no air shield,
 1-3 air shield N: :class:`Kit`) from a run or from standing, with the best
 flap timing, and the highest rise.  The difficulty tiers are margins over
-it (``draft/tiers.toml``).  Stdlib only, so the planner and a build can
-call it with a build's sliders (Step R1.14b).
+it (``draft/tiers.toml``).  Stdlib only; ``scripts/slider_tiers.py``
+makes the movement sliders' tier table from it (D1066), so a plan runs
+none of it.
 
 The laws (``docs/RE_MOVEMENT.md``; labels as in ``draft/envelope.py``:
 [verified xemu sN / calib / p9] measured in game, [verified L2] the game's
@@ -46,7 +47,7 @@ own code under :mod:`azurik_mod.sim.l2`, [verified static] code read):
   walk / run   run_speed x stick (garret4 runSpeed, walk_speed_scale x
                7.0) after about run_speed / 3.27 ramp ticks [verified xemu
                s3, s6].
-  roll, swim   outside the logic (movement.MODELLED); measured in
+  roll, swim   outside the tier table (movement.MODELLED); measured in
                docs/RE_MOVEMENT.md.  Swim: toward 10 x swim_speed_scale m/s
                [verified xemu s6, p9].
   falls        damage needs |vz| > 10 m/s and a drop of 6 / 8 / 17 m for
@@ -413,28 +414,6 @@ class Physics:
             cross = mair + k + self._frac(zs, vs, m, level)
         return Arc(cross, max(apex, self._seg_max(zs, vs, 400)), tuple(done))
 
-    def feet(self, kit: Kit, flap_ticks, cap: float | None, n: int) -> list[float]:
-        """The feet's height above the takeoff after each of the first ``n``
-        air ticks of :meth:`arc`'s jump (a flap's tick, frozen, is no air
-        tick), under a roof capping them at ``cap`` (the rise stops there)."""
-        z, vz, gauge, out = 0.0, kit.v0, 1.0, []
-        flaps, used, k = set(sorted(flap_ticks)[: kit.flaps]), 0, 0
-        while len(out) < n and k < 8000:
-            k += 1
-            if k in flaps and used < kit.flaps and gauge > 0.0:
-                f = self.flap(kit, z, vz, gauge)
-                if f is not None:
-                    vz, gauge, empty = f
-                    used += 1
-                    gauge = 0.0 if empty else gauge
-                    continue
-            vz -= self.gdt
-            z += self.dt * vz
-            if cap is not None and z > cap and vz > 0.0:
-                z, vz = cap, 0.0
-            out.append(z)
-        return out
-
     def horizon(self, kit: Kit) -> int:
         """Ticks within which every useful flap falls: the jump's airtime
         plus each flap's, generously."""
@@ -531,56 +510,6 @@ class Physics:
                     break
         return v, s, a
 
-    def polish(self, kit: Kit, level: float, ticks, cap: float | None = None,
-               objective: str = "air") -> tuple[float | None, tuple, Arc]:
-        """A local optimum of the flap ticks from ``ticks`` (a near
-        movement's best: a seeded :class:`Envelope`, Step R1.14b), as
-        :meth:`best` returns it: each flap alone within +/-6 ticks, then
-        every flap +/-1 together (up to 8 flaps), until none improves, in
-        steps of the game's own tick (1/30 s) first, then of one tick.  A reach it gives is flyable (any schedule is), never
-        above the optimum."""
-        def val(a: Arc):
-            return a.apex if objective == "apex" else a.cross
-
-        def ok(t):
-            return t[0] >= FLAP_MIN_PERIOD and all(t[j + 1] - t[j] >= FLAP_MIN_PERIOD for j in range(len(t) - 1))
-
-        a0 = self.arc(kit, (), level, cap)
-        best = (val(a0), (), a0)
-        t = list(ticks)[: kit.flaps]
-        while t and len(t) < kit.flaps:
-            t.append(t[-1] + max(FLAP_MIN_PERIOD, t[-1] - t[-2] if len(t) > 1 else 20))
-        if not t:
-            return best
-        for j in range(len(t)):
-            t[j] = max(t[j], FLAP_MIN_PERIOD if j == 0 else t[j - 1] + FLAP_MIN_PERIOD)
-        a = self.arc(kit, tuple(t), level, cap)
-        v, s, n = val(a), tuple(t), len(t)
-        unit = max(1, round(self.m.fps / FPS))       # a move of ticks at the game's own rate, then single ticks
-        for k in sorted({unit, 1}, reverse=True):
-            groups = [[tuple(dd * k if j == i else 0 for j in range(n)) for i in range(n)
-                       for dd in (-6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6)],
-                      [tuple(x * k for x in d) for d in itertools.product((-1, 0, 1), repeat=n) if any(d)]
-                      if n <= 8 else []]
-            improved = True
-            while improved:
-                improved = False
-                for group in groups:
-                    for d in group:
-                        tt = tuple(x + y for x, y in zip(s, d))
-                        if not ok(tt):
-                            continue
-                        na = self.arc(kit, tt, level, cap)
-                        nv = val(na)
-                        if nv is not None and (v is None or nv > v + 1e-12):
-                            v, s, a, improved = nv, tt, na, True
-                            break
-                    if improved:
-                        break
-        if v is not None and (best[0] is None or v > best[0] + 1e-12):
-            best = (v, a.ticks, a)
-        return best
-
     # ---- ground moves and falls
     def run_up_m(self) -> float:
         """Straight ground before a takeoff at full run speed: the ramp
@@ -591,23 +520,6 @@ class Physics:
             v = min(v + dv, self.m.run_speed)
             d += v * self.dt
         return d
-
-    def walk_off_carry(self, drop: float, slope: float = 0.0) -> float:
-        """Horizontal carry falling ``drop`` m after running off an edge (no
-        jump: air control 9 c, the entity's before its first jump [verified
-        xemu s6 §2]; a walk-off flap uses a stale ceiling, calib §6), off a
-        lip that falls ``slope`` m a metre along the run (AZ-365): the body
-        leaves at the run speed along the slope, so with its downward part
-        as its first fall speed and only the rest ahead [verified L3, Step
-        X.16: 17 of 28 ledges leave at 0.7-2.9 m/s down]; a lip that rises
-        counts as level."""
-        k = 1.0 / math.hypot(1.0, max(slope, 0.0))
-        vz = -self.m.run_speed * max(slope, 0.0) * k
-        m = self._seg_cross(0.0, vz, -drop, None)
-        if m is None:
-            return math.inf
-        return self.travel(self._frac(0.0, vz, m, -drop), self.m.run_speed * k,
-                           f32(AC_PLAIN * self.m.air_control_scale))
 
     def fall_hp(self, drop: float) -> int:
         """HP a landing ``drop`` m below the last ground costs (from rest)."""
@@ -631,43 +543,17 @@ class Envelope:
     neighbouring levels' schedules flown to ``dh`` (each value is
     witnessed by a schedule).  Under a ceiling the arcs are clipped
     (:meth:`Physics.arc`: a roof stops the rise), and where it clips the
-    best of them the flap timing is searched for that ceiling.  An
-    ``exact`` envelope also searches it for each ``dh`` itself (slower; the
-    neighbours' schedules can land a little short of that):
-    :func:`~.movement.slider_ranges` confirms a seeded failure with one
-    (AZ-367)."""
+    best of them the flap timing is searched for that ceiling."""
 
     DROP = 20.0          # the grid's lowest level, m below the takeoff
 
-    def __init__(self, m: Movement = VANILLA, beam: int = 100, seed: Envelope | None = None, exact: bool = False):
+    def __init__(self, m: Movement = VANILLA, beam: int = 100):
         self.m = m
-        self.exact = exact
         self.p = Physics(m)
         self.beam = beam     # the flap search's beam (a narrower one is faster and never overstates)
-        # seed: another movement's envelope whose best flap ticks, rescaled, start a local search (Physics.polish)
-        # instead of the beam: much faster, and never above the full search (Step R1.14b)
-        self.seed = seed if seed is not None and seed.m != m else None
         self._sched: dict = {}
         self._cache: dict = {}
         self._levels: dict = {}
-
-    def _from_seed(self, kit: Kit, level: float, ticks, cap: float | None = None, objective: str = "air"):
-        """:meth:`Physics.polish` from the seed's ``ticks`` rescaled by the two kits' flap cycles in ticks."""
-        sk = self.seed.kits[kit.rank]
-
-        def cycle(p: Physics, k: Kit) -> float:
-            return (k.v0 + p.m.flap_scale * math.sqrt(2.0 * p.g * k.h)) / max(p.gdt, 1e-6)
-        r = cycle(self.p, kit) / cycle(self.seed.p, sk)
-        ticks = list(ticks)
-        starts = {tuple(max(FLAP_MIN_PERIOD, round(t * r)) for t in ticks), tuple(ticks)}
-        if ticks:      # the first flap rescaled, the rest as far after it as in the seed
-            starts.add(tuple(t - ticks[0] + max(FLAP_MIN_PERIOD, round(ticks[0] * r)) for t in ticks))
-        best = None
-        for s in sorted(starts):
-            v, s, a = self.p.polish(kit, level, s, cap, objective)
-            if best is None or (v is not None and (best[0] is None or v > best[0] + 1e-12)):
-                best = (v, s, a)
-        return best
 
     @property
     def kits(self) -> tuple[Kit, ...]:
@@ -687,13 +573,7 @@ class Envelope:
         """The highest apex of the feet above the takeoff (under a ceiling)."""
         key = ("rise", rank, flaps)
         if key not in self._cache:
-            kit = self.kit(rank, flaps)
-            if self.seed is not None:
-                self.seed.rise(rank, flaps=flaps)
-                v, s, _ = self._from_seed(kit, -60.0, self.seed._cache[("rise_ticks", rank, flaps)], objective="apex")
-            else:
-                v, s, _ = self.p.best(kit, -60.0, objective="apex", beam=self.beam)
-            self._cache[key], self._cache[("rise_ticks", rank, flaps)] = v, s
+            self._cache[key] = self.p.best(self.kit(rank, flaps), -60.0, objective="apex", beam=self.beam)[0]
         r = self._cache[key]
         return r if ceiling is None else min(r, ceiling - BODY_HEIGHT)
 
@@ -712,13 +592,7 @@ class Envelope:
         """The best flap ticks at grid level ``i`` (searched once)."""
         key = (rank, flaps, i)
         if key not in self._sched:
-            kit, level = self.kit(rank, flaps), self.levels(rank, flaps)[i]
-            s = None
-            if self.seed is not None:
-                s = self._from_seed(kit, level, self.seed.schedule(rank, level, flaps=flaps))[1]
-                if kit.flaps and self.p.arc(kit, s, level).cross is None:
-                    s = None    # above the seed's own rise it has no schedule to start from (Step X.11)
-            self._sched[key] = s if s is not None else self.p.best(kit, level, beam=self.beam)[1]
+            self._sched[key] = self.p.best(self.kit(rank, flaps), self.levels(rank, flaps)[i], beam=self.beam)[1]
         return self._sched[key]
 
     def airtime(self, rank: int, dh: float, ceiling: float | None = None, flaps: int | None = None):
@@ -737,13 +611,9 @@ class Envelope:
             st = self.p.arc(kit, s, dh, cap)
             if st.cross is not None and (best[0] is None or st.cross > best[0] + 1e-12):
                 best = (st.cross, s, st.apex)
-        # the roof clipped it, or an exact envelope: the flap timing searched for dh itself
-        if kit.flaps and (self.exact or (cap is not None and (best[0] is None or best[2] >= cap - 1e-9))):
-            v = None
-            if self.seed is not None:
-                v, s, st = self._from_seed(kit, dh, self.seed.schedule(rank, dh, ceiling, flaps), cap)
-            if v is None:
-                v, s, st = self.p.best(kit, dh, cap=cap, beam=self.beam)
+        # the roof clipped it: the flap timing searched for dh itself
+        if kit.flaps and cap is not None and (best[0] is None or best[2] >= cap - 1e-9):
+            v, s, st = self.p.best(kit, dh, cap=cap, beam=self.beam)
             if v is not None and (best[0] is None or v > best[0] + 1e-12):
                 best = (v, s, st.apex)
         self._cache[key] = best
@@ -762,17 +632,11 @@ class Envelope:
         """The travel of the rank's jump alone (no flap), as :meth:`travel`."""
         return self.travel(rank, dh, run=run, ceiling=ceiling, flaps=0)
 
-    def schedule(self, rank: int, dh: float, ceiling: float | None = None, flaps: int | None = None) -> tuple[int, ...]:
-        """The flap ticks (after the jump tick) of :meth:`travel`'s flight."""
-        return self.airtime(rank, dh, ceiling, flaps)[1]
-
 
 @functools.lru_cache(maxsize=64)
-def envelope(m: Movement = VANILLA, beam: int = 100, seeded: bool = False, exact: bool = False) -> Envelope:
-    """The (cached) :class:`Envelope` of ``m``; ``seeded``: its flap ticks
-    searched locally from vanilla's (:class:`Envelope`'s ``seed``);
-    ``exact``: searched for each landing itself too."""
-    return Envelope(m, beam, envelope(VANILLA, beam) if seeded else None, exact)
+def envelope(m: Movement = VANILLA, beam: int = 100) -> Envelope:
+    """The (cached) :class:`Envelope` of ``m``."""
+    return Envelope(m, beam)
 
 
 # --------------------------------------------------------------------------- tiers and certificates
@@ -805,78 +669,6 @@ def tier_gap(env: Envelope, margin: Margin, rank: int, dh: float, run: bool = Tr
     t0 = env.travel_plain(rank, lv, run=run, ceiling=ceiling) or 0.0
     loss = margin.takeoff_window * env.m.run_speed * env.p.dt if run else 0.0
     return math.cos(math.radians(margin.stick_deg)) * (t0 + margin.reach * (t - t0) - loss) - margin.landing_margin
-
-
-@dataclass(frozen=True)
-class Certificate:
-    """What one derived flight physically needs (D167, D168): the air rank
-    it flies with, the edge-to-edge ``gap`` it covers (a walk-off: the run
-    off the edge to the landing), the landing ``dh`` above the takeoff (a
-    drop below zero: its fall), a running takeoff or a standing one, the
-    takeoff floor's ``runup`` before its edge on the track, its
-    ``headroom`` (the roof the flight passes under, m above the takeoff,
-    such that the witness arc's apex plus the body fits under it; None:
-    open sky), whether it is a walk-off (no jump) or uses the lip lift,
-    a cap on its flaps (the jump alone, or fewer than the rank has), and
-    the ``rim`` step-up it lands by (``dh`` is then under the far floor's
-    top by that much: the body meets a sloped rim and is lifted on), and a
-    walk-off's lip ``slope`` (m it falls a metre along the run at the
-    takeoff floor's edge: the body leaves with that part of its run speed
-    falling, AZ-365), and the least room over the head under the roof over
-    the arc's first and last :data:`ROOF_END` (``room_start``,
-    ``room_end``: the headroom's profile, AZ-387; None: open sky there).
-    No coordinate: every number is relative to the takeoff."""
-    rank: int
-    gap: float
-    dh: float
-    run: bool = True
-    runup: float = 0.0
-    headroom: float | None = None
-    walk_off: bool = False
-    lip: bool = False
-    flaps: int | None = None     # a cap on the flaps the flight uses (0: the jump alone; None: the rank's own)
-    rim: float = 0.0             # the rim step-up it lands by: the far floor's top stands this far above ``dh``
-    slope: float = 0.0           # a walk-off's lip: m it falls a metre along the run at the edge (AZ-365)
-    room_start: float | None = None   # the least room over the head under the roof over the arc's first and last
-    room_end: float | None = None     # ROOF_END, m (None: open sky there; AZ-387)
-
-    def as_dict(self) -> dict:
-        out = {"rank": self.rank, "gap": round(self.gap, 2), "dh": round(self.dh, 2), "run": self.run,
-               "runup": round(self.runup, 2)}
-        if self.headroom is not None:
-            out["headroom"] = round(self.headroom, 2)
-        if self.walk_off:
-            out["walk_off"] = True
-        if self.lip:
-            out["lip"] = True
-        if self.flaps is not None:
-            out["flaps"] = self.flaps
-        if self.rim:
-            out["rim"] = round(self.rim, 2)
-        if self.slope:
-            out["slope"] = round(self.slope, 2)
-        if self.room_start is not None:
-            out["room_start"] = round(self.room_start, 2)
-        if self.room_end is not None:
-            out["room_end"] = round(self.room_end, 2)
-        return out
-
-    @classmethod
-    def from_dict(cls, d: Mapping) -> Certificate:
-        return cls(int(d["rank"]), float(d["gap"]), float(d["dh"]), bool(d.get("run", True)),
-                   float(d.get("runup", 0.0)), None if d.get("headroom") is None else float(d["headroom"]),
-                   bool(d.get("walk_off", False)), bool(d.get("lip", False)),
-                   None if d.get("flaps") is None else int(d["flaps"]), float(d.get("rim", 0.0)),
-                   float(d.get("slope", 0.0)), None if d.get("room_start") is None else float(d["room_start"]),
-                   None if d.get("room_end") is None else float(d["room_end"]))
-
-
-ROOF_END = 0.25          # a flight's ends, its arc's first and last quarter, where the roof's room is kept apart (AZ-387)
-WALKOFF_SLACK = -0.95    # a walk-off reaches its carry + this past the takeoff floor's end (s0, draft/flights.py)
-                         # [verified L3, Step X.16, AZ-357: on 11 clean ledges of 6 levels with a level lip (the body
-                         # leaves at under 0.6 m/s down) the body centre is 0.28-0.94 m short of the carry at every
-                         # drop to 10 m: it leaves 0.1-0.5 m before s0 and its arc is shorter. A sloped lip carries
-                         # less again: AZ-365]
 
 
 @dataclass(frozen=True)
@@ -913,187 +705,7 @@ FREE_LEVELS = (-16.0, -14.0, -12.0, -10.0, -8.0, -6.0, -5.0, -4.0, -3.0, -2.0, -
                1.0, 1.25, 1.5, 1.75, 2.0, 2.2, 2.3)      # a flight reads the first level at or above its dh
 FREE_CARRY_DROPS = (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 16.0)   # the walk-off carry table's drops, m
 LIP_M = 1.2578        # [verified xemu s6 §5] the one measured ledge's lip above its floor
-PICK_STAND = 1.5      # [inferred] a pickup up to 1.5 m above the floor is touched standing (draft/gates.py)
 
 
-@functools.cache
-def free_certs() -> tuple[Certificate, ...]:
-    """The zones' free movement at vanilla as certificates (Step R1.14b):
-    the widest plain gap at each of :data:`FREE_LEVELS`, running and
-    standing, each walk-off of the carry table and the highest lip, so a
-    movement that keeps them all at a tier keeps every zone whole there."""
-    env, out = envelope(VANILLA), []
-    for run in (True, False):
-        for lv in FREE_LEVELS:
-            g = tier_gap(env, FREE, 0, lv, run)
-            if g is not None and g > 0:
-                out.append(Certificate(0, g, lv, run))
-    out += [Certificate(0, env.p.walk_off_carry(d) + WALKOFF_SLACK, -d, walk_off=True)
-            for d in FREE_CARRY_DROPS]
-    out.append(Certificate(0, 0.0, LIP_M + 0.01, lip=True))
-    return tuple(out)
-
-
-def holds(cert: Certificate, env: Envelope, margin: Margin) -> bool:
-    """Does the tier ``margin`` still count ``cert``'s flight under ``env``'s
-    movement?  The same rule for weaker and stronger movement (D168): the
-    flight's gap within the tier's share of the envelope under the flight's
-    headroom (a taller arc meets the roof and falls from there: the roof
-    stops the rise, AZ-364, so it counts with the airtime it keeps); a
-    walk-off within the run-off carry; a drop within the tier's longest;
-    the lip lift's lip within the tier's allowance above the new apex."""
-    if cert.dh < -margin.max_drop:
-        return False
-    if cert.walk_off:
-        return cert.gap <= env.p.walk_off_carry(max(-cert.dh, 0.0), cert.slope) + WALKOFF_SLACK
-    if cert.lip:
-        return cert.dh - env.rise(cert.rank, cert.headroom, cert.flaps) <= margin.lift_allowance + 1e-9
-    g = tier_gap(env, margin, cert.rank, cert.dh, cert.run, cert.headroom, cert.flaps)
-    if g is None or cert.gap > g + 1e-9:
-        return False
-    head = ends_headroom(cert, env, margin)
-    if cert.headroom is None or head >= cert.headroom - 1e-9:
-        return True
-    g = tier_gap(env, margin, cert.rank, cert.dh, cert.run, head, cert.flaps)
-    return g is not None and cert.gap <= g + 1e-9
-
-
-def ends_headroom(cert: Certificate, env: Envelope, margin: Margin) -> float:
-    """The headroom ``cert``'s flight keeps under ``env``'s movement at
-    ``margin``'s tier once its roof's profile is read (AZ-387, D719): its
-    one headroom is the least room over the whole flight, so a roof that
-    dips toward an end (where vanilla's arc is low and the room over its
-    head is all there is) is kept apart (``room_start``, ``room_end``).
-    Tick for tick against vanilla's witness arc (the jump alone and with
-    its flaps, to dh + the tier's clearance, as :func:`tier_gap` flies
-    them): the arc rising more than ``room_start`` above vanilla's over
-    vanilla's first :data:`ROOF_END` meets the roof there, which stops the
-    rise, so the flight keeps that lower roof as its headroom; and one
-    more than ``room_end`` above vanilla's over its last :data:`ROOF_END`
-    meets the roof over the landing, which holds it under it, so the
-    flight keeps that roof as its headroom too (clipped by the lowest roof
-    near its ends, D719).  Else the certificate's headroom (vanilla
-    movement keeps it; inf under open sky)."""
-    head = cert.headroom
-    if head is None:
-        return math.inf
-    if (cert.room_start is None and cert.room_end is None) or cert.walk_off or cert.lip:
-        return head
-    base = envelope(VANILLA, env.beam, exact=True) if env.exact else envelope(VANILLA, env.beam)
-    lv = cert.dh + margin.clearance
-
-    def arcs(ceiling: float):
-        cap, out = max(ceiling - BODY_HEIGHT, 0.0), []
-        for flaps in {0, cert.flaps}:
-            air_v, sched_v, _ = base.airtime(cert.rank, lv, cert.headroom, flaps)
-            if air_v is None:
-                continue
-            n = math.ceil(air_v)
-            sched_m = env.schedule(cert.rank, lv, ceiling, flaps)
-            zv = base.p.feet(base.kit(cert.rank, flaps), sched_v, max(cert.headroom - BODY_HEIGHT, 0.0), n)
-            zm = env.p.feet(env.kit(cert.rank, flaps), sched_m, cap, n)
-            out.append((air_v, zv, zm))
-        return out
-    for room, near in ((cert.room_start, lambda k, air: k <= ROOF_END * air),
-                       (cert.room_end, lambda k, air: k >= (1.0 - ROOF_END) * air)):
-        if room is None:
-            continue
-        for air_v, zv, zm in arcs(head):
-            for k, (v, m) in enumerate(zip(zv, zm), 1):
-                if near(k, air_v) and m > v + room + 1e-6:
-                    head = min(head, v + room + BODY_HEIGHT)
-    return head
-
-
-TOLERANCE = 0.005    # m: two searches' gaps or rises this close count as equal (keeps' comparison with vanilla)
-
-
-ROUNDING = 0.005     # m: a stored certificate's gap and dh are rounded to 0.01 m (Certificate.as_dict)
-
-
-def read_as(cert: Certificate, base: Envelope, margin: Margin) -> Certificate | None:
-    """``cert`` as the calculator reproduces the derive's verdict on it at
-    vanilla (``base``): itself where it :func:`holds`, or within its
-    :data:`ROUNDING`; as a lip lift where its landing is out of the plain
-    arc's reach but within the tier's lift allowance (a probe-needed flight
-    the derive rated by the lip lift, whose straight path met a solid: its
-    certificate names no lip [inferred]); else None."""
-    for c in (cert, replace(cert, gap=max(cert.gap - ROUNDING, 0.0), dh=cert.dh - ROUNDING)):
-        if holds(c, base, margin):
-            return c
-        lip = replace(c, lip=True)
-        if not (c.walk_off or c.lip) and c.dh >= -margin.max_drop and holds(lip, base, margin) and \
-                tier_gap(base, margin, c.rank, c.dh, c.run, c.headroom, c.flaps) is None:
-            return lip
-    return None
-
-
-def keeps(cert: Certificate, env: Envelope, margin: Margin) -> bool:
-    """Does ``cert``'s flight stay in logic at ``margin``'s tier under
-    ``env``'s movement (Step R1.14b)?  :func:`holds` of the certificate as
-    vanilla reads it (:func:`read_as`); where vanilla doesn't reproduce the
-    derive's verdict (its sweep, a probe class or a rounding knew more),
-    only while ``env`` is no weaker than vanilla for that flight: its
-    walk-off carry, rise and gap at least vanilla's within
-    :data:`TOLERANCE` (the gap at the flight's dh, or under vanilla's rise
-    when that is out of reach; both under the flight's headroom).  So
-    vanilla movement keeps every certificate.  An ``exact`` ``env`` reads
-    vanilla's exact envelope (like with like)."""
-    base = envelope(VANILLA, env.beam, exact=True) if env.exact else envelope(VANILLA, env.beam)   # one cache key each
-    read = read_as(cert, base, margin)
-    if read is not None:
-        return holds(read, env, margin)
-    if cert.walk_off:
-        drop = max(-cert.dh, 0.0)
-        return env.p.walk_off_carry(drop, cert.slope) >= base.p.walk_off_carry(drop, cert.slope) - TOLERANCE
-    r = cert.rank
-    rise = base.rise(r, cert.headroom, cert.flaps)
-    if env.rise(r, cert.headroom, cert.flaps) < rise - TOLERANCE:
-        return False
-    if cert.lip:
-        return True
-    lv = max(min(cert.dh, rise - margin.clearance - 0.05), -margin.max_drop)
-    want = tier_gap(base, margin, r, lv, cert.run, cert.headroom, cert.flaps)
-    got = tier_gap(env, margin, r, lv, cert.run, cert.headroom, cert.flaps)
-    return want is None or (got is not None and got >= want - TOLERANCE)
-
-
-def slack(cert: Certificate, env: Envelope, margin: Margin) -> float:
-    """How much room ``cert``'s flight has at ``margin``'s tier under
-    ``env`` (m; negative where :func:`holds` fails): the gap, walk-off,
-    or lip it has to spare.  Orders certificates most fragile first."""
-    if cert.walk_off:
-        return env.p.walk_off_carry(max(-cert.dh, 0.0), cert.slope) + WALKOFF_SLACK - cert.gap
-    if cert.lip:
-        return margin.lift_allowance - cert.dh + env.rise(cert.rank, cert.headroom, cert.flaps)
-    g = tier_gap(env, margin, cert.rank, cert.dh, cert.run, cert.headroom, cert.flaps)
-    return -1.0 if g is None else g - cert.gap
-
-
-def bisect_range(ok, v0: float, lo: float, hi: float, tol: float) -> tuple[tuple[float, float | None], ...]:
-    """The interval around ``v0`` on which ``ok`` holds, assuming it is one
-    (D168: each slider loses reach on one side, at most headroom on the
-    other): each far end first (the corner: when it holds, the whole side
-    does), else bisection to ``tol``.  Per side, (the last value that holds,
-    the first that fails or None), as judged: unrounded, so ``ok`` asked
-    again of either gives the same answer (a rounded end could fall back
-    inside a measured range ending on a bisection point, AZ-368; only what
-    is shown is rounded).  ``ok(v0)`` must hold (else ValueError)."""
-    if not ok(v0):
-        raise ValueError(f"{v0:g}: the base movement already breaks a certificate")
-    out = []
-    for far in (lo, hi):
-        if ok(far):
-            out.append((far, None))
-            continue
-        good, bad = v0, far
-        while abs(bad - good) > tol:
-            mid = (good + bad) / 2
-            good, bad = (mid, bad) if ok(mid) else (good, mid)
-        out.append((good, bad))
-    return tuple(out)
-
-
-__all__ = ["BODY_HEIGHT", "FREE", "Certificate", "Envelope", "Kit", "Margin", "Margins", "Movement", "Physics",
-           "SLIDERS", "VANILLA", "bisect_range", "envelope", "f32", "free_certs", "holds", "keeps",
-           "read_as", "slack", "tier_gap", "tier_margins"]
+__all__ = ["BODY_HEIGHT", "FREE", "Envelope", "Kit", "Margin", "Margins", "Movement", "Physics", "SLIDERS", "VANILLA",
+           "envelope", "f32", "tier_gap", "tier_margins"]

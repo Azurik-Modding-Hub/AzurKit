@@ -42,6 +42,7 @@ uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # test
 uv run --locked python scripts/record_shipped.py [--check] [--content CLONE]  # the swap's shipped answers (D995)
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
 uv run --locked python scripts/web_tables.py [--check]                    # web/tables.json: each release's table pages (the site's read ahead)
+uv run --locked python scripts/slider_tiers.py [--check]                  # the movement sliders' tier table, from the physics (D1066)
 uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
 ```
 
@@ -465,10 +466,25 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **The planner** (Step 4.2a; `src/azurkit/tools/randomizer/`): `plan(recipe)`
   fills the database's authored levels for a seed (any string) under the
   database's default settings (D144), a settings file's table (`settings`)
-  or a share string (`share`; its movement sliders re-check the logic the
-  fill reads, AZ-383), and returns Modkit's plan file's object;
+  or a share string (`share`; its movement sliders, AZ-383, pick the tier
+  it is filled at, below), and returns Modkit's plan file's object;
   `spoiler(doc)` reads one back. The sdk's `plan` and `spoiler` and the CLI's
   `azurkit plan` and `azurkit spoiler` call them. A plan needs no image.
+  - **Movement sliders** (D1064, D1066; `movement.py`): the logic is the
+    level files' as authored, and no slider re-checks it. Moved movement
+    sliders pick the tier the seed is filled at (`movement.played`): the
+    one whose reach is nearest the asked tier's times their travel factor
+    k, read from `data/slider_tiers.json` (each modelled slider's k at its
+    points, from the physics; `scripts/slider_tiers.py [--check]` writes
+    it, a test holds a point of each row to the physics), on the line
+    between its points, multiplied; so the plan is that tier's seed, the
+    same on every host, never refused, its file keeping the share string
+    as given (`plan_doc`'s `asked`; `Plan.asked`, `Plan.settings` the
+    tier's). The roll, climb and swim feed no tier. A seed with any
+    gameplay slider moved isn't promised beatable: the spoiler's line, the
+    tab's and a build's first `why_not` say so, and its `logic_verified`
+    is false; true means every slider at its default and the plan
+    verified, with no later layer over it.
   - `planner/`, `data/`, `writer.py`, `physics.py`, `movement.py`,
     `layer.py`, `tracker.py` and `live/`'s `game.py`, `link.py`, `pages.py`
     and `recipes.py` were ported from Modkit at the cut (Porting from
@@ -575,9 +591,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (`scripts/seed_forcing.py --rows` names their seeds).
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's
   `randomizer` (the planner's recipe and an `obsidian_cost`; `azurkit build
-  --seed`) is planned on the logic re-checked under the build's movement
-  sliders (Modkit's `layer.plan_for`: a run under garret4's falls back to
-  his, AZ-606) and written as the build's first layer, before the packs
+  --seed`) is planned at the tier the build's movement sliders pick
+  (`layer.plan_for`, above) and written as the build's first layer, before the packs
   (Modkit's `mod_apply` order): one group a node graph (its new strings,
   TOC size and repointed name fields land whole), one for the obsidian
   locks, and one a species for the contained touches (`contained`, AZ-834:
@@ -592,8 +607,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   plan before anything is written: a difference a later layer explains (it
   wrote the location's fields or string or a touch's or own row's cells, or
   dropped its group) is a conflict and `logic_verified` false (D28), any other fails
-  the build by location (D35). The movement check reads the packs' catalog (each
-  slider's `logic_floor`, D83(c)); the tools never import each other. The
+  the build by location (D35). The movement check reads the packs' catalog (a
+  gameplay slider moved, D1064, then each slider's `logic_floor`, D83(c));
+  the tools never import each other. The
   report's `randomizer` and the manifest's `verdicts` carry the verdict, and
   a randomized build's mods file replays its seed and share string.
   - Not ported: Modkit's `db-extract` (`levels.py`, the generated data's
@@ -727,9 +743,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `layer.movement_reasons`' model half word for word: a body no sitting
     graded, no melee idle swing, a weak or endless attack, a body shorter
     than garret4) join the packs' in the verdict, leaving the logic
-    unverified, never refused. G3's `seed=0,all` (flicken) is Modkit's on
-    both releases but `training_room.xbr` (level_patches, AZ-009), its
-    verdict Modkit's word for word.
+    unverified, never refused. G3's `seed=0,all` (flicken) was Modkit's on
+    both releases but `training_room.xbr` (level_patches, AZ-009) until
+    D1066 made its plan its sliders' tier's seed (Frame-perfect's), its
+    body's reasons Modkit's word for word.
   - **In a share link and a mods file** (Step 4.3d): the layer
     `{"tool": "characters", "kind": "characters", "recipe"}`, the build
     manifest's own (the fields less `variant_file`, a variant with its

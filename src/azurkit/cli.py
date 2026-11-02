@@ -27,7 +27,7 @@ a packs layer the build starts from its packs in place of those on by
 default. ``--pack-param`` sets a slider of a pack it applies, to
 any finite number (D23: never clamped). ``--seed`` randomizes the build:
 the plan (the seed under the default settings, a settings file's or a share
-string's, on the logic re-checked under the build's movement sliders) is
+string's, at the movement tier the build's movement sliders pick) is
 written first, the built image is read back against it before anything is
 written, and the build prints whether its logic still holds (and why not);
 ``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). ``--character``

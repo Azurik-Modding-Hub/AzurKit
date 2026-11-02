@@ -1706,12 +1706,13 @@ def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release,
     """G3's ``seed=0,all`` (Modkit's ``randomize-full --seed 0`` with
     flicken's body, the movement sliders, packs and a config mod, its
     settings flags and obsidian cost; ``record_goldens.recipe``'s
-    translation) built through ``sdk.image``: the plan stands on the walk
-    and roll the body's size folds, and every file G3 records (Modkit's
+    translation) built through ``sdk.image``: the plan is the seed of the
+    tier its movement sliders, the body's size folded into the walk and
+    roll, play as (D1066), and every file G3 records (Modkit's
     build changed them all but ``training_room.xbr``, its level_patches,
     AZ-009, and filelist.txt, which lists it) is the golden's; the image reads back to the plan, and the
-    logic is unverified with the packs' reasons and the body's
-    (``characters.reasons``: flicken's x0.351 height, in the words of
+    logic is unverified with its moved sliders first (D1064), the packs'
+    reasons and the body's (``characters.reasons``: flicken's x0.351 height, in the words of
     Modkit's verdict of this build). A body no
     sitting graded, with no melee idle swing, a weak attack or one that
     never ends gives Modkit's reasons for each."""
@@ -1725,7 +1726,8 @@ def test_a_randomized_build_wears_a_character_as_its_goldens_seed_0_all(release,
     assert set(report["result"]) - set(want) == {"filelist.txt"}
     verdict = report["randomizer"]
     assert (verdict["seed"], verdict["logic_verified"], verdict["conflicts"]) == ("0", False, [])
-    assert verdict["why_not"][-1].startswith("the worn body is x0.351 garret4's height, so it touches pickups")
+    assert verdict["why_not"][0].startswith("you moved sliders (") and any(   # D1064's first, then the packs' and body's
+        why.startswith("the worn body is x0.351 garret4's height, so it touches pickups") for why in verdict["why_not"])
     assert not any(why.startswith("--player-character") for why in verdict["why_not"])
     weak = characters.reasons("nobody", SimpleNamespace(reach=None, damage=0.25, speed=0.0, size=1.0))
     assert [why.split(": ", 2)[1][:20] for why in weak] == [

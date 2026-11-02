@@ -7,8 +7,8 @@ file byte for byte, on CPython and under Pyodide, the site's runtime, the
 same in two processes under two hash seeds) and its generator layer (Step 4.2b): G3's seed cases build their files
 and image on both releases (``pipelines.json``) and the default case's
 spoiler is the ``--spoiler`` file of its plan, a later layer over a
-placement is a conflict and any other difference a failure, and movement
-sliders plan on the logic re-checked under them; the Randomizer tab's
+placement is a conflict and any other difference a failure, and moved
+movement sliders plan their tier's seed (D1066); the Randomizer tab's
 settings (Step 4.2c1); the item tracker's verdicts (Step 4.2c2) at
 several states and the maps' model of each (``tracker.json``); the
 checked database the wheel and the app ship (Step 4.3g); R2.1's solver
@@ -309,7 +309,7 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close(monkeypa
     assert "plays as Standard" in lines("hard", 3, off=SHAPED["hard-toggled-more"][0][3])["levels"][2][3]
     assert sdk.randomizer_settings({"settings": randomizer.literal(logic.db.defaults)})["difficulty"]["note"] is None
     slid = sdk.plan({"seed": "1", "share": share_encode(Settings(0, "hard", {}, sliders=JUMP, seed_difficulty=3), skips)})
-    assert slid["settings"]["seed_difficulty"] == 3    # the rungs on the Logic re-checked at each tier under the slider
+    assert slid["settings"]["seed_difficulty"] == 3    # Frame-perfect's seed (the slider's tier), shaped as usual
     assert sdk.tracker({"plan": slid})["head"]["requires"]["asks"] == 3
     randomizer.openers_ahead(slid)
 
@@ -357,26 +357,6 @@ def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_
         if thread.name.startswith("azurkit-attempt"):
             thread.join(5)
     assert not attempts()
-
-
-def test_a_shaped_fills_attempts_at_once_read_a_slider_rungs_logic_on_the_fills_own_thread(monkeypatch):
-    """Read on the attempts' threads, there is no record, so no cancel point: a change there drew the engine's kill."""
-    from azurkit.app import procpool
-    from azurkit.tools.randomizer import movement
-
-    logic, threads = kept_logic(), []
-
-    def read(*_):
-        threads.append(threading.current_thread())
-        return logic, None
-
-    monkeypatch.setattr(movement, "logic_for", read)
-    monkeypatch.setattr(difficulty, "_RUNG_LOGIC", {})
-    monkeypatch.setattr(fill, "WIDTH", 4)
-    monkeypatch.setattr(fill, "BESIDE", procpool.Beside)
-    made = fill._fill(logic, "6", Settings(3, "hard", {}, sliders={"player_physics": {"jump_speed_scale": 1.3}},
-                                           seed_difficulty=3))     # its attempt 0 misses need_L: E_2's first read is past it
-    assert made.attempt and threads and set(threads) == {threading.current_thread()}
 
 
 def test_a_logic_handed_another_database_works_its_openers_out_again(monkeypatch):
@@ -642,8 +622,8 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
     assert sdk.randomizer_settings({"settings": starved})["preflight"].startswith("exclude_categories keeps")
     flagged = sdk.randomizer_settings({"settings": options["defaults"], "obsidian_cost": 20,
                                        "packs": {"player_physics": {"roll_speed_scale": 0.5}}})["why_not"]
-    assert flagged == [generator.movement_reasons({"player_physics": {"roll_speed_scale": 0.5}},
-                                                  sdk.catalog()["packs"])[0], layer.obsidian_reason(20.0)]
+    assert flagged == [*generator.movement_reasons({"player_physics": {"roll_speed_scale": 0.5}},
+                                                   sdk.catalog()["packs"]), layer.obsidian_reason(20.0)]
 
     rando = {"seed": "2", "settings": given, "obsidian_cost": 20.0}
     found = sdk.preset_decode(sdk.preset_encode({"packs": {}, "randomizer": rando}))
@@ -712,40 +692,58 @@ def test_the_tab_folds_the_worn_bodys_size_in_as_its_build_does_so_a_seed_planne
         == "player_physics jump_speed_scale 1.3, player_physics walk_speed_scale 1.028966903909119"
 
 
-def test_track_this_seed_plans_a_body_smaller_than_garret4_on_his_run_where_its_build_does(usa_iso):
-    """A body smaller than garret4 folds a walk under his 7 m/s run into
-    the tab's share string; where no plan fills on the logic re-checked at
-    it, its build plans on his run (``layer.plan_for``, AZ-606) and records
-    that run in its share string, and Track this seed on the tab's share
-    string gives that plan, not "no plan" (D35)."""
-    defaults, worn, iso_path = sdk.catalog()["randomizer"]["defaults"], {"species": "overlord"}, str(usa_iso)
-    built = sdk._plan({"iso": iso_path, "packs": {}, "character": worn,
-                       "randomizer": {"seed": "2", "settings": defaults}})[4]
-    share = sdk.randomizer_settings({"settings": defaults, "character": worn, "iso": iso_path})["share"]
-    planned = sdk.plan({"seed": "2", "share": share})
-    assert planned["sha256"] == built.plan.doc["sha256"] and planned["share"] != share
+def test_moved_movement_sliders_plan_the_nearest_tiers_seed_by_the_physics_table_and_no_moved_slider_is_promised():
+    """D1064, D1066: a share string's movement sliders (AZ-383) pick the
+    tier its seed is filled at, the one whose reach is nearest the asked
+    tier's times their travel factor k, read from the shipped table, which
+    is the physics' (the point below vanilla of each row worked out again;
+    ``scripts/slider_tiers.py --check`` the whole): jump 1.3 makes Standard
+    Frame-perfect, air control 1.1 Hard, no flap on the first shield Safe,
+    and a roll none. Its plan is that tier's seed, digest and all, its file
+    holding the share string as given, its spoiler, tracker and tab saying
+    so and that it isn't promised beatable; a build with those sliders
+    plans the same and refuses a share string made for other sliders, its
+    first reason naming each gameplay slider moved (a non-movement one's
+    too, whose plan is the default's; not a QoL one's), then those the tier
+    doesn't read past their ``logic_floor`` and a speed slider at 0 or less
+    (D83(c))."""
+    from azurkit.tools.randomizer import movement, physics
+    from scripts import slider_tiers
 
+    table = movement.table()
+    assert table["reach"] == {tier: m.reach for tier, m in physics.tier_margins().items()}
+    for key, row in table["sliders"].items():
+        pack, name = key.split(" ")
+        v, k = [point for point in row["points"] if point[0] < slider_tiers._vanilla(pack, name)][-1]
+        assert math.isclose(slider_tiers.k(pack, name, v), k, abs_tol=1e-4), key   # D1016: close on any host
+    assert [movement.tier_of(Settings(0, "standard", {}, sliders=sliders)) for sliders in (
+        JUMP, {"player_physics": {"air_control_scale": 1.1}}, {"air_shield_flaps": {"air_shield_1_flaps": 0}},
+        {"player_physics": {"roll_speed_scale": 2.0}})] == ["frame_perfect", "hard", "safe", "standard"]
 
-def test_movement_sliders_plan_on_the_logic_rechecked_under_them_and_the_packs_catalog_flags_the_rest():
-    """A share string's movement sliders (AZ-383) plan on the logic
-    re-checked under them, and its plan reads back into its spoiler; a build
-    with those sliders plans the same, its logic unverified where what the
-    nodes stand on breaks, and refuses a share string made for other
-    sliders. The packs' catalog gives each slider's ``logic_floor``: past
-    it, a slider the logic doesn't model leaves the logic unverified, as
-    does a speed slider at 0 or less (D83(c))."""
-    share = _share(JUMP)
+    skips = kept_logic().skip_tables
+    share, line = _share(JUMP), "your movement sliders make Standard play like Frame-perfect, so the seed is Frame-perfect's"
     doc = sdk.plan({"seed": "2", "share": share})
-    assert doc["share"] == share and doc["sha256"] != PLANS["default"]["sha256"]
-    assert any(share in line for line in sdk.spoiler(doc)["lines"])
+    tier = sdk.plan({"seed": "2", "share": share_encode(Settings(0, "frame_perfect", {}), skips)})
+    assert {key: doc[key] for key in ("attempt", "settings_digest", "placement")} == {
+        key: tier[key] for key in ("attempt", "settings_digest", "placement")}
+    assert (doc["share"], doc["settings"]["movement_tier"]) == (share, "standard")
+    assert f"movement sliders: player_physics jump_speed_scale 1.3; {line}; {movement.PROMISE}" in sdk.spoiler(doc)["lines"]
+    assert "movement standard played as frame-perfect (your sliders)" in sdk.tracker({"plan": doc})["head"]["text"]
+    weak = sdk.plan({"seed": "2", "share": _share({"air_shield_flaps": {"air_shield_1_flaps": 0}})})
+    assert weak["placement"] == sdk.plan({"seed": "2", "share": share_encode(Settings(0, "safe", {}), skips)})["placement"]
     built = generator.prepare({"seed": "2"}, JUMP)
-    assert (built.plan.doc["sha256"], built.recipe) == (doc["sha256"], {"seed": "2", "share": share})
-    assert built.why_not and all(why.startswith("node ") for why in built.why_not)
+    assert (built.plan.doc, built.recipe, built.why_not) == (doc, {"seed": "2", "share": share}, [])
     with pytest.raises(layer.LayerError, match="holds the movement sliders player_physics jump_speed_scale 1.3"):
         generator.prepare({"seed": "2", "share": share}, {})
+    assert generator.prepare({"seed": "2"}, {"enemy_scaling": {"boss_health_scale": 2.0}}).plan.doc == PLANS["default"]["plan"]
+    moved = f"you moved sliders (player_physics jump_speed_scale 1.3), and {movement.PROMISE}"
+    view = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"], "packs": JUMP})
+    assert (view["share"], view["why_not"]) == (share, [moved, line])
     packs = {"player_physics": {"roll_speed_scale": 0.5, "climb_speed_scale": 0.0} | JUMP["player_physics"],
-             "enemy_scaling": {"boss_health_scale": 2.0}}
+             "enemy_scaling": {"boss_health_scale": 2.0}, "qol_photo_mode": {"fly_speed": 2.0}}
     assert generator.movement_reasons(packs, sdk.catalog()["packs"]) == [
+        "you moved sliders (enemy_scaling boss_health_scale 2, player_physics climb_speed_scale 0, player_physics "
+        f"jump_speed_scale 1.3, player_physics roll_speed_scale 0.5), and {movement.PROMISE}",
         "player_physics roll_speed_scale 0.5 is below vanilla's 1, movement the logic doesn't model (D83(c))",
         "player_physics climb_speed_scale 0 is a lock, not a speed: " + layer.LOCKS["player_physics",
                                                                                     "climb_speed_scale"],

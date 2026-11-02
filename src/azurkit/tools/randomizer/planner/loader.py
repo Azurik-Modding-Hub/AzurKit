@@ -452,7 +452,7 @@ class _Checker:
             self.issue("missing_file", str(root), "no database folder")
             return
         known = {"generated", "derived", "levels", "settings", "movement", "items.toml", "world.toml", "tricks.toml",
-                 "route.toml", "contact.json", "forcing.json", pr.FILE}
+                 "route.toml", "contact.json", "forcing.json", "slider_tiers.json", pr.FILE}
         for p in sorted(root.iterdir()):
             if p.name.startswith("."):
                 continue
@@ -527,8 +527,9 @@ class _Checker:
         self.derived[level] = doc
 
     def movement_file(self, p: Path, rel: str) -> None:
-        """A ``movement/<level>.json`` (§17, Step R1.14b): what a build re-checks under its own movement.  Its
-        rows are checked against the level file once that is read (:meth:`movement_rules`)."""
+        """A ``movement/<level>.json`` (§17, Step R1.14b): the derive's witness flights of the level's edges (a
+        build re-checked them under its own movement until D1066; outside db_digest).  Its rows are checked
+        against the level file once that is read (:meth:`movement_rules`)."""
         if (rel not in self.texts and not p.is_file()) or p.suffix != ".json":
             self.issue("unknown_file", rel, "movement/ holds only <level>.json files")
             return
@@ -1702,17 +1703,6 @@ def kept_logic(root: Path | str = DATA_DIR) -> Logic:
     if (tables := _tables(logic)) is not None:
         _KEPT[root] = (key, logic.db, tables, logic)
     return logic
-
-
-def kept_for(db: Database) -> Logic | None:
-    """The kept Logic (:func:`kept_logic`'s) of ``db`` (the same object),
-    its tables as it was built, else None (none is built): what
-    :func:`~azurkit.tools.randomizer.movement.logic_for` hands back under
-    vanilla movement (Step 2.221: a build's plan on the tracker's Logic)."""
-    for _, was, tables, logic in list(_KEPT.values()):
-        if was is db and logic.db is db and _tables(logic) == tables:
-            return logic
-    return None
 
 
 def _digest(value) -> bytes:

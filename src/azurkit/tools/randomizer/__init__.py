@@ -4,9 +4,9 @@ plan written as a build's first layer and read back (Step 4.2b,
 
 :func:`plan` fills the database's authored levels for a seed and returns
 the plan file's object, the same as Modkit's (``planner.plan.dumps`` writes
-its file byte for byte), on the logic re-checked under a share string's
-movement sliders (AZ-383); :func:`spoiler` reads a plan back into its
-spoiler on the logic it was planned on. The planner (``planner/``), its
+its file byte for byte); a share string's movement sliders (AZ-383) pick
+the tier its seed is filled at (:mod:`.movement`, D1066); :func:`spoiler`
+reads a plan back into its spoiler. The planner (``planner/``), its
 database (``data/``, our own logic data, no game bytes), the writer,
 physics, movement and layer were ported from Modkit at the last cut (Step
 4.12b: AGENTS.md's Porting from Modkit) and are AzurKit's own since, held
@@ -43,11 +43,10 @@ import math
 import tomllib
 from collections.abc import Callable, Mapping
 from dataclasses import replace
-from types import SimpleNamespace
 
 from azurkit.core.progress import Steps, noting
 from azurkit.tools.randomizer import dbcache, layer
-from azurkit.tools.randomizer.movement import logic_of, run_floor
+from azurkit.tools.randomizer.movement import played, said
 from azurkit.tools.randomizer.planner import difficulty, loader
 from azurkit.tools.randomizer.planner.fill import fill, starved
 from azurkit.tools.randomizer.planner.loader import DATA_DIR, kept_logic
@@ -147,11 +146,9 @@ def _settings(recipe: Mapping, db) -> Settings:
 
 def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
     """The plan file's object for ``recipe``: the first of the fill's
-    attempts that passes the verify, on the logic re-checked under the share
-    string's movement sliders; a run under garret4's 7 m/s (a worn body's
-    size folded into the walk) plans as its build does
-    (``layer.plan_for``: on his run when none fills at it, its share string
-    then recording that run). ``progress(record)`` hears its three stages
+    attempts that passes the verify; a share string's movement sliders pick
+    the tier it is filled at (``movement.played``, D1066), so its plan is that
+    tier's seed, its file holding the share string as given. ``progress(record)`` hears its three stages
     (``core.progress``'s ``plan``, done of 3): the logic read, the fill and
     the placements written, the fill's notes ("placing the items, k of n",
     ``core.progress.noting``) counted inside its stage. ``ValueError`` names
@@ -170,14 +167,9 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
         logic = kept_logic()
         settings = _settings(recipe, logic.db)
         steps("plan", "Filling the seed", 1, 3)
-        if run_floor(settings.sliders) is not None:   # only a share string holds sliders
-            doc = layer.plan_for(SimpleNamespace(seed=recipe["seed"], share=recipe["share"]), logic.db,
-                                 settings.sliders)[0].doc
-            steps("plan", "Writing the placements", 2, 3)
-            return doc
-        filled = fill(logic_of(logic, settings), recipe["seed"], settings)
+        filled = fill(logic, recipe["seed"], played(settings))
         steps("plan", "Writing the placements", 2, 3)
-        return plan_doc(filled, logic.db)
+        return plan_doc(filled, logic.db, settings)
 
 
 def spoiler(doc: Mapping) -> list[str]:
@@ -189,27 +181,25 @@ def spoiler(doc: Mapping) -> list[str]:
     if not isinstance(doc, Mapping):
         raise ValueError(f"a plan file is a JSON object, not {type(doc).__name__}")
     logic = kept_logic()
-    planned = load_plan(doc, logic.db)
-    return spoiler_lines(planned, logic_of(logic, planned.settings))
+    return spoiler_lines(load_plan(doc, logic.db), logic)
 
 
 def openers_ahead(doc: Mapping) -> None:
     """Work out a shaped plan's spoiler openers ahead (each a rules' compile the kept Logic then keeps, and the answer):
-    the app's engine's background job after a plan, so the spoiler's View needn't wait on them. Nothing at level 0, with
-    nothing to shape, or under movement sliders (their Logic, its own first read, is the plan's cost, not this one's)."""
+    the app's engine's background job after a plan, so the spoiler's View needn't wait on them. Nothing at level 0, or
+    with nothing to shape."""
     logic = kept_logic()
     planned = load_plan(doc, logic.db)
-    if planned.settings.seed_difficulty and not planned.settings.sliders \
-            and difficulty.asked(planned.settings, logic.skip_tables) is not None:
+    if planned.settings.seed_difficulty and difficulty.asked(planned.settings, logic.skip_tables) is not None:
         difficulty.openers(logic, planned.settings, planned.placement)
 
 
 def openers(doc: Mapping) -> list[dict]:
-    """A shaped plan's spoiler openers on the Logic it stands on (:func:`.planner.difficulty.openers`): the answer the
-    process's job ahead keeps, or waits on, or works them out."""
+    """A shaped plan's spoiler openers (:func:`.planner.difficulty.openers`): the answer the process's job ahead
+    keeps, or waits on, or works them out."""
     logic = kept_logic()
     planned = load_plan(doc, logic.db)
-    return difficulty.openers(logic_of(logic, planned.settings), planned.settings, planned.placement)
+    return difficulty.openers(logic, planned.settings, planned.placement)
 
 
 def literal(settings: Settings) -> dict:
@@ -311,8 +301,9 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     some of a batch's variants), each variant's rating as a number
     (``ratings``: the page reads them against its own ceiling) and its toggle (``null``: none), the picks
     held (no toggle turns one on, D144), the forfeitable locations, what a
-    build of them leaves unverified (``why_not``: a roll a skip on was
-    proven at, an obsidian cost above vanilla's) and the preflight's
+    build of them leaves unverified (``why_not``: the tier the movement
+    sliders play as, a roll a skip on was proven at, an obsidian cost above
+    vanilla's) and the preflight's
     refusal (``preflight``: too few proven spots, AZ-454), the settings
     file of them (``file``: Save settings' text, Modkit's ``--save-settings``
     file) and the skip groups (``groups``, D258, D1061: each group's picks a
@@ -333,7 +324,7 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     note = None
     if "share" in given:
         st = share_decode(given["share"], skips)
-        if (st.sliders or worn) and st.sliders != sliders and st.sliders != run_floor(sliders):
+        if (st.sliders or worn) and st.sliders != sliders:
             note = slider_note(st.sliders, sliders, worn, bodies)
     elif "file" in given:
         if not isinstance(given["file"], str):
@@ -360,7 +351,8 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
                 groups[group].append({"id": pid, "name": rows[-1]["name"], "rating": rows[-1]["rating"]})
                 tops[group] = max(tops[group], *(s.get("difficulty", 0) for s in live))
     refused = starved(logic, st)
-    why = layer.roll_reasons(st, logic.db, sliders) + [r for r in [layer.obsidian_reason(cost)] if r]
+    why = [r for r in [said(st)] if r] + layer.roll_reasons(st, logic.db, sliders) + [
+        r for r in [layer.obsidian_reason(cost)] if r]
     return {"settings": literal(st), "share": share_encode(st, skips), "note": note, "skips": rows,
             "held": len(every) - len(rows), "forfeitable": len(logic.forfeitable), "why_not": why,
             "preflight": refused.reason if refused else None, "file": layer.settings_text(st),

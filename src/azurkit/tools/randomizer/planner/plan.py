@@ -8,7 +8,9 @@ trailing newline):
   version, :data:`~.fill.GENERATOR`);
 - ``seed`` (the user's string) and ``attempt`` (the first that passed);
 - ``settings`` (D144's options, as a settings file holds them), ``share``
-  (their share string) and ``settings_digest``;
+  (their share string, with any movement sliders) and ``settings_digest``
+  (of the settings it was filled at: under moved movement sliders, their
+  tier's, :mod:`~..movement`);
 - ``db_digest`` (:func:`~.fill.db_digest`);
 - ``placement``: every authored level's pool location id -> the
   ``items.toml`` name it holds (the writer's input, Step R1.10);
@@ -39,6 +41,7 @@ from collections.abc import Container, Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from azurkit.tools.randomizer.movement import PROMISE, played, said, sliders_text
 from azurkit.tools.randomizer.planner import difficulty
 from azurkit.tools.randomizer.planner.fill import (
     GENERATOR,
@@ -74,11 +77,14 @@ class PlanError(ValueError):
     """A plan file this database can't use, or an unbeatable plan."""
 
 
-def plan_doc(result: Fill, db) -> dict:
-    """The plan file's object for a fill on ``db``."""
+def plan_doc(result: Fill, db, asked: Settings | None = None) -> dict:
+    """The plan file's object for a fill on ``db``: its settings and share
+    string ``asked``'s, the settings a fill under moved movement sliders was
+    asked for (``movement.played``: it fills at their tier), else the
+    fill's; its ``settings_digest`` the fill's own, which seeded it."""
+    st = asked or result.settings
     doc = {"format": PLAN_FORMAT, "generator": GENERATOR, "seed": result.seed, "attempt": result.attempt,
-           "settings": settings_table(result.settings),
-           "share": share_encode(result.settings, {sid: s for sid, (_, s) in db.skips.items()}),
+           "settings": settings_table(st), "share": share_encode(st, {sid: s for sid, (_, s) in db.skips.items()}),
            "settings_digest": settings_digest(result.settings), "db_digest": db_digest(db),
            "placement": dict(sorted(result.placement.items()))}
     return {**doc, "sha256": hashlib.sha256(canonical(doc)).hexdigest()}
@@ -90,9 +96,13 @@ def dumps(doc: Mapping) -> str:
 
 @dataclass(frozen=True)
 class Plan:
+    """A plan file read back: ``settings``, what its fill and logic read
+    (``movement.played`` of ``asked``, the settings its file and share
+    string hold, their movement sliders too)."""
     doc: dict
     settings: Settings
     placement: dict[str, str]
+    asked: Settings
 
 
 def load_plan(source: Path | str | Mapping, db) -> Plan:
@@ -115,12 +125,11 @@ def load_plan(source: Path | str | Mapping, db) -> Plan:
     if isinstance(table, dict) and table.get("seed_difficulty") and made != SEED_DIFFICULTY_FILL:
         raise PlanError(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill "
                         f"{SEED_DIFFICULTY_FILL}: the same seed would place items differently")
-    try:     # the movement sliders it was filled under ride in its share string (AZ-383)
-        settings = replace(settings_from_table(table, skips, "plan settings"),
-                           sliders=share_sliders(doc["share"], skips))
+    try:     # the movement sliders it was asked under ride in its share string (AZ-383)
+        asked = replace(settings_from_table(table, skips, "plan settings"), sliders=share_sliders(doc["share"], skips))
     except SettingsError as exc:
         raise PlanError(str(exc)) from exc
-    return Plan(doc, settings, dict(doc["placement"]))
+    return Plan(doc, played(asked), dict(doc["placement"]), asked)
 
 
 @dataclass(frozen=True)
@@ -804,7 +813,7 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
             pid if ids == [pid] else f"{pid} ({kits})")
     lines = [
         f"plan {doc['sha256'][:12]}: seed {doc['seed']!r}, attempt {doc['attempt']}, {doc['generator']}",
-        f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {st.movement_tier}, dark_fire 1, "
+        f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {plan.asked.movement_tier}, dark_fire 1, "
         + (f"seed_difficulty {st.seed_difficulty}, " if st.seed_difficulty else "") +
         f"toggles: {toggles}" + (f", kept vanilla: {kept}" if kept else "") + f"; share {doc['share']} "
         f"(skip registry tag {registry_tag(picks(logic.skip_tables)).hex()})",
@@ -823,6 +832,8 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
         lines[4:4] = difficulty.spoiler_lines(
             prof, difficulty.openers(logic, st, plan.placement) if prof["asks"] else [],
             sorted(reach.traps - reach.after_completion - known))
+    if plan.asked.sliders:   # D1064, D1066: right after the settings
+        lines.insert(2, f"movement sliders: {sliders_text(plan.asked.sliders)}; {said(plan.asked)}; {PROMISE}")
     won = False
     for sp in spheres_:
         if sp.victory and not won:

@@ -724,14 +724,9 @@ class _Reaches:
 
 class _Pin:
     """A seed difficulty's pin in one fill (the module docstring): the items the win needs at the ladder's lowest rung
-    with every other pool item held, one reach an item, and the ladder's reaches, each on the logical graph alone.
-    Under movement sliders it reads the vanilla-movement Logic: it only steers, the attempt's verify and the
-    acceptance read the plan's own."""
+    with every other pool item held, one reach an item, and the ladder's reaches, each on the logical graph alone."""
 
     def __init__(self, logic: Logic, slots: _Slots, settings: Settings, ladder: Sequence[Settings]) -> None:
-        if settings.sliders:
-            from azurkit.tools.randomizer.planner.loader import kept_logic
-            logic = kept_logic()
         self.rungs, self.level_of = [_Reaches(logic, st, physical=False) for st in ladder], logic.pool
         base = {**slots.prefilled, **slots.kept(settings)}
         rest = collections.Counter(slots.vanilla[loc] for loc in slots.pool if loc not in base)
@@ -992,7 +987,6 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
             if (made := accept.add(run.attempt(seed, k))) is not None:
                 return made
         return accept.end()
-    run.shape.rungs_read()
     told = _BesideCount(run.count)
     with BESIDE(width, run.count.tick) as beside:
         accept.beside = beside

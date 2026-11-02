@@ -10,8 +10,8 @@ marks (after a ``toggle`` or a ``reset``), the counter row, each spot's
 state on the maps, the levels reached now and the Table tab's two trees. A
 spot's item is given only once it is collected or with ``spoiler``: the
 page shows nothing the Spoiler hides. The trackers it builds (about 1.5 s
-each, the logic under the plan's movement sliders first) are kept for the
-process, the last :data:`KEEP` plans, so a click costs one reach.
+each) are kept for the process, the last :data:`KEEP` plans, so a click
+costs one reach.
 
 A spot's ``state``: ``got`` (collected by hand), ``live`` (marked by Live),
 ``near`` (reachable now), ``skip`` (reachable now only with a skip on,
@@ -41,7 +41,6 @@ from collections.abc import Callable, Mapping, Sequence
 
 from azurkit.core.progress import Steps
 from azurkit.tools.randomizer import needs
-from azurkit.tools.randomizer.movement import logic_of
 from azurkit.tools.randomizer.planner import difficulty
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
@@ -65,14 +64,6 @@ SPOT = {"major": "Item spot", "obsidian": "Obsidian spot", "consumable": "Fuel o
 ART_PARTS = ("icons", *GRID)
 ART_VERSION = "1-d91e7a62c62f"
 _KEPT: OrderedDict[str, Tracker] = OrderedDict()
-_LOGIC: dict[str, object] = {}   # a build's plan sha256 -> the logic it was planned on (:func:`prime`)
-
-
-def prime(doc: Mapping, logic) -> None:
-    """Keep the logic a build planned ``doc`` on, so its tracker opens without re-checking it."""
-    _LOGIC[doc["sha256"]] = logic
-    while len(_LOGIC) > KEEP:
-        _LOGIC.pop(next(iter(_LOGIC)))
 
 
 def item_name(item: str) -> str:
@@ -124,9 +115,8 @@ def tracker_of(doc: Mapping, progress: Callable[[dict], object] | None = None) -
         plan = load_plan(doc, base.db)
     except PlanError as exc:
         raise ValueError(f"tracker: {exc}") from None
-    logic = _LOGIC.get(key) or logic_of(base, plan.settings)
-    _KEPT[key] = made = Tracker(logic, plan.settings, plan.placement)
-    made.doc, made.profile, made.opened = plan.doc, None, None
+    _KEPT[key] = made = Tracker(base, plan.settings, plan.placement)
+    made.doc, made.asked, made.profile, made.opened = plan.doc, plan.asked, None, None
     while len(_KEPT) > KEEP:
         _KEPT.popitem(last=False)
     return made
@@ -180,17 +170,19 @@ def _requires(t: Tracker, spoiler: bool, openers: Callable[[Mapping], list] | No
 
 
 def head(t: Tracker, spoiler: bool = False, openers: Callable[[Mapping], list] | None = None) -> dict:
-    """The tracker's head line (Modkit's): the seed, its share string, the skip ceiling, the movement tier,
-    the categories kept vanilla and each skip on (a batch once, D275); with a seed
+    """The tracker's head line (Modkit's): the seed, its share string, the skip ceiling, the movement tier (and the
+    one moved movement sliders play it as, D1066), the categories kept vanilla and each skip on (a batch once, D275); with a seed
     difficulty over 0, the level and ``requires`` (:func:`.planner.difficulty.requires`, ``openers`` as
     :func:`_requires` takes it)."""
     st, doc = t.settings, t.doc
     on = [pid if ids == [pid] else f"{pid} ({', '.join(ids)})" for pid, ids in picks_on(st, t.logic.skip_tables).items()]
     kept = [c for c in CATEGORIES if c in st.exclude_categories]
     level = f" · seed difficulty {RATING_NAMES[st.seed_difficulty]}" if st.seed_difficulty else ""
+    tier = t.asked.movement_tier
+    played = "" if tier == st.movement_tier else f" played as {st.movement_tier.replace('_', '-')} (your sliders)"
     return {"seed": doc["seed"], "share": doc["share"], "sha256": doc["sha256"],
             "text": (f"Seed {doc['seed']} · {doc['share']} · skips {RATINGS[st.skip_ceiling]}, movement "
-                     f"{st.movement_tier.replace('_', '-')}"
+                     f"{tier.replace('_', '-')}{played}"
                      + (f", vanilla {' '.join(kept)}" if kept else "") + f" · {len(on)} skips on{level}"),
             "skips": on} | ({"requires": _requires(t, spoiler, openers)} if st.seed_difficulty else {})
 

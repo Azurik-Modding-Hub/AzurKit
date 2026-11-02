@@ -11,9 +11,9 @@ split them off, an old file's meaning kept); keeping the elemental powers
 alone takes format /2 or version 3 (:func:`category_table`). ``skips`` arguments map
 a skip id to its ``[[skip]]`` table (its ``status``, ``difficulty`` and
 ``confirmed`` are read). ``Settings.sliders`` (AZ-383) holds the build's
-movement sliders that aren't vanilla's, which the logic is re-checked
-under; a settings file can't hold them (its format stays /1), the share
-string does (its version 2).
+movement sliders that aren't vanilla's, which pick the tier its seed is
+filled at (``movement.played``, D1066); a settings file can't hold them
+(its format stays /1), the share string does (its version 2).
 
 ``Settings.seed_difficulty`` (D1031, D1037, D1039; :mod:`.difficulty`) is the
 level the fill shapes a seed to: 0 (Any, the default: today's seeds), or a
