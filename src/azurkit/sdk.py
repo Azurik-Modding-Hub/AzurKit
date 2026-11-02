@@ -663,7 +663,7 @@ def _reshaped(recipe: Mapping, character: Mapping) -> dict:
         files = characters.worn_files(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
         while len(_MATCHES) >= 16:
             _MATCHES.pop(next(iter(_MATCHES)))
-        _MATCHES[key] = picker.dressed(files, character["species"])
+        _MATCHES[key] = picker.dressed(files, character["species"], character.get("variant_file"))
     return dict(_MATCHES[key])
 
 

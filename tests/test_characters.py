@@ -621,10 +621,11 @@ def test_each_variant_probe_is_its_goldens_file_for_file_and_resource_for_resour
 def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(usa_iso, tmp_path):
     """D1011: ``sdk.preview`` of a variant with ``shapes`` draws those shapes,
     the characters.xbr and config.xbr its build writes, not the variant at
-    its recipe's; a match of it still reads the recipe's."""
+    its recipe's, in the idle its recipe file names; a match of it still
+    reads the recipe's."""
     probe = next(p for p in _golden("probes.json").values() if "shapes" in p["character"])
     recipes = tmp_path / "probe.json"
-    recipes.write_text(json.dumps(probe["variants"]), encoding="utf-8")
+    recipes.write_text(json.dumps({"probe": probe["variants"]["probe"] | {"idles": {"idle": "stomp"}}}), encoding="utf-8")
     plain = {"species": "probe", "variant_file": str(recipes)}
     shaped = plain | {"shapes": {"hips": 1.4}}
     recipe = {"iso": str(usa_iso), "packs": {}}
@@ -633,7 +634,7 @@ def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(
     made, _ = sdk.image(recipe | {"character": shaped})
     with iso.Reader(made) as r:
         built = {"config.xbr": r.read(characters.CONFIG), "characters.xbr": r.read(characters.FILES[0])}
-    assert drawn == picker.dressed(built, "probe")
+    assert drawn == picker.dressed(built, "probe", str(recipes)) != picker.dressed(built, "probe")
 
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():
