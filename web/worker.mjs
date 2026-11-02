@@ -43,7 +43,7 @@
 //      (a tracker's, plan's, Characters', Data or Tools' answer: the view, {plan}, or {refused}), {type: "csp", directive,
 //      blocked}. A read that is neither an image nor an AzurKit build ends with {type: "unread"}. Each but a progress record
 //      carries the engine's heap then (undefined where Pyodide hides it), which the page's two workers count (workers.mjs).
-import { hashed, md5Ready } from "./hasher.mjs";
+import { hashed, hashedApart, md5Ready } from "./hasher.mjs";
 import { PREFIX } from "./outputs.mjs";
 
 const base = new URL("./", import.meta.url);
@@ -292,14 +292,14 @@ answering`;
 // its size (2 KiB and 64 MiB alike), and a build read the image about 650 times through WORKERFS (the folders'
 // tables, which every iso.Reader reads again, and a 4 KiB read after each 8 MiB one): 131 s a build, 4 s in
 // Chromium. So each read is served from what the image's blocks already hold, else from a block read for it: a 1 MiB
-// page for a read under 1 MiB (the tables: USA's 59 lie in 29 pages), else a 64 MiB block (a file's bytes); the last
-// PAGES pages and BLOCKS blocks are kept (384 MiB at most), for the last image only (by its id, which ids holds for
+// page for a read under 1 MiB (the tables: USA's 59 lie in 29 pages), else a 16 MiB block (a file's bytes); the last
+// PAGES pages and BLOCKS blocks are kept (240 MiB at most), for the last image only (by its id, which ids holds for
 // each File: each message brings its own File object of it; a File with none keeps its own), from one message to the
 // next, so a worker reads the folders' tables once, not once a call. Before the engine's first walk of an image in a
 // worker, its tables' pages are read ahead (ahead(): R2.5), every folder of a depth at once; a seed's build asks for
 // its levels' TOCs and node sections' too (spans(): AM-HUB-E): 95 pages on USA, 147 on Europe, whose French.xbr and
 // German.xbr it reads whole, and a worn body's its files (about 110 pages), so PAGES holds them with the tables.
-const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 192, BLOCKS = 3;
+const PAGE = 1 << 20, BLOCK = 16 << 20, PAGES = 192, BLOCKS = 3;
 const ids = new WeakMap();   // a message's File -> its image's id (identify)
 function readInBlocks(WORKERFS) {
   const kept = new Map();   // the last image's id -> its unit -> index -> bytes, the least recently used first
@@ -549,6 +549,7 @@ function mounted(py, file, fn) {
 // the last image's by its id), so the same File picked again after a reload is not read again (self.azurkitChecks
 // counts the hashings, for the tests).
 const STORE = "azurkit-stamp", SAMPLE = 1 << 20;
+const CHECK_RUN = 32 << 20;   // what WebKit keeps resident is what a thread held at once: a bar's op can read in smaller runs
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
 // An image's id: its name, size and lastModified and the sha256 of its first and last MiB (the volume's descriptor
@@ -581,7 +582,7 @@ async function prime(loaded, file) {
   self.azurkitChecks = (self.azurkitChecks ?? 0) + 1;
   const listed = mounted(py, file, (iso) => engine({ type: "layout", recipe: { iso } }));
   if ("refused" in listed) return;
-  const digests = await hashed(file, listed.files, checking("Checking your image"));
+  const digests = await hashedApart(file, listed.files, checking("Checking your image"), CHECK_RUN);
   const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
   if ("refused" in checked) return;
   loaded.primed = id;
@@ -661,7 +662,7 @@ async function tool({ py, engine }, data) {
   if (data.type !== "verify_all") return mounted(py, data.file, (iso) => engine({ type: data.type, recipe: { iso } }));
   const rest = mounted(py, data.file, (iso) => engine({ type: "layout", recipe: { iso }, whole: true }));
   if ("refused" in rest) return rest;
-  const digests = await hashed(data.file, rest.files, checking("Checking every file"));
+  const digests = await hashedApart(data.file, rest.files, checking("Checking every file"));
   return mounted(py, data.file, (iso) => engine({ type: "verify_all", recipe: { iso }, digests }));
 }
 

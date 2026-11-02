@@ -26,16 +26,16 @@ function md5(bytes) {
   return hex(wasm.memory.buffer.slice(out, out + 16));
 }
 
-// {key: sha256} of each of files ([key, offset, size, patches]) of source (a File or a Blob), RUNS of up to 128 MiB read
+// {key: sha256} of each of files ([key, offset, size, patches]) of source (a File or a Blob), runs of up to longest read
 // HASHERS at a time, each file's digest taken in turn; progress(done, total) hears the bytes. A file with patches
 // ([[its offset, bytes]...]; md5Ready first) is hashed with them over it, and its md5 comes as "md5:<path>" for a key
 // "file:<path>". A source that gives fewer bytes than a run asks (the image got shorter since its pick) throws, as a read
 // a browser refuses (WebKit's, Chromium's) does.
-export async function hashed(source, files, progress = () => {}) {
+export async function hashed(source, files, progress = () => {}, longest = RUN) {
   const runs = [];
   for (const entry of [...files].sort((a, b) => a[1] - b[1])) {
     const run = runs.at(-1), [, at, size] = entry;
-    if (run && at >= run.end && at + size - run.start <= RUN) {
+    if (run && at >= run.end && at + size - run.start <= longest) {
       run.files.push(entry);
       run.end = at + size;
     } else {
@@ -61,4 +61,35 @@ export async function hashed(source, files, progress = () => {}) {
     }
   }));
   return digests;
+}
+
+// hashed in a worker of its own that ends with it (hashworker.mjs; started from a blob: URL so that it keeps the page's
+// CSP), as an image's whole check takes memory the thread it runs in wouldn't give back; hashed here where a worker can't
+// start one.
+export function hashedApart(source, rows, progress = () => {}, longest = RUN) {
+  let worker, url;
+  try {
+    url = URL.createObjectURL(new Blob([`import ${JSON.stringify(new URL("hashworker.mjs", import.meta.url).href)};\n`],
+                                       { type: "text/javascript" }));
+    worker = new Worker(url, { type: "module" });
+  } catch {
+    return hashed(source, rows, progress, longest);
+  }
+  return new Promise((resolve, reject) => {
+    const over = (settle, value) => {
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      settle(value);
+    };
+    worker.onmessage = ({ data }) => {
+      if (data.digests) over(resolve, data.digests);
+      else if ("error" in data) over(reject, new Error(data.error));
+      else progress(data.done, data.total);
+    };
+    worker.onerror = (e) => {
+      e.preventDefault();
+      over(reject, new Error(e.message || "the hash's worker stopped"));
+    };
+    worker.postMessage({ source, rows, longest });
+  });
 }
