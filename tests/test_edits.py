@@ -85,9 +85,9 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
     overwrites nothing; where the whole file changed them (a grown body moved
     the resource there), it is refused by name (D35, Modkit's AZ-096). The
     image grows the file and the manifest marks the change whole; a second
-    whole write of a file, or a whole file planned against another, is
-    refused by name; a file's sha256 a stamp vouches for (``known``) stands
-    for its hash."""
+    whole write of a file, a whole file planned against another, or a group
+    that writes one file whole and another in ranges, is refused by name; a
+    file's sha256 a stamp vouches for (``known``) stands for its hash."""
     src = tmp_path / "in.iso"
     src.write_bytes(image(BASE))
     stamp = gate.Stamp(gate.USA, src, src.stat().st_size, src.stat().st_mtime_ns, False)
@@ -111,6 +111,10 @@ def test_a_whole_file_shadows_earlier_groups_and_a_later_range_lands_only_where_
     twice = Layer("again", "characters", "characters", {}, (put,))
     with pytest.raises(ValueError, match=r"^again \(swap files\): b\.bin is written whole by player model keylord"):
         edits.image(stamp, [swap, twice])
+    for mixed in ((_change("a.bin", 0, b"A", "swap files"), put), (put, _change("a.bin", 0, b"A", "swap files"))):
+        with pytest.raises(ValueError, match=r"^mixed \(swap files\): one group writes [ab]\.bin whole and another "
+                                             r"file in ranges$"):
+            edits.image(stamp, [Layer("mixed", "characters", "characters", {}, mixed)])
     stale = Layer("stale", "characters", "characters", {}, (Change("b.bin", 0, _sha256(b"X"), b"Y", "s", whole=True),))
     with pytest.raises(ValueError, match=r"^stale \(s\): written whole against another b\.bin$"):
         edits.image(stamp, [stale])

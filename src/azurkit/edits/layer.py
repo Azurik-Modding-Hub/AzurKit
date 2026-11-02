@@ -257,7 +257,7 @@ def compose(base: Mapping[str, bytes | iso.View], layers: Sequence[Layer], known
             what = f"{layer.id} ({c.group})"
             if c.file not in base:
                 raise ValueError(f"{what}: no file {c.file} in the base")
-            if any(m.whole != c.whole for m in members.get((i, c.group), ())):
+            if (held := members.get((i, c.group))) and held[0].whole != c.whole:   # a group's are of one kind
                 raise ValueError(f"{what}: one group writes {c.file} whole and another file in ranges")
             if c.whole:
                 if c.offset or (known.get(c.file) or hashlib.sha256(base[c.file][:]).hexdigest()) != c.before:
