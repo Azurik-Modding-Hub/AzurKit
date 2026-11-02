@@ -236,7 +236,8 @@ A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
 text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
 normalized, and ``randomizer`` (the seed and share string a randomized
 build's plan replays from); ``packs`` only when it has a packs layer (a
-build's packs are then its packs, and no others). Every refusal named.
+build's packs are then its packs, and no others), ``community`` its
+community packs' pins (a build resolves them). Every refusal named.
 
 
 def preset_encode(recipe: 'Mapping', report: 'Mapping | None' = None) -> 'str':
@@ -248,7 +249,8 @@ its image's path; given its build's report (:func:`image`), with the
 release it was built from and the sha256 of each file it changed. Names,
 numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
 refused by name; its ``character`` goes by name and numbers (a variant
-with its recipe's sha), and one naming a recipe file is refused.
+with its recipe's sha), and one naming a recipe file is refused; its
+``community`` packs by id and their pack.json's sha12.
 
 
 def preset_decode(text: 'str') -> 'dict':
@@ -257,8 +259,9 @@ The preset in a link or its fragment (``preset.decode``), its packs
 normalized (``mods.normalize``), its ``set`` operations and its
 randomizer checked: a tool or pack AzurKit doesn't have, a value a
 slider refuses, a setting the randomizer refuses, a ``replace_bytes``
-(Q174) or a character naming a recipe file or a variant recipe this
-AzurKit doesn't hold is refused by name.
+(Q174), a character naming a recipe file or a variant recipe this
+AzurKit doesn't hold, or a community pack not installed at its pin, is
+refused by name, naming what to Install or Update.
 
 
 def plan(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
@@ -396,7 +399,9 @@ couldn't carry), each left out and named, never applied. A setup's
 ``obsidian_cost``, ``tools.randomizer.remembered``) comes back
 checked, or is dropped whole, by name, as is its ``character`` (the
 Characters tab's: a species or variant by name and its options, never a
-recipe file's path). It never refuses: a setup it can't read is dropped
+recipe file's path); its ``community`` packs (their ids, without a pin:
+an Update never drops one) come back while each is installed untouched,
+else dropped by name. It never refuses: a setup it can't read is dropped
 whole, by name.
 
 
@@ -564,3 +569,19 @@ a preset and checked as :func:`preset_decode` checks a link's (a
 ``{"preset"}`` (an AzurKit build's, :func:`open_build`'s) written as a
 mods file: ``{"text"}``, which ``azurkit build --mods`` and
 :func:`read_mods` take. Every refusal named.
+
+
+def community() -> 'dict':
+
+The community packs the content folder holds, as the Patches tab
+ticks them: ``{"packs": [{"id", "version", "sha", "packs", "ops"} |
+{"id", "version", "refused"}]}`` (``community.held``: each one's sha12,
+its built-in packs' values and its edits in words, or why it can't be
+read, named, never bytes).
+
+
+def content_refusal(entry: 'Mapping', files: 'Mapping[str, bytes]') -> 'str | None':
+
+Why a content entry can't be installed, or ``None``: a variant's
+recipe (``content.builtin_refusal``), a community pack
+(``community.refusal``). ``content.verify``'s ``refusal``.

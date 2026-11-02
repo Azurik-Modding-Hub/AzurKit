@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from azurkit import cli, sdk
 from azurkit.core import gate
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import compose
@@ -173,6 +174,95 @@ def test_a_community_packs_edits_are_its_own_layer_a_later_edit_wins_and_its_bui
     assert preset.decode(preset.encode(found)) == found
     with pytest.raises(ValueError, match="not a 'packs' layer of tool 'community'"):
         preset.read({**record, "layers": [{"tool": "community", "kind": "packs", "recipe": {"id": "hard"}}]})
+
+
+def _installed(tmp_path, monkeypatch, packs: dict[str, dict]) -> tuple[Path, dict]:
+    """A folder source of ``packs``, the content folder empty under ``tmp_path``: the source and its manifest."""
+    manifest, _ = _repo(tmp_path, packs)
+    (tmp_path / "repo/manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
+    monkeypatch.delenv(sdk.SOURCE_ENV, raising=False)
+    return tmp_path / "repo", manifest
+
+
+def test_the_sdk_installs_lists_links_and_restores_a_community_pack_and_refuses_each_fault_by_name(tmp_path, monkeypatch):
+    """The sdk's community packs (Step 4.3k): an Install of a pack.json that is no community pack writes nothing,
+    on both Install paths; an installed one lists with its values and edits in words, never a ``replace_bytes``'s
+    bytes; a link carries it by id and sha12, its packs merged, and is refused by name where it isn't installed or
+    is at another sha; a recipe that sets one of its packs another way is refused by name; a remembered setup keeps
+    it by id across an Update and drops an uninstalled one by name; ``azurkit content check`` reads a pack too."""
+    bytes_op = {"op": "replace_bytes", "file": "gamedata/config.xbr", "offset": 16, "expected": "00010203",
+                "value": "04050607"}
+    bad = _pack({"qol_memory_upper64_gpu": {}})   # without the pack it requires
+    source, manifest = _installed(tmp_path, monkeypatch, {"hard": HARD, "raw": _pack(None, [bytes_op]), "bad": bad})
+    with pytest.raises(ValueError, match="bad: .*pack.json: pack 'qol_memory_upper64_gpu' needs 'qol_memory_upper64'"):
+        sdk.content_install({"id": "bad", "source": str(source)})
+    assert not (tmp_path / "content/packs/bad").exists() and sdk.community() == {"packs": []}
+    fetched = {community.PATH.format("bad"): json.dumps(bad).encode()}
+    with pytest.raises(ValueError, match="bad: .*needs 'qol_memory_upper64'"):
+        sdk.content_check({"manifest": json.dumps(manifest), "id": "bad", "files": fetched})
+    assert cli.main(["content", "check", str(source)]) == 1   # its one bad entry, named
+
+    sdk.content_install({"id": "hard", "source": str(source)})
+    sdk.content_install({"id": "raw", "source": str(source)})
+    sha = hashlib.sha256(json.dumps(HARD).encode()).hexdigest()[:12]
+    [hard, raw] = sdk.community()["packs"]
+    assert hard == {"id": "hard", "version": 1, "sha": sha, "packs": community.check(HARD)["packs"],
+                    "ops": ["gamedata/config.xbr: critters_damage / golem / hitPoints = 321"]}
+    assert raw["ops"] == ["gamedata/config.xbr: 4 bytes at 0x10"]
+
+    recipe = {"packs": {}, "community": [{"id": "hard"}]}
+    found = sdk.preset_decode(sdk.preset_encode(recipe))
+    by = {la["tool"]: la["recipe"] for la in found["layers"]}
+    assert by["community"] == {"packs": [{"id": "hard", "sha": sha}]} and by["mods"] == community.check(HARD)["packs"]
+    assert sdk.read_mods(sdk.mods_file({"recipe": recipe})["text"])["community"] == [{"id": "hard", "sha": sha}]
+    with pytest.raises(ValueError, match="your packs 2: untick one"):
+        sdk.preset_encode({"packs": {"player_max_hp": {"starting_hp": 2}}, "community": [{"id": "hard"}]})
+    other = preset.encode(found | {"layers": [la if la["tool"] != "community" else {
+        **la, "recipe": {"packs": [{"id": "hard", "sha": "0" * 12}]}} for la in found["layers"]]})
+    with pytest.raises(ValueError, match="Install or Update it"):
+        sdk.preset_decode(other)
+    gone = preset.encode(found | {"layers": [la if la["tool"] != "community" else {
+        **la, "recipe": {"packs": [{"id": "none"}]}} for la in found["layers"]]})
+    with pytest.raises(ValueError, match="'none' isn't installed: Install it"):
+        sdk.preset_decode(gone)
+
+    back = sdk.restore({"community": [{"id": "hard"}, {"id": "none"}]})
+    assert back["community"] == [{"id": "hard"}] and "'none' isn't installed" in back["dropped"][0]
+    assert sdk.restore({"community": "hard"})["dropped"] == ["the community packs (not a list)"]
+    (tmp_path / "content" / community.PATH.format("hard")).write_text("{}", encoding="utf-8")
+    assert "changed since its install" in sdk.community()["packs"][0]["refused"]
+
+
+@pytest.mark.parametrize("release", ["usa", pytest.param("europe", marks=pytest.mark.europe)])
+@pytest.mark.vanilla
+def test_a_community_pack_builds_its_packs_and_edits_as_its_own_layer_and_its_link_and_build_carry_it(
+        release, request, tmp_path, monkeypatch):
+    """A recipe's community pack builds the same game files as its packs and edits written out (the design's
+    invariant, so no golden records one); its layer sits after the packs, before the player's own edits, whose set on
+    its cell wins, reported (D28); ``azurkit build --community`` builds it; the build's recipe (its mods file) names
+    it by id and sha12 and rebuilds the image."""
+    image = str(request.getfixturevalue(f"{release}_iso"))
+    source, _ = _installed(tmp_path, monkeypatch, {"hard": HARD})
+    sdk.content_install({"id": "hard", "source": str(source)})
+    sha = hashlib.sha256(json.dumps(HARD).encode()).hexdigest()[:12]
+    picked = community.check(HARD)
+    made, report = sdk.image({"iso": image, "packs": {}, "community": [{"id": "hard"}]})
+    plain, expanded = sdk.image({"iso": image, "packs": picked["packs"], "xbr": picked["xbr"]})
+    assert [la["id"] for la in report["layers"]] == ["pack player_max_hp", "pack enemy_scaling", "community hard"]
+    assert report["result"] == expanded["result"] and report["conflicts"] == [] and made.size == plain.size
+
+    _, mine = sdk.image({"iso": image, "packs": {}, "community": [{"id": "hard"}], "xbr": [{**GOLEM, "value": 322}]})
+    assert [la["id"] for la in mine["layers"]][-2:] == ["community hard", "data xbr"]
+    assert [c for c in mine["conflicts"] if "data xbr" in c and "community hard" in c]
+
+    out = tmp_path / "built.iso"
+    assert cli.main(["build", "--iso", image, "--out", str(out), "--no-defaults", "--community", "hard"]) == 0
+    opened = sdk.open_build(str(out))
+    by = {la["tool"]: la["recipe"] for la in opened["layers"]}
+    assert by["community"] == {"packs": [{"id": "hard", "sha": sha}]}
+    again = sdk.read_mods(json.dumps(opened)) | {"iso": image}
+    assert sdk.image(again)[1]["result"] == report["result"]
 
 
 DRIVE = r"""

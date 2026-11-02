@@ -96,10 +96,11 @@ def _packs(args: argparse.Namespace) -> int:
 
 
 def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, params: list[str] = (),
-           mods: dict | None = None, randomizer: dict | None = None) -> dict:
+           mods: dict | None = None, randomizer: dict | None = None, community: list[str] = ()) -> dict:
     """``build``'s flags as the sdk's recipe, from ``mods`` (a mods file,
     ``sdk.read_mods``, its character too) when given, with ``randomizer``
-    (the randomizer's flags, in place of the mods file's); ``ValueError`` names a pack no pack
+    (the randomizer's flags, in place of the mods file's) and each of
+    ``community`` (ids, after the mods file's); ``ValueError`` names a pack no pack
     has, one both added and taken away (no flag cancels another), and a
     ``--pack-param`` that isn't ``PACK.SLIDER=NUMBER`` of a pack the build
     applies (the sdk names a slider or value it refuses)."""
@@ -127,7 +128,8 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
             raise ValueError(f"--pack-param {given}: the build doesn't apply {pack!r} (add --pack {pack})")
         built[pack][slider] = number
     randomizer = randomizer or (mods or {}).get("randomizer")
-    return {"iso": iso, "packs": built} | ({"xbr": mods["xbr"]} if mods and mods.get("xbr") else {}) | (
+    pins = [*(mods or {}).get("community", []), *({"id": name} for name in community)]
+    return ({"community": pins} if pins else {}) | {"iso": iso, "packs": built} | ({"xbr": mods["xbr"]} if mods and mods.get("xbr") else {}) | (
         {"randomizer": randomizer} if randomizer else {}) | (
         {"character": mods["character"]} if mods and mods.get("character") else {})
 
@@ -150,7 +152,7 @@ def _build(args: argparse.Namespace) -> int:
     try:
         given = sdk.read_mods(Path(args.mods).read_bytes()) if args.mods else None
         made = recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given,
-                      _randomizer(args))
+                      _randomizer(args), args.community)
         built = sdk.build(made | ({"character": json.loads(args.character)} if args.character else {}), args.out)
     except (OSError, ValueError) as exc:    # tomllib.TOMLDecodeError is a ValueError
         print(f"azurkit: {exc}", file=sys.stderr)
@@ -261,7 +263,8 @@ def _content(args: argparse.Namespace) -> int:
             manifest = content.filled(raw, lambda path: (folder / path).read_bytes()) if args.write else content.check(raw)
             for entry in manifest["entries"]:
                 content.verify(manifest, entry["id"], {f["path"]: (folder / f["path"]).read_bytes()
-                                                       for e in manifest["entries"] for f in e["files"]})
+                                                       for e in manifest["entries"] for f in e["files"]},
+                               sdk.content_refusal)
             if args.write:
                 (folder / content.MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
             print(f"{folder / content.MANIFEST}: {len(manifest['entries'])} entries, every file as it lists it"
@@ -322,6 +325,9 @@ def main(argv: list[str] | None = None) -> int:
                        help="the obsidian each lock costs (vanilla 10; any number, never clamped)")
     build.add_argument("--character", metavar="JSON", help='dress the player in a species\' body: a recipe\'s '
                        'character, e.g. \'{"species": "keylord", "mode": "garret4"}\'')
+    build.add_argument("--community", action="append", default=[], metavar="ID",
+                       help="a community pack installed with `azurkit content install` (repeatable): its packs and "
+                            "game-data edits join the build")
     build.set_defaults(run=_build)
     opened = verbs.add_parser("open", help="print an AzurKit build's recipe as a mods file",
                               description="Read BUILD's /azurkit.json, check every file of the image against it, "

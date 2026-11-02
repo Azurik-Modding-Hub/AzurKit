@@ -176,6 +176,35 @@ def resolve(pins: object, record: Mapping, read: Callable[[str], bytes]) -> list
     return out
 
 
+def said(op: Mapping) -> str:
+    """A normalized operation in words: a cell by its names and value, a
+    ``replace_bytes`` by its file, size and offset, never its bytes."""
+    if op["op"] == "set":
+        return f"{op['file']}: {op['table']} / {op['entity']} / {op['prop']} = {op['value']}"
+    return f"{op['file']}: {len(op['value']) // 2} bytes at {op['offset']:#x}"
+
+
+def held(record: Mapping, read: Callable[[str], bytes]) -> list[dict]:
+    """Each community pack ``record`` (``installed.json``) lists, by id, as
+    the page ticks it: ``{"id", "version", "sha", "packs", "ops"}`` (its
+    sha12, its packs' values, :func:`said` of each edit), or ``{"id",
+    "version", "refused"}`` where :func:`resolve` refuses it."""
+    out = []
+    for name in sorted(record):
+        files = record[name].get("files") if isinstance(record[name], Mapping) else None
+        if not isinstance(files, Mapping) or PATH.format(name) not in files:
+            continue
+        version = record[name].get("version")
+        try:
+            pick = resolve([{"id": name}], record, read)[0]
+        except ValueError as exc:
+            out.append({"id": name, "version": version, "refused": str(exc)})
+        else:
+            out.append({"id": name, "version": version, "sha": pick["sha256"][:12], "packs": pick["packs"],
+                        "ops": [said(op) for op in pick["xbr"]]})
+    return out
+
+
 def _shown(pack: str, slider: str, params: Mapping) -> str:
     value = params.get(slider)
     default = value is None

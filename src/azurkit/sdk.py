@@ -109,15 +109,17 @@ from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
 from azurkit.tools import data as datatool
+from azurkit.tools.mods import community as communal
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
 __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_staged", "image_checks", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
-           "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file"]
-RECIPE = ("iso", "packs", "xbr", "randomizer", "character")
-SETUP = ("ticked", "values", "xbr", "randomizer", "character")   # a UI's remembered setup (D915, :func:`restore`)
+           "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file", "community",
+           "content_refusal"]
+RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community")
+SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
 """Where Azurik-Custom-Content is read from by default (D966: the hub's, public at Step 4.4)."""
 SOURCE_ENV = "AZURKIT_CONTENT_SOURCE"   # set, it wins over a host's setting (the tests', a private play's)
@@ -310,19 +312,32 @@ def extract(path: str, member: str, out: str, *, progress: Callable[[dict], obje
 
 
 def _packs(recipe: object) -> dict[str, dict]:
-    """The recipe's packs, normalized (``mods.normalize``), each with every
-    pack it requires (``mods.missing``); every refusal named."""
+    """The recipe's packs, normalized (``mods.normalize``), with those its
+    community packs set (``community.merge``), each with every pack it
+    requires (``mods.missing``); every refusal named."""
     if not isinstance(recipe, Mapping):
         raise ValueError(f"a recipe is a JSON object, not {type(recipe).__name__}")
     if unknown := sorted(set(recipe) - set(RECIPE), key=str):
         raise ValueError(f"recipe: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(RECIPE)})")
     packs = mods.normalize(recipe.get("packs", {}))
+    if "community" in recipe:
+        packs = communal.merge(packs, _picks(recipe))
     if lost := mods.missing(packs):
         raise ValueError("; ".join(lost))
     return packs
 
 
 AHEAD_WHOLE = 1 << 23   # a file another layer reads whole is read ahead under this: past it, a block's read is its size's
+
+
+def _picks(recipe: Mapping) -> list[dict]:
+    """The community packs ``recipe`` names as a build takes them
+    (``community.resolve``, from the content folder), each refusal named."""
+    if "community" not in recipe:
+        return []
+    from azurkit.tools.characters import content as kit
+
+    return communal.resolve(recipe["community"], kit.installed(), lambda path: (kit.ROOT / path).read_bytes())
 
 
 def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes | iso.View], list[Layer],
@@ -340,13 +355,15 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), ahead: bool = False):
     """The recipe's vanilla image (its build files checked, D27), the files
     read from it (a seed's levels only as ``generator.sections``' views, but
     any another layer reads), its randomizer's layer (its plan written, the
-    first), each pack's layer, then its xbr operations' (the Data tool's,
-    after the packs), the randomizer's read-back of the built image and its
-    plan (``None`` without one); every refusal named. ``steps`` hears each
-    stage. A generator, its ``StopIteration``'s value those: with ``ahead``
-    it first yields a seed's ``generator.heads`` and ``generator.pages``, for
-    a host whose reads are late to read them all at once, else nothing."""
+    first), each pack's layer, the character's, each community pack's edits,
+    then its xbr operations' (the Data tool's, last), the randomizer's
+    read-back of the built image and its plan (``None`` without one); every
+    refusal named. ``steps`` hears each stage. A generator, its
+    ``StopIteration``'s value those: with ``ahead`` it first yields a seed's
+    ``generator.heads`` and ``generator.pages``, for a host whose reads are
+    late to read them all at once, else nothing."""
     packs = own = _packs(recipe)
+    picks = _picks(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     character = characters.normalize(recipe["character"]) if "character" in recipe else None
     if not isinstance(recipe.get("iso"), str):
@@ -371,6 +388,7 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), ahead: bool = False):
     steps("read")
     with iso.Reader(stamp.path) as r:
         names = [f for pack in chosen.values() for f in pack.files()] + xbr.files(ops)
+        names += [f for pick in picks for f in xbr.files(pick["xbr"])]
         names += list(characters.READS) if character is not None else []
         others = [file for file in dict.fromkeys(names) if file in stamp.release.files]
         base: dict[str, bytes | iso.View] = {}
@@ -404,6 +422,11 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), ahead: bool = False):
             reasons += body
         layers.append(Layer(layer.id, layer.tool, layer.kind, layer.recipe, layer.changes, layer.claims,
                             tuple(line.strip() for line in lines)))
+    for pick in picks:   # after the character, before the player's own edits, which win, reported (D28)
+        try:
+            layers.append(communal.layer(pick, stamp.release, base))
+        except ValueError as exc:
+            failed.append(str(exc))
     if ops:
         steps("data")
         try:
@@ -839,12 +862,23 @@ def open_build(path: str, *, whole: bool = True) -> dict:
     return preset.from_manifest(edits.load(path, whole=whole)[1])
 
 
+_NO_TOOL = ("preset: no tool {tool!r} with {kind!r} (AzurKit's: mods with packs, data with xbr, randomizer with plan, "
+            "characters with characters, community with packs)")
+
+
+def _pins(recipe: Mapping) -> list[dict]:
+    """``recipe``'s community packs as a link and a mods file carry them, by
+    id and sha12 (Q174: never their bytes), each refusal named."""
+    return [{"id": pick["id"], "sha": pick["sha256"][:12]} for pick in _picks(recipe)]
+
+
 def read_mods(given: str | bytes | Mapping) -> dict:
     """A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
     text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
     normalized, and ``randomizer`` (the seed and share string a randomized
     build's plan replays from); ``packs`` only when it has a packs layer (a
-    build's packs are then its packs, and no others). Every refusal named."""
+    build's packs are then its packs, and no others), ``community`` its
+    community packs' pins (a build resolves them). Every refusal named."""
     found = preset.read(given)
     out: dict = {}
     for layer in found["layers"]:
@@ -856,10 +890,10 @@ def read_mods(given: str | bytes | Mapping) -> dict:
             out["randomizer"] = generator.normalize(layer["recipe"])
         elif (layer["tool"], layer["kind"]) == (characters.TOOL, characters.KIND):
             out["character"] = _character(layer["recipe"])[0]
+        elif (layer["tool"], layer["kind"]) == (communal.TOOL, communal.KIND) and set(layer["recipe"]) == {"packs"}:
+            out["community"] = communal.normalize(layer["recipe"]["packs"])
         else:
-            raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} "
-                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan, characters with "
-                             "characters)")
+            raise ValueError(_NO_TOOL.format(**layer))
     return out
 
 
@@ -908,7 +942,8 @@ def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
     release it was built from and the sha256 of each file it changed. Names,
     numbers and hashes only (Q174): a recipe with a ``replace_bytes`` is
     refused by name; its ``character`` goes by name and numbers (a variant
-    with its recipe's sha), and one naming a recipe file is refused."""
+    with its recipe's sha), and one naming a recipe file is refused; its
+    ``community`` packs by id and their pack.json's sha12."""
     return preset.encode(_preset(recipe, report))
 
 
@@ -923,6 +958,8 @@ def _preset(recipe: Mapping, report: Mapping | None = None, *, link: bool = True
     made["layers"].append({"tool": "mods", "kind": "packs", "recipe": packs})
     if character is not None:
         made["layers"].append({"tool": characters.TOOL, "kind": characters.KIND, "recipe": character})
+    if pins := _pins(recipe):
+        made["layers"].append({"tool": communal.TOOL, "kind": communal.KIND, "recipe": {"packs": pins}})
     if ops := (_shared if link else list)(xbr.normalize(recipe.get("xbr", []))):
         made["layers"].append({"tool": xbr.TOOL, "kind": xbr.KIND, "recipe": {"ops": ops}})
     if report is not None:
@@ -940,8 +977,9 @@ def preset_decode(text: str) -> dict:
     normalized (``mods.normalize``), its ``set`` operations and its
     randomizer checked: a tool or pack AzurKit doesn't have, a value a
     slider refuses, a setting the randomizer refuses, a ``replace_bytes``
-    (Q174) or a character naming a recipe file or a variant recipe this
-    AzurKit doesn't hold is refused by name."""
+    (Q174), a character naming a recipe file or a variant recipe this
+    AzurKit doesn't hold, or a community pack not installed at its pin, is
+    refused by name, naming what to Install or Update."""
     return _loaded(preset.decode(text))
 
 
@@ -957,10 +995,10 @@ def _loaded(found: dict, *, link: bool = True) -> dict:
             layer["recipe"] = generator.check(layer["recipe"])
         elif (layer["tool"], layer["kind"]) == (characters.TOOL, characters.KIND):
             layer["recipe"] = _character(layer["recipe"])[1]
+        elif (layer["tool"], layer["kind"]) == (communal.TOOL, communal.KIND) and set(layer["recipe"]) == {"packs"}:
+            layer["recipe"] = {"packs": _pins({"community": layer["recipe"]["packs"]})}
         else:
-            raise ValueError(f"preset: no tool {layer['tool']!r} with {layer['kind']!r} "
-                             "(AzurKit's: mods with packs, data with xbr, randomizer with plan, characters with "
-                             "characters)")
+            raise ValueError(_NO_TOOL.format(**layer))
     return found
 
 
@@ -1248,7 +1286,9 @@ def restore(setup: object) -> dict:
     ``obsidian_cost``, ``tools.randomizer.remembered``) comes back
     checked, or is dropped whole, by name, as is its ``character`` (the
     Characters tab's: a species or variant by name and its options, never a
-    recipe file's path). It never refuses: a setup it can't read is dropped
+    recipe file's path); its ``community`` packs (their ids, without a pin:
+    an Update never drops one) come back while each is installed untouched,
+    else dropped by name. It never refuses: a setup it can't read is dropped
     whole, by name."""
     if not isinstance(setup, Mapping) or not set(setup) <= set(SETUP):
         return {"ticked": [], "values": {}, "xbr": [], "dropped": ["your last setup (not one AzurKit reads)"]}
@@ -1282,8 +1322,45 @@ def restore(setup: object) -> dict:
             rando["character"] = _character(setup["character"])[0]
         except ValueError as exc:
             why.append(f"the character ({str(exc).removeprefix('preset: ')})")
+    if "community" in setup:
+        rando["community"], lost = _still(setup["community"])
+        why += lost
     return {"ticked": on, "values": {name: v for name, v in values.items() if v}, "xbr": kept,
             "dropped": list(dict.fromkeys(dropped + why))} | rando
+
+
+def _still(pins: object) -> tuple[list[dict], list[str]]:
+    """A setup's community packs that can still be built, and each that
+    can't, named."""
+    if not isinstance(pins, list):
+        return [], ["the community packs (not a list)"]
+    kept, dropped = [], []
+    for pin in pins:
+        try:
+            kept += [{"id": pick["id"]} for pick in _picks({"community": [pin]})]
+        except ValueError as exc:
+            dropped.append(str(exc))
+    return kept, dropped
+
+
+def community() -> dict:
+    """The community packs the content folder holds, as the Patches tab
+    ticks them: ``{"packs": [{"id", "version", "sha", "packs", "ops"} |
+    {"id", "version", "refused"}]}`` (``community.held``: each one's sha12,
+    its built-in packs' values and its edits in words, or why it can't be
+    read, named, never bytes)."""
+    from azurkit.tools.characters import content as kit
+
+    return {"packs": communal.held(kit.installed(), lambda path: (kit.ROOT / path).read_bytes())}
+
+
+def content_refusal(entry: Mapping, files: Mapping[str, bytes]) -> str | None:
+    """Why a content entry can't be installed, or ``None``: a variant's
+    recipe (``content.builtin_refusal``), a community pack
+    (``community.refusal``). ``content.verify``'s ``refusal``."""
+    from azurkit.tools.characters import content as kit
+
+    return kit.builtin_refusal(entry, files) or communal.refusal(entry, files)
 
 
 def _secure(url: str) -> bool:
@@ -1390,7 +1467,7 @@ def content_install(given: Mapping) -> dict:
     manifest = kit.check(fetch(kit.MANIFEST, kit.MAX_MANIFEST))
     sizes = {f["path"]: f["size"] for e in manifest["entries"] for f in e["files"]}
     kit.install(manifest, given["id"], lambda path, size=None: fetch(path, sizes.get(path) if size is None else size),
-                source=source)   # each file read to at most its listed size (SEC-9)
+                source=source, refusal=content_refusal)   # each file read to at most its listed size (SEC-9)
     return content({"source": given.get("source")})
 
 
@@ -1410,6 +1487,6 @@ def content_check(given: Mapping) -> dict:
     manifest = kit.check(given.get("manifest"))
     if "id" not in given:
         return {"manifest": manifest, "install": []}
-    chosen = kit.verify(manifest, given["id"], given.get("files") or {})
+    chosen = kit.verify(manifest, given["id"], given.get("files") or {}, content_refusal)
     kit.held_to(chosen, kit.installed())
     return {"manifest": manifest, "install": [e["id"] for e in chosen]}
