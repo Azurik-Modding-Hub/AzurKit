@@ -9,11 +9,13 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 :func:`restore`, the Characters tab's :func:`pickers`, :func:`match`
 (its G4 buttons) and :func:`preview`, Azurik-Custom-Content's
 :func:`content`, :func:`content_install` and :func:`content_check` (its
-community entries), the Data tab's :func:`data` and :func:`data_edit`
+community entries) with :func:`community` (the packs the content folder
+holds) and :func:`content_refusal`, the Data tab's :func:`data` and :func:`data_edit`
 (config.xbr's cells, edited before an image is picked), and the Tools
 tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
-files saved and read). JSON in and
+files saved and read), :func:`file_entry` (a replaced file's) and
+:func:`saves`. JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a

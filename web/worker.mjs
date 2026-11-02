@@ -620,9 +620,9 @@ const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler
 const DATA = ["data", "data_edit", "community"];   // the Data tab's and the Patches tab's community list: no image
 async function tool({ py, engine }, data) {
   if (data.type === "saves") {   // the Saves section: a slot's Files, an HDD image or the image's XBE and BIOS files
-    const given = data.given, blobs = { files: {} };
-    for (const [path, one] of Object.entries(data.files ?? {})) blobs.files[path] = await pickedBytes(one);
-    for (const key of ["flash", "mcpx"]) if (data[key]) blobs[key] = await pickedBytes(data[key]);
+    const given = data.given, blobs = { files: {} };   // read at once: Safari answers each read of a File 200 ms late
+    await Promise.all([...Object.entries(data.files ?? {}).map(async ([path, one]) => blobs.files[path] = await pickedBytes(one)),
+                       ...["flash", "mcpx"].filter((key) => data[key]).map(async (key) => blobs[key] = await pickedBytes(data[key]))]);
     const asked = (extra = {}) => engine({ type: "saves", given: { ...given, ...extra }, blobs });
     if (data.hdd) return mounted(py, data.hdd, (image) => asked({ image }));
     return data.file ? mounted(py, data.file, (iso) => asked({ iso })) : asked();
