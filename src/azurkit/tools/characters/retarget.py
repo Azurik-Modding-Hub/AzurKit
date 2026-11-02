@@ -86,10 +86,12 @@ from __future__ import annotations
 
 import math
 import struct
+import weakref
+from array import array
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, native
 from azurkit.tools.characters.characters import (
     DAMAGE_MARKERS,
     BoneRecord,
@@ -307,6 +309,34 @@ def pose(rig: Rig, clip: Clip, t: float) -> list[Quat]:
     """The engine model (0xCB730, 0xCA470): each bone's world rotation
     when ``clip`` plays on ``rig`` at ``t`` (unkeyed components take the
     bone's rest rotation)."""
+    got = _engine(rig, clip, (t,), False)
+    if got is None:
+        return _pose(rig, clip, t)
+    w = got[0]
+    return [tuple(w[j:j + 4]) for j in range(0, len(w), 4)]
+
+
+def origins(rig: Rig, clip: Clip, t: float) -> list[tuple[float, float, float]]:
+    """Each bone's origin in the model when ``clip`` plays on ``rig`` at
+    ``t`` (the engine model, :func:`pose`; scale left out, every bone's
+    rest scale being 1 on the bodies X3 follows): its parent's origin plus
+    its translation (the clip's, else its rest one) turned by the
+    parent's world rotation.  X3's box follows a hand's (Step 2.70b)."""
+    return origins_at(rig, clip, (t,))[0]
+
+
+def origins_at(rig: Rig, clip: Clip, times) -> list[list[tuple[float, float, float]]]:
+    """:func:`origins` at each of ``times``, in one call of the compiled
+    kernel (``core.native.origins``; its twin :func:`_origins` without it)."""
+    got = _engine(rig, clip, times, True)
+    if got is None:
+        return [_origins(rig, clip, t) for t in times]
+    o, n = got[1], 3 * len(rig.bones)
+    return [[tuple(o[j:j + 3]) for j in range(i, i + n, 3)] for i in range(0, len(o), n)]
+
+
+def _pose(rig: Rig, clip: Clip, t: float) -> list[Quat]:
+    """:func:`pose`'s twin, the reference (``core.native``)."""
     keyed: dict[int, dict[int, tuple[Key, ...]]] = {}
     for tr in clip.bones:
         if 3 <= tr.comp <= 6:
@@ -320,13 +350,9 @@ def pose(rig: Rig, clip: Clip, t: float) -> list[Quat]:
     return world
 
 
-def origins(rig: Rig, clip: Clip, t: float) -> list[tuple[float, float, float]]:
-    """Each bone's origin in the model when ``clip`` plays on ``rig`` at
-    ``t`` (the engine model, :func:`pose`; scale left out, every bone's
-    rest scale being 1 on the bodies X3 follows): its parent's origin plus
-    its translation (the clip's, else its rest one) turned by the
-    parent's world rotation.  X3's box follows a hand's (Step 2.70b)."""
-    world = pose(rig, clip, t)
+def _origins(rig: Rig, clip: Clip, t: float) -> list[tuple[float, float, float]]:
+    """:func:`origins`' twin, the reference (``core.native``)."""
+    world = _pose(rig, clip, t)
     keyed = {(tr.target, tr.comp): tr.keys for tr in clip.bones if tr.comp <= 2}
     out: list[tuple[float, float, float]] = []
     for k, b in enumerate(rig.bones):
@@ -334,6 +360,78 @@ def origins(rig: Rig, clip: Clip, t: float) -> list[tuple[float, float, float]]:
         out.append(tuple(local) if b.parent < 0 else
                    tuple(p + d for p, d in zip(out[b.parent], _turn(world[b.parent], local))))
     return out
+
+
+_PACKED: dict[int, tuple] = {}   # id(a rig or clip) -> (a weak reference to it, its packing for the kernels)
+_TARGETS = 1024                  # the bones a clip's packing indexes (a rig past it: the twins)
+
+
+def _packed(obj, make):
+    """``make(obj)``, once while ``obj`` lives (kept by its id, never
+    hashed: a clip's hash walks every key)."""
+    got = _PACKED.get(id(obj))
+    if got is None or got[0]() is not obj:
+        got = _PACKED[id(obj)] = (weakref.ref(obj, lambda _, k=id(obj): _PACKED.pop(k, None)), make(obj))
+    return got[1]
+
+
+def _floats(values, n: int) -> bool:
+    return len(values) == n and all(type(v) is float for v in values)
+
+
+def _rig_packing(rig: Rig) -> tuple[array, array] | None:
+    """(parents, 15 doubles a bone: jo, rest q, ra, rest t), or None
+    where the kernel can't take the rig (a parent not before its child,
+    a value not a float, past :data:`_TARGETS` bones): the twins'."""
+    bones = rig.bones
+    if len(bones) > _TARGETS or not all(type(b.parent) is int and b.parent < k for k, b in enumerate(bones)):
+        return None
+    if not all(_floats(b.jo, 4) and _floats(b.q, 4) and _floats(b.ra, 4) and _floats(b.t, 3) for b in bones):
+        return None
+    return array("q", [b.parent for b in bones]), array("d", [x for b in bones for x in (*b.jo, *b.q, *b.ra, *b.t)])
+
+
+def _keys(tracks) -> tuple[dict, array] | None:
+    """Each (target, component) the last of ``tracks`` (target,
+    component, keys) keys, its key offset and count in the packed keys;
+    None where a key isn't 4 floats or a track has none."""
+    keyed = {}
+    for target, comp, keys in tracks:
+        keyed[target, comp] = keys
+    flat, at = [], {}
+    for tc, keys in keyed.items():
+        if not keys or not all(_floats(key, 4) for key in keys):
+            return None
+        at[tc] = (len(flat) // 4, len(keys))
+        for key in keys:
+            flat += key
+    return at, array("d", flat)
+
+
+def _clip_packing(clip: Clip) -> tuple[array, array] | None:
+    """(14 ids a bone: its 7 components' key offset and count, the keys)
+    of ``clip``'s bone tracks, or None (the twins')."""
+    got = _keys((tr.target, tr.comp, tr.keys) for tr in clip.bones if 0 <= tr.target < _TARGETS and 0 <= tr.comp <= 6)
+    if got is None:
+        return None
+    at, keys = got
+    index = array("q", bytes(8 * 14 * (max((t for t, _ in at), default=-1) + 1)))
+    for (t, c), (offset, count) in at.items():
+        index[14 * t + 2 * c:14 * t + 2 * c + 2] = array("q", (offset, count))
+    return index, keys
+
+
+def _engine(rig: Rig, clip: Clip, times, origin: bool) -> tuple[array, array | None] | None:
+    """``core.native.origins`` of ``rig`` and ``clip`` at ``times``, or
+    None where the twins answer (no library, a rig or clip it can't take,
+    a time not finite)."""
+    r, c = _packed(rig, _rig_packing), _packed(clip, _clip_packing)
+    if r is None or c is None:
+        return None
+    if not all(type(t) is float and math.isfinite(t) or type(t) is int and abs(t) < 1 << 53 for t in times):
+        return None
+    ts = array("d", times)
+    return native.origins(*r, *c, ts, origin=origin)
 
 
 def _turn(q: Quat, v) -> tuple[float, float, float]:
@@ -652,18 +750,13 @@ def bake_clip(rt: Retarget, clip: Clip, drawn: float = 1.0) -> Clip:
         folded = [f for f in chain[:-1] if _varies(rot.get(f, {}))]
         comps = rot.get(g, {})
         if folded or any(_stepped(keys) for keys in comps.values()):
-            out += _sampled(rt, k, clip.length, chain, a, c_, local, rot)
+            out += _sampled(rt, k, clip.length, chain, a, c_, rot)
             continue
         for f in chain[:-1]:
             a = qmul(a, local(f, 0.0))
         m = _linear(qmul(a, G.bones[g].jo), qmul(G.bones[g].ra, c_))
         times = sorted({key[0] for keys in comps.values() for key in keys}) or [0.0]
-        rows = []
-        for t in times:
-            v = [evaluate(comps[i], t) if i in comps else G.bones[g].q[i] for i in range(4)]
-            s = [_slopes(comps[i], t) if i in comps else (0.0, 0.0) for i in range(4)]
-            rows.append((t, *([sum(m[r][i] * x[i] for i in range(4)) for r in range(4)]
-                              for x in (v, [l for l, _ in s], [r for _, r in s]))))
+        rows = _linear_rows(comps, G.bones[g].q, m, times)
         out += _tracks(k, B.bones[k].q, clip.length,
                        [[(t, v[r], i[r], o[r]) for t, v, i, o in rows] for r in range(4)])
     if rt.root is not None:     # the height over m_feet x the hip ratio, horizontal as garret4's
@@ -691,6 +784,52 @@ def bake_clip(rt: Retarget, clip: Clip, drawn: float = 1.0) -> Clip:
                for tr in clip.markers if tr.target in rt.markers]
     return Clip(clip.length, tuple(sorted(out, key=lambda tr: (tr.target, tr.comp))),
                 tuple(sorted(markers, key=lambda tr: (tr.target, tr.comp))))
+
+
+def _linear_rows(comps: dict[int, tuple[Key, ...]], rest: Quat, m, times: list[float]) -> list:
+    """bake_clip's rows on its linear path: at each of ``times``, (t, m x
+    the components' values, m x their left slopes, m x their right
+    slopes), ``comps`` keyed, the others at ``rest``."""
+    rows = _rows(native.linear, [rest], [comps], m, times)
+    if rows is not None:
+        return rows
+    rows = []   # the twin (core.native)
+    for t in times:
+        v = [evaluate(comps[i], t) if i in comps else rest[i] for i in range(4)]
+        s = [_slopes(comps[i], t) if i in comps else (0.0, 0.0) for i in range(4)]
+        rows.append((t, *([sum(m[r][i] * x[i] for i in range(4)) for r in range(4)]
+                          for x in (v, [l for l, _ in s], [r for _, r in s]))))
+    return rows
+
+
+def _rows(kernel, links, comps: list[dict[int, tuple[Key, ...]]], consts, times: list[float], *more) -> list | None:
+    """``kernel`` (``core.native.linear`` or ``chain``) over ``links``
+    (a rest rotation, or bones: their jo, rest q and ra), ``comps`` (each
+    link's keyed components) and ``consts`` (rows of 4 floats), as rows of
+    (t, value, left slope, right slope); None where the twin answers (no
+    library, a value or time it can't take)."""
+    if not all(type(t) is float and math.isfinite(t) for t in (*times, *more)):
+        return None
+    flat = [x for row in consts for x in row]
+    quats = [q for b in links for q in ((b,) if isinstance(b, tuple) else (b.jo, b.q, b.ra))]
+    vals = [x for q in quats for x in q]
+    if not (all(_floats(row, 4) for row in (*consts, *quats))):
+        return None
+    got = _keys((i, c, keys) for i, mine in enumerate(comps) for c, keys in mine.items())
+    if got is None or any(type(c) is not int or not 0 <= c < 4 for _, c in got[0]):
+        return None
+    index = array("q", bytes(64 * len(comps)))
+    for (i, c), (offset, count) in got[0].items():
+        index[8 * i + 2 * c:8 * i + 2 * c + 2] = array("q", (offset, count))
+    ts = array("d", times)
+    if kernel is native.linear:
+        out = kernel(index, got[1], array("d", vals), array("d", flat), ts)
+    else:
+        out = kernel(array("d", vals), index, got[1], array("d", flat[:4]), array("d", flat[4:]), ts, *more)
+    if out is None:
+        return None
+    return [(t, out[12 * j:12 * j + 4], out[12 * j + 4:12 * j + 8], out[12 * j + 8:12 * j + 12])
+            for j, t in enumerate(times)]
 
 
 def _root_height(rt: Retarget, t0: float, base: float, root, feet) -> Track:
@@ -728,7 +867,7 @@ def _tracks(k: int, rest: Quat, length: float, comps: list[list[Key]]) -> list[T
     return out
 
 
-def _sampled(rt: Retarget, k: int, length: float, chain: list[int], a: Quat, c: Quat, local, rot) -> list[Track]:
+def _sampled(rt: Retarget, k: int, length: float, chain: list[int], a: Quat, c: Quat, rot) -> list[Track]:
     """Bone ``k``'s rotation sampled at :data:`SAMPLE_HZ` and garret4's
     key times on its path (an animated folded bone makes it nonlinear),
     with one-sided slopes."""
@@ -737,15 +876,30 @@ def _sampled(rt: Retarget, k: int, length: float, chain: list[int], a: Quat, c: 
     n = max(2, math.ceil(length * SAMPLE_HZ) + 1)
     grid = [length * i / (n - 1) for i in range(n)]
     times = sorted(set(known) | {t for t in grid if min(abs(t - u) for u in known) > 2e-3})
+    rows = _chain_rows([rt.garret4.bones[f] for f in chain], [rot.get(f, {}) for f in chain], a, c, times, length)
+    return _tracks(k, rt.target.bones[k].q, length,
+                   [[(t, q[r], i[r], o[r]) for t, q, i, o in rows] for r in range(4)])
 
-    def at(t: float, ref: Quat | None) -> Quat:
+
+def _chain_rows(links: list[BoneRecord], comps: list[dict[int, tuple[Key, ...]]], a: Quat, c: Quat,
+                times: list[float], length: float, h: float = 1e-5) -> list:
+    """:func:`_sampled`'s rows: at each of ``times``, (t, a x the chain's
+    local rotations (``links``' bones, ``comps`` their keyed components)
+    x c, normalised and kept on the side of the one before; its slopes
+    over ``h`` either side, inside 0 to ``length``)."""
+    rows = _rows(native.chain, links, comps, (a, c), times, length, h)
+    if rows is not None:
+        return rows
+
+    def at(t: float, ref: Quat | None) -> Quat:   # the twin (core.native)
         prod = _I
-        for f in chain:
-            prod = qmul(prod, local(f, t))
+        for b, mine in zip(links, comps):
+            prod = qmul(prod, qmul(qmul(b.jo, qnorm(tuple(evaluate(mine[i], t) if i in mine else b.q[i]
+                                                          for i in range(4)))), b.ra))
         q = qnorm(qmul(qmul(a, prod), c))
         return tuple(-x for x in q) if ref is not None and sum(x * y for x, y in zip(q, ref)) < 0 else q
 
-    h, rows, prev = 1e-5, [], None
+    rows, prev = [], None
     for t in times:
         q = at(t, prev)
         lo, hi = max(0.0, t - h), min(length, t + h)
@@ -753,8 +907,7 @@ def _sampled(rt: Retarget, k: int, length: float, chain: list[int], a: Quat, c: 
         rows.append((t, q, [(x - y) / (t - lo) if t > lo else 0.0 for x, y in zip(q, ql)],
                      [(y - x) / (hi - t) if hi > t else 0.0 for x, y in zip(q, qr)]))
         prev = q
-    return _tracks(k, rt.target.bones[k].q, length,
-                   [[(t, q[r], i[r], o[r]) for t, q, i, o in rows] for r in range(4)])
+    return rows
 
 
 def _plus(keys, more) -> tuple[Key, ...]:

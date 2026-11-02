@@ -601,6 +601,7 @@ from azurkit.tools.characters.retarget import (
     evaluate,
     named_clip,
     origins,
+    origins_at,
     pose,
     qinv,
     qmul,
@@ -1250,7 +1251,7 @@ def _stride(rig: Rig, motion: Clip) -> tuple[float, float] | None:
     tall = max(p[2] for p in rig.positions) - min(p[2] for p in rig.positions)
     if n < 2 or not feet or tall <= 0.0:
         return None
-    at = [origins(rig, motion, i / STRIDE_HZ) for i in range(n + 1)]
+    at = origins_at(rig, motion, [i / STRIDE_HZ for i in range(n + 1)])
     speeds = []
     for k in feet:
         low = min(p[k][2] for p in at)
@@ -1301,7 +1302,7 @@ def _planted(rig: Rig, motion: Clip) -> float | None:
     tall = max(p[2] for p in rig.positions) - min(p[2] for p in rig.positions)
     if n < 2 or not feet or tall <= 0.0:
         return None
-    at = [origins(rig, motion, i / STRIDE_HZ) for i in range(n + 1)]
+    at = origins_at(rig, motion, [i / STRIDE_HZ for i in range(n + 1)])
     speeds = []
     for k in feet:
         low = min(p[k][2] for p in at)
@@ -2749,8 +2750,8 @@ def x3_anchor(characters: bytes, body: Body, point: ActionPoint, anims, picks: l
             return box_near(point.point)   # a baked pick, or a style's before its bake (the listing)
         motion = read_clip(characters, toc[keys[f"characters/{body.name}/{clip}".casefold()]].file_offset)
         start, end = window
-        return min(box_near(origins(rig, motion, motion.length * (start + (end - start) * (
-            X3_OPENS + (X3_CLOSES - X3_OPENS) * n / X3_SAMPLES)))[point.bone]) for n in range(X3_SAMPLES + 1))
+        return min(box_near(at[point.bone]) for at in origins_at(rig, motion, [motion.length * (start + (end - start) * (
+            X3_OPENS + (X3_CLOSES - X3_OPENS) * n / X3_SAMPLES)) for n in range(X3_SAMPLES + 1)]))
     seen: dict[tuple[str, tuple[float, float]], float] = {}
     for i, col in enumerate(columns):
         if col == ROLL or not x3 >> i & 1:
@@ -4900,7 +4901,7 @@ def bound_place(characters: bytes, body: Body, garret4: Body, point: ActionPoint
         first = min(hits, key=lambda w: w.on) if hits else None
         times = ([first.on + (first.off - first.on) * j / 8 for j in range(9)] if first is not None
                  else [0.4 * motion.length])
-        seen.append(max((origins(rig, motion, t)[point.bone] for t in times), key=lambda o: o[1]))
+        seen.append(max((at[point.bone] for at in origins_at(rig, motion, times)), key=lambda o: o[1]))
     if not seen:
         seen = [origins(rig, Clip(1.0, (), ()), 0.0)[point.bone]]
     return None, tuple(sum(c) / len(seen) for c in zip(*seen)), 1.0 / drawn
@@ -6557,8 +6558,8 @@ def hold_plan(characters: bytes, body: Body, fills: dict[int, tuple[str, float]]
     def lows(clip: Clip | None, n: int, length: float) -> list[float]:
         if clip is None or not rig.bones:
             return [bind_low]
-        return [min(p[2] for j, p in enumerate(origins(rig, clip, length * k / n)) if j not in prop)
-                for k in range(n + 1)]
+        return [min(p[2] for j, p in enumerate(at) if j not in prop)
+                for at in origins_at(rig, clip, [length * k / n for k in range(n + 1)])]
 
     on_hang = lows(hang[0], max(1, round(30 * hang[0].length)), hang[0].length) if hang else [bind_low]
     on_start = lows(start[0], 22, start[0].length) if start else [bind_low]
@@ -7151,9 +7152,8 @@ def pose_top(characters_xbr: bytes, body: Body, fills: dict[int, tuple[str, floa
     prop = carriers(rig, held)
     for i in at:
         motion = read_clip(characters_xbr, toc[i].file_offset)
-        for k in range(POSE_SAMPLES):
-            top = max(top, *(p[2] for j, p in enumerate(origins(rig, motion, motion.length * k / (POSE_SAMPLES - 1)))
-                             if j not in prop))
+        for here in origins_at(rig, motion, [motion.length * k / (POSE_SAMPLES - 1) for k in range(POSE_SAMPLES)]):
+            top = max(top, *(p[2] for j, p in enumerate(here) if j not in prop))
     return top
 
 

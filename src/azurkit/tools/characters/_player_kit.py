@@ -64,7 +64,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from azurkit.tools.characters.characters import Body, bone_records
-from azurkit.tools.characters.retarget import Clip, Retarget, Rig, Track, named_clip, origins
+from azurkit.tools.characters.retarget import Clip, Retarget, Rig, Track, named_clip, origins, origins_at
 
 KIT = Path(__file__).resolve().parent / "clips" / "townsfolk"
 """The kit's folder: ``kit.json`` and one clip-only ``.glb`` a rig."""
@@ -290,7 +290,7 @@ def carry(rig: Rig, clip: Clip, props: dict[int, tuple[int, tuple[float, float, 
     times = [i / CARRY_HZ for i in range(int(clip.length * CARRY_HZ + 1e-6) + 1)
              if i / CARRY_HZ < clip.length - 1e-4] + [clip.length]   # a float32 length a hair past its last tick
     n = len(times) - 1
-    where = [origins(rig, clip, t) for t in times]
+    where = origins_at(rig, clip, times)
     tracks = [tr for tr in clip.bones if tr.target not in props]
     for k, (ride, offset, scale) in sorted(props.items()):
         for c in range(3):

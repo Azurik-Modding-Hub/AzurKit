@@ -2,7 +2,8 @@
 (``nativekit --check``), this platform's loads, and each kernel gives its
 Python twin's answer bit for bit, here and as the side module under
 Pyodide, over seeded random inputs (the reach's on the randomizer's own
-tables too); ``AZURKIT_NATIVE=0`` runs the twin; each call counts its path."""
+tables too; the dress's every NaN a NaN); ``AZURKIT_NATIVE=0`` runs the
+twin; each reach counts its path."""
 
 from __future__ import annotations
 
@@ -109,11 +110,12 @@ def tup(x):
     return tuple(tup(v) for v in x) if isinstance(x, list) else x
 
 answers = []
-for doc, call in json.load(open(json.loads(ARGV)[0])):
+docs, dress = json.load(open(json.loads(ARGV)[0]))
+for doc, call in docs:
     graphs = tuple(native.Graph(*tup(g)) for g in doc.pop("graphs"))
     t = native.Tables(**{k: tup(v) for k, v in doc.items()} | {"discs": frozenset(doc["discs"])}, graphs=graphs)
     answers.append(_answer(native._native(native.library(), t, **call)))
-json.dumps({"report": native.report(), "answers": answers})
+json.dumps({"report": native.report(), "answers": answers, "dress": [_dress_answer(case) for case in dress]})
 """
 
 
@@ -158,14 +160,108 @@ def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables()
             assert native._native(lib, nt.tables, **call) == native._twin(nt.tables, **call), st
 
 
-def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path):
+def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path, monkeypatch):
     cases = list(_cases(1401, 40))
+    dress = list(_dress_cases(1405, 60))
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
-    (path := tmp_path / "cases.json").write_text(json.dumps(docs), encoding="utf-8")
-    got = pyodide(str(path), python=inspect.getsource(_answer) + _UNDER_PYODIDE)
+    (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress]), encoding="utf-8")
+    got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer) + _UNDER_PYODIDE)
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    assert got["dress"] == json.loads(json.dumps([_dress_answer(case) for case in dress]))
+
+
+def _dress_cases(seed: int, count: int):
+    """Seeded random inputs of the dress's kernels, as JSON: a rig (each
+    bone's parent before it), a clip's tracks over its bones and past them
+    (one key, a zero-length segment, a held value, signed zeros, huge,
+    infinite and float32-limit values), times inside and outside the keys,
+    a linear bake's components and a sampled chain's, and two byte runs."""
+    rng = random.Random(seed)
+
+    def f():
+        k = rng.random()
+        return (rng.choice((0.0, -0.0, 1e-300, -1e300, 3.4028234663852886e38, float("inf"))) if k < 0.03 else
+                rng.uniform(-1e6, 1e6) if k < 0.1 else rng.uniform(-2.0, 2.0))
+
+    def keys():
+        ts = sorted(rng.uniform(-0.5, 3.0) for _ in range(rng.choice((1, 2, 3, 5, 9, 30))))
+        if len(ts) > 1 and rng.random() < 0.2:
+            ts[1] = ts[0]
+        return [[t, f(), f() if rng.random() < 0.9 else float("inf"),
+                 rng.choice((f(), float("inf"), 3.5e38)) if rng.random() < 0.2 else f()] for t in ts]
+
+    def comps():
+        return {str(c): keys() for c in range(4) if rng.random() < 0.6}
+
+    for _ in range(count):
+        n = rng.randint(1, 40)
+        bones = [[rng.randrange(-1, k) if k and rng.random() < 0.9 else -1, *([f() for _ in range(m)] for m in (4, 4, 4, 3))]
+                 for k in range(n)]
+        tracks = [[rng.randrange(n + 2), rng.randrange(10), keys()] for _ in range(rng.randint(0, 3 * n))]
+        lin = comps()
+        length = rng.uniform(0.05, 3.0)
+        links = rng.randint(1, 4)
+        chain = [comps() for _ in range(links)]
+        old = bytes(rng.randrange(3) for _ in range(rng.choice((0, 1, 5, 300))))
+        new = bytes(b if rng.random() < 0.8 else rng.randrange(3) for b in old[:rng.randint(0, len(old))])
+        yield {"bones": bones, "tracks": tracks,
+               "times": [rng.uniform(-1.0, 4.0) for _ in range(rng.randint(1, 8))] + [k[0] for t in tracks[:3] for k in t[2]],
+               "linear": [lin, [f() for _ in range(4)], [[f() for _ in range(4)] for _ in range(4)],
+                          sorted({k[0] for ks in lin.values() for k in ks} | {rng.uniform(-1.0, 4.0)})],
+               "chain": [chain, [f() for _ in range(4)], [f() for _ in range(4)],
+                         sorted({0.0, length, *(rng.uniform(0.0, length) for _ in range(5)),
+                                 *(k[0] for c in chain for ks in c.values() for k in ks if 0.0 <= k[0] <= length)}),
+                         length],
+               "runs": [old.hex(), (new + bytes(rng.randrange(3) for _ in range(rng.choice((0, 3))))).hex()]}
+
+
+def _dress_answer(case: dict) -> list:
+    """Each dress kernel's answer to ``case`` (by the library when it's
+    loaded, else the twins), every float its bits in hex and NaN as such."""
+    import struct
+
+    from azurkit.tools import characters
+    from azurkit.tools.characters import retarget as rt
+    from azurkit.tools.characters.characters import BoneRecord
+
+    def bits(x):
+        if isinstance(x, (list, tuple)) or type(x).__name__ == "array":
+            return [bits(v) for v in x]
+        return "nan" if x != x else struct.pack("<d", x).hex()
+
+    def keyed(c):
+        return {int(k): tuple(map(tuple, v)) for k, v in c.items()}
+
+    bones = tuple(BoneRecord(f"b{k}", p, False, tuple(ra), tuple(jo), tuple(t), tuple(q), (1.0, 1.0, 1.0))
+                  for k, (p, jo, q, ra, t) in enumerate(case["bones"]))
+    rig = rt.Rig("r", bones, tuple((0.0, 0.0, 0.0) for _ in bones), tuple((0.0, 0.0, 0.0, 1.0) for _ in bones), ())
+    clip = rt.Clip(1.0, tuple(rt.Track(t, c, tuple(map(tuple, k))) for t, c, k in case["tracks"]), ())
+    lin, rest, m, ts = case["linear"]
+    chain, a, c, cts, length = case["chain"]
+    rows = [[t, *v] for t, *v in rt._linear_rows(keyed(lin), tuple(rest), m, ts)]
+    rows += [[t, *v] for t, *v in rt._chain_rows(list(bones[:len(chain)]), [keyed(x) for x in chain], tuple(a),
+                                                 tuple(c), cts, length)]
+    return [bits(rt.origins_at(rig, clip, case["times"])), bits(rt.pose(rig, clip, case["times"][0])), bits(rows),
+            characters._runs(*map(bytes.fromhex, case["runs"]))]
+
+
+def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
+    """retarget's pose and origins, bake_clip's linear and sampled rows and
+    the character layer's byte runs (``native/dress.c``) equal their twins
+    over seeded random inputs, every NaN a NaN (its sign and payload aren't
+    held: the compiler may order an operation's two NaN inputs either way)."""
+    cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
+    for name in ("origins", "linear", "chain", "runs"):   # each case's every call answered by the library
+        monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
+                            ran.update([name]) or real(*a, **k))
+    assert native.report()["loaded"]
+    got = [_dress_answer(case) for case in cases]
+    assert ran == {"origins": 800, "linear": 400, "chain": 400, "runs": 400}
+    monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
+    assert got == [_dress_answer(case) for case in cases]
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):

@@ -71,7 +71,7 @@ import struct
 from pathlib import Path
 
 from azurkit.tools.characters.characters import Body
-from azurkit.tools.characters.retarget import BAKED_DIR, Clip, Rig, named_clip, origins
+from azurkit.tools.characters.retarget import BAKED_DIR, Clip, Rig, named_clip, origins, origins_at
 from azurkit.tools.characters.ports import xbe_site
 from azurkit.tools.characters.ports import ShimSource, TrampolinePatch, apply_trampoline_patch
 from azurkit.tools.characters.ports import trampoline_symbol_va
@@ -264,7 +264,7 @@ def _motion(rig: Rig, clip: Clip) -> tuple[float, float]:
     at :data:`CALM_HZ`) and its seam (the mean distance of each bone's
     origin at its end from its start)."""
     n = max(2, round(clip.length * CALM_HZ) + 1)
-    at = [origins(rig, clip, clip.length * i / (n - 1)) for i in range(n)]
+    at = origins_at(rig, clip, [clip.length * i / (n - 1) for i in range(n)])
     bones = len(rig.bones)
     moved = sum(math.dist(a, b) for p, q in zip(at, at[1:]) for a, b in zip(p, q))
     return (moved / (bones * clip.length) if clip.length > 0 else 0.0,

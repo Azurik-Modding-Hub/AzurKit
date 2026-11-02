@@ -43,7 +43,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("win32", "x86_64"): "windows-x86_64.dll",
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
-KERNELS = ("reach",)
+KERNELS = ("reach", "origins", "linear", "chain", "runs")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -89,6 +89,15 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
     lib.az_reach.argtypes = [p64, p64, p64, p64, pu64, pu64, pu64, p64, *[pu64] * 6, p64, p64, pu64, pu64, p64,
                              pu64, p64]
     lib.az_reach.restype = ctypes.c_int64
+    vp, i64, f64 = ctypes.c_void_p, ctypes.c_int64, ctypes.c_double
+    try:
+        for fn, args in (("az_origins", [vp, vp, i64, vp, i64, vp, vp, i64, vp, vp]),
+                         ("az_linear", [vp, vp, vp, vp, vp, i64, vp]),
+                         ("az_chain", [vp, vp, vp, i64, vp, vp, vp, i64, f64, f64, vp]),
+                         ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64])):
+            getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
+    except AttributeError as e:
+        return None, f"{name} doesn't load: {e}", None
     return lib, name, sha12
 
 
@@ -627,3 +636,66 @@ def solve(t: Tables, graph: int, phys: int, free: int, *, counters: Sequence[int
             return _native(lib, t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)
     CALLS["twin"] += 1
     return _twin(t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)
+
+
+# ---- the dress ------------------------------------------------------------------------------------------------------
+# tools/characters' clip and skeleton kernels (native/dress.c) over packed buffers: each returns None without the
+# library, and its caller then runs its twin (retarget's pose and origins, bake_clip's rows, _sampled's, _runs).
+def _at(a: array) -> int | None:
+    return a.buffer_info()[0] if len(a) else None
+
+
+def origins(parent: array, bone: array, index: array, keys: array, times: array, *,
+            origin: bool = True) -> tuple[array, array | None] | None:
+    """``retarget.pose`` (world rotations, times x bones x 4) and
+    ``origins`` (times x bones x 3; ``origin``) at each of ``times``: the
+    bones' ``parent`` ids (each below its own) and ``bone``'s 15 doubles a
+    bone (jo, rest q, ra, rest t); ``index``, 14 ids a keyed bone (its 7
+    components', T then q: an offset and a count into ``keys``, 4 doubles
+    a key; 0 keys: the rest value)."""
+    if (lib := library()) is None:
+        return None
+    nb, nt = len(parent), len(times)
+    world = array("d", bytes(32 * nb * nt))
+    at = array("d", bytes(24 * nb * nt)) if origin else None
+    lib.az_origins(_at(parent), _at(bone), nb, _at(index), len(index) // 14, _at(keys), _at(times), nt, _at(world),
+                   _at(at) if at is not None else None)
+    return world, at
+
+
+def linear(index: array, keys: array, rest: array, m: array, times: array) -> array | None:
+    """``bake_clip``'s rows (times x 12): the 4x4 ``m`` (row-major) times
+    the 4 components' values, left and right slopes at each time (``index``:
+    an offset and a count a component; 0 keys: ``rest``'s value)."""
+    if (lib := library()) is None:
+        return None
+    rows = array("d", bytes(96 * len(times)))
+    lib.az_linear(_at(index), _at(keys), _at(rest), _at(m), _at(times), len(times), _at(rows))
+    return rows
+
+
+def chain(link: array, index: array, keys: array, a: array, c: array, times: array, length: float,
+          h: float) -> array | None:
+    """``retarget._sampled``'s rows (times x 12: the rotation, its left
+    and right slopes over ``h``): ``link``'s 12 doubles a chain bone (jo,
+    rest q, ra) and ``index``'s 8 ids (4 components' offset and count)."""
+    if (lib := library()) is None:
+        return None
+    rows = array("d", bytes(96 * len(times)))
+    lib.az_chain(_at(link), _at(index), _at(keys), len(link) // 12, _at(a), _at(c), _at(times), len(times),
+                 length, h, _at(rows))
+    return rows
+
+
+def runs(old: bytes, new: bytes) -> list[tuple[int, int]] | None:
+    """``[start, end)`` of each run where ``new`` differs from ``old`` (past
+    its end: all of it)."""
+    if (lib := library()) is None:
+        return None
+    cap = 1024
+    while True:
+        out = array("q", bytes(16 * cap))
+        n = lib.az_runs(old, len(old), new, len(new), _at(out), cap)
+        if n <= cap:
+            return [(out[2 * i], out[2 * i + 1]) for i in range(n)]
+        cap = n

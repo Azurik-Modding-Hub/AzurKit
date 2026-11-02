@@ -150,6 +150,7 @@ from azurkit.tools.characters.retarget import (
     evaluate,
     named_clip,
     origins,
+    origins_at,
     qinv,
     qmul,
     qnorm,
@@ -3094,8 +3095,8 @@ def ride(characters_xbr: bytes, body: Body, style: Style, m: Magic):
         times = [i / CARRY_HZ for i in range(int(baked.length * CARRY_HZ + 1e-6) + 1)
                  if i / CARRY_HZ < baked.length - 1e-4] + [baked.length]   # as the kit's carry
         last = len(times) - 1
-        theirs = [origins(his, source, t)[hg] for t in times]
-        ours = [origins(mine, baked, t)[mg] for t in times]
+        theirs = [at[hg] for at in origins_at(his, source, times)]
+        ours = [at[mg] for at in origins_at(mine, baked, times)]
         keyed = {(tr.target, tr.comp): tr.keys for tr in source.markers}
         moved = {k_ for _, k_, _, _ in marks}
         tracks = [tr for tr in baked.markers if not (tr.target in moved and (tr.comp <= 2 or 7 <= tr.comp <= 9))]
@@ -3149,7 +3150,7 @@ def _caster(characters_xbr: bytes, body: Body, style: Style, m: Magic):
                    else (0.2 * length, 0.5 * length))   # X3's own window (X3_OPENS, X3_CLOSES)
         times = [t / CARRY_HZ for t in range(int(length * CARRY_HZ + 1e-6) + 1)
                  if t / CARRY_HZ < length - 1e-4] + [length]
-        at = [origins(mine, motion, t)[mg] for t in times]
+        at = [o[mg] for o in origins_at(mine, motion, times)]
         moved = {k for k, _ in rides} | {mark[CAST_SWITCH.casefold()]}
         tracks = [tr for tr in motion.markers if tr.target not in moved]
         for k, rec in rides:

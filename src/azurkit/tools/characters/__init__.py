@@ -56,7 +56,7 @@ from pathlib import Path, PurePath
 
 from azurkit import __version__
 from azurkit.core import facts as facts_
-from azurkit.core import gate
+from azurkit.core import gate, native
 from azurkit.core.xbr.document import Document
 from azurkit.edits.layer import Change, Claim, Layer, claimed, compose
 
@@ -267,7 +267,10 @@ def _size(recipe: Mapping, vanilla) -> float:
 
 
 def _runs(old: bytes, new: bytes) -> list[tuple[int, int]]:
-    """``[start, end)`` of each run where ``new`` differs from ``old`` (past ``old``'s end: all of it)."""
+    """``[start, end)`` of each run where ``new`` differs from ``old`` (past ``old``'s end: all of it): the
+    compiled kernel's (``core.native.runs``), else its twin's."""
+    if type(old) is bytes and type(new) is bytes and (got := native.runs(old, new)) is not None:
+        return got
     out, at, n = [], None, len(new)
     for i in range(n):
         same = i < len(old) and old[i] == new[i]

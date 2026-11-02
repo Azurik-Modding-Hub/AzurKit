@@ -923,7 +923,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   runs it (`Logic._solve`; an option set's tables built once, in about
   0.02 s, by `Logic._tables` from its rules' closures' `ast`, a trace's
   spheres replayed from the kernel's rounds), on the app's CPython and,
-  by the side module from the wheel, in the site's worker.
+  by the side module from the wheel, in the site's worker. The second is
+  the dress's (`native/dress.c`, Step 4.3r4d4): `retarget`'s engine
+  model (`pose`, `origins`, `origins_at` over many times),
+  `bake_clip`'s rows (`_linear_rows`, `_chain_rows`) and the character
+  layer's byte runs (`characters._runs`), each twin the function it
+  speeds, beside it, and a value it can't take (a key or bone not
+  floats, a time not finite) the twin's; every NaN is a NaN there, its
+  sign and payload not held (a compiler may take an operation's two NaN
+  inputs in either order).
 - **The hosts' hooks (Step 4.3h; each `None` or off by default, today's
   behaviour):** a long call reports its named stages to a host's
   `progress(record)`, `core/progress.py`'s `{stage, label, done, total,

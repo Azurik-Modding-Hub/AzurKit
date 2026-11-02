@@ -74,7 +74,8 @@ from azurkit.core import fdlibm
 from azurkit.tools.characters import body_codec, fx_edit, textures
 from azurkit.tools.characters.characters import Body, height, marker_records
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records
-from azurkit.tools.characters.retarget import Clip, Rig, Track, grow_markers, origins, read_clip, write_clip
+from azurkit.tools.characters.retarget import (Clip, Rig, Track, grow_markers, origins, origins_at, read_clip,
+                                                 write_clip)
 from azurkit.tools.characters._player_kit import Throw
 from azurkit.tools.characters import render
 from azurkit.core.xbr.append import append_resources
@@ -730,7 +731,7 @@ def throw_carry(rig: Rig, clip: Clip, props: dict, take: int, back: int, hz: flo
     replaced; each step :data:`HALF` a tick early)."""
     hand = [b.name for b in rig.bones].index(HAND)
     times = [i / hz for i in range(int(clip.length * hz + 1e-6) + 1) if i / hz < clip.length - 1e-4] + [clip.length]
-    where = [origins(rig, clip, t) for t in times]
+    where = origins_at(rig, clip, times)
     last = len(times) - 1
     t_take, t_back = (take - HALF) / hz, (back - HALF) / hz
     tracks = [tr for tr in clip.bones if tr.target not in props]
