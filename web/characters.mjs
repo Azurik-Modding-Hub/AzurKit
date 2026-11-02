@@ -14,7 +14,9 @@
 // entry stays at its version until its Update. The site keeps what it installed in this browser's storage (IndexedDB)
 // and hands it to its engine as the page starts (a build from any tab, a link's or the remembered setup's, reads it);
 // the app writes it into its content folder. The species' list is the shared gallery picker (web/picker.mjs) in the
-// tab's own search box and list.
+// tab's own search box and list. A reshape's pictures (D1011) are keyed on the name and its shapes: the nearest shape
+// the page holds (what ships, or one it has drawn) shows at once marked Preview, and the exact one, drawn from the dress
+// a build of it makes, replaces it; a build never reads a picture.
 import { option as pickerOption, picker } from "./picker.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -24,6 +26,11 @@ const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
 const JIGGLE = ["jiggle_strength", "jiggle_stiffness"];
 const CHOOSE_WEAPONS = "Choose your image to see its weapons";   // the Weapon box with no image read
 const READING = "Reading your image…";   // and while the engine reads the one picked
+const FROM = "From the front and from behind.";
+// A reshape's dress waits for the slider to rest, past Build's head start (D1014): beside a build's its GiBs pass 6
+// (D1017), so a Build clicked at the change, or running, goes first
+const SETTLE_MS = 3500;
+const PICTURES = 16;   // the exact pictures of the last shapes drawn, in this page
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
 const box = (v) => typeof v === "number" ? String(v) : v ?? "1";
@@ -79,9 +86,10 @@ async function upTo(reply, size, path) {
 // app's api), image() the picked image (the site's File, the app's path), packs() the Patches tab's ticks (a dress
 // stands on them), changed() runs when the tab's choice changes (the page remembers it) and content(files,
 // installed) hands the site's engine what this browser keeps installed.
-export function characters({ call, app, host, say, image, packs, changed, content, settled }) {
+export function characters({ call, app, host, say, image, packs, changed, content, settled, busy }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
-              matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null };
+              matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
+              shown: null, pictures: new Map(), wanted: null, dressing: false, settling: null };
   const fallback = () => host.catalog?.characters?.source ?? "";
   // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
   c.objects = app ? host.show_objects === true : (() => {
@@ -420,44 +428,125 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $(`char-${name}`).dispatchEvent(new Event("change"));
   };
 
+  const put = (views) => {
+    for (const [i, id] of ["char-front", "char-back"].entries()) {
+      $(id).getContext("2d").clearRect(0, 0, 160, 160);
+      if (views) $(id).getContext("2d").drawImage(views[i], 0, 0);
+    }
+  };
+  const said = (text) => ($("char-preview-note").textContent = text);
+  // What the pictures show ({name, shape, preview}; null: nothing whole yet); a Preview is marked on them.
+  const marked = (shown) => {
+    c.shown = shown;
+    $("char-previews").toggleAttribute("data-preview", Boolean(shown?.preview));
+  };
+  const shippedViews = (file) => Promise.all(["front", "back"].map(async (view) => {
+    const reply = await fetch(`characters/${file}.${view}.png`);
+    if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
+    return createImageBitmap(await reply.blob());
+  }));
+  const answerViews = (reply) => Promise.all(["front", "back"].map((view) => createImageBitmap(new Blob(
+    [bytesOf(reply[view])], { type: "image/png" }))));
+
   // The chosen model's two pictures: the page's own where it ships them (no image needed), else a species' drawn at once
-  // from its body in the image, a variant's from a dress of it ("Drawing…" until it is, never its base's picture).
+  // from its body in the image, a variant's from a dress of it ("Drawing…" until it is, never its base's picture); a
+  // reshape's: reshape().
   const draw = async (chosen = c.view.chosen) => {
-    const file = chosen.variant ? ships?.variants[chosen.name] : ships?.species[chosen.name];
-    let key = file ? `shipped|${file}` : `${image()?.name ?? image()}|${chosen.name}`;
+    const shapes = chosen.name === c.character.species ? c.character.shapes : null;
+    if (shapes) return reshape(chosen, shapes);
+    const name = chosen.name, plain = { name, shape: "[]", preview: false };
+    const file = chosen.variant ? ships?.variants[name] : ships?.species[name];
+    let key = file ? `shipped|${file}` : `${image()?.name ?? image()}|${name}`;
     if (c.drawn === key) return;
     c.drawn = key;
+    c.wanted = null;
+    marked(null);
     if (file) {
       try {
-        const views = await Promise.all(["front", "back"].map(async (view) => {
-          const reply = await fetch(`characters/${file}.${view}.png`);
-          if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
-          return createImageBitmap(await reply.blob());
-        }));
+        const views = await shippedViews(file);
         if (c.drawn !== key) return;
-        for (const [i, id] of ["char-front", "char-back"].entries()) {
-          $(id).getContext("2d").clearRect(0, 0, 160, 160);
-          $(id).getContext("2d").drawImage(views[i], 0, 0);
-        }
-        return void ($("char-preview-note").textContent = "From the front and from behind.");
+        put(views);
+        marked(plain);
+        return void said(FROM);
       } catch {
         if (c.drawn !== key) return;
-        c.drawn = key = `${image()?.name ?? image()}|${chosen.name}`;   // drawn from the image instead
+        c.drawn = key = `${image()?.name ?? image()}|${name}`;   // drawn from the image instead
       }
     }
-    for (const id of ["char-front", "char-back"]) $(id).getContext("2d").clearRect(0, 0, 160, 160);
-    if (!image()) return void ($("char-preview-note").textContent = "Pick your image to see the model.");
-    $("char-preview-note").textContent = chosen.variant ? "Drawing… (a variant is dressed first: seconds, a detailed "
-      + "one minutes)" : "Drawing…";
-    const reply = await call("preview", { ...(app ? {} : { file: image() }),
-                                          recipe: recipe({ species: chosen.name }) }, { once: true });
+    put(null);
+    if (!image()) return void said("Pick your image to see the model.");
+    said(chosen.variant ? "Drawing… (a variant is dressed first: seconds, a detailed one minutes)" : "Drawing…");
+    const reply = await call("preview", { ...(app ? {} : { file: image() }), recipe: recipe({ species: name }) },
+                             { once: true });
     if (c.drawn !== key) return;
-    if ("refused" in reply) return void ($("char-preview-note").textContent = reply.refused);
-    for (const [view, id] of [["front", "char-front"], ["back", "char-back"]]) {
-      const bitmap = await createImageBitmap(new Blob([bytesOf(reply[view])], { type: "image/png" }));
-      $(id).getContext("2d").drawImage(bitmap, 0, 0);
+    if ("refused" in reply) return void said(reply.refused);
+    put(await answerViews(reply));
+    marked(plain);
+    said(FROM);
+  };
+
+  // A reshape (D1011): the exact pictures once this page holds them; else at once the nearest shape it holds, marked
+  // Preview, and the exact ones asked once the slider rests.
+  const away = (a, b) => [...new Set([...Object.keys(a), ...Object.keys(b)])]
+    .reduce((n, k) => n + Math.abs((a[k] ?? 1) - (b[k] ?? 1)), 0);
+  const reshape = async (chosen, shapes) => {
+    const name = chosen.name, shape = JSON.stringify(Object.entries(shapes).sort(([a], [b]) => a < b ? -1 : 1));
+    const from = image()?.name ?? image() ?? null, key = `${from}|${name}|${shape}`;
+    if (c.drawn === key) return;
+    c.drawn = key;
+    c.wanted = null;
+    clearTimeout(c.settling);
+    marked(null);
+    const exact = c.pictures.get(key);
+    if (exact) {
+      put(exact.views);
+      marked({ name, shape, preview: false });
+      return void said(FROM);
     }
-    $("char-preview-note").textContent = "From the front and from behind.";
+    await shipped();
+    if (c.drawn !== key) return;
+    const file = ships?.variants[name];
+    let near = null, gap = file ? away(shapes, {}) : Infinity;
+    for (const kept of c.pictures.values()) {
+      if (kept.name === name && kept.from === from && away(shapes, kept.shapes) < gap) {
+        near = kept;
+        gap = away(shapes, kept.shapes);
+      }
+    }
+    const views = near?.views ?? (file ? await shippedViews(file).catch(() => null) : null);
+    if (c.drawn !== key) return;
+    put(views);
+    if (views) marked({ name, shape, preview: true });
+    const first = views ? "Preview: the nearest shape. " : "";
+    if (!image()) return void said(`${first}Pick your image to draw this one.`);
+    said(`${first}Drawing this one… (a dress: seconds, a detailed one minutes)`);
+    c.wanted = { key, name, shape, shapes, from };
+    c.settling = setTimeout(dress, SETTLE_MS);
+  };
+  // One dress at a time, the shape asked last next; never beside a build or a save (SETTLE_MS).
+  const dress = async () => {
+    const want = c.wanted;
+    if (c.dressing || !want) return;
+    if (busy()) return void (c.settling = setTimeout(dress, SETTLE_MS));
+    c.wanted = null;
+    c.dressing = true;
+    const reply = await call("preview", { ...(app ? {} : { file: image() }),
+                                          recipe: recipe({ species: want.name, shapes: want.shapes }) }, { once: true });
+    if ("refused" in reply) {   // what shows stays as it is marked
+      if (c.drawn === want.key) said(`${c.shown?.preview ? "Preview: " : ""}${reply.refused}`);
+    } else {
+      const views = await answerViews(reply);
+      c.pictures.set(want.key, { ...want, views });
+      if (c.pictures.size > PICTURES) c.pictures.delete(c.pictures.keys().next().value);
+      if (c.drawn === want.key) {
+        put(views);
+        marked({ name: want.name, shape: want.shape, preview: false });
+        said(FROM);
+      }
+    }
+    c.dressing = false;
+    settled();   // the app's work ahead waits for a dress (app/__init__.py's dressed)
+    dress();
   };
 
   const defaults = () => c.view?.chosen.defaults ?? { mode: "own", anims: "garret4", attack_balance: true,
@@ -543,7 +632,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       } else ask();
     },
     imaged: () => {
-      c.drawn = null;
+      c.drawn = c.wanted = null;
       if (c.view) render();   // its weapons and G4 wait for the image's answer
       else if (c.opened) unread();   // after a refusal: the new image is being read
       if (c.opened) ask();

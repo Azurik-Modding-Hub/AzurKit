@@ -2861,6 +2861,89 @@ def test_a_randomized_build_moves_the_tracker_to_its_exact_plan_and_each_plans_m
         server.close()
 
 
+def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_pictures_replace_it(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """D1011: a shape slider's move shows at once the nearest shape the page
+    holds, marked Preview (her shipped pictures, then a shape it has drawn);
+    the exact pictures are asked of the engine, with those shapes, once the
+    slider rests and no Build runs, one dress at a time for the shape asked
+    last, and replace it, unmarked; a refused dress leaves the Preview marked,
+    saying why; the same shape again is exact at once with no ask, her own
+    shape her shipped pictures, and a build's character holds the shapes."""
+    _home(monkeypatch, tmp_path / "home")
+    view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
+    view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
+    drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+             for side in ("front", "back")}
+    asked, answers = [], [drawn, {"refused": "It ran out of memory"}]
+
+    def pickers(route) -> None:
+        route.fulfill(json=view | {"character": route.request.post_data_json["given"]["character"]})
+
+    def preview(route) -> None:
+        asked.append(route.request.post_data_json["recipe"]["character"])
+        route.fulfill(json=answers[min(len(asked), len(answers)) - 1])
+    pixels = """() => ["char-front", "char-back"].map((id) => document.getElementById(id).getContext("2d")
+        .getImageData(0, 0, 160, 160).data.reduce((n, v) => n + v, 0))"""
+    moved = """(value) => { const b = document.getElementById("char-shape:bust"); b.value = value;
+        b.dispatchEvent(new Event("change")); }"""
+    def shows(x: float | None, preview: bool) -> str:
+        shape = json.dumps([["bust", x]] if x else [], separators=(",", ":"))
+        return f"""() => {{ const s = azurkit.characters.state.shown; return s?.shape === {json.dumps(shape)} && s.preview
+            === {json.dumps(preview)} && document.getElementById("char-previews").hasAttribute("data-preview")
+            === {json.dumps(preview)}; }}"""
+    note = "() => document.getElementById('char-preview-note').textContent"
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        for path, answer in (("pickers", pickers), ("preview", preview),
+                             ("speculate", lambda route: route.fulfill(json={"ahead": False})),
+                             ("prefetch", lambda route: route.fulfill(json={"ahead": False}))):
+            page.route(f"**/api/{path}", answer)
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.fill(page, "iso-path", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view", 60)
+        page.evaluate("() => azurkit.characters.set({ species: 'booblord' })")
+        _page.until(page, """() => azurkit.characters.state.shown?.name === 'booblord'""", 60)
+        hers = page.evaluate(pixels)
+
+        page.evaluate(moved, "1.25")
+        page.evaluate(moved, "1.3")   # the slider goes on: no dress of the shape it passed
+        _page.until(page, shows(1.3, True), 10)
+        assert page.evaluate(_perf.PREVIEWED)   # the gate's done-states, A59's and S51's
+        assert page.evaluate(pixels) == hers and page.evaluate(note).startswith("Preview:")
+        assert page.evaluate("() => azurkit.characters.character()") == {"species": "booblord", "shapes": {"bust": 1.3}}
+        _page.until(page, shows(1.3, False), 30)
+        assert page.evaluate(_perf.EXACT)   # A60's, A61's, S52's and S53's
+        assert asked == [{"species": "booblord", "shapes": {"bust": 1.3}}] and page.evaluate(note).startswith("From the")
+        exact = page.evaluate(pixels)
+        assert exact != hers
+
+        page.evaluate("() => { azurkit.building = true; }")   # a Build goes first
+        page.evaluate(moved, "1.35")
+        _page.until(page, shows(1.35, True), 10)
+        assert page.evaluate(pixels) == exact   # the nearest now is the shape drawn
+        page.wait_for_timeout(4000)
+        assert len(asked) == 1
+        page.evaluate("() => { azurkit.building = false; }")
+        _page.until(page, "() => document.getElementById('char-preview-note').textContent === "
+                          "'Preview: It ran out of memory'", 30)
+        assert page.evaluate(shows(1.35, True)) and len(asked) == 2
+
+        page.evaluate(moved, "1.3")
+        _page.until(page, shows(1.3, False), 10)
+        assert page.evaluate(pixels) == exact and len(asked) == 2
+        page.evaluate(moved, "1")
+        _page.until(page, shows(None, False), 10)
+        assert page.evaluate(pixels) == hers and len(asked) == 2
+        page.close()
+    finally:
+        server.close()
+
+
 def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser, tmp_path, monkeypatch):
     """Track this build (the Tools tab's Open a build…): an opened build
     that holds a randomizer layer is tracked on its own plan, replayed from

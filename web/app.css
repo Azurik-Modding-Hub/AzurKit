@@ -570,7 +570,9 @@ p.views { margin: 0; padding: 2px 10px; }
 .chars .entry .community { font-size: 10px; color: var(--mark); text-transform: uppercase; letter-spacing: .05em; }
 .chars .entry .what { font-size: 11px; color: var(--muted); grid-column: 1 / -1; }
 .chars .entry .model { grid-column: 1 / -1; }
-.chars .previews { display: flex; gap: 4px; margin: 6px 0 0; }
+.chars .previews { display: flex; gap: 4px; margin: 6px 0 0; position: relative; width: max-content; }
+.chars .previews[data-preview]::after { content: "Preview"; position: absolute; top: 2px; left: 2px; padding: 0 4px;
+  font-size: 11px; border-radius: 3px; color: #fff; background: rgb(0 0 0 / 0.65); }
 .chars canvas { width: 160px; height: 160px; background: var(--field); border: 1px solid var(--soft); }
 #char-info { border-collapse: collapse; font-size: 11.5px; }
 #char-info th { padding: 1px 8px 1px 0; text-align: left; color: var(--muted); font-weight: 400; vertical-align: top;

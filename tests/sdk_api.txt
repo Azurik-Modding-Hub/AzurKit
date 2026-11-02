@@ -476,8 +476,9 @@ def preview(recipe: 'Mapping') -> 'dict':
 "back": PNG bytes}``, 160 px each. A species' body is drawn from the
 image at once; a variant's from one dress of it over the recipe's packs
 (the dress :func:`match` reads, kept for this process; seconds, a
-detailed one minutes), never its base's picture. A refusal names the
-species or the image.
+detailed one minutes), never its base's picture; a reshaped variant's
+(``shapes``) from the dress of those shapes a build makes. A refusal
+names the species or the image.
 
 
 def data(given: 'Mapping') -> 'dict':

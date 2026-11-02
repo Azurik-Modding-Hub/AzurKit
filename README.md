@@ -138,7 +138,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
   window chain instead, for any model.
 - **Voice:** the creature's own sounds, or Garret's.
 - **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
-  creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's four
+  creature's body applied to your own copy; or your own recipe file, its shapes sized as you like (a moved shape
+  shows the nearest one at once, marked Preview, until its own pictures are drawn). Booblord's four
   need her own moves and voice, extra files from our Azurik-Custom-Content; a build without them stops, naming
   the file.
 - **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install

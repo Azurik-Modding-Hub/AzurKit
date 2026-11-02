@@ -901,7 +901,8 @@ function ready(catalog, version) {
                               image: () => state.file });
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
                                     image: () => state.file, packs: chosen, changed: state.changed,
-                                    content: state.engine.content, settled: ahead });
+                                    content: state.engine.content, settled: ahead,
+                                    busy: () => state.building || state.saving });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
                            changed: (ops) => {
                              state.xbr = ops;

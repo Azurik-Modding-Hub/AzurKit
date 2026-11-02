@@ -36,7 +36,7 @@ from azurkit.edits import preset
 from azurkit.edits.layer import Layer, compose
 from azurkit.edits.manifest import image
 from azurkit.tools import characters, mods
-from azurkit.tools.characters import _player_kit, _player_variants, content, pool, ports, retarget, shipped
+from azurkit.tools.characters import _player_kit, _player_variants, content, picker, pool, ports, retarget, shipped
 from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens, record_shipped
@@ -616,6 +616,24 @@ def test_each_variant_probe_is_its_goldens_file_for_file_and_resource_for_resour
         want, got, layer = _probe(probe, release, image_path, vanilla, tmp_path)
         assert got == want and len(layer.recipe["variant"]) == 12, case
         assert str(tmp_path) not in json.dumps([layer.recipe, layer.notes]), case
+
+
+def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(usa_iso, tmp_path):
+    """D1011: ``sdk.preview`` of a variant with ``shapes`` draws those shapes,
+    the characters.xbr and config.xbr its build writes, not the variant at
+    its recipe's; a match of it still reads the recipe's."""
+    probe = next(p for p in _golden("probes.json").values() if "shapes" in p["character"])
+    recipes = tmp_path / "probe.json"
+    recipes.write_text(json.dumps(probe["variants"]), encoding="utf-8")
+    plain = {"species": "probe", "variant_file": str(recipes)}
+    shaped = plain | {"shapes": {"hips": 1.4}}
+    recipe = {"iso": str(usa_iso), "packs": {}}
+    drawn = sdk.preview(recipe | {"character": shaped})
+    assert drawn["front"] != sdk.preview(recipe | {"character": plain})["front"]
+    made, _ = sdk.image(recipe | {"character": shaped})
+    with iso.Reader(made) as r:
+        built = {"config.xbr": r.read(characters.CONFIG), "characters.xbr": r.read(characters.FILES[0])}
+    assert drawn == picker.dressed(built, "probe")
 
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():

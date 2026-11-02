@@ -128,6 +128,10 @@ OPS = {op.id: op for op in (
     Op("A31", "Build booblord reshaped (one slider moved), first", "build", bar=True, content=True,   # D999
        head_start=True),
     Op("A32", "the same reshape at the next launch", "build", content=True),
+    Op("A59", "a slider moved: the reshape's nearest shape, marked Preview (D1011)", "characters", first=False,
+       content=True),
+    Op("A60", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
+    Op("A61", "the same reshape's exact pictures again", "characters", first=False, content=True),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -164,6 +168,10 @@ OPS = {op.id: op for op in (
     Op("S11", "keylord's pictures", "characters"),
     Op("S12", "a reshaped variant's pictures (beamlord)", "characters", content=True),
     Op("S13", "Install beamlord, the list again", "characters", content=True),
+    Op("S51", "a slider moved: the reshape's nearest shape, marked Preview (D1011)", "characters", first=False,
+       content=True),
+    Op("S52", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
+    Op("S53", "the same reshape's exact pictures again", "characters", first=False, content=True),
     Op("S14", "Build keylord", "build", head_start=True),
     Op("S15", "booblord on the site", "build", head_start=True,
        untimed="3.7 s under the lag model (X6, 4.3r4f; WebKit 2.2, Chromium 1.9): timed once the reads ahead come (4.3r4k)"),
@@ -1093,8 +1101,16 @@ def app_booblord(d: Driver, app: App, ctx) -> None:
 
 # D999: a shape no build has made (booblord with one slider moved) builds first with a bar (A31); at the next launch
 # the same shape is the app's kept answer (A32, strict). Her own pictures are drawn first, untimed.
-RESHAPE = """() => { const s = azurkit.characters.state.view.chosen.shapes[0].name, b = document.getElementById(
-  `char-shape:${s}`); b.value = "1.25"; b.dispatchEvent(new Event("change")); }"""
+def reshape(value: str) -> str:
+    return ("() => { const s = azurkit.characters.state.view.chosen.shapes[0].name, b = document.getElementById("
+            f"`char-shape:${{s}}`); b.value = '{value}'; b.dispatchEvent(new Event('change')); }}")
+
+
+RESHAPE = reshape("1.25")
+# D1011: what the pictures show of the shape the tab holds: its Preview, or the exact ones
+SHOWS = ("(() => { const c = azurkit.characters.state, s = c.shown; return s && s.shape === JSON.stringify("
+         "Object.entries(c.character.shapes ?? {}).sort()) && s.name === c.character.species && s.preview === %s; })()")
+PREVIEWED, EXACT = f"() => {SHOWS % 'true'}", f"() => {SHOWS % 'false'}"
 RESHAPED = ("() => azurkit.characters.state.character.shapes && azurkit.characters.state.view?.asked "
             "=== JSON.stringify(azurkit.characters.state.character)")
 
@@ -1115,6 +1131,30 @@ def app_reshape(d: Driver, app: App, ctx) -> None:
     p.js(click("tab-characters"))
     p.wait(f"() => azurkit.characters.state.character.species === 'booblord' && ({RESHAPED[6:]})", 600)
     d.act(p, "A32", build_js(), BUILT, 1800)
+    app.quit(p)
+
+
+def _reshape_pictures(d: Driver, p: Page, preview: str, first: str, again: str) -> None:
+    """D1011, booblord installed: a slider's moves each show the nearest shape at once, the dress waiting until it rests
+    (preview); the exact pictures replace it (first, from the last move, a bar's); back on her shipped shape, the
+    same shape is exact at once (again)."""
+    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
+          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')""", 1800)
+    d.act(p, None, model("booblord"), chosen("booblord"), 3600)
+    for stop in ("1.15", "1.2", "1.25"):
+        t0, _ = d.act(p, preview, reshape(stop), PREVIEWED, 600, change=True)
+    d.until(p, first, t0, EXACT, 3600)
+    while d.need(again):
+        d.act(p, None, reshape("1"), EXACT, 600)
+        d.act(p, again, RESHAPE, EXACT, 600)
+
+
+def app_reshape_pictures(d: Driver, app: App, ctx) -> None:
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    p.js(click("tab-characters"))
+    p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
+    _reshape_pictures(d, p, "A59", "A60", "A61")
     app.quit(p)
 
 
@@ -1193,6 +1233,18 @@ def site_characters(d: Driver, ctx, url: str) -> None:
                    && !azurkit.characters.state.view.perfOld""", 1800)
         d.act(p, "S12", model("beamlord"), chosen("beamlord"), 1800)
     d.leave(p)
+
+
+def site_reshape_pictures(d: Driver, ctx, url: str) -> None:
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    p.js(click("tab-characters"))
+    p.wait(SPECIES, 1800)
+    d.act(p, None, "() => { const b = document.getElementById('char-source'); b.value = './content-source/'; "
+                   "b.dispatchEvent(new Event('change')); }",
+          """() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
+    _reshape_pictures(d, p, "S51", "S52", "S53")
+    p.page.close()
 
 
 def site_track(d: Driver, ctx, url: str) -> None:
@@ -1483,12 +1535,14 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-ahead-stale": ("app", ("A58",), app_ahead_stale),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
+    "app-reshape-pictures": ("app", ("A59", "A60", "A61"), app_reshape_pictures),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46"), app_data),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17"),
                    site_start),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
+    "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
     "site-seed": ("site", ("S24", "R24", "S50"), site_seed),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),

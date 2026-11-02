@@ -599,6 +599,38 @@ def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None)
     return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
 
 
+def _under_a_dress(stamp: gate.Stamp, packs: Mapping) -> tuple[object, list[Layer]]:
+    """The image a dress reads (a ``ports.Vanilla``) and the layers of the packs it stands on."""
+    from azurkit.tools.characters import ports
+
+    vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
+    chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
+    with iso.Reader(stamp.path) as r:
+        names = [f for pack in chosen.values() for f in pack.files()] + list(characters.READS)
+        base = {file: r.read(file) for file in dict.fromkeys(names) if file in stamp.release.files}
+    layers: list[Layer] = []
+    if failed := _pack_layers(stamp, chosen, packs, base, layers):
+        raise ValueError("; ".join(failed))
+    return vanilla, layers
+
+
+def _reshaped(recipe: Mapping, character: Mapping) -> dict:
+    """A reshaped variant's two pictures: from the dress a build of it makes
+    (``characters.plan``'s, which the app keeps for that build), kept for
+    this process."""
+    from azurkit.tools.characters import picker
+
+    packs, stamp = _packs(recipe), _stamp(recipe["iso"])
+    key = json.dumps(["reshaped", str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
+    if key not in _MATCHES:
+        vanilla, layers = _under_a_dress(stamp, packs)
+        files = characters.worn_files(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
+        while len(_MATCHES) >= 16:
+            _MATCHES.pop(next(iter(_MATCHES)))
+        _MATCHES[key] = picker.dressed(files, character["species"])
+    return dict(_MATCHES[key])
+
+
 def _dress(recipe: Mapping) -> dict:
     """:func:`match`'s answer for ``recipe`` and, for a variant, its
     dress's ``preview`` (``picker.dressed``), kept for this process."""
@@ -614,14 +646,7 @@ def _dress(recipe: Mapping) -> dict:
     stamp = _stamp(recipe["iso"])
     key = json.dumps([str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
     if key not in _MATCHES:
-        vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
-        chosen = {name: pack for name, pack in mods.PACKS.items() if name in packs}
-        with iso.Reader(stamp.path) as r:
-            names = [f for pack in chosen.values() for f in pack.files()] + list(characters.READS)
-            base = {file: r.read(file) for file in dict.fromkeys(names) if file in stamp.release.files}
-        layers: list[Layer] = []
-        if failed := _pack_layers(stamp, chosen, packs, base, layers):
-            raise ValueError("; ".join(failed))
+        vanilla, layers = _under_a_dress(stamp, packs)
         found, staging = characters.match(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
         found["text"] = {k: picker.match_text(v) for k, v in found["values"].items() if v is not None}
         if variants.resolve(character["species"], character.get("variant_file")) is not None:
@@ -657,8 +682,9 @@ def preview(recipe: Mapping) -> dict:
     "back": PNG bytes}``, 160 px each. A species' body is drawn from the
     image at once; a variant's from one dress of it over the recipe's packs
     (the dress :func:`match` reads, kept for this process; seconds, a
-    detailed one minutes), never its base's picture. A refusal names the
-    species or the image."""
+    detailed one minutes), never its base's picture; a reshaped variant's
+    (``shapes``) from the dress of those shapes a build makes. A refusal
+    names the species or the image."""
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import picker
 
@@ -666,7 +692,7 @@ def preview(recipe: Mapping) -> dict:
         raise ValueError("preview: a recipe naming its image and character")
     character = characters.normalize(recipe["character"])
     if variants.resolve(character["species"], character.get("variant_file")) is not None:
-        return dict(_dress(recipe)["preview"])
+        return _reshaped(recipe, character) if character.get("shapes") else dict(_dress(recipe)["preview"])
     _, config, bodies = _game(recipe["iso"])
     return picker.preview(bodies, picker.body_of(config, bodies, character["species"]))
 
