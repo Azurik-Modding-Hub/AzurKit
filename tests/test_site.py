@@ -1473,6 +1473,12 @@ def test_the_tools_tab_checks_lists_and_extracts_the_image(browser, site, usa_is
         _page.click(page, "tools-list")
         assert _page.until(page, "() => azurkit.tools.state.files && document.getElementById('tools-count').textContent"
                            ) == f"{count} files"
+        files = "() => [document.getElementById('tools-files').hidden, document.getElementById('tools-list').textContent]"
+        assert page.evaluate(files) == [False, "Hide its files"]
+        _page.click(page, "tools-list")
+        assert page.evaluate(files) == [True, "Show its files"]
+        _page.click(page, "tools-list")
+        assert page.evaluate(files) == [False, "Hide its files"]
         _page.fill(page, "tools-filter", small)
         assert page.evaluate("() => document.getElementById('tools-count').textContent") == f"1 of {count} files"
         with page.expect_download(timeout=120_000) as caught:

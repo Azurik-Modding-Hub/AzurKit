@@ -174,6 +174,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
       ui.verify.title = VANILLA;
     }
     if (none) ui.files.hidden = true;
+    ui.list.textContent = ui.files.hidden ? "Show its files" : "Hide its files";
     ui.openLoad.disabled = ui.openSave.disabled = !t.opened;
     const seeded = t.opened?.preset.layers.some((layer) => layer.tool === "randomizer");
     ui.openTrack.disabled = !seeded;
@@ -225,6 +226,10 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
   }
 
   async function list() {
+    if (!ui.files.hidden) {   // a second click collapses them; the filter's text stays
+      ui.files.hidden = true;
+      return lines();
+    }
     const ticket = t.ticket;
     if (!t.files) {
       ui.list.disabled = true;
