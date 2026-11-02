@@ -181,15 +181,18 @@ it first yields twice at most a list of ``(image offset, size)``, what it
 reads next, and is resumed once those are at hand (:func:`_planning`).
 
 
-def image_checks(made: 'iso.Image', report: 'Mapping') -> 'list[list]':
+def image_checks(made: 'iso.Image', report: 'Mapping') -> 'dict[str, list[list]]':
 
+What the site's Save hashes, as a File may read otherwise than it did at
+the pick (Firefox's, of a file changed on disk, silently: D35). ``image``:
 ``[path, image offset, size, sha256]`` of each of ``made``'s files the
 build vouches for (``report``'s, :func:`image`'s): what it changed by its
-result, the rest by the release's manifest. The site's Save hashes what it
-hands the browser against them, as a File may read otherwise than it did
-at the build (Firefox's, of a file changed on disk, silently: D35). The
-root files a build adds are its own bytes, so they aren't listed; nor is
-what lies between files, which no file of the game reads.
+result, the rest by the release's manifest. ``input``: the same of each
+file it changed as the input holds it, by the manifest, as the result's
+sha was hashed from that input whatever it held at the build (a browser
+that refuses a changed File's reads needn't hash these). The root files a
+build adds are its own bytes, so they aren't listed; nor is what lies
+between files, which no file of the game reads.
 
 
 def save(made: 'iso.Image', out: 'str', *, progress: 'Callable[[dict], object] | None' = None, sha256: 'Callable[[], str] | None' = None) -> 'dict':

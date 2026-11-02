@@ -941,7 +941,7 @@ function built(reply) {
       : s.kind === "bytes" ? s.data : new Uint8Array(s.size));
     const blob = new Blob(parts, { type: "application/octet-stream" });
     if (blob.size !== size) return report(`The build's pieces make ${bytes(blob.size)}, not ${bytes(size)}`, true);
-    state.build = { report: made, size, segments: reply.segments, blob, checks: reply.checks, late: reply.late };
+    state.build = { report: made, size, segments: reply.segments, file, blob, checks: reply.checks, late: reply.late };
     state.url = URL.createObjectURL(blob);
   }
   const changed = Object.keys(made.result), rz = made.randomizer;
@@ -957,31 +957,45 @@ function built(reply) {
 }
 
 // The site's Save: while the browser writes the Blob, the same Blob's files are hashed against the build's and, for the
-// files a build doesn't read, the release's (sdk.image_checks; D35). A File changed on disk since the pick reads
-// otherwise in Firefox, silently, or fails in WebKit and Chromium; a browser's download can't be stopped from here, so
-// the Save fails by name, with what to do. Its bar is the page's own (D1053). state.saveCheck: "running", "held", or the
-// failure's line.
+// files a build doesn't read, the release's (sdk.image_checks; D35). A File changed on disk since the pick fails the read
+// in WebKit and Chromium, at the Build as at the Save, and reads otherwise in Firefox, silently; the build's own shas
+// would pass one changed before the Build, being hashed from it, so where a read may be silent (READS_REFUSED false) the
+// File's copy of each file the build changed is hashed against the release's first. (Everywhere, it costs S50/lag 4.1 s.)
+// A browser's download can't be stopped from here, so the Save fails by name, with what to do. Its bar is the page's own
+// (D1053). state.saveCheck: "running", "held", or the failure's line.
+const READS_REFUSED = /AppleWebKit/.test(navigator.userAgent);
 async function checkSave(build, name) {
   if (build.checking) return;
   build.checking = true;
   state.saveCheck = "running";
   const id = asking("save_check");
-  const heard = (done, total) => {
-    const ask = state.asks.get(id);
-    if (ask) ask.record = { stage: "write", label: "Saving", done, total, percent: Math.floor(done * 100 / total) };
+  const sized = (rows) => rows.reduce((n, [, , size]) => n + size, 0);
+  const passes = [[build.blob, build.checks.image]];
+  if (!READS_REFUSED) passes.unshift([build.file, build.checks.input]);
+  const whole = passes.reduce((n, [, rows]) => n + sized(rows), 0);
+  let before = 0, wrong = null;
+  const heard = (share) => (done, total) => {
+    const ask = state.asks.get(id), at = Math.floor(before + share * done / total);
+    if (ask) ask.record = { stage: "write", label: "Saving", done: at, total: whole, percent: Math.floor(at * 100 / whole) };
     showing();
   };
-  let wrong = null;
   try {
-    const digests = await hashed(build.blob, build.checks.map(([path, at, size]) => [path, at, size]), heard);
-    const file = build.checks.find(([path, , , sha]) => digests[path] !== sha)?.[0];
-    if (file) wrong = `its ${file} isn't the build's or the game's`;
+    for (const [source, rows] of passes) {
+      const share = sized(rows);
+      const digests = await hashed(source, rows.map(([path, at, size]) => [path, at, size]), heard(share));
+      const file = rows.find(([path, , , sha]) => digests[path] !== sha)?.[0];
+      if (file) {
+        wrong = `its ${file} isn't the build's or the game's`;
+        break;
+      }
+      before += share;
+    }
   } catch (error) {
     wrong = `reading it failed (${error.message})`;
   }
   answered(id);
   build.checking = false;
-  state.saveCheck = wrong ? `Save failed: your image changed after the build or isn't a clean copy, so ${name} is `
+  state.saveCheck = wrong ? `Save failed: your image changed since you picked it or isn't a clean copy, so ${name} is `
     + `wrong: ${wrong}. Delete the saved file, choose a clean image and build again` : "held";
   if (wrong) {
     if (state.build === build) forget();

@@ -743,18 +743,25 @@ def image_staged(recipe: Mapping, *, progress: Callable[[dict], object] | None =
     return made, _report(manifest, prepared, steps, spoiler)
 
 
-def image_checks(made: iso.Image, report: Mapping) -> list[list]:
-    """``[path, image offset, size, sha256]`` of each of ``made``'s files the
+def image_checks(made: iso.Image, report: Mapping) -> dict[str, list[list]]:
+    """What the site's Save hashes, as a File may read otherwise than it did at
+    the pick (Firefox's, of a file changed on disk, silently: D35). ``image``:
+    ``[path, image offset, size, sha256]`` of each of ``made``'s files the
     build vouches for (``report``'s, :func:`image`'s): what it changed by its
-    result, the rest by the release's manifest. The site's Save hashes what it
-    hands the browser against them, as a File may read otherwise than it did
-    at the build (Firefox's, of a file changed on disk, silently: D35). The
-    root files a build adds are its own bytes, so they aren't listed; nor is
-    what lies between files, which no file of the game reads."""
+    result, the rest by the release's manifest. ``input``: the same of each
+    file it changed as the input holds it, by the manifest, as the result's
+    sha was hashed from that input whatever it held at the build (a browser
+    that refuses a changed File's reads needn't hash these). The root files a
+    build adds are its own bytes, so they aren't listed; nor is what lies
+    between files, which no file of the game reads."""
     files = next(release for release in gate.RELEASES if release.name == report["release"]).files
     with iso.Reader(made) as r:
-        return [[e.path, r.start(e), e.size, report["result"].get(e.path) or files[e.path][1]]
-                for e in r.entries() if not e.is_dir and e.size and (e.path in report["result"] or e.path in files)]
+        image = [[e.path, r.start(e), e.size, report["result"].get(e.path) or files[e.path][1]]
+                 for e in r.entries() if not e.is_dir and e.size and (e.path in report["result"] or e.path in files)]
+    with iso.Reader(made.source) as r:
+        changed = [[e.path, r.start(e), e.size, files[e.path][1]]
+                   for e in r.entries() if not e.is_dir and e.size and e.path in report["result"] and e.path in files]
+    return {"image": image, "input": changed}
 
 
 def save(made: iso.Image, out: str, *, progress: Callable[[dict], object] | None = None,

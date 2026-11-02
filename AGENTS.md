@@ -1201,9 +1201,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **Its Save is checked (D35):** while the browser writes the Blob, the
     page hashes the same Blob's files against the build's
     (`sdk.image_checks`: its result, else the release's manifest), its bar
-    moving. A File changed on disk since the pick reads otherwise in
-    Firefox, silently (WebKit and Chromium fail the read): the Save fails
-    with what to do, as a page can't stop a browser's download.
+    moving. A File changed on disk since the pick fails the read in WebKit
+    and Chromium, and reads otherwise in Firefox, silently, before the build
+    as after it, so there the File's copy of each file the build changed is
+    first hashed against the manifest (everywhere, S50/lag would be 4.1 s).
+    The Save fails with what to do, as a page can't stop a browser's download.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
   `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
   and Firefox.

@@ -43,7 +43,7 @@ import pytest
 from azurkit import sdk
 from azurkit.core import gate, iso
 from azurkit.tools import data, mods
-from azurkit.tools.randomizer import tracking
+from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
 from tests import _g1, _hosts, _page
@@ -1595,9 +1595,49 @@ def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, si
             f.write(bytes([byte[0] ^ 1]))
         page.evaluate("() => document.querySelector('#save').click()")
         failed = _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck")
-        assert failed.startswith("Save failed: your image changed after the build")
+        assert failed.startswith("Save failed: your image changed since you picked it")
         assert page.evaluate("() => [azurkit.build, document.querySelector('#status').textContent, "
                              "document.querySelector('#status').classList.contains('error')]") == [None, failed, True]
+    finally:
+        served.close()
+
+
+def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_save(browser, site, usa_iso, tmp_path):
+    """D35: a byte of a level, outside what the seed's build reads and patches, changed after the pick and before Build.
+    The changed level's sha is hashed from that File, so the build's own number agrees with it: Firefox reads the new bytes
+    silently and builds, and only the release's sha of the level fails its Save; WebKit and Chromium refuse the read."""
+    image = tmp_path / usa_iso.name
+    if subprocess.run(["cp", "-c", str(usa_iso), str(image)], capture_output=True).returncode:
+        shutil.copyfile(usa_iso, image)
+    image.chmod(0o644)   # a clone keeps the source's read-only mode
+    with iso.Reader(image) as r:
+        level = max(generator.sections(generator.prepare({"seed": "2"}, {}), r).values(), key=lambda view: view.size)
+    at = level.size // 2
+    while level.holds(at, at + 1):
+        at += 4096
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(image))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.click(page, "tab-randomizer")
+        _page.until(page, "() => azurkit.rando.view")
+        _page.click(page, "rando-on")
+        _page.fill(page, "rando-seed", "2")
+        with open(image, "r+b") as f:
+            f.seek(level.start + at)
+            byte = f.read(1)
+            f.seek(level.start + at)
+            f.write(bytes([byte[0] ^ 1]))
+        page.evaluate("() => { azurkit.build = null; document.querySelector('#build').click(); }")
+        if _page.until(page, "() => azurkit.build ? 'built' : document.querySelector('#status').classList.contains('error') "
+                             "&& 'refused'", 900) == "built":
+            _page.until(page, "() => azurkit.ready", 300)
+            page.evaluate("() => document.querySelector('#save').click()")
+            failed = _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck")
+            assert failed.startswith("Save failed: your image changed since you picked it")
+        assert page.evaluate("() => [azurkit.build, document.querySelector('#status').classList.contains('error')]") == [
+            None, True]
     finally:
         served.close()
 
