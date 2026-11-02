@@ -2353,6 +2353,110 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         served.close()
 
 
+# The Seed difficulty select as it reads: its level, each option's [value, name, enabled, line], the line under it.
+LEVELS = """() => { const s = document.getElementById("rando-difficulty");
+    return [Number(s.value), [...s.options].map((o) => [Number(o.value), o.textContent, !o.disabled, o.title]),
+            document.getElementById("rando-difficulty-line").textContent]; }"""
+
+
+def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_and_the_tracker_says_what_a_seed_needs(
+        browser, site, tmp_path):
+    """Step 4.3sd-b (D1031, D1037-D1039; its design's 1.4 and 4.2): the
+    tab's four levels read the engine's answer, each greyed where it can't
+    be asked, with the chosen level's line and why the first greyed one is;
+    a level moves down, saying so, when an edit takes it off offer, and
+    stays through one that doesn't; a share string's level sets the select
+    both ways, a loaded one that greys there kept and said; the tracker's
+    line under the head is the engine's, each step-up's third only with
+    Spoiler on."""
+    on = mods.normalize({name: {} for name, pack in mods.PACKS.items() if pack.default_on})
+    defaults = sdk.catalog()["randomizer"]["defaults"]
+
+    def table(tier, ceiling, level=0, **rest):
+        return defaults | {"movement_tier": tier, "skip_ceiling": ceiling, **rest} \
+            | ({"seed_difficulty": level} if level else {})
+
+    def engine(*args, **rest):
+        return sdk.randomizer_settings({"settings": table(*args, **rest), "packs": on})
+
+    def choose(**fields):
+        page.evaluate("""(fields) => { for (const [id, value] of Object.entries(fields)) {
+            const box = document.getElementById(`rando-${id}`);
+            box.value = String(value);
+            box.dispatchEvent(new Event("change")); } }""", fields)
+        return _page.until(page, SETTLED, 120)
+
+    def typed(share, level):
+        page.evaluate("""(text) => { const box = document.getElementById("rando-share");
+                                     box.value = text; box.dispatchEvent(new Event("change")); }""", share)
+        _page.until(page, f"() => !azurkit.rando.load && document.getElementById('rando-difficulty').value === '{level}'", 120)
+        return _page.until(page, SETTLED, 120)
+
+    served = Site(browser, site)
+    served.context.route(f"{ORIGIN}/art/**", lambda route: route.fulfill(status=404, body=""))
+    try:
+        page = served.open()
+        _page.click(page, "tab-randomizer")
+        _page.until(page, SETTLED, 120)
+        assert page.evaluate(LEVELS)[0] == 0   # Any, D1039
+        _page.click(page, "rando-on")
+        for tier, ceiling, offered in (("hard", 3, [0, 2, 3]), ("frame_perfect", 4, [0, 2, 3, 4]), ("standard", 2, [0, 2]),
+                                       ("standard", 0, [0]), ("hard", 0, [0, 2, 3])):
+            choose(movement=tier, ceiling=ceiling)
+            level, levels, line = page.evaluate(LEVELS)
+            answer = engine(tier, ceiling)["difficulty"]["levels"]
+            assert level == 0 and levels == answer and [row[0] for row in levels if row[2]] == offered
+            assert line == " ".join([answer[0][3], *[row[3] for row in answer if not row[2]][:1]])
+
+        choose(movement="frame_perfect", ceiling=4)
+        view = choose(difficulty=3)
+        assert view["share"] == engine("frame_perfect", 4, 3)["share"] and view["settings"]["seed_difficulty"] == 3
+        assert page.evaluate(LEVELS)[2] == engine("frame_perfect", 4, 3)["difficulty"]["levels"][2][3]
+        pick = next(skip["id"] for skip in view["skips"] if skip["ceiling"] is True)
+        page.evaluate("(id) => document.querySelector(`#rando-skips input[data-skip='${id}']`).click()", pick)
+        assert _page.until(page, SETTLED, 120)["share"] \
+            == engine("frame_perfect", 4, 3, skip_override={pick: False})["share"]   # asked again at the level kept
+        _page.click(page, "rando-clear")
+        _page.until(page, SETTLED, 120)
+        assert choose(movement="standard", ceiling=2)["share"] == engine("standard", 2, 2)["share"]
+        level, _, line = page.evaluate(LEVELS)
+        assert level == 2 and line.startswith("Moved down from Hard. ")
+        assert choose(ceiling=0)["share"] == engine("standard", 0)["share"]
+        level, _, line = page.evaluate(LEVELS)
+        assert level == 0 and line.startswith("Moved down from Standard. ")
+        choose(ceiling=2)
+        assert not page.evaluate(LEVELS)[2].startswith("Moved")
+
+        share = engine("hard", 3, 3)["share"]
+        view = typed(share, 3)
+        assert view["share"] == share and view["settings"]["seed_difficulty"] == 3
+        assert page.evaluate("() => document.getElementById('rando-movement').value") == "hard"
+        share = engine("standard", 0, 2)["share"]
+        view = typed(share, 2)
+        level, levels, line = page.evaluate(LEVELS)
+        assert view["share"] == share and level == 2 and not levels[1][2]   # a loaded level that greys here stays
+        assert engine("standard", 0, 2)["difficulty"]["note"] in line
+
+        doc = sdk.plan({"seed": "page", "settings": table("hard", 3, 3)})   # a plan no other test tracks: the tracker is kept
+        (tmp_path / "shaped.json").write_text(json.dumps(doc), encoding="utf-8")
+        _page.click(page, "rando-view-tracker")
+        assert page.evaluate("() => document.getElementById('track-requires').hidden")
+        page.set_input_files("#track-open", str(tmp_path / "shaped.json"))
+        _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])} && ({TRACKED})()", 300)
+        shown = """() => [document.getElementById("track-head").textContent, document.getElementById("track-requires").textContent,
+                          document.getElementById("track-requires").hidden]"""
+        head, spoiled = sdk.tracker({"plan": doc})["head"], sdk.tracker({"plan": doc, "spoiler": True})["head"]["requires"]
+        thirds = ", ".join(spoiled["thirds"])
+        assert page.evaluate(shown) == [head["text"], head["requires"]["text"], False] and thirds not in head["requires"]["text"]
+        _page.click(page, "track-spoiler")
+        _page.until(page, f"() => azurkit.tracker.state.view.head.requires.thirds && ({TRACKED})()", 300)
+        assert page.evaluate(shown) == [head["text"], spoiled["text"], False] and f": {thirds}" in spoiled["text"]
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 # Each message the page posts to a worker, by its type (an init script: before the page's own)
 ASKED = """(() => {
     const post = Worker.prototype.postMessage;

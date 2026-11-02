@@ -167,6 +167,8 @@ export function tracker({ call, app, say, kept, keep }) {
     $("track-status").textContent = "";
     $("track-head").textContent = v.head.text;
     $("track-head").title = v.head.skips.join("\n") || "No skip is on.";
+    $("track-requires").textContent = v.head.requires?.text ?? "";   // a seed difficulty's: what the seed needs
+    $("track-requires").hidden = !v.head.requires;
     const gems = t.gems && v.gems ? Object.values(v.gems.counts) : null;   // with Gems: taken and in all (R1.43)
     const got = fresh(el("span", { className: "got", textContent: `Collected ${s.collected}` }), t.bumped, 900);
     $("track-count").replaceChildren(got, ` of ${s.total} · Reachable ${s.reachable}`

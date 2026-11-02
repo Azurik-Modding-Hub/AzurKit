@@ -609,7 +609,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `head.requires`: the level asked, met or the closest the fill found, the
   counts; each step-up's third and its openers only with `spoiler`; the
   profile once a plan on the tracker's Logic, `tracker.json`'s digest
-  excludes it), the counter row, each spot's state (`got`,
+  excludes it; the page's line under the head), the counter row, each spot's state (`got`,
   `live`, `near`, `skip`: only with a skip, R1.41, `far`) and its item
   only once collected or with `spoiler`, and the Table's two trees; with
   `gems` (Step 4.2c3, R1.43, D928), each gem spot's gems (a cluster's
@@ -980,8 +980,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     D910), with D144's defaults (`sdk.catalog`'s `randomizer`, which offers
     the Seed difficulty levels and their tip; `randomizer_settings`'
     `difficulty`: each level's `[value, name, enabled, line]` from the shipped
-    rate table with no reach, and a loaded level's `note`; the page holds a
-    loaded level through its settings), the share
+    rate table with no reach, and a loaded level's `note`: the Seed
+    difficulty select after Skips greys a level the settings can't ask,
+    D979, says the chosen level's line and why the first greyed one is under
+    the row; an edit that can change the offer asks without the level first,
+    as the engine refuses one above the settings, and moves a level off
+    offer down to the highest on it, saying so; a loaded level that greys
+    stays and says what it plans), the share
     string (editable, Copy), Load settings… and Save settings… (D144:
     a settings file, read and written by the engine: `randomizer_settings`'
     `file`, the app's `api/settings_file`), the item rows (each a category

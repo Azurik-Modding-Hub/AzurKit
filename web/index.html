@@ -47,9 +47,11 @@ type="button" role="tab" aria-selected="false">Tracker</button></span></h2>
 <button id="rando-new" type="button" title="A new random seed">New</button>
 <label class="field">Movement <select id="rando-movement"></select></label>
 <label class="field">Skips <select id="rando-ceiling"></select></label>
+<label class="field">Seed difficulty <select id="rando-difficulty"></select></label>
 <label class="field">Dark areas need <select id="rando-dark"></select></label>
 <label class="field">Obsidian cost <input type="text" id="rando-cost" inputmode="decimal" spellcheck="false"
 autocomplete="off"><span id="rando-cost-note" class="unit"></span></label>
+<p id="rando-difficulty-line" class="note" hidden></p>
 </div>
 <p class="rando-row"><label class="field">Share string <input type="text" id="rando-share" spellcheck="false"
 autocomplete="off"></label> <button id="rando-copy" type="button">Copy</button>
@@ -94,6 +96,7 @@ qmp:HOST:PORT or qmp:unix:PATH, comma-separated (empty: the fork's shared RAM, t
 <span id="track-dot" aria-hidden="true"></span><span id="track-line" class="note"></span></span>
 <span id="track-status" class="note"></span> <span id="track-art" class="note"></span></p>
 <p id="track-head" class="note"></p>
+<p id="track-requires" class="note" hidden></p>
 <p id="track-count" class="count"></p>
 <p id="track-levels" class="note"></p>
 <p class="views" role="tablist" aria-label="The tracker's views"><button id="track-map" type="button" role="tab"
