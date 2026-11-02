@@ -3535,11 +3535,13 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         served.close()
 
 
-KEPT_DRESSES = """() => new Promise((done) => {   // the hints azurkit-dress keeps (its order record's)
+KEPT_DRESSES = """(order) => new Promise((done) => {   // the hints azurkit-dress keeps, oldest first (its order record's), put first
     const opened = indexedDB.open("azurkit-dress", 1);
     opened.onupgradeneeded = () => opened.result.createObjectStore("dress");
     opened.onsuccess = () => {
-        const asked = opened.result.transaction("dress").objectStore("dress").get("");
+        const store = opened.result.transaction("dress", order ? "readwrite" : "readonly").objectStore("dress");
+        if (order) store.put(order, "");
+        const asked = store.get("");
         asked.onsuccess = () => { opened.result.close(); done(asked.result ?? []); };
     };
 })"""
@@ -3550,7 +3552,8 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
         browser, site, usa_iso, tmp_path):
     """D1067 (D1015's store on the site): a character's first build keeps its dress in this browser (azurkit-dress, by
     the build's hint), and the same build at a later visit is dressed from it (its bar says so; the body's files aren't
-    read again), each CPython's image."""
+    read again) and is the newest kept again, past a hint kept after it (the least recently built go first), each
+    CPython's image."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "character": {"species": "keylord"}}
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
@@ -3567,7 +3570,12 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
             assert built == _as_cpython(built, report, made)
             lines = [line for _, line in filter(None, page.evaluate("() => bars"))]
             assert [any(line.startswith(stage) for line in lines) for stage in DRESSED] == [not visit, bool(visit)], lines
-            _page.until(page, f"() => ({KEPT_DRESSES})().then((hints) => hints.length === 1)", 120)   # after the answer
+            if not visit:   # kept after the answer; then a hint kept after it
+                hint, = _page.until(page, f"() => ({KEPT_DRESSES})().then((hints) => hints.length === 1 && hints)", 120)
+                page.evaluate(KEPT_DRESSES, [hint, "later"])
+            else:
+                assert _page.until(page, f"() => ({KEPT_DRESSES})().then((hints) => hints[0] === 'later' && hints)",
+                                   120) == ["later", hint]
             page.close()
     finally:
         served.close()

@@ -773,7 +773,7 @@ function joined(file, { segments }, written) {
 // hint: the image and what the dress stands on (the character, the packs, the seed). A hint finds the answers its last
 // build kept, which the engine takes only under their own keys: another's are a miss, never another build. Made and kept
 // after the build's answer (and its seed's spoiler), off the click's wait: a worker the page ends first keeps none, and
-// the next build dresses again. DRESSES hints at most, the oldest dropped first.
+// the next build dresses again. DRESSES hints at most, the least recently built dropped first: a hit is the newest again.
 const DRESS = "azurkit-dress", DRESSES = 32, ORDER = "";
 const dresses = (mode, fn) => stored(DRESS, "dress", mode, fn);
 const hintOf = (file, packs, randomizer, character) => {
@@ -783,13 +783,13 @@ const hintOf = (file, packs, randomizer, character) => {
     return null;   // a value JSON can't hold: nothing kept
   }
 };
-const keep = (hint, kept) => dresses("readwrite", (store) => {
+const keep = (hint, kept) => dresses("readwrite", (store) => {   // kept null: a hit's, only made the newest again
   const order = store.get(ORDER);
   order.onsuccess = () => {
     const hints = [...(order.result ?? []).filter((h) => h !== hint), hint];
     for (const old of hints.splice(0, Math.max(0, hints.length - DRESSES))) store.delete(old);
     store.put(hints, ORDER);
-    store.put(kept, hint);
+    if (kept) store.put(kept, hint);
   };
   return order;
 });
@@ -851,9 +851,9 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
     post({ type: "spoiled", ...reply });
   }
   if (!hint) return;
-  try {   // the dress the build worked out (none on a hit), made over the image mounted again, and kept
-    const kept = mounted(py, file, () => engine({ type: "kept" }));
-    if (Object.keys(kept).length) await keep(hint, kept);
+  try {   // the dress the build worked out (none on a hit), made over the image mounted again, and kept; a hit's the newest
+    const kept = mounted(py, file, () => engine({ type: "kept" })), made = Object.keys(kept).length > 0;
+    if (made || offered) await keep(hint, made ? kept : null);
   } catch {}   // a dress not kept is a dress made again
 }
 
