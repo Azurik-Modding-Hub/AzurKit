@@ -317,6 +317,16 @@ def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reac
     assert difficulty.openers(logic, settings, load_plan(doc, logic.db).placement)
 
 
+def test_a_logic_handed_another_database_works_its_openers_out_again(monkeypatch):
+    """As the kept fill does (``loader.kept_logic``'s stated way to hand a Logic another database)."""
+    logic, settings = kept_logic(), Settings(3, "hard", 1, {}, seed_difficulty=3)
+    placement = fill.fill(logic, "1", settings).placement
+    first = difficulty.openers(logic, settings, placement)
+    monkeypatch.setattr(logic, "db", dataclasses.replace(logic.db))
+    again = difficulty.openers(logic, settings, placement)
+    assert again == first and again is not first
+
+
 def test_a_call_waiting_on_the_openers_ahead_is_answered_though_they_had_paused_for_a_build_parked_for_that_call(monkeypatch):
     """The three-way wait: the job ahead holds the openers' lock, paused for a build ahead that parks for any call the
     player waits on, here the View, which waits on the lock. The build never ends in this test."""

@@ -224,7 +224,8 @@ def rung(settings: Settings, rating: int, skips: Mapping[str, Mapping]) -> Setti
     return Settings(ceiling, tier, settings.dark_fire, {**settings.skip_override, **off})
 
 
-_RUNG_LOGIC: dict[tuple, Logic] = {}    # the sliders' Logic at a tier below a plan's, kept for the process's last ones
+_RUNG_LOGIC: dict[tuple, tuple] = {}    # the sliders' Logic at a tier below a plan's, kept for the process's last ones:
+#                                         (the database it was read from, held so its id stays its, that Logic)
 
 
 def rung_logic(logic: Logic, settings: Settings, tier: str) -> Logic:
@@ -235,13 +236,14 @@ def rung_logic(logic: Logic, settings: Settings, tier: str) -> Logic:
     from azurkit.tools.randomizer.movement import Movement, logic_for
     from azurkit.tools.randomizer.planner.loader import kept_logic
 
-    key = (json.dumps(settings.sliders, sort_keys=True), tier)
+    db = kept_logic().db
+    key = (id(db), json.dumps(settings.sliders, sort_keys=True), tier)
     if key not in _RUNG_LOGIC:
         progress.note(NOTE)
-        _RUNG_LOGIC[key] = logic_for(kept_logic().db, Movement.from_params(settings.sliders), tier)[0]
+        _RUNG_LOGIC[key] = db, logic_for(db, Movement.from_params(settings.sliders), tier)[0]
         while len(_RUNG_LOGIC) > 4:
             _RUNG_LOGIC.pop(next(iter(_RUNG_LOGIC)))
-    return _RUNG_LOGIC[key]
+    return _RUNG_LOGIC[key][1]
 
 
 def progression(logic: Logic, placement: Mapping[str, str]) -> frozenset[str]:
@@ -455,8 +457,8 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     the tier does, and "one of" an irreducible set when neither does: picks, and ``(movement)`` when all of them off
     still open the round, so that the set only loses it with the tier lowered too. Each removal is a new option set, its
     rules compiled on the Logic (a host's job ahead, or the View's bar, pays that) and kept for the next plan at these
-    settings; another settings' openers drop them (about 20 MiB a set), a call stopped part way counting those it
-    compiled. The last plan's answer is kept with them: the spoiler's View takes the job ahead's."""
+    settings; another settings' or another database's openers drop them (about 20 MiB a set), a call stopped part way
+    counting those it compiled. The last plan's answer is kept with them: the spoiler's View takes the job ahead's."""
     WAITING.add(me := threading.get_ident())
     try:
         while not _OPENING.acquire(timeout=0.2):
@@ -472,7 +474,7 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
 def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
     mine = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire, tuple(sorted(settings.skip_override.items())))
     held = getattr(logic, "_opener_sets", None)
-    if held is not None and held[0] != mine:
+    if held is not None and (held[0] != mine or held[4] is not logic.db):
         for key in held[1]:
             logic._compiled.pop(key, None)
         for key in held[2]:
@@ -488,7 +490,7 @@ def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rat
         return answer[1]
     finally:
         logic._opener_sets = (mine, (held[1] if held else set()) | (set(logic._compiled) - before[0]),
-                              (held[2] if held else set()) | (set(logic._native) - before[1]), answer)
+                              (held[2] if held else set()) | (set(logic._native) - before[1]), answer, logic.db)
 
 
 def _worked_out(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
