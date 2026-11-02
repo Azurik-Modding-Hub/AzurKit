@@ -100,8 +100,8 @@ import random
 import threading
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from azurkit.core import progress
 from azurkit.tools.randomizer.planner.difficulty import BOUND, Shape, asked
@@ -116,6 +116,9 @@ from azurkit.tools.randomizer.planner.settings import (
 )
 from azurkit.tools.randomizer.planner.solver import TRICK_FREE, Logic, Reach
 from azurkit.tools.randomizer.writer import Names, graph_of, layout, string_cost
+
+if TYPE_CHECKING:
+    from concurrent.futures import Future
 
 GENERATOR = "azurik-rando-fill/4"     # the fill's version: bumped when the same inputs give another placement
 #                                       (/2, Step R1.12: the trap gate; /3, Step R1.8m: own spots, trades, repairs;
@@ -626,7 +629,7 @@ class _Count:
 
     def __init__(self, making: _Making | None = None, tries: int = 1) -> None:
         self.making, self.n, self.k, self.percent = making, 1, 0, -1
-        self.tries, self.tried, self.say = tries, 0, ""
+        self.tries, self.tried, self.say, self.beside = tries, 0, "", 0
 
     def begin(self, n: int) -> None:
         self.n = max(n, 1)
@@ -641,22 +644,35 @@ class _Count:
         self.making.text = text = f"{self.say}placing the items, {k} of {whole}"
         progress.note(text)
 
+    def tick(self) -> None:
+        """The fill's thread's note while attempts run beside it, so the bar moves with their steps: about two an item
+        (a reach and a placing), inside the next candidate's share (a cancel point)."""
+        self(min(self.beside // 2, self.n - 1), True)
+        if self.making is None:
+            progress.note("placing the items")
+
     def tried_one(self, tried: int) -> None:
         """``tried`` candidates rejected: the next one's words and its share of the count (a cancel point)."""
-        self.tried, self.say = tried, f"shaping the seed: try {tried + 1} of up to {BOUND}, "
+        self.tried, self.say, self.beside = tried, f"shaping the seed: try {tried + 1} of up to {BOUND}, ", 0
         if self.making is not None:
             self.making.text = self.say.removesuffix(", ")
         progress.note(self.say.removesuffix(", "))
 
 
 class _BesideCount(_Count):
-    """An attempt's count beside others (:class:`_Beside`): each step only a note its thread hears."""
+    """An attempt's count beside others (:class:`_Beside`): each step a note its thread hears and one more for the
+    fill's count (:meth:`_Count.tick`); a lost increment is a bar's step, no more."""
+
+    def __init__(self, fills: _Count) -> None:
+        super().__init__()
+        self.fills = fills
 
     def __call__(self, placed: int, reach: bool = False) -> None:
+        self.fills.beside += 1
         progress.note("placing the items")
 
 
-_Count.SILENT, _Count.BESIDE = _Count(), _BesideCount()
+_Count.SILENT = _Count()
 
 
 class _Reaches:
@@ -904,11 +920,13 @@ class _Beside:
     so cancel points); leaving, or :meth:`again`, stops what runs at its next note and what hasn't begun. Each thread
     runs as low as the fill's does now."""
 
-    def __init__(self, width: int, say: Callable[[], str]) -> None:
-        self.width, self.say, self.low = width, say, LOWERED()
+    def __init__(self, width: int, tick: Callable[[], None]) -> None:
+        self.width, self.tick, self.low = width, tick, LOWERED()
         self._open()
 
     def _open(self) -> None:
+        from concurrent.futures import ThreadPoolExecutor     # a browser's fill never comes here
+
         self.stop, self.local = threading.Event(), threading.local()
         self.pool = ThreadPoolExecutor(self.width, thread_name_prefix="azurkit-attempt")
 
@@ -943,7 +961,7 @@ class _Beside:
             try:
                 return future.result(0.1)
             except TimeoutError:
-                progress.note(self.say())
+                self.tick()
                 self.low = LOWERED()
 
     def again(self, fn: Callable, items: Sequence) -> list:
@@ -1021,9 +1039,10 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
                 return made
         return accept.end()
     run.shape.rungs_read()
-    with _Beside(width, lambda: run.count.say.removesuffix(", ") or "placing the items") as beside:
+    told = _BesideCount(run.count)
+    with _Beside(width, run.count.tick) as beside:
         accept.beside = beside
-        for future in [beside.submit(lambda k: run.attempt(seed, k, _Count.BESIDE), k) for k in range(1, MAX_ATTEMPTS)]:
+        for future in [beside.submit(lambda k: run.attempt(seed, k, told), k) for k in range(1, MAX_ATTEMPTS)]:
             if (made := accept.add(beside.answer(future))) is not None:
                 return made
         return accept.end()

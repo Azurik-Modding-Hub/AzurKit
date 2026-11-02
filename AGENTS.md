@@ -551,9 +551,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     candidates that meets the promise, reading it lazily (`Shape.why_not`:
     one reach, then play_2 stopped at the first stage over half), else the
     highest `Shape.score`, the first on a tie. Attempt k is pure, so the app's
-    engine runs those past the first at once on threads (`fill.WIDTH`): the
-    same plan at any width. It also works out a shaped plan's spoiler openers
-    ahead, low (`randomizer.openers_ahead`), for the spoiler's View. Any change that gives the same inputs another level >
+    engine runs those past the first at once on threads (`fill.WIDTH`, each
+    as soon as a thread is free, its answer read in order, the rest stopped at
+    their next note once a plan is decided): the same plan at any width. It
+    also works out a shaped plan's spoiler openers ahead, low
+    (`randomizer.openers_ahead`), for the spoiler's View: the newest plan's
+    only, pausing for a build or another plan unless a View waits on them
+    (`engine._openers_ahead`). Any change that gives the same inputs another level >
     0 placement (the bound, ladders, spread, scores, promise, lines, the
     table's method or a re-run that changes it) bumps
     `SEED_DIFFICULTY_FILL` and leaves `GENERATOR` alone. D1038's optional

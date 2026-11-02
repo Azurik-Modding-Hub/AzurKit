@@ -417,7 +417,7 @@ def test_the_openers_ahead_wait_out_a_plan_in_flight_so_a_tracks_fill_has_the_gi
     def plan(*_, **__):
         planning.set()
         assert not noted.wait(1)   # a note in flight doesn't return while this plan runs
-        return doc                 # the same plan: its openers aren't stale
+        return dict(doc)           # the same plan, another object: its openers aren't stale
 
     monkeypatch.setattr(randomizer, "openers_ahead", work)
     monkeypatch.setattr(engine.sdk, "plan", plan)

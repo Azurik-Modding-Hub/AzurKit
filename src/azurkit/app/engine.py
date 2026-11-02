@@ -282,9 +282,10 @@ def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> 
     finally:
         with _BUILDING:
             _PLANS -= 1
-    again, _NEWEST[0] = doc == _NEWEST[0], doc
-    if doc["settings"].get("seed_difficulty") and not again:
-        threading.Thread(target=_openers_ahead, args=(doc,), name="azurkit-openers", daemon=True).start()
+    if doc != _NEWEST[0]:   # the same plan again: _NEWEST keeps the object its thread looks for
+        _NEWEST[0] = doc
+        if doc["settings"].get("seed_difficulty"):
+            threading.Thread(target=_openers_ahead, args=(doc,), name="azurkit-openers", daemon=True).start()
     return doc
 
 
