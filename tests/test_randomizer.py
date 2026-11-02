@@ -317,6 +317,31 @@ def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reac
     assert difficulty.openers(logic, settings, load_plan(doc, logic.db).placement)
 
 
+def test_a_call_waiting_on_the_openers_ahead_is_answered_though_they_had_paused_for_a_build_parked_for_that_call(monkeypatch):
+    """The three-way wait: the job ahead holds the openers' lock, paused for a build ahead that parks for any call the
+    player waits on, here the View, which waits on the lock. The build never ends in this test."""
+    from azurkit.app import engine
+
+    started, seen = threading.Event(), []
+
+    def work(_logic, *_):
+        monkeypatch.setattr(engine, "_BUILDS", 1)
+        started.set()
+        progress.note("reading")
+        return ["kept"]
+
+    monkeypatch.setattr(difficulty, "_openers", work)
+    monkeypatch.setattr(randomizer, "openers_ahead", lambda doc: difficulty.openers(None, None, {}))
+    ahead = threading.Thread(target=engine._openers_ahead, args=({},), daemon=True)
+    ahead.start()
+    assert started.wait(30)
+    view = threading.Thread(target=lambda: seen.append(difficulty.openers(None, None, {})), daemon=True)
+    view.start()
+    view.join(30)
+    ahead.join(30)
+    assert (seen, ahead.is_alive(), difficulty.WAITING) == ([["kept"]], False, set())
+
+
 def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_the_tier():
     """Hard/Hard seed 21's last step-up opens with Hard movement and no pick, or with the tier lowered by one pick: its
     "one of" names those two, not every pick rated high enough."""

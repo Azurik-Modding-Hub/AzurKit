@@ -446,6 +446,7 @@ def _opener_text(opener: Mapping) -> str:
 
 _OPENING = threading.Lock()   # openers' one call at a time: the View waits on the host's job ahead, not beside it
 _OPENED = ["reading what opens each step"]   # what the call in flight tells: its count too, for a call that waits
+WAITING: set[int] = set()   # the threads a call in flight holds up: a job ahead that pauses for others goes on for these
 
 
 def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int = 2) -> list[dict]:
@@ -456,8 +457,12 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     rules compiled on the Logic (a host's job ahead, or the View's bar, pays that) and kept for the next plan at these
     settings; another settings' openers drop them (about 20 MiB a set). The last plan's answer is kept with them: the
     spoiler's View takes the job ahead's."""
-    while not _OPENING.acquire(timeout=0.2):
-        progress.note(_OPENED[0])
+    WAITING.add(me := threading.get_ident())
+    try:
+        while not _OPENING.acquire(timeout=0.2):
+            progress.note(_OPENED[0])
+    finally:
+        WAITING.discard(me)
     try:
         return _openers(logic, settings, placement, rating)
     finally:
