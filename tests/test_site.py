@@ -2020,6 +2020,44 @@ def test_a_sites_reshape_dress_runs_in_the_worker_the_page_grew_its_small_asks_b
         served.close()
 
 
+def test_a_cancel_of_a_build_queued_behind_a_reshapes_dress_dresses_the_shape_shown_again(browser, site):
+    """A Cancel ends every heavy ask: a Build queued behind a reshape's
+    running dress takes the dress with it (its worker replaced), and the
+    shape still shown is dressed again after it, its exact pictures shown,
+    not left a Preview until the shape changes."""
+    view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
+    view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
+    drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+             for side in ("front", "back")}
+    served = Site(browser, site)
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
+    previews = "made.flatMap((w) => w.got.filter((m) => m.type === 'preview' && m.recipe.character.shapes))"
+    exact = json.dumps(json.dumps([["bust", 1.25]], separators=(",", ":")))
+    try:
+        page = served.open()
+        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.asked = azurkit.file; }")
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view && made.length === 2", 60)
+        page.evaluate("() => azurkit.characters.set({ species: 'booblord' })")
+        _page.until(page, "() => azurkit.characters.state.shown?.name === 'booblord'", 60)
+        page.evaluate("""() => { const b = document.getElementById("char-shape:bust"); b.value = "1.25";
+            b.dispatchEvent(new Event("change")); }""")
+        _page.until(page, f"() => {previews}.length === 1", 10)   # its dress runs
+        page.evaluate("() => { const b = document.getElementById('build'); b.disabled = false; b.click(); }")
+        _page.until(page, "() => !document.getElementById('cancel').hidden", 10)
+        assert page.evaluate("() => made.some((w) => w.got.some((m) => m.type === 'build'))") is False   # queued
+        page.evaluate("() => document.getElementById('cancel').click()")
+        _page.until(page, f"() => {previews}.length === 2", 10)
+        assert page.evaluate(f"() => [{previews}[1].recipe.character.shapes, made.filter((w) => w.stopped).length]") == [
+            {"bust": 1.25}, 1]
+        page.evaluate(f"""(reply) => {{ const m = {previews}[1];
+            made.find((w) => w.got.includes(m)).say({{ type: "reply", call: m.call, reply, heap: 2 ** 30 }}); }}""", drawn)
+        _page.until(page, f"""() => {{ const s = azurkit.characters.state.shown;
+            return s?.shape === {exact} && s.preview === false; }}""", 10)
+    finally:
+        served.close()
+
+
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):
     """Every pack on the USA image: Save downloads ``<stem> (AzurKit).iso``,
     whose size and sha256 are those of CPython's image of the same recipe.

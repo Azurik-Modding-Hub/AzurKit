@@ -458,8 +458,8 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   };
   // One dress at a time, the shape asked last next; never beside a build, a save or a G4 (SETTLE_MS). On the site it is a
   // heavy ask, so it runs in the worker the page grew, as a build does (one heap, D1054: a worker of its own was a second
-  // heap beside it, WebKit's 7.7-8.5 GiB), the page's small asks answered by the other worker meanwhile; nothing stops
-  // it, so a shape moved meanwhile is dressed after it.
+  // heap beside it, WebKit's 7.7-8.5 GiB), the page's small asks answered by the other worker meanwhile; only a Cancel
+  // stops it (then it is asked again), so a shape moved meanwhile is dressed after it.
   const heavy = () => busy() || c.matching;
   const dress = async () => {
     const want = c.wanted;
@@ -469,7 +469,9 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     c.dressing = true;
     const body = { ...(app ? {} : { file: image() }), recipe: recipe({ species: want.name, shapes: want.shapes }) };
     const reply = await call("preview", body, { once: true });
-    if ("refused" in reply) {   // what shows stays as it is marked
+    if (reply.refused === "Cancelled") {   // a Cancel ends every heavy ask, this one too: the shape shown is asked again
+      if (c.drawn === want.key) c.wanted = want;
+    } else if ("refused" in reply) {   // what shows stays as it is marked
       if (c.drawn === want.key) said(`${c.shown?.preview ? "Preview: " : ""}${reply.refused}`);
     } else {
       const views = await answerViews(reply);
