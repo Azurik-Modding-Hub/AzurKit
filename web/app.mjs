@@ -137,7 +137,7 @@ function aheadOnSite(begin = false) {
   if (!state.engine?.ahead || !state.packs || state.restoring) return;
   const seed = R("seed").value.trim(), share = state.rando.view?.share, rando = randoRecipe(), tracking = !$("tracker").hidden;
   const character = state.characters?.choice() ?? null, plans = [], builds = [];
-  if (character || state.vanilla) state.engine.warm();   // B's numpy and the dress's imports: S14's second, in its head start
+  if (character || state.vanilla) state.engine.warm();   // numpy and the dress's imports: S14's second, in its head start
   if (seed && share && (rando || tracking)) {
     const asked = { seed, share }, known = JSON.stringify(asked);
     plans.push(state.engine.planning(asked, ({ reply }) => {
@@ -470,7 +470,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       const k = buildKey(file, packs, xbr, randomizer, character, extra);
       return k && { key: k, heavy: true, message: { type: "build", file, packs, xbr, randomizer, character, ...extra } };
     },
-    warm: () => warmed || (warmed = true, pool.share({ type: "warm" }, "b")),   // each B's
+    warm: () => warmed || (warmed = true, pool.share({ type: "warm" })),   // each worker's, a new one's too
     ahead: (items, options) => {
       const stopped = pool.state().dropped;
       pool.want(items.filter(Boolean), options);

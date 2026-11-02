@@ -243,7 +243,6 @@ OPS = {op.id: op for op in (
        head_start=True),   # "B dropped": A58's
     Op("S60", "Track a median seed (plan and tracker)", "tracker", head_start=True),   # S18's
     Op("S61", "Build a median seed, no Track first", "randomizer", head_start=True),   # S24's
-    Op("S62", "Cancel a build, then Build", "randomizer"),   # the second worker's (Step 4.3r4l), A29's twin: no head start
     Op("S63", "a small ask while a build runs (a model's pictures)", "randomizer"),   # A30's: its B answers it
     # the next op's wait: the same or a new worker, and Firefox's Save greyed while its Blob is made
     Op("R14", "the engine ready again and Save open after Build keylord", "build"),
@@ -1413,11 +1412,6 @@ def site_seed(d: Driver, ctx, url: str) -> None:
     d.until(p, "R24", built, RESTED, 600)
     if d.need("S50"):
         _download(d, p, "S50")
-    if d.need("S62"):   # a seed no build has made, cancelled at its first stage; then Build, no head start
-        d.act(p, None, typed("rando-seed", "2"), "() => document.getElementById('rando-seed').value === '2'",
-              change=True)
-        d.act(p, None, CANCEL_EARLY, "() => /Cancelled/.test(document.querySelector('#status').textContent)", 600)
-        d.act(p, "S62", build_js(), BUILT, 1800)
     if d.need("S63"):   # another's build, running; a model's pick and its pictures meanwhile
         d.act(p, None, typed("rando-seed", "3"), "() => document.getElementById('rando-seed').value === '3'",
               change=True)
@@ -1868,7 +1862,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-booblord": ("site", ("S15",), site_booblord),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
-    "site-seed": ("site", ("S24", "R24", "S50", "S62", "S63"), site_seed),
+    "site-seed": ("site", ("S24", "R24", "S50", "S63"), site_seed),
     "site-ahead-track": ("site", ("S60",), site_ahead_track),
     "site-ahead-build": ("site", ("S61",), site_ahead_build),
     "site-ahead-stale": ("site", ("S59",), site_ahead_stale),

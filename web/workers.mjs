@@ -161,7 +161,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
         slot.loaded = true;
         slot.ready = data;
         if (slot.role === "b") base = heapOf(slot);
-        for (const { message, role } of shared.values()) if (!role || role === slot.role) slot.worker.postMessage(message);
+        for (const message of shared.values()) slot.worker.postMessage(message);
         if (slot === f) later(ready, data);
       } else if (data?.type === "failed") {   // it didn't load: F's asks get its message, B isn't tried again
         kill(slot);
@@ -370,9 +370,9 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       }
       pump();
     },
-    share: (message, role = null) => {   // role: that worker's alone, and each new one's
-      shared.set(message.type, { message, role });
-      for (const slot of [f, b]) if (slot?.loaded && (!role || role === slot.role)) slot.worker.postMessage(message);
+    share: (message) => {
+      shared.set(message.type, message);
+      for (const slot of [f, b]) if (slot?.loaded) slot.worker.postMessage(message);
     },
     hold: (bytes) => {
       held = bytes;
