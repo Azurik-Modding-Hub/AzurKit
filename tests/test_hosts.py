@@ -703,7 +703,7 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
             "prop": "hitPoints", "value": 321}
     setup = {"ticked": ["fps_unlock", "qol_retired"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell]}
     refused = {   # a path or game bytes anywhere in a setup
-        "setup: an object of ticked, values, xbr, randomizer, character only, or null": {"ticked": [], "iso": "/a.iso"},
+        "setup: an object of ticked, values, xbr, randomizer, character, community only, or null": {"ticked": [], "iso": "/a.iso"},
         "setup: ticked holds pack names only": {"ticked": ["/a.iso"]},
         "setup: values holds {pack: {setting: number}} only": {"values": {"fps_unlock": {"target_fps": "/a.iso"}}},
         "setup: xbr holds config.xbr set operations only (Q174)": {"xbr": [

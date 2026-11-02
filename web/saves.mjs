@@ -28,7 +28,7 @@ export function savesSection({ root, call, app, say, image, out, pick = null }) 
     folderPath: app ? path("saves-folder-path", "A save slot's folder") : null,
     hddPath: app ? path("saves-hdd-path", "An xemu HDD image") : null,
     line: el("p", { id: "saves-line", className: "note" }),
-    which: el("select", { id: "saves-which", hidden: true }),
+    which: el("span", { id: "saves-which" }),   // a button a slot (WebKit reports a <select> made here as an inline style)
     rows: el("tbody", { id: "saves-rows" }),
     flashFile: app ? null : el("input", { id: "saves-flash", type: "file" }),
     mcpxFile: app ? null : el("input", { id: "saves-mcpx", type: "file" }),
@@ -57,12 +57,17 @@ export function savesSection({ root, call, app, say, image, out, pick = null }) 
       file.clock != null ? `, clock ${file.clock}` : ""}` : file.kind === "signature" ? "its signature"
       : file.kind === "image" ? "a picture" : file.kind === "text" ? "" : "a file";
 
+  const held = (slot) => {   // the engine's answer: this slot as it is now
+    s.slot = slot;
+    s.slots = s.slots.map((other) => other.id === slot.id ? slot : other);
+  };
+
   const edit = async (file, line, value) => {
     const reply = await call("saves", { given: { do: "edit", id: s.slot.id, edits: [{ file, line, value }] } });
     if ("refused" in reply) {
       say(`${file}: ${reply.refused}`, true);
     } else {
-      s.slot = reply.slot;
+      held(reply.slot);
       s.signed = false;
       say(`${file} changed: sign it again before the game will take it`);
     }
@@ -84,7 +89,15 @@ export function savesSection({ root, call, app, say, image, out, pick = null }) 
   };
 
   function draw() {
-    ui.which.hidden = s.slots.length < 2;
+    ui.which.replaceChildren(...(s.slots.length < 2 ? [] : s.slots.map((slot) => {
+      const one = el("button", { type: "button", textContent: slot.id, disabled: slot.id === s.slot?.id });
+      one.addEventListener("click", () => {
+        s.slot = slot;
+        s.signed = null;
+        draw();
+      });
+      return one;
+    })));
     ui.table.hidden = !s.slot;
     ui.rows.replaceChildren(...(s.slot?.files ?? []).map(row));
     ui.line.textContent = s.asking ? "Reading…" : !s.slots.length ? "Nothing is written into a save or HDD image: a slot saves new."
@@ -114,7 +127,6 @@ export function savesSection({ root, call, app, say, image, out, pick = null }) 
       s.slots = reply.slots;
       s.slot = reply.slots[0] ?? null;
       s.signed = null;
-      ui.which.replaceChildren(...reply.slots.map((slot) => el("option", { value: slot.id, textContent: slot.id })));
       say(reply.slots.length ? `Read ${reply.slots.length} save slot${reply.slots.length === 1 ? "" : "s"}` : "No Azurik save there");
     }
     draw();
@@ -142,7 +154,7 @@ export function savesSection({ root, call, app, say, image, out, pick = null }) 
       : { given: { do: "sign", id: s.slot.id }, file: image(), flash: ui.flashFile.files[0], mcpx: ui.mcpxFile.files[0] };
     const reply = answered(await call("saves", body));
     if (reply) {
-      s.slot = reply.slot;
+      held(reply.slot);
       s.signed = true;
       say(`Signed ${s.slot.id} for your console${reply.was ? " (it was already)" : ""}`);
     }
@@ -170,11 +182,6 @@ export function savesSection({ root, call, app, say, image, out, pick = null }) 
     draw();
   }
 
-  ui.which.addEventListener("change", () => {
-    s.slot = s.slots.find((slot) => slot.id === ui.which.value) ?? null;
-    s.signed = null;
-    draw();
-  });
   ui.folderFile?.addEventListener("change", () => ui.folderFile.files.length && folder(ui.folderFile.files));
   ui.hddFile?.addEventListener("change", () => ui.hddFile.files[0] && opened({}, { hdd: ui.hddFile.files[0] }));
   draw();

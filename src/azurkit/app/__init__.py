@@ -164,6 +164,7 @@ from azurkit.core.progress import record
 from azurkit.edits import files as replaced
 from azurkit.edits import xbr
 from azurkit.tools import randomizer
+from azurkit.tools.mods import community as communal
 from azurkit.tools.randomizer import tracking
 from azurkit.tools.randomizer.live import link
 
@@ -305,6 +306,8 @@ def _set_setup(body: dict) -> dict:
                 raise ValueError(f"setup: randomizer: {exc}") from None
         if "character" in setup and (lost := sdk.restore({"character": setup["character"]})["dropped"]):
             raise ValueError(f"setup: {lost[0]}")   # by name and numbers, never a recipe file's path
+        if "community" in setup:
+            communal.normalize(setup["community"])   # ids and pins only, else refused by name
     _remember(setup=setup)
     return {}
 

@@ -234,7 +234,7 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
 
     text = (ROOT / "web" / "worker.mjs").read_text(encoding="utf-8")
     late = _perf.lagged(text)
-    assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 3
+    assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 4
     hasher = (ROOT / "web" / "hasher.mjs").read_text(encoding="utf-8")
     assert _perf.lagged(hasher, _perf.HASHER_LAG).count(_perf._WAIT) == 1
     added = "const more = await file.slice(0, 1).arrayBuffer();"

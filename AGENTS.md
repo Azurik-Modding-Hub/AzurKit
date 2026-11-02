@@ -780,8 +780,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 
 ## The engine's contracts
 
-- **Layers:** `core <- edits <- tools <- sdk <- {cli, app}`. The four tools
-  (`mods`, `randomizer`, `characters`, `data`) never import each other. import-linter
+- **Layers:** `core <- edits <- tools <- sdk <- {cli, app}`. The five tools
+  (`mods`, `randomizer`, `characters`, `data`, `saves`) never import each other. import-linter
   holds this (see `pyproject.toml`).
 - **AST rules:** `core`, `edits` and `tools` hold no threads, processes,
   subprocesses, prints or exits, so the web page's worker runs them as they
