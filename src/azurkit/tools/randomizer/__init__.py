@@ -105,8 +105,11 @@ UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")
 #: D258: the skip groups (Modkit's ``gui/rando_view.SKIP_GROUPS``, our own data): a ticked group turns on each of its
 #: picks rated at or below the Movement tier (a batch, D275, once every in-logic variant is), unticked by default.
 SKIP_GROUPS = {"storage": "Power storage", "movement": "Roll jumps and flap tricks", "barriers": "Barrier skips",
-               "dark": "Dark rooms without light", "bounds": "Out of bounds and super jumps"}
-#: Each skip's group (Modkit's ``SKIP_GROUP``): every [[skip]] of tricks.toml, held ones too, by its tricks.
+               "dark": "Dark rooms without light", "bounds": "Out of bounds", "superjump": "Super jumps"}
+#: Each skip's group (Modkit's ``SKIP_GROUP``): every [[skip]] of tricks.toml, held ones too, by its tricks. Out of
+#: bounds and Super jumps apart (D1061), two by call: w1.shoreline_rollthrough rolls through the push band to open
+#: ocean, past the level's edge; f4.ledgepop keeps the name the community gives it, though its route is a fluttered
+#: flight at air 1 (D653); w3.water_guardian_no_seal (manual, no toggle) is a save-anywhere route into the boss tube.
 SKIP_GROUP = {
     **dict.fromkeys(("w1.pstorage_electric_arch", "w1.pstorage_steam_iceblock01", "w1.pstorage_water_firewall01",
                      "w2.pstorage_steam_iceblock02", "w3.pstorage_smash_shield", "f2.pstorage_air_flap",
@@ -121,8 +124,8 @@ SKIP_GROUP = {
                      "e6.acidblock02_air2", "w3.ice_island_steam_block"), "barriers"),
     **dict.fromkeys(("w1.dark_cave_nolight", "e7.dark_room_nolight"), "dark"),
     **dict.fromkeys(("w1.torpedo_skip", "w1.hidden_airship", "w1.hidden_airship_saveanywhere",
-                     "w1.shoreline_rollthrough", "f4.ledgepop", "e6.tree_song_skip", "w3.water_guardian_no_seal",
-                     "d1.elevator_bounce", "d1.elevator_bounce_f10"), "bounds"),
+                     "w1.shoreline_rollthrough", "w3.water_guardian_no_seal"), "bounds"),
+    **dict.fromkeys(("e6.tree_song_skip", "d1.elevator_bounce", "d1.elevator_bounce_f10", "f4.ledgepop"), "superjump"),
 }
 TAB = ("settings", "share", "file", "obsidian_cost")
 SEED_MAX = 256   # a remembered seed's length (D915; any string builds)
