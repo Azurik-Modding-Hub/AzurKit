@@ -33,11 +33,50 @@ def saved_name(browser, name: str) -> str:
     return name.replace(" ", "_") if sys.platform == "linux" and browser.browser_type.name == "webkit" else name
 
 
+# What a page that timed out was waiting on (app.mjs's state): each open ask's kind, its record's stage and percent and
+# its age in s; the pool's workers (workers.mjs's state(): each one's job, heap and last message with its age in ms);
+# Save's check and the status line. Names and numbers only, never game bytes.
+HANG = """() => {
+    const s = globalThis.azurkit, now = performance.now();
+    return s ? { asks: [...(s.asks?.values() ?? [])].map((a) => [a.kind, a.record?.stage ?? null, a.record?.percent ?? null,
+                                                                Math.round((now - a.since) / 1000)]),
+                 pool: s.pool?.state?.() ?? null, saveCheck: s.saveCheck ?? null,
+                 status: document.getElementById("status")?.textContent ?? null } : null;
+}"""
+
+
+def _short(value, size: int = 160):
+    """``value`` with each string cut to ``size`` characters (a job's key is its whole recipe)."""
+    if isinstance(value, str):
+        return value if len(value) <= size else f"{value[:size]}…"
+    if isinstance(value, dict):
+        return {k: _short(v, size) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_short(v, size) for v in value]
+    return value
+
+
+def hang(page, last: int = 5) -> str:
+    """Why a wait on ``page`` may not have ended: its :data:`HANG` state, and the last ``last`` page errors (uncaught
+    exceptions and unhandled rejections) and console errors since the page opened (Playwright keeps them)."""
+    said = []
+    for what, read in (("state", lambda: _short(page.evaluate(HANG))),
+                       ("page errors", lambda: [_short(f"{e.name}: {e.message}", 300) for e in page.page_errors()[-last:]]),
+                       ("console errors", lambda: [_short(m.text, 300) for m in page.console_messages()
+                                                   if m.type == "error"][-last:])):
+        try:
+            said.append(f"{what}: {read()}")
+        except Exception as error:   # a closed or crashed page: say so, and the rest
+            said.append(f"{what}: unread ({_short(str(error), 200)})")
+    return "\n".join(said)
+
+
 def until(page, js: str, timeout: float = 600):
-    """``js``'s value once it is truthy."""
+    """``js``'s value once it is truthy; past ``timeout`` s, a failure that says what the page was waiting on
+    (:func:`hang`)."""
     end = time.monotonic() + timeout
     while not (value := page.evaluate(js)):
-        assert time.monotonic() < end, f"timed out: {js}"
+        assert time.monotonic() < end, f"timed out after {timeout} s: {js}\n{hang(page)}"
         time.sleep(0.2)
     return value
 

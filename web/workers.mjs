@@ -100,7 +100,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const later = (hook, ...args) => queueMicrotask(() => hook(...args));
 
   const spawn = (role) => {
-    const slot = { role, worker: start(role), loaded: false, heap: 0, job: null, ready: null };
+    const slot = { role, worker: start(role), loaded: false, heap: 0, job: null, ready: null, last: null };
     counts.started += 1;
     slot.worker.onmessage = ({ data }) => heard(slot, data);
     slot.worker.onerror = (e) => {
@@ -155,6 +155,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
 
   const heard = (slot, data) => {
     if (closed || (slot !== f && slot !== b)) return;   // a worker this pool dropped
+    slot.last = [data?.type ?? null, now()];   // for state(): what a silent worker said last, and when
     if (typeof data?.heap === "number") slot.heap = data.heap;
     if (data?.type === "csp") return later(told, data, slot.role);   // a report, whatever the worker runs
     if (!slot.loaded) {
@@ -390,7 +391,8 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     up: () => Boolean(f?.loaded && (!f.job || stays(f))),
     state: () => {
       const of = (slot) => slot && { loaded: slot.loaded, heap: slot.heap,
-                                     job: slot.job && (slot.job.key ?? slot.job.message.type) };
+                                     job: slot.job && (slot.job.key ?? slot.job.message.type),
+                                     last: slot.last && [slot.last[0], Math.round(now() - slot.last[1])] };
       return { f: of(f), b: of(b), queued: queue.length, kept: [...kept.keys()], tally: total(), ...counts };
     },
     close: () => {
