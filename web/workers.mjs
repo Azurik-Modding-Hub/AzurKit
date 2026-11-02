@@ -19,7 +19,8 @@
 // B runs at the page's (a known flaw, D835), held small by the rules above.
 //
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
-// job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "failed"} ends the job and
+// job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "at"} says the await it is in
+// (state()'s at, Step 4.3r4t); {type: "failed"} ends the job and
 // replaces the worker; {type: "ready"} once loaded (a heap in it is counted). A shared message (share(): what this
 // browser keeps installed, the table pages F read) goes to every worker, and to each new one before its first job;
 // it gets no answer. An ask resolves with its job's last message, or {type: "cancelled"} (Cancel), or
@@ -100,7 +101,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const later = (hook, ...args) => queueMicrotask(() => hook(...args));
 
   const spawn = (role) => {
-    const slot = { role, worker: start(role), loaded: false, heap: 0, job: null, ready: null, last: null };
+    const slot = { role, worker: start(role), loaded: false, heap: 0, job: null, ready: null, last: null, at: null };
     counts.started += 1;
     slot.worker.onmessage = ({ data }) => heard(slot, data);
     slot.worker.onerror = (e) => {
@@ -149,6 +150,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
 
   const run = (slot, job) => {
     slot.job = job;
+    slot.at = null;
     if (job.heavy) slot.heap = null;   // known again once the job reports it: none reported means past KEEP
     slot.worker.postMessage(job.message, job.transfer ?? []);
   };
@@ -156,6 +158,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const heard = (slot, data) => {
     if (closed || (slot !== f && slot !== b)) return;   // a worker this pool dropped
     slot.last = [data?.type ?? null, now()];   // for state(): what a silent worker said last, and when
+    if (data?.type === "at") return void (slot.at = data.where);   // for state(): the await its job is in
     if (typeof data?.heap === "number") slot.heap = data.heap;
     if (data?.type === "csp") return later(told, data, slot.role);   // a report, whatever the worker runs
     if (!slot.loaded) {
@@ -196,6 +199,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
 
   const finish = (slot, job, data, failed) => {
     slot.job = null;
+    slot.at = null;
     if (job.heavy && slot.heap === null) slot.heap = Infinity;
     if (job.ahead && !job.adopted) {
       if (!failed && listed(job.key)) {
@@ -392,7 +396,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     state: () => {
       const of = (slot) => slot && { loaded: slot.loaded, heap: slot.heap,
                                      job: slot.job && (slot.job.key ?? slot.job.message.type),
-                                     last: slot.last && [slot.last[0], Math.round(now() - slot.last[1])] };
+                                     last: slot.last && [slot.last[0], Math.round(now() - slot.last[1])], at: slot.at };
       return { f: of(f), b: of(b), queued: queue.length, kept: [...kept.keys()], tally: total(), ...counts };
     },
     close: () => {

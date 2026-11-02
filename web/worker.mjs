@@ -31,7 +31,7 @@
 // Out: {type: "native", kernel?, twin?} (the reach calls each path answered since the last, before the answer they
 //      went into), {type: "ready", catalog, version, commit, start} (start: "snapshot" or "cold", load()'s), {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages; the worker's own: its start before ready, the kept image's
-//      walk), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
+//      walk), {type: "at", where} (the await the job is in: awaiting()), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
 //      "spoiled", text | refused} brings next: the build shows sooner),
 //      {type: "refused", message, heap}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
@@ -50,7 +50,11 @@ import { PREFIX } from "./outputs.mjs";
 const base = new URL("./", import.meta.url);
 let heap = () => undefined;
 const post = (message, transfer = []) => self.postMessage(
-  message.type === "progress" || "heap" in message ? message : { ...message, heap: heap() }, transfer);
+  message.type === "progress" || message.type === "at" || "heap" in message ? message : { ...message, heap: heap() },
+  transfer);
+// Where a job is (Step 4.3r4t): the await its image's check or its queue is in, as {type: "at", where} (no heap: a
+// job's heap is its answer's), which the pool keeps for its state (workers.mjs), so a wait that never ends names it.
+const awaiting = (where) => post({ type: "at", where });
 self.addEventListener("securitypolicyviolation", (e) =>
   post({ type: "csp", directive: e.violatedDirective, blocked: e.blockedURI }));
 
@@ -608,13 +612,18 @@ async function identify(file) {
 }
 const stamps = (mode, fn) => stored(STORE, "stamp", mode, fn);   // the browser's kept stamp
 async function prime(loaded, file) {
-  const { py, engine } = loaded, id = await identify(file);
+  const { py, engine } = loaded;
+  awaiting("check: its id");
+  const id = await identify(file);
+  if (loaded.primed !== id) awaiting("check: the kept stamp");
   const kept = loaded.primed === id ? null : await stamps("readonly", (store) => store.get("last")).catch(() => null);
   if (kept?.id === id) stage("check", "Reading your image", 0, 1);   // its walk: the first read of its folders here
+  awaiting("check: the tables' reads");
   await loaded.reads.tables(file, id, kept?.id === id ? kept.pages : null).catch(() => null);   // a hint: a failed read
   if (loaded.primed === id) return;                                                         // leaves them to the engine
   loaded.primed = null;   // the engine's stamp is this File's from its prime on (sdk.prime checks it by its digests)
   if (kept?.id === id) {
+    awaiting("check: the engine's prime");
     const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests: kept.digests }));
     if (!("refused" in checked)) {
       stage("check", "Reading your image", 1, 1);
@@ -622,12 +631,16 @@ async function prime(loaded, file) {
     }
   }
   self.azurkitChecks = (self.azurkitChecks ?? 0) + 1;
+  awaiting("check: the engine's layout");
   const listed = mounted(py, file, (iso) => engine({ type: "layout", recipe: { iso } }));
   if ("refused" in listed) return;
-  const digests = await hashedApart(file, listed.files, checking("Checking your image"), CHECK_RUN);
+  const digests = await hashedApart(file, listed.files, checking("Checking your image"), CHECK_RUN,
+                                    (where) => awaiting(`check: ${where}`));
+  awaiting("check: the engine's prime");
   const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
   if ("refused" in checked) return;
   loaded.primed = id;
+  awaiting("check: keeping the stamp");
   await stamps("readwrite", (store) => store.put({ id, digests, pages: walked.get(id) }, "last")).catch(() => null);
 }
 
@@ -726,7 +739,8 @@ async function tool({ py, engine }, data) {
   if (data.type !== "verify_all") return mounted(py, data.file, (iso) => engine({ type: data.type, recipe: { iso } }));
   const rest = mounted(py, data.file, (iso) => engine({ type: "layout", recipe: { iso }, whole: true }));
   if ("refused" in rest) return rest;
-  const digests = await hashedApart(data.file, rest.files, checking("Checking every file"));
+  const digests = await hashedApart(data.file, rest.files, checking("Checking every file"), undefined,
+                                    (where) => awaiting(`verify: ${where}`));
   return mounted(py, data.file, (iso) => engine({ type: "verify_all", recipe: { iso }, digests }));
 }
 
@@ -872,13 +886,14 @@ try {
     const aside = !data.file && ["content", ...CHARACTER].includes(data.type);
     if (aside && checking && !behind && loaded.numpied) return handle(data);
     if (aside) behind++;
-    queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
+    queue = queue.then(() => needsNumpy(data) && !loaded.numpied ? (awaiting("numpy"), numpy(loaded)) : null)
       .then(() => {
         if (!data.file) return;
         checking = true;
         return prime(loaded, data.file).catch(() => null).finally(() => { checking = false; });
       }).then(() => {
         if (aside) behind--;
+        awaiting(data.type);
         return handle(data);
       }).catch((error) => post({ type: "failed", message: lastLine(error) }));
   };

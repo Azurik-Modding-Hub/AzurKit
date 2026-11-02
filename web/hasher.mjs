@@ -32,8 +32,9 @@ function md5(bytes) {
 // "file:<path>". A source that gives fewer bytes than a run asks (the image got shorter since its pick) throws, as a read
 // a browser refuses (WebKit's, Chromium's) does. Each run's buffer is freed once its digests are taken (transfer(0)), not
 // left to a GC: WebKit counted the runs a check had read, not the three it holds (a Save's check, S49 capped-site: about
-// 1.3 GiB less at its peak).
-export async function hashed(source, files, progress = () => {}, longest = RUN) {
+// 1.3 GiB less at its peak). at(step) hears where each of its HASHERS is: a run's read (its number and offset), its
+// digests or done, so a check that stalls says which await it waits on (Step 4.3r4t).
+export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}) {
   const runs = [];
   for (const entry of [...files].sort((a, b) => a[1] - b[1])) {
     const run = runs.at(-1), [, at, size] = entry;
@@ -44,13 +45,21 @@ export async function hashed(source, files, progress = () => {}, longest = RUN) 
       runs.push({ start: at, end: at + size, files: [entry] });
     }
   }
-  const digests = {}, total = runs.reduce((n, run) => n + run.end - run.start, 0);
+  const digests = {}, total = runs.reduce((n, run) => n + run.end - run.start, 0), count = runs.length;
+  const lanes = Array(HASHERS).fill("idle");
+  const step = (lane, what) => {
+    lanes[lane] = what;
+    at(lanes.join(", "));
+  };
   let done = 0;
   progress(done, total);
-  await Promise.all(Array.from({ length: HASHERS }, async () => {
+  await Promise.all(Array.from({ length: HASHERS }, async (_, lane) => {
     for (let run; (run = runs.shift());) {
+      const k = count - runs.length;
+      step(lane, `run ${k}/${count} read at ${Math.floor(run.start / 2 ** 20)} MiB`);
       const bytes = new Uint8Array(await source.slice(run.start, run.end).arrayBuffer());
       if (bytes.length !== run.end - run.start) throw new Error("the image got shorter after it was picked");
+      step(lane, `run ${k}/${count} digest`);
       for (const [key, at, size, patches] of run.files) {
         const view = bytes.subarray(at - run.start, at - run.start + size);
         for (const [where, patch] of patches ?? []) view.set(patch, where);
@@ -62,6 +71,7 @@ export async function hashed(source, files, progress = () => {}, longest = RUN) 
       done += run.end - run.start;
       progress(done, total);
     }
+    step(lane, "done");
   }));
   return digests;
 }
@@ -69,7 +79,8 @@ export async function hashed(source, files, progress = () => {}, longest = RUN) 
 // hashed in a worker of its own that ends with it (hashworker.mjs; started from its own URL on a page sw.js controls,
 // else from a blob: URL so that it keeps the page's CSP: app.mjs's engine's way), as an image's whole check takes memory
 // the thread it runs in wouldn't give back; hashed here where a worker can't start one.
-export function hashedApart(source, rows, progress = () => {}, longest = RUN) {
+// Its worker's at() comes as at("hash worker: …"), and at("hash worker: started") until its first.
+export function hashedApart(source, rows, progress = () => {}, longest = RUN, at = () => {}) {
   let worker, url;
   try {
     const entry = new URL("hashworker.mjs", import.meta.url).href;
@@ -77,7 +88,7 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN) {
       : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
     worker = new Worker(url, { type: "module" });
   } catch {
-    return hashed(source, rows, progress, longest);
+    return hashed(source, rows, progress, longest, at);
   }
   return new Promise((resolve, reject) => {
     const over = (settle, value) => {
@@ -88,6 +99,7 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN) {
     worker.onmessage = ({ data }) => {
       if (data.digests) over(resolve, data.digests);
       else if ("error" in data) over(reject, new Error(data.error));
+      else if ("at" in data) at(`hash worker: ${data.at}`);
       else progress(data.done, data.total);
     };
     worker.onerror = (e) => {
@@ -95,5 +107,6 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN) {
       over(reject, new Error(e.message || "the hash's worker stopped"));
     };
     worker.postMessage({ source, rows, longest });
+    at("hash worker: started");
   });
 }

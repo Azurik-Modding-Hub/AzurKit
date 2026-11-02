@@ -1530,6 +1530,32 @@ def test_two_files_with_the_same_name_size_and_time_but_other_bytes_get_other_st
         served.close()
 
 
+STALLED = "Blob.prototype.arrayBuffer = () => new Promise(() => {});   // this hash worker's reads never settle\n"
+"""hashworker.mjs's first line in the next test: none of the hash worker's reads of the image settles."""
+WAITS_ON = r"""() => azurkit.pool.state().f.at?.match(
+    /^check: hash worker: run 1\/(\d+) read at \d+ MiB, run 2\/\1 read at \d+ MiB, run 3\/\1 read at \d+ MiB$/)?.[0]"""
+
+
+def test_an_images_check_that_never_ends_names_the_reads_it_waits_on(browser, site, usa_iso):
+    """Step 4.3r4t: the image's check says where it waits (worker.mjs's awaiting(), hasher.mjs's at()), and the pool
+    keeps it for its state, which a page wait that times out prints (``_page.hang``): here its hash worker's three reads,
+    each run's number of the runs and offset, none of which settles."""
+    served = Site(browser, site)
+    try:
+        hasher = (site / "hashworker.mjs").read_text(encoding="utf-8")
+        served.context.route("**/hashworker.mjs", lambda route: route.fulfill(body=STALLED + hasher,
+                                                                          content_type="text/javascript"))
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        waits = _page.until(page, WAITS_ON, 120)
+        time.sleep(2)
+        assert page.evaluate("() => [azurkit.pool.state().f.at, azurkit.pool.state().f.last[0], azurkit.vanilla]") == [
+            waits, "at", None]
+        assert waits in _page.hang(page)
+    finally:
+        served.close()
+
+
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
 # or null while it is hidden
 BARS = """() => {
