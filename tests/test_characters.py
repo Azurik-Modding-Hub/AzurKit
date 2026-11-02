@@ -618,23 +618,45 @@ def test_each_variant_probe_is_its_goldens_file_for_file_and_resource_for_resour
         assert str(tmp_path) not in json.dumps([layer.recipe, layer.notes]), case
 
 
-def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(usa_iso, tmp_path):
+def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(usa_iso, tmp_path, monkeypatch):
     """D1011: ``sdk.preview`` of a variant with ``shapes`` draws those shapes,
     the characters.xbr and config.xbr its build writes, not the variant at
     its recipe's, in the idle its recipe file names; a match of it still
-    reads the recipe's."""
+    reads the recipe's. Its pictures and its build make one dress between
+    them in a process, whichever comes first (one heap on the site, D1054),
+    the build's files those of a build that dressed it itself."""
     probe = next(p for p in _golden("probes.json").values() if "shapes" in p["character"])
     recipes = tmp_path / "probe.json"
     recipes.write_text(json.dumps({"probe": probe["variants"]["probe"] | {"idles": {"idle": "stomp"}}}), encoding="utf-8")
     plain = {"species": "probe", "variant_file": str(recipes)}
     shaped = plain | {"shapes": {"hips": 1.4}}
     recipe = {"iso": str(usa_iso), "packs": {}}
-    drawn = sdk.preview(recipe | {"character": shaped})
-    assert drawn["front"] != sdk.preview(recipe | {"character": plain})["front"]
-    made, _ = sdk.image(recipe | {"character": shaped})
-    with iso.Reader(made) as r:
-        built = {"config.xbr": r.read(characters.CONFIG), "characters.xbr": r.read(characters.FILES[0])}
+
+    def files() -> dict[str, bytes]:
+        made, _ = sdk.image(recipe | {"character": shaped})
+        with iso.Reader(made) as r:
+            return {"config.xbr": r.read(characters.CONFIG), "characters.xbr": r.read(characters.FILES[0]),
+                    "default.xbe": r.read(characters.XBE)}
+
+    def once(patch: pytest.MonkeyPatch) -> None:   # the size and the dress worked out no more in this process
+        for name in ("size", "plan"):
+            patch.setattr(characters, name, lambda *a, **k: pytest.fail("a second dress of the shape"))
+
+    monkeypatch.setattr(sdk, "_DRESSED", {})
+    built = files()   # the build first, then its pictures
+    plain_front = sdk.preview(recipe | {"character": plain})["front"]
+    with monkeypatch.context() as m:
+        m.setattr(sdk, "_MATCHES", {})
+        once(m)
+        drawn = sdk.preview(recipe | {"character": shaped})
     assert drawn == picker.dressed(built, "probe", str(recipes)) != picker.dressed(built, "probe")
+    assert drawn["front"] != plain_front
+    monkeypatch.setattr(sdk, "_MATCHES", {})   # the pictures first, then the build
+    monkeypatch.setattr(sdk, "_DRESSED", {})
+    assert sdk.preview(recipe | {"character": shaped}) == drawn
+    once(monkeypatch)
+    assert {k: hashlib.sha256(v).hexdigest() for k, v in files().items()} == {
+        k: hashlib.sha256(v).hexdigest() for k, v in built.items()}
 
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():

@@ -1908,7 +1908,8 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
 STUB_ENGINES = """(() => {
     const { catalog, view, drawn } = %s, made = globalThis.made = [], later = [];
     globalThis.held = false;
-    const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, reply: { ...view, character: m.given.character } });
+    const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, reply: { ...view, character: m.given.character },
+                                                heap: 2 ** 28 });
     globalThis.release = () => {
         held = false;
         for (const [worker, m] of later.splice(0)) pickers(worker, m);
@@ -1928,7 +1929,9 @@ STUB_ENGINES = """(() => {
         }
         postMessage(m) {
             this.got.push(m);
-            if (m.type === "preview" && m.call !== 0) this.say({ type: "reply", call: m.call, reply: drawn });
+            if (m.type === "preview" && !m.recipe.character.shapes) {   // a body's own pictures
+                return setTimeout(() => this.say({ type: "reply", call: m.call, reply: drawn, heap: 2 ** 28 }));
+            }
             if (m.type !== "pickers") return;
             if (held) later.push([this, m]);
             else pickers(this, m);
@@ -1936,21 +1939,22 @@ STUB_ENGINES = """(() => {
         terminate() { this.stopped = true; }
     };
 })();"""
-"""The site's engines as stubs that load at once and answer pickers (held until ``release()``) and the page's own
-previews, with ``drawn``: ``made`` holds each with what it ``got``, its ``stopped``; the test answers each dress's
-preview (call 0) with ``say``. Left unanswered, the page's preview of the chosen model (sent whenever its first draw
-comes before ``characters/index.json``) held F, so the pickers after it waited on B (none on a 3-core runner, run
-41521288667) and a draw for its key while the index loaded left the model unshown."""
+"""The site's engines as stubs that load at once and answer pickers (held until ``release()``) and a body's own
+pictures (``drawn``): ``made`` holds each with what it ``got``, its ``stopped``; the test answers each reshape's preview
+with ``say``. Left unanswered, the page's preview of the chosen model (sent whenever its first draw comes before
+``characters/index.json``) held F, so the pickers after it waited on B (none on a 3-core runner, run 41521288667)
+and a draw for its key while the index loaded left the model unshown."""
 
 
-def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shape_or_a_build(browser, site):
-    """D1011 (the review's D1): a shape slider's Preview shows with its pickers
-    unanswered; 3.5 s after it rests the dress goes to a worker of its own,
-    with what this browser keeps installed, never to the page's, so the page's
-    asks don't wait for it. Its records show on the bar, a whole one back to
-    the drawing's line; a new shape or a Build stops it at once, and the shape
-    the page still wants is dressed after its rest; an answer ends the worker,
-    and one that stops leaves the Preview marked, saying why."""
+def test_a_sites_reshape_dress_runs_in_the_worker_the_page_grew_its_small_asks_beside_it(browser, site):
+    """D1011, D1054: a shape slider's Preview shows with its pickers
+    unanswered; 3.5 s after it rests the dress is a heavy ask of the page's
+    engine (one heap: it runs in the worker a build grew, never in one of its
+    own beside it), its records on the bar, with what this browser keeps
+    installed; a shape moved meanwhile shows its Preview at once, its pickers
+    answered by the other worker, and is dressed after it; a refusal leaves
+    the Preview marked, saying why; a Build clicked at the change goes first,
+    the dress after it, in the same worker."""
     view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
     view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
     drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
@@ -1963,20 +1967,16 @@ def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shap
     def shows(x: float, preview: bool) -> str:
         shape = json.dumps(json.dumps([["bust", x]], separators=(",", ":")))
         return f"""() => {{ const s = azurkit.characters.state.shown; return s?.shape === {shape} && s.preview === {json.dumps(preview)}; }}"""
-    # the dress's own workers, in the order made (dress.mjs's preview is call 0; the site's two engines' asks count up)
-    DRESSERS = "made.filter((w) => w.got.some((m) => m.type === 'preview' && m.call === 0))"
-
-    def dressed(n: int, x: float) -> None:   # the n-th dress worker asks the dress of bust x, what's kept handed over first
-        _page.until(page, f"() => {DRESSERS}[{n}]?.got.some((m) => m.type === 'preview')", 30)
-        assert page.evaluate(f"""() => {{ const w = {DRESSERS}[{n}]; return [w.got.map((m) => m.type), w.got.at(-1).file.name,
-            w.got.at(-1).recipe.character]; }}""") == [["content", "preview"], "x.iso",
-                                                    {"species": "booblord", "shapes": {"bust": x}}]
+    dressing = "(m) => m.type === 'preview' && m.recipe.character.shapes"   # a reshape's dress
+    f = f"made.find((w) => w.got.some({dressing}))"   # the worker the page's heavy asks run in
+    previews = f"({f}?.got.filter({dressing}) ?? [])"
     line = "() => document.getElementById('progress-row').hidden ? null : document.getElementById('progress-line').textContent"
     try:
         page = served.open()
-        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.engine.content({ a: 1 }, { b: 1 }); }")
+        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.asked = azurkit.file; "   # its image read
+                      "azurkit.engine.content({ a: 1 }, { b: 1 }); }")
         _page.click(page, "tab-characters")
-        _page.until(page, "() => azurkit.characters.state.view", 60)
+        _page.until(page, "() => azurkit.characters.state.view && made.length === 2", 60)
         page.evaluate("() => azurkit.characters.set({ species: 'booblord' })")
         _page.until(page, "() => azurkit.characters.state.shown?.name === 'booblord'", 60)
 
@@ -1984,36 +1984,38 @@ def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shap
         page.evaluate(moved, "1.25")
         _page.until(page, shows(1.25, True), 10)   # its pickers unanswered
         page.evaluate("() => release()")
-        dressed(0, 1.25)
-        _page.until(page, f"() => ({line})() === 'Drawing the model…'", 10)
-        page.evaluate(f"""() => {DRESSERS}[0].say({{ type: "progress", stage: "dress", label: "Dressing", percent: 40 }})""")
+        _page.until(page, f"() => {previews}.length === 1", 10)
+        assert page.evaluate(f"""() => [made.length, {f}.got.some((m) => m.type === "content"),
+            {previews}[0].file.name, {previews}[0].recipe.character]""") == [
+            2, True, "x.iso", {"species": "booblord", "shapes": {"bust": 1.25}}]
+        page.evaluate(f"""() => {f}.say({{ type: "progress", stage: "dress", label: "Dressing", percent: 40 }})""")
         assert page.evaluate(line) == "Dressing… 40 %"
-        page.evaluate(f"""() => {DRESSERS}[0].say({{ type: "progress", stage: "dress", label: "Dressing", percent: 100 }})""")
-        assert page.evaluate(line) == "Drawing the model…"
 
-        page.evaluate(moved, "1.3")   # a new shape: the Preview at once, the old dress stopped
+        page.evaluate(moved, "1.3")   # the dress runs: the Preview at once, its pickers by B, its dress after
         _page.until(page, shows(1.3, True), 10)
-        _page.until(page, f"() => {DRESSERS}[0].stopped", 10)
-        dressed(1, 1.3)
+        assert page.evaluate(f"""() => made.some((w) => w !== {f} && w.got.some((m) => m.type === "pickers"
+            && m.given.character.shapes?.bust === 1.3))""")
+        page.evaluate(f"(reply) => {f}.say({{ type: 'reply', call: {previews}[0].call, reply, heap: 2 ** 30 }})", drawn)
+        _page.until(page, f"() => {previews}.length === 2", 10)
+        assert page.evaluate(f"() => [{previews}[1].recipe.character.shapes, azurkit.characters.state.pictures.size]") == [
+            {"bust": 1.3}, 1]
+        page.evaluate(f"""() => {f}.say({{ type: "reply", call: {previews}[1].call, reply: {{ refused: "no dress" }},
+            heap: 2 ** 30 }})""")
+        _page.until(page, "() => document.getElementById('char-preview-note').textContent === 'Preview: no dress'", 10)
+        assert page.evaluate(shows(1.3, True))
 
-        page.evaluate("() => { azurkit.building = true; }")   # a Build goes first
-        _page.until(page, f"() => {DRESSERS}[1].stopped", 10)
+        page.evaluate(moved, "1.4")   # a Build at once: it goes first, the dress after it, in the worker it grew
+        _page.until(page, shows(1.4, True), 10)
+        page.evaluate("() => { const b = document.getElementById('build'); b.disabled = false; b.click(); }")
+        _page.until(page, f"() => {f}.got.some((m) => m.type === 'build')", 10)
         page.wait_for_timeout(4000)
-        assert page.evaluate(f"() => {DRESSERS}.length") == 2
-        page.evaluate("() => { azurkit.building = false; }")
-        dressed(2, 1.3)
-        page.evaluate(f"(reply) => {DRESSERS}[2].say({{ type: 'reply', call: 0, reply }})", drawn)
-        _page.until(page, shows(1.3, False), 10)
-        assert page.evaluate(f"() => [{DRESSERS}[2].stopped, azurkit.characters.state.dressing]") == [True, False]
-
-        page.evaluate(moved, "1.35")
-        dressed(3, 1.35)
-        page.evaluate(f"() => {DRESSERS}[3].onerror({{ preventDefault: () => {{}} }})")
-        _page.until(page, "() => document.getElementById('char-preview-note').textContent === 'Preview: The engine stopped "
-                          "before it answered (out of memory?): try again, or use the desktop app'", 10)
-        assert page.evaluate(shows(1.35, True)) and page.evaluate(f"() => {DRESSERS}[3].stopped")
-        assert page.evaluate("() => made.flatMap((w) => w.got).filter((m) => m.recipe?.character.shapes"
-                             " && m.call !== 0).length") == 0
+        assert page.evaluate(f"() => {previews}.length") == 2
+        page.evaluate(f"""() => {f}.say({{ type: "built", size: 1, segments: [], blob: new Blob(["x"]), heap: 2 ** 31,
+            report: {{ label: "USA", result: {{}}, layers: [], conflicts: [], notes: [] }} }})""")
+        _page.until(page, f"() => {previews}.length === 3", 10)
+        page.evaluate(f"(reply) => {f}.say({{ type: 'reply', call: {previews}[2].call, reply, heap: 2 ** 31 }})", drawn)
+        _page.until(page, shows(1.4, False), 10)
+        assert page.evaluate("() => [made.length, made.some((w) => w.stopped)]") == [2, False]
     finally:
         served.close()
 

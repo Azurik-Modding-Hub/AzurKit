@@ -1353,7 +1353,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   never shrinks, and WebKit keeps a terminated worker's pages resident) until its
   heap reaches 3 GiB after a job (`GROWN`; else as after a cancel, "Preparing the
   engine…", replaced, by an idle small B at once), answers as F whenever both
-  are idle, and no heavy job starts beside it. A character's build writes its pieces into an OPFS file of its
+  are idle, and no heavy job starts beside it. A reshape's exact pictures (D1011)
+  are a heavy ask too, so they run in the worker the page grew, never in one of
+  their own beside it (D1054: WebKit's own peak was 7.7-8.5 GiB so), the page's
+  small asks answered by B meanwhile, and the engine keeps the last reshape's
+  size and dress (`sdk._reshape_kept`, no seed), so its pictures and its build
+  make one dress between them, whichever comes first. A character's build writes its pieces into an OPFS file of its
   own (`web/outputs.mjs`, P7, X10): a Web Lock per file, shared by the worker and
   the page; removed only unlocked, at a build's forget (30 minutes past its Save,
   whose end a page can't see) or a page's load (a crashed page's); the Tools

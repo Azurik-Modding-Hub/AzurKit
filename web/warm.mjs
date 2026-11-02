@@ -4,9 +4,9 @@
 // remembered, or the Randomizer tab opened): the randomizer's logic and the world map, the Randomizer tab's answer
 // for the remembered setup and the remembered plan's tracker view, each answer kept (memo.mjs; the remembered seed's
 // plan is the plan ahead's, AM-HUB-D's B: one ask of the one worker that a change couldn't drop); phase B (phaseB),
-// after the first pick of an image: its check and the Characters tab's pickers. A dress is the second worker's (one
-// heavy job at a time, terminated after it), not this queue's. The species' and the tracker's pictures ship with the
-// page: nothing to warm for them.
+// after the first pick of an image: its check and the Characters tab's pickers. A dress is a heavy ask of the page's
+// engine (one heavy job at a time, in the worker the page grew), not this queue's. The species' and the tracker's
+// pictures ship with the page: nothing to warm for them.
 //
 // Warm runs one item at a time, each one ask of the worker (item.run()), started only while the page has no ask in
 // flight (call()), so a page's ask waits behind at most one item in the worker's queue. An item in flight can't be

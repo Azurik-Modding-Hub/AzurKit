@@ -428,9 +428,13 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
                   for la in layers]
     if character is not None and not failed:
         steps("dress", f"Dressing {character['species']}")
-        layer, lines, body = characters.plan(character, vanilla, layers,
-                                             characters.packs_view(stamp.release, mods.PACKS), folded,
-                                             note=lambda label: steps("dress", label))
+
+        def dress():
+            return characters.plan(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS), folded,
+                                   note=lambda label: steps("dress", label))
+        # a reshape's layers before its dress are its image's, its own packs' and its size's (no seed's): one key
+        layer, lines, body = (_reshape_kept("plan", stamp, character, own, dress)
+                              if character.get("shapes") and prepared is None else dress())
         if prepared is not None:   # Modkit's check_movement: its packs' reasons, then the body's
             reasons += body
         layers.append(Layer(layer.id, layer.tool, layer.kind, layer.recipe, layer.changes, layer.claims,
@@ -467,7 +471,8 @@ def _worn(packs: Mapping, character: Mapping, stamp: gate.Stamp, steps: Steps = 
 
     vanilla = ports.Vanilla(stamp.release, stamp.path, stamped=stamp)
     steps("size", f"Sizing {character['species']}")
-    folded = characters.size(character, vanilla)
+    folded = (_reshape_kept("size", stamp, character, None, lambda: characters.size(character, vanilla))
+              if character.get("shapes") else characters.size(character, vanilla))
     enabled, params = rando_layer.size_params(list(packs), packs, folded)
     inputs = {}
     if (fold := params.get(rando_layer.SIZE_PACK, {}).pop(rando_layer.SIZE_FOLD, None)) is not None:
@@ -655,17 +660,39 @@ def _under_a_dress(stamp: gate.Stamp, packs: Mapping) -> tuple[object, list[Laye
     return vanilla, layers
 
 
+_DRESSED: dict[str, object] = {}   # the last reshape's size and dress (:func:`_reshape_kept`)
+
+
+def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mapping | None,
+                  work: Callable[[], object]) -> object:
+    """``work()``'s answer, ``kind`` (``size`` or ``plan``) of the reshaped
+    ``character`` on ``stamp``'s image over ``packs`` (a reshape's fold and
+    dress: minutes), kept for this process's last reshape, so its pictures
+    and its build make one dress between them, whichever comes first (one
+    heap on the site, D1054): one of each kind, over the packs it was
+    worked out over."""
+    shape = json.dumps([str(stamp.path), stamp.release.name, character], sort_keys=True)
+    if _DRESSED.get("shape") != shape:
+        _DRESSED.clear()
+        _DRESSED["shape"] = shape
+    over = json.dumps(packs, sort_keys=True)
+    if _DRESSED.get(kind, (None,))[0] != over:
+        _DRESSED[kind] = (over, work())
+    return _DRESSED[kind][1]
+
+
 def _reshaped(recipe: Mapping, character: Mapping) -> dict:
     """A reshaped variant's two pictures: from the dress a build of it makes
-    (``characters.plan``'s, which the app keeps for that build), kept for
-    this process."""
-    from azurkit.tools.characters import picker
+    (its layers to ``characters.plan``'s, which the app keeps for that
+    build, and :func:`_reshape_kept` for this process), kept for this
+    process."""
+    from azurkit.tools.characters import picker, ports
 
     packs, stamp = _packs(recipe), _stamp(recipe["iso"])
     key = json.dumps(["reshaped", str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
     if key not in _MATCHES:
-        vanilla, layers = _under_a_dress(stamp, packs)
-        files = characters.worn_files(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
+        stamp, _, layers, _, _ = _plan({"iso": recipe["iso"], "packs": packs, "character": dict(character)})
+        files = characters.worn_by(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), layers)
         while len(_MATCHES) >= 16:
             _MATCHES.pop(next(iter(_MATCHES)))
         _MATCHES[key] = picker.dressed(files, character["species"], character.get("variant_file"))

@@ -17,7 +17,8 @@
 // the app writes it into its content folder. The species' list is the shared gallery picker (web/picker.mjs) in the
 // tab's own search box and list. A reshape's pictures (D1011) are keyed on the name and its shapes: the nearest shape
 // the page holds (what ships, or one it has drawn) shows at once marked Preview, and the exact one, drawn from the dress
-// a build of it makes, replaces it; a build never reads a picture. The site dresses it in a worker of its own (dress.mjs).
+// a build of it makes, replaces it; a build never reads a picture. The engine keeps the last reshape's dress, so its
+// pictures and its build make one dress between them, whichever comes first (sdk._reshape_kept).
 import { option as pickerOption, picker } from "./picker.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -45,7 +46,7 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 // app's api), image() the picked image (the site's File, the app's path), packs() the Patches tab's ticks (a dress
 // stands on them), changed() runs when the tab's choice changes (the page remembers it) and shared is the page's one
 // community content path (web/content.mjs: Content from, the list, Install and Update, what the site keeps).
-export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy, dress: alone }) {
+export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), wanted: null, dressing: false, settling: null };
@@ -455,8 +456,10 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     c.wanted = { key, name, shape, shapes, from };
     c.settling = setTimeout(dress, SETTLE_MS);
   };
-  // One dress at a time, the shape asked last next; never beside a build, a save or a G4 (SETTLE_MS). The site's (dress.mjs,
-  // never the page's worker: a dress takes minutes) stops at any of those or a change of shape, and is asked again after.
+  // One dress at a time, the shape asked last next; never beside a build, a save or a G4 (SETTLE_MS). On the site it is a
+  // heavy ask, so it runs in the worker the page grew, as a build does (one heap, D1054: a worker of its own was a second
+  // heap beside it, WebKit's 7.7-8.5 GiB), the page's small asks answered by the other worker meanwhile; nothing stops
+  // it, so a shape moved meanwhile is dressed after it.
   const heavy = () => busy() || c.matching;
   const dress = async () => {
     const want = c.wanted;
@@ -465,11 +468,8 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     c.wanted = null;
     c.dressing = true;
     const body = { ...(app ? {} : { file: image() }), recipe: recipe({ species: want.name, shapes: want.shapes }) };
-    const reply = await (alone ? alone(body, () => heavy() || c.drawn !== want.key)
-      : call("preview", body, { once: true }));
-    if ("stopped" in reply) {
-      if (c.drawn === want.key) c.wanted = want;
-    } else if ("refused" in reply) {   // what shows stays as it is marked
+    const reply = await call("preview", body, { once: true });
+    if ("refused" in reply) {   // what shows stays as it is marked
       if (c.drawn === want.key) said(`${c.shown?.preview ? "Preview: " : ""}${reply.refused}`);
     } else {
       const views = await answerViews(reply);

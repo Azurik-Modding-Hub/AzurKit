@@ -52,7 +52,6 @@ import { communityGroup } from "./community.mjs";
 import { content } from "./content.mjs";
 import { dataTab } from "./data.mjs";
 import { hashedApart } from "./hasher.mjs";
-import { alone } from "./dress.mjs";
 import { replaceFiles } from "./replace.mjs";
 import { savesSection } from "./saves.mjs";
 import { hold, letGo, sweep } from "./outputs.mjs";
@@ -480,7 +479,6 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       pool.want(items.filter(Boolean), options);
       if (pool.state().dropped !== stopped) setTimeout(sweep, 1000);   // a dropped job's build file, once its lock is gone
     },
-    dress: (body, stopping) => alone(body, { content, stopping, asking, answered, posted }),   // a worker of its own
   };
 }
 
@@ -1032,8 +1030,7 @@ function ready(catalog, version, commit) {
                              handoff: state.engine.content });
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
                                     image: () => state.file, packs: chosen, changed: state.changed, shared,
-                                    settled: ahead, busy: () => state.building || state.saving,
-                                    dress: state.engine.dress });
+                                    settled: ahead, busy: () => state.building || state.saving });
     state.community = communityGroup({ root: $("packs"), call: state.engine.call, shared, say, catalog,
                                        settled: () => { tally(); lock(); } });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
