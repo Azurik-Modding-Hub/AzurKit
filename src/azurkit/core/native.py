@@ -98,7 +98,7 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_sample", [vp, i64, vp, i64, vp, vp, i64, vp, vp]),
                          ("az_heights", [vp, vp, i64, vp, vp, i64, vp, vp]),
                          ("az_skinned", [vp, vp, vp, i64, vp, vp, i64, i64, vp]),
-                         ("az_signed", [vp, i64, vp, vp, i64, f64, f64, vp, vp]),
+                         ("az_signed", [vp, i64, vp, vp, i64, f64, f64, vp, vp, vp]),
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
@@ -738,7 +738,10 @@ def signed(p: int, n: int, x: int, normals: int, nx: int, reach: float, cell: fl
     """``jiggle._signed`` of ``n`` points ``p`` (n >= 1) from ``nx`` skin
     points ``x`` with ``normals``: their distances into ``d`` and nearest
     normals into ``near`` (addresses); False without the library."""
-    return (lib := library()) is not None and lib.az_signed(p, n, x, normals, nx, reach, cell, d, near) == 0
+    if (lib := library()) is None:
+        return False
+    keep = array("q", bytes(8 * nx))
+    return lib.az_signed(p, n, x, normals, nx, reach, cell, d, near, _at(keep)) == 0
 
 
 def runs(old: bytes, new: bytes) -> list[tuple[int, int]] | None:

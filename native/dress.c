@@ -327,9 +327,9 @@ API i64 az_skinned(const i64 *B, const double *W, const double *U, i64 n, const 
 }
 
 /* jiggle._signed: each of n points P's signed distance d from the nearest of the nx skin points X in reach of P's
- * bounds (normals N), and that normal into nout; inf and zeros with none in reach. n >= 1. */
+ * bounds (normals N), and that normal into nout; inf and zeros with none in reach. n >= 1; keep: nx ids' scratch. */
 API i64 az_signed(const double *P, i64 n, const double *X, const double *N, i64 nx, double reach, double cell,
-                  double *d, double *nout) {
+                  double *d, double *nout, i64 *keep) {
     double lo[3], hi[3];
     for (int c = 0; c < 3; c++) {
         lo[c] = hi[c] = P[c];
@@ -340,14 +340,19 @@ API i64 az_signed(const double *P, i64 n, const double *X, const double *N, i64 
         }
         lo[c] = lo[c] - reach, hi[c] = hi[c] + reach;
     }
+    i64 kept = 0;   /* the skin points in reach of P's bounds, in order */
+    for (i64 x = 0; x < nx; x++) {
+        const double *y = X + 3 * x;
+        if (y[0] >= lo[0] && y[0] <= hi[0] && y[1] >= lo[1] && y[1] <= hi[1] && y[2] >= lo[2] && y[2] <= hi[2])
+            keep[kept++] = x;
+    }
     for (i64 p = 0; p < n; p++) {
         const double *q = P + 3 * p;
         i64 j = -1;
         double near = 0.0;
-        for (i64 x = 0; x < nx; x++) {
+        for (i64 k = 0; k < kept; k++) {
+            i64 x = keep[k];
             const double *y = X + 3 * x;
-            if (!(y[0] >= lo[0] && y[0] <= hi[0] && y[1] >= lo[1] && y[1] <= hi[1] && y[2] >= lo[2] && y[2] <= hi[2]))
-                continue;
             double dx = q[0] - y[0], dy = q[1] - y[1], dz = q[2] - y[2], d2 = dx * dx + dy * dy + dz * dz;
             if (j < 0 || (near == near && (d2 != d2 || d2 < near))) j = x, near = d2;   /* argmin: the first, a NaN first */
         }
