@@ -1095,6 +1095,56 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         served.close()
 
 
+def test_an_install_lists_its_variants_while_the_images_check_runs(browser, site, usa_iso, tmp_path):
+    """An Install while the image picked is still being checked (the worker's own wait on the kept stamp held here, so
+    the check can't end) lists its variant at once, from the engine's answer that needs no image: the Weapon box says
+    Reading, no line asks for an image and a build still waits for the image's answer, which then comes (Step 4.3r4m)."""
+    from azurkit.tools.characters import _player_variants, content
+
+    repo, path = tmp_path / "repo", "variants/beamlord/variant.json"
+    (repo / path).parent.mkdir(parents=True)
+    (repo / path).write_text(json.dumps({"beamlord": json.loads(
+        _player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"]}), encoding="utf-8")
+    (repo / "manifest.json").write_text(json.dumps(content.filled({
+        "format": content.FORMAT, "schema_version": 1, "entries": [
+            {"author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1, "requires": [], "id": "beamlord",
+             "kind": "variant", "title": "Beamlord", "files": [{"path": path}]}]},
+        lambda p: (repo / p).read_bytes())), encoding="utf-8")
+    served = Site(browser, site)
+    served.context.route(f"{ORIGIN}/content-test/**", lambda route, request: route.fulfill(
+        path=str(repo / urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/"))))
+    entry = "document.querySelector('#char-community .entry[data-entry=\"beamlord\"]"
+    try:
+        page = served.open()
+        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, f"() => {entry} button')", 300)
+        page.evaluate("""() => new Promise((held) => {   // a transaction kept alive: prime's read of the stamp waits on it
+            const open = indexedDB.open("azurkit-stamp", 1);
+            open.onupgradeneeded = () => open.result.createObjectStore("stamp");
+            open.onsuccess = () => {
+                const store = open.result.transaction("stamp", "readwrite").objectStore("stamp");
+                const spin = () => { if (!window.released) store.get("last").onsuccess = spin; };
+                spin();
+                held();
+            };
+        })""")
+        page.set_input_files("#iso", str(usa_iso))
+        page.evaluate(f"() => {entry} button').click()")
+        _page.until(page, f"() => {entry} .model')", 120)
+        assert page.evaluate("""() => [azurkit.characters.state.view.from, azurkit.characters.waiting(),
+            document.getElementById("char-weapon").selectedOptions[0].textContent,
+            document.getElementById("char-count").textContent.includes("Choose your image")]""") == [
+            None, True, "Reading your image…", False]
+        page.evaluate("() => { window.released = true; }")
+        _page.until(page, """() => Boolean(azurkit.characters.state.view?.from)
+            && document.querySelectorAll('#char-weapon option').length > 1""", 300)
+        assert page.evaluate(f"() => {entry} .model').dataset.model") == "beamlord"
+    finally:
+        served.close()
+
+
 CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length,
     document.getElementById("char-count").textContent, ["char-front", "char-back"].map((id) => document.getElementById(id)
     .getContext("2d").getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0)),

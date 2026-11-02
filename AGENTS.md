@@ -1191,7 +1191,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     family; `weapons.json`'s `previews`), no image and no engine call. Reset takes
     the sliders, options and weapon back to the chosen model's defaults and
     stays on it; picking Garret clears them too, another model keeps the size
-    and the numbers (D1062). Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
+    and the numbers (D1062). On the site an ask made while the image is
+    unread goes twice: first with no image, which overtakes the image's
+    check in the worker, so an Install's list and a model's panel never wait
+    for it once the tab has opened (Step 4.3r4m), and then with it; a build
+    takes the second's answer. Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
     since the content repository went public, D1027) is remembered (the
     site's storage, the app's `content_source`).
     The site reads a source on its own address only (its CSP's

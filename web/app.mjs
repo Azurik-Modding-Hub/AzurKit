@@ -292,7 +292,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
                         twin: (state.calls?.twin ?? 0) + (data.twin ?? 0) };
         return;
       }
-      if (data.type !== "progress") unchecked();
+      // (an answer that stood on no image may overtake a check, which keeps its bar: worker.mjs's aside)
+      if (data.type !== "progress" && !(data.type === "reply" && !pending.get(data.call)?.message.file)) unchecked();
       if (data.type === "ready") {
         URL.revokeObjectURL(url);
         loaded = true;

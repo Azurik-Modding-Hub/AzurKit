@@ -586,7 +586,8 @@ function vanilla({ py, engine }, file) {
 // numpy (Pyodide's pinned wheel, which the site carries beside its core, checked by the lock's sha256), loaded once:
 // every character call needs it (the swap's modules import it).
 const numpy = (loaded) => loaded.numpy ??= loaded.py.loadPackage("numpy", { messageCallback: () => {},
-                                                                           errorCallback: () => {} });
+                                                                           errorCallback: () => {} })
+  .then(() => void (loaded.numpied = true));
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
 const needsNumpy = (data) => CHARACTER.includes(data.type) || data.character || data.recipe?.character
   || data.given?.character
@@ -695,12 +696,25 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
 try {
   const loaded = await load();
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
+  // The Characters tab's asks that stand on no image overtake an image's check (a player's Install lists its variants
+  // now): the check's waits are the File's and WebCrypto's, the engine idle. They keep their own order (behind: those
+  // of them queued), and the engine's answer is sync, so nothing runs beside them.
+  let checking = false, behind = 0;
   self.onmessage = ({ data }) => {
     if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
           ...CHARACTER, ...TOOLS, ...DATA].includes(data?.type)) return;
+    const aside = !data.file && ["content", ...CHARACTER].includes(data.type);
+    if (aside && checking && !behind && loaded.numpied) return handle(data);
+    if (aside) behind++;
     queue = queue.then(() => needsNumpy(data) ? numpy(loaded) : null)
-      .then(() => data.file ? prime(loaded, data.file).catch(() => null) : null).then(() => handle(data))
-      .catch((error) => post({ type: "failed", message: lastLine(error) }));
+      .then(() => {
+        if (!data.file) return;
+        checking = true;
+        return prime(loaded, data.file).catch(() => null).finally(() => { checking = false; });
+      }).then(() => {
+        if (aside) behind--;
+        return handle(data);
+      }).catch((error) => post({ type: "failed", message: lastLine(error) }));
   };
   const handle = (data) => {
     try {

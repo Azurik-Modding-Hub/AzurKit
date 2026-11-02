@@ -76,9 +76,22 @@ export function characters({ call, app, host, say, image, packs, changed, shared
                                                                                                            ...extra } };
   const recipe = (character) => ({ iso: app ? image() || null : null, packs: packs(), character });
 
-  // Ask the engine what the tab shows for its choices; an answer to an older ask is dropped.
-  const ask = async () => {
+  // The site's answer while the image is unread, which needs no image and overtakes its check (worker.mjs): the list and
+  // the chosen model's panel now; its weapons and G4 say Reading (imaged()), and a build waits for the image's answer
+  // (asked: none) as it does with none shown.
+  const unreadAnswer = async (mine) => {
+    const reply = await call("pickers", { given: { iso: null, character: c.character, content: { manifest: c.manifest } } });
+    if (mine !== c.ticket || "refused" in reply) return;   // a refusal is the image's answer's to name
+    c.view = { ...reply, asked: null, from: null };
+    render();
+    draw();
+  };
+
+  // Ask the engine what the tab shows for its choices; an answer to an older ask is dropped. The image's pick shows
+  // nothing new until the image is read (picked).
+  const ask = async ({ picked = false } = {}) => {
     const mine = ++c.ticket, asked = JSON.stringify(c.character), from = image() || null;
+    if (!app && !picked && reading() && c.read !== from) unreadAnswer(mine);
     const reply = await call("pickers", given({ character: c.character, content: { manifest: c.manifest } }));
     if (mine !== c.ticket) return;
     if (!("refused" in reply)) Object.assign(reply, { asked, from });
@@ -179,7 +192,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
                 c.character.species);
     $("char-count").textContent = [`${listed.length} species`, untested && `${untested} not yet tested`,
                                    hidden && `${hidden} objects hidden`].filter(Boolean).join(", ")
-      + (view.why ? ` · ${view.why}` : "");
+      + (view.why && !reading() ? ` · ${view.why}` : "");   // its "Choose your image…": not while one is read
     const groups = view.community.map((e) => {
       const state = e.state === "install" ? "Install" : e.state === "update" ? `Update to v${e.version}` : null;
       const action = state && el("button", { type: "button", textContent: state, disabled: !!c.installing });
@@ -563,7 +576,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
       c.drawn = c.wanted = null;
       if (c.view) render();   // its weapons and G4 wait for the image's answer
       else if (c.opened) unread();   // after a refusal: the new image is being read
-      if (c.opened) ask();
+      if (c.opened) ask({ picked: true });
     },
     set,
     character,
