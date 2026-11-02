@@ -34,6 +34,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from azurkit.core import progress
+from azurkit.tools.randomizer.movement import played
 from azurkit.tools.randomizer.planner.settings import (
     MOVEMENT_TIERS,
     RATING_NAMES,
@@ -205,7 +206,18 @@ def _line(settings: Settings, skips: Mapping[str, Mapping], ask: Ask) -> str:
 def levels(settings: Settings, skips: Mapping[str, Mapping]) -> dict:
     """The Randomizer tab's ``difficulty``, from the table alone (no reach): ``levels``, each level's ``[value, name,
     enabled, line]``; ``note``, what a loaded level that greys at these settings plans as (a level above the settings'
-    top can't be loaded: the file and the string are refused by name)."""
+    top can't be loaded: the file and the string are refused by name). Under moved sliders the seed is shaped at the
+    played tier (:func:`.movement.played`, D1066): a level is enabled only where both tiers enable it; a level the asked
+    settings grey keeps their line, every other takes the played tier's, and the note is the played tier's."""
+    now = played(settings)
+    out = _levels(now, skips)
+    if now is not settings:
+        out = [mine if not mine[2] else level for level, mine in zip(out, _levels(settings, skips))]
+    grey = now.seed_difficulty and asked(now, skips) is None
+    return {"levels": out, "note": f"Seed difficulty {RATING_NAMES[now.seed_difficulty]}: {NOTHING}" if grey else None}
+
+
+def _levels(settings: Settings, skips: Mapping[str, Mapping]) -> list[list]:
     top = top_rating(settings, skips)
     out: list[list] = [[0, "Any", True, ANY_LINE]]
     for level in SEED_DIFFICULTIES[1:]:
@@ -220,9 +232,7 @@ def levels(settings: Settings, skips: Mapping[str, Mapping]) -> dict:
                         f"These skips can't often make {name} tricks needed: turn more of them on."])
         else:
             out.append([level, name, True, _line(st, skips, ask)])
-    grey = settings.seed_difficulty and asked(settings, skips) is None
-    return {"levels": out, "note": f"Seed difficulty {RATING_NAMES[settings.seed_difficulty]}: {NOTHING}"
-            if grey else None}
+    return out
 
 
 def rung(settings: Settings, rating: int, skips: Mapping[str, Mapping]) -> Settings:

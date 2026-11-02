@@ -750,6 +750,23 @@ def test_moved_movement_sliders_plan_the_nearest_tiers_seed_by_the_physics_table
         "enemy_scaling boss_health_scale 2 is above vanilla's 1, enemy strength the logic doesn't model (D83(c))"]
 
 
+def test_seed_difficultys_offer_under_moved_sliders_is_the_played_tiers():
+    """D1066: a seed with moved movement sliders is shaped at the tier they play as, so the tab enables a Seed
+    difficulty level only where the asked and the played tier both do: Frame-perfect with no skip at jump 0.6 plays as
+    Safe, so 2-4 grey with Safe's line and a loaded Frame-perfect's note says nothing is shaped; Standard at jump 1.3
+    plays as Frame-perfect, yet Hard and Frame-perfect keep Standard's grey (a level above its top is refused)."""
+    skips = kept_logic().skip_tables
+    slow = difficulty.levels(Settings(0, "frame_perfect", {}, seed_difficulty=4,
+                                      sliders={"player_physics": {"jump_speed_scale": 0.6}}), skips)
+    assert [row[2] for row in slow["levels"]] == [True, False, False, False]
+    assert slow["levels"][3][3] == ("Movement and Skips allow Safe tricks at most: raise one of them to pick "
+                                    "Frame-perfect.")
+    assert slow["note"] == f"Seed difficulty Frame-perfect: {difficulty.NOTHING}"
+    fast = difficulty.levels(Settings(2, "standard", {}, sliders=JUMP), skips)
+    assert [row[2] for row in fast["levels"]] == [True, True, False, False]
+    assert "allow Standard tricks at most" in fast["levels"][3][3] and fast["note"] is None
+
+
 @pytest.mark.parametrize("release, case, twin", [
     pytest.param("usa", "randomize-full:seed=2,default", False, marks=pytest.mark.vanilla),
     pytest.param("usa", "randomize-full:seed=2,ceiling2", True, marks=pytest.mark.vanilla),
