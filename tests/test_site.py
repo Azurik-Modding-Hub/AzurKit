@@ -1707,6 +1707,24 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         served.close()
 
 
+def test_a_europe_seed_is_built_on_the_site_with_no_read_of_its_own(browser, site, europe_iso):
+    """Europe's seed asks more pages ahead than USA's (147 to 95): the worker's cache holds them all, so none is read
+    one by one (200 ms each in Safari)."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(europe_iso))
+        _page.click(page, "tab-randomizer")
+        _page.until(page, "() => azurkit.rando.view")
+        _page.click(page, "rando-on")
+        _page.fill(page, "rando-seed", "2")
+        page.evaluate("() => document.querySelector('#build').click()")
+        assert _page.built(page)["randomizer"]["logic_verified"] is True
+        assert page.evaluate("() => azurkit.build.late") == 0
+    finally:
+        served.close()
+
+
 def test_a_seed_wearing_a_character_builds_on_the_site_as_cpython_builds_it(browser, site, usa_iso):
     """A link with seed azurkit, keylord and the packs on by default, built on the page: CPython's report and
     segments (its spoiler left out, as the site's build leaves it), inside the worker's 4 GiB (AZ-831: the swap held
