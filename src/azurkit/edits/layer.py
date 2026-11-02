@@ -49,7 +49,7 @@ import hashlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 
-from azurkit.core import iso, xbe
+from azurkit.core import iso, native, xbe
 
 DERIVED = {"default.xbe": xbe.grown}   # a file a layer may claim room in -> its derived header state
 RUNS = True   # compose keeps a file's range writes as runs until another group's meets one; False: byte by byte (tests)
@@ -160,6 +160,24 @@ def claimed(base: Mapping[str, bytes], layers: Sequence[Layer]) -> dict[str, byt
     return out
 
 
+def _shadowed(ranges: Sequence[Change], whole) -> tuple[int | None, int]:
+    """The first byte (in ``ranges``' order) and the count of the bytes of
+    ``ranges`` a file written ``whole`` doesn't hold (past its end, or
+    another value): by the compiled byte runs (``core.native.runs``), else
+    their twin, byte by byte."""
+    first, count = None, 0
+    for m in ranges:
+        held = whole[m.offset:m.offset + len(m.after)]
+        got = native.runs(held, m.after) if type(held) is bytes and type(m.after) is bytes else None
+        if got is None:   # the twin
+            got = [(at - m.offset, at - m.offset + 1) for at, value in enumerate(m.after, m.offset)
+                   if at >= len(whole) or whole[at] != value]
+        for a, b in got:
+            first = m.offset + a if first is None else first
+            count += b - a
+    return first, count
+
+
 def compose(base: Mapping[str, bytes | iso.View], layers: Sequence[Layer], known: Mapping[str, str] | None = None,
             progress: Callable[[int, int], object] | None = None) -> tuple[dict[str, bytearray | Overlay], list[Conflict]]:
     """Each file a change or claim names, as ``layers`` leave it over
@@ -248,11 +266,10 @@ def compose(base: Mapping[str, bytes | iso.View], layers: Sequence[Layer], known
                     by = layers[whole[c.file][0]].id if c.file in whole else "the claims' derived state"
                     raise ValueError(f"{what}: {c.file} is written whole by {by} already")
                 for group in [g for g, cs in members.items() if any(m.file == c.file for m in cs)]:
-                    ats = [at for m in members[group] if m.file == c.file
-                           for at, value in enumerate(m.after, m.offset) if at >= len(c.after) or c.after[at] != value]
-                    if ats:
+                    first, count = _shadowed([m for m in members[group] if m.file == c.file], c.after)
+                    if count:
                         drop(group)
-                        conflicts.append(Conflict(c.file, ats[0], len(ats), layer.id, c.group, layers[group[0]].id,
+                        conflicts.append(Conflict(c.file, first, count, layer.id, c.group, layers[group[0]].id,
                                                   group[1]))
                 whole[c.file], put[c.file] = (i, c.group), c.after
                 start(c.file, c.after)
