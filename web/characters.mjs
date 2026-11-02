@@ -234,7 +234,8 @@ export function characters({ call, app, host, say, image, packs, changed, conten
   const pick = (name) => {
     if (name === c.character.species) return;
     const keep = Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", ...NUMBERS].includes(k)));
-    c.character = { ...keep, species: name };
+    c.character = { ...keep, species: name };   // (Chain on any press stays with the model it was ticked on, D1045)
+    $("char-chain").checked = false;
     changed();
     if (ships?.species[name] || ships?.variants[name]) draw({ name, variant: !ships.species[name] });   // at once
     ask();
@@ -302,6 +303,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     $("char-mode").replaceChildren(...view.modes.map((m) => el("option", { value: m.id, textContent: m.title })));
     $("char-mode").value = locked.mode ?? ch.mode ?? defaults.mode;
     $("char-mode").disabled = "mode" in locked;
+    $("char-chain").checked = (ch.chain ?? "hit") === "any";   // D1045: off by default, for any model
     const weapons = imaged() ? chosen.weapons   // D979: none until the image is read
       : [{ name: null, label: image() ? READING : CHOOSE_WEAPONS }];
     $("char-weapon").replaceChildren(...weapons.map((w) => {
@@ -471,6 +473,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     if (c.view) render();
   });
   $("char-mode").addEventListener("change", () => option("mode", $("char-mode").value, defaults().mode));
+  $("char-chain").addEventListener("change", () => option("chain", $("char-chain").checked ? "any" : "hit", "hit"));
   $("char-weapon").addEventListener("change", () => option("weapon", $("char-weapon").value || null, null));
   $("char-clips").addEventListener("change", () => option("anims", $("char-clips").checked ? "own" : "garret4",
                                                           defaults().anims));

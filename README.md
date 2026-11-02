@@ -133,7 +133,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Weapons:** Garret's Axion staff, the farmer's hoe, Balthazar's magic, the spin attack or bare hands.
 - **Attacks:** reach, damage and speed multipliers.
 - **Combos on a hit:** a body's combo goes on to its next attack only after a hit, as Garret's does, in every one of
-  its attack sets; `"chain": "any"` lets any press in the window chain instead, for any model.
+  its attack sets; Chain on any press (off by default, beside Gameplay; `"chain": "any"`) lets any press in the
+  window chain instead, for any model.
 - **Voice:** the creature's own sounds, or Garret's.
 - **Variants:** Beamlord, and Booblord as she is, in high detail, in human colours or both, each a recipe over a
   creature's body applied to your own copy; or your own recipe file, its shapes sized as you like. Booblord's four

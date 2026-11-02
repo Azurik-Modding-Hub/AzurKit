@@ -906,6 +906,39 @@ CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length
     asked.filter((t) => ["preview", "match"].includes(t))]"""
 
 
+def test_chain_on_any_press_is_off_by_default_for_any_model_and_a_new_model_unticks_it(browser, site):
+    """D1045: the Characters tab's Chain on any press starts off; ticked,
+    the tab's character (which a build, a link and the remembered setup
+    take) says so through the engine's answer, on Garret as on any model;
+    unticked it says nothing; picking another model unticks it at once and
+    the new model holds no chain."""
+    tick = "() => document.getElementById('char-chain').click()"
+    answered = "() => azurkit.characters.state.view?.asked === JSON.stringify(azurkit.characters.state.character)"
+    state = "() => [document.getElementById('char-chain').checked, azurkit.characters.character()]"
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, answered, 120)
+        assert page.evaluate(state) == [False, None]
+        page.evaluate(tick)
+        _page.until(page, answered, 60)
+        assert page.evaluate(state) == [True, {"species": "garret4", "chain": "any"}]
+        got = page.evaluate("""() => { document.querySelector('#char-species .model[data-model="keylord"]').click();
+            return document.getElementById('char-chain').checked; }""")
+        assert got is False
+        _page.until(page, answered, 60)
+        assert page.evaluate(state) == [False, {"species": "keylord"}]
+        page.evaluate(tick)
+        _page.until(page, answered, 60)
+        assert page.evaluate(state) == [True, {"species": "keylord", "chain": "any"}]
+        page.evaluate(tick)
+        _page.until(page, answered, 60)
+        assert page.evaluate(state) == [False, {"species": "keylord"}]
+    finally:
+        served.close()
+
+
 def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image(browser, site, tmp_path, usa_iso):
     """Step 4.3f (D961, D979): before an image is picked the Characters tab
     lists the 178 species the player can wear but the 76 objects (D1034),
