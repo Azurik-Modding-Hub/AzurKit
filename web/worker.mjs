@@ -285,13 +285,13 @@ answering`;
 // tables, which every iso.Reader reads again, and a 4 KiB read after each 8 MiB one): 131 s a build, 4 s in
 // Chromium. So each read is served from what the image's blocks already hold, else from a block read for it: a 1 MiB
 // page for a read under 1 MiB (the tables: USA's 59 lie in 29 pages), else a 64 MiB block (a file's bytes); the last
-// PAGES pages and BLOCKS blocks are kept (352 MiB at most), for the last image only (by its id, which ids holds for
+// PAGES pages and BLOCKS blocks are kept (384 MiB at most), for the last image only (by its id, which ids holds for
 // each File: each message brings its own File object of it; a File with none keeps its own), from one message to the
 // next, so a worker reads the folders' tables once, not once a call. Before the engine's first walk of an image in a
 // worker, its tables' pages are read ahead (ahead(): R2.5), every folder of a depth at once; a seed's build asks for
 // its levels' TOCs and node sections' too (spans(): AM-HUB-E): 95 pages on USA, 147 on Europe, whose French.xbr and
-// German.xbr it reads whole, so PAGES holds them with the tables.
-const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 160, BLOCKS = 3;
+// German.xbr it reads whole, and a worn body's its files (about 110 pages), so PAGES holds them with the tables.
+const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 192, BLOCKS = 3;
 const ids = new WeakMap();   // a message's File -> its image's id (identify)
 function readInBlocks(WORKERFS) {
   const kept = new Map();   // the last image's id -> its unit -> index -> bytes, the least recently used first
@@ -330,7 +330,7 @@ function readInBlocks(WORKERFS) {
            spans: (file, id, wanted) => spans(file, cachesOf(id).get(PAGE), wanted) };
 }
 
-// The pages of wanted ([image offset, size]) a seed's build reads next, all at once and awaited (AM-HUB-E: one by one,
+// The pages of wanted ([image offset, size]) a seed's or a body's build reads next, all at once and awaited (AM-HUB-E: one by one,
 // WebKit's 200 ms a read would cost about 90 x that), into the cache (used last now), as the engine's own reads would
 // be. A hint: a page the cache lacks later is read by the engine.
 async function spans(file, pages, wanted) {

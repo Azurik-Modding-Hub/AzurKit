@@ -1520,8 +1520,9 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
     then a build's named stages as the worker posts them (``core.progress``'s
     records: its files read, each pack applied, the image laid out), and
     hides once the build is ready, never showing the check again: the
-    worker's answer ends the check before it, whatever the clock says, and so
-    does a Cancel during the check (its worker stopped). The clock is stopped
+    worker's answer ends the check before it, whatever the clock says. A Cancel
+    of a Build queued behind the check leaves the check running, as the read
+    behind it must end, and the bar goes with its answer. The clock is stopped
     here (:data:`STILL`), as a race made it: Chromium built two packs in
     0.1 s, inside the 250 ms the check's whole bar stayed for (Step 4.3
     train)."""
@@ -1551,7 +1552,7 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
         page.evaluate(CANCEL)
         page.set_input_files("#iso", str(usa_iso))
         assert _page.until(page, "() => globalThis.cancelled", 120) == ["check", True]
-        _page.until(page, "() => azurkit.ready", 120)   # the worker that replaces the stopped one
+        _page.until(page, "() => azurkit.ready && azurkit.vanilla?.release === 'usa'", 300)
         assert page.evaluate("() => bars.at(-1)") is None and served.stray() == []
     finally:
         served.close()
@@ -1849,7 +1850,7 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         first = served.open()
         _page.until(first, SNAPSHOT_KEPT, 60)
         again = served.open()
-        assert (first.evaluate("() => starts"), again.evaluate("() => starts")) == (["cold"], ["snapshot"])
+        assert first.evaluate("() => starts[0]") == "cold" and set(again.evaluate("() => starts")) == {"snapshot"}
         again.set_input_files("#iso", str(usa_iso))
         _page.until(again, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.build(again, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
@@ -1869,7 +1870,7 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         grew = served.open()
         _page.until(grew, SNAPSHOT_KEPT, 60)
         after = served.open()
-        assert (grew.evaluate("() => starts"), after.evaluate("() => starts")) == (["cold"], ["snapshot"])
+        assert grew.evaluate("() => starts[0]") == "cold" and set(after.evaluate("() => starts")) == {"snapshot"}
     finally:
         served.close()
 

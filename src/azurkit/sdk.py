@@ -370,8 +370,8 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
     randomizer's read-back of the built image and its plan (``None`` without
     one); every refusal named. ``steps`` hears each stage. A generator, its
     ``StopIteration``'s value those: with ``ahead`` it first yields a seed's
-    ``generator.heads`` and ``generator.pages``, for a host whose reads are
-    late to read them all at once, else nothing."""
+    ``generator.heads`` and ``generator.pages``, or a worn body's files, for a
+    host whose reads are late to read them all at once, else nothing."""
     packs = own = _packs(recipe)
     picks = _picks(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
@@ -409,6 +409,8 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
                 yield generator.pages(prepared, r, [f for f in others if r.find(f).size < AHEAD_WHOLE])
             base = dict(generator.sections(prepared, r, others))
             others += [file for file in generator.files(prepared) if file not in base and file not in others]
+        elif ahead and character is not None:
+            yield [(r.start(entry), entry.size) for entry in map(r.find, others)]   # a body's files, at once
         base |= {file: r.read(file) for file in others}
     layers, failed, judge = [], [], None
     if prepared is not None:
