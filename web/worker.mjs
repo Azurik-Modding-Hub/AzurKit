@@ -27,7 +27,8 @@
 //      "plan_spoiler", call, plan} (sdk.spoiler), and the Data tab's {type: "data" | "data_edit", call, given}
 //      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image). A message with a File
 //      (file) has the image checked first, once a File (prime).
-// Out: {type: "ready", catalog, version, start} (start: "snapshot" or "cold", load()'s), {type: "progress", stage, label, done, total, percent} (core/progress.py's
+// Out: {type: "native", kernel?, twin?} (the reach calls each path answered since the last, before the answer they
+//      went into), {type: "ready", catalog, version, start} (start: "snapshot" or "cold", load()'s), {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages; the worker's own: its start before ready, the kept image's
 //      walk), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
 //      "spoiled", text | refused} brings next: the build shows sooner),
@@ -64,7 +65,7 @@ from pyodide.ffi import to_js
 
 import azurkit
 from azurkit import sdk
-from azurkit.core import iso, progress
+from azurkit.core import iso, native, progress
 from azurkit.tools.characters import pool
 
 PIECE = "/tmp/azurkit-piece"
@@ -245,7 +246,15 @@ def engine(request):
     return js({"report": report, "size": image.size, "segments": pieces, "checks": sdk.image_checks(image, report)})
 
 
-engine`;
+def answering(request):
+    try:
+        return engine(request)
+    finally:
+        if calls := native.taken():   # before the answer, as the page may end this worker on it
+            postMessage(to_js({"type": "native", **calls}, dict_converter=Object.fromEntries, create_pyproxies=False))
+
+
+answering`;
 
 // The image is read in blocks (Step 4.1g2). WebKit answers each read of a File's slice after about 200 ms, whatever
 // its size (2 KiB and 64 MiB alike), and a build read the image about 650 times through WORKERFS (the folders'

@@ -281,6 +281,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
     worker = new Worker(url, { type: "module" });
     worker.onmessage = ({ data }) => {
+      if (data.type === "native") {   // every worker's, for the perf gate's native assert (a worker's ends with it)
+        state.calls = { kernel: (state.calls?.kernel ?? 0) + (data.kernel ?? 0),
+                        twin: (state.calls?.twin ?? 0) + (data.twin ?? 0) };
+        return;
+      }
       if (data.type !== "progress") unchecked();
       if (data.type === "ready") {
         URL.revokeObjectURL(url);

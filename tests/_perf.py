@@ -256,6 +256,10 @@ READY = "() => globalThis.azurkit?.ready"
 STEADY = """() => { const a = globalThis.azurkit;
   return a?.heap == null ? null : (a.build?.segments ?? []).reduce((n, s) => n + (s.kind === "bytes" ? s.size : 0), a.heap); }"""
 NATIVE = "() => globalThis.azurkit?.packs?.native ?? null"   # sdk.catalog's: the compiled kernels the engine runs
+# And as a page leaves, with the calls each path answered by then: the app's server holds its engine process's, the
+# site's page its workers'.
+CALLS = """() => azurkit.app ? fetch("host.json").then((r) => r.json()).then((host) => host.catalog.native)
+  : { ...azurkit.packs?.native, calls: azurkit.calls ?? { kernel: 0, twin: 0 } }"""
 USA = "() => azurkit.vanilla?.release === 'usa'"
 BUILT = f"() => azurkit.build ? 'built' : {ERROR}"
 SAVED = f"() => azurkit.saved ? 'saved' : {ERROR}"
@@ -466,6 +470,15 @@ class Driver:
             self.native.append(report)
         if not (report or {}).get("loaded"):
             raise RuntimeError(f"the engine runs without its native library ({(report or {}).get('why')})")
+
+    def leave(self, p: Page) -> None:
+        """Close ``p``, its engine's report (:data:`CALLS`) kept first: a twin
+        that answered beside a loaded library shows there, and
+        ``perf.native_failures`` fails the run for it."""
+        report = p.js(CALLS)
+        if report not in self.native:
+            self.native.append(report)
+        p.page.close()
 
     def fresh(self, p: Page) -> None:
         """A new page (its own clock): the events it has logged, no change pending."""
@@ -785,6 +798,7 @@ class App:
 
     def launch(self, d: Driver, ctx, op: str | None) -> Page:
         """Spawn the server and open its page: ``op`` timed from the spawn to the page's ready flag."""
+        self.driver = d
         t = time.monotonic()
         err = self.home / "serve.err"
         with open(err, "a", encoding="utf-8") as errors:
@@ -804,7 +818,7 @@ class App:
 
     def quit(self, p: Page | None = None) -> None:
         if p is not None:
-            p.page.close()
+            self.driver.leave(p)
         if self.proc and self.proc.poll() is None:
             self.proc.stdin.close()
             try:
@@ -1152,11 +1166,11 @@ def site_start(d: Driver, ctx, url: str) -> None:
             d.until(p, "R14", built, READY, 600)
             if d.need("S49"):
                 _download(d, p, "S49")
-    p.page.close()
+    d.leave(p)
     while d.needed(("S02", "S04")):
         p = _site_page(d, ctx, url + "?again", "S02")
         _pick(d, p, "S04")
-        p.page.close()
+        d.leave(p)
 
 
 def site_characters(d: Driver, ctx, url: str) -> None:
@@ -1178,7 +1192,7 @@ def site_characters(d: Driver, ctx, url: str) -> None:
                    && !azurkit.characters.state.installing && azurkit.characters.state.view
                    && !azurkit.characters.state.view.perfOld""", 1800)
         d.act(p, "S12", model("beamlord"), chosen("beamlord"), 1800)
-    p.page.close()
+    d.leave(p)
 
 
 def site_track(d: Driver, ctx, url: str) -> None:
@@ -1201,11 +1215,11 @@ def site_track(d: Driver, ctx, url: str) -> None:
         d.act(p, "S25", click("spoiler-view"),
               "() => !document.getElementById('spoiler').hidden && document.getElementById('spoiler').textContent.length")
         p.js(click("spoiler-view"))
-    p.page.close()
+    d.leave(p)
     p = _site_page(d, ctx, url + "?reopen", None)
     d.act(p, "S21", "() => { document.getElementById('tab-randomizer').click(); "
                     "document.getElementById('rando-view-tracker').click(); }", TRACKED, 1800)
-    p.page.close()
+    d.leave(p)
 
 
 def site_seed(d: Driver, ctx, url: str) -> None:
@@ -1216,7 +1230,7 @@ def site_seed(d: Driver, ctx, url: str) -> None:
     d.until(p, "R24", built, READY, 600)
     if d.need("S50"):
         _download(d, p, "S50")
-    p.page.close()
+    d.leave(p)
 
 
 # ---- the Tools tab (Step 4.7c): the image's info, Verify every file (first, with its bar, D982; again: the kept
@@ -1322,7 +1336,7 @@ def site_tools(d: Driver, ctx, url: str) -> None:
     t0, t1 = max((t0, t1), (t2, t3), key=lambda span: span[1] - span[0])
     d.record("S46", (t1 - t0) / 1000, d.ev, t0, t1)
     saved.value.delete()
-    p.page.close()
+    d.leave(p)
 
 
 # ---- the Data tab (Step 4.7a): its first open (the index and the Player view, no image), a critter's view, the
@@ -1456,7 +1470,7 @@ def app_data(d: Driver, app: App, ctx) -> None:
 def site_data(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     _data(d, p, ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39"), lambda: _pick(d, p, None))
-    p.page.close()
+    d.leave(p)
 
 
 SCENARIOS = {   # name: (host, its ops, the driver)

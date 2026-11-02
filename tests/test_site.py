@@ -46,7 +46,7 @@ from azurkit.tools import data, mods
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
-from tests import _g1, _hosts, _page
+from tests import _g1, _hosts, _page, _perf
 from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
 ORIGIN = "https://azurkit.test"
@@ -1968,6 +1968,8 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
         page.set_input_files("#track-open", str(tmp_path / "plan.json"))
         _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
         assert page.evaluate(hint) == "Click a level to open its map. Scroll to zoom, drag to pan."
+        calls = page.evaluate(_perf.CALLS)["calls"]   # the worker's, in the page for the perf gate's native assert
+        assert calls["kernel"] > 0 and calls["twin"] == 0, calls
         page.evaluate("() => azurkit.tracker.map.show('e6', true)")
         _page.until(page, "() => azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
         assert page.evaluate("() => azurkit.tracker.map.pictures.map((p) => [p.name, p.bitmap.width, p.bitmap.height])"

@@ -183,14 +183,16 @@ def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_libra
     """The perf gate's native assert (Step 4.3 native reach): each run's
     engine reports (``sdk.catalog``'s ``native``) are the library the
     worktree ships for the host, loaded, with its bytes' sha256[:12]; a
-    twin's run, another library's bytes or no report fails, and a page
-    whose engine runs without its library stops its pass
-    (``Driver.engine``)."""
+    twin's run, another library's bytes, no report, a twin's answer beside
+    the library or no count of them fails, and a page whose engine runs
+    without its library stops its pass (``Driver.engine``); a page leaving
+    keeps its report, with the calls by then (``Driver.leave``)."""
     from azurkit.core import native
     app = perf.shipped(Path(perf.ROOT), native.target())
     site = perf.shipped(Path(perf.ROOT), perf.SIDE_MODULE)
     assert app[1] and site[1] and perf.shipped(Path(perf.ROOT), None) == (None, None)
-    ran = {"loaded": True, "library": app[0], "sha12": app[1], "kernels": ["reach"], "why": None}
+    ran = {"loaded": True, "library": app[0], "sha12": app[1], "kernels": ["reach"], "why": None,
+           "calls": {"kernel": 9, "twin": 0}}
     twin = {"loaded": False, "library": None, "sha12": None, "kernels": [], "why": "AZURKIT_NATIVE=0"}
     assert perf.native_failures({"app": [ran], "webkit": [ran | {"library": site[0], "sha12": site[1]}]},
                                 {"app": app, "webkit": site}) == []
@@ -198,18 +200,29 @@ def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_libra
         f"native app: the engine ran no library (AZURKIT_NATIVE=0), not the shipped {app[0]} ({app[1]})",
         "native lag: its engine reported no compiled kernels",
         f"native webkit: the engine ran {app[0]} ({app[1]}), not the shipped {site[0]} ({site[1]})"]
+    assert perf.native_failures({"app": [ran | {"calls": {"kernel": 9, "twin": 2}}], "lag": [{k: v for k, v in ran.items() if k != "calls"}]},
+                                {"app": app, "lag": app}) == [
+        "native app: its Python twin answered 2 of the engine's reach calls",
+        "native lag: its Python twin answered an unknown count of the engine's reach calls"]
 
     class Stub(_perf.Page):
         def __init__(self, report):
             self.report = report
+            self.page = self
+            self.closed = False
 
         def js(self, fn, arg=None):
-            return self.report if fn == _perf.NATIVE else pytest.fail(fn)
+            return self.report if fn in (_perf.NATIVE, _perf.CALLS) else pytest.fail(fn)
+
+        def close(self):
+            self.closed = True
     d = _perf.Driver(_perf.RUNS["app"], {}, Path(perf.ROOT), Path(perf.ROOT), None)
     d.engine(Stub(ran))
     with pytest.raises(RuntimeError, match=r"^the engine runs without its native library \(AZURKIT_NATIVE=0\)$"):
         d.engine(Stub(twin))
     assert d.native == [ran, twin]
+    d.leave(leaving := Stub(answered := ran | {"calls": {"kernel": 9, "twin": 1}}))
+    assert leaving.closed and d.native == [ran, twin, answered]
 
 
 def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_one_it_doesnt_know():

@@ -51,7 +51,7 @@ import threading
 from collections.abc import Callable, Mapping
 
 from azurkit import sdk
-from azurkit.core import gate, iso
+from azurkit.core import gate, iso, native
 from azurkit.core.progress import record
 from azurkit.tools import characters
 from azurkit.tools.characters import pool
@@ -338,6 +338,9 @@ class Spawned:
         try:
             while True:
                 kind, ident, value = child.conn.recv()
+                if kind == "calls":   # the server's native.report shows them, whichever process the kill leaves
+                    native.CALLS.update(value)
+                    continue
                 with child.lock:
                     waiting = child.calls.get(ident)
                 if waiting is not None:
@@ -536,6 +539,8 @@ def _main(conn, stores: bool = False) -> None:
             except Exception as exc:   # a result or an error that doesn't pickle: its type and message
                 kind, value = "raised", pickle.dumps(RuntimeError(f"{type(value).__name__}: {value} ({exc})"))
         with sending:
+            if kind != "progress" and (calls := native.taken()):   # before the answer: a kill loses none answered
+                conn.send(("calls", ident, calls))
             conn.send((kind, ident, value))
 
     def run(ident: int, job: str, args: tuple, follows: bool) -> None:

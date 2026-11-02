@@ -52,7 +52,7 @@ from azurkit.tools.randomizer.planner import fill as planner_fill
 from azurkit.tools.randomizer.planner import loader
 from scripts import freeze, record_goldens
 from devkit.xemu import queue
-from tests import _g1, _page, _speed
+from tests import _g1, _page, _perf, _speed
 from tests._xiso import fill, image
 from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
 
@@ -2888,6 +2888,7 @@ def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(bro
         page.set_input_files("#tools-plan-file", str(plan))
         _page.until(page, "() => azurkit.tools.state.spoiler", 300)
         bars = page.evaluate("() => bars")
+        assert page.evaluate(_perf.CALLS) == native.report()   # what the perf gate's native assert reads as a page leaves
         page.close()
     finally:
         server.close()

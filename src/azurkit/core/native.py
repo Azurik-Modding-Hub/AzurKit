@@ -9,7 +9,9 @@ compiler. :func:`library` loads this platform's with ctypes. Each kernel
 keeps its Python twin, the reference: the twin runs when the library isn't
 there (another platform, a load that fails), when it can't hold a call's
 numbers, and whenever ``AZURKIT_NATIVE=0``; both give the same answer, bit
-for bit (``tests/test_native.py``).
+for bit (``tests/test_native.py``). :data:`CALLS` counts the calls each path
+answered, and :func:`report` shows them, so a twin that answered beside a
+loaded library is seen (the perf gate's native assert).
 
 The first kernel is the randomizer's reach (:func:`solve`): the solver's
 least fixpoint (``planner/solver.py``'s ``Logic._solve``) over
@@ -44,6 +46,9 @@ KERNELS = ("reach",)
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
+
+CALLS: collections.Counter = collections.Counter()   # the calls this process answered, by path ("kernel", "twin"),
+#                                                      and those its engine's process handed it (:func:`taken`)
 
 _OPS = {"false": 0, "true": 1, "counter": 2, "flag": 3, "sum": 4, "and": 5, "or": 6}
 _H, _G = 19, 10                           # the tables' header words and a graph's (reach.c's H_* and G_*)
@@ -99,11 +104,21 @@ def library() -> ctypes.CDLL | None:
 
 def report() -> dict:
     """What a host reports of the kernels: ``{"loaded", "library", "sha12",
-    "kernels", "why"}`` (``why``: the reason the twins run, else None)."""
+    "kernels", "why", "calls"}`` (``why``: the reason the twins run, else
+    None; ``calls``: :data:`CALLS`, ``{"kernel", "twin"}``)."""
     library()
     lib, name, sha12 = _LIB
     return {"loaded": lib is not None, "library": name if lib else None, "sha12": sha12,
-            "kernels": list(KERNELS) if lib else [], "why": None if lib else name}
+            "kernels": list(KERNELS) if lib else [], "why": None if lib else name,
+            "calls": {"kernel": CALLS["kernel"], "twin": CALLS["twin"]}}
+
+
+def taken() -> dict[str, int]:
+    """:data:`CALLS` since the last time, emptied, for a host's engine to hand
+    to what reports them (an app's engine process, a site's worker: each may
+    end before anyone asks). A count another thread adds beside it may be
+    handed twice, never lost: only none or some is read."""
+    return {path: n for path in ("kernel", "twin") if (n := CALLS.pop(path, 0))}
 
 
 # ---- the reach -------------------------------------------------------------------------------------------------------
@@ -577,5 +592,7 @@ def solve(t: Tables, graph: int, phys: int, free: int, *, counters: Sequence[int
                    for loc, x in enumerate(gives) if x >= 0)
         top = max([abs(v) for v in (*counters, *held)] + [0]) + grow + sum(abs(y) for y in t.yields) + 1
         if top * terms < LIMIT:
+            CALLS["kernel"] += 1
             return _native(lib, t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)
+    CALLS["twin"] += 1
     return _twin(t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)

@@ -2,7 +2,7 @@
 (``nativekit --check``), this platform's loads, and each kernel gives its
 Python twin's answer bit for bit, here and as the side module under
 Pyodide, over seeded random inputs (the reach's on the randomizer's own
-tables too); ``AZURKIT_NATIVE=0`` runs the twin."""
+tables too); ``AZURKIT_NATIVE=0`` runs the twin; each call counts its path."""
 
 from __future__ import annotations
 
@@ -16,6 +16,11 @@ import pytest
 
 import nativekit
 from azurkit.core import native
+
+
+_ONE_NODE = {"nodes": 1, "flags": 0, "locations": 1, "counters": 1, "start": 0, "rules": (("false",),),
+             "items": (), "discs": frozenset(), "yields": (1,), "refund": ((-1, -1),), "forced": ((),),
+             "forced_phys": ((),), "regions": (), "graphs": (native.Graph(((),)),)}
 
 
 def _rule(rng: random.Random, count: int) -> int:
@@ -178,11 +183,48 @@ def test_azurkit_native_0_runs_the_twin(monkeypatch):
     ({"discs": frozenset({3})}, "discs: [3] name a counter that isn't"),
 ])
 def test_tables_the_kernel_cant_read_are_refused_by_name(change, why):
-    fields = {"nodes": 1, "flags": 0, "locations": 1, "counters": 1, "start": 0, "rules": (("false",),),
-              "items": (), "discs": frozenset(), "yields": (1,), "refund": ((-1, -1),), "forced": ((),),
-              "forced_phys": ((),), "regions": (), "graphs": (native.Graph(((),)),)}
     with pytest.raises(ValueError, match=f"^{re.escape(why)}"):
-        native.Tables(**fields | change)
+        native.Tables(**_ONE_NODE | change)
+
+
+def test_a_reach_counts_the_path_that_answered_it_and_the_report_shows_the_count(monkeypatch):
+    """With the library loaded, the twin still answers a rule deeper than
+    the kernel's (``Tables.twin_only``) or a number past ``LIMIT``, in the
+    tables or the call: ``report`` shows that call; ``taken`` hands them over."""
+    monkeypatch.setattr(native, "CALLS", collections.Counter())
+    assert native.report()["loaded"]
+    deep = (("false",), *(("and", (i,)) for i in range(native.DEPTH)))
+    for tables, counters, path in (({}, [0], "kernel"),
+                                   ({}, [native.LIMIT], "twin"),
+                                   ({"rules": deep}, [0], "twin"),
+                                   ({"rules": (("counter", 0, native.LIMIT),)}, [0], "twin")):
+        before = native.report()["calls"]
+        native.solve(native.Tables(**_ONE_NODE | tables), 0, 0, 0, counters=counters, held=[], flags=[], gives=[-1])
+        assert native.report()["calls"] == before | {path: before[path] + 1}, (tables, counters)
+    assert native.taken() == {"kernel": 1, "twin": 3}
+    assert native.report()["calls"] == {"kernel": 0, "twin": 0} and native.taken() == {}
+
+
+def test_an_engine_process_whose_twin_answers_shows_in_its_servers_report_and_fails_the_perf_gate(monkeypatch):
+    """The app's engine (``Spawned``) loads apart from the server whose
+    ``sdk.catalog`` the page reads: here the server's library is loaded and
+    the process it spawned runs the twin, its counts handed over with its
+    answer and kept past its end. The perf gate's native assert fails it."""
+    from azurkit.app import engine
+    from scripts import perf
+    report = native.report()
+    assert report["loaded"]
+    monkeypatch.setenv("AZURKIT_NATIVE", "0")   # read as the engine's process loads; this one has
+    monkeypatch.setattr(native, "CALLS", collections.Counter())
+    spawned = engine.Spawned()
+    try:
+        spawned.call("plan", {"seed": "azurkit", "share": "AZR-AAEA"})
+    finally:
+        spawned.close()
+    report = native.report()
+    assert report["loaded"] and report["calls"]["twin"] > 0 and report["calls"]["kernel"] == 0, report
+    assert perf.native_failures({"app": [report]}, {"app": (report["library"], report["sha12"])}) == [
+        f"native app: its Python twin answered {report['calls']['twin']} of the engine's reach calls"]
 
 
 def test_nativekit_rebuilds_each_committed_library_to_its_bytes():

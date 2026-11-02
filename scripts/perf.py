@@ -41,8 +41,9 @@ browser main's perf.py doesn't time (:func:`new_browsers`), whose first
 record may add its own ops and debts once. A run whose engine answers
 without the compiled kernels' library the worktree ships for its host
 (:func:`native_failures`: its pages' ``sdk.catalog`` ``native``, loaded,
-that library, those bytes) fails, its ops with it, so a time the Python
-twins took is never a sample or a ceiling.
+that library, those bytes, and as each page leaves no reach call its twin
+answered) fails, its ops with it, so a time the Python twins took is never
+a sample or a ceiling.
 
 ``--update-ceilings`` rewrites the list from this run (:func:`updated`): it
 lowers a ceiling to the new median x 1.15 (rounded up to 0.1 s) and drops an
@@ -179,8 +180,10 @@ def native_failures(natives: dict[str, list], want: dict[str, tuple[str | None, 
     """A failure for each run (``{run: the engine reports its pages gave}``)
     with no report or one whose engine answered without the library the
     worktree ships for its host (``want``: ``{run: (library, sha256[:12])}``,
-    :func:`shipped`), loaded, with those bytes: a time its Python twins took
-    is never a sample or a ceiling."""
+    :func:`shipped`), loaded, with those bytes, or whose Python twin answered
+    any reach call (``calls``: a per-call fallback, or an engine process that
+    loads apart from its server), or that holds no count: a time its twins
+    took is never a sample or a ceiling."""
     out = []
     for run, reports in sorted(natives.items()):
         library, sha12 = want[run]
@@ -191,6 +194,8 @@ def native_failures(natives: dict[str, list], want: dict[str, tuple[str | None, 
             if not (r.get("loaded") and (r.get("library"), r.get("sha12")) == (library, sha12) and sha12):
                 out.append(f"native {run}: the engine ran {r.get('library') or 'no library'} "
                            f"({r.get('sha12') or r.get('why')}), not the shipped {library} ({sha12})")
+            elif twin := (r.get("calls") or {}).get("twin", "an unknown count"):
+                out.append(f"native {run}: its Python twin answered {twin} of the engine's reach calls")
     return out
 
 

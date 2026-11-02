@@ -1407,7 +1407,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   whose engine answers without the library the worktree ships for its
   host (this machine's, the site's side module), loaded, with those bytes'
   sha256[:12], fails, its ops with it, so the Python twins' times never
-  become a ceiling. A sample past 1 s whose wall passes 1.3x the CPU seconds
+  become a ceiling; so does one whose twin answered any reach call beside
+  the library (`native.report`'s `calls`, read as each page leaves: the
+  app's engine process hands its counts to the server with each answer, a
+  site's worker to the page). A sample past 1 s whose wall passes 1.3x the CPU seconds
   its tree used (each process's highest figure, so a child gone mid-op
   keeps its own) waited for a core: it is taken once more and, starved again
   or past 30 s, stands with its tag (`starved`, `perf.judge` names it and no
