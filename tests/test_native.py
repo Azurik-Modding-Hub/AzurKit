@@ -13,10 +13,12 @@ import json
 import random
 import re
 
+import numpy
 import pytest
 
 import nativekit
 from azurkit.core import native
+from tests import _pyodide
 
 
 _ONE_NODE = {"nodes": 1, "flags": 0, "locations": 1, "counters": 1, "start": 0, "rules": (("false",),),
@@ -166,11 +168,13 @@ def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path,
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]
     (path := tmp_path / "cases.json").write_text(json.dumps([docs, dress]), encoding="utf-8")
-    got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer) + _UNDER_PYODIDE)
+    got = pyodide(str(path), python=inspect.getsource(_answer) + inspect.getsource(_dress_answer) + _UNDER_PYODIDE,
+                  packages=(_pyodide.numpy(),))
     assert got["report"]["loaded"] and got["report"]["library"] == "emscripten-wasm32.so", got["report"]
     assert got["answers"] == json.loads(json.dumps([_answer(native._twin(t, **call)) for t, call in cases]))
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
-    assert got["dress"] == json.loads(json.dumps([_dress_answer(case) for case in dress]))
+    with numpy.errstate(all="ignore"):
+        assert got["dress"] == json.loads(json.dumps([_dress_answer(case) for case in dress]))
 
 
 def _dress_cases(seed: int, count: int):
@@ -215,7 +219,8 @@ def _dress_cases(seed: int, count: int):
                          sorted({0.0, length, *(rng.uniform(0.0, length) for _ in range(5)),
                                  *(k[0] for c in chain for ks in c.values() for k in ks if 0.0 <= k[0] <= length)}),
                          length],
-               "runs": [old.hex(), (new + bytes(rng.randrange(3) for _ in range(rng.choice((0, 3))))).hex()]}
+               "runs": [old.hex(), (new + bytes(rng.randrange(3) for _ in range(rng.choice((0, 3))))).hex()],
+               "boxes": [[[f() for _ in range(12)] for _ in range(rng.randint(0, 6))], f()]}
 
 
 def _dress_answer(case: dict) -> list:
@@ -224,8 +229,9 @@ def _dress_answer(case: dict) -> list:
     import struct
 
     from azurkit.tools import characters
+    from azurkit.tools.characters import _player_crossfade as fade
     from azurkit.tools.characters import retarget as rt
-    from azurkit.tools.characters.characters import BoneRecord
+    from azurkit.tools.characters.characters import BoneRecord, _boxes
 
     def bits(x):
         if isinstance(x, (list, tuple)) or type(x).__name__ == "array":
@@ -244,24 +250,29 @@ def _dress_answer(case: dict) -> list:
     rows = [[t, *v] for t, *v in rt._linear_rows(keyed(lin), tuple(rest), m, ts)]
     rows += [[t, *v] for t, *v in rt._chain_rows(list(bones[:len(chain)]), [keyed(x) for x in chain], tuple(a),
                                                  tuple(c), cts, length)]
+    pose = fade.sample(rig, clip, case["times"])
     return [bits(rt.origins_at(rig, clip, case["times"])), bits(rt.pose(rig, clip, case["times"][0])), bits(rows),
-            characters._runs(*map(bytes.fromhex, case["runs"]))]
+            characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
+            bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist())]
 
 
 def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     """retarget's pose and origins, bake_clip's linear and sampled rows and
-    the character layer's byte runs (``native/dress.c``) equal their twins
+    the damage boxes, the crossfade's sample and heights and the
+    character layer's byte runs (``native/dress.c``) equal their twins
     over seeded random inputs, every NaN a NaN (its sign and payload aren't
     held: the compiler may order an operation's two NaN inputs either way)."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
-    for name in ("origins", "linear", "chain", "runs"):   # each case's every call answered by the library
+    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "runs"):   # every call the library's
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
     got = [_dress_answer(case) for case in cases]
-    assert ran == {"origins": 800, "linear": 400, "chain": 400, "runs": 400}
+    assert ran == {"origins": 800, "linear": 400, "chain": 400, "boxes": 400, "sample": 400, "heights": 400,
+                   "runs": 400}
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
-    assert got == [_dress_answer(case) for case in cases]
+    with numpy.errstate(all="ignore"):   # the twins' numpy on infinities
+        assert got == [_dress_answer(case) for case in cases]
 
 
 def test_azurkit_native_0_runs_the_twin(monkeypatch):

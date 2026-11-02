@@ -18,8 +18,12 @@ own x2's placed h1-h8 at rms 0.08 m and kingkong own x2's at 0.003 m
 
 from __future__ import annotations
 
+from array import array
+
 import numpy as np
 
+from azurkit.core import native
+from azurkit.tools.characters import retarget
 from azurkit.tools.characters.retarget import FLT_MAX, Clip, Rig
 
 FADE_TICKS = 7.5
@@ -75,7 +79,9 @@ def sample(rig: Rig, clip: Clip | None, ts) -> Pose:
     the unkeyed components the bones' rest values, each rotation
     :func:`canon`'s (the layer's as the blend reads it)."""
     ts = np.atleast_1d(np.asarray(ts, dtype=float))
-    keyed = {(tr.target, tr.comp): tr.keys for tr in clip.bones} if clip is not None else {}
+    if (got := _sampled(rig, clip, ts)) is not None:
+        return got
+    keyed = {(tr.target, tr.comp): tr.keys for tr in clip.bones} if clip is not None else {}   # the twin
     q = np.empty((len(rig.bones), len(ts), 4))
     t = np.empty((len(rig.bones), len(ts), 3))
     for k, bone in enumerate(rig.bones):
@@ -86,6 +92,44 @@ def sample(rig: Rig, clip: Clip | None, ts) -> Pose:
             keys = keyed.get((k, c))
             t[k, :, c] = _curve(keys, ts) if keys else bone.t[c]
     return canon(q), t
+
+
+_BIND = (array("q"), array("d"))   # no clip: every component its rest value
+
+
+def _curves(clip: Clip) -> tuple[array, array] | None:
+    """(14 ids a bone: its 7 components' key offset and count, 0 the rest
+    value; the keys) of :func:`sample`'s ``clip``, or None (the twin's):
+    a key not 4 floats or key times not finite and in order."""
+    keyed = {(tr.target, tr.comp): tr.keys for tr in clip.bones}
+    flat, at = [], {}
+    for (target, comp), keys in keyed.items():
+        if type(target) is not int or type(comp) is not int:
+            return None
+        if not (0 <= target < retarget._TARGETS and 0 <= comp <= 6 and keys):
+            continue
+        if not (all(retarget._floats(key, 4) and np.isfinite(key[0]) for key in keys)
+                and all(a[0] <= b[0] for a, b in zip(keys, keys[1:]))):
+            return None
+        at[target, comp] = (len(flat) // 4, len(keys))
+        for key in keys:
+            flat += key
+    index = array("q", bytes(8 * 14 * (max((t for t, _ in at), default=-1) + 1)))
+    for (t, c), (offset, count) in at.items():
+        index[14 * t + 2 * c:14 * t + 2 * c + 2] = array("q", (offset, count))
+    return index, array("d", flat)
+
+
+def _sampled(rig: Rig, clip: Clip | None, ts: np.ndarray) -> Pose | None:
+    """:func:`sample` by the compiled kernel (``core.native.sample``), or
+    None where its twin answers."""
+    r = retarget._packed(rig, retarget._rig_packing)
+    c = _BIND if clip is None else retarget._packed(clip, _curves)
+    if r is None or c is None or ts.ndim != 1 or not np.isfinite(ts).all():
+        return None
+    ts = np.ascontiguousarray(ts)
+    q, t = np.empty((len(rig.bones), len(ts), 4)), np.empty((len(rig.bones), len(ts), 3))
+    return (q, t) if native.sample(r[1], *c, ts.ctypes.data, len(ts), q.ctypes.data, t.ctypes.data) else None
 
 
 def blend(old: Pose, new: Pose, weight: float) -> Pose:
@@ -114,7 +158,13 @@ def _heights(rig: Rig, pose: Pose, points=None, skip=frozenset()) -> np.ndarray:
     or with ``points`` (a one-bone rig's mesh, model space at the bind)
     each mesh vertex through the bone's pose (as ``hang_top`` reads it)."""
     q, t = pose
-    n = np.linalg.norm(q, axis=-1, keepdims=True)
+    r = retarget._packed(rig, retarget._rig_packing) if points is None else None
+    nb, nt = len(rig.bones), q.shape[1] if q.ndim == 3 else -1
+    if (r is not None and q.shape == (nb, nt, 4) and t.shape == (nb, nt, 3) and q.dtype == t.dtype == np.float64):
+        q, t, z = np.ascontiguousarray(q), np.ascontiguousarray(t), np.empty((nb, nt))
+        if native.heights(*r, q.ctypes.data, t.ctypes.data, nt, z.ctypes.data):   # the compiled kernel's
+            return np.stack([a for k, a in enumerate(z) if k not in skip])
+    n = np.linalg.norm(q, axis=-1, keepdims=True)   # the twin (core.native)
     q = q / np.where(n > 0, n, 1.0)
     world, at = [], []
     for k, bone in enumerate(rig.bones):

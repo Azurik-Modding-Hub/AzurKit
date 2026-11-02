@@ -34,8 +34,10 @@ from __future__ import annotations
 
 import math
 import struct
+from array import array
 from dataclasses import dataclass
 
+from azurkit.core import native
 from azurkit.core.xbr.nodes import named_resources, parse_toc
 
 DAMAGE_MARKERS = ("m_damage", "m_damage2")
@@ -646,6 +648,16 @@ def _box(values, scale: float) -> tuple[list[float], list[float]]:
     return low, high
 
 
+def _boxes(samples, scale: float) -> list[tuple[list[float], list[float]]]:
+    """:func:`_box` of each of ``samples`` (12 values each) at ``scale``:
+    the compiled kernel's (``core.native.boxes``), else its twin's."""
+    flat = [v for values in samples for v in values]
+    if (type(scale) is float and len(flat) == 12 * len(samples) and all(type(v) is float for v in flat)
+            and (out := native.boxes(array("d", flat), scale)) is not None):
+        return [(list(out[j:j + 3]), list(out[j + 3:j + 6])) for j in range(0, len(out), 6)]
+    return [_box(values, scale) for values in samples]
+
+
 _LAST: tuple[bytes | None, dict] = (None, {})   # the last bytes characters.xbr seen, and its results (_kept)
 
 
@@ -710,8 +722,9 @@ def damage_boxes(characters_xbr: bytes, body: str, clip: str,
     """Each box :func:`damage_windows` bounds: ``(marker, t, low, high)``
     every :data:`SAMPLE_STEP` seconds its marker is on, in metres from the
     feet at ``scale`` (Step 2.197b: per tick, AZ-766)."""
-    return tuple((name, t, *map(tuple, _box(values, scale)))
-                 for name, t, values in _damage_samples(characters_xbr, body, clip))
+    samples = _damage_samples(characters_xbr, body, clip)
+    return tuple((name, t, *map(tuple, box))
+                 for (name, t, _), box in zip(samples, _boxes([values for _, _, values in samples], scale)))
 
 
 def damage_windows(characters_xbr: bytes, body: str, clip: str,
@@ -739,8 +752,7 @@ def _windows(characters_xbr: bytes, body: str, clip: str, scale: float) -> tuple
     for name, mine in runs.items():
         for on, off, samples in mine:
             low, high, closest = [math.inf] * 3, [-math.inf] * 3, math.inf
-            for values in samples:
-                a, b = _box(values, scale)
+            for a, b in _boxes(samples, scale):
                 low = [min(x, y) for x, y in zip(low, a)]
                 high = [max(x, y) for x, y in zip(high, b)]
                 closest = min(closest, near(a, b))
@@ -767,10 +779,8 @@ def first_contact(characters_xbr: bytes, body: str, clip: str, scale: float, ahe
     sides and top kept; ``None`` when it never does."""
     centre = ahead + radius
     met = []
-    for _, t, values in _damage_samples(characters_xbr, body, clip):
-        if not span[0] <= t <= span[1]:
-            continue
-        a, b = _box(values, scale)
+    inside = [(t, values) for _, t, values in _damage_samples(characters_xbr, body, clip) if span[0] <= t <= span[1]]
+    for (t, _), (a, b) in zip(inside, _boxes([values for _, values in inside], scale)):
         mid, half = (a[2] + b[2]) / 2, (b[2] - a[2]) / 2 * reach
         x0, x1, y0, y1 = a[0] * reach, b[0] * reach, a[1] * reach, b[1] * reach
         low, top = mid - half, mid + half

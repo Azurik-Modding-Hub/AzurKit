@@ -43,7 +43,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("win32", "x86_64"): "windows-x86_64.dll",
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
-KERNELS = ("reach", "origins", "linear", "chain", "runs")
+KERNELS = ("reach", "origins", "linear", "chain", "boxes", "sample", "heights", "runs")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -94,6 +94,9 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
         for fn, args in (("az_origins", [vp, vp, i64, vp, i64, vp, vp, i64, vp, vp]),
                          ("az_linear", [vp, vp, vp, vp, vp, i64, vp]),
                          ("az_chain", [vp, vp, vp, i64, vp, vp, vp, i64, f64, f64, vp]),
+                         ("az_boxes", [vp, i64, f64, vp]),
+                         ("az_sample", [vp, i64, vp, i64, vp, vp, i64, vp, vp]),
+                         ("az_heights", [vp, vp, i64, vp, vp, i64, vp, vp]),
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
@@ -685,6 +688,40 @@ def chain(link: array, index: array, keys: array, a: array, c: array, times: arr
     lib.az_chain(_at(link), _at(index), _at(keys), len(link) // 12, _at(a), _at(c), _at(times), len(times),
                  length, h, _at(rows))
     return rows
+
+
+def boxes(values: array, scale: float) -> array | None:
+    """``characters._box`` of each 12 of ``values`` (a damage marker's)
+    at ``scale``: its low and high corners' bounds (6 doubles a box)."""
+    if (lib := library()) is None:
+        return None
+    out = array("d", bytes(4 * len(values)))
+    lib.az_boxes(_at(values), len(values) // 12, scale, _at(out))
+    return out
+
+
+def sample(bone: array, index: array, keys: array, times: int, nt: int, q: int, t: int) -> bool:
+    """``_player_crossfade.sample`` of a rig's ``bone`` values (as
+    :func:`origins`') and a clip's ``index`` and ``keys`` (0 keys: the
+    rest value; key times finite and in order) at the ``nt`` doubles at
+    ``times``, into ``q`` (bones x nt x 4, canon's) and ``t`` (x 3): the
+    numpy buffers' addresses, the caller's to keep; False without the
+    library."""
+    if (lib := library()) is None:
+        return False
+    lib.az_sample(_at(bone), len(bone) // 15, _at(index), len(index) // 14, _at(keys), times, nt, q, t)
+    return True
+
+
+def heights(parent: array, bone: array, q: int, t: int, nt: int, out: int) -> bool:
+    """``_player_crossfade._heights`` (no points) of a pose's ``q`` and
+    ``t`` (bones x ``nt`` x 4 and x 3, addresses) into ``out`` (bones x
+    ``nt``); False without the library."""
+    if (lib := library()) is None:
+        return False
+    scratch = array("d", bytes(56 * len(parent)))
+    lib.az_heights(_at(parent), _at(bone), len(parent), q, t, nt, out, _at(scratch))
+    return True
 
 
 def runs(old: bytes, new: bytes) -> list[tuple[int, int]] | None:

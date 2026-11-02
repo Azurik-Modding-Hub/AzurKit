@@ -926,8 +926,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   by the side module from the wheel, in the site's worker. The second is
   the dress's (`native/dress.c`, Step 4.3r4d4): `retarget`'s engine
   model (`pose`, `origins`, `origins_at` over many times),
-  `bake_clip`'s rows (`_linear_rows`, `_chain_rows`) and the character
-  layer's byte runs (`characters._runs`), each twin the function it
+  `bake_clip`'s rows (`_linear_rows`, `_chain_rows`), the damage boxes
+  (`characters._boxes`), the crossfade's `sample` and `_heights` and the
+  character layer's byte runs (`characters._runs`), each twin the function it
   speeds, beside it, and a value it can't take (a key or bone not
   floats, a time not finite) the twin's; every NaN is a NaN there, its
   sign and payload not held (a compiler may take an operation's two NaN

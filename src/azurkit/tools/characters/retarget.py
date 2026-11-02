@@ -362,16 +362,17 @@ def _origins(rig: Rig, clip: Clip, t: float) -> list[tuple[float, float, float]]
     return out
 
 
-_PACKED: dict[int, tuple] = {}   # id(a rig or clip) -> (a weak reference to it, its packing for the kernels)
+_PACKED: dict[tuple, tuple] = {}   # (id(a rig or clip), its packer) -> (a weak reference to it, its packing)
 _TARGETS = 1024                  # the bones a clip's packing indexes (a rig past it: the twins)
 
 
 def _packed(obj, make):
     """``make(obj)``, once while ``obj`` lives (kept by its id, never
     hashed: a clip's hash walks every key)."""
-    got = _PACKED.get(id(obj))
+    key = (id(obj), make)
+    got = _PACKED.get(key)
     if got is None or got[0]() is not obj:
-        got = _PACKED[id(obj)] = (weakref.ref(obj, lambda _, k=id(obj): _PACKED.pop(k, None)), make(obj))
+        got = _PACKED[key] = (weakref.ref(obj, lambda _, k=key: _PACKED.pop(k, None)), make(obj))
     return got[1]
 
 
