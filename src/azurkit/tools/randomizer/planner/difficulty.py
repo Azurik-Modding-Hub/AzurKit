@@ -484,7 +484,11 @@ def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rat
     tier = rung(settings, rating, skips).movement_tier
     below = rung_logic(logic, settings, tier)
 
+    told, whole = [0], len(made.rounds) * (len(hi) + 1)    # a round's picks and its one try without them or the tier
+
     def reached(st: Settings, got: frozenset[str], at: Logic = logic) -> Reach:
+        told[0] = min(told[0] + 1, whole)
+        _OPENED[0] = f"reading what opens each step, {told[0]} of {whole}"
         progress.note(_OPENED[0])
         return at.reach(st, placement, collected=got, traps=False, replay=True)
 
@@ -495,8 +499,7 @@ def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rat
         return f"{pid} ({RATING_NAMES[_rated(on[pid], skips)]})"
 
     out = []
-    for i, (got, gain) in enumerate(made.rounds, 1):
-        _OPENED[0] = f"reading what opens each step, {i} of {len(made.rounds)}"
+    for got, gain in made.rounds:
         lost = [p for p in hi if gain - reached(without((p,)), got).locations]
         if lost:
             out.append({"picks": [named(p) for p in lost], "one_of": False})
