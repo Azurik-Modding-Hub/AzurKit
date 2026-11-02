@@ -3058,14 +3058,6 @@ WORKERS_ROWS = """
         f.say({ type: "reply", reply: {} });
         await preview;
     }
-    {   // an ask alone drops an idle B first: its peak has the one heap beside it
-        const { pool, stubs, f, b } = make();
-        const reshape = pool.ask(build("r"), { heavy: true, alone: true });
-        const dropped = [b.stopped, stubs.length, pool.state().retired];
-        f.say({ type: "built", report: {}, heap: KEEP + 1 });
-        await reshape;
-        out.alone = [dropped, stubs.length, stubs[2].role];
-    }
     {   // a kept answer nothing can take any more is heard, so its file goes
         const gone = [];
         const { pool, b } = make({ free: (messages) => gone.push(messages.at(-1).report) });
@@ -3214,7 +3206,6 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "oneHeapF": [False, [["build", "build g"], []], {"view": 5}, {"size": 6}, 0, 1],
         "oneHeapB": [False, False, [["build g", "build h"], []], {"size": 7}, 1, ["build g"]],
         "waits": [[], 9, ["preview"]],
-        "alone": [[True, 2, 1], 3, "b"],
         "free": [{"size": 8}],
         "csp": [{"view": 9}, ["csp"]],
         "heavy": [["build x"], ["build y"], [True, 2], False, ["build x"], 1],

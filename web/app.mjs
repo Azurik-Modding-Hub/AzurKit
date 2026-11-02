@@ -130,7 +130,7 @@ function ahead() {
 // Tracker view open), and, once the picked image is read, Build's build of the page's recipe; each change lists them
 // anew, so what no longer matches stops at once (B's job by terminate()) and B starts on the rest once the page holds
 // still. A reshaped character isn't built ahead: minutes, and a heap past KEEP terminated by the next slider's change
-// would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap, alone. A body's build asks with
+// would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap. A body's build asks with
 // the tab's choice before the engine's answer to it, which only reads it out (the key is the choice's, on both sides).
 const reshaped = (character) => Boolean(character?.shapes && Object.keys(character.shapes).length);
 function aheadOnSite(begin = false) {
@@ -403,8 +403,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       };
       pool.hold(0);   // the last build is gone (forget())
       pool.ask({ type: "build", file, packs, xbr, randomizer, character, ...extra },
-               { key: buildKey(file, packs, xbr, randomizer, choice, extra), heavy: true, alone: reshaped(character),
-                 progress, answer: shown }).then((data) => {
+               { key: buildKey(file, packs, xbr, randomizer, choice, extra), heavy: true, progress,
+                 answer: shown }).then((data) => {
         unchecked();
         if (data.type === "spoiled") give?.(plain(data));
         else if (data.type === "built" || data.type === "refused") shown(data);

@@ -10,8 +10,8 @@
 // worker a job grew stays and runs the next heavy job, a click's or one ahead (the two swap places for it: oneHeap());
 // only one whose heap reaches GROWN after a job (or reports none after a heavy one) is replaced. When F
 // must go (GROWN, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time, and B's
-// work ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead; an ask
-// marked alone drops an idle B too, so its peak has the one heap beside it. B starts no
+// work ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead (an idle
+// B stays: terminated, its pages would stay resident in WebKit and its next load add its own, r1). B starts no
 // job, and isn't kept, while the page's tally (both heaps, B's kept answers and the bytes the page holds) reaches
 // TALLY, and a new B loads only while the last B's heap when it loaded fits under the line too (or each B would cross
 // it, be retired and load again), nor on a computer with fewer than CORES cores. A worker's priority has no web API:
@@ -273,7 +273,6 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     if (f?.loaded && !f.job && queue.length && !(queue[0].heavy && b?.job?.adopted && b.job.heavy)) {   // one at a time
       const job = queue.shift();
       if (job.heavy && b?.job?.ahead && !b.job.adopted) dropB();   // none beside F's build: B's job ahead goes
-      else if (job.alone && b && !b.job) dropB("retired");
       run(f, job);
     }
     // A small ask while F builds, or an aside one (it reads no image) while F runs anything: B answers it.
@@ -300,8 +299,8 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
 
   const pool = {
     // An ask of the page's. With a key: B's finished job of that key answers it at once, a running one is followed.
-    ask: (message, { key = null, heavy = false, anywhere = false, aside = false, once = false, alone = false,
-                     progress = null, answer = null, transfer = null, ends: end = last } = {}) => new Promise((resolve) => {
+    ask: (message, { key = null, heavy = false, anywhere = false, aside = false, once = false, progress = null,
+                     answer = null, transfer = null, ends: end = last } = {}) => new Promise((resolve) => {
       if (dead) return resolve(dead);
       if (key !== null) {
         const done = kept.get(key);
@@ -323,7 +322,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
         }
         taken.add(key);
       }
-      queue.push({ message, key, heavy, anywhere, aside, once, alone, progress, answer, transfer, ends: end, resolve,
+      queue.push({ message, key, heavy, anywhere, aside, once, progress, answer, transfer, ends: end, resolve,
                    ahead: false, adopted: false, messages: [], record: null, tries: 0 });
       pump();
     }),
