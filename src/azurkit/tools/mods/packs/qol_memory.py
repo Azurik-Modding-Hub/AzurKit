@@ -111,6 +111,7 @@ UPPER64_GPU_PACK = Pack(
            *MASKS),
     default_on=True,
     requires=("qol_memory_upper64",),   # its runs are placed in upper64's heap
+    requires_why="places its textures and meshes in the memory qol_memory_upper64 opens",
 )
 
 UPPER256_PACK = Pack(
@@ -119,4 +120,5 @@ UPPER256_PACK = Pack(
     sites=(TrampolinePatch(label="Upper 256 MiB: T3's probe on the run allocator's mode-1 path", va=0x000A48D7,
                            shim="qol_memory_upper256", symbol="_c_upper256_probe"),),
     requires=("qol_memory_upper64", "qol_memory_upper64_gpu"),
+    requires_why="extends the memory qol_memory_upper64 and qol_memory_upper64_gpu use",
 )

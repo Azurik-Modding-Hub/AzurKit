@@ -106,12 +106,13 @@ RAMS = (64, 128, 256)
 ``--ram``): 64 MiB, a retail Xbox's, 128 MiB (xemu at ``mem_limit``
 128, :data:`DEFAULT_RAM`), where :data:`UPPER_PACKS` put the load runs
 above 64 MiB, or 256 MiB (Step 2.162l, D600: xemu v0.16.2 or later at
-``mem_limit`` 256, xemu only: ``docs/XEMU_ONLY.md`` X14), whose build adds :data:`UPPER256_PACK`
-(:func:`ram_packs`).  At 64 and 128 the bytes built are the same and
+``mem_limit`` 256, xemu only: ``docs/XEMU_ONLY.md`` X14), whose build holds :data:`UPPER256_PACK`.
+At 64 and 128 the bytes built are the same and
 only the own runs' lines differ."""
 DEFAULT_RAM = 128
-"""The machine a build and its measures are for unless ``--ram 64`` says
-otherwise (the owner's D588, Step 2.162k: "Default to 128 MiB", with both
+"""The machine a body's measures are for unless told otherwise; a build with
+no ``ram`` takes the largest its packs make room for (:func:`lines_ram`;
+128 at the default packs, the owner's D588, Step 2.162k: "Default to 128 MiB", with both
 :data:`UPPER_PACKS` on by default).  A body past the 64 MiB lines then
 builds and plays right only at 128 MiB: on a 64 MiB Xbox it loses
 pieces and textures, and a larger one hangs loading (xemu at 64)."""
@@ -249,12 +250,6 @@ def default_budget() -> int:
     return round(site.default * MiB) if pack.default_on else BUDGET
 
 
-def ram_packs(ram: int) -> tuple[str, ...]:
-    """The packs a build for a ``ram`` MiB machine turns on beside the
-    default ones: :data:`UPPER256_PACK` at 256, else none."""
-    return (UPPER256_PACK,) if ram == 256 else ()
-
-
 def lines_for(budget: int, ram: int) -> tuple[int, int]:
     """(error, warning): the player's own-runs lines, in bytes, under a load
     budget of ``budget`` bytes (Step 2.162b, D515): :data:`OWN_ERROR` and
@@ -269,7 +264,7 @@ def lines_for(budget: int, ram: int) -> tuple[int, int]:
     too): :data:`OWN_ERROR_256` and :data:`OWN_WARNING_256`, moved as the
     128 MiB lines: 127 and 48 MiB at 42 or more."""
     if ram not in RAMS:
-        raise ValueError(f"--ram {ram}: not one of {', '.join(map(str, RAMS))} (MiB)")
+        raise ValueError(f"ram {ram}: not one of {', '.join(map(str, RAMS))} (MiB)")
     if ram >= 128:
         room = min(budget, ROOM) - ROOM
         error, warning = (OWN_ERROR_256, OWN_WARNING_256) if ram == 256 else (OWN_ERROR_128, OWN_WARNING_128)
@@ -298,11 +293,13 @@ def upper_of(xbe: bytes, names=UPPER_PACKS) -> bool:
                for name in names for hook in get_pack(name).trampoline_sites())
 
 
-def lines_ram(xbe: bytes, ram: int) -> int:
-    """The machine whose lines a build for ``ram`` MiB takes, by what its
-    ``default.xbe`` ``xbe`` carries: 256 with :data:`UPPER256_PACK` and both
-    :data:`UPPER_PACKS`, 128 (at ``ram`` 128 or 256) with both
-    :data:`UPPER_PACKS`, else 64."""
+def lines_ram(xbe: bytes, ram: int | None = None) -> int:
+    """The machine whose lines a build for ``ram`` MiB (``None``: the largest,
+    so a tick of :data:`UPPER256_PACK` raises the lines; the bytes are the
+    same) takes, by what its ``default.xbe`` ``xbe`` carries: 256 with
+    :data:`UPPER256_PACK` and both :data:`UPPER_PACKS`, 128 (at ``ram`` 128 or
+    256) with both :data:`UPPER_PACKS`, else 64."""
+    ram = RAMS[-1] if ram is None else ram
     if ram >= 128 and upper_of(xbe):
         return 256 if ram == 256 and upper_of(xbe, (UPPER256_PACK,)) else 128
     return 64
@@ -620,13 +617,13 @@ def lines(report: dict) -> list[str]:
             out.append(f"past the {mid / MiB:g} MiB (one run {run_line_for(budget) / MiB:.2f}) a 128 MiB machine "
                        "takes: this body plays right only on a 256 MiB one (xemu v0.16.2 or later at mem_limit 256); "
                        "at 128 MiB it loses loads or never finishes loading, and on a 64 MiB Xbox it loses pieces "
-                       "and textures or hangs loading (--ram 128 refuses it)")
+                       f"and textures or hangs loading (without {UPPER256_PACK} a build refuses it)")
         elif ram >= 128 and game and game["value"] > (low := lines_for(budget, 64)[0]):
             on = "128 or 256 MiB one (xemu at mem_limit 128 or 256)" if ram == 256 else \
                 "128 MiB one (xemu at mem_limit 128)"
             out.append(f"past the {low / MiB:g} MiB a 64 MiB machine takes: this body plays right only on a {on}; "
                        "on a 64 MiB Xbox it loses pieces and textures, and a larger one hangs loading (xemu at 64; "
-                       "--ram 64 refuses it)")
+                       f"without {' and '.join(UPPER_PACKS)} a build refuses it)")
     if report.get("worn_by"):
         out.append(f"worn by {', '.join(report['worn_by'])}: an NPC's body counts in the levels that place it")
     for w in report.get("wearers", []):
@@ -652,10 +649,10 @@ def lines(report: dict) -> list[str]:
     up = next((r for r in RAMS if r > ram and own["bytes"] + report.get("bake", 0) <= lines_for(budget, r)[0]
                and own["largest"] <= run_line_for(budget, r)), None)   # the smallest machine that takes the body
     up_hint = ("" if up is None else
-               f"; {lines_for(budget, 128)[0] / MiB:g} MiB for a 128 MiB machine (--ram 128, {UPPER_PACKS[1]} on)"
+               f"; {lines_for(budget, 128)[0] / MiB:g} MiB for a 128 MiB machine (tick {UPPER_PACKS[0]} and {UPPER_PACKS[1]})"
                if up == 128 else
                f"; {lines_for(budget, 256)[0] / MiB:g} MiB, one run {run_line_for(budget, 256) / MiB:.2f}, for a "
-               f"256 MiB machine (--ram 256, {UPPER256_PACK} on; xemu v0.16.2 or later at mem_limit 256)")
+               f"256 MiB machine (tick {UPPER256_PACK}; xemu v0.16.2 or later at mem_limit 256)")
     machine = (f"a 256 MiB machine with {UPPER256_PACK}" if ram == 256 else
                f"a 128 MiB machine with {UPPER_PACKS[0]} and {UPPER_PACKS[1]}")
     for b in flagged:
@@ -694,4 +691,4 @@ __all__ = ["BAKE_MAX", "BUDGET", "DEFAULT_RAM", "EDGES", "EDGES_128", "EDGES_256
            "RUN_ERROR_128",
            "RUN_ERROR_256", "UPPER256_PACK", "UPPER_PACKS", "VANILLA_MAX", "budget_of", "default_budget", "inspect",
            "lines", "lines_for", "lines_ram", "lod_line", "lod_runs", "own_runs", "own_words", "placed_species",
-           "ram_packs", "run_line_for", "upper_of"]
+           "run_line_for", "upper_of"]

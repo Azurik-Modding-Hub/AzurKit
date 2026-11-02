@@ -96,7 +96,8 @@ A UI's tabs (each id and title, those whose area works, D902), the
 packs' categories (each id, title and line, in the order a UI groups
 them) and every pack: its name, what it does, its category, whether a
 build starts with it (D528), the releases it supports, the packs it
-requires in the same build and its sliders, in the canonical order. A
+requires in the same build (``requires_why``: why, finishing a sentence
+that starts with its name) and its sliders, in the canonical order. A
 slider: its name, label, default, track (``min``, ``max`` and
 ``step``, display hints only), unit, description, vanilla value
 (``None`` where the image's XBE holds it), ``whole`` (the range of
@@ -243,8 +244,10 @@ A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
 text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
 normalized, and ``randomizer`` (the seed and share string a randomized
 build's plan replays from); ``packs`` only when it has a packs layer (a
-build's packs are then its packs, and no others), ``community`` its
-community packs' pins (a build resolves them). Every refusal named.
+build's packs are then its packs, with those they require, and no
+others), ``settled`` only when that added one (its lines, for a host to
+say), ``community`` its community packs' pins (a build resolves them).
+Every refusal named.
 
 
 def preset_encode(recipe: 'Mapping', report: 'Mapping | None' = None) -> 'str':

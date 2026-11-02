@@ -667,6 +667,17 @@ def test_a_packs_settings_lock_until_it_is_ticked_and_its_l3_toggles_sit_in_thei
         _page.click(page, "share")   # what the page would build: only the ticked packs, the toggles as 1
         assert _page.until(page, "() => azurkit.link").endswith(sdk.preset_encode(
             {"packs": {"player_physics": {"jump_speed_scale": 1.5, "toggle_jump_speed_scale": 1, "toggle_gravity": 1}}}))
+        moved = """(pack) => {
+            document.querySelector(`#packs input[data-pack="${pack}"]`).click();
+            return document.querySelector("#packs .moved:not(:empty)")?.textContent ?? null;
+        }"""
+        up64, up256 = "qol_memory_upper64", "qol_memory_upper256"   # a tick says what it moved, in mods.settle's words
+        on = list(_page.ticked(page))
+        assert page.evaluate(moved, up256) == " ".join(mods.settle(on, [up256])[1])
+        assert page.evaluate(moved, up64) == " ".join(mods.settle(on + [up64, "qol_memory_upper64_gpu", up256], (), [up64])[1])
+        assert page.evaluate(moved, "fps_unlock") is None
+        assert page.evaluate(f"""() => document.querySelector('#packs .pack[data-pack="{up256}"] .needs').textContent"""
+                             ) == " Needs qol_memory_upper64, qol_memory_upper64_gpu."
         _page.tick(page, ["fps_unlock"])
         assert [_locks(page)[name] for name in ("player_physics", "fps_unlock")] == [[False, "locked"], [True, "open"]]
         assert page.evaluate("""() => [...document.querySelectorAll('#packs .pack[data-pack="player_physics"] input[data-slider]')]

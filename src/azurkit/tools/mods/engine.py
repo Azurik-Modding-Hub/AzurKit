@@ -337,6 +337,7 @@ class Pack:
     category: str = "qol"
     releases: tuple[str, ...] = ("usa", "europe")
     requires: tuple[str, ...] = ()                      # the packs a build must apply with it (mods.missing)
+    requires_why: str = ""                              # why, finishing "<pack> ...": a moved box's line (mods.settle)
     inputs: tuple[str, ...] = ()                        # what a build, never a recipe, hands custom_apply (plan)
 
     def __post_init__(self) -> None:

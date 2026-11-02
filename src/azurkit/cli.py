@@ -17,11 +17,11 @@ turns its flags into the sdk's JSON and prints what comes back.
                                           Azurik-Custom-Content's entries, and Install or Update one
     azurkit content check DIR [--write]   a content repository's manifest and files (--write fills in their sha256)
 
-``build`` applies the packs on by default (D528) and each ``--pack``, less
-each ``--no-pack`` and each pack on by default that requires one left out
-(D588: ``--no-pack qol_memory_upper64`` leaves out ``qol_memory_upper64_gpu``
-too); ``--no-defaults`` starts from none (no packs at all is the identity
-build). ``--mods FILE`` (Q268: a preset, an AzurKit build's manifest or a
+``build`` applies the packs on by default (D528) and each ``--pack`` with
+those it requires, less each ``--no-pack`` and those that require it (D588:
+``--no-pack qol_memory_upper64`` leaves out ``qol_memory_upper64_gpu`` too),
+printing a line for each it moved (``mods.settle``); ``--no-defaults`` starts
+from none (no packs at all is the identity build). ``--mods FILE`` (Q268: a preset, an AzurKit build's manifest or a
 share link; what ``open`` prints) adds its xbr operations, and when it has
 a packs layer the build starts from its packs in place of those on by
 default. ``--pack-param`` sets a slider of a pack it applies, to
@@ -66,6 +66,7 @@ from pathlib import Path
 from azurkit import __version__, sdk
 from azurkit.core import gate
 from azurkit.edits import files as replaced
+from azurkit.tools.mods import settle
 
 
 def _verify(args: argparse.Namespace) -> int:
@@ -102,9 +103,10 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
     ``sdk.read_mods``, its character too) when given, with ``randomizer``
     (the randomizer's flags, in place of the mods file's) and each of
     ``community`` (ids, after the mods file's); ``ValueError`` names a pack no pack
-    has, one both added and taken away (no flag cancels another), and a
-    ``--pack-param`` that isn't ``PACK.SLIDER=NUMBER`` of a pack the build
-    applies (the sdk names a slider or value it refuses)."""
+    has, one both added and taken away (no flag cancels another), one added
+    that needs one taken away, and a ``--pack-param`` that isn't
+    ``PACK.SLIDER=NUMBER`` of a pack the build applies (the sdk names a slider
+    or value it refuses). Prints what the flags and the mods file moved."""
     catalog = {p["name"]: p for p in sdk.catalog()["packs"]}
     if unknown := sorted({*packs, *no_packs} - catalog.keys()):
         raise ValueError(f"no pack {', '.join(map(repr, unknown))} (the packs: {', '.join(catalog)})")
@@ -112,9 +114,9 @@ def recipe(iso: str, packs: list[str], no_packs: list[str], defaults: bool, para
         raise ValueError(f"packs both added and taken away: {', '.join(both)}")
     given = (mods or {}).get("packs")
     start = set(given) if given is not None else {name for name, p in catalog.items() if defaults and p["default_on"]}
-    chosen = (start | set(packs)) - set(no_packs)
-    while gone := {name for name in chosen - set(packs) if not set(catalog[name]["requires"]) <= chosen}:
-        chosen -= gone   # a default pack goes with one it requires (D588); a named one the sdk refuses
+    chosen, moved = settle(start, packs, no_packs)
+    for line in [*(mods or {}).get("settled", ()), *moved]:
+        print(line)
     built = {name: dict((given or {}).get(name, {})) for name in catalog if name in chosen}
     for given in params:
         target, _, value = given.partition("=")

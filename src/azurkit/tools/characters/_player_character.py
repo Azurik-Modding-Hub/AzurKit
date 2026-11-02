@@ -8455,7 +8455,6 @@ def _his_tail(game, recipe: _Recipe, who: str, engine, added: list) -> tuple[lis
     in place (his rows recoloured, no copy and no X47: only he wears his
     body, Step 2.170c) and the load budget.  Returns W38's words and the
     LOD and budget lines."""
-    from azurkit.tools.characters.model_inspect import DEFAULT_RAM
     from azurkit.tools.characters import _player_variants as variants
 
     variant = recipe.variant
@@ -8487,8 +8486,7 @@ def _his_tail(game, recipe: _Recipe, who: str, engine, added: list) -> tuple[lis
         except ValueError as exc:
             raise ValueError(f"{who}: {exc}") from None
         game["characters.xbr"] = bytearray(grown)
-    budget = _load_budget(game, PLAYER, variant.name, bool(added), DEFAULT_RAM if recipe.ram is None else recipe.ram,
-                          shadow_bytes, lods_bytes)
+    budget = _load_budget(game, PLAYER, variant.name, bool(added), recipe.ram, shadow_bytes, lods_bytes)
     words = ([f"his colours in his own body's rows, in place (W38, no copy: only he wears it): "
               f"{'; '.join(coloured) or 'none'}"] if variant.colours else [])
     return words, [*laid, *shadowed, *budget]
@@ -9682,8 +9680,8 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     the style's clips, W32's prop mesh, W33 and X3's rows grown to the
     prop's tip.  ``ram`` (``--ram``, Step 2.162i, D576) is the machine's
     MiB the build is for, 64, 128 or 256 (:data:`~azurik_mod.assets.model_inspect.RAMS`;
-    ``None``, :data:`~azurik_mod.assets.model_inspect.DEFAULT_RAM`, 128
-    since D588): the own runs' size lines it is weighed against
+    ``None``, the largest the build's packs make room for): the own runs'
+    size lines it is weighed against
     (:func:`_load_budget`).  ``chain`` (Step 4.3, D1045;
     :data:`~azurkit.tools.characters.CHAINS`): "hit", the combo's next
     attack only onto the target the last one stunned (rows 28-31's gate
@@ -9702,11 +9700,10 @@ def apply_player_model(game, species: str, *, mode: str = DEFAULT_MODE, size: st
     the species can't be used, an unknown or retired mode
     (:data:`RETIRED_MODES`) or size or a slider that isn't finite, a
     recipe the body can't build, and the build writes no ISO (D35)."""
-    from azurkit.tools.characters.model_inspect import DEFAULT_RAM, RAMS
+    from azurkit.tools.characters.model_inspect import RAMS
 
-    ram = DEFAULT_RAM if ram is None else ram
-    if ram not in RAMS:
-        raise ValueError(f"--ram {ram!r}: not one of {', '.join(map(str, RAMS))} (MiB)")
+    if ram is not None and ram not in RAMS:
+        raise ValueError(f"character: ram {ram!r}: not one of {', '.join(map(str, RAMS))} (MiB)")
     model_scale = finite_slider_value("--player-character-scale", model_scale)
     attack_reach = finite_slider_value("--player-attack-reach", attack_reach)
     attack_damage = finite_slider_value("--player-attack-damage", attack_damage)
@@ -11228,7 +11225,7 @@ def copy_alone(game, body: str) -> bool:
     return not {w.species.casefold() for w in wearers(game.stored("config.xbr"), body)} & placed_species(iso)
 
 
-def _load_budget(game, body: str, who: str, sounds: bool, ram: int, shadow: int = 0, screen: int = 0,
+def _load_budget(game, body: str, who: str, sounds: bool, ram: int | None, shadow: int = 0, screen: int = 0,
                  alone: bool = False) -> list[str]:
     """The player's own load runs in the built files against the game's
     load budget (Step 2.158, D491; Step 2.158b, D509;
@@ -11240,13 +11237,13 @@ def _load_budget(game, body: str, who: str, sounds: bool, ram: int, shadow: int 
     :func:`~azurik_mod.assets.model_inspect.lines_for` the budget the built
     default.xbe holds (Step 2.162b, D515: 40 MiB, or what
     ``qol_memory_budget`` wrote one layer before); a refusal that 42 MiB
-    would let through names the pack.  ``ram`` (``--ram``, Step 2.162i,
-    D576; 256, Step 2.162l, D600) takes the lines of the machine
+    would let through names the pack.  ``ram`` (Step 2.162i, D576; 256,
+    Step 2.162l, D600; ``None``, the largest) takes the lines of the machine
     :func:`~azurik_mod.assets.model_inspect.lines_ram` finds that
     default.xbe built for (128 with both ``model_inspect.UPPER_PACKS``, 256
     with ``model_inspect.UPPER256_PACK`` too, applied one layer before),
     else the next lower one's; a refusal a larger machine's lines would let
-    through names its ``--ram``.  With the 128 or 256 MiB lines, a body
+    through names the packs to tick.  With the 128 or 256 MiB lines, a body
     whose largest single run passes
     ``model_inspect.run_line_for`` is refused too, whatever its total, and
     one past a smaller machine's lines gets a log line saying where it
@@ -11272,9 +11269,9 @@ def _load_budget(game, body: str, who: str, sounds: bool, ram: int, shadow: int 
     up = next((r for r in mi.RAMS if r > tier and own["bytes"] <= mi.lines_for(budget, r)[0]
                and own["largest"] <= mi.run_line_for(budget, r)), None)
     hint_up = "" if up is None else (
-        f", or build for a 128 MiB machine: --ram 128 with {' and '.join(mi.UPPER_PACKS)} on (line "
+        f", or tick {' and '.join(mi.UPPER_PACKS)} for a 128 MiB machine (line "
         f"{mi.lines_for(budget, 128)[0] / mi.MiB:g} MiB)" if up == 128 else
-        f", or build for a 256 MiB machine: --ram 256 with {mi.UPPER256_PACK} on (line "
+        f", or tick {mi.UPPER256_PACK} for a 256 MiB machine (line "
         f"{mi.lines_for(budget, 256)[0] / mi.MiB:g} MiB, one run {mi.run_line_for(budget, 256) / mi.MiB:.2f}; xemu "
         "v0.16.2 or later at mem_limit 256 only)")
     if own["bytes"] > error:
@@ -11315,15 +11312,15 @@ def _load_budget(game, body: str, who: str, sounds: bool, ram: int, shadow: int 
                     f"{own['largest'] / mi.MiB:.2f}), pass the {mid / mi.MiB:g} MiB (one run "
                     f"{mi.run_line_for(budget) / mi.MiB:.2f}) a 128 MiB machine takes: this build plays right only on a "
                     "256 MiB one (xemu v0.16.2 or later at mem_limit 256); at 128 MiB it loses loads or never finishes "
-                    "loading, and on a 64 MiB Xbox it loses pieces and textures or hangs loading (--ram 128 refuses "
-                    "the body)")
+                    "loading, and on a 64 MiB Xbox it loses pieces and textures or hangs loading (without "
+                    f"{mi.UPPER256_PACK} the build refuses the body)")
     elif tier >= 128 and own["bytes"] > (low := mi.lines_for(budget, 64)[0]):
         on = ("128 or 256 MiB one (xemu at mem_limit 128 or 256)" if tier == 256 else
               "128 MiB one (xemu at mem_limit 128)")
         said.append(f"  Player model budget: its own load runs, {own['bytes'] / mi.MiB:.2f} MiB, pass the "
                     f"{low / mi.MiB:g} MiB a 64 MiB machine takes: this build plays right only on a {on}; on a 64 "
-                    "MiB Xbox it loses pieces and textures, and a larger one hangs loading (xemu at 64; --ram 64 "
-                    "refuses the body)")
+                    "MiB Xbox it loses pieces and textures, and a larger one hangs loading (xemu at 64; without "
+                    f"{' and '.join(mi.UPPER_PACKS)} the build refuses the body)")
     return said
 
 

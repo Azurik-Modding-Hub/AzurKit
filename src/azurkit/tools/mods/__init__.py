@@ -6,11 +6,11 @@ place there. :func:`normalize` is the one check of the packs a recipe names
 and their slider values, for every host (WEB §4.2), :func:`salvage` keeps
 what it takes of a remembered setup's and names the rest (D915), and
 :func:`missing` names a pack a build applies without one it requires
-(``Pack.requires``);
+(``Pack.requires``), which :func:`settle` turns on or off with a line;
 :func:`vanilla` reads a site slider's vanilla value from the player's own
 XBE (D42, Q174)."""
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 
 from azurkit.core import facts
 from azurkit.core.gate import Release
@@ -89,6 +89,38 @@ def missing(packs: object) -> list[str]:
             for name, pack in PACKS.items() if name in packs and (lost := [r for r in pack.requires if r not in packs])]
 
 
+def settle(on: Iterable[str], ticked: Iterable[str] = (), unticked: Iterable[str] = ()) -> tuple[list[str], list[str]]:
+    """The one rule of what a person's choice moves (a host's ``Pack.requires``;
+    the page's ``linked`` walks the same): the packs ``on`` (known names) with
+    ``ticked`` and each pack it requires, less ``unticked`` and each pack that
+    requires one, in their canonical order, and a line for each pack moved
+    that wasn't named. ``ValueError`` (:func:`missing`'s) when a pack ticked
+    needs one unticked: only the person can settle that."""
+    names, ticked, unticked, lines = {*on, *ticked}, list(ticked), set(unticked), []
+    held, todo = set(ticked), list(ticked)
+    while todo:
+        name = todo.pop()
+        for need in PACKS[name].requires:
+            if need not in held:
+                held.add(need)
+                todo.append(need)
+            if need not in names:
+                names.add(need)
+                lines.append(f"Also ticked {need}: {name} {PACKS[name].requires_why}.")
+    if lost := missing(held - unticked):
+        raise ValueError("; ".join(lost))
+    names -= unticked
+    todo = list(unticked)
+    while todo:
+        name = todo.pop()
+        for other, pack in PACKS.items():
+            if name in pack.requires and other in names:
+                names.remove(other)
+                todo.append(other)
+                lines.append(f"Also unticked {other}: it {pack.requires_why}.")
+    return [name for name in PACKS if name in names], lines
+
+
 def vanilla(release: Release, xbe: bytes) -> dict[str, dict[str, float]]:
     """``{pack: {slider: value}}``: each slider at a site of ``release``'s
     XBE (whose catalog's vanilla is ``None``) at the value ``xbe``, the
@@ -107,4 +139,4 @@ def vanilla(release: Release, xbe: bytes) -> dict[str, dict[str, float]]:
 
 
 __all__ = ["CATEGORIES", "PACKS", "Pack", "PackError", "ParametricPatch", "XbrParametricEdit", "missing", "normalize",
-           "plan", "salvage", "vanilla"]
+           "plan", "salvage", "settle", "vanilla"]

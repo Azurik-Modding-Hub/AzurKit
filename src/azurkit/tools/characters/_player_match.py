@@ -116,8 +116,8 @@ def garret_match(iso: Path | str, species: str, mode: str = "own", size: str = "
     options, Model size ``scale`` and Attack reach ``reach`` dresses it
     (garret4's sounds: they move no value), on the default build's packs
     (both upper packs since D588; at 256 ``qol_memory_upper256`` too, Step
-    2.162l) for the machine ``ram`` (Step 2.162i; ``None``, the default
-    128), so the build's size lines;
+    2.162l) for the machine ``ram`` (Step 2.162i; ``None``, the largest
+    its packs make room for), so the build's size lines;
     :class:`ValueError` as the build's, and
     :class:`RuntimeError` for a shim the compiler can't build."""
     from azurkit.tools.characters._player_variants import options

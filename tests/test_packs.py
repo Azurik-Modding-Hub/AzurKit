@@ -29,7 +29,8 @@ from azurkit.core import facts, gate, iso, xbe
 from azurkit.edits import preset
 from azurkit.edits.layer import claimed, compose
 from azurkit.edits.manifest import image
-from azurkit.tools import mods
+from azurkit.tools import characters, mods
+from azurkit.tools.characters import model_inspect, ports
 from azurkit.tools.mods import engine
 from scripts import gen_facts, record_goldens
 from tests import _g1
@@ -187,8 +188,7 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_a_mods_file_which_ope
     with their sliders; ``azurkit build`` with none named applies those on
     by default (D528, D571, D588): the load budget, the two upper-64 MiB
     packs and qol_alloc_race (``--no-pack qol_memory_upper64`` leaves out
-    the GPU pack that requires it too, and a build that names that pack
-    without it is refused by name); less the three memory packs (``--no-pack``),
+    the GPU pack that requires it too, test_a_choice_moves_what_it_needs_and_what_needs_it); less the three memory packs (``--no-pack``),
     the written image's XBE holds qol_alloc_race's golden.
     ``--pack-param PACK.SLIDER=VALUE`` sets a slider of a pack the build
     applies, and is refused by name otherwise. ``--mods FILE`` (Q268) adds
@@ -202,10 +202,6 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_a_mods_file_which_ope
     assert cli.recipe("x.iso", ["fps_unlock"], [], True, ["fps_unlock.target_fps=120"])["packs"] == {
         "fps_unlock": {"target_fps": 120.0}, "qol_memory_budget": {}, "qol_memory_upper64": {},
         "qol_memory_upper64_gpu": {}, "qol_alloc_race": {}}
-    assert list(cli.recipe("x.iso", [], ["qol_memory_upper64"], True)["packs"]) == [   # D588: gpu goes with it
-        "qol_memory_budget", "qol_alloc_race"]
-    with pytest.raises(ValueError, match=re.escape("pack 'qol_memory_upper64_gpu' needs 'qol_memory_upper64' in")):
-        sdk.image(cli.recipe("x.iso", ["qol_memory_upper64_gpu"], ["qol_memory_upper64"], True))
     for given, refused in (("fps_unlock.target_fps=fast", "not PACK.SLIDER=NUMBER"),
                            ("fps_unlock=120", "not PACK.SLIDER=NUMBER"),
                            ("qol_gem_popups.x=1", "the build doesn't apply 'qol_gem_popups'")):
@@ -236,6 +232,74 @@ def test_azurkit_build_applies_the_packs_on_by_default_and_a_mods_file_which_ope
 
 
 VANILLA = bytes(range(256))   # the synthetic XBE: one .text section at 0x1000
+
+
+def test_a_choice_moves_what_it_needs_and_what_needs_it_with_a_line(capsys):
+    """One rule (``mods.settle``, D1061), the CLI's flags and a mods file's and
+    a link's packs: ``--pack`` completes its needs, ``--no-pack`` takes off
+    what depends on it, each move with a line before the layers and none for
+    a pack named or already there; a pack that needs one taken away stays
+    refused by name, and a build's complete manifest moves nothing."""
+    budget, up64, gpu, up256 = "qol_memory_budget", "qol_memory_upper64", "qol_memory_upper64_gpu", "qol_memory_upper256"
+    race = "qol_alloc_race"
+    tick = {up64: f"Also ticked {up64}: {gpu} places its textures and meshes in the memory {up64} opens.",
+            gpu: f"Also ticked {gpu}: {up256} extends the memory {up64} and {gpu} use."}
+    gone = {gpu: f"Also unticked {gpu}: it places its textures and meshes in the memory {up64} opens.",
+            up256: f"Also unticked {up256}: it extends the memory {up64} and {gpu} use."}
+    layer = lambda *names: {"format": "azurkit-preset", "schema_version": 1, "layers": [
+        {"tool": "mods", "kind": "packs", "recipe": {name: {} for name in names}}]}
+    file = sdk.read_mods(layer(up64, gpu))
+    assert file == {"packs": {up64: {}, gpu: {}}}
+    for packs, no_packs, defaults, given, chosen, lines in (
+            ([up256], [], False, None, [up64, gpu, up256], [f"Also ticked {up64}: {up256} extends the memory {up64} and {gpu} use.",
+                                                             tick[gpu]]),
+            ([gpu], [], False, None, [up64, gpu], [tick[up64]]),
+            ([up256], [], True, None, [budget, up64, gpu, up256, race], []),
+            ([], [up64], True, None, [budget, race], [gone[gpu]]),
+            ([], [gpu], True, None, [budget, up64, race], []),
+            ([], [up64], True, {"packs": {up64: {}, gpu: {}, up256: {}}}, [], [gone[gpu], gone[up256]]),
+            ([], [up64], True, file, [], [gone[gpu]])):
+        made = cli.recipe("x.iso", packs, no_packs, defaults, (), given)
+        assert (list(made["packs"]), capsys.readouterr().out.splitlines()) == (chosen, lines), (packs, no_packs, given)
+    with pytest.raises(ValueError, match=re.escape(f"pack {gpu!r} needs {up64!r} in the same build")):
+        cli.recipe("x.iso", [gpu], [up64], True)
+    assert capsys.readouterr().out == ""
+    for given, added in ((layer(gpu), {gpu: {}, up64: {}}), (layer(up256), {up64: {}, gpu: {}, up256: {}})):
+        read = sdk.read_mods(given)
+        loaded = sdk.mods_file({"text": json.dumps(given)})["preset"]
+        assert (read["packs"], loaded["layers"][0]["recipe"], loaded["settled"]) == (added, added, read["settled"])
+        assert read["settled"] and all(line.startswith("Also ticked ") for line in read["settled"])
+    linked = sdk.preset_decode(preset.encode(layer(gpu)))
+    assert (linked["layers"][0]["recipe"], linked["settled"]) == ({up64: {}, gpu: {}}, [tick[up64]])
+    assert "settled" not in sdk.mods_file({"text": json.dumps(layer(up64, gpu))})["preset"]
+
+
+def test_ticking_upper256_raises_a_bodys_limit_with_the_ticks_that_would_take_it_named(usa_iso, monkeypatch):
+    """A build that asks no ``ram`` takes the lines of what its own XBE carries:
+    49.5 MiB at the default packs, 127 with qol_memory_upper256 ticked, which
+    the page and CLI never asked for by the machine's size; a recipe's ``ram``
+    128 keeps its lines, and a refusal names ticks, not flags AzurKit lacks."""
+    swap = characters._swap()
+    monkeypatch.setattr(model_inspect, "own_runs", lambda *_, **__: {
+        "bytes": 60 * model_inspect.MiB, "largest": 30 * model_inspect.MiB, "by_tag": {"mesh": 30 * model_inspect.MiB}})
+    defaults = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+    stamp = gate.verify(str(usa_iso), whole=False)
+    build = ports.Build(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), taken=[],
+                        packs=characters.packs_view(stamp.release, mods.PACKS))
+
+    def weighed(packs: dict, ram: int | None) -> list[str]:
+        made = sdk.image({"iso": str(usa_iso), "packs": packs})[0]
+        with iso.Reader(made) as r:
+            game = {"default.xbe": r.read("default.xbe"), "characters.xbr": b""}
+        with ports.building(build):
+            return swap._load_budget(game, "body", "big", False, ram)
+
+    up256 = defaults | {"qol_memory_upper256": {}}
+    for packs, ram, limit in ((defaults, None, 49.5), (up256, 128, 49.5)):
+        with pytest.raises(ValueError, match=rf"pass the {limit:g} MiB .*or tick qol_memory_upper256 for a 256 MiB") as why:
+            weighed(packs, ram)
+        assert "--ram" not in str(why.value)
+    assert "--ram" not in "".join(said := weighed(up256, None)) and "without qol_memory_upper256" in said[-1]
 
 
 def _synthetic(monkeypatch) -> None:

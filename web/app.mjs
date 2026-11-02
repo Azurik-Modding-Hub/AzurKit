@@ -554,11 +554,19 @@ function askVanilla() {
   state.engine.vanilla(state.file);
 }
 
-// Ticking a pack ticks the packs it requires, and unticking one unticks the packs that require it (D588), so the
-// page never sends a recipe the engine refuses for a missing pack.
+// Each group's line of what the last tick moved and why.
+function moved(changed, lines) {
+  for (const note of $("packs").querySelectorAll(".moved")) note.textContent = "";
+  if (changed) changed.closest(".group").querySelector(".moved").textContent = lines.join(" ");
+}
+
+// Ticking a pack ticks the packs it requires, and unticking one unticks the packs that require it (D588), each move
+// said beside its group (the rule and its words are mods.settle's), so the page never sends a recipe the engine refuses
+// for a missing pack.
 function linked(changed) {
   const boxes = Object.fromEntries([...$("packs").querySelectorAll("input[data-pack]")].map((b) => [b.dataset.pack, b]));
   const requires = Object.fromEntries(state.packs.packs.map((p) => [p.name, p.requires]));
+  const why = Object.fromEntries(state.packs.packs.map((p) => [p.name, p.requires_why])), lines = [];
   const todo = [changed.dataset.pack];
   while (todo.length) {
     const name = todo.pop(), on = boxes[name].checked;
@@ -567,9 +575,11 @@ function linked(changed) {
       if (boxes[other].checked !== on) {
         boxes[other].checked = on;
         todo.push(other);
+        lines.push(on ? `Also ticked ${other}: ${name} ${why[name]}.` : `Also unticked ${other}: it ${why[other]}.`);
       }
     }
   }
+  moved(changed, lines);
 }
 
 // One pack's row: its tick, name, description and releases; with settings, its Settings opener (the count of their
@@ -587,6 +597,10 @@ function packRow(pack) {
   const what = Object.assign(document.createElement("span"), { textContent: pack.description });
   const where = Object.assign(document.createElement("span"), {
     className: "releases", textContent: ` ${pack.releases.map((r) => r === "usa" ? "USA" : "Europe").join(", ")}` });
+  if (pack.requires.length) {
+    what.append(Object.assign(document.createElement("span"), {
+      className: "needs", textContent: ` Needs ${pack.requires.join(", ")}.`, title: `${pack.name} ${pack.requires_why}.` }));
+  }
   what.append(where);
   label.append(box, name, what);
   const sliders = Object.assign(document.createElement("div"), { className: "sliders", id: `${pack.name}-settings` });
@@ -624,7 +638,9 @@ function renderPacks(catalog) {
     summary.append(Object.assign(document.createElement("b"), { textContent: category.title }),
                    Object.assign(document.createElement("span"), { className: "tally" }),
                    Object.assign(document.createElement("span"), { className: "line", textContent: category.description }));
-    group.append(summary, ...packs.map(packRow));
+    const note = Object.assign(document.createElement("p"), { className: "note moved" });
+    note.setAttribute("role", "status");
+    group.append(summary, ...packs.map(packRow), note);
     list.append(group);
   }
   tally();
@@ -767,6 +783,7 @@ function setTo(on, values, xbr, from = null) {
     element.title = from && changed ? `Changed by ${from}` : "";
   };
   forget();
+  moved();
   for (const item of $("packs").querySelectorAll(".pack")) {
     const box = item.querySelector("input[data-pack]");
     const pack = state.packs.packs.find((p) => p.name === item.dataset.pack);
@@ -816,7 +833,7 @@ function load(preset, from) {
   const cells = state.xbr.length ? ` and ${state.xbr.length} config.xbr edit${state.xbr.length > 1 ? "s" : ""}` : "";
   const seed = (rando ? ` and the randomizer (seed ${rando.seed})` : "") + (character ? ` and ${character.species}` : "");
   say(`Loaded ${from}'s recipe${made}: ${packs ? Object.keys(packs).length : 0} packs${cells}${seed}, marked ●. `
-      + "Pick your vanilla image, then Build.");
+      + `${(preset.settled ?? []).join(" ")}${preset.settled ? " " : ""}Pick your vanilla image, then Build.`);
 }
 
 // The remembered setup, as the engine gives it back (sdk.restore): what still applies, and what doesn't, by name.

@@ -137,7 +137,8 @@ def catalog() -> dict:
     packs' categories (each id, title and line, in the order a UI groups
     them) and every pack: its name, what it does, its category, whether a
     build starts with it (D528), the releases it supports, the packs it
-    requires in the same build and its sliders, in the canonical order. A
+    requires in the same build (``requires_why``: why, finishing a sentence
+    that starts with its name) and its sliders, in the canonical order. A
     slider: its name, label, default, track (``min``, ``max`` and
     ``step``, display hints only), unit, description, vanilla value
     (``None`` where the image's XBE holds it), ``whole`` (the range of
@@ -155,6 +156,7 @@ def catalog() -> dict:
                            for category, (title, line) in mods.CATEGORIES.items()],
             "packs": [{"name": p.name, "description": p.description, "category": p.category,
                        "default_on": p.default_on, "releases": list(p.releases), "requires": list(p.requires),
+                       "requires_why": p.requires_why,
                        "sliders": [s.catalog() for s in p.sliders()]} for p in mods.PACKS.values()],
             "randomizer": randomizer.options(), "characters": {"source": SOURCE}, "native": native.report()}
 
@@ -892,18 +894,30 @@ def _pins(recipe: Mapping) -> list[dict]:
     return [{"id": pick["id"], "sha": pick["sha256"][:12]} for pick in _picks(recipe)]
 
 
+def _completed(packs: object) -> tuple[dict, list[str]]:
+    """A mods file's or link's packs, normalized, with each pack they require,
+    as a person's tick moves them, and the lines saying so (``mods.settle``):
+    no line for a build's manifest, which is complete."""
+    given = mods.normalize(packs)
+    names, lines = mods.settle(given, given)
+    return {name: given.get(name, {}) for name in names}, lines
+
+
 def read_mods(given: str | bytes | Mapping) -> dict:
     """A mods file (Q268: a preset or an AzurKit build's manifest, as JSON
     text or the object, or a share link) as a recipe's ``{"packs", "xbr"}``,
     normalized, and ``randomizer`` (the seed and share string a randomized
     build's plan replays from); ``packs`` only when it has a packs layer (a
-    build's packs are then its packs, and no others), ``community`` its
-    community packs' pins (a build resolves them). Every refusal named."""
+    build's packs are then its packs, with those they require, and no
+    others), ``settled`` only when that added one (its lines, for a host to
+    say), ``community`` its community packs' pins (a build resolves them).
+    Every refusal named."""
     found = preset.read(given)
     out: dict = {}
     for layer in found["layers"]:
         if (layer["tool"], layer["kind"]) == ("mods", "packs"):
-            out["packs"] = _packs({"packs": layer["recipe"]})
+            out["packs"], settled = _completed(layer["recipe"])
+            out |= {"settled": settled} if settled else {}
         elif (layer["tool"], layer["kind"]) == (xbr.TOOL, xbr.KIND) and set(layer["recipe"]) == {"ops"}:
             out["xbr"] = xbr.normalize(layer["recipe"]["ops"])
         elif (layer["tool"], layer["kind"]) == (generator.TOOL, generator.KIND):
@@ -1015,10 +1029,12 @@ def preset_decode(text: str) -> dict:
 
 def _loaded(found: dict, *, link: bool = True) -> dict:
     """``found``, a checked preset, as a UI loads it (:func:`preset_decode`'s
-    checks); a mods file's (``link`` false) keeps a ``replace_bytes``."""
+    checks; a pack a pack requires is added, with a line in ``settled``); a
+    mods file's (``link`` false) keeps a ``replace_bytes``."""
     for layer in found["layers"]:
         if (layer["tool"], layer["kind"]) == ("mods", "packs"):
-            layer["recipe"] = _packs({"packs": layer["recipe"]})
+            layer["recipe"], settled = _completed(layer["recipe"])
+            found |= {"settled": settled} if settled else {}
         elif (layer["tool"], layer["kind"]) == (xbr.TOOL, xbr.KIND) and set(layer["recipe"]) == {"ops"}:
             layer["recipe"] = {"ops": (_shared if link else list)(xbr.normalize(layer["recipe"]["ops"]))}
         elif (layer["tool"], layer["kind"]) == (generator.TOOL, generator.KIND):

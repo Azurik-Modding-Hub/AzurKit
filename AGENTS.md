@@ -314,9 +314,18 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     default is dropped.
 - `Pack.requires` names the packs a build must apply with a pack
   (`qol_memory_upper64_gpu` places its runs in `qol_memory_upper64`'s heap):
-  the sdk refuses a recipe without them, by name (`mods.missing`); the CLI
-  leaves out a pack on by default with one it requires (D588); the page ticks
-  them with it and unticks it with them. G1 builds each pack alone, so such a
+  the sdk refuses a recipe without them, by name (`mods.missing`). A person's
+  choice moves them, one rule with a line for each (`mods.settle`, the words
+  ending in `Pack.requires_why`, D1061): `--pack` and the page's tick add what a
+  pack needs, `--no-pack` (D588) and an untick take off what needs it, a mods
+  file or link completes itself upward (`settled`, which the CLI prints and
+  the page says), and only `--pack X --no-pack what-X-needs` stays refused; the
+  page's `linked` walks the same rule, says it beside the group and shows
+  each row's Needs. A body's limit follows the same ticks: a recipe with no
+  `ram` takes the lines of what its XBE carries (`model_inspect.lines_ram`:
+  12-14 MiB, 47.5-49.5 with both upper packs, 125-127 with
+  `qol_memory_upper256` too); the bytes never depend on it. G1 builds each
+  pack alone, so such a
   pack's case is its layer's image.
 - **XBR** (`core/xbr/`): `Document` parses an archive's header, TOC and
   trailer, and config.xbr's keyed tables (`keyed.py`), and `dumps()` writes
@@ -1173,7 +1182,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     randomizer (Randomize ticked or not), each tick and value it changed
     marked ●, and no build; a build's recipe loads its randomizer the same
     way, from its share string. Ticking a pack ticks the packs it
-    requires; unticking one unticks those that require it.
+    requires; unticking one unticks those that require it, each move said
+    beside its group.
   - **An AzurKit build as the image:** the engine's vanilla read (the
     site's worker, the app's `api/vanilla`) falls back to
     `sdk.open_build(whole=False)` (only the files the build changed are
