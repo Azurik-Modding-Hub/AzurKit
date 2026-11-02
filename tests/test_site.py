@@ -1101,8 +1101,9 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
 
 def test_an_install_lists_its_variants_while_the_images_check_runs(browser, site, usa_iso, tmp_path):
     """An Install while the image picked is still being checked (the worker's own wait on the kept stamp held here, so
-    the check can't end) lists its variant at once, from the engine's answer that needs no image: the Weapon box says
-    Reading, no line asks for an image and a build still waits for the image's answer, which then comes (Step 4.3r4m)."""
+    the check can't end) lists its variant at once, from the engine's answer that needs no image: the Weapon box lists
+    its weapons (D1061), no line asks for an image and a build still waits for the image's answer, which then comes
+    (Step 4.3r4m)."""
     from azurkit.tools.characters import _player_variants, content
 
     repo, path = tmp_path / "repo", "variants/beamlord/variant.json"
@@ -1140,7 +1141,7 @@ def test_an_install_lists_its_variants_while_the_images_check_runs(browser, site
         assert page.evaluate("""() => [azurkit.characters.state.view.from, azurkit.characters.waiting(),
             document.getElementById("char-weapon").selectedOptions[0].textContent,
             document.getElementById("char-count").textContent.includes("Choose your image")]""") == [
-            None, True, "Reading your image…", False]
+            None, True, "Default (Axion staff)", False]
         page.evaluate("() => { window.released = true; }")
         _page.until(page, """() => Boolean(azurkit.characters.state.view?.from)
             && document.querySelectorAll('#char-weapon option').length > 1""", 300)
@@ -1886,11 +1887,16 @@ STUB_ENGINES = """(() => {
     globalThis.Worker = class {
         constructor() {
             this.got = [];
+            this.heard = [];
             this.stopped = false;
             made.push(this);
             setTimeout(() => this.say({ type: "ready", catalog, version: "0" }));
         }
-        say(data) { this.onmessage?.({ data }); }
+        addEventListener(type, hear) { if (type === "message") this.heard.push(hear); }
+        say(data) {
+            this.onmessage?.({ data });
+            for (const hear of this.heard) hear({ data });
+        }
         postMessage(m) {
             this.got.push(m);
             if (m.type !== "pickers") return;
