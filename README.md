@@ -249,6 +249,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Dressed once, in the app:** a character's body, pictures and G4 numbers are kept in your cache folder (AzurKit
   keeps at most about 5 GB, the oldest out first), so building or drawing it again, after a relaunch too, takes a
   second or two.
+- **Dressed once, on the web page too:** the last 32 characters you built are kept in your browser, so building one
+  again, on a later visit too, skips dressing it.
 - **A private app:** its page is served only to itself, with a fresh key each launch.
 - **The command line:** `azurkit verify`, `packs`, `build`, `open`, `plan` and `spoiler`; the app doubles as it.
 - **Dark or light:** your pick is remembered, and both are easy to read.

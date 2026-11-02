@@ -143,11 +143,13 @@ def cache_key(what: str, recipe: Mapping, release: gate.Release, before: Sequenc
 
 
 def _kept(key: str | None, work: Callable[[], object], dump: Callable[[object], bytes],
-          load: Callable[[bytes], object]) -> object:
+          load: Callable[[bytes], object], found: Callable[[], object] = lambda: None) -> object:
     """``work()``'s answer, from :data:`CACHE` under ``key`` when it holds
-    what ``load`` reads (a ``ValueError``: a miss), else worked out and kept
-    there, as ``dump`` makes it behind the answer."""
+    what ``load`` reads (a ``ValueError``: a miss; ``found()`` hears it held
+    one first), else worked out and kept there, as ``dump`` makes it behind
+    the answer."""
     if key is not None and (blob := CACHE.get(key)) is not None:
+        found()
         try:
             return load(blob)
         except ValueError:
@@ -405,7 +407,8 @@ def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, 
         return {f: vanilla.read(f) for f in FILES}   # what a kept plan's whole files are compressed against
     return _kept(cache_key("plan", recipe, vanilla.release, before, folded),
                  lambda: _plan(recipe, vanilla, before, packs, folded, note, over),
-                 lambda found: shipped.encode(*found, base(), KEPT_LEVEL), lambda blob: shipped.decode(blob, base()))
+                 lambda found: shipped.encode(*found, base(), KEPT_LEVEL), lambda blob: shipped.decode(blob, base()),
+                 lambda: note(f"Dressing {recipe['species']} (kept from an earlier build)"))
 
 
 def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object], folded: float | None,

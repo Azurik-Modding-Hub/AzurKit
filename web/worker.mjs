@@ -44,6 +44,7 @@
 //      blocked}. A read that is neither an image nor an AzurKit build ends with {type: "unread"}. Each but a progress record
 //      carries the engine's heap then (undefined where Pyodide hides it), which the page's two workers count (workers.mjs).
 import { hashed, hashedApart, md5Ready } from "./hasher.mjs";
+import { text } from "./memo.mjs";
 import { PREFIX } from "./outputs.mjs";
 
 const base = new URL("./", import.meta.url);
@@ -73,6 +74,7 @@ from pyodide.ffi import to_js
 import azurkit
 from azurkit import sdk
 from azurkit.core import iso, native, progress
+from azurkit.tools import characters
 from azurkit.tools.characters import pool
 
 PIECE = "/tmp/azurkit-piece"
@@ -165,6 +167,32 @@ def ticked(done, total):   # pool.TICK: the swap's items, on the call's last sta
 pool.TICK = ticked
 
 
+class Kept:
+    """tools.characters.CACHE here (D1015, D1067): the answers this browser kept for a build's character (IndexedDB's,
+    build() in this file), handed in with the build, and those the build works out (a plan's AZKP1: no pickle, its
+    sizes checked as it inflates), made once its answer is out (the kept call) and handed back to be kept. The swap
+    takes one only under its own key (its code, the layers under it, the content): a kept answer is the one it would
+    work out again. Nothing is kept outside a build."""
+
+    def __init__(self):
+        self.offered, self.made = {}, None
+
+    def get(self, key):
+        return self.offered.get(key)
+
+    def put(self, key, make):
+        if self.made is not None:
+            self.made[key] = make
+
+    def taken(self, made=True):
+        """The build's answers to keep, made, by key (none when made is false); none kept after."""
+        put, self.offered, self.made = self.made or {}, {}, None
+        return {key: make if isinstance(make, bytes) else make() for key, make in put.items()} if made else {}
+
+
+KEPT = characters.CACHE = Kept()
+
+
 def engine(request):
     LAST.clear()
 
@@ -175,7 +203,10 @@ def engine(request):
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__, "commit": azurkit.commit()})
     if request.type == "warm":   # numpy's loaded: what a dress imports, so a body's build starts at its first step
         from azurkit.tools.characters import _player_character  # noqa: F401
+        characters._code()   # a kept answer's key's first part, worked out once a worker
         return js({})
+    if request.type == "kept":   # after a build's answer: what it worked out to keep, made now
+        return js(KEPT.taken())
     if request.type == "content":
         return js({"dropped": kept(request.files, json.loads(JSON.stringify(getattr(request, "installed", None))
                                                              or "null"))})
@@ -265,6 +296,10 @@ def engine(request):
             extra = {"picked": {k: bytes(v) for k, v in request.picked.to_py().items()},
                      "hashed": request.hashed.to_py()} if getattr(request, "picked", None) else {}
             STAGED = sdk.image_staged(request.recipe.to_py(), progress=progressed, spoiler=False, ahead=True, **extra), None
+            KEPT.taken(made=False)
+            KEPT.made = {}
+            if offered := getattr(request, "kept", None):
+                KEPT.offered = {key: getattr(offered, key).to_bytes() for key in Object.keys(offered)}
         step = next(STAGED[0])   # "build" or "ahead": the pages it asked for are in the read cache
         if isinstance(step, list):
             return js({"ahead": step})
@@ -276,6 +311,7 @@ def engine(request):
         image, report = done.value
     except (OSError, ValueError) as exc:
         STAGED = None
+        KEPT.taken(made=False)
         return js({"refused": str(exc)})
     STAGED = None
     pieces = [{"kind": "copy", "offset": p.offset, "size": p.size} if isinstance(p, iso.Copy)
@@ -733,8 +769,35 @@ function joined(file, { segments }, written) {
            segments: segments.map(({ data, ...place }) => place),
            held: written ? 0 : segments.reduce((n, s) => n + (s.kind === "bytes" ? s.size : 0), 0) };
 }
+// The dresses this browser keeps (D1015, D1067): a character build's kept answers (the engine's Kept), by the build's
+// hint: the image and what the dress stands on (the character, the packs, the seed). A hint finds the answers its last
+// build kept, which the engine takes only under their own keys: another's are a miss, never another build. Made and kept
+// after the build's answer (and its seed's spoiler), off the click's wait: a worker the page ends first keeps none, and
+// the next build dresses again. DRESSES hints at most, the oldest dropped first.
+const DRESS = "azurkit-dress", DRESSES = 32, ORDER = "";
+const dresses = (mode, fn) => stored(DRESS, "dress", mode, fn);
+const hintOf = (file, packs, randomizer, character) => {
+  try {
+    return character ? text([ids.get(file) ?? null, character, packs ?? null, randomizer ?? null], true) : null;
+  } catch {
+    return null;   // a value JSON can't hold: nothing kept
+  }
+};
+const keep = (hint, kept) => dresses("readwrite", (store) => {
+  const order = store.get(ORDER);
+  order.onsuccess = () => {
+    const hints = [...(order.result ?? []).filter((h) => h !== hint), hint];
+    for (const old of hints.splice(0, Math.max(0, hints.length - DRESSES))) store.delete(old);
+    store.put(hints, ORDER);
+    store.put(kept, hint);
+  };
+  return order;
+});
+
 async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character, community, files, picked }) {
   const before = self.azurkitLateReads ?? 0;
+  const hint = hintOf(file, packs, randomizer, character);
+  const offered = hint && await dresses("readonly", (store) => store.get(hint)).catch(() => null);
   const held = {}, hashes = {};
   for (const [path, one] of Object.entries(picked ?? {})) {
     held[path] = await pickedBytes(one);
@@ -748,7 +811,8 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
     return at;
   };
   const made = await mounted(py, file, async (iso) => {
-    let composed = engine({ type: "build", ...(files ? { picked: held, hashed: hashes } : {}), recipe: { iso, packs, xbr,
+    let composed = engine({ type: "build", ...(files ? { picked: held, hashed: hashes } : {}),
+                           ...(offered ? { kept: offered } : {}), recipe: { iso, packs, xbr,
       ...(files ? { files } : {}),
       ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}),
       ...(community ? { community } : {}) } });
@@ -777,14 +841,20 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
   if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
   post({ type: "built", ...made, ...joined(file, made, output && await output.handle.getFile()),
          ...(output ? { out: output.name } : {}), heap, late: (self.azurkitLateReads ?? 0) - before });
-  if (!made.report.plan) return;
-  let reply;
-  try {
-    reply = engine({ type: "spoiler", sha256: made.report.plan.sha256 });
-  } catch (error) {
-    reply = { refused: lastLine(error) };
+  if (made.report.plan) {
+    let reply;
+    try {
+      reply = engine({ type: "spoiler", sha256: made.report.plan.sha256 });
+    } catch (error) {
+      reply = { refused: lastLine(error) };
+    }
+    post({ type: "spoiled", ...reply });
   }
-  post({ type: "spoiled", ...reply });
+  if (!hint) return;
+  try {   // the dress the build worked out (none on a hit), made over the image mounted again, and kept
+    const kept = mounted(py, file, () => engine({ type: "kept" }));
+    if (Object.keys(kept).length) await keep(hint, kept);
+  } catch {}   // a dress not kept is a dress made again
 }
 
 try {

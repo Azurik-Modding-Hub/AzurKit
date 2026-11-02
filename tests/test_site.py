@@ -3535,6 +3535,44 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         served.close()
 
 
+KEPT_DRESSES = """() => new Promise((done) => {   // the hints azurkit-dress keeps (its order record's)
+    const opened = indexedDB.open("azurkit-dress", 1);
+    opened.onupgradeneeded = () => opened.result.createObjectStore("dress");
+    opened.onsuccess = () => {
+        const asked = opened.result.transaction("dress").objectStore("dress").get("");
+        asked.onsuccess = () => { opened.result.close(); done(asked.result ?? []); };
+    };
+})"""
+DRESSED = ("Dressing keylord (reading its files)", "Dressing keylord (kept from an earlier build)")
+
+
+def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_browser_kept_as_cpython_dresses_it(
+        browser, site, usa_iso, tmp_path):
+    """D1067 (D1015's store on the site): a character's first build keeps its dress in this browser (azurkit-dress, by
+    the build's hint), and the same build at a later visit is dressed from it (its bar says so; the body's files aren't
+    read again), each CPython's image."""
+    recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+              "character": {"species": "keylord"}}
+    made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+    served = Site(browser, site, tmp_path / "profile")
+    try:
+        for visit in range(2):
+            page = served.context.new_page()
+            page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+            _page.until(page, "() => globalThis.azurkit?.loaded", 120)
+            page.evaluate(BARS)
+            page.set_input_files("#iso", str(usa_iso))
+            page.evaluate("() => document.querySelector('#build').click()")
+            built = _built(page)
+            assert built == _as_cpython(built, report, made)
+            lines = [line for _, line in filter(None, page.evaluate("() => bars"))]
+            assert [any(line.startswith(stage) for line in lines) for stage in DRESSED] == [not visit, bool(visit)], lines
+            _page.until(page, f"() => ({KEPT_DRESSES})().then((hints) => hints.length === 1)", 120)   # after the answer
+            page.close()
+    finally:
+        served.close()
+
+
 WORKERS_SMOKE = """async ({ seed }) => {
     const { workers } = await import("/workers.mjs");
     const start = () => {   // as app.mjs starts its engine: a blob: URL that imports worker.mjs

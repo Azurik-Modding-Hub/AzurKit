@@ -65,7 +65,8 @@ export const KEPT = {
           ["azurkit.theme", "The light or dark theme"]],
   databases: [["azurkit-stamp", "Your image's check (its files' sha256)"],
               ["azurkit-snapshot", "The engine's quick start (no image in it)"],
-              ["azurkit-content", "Installed community content"]],
+              ["azurkit-content", "Installed community content"],
+              ["azurkit-dress", "Dressed characters (each build's, so the same one builds again quickly)"]],
 };
 
 const el = (tag, props = {}, ...children) => {
