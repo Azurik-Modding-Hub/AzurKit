@@ -1185,7 +1185,14 @@ function randoSettings() {
 
 // A skip as it stands: its toggle, else the ceiling's state of it: true, false, or null (some of a batch's variants).
 function skipOn(skip) {
-  return state.rando.overrides[skip.id] ?? skip.ceiling;
+  return state.rando.overrides[skip.id] ?? byCeiling(skip);
+}
+
+// The ceiling's state of a skip by the Skips select as it is now, not by the last answer's: a click right after a
+// Skips change writes its toggles against the new ceiling.
+function byCeiling(skip) {
+  const ceiling = Number(R("ceiling").value), n = skip.ratings.filter((rating) => rating <= ceiling).length;
+  return n > 0 && n < skip.ratings.length ? null : n === skip.ratings.length;
 }
 
 // A skip group's tick turns on all its picks, whatever their rating, its untick all off (D1061, amending D258), each by
@@ -1193,7 +1200,7 @@ function skipOn(skip) {
 function turnGroup(id, on) {
   const { groups, skips } = state.rando.view;
   for (const pick of groups.find((group) => group.id === id).picks) {
-    if (skips.find((skip) => skip.id === pick.id).ceiling === on) delete state.rando.overrides[pick.id];
+    if (byCeiling(skips.find((skip) => skip.id === pick.id)) === on) delete state.rando.overrides[pick.id];
     else state.rando.overrides[pick.id] = on;
   }
 }
@@ -1405,7 +1412,7 @@ function skipRow(skip) {
 
 // A click turns a skip (a batch whole) the other way: by a toggle, or by none when the ceiling now gives that.
 function toggleSkip(id) {
-  const def = state.rando.view.skips.find((s) => s.id === id).ceiling;
+  const def = byCeiling(state.rando.view.skips.find((s) => s.id === id));
   const toggle = state.rando.overrides[id] ?? null, turned = (toggle === null ? def : toggle) !== true;
   if (turned === def || (def === null && toggle === false)) delete state.rando.overrides[id];
   else state.rando.overrides[id] = turned;

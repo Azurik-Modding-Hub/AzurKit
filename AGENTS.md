@@ -1000,7 +1000,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     vanilla), the skip groups (D258, D1061, `tools.randomizer.SKIP_GROUP`,
     every skip of the database in one: a tick turns on all its picks, whatever
     their rating, an untick all off, each by a toggle only where the ceiling
-    differs; a box is derived from what's on, ticked all, half some, empty
+    the Skips select holds now differs (each row's `ratings`, so a click
+    before the engine's answer to a Skips change reads the new ceiling); a box is derived from what's on, ticked all, half some, empty
     none, with "6 of 7 · up to Frame-perfect", so a loaded setting's show
     too) and, folded shut under "Specific skips · 3 of 36 on" until a group's
     tick opens them, the skips a setting can turn on in their groups' order (a

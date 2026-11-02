@@ -2302,7 +2302,8 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
     what the base game places (Modkit's); a skip group's tick turns on all
     its skips, whatever their rating, its box what's on: unticking one
     leaves it half, "5 of 6", and a click on the half turns them all on again
-    (D1061); Load settings… takes a settings file's settings (D144)."""
+    (D1061), a tick right after a Skips change by the new ceiling, not the
+    last answer's; Load settings… takes a settings file's settings (D144)."""
     on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     other = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"],
                                      "packs": on | {"player_physics": {"jump_speed_scale": 1.3}}})["share"]
@@ -2360,6 +2361,11 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         assert box("storage") == [False, True, "5 of 6 · up to Standard"]
         assert tick("storage")["settings"]["skip_override"] == dict.fromkeys(sorted(storage), True)
         assert box("storage")[:2] == [True, False]
+        page.evaluate("""() => { const ceiling = document.getElementById("rando-ceiling");
+            ceiling.value = "2"; ceiling.dispatchEvent(new Event("change"));
+            document.querySelector("#rando-groups input[data-group=storage]").click(); }""")   # before the engine answers
+        assert _page.until(page, SETTLED, 120)["settings"] == defaults | {
+            "skip_ceiling": 2, "skip_override": dict.fromkeys(sorted(storage), False)}   # Standard's ceiling has them on
         given = defaults | {"skip_ceiling": 3, "movement_tier": "hard", "exclude_categories": ["gems"]}
         (tmp_path / "settings.toml").write_text(sdk.randomizer_settings({"settings": given})["file"], encoding="utf-8")
         page.set_input_files("#rando-load", str(tmp_path / "settings.toml"))

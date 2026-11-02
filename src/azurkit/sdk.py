@@ -1216,7 +1216,8 @@ def randomizer_settings(given: Mapping) -> dict:
     plan), a ``note`` when a share string holds
     other sliders (naming the body when a size fold is where they differ),
     each skip a setting can turn on (``skips``: its pick's
-    id, name, rating, the ceiling's state and its toggle; D114, D275), the
+    id, name, rating, the ceiling's state, ``ratings``, each variant's as a
+    number, and its toggle; D114, D275), the
     picks held and the forfeitable locations, what a build would leave
     unverified so far (``why_not``: the packs' movement past their logic
     floor, D83(c), a roll a skip on was proven at, an obsidian cost above

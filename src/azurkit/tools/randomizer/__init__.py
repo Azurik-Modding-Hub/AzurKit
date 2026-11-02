@@ -308,7 +308,8 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     ``note`` when a given share string holds other sliders (:func:`slider_note`), each skip a
     setting can turn on (D114; D275: a batch is one pick) with its name,
     rating, the ceiling's state of it (``true``, ``false``, or ``null``:
-    some of a batch's variants) and its toggle (``null``: none), the picks
+    some of a batch's variants), each variant's rating as a number
+    (``ratings``: the page reads them against its own ceiling) and its toggle (``null``: none), the picks
     held (no toggle turns one on, D144), the forfeitable locations, what a
     build of them leaves unverified (``why_not``: a roll a skip on was
     proven at, an obsidian cost above vanilla's) and the preflight's
@@ -354,7 +355,7 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
             n = sum(s.get("difficulty", len(RATINGS)) <= st.skip_ceiling for s in live)
             rows.append({"id": pid, "name": live[0].get("batch_name") or live[0].get("name", pid),
                          "rating": _rating(live), "ceiling": None if 0 < n < len(live) else n == len(live),
-                         "toggle": st.skip_override.get(pid)})
+                         "ratings": [s.get("difficulty", len(RATINGS)) for s in live], "toggle": st.skip_override.get(pid)})
             if (group := SKIP_GROUP.get(live[0]["id"])) in groups:
                 groups[group].append({"id": pid, "name": rows[-1]["name"], "rating": rows[-1]["rating"]})
                 tops[group] = max(tops[group], *(s.get("difficulty", 0) for s in live))
