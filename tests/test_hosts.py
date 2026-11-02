@@ -242,12 +242,14 @@ class Sandbox:
 
 
 def _ended_with(served: subprocess.Popen, exc: BaseException) -> None:
-    """Kill the app ``served`` a test's failure ``exc`` stopped, and note on it the end of what it printed to its stderr,
-    line by line: tests.yml prints a failure's first 40 E lines, each cut at 240 characters, so a traceback's end, its
-    exception, has to fit both."""
+    """Kill the app ``served`` a test's failure ``exc`` stopped, and note on it whether it had already ended (one that
+    died printing nothing reads apart from a live one) and the end of what it printed to its stderr, line by line:
+    tests.yml prints a failure's first 40 E lines, each cut at 240 characters, so a traceback's end, its exception, has to
+    fit both."""
+    state = "was still running" if (code := served.poll()) is None else f"had ended, code {code}"
     served.kill()
     with contextlib.suppress(subprocess.TimeoutExpired, ValueError, OSError):
-        exc.add_note("the app's stderr:\n" + served.communicate(timeout=30)[1][-1000:])
+        exc.add_note(f"the app {state}; its stderr:\n" + served.communicate(timeout=30)[1][-1000:])
 
 
 def _children(pid: int) -> list[int]:
@@ -292,8 +294,14 @@ def test_a_failures_note_ends_with_the_exception_the_app_printed_on_lines_ci_kee
     failure = AssertionError("the page timed out")
     _ended_with(served, failure)
     note = failure.__notes__[0].splitlines()
-    assert (note[0], note[-1]) == ("the app's stderr:", "OSError: the cause") and 2 < len(note) < 30
+    assert (note[0], note[-1]) == ("the app was still running; its stderr:", "OSError: the cause") and 2 < len(note) < 30
     assert max(map(len, note)) < 240
+    silent = subprocess.Popen([sys.executable, "-c", "raise SystemExit(3)"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True)
+    silent.wait(30)
+    failure = AssertionError("the page timed out")
+    _ended_with(silent, failure)
+    assert failure.__notes__ == ["the app had ended, code 3; its stderr:\n"]
 
 
 def test_ci_prints_each_failure_though_a_summary_outruns_its_head():
@@ -655,6 +663,19 @@ def test_a_read_of_the_apps_config_never_costs_a_write_of_it_what_it_remembers(t
         assert reader.is_alive()
     reader.join(10)
     assert not reader.is_alive()
+
+
+def test_what_the_app_cant_remember_it_says_on_its_stderr_and_goes_on(tmp_path, monkeypatch, capsys):
+    """A lost setup was silent: a frozen page's poll for it ran on with an empty stderr (run 41372636477's Windows job),
+    so a next run couldn't name its cause. ``serving`` holds a clean end's stderr empty, so it fails by this line."""
+    (tmp_path / "a file").write_text("", encoding="utf-8")
+    monkeypatch.setattr(app, "_config", lambda: tmp_path / "a file" / "app.json")
+    app._remember(setup={"seed": "1"}, theme="light")
+    assert capsys.readouterr().err.startswith("azurkit: can't remember setup, theme: ")
+    with open(os.devnull, encoding="utf-8") as closed:
+        pass
+    monkeypatch.setattr(sys, "stderr", closed)   # a build goes on with no stderr left to say it on
+    app._remember(theme="light")
 
 
 def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_path, monkeypatch):

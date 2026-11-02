@@ -241,7 +241,8 @@ def _theme_js() -> bytes:
 def _remember(**kept: object) -> None:
     """Remember ``kept`` beside what the config holds (``None`` forgets a
     key), written whole or not at all, past a moment another process (a
-    virus scanner, on Windows) holds the file open."""
+    virus scanner, on Windows) holds the file open. A write it can't make
+    says why on stderr, and no more: a build doesn't fail for it."""
     try:
         with _REMEMBERING:
             _config().parent.mkdir(parents=True, exist_ok=True)
@@ -256,8 +257,9 @@ def _remember(**kept: object) -> None:
                     if not wait:
                         raise
                     time.sleep(wait)
-    except OSError:   # remembering is a convenience: a build doesn't fail for it
-        pass
+    except OSError as exc:
+        with contextlib.suppress(OSError, ValueError):   # a stderr gone with its reader
+            print(f"azurkit: can't remember {', '.join(kept)}: {exc}", file=sys.stderr)
 
 
 def _set_theme(body: dict) -> dict:
