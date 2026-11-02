@@ -545,9 +545,9 @@ class Logic:
         the same options."""
         key = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire,
                tuple(sorted(settings.skip_override.items())), physical)
-        if key not in self._compiled:
-            self._compiled[key] = _Rules(self, settings, physical)
-        return self._compiled[key]
+        if (got := self._compiled.get(key)) is None:   # one look: a spoiler's openers drop other settings' on their thread
+            got = self._compiled[key] = _Rules(self, settings, physical)
+        return got
 
     def harmless(self, kind: str) -> bool:
         """§3.1: a non-monotone mechanism is modelled in logic only when every
