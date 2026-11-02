@@ -385,6 +385,10 @@ def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(t
                                                "recipe": {"files": entries}}
     assert manifest.result["movies/Credits.bik"] == _sha256(credits)
     assert [c.get("whole") for c in manifest.to_json()["layers"][-1]["changes"]] == [True, True]
+    blank = edits.image(stamp, [put.plan(put.normalize([put.entry("movies/Credits.bik", b"")]),
+                                         {"movies/Credits.bik": b""}, release)])
+    with iso.Reader(blank[0]) as r:   # 0 B is a size too: the image holds none of the old file
+        assert r.read("movies/Credits.bik") == b"" and blank[1].result["movies/Credits.bik"] == _sha256(b"")
     iso.pack(made, tmp_path / "out.iso")
     monkeypatch.setattr(gate, "RELEASES", (release,))
     monkeypatch.setattr(edits, "MAX_BIN", 120)   # the swap's file alone, as /azurkit.bin's limit

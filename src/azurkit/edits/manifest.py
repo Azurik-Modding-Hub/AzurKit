@@ -192,9 +192,9 @@ def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes 
     # A file only Replace files writes (edits.files, whole, the last layer): its old bytes never land, so it isn't read.
     puts = {c.file: c.before for la in layers if la.tool == "files" for c in la.changes}
     others = {c.file for la in layers if la.tool != "files" for c in (*la.changes, *la.claims)}
+    unread = {name for name in names if name in puts and name not in others and name not in base}
     with iso.Reader(stamp.path) as r:
-        base |= {name: b"" if name in puts and name not in others else r.read(name) for name in names
-                 if name not in base}
+        base |= {name: b"" if name in unread else r.read(name) for name in names if name not in base}
         known = {name: stamp.release.files[name][1] for name in base
                  if name in stamp.release.files and name.startswith(gate.BUILD_FILES)} | puts
         files, conflicts = compose(base, layers, known,
@@ -205,7 +205,8 @@ def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes 
             if isinstance(data, Overlay):
                 if (patched := data.patched()) is not None:
                     changed[name] = patched
-            elif data != (r.read(name) if isinstance(base[name], iso.View) else base[name]):   # a whole file over a view
+            # A whole file: over a view, or over a file unread, whose b"" says nothing of a 0-byte replacement.
+            elif name in unread or data != (r.read(name) if isinstance(base[name], iso.View) else base[name]):
                 changed[name] = bytes(data)
             del data
         if host:
