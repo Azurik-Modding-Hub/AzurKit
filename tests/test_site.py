@@ -3024,24 +3024,23 @@ WORKERS_ROWS = """
         const got = await pool.ask(build("k"), { key: "build k", heavy: true });
         out.keep = [retired, stubs[2].role, got.report, pool.took(got), f.tags(), pool.state().retired];
     }
-    {   // one heap: F's build past KEEP (under its kept line) keeps its worker, whose heap the next heavy click reuses,
-        // and B runs only what is light beside it
+    {   // one heap: F's build keeps its worker; a heavy job ahead swaps it out and runs in that heap, not in a second
         const { pool, f, b } = make();
         const built = pool.ask(build(), { heavy: true });
         f.say({ type: "built", report: {}, heap: KEEP + 1 });
         await built;
-        pool.want([{ key: "build g", message: build("g"), heavy: true }, { key: "plan g", message: plan("g") }]);
-        const beside = b.tags();
-        b.say({ type: "reply", reply: { plan: "g" } });
+        pool.want([{ key: "build g", message: build("g"), heavy: true }]);
+        const ran = [f.tags(), b.tags()];
+        const asked = pool.ask({ type: "tracker" });   // the small one answers as F
+        b.say({ type: "reply", reply: { view: 5 } });
         const again = pool.ask(build("g"), { key: "build g", heavy: true });
         f.say({ type: "built", report: { size: 6 }, heap: KEEP + 2 });
-        out.oneHeapF = [f.stopped, beside, f.tags(), (await again).report, pool.state().promoted];
+        out.oneHeapF = [f.stopped, ran, (await asked).reply, (await again).report, pool.state().promoted, pool.state().swapped];
     }
-    {   // one heap: B's job ahead past KEEP keeps it, and with both idle the grown one answers as F, so a heavy click on
-        // another key runs in it, not in a second heap; the small one goes on as B
+    {   // one heap: B's job ahead grew it, so a heavy click on another key swaps it in, and the small one goes on as B
         const { pool, f, b } = make();
         pool.want([{ key: "build g", message: build("g"), heavy: true }]);
-        b.say({ type: "built", report: {}, heap: KEEP + 1 });
+        b.say({ type: "built", report: {}, heap: 2 ** 29 });
         const answered = pool.ask(build("h"), { heavy: true });
         const ran = [b.tags(), f.tags()];
         b.say({ type: "built", report: { size: 7 }, heap: KEEP + 2 });
@@ -3200,7 +3199,7 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "promoted": [True, [1, 2], ["tracker"], 3, "b", 1],
         "unpromoted": [True, False, "f", True, "f", [1, 3], 0],
         "keep": [True, "b", {"size": 1}, True, [], 1],
-        "oneHeapF": [False, ["plan g"], ["build", "build g"], {"size": 6}, 0],
+        "oneHeapF": [False, [["build", "build g"], []], {"view": 5}, {"size": 6}, 0, 1],
         "oneHeapB": [False, False, [["build g", "build h"], []], {"size": 7}, 1, ["build g"]],
         "alone": [[True, 2, 1], 3, "b"],
         "free": [{"size": 8}],
