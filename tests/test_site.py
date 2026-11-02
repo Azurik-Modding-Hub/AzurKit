@@ -179,11 +179,22 @@ class Site:
     folder (Playwright's routing, no server), every request logged. Its
     service worker is blocked: routing never sees a service worker's own
     requests, so these pages run uncontrolled, as a browser without one does
-    (``tests/test_service_worker.py`` holds the site under ``sw.js``)."""
+    (``tests/test_service_worker.py`` holds the site under ``sw.js``). A
+    ``profile`` makes it persistent; in WebKit with a home of its own
+    (``<profile>-home``), as Playwright's WebKit keeps OPFS, the build files,
+    in the user's ``~/Library/WebKit/org.webkit.Playwright`` for every browser
+    it launches while each browser's Web Locks are its own, so another test's
+    page load swept this one's held build file (the gate on 3fd00b2: its
+    Save's check failed reading it). CoreFoundation's ``CFFIXED_USER_HOME``
+    moves it (macOS)."""
 
     def __init__(self, browser, root: Path, profile: Path | None = None, **options):
         self.root, self.requests = root.resolve(), []
         options = {"service_workers": "block", **options}
+        if profile and browser.browser_type.name == "webkit":
+            home = profile.with_name(f"{profile.name}-home")
+            home.mkdir(parents=True, exist_ok=True)
+            options = {"env": {**os.environ, "CFFIXED_USER_HOME": str(home)}} | options
         self.context = (browser.browser_type.launch_persistent_context(str(profile), headless=True, accept_downloads=True,
                                                                        **options) if profile
                         else browser.new_context(accept_downloads=True, **options))
@@ -3523,7 +3534,7 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
             _page.click(page, "save")
         _page.tick(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})   # forgotten, but saved
         assert name in page.evaluate(BUILD_FILES)
-        _page.until(page, "() => azurkit.saveCheck === 'held'", 600)
+        assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck", 600) == "held"
         page.close()
         # no page holds it once its lock is gone, which a closed page's may not be yet as close() returns (Linux's
         # Chromium: the file outlived the reload's one sweep, run 41521288667)

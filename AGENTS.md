@@ -75,6 +75,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     Playwright's actionability waits hang and `wait_for_function` needs eval,
     which the page's CSP refuses: drive the page through the DOM
     (`element.click()`) and poll with `page.evaluate`.
+  - Playwright's WebKit keeps OPFS (the site's build files) in the user's
+    `~/Library/WebKit/org.webkit.Playwright` for every browser it launches,
+    while each browser's Web Locks are its own: a persistent WebKit context
+    gets a home of its own (`CFFIXED_USER_HOME`, as `test_site.Site` does),
+    or another test's page load sweeps its held build files.
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
