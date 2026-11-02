@@ -23,6 +23,7 @@ never leaves the page. The page is driven as
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import functools
 import hashlib
@@ -1573,6 +1574,107 @@ def test_a_characters_ask_made_while_a_seeds_worker_retires_waits_for_the_next_a
             {"refused": "The engine stopped before it answered (out of memory?): try again, or use the desktop app"}, 3]
     finally:
         page.close()
+
+
+STUB_ENGINES = """(() => {
+    const { catalog, view } = %s, made = globalThis.made = [], later = [];
+    globalThis.held = false;
+    const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, reply: { ...view, character: m.given.character } });
+    globalThis.release = () => {
+        held = false;
+        for (const [worker, m] of later.splice(0)) pickers(worker, m);
+    };
+    globalThis.Worker = class {
+        constructor() {
+            this.got = [];
+            this.stopped = false;
+            made.push(this);
+            setTimeout(() => this.say({ type: "ready", catalog, version: "0" }));
+        }
+        say(data) { this.onmessage?.({ data }); }
+        postMessage(m) {
+            this.got.push(m);
+            if (m.type !== "pickers") return;
+            if (held) later.push([this, m]);
+            else pickers(this, m);
+        }
+        terminate() { this.stopped = true; }
+    };
+})();"""
+"""The site's engines as stubs that load at once and answer pickers (held until ``release()``): ``made`` holds each with
+what it ``got``, its ``stopped``; the test answers each preview with ``say``."""
+
+
+def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shape_or_a_build(browser, site):
+    """D1011 (the review's D1): a shape slider's Preview shows with its pickers
+    unanswered; 3.5 s after it rests the dress goes to a worker of its own,
+    with what this browser keeps installed, never to the page's, so the page's
+    asks don't wait for it. Its records show on the bar, a whole one back to
+    the drawing's line; a new shape or a Build stops it at once, and the shape
+    the page still wants is dressed after its rest; an answer ends the worker,
+    and one that stops leaves the Preview marked, saying why."""
+    view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
+    view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
+    served = Site(browser, site)
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view}))
+    moved = """(value) => { const b = document.getElementById("char-shape:bust"); b.value = value;
+        b.dispatchEvent(new Event("change")); }"""
+
+    def shows(x: float, preview: bool) -> str:
+        shape = json.dumps(json.dumps([["bust", x]], separators=(",", ":")))
+        return f"""() => {{ const s = azurkit.characters.state.shown; return s?.shape === {shape} && s.preview === {json.dumps(preview)}; }}"""
+
+    def dressed(n: int, x: float) -> None:   # the n-th worker asks the dress of bust x, what's kept handed over first
+        _page.until(page, f"() => made[{n}]?.got.some((m) => m.type === 'preview')", 30)
+        assert page.evaluate(f"""() => [made[{n}].got.map((m) => m.type), made[{n}].got.at(-1).file.name,
+            made[{n}].got.at(-1).recipe.character]""") == [["content", "preview"], "x.iso",
+                                                           {"species": "booblord", "shapes": {"bust": x}}]
+    line = "() => document.getElementById('progress-row').hidden ? null : document.getElementById('progress-line').textContent"
+    try:
+        page = served.open()
+        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.engine.content({ a: 1 }, { b: 1 }); }")
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view", 60)
+        page.evaluate("() => azurkit.characters.set({ species: 'booblord' })")
+        _page.until(page, "() => azurkit.characters.state.shown?.name === 'booblord'", 60)
+
+        page.evaluate("() => { held = true; }")
+        page.evaluate(moved, "1.25")
+        _page.until(page, shows(1.25, True), 10)   # its pickers unanswered
+        page.evaluate("() => release()")
+        dressed(1, 1.25)
+        _page.until(page, f"() => ({line})() === 'Drawing the model…'", 10)
+        page.evaluate("""() => made[1].say({ type: "progress", stage: "dress", label: "Dressing", percent: 40 })""")
+        assert page.evaluate(line) == "Dressing… 40 %"
+        page.evaluate("""() => made[1].say({ type: "progress", stage: "dress", label: "Dressing", percent: 100 })""")
+        assert page.evaluate(line) == "Drawing the model…"
+
+        page.evaluate(moved, "1.3")   # a new shape: the Preview at once, the old dress stopped
+        _page.until(page, shows(1.3, True), 10)
+        _page.until(page, "() => made[1].stopped", 10)
+        dressed(2, 1.3)
+
+        page.evaluate("() => { azurkit.building = true; }")   # a Build goes first
+        _page.until(page, "() => made[2].stopped", 10)
+        page.wait_for_timeout(4000)
+        assert page.evaluate("() => made.length") == 3
+        page.evaluate("() => { azurkit.building = false; }")
+        dressed(3, 1.3)
+        drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+                 for side in ("front", "back")}
+        page.evaluate("(reply) => made[3].say({ type: 'reply', call: 0, reply })", drawn)
+        _page.until(page, shows(1.3, False), 10)
+        assert page.evaluate("() => [made[3].stopped, azurkit.characters.state.dressing]") == [True, False]
+
+        page.evaluate(moved, "1.35")
+        dressed(4, 1.35)
+        page.evaluate("() => made[4].onerror({ preventDefault: () => {} })")
+        _page.until(page, "() => document.getElementById('char-preview-note').textContent === 'Preview: The engine stopped "
+                          "before it answered (out of memory?): try again, or use the desktop app'", 10)
+        assert page.evaluate(shows(1.35, True)) and page.evaluate("() => made[4].stopped")
+        assert page.evaluate("() => made[0].got.filter((m) => m.recipe?.character.shapes).length") == 0
+    finally:
+        served.close()
 
 
 def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_recipe(browser, site, usa_iso):

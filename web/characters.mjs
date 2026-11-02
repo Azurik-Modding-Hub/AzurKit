@@ -16,7 +16,7 @@
 // the app writes it into its content folder. The species' list is the shared gallery picker (web/picker.mjs) in the
 // tab's own search box and list. A reshape's pictures (D1011) are keyed on the name and its shapes: the nearest shape
 // the page holds (what ships, or one it has drawn) shows at once marked Preview, and the exact one, drawn from the dress
-// a build of it makes, replaces it; a build never reads a picture.
+// a build of it makes, replaces it; a build never reads a picture. The site dresses it in a worker of its own (dress.mjs).
 import { option as pickerOption, picker } from "./picker.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -86,7 +86,7 @@ async function upTo(reply, size, path) {
 // app's api), image() the picked image (the site's File, the app's path), packs() the Patches tab's ticks (a dress
 // stands on them), changed() runs when the tab's choice changes (the page remembers it) and content(files,
 // installed) hands the site's engine what this browser keeps installed.
-export function characters({ call, app, host, say, image, packs, changed, content, settled, busy }) {
+export function characters({ call, app, host, say, image, packs, changed, content, settled, busy, dress: alone }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), wanted: null, dressing: false, settling: null };
@@ -374,6 +374,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       }
       fit();
       changed();
+      if (name.startsWith("shape:") && c.view?.chosen.name === c.character.species) draw();   // at once: no ask's reply
       ask();
     };
     track.addEventListener("input", () => {
@@ -523,16 +524,21 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     c.wanted = { key, name, shape, shapes, from };
     c.settling = setTimeout(dress, SETTLE_MS);
   };
-  // One dress at a time, the shape asked last next; never beside a build or a save (SETTLE_MS).
+  // One dress at a time, the shape asked last next; never beside a build, a save or a G4 (SETTLE_MS). The site's (dress.mjs,
+  // never the page's worker: a dress takes minutes) stops at any of those or a change of shape, and is asked again after.
+  const heavy = () => busy() || c.matching;
   const dress = async () => {
     const want = c.wanted;
     if (c.dressing || !want) return;
-    if (busy()) return void (c.settling = setTimeout(dress, SETTLE_MS));
+    if (heavy()) return void (c.settling = setTimeout(dress, SETTLE_MS));
     c.wanted = null;
     c.dressing = true;
-    const reply = await call("preview", { ...(app ? {} : { file: image() }),
-                                          recipe: recipe({ species: want.name, shapes: want.shapes }) }, { once: true });
-    if ("refused" in reply) {   // what shows stays as it is marked
+    const body = { ...(app ? {} : { file: image() }), recipe: recipe({ species: want.name, shapes: want.shapes }) };
+    const reply = await (alone ? alone(body, () => heavy() || c.drawn !== want.key)
+      : call("preview", body, { once: true }));
+    if ("stopped" in reply) {
+      if (c.drawn === want.key) c.wanted = want;
+    } else if ("refused" in reply) {   // what shows stays as it is marked
       if (c.drawn === want.key) said(`${c.shown?.preview ? "Preview: " : ""}${reply.refused}`);
     } else {
       const views = await answerViews(reply);

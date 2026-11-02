@@ -50,6 +50,7 @@
 import { characters } from "./characters.mjs";
 import { dataTab } from "./data.mjs";
 import { hashed } from "./hasher.mjs";
+import { alone } from "./dress.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 
@@ -393,6 +394,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       content = { files, installed };
       if (loaded) worker.postMessage({ type: "content", ...content });
     },
+    dress: (body, stopping) => alone(body, { content, stopping, asking, answered, posted }),   // a worker of its own
     cancel: restart,
   };
 }
@@ -902,7 +904,7 @@ function ready(catalog, version) {
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
                                     image: () => state.file, packs: chosen, changed: state.changed,
                                     content: state.engine.content, settled: ahead,
-                                    busy: () => state.building || state.saving });
+                                    busy: () => state.building || state.saving, dress: state.engine.dress });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
                            changed: (ops) => {
                              state.xbr = ops;
