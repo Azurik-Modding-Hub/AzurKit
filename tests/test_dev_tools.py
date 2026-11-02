@@ -229,7 +229,7 @@ def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_libra
 def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_one_it_doesnt_know():
     """Safari's read model (the perf gate's lag run) makes every read of the
     player's File in ``web/worker.mjs`` and ``web/hasher.mjs`` 200 ms late, the blocks' FileReaderSync
-    reads and the image check's awaited ones alike; a read it doesn't know
+    reads, the image check's awaited ones and Replace files' stream alike; a read or stream it doesn't know
     stops the run, naming its line. Its ``sw.js`` lists the texts it serves
     late, as the worker's install keeps no other bytes (D1013)."""
     import hashlib
@@ -239,7 +239,7 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
 
     text = (ROOT / "web" / "worker.mjs").read_text(encoding="utf-8")
     late = _perf.lagged(text)
-    assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 4
+    assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 5
     files = {"worker.mjs": {"sha256": "0" * 64, "size": 1}, "app.mjs": {"sha256": "1" * 64, "size": 2}}
     sw = (ROOT / "web" / web_tools.WORKER).read_text(encoding="utf-8").replace(
         web_tools.RELEASE_LINE, f"const RELEASE = {json.dumps({'csp': '', 'files': files, 'name': 'n'})};")
@@ -248,9 +248,9 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
         "sha256": hashlib.sha256(late.encode()).hexdigest(), "size": len(late.encode())}}
     hasher = (ROOT / "web" / "hasher.mjs").read_text(encoding="utf-8")
     assert _perf.lagged(hasher, _perf.HASHER_LAG).count(_perf._WAIT) == 1
-    added = "const more = await file.slice(0, 1).arrayBuffer();"
-    with pytest.raises(SystemExit, match=re.escape(repr(added))):
-        _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))
+    for added in ("const more = await file.slice(0, 1).arrayBuffer();", "const more = file.stream().getReader();"):
+        with pytest.raises(SystemExit, match=re.escape(repr(added))):
+            _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))
 
 
 def test_the_perf_gates_memory_counts_only_the_webkit_launchd_started_for_its_own_browser(monkeypatch):

@@ -337,7 +337,9 @@ LAG = (
      f"{{ const late = performance.now() + {LAG_MS}; while (performance.now() < late); }} "
      "data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));"),
     ("await ends.arrayBuffer()", f"await {_WAIT}ends.arrayBuffer())"),   # identify's sample of the File
-    ("await picked.arrayBuffer()", f"await {_WAIT}picked.arrayBuffer())"),   # Replace files' picked file
+    ("await picked.arrayBuffer()", f"await {_WAIT}picked.arrayBuffer())"),   # a build's replaced file, a Saves' file
+    ("const reader = picked.stream().getReader();",   # Replace files' pick: one stream, its first bytes late
+     f"const reader = await {_WAIT}picked.stream().getReader());"),
     ("await file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer()",   # the folders' tables read ahead (R2.5)
      f"await {_WAIT}file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer())"),
     ("await file.slice(i * PAGE, (i + 1) * PAGE).arrayBuffer()",   # a seed's sections read ahead (AM-HUB-E)
@@ -345,7 +347,7 @@ LAG = (
 )
 HASHER_LAG = (("await source.slice(run.start, run.end).arrayBuffer()",   # the image's check, a seed's levels, a Save's
                f"await {_WAIT}source.slice(run.start, run.end).arrayBuffer())"),)
-READS = re.compile(r"readAsArrayBuffer\(|\.arrayBuffer\(\)")
+READS = re.compile(r"readAsArrayBuffer\(|\.arrayBuffer\(\)|\.stream\(\)")
 NOT_FILE = ("await wheel.arrayBuffer()", "await module.arrayBuffer()")   # the wheel's fetch, md5.wasm's
 COUNTED = re.compile(r"\d+ of \d+|\d+(?:\.\d+)? ?%")
 

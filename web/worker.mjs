@@ -634,6 +634,28 @@ function character(loaded, data) {
 // A file picked to replace one of the image's, in memory for one ask or build, and its sha256 in WebCrypto.
 const pickedBytes = async (picked) => new Uint8Array(await picked.arrayBuffer());
 const digested = async (bytes) => hex(await crypto.subtle.digest("SHA-256", bytes));
+// Replace files' pick, read as one stream (one read: Safari answers each read of a File 200 ms late), the bottom bar
+// moving with the bytes read (D980: a 148 MB file's pick passes 1 s in Safari's read model, S54/lag; a stream reads as
+// fast as one arrayBuffer() in the three browsers), then hashed whole.
+async function streamed(picked) {
+  const bytes = new Uint8Array(picked.size), label = `Reading ${picked.name}`;
+  let at = 0, shown = -1;
+  const heard = () => {
+    const percent = Math.floor(at * 100 / (bytes.length || 1));
+    if (percent !== shown) stage("read", label, at, bytes.length || 1);
+    shown = percent;
+  };
+  heard();
+  const reader = picked.stream().getReader();
+  for (let read; !(read = await reader.read()).done;) {
+    if (at + read.value.length > bytes.length) throw new Error("your file changed after you picked it");
+    bytes.set(read.value, at);
+    at += read.value.length;
+    heard();
+  }
+  if (at !== bytes.length) throw new Error("your file changed after you picked it");
+  return bytes;
+}
 
 // A Tools tab's ask (answered whatever happens: the page waits on it): the picked image's (file: mounted, checked
 // first, prime), another File's (build: an AzurKit build to open, mounted only for its read) or none (a mods file, a
@@ -651,7 +673,7 @@ async function tool({ py, engine }, data) {
     return data.file ? mounted(py, data.file, (iso) => asked({ iso })) : asked();
   }
   if (data.type === "replace") {   // a file picked to replace one of the image's: its entry; its bytes stay the File's
-    const bytes = await pickedBytes(data.picked);
+    const bytes = await streamed(data.picked);
     return engine({ type: "replace", given: { path: data.path, sha256: await digested(bytes), size: bytes.length } });
   }
   if (data.type === "open") return mounted(py, data.build, (iso) => engine({ type: "open", recipe: { iso } }));

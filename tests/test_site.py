@@ -862,7 +862,9 @@ def test_the_saves_section_round_trips_a_slot(browser, site, tmp_path):
 
 def test_a_build_with_a_replaced_file_is_the_apps_image(browser, site, usa_iso, tmp_path):
     """Replace files on the site (Step 4.7d): greyed with its line until an image is picked; a file the build owns is
-    refused by name; a picked File builds the image the engine builds on CPython for the same bytes, by the whole
+    refused by name; a pick's read moves the bottom bar from 0 to 100 % under its "Reading <file>" line (D980: a
+    148 MB file's passes 1 s in Safari's read model, S54/lag); a picked File builds the image the engine builds on
+    CPython for the same bytes, by the whole
     image's sha256; a share link refuses it by name; a mods file loaded in a fresh page asks for the file again and
     stops a Build by name, reading nothing."""
     from azurkit.edits import files
@@ -890,10 +892,16 @@ def test_a_build_with_a_replaced_file_is_the_apps_image(browser, site, usa_iso, 
         page.evaluate("() => { document.getElementById('replace-path').value = 'default.xbe'; }")
         page.set_input_files("#replace-file", str(mine))
         _page.until(page, "() => /default.xbe isn't replaced: .*the packs' file/.test(document.getElementById('status').textContent)", 120)
-        page.evaluate(f"() => {{ document.getElementById('replace-path').value = {json.dumps(name)}; }}")
+        page.evaluate(f"""() => {{ document.getElementById('replace-path').value = {json.dumps(name)};
+            const bar = document.getElementById('progress'), line = document.getElementById('progress-line');
+            globalThis.readBar = [];
+            new MutationObserver(() => bar.hasAttribute('value') && readBar.push(line.textContent))
+              .observe(bar, {{ attributes: true, attributeFilter: ['value'] }}); }}""")
         page.set_input_files("#replace-file", str(mine))
         _page.until(page, "() => azurkit.replace.entries().length === 1", 120)
         assert page.evaluate("() => azurkit.replace.entries()") == [entry]
+        shown = page.evaluate("() => readBar")
+        assert shown[0] == "Reading mine.bin… 0 %" and shown[-1] == "Reading mine.bin… 100 %", shown
         page.evaluate("() => document.getElementById('share').click()")
         _page.until(page, "() => /never carries a replaced file/.test(document.getElementById('status').textContent)", 60)
         page.evaluate("() => document.getElementById('tab-patches').click()")
