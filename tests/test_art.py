@@ -35,6 +35,8 @@ DRAWN = ("draft", "art", "levels.py", "data/generated")   # what draws them: the
 SHIPPED = f"{record_goldens.ART}/{tracking.ART_VERSION}/"
 DETAIL = ("a6", "f2")   # the coarse levels whose detail pictures the test draws (4.7 + 7.2 s; the rest: --check)
 APART, FEW = 200, 4   # close enough (D1016): at most one pixel or table byte in this many other, or this few pixels
+BOX, CROWD = 40, 8    # and in no 40 px box (the icon sheet's tile) more than one pixel in 8: x86's rounding moved 84 of
+#                       one box's 1,600 (airship.png, Step 4.4ci9), a box-sized change moves 400 or more in one
 
 
 def _sha256(files: dict[str, bytes]) -> dict[str, str]:
@@ -70,30 +72,38 @@ def _near(got, want, path: str = "") -> list[str]:
         want, (int, float)) else "")]
 
 
-def _pixels(got: np.ndarray, want: np.ndarray, sheet: dict | None) -> list[str]:
+def _boxes(shape: tuple, sheet: dict | None = None) -> dict[str, tuple[slice, slice]]:
+    """A picture's boxes by name: the icon sheet's tiles (``sheet``: ``index.json``'s ``icons``), else :data:`BOX` px
+    squares named by where they lie."""
+    if sheet:
+        t, n = sheet["tile"], sheet["columns"]
+        return {name: (slice(i // n * t, (i // n + 1) * t), slice(i % n * t, (i % n + 1) * t))
+                for i, name in enumerate(sheet["names"])}
+    h, w = shape[:2]
+    return {f"x {x}-{min(x + BOX, w) - 1}, y {y}-{min(y + BOX, h) - 1}": (slice(y, y + BOX), slice(x, x + BOX))
+            for y in range(0, h, BOX) for x in range(0, w, BOX)}
+
+
+def _pixels(got: np.ndarray, want: np.ndarray, boxes: dict | None = None, most: int = 0) -> list[str]:
     """Where two pictures of one size differ, never their bytes: how many pixels, by at most how much, within what
-    box, and on the icon sheet (``sheet``: ``index.json``'s ``icons``) each tile that differs by name."""
+    box, then each of ``boxes`` (:func:`_boxes`) where more than ``most`` differ, by name."""
     off, by = (got != want).any(axis=-1), np.abs(got.astype(int) - want.astype(int)).max(axis=-1)
     ys, xs = np.nonzero(off)
     if not len(ys):
         return []
-    out = [f"{len(ys)} of {off.size} pixels differ, by at most {int(by.max())}, within x {xs.min()}-{xs.max()}, "
-           f"y {ys.min()}-{ys.max()}"]
-    if sheet:
-        t, n = sheet["tile"], sheet["columns"]
-        tiles = {name: (slice(i // n * t, (i // n + 1) * t), slice(i % n * t, (i % n + 1) * t))
-                 for i, name in enumerate(sheet["names"])}
-        out += [f"{name}: {int(off[at].sum())} pixels, by at most {int(by[at].max())}"
-                for name, at in tiles.items() if off[at].any()]
-    return out
+    return [f"{len(ys)} of {off.size} pixels differ, by at most {int(by.max())}, within x {xs.min()}-{xs.max()}, "
+            f"y {ys.min()}-{ys.max()}"] + [f"{name}: {int(off[at].sum())} pixels, by at most {int(by[at].max())}"
+                                           for name, at in (boxes or {}).items() if off[at].sum() > most]
 
 
 def _apart(files: dict[str, bytes], kept: dict[str, bytes], exact: bool) -> dict[str, list[str]]:
     """``{rel: how it is not the kept file}``, nothing for a file that is. ``exact``: byte for byte (sha256s, and a
     picture's pixels and tiles where it differs, :func:`_pixels`). Else close enough (D1016; the kept files are the
-    reference, so no host records its own): a picture's size exact and at most :data:`APART`'s share of its pixels
-    other, as an edge's rounding moves a few (x86 under Rosetta: 250 of 226,080 at most; Windows' zlib-ng deflates
-    otherwise too, so its pixels are read, not its bytes), each JSON file by :func:`_near`."""
+    reference, so no host records its own): each JSON file by :func:`_near`, a picture's size exact and its pixels,
+    not its bytes (Windows' zlib-ng deflates otherwise). The icon sheet's are all the same: its menu art sums
+    integers and no pixel of its models moves with each sine, cosine and hypot 1e-8 off (Step 4.4ci9). A map's are
+    at most :data:`APART`'s share other and one in :data:`CROWD` of any :data:`BOX` px box, as an edge's rounding
+    moves a few (x86 under Rosetta: 250 of 226,080 at most, 84 in one box)."""
     index = files.get(f"{record_goldens.ART}/index.json")
     sheet = json.loads(index)["icons"] if index else None
     out = {}
@@ -104,12 +114,15 @@ def _apart(files: dict[str, bytes], kept: dict[str, bytes], exact: bool) -> dict
         if rel.endswith(".png"):
             got, want = art.unpng(data), art.unpng(kept[rel])
             if got.shape != want.shape:
-                why = why * exact + [f"{got.shape} pixels, not {want.shape}"]
-            elif exact:
-                why += _pixels(got, want, sheet if rel.endswith("/icons.png") else None)
+                why += [f"{got.shape} pixels, not {want.shape}"]
+            elif exact or rel.endswith("/icons.png"):
+                found = _pixels(got, want, _boxes(got.shape, sheet) if rel.endswith("/icons.png") else None)
+                why = why + found if exact or found else []
             else:
-                off = (got != want).any(axis=-1)
-                why = _pixels(got, want, None) if off.sum() > max(FEW, off.size // APART) else []
+                off, most = (got != want).any(axis=-1), BOX * BOX // CROWD
+                crowded = any(off[at].sum() > most for at in _boxes(off.shape).values())
+                why = why + _pixels(got, want, _boxes(off.shape), most) if crowded or off.sum() > max(
+                    FEW, off.size // APART) else []
         elif not exact:
             why = _near(json.loads(data), json.loads(kept[rel]))
         if why:
@@ -147,21 +160,39 @@ def test_the_shipped_maps_are_what_the_tracker_draws_from_each_image(usa_iso, eu
 
 
 def test_another_hosts_pictures_are_close_enough_only_by_a_few_edge_pixels_and_its_floats_last_digits():
-    """D1016: off the recording host a picture may have a few other pixels and a JSON float its last digits, nothing
-    more: many pixels, another size, an integer, a key or a float far off is named; on it, any byte is."""
-    img = np.zeros((100, 100, 3), np.uint8)
-    edge, many, table = img.copy(), img.copy(), base64.b64encode(zlib.compress(bytes(1000))).decode()
-    edge[0, 0], many[:10] = 90, 90
-    doc = {"frame": [1.5, 2.0], "count": 3, "name": "a", "rows": table}
+    """D1016: off the recording host a map may have a few other pixels and a JSON float its last digits, nothing
+    more: many pixels, a box's worth in one place, another size, an integer, a key or a float far off is named; on it,
+    any byte is. The icon sheet's pixels are every host's (Step 4.4ci9): an icon recoloured, blanked or one pixel
+    off is named by its tile, its pixels deflated otherwise (Windows' zlib-ng) only on the recording host."""
+    img = np.zeros((400, 400, 3), np.uint8)
+    edge, many, block = img.copy(), img.copy(), img.copy()
+    edge[0, 0], many[:10], block[50:75, 50:75] = 90, 90, 90   # the block: 625 pixels, under the share's 800
+    doc = {"frame": [1.5, 2.0], "count": 3, "name": "a", "rows": base64.b64encode(zlib.compress(bytes(1000))).decode()}
     def apart(file: str, data: bytes, want: bytes, exact: bool = False) -> list[str]:
         return _apart({file: data}, {file: want}, exact).get(file, [])
 
     assert apart("a.png", art.png(edge), art.png(img)) == []
-    assert "1000 of 10000 pixels differ" in apart("a.png", art.png(many), art.png(img))[0]
-    assert "pixels, not" in apart("a.png", art.png(img[:50]), art.png(img))[0]
+    assert "4000 of 160000 pixels differ" in apart("a.png", art.png(many), art.png(img))[1]
+    assert apart("a.png", art.png(block), art.png(img))[1:] == [
+        "625 of 160000 pixels differ, by at most 90, within x 50-74, y 50-74",
+        "x 40-79, y 40-79: 625 pixels, by at most 90"]
+    assert "pixels, not" in apart("a.png", art.png(img[:50]), art.png(img))[1]
     assert apart("a.png", art.png(edge), art.png(img), exact=True)[0].startswith("sha256")
-    assert _pixels(edge, img, {"tile": 50, "columns": 2, "names": ["a", "b", "c", "d"]}) == [
-        "1 of 10000 pixels differ, by at most 90, within x 0-0, y 0-0", "a: 1 pixels, by at most 90"]
+    index, shipped = (ROOT / record_goldens.ART / "index.json").read_bytes(), (ROOT / SHIPPED / "icons.png").read_bytes()
+    picture, at = art.unpng(shipped), _boxes((), json.loads(index)["icons"])["obsidian"]
+    recoloured, blank, dot = picture.copy(), picture.copy(), picture.copy()
+    recoloured[at], blank[at], dot[at][20, 20, 0] = picture[at][..., [2, 1, 0, 3]], 0, picture[at][20, 20, 0] ^ 1
+    def sheet(data: bytes, exact: bool = False) -> list[str]:
+        name = f"{SHIPPED}icons.png"
+        files = {f"{record_goldens.ART}/index.json": index, name: data}
+        return _apart(files, files | {name: shipped}, exact).get(name, [])
+
+    for icon in (recoloured, blank, dot):
+        assert sheet(art.png(icon))[-1].startswith("obsidian: ")
+    with pytest.MonkeyPatch.context() as patched:
+        patched.setattr(zlib, "compress", lambda data, level=-1, deflate=zlib.compress: deflate(data, 1))
+        again = art.png(picture)
+    assert again != shipped and sheet(again) == [] and sheet(again, exact=True)[0].startswith("sha256")
     near = doc | {"frame": [1.5 * (1 + 1e-12), 2.0]}
     assert apart("m.json", json.dumps(near).encode(), json.dumps(doc).encode()) == []
     assert apart("m.json", json.dumps(near).encode(), json.dumps(doc).encode(), exact=True)[0].startswith("sha256")

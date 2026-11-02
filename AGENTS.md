@@ -181,7 +181,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     weighed sums within 4 ULPs each; every other word of every resource is
     exact) and each file's digest with those
     resources blanked (`record_goldens.apart`), and the shipped pictures are
-    their own reference (`tests/test_art.py`'s `_apart`). Every other file
+    their own reference (`tests/test_art.py`'s `_apart`: the icon sheet's
+    pixels exact on every host, a map's within 1/200 and 1/8 of any 40 px
+    box, Step 4.4ci9). Every other file
     stays exact there. The recording host is a platform, not a machine:
     every Apple Silicon Mac on Accelerate (CI's M1 on another macOS too) is
     held byte for byte, and Accelerate's BLAS adds in each chip's and
