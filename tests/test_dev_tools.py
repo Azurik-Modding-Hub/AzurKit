@@ -491,7 +491,7 @@ def test_a_site_builds_sample_logs_its_steady_memory_beside_the_resident_peak(tm
 def test_the_engine_ready_again_after_a_seeds_build_is_timed_from_the_builds_answer(tmp_path, monkeypatch):
     """R24 (R14's twin): the next op's wait after a big build, the worker
     replaced, counts from the build's answer, not its click."""
-    page = _Stub({_perf.build_js(): {_perf.BUILT: 5000, _perf.READY: 6200}})
+    page = _Stub({_perf.build_js(): {_perf.BUILT: 5000, _perf.RESTED: 6200}})
     monkeypatch.setattr(_perf, "Page", lambda _: page)
     d = _perf.Driver(_perf.RUNS["webkit"], {"S24": 1, "R24": 1}, tmp_path, tmp_path / "usa.iso", None)
     d.sleep = lambda seconds: setattr(page, "t", page.t + seconds * 1000)

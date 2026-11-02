@@ -166,6 +166,7 @@ function stop(text) {
 
 const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
+const READYING = "Getting your image ready to save";
 // Progress (D980): one bar for both hosts. Each ask in flight is kept (asking(kind) -> its id, answered(id)) with the
 // last record the engine gave for it (the app's api/progress, polled every 250 ms; the site's worker's posts); the
 // newest that is a build, a save, Track this seed's plan or a plan file's spoiler, has a record, or has waited 1 s
@@ -179,11 +180,13 @@ const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanill
                  decode: "Reading the link", info: "Reading your image", verify_all: "Checking every file",
                  files: "Listing its files", extract: "Extracting the file", open: "Reading the build",
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
-                 storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit" };
+                 storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit",
+                 flat: READYING };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other after 1 s
 // shown and polled from the click: Track this seed's plan and a plan file's spoiler (the logic's read) too, and the site's
 // Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it
-const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler", "save_check"]);
+const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler", "save_check", "flat"]);
+const PAGES = new Set(["save_check", "flat"]);   // the page's own waits, with their own records: never a worker's
 let asked = 0, ticking = null;
 
 function progressed(step) {
@@ -235,11 +238,11 @@ async function tick() {
 
 // The site's worker's record: its start's on the worker's start ask (siteEngine's, answered at ready); else the
 // build's while one runs; else a check's (before the call it came with: its own, gone with the worker's next answer,
-// else a moment after it is whole or 1.5 s after its last), else the newest ask's.
+// else a moment after it is whole or 1.5 s after its last), else the newest ask's that is the worker's.
 function posted(step, start = null) {
   const asks = [...state.asks.values()];
   let ask = step.stage === "start" ? state.asks.get(start) : asks.findLast((a) => a.kind === "build")
-    ?? (step.stage === "check" ? asks.findLast((a) => a.kind === "check") : asks.at(-1));
+    ?? (step.stage === "check" ? asks.findLast((a) => a.kind === "check") : asks.findLast((a) => !PAGES.has(a.kind)));
   if (!ask && step.stage === "check") ask = state.asks.get(asking("check"));
   if (!ask) return;
   ask.record = step;
@@ -733,6 +736,8 @@ function chosen() {
   return packs;
 }
 
+const unready = () => Boolean(state.build?.flat && !state.url);   // Firefox's Blob isn't made yet: Save waits greyed
+
 function busy(on) {
   state.building = on;
   $("build").disabled = on || !state.file || !state.ready || Boolean(state.opened);
@@ -740,7 +745,7 @@ function busy(on) {
   $("reset").disabled = on || state.plain;
   $("iso").disabled = on || !state.packs;
   for (const id of ["iso-path", "iso-choose", "out-path"]) $(id).disabled = on;
-  $("save").disabled = on || !state.build;
+  $("save").disabled = on || !state.build || unready();
   $("cancel").hidden = !on;
   lines();
   lock();
@@ -758,7 +763,8 @@ function busy(on) {
 function lines() {
   const why = state.building ? "" : !state.file ? "Pick your image (1.) to build"
     : state.opened ? "Pick your vanilla image (1.) to build: this one is an AzurKit build"
-    : !state.ready ? "Preparing the engine…" : !state.build ? "Save follows a build" : "";
+    : !state.ready ? "Preparing the engine…" : !state.build ? "Save follows a build"
+    : unready() ? `${READYING}…` : "";
   $("build-line").textContent = why;
   $("build").title = $("build").disabled ? why : "";
   $("save").title = $("save").disabled && !state.building ? (state.build ? why : "Save follows a build") : "";
@@ -995,7 +1001,8 @@ function report(text, error = false) {
 // whole Blob into memory at createObjectURL, and hold about 2 GiB more over a download; a Blob of few parts, each a slice
 // of a file, it reads by reference, its tree flat. So there the KEPT longest copies stay the
 // File's slices and all between them goes once into one Blob Firefox keeps in a temporary file (Response.blob()): at most
-// 2 x KEPT + 1 parts, the same bytes. It runs ahead of the Save, after the build's answer; a Save that gets there first waits.
+// 2 x KEPT + 1 parts, the same bytes. It runs ahead of the Save, after the build's answer, Save greyed and its own bar
+// moving until it ends (about 1.1-2.3 s of disk on a seed's), so a click never waits for it (D979, D1053).
 const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3;
 async function byReference(segments, parts) {
   const kept = new Set(segments.map((s, i) => [s, i]).filter(([s]) => s.kind === "copy")
@@ -1035,9 +1042,13 @@ function built(reply) {
     const build = { report: made, size, segments: reply.segments, file, blob, checks: reply.checks, late: reply.late };
     state.build = build;
     if (URL_COPIES) {
+      const making = asking("flat");
       build.flat = byReference(reply.segments, parts).catch(() => blob).then((flat) => {   // no flat one: still its bytes
+        answered(making);
         build.blob = flat;
-        if (state.build === build) state.url = URL.createObjectURL(flat);
+        if (state.build !== build) return;   // forgotten while it was made
+        state.url = URL.createObjectURL(flat);
+        busy(state.building);
       });
     } else {
       state.url = URL.createObjectURL(blob);
@@ -1070,7 +1081,6 @@ async function checkSave(build, name) {
   state.saveCheck = "running";
   const id = asking("save_check");
   const sized = (rows) => rows.reduce((n, [, , size]) => n + size, 0);
-  if (build.flat) await build.flat;   // the bar shows from the click; the Blob the download reads is what it hashes
   const passes = [[build.blob, build.checks.image]];
   if (!READS_REFUSED) passes.unshift([build.file, build.checks.input]);
   const whole = passes.reduce((n, [, rows]) => n + sized(rows), 0);
@@ -1781,17 +1791,15 @@ async function main() {
     busy(false);
     say("Cancelled");
   });
-  $("save").addEventListener("click", async () => {
+  $("save").addEventListener("click", () => {
     if (state.app) return saveInApp();
-    const build = state.build, name = `${state.file.name.replace(/\.x?iso$/i, "")} (AzurKit).iso`;
-    checkSave(build, name);
-    if (build.flat) await build.flat;
-    if (state.build !== build) return;   // forgotten while its parts were made
-    const a = Object.assign(document.createElement("a"), { href: state.url, download: name });
+    const a = Object.assign(document.createElement("a"), {
+      href: state.url, download: `${state.file.name.replace(/\.x?iso$/i, "")} (AzurKit).iso` });
     document.body.append(a);
     a.click();
     a.remove();
-    say(`Saving ${name} (${bytes(build.size)}): your browser's download shows its progress`);
+    say(`Saving ${a.download} (${bytes(state.build.size)}): your browser's download shows its progress`);
+    checkSave(state.build, a.download);
   });
 }
 

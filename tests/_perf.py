@@ -240,8 +240,9 @@ OPS = {op.id: op for op in (
     Op("S56", "Saves: a slot's folder opened", "build"),   # Step 4.7e
     Op("S57", "Saves: the slots of an xemu HDD image", "build"),
     Op("S58", "Saves: a line edited, then the slot saved", "build"),
-    Op("R14", "the engine ready again after Build keylord", "build"),   # the next op's wait: the same or a new worker
-    Op("R24", "the engine ready again after a seed's build", "randomizer"),
+    # the next op's wait: the same or a new worker, and Firefox's Save greyed while its Blob is made
+    Op("R14", "the engine ready again and Save open after Build keylord", "build"),
+    Op("R24", "the engine ready again and Save open after a seed's build", "randomizer"),
 )}
 
 
@@ -304,6 +305,8 @@ CALLS = """() => azurkit.app ? fetch("host.json").then((r) => r.json()).then((ho
   : { ...azurkit.packs?.native, calls: azurkit.calls ?? { kernel: 0, twin: 0 } }"""
 USA = "() => azurkit.vanilla?.release === 'usa'"
 BUILT = f"() => azurkit.build ? 'built' : {ERROR}"
+SAVE_OPEN = "() => !document.querySelector('#save').disabled"
+RESTED = "() => azurkit.ready && !document.querySelector('#save').disabled"
 SAVED = f"() => azurkit.saved ? 'saved' : {ERROR}"
 PICTURES = ("(document.getElementById('char-preview-note').textContent.startsWith('From the') "
             "|| document.getElementById('char-preview-note').textContent.includes('no '))")
@@ -1280,6 +1283,7 @@ def _pick(d: Driver, p: Page, op: str | None, done: str = USA) -> None:
 def _download(d: Driver, p: Page, op: str | None) -> None:
     """The click to the file downloaded and checked against the build (the page's own check, its bar moving), its page
     part to the download's start (the browser's own bar after)."""
+    p.wait(SAVE_OPEN, 600)
     t0 = p.now()
     with p.page.expect_download(timeout=1_800_000) as caught:
         p.js("() => document.querySelector('#save').click()")
@@ -1307,7 +1311,7 @@ def site_start(d: Driver, ctx, url: str) -> None:
         d.until(p, "S11", t0, chosen("keylord"), 1800)
         if d.needed(("S14", "R14", "S49")):
             _, built = d.act(p, "S14", build_js(), BUILT, 1800)
-            d.until(p, "R14", built, READY, 600)
+            d.until(p, "R14", built, RESTED, 600)
             if d.need("S49"):
                 _download(d, p, "S49")
     d.leave(p)
@@ -1383,7 +1387,7 @@ def site_seed(d: Driver, ctx, url: str) -> None:
     _pick(d, p, None)
     _seeded(d, p)
     _, built = d.act(p, "S24", build_js(), BUILT, 1800)
-    d.until(p, "R24", built, READY, 600)
+    d.until(p, "R24", built, RESTED, 600)
     if d.need("S50"):
         _download(d, p, "S50")
     d.leave(p)
@@ -1475,6 +1479,7 @@ def site_tools(d: Driver, ctx, url: str) -> None:
         caught.value.delete()
     p.js(click("tab-patches"))
     d.act(p, None, build_js(), BUILT, 1800)
+    p.wait(SAVE_OPEN, 600)
     with p.page.expect_download(timeout=1_800_000) as caught:
         p.js("() => document.querySelector('#save').click()")
     built = Path(caught.value.path())

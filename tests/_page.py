@@ -119,8 +119,9 @@ def marked(page) -> list[str]:
 
 
 def built(page) -> dict:
-    """The build's report once the page has it (the page's error fails)."""
-    done = until(page, """() => azurkit.build ? "built" : document.querySelector("#status").classList.contains("error")
+    """The build's report once the page has it and Save can be clicked (the page's error fails)."""
+    done = until(page, """() => azurkit.build && !document.querySelector("#save").disabled ? "built"
+                               : document.querySelector("#status").classList.contains("error")
                                && document.querySelector("#status").textContent""")
     assert done == "built", done
     return page.evaluate("() => azurkit.build.report")

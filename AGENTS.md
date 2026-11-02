@@ -1374,7 +1374,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     after a build the three longest copies stay the File's slices and all
     between them goes into one Blob in Firefox's temporary file
     (`Response.blob()`), the same bytes, ahead of the Save (app.mjs's
-    `byReference`).
+    `byReference`). While it is made, about 1.1-2.3 s of disk on a seed's,
+    Save stays greyed with its own moving bar (R14 and R24 end when it opens),
+    so a click never waits for it and a Save's page part stays the click's
+    (D1053); the worker's records never land on the page's own waits.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
   `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
   and Firefox.

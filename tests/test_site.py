@@ -2087,6 +2087,44 @@ def test_a_build_and_its_save_stay_under_6_gib_of_firefoxs_processes(browser, si
         served.close()
 
 
+def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_never_waits_at_the_click(browser, site, usa_iso):
+    """D979, D980, D1053: Firefox's Blob is made after the build's answer (the Response held here), Save greyed and named
+    with a bar of its own, which a worker's record doesn't take over. So in every browser a click's download and check
+    start in its tick."""
+    held = """() => { const real = Response.prototype.blob;
+        Response.prototype.blob = function () {
+            if (this.url) return real.call(this);   // a fetch's, not the page's own Blob's
+            return new Promise((go) => { globalThis.release = go; }).then(() => real.call(this));
+        }; }"""
+    workers = """{ const Real = Worker; globalThis.workers = [];
+        globalThis.Worker = class extends Real { constructor(...on) { super(...on); workers.push(this); } }; }"""
+    line = "document.getElementById('progress-line').textContent"
+    ready = "Getting your image ready to save"
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script(workers)
+        page = served.open()
+        page.evaluate(held)
+        page.set_input_files("#iso", str(usa_iso))
+        _page.build(page, [])
+        _page.until(page, "() => azurkit.build && azurkit.ready", 300)
+        if browser.browser_type.name == "firefox":
+            assert page.evaluate("""() => { const save = document.getElementById('save');
+                return [save.disabled, save.title, document.getElementById('progress-row').hidden]; }""") == [
+                True, f"{ready}…", False]
+            page.evaluate("() => workers[0].onmessage({ data: { type: 'progress', stage: 'read', label: 'Other', percent: 5 } })")
+            _page.until(page, f"() => {line}.startsWith('{ready}')")
+            assert page.evaluate("() => document.getElementById('progress').hasAttribute('value')") is False
+            page.evaluate("() => globalThis.release()")
+        _page.built(page)
+        with page.expect_download(timeout=600_000) as caught:
+            assert page.evaluate("() => { document.querySelector('#save').click(); return azurkit.saveCheck; }") == "running"
+        assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
+        caught.value.delete()
+    finally:
+        served.close()
+
+
 def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, site, usa_iso, tmp_path):
     """D35: a byte of the picked image changed on disk between Build and Save (Firefox reads the new bytes silently,
     WebKit and Chromium fail the read): the Save fails with what to do and the build goes, as the page can't stop the
@@ -2148,6 +2186,7 @@ def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_
         page.evaluate("() => { azurkit.build = null; document.querySelector('#build').click(); }")
         if _page.until(page, "() => azurkit.build ? 'built' : document.querySelector('#status').classList.contains('error') "
                              "&& 'refused'", 900) == "built":
+            _page.built(page)
             _page.until(page, "() => azurkit.ready", 300)
             page.evaluate("() => document.querySelector('#save').click()")
             failed = _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck")
