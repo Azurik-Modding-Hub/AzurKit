@@ -3309,6 +3309,49 @@ def test_a_click_takes_bs_finished_build_as_cpythons_and_a_change_drops_it_for_t
         served.close()
 
 
+def test_a_click_never_takes_bs_build_of_a_choice_the_engines_answer_changes(browser, site, usa_iso, tmp_path):
+    """B builds ahead the tab's choice; Build sends the engine's answer to it, which drops what a body locks. garret4's
+    height kept across a pick of Beamlord (installed from the source) is B's refusal, and Build, keyed on the
+    character it sends, doesn't take it: it builds {"species": "beamlord"}, CPython's bytes."""
+    from azurkit.tools.characters import _player_variants, content
+
+    repo = tmp_path / "repo"
+    (repo / "variants/beamlord").mkdir(parents=True)
+    (repo / "variants/beamlord/variant.json").write_text(json.dumps({"beamlord": json.loads(
+        _player_variants.BUILTIN.read_text(encoding="utf-8"))["beamlord"]}), encoding="utf-8")
+    entry = {"author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1, "requires": [], "id": "beamlord",
+             "kind": "variant", "title": "Beamlord", "files": [{"path": "variants/beamlord/variant.json"}]}
+    (repo / "manifest.json").write_text(json.dumps(content.filled(
+        {"format": content.FORMAT, "schema_version": 1, "entries": [entry]}, lambda path: (repo / path).read_bytes())))
+    served = Site(browser, site)
+
+    def source(route, request) -> None:
+        rel = repo / urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/")
+        route.fulfill(path=str(rel)) if rel.is_file() else route.fulfill(status=404, body="")
+    served.context.route(f"{ORIGIN}/content-test/**", source)
+    try:
+        served.open().evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view?.from && azurkit.characters.state.view.community.length", 300)
+        beamlord = "document.querySelector('#char-community .entry[data-entry=\"beamlord\"] {}')"
+        page.evaluate(f"() => {beamlord.format('button')}.click()")
+        _page.until(page, f"() => {beamlord.format('.model')}", 120)
+        _page.click(page, "char-height")   # garret4's height, which a pick keeps
+        page.evaluate(f"() => {beamlord.format('.model')}.click()")
+        _page.until(page, "() => !azurkit.characters.waiting() && azurkit.pool.state().kept.length === 1", 600)
+        assert page.evaluate("() => [azurkit.characters.choice(), azurkit.characters.character()]") == [
+            {"size": "garret4", "species": "beamlord"}, {"species": "beamlord"}]
+        page.evaluate("() => document.querySelector('#build').click()")
+        built = _built(page)
+        made, report = sdk.image({"iso": str(usa_iso), "packs": page.evaluate("() => azurkit.sent"),
+                                  "character": {"species": "beamlord"}})
+        assert built == _as_cpython(built, report, made) and page.evaluate("() => azurkit.took") is False
+    finally:
+        served.close()
+
+
 BUILD_FILES = """async () => {
     const names = [];
     for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);

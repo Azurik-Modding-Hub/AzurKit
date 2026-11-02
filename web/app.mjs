@@ -131,7 +131,8 @@ function ahead() {
 // anew, so what no longer matches stops at once (B's job by terminate()) and B starts on the rest once the page holds
 // still. A reshaped character isn't built ahead: minutes, and a heap past KEEP terminated by the next slider's change
 // would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap. A body's build asks with
-// the tab's choice before the engine's answer to it, which only reads it out (the key is the choice's, on both sides).
+// the tab's choice before the engine's answer to it, and each build is keyed on the character it sends: the answer
+// drops what the body locks or doesn't take (a variant's size, say), so a click takes B's build only when the two match.
 const reshaped = (character) => Boolean(character?.shapes && Object.keys(character.shapes).length);
 function aheadOnSite(begin = false) {
   if (!state.engine?.ahead || !state.packs || state.restoring) return;
@@ -387,7 +388,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     });
   };
   return {
-    build: (file, packs, xbr, randomizer, character, extra = {}, choice = character) => {
+    build: (file, packs, xbr, randomizer, character, extra = {}) => {
       let give = null;
       const shown = (data) => {   // the build (a seed's before its spoiler), or its refusal
         if (data.type !== "built" && data.type !== "refused") return;
@@ -403,7 +404,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       };
       pool.hold(0);   // the last build is gone (forget())
       pool.ask({ type: "build", file, packs, xbr, randomizer, character, ...extra },
-               { key: buildKey(file, packs, xbr, randomizer, choice, extra), heavy: true, progress,
+               { key: buildKey(file, packs, xbr, randomizer, character, extra), heavy: true, progress,
                  answer: shown }).then((data) => {
         unchecked();
         if (data.type === "spoiled") give?.(plain(data));
@@ -1863,7 +1864,7 @@ async function main() {
     state.sent = chosen();
     asking("build");
     state.engine.build(state.file, state.sent, state.xbr, randomizer, character,
-                       { ...extras(), ...(state.app ? {} : state.replace.picked()) }, state.characters.choice());
+                       { ...extras(), ...(state.app ? {} : state.replace.picked()) });
   });
   randoEvents(changed);
   $("cancel").addEventListener("click", () => {
