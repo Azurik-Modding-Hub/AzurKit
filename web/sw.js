@@ -19,9 +19,8 @@
 //   kept), "check" (the registration looks for a new release, a new sw.js, which carries a new release's whole list:
 //   one found installs and waits; the answer says whether one is installing or waiting), "reload" (to the waiting
 //   release: it takes over when the asking page is the scope's only one, else it says how many others are open).
-// - The install posts to the scope's pages its progress (core.progress's record, stage "release"), then "installed" or
-//   "failed" (with the file's fault), the release's outcome, which a page may know before its registration shows it
-//   (Firefox shows a new worker after its updatefound).
+// - The install posts to the scope's pages its outcome, "installed" or "failed" (with the file's fault), which a page may
+//   know before its registration shows it (Firefox shows a new worker after its updatefound).
 const RELEASE = null;
 
 const SCOPE = self.registration.scope;
@@ -63,8 +62,8 @@ async function install() {
   if (!RELEASE) throw new Error("this sw.js lists no release (scripts/web_tools.py's site() writes it)");
   const cache = await caches.open(NAME);
   const kept = (await ours()).filter((key) => key !== NAME);
-  const files = Object.keys(RELEASE.files), total = files.reduce((sum, rel) => sum + RELEASE.files[rel].size, 0);
-  let next = 0, done = 0, told = 0;
+  const files = Object.keys(RELEASE.files);
+  let next = 0;
   const tell = async (message) => {
     for (const page of await pages()) page.postMessage(message);
   };
@@ -72,12 +71,6 @@ async function install() {
     while (next < files.length) {
       const rel = files[next++];
       if (!await cache.match(address(rel))) await cache.put(address(rel), await fetched(rel, kept));
-      done += RELEASE.files[rel].size;
-      if (Date.now() - told >= 250 || done === total) {
-        told = Date.now();
-        await tell({ type: "progress", stage: "release", label: "Keeping AzurKit for offline use", done, total,
-                     percent: total > 0 ? Math.floor(done * 100 / total) : null });
-      }
     }
   };
   try {

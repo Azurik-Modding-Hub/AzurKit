@@ -1457,8 +1457,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     it is the release's, else answered 503), adds COOP, COEP, CORP and the
     page's CSP to what it serves, and holds an update until the page takes
     it (`reload`, refused while another of the site's pages is open). An
-    install posts its progress and its outcome (`installed`, `failed`) to
-    the site's pages; the first takes over at once; an activation deletes
+    install posts its outcome (`installed`, `failed`) to the site's pages; the first takes over at once; an activation deletes
     the scope's older releases' caches. `tests/test_service_worker.py` holds it in the
     three browsers on small sites `site()` writes and on the site itself.
 - **The app** (D732) is `python -m azurkit` (`src/azurkit/__main__.py`): with
