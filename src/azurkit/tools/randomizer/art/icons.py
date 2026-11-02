@@ -163,27 +163,32 @@ def names() -> list[str]:
 
 
 def _box(a: np.ndarray, n: int, axis: int) -> np.ndarray:
-    """``a`` box-filtered to ``n`` along ``axis``: each new pixel the mean of what it covers of the old ones."""
+    """``a`` (integers) box-filtered to ``n`` along ``axis``, ``m`` times over: each new pixel the sum of the old ones
+    it covers, each weighed by how much, in ``1 / m`` of a new pixel (so the weights sum to ``m``). Integers, so
+    exact in any order: float sums are BLAS's, rounded in its kernel's order, which differs by chip and macOS, so a
+    mean on a tie (x.5) rounded either way and GitHub's M1 drew another sheet (Step 4.4ci8)."""
     m = a.shape[axis]
-    edges = np.arange(m + 1) * n / m
-    cover = np.minimum(edges[1:], np.arange(n)[:, None] + 1) - np.maximum(edges[:-1], np.arange(n)[:, None])
+    old, new = np.arange(m), np.arange(n)[:, None]
+    cover = np.minimum((old + 1) * n, (new + 1) * m) - np.maximum(old * n, new * m)
     return np.moveaxis(np.tensordot(np.clip(cover, 0, None), a, axes=(1, axis)), 0, axis)
 
 
 def fit(a: np.ndarray, size: int) -> np.ndarray:
     """An RGBA picture's solid part (past :data:`SOLID`: two life fragments' and two keys' pictures hold a faint stray
-    ring), its shape kept, in the middle of a transparent ``size`` px square, weighted by its alpha as it shrinks:
-    (size, size, 4) RGBA uint8."""
+    ring), its shape kept, in the middle of a transparent ``size`` px square, weighted by its alpha as it shrinks
+    (each new pixel's alpha the mean of what it covers, its colour their alpha-weighted mean, each rounded half up,
+    exactly): (size, size, 4) RGBA uint8."""
     ys, xs = np.nonzero(a[:, :, 3] > SOLID)
-    a = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.float64)
-    a[:, :, :3] *= a[:, :, 3:] / 255
+    a = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.int64)
+    a[:, :, :3] *= a[:, :, 3:]
     h, w = a.shape[:2]
     nh, nw = max(1, round(h * size / max(h, w))), max(1, round(w * size / max(h, w)))
     a = _box(_box(a, nh, 0), nw, 1)
-    a[:, :, :3] = np.where(a[:, :, 3:] > 0, a[:, :, :3] * 255 / np.maximum(a[:, :, 3:], 1e-9), 0)
+    colour, alpha = a[:, :, :3], a[:, :, 3:]
     out = np.zeros((size, size, 4), np.uint8)
     y, x = (size - nh) // 2, (size - nw) // 2
-    out[y:y + nh, x:x + nw] = np.clip(a + 0.5, 0, 255).astype(np.uint8)
+    out[y:y + nh, x:x + nw, :3] = np.where(alpha > 0, (2 * colour + alpha) // np.maximum(2 * alpha, 1), 0)
+    out[y:y + nh, x:x + nw, 3:] = (2 * alpha + h * w) // (2 * h * w)
     return out
 
 

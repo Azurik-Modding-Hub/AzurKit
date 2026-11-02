@@ -182,8 +182,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     exact) and each file's digest with those
     resources blanked (`record_goldens.apart`), and the shipped pictures are
     their own reference (`tests/test_art.py`'s `_apart`). Every other file
-    stays exact there. A shipped answer's bytes are the recording host's, so
-    only what it stands on is held off it.
+    stays exact there. The recording host is a platform, not a machine:
+    every Apple Silicon Mac on Accelerate (CI's M1 on another macOS too) is
+    held byte for byte, and Accelerate's BLAS adds in each chip's and
+    release's own order, so no byte a golden or a shipped picture holds
+    may come from a matrix product (`@`, `dot`, `tensordot`) where a tie
+    can round either way: sum in integers, or as `art.draw.dot` does
+    (Step 4.4ci8: the icon sheet's menu art). A shipped answer's bytes are
+    the recording host's, so only what it stands on is held off it.
   - Only `scripts/record_goldens.py` writes them, from AzurKit's own builds
     on the player's images (`--check` writes nothing); never edit them by
     hand. It records the page's shipped pictures too, by family (`art`:

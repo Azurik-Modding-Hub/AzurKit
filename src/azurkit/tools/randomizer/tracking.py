@@ -62,7 +62,7 @@ SPOT = {"major": "Item spot", "obsidian": "Obsidian spot", "consumable": "Fuel o
 #: host's key for what it keeps (``tests/test_art.py`` holds it to the drawing's source: a sync that changes how
 #: they are drawn changes it).
 ART_PARTS = ("icons", *GRID)
-ART_VERSION = "1-d91e7a62c62f"
+ART_VERSION = "1-e1515f85b2c1"
 _KEPT: OrderedDict[str, Tracker] = OrderedDict()
 
 
