@@ -781,11 +781,12 @@ def _variant(job: tuple[str, str]) -> tuple[str, dict | str]:
 def recipe_keys(doc: Mapping) -> dict[str, str]:
     """Each built-in variant's key in ``web/characters/index.json``: the sha256 of its recipe as it builds
     (``recipe_of``: one ``from`` another with that one laid under it), so a look from booblord is drawn again when
-    hers changes (Step 4.3's vase), not only when its own entry does."""
+    hers changes (Step 4.3's vase), not only when its own entry does; its title and notes draw nothing."""
     from azurkit.tools.characters import _player_variants as variants
 
-    return {name: hashlib.sha256(json.dumps(variants.recipe_of(dict(doc), name, "built-in")[0],
-                                            sort_keys=True).encode()).hexdigest() for name in doc}
+    return {name: hashlib.sha256(json.dumps({k: v for k, v in variants.recipe_of(dict(doc), name, "built-in")[0].items()
+                                             if k not in variants.LABELS}, sort_keys=True).encode()).hexdigest()
+            for name in doc}
 
 
 def characters(images: Images, workers: int) -> dict[str, bytes]:

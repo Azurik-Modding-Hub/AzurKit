@@ -93,8 +93,10 @@ def entries(recipe: Mapping) -> dict:
     """The installed content ``recipe``'s body reads (``installed.json``'s
     ``{id: {path: sha256}}``): the entry named for its species and for the
     built-in variant whose files it wears (its ``from``), less the shipped
-    answers (``/shipped/``), so an Install or Update that changes what it
-    reads misses."""
+    answers (``/shipped/``) and the entry's recipe (a built-in's own stands,
+    ``variants.json``: Install holds this one to its sha, and its title and
+    notes are read by no dress), so an Install or Update that changes what it
+    reads misses and a new note doesn't."""
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content as kit
 
@@ -105,7 +107,8 @@ def entries(recipe: Mapping) -> dict:
     for name in sorted(names):
         files = held.get(name, {}).get("files") if isinstance(held.get(name), Mapping) else None
         if isinstance(files, Mapping):
-            out[name] = {path: sha for path, sha in sorted(files.items()) if "/shipped/" not in path}
+            out[name] = {path: sha for path, sha in sorted(files.items())
+                         if "/shipped/" not in path and not path.endswith("/variant.json")}
     return out
 
 

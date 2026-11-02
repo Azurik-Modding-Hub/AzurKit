@@ -1191,10 +1191,12 @@ def test_a_variants_shipped_pictures_are_drawn_again_when_the_recipe_it_is_from_
     """``scripts/record_goldens.py`` draws a built-in variant's shipped pictures again when its key in
     ``web/characters/index.json`` changes: the sha256 of its recipe as it builds, so booblord's three looks
     ``from`` her are drawn again with her (Step 4.3: her vase dropped, which none of their own entries names),
-    and beamlord's, from none, is his entry's."""
+    and beamlord's, from none, is his entry's but its title and notes, whose change draws nothing."""
     doc = json.loads(_player_variants.BUILTIN.read_text(encoding="utf-8"))
     keys = record_goldens.recipe_keys(doc)
-    assert keys["beamlord"] == _sha256(json.dumps(doc["beamlord"], sort_keys=True).encode())
+    assert keys["beamlord"] == _sha256(json.dumps({k: v for k, v in doc["beamlord"].items()
+                                                   if k not in _player_variants.LABELS}, sort_keys=True).encode())
+    assert record_goldens.recipe_keys({n: r | {"notes": "another", "title": "Another"} for n, r in doc.items()}) == keys
     doc["booblord"]["mesh"]["drop"] = []
     assert sorted(n for n, key in record_goldens.recipe_keys(doc).items() if key != keys[n]) == [
         "booblord", "booblord_high", "booblord_high_human", "booblord_human"]
@@ -1215,6 +1217,15 @@ def test_the_g4_buttons_values_are_their_goldens_garret_match(usa_iso):
         assert got["values"] == {k: want[v] for k, v in keys.items()} and got["why"] == want["why"], name
         assert all(float(got["text"][k]) >= v and len(got["text"][k].replace(".", "").lstrip("0")) <= 4
                    for k, v in got["values"].items()), name
+def test_each_booblords_notes_are_short_and_for_players():
+    """The owner's review (D1061): at most 300 characters, and nothing of how she was made (a D, W, X or Step number, a
+    quote of the owner, sculpting or triangles)."""
+    built = _player_variants.builtins()
+    for name in ("booblord", "booblord_high", "booblord_human", "booblord_high_human"):
+        assert len(built[name].notes) <= 300 and not re.search(
+            r"\b[DWXQ]\d+|Step|owner|\"|triangle|sculpt|recipe", built[name].notes), name
+
+
     garret = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": "garret4"}})
     assert garret["values"] == dict.fromkeys(characters.MATCHED, 1.0) and garret["text"]["scale"] == "1"
 
@@ -1462,6 +1473,11 @@ def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(
     assert shipped.held({"plan": seen}, table) == ([shipped.name("plan", row)], [])   # the re-record pin's reading
     assert shipped.held({"plan": seen | {"answer": "0" * 64}}, table)[1] == [
         f"the shipped {shipped.name('plan', row)} isn't a fresh dress's (scripts/record_shipped.py)"]
+
+    (tmp_path / content.INSTALLED).write_text(json.dumps({"x": {"files": {   # a new note reads nothing a dress reads
+        "clips/x/a.glb": "0" * 64, "variants/x/variant.json": "1" * 64, "variants/x/shipped/usa-0.azkp": "2" * 64}}}))
+    assert shipped.entries({"species": "x"}) == {"x": {"clips/x/a.glb": "0" * 64}}
+    (tmp_path / content.INSTALLED).unlink()
 
 
 def test_a_cut_started_ahead_with_no_host_costs_nothing_until_it_is_taken(monkeypatch):
