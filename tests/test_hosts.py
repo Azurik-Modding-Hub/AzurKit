@@ -2156,6 +2156,66 @@ def test_follow_eases_to_the_player_past_the_views_middle_and_a_refresh_never_mo
         server.close()
 
 
+def test_other_floors_items_show_faintly_fainter_with_distance_with_no_tooltip_or_click(browser, tmp_path, monkeypatch):
+    """D1044 (the owner: "yes, faintly, more faint the further away the floor
+    is, and hovering over them should not have a tooltip"): a level's map
+    draws each tracked spot of its other floors on the floor shown, fainter
+    the further its floor; no tooltip over one and a click marks nothing;
+    the floor buttons' counts stay; Items off hides them, and a collected one
+    shows only with Show collected."""
+    doc = _profile("default")
+    index = json.loads((app.pictures.folder() / "maps.json").read_text(encoding="utf-8"))["levels"]
+    spots = sdk.tracker({"plan": doc})["spots"]
+    where = {i["id"]: i["at"] for e in index.values() for i in e["items"] + e["spots"]}
+    floors = {}   # level -> floor -> its tracked spots
+    for loc, s in spots.items():
+        if loc in where:
+            floors.setdefault(s["level"], {}).setdefault(where[loc][2], []).append(loc)
+    level, shown = next((lv, f) for lv, on in sorted(floors.items()) for f in sorted(on)
+                        if len({abs(g - f) for g in on if g != f}) >= 2)
+    others = {loc: abs(where[loc][2] - shown) for f, locs in floors[level].items() if f != shown for loc in locs}
+    x0, y1, sc = index[level]["frame"]
+    player = (x0 + where[next(iter(others))][0] / sc, y1 - where[next(iter(others))][1] / sc, 0.0)
+    server, page = _live_map(browser, tmp_path, monkeypatch, _Played(level, player), doc)
+    read = """() => { const m = azurkit.tracker.map; return m.faint; }"""
+    try:
+        page.evaluate("() => document.getElementById('track-follow').click()")   # Follow off: the floor stays
+        page.evaluate(f"() => {{ const m = azurkit.tracker.map; m.floor = {shown}; m.draw(); }}")
+        faint = page.evaluate(read)
+        assert set(faint) == set(others)
+        by = {d: {faint[loc] for loc, n in others.items() if n == d} for d in set(others.values())}
+        steps = sorted(by)
+        assert all(len(by[d]) == 1 for d in steps) and all(0 < min(by[d]) < 1 for d in steps)
+        assert all(min(by[a]) > min(by[b]) for a, b in zip(steps, steps[1:]))
+
+        loc = next(loc for loc in others if page.evaluate("""([x, y]) => { const m = azurkit.tracker.map,
+            [cx, cy] = m.at(x, y); return !m.hits.some((h) => Math.hypot(h.x - cx, h.y - cy) < (h.r || 0) + 14); }""",
+            where[loc][:2]))
+        got = page.evaluate("""([x, y]) => { const m = azurkit.tracker.map, c = document.getElementById("map-canvas");
+            const r = c.getBoundingClientRect(), [cx, cy] = m.at(x, y);
+            c.dispatchEvent(new PointerEvent("pointermove", { clientX: r.left + cx, clientY: r.top + cy, bubbles: true }));
+            return document.getElementById("map-tip").hidden; }""", where[loc][:2])
+        assert got is True
+        page.evaluate(MAP_CLICK, where[loc][:2])   # a click on a shown spot would ask the engine as it returns
+        _page.until(page, "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length")
+        assert not page.evaluate("() => azurkit.tracker.state.marks.collected?.length")
+
+        counts = page.evaluate("""() => [...document.querySelectorAll("#map-floors label")].map((l) => Number(
+            l.querySelector(".left")?.textContent ?? 0))""")
+        assert counts == [len(floors[level].get(k, ())) for k in range(len(index[level]["floors"]))]
+
+        page.evaluate("(loc) => azurkit.tracker.ask({ toggle: loc })", loc)   # collected: off, then dimmed
+        _page.until(page, "() => azurkit.tracker.state.marks.collected?.length === 1")
+        _page.until(page, f"() => !(({read})())[{json.dumps(loc)}]")
+        page.evaluate("() => document.getElementById('track-collected').click()")
+        _page.until(page, f"() => (({read})())[{json.dumps(loc)}] < {faint[loc]}")
+        page.evaluate("""() => document.querySelector('#map-switches input[data-kind="item"]').click()""")
+        assert page.evaluate(read) == {}
+    finally:
+        page.close()
+        server.close()
+
+
 def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what_was_got(browser, tmp_path, monkeypatch):
     """Step 4.3 live tracker (the owner, 2026-11-01: "when an item is
     collected on the tracker, can you remove it from the map, with a toggle

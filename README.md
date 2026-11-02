@@ -93,8 +93,9 @@ source ([Development](#development)).
 - **Maps at once:** 22 level maps, a world map and 41 icons come with AzurKit, so the world map shows the moment you
   open the tracker, before you pick your image or a seed.
 - **Level maps:** floors, zoom and pan; click a spot to mark it, or an exit to jump to its level. Each item shows
-  on the floor of the room it stands in, and each floor's button shows how many are left on it. Sharp when zoomed
-  in: 18 levels carry each floor again at 2 px a metre, up to 5 times finer.
+  on the floor of the room it stands in, and each floor's button shows how many are left on it; the other floors'
+  items show faintly, fainter the further the floor. Sharp when zoomed in: 18 levels carry each floor again at 2 px
+  a metre, up to 5 times finer.
 - **Every lock labelled:** exits, barriers, key locks and disc seals show what they need; save points and
   teleporters are marked.
 - **World map:** each level with a badge of the spots you can reach now.

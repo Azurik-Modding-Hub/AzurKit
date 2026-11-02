@@ -11,6 +11,8 @@
 // gone once Live sees it taken, with the gems taken and left under the title and on the floor buttons. With Live,
 // a you-are-here dot (the world map's ring round the player's level); Find me shows it, a zoomed map centred on them,
 // and Follow shows the floor they stand on (floors.json's table, Step 4.3's floors) as it changes.
+// The other floors' tracked spots show faintly on the floor shown, fainter the further their floor (D1044): under
+// everything else, with no tooltip and no click.
 // Zoomed past its own pixels, a coarse level's map shows its floor's detail picture (Step 4.3l, Modkit's R1.41: the
 // floor drawn again finer, shipped with the page), read when the zoom comes within a notch of needing it.
 // Every verdict is the engine's (sdk.tracker's view): this draws what it says (marks(), the tests' too). Before a plan
@@ -32,6 +34,7 @@ const still = () => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").
 // A collected spot leaves the map (Show collected: dimmed to DIM); a Live pickup's flashes (FLASH_MS, its last FADE_MS
 // fading it out), a plain ring with reduced motion
 const DIM = 0.4, FLASH_MS = 2600, FADE_MS = 900, PULSE_MS = 650;
+const FAINT = 0.45;   // D1044: a spot one floor away from the one shown; two floors away half that, three a third
 // Follow's floor (Step 4.3's floors): ground this near the feet is what they stand on; at a seam the floor they were
 // on holds while its ground lies this near
 const FOOT_M = 1.5, HOLD_M = 2;
@@ -558,6 +561,7 @@ export class MapView {
         this.hit(x0, y0, r + 1, gemName(g.item) + (g.full > 1 ? ` cluster: ${g.taken} of its ${g.full} gems taken` : ""));
       }
     }
+    this.faint = this.on("item") ? this.otherFloors(view, level, e, have) : {};
     const rings = e.exits.flatMap((x) => x.at.filter(here).map((p) => this.at(p[0], p[1])));
     // the exits' halos under every icon and ring
     if (this.on("conn")) for (const [x, y] of rings) this.halo(x, y, 10);
@@ -662,15 +666,7 @@ export class MapView {
           next = Math.min(next, still() ? FLASH_MS - age : 40);
           this.flash(x, y, age);
         }
-        this.halo(x, y, 12, TRACK[m.ring], m.near ? 2.5 : 1.5);
-        if (m.icon) {
-          this.icon(x, y, m.icon, m.faint);
-        } else {
-          ctx.beginPath();
-          ctx.arc(x, y, 4, 0, 2 * Math.PI);
-          ctx.fillStyle = TRACK[m.ring];
-          ctx.fill();
-        }
+        this.mark(x, y, m);
         if (m.check) {
           ctx.font = "bold 12px system-ui, sans-serif";
           ctx.textBaseline = "middle";
@@ -692,6 +688,32 @@ export class MapView {
     this.els.note.textContent = [unplaced.length ? `At the right edge, with no place: ${unplaced.join("; ")}.` : "",
                                  failed].filter(Boolean).join(" ");
     return kinds;
+  }
+
+  // A spot's ring and what it shows: its item's icon, or a dot.
+  mark(x, y, m) {
+    const ctx = this.ctx;
+    this.halo(x, y, 12, TRACK[m.ring], m.near ? 2.5 : 1.5);
+    if (m.icon) return this.icon(x, y, m.icon, m.faint);
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = TRACK[m.ring];
+    ctx.fill();
+  }
+
+  // The tracked spots of the level's other floors, faint (D1044): a hit for none of them, so no tooltip and no click;
+  // a collected one only with Show collected. {loc: its alpha}.
+  otherFloors(view, level, e, have) {
+    const where = Object.fromEntries([...e.items, ...e.spots].map((i) => [i.id, i.at]));
+    const show = this.hooks.collected?.() ?? false, drawn = {};
+    for (const m of marks(view, level, have).spots) {
+      const at = where[m.loc];
+      if (!at || at[2] === this.floor || (m.check && !show)) continue;
+      drawn[m.loc] = this.ctx.globalAlpha = FAINT / Math.abs(at[2] - this.floor) * (m.check ? DIM : 1);
+      this.mark(...this.at(at[0], at[1]), m);
+    }
+    this.ctx.globalAlpha = 1;
+    return drawn;
   }
 
   // A Live pickup's flash round its spot: a ring swelling and fading out, again each PULSE_MS (reduced motion: one
