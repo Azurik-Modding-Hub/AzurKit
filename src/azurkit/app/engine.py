@@ -1,6 +1,6 @@
 """The app's engine (Step 4.3i): where the page's long calls run (:data:`JOBS`:
 a build, a save, a seed's plan and its build's spoiler, a plan file's spoiler,
-a character's pictures and its G4 match).
+a shaped plan's openers, a character's pictures and its G4 match).
 
 :class:`Here` runs them on the caller's thread, the server's request thread
 (:func:`azurkit.app.serve`'s default, as the app ran them before). :class:`Spawned`,
@@ -304,14 +304,22 @@ def _openers_ahead(doc: Mapping) -> None:
         randomizer.openers_ahead(doc)
 
 
+def _openers(plan: Mapping, progress: Callable[[dict], object] | None = None) -> list[dict]:
+    """The tracker's Spoiler's openers, here for the one answer :func:`_openers_ahead` works out, on the server's call."""
+    with noting(Steps(progress)) as steps:
+        steps("spoiler")
+        return randomizer.openers(plan)
+
+
 JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save), "plan": _warmed(_plan, always=True),
+                             "openers": _warmed(_openers, always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe, progress=None:
                                                                     sdk.match(recipe, progress=progress)),
                              "spoiler": lambda plan, progress=None: sdk.spoiler(plan, built=True, progress=progress),
                              "plan_spoiler": _warmed(lambda plan, progress=None: sdk.spoiler(plan, progress=progress),
                                                      always=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
-``preview``, ``match``, ``spoiler`` and ``plan_spoiler``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
+``preview``, ``match``, ``spoiler``, ``plan_spoiler`` and ``openers``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
 ``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""

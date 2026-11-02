@@ -557,14 +557,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     also works out a shaped plan's spoiler openers ahead, low
     (`randomizer.openers_ahead`), for the spoiler's View: the newest plan's
     only, pausing for a build or another plan unless a View waits on them
-    (`engine._openers_ahead`). Any change that gives the same inputs another level >
+    (`engine._openers_ahead`); the tracker's Spoiler asks that process for
+    them (`engine.JOBS["openers"]`), so they are worked out once. Any change
+    that gives the same inputs another level >
     0 placement (the bound, ladders, spread, scores, promise, lines, the
     table's method or a re-run that changes it) bumps
     `SEED_DIFFICULTY_FILL` and leaves `GENERATOR` alone. D1038's optional
     rewards take no code: the shaping already puts 86-91 % of the obsidians
     past a trick, and the 8 useful items all fill the 8 vaults (Q290).
     `tests/test_randomizer.py` pins the promises, plans, strings and files;
-    `tests/_perf.py`'s A70-A75 and A77-A80 time the costliest settings
+    `tests/_perf.py`'s A70-A80 time the costliest settings
     (`scripts/seed_forcing.py --rows` names their seeds).
 - **The generator layer** (Step 4.2b; `generator.py`): a build recipe's
   `randomizer` (the planner's recipe and an `obsidian_cost`; `azurkit build

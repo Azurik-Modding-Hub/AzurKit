@@ -200,6 +200,14 @@ def openers_ahead(doc: Mapping) -> None:
         difficulty.openers(logic, planned.settings, planned.placement)
 
 
+def openers(doc: Mapping) -> list[dict]:
+    """A shaped plan's spoiler openers on the Logic it stands on (:func:`.planner.difficulty.openers`): the answer the
+    process's job ahead keeps, or waits on, or works them out."""
+    logic = kept_logic()
+    planned = load_plan(doc, logic.db)
+    return difficulty.openers(logic_of(logic, planned.settings), planned.settings, planned.placement)
+
+
 def literal(settings: Settings) -> dict:
     """``settings`` as the tab holds them: a settings file's table in format
     /2, whose ``exclude_categories`` are exactly the categories kept vanilla

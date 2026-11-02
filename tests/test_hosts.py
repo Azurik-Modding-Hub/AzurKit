@@ -561,6 +561,32 @@ def test_the_apps_window_path_exits_at_once_under_the_tests(monkeypatch, tmp_pat
     assert (done.returncode, done.stdout, done.stderr) == (1, "", WINDOW_REFUSED)
 
 
+def test_the_trackers_spoiler_on_a_shaped_plan_takes_its_openers_from_the_engine_once_and_no_view_ahead_asks(monkeypatch, tmp_path):
+    """The engine works a shaped plan's openers out ahead: the server's process, which holds a Logic of its own, doesn't
+    again (5 s with no record); only a click asks, as a parked job ahead would hold the lock a View waits on."""
+    from azurkit.tools.randomizer.planner.settings import Settings, share_encode
+
+    _home(monkeypatch, tmp_path)
+    asked = []
+
+    class Beside(engine.Here):
+        def call(self, job, *args, progress=None, fore=None):
+            asked.append(job)
+            return super().call(job, *args, progress=progress, fore=fore)
+    server = app.serve(_page.WEB, Beside())
+    try:
+        recipe = {"seed": "1", "share": share_encode(Settings(3, "hard", 1, {}, seed_difficulty=3), [])}
+        assert server.prefetch({"gen": 1, "recipe": recipe, "view": {"spoiler": True}}) == {"ahead": True}
+        plan = server.plan({"recipe": recipe})["plan"]
+        assert asked == ["plan"] and server.slots.job("view") is None
+        shown = server.track({"given": {"plan": plan, "spoiler": True}})
+        assert asked[1:] == ["openers"] and shown["head"]["requires"]["openers"]
+        assert server.track({"given": {"plan": plan, "spoiler": True, "marks": {"collected": []}}})["head"]["requires"][
+            "openers"] == shown["head"]["requires"]["openers"] and asked[1:] == ["openers"]
+    finally:
+        server.close()
+
+
 def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
     """The window shows the remembered theme's ground (``web/app.css``'s
     ``--bg``) until the page draws, so a player who picked light never

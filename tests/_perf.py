@@ -150,6 +150,8 @@ OPS = {op.id: op for op in (
               "first time)", "tracker", bar=True, head_start=True),
     Op("A75", "the spoiler's View, Seed difficulty Hard at Hard movement and skips (its openers, first time)",
        "randomizer", bar=True),
+    Op("A76", "the tracker's Spoiler ticked after Track, Seed difficulty Hard at Hard movement and skips (its openers)",
+       "tracker", bar=True),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -1113,7 +1115,7 @@ def app_shaped(d: Driver, app: App, ctx) -> None:
     """Each op on a first launch (a remembered setup would be on, a remembered tracker's head already its done-state):
     its share string typed (the page's select is the next lane's), its seed typed, then the click after the head start."""
     for op, (kind, tier, ceiling, level, kept, seed) in SHAPED.items():
-        if not d.needed((op, "A75") if op == "A80" else (op,)):
+        if not d.needed({"A80": (op, "A75"), "A79": (op, "A76")}.get(op, (op,))):
             continue
         p = app.launch(d, ctx, None)
         if kind == "build":
@@ -1135,6 +1137,9 @@ def app_shaped(d: Driver, app: App, ctx) -> None:
             d.act(p, None, click("rando-view-tracker"), WORLD, 600)
             d.act(p, op, click("track-seed"),
                   "() => /seed difficulty/.test(document.getElementById('track-head').textContent)", 1800)
+            if op == "A79" and d.need("A76"):
+                d.act(p, "A76", click("track-spoiler"), "() => azurkit.tracker.state.view?.head.requires?.openers "
+                                                        "&& !azurkit.tracker.state.running", 900)
         else:
             d.act(p, op, build_js(), BUILT, 1800)
             if op == "A80" and d.need("A75"):
@@ -1775,7 +1780,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-ahead-track": ("app", ("A56",), app_ahead_track),
     "app-ahead-build": ("app", ("A57",), app_ahead_build),
     "app-ahead-stale": ("app", ("A58",), app_ahead_stale),
-    "app-shaped": ("app", (*SHAPED, "A75"), app_shaped),
+    "app-shaped": ("app", (*SHAPED, "A75", "A76"), app_shaped),
     "app-booblord": ("app", ("A18", "A19", "A20", "A21", "A22"), app_booblord),
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-reshape-pictures": ("app", ("A59", "A60", "A61"), app_reshape_pictures),

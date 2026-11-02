@@ -166,20 +166,25 @@ def _row(row: Row) -> dict:
             "total": row.total, "where": row.where, "game": row.game, "children": [_row(c) for c in row.children]}
 
 
-def _requires(t: Tracker, spoiler: bool) -> dict:
+def _requires(t: Tracker, spoiler: bool, openers: Callable[[Mapping], list] | None = None) -> dict:
     """A shaped plan's ``head.requires``: its profile once per plan on the tracker's Logic, its openers (each a rules'
-    compile, D1031) only when Spoiler asks; each kept on the tracker."""
+    compile, D1031) only when Spoiler asks, from ``openers(plan)`` when a host works them out elsewhere; each kept on
+    the tracker."""
     if t.profile is None:
         t.profile = difficulty.profile(t.logic, t.settings, t.placement)
     if spoiler and t.opened is None:
-        t.opened = difficulty.openers(t.logic, t.settings, t.placement) if t.profile["asks"] else []
+        if not t.profile["asks"]:
+            t.opened = []
+        else:
+            t.opened = openers(t.doc) if openers else difficulty.openers(t.logic, t.settings, t.placement)
     return difficulty.requires(t.profile, spoiler=spoiler, openers=t.opened if spoiler else None)
 
 
-def head(t: Tracker, spoiler: bool = False) -> dict:
+def head(t: Tracker, spoiler: bool = False, openers: Callable[[Mapping], list] | None = None) -> dict:
     """The tracker's head line (Modkit's): the seed, its share string, the skip ceiling, the movement tier,
     the fire dark areas need, the categories kept vanilla and each skip on (a batch once, D275); with a seed
-    difficulty over 0, the level and ``requires`` (:func:`.planner.difficulty.requires`)."""
+    difficulty over 0, the level and ``requires`` (:func:`.planner.difficulty.requires`, ``openers`` as
+    :func:`_requires` takes it)."""
     st, doc = t.settings, t.doc
     on = [pid if ids == [pid] else f"{pid} ({', '.join(ids)})" for pid, ids in picks_on(st, t.logic.skip_tables).items()]
     kept = [c for c in CATEGORIES if c in st.exclude_categories]
@@ -188,10 +193,11 @@ def head(t: Tracker, spoiler: bool = False) -> dict:
             "text": (f"Seed {doc['seed']} · {doc['share']} · skips {RATINGS[st.skip_ceiling]}, movement "
                      f"{st.movement_tier.replace('_', '-')}, Fire {st.dark_fire}"
                      + (f", vanilla {' '.join(kept)}" if kept else "") + f" · {len(on)} skips on{level}"),
-            "skips": on} | ({"requires": _requires(t, spoiler)} if st.seed_difficulty else {})
+            "skips": on} | ({"requires": _requires(t, spoiler, openers)} if st.seed_difficulty else {})
 
 
-def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], object] | None = None) -> dict:
+def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], object] | None = None,
+         openers: Callable[[Mapping], list] | None = None) -> dict:
     """What the tracker shows for ``given``: ``plan`` (a plan file's
     object), ``marks`` (as :func:`.tracker.marks` reads them; none: no
     mark), ``kit`` (Live's element levels, ``{element: level}``; none: the
@@ -204,7 +210,9 @@ def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], objec
     marked). ``progress(record)`` hears the slow parts a first view of a plan
     does (``core.progress``'s ``plan``, done of 2): the seed's logic (its
     tracker built) and the world map (:func:`world`, once a process); a view
-    of a kept plan reports nothing. ``ValueError`` names what it refuses."""
+    of a kept plan reports nothing. ``openers(plan)``: who works out a shaped
+    plan's spoiler openers (none: this call). ``ValueError`` names what it
+    refuses."""
     if not isinstance(given, Mapping):
         raise ValueError(f"tracker: a JSON object, not {type(given).__name__}")
     if unknown := sorted(set(given) - set(GIVEN), key=str):
@@ -245,7 +253,7 @@ def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], objec
     items, levels = t.table(spoiler, held_counts(held) if held else None, gems=shown)
     if not world.cache_info().currsize:
         Steps(progress)("plan", "Reading the world map", 1, 2)
-    out = {"head": head(t, spoiler), "world": world() | {"art": {"version": ART_VERSION, "parts": list(ART_PARTS)}},
+    out = {"head": head(t, spoiler, openers), "world": world() | {"art": {"version": ART_VERSION, "parts": list(ART_PARTS)}},
            "marks": t.state(),
            "status": {"collected": s.collected, "reachable": s.reachable, "total": s.total, "sphere": s.sphere,
                       "victory": s.victory, "levels": list(s.levels), "skipped": s.skipped},

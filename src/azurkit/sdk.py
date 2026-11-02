@@ -1259,7 +1259,8 @@ def _bodies(fold: float) -> list[str]:
                    and math.isclose(math.sqrt(float.fromhex(row["value"])), fold, rel_tol=1e-12)})
 
 
-def tracker(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
+def tracker(given: Mapping, *, progress: Callable[[dict], object] | None = None,
+            openers: Callable[[Mapping], list] | None = None) -> dict:
     """What the item tracker shows (D189, D249) for ``given``: ``plan`` (a
     plan file's object: :func:`plan`'s, or a randomized build's report's),
     ``marks`` (the spots collected: ``{"collected": [spot], "live": {spot:
@@ -1279,9 +1280,11 @@ def tracker(given: Mapping, *, progress: Callable[[dict], object] | None = None)
     count). Modkit's tracker, the same verdicts on every host
     (``tools.randomizer.tracking``); ``progress(record)`` hears a plan's
     first view build its tracker and read the world map, the maps' exits
-    counted on it; a refusal names what it refuses."""
+    counted on it; ``openers(plan)``: who works out a shaped plan's spoiler
+    openers (none: this call; the app: its engine, :func:`azurkit.tools.randomizer.openers`);
+    a refusal names what it refuses."""
     with noting(Steps(progress)) as steps:
-        return tracking.view(given, progress=steps.report)
+        return tracking.view(given, progress=steps.report, openers=openers)
 
 
 def art(path: str, part: str) -> dict:

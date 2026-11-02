@@ -65,7 +65,8 @@ tab's settings as a settings file (D144; ``out`` null: ``settings.toml``
 in the Downloads folder), never over an existing file but one the save
 dialog chose.
 ``POST api/tracker`` ``{"given"}`` gives what the item tracker shows
-(``sdk.tracker``); with Live on for its plan, it first merges what Live
+(``sdk.tracker``; a shaped plan's Spoiler's openers are the engine's, as
+its work ahead keeps them); with Live on for its plan, it first merges what Live
 read since the last ask (:mod:`.live`: the spots the game shows taken, the
 element levels it holds) and gives Live's status and where it saw the
 player (``live``). ``POST api/live`` ``{"on", "plan", "marks",
@@ -665,7 +666,8 @@ class Server(http.server.ThreadingHTTPServer):
 
         def then(job: ahead.Job) -> None:
             given = {"plan": job.value, "marks": {}, **view}
-            if self.feed is None:
+            # a shaped plan's Spoiler's openers are the engine's work ahead already, which only a click may ask for
+            if self.feed is None and not (view.get("spoiler") and job.value["settings"].get("seed_difficulty")):
                 self.slots.offer("view", job.gen, ahead.key(given), lambda j: sdk.tracker(given, progress=j.progress))
         key = ahead.key(recipe) if isinstance(recipe, dict) and recipe.get("seed") else None
         return {"ahead": self.slots.offer("plan", gen, key, self._planned(recipe), then=then)}
@@ -752,6 +754,11 @@ class Server(http.server.ThreadingHTTPServer):
             self.engine.warm("image", str(_path(body.get("iso"), "image")))
         return read
 
+    def _openers(self, report: Callable[[dict], object]) -> Callable[[dict], list]:
+        """A click's tracker's ``openers``: a shaped plan's Spoiler's, from the engine, where its work ahead keeps
+        them, and never again in this process (5 s, with no record to end them at); ``report`` hears its count."""
+        return lambda plan: self.engine.call("openers", plan, progress=report)
+
     def track(self, body: dict) -> dict:
         """``api/tracker``: what the tracker shows (``sdk.tracker``), one ask
         at a time; with Live on for its plan, Live's events since the last
@@ -766,16 +773,16 @@ class Server(http.server.ThreadingHTTPServer):
             plan = given.get("plan") if isinstance(given, dict) else None
             if feed is None or not isinstance(plan, dict) or plan.get("sha256") != feed.sha256:
                 try:   # a plan's first view, read ahead (api/prefetch) if it was
-                    return self.slots.take("view", ahead.key(given), lambda job: sdk.tracker(given,
-                                                                                            progress=job.progress),
-                                           report=report)
+                    return self.slots.take("view", ahead.key(given), lambda job: sdk.tracker(
+                        given, progress=job.progress, openers=self._openers(job.progress)), report=report)
                 except Cancelled:
                     raise ValueError(QUITTING) from None
             if (ahead_view := self.slots.job("view")) is not None:   # both read the plan's one tracker
                 ahead_view.done.wait()
             events, seen = feed.take()
             slot = seen.pop("slot")
-            out = tracking.view({**given, "kit": seen.pop("kit"), "held": seen.pop("held")}, events, report)
+            out = tracking.view({**given, "kit": seen.pop("kit"), "held": seen.pop("held")}, events, report,
+                                self._openers(report))
             t = tracking.tracker_of(plan)
             if slot is not None and slot != t.slot:
                 t.slot = slot
