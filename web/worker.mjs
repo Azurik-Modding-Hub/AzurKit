@@ -92,14 +92,20 @@ def handed(value):
     return value
 
 
+def placed(data):
+    """Where a bytes object's bytes lie in the heap (CPython's PyBytesObject; JS reads them there, as a view, unsigned, so
+    no copy through the file system or past to_js's 2 GiB); None for any other kind of value."""
+    return id(data) + bytes.__basicsize__ - 1 if type(data) is bytes else None
+
+
 def blobbed(data):
     """One piece of a build as a Blob, made as soon as its bytes reach JS, so the worker holds one piece's bytes in JS
     at a time and the page none (mem-site L2): the browser keeps a Blob's bytes outside the page's heap. Where the
     worker holds a build file (P7, built() in worker.mjs), the piece is written there and stands as its offset."""
-    u8 = handed(data)
     if hasattr(browser, "azurkitOut"):
-        return {"opfs": browser.azurkitOut(u8)}
-    return Blob.new(to_js([u8], create_pyproxies=False))
+        at = placed(data)
+        return {"opfs": browser.azurkitOut(handed(data)) if at is None else browser.azurkitOut(at, len(data))}
+    return Blob.new(to_js([handed(data)], create_pyproxies=False))
 
 
 def kept(files, installed):
@@ -243,7 +249,9 @@ def engine(request):
     global STAGED
     try:
         if request.type == "hash":
-            return js({"data": STAGED[1][request.key]})
+            data = STAGED[1][request.key]
+            at = placed(data)
+            return js({"data": data} if at is None else {"at": at, "size": len(data)})
         if request.type == "hashed":   # the layout, the manifest, the read-back
             STAGED[0].send(json.loads(JSON.stringify(request.shas)))
             raise RuntimeError("the staged build asked for more")
@@ -661,8 +669,8 @@ async function tool({ py, engine }, data) {
 // shrinks: a page that keeps the worker keeps one whose heap is small enough for another build, Step 4.3i), undefined
 // where Pyodide hides it. A seed's spoiler comes after it (the page shows the build meanwhile, and replaces a worker
 // it doesn't keep only once it has it). The build's changed files and the bytes its root files hold are hashed by the
-// browser's SHA-256 (R2.6: about 10x wasm's), one at a time, as 14 at once take WebKit 8x as long, each handed over only
-// for its digest, so the worker's JS holds one file beside the engine's heap. A seed's build (AM-HUB-E) first asks for the
+// browser's SHA-256 (R2.6: about 10x wasm's), one at a time, as 14 at once take WebKit 8x as long, each a view of the
+// engine's heap for its digest. A seed's build (AM-HUB-E) first asks for the
 // pages it reads, twice at most, and its levels (668 MiB in all) never enter the heap: each is read here, its patches
 // over it, for its sha256 and md5 (hasher.mjs), and only its patches are the build's bytes. The pieces are joined here,
 // off the page's main thread, into the Blob the page saves (WEB §3.4: slices of the image and the bytes the build writes),
@@ -704,10 +712,10 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
     hashes[path] = await digested(held[path]);
   }
   const output = character ? await opened() : null;
-  if (output) self.azurkitOut = (u8) => {
-    const at = output.at;
-    output.sync.write(u8, { at });
-    output.at += u8.length;
+  if (output) self.azurkitOut = (data, size) => {   // a Uint8Array, or a place in the heap and its size
+    const at = output.at, bytes = size === undefined ? data : py._module.HEAPU8.subarray(data, data + size);
+    output.sync.write(bytes, { at });
+    output.at += bytes.length;
     return at;
   };
   const made = await mounted(py, file, async (iso) => {
@@ -727,7 +735,8 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
         label: "Hashing the changed files", done, total, percent: total ? Math.floor(done * 100 / total) : null })));
     }
     for (const key of composed.hash) {
-      shas[key] = hex(await crypto.subtle.digest("SHA-256", engine({ type: "hash", key }).data));
+      const { data, at, size } = engine({ type: "hash", key });   // digest copies them at the call
+      shas[key] = hex(await crypto.subtle.digest("SHA-256", data ?? py._module.HEAPU8.subarray(at, at + size)));
     }
     return engine({ type: "hashed", shas });
   }).finally(() => {

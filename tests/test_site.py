@@ -3046,6 +3046,18 @@ WORKERS_ROWS = """
         b.say({ type: "built", report: { size: 7 }, heap: KEEP + 2 });
         out.oneHeapB = [b.stopped, f.stopped, ran, (await answered).report, pool.state().swapped, pool.state().kept];
     }
+    {   // a heavy ask waits for the heavy job a click took from B: one at a time, whichever worker runs it
+        const { pool, f, b } = make();
+        pool.want([{ key: "build w", message: build("w"), heavy: true }]);
+        const took = pool.ask(build("w"), { key: "build w", heavy: true });
+        const preview = pool.ask({ type: "preview" }, { once: true, heavy: true });
+        const beside = [...f.tags()];
+        b.say({ type: "built", report: { size: 9 }, heap: 2 ** 26 });
+        const size = (await took).report.size;
+        out.waits = [beside, size, f.tags()];
+        f.say({ type: "reply", reply: {} });
+        await preview;
+    }
     {   // an ask alone drops an idle B first: its peak has the one heap beside it
         const { pool, stubs, f, b } = make();
         const reshape = pool.ask(build("r"), { heavy: true, alone: true });
@@ -3201,6 +3213,7 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "keep": [True, "b", {"size": 1}, True, [], 1],
         "oneHeapF": [False, [["build", "build g"], []], {"view": 5}, {"size": 6}, 0, 1],
         "oneHeapB": [False, False, [["build g", "build h"], []], {"size": 7}, 1, ["build g"]],
+        "waits": [[], 9, ["preview"]],
         "alone": [[True, 2, 1], 3, "b"],
         "free": [{"size": 8}],
         "csp": [{"view": 9}, ["csp"]],

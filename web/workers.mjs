@@ -270,7 +270,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     if (closed) return;
     if (!f && !dead) f = spawn("f");
     oneHeap();
-    if (f?.loaded && !f.job && queue.length) {
+    if (f?.loaded && !f.job && queue.length && !(queue[0].heavy && b?.job?.adopted && b.job.heavy)) {   // one at a time
       const job = queue.shift();
       if (job.heavy && b?.job?.ahead && !b.job.adopted) dropB();   // none beside F's build: B's job ahead goes
       else if (job.alone && b && !b.job) dropB("retired");

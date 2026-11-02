@@ -51,7 +51,6 @@ import { characters } from "./characters.mjs";
 import { communityGroup } from "./community.mjs";
 import { content } from "./content.mjs";
 import { dataTab } from "./data.mjs";
-import { hashed } from "./hasher.mjs";
 import { alone } from "./dress.mjs";
 import { replaceFiles } from "./replace.mjs";
 import { savesSection } from "./saves.mjs";
@@ -1153,6 +1152,26 @@ function built(reply) {
 // A browser's download can't be stopped from here, so the Save fails by name, with what to do. Its bar is the page's own
 // (D1053). state.saveCheck: "running", "held", or the failure's line.
 const READS_REFUSED = /AppleWebKit/.test(navigator.userAgent);
+const hashedApart = (source, rows, progress) => new Promise((resolve, reject) => {   // savecheck.mjs
+  const entry = new URL("savecheck.mjs", location.href).href;
+  const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
+  const worker = new Worker(url, { type: "module" });
+  const over = (settle, value) => {
+    worker.terminate();
+    URL.revokeObjectURL(url);
+    settle(value);
+  };
+  worker.onmessage = ({ data }) => {
+    if (data.digests) over(resolve, data.digests);
+    else if ("error" in data) over(reject, new Error(data.error));
+    else progress(data.done, data.total);
+  };
+  worker.onerror = (e) => {
+    e.preventDefault();
+    over(reject, new Error(e.message || "the check's worker stopped"));
+  };
+  worker.postMessage({ source, rows });
+});
 async function checkSave(build, name) {
   if (build.checking) return;
   build.checking = true;
@@ -1171,7 +1190,7 @@ async function checkSave(build, name) {
   try {
     for (const [source, rows] of passes) {
       const share = sized(rows);
-      const digests = await hashed(source, rows.map(([path, at, size]) => [path, at, size]), heard(share));
+      const digests = await hashedApart(source, rows.map(([path, at, size]) => [path, at, size]), heard(share));
       const file = rows.find(([path, , , sha]) => digests[path] !== sha)?.[0];
       if (file) {
         wrong = `its ${file} isn't the build's or the game's`;
