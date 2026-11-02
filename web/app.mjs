@@ -1002,9 +1002,12 @@ function report(text, error = false) {
 // of a file, it reads by reference, its tree flat. So there the KEPT longest copies stay the
 // File's slices and all between them goes once into one Blob Firefox keeps in a temporary file (Response.blob()): at most
 // 2 x KEPT + 1 parts, the same bytes. It runs ahead of the Save, after the build's answer, Save greyed and its own bar
-// moving until it ends (about 1.1-2.3 s of disk on a seed's), so a click never waits for it (D979, D1053).
+// moving until it ends (about 1.1-2.3 s of disk on a seed's), so a click never waits for it (D979, D1053). A private
+// window keeps Response.blob() in memory, a part that brings the parent's copy back on top of the tab's (7.2 GiB against
+// the plain Blob's 4.8): it refuses the origin's private file system, so it keeps the plain Blob.
 const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3;
 async function byReference(segments, parts) {
+  await navigator.storage.getDirectory();
   const kept = new Set(segments.map((s, i) => [s, i]).filter(([s]) => s.kind === "copy")
     .sort((a, b) => b[0].size - a[0].size).slice(0, KEPT).map(([, i]) => i));
   const between = await new Response(new Blob(parts.filter((_, i) => !kept.has(i)))).blob();

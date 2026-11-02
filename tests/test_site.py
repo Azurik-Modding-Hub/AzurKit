@@ -2125,6 +2125,27 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
         served.close()
 
 
+def test_a_private_window_keeps_the_plain_blob_its_save_reads(browser, site, usa_iso, tmp_path):
+    """D1057: in Firefox's private window ``Response.blob()`` stays in memory, so the Blob of few parts would hold more
+    than the plain one (7.2 GiB against 4.8): there the page makes none, and the Save holds."""
+    prefs = {"firefox_user_prefs": {"browser.privatebrowsing.autostart": True}} if browser.browser_type.name == "firefox" else {}
+    served = Site(browser, site, tmp_path / "profile", **prefs)
+    try:
+        page = served.open()
+        page.evaluate("""() => { const real = Response.prototype.blob; globalThis.made = 0;
+            Response.prototype.blob = function () { globalThis.made += !this.url; return real.call(this); }; }""")
+        page.set_input_files("#iso", str(usa_iso))
+        _page.build(page, [])
+        _page.built(page)
+        with page.expect_download(timeout=600_000) as caught:
+            page.evaluate("() => document.querySelector('#save').click()")
+        assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
+        assert page.evaluate("() => globalThis.made") == 0
+        caught.value.delete()
+    finally:
+        served.close()
+
+
 def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, site, usa_iso, tmp_path):
     """D35: a byte of the picked image changed on disk between Build and Save (Firefox reads the new bytes silently,
     WebKit and Chromium fail the read): the Save fails with what to do and the build goes, as the page can't stop the

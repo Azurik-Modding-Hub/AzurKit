@@ -1377,7 +1377,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `byReference`). While it is made, about 1.1-2.3 s of disk on a seed's,
     Save stays greyed with its own moving bar (R14 and R24 end when it opens),
     so a click never waits for it and a Save's page part stays the click's
-    (D1053); the worker's records never land on the page's own waits.
+    (D1053); the worker's records never land on the page's own waits. A
+    private window has no such file (`Response.blob()` stays in memory, its
+    tree higher than the plain Blob's), so one, told by the origin's private
+    file system refusing it, keeps the plain Blob and its parent's copy.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
   `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
   and Firefox.
