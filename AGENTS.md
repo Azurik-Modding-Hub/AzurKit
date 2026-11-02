@@ -1193,7 +1193,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     stays on it; picking Garret clears them too, another model keeps the size
     and the numbers (D1062). On the site an ask made while the image is
     unread goes twice: first with no image, which B answers while F reads
-    the image (`workers.mjs`'s aside asks; in one worker it overtakes the
+    the image (`workers.mjs`'s aside asks; with no B it waits for the
     check), so an Install's list and a model's panel never wait for it once
     the tab has opened (Step 4.3r4m), and then with it; a build takes the
     second's answer, which stands if it comes first. Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live

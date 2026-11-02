@@ -76,8 +76,8 @@ export function characters({ call, app, host, say, image, packs, changed, shared
                                                                                                            ...extra } };
   const recipe = (character) => ({ iso: app ? image() || null : null, packs: packs(), character });
 
-  // The site's answer while the image is unread, which needs no image and overtakes its check (worker.mjs): the list and
-  // the chosen model's panel now; its weapons and G4 say Reading (imaged()), and a build waits for the image's answer
+  // The site's answer while the image is unread, which needs no image and B answers beside its check (workers.mjs): the
+  // list and the chosen model's panel now; G4 says Reading (imaged()), and a build waits for the image's answer
   // (asked: none) as it does with none shown.
   const unreadAnswer = async (mine) => {
     const reply = await call("pickers", { given: { iso: null, character: c.character, content: { manifest: c.manifest } } });
