@@ -19,6 +19,7 @@ import re
 import struct
 import subprocess
 import sys
+import threading
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -663,6 +664,31 @@ def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(
     edited["probe"]["shapes"]["hips"]["value"] = 0.9
     recipes.write_text(json.dumps(edited), encoding="utf-8")
     assert files()["characters.xbr"] != built["characters.xbr"]
+
+
+def test_a_reshapes_kept_dress_is_its_own_shapes_when_another_shape_is_dressed_beside_it(monkeypatch):
+    """The app runs each call on a thread of its own: one shape's pictures
+    dressing (minutes) while another shape's build dresses and keeps its
+    own, each gets and keeps its own shape's dress, and a later ask of the
+    second shape never gets the first's (D35)."""
+    monkeypatch.setattr(sdk, "_DRESSED", {})
+    stamp = SimpleNamespace(path=Path("usa.iso"), release=SimpleNamespace(name="usa"))
+    first, second = ({"species": "booblord", "shapes": {"bust": x}} for x in (1.25, 1.4))
+    asked, kept, drawn = threading.Event(), threading.Event(), []
+
+    def pictures() -> str:   # the first shape's dress, still being worked out while the second's is kept
+        asked.set()
+        kept.wait(60)
+        return "dress 1.25"
+
+    t = threading.Thread(target=lambda: drawn.append(sdk._reshape_kept("plan", stamp, first, {}, pictures)))
+    t.start()
+    assert asked.wait(60)
+    assert sdk._reshape_kept("plan", stamp, second, {}, lambda: "dress 1.4") == "dress 1.4"
+    kept.set()
+    t.join(60)
+    assert drawn == ["dress 1.25"]
+    assert sdk._reshape_kept("plan", stamp, second, {}, lambda: "dress 1.4") == "dress 1.4"
 
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():

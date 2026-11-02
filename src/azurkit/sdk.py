@@ -660,31 +660,31 @@ def _under_a_dress(stamp: gate.Stamp, packs: Mapping) -> tuple[object, list[Laye
     return vanilla, layers
 
 
-_DRESSED: dict[str, object] = {}   # the last reshape's size and dress (:func:`_reshape_kept`)
+_DRESSED: dict[str, tuple[str, object]] = {}   # each kind's last reshape: its key and answer (:func:`_reshape_kept`)
 
 
 def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mapping | None,
                   work: Callable[[], object]) -> object:
     """``work()``'s answer, ``kind`` (``size`` or ``plan``) of the reshaped
     ``character`` on ``stamp``'s image over ``packs`` (a reshape's fold and
-    dress: minutes), kept for this process's last reshape, so its pictures
-    and its build make one dress between them, whichever comes first (one
-    heap on the site, D1054): one of each kind, over the packs it was
-    worked out over. The shape holds what the dress reads besides the
-    image (D35): the content folder's installed entries (a Content Update)
-    and a recipe file's bytes (``variant_file``, an edit to it)."""
+    dress: minutes), kept for this process's last reshape of that kind, so
+    its pictures and its build make one dress between them, whichever comes
+    first (one heap on the site, D1054). Its key holds what the dress reads
+    besides the image (D35): the content folder's installed entries (a
+    Content Update) and a recipe file's bytes (``variant_file``, an edit to
+    it). Each call keeps and returns its own key's answer, so the app's
+    threads (a shape's pictures beside another's build) never cross theirs."""
     from azurkit.tools.characters import content as kit
 
     recipes = character.get("variant_file")
-    shape = json.dumps([str(stamp.path), stamp.release.name, character, kit.installed(),
-                        recipes and hashlib.sha256(Path(recipes).read_bytes()).hexdigest()], sort_keys=True)
-    if _DRESSED.get("shape") != shape:
-        _DRESSED.clear()
-        _DRESSED["shape"] = shape
-    over = json.dumps(packs, sort_keys=True)
-    if _DRESSED.get(kind, (None,))[0] != over:
-        _DRESSED[kind] = (over, work())
-    return _DRESSED[kind][1]
+    key = json.dumps([str(stamp.path), stamp.release.name, character, packs, kit.installed(),
+                      recipes and hashlib.sha256(Path(recipes).read_bytes()).hexdigest()], sort_keys=True)
+    if (kept := _DRESSED.get(kind)) is not None and kept[0] == key:
+        return kept[1]
+    _DRESSED.pop(kind, None)   # the last one's dress goes before this one is worked out (one heap)
+    found = work()
+    _DRESSED[kind] = (key, found)
+    return found
 
 
 def _reshaped(recipe: Mapping, character: Mapping) -> dict:
