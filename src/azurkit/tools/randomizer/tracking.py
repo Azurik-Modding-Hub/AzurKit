@@ -167,9 +167,8 @@ def _row(row: Row) -> dict:
 
 
 def _requires(t: Tracker, spoiler: bool, openers: Callable[[Mapping], list] | None = None) -> dict:
-    """A shaped plan's ``head.requires``: its profile once per plan on the tracker's Logic, its openers (each a rules'
-    compile, D1031) only when Spoiler asks, from ``openers(plan)`` when a host works them out elsewhere; each kept on
-    the tracker."""
+    """A shaped plan's ``head.requires``: its profile once per plan on the tracker's Logic, its openers (D1031) only
+    when Spoiler asks, from ``openers(plan)`` when a host works them out elsewhere; each kept on the tracker."""
     if t.profile is None:
         t.profile = difficulty.profile(t.logic, t.settings, t.placement)
     if spoiler and t.opened is None:

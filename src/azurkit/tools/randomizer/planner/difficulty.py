@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import functools
 import json
-import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from fractions import Fraction
@@ -467,32 +466,14 @@ def _opener_text(opener: Mapping) -> str:
     return f"one of {named}" if opener["one_of"] else named
 
 
-_OPENING = threading.Lock()   # openers' one call at a time: the View waits on the host's job ahead, not beside it
-_OPENED = ["reading what opens each step"]   # what the call in flight tells: its count too, for a call that waits
-WAITING: set[int] = set()   # the threads a call in flight holds up: a job ahead that pauses for others goes on for these
-
-
 def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int = 2) -> list[dict]:
     """Each of play_r's step-ups' openers, as ``{"picks": [...], "one_of": bool}``, a pick with its rating: the picks
     rated >= r whose removal from the settings loses some of that round's new progression, ``(movement)`` when only
     the tier does, and "one of" an irreducible set when neither does: picks, and ``(movement)`` when all of them off
-    still open the round, so that the set only loses it with the tier lowered too. Each removal is a new option set, its
-    rules compiled on the Logic (a host's job ahead, or the View's bar, pays that) and kept for the next plan at these
-    settings; another settings' or another database's openers drop them (about 20 MiB a set), a call stopped part way
-    counting those it compiled. The last plan's answer is kept with them: the spoiler's View takes the job ahead's."""
-    WAITING.add(me := threading.get_ident())
-    try:
-        while not _OPENING.acquire(timeout=0.2):
-            progress.note(_OPENED[0])
-    finally:
-        WAITING.discard(me)
-    try:
-        return _openers(logic, settings, placement, rating)
-    finally:
-        _OPENING.release()
-
-
-def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
+    still open the round, so that the set only loses it with the tier lowered too. Each removal is a reach on the
+    settings' switchable option set (``Logic.reach``'s ``off``), one compile a tier for every mix, kept for the next plan
+    at these settings; another settings' or another database's openers drop them. The last plan's answer is kept with
+    them: the spoiler's View takes an app's job ahead's."""
     mine = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())))
     held = getattr(logic, "_opener_sets", None)
     if held is not None and (held[0] != mine or held[4] is not logic.db):
@@ -520,45 +501,36 @@ def _worked_out(logic: Logic, settings: Settings, placement: Mapping[str, str], 
     hi = sorted(pid for pid, ids in on.items() if _rated(ids, skips) >= rating)
     made = play(logic, settings, placement, rating)
     tier = rung(settings, rating, skips).movement_tier
-    below = rung_logic(logic, settings, tier)
+    below, lowered = rung_logic(logic, settings, tier), replace(settings, movement_tier=tier)
 
     told, whole = [0], len(made.rounds) * (len(hi) + 1)    # a round's picks and its one try without them or the tier
 
-    def reached(st: Settings, got: frozenset[str], at: Logic = logic) -> Reach:
+    def reached(off: Sequence[str], got: frozenset[str], low: bool = False) -> Reach:
+        """The reach with the picks ``off`` turned off, the tier lowered when ``low``."""
         told[0] = min(told[0] + 1, whole)
-        _OPENED[0] = f"reading what opens each step, {told[0]} of {whole}"
-        progress.note(_OPENED[0])
-        return at.reach(st, placement, collected=got, traps=False, replay=True)
-
-    def without(off: Sequence[str]) -> Settings:
-        return replace(settings, skip_override={**settings.skip_override, **dict.fromkeys(off, False)})
+        progress.note(f"reading what opens each step, {told[0]} of {whole}")
+        at, st = (below, lowered) if low else (logic, settings)
+        return at.reach(st, placement, collected=got, traps=False, replay=True,
+                        off=frozenset(sid for p in off for sid in on[p]))
 
     def named(pid: str) -> str:
         return f"{pid} ({RATING_NAMES[_rated(on[pid], skips)]})"
 
     out = []
     for got, gain in made.rounds:
-        lost = [p for p in hi if gain - reached(without((p,)), got).locations]
+        lost = [p for p in hi if gain - reached((p,), got).locations]
         if lost:
             out.append({"picks": [named(p) for p in lost], "one_of": False})
             continue
-        if gain - reached(replace(settings, movement_tier=tier), got, below).locations:
+        if gain - reached((), got, True).locations:
             out.append({"picks": [MOVEMENT], "one_of": False})
             continue
-        some = list(hi)     # no single one: put each back that the rest lose it without (their sets kept by no plan)
-        rules = [(at, set(at._compiled), set(at._native)) for at in ((logic,) if below is logic else (logic, below))]
-        by_tier = not gain - reached(without(hi), got).locations    # every pick off still opens it: the tier is a way too
+        some = list(hi)     # no single one: put each back that the rest lose it without
+        by_tier = not gain - reached(hi, got).locations    # every pick off still opens it: the tier is a way too
         for p in hi:
             rest = [q for q in some if q != p]
-            st = without(rest)
-            left = reached(replace(st, movement_tier=tier), got, below) if by_tier else reached(st, got)
-            if gain - left.locations:
+            if gain - reached(rest, got, by_tier).locations:
                 some = rest
-        for at, compiled, native in rules:
-            for key in set(at._compiled) - compiled:
-                del at._compiled[key]
-            for key in set(at._native) - native:
-                del at._native[key]
         out.append({"picks": [named(p) for p in some] + [MOVEMENT] * by_tier, "one_of": True})
     return out
 

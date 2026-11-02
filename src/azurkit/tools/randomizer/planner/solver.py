@@ -67,7 +67,10 @@ movement tier compiled away (§3.4), each closure carrying its rule
 reach, D1009): an option set's graphs and rules as integer tables, built
 once (:meth:`Logic._tables`), solved by the compiled kernel when this
 platform's library is loaded and by its Python twin otherwise, the same
-answer. Nothing here reads a file: the database
+answer. An option set may be compiled *switchable* (:meth:`Logic.reach`'s
+``off``): each skip it turns on also needs a flag of its own that the
+reach credits from the start unless the skip is read as off, so every mix
+of its skips turned off is one compile (the spoiler's openers). Nothing here reads a file: the database
 is the loader's, and an edge's movement tier is its ``difficulty`` number
 (the envelope's tiers, ``draft/tiers.toml``, which the planner never
 imports).
@@ -94,6 +97,7 @@ from azurkit.tools.randomizer.planner.settings import (
 Rule = Callable[[Mapping[str, int], Container[str]], bool]
 MAX_SETTINGS = Settings(4, "frame_perfect", {})   # every in-logic skip on, every player tier's edge usable
 TRICK_FREE = Settings(0, "frame_perfect", {})     # no skip, every player tier's edge usable
+SWITCH = "(on) "                                  # a switchable option set's flag for a skip it turns on: this, its id
 STRICTEST = Settings(0, "safe", {})               # no skip, the safe tier (rule 10's options)
 NAMED_KEPT = 1024                                     # :meth:`Logic._named`'s sets, then it starts again
 _ALL = 1 << 30                                        # a counter "with every item"
@@ -225,10 +229,11 @@ class Reach:
 
 class _Rules:
     """One option set's compiled graph: edges, credits and locations; the
-    physical graph (R_phys) when ``physical``."""
+    physical graph (R_phys) when ``physical``; each skip it turns on also
+    needing its :data:`SWITCH` flag when ``switchable``."""
 
-    def __init__(self, logic: Logic, settings: Settings, physical: bool = False):
-        self.logic, self.db, self.physical = logic, logic.db, physical
+    def __init__(self, logic: Logic, settings: Settings, physical: bool = False, switchable: bool = False):
+        self.logic, self.db, self.physical, self.switchable = logic, logic.db, physical, switchable
         self.on = frozenset(skips_on(settings, logic.skip_tables))
         self.tier = MOVEMENT_TIERS.index(settings.movement_tier) + 1
         self.memo: dict[tuple, Rule] = {}
@@ -326,7 +331,8 @@ class _Rules:
         skip, D144) and its own requirement holds."""
         if sid not in self.on:
             return _false
-        return self.memoised(("skip", sid), lambda: self.expr(self.logic.skip_tables[sid].get("requires", "true")))
+        return self.memoised(("skip", sid), lambda: _all(
+            [*([_flag(SWITCH + sid)] if self.switchable else []), self.expr(self.logic.skip_tables[sid].get("requires", "true"))]))
 
     def light(self, dark: bool | str) -> Rule:
         """§2.12, D1061: a dark edge (or anything done at a dark node) needs
@@ -539,14 +545,14 @@ class Logic:
         self._kit_memo: dict[tuple, set[str]] = {}   # kit_short's reaches: (options, counter, count, spot, item)
         self._named_sets: dict[tuple, tuple] = {}    # :meth:`_named`'s
 
-    def rules(self, settings: Settings, physical: bool = False) -> _Rules:
+    def rules(self, settings: Settings, physical: bool = False, switchable: bool = False) -> _Rules:
         """One option set's compiled graph (the physical one when
-        ``physical``), compiled once: the fill reaches many placements under
-        the same options."""
+        ``physical``, its skips switchable when ``switchable``), compiled
+        once: the fill reaches many placements under the same options."""
         key = (settings.skip_ceiling, settings.movement_tier,
-               tuple(sorted(settings.skip_override.items())), physical)
+               tuple(sorted(settings.skip_override.items())), physical, *(("switchable",) if switchable else ()))
         if (got := self._compiled.get(key)) is None:   # one look: a spoiler's openers drop other settings' on their thread
-            got = self._compiled[key] = _Rules(self, settings, physical)
+            got = self._compiled[key] = _Rules(self, settings, physical, switchable)
         return got
 
     def harmless(self, kind: str) -> bool:
@@ -799,18 +805,19 @@ class Logic:
                 self._take(held, counters, loc, placement)
             flags.update(new)
 
-    def _tables(self, settings: Settings) -> _Native:
+    def _tables(self, settings: Settings, switchable: bool = False) -> _Native:
         """``settings``' graphs as the compiled reach reads them (Step 4.3
-        native reach), built once an option set: the logic graph, the
+        native reach), built once an option set (its skips switchable when
+        ``switchable``): the logic graph, the
         physical one and the trick-free physical one when the options turn
         a skip on (else the physical again), each name an id (the canonical
         nodes, locations and items in sorted order) and each rule its
         closures' ``ast``, numbered children first."""
         key = (settings.skip_ceiling, settings.movement_tier,
-               tuple(sorted(settings.skip_override.items())))
+               tuple(sorted(settings.skip_override.items())), *(("switchable",) if switchable else ()))
         if (got := self._native.get(key)) is not None:
             return got
-        logic, phys = self.rules(settings), self.rules(settings, physical=True)
+        logic, phys = self.rules(settings, switchable=switchable), self.rules(settings, True, switchable)
         graphs = [logic, phys, *([self.rules(TRICK_FREE, physical=True)] if phys.on else [])]
         names = {self.canon(n) for n in self.db.nodes} | {self.start, *self.forced, *self.forced_phys}
         names.update(*self.regions.values())
@@ -888,13 +895,14 @@ class Logic:
 
     def _solve(self, settings: Settings, placement: Mapping, counters: dict, held: collections.Counter,
                flags: Iterable[str], trace: list | None = None, traps_too: bool = True,
-               got: Iterable[str] | None = None, late: frozenset[str] = frozenset(),
+               got: Iterable[str] | None = None, late: frozenset[str] = frozenset(), off: frozenset[str] | None = None,
                ) -> tuple[frozenset, frozenset, frozenset, frozenset, frozenset, frozenset, frozenset, bool, frozenset]:
         """The fixpoint (the module's loop) in ``core.native``'s reach: its
         compiled kernel when this platform's library is loaded, else its
         Python twin (``AZURKIT_NATIVE=0``), the same answer. A ``trace``
-        gets its spheres from the kernel's rounds, replayed here."""
-        nt = self._tables(settings)
+        gets its spheres from the kernel's rounds, replayed here. ``off``:
+        :meth:`reach`'s, on the switchable tables."""
+        nt = self._tables(settings, off is not None)
         c = [0] * nt.tables.counters
         for name, n in counters.items():
             if (i := nt.counter.get(name)) is not None:   # a counter no rule or item reads changes nothing
@@ -906,15 +914,20 @@ class Logic:
             if (i := open_at.get(x)) is not None:
                 gives[i] = item.get(name, -1)
         s = native.solve(nt.tables, *nt.graphs, counters=c, held=[held.get(x, 0) for x in nt.items],
-                         flags=[nt.flag[f] for f in base],
+                         flags=[nt.flag[f] for f in base] + ([] if off is None else [
+                             i for sid in self.rules(settings, switchable=True).on - off
+                             if (i := nt.flag.get(SWITCH + sid)) is not None]),   # a switch no rule reads: none
                          gives=gives,
                          got=None if got is None else [nt.loc[x] for x in got], late=[nt.loc[x] for x in late],
                          traps=traps_too, log=log)
         if log:
             self._spheres(trace, s, nt, placement, dict(counters), collections.Counter(held), base)
         named, nodes = self._named, nt.nodes
+        flags = named(nt.flags, s.flags)
+        if off is not None:
+            flags = frozenset(f for f in flags if not f.startswith(SWITCH))
         return (named(nodes, s.reached), named(nodes, s.safe), named(nodes, s.phys), named(nodes, s.traps),
-                named(nodes, s.after), named(nt.locs, s.got), named(nt.flags, s.flags), s.victory, named(nodes, s.free))
+                named(nodes, s.after), named(nt.locs, s.got), flags, s.victory, named(nodes, s.free))
 
     def _spheres(self, trace: list, s: native.Solved, nt: _Native, placement: Mapping, counters: dict,
                  held: collections.Counter, flags: frozenset[str]) -> None:
@@ -1105,7 +1118,8 @@ class Logic:
 
     def reach(self, settings: Settings | None = None, placement: Mapping[str, str | None] | None = None,
               items: Iterable[str] = (), flags: Iterable[str] = (), trace: list | None = None,
-              traps: bool = True, collected: Iterable[str] | None = None, replay: bool = False) -> Reach:
+              traps: bool = True, collected: Iterable[str] | None = None, replay: bool = False,
+              off: Iterable[str] | None = None) -> Reach:
         """The fixpoint under ``settings`` (the database's defaults when None),
         with ``placement`` (pool location -> item name, or None for empty;
         an authored level's location it doesn't name is empty; vanilla when
@@ -1124,7 +1138,10 @@ class Logic:
         player places the disc after beating its boss: what its one-shot
         teleport got back with stays credited (the boss's flag, and a3, a5
         and the airship behind w3's); without it every one is collected from
-        the start."""
+        the start. With ``off`` (skip ids), the reach of ``settings`` with
+        those skips off, on its switchable tables: one compile serves every
+        such mix of its skips (the spoiler's openers), each the same answer
+        as the settings with those skips' picks turned off."""
         db = self.db
         st = settings if settings is not None else db.defaults
         settings_from_table({"format": SETTINGS_FORMAT, "skip_ceiling": st.skip_ceiling,
@@ -1153,8 +1170,8 @@ class Logic:
             for loc in sorted(collected):
                 self._take(held, counters, loc, placement)
         late = frozenset(collected) & self.guardian if replay and collected is not None else frozenset()
-        reached, safe, phys, found, after, got, flags, victory, free = self._solve(st, placement, counters, held,
-                                                                                  flags, trace, traps, collected, late)
+        reached, safe, phys, found, after, got, flags, victory, free = self._solve(
+            st, placement, counters, held, flags, trace, traps, collected, late, None if off is None else frozenset(off))
         named, stub = self._named, self.stub_nodes
         return Reach(named(stub, reached), named(stub, safe), named(stub, phys), named(stub, found), named(stub, after),
                      got, flags, victory, named(stub, free))

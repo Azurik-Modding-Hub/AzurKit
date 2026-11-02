@@ -553,12 +553,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     highest `Shape.score`, the first on a tie. Attempt k is pure, so the app's
     engine runs those past the first at once on threads (`fill.WIDTH`, each
     as soon as a thread is free, its answer read in order, the rest stopped at
-    their next note once a plan is decided): the same plan at any width. It
-    also works out a shaped plan's spoiler openers ahead, low
-    (`randomizer.openers_ahead`), for the spoiler's View: the newest plan's
-    only, pausing for a build or another plan unless a View waits on them
-    (`engine._openers_ahead`); the tracker's Spoiler asks that process for
-    them (`engine.JOBS["openers"]`), so they are worked out once. Any change
+    their next note once a plan is decided): the same plan at any width. A
+    spoiler's openers read one switchable option set a
+    tier (`Logic.reach`'s `off`: each skip on also needs a flag of its own,
+    so every mix of picks turned off is one compile; about 0.3 s, where a
+    seed's 70 compiles took 4-5 s), and the app's engine works them out
+    ahead, low, after a shaped plan (`randomizer.openers_ahead`), for the
+    spoiler's View: the newest plan's only, pausing for a build or another
+    plan (`engine._openers_ahead`); a View or the tracker's Spoiler (which
+    asks that process, `engine.JOBS["openers"]`) waits on nothing and works
+    out what isn't kept yet. Any change
     that gives the same inputs another level >
     0 placement (the bound, ladders, spread, scores, promise, lines, the
     table's method or a re-run that changes it) bumps

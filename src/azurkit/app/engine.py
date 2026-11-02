@@ -57,7 +57,7 @@ from azurkit.core.progress import Steps, noting, record
 from azurkit.edits import files as replaced
 from azurkit.tools import characters, randomizer
 from azurkit.tools.characters import pool
-from azurkit.tools.randomizer.planner import difficulty, fill
+from azurkit.tools.randomizer.planner import fill
 
 from . import procpool
 
@@ -268,12 +268,11 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 
 
 def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
-    """A seed's plan; a shaped one's spoiler openers then go on ahead, low, for the spoiler's View, past any build or
-    other plan (they share this process's GIL: beside them a Build went from 1.4 s to 3.7 s at the click, a Track's fill
-    from 5.4 s to 10.5 s). A call waiting on those
-    openers goes first: they run on at its priority, or a build ahead parked for that call and they, paused for the
-    build, would hold each other and the call for good. Only the newest plan's are worth working out: a plan with
-    another answer ends the last one's at its next note, and the same plan again leaves them running."""
+    """A seed's plan; a shaped one's spoiler openers then go on ahead, low, for the spoiler's View and the tracker's
+    Spoiler (about 0.3 s, one switchable option set a tier: :func:`~azurkit.tools.randomizer.planner.difficulty.openers`),
+    pausing for any build or other plan in flight, which they share this process's GIL with. A View or a Spoiler
+    meanwhile waits on nothing: it works out what they haven't yet. Only the newest plan's are worth working out: a
+    plan with another answer ends the last one's at its next note, and the same plan again leaves them running."""
     global _PLANS
     with _BUILDING:
         _PLANS += 1
@@ -292,13 +291,11 @@ def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> 
 def _openers_ahead(doc: Mapping) -> None:
     def past_others(_step: dict) -> None:
         with _BUILDING:
-            while (_BUILDS or _PLANS) and not difficulty.WAITING and _NEWEST[0] is doc:
+            while (_BUILDS or _PLANS) and _NEWEST[0] is doc:
                 _BUILDING.wait(0.2)
         if _NEWEST[0] is not doc:
             raise Cancelled
-        low(not difficulty.WAITING)
-    low = procpool.Low()
-    low(True)
+    procpool.Low()(True)
     with contextlib.suppress(Exception, Cancelled), noting(Steps(past_others)) as steps:   # a head start: the View names its refusal
         steps("spoiler")
         randomizer.openers_ahead(doc)

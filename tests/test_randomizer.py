@@ -52,7 +52,7 @@ from azurkit.tools.randomizer.planner.grammar import ParseError, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan, plan_doc
 from azurkit.tools.randomizer.planner.settings import (
-    Settings, picks, settings_from_table, share_decode, share_encode, share_sliders, turnable)
+    Settings, picks, picks_on, settings_from_table, share_decode, share_encode, share_sliders, turnable)
 from azurkit.tools.randomizer.planner.solver import Logic
 from scripts import record_goldens, web_tools
 
@@ -381,30 +381,22 @@ def test_a_logic_handed_another_database_works_its_openers_out_again(monkeypatch
     assert again == first and again is not first
 
 
-def test_a_call_waiting_on_the_openers_ahead_is_answered_though_they_had_paused_for_a_build_parked_for_that_call(monkeypatch):
-    """The three-way wait: the job ahead holds the openers' lock, paused for a build ahead that parks for any call the
-    player waits on, here the View, which waits on the lock. The build never ends in this test."""
-    from azurkit.app import engine
+def test_a_shaped_plans_openers_read_one_switchable_option_set_a_tier_each_mix_the_settings_own_answer(monkeypatch):
+    """Each removal is a reach of the settings' switchable set (``off``), the answer of the settings with those picks
+    off; a seed with a "one of" round compiled about 70 option sets for its openers (4-5 s at the spoiler's View, A75),
+    now at most one a tier, and the answer is the same (seed 21's below)."""
+    from azurkit.tools.randomizer.planner import solver
 
-    started, seen = threading.Event(), []
-
-    def work(_logic, *_):
-        monkeypatch.setattr(engine, "_BUILDS", 1)
-        started.set()
-        progress.note("reading")
-        return ["kept"]
-
-    monkeypatch.setattr(difficulty, "_openers", work)
-    monkeypatch.setattr(randomizer, "openers_ahead", lambda doc: difficulty.openers(None, None, {}))
-    monkeypatch.setattr(engine, "_NEWEST", [doc := {}])
-    ahead = threading.Thread(target=engine._openers_ahead, args=(doc,), daemon=True)
-    ahead.start()
-    assert started.wait(30)
-    view = threading.Thread(target=lambda: seen.append(difficulty.openers(None, None, {})), daemon=True)
-    view.start()
-    view.join(30)
-    ahead.join(30)
-    assert (seen, ahead.is_alive(), difficulty.WAITING) == ([["kept"]], False, set())
+    logic, st = kept_logic(), Settings(3, "hard", {}, seed_difficulty=3)
+    placement = fill.fill(logic, "3", st).placement     # its openers hold a "one of" round
+    on = picks_on(st, logic.skip_tables)
+    for pid in list(on)[::4]:
+        alone = dataclasses.replace(st, skip_override={pid: False})
+        assert logic.reach(st, placement, traps=False, off=on[pid]).locations \
+            == logic.reach(alone, placement, traps=False).locations, pid
+    made, init = [], solver._Rules.__init__
+    monkeypatch.setattr(solver._Rules, "__init__", lambda self, *a, **k: made.append(a) or init(self, *a, **k))
+    assert any(o["one_of"] for o in difficulty.openers(logic, st, placement)) and len(made) <= 4
 
 
 def test_the_openers_ahead_wait_out_a_plan_in_flight_so_a_tracks_fill_has_the_gil(monkeypatch):
