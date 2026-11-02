@@ -2276,14 +2276,16 @@ def test_a_weapon_a_body_lifts_off_the_floor_builds_on_the_site_as_cpython_build
 
 
 # The tab's rows that stay vanilla in v1 ([ticked, greyed] each); "vanilla 10" beside its box ([right of it, on its
-# line]); the skip list's rows and whether it shows them all (no inner scroll).
+# line]); the skip list, opened: its rows and whether it shows them all (no inner scroll).
 RANDO_SHOWN = """() => {
+    document.getElementById("rando-skip-list").open = true;
     const box = document.getElementById("rando-cost").getBoundingClientRect(), skips = document.getElementById("rando-skips");
     const note = document.getElementById("rando-cost-note").getBoundingClientRect();
     return [[...document.querySelectorAll("#rando-items input[data-vanilla]")].map((b) => [b.checked, b.disabled]),
             [note.left >= box.right, note.top < box.bottom && note.bottom > box.top],
             [skips.querySelectorAll(".skip").length, skips.scrollHeight <= skips.clientHeight]];
 }"""
+SKIP_COUNT = "() => document.querySelector('#rando-skip-list summary').textContent"
 SETTLED = "() => globalThis.azurkit?.ready && !azurkit.rando.load && !azurkit.rando.waiting && azurkit.rando.view"
 WARNED = "() => document.getElementById('rando-warn').textContent.split('\\n')"
 
@@ -2311,7 +2313,10 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         page = served.open()
         _page.click(page, "tab-randomizer")
         view = _page.until(page, SETTLED, 120)
+        assert page.evaluate("() => document.getElementById('rando-skip-list').open") is False
+        assert page.evaluate(SKIP_COUNT) == f"Specific skips · 0 of {len(view['skips'])} on"
         assert page.evaluate(RANDO_SHOWN) == [[[False, True]] * kept, [True, True], [len(view["skips"]), True]]
+        page.evaluate("() => { document.getElementById('rando-skip-list').open = false; }")
         _page.click(page, "rando-on")
         page.evaluate("""(text) => { const box = document.getElementById("rando-share");
                                      box.value = text; box.dispatchEvent(new Event("change")); }""", other)
@@ -2338,7 +2343,11 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         view = tick("dark")   # Standard's movement: Hard's e7 too, and what's on is what's asked
         assert view["settings"] == defaults | {"skip_override": {"e7.dark_room_nolight": True, "w1.dark_cave_nolight": True}}
         assert box("dark") == [True, False, "2 of 2 · up to Hard"]
+        opened = "() => document.getElementById('rando-skip-list').open"
+        assert page.evaluate(opened) is True and page.evaluate(SKIP_COUNT) == f"Specific skips · 2 of {len(view['skips'])} on"
+        page.evaluate("() => { document.getElementById('rando-skip-list').open = false; }")
         tick("dark")
+        assert page.evaluate(opened) is False   # an untick leaves it shut
         view = tick("storage")
         storage = {p["id"] for g in view["groups"] if g["id"] == "storage" for p in g["picks"]}
         assert len(storage) == 6 and view["settings"] == defaults | {"skip_override": dict.fromkeys(sorted(storage), True)}

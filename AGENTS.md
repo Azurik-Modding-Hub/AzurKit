@@ -997,8 +997,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     their rating, an untick all off, each by a toggle only where the ceiling
     differs; a box is derived from what's on, ticked all, half some, empty
     none, with "6 of 7 · up to Frame-perfect", so a loaded setting's show
-    too) and the skips a setting can turn on (a click toggles one against
-    the ceiling, and its group goes half). The page holds the settings as
+    too) and, folded shut under "Specific skips · 3 of 36 on" until a group's
+    tick opens them, the skips a setting can turn on in their groups' order (a
+    click toggles one against the ceiling, and its group goes half). The page
+    holds the settings as
     a settings table in format /2 (each category as it is) and asks the
     engine what they give (`sdk.randomizer_settings`; the site's worker,
     the app's `api/randomizer`): the share string with the Patches tab's

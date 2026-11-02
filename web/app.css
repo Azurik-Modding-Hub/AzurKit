@@ -281,6 +281,12 @@ button:disabled { color: var(--faint); background: transparent; }
 .rando .groups { gap: 2px 12px; padding-top: 0; }
 .rando .groups .group { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .rando .groups .group input { margin: 0; accent-color: var(--accent); }
+#rando-skip-list > summary { display: block; padding: 2px 0; font-size: 11.5px; color: var(--muted); cursor: default; list-style: none; }
+#rando-skip-list > summary::-webkit-details-marker { display: none; }
+#rando-skip-list > summary::before { content: "▾"; display: inline-block; width: 12px; }
+#rando-skip-list:not([open]) > summary::before { content: "▸"; }
+#rando-skip-list > summary b { font-weight: 700; color: var(--text); }
+#rando-skips h4 { margin: 3px 0 0; padding: 0 4px; font-size: 10.5px; font-weight: 400; color: var(--muted); }
 .rando .file { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; font-weight: 600;
   border: 1px solid var(--line); border-radius: 3px; background: var(--pane); }
 .rando .file input { display: none; }

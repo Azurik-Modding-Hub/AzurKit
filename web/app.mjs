@@ -1199,9 +1199,13 @@ function turnGroup(id, on) {
 }
 
 // The skip groups' boxes, each what's on of it (ticked all, half some, empty none), so a loaded setting's show too,
-// with how many of its picks are on and its highest rating, so a tick hides no Frame-perfect pick.
+// with how many of its picks are on and its highest rating, so a tick hides no Frame-perfect pick; and the closed
+// list's count of what's on.
 function renderGroups() {
-  const view = state.rando.view;
+  const view = state.rando.view, all = (view?.skips ?? []).map(skipOn);
+  const part = all.filter((value) => value === null).length;
+  if (view) R("skip-count").textContent = `${all.filter((value) => value === true).length} of ${all.length} on`
+    + (part ? ` · ${part} in part` : "");
   R("groups").replaceChildren(...(view?.groups ?? []).map((group) => {
     const on = group.picks.map((pick) => skipOn(view.skips.find((skip) => skip.id === pick.id)));
     const full = on.filter((value) => value === true).length;
@@ -1373,25 +1377,30 @@ function warn(lines, error = false) {
   R("warn").classList.toggle("error", error);
 }
 
-// The skips a setting can turn on, filtered: each ticked when it is on (half when only some of a batch's variants are,
-// by the ceiling), by the ceiling or by its own toggle, which a click sets and a click back to the ceiling's clears.
+// The skips a setting can turn on, filtered, in their groups' order under a thin heading: each ticked when it is on
+// (half when only some of a batch's variants are, by the ceiling), by the ceiling or by its own toggle, which a click
+// sets and a click back to the ceiling's clears. The rows stay rendered while their list is closed.
 function renderSkips() {
-  const filter = R("filter").value.trim().toLowerCase();
-  const rows = (state.rando.view?.skips ?? []).filter((s) => !filter || `${s.name} ${s.id} ${s.rating}`.toLowerCase()
-    .includes(filter));
-  R("skips").replaceChildren(...rows.map((skip) => {
-    const toggle = state.rando.overrides[skip.id] ?? null, on = skipOn(skip);
-    const row = Object.assign(document.createElement("label"), { className: `skip${toggle === null ? "" : " toggled"}`,
-                                                                 title: `${skip.name} (${skip.id}): ${skip.rating}` });
-    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: on === true,
-                                                                 indeterminate: on === null });
-    box.dataset.skip = skip.id;
-    box.disabled = state.building || !R("on").checked;
-    row.append(box, Object.assign(document.createElement("span"), { className: "name", textContent: skip.name }),
-               Object.assign(document.createElement("span"), { className: "rating", textContent: skip.rating }),
-               Object.assign(document.createElement("span"), { className: "by", textContent: toggle !== null ? "toggle" : "ceiling" }));
-    return row;
+  const filter = R("filter").value.trim().toLowerCase(), view = state.rando.view;
+  const shown = (s) => !filter || `${s.name} ${s.id} ${s.rating}`.toLowerCase().includes(filter);
+  R("skips").replaceChildren(...(view?.groups ?? []).flatMap((group) => {
+    const rows = group.picks.map((pick) => view.skips.find((skip) => skip.id === pick.id)).filter(shown);
+    return rows.length ? [Object.assign(document.createElement("h4"), { textContent: group.label }), ...rows.map(skipRow)] : [];
   }));
+}
+
+function skipRow(skip) {
+  const toggle = state.rando.overrides[skip.id] ?? null, on = skipOn(skip);
+  const row = Object.assign(document.createElement("label"), { className: `skip${toggle === null ? "" : " toggled"}`,
+                                                               title: `${skip.name} (${skip.id}): ${skip.rating}` });
+  const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: on === true,
+                                                               indeterminate: on === null });
+  box.dataset.skip = skip.id;
+  box.disabled = state.building || !R("on").checked;
+  row.append(box, Object.assign(document.createElement("span"), { className: "name", textContent: skip.name }),
+             Object.assign(document.createElement("span"), { className: "rating", textContent: skip.rating }),
+             Object.assign(document.createElement("span"), { className: "by", textContent: toggle !== null ? "toggle" : "ceiling" }));
+  return row;
 }
 
 // A click turns a skip (a batch whole) the other way: by a toggle, or by none when the ceiling now gives that.
@@ -1584,6 +1593,7 @@ function randoEvents(changed) {
   R("items").addEventListener("change", reread);
   R("groups").addEventListener("change", (e) => {
     turnGroup(e.target.dataset.group, e.target.checked);
+    if (e.target.checked) R("skip-list").open = true;   // D1061: a tick shows which skips it turned on
     renderSkips();
     renderGroups();
     reread();
