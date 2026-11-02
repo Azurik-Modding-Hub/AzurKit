@@ -454,7 +454,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         content = args.content or clone_of(wt)
         import tempfile
-        scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site."))
+        # Not macOS's $TMPDIR, which a daily sweep empties of what looks 3 days old (this venv keeps uv's cache's times).
+        scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site.", dir=None if os.name == "nt" else "/tmp"))
         built: dict[str, Path | str] = {}
         natives: dict[str, list] = {}
 

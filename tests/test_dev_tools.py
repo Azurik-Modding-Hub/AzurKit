@@ -662,6 +662,31 @@ def test_the_perf_gate_logs_firefoxs_tree_peak_and_no_verdict_or_list_reads_it(t
     assert perf.listed((repo / perf.CEILINGS).read_text(encoding="utf-8")) == on_main
 
 
+def test_the_perf_gates_scratch_is_out_of_reach_of_macoss_temp_sweep(tmp_path, monkeypatch):
+    """macOS empties $TMPDIR daily of what looks 3 days old, and the app's venv in this scratch keeps uv's cache's times,
+    so a run crossing 03:35 would lose its dependencies; Windows, which has no /tmp, takes its temp folder."""
+    import tempfile
+
+    from azurkit.core import gate
+    from scripts import web_tools
+
+    monkeypatch.setattr(perf.signal, "signal", lambda *_: None)
+    monkeypatch.setattr(perf, "R", perf.R)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    image = types.SimpleNamespace(stat=lambda: types.SimpleNamespace(st_size=gate.USA.iso_size))
+    monkeypatch.setattr(gate, "find", lambda release: image)
+    made = []
+
+    def wheel(path, _):
+        made.append(path)
+        raise InterruptedError("only the scratch's place is asked")
+    monkeypatch.setattr(web_tools, "wheel", wheel)
+    with pytest.raises(InterruptedError):
+        perf.main([str(tmp_path), "--select", "site:build", "--ops", "S05", "--profiles", "site", "--browsers", "firefox"])
+    assert made[0].parent.parent == Path(tempfile.gettempdir() if os.name == "nt" else "/tmp")
+    assert not made[0].parent.exists()
+
+
 def test_a_browser_new_to_mains_perf_py_gets_one_first_record_and_nothing_else_grows(tmp_path, monkeypatch):
     """D994: a browser the stack's perf.py times and main's doesn't
     (``perf.new_browsers``) gets one first record: ``--update-ceilings``
