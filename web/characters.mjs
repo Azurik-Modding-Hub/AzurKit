@@ -546,7 +546,8 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     }
     c.dressing = false;
     settled();   // the app's work ahead waits for a dress (app/__init__.py's dressed)
-    dress();
+    clearTimeout(c.settling);   // the shape asked meanwhile rests first: it may be one the slider is passing
+    if (c.wanted) c.settling = setTimeout(dress, SETTLE_MS);
   };
 
   const defaults = () => c.view?.chosen.defaults ?? { mode: "own", anims: "garret4", attack_balance: true,

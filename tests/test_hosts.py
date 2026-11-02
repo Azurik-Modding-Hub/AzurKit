@@ -2875,14 +2875,18 @@ def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_
     view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
     drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
              for side in ("front", "back")}
-    asked, answers = [], [drawn, {"refused": "It ran out of memory"}]
+    asked, answers, held = [], [drawn, {"refused": "It ran out of memory"}, drawn], []
 
     def pickers(route) -> None:
         route.fulfill(json=view | {"character": route.request.post_data_json["given"]["character"]})
 
     def preview(route) -> None:
         asked.append(route.request.post_data_json["recipe"]["character"])
-        route.fulfill(json=answers[min(len(asked), len(answers)) - 1])
+        answer = answers[min(len(asked), len(answers)) - 1]
+        if len(asked) == 3:   # a dress still running, below
+            held.append(lambda: route.fulfill(json=answer))
+        else:
+            route.fulfill(json=answer)
     pixels = """() => ["char-front", "char-back"].map((id) => document.getElementById(id).getContext("2d")
         .getImageData(0, 0, 160, 160).data.reduce((n, v) => n + v, 0))"""
     moved = """(value) => { const b = document.getElementById("char-shape:bust"); b.value = value;
@@ -2939,6 +2943,16 @@ def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_
         page.evaluate(moved, "1")
         _page.until(page, shows(None, False), 10)
         assert page.evaluate(pixels) == hers and len(asked) == 2
+
+        page.evaluate(moved, "1.4")
+        while not held:   # the dress asked (Playwright's route runs inside this wait)
+            page.wait_for_timeout(100)
+        page.evaluate(moved, "1.45")   # a shape moved as a dress ends rests first: it may be one the slider is passing
+        held.pop()()
+        wanted = _page.until(page, "() => !azurkit.characters.state.dressing && [azurkit.characters.state.wanted?.shape]", 30)
+        assert wanted == ['[["bust",1.45]]'] and len(asked) == 3
+        _page.until(page, shows(1.45, False), 30)
+        assert len(asked) == 4
         page.close()
     finally:
         server.close()
