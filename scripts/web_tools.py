@@ -301,7 +301,9 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     each checked first (:func:`content_files`): a fault names the file and
     writes nothing (D35). Its ``sw.js`` is ``web/sw.js`` with the site's
     :func:`release` on its :data:`RELEASE_LINE`, and the page's CSP, from
-    ``web/index.html``, in it, each checked first too."""
+    ``web/index.html``, in it, each checked first too. Each file is new here, with today's time, not its source's: the
+    site is often in a temp folder, and macOS's daily sweep (dirhelper, 03:35) deletes what looks 3 days old there, which
+    would be Pyodide's core, its release's times, under a page still being served (run 41372636477's 42 failures)."""
     published = {} if content is None else content_files(content)
     worker, page = root / "web" / WORKER, root / "web" / "index.html"
     if (lines := (worker := worker.read_text(encoding="utf-8")).count(RELEASE_LINE)) != 1:
@@ -311,12 +313,12 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     shelf = out.resolve() / "content-source"   # out is new, and copytree copies a link's target: no link below it
     if lost := [rel for rel in published if not (shelf / rel).resolve().is_relative_to(shelf)]:
         raise SystemExit(f"content {content}: {lost[0]} would land outside {shelf}")
-    shutil.copytree(root / "web", out)
+    shutil.copytree(root / "web", out, copy_function=shutil.copy)
     if lost := missing(root):
         raise SystemExit(f"Pyodide {VERSION} lacks {', '.join(lost)}: run `uv run bootstrap.py`")
-    shutil.copytree(pyodide_dir(root), out / "pyodide")
+    shutil.copytree(pyodide_dir(root), out / "pyodide", copy_function=shutil.copy)
     with tempfile.TemporaryDirectory(prefix="azurkit-site.") as tmp:   # not in out: uv build leaves a .gitignore beside
-        built = shutil.copy2(built or wheel(Path(tmp), root), out)     # the wheel, and Pages' artifact drops dotfiles
+        built = shutil.copy(built or wheel(Path(tmp), root), out)      # the wheel, and Pages' artifact drops dotfiles
     digest = base64.b64encode(hashlib.sha256(Path(built).read_bytes()).digest()).decode()
     (out / "host.json").write_text(json.dumps({"engine": "site", "wheel": Path(built).name,
                                                "integrity": f"sha256-{digest}"}) + "\n", encoding="utf-8", newline="\n")

@@ -85,6 +85,13 @@ def test_the_site_built_with_its_own_wheel_holds_no_dotfile_but_nojekyll(site):
     assert [p.relative_to(site).as_posix() for p in site.rglob(".*")] == [".nojekyll"]
 
 
+def test_the_sites_files_are_as_new_as_the_site_so_macos_sweeping_its_temp_folder_leaves_them(site):
+    """dirhelper deletes what looks 3 days old in macOS's temp folder at 03:35, and a Pyodide file copied with its
+    release's times looks years old: a run crossing 03:35 lost them, and every page after it never got ready."""
+    assert {p.relative_to(site).as_posix() for p in site.rglob("*")
+            if p.is_file() and time.time() - p.stat().st_mtime > 86400} == set()
+
+
 KINDS = (".azkp", ".bin", ".glb", ".gltf", ".json", ".md", ".png", ".wav")
 """The content kinds the site publishes, each served as data (mime-db's types: no page, script or rendered document;
 a variant's shipped answer, ``.azkp``, no type's, so ``application/octet-stream``)."""
