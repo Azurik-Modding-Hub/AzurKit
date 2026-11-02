@@ -865,8 +865,8 @@ def test_the_apps_saves_read_a_folder_and_an_hdd_image_and_save_a_new_folder_by_
 def test_the_apps_replace_files_holds_the_picked_file_and_refuses_a_share_or_an_unpicked_path(tmp_path, monkeypatch, usa_iso):
     """The app's Replace files (Step 4.7d, SEC-11): ``api/replace`` makes the picked file's entry and holds its path for
     this launch; a network share, a device path and a file the build owns are refused with nothing read; a build takes
-    the file the server holds, whatever path a page sends (a recipe's own ``picked`` is dropped), and its reply carries
-    no computer path; a recipe naming a file not picked here stops by name."""
+    the file the server holds, whatever path a page sends (a recipe's own ``picked`` is dropped, a Save's with no
+    ``files`` too), and its reply carries no computer path; a recipe naming a file not picked here stops by name."""
     from azurkit.edits import files
 
     _home(monkeypatch, tmp_path / "home")
@@ -894,6 +894,11 @@ def test_the_apps_replace_files_holds_the_picked_file_and_refuses_a_share_or_an_
         built = call("api/build", {"iso": str(usa_iso), "packs": {}, "files": [entry], "picked": {name: str(other)}})
         assert built["report"]["result"][name] == entry["sha256"] and "picked" not in built["recipe"]
         assert str(mine) not in json.dumps(built)
+        saved = []
+        monkeypatch.setattr(server.engine, "call", lambda job, recipe, *_, **__: saved.append((job, recipe)) or {})
+        plain = {"iso": str(usa_iso), "packs": {}}
+        call("api/save", {"recipe": plain | {"picked": {name: str(other)}}, "out": str(tmp_path / "saved.iso")})
+        assert saved == [("save", plain)]
     finally:
         server.close()
 

@@ -567,13 +567,16 @@ class Server(http.server.ThreadingHTTPServer):
 
     def _held(self, recipe: object) -> object:
         """``recipe`` with the files its ``files`` names that the player
-        picked this session (``api/replace``), by the server's own record:
-        no recipe, and no page, names a computer path it reads (SEC-11)."""
-        if not isinstance(recipe, dict) or not isinstance(recipe.get("files"), list):
+        picked this session (``api/replace``), by the server's own record,
+        and never a ``picked`` of its own, with ``files`` or without: no
+        recipe, and no page, names a computer path it reads (SEC-11)."""
+        if not isinstance(recipe, dict):
             return recipe
+        held = {k: v for k, v in recipe.items() if k != "picked"}
+        if not isinstance(recipe.get("files"), list):
+            return held
         named = [e["path"] for e in recipe["files"] if isinstance(e, dict) and isinstance(e.get("path"), str)]
-        return {k: v for k, v in recipe.items() if k != "picked"} | {
-            "picked": {path: str(self.picks[path]) for path in named if path in self.picks}}
+        return held | {"picked": {path: str(self.picks[path]) for path in named if path in self.picks}}
 
     def saves(self, body: dict) -> dict:
         """``api/saves`` (``sdk.saves``): the computer paths it reads through
