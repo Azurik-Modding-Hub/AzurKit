@@ -454,7 +454,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         content = args.content or clone_of(wt)
         import tempfile
-        scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site.", dir="/tmp"))
+        scratch = Path(tempfile.mkdtemp(prefix="azurkit-perf-site."))
         built: dict[str, Path | str] = {}
         natives: dict[str, list] = {}
 

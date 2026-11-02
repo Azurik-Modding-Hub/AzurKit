@@ -1116,8 +1116,11 @@ def test_the_apps_build_takes_the_build_ahead_of_its_recipe_after_it_mid_flight_
     built ahead (``api/speculate``, at its change ``gen``) is its Build's,
     taken after it ended, mid-flight, or remade once a newer change's
     recipe stopped it at its next record, each the plain Build's image and
-    report; an offer of an older change is dropped."""
+    report; an offer of an older change is dropped. On a machine with room
+    for it (``test_ahead.py`` holds ``ahead.room``): the peak a Here build
+    reports is this whole test process's, which is over its line under 16 GiB."""
     _home(monkeypatch, tmp_path / "home")
+    monkeypatch.setattr(app.ahead, "room", lambda peak: True)
     images, image = [], sdk.image
     monkeypatch.setattr(sdk, "image", lambda *args, **kwargs: images.append(1) or image(*args, **kwargs))
     server = app.serve(_page.WEB)
