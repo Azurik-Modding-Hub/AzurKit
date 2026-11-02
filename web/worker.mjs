@@ -20,7 +20,8 @@
 //      the Characters tab's {type: "pickers", call, file, given}, {type: "preview" | "match", call, file, recipe}
 //      (sdk.pickers, sdk.preview, sdk.match: numpy, Pyodide's pinned wheel from this site, is loaded for them) and
 //      {type: "content_check", call, manifest, id, files} (an Install's check, sdk.content_check), and {type: "content", files, installed} (what this browser keeps installed, written
-//      into the engine's content folder file by file once checked: kept), and the Tools tab's {type: "info" |
+//      into the engine's content folder file by file once checked: kept), {type: "warm"} (numpy and a dress's modules,
+//      unanswered: a body's build ahead starts at its first step), and the Tools tab's {type: "info" |
 //      "verify_all" | "files", call, file} (sdk.image_info, sdk.verify_all: the files its kept check hasn't hashed,
 //      hashed here, sdk.files), {type: "open", call, build} (another File: an AzurKit build's recipe, sdk.open_build of
 //      the files it changed), {type: "mods_file", call, text | recipe | preset} (sdk.mods_file) and {type:
@@ -160,6 +161,9 @@ def engine(request):
 
     if request.type == "catalog":
         return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
+    if request.type == "warm":   # numpy's loaded: what a dress imports, so a body's build starts at its first step
+        from azurkit.tools.characters import _player_character  # noqa: F401
+        return js({})
     if request.type == "content":
         return js({"dropped": kept(request.files, json.loads(JSON.stringify(getattr(request, "installed", None))
                                                              or "null"))})
@@ -598,7 +602,7 @@ const numpy = (loaded) => loaded.numpy ??= loaded.py.loadPackage("numpy", { mess
                                                                            errorCallback: () => {} })
   .then(() => void (loaded.numpied = true));
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
-const needsNumpy = (data) => CHARACTER.includes(data.type) || data.character || data.recipe?.character
+const needsNumpy = (data) => data.type === "warm" || CHARACTER.includes(data.type) || data.character || data.recipe?.character
   || data.given?.character
   || data.setup?.character || data.type === "decode" || data.type === "mods_file" && (
     data.preset?.layers?.some((layer) => layer.tool === "characters") || typeof data.text === "string" && (
@@ -755,7 +759,7 @@ try {
   let checking = false, behind = 0;
   self.onmessage = ({ data }) => {
     if (data?.type === "held") return letGo();   // the page holds the last build file now
-    if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
+    if (!["warm", "build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
           ...CHARACTER, ...TOOLS, ...DATA].includes(data?.type)) return;
     const aside = !data.file && ["content", ...CHARACTER].includes(data.type);
     if (aside && checking && !behind && loaded.numpied) return handle(data);
@@ -772,6 +776,7 @@ try {
   };
   const handle = (data) => {
     try {
+      if (data.type === "warm") return void loaded.engine(data);
       if (data.type === "content") return content(loaded, data);
       if (CHARACTER.includes(data.type)) {   // answered whatever happens: the page waits on it
         try {

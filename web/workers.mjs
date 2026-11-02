@@ -323,13 +323,13 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     }),
     // The work ahead, most wanted first: [{key, message, heavy, transfer, ends, kept}]; kept(its last message) hears a
     // job's end. A job whose key leaves the list is dropped (B's running one by terminate(), a kept one freed); one still
-    // listed goes on or stays kept.
-    want: (items) => {
+    // listed goes on or stays kept. begin: a pick, not a stream of changes: B needn't wait for the page to hold still.
+    want: (items, { begin = false } = {}) => {
       const keys = new Set(items.map((i) => i.key));
       if (b?.job?.ahead && !b.job.adopted && !keys.has(b.job.key)) dropB();
       for (const key of [...kept.keys()]) if (!keys.has(key)) unkeep(key);
       for (const key of [...taken]) if (!keys.has(key)) taken.delete(key);
-      if (items.map((i) => i.key).join("\n") !== list.map((i) => i.key).join("\n")) changed = now();
+      if (items.map((i) => i.key).join("\n") !== list.map((i) => i.key).join("\n")) changed = begin ? -settle : now();
       list = [...items];
       pump();
     },

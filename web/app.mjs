@@ -130,12 +130,14 @@ function ahead() {
 // Tracker view open), and, once the picked image is read, Build's build of the page's recipe; each change lists them
 // anew, so what no longer matches stops at once (B's job by terminate()) and B starts on the rest once the page holds
 // still. A reshaped character isn't built ahead: minutes, and a heap past KEEP terminated by the next slider's change
-// would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap, alone.
+// would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap, alone. A body's build asks with
+// the tab's choice before the engine's answer to it, which only reads it out (the key is the choice's, on both sides).
 const reshaped = (character) => Boolean(character?.shapes && Object.keys(character.shapes).length);
-function aheadOnSite() {
+function aheadOnSite(begin = false) {
   if (!state.engine?.ahead || !state.packs || state.restoring) return;
   const seed = R("seed").value.trim(), share = state.rando.view?.share, rando = randoRecipe(), tracking = !$("tracker").hidden;
-  const character = state.characters?.character() ?? null, plans = [], builds = [];
+  const character = state.characters?.choice() ?? null, plans = [], builds = [];
+  if (character || state.tab === "characters") state.engine.warm();   // S14's second of numpy and the dress's imports
   if (seed && share && (rando || tracking)) {
     const asked = { seed, share }, known = JSON.stringify(asked);
     plans.push(state.engine.planning(asked, ({ reply }) => {
@@ -146,11 +148,11 @@ function aheadOnSite() {
     if (state.planned?.known === known) plans.push(state.engine.viewing(state.tracker.first(state.planned.plan)));
   }
   if (state.vanilla && state.read === state.file && !state.opened && state.replace && !state.characters?.refused()
-      && !state.characters?.waiting() && !state.community?.waiting() && (!rando || rando.seed) && !reshaped(character)) {
+      && !state.community?.waiting() && (!rando || rando.seed) && !reshaped(character)) {
     builds.push(state.engine.building(state.file, chosen(), state.xbr, rando, character,
                                       { ...extras(), ...state.replace.picked() }));
   }
-  state.engine.ahead(tracking ? [...plans, ...builds] : [...builds, ...plans]);
+  state.engine.ahead(tracking ? [...plans, ...builds] : [...builds, ...plans], { begin });
 }
 
 // Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
@@ -300,7 +302,7 @@ const SMALL = new Set(["pickers", "tracker", "data", "data_edit"]);   // an ask 
 const ASIDE = new Set(["content", "pickers", "content_check"]);   // sent no image, B answers while F runs anything: an
                                                                   // Install's list never waits for a check (Step 4.3r4m)
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
-  let calls = 0, content = null, engine = null, picks = 0;
+  let calls = 0, content = null, engine = null, picks = 0, warmed = false;
   let starting = null;   // the ask a loading F's start records show on, answered at its ready or its stop
   const picked = new WeakMap();
   const start = (role) => {
@@ -385,7 +387,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     });
   };
   return {
-    build: (file, packs, xbr, randomizer, character, extra = {}) => {
+    build: (file, packs, xbr, randomizer, character, extra = {}, choice = character) => {
       let give = null;
       const shown = (data) => {   // the build (a seed's before its spoiler), or its refusal
         if (data.type !== "built" && data.type !== "refused") return;
@@ -401,7 +403,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       };
       pool.hold(0);   // the last build is gone (forget())
       pool.ask({ type: "build", file, packs, xbr, randomizer, character, ...extra },
-               { key: buildKey(file, packs, xbr, randomizer, character, extra), heavy: true, alone: reshaped(character),
+               { key: buildKey(file, packs, xbr, randomizer, choice, extra), heavy: true, alone: reshaped(character),
                  progress, answer: shown }).then((data) => {
         unchecked();
         if (data.type === "spoiled") give?.(plain(data));
@@ -468,9 +470,10 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       const k = buildKey(file, packs, xbr, randomizer, character, extra);
       return k && { key: k, heavy: true, message: { type: "build", file, packs, xbr, randomizer, character, ...extra } };
     },
-    ahead: (items) => {
+    warm: () => warmed || (warmed = true, pool.share({ type: "warm" })),   // every worker's, a new one's too
+    ahead: (items, options) => {
       const stopped = pool.state().dropped;
-      pool.want(items.filter(Boolean));
+      pool.want(items.filter(Boolean), options);
       if (pool.state().dropped !== stopped) setTimeout(sweep, 1000);   // a dropped job's build file, once its lock is gone
     },
     dress: (body, stopping) => alone(body, { content, stopping, asking, answered, posted }),   // a worker of its own
@@ -781,7 +784,10 @@ function renderTabs(tabs) {
 function pick(id) {
   state.tab = id;
   if (id === "randomizer" && state.packs) askRando();   // the Patches tab's packs may have changed
-  if (id === "characters" && state.characters) state.characters.open();
+  if (id === "characters" && state.characters) {
+    state.characters.open();
+    ahead();
+  }
   if (id === "data" && state.data) state.data.open();   // the Patches tab's ticks may have changed: its ⚠ marks
   if (id === "tools" && state.tools) state.tools.open();
   for (const tab of $("tabs").children) tab.setAttribute("aria-selected", String(tab.dataset.tab === id));
@@ -1824,13 +1830,13 @@ async function main() {
     });
   }
 
-  const changed = state.changed = () => {
+  const changed = state.changed = (event) => {
     state.gen++;   // the work ahead of the setup before is dropped at its next record
     forget();
     unlinked();
     clearTimeout(state.later);
     state.later = setTimeout(remember, 250);
-    if (!state.app) ahead();   // the site's: what no longer matches stops now
+    if (!state.app) aheadOnSite(event?.now);   // the site's: what no longer matches stops now
   };
   $("packs").addEventListener("change", () => {
     changed();
@@ -1860,7 +1866,7 @@ async function main() {
     state.sent = chosen();
     asking("build");
     state.engine.build(state.file, state.sent, state.xbr, randomizer, character,
-                       { ...extras(), ...(state.app ? {} : state.replace.picked()) });
+                       { ...extras(), ...(state.app ? {} : state.replace.picked()) }, state.characters.choice());
   });
   randoEvents(changed);
   $("cancel").addEventListener("click", () => {

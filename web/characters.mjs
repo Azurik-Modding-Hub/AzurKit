@@ -154,7 +154,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     c.character = { ...keep, species: name };   // (Chain on any press stays with the model it was ticked on, D1045)
     c.choice++;
     $("char-chain").checked = false;
-    changed();
+    changed({ now: true });   // a pick: the site's work ahead starts on it at once, not when the page holds still
     if (ships?.species[name] || ships?.variants[name]) draw({ name, variant: !ships.species[name] });   // at once
     ask();
   };
@@ -582,6 +582,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     },
     set,
     character,
+    choice: () => (Object.keys(c.character).length === 1 && c.character.species === "garret4" ? null : c.character),   // as chosen, its engine's answer or not
     setup: character,
     refused: () => c.view?.asked === JSON.stringify(c.character) ? c.view.chosen.refused : null,
     waiting: () => c.opened && c.view?.asked !== JSON.stringify(c.character),   // Build's recipe is its answer's
