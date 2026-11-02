@@ -1406,6 +1406,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     private window has no such file (`Response.blob()` stays in memory, its
     tree higher than the plain Blob's), so one, told by the origin's private
     file system refusing it, keeps the plain Blob and its parent's copy.
+  - **No stream through `sw.js`** (D1049, D1053; Step 4.3r4p's W-SAVE,
+    keylord's and a seed's Save, three each, the Blob against the build's
+    Blob streamed by `sw.js` to a hidden frame's download, its last bytes
+    held for the check): the stream was neither faster nor lighter in any
+    browser, so the Blob stays in all three: Chromium 2.5-2.7 s against
+    2.1, the seed's tree 4.0 GiB against 3.1; Firefox 5.7-6.8 s against
+    3.0-3.6, its tree 8-26 GiB, growing each Save, against 3.5-4.7;
+    WebKit within the spread (1.5-2.0 s medians, a 2.5 s sample in each,
+    3.8-4.8 GiB both), one page part 1.01 s.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
   `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
   and Firefox.
