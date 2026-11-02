@@ -161,9 +161,6 @@ def names() -> list[str]:
     """The sheet's icons, in its order."""
     return sorted([*menu_art(), *ICONS, *DRAWN])
 
-    """The sheet's icons, in its order."""
-    return sorted([*menu_art(), *ICONS, *DRAWN])
-
 
 def _box(a: np.ndarray, n: int, axis: int) -> np.ndarray:
     """``a`` box-filtered to ``n`` along ``axis``: each new pixel the mean of what it covers of the old ones."""
