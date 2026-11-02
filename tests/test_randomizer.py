@@ -317,6 +317,38 @@ def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reac
     assert difficulty.openers(logic, settings, load_plan(doc, logic.db).placement)
 
 
+def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_them_at_their_next_note(monkeypatch):
+    """A click raises a job ahead's fill: its threads too. A change stops it: they end there, not at a batch's end."""
+    class Gone(Exception):
+        pass
+
+    lowered, heard = [True], []
+
+    def report(_step: dict) -> None:
+        if lowered[0] and any((True, name) in heard for name in attempts()):
+            lowered[0] = False     # the click
+        if (False, True) in {(on, name.startswith("azurkit-attempt")) for on, name in heard}:
+            raise Gone             # the change
+
+    def attempts() -> set[str]:
+        return {t.name for t in threading.enumerate() if t.name.startswith("azurkit-attempt")}
+
+    def low():
+        name = threading.current_thread().name
+        return lambda on: heard.append((on, name))
+
+    monkeypatch.setattr(fill, "WIDTH", 4)
+    monkeypatch.setattr(fill, "LOWERED", lambda: lowered[0])
+    monkeypatch.setattr(fill, "LOW", low)
+    with pytest.raises(Gone), progress.noting(progress.Steps(report)) as steps:
+        steps("plan")
+        fill._fill(kept_logic(), "31", Settings(3, "hard", 1, {}, frozenset({"fragments"}), seed_difficulty=3))
+    for thread in threading.enumerate():
+        if thread.name.startswith("azurkit-attempt"):
+            thread.join(5)
+    assert not attempts()
+
+
 def test_a_shaped_fills_attempts_at_once_read_a_slider_rungs_logic_on_the_fills_own_thread(monkeypatch):
     """Read on the attempts' threads, there is no record, so no cancel point: a change there drew the engine's kill."""
     from azurkit.tools.randomizer import movement

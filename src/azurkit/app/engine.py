@@ -575,7 +575,7 @@ def _main(conn, stores: bool = False) -> None:
 
     orphaned()
     procpool.install()   # the swap's parallel work in children of this process
-    fill.WIDTH, fill.INHERIT = sdk.cores(4), sdk.INHERIT   # a shaped fill's attempts past its first at once
+    fill.WIDTH, fill.LOWERED, fill.LOW = sdk.cores(4), procpool.lowered, procpool.Low   # a shaped fill's attempts past its first at once
     if stores:
         swapcache.install()
     sending, stops, fores = threading.Lock(), {}, {}   # fores: each call's ahead.Job.fore (None: the player's)

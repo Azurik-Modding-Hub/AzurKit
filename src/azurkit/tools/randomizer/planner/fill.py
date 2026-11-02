@@ -97,8 +97,10 @@ import collections
 import hashlib
 import json
 import random
+import threading
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 
 from azurkit.core import progress
@@ -122,8 +124,11 @@ MAX_ATTEMPTS = 20
 WIDTH: int = 1
 """A shaped fill's attempts past its first at once, on threads: the app's engine's (its reaches leave the GIL), so the
 costliest seeds' fills end sooner; every other host's, the site's worker's too, one at a time."""
-INHERIT: Callable[[], Callable[[], object]] | None = None
-"""What gives those threads the fill's priority (``sdk.INHERIT``'s form): a job ahead's stay as low as the job."""
+LOWERED: Callable[[], bool] = lambda: False
+"""Whether the fill's thread runs low now (``procpool.lowered``): those threads follow it, a job ahead's as low as the
+job until a click takes it."""
+LOW: Callable[[], Callable[[bool], object]] = lambda: lambda _on: None
+"""A thread's own priority (``procpool.Low``'s form): made on that thread, called with whether it runs low."""
 MAX_REPAIRS = 8                       # the trap gate's repairs in one attempt (Step R1.8m)
 VAULT_ITEMS = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # Q290: the items a closed field blocks
 USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward major spots, 3 to 1
@@ -644,7 +649,14 @@ class _Count:
         progress.note(self.say.removesuffix(", "))
 
 
-_Count.SILENT = _Count()
+class _BesideCount(_Count):
+    """An attempt's count beside others (:class:`_Beside`): each step only a note its thread hears."""
+
+    def __call__(self, placed: int, reach: bool = False) -> None:
+        progress.note("placing the items")
+
+
+_Count.SILENT, _Count.BESIDE = _Count(), _BesideCount()
 
 
 class _Reaches:
@@ -882,11 +894,71 @@ class _Run:
                        why_not=None if self.shape is None else self.shape.why_not(placement))
 
 
+class _Stopped(BaseException):
+    """A fill has no more use for this thread's work (:class:`_Beside`)."""
+
+
+class _Beside:
+    """A shaped fill's work on threads beside its own: each job as soon as a thread is free, its answer read in order on
+    the fill's thread, so what it decides is one thread's, at any width. That thread tells its notes meanwhile (records,
+    so cancel points); leaving, or :meth:`again`, stops what runs at its next note and what hasn't begun. Each thread
+    runs as low as the fill's does now."""
+
+    def __init__(self, width: int, say: Callable[[], str]) -> None:
+        self.width, self.say, self.low = width, say, LOWERED()
+        self._open()
+
+    def _open(self) -> None:
+        self.stop, self.local = threading.Event(), threading.local()
+        self.pool = ThreadPoolExecutor(self.width, thread_name_prefix="azurkit-attempt")
+
+    def _close(self) -> None:
+        self.stop.set()
+        self.pool.shutdown(wait=False, cancel_futures=True)
+
+    def __enter__(self) -> _Beside:
+        return self
+
+    def __exit__(self, *_) -> None:
+        self._close()
+
+    def submit(self, fn: Callable, item) -> Future:
+        return self.pool.submit(self._job, self.stop, self.local, fn, item)
+
+    def _job(self, stop: threading.Event, local: threading.local, fn: Callable, item):
+        if (low := getattr(local, "low", None)) is None:
+            low = local.low = LOW()
+
+        def heard(_step: dict) -> None:
+            if stop.is_set():
+                raise _Stopped
+            low(self.low)
+        with progress.noting(progress.Steps(heard)) as steps:
+            steps("plan")
+            return fn(item)
+
+    def answer(self, future: Future):
+        """``future``'s answer, once it has one (its error raises here, in its turn)."""
+        while True:
+            try:
+                return future.result(0.1)
+            except TimeoutError:
+                progress.note(self.say())
+                self.low = LOWERED()
+
+    def again(self, fn: Callable, items: Sequence) -> list:
+        """``fn`` of each of ``items``, what ran before dropped."""
+        self._close()
+        self._open()
+        return [self.answer(future) for future in [self.submit(fn, item) for item in items]]
+
+
 class _Accept:
     """A fill's outcomes in attempt order to its plan (the module docstring)."""
 
     def __init__(self, run: _Run, seed: str) -> None:
         self.run, self.seed, self.reasons, self.stuck, self.candidates = run, seed, [], set(), []
+        self.beside: _Beside | None = None
 
     def add(self, o: Outcome) -> Fill | None:
         """``o``, the next attempt's: the plan, once the outcomes so far decide it."""
@@ -910,8 +982,9 @@ class _Accept:
         """The candidate with the highest score, the first on a tie; none: ``None``."""
         if not self.candidates:
             return None
-        kept = max(self.candidates, key=lambda made: self.run.shape.score(made.placement))
-        return replace(kept, failed=tuple(self.reasons))
+        placements, score = [made.placement for made in self.candidates], self.run.shape.score
+        scores = [score(p) for p in placements] if self.beside is None else self.beside.again(score, placements)
+        return replace(self.candidates[max(range(len(scores)), key=scores.__getitem__)], failed=tuple(self.reasons))
 
     def end(self) -> Fill:
         """Every attempt told: the closest, or no plan (D35)."""
@@ -942,22 +1015,18 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
     if (made := accept.add(run.attempt(seed, 0))) is not None:   # most seeds' only one, so never beside others
         return made
     width = WIDTH if run.shape is not None else 1
-    if width > 1:
-        run.shape.rungs_read()
-    for first in range(1, MAX_ATTEMPTS, width):
-        if width == 1:
-            outcomes = [run.attempt(seed, first)]
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-
-            with ThreadPoolExecutor(width, thread_name_prefix="azurkit-attempt", initializer=INHERIT and INHERIT()) as pool:
-                outcomes = list(pool.map(lambda k: run.attempt(seed, k, _Count.SILENT),
-                                         range(first, min(first + width, MAX_ATTEMPTS))))
-            progress.note(run.count.say.removesuffix(", ") or "placing the items")   # a cancel point between them
-        for o in outcomes:
-            if (made := accept.add(o)) is not None:
+    if width == 1:
+        for k in range(1, MAX_ATTEMPTS):
+            if (made := accept.add(run.attempt(seed, k))) is not None:
                 return made
-    return accept.end()
+        return accept.end()
+    run.shape.rungs_read()
+    with _Beside(width, lambda: run.count.say.removesuffix(", ") or "placing the items") as beside:
+        accept.beside = beside
+        for future in [beside.submit(lambda k: run.attempt(seed, k, _Count.BESIDE), k) for k in range(1, MAX_ATTEMPTS)]:
+            if (made := accept.add(beside.answer(future))) is not None:
+                return made
+        return accept.end()
 
 
 def starved(logic: Logic, settings: Settings | None = None) -> Starved | None:
