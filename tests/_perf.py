@@ -1264,7 +1264,7 @@ def site_reshape_pictures(d: Driver, ctx, url: str) -> None:
                    "b.dispatchEvent(new Event('change')); }",
           """() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
     _reshape_pictures(d, p, "S51", "S52", "S53")
-    p.page.close()
+    d.leave(p)
 
 
 def site_track(d: Driver, ctx, url: str) -> None:
@@ -1459,7 +1459,7 @@ def site_community(d: Driver, ctx, url: str) -> None:
     _pack_source(d.site / "perf-content")
     p = _site_page(d, ctx, url, None)
     _community(d, p, ("S26", "S27", "S28", "S29"), "./perf-content/", lambda: _pick(d, p, None))
-    p.page.close()
+    d.leave(p)
 
 
 # ---- Replace files (Step 4.7d): a file of the size of the image's largest picked to replace it, then a Build with it.
@@ -1498,7 +1498,7 @@ def site_replace(d: Driver, ctx, url: str) -> None:
     d.act(p, "S54", lambda: p.page.set_input_files("#replace-file", str(made)), REPLACED, 300, change=True)
     p.js(click("tab-patches"))
     d.act(p, "S55", build_js(), BUILT, 900)
-    p.page.close()
+    d.leave(p)
 
 
 # ---- Saves (Step 4.7e): a synthetic slot and a two-slot qcow2 (tests/test_saves.py's builders; never a player's), read,
@@ -1548,7 +1548,7 @@ def site_saves(d: Driver, ctx, url: str) -> None:
     t0, _ = d.act(p, None, SAVE_LINE, SLOT_EDITED, 300)
     _, t1 = d.act(p, None, click("saves-save"), SLOT_SAVED, 300)
     d.record("S58", (t1 - t0) / 1000, d.ev, t0, t1)
-    p.page.close()
+    d.leave(p)
 
 
 # ---- the Data tab (Step 4.7a): its first open (the index and the Player view, no image), a critter's view, the
