@@ -455,8 +455,8 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     the tier does, and "one of" an irreducible set when neither does: picks, and ``(movement)`` when all of them off
     still open the round, so that the set only loses it with the tier lowered too. Each removal is a new option set, its
     rules compiled on the Logic (a host's job ahead, or the View's bar, pays that) and kept for the next plan at these
-    settings; another settings' openers drop them (about 20 MiB a set). The last plan's answer is kept with them: the
-    spoiler's View takes the job ahead's."""
+    settings; another settings' openers drop them (about 20 MiB a set), a call stopped part way counting those it
+    compiled. The last plan's answer is kept with them: the spoiler's View takes the job ahead's."""
     WAITING.add(me := threading.get_ident())
     try:
         while not _OPENING.acquire(timeout=0.2):
@@ -470,7 +470,6 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
 
 
 def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
-    skips = logic.skip_tables
     mine = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire, tuple(sorted(settings.skip_override.items())))
     held = getattr(logic, "_opener_sets", None)
     if held is not None and held[0] != mine:
@@ -483,6 +482,17 @@ def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rat
     if held is not None and held[3][0] == asked_of:
         return held[3][1]
     before = set(logic._compiled), set(logic._native)
+    answer = held[3] if held else (None, None)
+    try:
+        answer = asked_of, _worked_out(logic, settings, placement, rating)
+        return answer[1]
+    finally:
+        logic._opener_sets = (mine, (held[1] if held else set()) | (set(logic._compiled) - before[0]),
+                              (held[2] if held else set()) | (set(logic._native) - before[1]), answer)
+
+
+def _worked_out(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
+    skips = logic.skip_tables
     on = picks_on(settings, skips)
     hi = sorted(pid for pid, ids in on.items() if _rated(ids, skips) >= rating)
     made = play(logic, settings, placement, rating)
@@ -527,8 +537,6 @@ def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rat
             for key in set(at._native) - native:
                 del at._native[key]
         out.append({"picks": [named(p) for p in some] + [MOVEMENT] * by_tier, "one_of": True})
-    logic._opener_sets = (mine, (held[1] if held else set()) | (set(logic._compiled) - before[0]),
-                          (held[2] if held else set()) | (set(logic._native) - before[1]), (asked_of, out))
     return out
 
 

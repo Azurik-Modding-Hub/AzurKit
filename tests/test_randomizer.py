@@ -332,7 +332,8 @@ def test_a_call_waiting_on_the_openers_ahead_is_answered_though_they_had_paused_
 
     monkeypatch.setattr(difficulty, "_openers", work)
     monkeypatch.setattr(randomizer, "openers_ahead", lambda doc: difficulty.openers(None, None, {}))
-    ahead = threading.Thread(target=engine._openers_ahead, args=({},), daemon=True)
+    monkeypatch.setattr(engine, "_NEWEST", [doc := {}])
+    ahead = threading.Thread(target=engine._openers_ahead, args=(doc,), daemon=True)
     ahead.start()
     assert started.wait(30)
     view = threading.Thread(target=lambda: seen.append(difficulty.openers(None, None, {})), daemon=True)
@@ -340,6 +341,32 @@ def test_a_call_waiting_on_the_openers_ahead_is_answered_though_they_had_paused_
     view.join(30)
     ahead.join(30)
     assert (seen, ahead.is_alive(), difficulty.WAITING) == ([["kept"]], False, set())
+
+
+def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps_what_they_compiled_for_the_drop(monkeypatch):
+    """Engine's: each change's plan left a thread no stop reached; a stale one could run last and evict the newest's."""
+    from azurkit.app import engine
+
+    logic, off = kept_logic(), {"a6.rjump_platforms": False}
+    plans = [plan_doc(fill.fill(logic, "1", settings), logic.db)
+             for settings in (Settings(3, "hard", 1, {}, seed_difficulty=3), Settings(3, "hard", 1, off, seed_difficulty=3))]
+    answered = iter(plans)
+    monkeypatch.setattr(engine.sdk, "plan", lambda *_, **__: next(answered))
+    monkeypatch.setattr(engine, "_NEWEST", [None])
+
+    def running() -> list[threading.Thread]:
+        return [t for t in threading.enumerate() if t.name == "azurkit-openers"]
+
+    stale = engine._plan({})
+    first = running()
+    fresh = engine._plan({})
+    assert stale is plans[0] and fresh is plans[1] and len(first) == 1
+    first[0].join(120)
+    assert not first[0].is_alive()
+    for thread in running():
+        thread.join(120)
+    held = logic._opener_sets
+    assert dict(held[0][3]) == off and held[3][0][1] == tuple(sorted(load_plan(fresh, logic.db).placement.items()))
 
 
 def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_the_tier():
