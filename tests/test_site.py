@@ -1602,6 +1602,35 @@ def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, si
         served.close()
 
 
+def test_a_saves_check_keeps_its_bar_through_a_later_build_cancelled_and_the_engine_ready_again(browser, site, usa_iso):
+    """D980, D1053: the check of a Save runs on past what ends a build's bar: a Build cancelled during it, and the new
+    worker's ready (a Save at once after a build a big heap retires its worker meets the same on a slower disk)."""
+    served = Site(browser, site)
+    try:
+        hasher = (site / "hasher.mjs").read_text(encoding="utf-8")
+        read = "await source.slice(run.start, run.end).arrayBuffer()"
+        assert hasher.count(read) == 1
+        slow = hasher.replace(read, f"await new Promise((late) => setTimeout(late, 2000)).then(() => {read.removeprefix('await ')})")
+        served.context.route("**/hasher.mjs", lambda route: route.fulfill(body=slow, content_type="text/javascript"))
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.build(page, [])
+        _page.built(page)
+        _page.until(page, "() => azurkit.ready", 300)
+        with page.expect_download(timeout=600_000) as caught:
+            page.evaluate("() => document.querySelector('#save').click()")
+        page.evaluate("() => document.querySelector('#build').click()")
+        _page.click(page, "cancel")
+        _page.until(page, "() => azurkit.ready", 300)
+        assert page.evaluate("() => [azurkit.saveCheck, document.getElementById('progress-row').hidden, "
+                             "document.getElementById('progress-line').textContent.startsWith('Saving')]") == [
+            "running", False, True]
+        assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
+        caught.value.delete()
+    finally:
+        served.close()
+
+
 SEEDED = "randomize-full:seed=2,default"   # G3's seed case: the packs on by default and seed 2's plan (D144's defaults)
 # The Randomizer tab: [Randomize ticked, the seed, whether each of its settings' fields is disabled] (the rows that stay
 # vanilla in v1 and the spoiler's buttons aside)

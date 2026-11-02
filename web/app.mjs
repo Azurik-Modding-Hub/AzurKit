@@ -164,7 +164,7 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 // last record the engine gave for it (the app's api/progress, polled every 250 ms; the site's worker's posts); the
 // newest that is a build, a save, Track this seed's plan or a plan file's spoiler, has a record, or has waited 1 s
 // shows: its label and percent, or a moving stripe while it has no count.
-const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your image", check: "Checking your image",
+const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanilla: "Checking your image", check: "Checking your image",
                  start: "Starting the engine", plan: "Planning the seed", tracker: "Reading the seed's logic",
                  randomizer: "Reading the randomizer",
                  restore: "Restoring your setup", pickers: "Reading the models", preview: "Drawing the model",
@@ -175,8 +175,9 @@ const LABELS = { build: "Building", save: "Saving", vanilla: "Checking your imag
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
                  storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit" };
 const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other after 1 s
-// shown and polled from the click: Track this seed's plan and a plan file's spoiler (the logic's read) too
-const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler"]);
+// shown and polled from the click: Track this seed's plan and a plan file's spoiler (the logic's read) too, and the site's
+// Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it
+const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler", "save_check"]);
 let asked = 0, ticking = null;
 
 function progressed(step) {
@@ -964,7 +965,7 @@ async function checkSave(build, name) {
   if (build.checking) return;
   build.checking = true;
   state.saveCheck = "running";
-  const id = asking("save");
+  const id = asking("save_check");
   const heard = (done, total) => {
     const ask = state.asks.get(id);
     if (ask) ask.record = { stage: "write", label: "Saving", done, total, percent: Math.floor(done * 100 / total) };
