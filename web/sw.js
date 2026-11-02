@@ -8,13 +8,15 @@
 // the checkout (the app's page, which never registers it), it lists none, and the install fails: nothing is controlled.
 //
 // - The install keeps every listed file in the cache named by the release and the scope, each checked against its
-//   sha256: a file of an older release's cache with the same bytes is copied, any other downloaded (revalidated past
-//   the HTTP cache). One file that is missing or differs (a deploy half done) fails the install: the release before
+//   sha256 and kept with the headers it is served with: a file of one of the scope's caches (an older release's, or
+//   this one's from an install before) with the same bytes is copied, any other downloaded (revalidated past the HTTP
+//   cache). One file that is missing or differs (a deploy half done) fails the install: the release before
 //   stays. The first install takes over at once; an update waits for the page to ask ("An update is ready: Reload").
 // - The activation deletes the older releases' caches of this scope (never another site's on this origin).
 // - Each GET in the scope of a listed file (a navigation to the scope or index.html is index.html) is answered from
-//   this release's cache; one gone from it (Storage's Clear) is downloaded again and kept only if its sha256 is the
-//   list's, else answered 503: a page never gets another release's bytes. Any other GET goes to the network.
+//   this release's cache as kept (never rewrapped: the browser reads it from the cache itself); one gone from it
+//   (Storage's Clear) is downloaded again and kept only if its sha256 is the list's, else answered 503: a page never
+//   gets another release's bytes. Any other GET goes to the network.
 // - The page's messages, each answered on its port: "release" (this release's name, files and bytes, and how many are
 //   kept), "check" (the registration looks for a new release, a new sw.js, which carries a new release's whole list:
 //   one found installs and waits; the answer says whether one is installing or waiting), "reload" (to the waiting
@@ -28,6 +30,7 @@ const PREFIX = `azurkit:${SCOPE}:`;
 const NAME = RELEASE && PREFIX + RELEASE.name;
 const ISOLATED = { "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Embedder-Policy": "require-corp",
                    "Cross-Origin-Resource-Policy": "same-origin" };
+const HEADERS = RELEASE && { ...ISOLATED, "Content-Security-Policy": RELEASE.csp };   // on all it serves
 const AT_ONCE = 6;   // the downloads the install runs at once
 const LATE = 2000;   // ms a check gives a found release to show on this worker's registration
 
@@ -39,29 +42,32 @@ const ours = async () => (await caches.keys()).filter((key) => key.startsWith(PR
 const pages = () => self.clients.matchAll({ type: "window", includeUncontrolled: true })
   .then((all) => all.filter((c) => c.url.startsWith(SCOPE)));
 
-// rel's bytes as this release lists them, as a response to keep: from `kept` (older releases' caches) when one holds
-// the same bytes, else downloaded; Error names the file otherwise.
+// rel's bytes as this release lists them, as the response to keep and serve as it is (its Content-Type and HEADERS):
+// from `kept` (the scope's caches) when one holds the same bytes, else downloaded; Error names the file otherwise.
 async function fetched(rel, kept = []) {
   const { sha256 } = listed(rel);
+  const served = (data, reply) => {
+    const type = reply.headers.get("Content-Type");
+    return new Response(data, { headers: { ...(type ? { "Content-Type": type } : {}), ...HEADERS } });
+  };
   for (const key of kept) {
     const reply = await (await caches.open(key)).match(address(rel));
     if (reply) {
       const data = await reply.arrayBuffer();
-      if (await hex(data) === sha256) return new Response(data, { headers: reply.headers });
+      if (await hex(data) === sha256) return served(data, reply);
     }
   }
   const reply = await fetch(address(rel), { cache: "no-cache" });
   if (!reply.ok) throw new Error(`${rel}: HTTP ${reply.status}`);
   const data = await reply.arrayBuffer();
   if (await hex(data) !== sha256) throw new Error(`${rel} isn't this release's (sha256 ${sha256.slice(0, 12)})`);
-  const type = reply.headers.get("Content-Type");
-  return new Response(data, { headers: type ? { "Content-Type": type } : {} });
+  return served(data, reply);
 }
 
 async function install() {
   if (!RELEASE) throw new Error("this sw.js lists no release (scripts/web_tools.py's site() writes it)");
   const cache = await caches.open(NAME);
-  const kept = (await ours()).filter((key) => key !== NAME);
+  const kept = await ours();   // this release's own too: what an older sw.js kept under its name takes these headers
   const files = Object.keys(RELEASE.files);
   let next = 0;
   const tell = async (message) => {
@@ -70,7 +76,7 @@ async function install() {
   const run = async () => {
     while (next < files.length) {
       const rel = files[next++];
-      if (!await cache.match(address(rel))) await cache.put(address(rel), await fetched(rel, kept));
+      await cache.put(address(rel), await fetched(rel, kept));
     }
   };
   try {
@@ -87,29 +93,27 @@ async function activate() {
   for (const key of await ours()) if (key !== NAME) await caches.delete(key);
 }
 
-// The response with this release's isolation and CSP headers.
+// The network's response to an unlisted file with this release's HEADERS.
 function isolated(reply) {
   if (reply.type === "opaqueredirect" || reply.status === 0) return reply;
   const headers = new Headers(reply.headers);
-  for (const [name, value] of Object.entries(ISOLATED)) headers.set(name, value);
-  headers.set("Content-Security-Policy", RELEASE.csp);
+  for (const [name, value] of Object.entries(HEADERS)) headers.set(name, value);
   return new Response(reply.body, { status: reply.status, statusText: reply.statusText, headers });
 }
 
 async function serve(rel, request) {
   if (!listed(rel)) return isolated(await fetch(request));
-  const cache = await caches.open(NAME);
-  let reply = await cache.match(address(rel));
-  if (!reply) {
-    try {
-      reply = await fetched(rel);
-    } catch (error) {
-      return new Response(`${error.message}: reload the page`, {
-        status: 503, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
-    }
-    await cache.put(address(rel), reply.clone());
+  const reply = await caches.match(address(rel), { cacheName: NAME });
+  if (reply) return reply;
+  let kept;
+  try {
+    kept = await fetched(rel);
+  } catch (error) {
+    return new Response(`${error.message}: reload the page`, {
+      status: 503, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
   }
-  return isolated(reply);
+  await (await caches.open(NAME)).put(address(rel), kept.clone());
+  return kept;
 }
 
 // Whether a new release is installing or waiting, once update() has resolved: a worker's registration can show it a
