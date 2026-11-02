@@ -131,9 +131,11 @@ export function characters({ call, app, host, say, image, packs, changed, shared
 
   // The models' list: the species, each in its grade's colour, then the community entries under them (each marked,
   // its state and its variants once installed), filtered by the search box.
+  // Another model keeps the size and the numbers; Garret is the clean way back, so picking him clears everything (D1062).
   const pick = (name) => {
     if (name === c.character.species) return;
-    const keep = Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", ...NUMBERS].includes(k)));
+    const keep = name === "garret4" ? {}
+      : Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", ...NUMBERS].includes(k)));
     c.character = { ...keep, species: name };   // (Chain on any press stays with the model it was ticked on, D1045)
     $("char-chain").checked = false;
     changed();
@@ -502,7 +504,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
                                                             defaults().attack_balance));
   $("char-ground").addEventListener("change", () => option("attack_ground", $("char-ground").checked,
                                                            defaults().attack_ground));
-  $("char-reset").addEventListener("click", () => set(null));
+  $("char-reset").addEventListener("click", () => set({ species: c.character.species }));   // D1062: stays on the model
   $("char-objects").checked = c.objects;
   $("char-objects").addEventListener("change", () => {
     c.objects = $("char-objects").checked;

@@ -1215,6 +1215,58 @@ def test_the_weapon_preview_shows_each_weapons_shipped_pictures_in_a_popup_befor
         served.close()
 
 
+def test_reset_stays_on_the_chosen_model_and_picking_garret_clears_everything(browser, site):
+    """D1062: Reset takes the sliders, options and weapon back to the chosen model's defaults and stays on it (plain
+    Garret on Garret); another model keeps the size and the numbers, and picking Garret clears everything."""
+    settled = """() => azurkit.characters.state.view?.asked === JSON.stringify(azurkit.characters.state.character)
+        && azurkit.characters.state.view.chosen.name === azurkit.characters.state.character.species"""
+    shown = """() => [azurkit.characters.character(), document.getElementById("char-scale").value,
+        document.getElementById("char-weapon").value, document.getElementById("char-height").checked,
+        document.querySelector("#char-species .model[aria-selected=true]")?.dataset.model]"""
+    dressed = """() => { for (const [id, value] of [["char-scale", "2"], ["char-weapon", "farmers_hoe"]]) {
+            const box = document.getElementById(id);
+            box.value = value;
+            box.dispatchEvent(new Event("change"));
+        }
+        document.getElementById("char-height").click(); }"""
+    wear = """(name) => document.querySelector(`#char-species .model[data-model="${name}"]`).click()"""
+    worn = {"scale": 2, "size": "garret4", "weapon": "farmers_hoe"}
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, settled, 60)
+        page.evaluate(wear, "keylord")
+        _page.until(page, settled, 300)
+        page.evaluate(dressed)
+        assert _page.until(page, f"() => ({settled})() && azurkit.characters.character()", 120) == {"species": "keylord", **worn}
+        _page.click(page, "char-reset")
+        _page.until(page, settled, 120)
+        assert page.evaluate(shown) == [{"species": "keylord"}, "1", "", False, "keylord"]
+
+        page.evaluate(dressed)
+        _page.until(page, settled, 120)
+        page.evaluate(wear, "garret4")
+        _page.until(page, settled, 120)
+        assert page.evaluate(shown) == [None, "1", "", False, "garret4"]
+
+        page.evaluate(dressed)
+        assert _page.until(page, f"() => ({settled})() && azurkit.characters.character()", 120) == {"species": "garret4", **worn}
+        _page.click(page, "char-reset")
+        _page.until(page, settled, 120)
+        assert page.evaluate(shown) == [None, "1", "", False, "garret4"]
+
+        page.evaluate(dressed)
+        _page.until(page, settled, 120)
+        page.evaluate(wear, "keylord")   # another model: the size and numbers come along, the weapon doesn't
+        assert _page.until(page, f"() => ({settled})() && azurkit.characters.character()", 120) == {
+            "species": "keylord", "scale": 2, "size": "garret4"}
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 SPECIES_SHOWN = """() => [document.getElementById("char-objects").checked, document.getElementById("char-count").textContent
     .split(" · ")[0], [...document.querySelectorAll("#char-species .model")].map((m) => m.dataset.model),
     document.querySelector("#char-species .model[aria-selected=true]")?.dataset.model ?? null]"""

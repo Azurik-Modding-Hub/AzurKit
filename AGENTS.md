@@ -1092,7 +1092,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     and the Weapon box lists every weapon before that, how each fits after it
     (D1061), a pick no sitting saw marked "not tested". Preview by that box
     opens a small popup of the weapon's shipped pictures and line (the same
-    family; `weapons.json`'s `previews`), no image and no engine call. Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
+    family; `weapons.json`'s `previews`), no image and no engine call. Reset takes
+    the sliders, options and weapon back to the chosen model's defaults and
+    stays on it; picking Garret clears them too, another model keeps the size
+    and the numbers (D1062). Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
     since the content repository went public, D1027) is remembered (the
     site's storage, the app's `content_source`).
     The site reads a source on its own address only (its CSP's
