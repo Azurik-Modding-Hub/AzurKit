@@ -395,13 +395,15 @@ def _rig_packing(rig: Rig) -> tuple[array, array] | None:
 def _keys(tracks) -> tuple[dict, array] | None:
     """Each (target, component) the last of ``tracks`` (target,
     component, keys) keys, its key offset and count in the packed keys;
-    None where a key isn't 4 floats or a track has none."""
+    None where a key isn't 4 floats, a track has none or its one key's
+    time is NaN (no end of the track holds a time, so :func:`evaluate`
+    looks for a second key: the twin raises)."""
     keyed = {}
     for target, comp, keys in tracks:
         keyed[target, comp] = keys
     flat, at = [], {}
     for tc, keys in keyed.items():
-        if not keys or not all(_floats(key, 4) for key in keys):
+        if not keys or not all(_floats(key, 4) for key in keys) or len(keys) == 1 and math.isnan(keys[0][0]):
             return None
         at[tc] = (len(flat) // 4, len(keys))
         for key in keys:

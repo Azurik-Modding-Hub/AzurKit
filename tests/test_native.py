@@ -181,8 +181,9 @@ def _dress_cases(seed: int, count: int):
     """Seeded random inputs of the dress's kernels, as JSON: a rig (each
     bone's parent before it), a clip's tracks over its bones and past them
     (one key, a zero-length segment, a held value, signed zeros, huge,
-    infinite and float32-limit values), times inside and outside the keys,
-    a linear bake's components and a sampled chain's, and two byte runs."""
+    infinite and float32-limit values; the first case's bone 0 one key at a
+    NaN time), times inside and outside the keys, a linear bake's
+    components and a sampled chain's, and two byte runs."""
     rng = random.Random(seed)
 
     def f():
@@ -200,7 +201,7 @@ def _dress_cases(seed: int, count: int):
     def comps():
         return {str(c): keys() for c in range(4) if rng.random() < 0.6}
 
-    for _ in range(count):
+    for i in range(count):
         n, m = rng.randint(1, 40), rng.randint(0, 30)
         bones = [[rng.randrange(-1, k) if k and rng.random() < 0.9 else -1, *([f() for _ in range(m)] for m in (4, 4, 4, 3))]
                  for k in range(n)]
@@ -211,7 +212,7 @@ def _dress_cases(seed: int, count: int):
         chain = [comps() for _ in range(links)]
         old = bytes(rng.randrange(3) for _ in range(rng.choice((0, 1, 5, 300))))
         new = bytes(b if rng.random() < 0.8 else rng.randrange(3) for b in old[:rng.randint(0, len(old))])
-        yield {"bones": bones, "tracks": tracks,
+        yield {"bones": bones, "tracks": tracks + [[0, 3, [[float("nan"), 1.0, 0.0, 0.0]]]] * (not i),
                "times": [rng.uniform(-1.0, 4.0) for _ in range(rng.randint(1, 8))] + [k[0] for t in tracks[:3] for k in t[2]],
                "linear": [lin, [f() for _ in range(4)], [[f() for _ in range(4)] for _ in range(4)],
                           sorted({k[0] for ks in lin.values() for k in ks} | {rng.uniform(-1.0, 4.0)})],
@@ -245,6 +246,12 @@ def _dress_answer(case: dict) -> list:
             return [bits(v) for v in x]
         return "nan" if x != x else struct.pack("<d", x).hex()
 
+    def engine(f, *a):   # a lone key at a NaN time: the twin looks for a second key
+        try:
+            return bits(f(*a))
+        except IndexError:
+            return "IndexError"
+
     def keyed(c):
         return {int(k): tuple(map(tuple, v)) for k, v in c.items()}
 
@@ -262,7 +269,7 @@ def _dress_answer(case: dict) -> list:
     pts = {"B": np.array(skin[0], dtype=np.int64).reshape(-1, 4), "W": np.array(skin[1]).reshape(-1, 4),
            "U": np.array(skin[2][:len(skin[0])]).reshape(-1, 4, 3), "UN": np.array(skin[2][len(skin[0]):]).reshape(-1, 4, 3)}
     R, O = np.array(skin[3]), np.array(skin[4])
-    return [bits(rt.origins_at(rig, clip, case["times"])), bits(rt.pose(rig, clip, case["times"][0])), bits(rows),
+    return [engine(rt.origins_at, rig, clip, case["times"]), engine(rt.pose, rig, clip, case["times"][0]), bits(rows),
             characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
             bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist()),
             *(bits(jiggle._skinned(pts, R, O, normals=normals).tolist()) for normals in (False, True)),
@@ -282,9 +289,10 @@ def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
-    got = [_dress_answer(case) for case in cases]
-    assert ran == {"origins": 800, "linear": 400, "chain": 400, "boxes": 400, "sample": 400, "heights": 400,
-                   "skinned": 1600, "signed": 400, "runs": 400}   # each case's every call answered by the library
+    with numpy.errstate(all="ignore"):   # case 0's sample is the twin's
+        got = [_dress_answer(case) for case in cases]
+    assert ran == {"origins": 798, "linear": 400, "chain": 400, "boxes": 400, "sample": 399, "heights": 400,
+                   "skinned": 1600, "signed": 400, "runs": 400}   # every call answered by the library but case 0's clip's
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):   # the twins' numpy on infinities
         assert got == [_dress_answer(case) for case in cases]
