@@ -44,6 +44,7 @@ from azurkit.tools.randomizer.planner.settings import (
     picks,
     registry_tag,
     top_rating,
+    turnable,
 )
 from azurkit.tools.randomizer.planner.solver import Logic, Reach
 
@@ -74,6 +75,7 @@ GREY_NO_SKIP = ("Turn on skips to give Seed difficulty tricks to place: movement
                 "move once at most, in under half the seeds.")
 NOTHING = "nothing to shape at these settings"
 CLOSEST = "the closest the fill found"
+SOME_ON = f" With only some of the skips at that rating on, fewer seeds may meet it; the others get {CLOSEST}."
 
 
 @dataclass(frozen=True)
@@ -167,17 +169,30 @@ def _say(rate: Fraction) -> str:
             if rate < SAY_LINE else "")
 
 
+def _some_on(settings: Settings, skips: Mapping[str, Mapping]) -> bool:
+    """A toggle mix that leaves off a skip rated no higher than its highest on (a skip group's tick, D1061, is one): the
+    table's rates are its cell's, with all of them on, and 8 seeds at a tick of Roll jumps met 2 to 4 where the cell
+    says all (met-rates-after-tick.jsonl, Step 4.3rv-rando), so the line gives no number."""
+    on = picks_on(settings, skips)
+    if not on or not settings.skip_override:
+        return False
+    top = max(_rated(ids, skips) for ids in on.values())
+    return any(pid not in on and any(turnable(skips[sid]) for sid in ids)
+               and _rated([sid for sid in ids if turnable(skips[sid])], skips) <= top for pid, ids in picks(skips).items())
+
+
 def _line(settings: Settings, skips: Mapping[str, Mapping], ask: Ask) -> str:
     """The line under the select for a level that asks ``ask``."""
     level, top = settings.seed_difficulty, top_rating(settings, skips)
+    say = SOME_ON if _some_on(settings, skips) else _say(ask.rate)
     if ask.once:
         on = picks_on(settings, skips)
         once = ONCE_POWERS if "powers" in settings.exclude_categories else ONCE_NO_SKIP if not on else ONCE_OTHER
-        text = once + _say(ask.rate)
+        text = once + say
     elif ask.rating == 2:
-        text = STANDARD_LINE + (f" {STANDARD_HARD}" if top >= 3 else "") + _say(ask.rate)
+        text = STANDARD_LINE + (f" {STANDARD_HARD}" if top >= 3 else "") + say
     else:
-        text = HARD_LINE + _say(ask.rate)
+        text = HARD_LINE + say
     if level == ask.rating:
         return text
     if level == 4 and ask.rating == 3:

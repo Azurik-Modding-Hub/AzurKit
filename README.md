@@ -64,8 +64,8 @@ source ([Development](#development)).
 - **Movement difficulty:** Standard, Hard or Frame-perfect jumps and flaps.
 - **Seed difficulty:** Any, Standard, Hard or Frame-perfect: key items go where the tricks you allowed are needed at
   several points through the game, and the seed stays beatable.
-- **36 rated skips:** each on or off, or by group: power storage, roll and flap tricks, barriers, dark rooms,
-  out of bounds, super jumps.
+- **36 rated skips:** each on or off, or by group, whose tick turns on all of its: power storage, roll and flap tricks,
+  barriers, dark rooms, out of bounds, super jumps.
 - **Dark areas:** they need Fire 1, unless a dark-room skip is on; then no fire.
 - **Obsidian cost:** any number per lock (the game's is 10).
 - **Seeds:** any text is a seed, or New draws one; the same seed and settings give the same game everywhere.

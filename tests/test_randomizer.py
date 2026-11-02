@@ -298,6 +298,10 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close(monkeypa
     assert lines("standard", 0, level=2)["note"] == f"Seed difficulty Standard: {difficulty.NOTHING}"
     assert enabled(lines("hard", 3, kept=("fragments", "powers"))) == [0]
     assert "About 8 seeds in 10 meet it" in lines("hard", 3, kept=("fragments",))["levels"][1][3]
+    ticked = {pid: True for pid, ids in picks(skips).items() if randomizer.SKIP_GROUP[ids[0]] == "storage"}   # D1061: a tick
+    line = difficulty.levels(Settings(0, "hard", ticked), skips)["levels"][1][3]
+    assert difficulty.SOME_ON in line and "seeds in 10" not in line
+    assert difficulty.SOME_ON not in difficulty.levels(Settings(0, "hard", dict.fromkeys(picks(skips), True)), skips)["levels"][1][3]
     assert "Keeping the powers" in lines("hard", 3, kept=("powers",))["levels"][2][3]
     assert "plays as Standard" in lines("hard", 3, off=SHAPED["hard-toggled-more"][0][3])["levels"][2][3]
     assert sdk.randomizer_settings({"settings": randomizer.literal(logic.db.defaults)})["difficulty"]["note"] is None
