@@ -317,6 +317,24 @@ def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reac
     assert difficulty.openers(logic, settings, load_plan(doc, logic.db).placement)
 
 
+def test_a_shaped_fills_attempts_at_once_read_a_slider_rungs_logic_on_the_fills_own_thread(monkeypatch):
+    """Read on the attempts' threads, there is no record, so no cancel point: a change there drew the engine's kill."""
+    from azurkit.tools.randomizer import movement
+
+    logic, threads = kept_logic(), []
+
+    def read(*_):
+        threads.append(threading.current_thread())
+        return logic, None
+
+    monkeypatch.setattr(movement, "logic_for", read)
+    monkeypatch.setattr(difficulty, "_RUNG_LOGIC", {})
+    monkeypatch.setattr(fill, "WIDTH", 4)
+    made = fill._fill(logic, "6", Settings(3, "hard", 1, {}, sliders={"player_physics": {"jump_speed_scale": 1.3}},
+                                           seed_difficulty=3))     # its attempt 0 misses need_L: E_2's first read is past it
+    assert made.attempt and threads and set(threads) == {threading.current_thread()}
+
+
 def test_a_logic_handed_another_database_works_its_openers_out_again(monkeypatch):
     """As the kept fill does (``loader.kept_logic``'s stated way to hand a Logic another database)."""
     logic, settings = kept_logic(), Settings(3, "hard", 1, {}, seed_difficulty=3)

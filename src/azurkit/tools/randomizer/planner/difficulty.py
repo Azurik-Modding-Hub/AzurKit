@@ -330,6 +330,12 @@ class Shape:
         self.ladder = tuple(rung(settings, r, skips) for r in range(ask.rating, 1, -1))
         self.limit = len(progression(logic, {})) // 2
 
+    def rungs_read(self) -> None:
+        """The Logic each rung the acceptance can read stands on, read now on the calling thread (a first read under
+        sliders takes seconds): attempts at once would each read it, with no note, past a cancel's grace."""
+        for st in self.ladder[:1] if self.ask.once else self.ladder:
+            rung_logic(self.logic, self.settings, st.movement_tier)
+
     def why_not(self, placement: Mapping[str, str]) -> str | None:
         """Whether a passing candidate meets the promise (``None``) or why not, lazily: need_L, one reach, then play_2
         stopped at the first stage over half. It never reads play_r for r >= 3, so the plan kept is the one computing

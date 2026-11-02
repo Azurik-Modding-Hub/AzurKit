@@ -942,6 +942,8 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
     if (made := accept.add(run.attempt(seed, 0))) is not None:   # most seeds' only one, so never beside others
         return made
     width = WIDTH if run.shape is not None else 1
+    if width > 1:
+        run.shape.rungs_read()
     for first in range(1, MAX_ATTEMPTS, width):
         if width == 1:
             outcomes = [run.attempt(seed, first)]
