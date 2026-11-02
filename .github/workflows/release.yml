@@ -20,6 +20,14 @@
 # No secret: the OIDC tokens are the pypi, pages and attest jobs' own, and no pull request runs this file. The game's
 # images are never touched. Each job holds only its own permissions. Actions are pinned by commit sha, their release
 # beside it. setup-uv keeps no Actions cache here, so nothing another run saved reaches a release.
+# Each job starts behind harden-runner, pinned as tests.yml's (Step 4.4ci9). The jobs a dry run reaches block every
+# host but those they name, the hosts their steps reach in the dry run's logs (run 41460058562) and behind tests.yml's
+# block: github.com (the checkout; Pyodide's core, a GitHub release download, from GitHub's two release hosts),
+# releases.astral.sh (uv and its Python), PyPI (uv sync) and jsDelivr (Pyodide's wheels). harden-runner admits the
+# artifacts' service and storage itself; sums names the service, so its list isn't empty. attest, draft, pypi and
+# pages only audit: no dry run reaches them, so the hosts they need (Sigstore, PyPI's upload, GitHub's release and
+# Pages APIs) no run has shown yet, and the first tag's run must not fail on one; their runs' insights list what
+# they reached, for a block later. StepSecurity's README: a block is enforced on Linux, on macOS and Windows audited.
 name: release
 
 on:
@@ -51,6 +59,12 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
+      - name: harden-runner, egress blocked
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >-
+            github.com:443 releases.astral.sh:443
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
@@ -92,6 +106,12 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: harden-runner, egress blocked
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >-
+            github.com:443 releases.astral.sh:443 pypi.org:443 files.pythonhosted.org:443
       - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
@@ -133,6 +153,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: harden-runner, egress blocked
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >-
+            github.com:443 releases.astral.sh:443 pypi.org:443 files.pythonhosted.org:443
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
@@ -163,6 +189,13 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: harden-runner, egress blocked
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >-
+            github.com:443 releases.astral.sh:443 pypi.org:443 files.pythonhosted.org:443
+            release-assets.githubusercontent.com:443 objects.githubusercontent.com:443 cdn.jsdelivr.net:443
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
@@ -187,6 +220,12 @@ jobs:
     timeout-minutes: 15
     permissions: {}
     steps:
+      - name: harden-runner, egress blocked
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: block
+          allowed-endpoints: >-
+            results-receiver.actions.githubusercontent.com:443
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           pattern: release-*
@@ -215,6 +254,10 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      - name: harden-runner, egress audited
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: audit
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           pattern: release-*
@@ -233,6 +276,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: harden-runner, egress audited
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: audit
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           pattern: release-*
@@ -261,6 +308,10 @@ jobs:
       attestations: read
       id-token: write
     steps:
+      - name: harden-runner, egress audited
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: audit
       - name: The published draft's own wheel and sdist, checked
         env:
           GH_TOKEN: ${{ github.token }}
@@ -291,5 +342,9 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - name: harden-runner, egress audited
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
+        with:
+          egress-policy: audit
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

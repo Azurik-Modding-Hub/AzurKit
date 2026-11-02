@@ -168,6 +168,8 @@ RELEASE_PERMISSIONS = {
     "draft": {"contents": "write"}, "pypi": {"contents": "read", "attestations": "read", "id-token": "write"},
     "pages": {"pages": "write", "id-token": "write"}}
 """What each job of ``release.yml`` may do, and no more (a new job names its own)."""
+DRY_RUN = {"check", "apps", "python", "site", "sums"}
+"""The jobs of ``release.yml`` a dispatch runs (D1068's dry run)."""
 
 
 def _release_jobs() -> dict[str, str]:
@@ -228,7 +230,23 @@ def test_a_dispatched_dry_run_builds_and_checksums_the_release_but_reaches_no_at
         return went
 
     dry = runs("workflow_dispatch", "refs/heads/main")
-    assert dry == {"check", "apps", "python", "site", "sums"}
+    assert dry == DRY_RUN
     assert all(how == "read" for name in dry for how in RELEASE_PERMISSIONS[name].values())
     assert runs("push", "refs/tags/v0.9.0") == dry | {"attest", "draft"}
     assert runs("release", "refs/tags/v0.9.0") == {"check", "site", "pypi", "pages"}
+
+
+def test_each_release_job_starts_behind_harden_runner_the_dry_runs_blocking_all_but_their_hosts_the_rest_auditing():
+    """Step 4.4ci9: every job of ``release.yml`` starts with harden-runner,
+    pinned as ``tests.yml``'s. The jobs a dry run reaches (:data:`DRY_RUN`)
+    block every host but those they name; attest, draft, pypi and pages,
+    which no dry run reaches, only audit, so a host no run has seen can't
+    fail the first tag's run (their insights name the hosts for a block)."""
+    pin = re.search(r"uses: (step-security/harden-runner@.*)", (WORKFLOWS / "tests.yml").read_text(encoding="utf-8"))[1]
+    first = {name: body.split("    steps:\n", 1)[1].split("\n      - ", 1)[0] for name, body in _release_jobs().items()}
+    assert {name: f"uses: {pin}\n" in step for name, step in first.items()} == dict.fromkeys(first, True)
+    policy = {name: re.search(r"egress-policy: (\w+)", step)[1] for name, step in first.items()}
+    assert policy == {name: "block" if name in DRY_RUN else "audit" for name in first}
+    hosts = {name: re.findall(r"(?m)^ {12}(.*)$", step) for name, step in first.items()}
+    assert all(re.fullmatch(r"[a-z0-9.-]+:\d+", host) for name in DRY_RUN for line in hosts[name] for host in line.split())
+    assert [name for name in first if bool(hosts[name]) != (name in DRY_RUN)] == []

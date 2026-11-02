@@ -1629,7 +1629,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and the `github-pages` environment must admit the tag rule `v*`, or the
   deploy fails after the upload. Workflows hold `permissions: contents:
   read` (`release.yml`: none at its top, each job its own, held by
-  `tests/test_contracts.py`), no `pull_request_target`, and actions pinned
+  `tests/test_contracts.py`; each of its jobs starts behind harden-runner,
+  the dry run's blocking all but their hosts, attest, draft, pypi and pages
+  auditing, as no dry run reaches them: Step 4.4ci9), no `pull_request_target`, and actions pinned
   by commit sha with their release beside it; `actionlint` passes on each.
   A stack still lands on the local gate (`land.py`); the other
   platforms must pass by 4.4 (D1023), with their own references or
