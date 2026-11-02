@@ -34,6 +34,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -2060,14 +2061,17 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
         served.close()
 
 
-def test_a_build_and_its_save_stay_under_6_gib_of_the_browsers_processes(browser, site, usa_iso):
-    """D1017, D1057: a build's image is the File's slices and a few bytes, and no browser's processes hold it. Firefox's
-    parent copied the whole image at a blob: URL of a Blob of many parts and held 2 GiB more over its download (keylord's
-    7.7 GiB): the page's Blob there is few parts it reads by reference."""
-    before = {(pid, started) for pid, _, _, started in _perf.Memory.rows()}
+def test_a_build_and_its_save_stay_under_6_gib_of_firefoxs_processes(browser, site, usa_iso):
+    """D1017, D1057: a build's image is the File's slices and a few bytes. Firefox's parent copied the whole image at a
+    blob: URL of a Blob of many parts and held 2 GiB more over its download (keylord's 7.7 GiB): the page's Blob there is
+    few parts it reads by reference. The rule is this Mac's (D1023), and WebKit's processes aren't this run's tree: the
+    tree is sampled in Firefox here, and the Save runs everywhere."""
+    measured = sys.platform == "darwin" and browser.browser_type.name == "firefox"
+    before = {(pid, started) for pid, _, _, started in _perf.Memory.rows()} if measured else set()
+    memory = _perf.Memory(lambda rows: _perf.browser_pids(rows, before)) if measured else contextlib.nullcontext()
     served = Site(browser, site)
     try:
-        with _perf.Memory(lambda rows: _perf.browser_pids(rows, before)) as memory:
+        with memory:
             page = served.open()
             page.set_input_files("#iso", str(usa_iso))
             _page.build(page, list(mods.PACKS))
@@ -2077,7 +2081,8 @@ def test_a_build_and_its_save_stay_under_6_gib_of_the_browsers_processes(browser
             caught.value.path()
             assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
             caught.value.delete()
-        assert 0 < memory.peak <= 6 * 2**30
+        if measured:
+            assert 0 < memory.peak <= 6 * 2**30
     finally:
         served.close()
 
