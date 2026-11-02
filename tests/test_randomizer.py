@@ -276,7 +276,10 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close(monkeypa
         "stale: re-run scripts/seed_forcing.py")
     close = Settings(2, "standard", {}, seed_difficulty=2)
     one = [fill._fill(logic, seed, close).placement for seed in "1234"]   # Standard/Standard's: one in three or so
+    from azurkit.app import procpool
+
     monkeypatch.setattr(fill, "WIDTH", 3)                                  # ends the bound with no ok
+    monkeypatch.setattr(fill, "BESIDE", procpool.Beside)                   # the app's engine's
     assert [fill._fill(logic, seed, close).placement for seed in "1234"] == one
     monkeypatch.undo()
 
@@ -323,6 +326,8 @@ def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reac
 
 def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_them_at_their_next_note(monkeypatch):
     """A click raises a job ahead's fill: its threads too. A change stops it: they end there, not at a batch's end."""
+    from azurkit.app import procpool
+
     class Gone(Exception):
         pass
 
@@ -342,8 +347,9 @@ def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_
         return lambda on: heard.append((on, name))
 
     monkeypatch.setattr(fill, "WIDTH", 4)
-    monkeypatch.setattr(fill, "LOWERED", lambda: lowered[0])
-    monkeypatch.setattr(fill, "LOW", low)
+    monkeypatch.setattr(fill, "BESIDE", procpool.Beside)
+    monkeypatch.setattr(procpool, "lowered", lambda: lowered[0])
+    monkeypatch.setattr(procpool, "Low", low)
     with pytest.raises(Gone), progress.noting(progress.Steps(report)) as steps:
         steps("plan")
         fill._fill(kept_logic(), "31", Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3))
@@ -355,6 +361,7 @@ def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_
 
 def test_a_shaped_fills_attempts_at_once_read_a_slider_rungs_logic_on_the_fills_own_thread(monkeypatch):
     """Read on the attempts' threads, there is no record, so no cancel point: a change there drew the engine's kill."""
+    from azurkit.app import procpool
     from azurkit.tools.randomizer import movement
 
     logic, threads = kept_logic(), []
@@ -366,6 +373,7 @@ def test_a_shaped_fills_attempts_at_once_read_a_slider_rungs_logic_on_the_fills_
     monkeypatch.setattr(movement, "logic_for", read)
     monkeypatch.setattr(difficulty, "_RUNG_LOGIC", {})
     monkeypatch.setattr(fill, "WIDTH", 4)
+    monkeypatch.setattr(fill, "BESIDE", procpool.Beside)
     made = fill._fill(logic, "6", Settings(3, "hard", {}, sliders={"player_physics": {"jump_speed_scale": 1.3}},
                                            seed_difficulty=3))     # its attempt 0 misses need_L: E_2's first read is past it
     assert made.attempt and threads and set(threads) == {threading.current_thread()}

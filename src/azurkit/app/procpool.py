@@ -1,7 +1,8 @@
 """The app's process pool (Step 4.3i): the swap's parallel work
 (``tools.characters.pool``'s :data:`~azurkit.tools.characters.pool.MAP` and
-``LATER``), which the engine may not hold itself (``tests/test_contracts.py``),
-in the app's engine process (:mod:`.engine`).
+``LATER``) and a shaped fill's attempts on threads (:class:`Beside`, the
+planner's ``fill.BESIDE``), which the engine may not hold itself
+(``tests/test_contracts.py``), in the app's engine process (:mod:`.engine`).
 
 Modkit's split (``azurik_mod/assets/pool.py``): a call's items in up to
 :func:`workers` parts, runs of the order, or by their cost the dearest first,
@@ -28,10 +29,10 @@ import multiprocessing.connection
 import os
 import sys
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 
-from azurkit.core import host
+from azurkit.core import host, progress
 
 MOST = 16
 """The most children a call splits over (Modkit's)."""
@@ -239,6 +240,65 @@ def later(fn: Callable, *args) -> Future:
         return pool.submit(fn, *args)
     finally:
         pool.shutdown(wait=False)
+
+
+class _Stopped(BaseException):
+    """A fill has no more use for this thread's work (:class:`Beside`)."""
+
+
+class Beside:
+    """A shaped fill's work on threads beside its own (``fill.BESIDE``; its reaches leave the GIL): each job as soon as
+    a thread is free, its answer read in order on the fill's thread, so what it decides is one thread's, at any width.
+    That thread tells its notes meanwhile (``tick``: records, so cancel points); leaving, or :meth:`again`, stops what
+    runs at its next note and what hasn't begun. Each thread runs as low as the fill's does now (:class:`Low`)."""
+
+    def __init__(self, width: int, tick: Callable[[], None]) -> None:
+        self.width, self.tick, self.low = width, tick, lowered()
+        self._open()
+
+    def _open(self) -> None:
+        self.stop, self.local = threading.Event(), threading.local()
+        self.pool = ThreadPoolExecutor(self.width, thread_name_prefix="azurkit-attempt")
+
+    def _close(self) -> None:
+        self.stop.set()
+        self.pool.shutdown(wait=False, cancel_futures=True)
+
+    def __enter__(self) -> Beside:
+        return self
+
+    def __exit__(self, *_) -> None:
+        self._close()
+
+    def submit(self, fn: Callable, item) -> Future:
+        return self.pool.submit(self._job, self.stop, self.local, fn, item)
+
+    def _job(self, stop: threading.Event, local: threading.local, fn: Callable, item):
+        if (low := getattr(local, "low", None)) is None:
+            low = local.low = Low()
+
+        def heard(_step: dict) -> None:
+            if stop.is_set():
+                raise _Stopped
+            low(self.low)
+        with progress.noting(progress.Steps(heard)) as steps:
+            steps("plan")
+            return fn(item)
+
+    def answer(self, future: Future):
+        """``future``'s answer, once it has one (its error raises here, in its turn)."""
+        while True:
+            try:
+                return future.result(0.1)
+            except TimeoutError:
+                self.tick()
+                self.low = lowered()
+
+    def again(self, fn: Callable, items: Sequence) -> list:
+        """``fn`` of each of ``items``, what ran before dropped."""
+        self._close()
+        self._open()
+        return [self.answer(future) for future in [self.submit(fn, item) for item in items]]
 
 
 def install() -> int:

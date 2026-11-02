@@ -550,11 +550,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (`fill._Accept`) keeps the first of up to `difficulty.BOUND` (6) passing
     candidates that meets the promise, reading it lazily (`Shape.why_not`:
     one reach, then play_2 stopped at the first stage over half), else the
-    highest `Shape.score`, the first on a tie. Attempt k is pure, so the app's
-    engine runs those past the first at once on threads (`fill.WIDTH`, each
-    as soon as a thread is free, its answer read in order, the rest stopped at
-    their next note once a plan is decided): the same plan at any width. A
-    spoiler's openers read one switchable option set a
+    highest `Shape.score`, the first on a tie. Attempt k is pure, so a host
+    may run those past the first at once (`fill.WIDTH` on its `fill.BESIDE`):
+    the app's engine on its threads (`procpool.Beside`, each as soon as a
+    thread is free, its answer read in order, the rest stopped at their next
+    note once a plan is decided), the site's worker one at a time: the same
+    plan at any width. A spoiler's openers read one switchable option set a
     tier (`Logic.reach`'s `off`: each skip on also needs a flag of its own,
     so every mix of picks turned off is one compile; about 0.3 s, where a
     seed's 70 compiles took 4-5 s), and the app's engine works them out

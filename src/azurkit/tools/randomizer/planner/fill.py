@@ -78,8 +78,8 @@ marks stay in charge, and every attempt is verified as today. **The acceptance**
 meets the promise is the plan, else, after :data:`~.difficulty.BOUND` of them or
 :data:`MAX_ATTEMPTS` attempts, the highest score, the first on a tie. Attempt k
 is a pure function of the seed, k, the settings digest and the database, so a
-host may run those past the first at once (:data:`WIDTH`): the same plan at any
-width. D1038's optional rewards take no code of their own: the
+host may run those past the first at once (:data:`WIDTH` on its
+:data:`BESIDE`; the planner holds no thread): the same plan at any width. D1038's optional rewards take no code of their own: the
 obsidians already lie past a trick by the shaping, and the useful items all
 fill the vaults (Q290).
 
@@ -97,11 +97,10 @@ import collections
 import hashlib
 import json
 import random
-import threading
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import Any, Protocol
 
 from azurkit.core import progress
 from azurkit.tools.randomizer.planner.difficulty import BOUND, Shape, asked
@@ -118,21 +117,36 @@ from azurkit.tools.randomizer.planner.settings import (
 from azurkit.tools.randomizer.planner.solver import TRICK_FREE, Logic, Reach
 from azurkit.tools.randomizer.writer import Names, graph_of, layout, string_cost
 
-if TYPE_CHECKING:
-    from concurrent.futures import Future
-
 GENERATOR = "azurik-rando-fill/4"     # the fill's version: bumped when the same inputs give another placement
 #                                       (/2, Step R1.12: the trap gate; /3, Step R1.8m: own spots, trades, repairs;
 #                                       /4, Step R1.37: no progression or obsidian on an unsaved spot, AZ-467)
 MAX_ATTEMPTS = 20
 WIDTH: int = 1
-"""A shaped fill's attempts past its first at once, on threads: the app's engine's (its reaches leave the GIL), so the
-costliest seeds' fills end sooner; every other host's, the site's worker's too, one at a time."""
-LOWERED: Callable[[], bool] = lambda: False
-"""Whether the fill's thread runs low now (``procpool.lowered``): those threads follow it, a job ahead's as low as the
-job until a click takes it."""
-LOW: Callable[[], Callable[[bool], object]] = lambda: lambda _on: None
-"""A thread's own priority (``procpool.Low``'s form): made on that thread, called with whether it runs low."""
+"""A shaped fill's attempts past its first at once, beside each other on a host's :data:`BESIDE`, so the costliest
+seeds' fills end sooner: the same plan at any width."""
+
+
+class Beside(Protocol):
+    """A host's work beside a fill's thread (the app's engine: ``azurkit.app.procpool.Beside``, on threads, which the
+    engine holds none of): ``submit(fn, item)`` runs ``fn(item)`` once a worker is free, its notes cancel points once
+    the fill has no more use for it; ``answer(handle)`` is that value (or raises its error) on the fill's thread, in its
+    turn, ``tick`` its note meanwhile; ``again(fn, items)`` drops what runs and answers each item's; leaving it stops
+    what runs at its next note."""
+
+    def __enter__(self) -> Beside: ...
+
+    def __exit__(self, *exc: object) -> None: ...
+
+    def submit(self, fn: Callable[[Any], Any], item: Any) -> Any: ...
+
+    def answer(self, handle: Any) -> Any: ...
+
+    def again(self, fn: Callable[[Any], Any], items: Sequence) -> list: ...
+
+
+BESIDE: Callable[[int, Callable[[], None]], Beside] | None = None
+"""``BESIDE(width, tick)``: the host's :class:`Beside` for a shaped fill's attempts past its first; none (the site's
+worker, the command line, the tests' own process): one at a time."""
 MAX_REPAIRS = 8                       # the trap gate's repairs in one attempt (Step R1.8m)
 VAULT_ITEMS = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # Q290: the items a closed field blocks
 USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward major spots, 3 to 1
@@ -661,7 +675,7 @@ class _Count:
 
 
 class _BesideCount(_Count):
-    """An attempt's count beside others (:class:`_Beside`): each step a note its thread hears and one more for the
+    """An attempt's count beside others (:data:`BESIDE`): each step a note its thread hears and one more for the
     fill's count (:meth:`_Count.tick`); a lost increment is a bar's step, no more."""
 
     def __init__(self, fills: _Count) -> None:
@@ -825,9 +839,9 @@ def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
     so a cancel stops the waiter there) and taking a copy when it ends; one
     that ends without a fill (refused or cancelled) is made again by its
     waiter, which names its own refusal. The fill's notes count its spots
-    (:class:`_Count`). The engine holds no threads of its own past
-    :data:`WIDTH` (the site's worker runs it as it is): the in-flight fills are one dict whose ``setdefault`` is
-    atomic, and a waiter sleeps between looks."""
+    (:class:`_Count`). The engine holds no threads (the site's worker runs it as it is; a host's
+    :data:`BESIDE` holds its own): the in-flight fills are one dict whose ``setdefault`` is atomic, and a waiter
+    sleeps between looks."""
     st = settings if settings is not None else logic.db.defaults
     key = (str(seed), settings_digest(st))
     ident = (id(logic), id(logic.db), key)   # live while in flight: its _Making holds them
@@ -911,73 +925,12 @@ class _Run:
                        why_not=None if self.shape is None else self.shape.why_not(placement))
 
 
-class _Stopped(BaseException):
-    """A fill has no more use for this thread's work (:class:`_Beside`)."""
-
-
-class _Beside:
-    """A shaped fill's work on threads beside its own: each job as soon as a thread is free, its answer read in order on
-    the fill's thread, so what it decides is one thread's, at any width. That thread tells its notes meanwhile (records,
-    so cancel points); leaving, or :meth:`again`, stops what runs at its next note and what hasn't begun. Each thread
-    runs as low as the fill's does now."""
-
-    def __init__(self, width: int, tick: Callable[[], None]) -> None:
-        self.width, self.tick, self.low = width, tick, LOWERED()
-        self._open()
-
-    def _open(self) -> None:
-        from concurrent.futures import ThreadPoolExecutor     # a browser's fill never comes here
-
-        self.stop, self.local = threading.Event(), threading.local()
-        self.pool = ThreadPoolExecutor(self.width, thread_name_prefix="azurkit-attempt")
-
-    def _close(self) -> None:
-        self.stop.set()
-        self.pool.shutdown(wait=False, cancel_futures=True)
-
-    def __enter__(self) -> _Beside:
-        return self
-
-    def __exit__(self, *_) -> None:
-        self._close()
-
-    def submit(self, fn: Callable, item) -> Future:
-        return self.pool.submit(self._job, self.stop, self.local, fn, item)
-
-    def _job(self, stop: threading.Event, local: threading.local, fn: Callable, item):
-        if (low := getattr(local, "low", None)) is None:
-            low = local.low = LOW()
-
-        def heard(_step: dict) -> None:
-            if stop.is_set():
-                raise _Stopped
-            low(self.low)
-        with progress.noting(progress.Steps(heard)) as steps:
-            steps("plan")
-            return fn(item)
-
-    def answer(self, future: Future):
-        """``future``'s answer, once it has one (its error raises here, in its turn)."""
-        while True:
-            try:
-                return future.result(0.1)
-            except TimeoutError:
-                self.tick()
-                self.low = LOWERED()
-
-    def again(self, fn: Callable, items: Sequence) -> list:
-        """``fn`` of each of ``items``, what ran before dropped."""
-        self._close()
-        self._open()
-        return [self.answer(future) for future in [self.submit(fn, item) for item in items]]
-
-
 class _Accept:
     """A fill's outcomes in attempt order to its plan (the module docstring)."""
 
     def __init__(self, run: _Run, seed: str) -> None:
         self.run, self.seed, self.reasons, self.stuck, self.candidates = run, seed, [], set(), []
-        self.beside: _Beside | None = None
+        self.beside: Beside | None = None
 
     def add(self, o: Outcome) -> Fill | None:
         """``o``, the next attempt's: the plan, once the outcomes so far decide it."""
@@ -1033,7 +986,7 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
     accept = _Accept(run, seed)
     if (made := accept.add(run.attempt(seed, 0))) is not None:   # most seeds' only one, so never beside others
         return made
-    width = WIDTH if run.shape is not None else 1
+    width = WIDTH if run.shape is not None and BESIDE is not None else 1
     if width == 1:
         for k in range(1, MAX_ATTEMPTS):
             if (made := accept.add(run.attempt(seed, k))) is not None:
@@ -1041,7 +994,7 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
         return accept.end()
     run.shape.rungs_read()
     told = _BesideCount(run.count)
-    with _Beside(width, run.count.tick) as beside:
+    with BESIDE(width, run.count.tick) as beside:
         accept.beside = beside
         for future in [beside.submit(lambda k: run.attempt(seed, k, told), k) for k in range(1, MAX_ATTEMPTS)]:
             if (made := accept.add(beside.answer(future))) is not None:
