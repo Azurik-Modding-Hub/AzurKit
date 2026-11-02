@@ -198,8 +198,7 @@ OPS = {op.id: op for op in (
     Op("S52", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
     Op("S53", "the same reshape's exact pictures again", "characters", first=False, content=True),
     Op("S14", "Build keylord", "build", head_start=True),
-    Op("S15", "booblord on the site", "build", head_start=True,
-       untimed="3.7 s under the lag model (X6, 4.3r4f; WebKit 2.2, Chromium 1.9): timed once the reads ahead come (4.3r4k)"),
+    Op("S15", "Build booblord", "build", content=True, head_start=True),   # her shipped dress (the content repo's entry)
     Op("S16", "Randomizer tab, first ask", "randomizer"),
     Op("S17", "seed typed, its ask", "randomizer"),
     Op("S18", "Track this seed", "tracker", head_start=True),
@@ -1327,18 +1326,21 @@ def site_start(d: Driver, ctx, url: str) -> None:
         d.leave(p)
 
 
+SPECIES_LISTED = ("() => { const t = document.getElementById('char-content-note').textContent; return t && "
+                  "!t.startsWith('Reading') && document.querySelectorAll('#char-species .model').length; }")
+CONTENT_SOURCE = ("() => { const b = document.getElementById('char-source'); b.value = './content-source/'; "
+                  "b.dispatchEvent(new Event('change')); }")
+WEAPONS_ANSWERED = ("() => azurkit.characters.state.view?.species.length === 178 && "
+                    "document.querySelectorAll('#char-species .model').length === "
+                    "azurkit.characters.state.view.species.filter((s) => !s.object).length")
+
+
 def site_characters(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
-    d.act(p, "S07", click("tab-characters"), "() => { const t = document.getElementById('char-content-note')"
-                    ".textContent; return t && !t.startsWith('Reading') && document.querySelectorAll("
-                    "'#char-species .model').length; }", 600)
+    d.act(p, "S07", click("tab-characters"), SPECIES_LISTED, 600)
     if d.content is not None:
-        d.act(p, None, "() => { const b = document.getElementById('char-source'); b.value = './content-source/'; "
-                       "b.dispatchEvent(new Event('change')); }",
-              "() => document.querySelector('#char-community .entry[data-entry=beamlord]')", 600)
-    _pick(d, p, "S09", "() => azurkit.characters.state.view?.species.length === 178 && "
-                       "document.querySelectorAll('#char-species .model').length === "
-                       "azurkit.characters.state.view.species.filter((s) => !s.object).length")
+        d.act(p, None, CONTENT_SOURCE, "() => document.querySelector('#char-community .entry[data-entry=beamlord]')", 600)
+    _pick(d, p, "S09", WEAPONS_ANSWERED)
     if d.content is not None:
         d.act(p, "S13", """() => { azurkit.characters.state.view.perfOld = true;
                             document.querySelector('#char-community .entry[data-entry="beamlord"] button').click(); }""",
@@ -1358,6 +1360,21 @@ def site_reshape_pictures(d: Driver, ctx, url: str) -> None:
                    "b.dispatchEvent(new Event('change')); }",
           """() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
     _reshape_pictures(d, p, "S51", "S52", "S53")
+    d.leave(p)
+
+
+def site_booblord(d: Driver, ctx, url: str) -> None:
+    if not d.need("S15"):   # no content clone: its op has that error
+        return
+    p = _site_page(d, ctx, url, None)
+    d.act(p, None, click("tab-characters"), SPECIES_LISTED, 600)
+    d.act(p, None, CONTENT_SOURCE, "() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
+    _pick(d, p, None, WEAPONS_ANSWERED)
+    d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
+          """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
+               && !azurkit.characters.state.installing""", 1800)
+    d.act(p, None, model("booblord"), chosen("booblord"), 3600, change=True)
+    d.act(p, "S15", build_js(), BUILT, 1800)
     d.leave(p)
 
 
@@ -1849,6 +1866,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-saves": ("site", ("S56", "S57", "S58"), site_saves),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
+    "site-booblord": ("site", ("S15",), site_booblord),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
     "site-seed": ("site", ("S24", "R24", "S50", "S62", "S63"), site_seed),
     "site-ahead-track": ("site", ("S60",), site_ahead_track),

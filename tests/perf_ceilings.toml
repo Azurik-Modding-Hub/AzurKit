@@ -28,4 +28,3 @@ keys = [
 [memory]   # GiB
 
 [untimed]
-S15 = "3.7 s under the lag model (X6, 4.3r4f; WebKit 2.2, Chromium 1.9): timed once the reads ahead come (4.3r4k)"

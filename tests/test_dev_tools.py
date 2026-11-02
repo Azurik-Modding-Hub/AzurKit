@@ -4,6 +4,7 @@ fast-forward, a passing receipt and its perf block."""
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import re
@@ -526,6 +527,7 @@ def test_update_ceilings_on_a_narrow_run_keeps_the_untimed_ops_it_doesnt_reach(t
     monkeypatch.setattr(perf.signal, "signal", lambda *_: None)
     monkeypatch.setattr(perf, "R", perf.R)
     monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setitem(_perf.OPS, "S15", dataclasses.replace(_perf.OPS["S15"], untimed="out of memory"))
     repo = tmp_path / "repo"
     (repo / "tests").mkdir(parents=True)
     _git(tmp_path, "init", "-q", "-b", "main", str(repo))
