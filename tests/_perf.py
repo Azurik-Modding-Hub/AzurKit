@@ -247,6 +247,7 @@ OPS = {op.id: op for op in (
        head_start=True),   # D999 on the site (D1021, D1054): A31's
     Op("S63", "Build booblord reshaped, first, after her own build in the page", "build", bar=True, content=True,
        head_start=True),
+    Op("S65", "the same reshape again, in the page that built it", "build", first=False, content=True),   # D999's
     # the next op's wait: the same or a new worker, and Firefox's Save greyed while its Blob is made
     Op("R14", "the engine ready again and Save open after Build keylord", "build"),
     Op("R24", "the engine ready again and Save open after a seed's build", "randomizer"),
@@ -1402,11 +1403,12 @@ def site_booblord(d: Driver, ctx, url: str) -> None:
     d.leave(p)
 
 
-def _site_reshape(d: Driver, ctx, url: str, op: str, after: bool) -> None:
+def _site_reshape(d: Driver, ctx, url: str, op: str, after: bool, again: str | None = None) -> None:
     """D999 on the site (D1021, D1054): booblord with one slider moved, built first with a bar (``op``), on a fresh
     page or ``after`` her own build in it (a heap a heavy job grew); then, untimed, the page drawing the reshape's
-    exact pictures, so the run's memory peak holds what the page does after the build too."""
-    if not d.need(op):   # no content clone: its op has that error
+    exact pictures, so the run's memory peak holds what the page does after the build too; then the same reshape
+    built again in the page, strict (``again``: its kept dress)."""
+    if not d.needed((op, again)):   # no content clone: its ops have that error
         return
     p = _booblord(d, ctx, url)
     if after:
@@ -1416,11 +1418,14 @@ def _site_reshape(d: Driver, ctx, url: str, op: str, after: bool) -> None:
     d.act(p, None, RESHAPE, RESHAPED, 600, change=True)
     d.act(p, op, build_js(), BUILT, 3600)
     d.idle(p, "the reshape's exact pictures after its build", done=EXACT)
+    while d.need(again):
+        d.idle(p, "the last build's rest", done=RESTED)
+        d.act(p, again, build_js(), BUILT, 1800)
     d.leave(p)
 
 
 def site_reshape(d: Driver, ctx, url: str) -> None:
-    _site_reshape(d, ctx, url, "S62", after=False)
+    _site_reshape(d, ctx, url, "S62", after=False, again="S65")
 
 
 def site_reshape_after(d: Driver, ctx, url: str) -> None:
@@ -1902,7 +1907,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-booblord": ("site", ("S15",), site_booblord),
-    "site-reshape": ("site", ("S62",), site_reshape),
+    "site-reshape": ("site", ("S62", "S65"), site_reshape),
     "site-reshape-after": ("site", ("S63",), site_reshape_after),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
     "site-seed": ("site", ("S24", "R24", "S50"), site_seed),
