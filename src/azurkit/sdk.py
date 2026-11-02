@@ -118,7 +118,7 @@ __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_st
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
            "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file", "community",
-           "content_refusal", "file_entry"]
+           "content_refusal", "file_entry", "saves"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -1381,6 +1381,22 @@ def file_entry(given: Mapping) -> dict:
     the build owns, a size past what an image's file holds
     (``edits.files``)."""
     return {"entry": replaced.normalize([given])[0]}
+
+
+def saves(given: Mapping) -> dict:
+    """The Tools tab's Saves (``tools.saves.session``'s asks: ``{"do":
+    "open"}`` a slot's folder or files, or an xemu HDD image's slots,
+    read-only; ``"edit"`` a text save's lines; ``"sign"`` the slot again, its
+    ``flash`` and ``mcpx`` bytes and the key from them in memory for this call
+    alone, the game's half from the ``default.xbe`` of the image at ``iso``;
+    ``"save"`` a new folder; ``"zip"`` its bytes). A refusal names what and
+    why."""
+    from azurkit.tools.saves import session
+
+    def xbe(path: str) -> bytes:
+        with iso.Reader(path) as r:
+            return r.read("default.xbe")
+    return session.ask(given, xbe)
 
 
 def community() -> dict:

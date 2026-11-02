@@ -162,6 +162,9 @@ OPS = {op.id: op for op in (
        head_start=True),
     Op("A62", "Replace files: a 148 MB file picked, its sha256", "build"),   # Step 4.7d
     Op("A63", "Build with one 148 MB file replaced", "build", head_start=True),
+    Op("A64", "Saves: a slot's folder opened", "build"),   # Step 4.7e
+    Op("A65", "Saves: the slots of an xemu HDD image", "build"),
+    Op("A66", "Saves: a line edited, then the slot saved", "build"),
     Op("S01", "page start, first visit (the engine load)", "start", bar=True),
     Op("S02", "page start, a return visit", "start", first=False),
     Op("S03", "choose the image, first time", "image", bar=True),
@@ -219,6 +222,9 @@ OPS = {op.id: op for op in (
     Op("S50", "Save a seed's build (the browser's download)", "randomizer", browser_bar=DOWNLOAD_BAR),
     Op("S54", "Replace files: a 148 MB file picked, its sha256", "build"),   # Step 4.7d
     Op("S55", "Build with one 148 MB file replaced", "build", head_start=True),
+    Op("S56", "Saves: a slot's folder opened", "build"),   # Step 4.7e
+    Op("S57", "Saves: the slots of an xemu HDD image", "build"),
+    Op("S58", "Saves: a line edited, then the slot saved", "build"),
     Op("R14", "the engine ready again after Build keylord", "build"),   # the next op's wait: the same or a new worker
     Op("R24", "the engine ready again after a seed's build", "randomizer"),
 )}
@@ -1460,7 +1466,7 @@ def site_community(d: Driver, ctx, url: str) -> None:
 def _replacement(d: Driver) -> tuple[str, Path]:
     """The image's largest file that may be replaced, and a file of its size, made once a run (no game bytes)."""
     from azurkit.core import gate
-    name = max((p for p in gate.USA.files if p.endswith(".xbr")), key=lambda p: gate.USA.files[p][0])
+    name = max(gate.USA.files, key=lambda p: gate.USA.files[p][0])   # movies/Credits.bik
     made = d.scratch / "replacement.bin"
     if not made.is_file():
         made.write_bytes(os.urandom(1 << 20) * (gate.USA.files[name][0] >> 20) + os.urandom(gate.USA.files[name][0] & 0xFFFFF))
@@ -1492,6 +1498,59 @@ def site_replace(d: Driver, ctx, url: str) -> None:
     d.act(p, "S54", lambda: p.page.set_input_files("#replace-file", str(made)), REPLACED, 300, change=True)
     p.js(click("tab-patches"))
     d.act(p, "S55", build_js(), BUILT, 900)
+    p.page.close()
+
+
+# ---- Saves (Step 4.7e): a synthetic slot and a two-slot qcow2 (tests/test_saves.py's builders; never a player's), read,
+# one line edited and the slot saved; the signing's share is 3 ms by hand (it needs a player's BIOS files, no fixture).
+def _save_fixtures(d: Driver) -> tuple[Path, Path]:
+    from tests import test_saves as made
+
+    folder, hdd = d.scratch / "save-slot" / made.ID, d.scratch / "hdd.qcow2"
+    if not hdd.is_file():
+        for path, data in made._files().items():
+            (folder / path).parent.mkdir(parents=True, exist_ok=True)
+            (folder / path).write_bytes(data)
+        made._qcow2(hdd, made._Fatx({"UDATA": {"4d530007": {"TitleMeta.xbx": made.META, made.ID: made._slot_tree(1),
+                                                            "FEDCBA987654": made._slot_tree(2)}}}).chunks())
+    return folder, hdd
+
+
+SLOT_READ = "() => azurkit.saves.state.slots.length >= 1 && !azurkit.saves.state.asking"
+SAVE_LINE = """() => { const box = document.querySelector('#saves-rows input[data-file="magic.sav"]');
+  box.value = '2.000000'; box.dispatchEvent(new Event('change', { bubbles: true })); }"""
+SLOT_EDITED = "() => /changed: sign it again/.test(document.getElementById('status').textContent)"
+SLOT_SAVED = "() => /^Saved /.test(document.getElementById('status').textContent)"
+
+
+def app_saves(d: Driver, app: App, ctx) -> None:
+    folder, hdd = _save_fixtures(d)
+    p = app.launch(d, ctx, None)
+    p.js(click("tab-tools"))
+    p.js(f"() => {{ document.getElementById('saves-folder-path').value = {json.dumps(str(folder))}; }}")
+    d.act(p, "A64", click("saves-open"), SLOT_READ, 300)
+    p.js(f"() => {{ document.getElementById('saves-hdd-path').value = {json.dumps(str(hdd))}; }}")
+    p.js("() => { azurkit.saves.state.slots = []; }")
+    d.act(p, "A65", click("saves-read"), SLOT_READ, 300)
+    p.js(f"() => {{ document.getElementById('saves-folder-path').value = {json.dumps(str(folder))}; }}")
+    d.act(p, None, click("saves-open"), SLOT_READ, 300)
+    t0, _ = d.act(p, None, SAVE_LINE, SLOT_EDITED, 300)
+    _, t1 = d.act(p, None, click("saves-save"), SLOT_SAVED, 300)
+    d.record("A66", (t1 - t0) / 1000, d.ev, t0, t1)
+    app.quit(p)
+
+
+def site_saves(d: Driver, ctx, url: str) -> None:
+    folder, hdd = _save_fixtures(d)
+    p = _site_page(d, ctx, url, None)
+    p.js(click("tab-tools"))
+    d.act(p, "S56", lambda: p.page.set_input_files("#saves-folder", str(folder)), SLOT_READ, 300)
+    p.js("() => { azurkit.saves.state.slots = []; }")
+    d.act(p, "S57", lambda: p.page.set_input_files("#saves-hdd", str(hdd)), SLOT_READ, 300)
+    d.act(p, None, lambda: p.page.set_input_files("#saves-folder", str(folder)), SLOT_READ, 300)
+    t0, _ = d.act(p, None, SAVE_LINE, SLOT_EDITED, 300)
+    _, t1 = d.act(p, None, click("saves-save"), SLOT_SAVED, 300)
+    d.record("S58", (t1 - t0) / 1000, d.ev, t0, t1)
     p.page.close()
 
 
@@ -1634,6 +1693,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
     "app-community": ("app", ("A33", "A34", "A35", "A36"), app_community),
     "app-replace": ("app", ("A62", "A63"), app_replace),
+    "app-saves": ("app", ("A64", "A65", "A66"), app_saves),
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
     "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38"), app_track),
     "app-ahead-track": ("app", ("A56",), app_ahead_track),
@@ -1649,6 +1709,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
                    site_start),
     "site-community": ("site", ("S26", "S27", "S28", "S29"), site_community),
     "site-replace": ("site", ("S54", "S55"), site_replace),
+    "site-saves": ("site", ("S56", "S57", "S58"), site_saves),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),

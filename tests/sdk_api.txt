@@ -598,3 +598,14 @@ def file_entry(given: 'Mapping') -> 'dict':
 file's) as a recipe's ``files`` holds it, or the refusal named: a file
 the build owns, a size past what an image's file holds
 (``edits.files``).
+
+
+def saves(given: 'Mapping') -> 'dict':
+
+The Tools tab's Saves (``tools.saves.session``'s asks: ``{"do":
+"open"}`` a slot's folder or files, or an xemu HDD image's slots,
+read-only; ``"edit"`` a text save's lines; ``"sign"`` the slot again, its
+``flash`` and ``mcpx`` bytes and the key from them in memory for this call
+alone, the game's half from the ``default.xbe`` of the image at ``iso``;
+``"save"`` a new folder; ``"zip"`` its bytes). A refusal names what and
+why.

@@ -792,6 +792,52 @@ COMMUNITY = """() => [...document.querySelectorAll("#char-community .entry")].ma
     [...e.querySelectorAll(".model")].map((m) => m.dataset.model)])"""
 
 
+def test_the_saves_section_round_trips_a_slot(browser, site, tmp_path):
+    """Saves on the site (Step 4.7e): a slot's folder opens with no image, its text saves' lines editable; an edit is
+    saved as a zip, the same bytes the engine's CPython gives (no bytes of the slot leave the page but the download);
+    an xemu HDD image's two slots read, read-only; signing is greyed with its line until an image is picked. No CSP
+    violation."""
+    from azurkit.tools import saves as savekit
+
+    from tests import test_saves as made
+
+    folder = tmp_path / "slot" / made.ID
+    for path, data in made._files().items():
+        (folder / path).parent.mkdir(parents=True, exist_ok=True)
+        (folder / path).write_bytes(data)
+    hdd = made._qcow2(tmp_path / "hdd.qcow2", made._Fatx({"UDATA": {"4d530007": {
+        made.ID: made._slot_tree(1), "FEDCBA987654": made._slot_tree(2)}}}).chunks())
+    slot, _ = savekit.edit(savekit.Slot.read(folder), [{"file": "magic.sav", "line": 0, "value": "2.000000"}])
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.evaluate("() => document.getElementById('tab-tools').click()")
+        assert page.evaluate("() => [document.getElementById('saves-sign').disabled, document.getElementById("
+                             "'saves-sign-line').textContent.startsWith('Choose your image first')]") == [True, True]
+        page.evaluate("""(given) => azurkit.saves.folder(Object.entries(given).map(([path, hex]) => {
+            const file = new File([Uint8Array.from(hex.match(/../g) ?? [], (h) => parseInt(h, 16))], path.split('/').pop());
+            Object.defineProperty(file, 'webkitRelativePath', { value: path });
+            return file; }))""", {f"{made.ID}/{path}": data.hex() for path, data in {
+            **made._files(), ".DS_Store": b"host"}.items()})
+        _page.until(page, "() => azurkit.saves.state.slot?.id", 120)
+        assert sorted(f["path"] for f in page.evaluate("() => azurkit.saves.state.slot.files")) == sorted(made._files())
+        page.evaluate("""() => { const box = document.querySelector('#saves-rows input[data-file="magic.sav"]');
+            box.value = '2.000000'; box.dispatchEvent(new Event('change', { bubbles: true })); }""")
+        _page.until(page, "() => /changed: sign it again/.test(document.getElementById('status').textContent)", 60)
+        with page.expect_download(timeout=120_000) as caught:
+            page.evaluate("() => document.getElementById('saves-save').click()")
+        assert caught.value.suggested_filename == f"{made.ID}.zip"
+        with open(caught.value.path(), "rb") as f:
+            assert f.read() == slot.zip()
+        caught.value.delete()
+        page.set_input_files("#saves-hdd", str(hdd))
+        _page.until(page, "() => azurkit.saves.state.slots.length === 2", 120)
+        assert page.evaluate("() => azurkit.saves.state.slots.map((s) => s.id)") == sorted((made.ID, "FEDCBA987654"))
+        _page.check_csp(page)
+    finally:
+        served.close()
+
+
 def test_a_build_with_a_replaced_file_is_the_apps_image(browser, site, usa_iso, tmp_path):
     """Replace files on the site (Step 4.7d): greyed with its line until an image is picked; a file the build owns is
     refused by name; a picked File builds the image the engine builds on CPython for the same bytes, by the whole

@@ -862,8 +862,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Engine halves no host calls yet** (each tested alone; its hub half wires
   it): the site's work ahead (`web/workers.mjs`), the warm-up
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
-  `web/memo.mjs`), the service worker (`web/sw.js`) and Saves
-  (`tools/saves/`).
+  `web/memo.mjs`) and the service worker (`web/sw.js`).
 - **The page** (`web/`): pick the image, choose packs and set their sliders
   (a box takes any value; the track widens to hold it), Build, then Save. One
   page for both hosts: `host.json` names the host's engine. It decides no
@@ -1150,6 +1149,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     it per job. A build reads no vanilla bytes of a file only Replace files
     writes (`edits.manifest.staged`). `azurkit build --file PATH=FILE`
     builds one. `tests/_perf.py`'s A62-A63 and S54-S55 time it.
+    **Saves** (Step 4.7e, `web/saves.mjs`, `tools/saves/session.py`,
+    `sdk.saves`, `api/saves`; `azurkit save inspect|edit`): a slot's folder or
+    an xemu HDD image's slots read-only, a text save's lines edited, the slot
+    signed again with the player's BIOS files (bytes for that one ask, the
+    key dropped with it, refused by size before a scan) and the game's half
+    from the picked image's XBE, greyed until one is picked (D979), saved as a
+    new folder (the app) or a zip (the site). What is open lives in the
+    engine's process: a site worker replaced after a build asks to open it
+    again, by name. `tests/test_saves.py`, `test_hosts.py` and `test_site.py`
+    hold it; `tests/_perf.py`'s A64-A66 and S56-S58 time it on synthetic slots
+    (signing's share is by hand: no fixture holds BIOS files).
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,

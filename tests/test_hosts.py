@@ -819,6 +819,49 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
         server.close()
 
 
+def test_the_apps_saves_read_a_folder_and_an_hdd_image_and_save_a_new_folder_by_path(tmp_path, monkeypatch):
+    """The app's Saves (Step 4.7e): ``api/saves`` opens a slot's folder and an HDD image's slots by path, a network path
+    refused before anything opens; an edit saves as a new folder, never over one there; a BIOS file too large to be
+    one is refused before it is read; no zip, the site's."""
+    from azurkit.tools import saves as savekit
+
+    from tests import test_saves as made
+
+    _home(monkeypatch, tmp_path / "home")
+    monkeypatch.setattr(app, "_downloads", lambda: tmp_path / "downloads")
+    (tmp_path / "downloads").mkdir()
+    (page := tmp_path / "page").mkdir()
+    (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
+    folder = tmp_path / "slot" / made.ID
+    for path, data in made._files().items():
+        (folder / path).parent.mkdir(parents=True, exist_ok=True)
+        (folder / path).write_bytes(data)
+    hdd = made._qcow2(tmp_path / "hdd.qcow2", made._Fatx({"UDATA": {"4d530007": {made.ID: made._slot_tree(1)}}}).chunks())
+    big = tmp_path / "big.bin"
+    with open(big, "wb") as f:
+        f.truncate(17 << 20)
+    server = app.serve(page)
+
+    def call(given: dict) -> dict:
+        replies = []
+        _post(server.url, "api/saves", {"given": given}, replies)
+        return replies[0]
+    try:
+        assert "never read" in call({"do": "open", "folder": "//host/share/slot"})["refused"]
+        assert "never read" in call({"do": "open", "image": "/net/host/hdd.qcow2"})["refused"]
+        assert [s["id"] for s in call({"do": "open", "image": str(hdd)})["slots"]] == [made.ID]
+        assert [s["id"] for s in call({"do": "open", "folder": str(folder)})["slots"]] == [made.ID]
+        assert call({"do": "edit", "id": made.ID, "edits": [{"file": "magic.sav", "line": 0, "value": "2"}]})["changes"]
+        assert "the app reads your files by path" in call({"do": "zip", "id": made.ID})["refused"]
+        assert "is no BIOS file" in call({"do": "sign", "id": made.ID, "iso": str(hdd), "flash_file": str(big)})["refused"]
+        saved = call({"do": "save", "id": made.ID})
+        assert saved == {"out": str(tmp_path / "downloads" / made.ID)}
+        assert savekit.Slot.read(saved["out"]).files["magic.sav"].startswith(b"fileversion=1\n2\n")
+        assert "exists" in call({"do": "save", "id": made.ID})["refused"]
+    finally:
+        server.close()
+
+
 def test_the_apps_replace_files_holds_the_picked_file_and_refuses_a_share_or_an_unpicked_path(tmp_path, monkeypatch, usa_iso):
     """The app's Replace files (Step 4.7d, SEC-11): ``api/replace`` makes the picked file's entry and holds its path for
     this launch; a network share, a device path and a file the build owns are refused with nothing read; a build takes

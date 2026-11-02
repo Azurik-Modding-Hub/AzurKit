@@ -19,6 +19,7 @@ import zipfile
 
 import pytest
 
+from azurkit import cli, sdk
 from azurkit.tools import saves
 from azurkit.tools.saves import fatx, sign
 
@@ -297,6 +298,62 @@ def _slot(id: str, tree: dict, rel: str = "") -> tuple[dict, set]:
         elif value is not DELETED:
             files[rel + name] = value
     return files, folders
+
+
+def test_the_sdks_saves_open_edit_sign_and_save_a_slot_and_the_cli_does_too(tmp_path, monkeypatch, capsys):
+    """Step 4.7e's hub half: ``sdk.saves`` opens a folder (a host's own ``.DS_Store`` and ``._x`` left out) or files or
+    an HDD image's slots, edits a line all or none, signs it with the player's BIOS files (a synthetic key, by its own
+    fingerprint) and saves a new folder or a zip, each refusal named: no slot open, no flash given, a file too large
+    to be one before any scan; nothing of the key in a reply. ``azurkit save`` inspects and edits, and a re-read slot
+    is signed for that console."""
+    cert, fp, flash, mcpx, _, xbe = _console(5)
+    image = tmp_path / "game.iso"
+    image.write_bytes(b"not read")
+    monkeypatch.setattr(saves, "key", lambda f, m, x: saves.signature_key(saves.cert_key(f, m, fingerprint=fp),
+                                                                         saves.title_key(x)))
+    reader = type("R", (), {"__init__": lambda s, path: None, "__enter__": lambda s: s, "__exit__": lambda s, *a: None,
+                            "read": lambda s, name: xbe})
+    monkeypatch.setattr(sdk.iso, "Reader", reader)
+    folder = tmp_path / "in" / ID
+    for path, data in _files().items():
+        (folder / path).parent.mkdir(parents=True, exist_ok=True)
+        (folder / path).write_bytes(data)
+    (folder / ".DS_Store").write_bytes(b"host")
+    (folder / "levels/._a1.sav").write_bytes(b"host")
+    with pytest.raises(ValueError, match="no slot 'nope' is open"):
+        sdk.saves({"do": "edit", "id": "nope", "edits": []})
+    [opened] = sdk.saves({"do": "open", "folder": str(folder)})["slots"]
+    paths = {file["path"] for file in opened["files"]}
+    assert opened["id"] == ID and paths == set(_files())
+    with pytest.raises(ValueError, match="99"):
+        sdk.saves({"do": "edit", "id": ID, "edits": [{"file": "magic.sav", "line": 99, "value": "1"}]})
+    edited = sdk.saves({"do": "edit", "id": ID, "edits": [{"file": "magic.sav", "line": 2, "value": "9"}]})
+    assert edited["changes"] == [{"file": "magic.sav", "line": 2, "old": "3", "new": "9"}]
+    with pytest.raises(ValueError, match="signing needs your flash image"):
+        sdk.saves({"do": "sign", "id": ID, "iso": str(image)})
+    with pytest.raises(ValueError, match="that is no BIOS file"):
+        sdk.saves({"do": "sign", "id": ID, "iso": str(image), "flash": bytes((4 << 20) + 1)})
+    signed = sdk.saves({"do": "sign", "id": ID, "iso": str(image), "flash": flash, "mcpx": mcpx})
+    assert signed["was"] is False and signed["signed"] is True and cert.hex() not in json.dumps(signed)
+    out = tmp_path / "out"
+    assert sdk.saves({"do": "save", "id": ID, "out": str(out)})["out"] == str(out)
+    again = saves.Slot.read(out, ID)
+    assert saves.signed(again, saves.key(flash, mcpx, xbe)) and b"9\n" in again.files["magic.sav"]
+    assert sdk.saves({"do": "zip", "id": ID})["data"] == again.zip() and sdk.saves({"do": "zip", "id": ID})["name"] == f"{ID}.zip"
+    with pytest.raises(FileExistsError):
+        sdk.saves({"do": "save", "id": ID, "out": str(out)})
+    assert [v["id"] for v in sdk.saves({"do": "open", "id": "ABC", "files": {"a.sav": b"x"}})["slots"]] == ["ABC"]
+
+    assert cli.main(["save", "inspect", str(out)]) == 0
+    assert "magic.sav: text" in capsys.readouterr().out
+    flash_file, mcpx_file = tmp_path / "flash.bin", tmp_path / "mcpx.bin"
+    flash_file.write_bytes(flash)
+    mcpx_file.write_bytes(mcpx)
+    done = tmp_path / "done"
+    assert cli.main(["save", "edit", str(out), "--set", "magic.sav:2=10", "--flash", str(flash_file), "--mcpx",
+                     str(mcpx_file), "--iso", str(image), "--out", str(done)]) == 0
+    assert saves.signed(saves.Slot.read(done, ID), saves.key(flash, mcpx, xbe))
+    assert cli.main(["save", "edit", str(out)]) == 1
 
 
 def test_slots_are_read_from_an_xemu_hdd_image(tmp_path):

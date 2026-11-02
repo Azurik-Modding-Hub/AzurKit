@@ -54,6 +54,7 @@ import { dataTab } from "./data.mjs";
 import { hashed } from "./hasher.mjs";
 import { alone } from "./dress.mjs";
 import { replaceFiles } from "./replace.mjs";
+import { savesSection } from "./saves.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 
@@ -943,6 +944,9 @@ function ready(catalog, version) {
     state.replace = replaceFiles({ root: $("tools"), call: state.engine.call, app: state.app, say,
                                    image: () => state.file, changed: state.changed,
                                    pick: state.dialogs ? () => state.engine.choose("replacement", "") : null });
+    state.saves = savesSection({ root: $("tools"), call: state.engine.call, app: state.app, say, image: () => state.file,
+                                 out: (name) => toolsOut(name, "saves"),
+                                 pick: state.dialogs ? (kind) => state.engine.choose(kind, "") : null });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -1087,6 +1091,7 @@ function pickInApp(host) {
     state.data?.imaged();
     state.tools?.imaged();
     state.replace?.imaged();
+    state.saves?.imaged();
   };
   picked();
   $("iso-path").addEventListener("input", picked);
@@ -1607,6 +1612,7 @@ async function main() {
       state.data?.imaged();
       state.tools?.imaged();
       state.replace?.imaged();
+      state.saves?.imaged();
     });
   }
 

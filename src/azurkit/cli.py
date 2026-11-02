@@ -271,6 +271,42 @@ def _spoiler(args: argparse.Namespace) -> int:
     return 0
 
 
+def _save(args: argparse.Namespace) -> int:
+    from azurkit.tools import saves
+
+    try:
+        target = Path(replaced.source(args.target))
+        slots = [saves.Slot.read(target)] if target.is_dir() else saves.slots(target)
+        if args.action == "inspect":
+            if not slots:
+                print(f"{target}: no Azurik save")
+            for slot in slots:
+                print(f"{slot.id}: {len(slot.files)} files, {len(slot.folders)} folders")
+                for file in saves.decode(slot):
+                    print(f"  {file['path']}: {file['kind']}, {file['size']:,} B"
+                          + "".join(f"\n    {n} {line}" for n, line in enumerate(file.get("lines", []))))
+            return 0
+        if not args.out or not args.flash or not args.iso:
+            raise ValueError("save edit: give --out, --flash and --iso: an edited save is signed again for your console")
+        slot = next((s for s in slots if s.id == args.slot), None) if args.slot else slots[0] if len(slots) == 1 else None
+        if slot is None:
+            raise ValueError(f"save edit: name a slot with --slot (there: {', '.join(s.id for s in slots)})")
+        sdk.saves({"do": "open", "id": slot.id, "files": slot.files, "folders": list(slot.folders)})
+        for given in args.set:
+            file, _, rest = given.partition(":")
+            line, sep, value = rest.partition("=")
+            if not sep or not line.isdecimal():
+                raise ValueError(f"--set {given}: not FILE:LINE=VALUE")
+            sdk.saves({"do": "edit", "id": slot.id, "edits": [{"file": file, "line": int(line), "value": value}]})
+        sdk.saves({"do": "sign", "id": slot.id, "iso": args.iso, "flash": Path(replaced.source(args.flash)).read_bytes(),
+                   "mcpx": Path(replaced.source(args.mcpx)).read_bytes() if args.mcpx else None})
+        print(sdk.saves({"do": "save", "id": slot.id, "out": args.out})["out"])
+    except (OSError, ValueError) as exc:
+        print(f"azurkit: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def _content(args: argparse.Namespace) -> int:
     from azurkit.tools.characters import content
 
@@ -386,6 +422,19 @@ def main(argv: list[str] | None = None) -> int:
                                            "obtain and return paths, the traps and the rest.")
     spoiled.add_argument("plan", metavar="PLAN", help="a plan file (azurkit plan --out)")
     spoiled.set_defaults(run=_spoiler)
+    saved = verbs.add_parser("save", help="read an Azurik save slot, or edit one and sign it again",
+                             description="inspect: what a slot's folder or an xemu HDD image's slots hold (read-only). "
+                                         "edit: change a text save's lines (--set), sign the slot again with your own "
+                                         "BIOS files (read in memory, never kept) and write it to --out, a new folder.")
+    saved.add_argument("action", choices=("inspect", "edit"))
+    saved.add_argument("target", metavar="FOLDER|HDD", help="a slot's folder, or an xemu HDD image")
+    saved.add_argument("--slot", metavar="ID", help="edit: which slot of an HDD image")
+    saved.add_argument("--set", action="append", default=[], metavar="FILE:LINE=VALUE", help="edit: a line (repeatable)")
+    saved.add_argument("--flash", metavar="PATH", help="edit: your flash image")
+    saved.add_argument("--mcpx", metavar="PATH", help="edit: your MCPX boot ROM")
+    saved.add_argument("--iso", metavar="PATH", help="edit: your game image (the game's key is in its XBE)")
+    saved.add_argument("--out", metavar="DIR", help="edit: a new folder to write the slot to")
+    saved.set_defaults(run=_save)
     contented = verbs.add_parser("content", help="list, install or update Azurik-Custom-Content's entries",
                                  description="List Azurik-Custom-Content's entries (from --source, else "
                                              "$AZURKIT_CONTENT_SOURCE, else the hub's) and what the content folder "

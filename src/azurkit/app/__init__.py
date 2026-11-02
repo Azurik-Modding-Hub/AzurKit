@@ -94,7 +94,7 @@ pictures as base64 PNG), and Azurik-Custom-Content's ``api/content``
 (``sdk.content_install``, into the content folder); ``api/community``
 ``{}`` the community packs that folder holds (``sdk.community``); ``api/replace``
 ``{"path", "file"}`` picks a computer file to replace one of the image's (``sdk.file_entry``, held for this session);
-``api/content_source``
+``api/saves`` ``{"given"}`` the Tools tab's Saves (``sdk.saves``); ``api/content_source``
 ``{"source"}`` remembers the tab's Content from (``null``: the default),
 which ``host.json``'s ``content_source`` gives the next page, and
 ``api/show_objects`` ``{"show"}`` its Show objects (D1034: ``false``, the
@@ -178,7 +178,7 @@ PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "we
 NO_WINDOW = "AZURKIT_NO_WINDOW"   # set: main() opens nothing (the tests' mode)
 MAX_BODY = 1 << 20
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
-SAVES = ("out", "spoiler", "settings", "extract", "mods", "report")   # the kinds of save the save dialog chooses for
+SAVES = ("out", "spoiler", "settings", "extract", "mods", "report", "saves")   # the kinds of save the save dialog chooses for
 MODS = "AzurKit mods.json"   # the Tools tab's mods file, by default (web/tools.mjs's)
 NEVER_CLEARED = (".iso", ".xiso")   # an image AzurKit's Clear never removes, wherever it is (SEC-10)
 # text_select: pywebview otherwise injects a <style> to stop selection, which the page's CSP refuses
@@ -572,6 +572,35 @@ class Server(http.server.ThreadingHTTPServer):
         return {k: v for k, v in recipe.items() if k != "picked"} | {
             "picked": {path: str(self.picks[path]) for path in named if path in self.picks}}
 
+    def saves(self, body: dict) -> dict:
+        """``api/saves`` (``sdk.saves``): the computer paths it reads through
+        ``edits.files.source`` (SEC-11), the BIOS files read for this ask
+        alone and refused by size before they are read; a slot saved to
+        ``out``, a new folder (:meth:`writable`), else under its id in the
+        Downloads folder; no zip: the site's."""
+        from azurkit.tools.saves import session
+
+        given = dict(body.get("given") or {})
+        if given.get("do") == "zip" or not {"flash", "mcpx"}.isdisjoint(given):
+            raise ValueError("saves: the app reads your files by path, and saves a folder")
+        for key in ("folder", "image"):
+            if key in given:
+                given[key] = str(_path(replaced.source(str(given[key])), "save"))
+        if given.get("do") == "sign":
+            given["iso"] = str(_path(given.get("iso"), "image"))
+            for key in ("flash", "mcpx"):
+                if not (where := given.pop(f"{key}_file", None)):
+                    continue
+                file = _path(replaced.source(str(where)), key)
+                if file.stat().st_size > session.MAX_BIOS:
+                    raise ValueError(f"saves: {file.name} is no BIOS file: past the {session.MAX_BIOS:,} B AzurKit reads as one")
+                given[key] = file.read_bytes()
+        if given.get("do") == "save":
+            name = str(given.get("id"))
+            given["out"] = str(self.writable(_path(given["out"], "slot's folder") if given.get("out")
+                                             else _downloads() / name, "saves"))
+        return sdk.saves(given)
+
     def replace(self, body: dict) -> dict:
         """``api/replace``: ``{"path", "file"}``, a computer file the player
         picked to stand in for the image's ``path``: its entry
@@ -916,8 +945,9 @@ class Server(http.server.ThreadingHTTPServer):
             picked = self.window.create_file_dialog(webview.FileDialog.SAVE, directory=folder,
                                                     save_filename=given.name if given else "")
         else:
-            picked = self.window.create_file_dialog(webview.FileDialog.OPEN, directory=folder, **(
-                {} if body.get("kind") == "replacement" else {"file_types": IMAGES}))
+            picked = self.window.create_file_dialog(
+                webview.FileDialog.FOLDER if body.get("kind") == "folder" else webview.FileDialog.OPEN, directory=folder,
+                **({} if body.get("kind") in ("replacement", "folder") else {"file_types": IMAGES}))
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
         if picked and body.get("kind") in SAVES:
@@ -999,7 +1029,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/preview": lambda body: self.server.dressed("preview", body),
                 "/api/match": lambda body: self.server.dressed("match", body),
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
-                "/api/community": lambda body: sdk.community(), "/api/replace": self.server.replace,
+                "/api/community": lambda body: sdk.community(), "/api/replace": self.server.replace, "/api/saves": self.server.saves,
                 "/api/install": self.server.install,
                 "/api/speculate": self.server.speculate, "/api/prefetch": self.server.prefetch,
                 "/api/content_source": _set_source, "/api/show_objects": _set_objects,

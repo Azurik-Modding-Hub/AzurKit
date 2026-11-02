@@ -455,6 +455,7 @@ p.views { margin: 0; padding: 2px 10px; }
   border: 1px solid var(--line); border-radius: 3px;
 }
 #tools-open-path { width: 26rem; }
+#tools-saves td input { width: 8rem; margin-right: 4px; }
 #tools-filter { width: 16rem; }
 .tools :is(input, button):disabled { color: var(--faint); background: transparent; border-style: dashed; }
 .tools table { border-collapse: collapse; font: 11px var(--mono); }

@@ -186,8 +186,13 @@ def engine(request):
             return js(sdk.prime(request.recipe.iso, request.digests.to_py()))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
-    if request.type in ("info", "verify_all", "files", "mods_file", "plan_spoiler", "replace"):   # the Tools tab's
+    if request.type in ("info", "verify_all", "files", "mods_file", "plan_spoiler", "replace", "saves"):   # the Tools tab's
         try:
+            if request.type == "saves":
+                given, blobs = json.loads(JSON.stringify(request.given)), request.blobs.to_py()
+                if blobs["files"]:
+                    given["files"] = {k: bytes(v) for k, v in blobs["files"].items()}
+                return js(sdk.saves(given | {k: bytes(blobs[k]) for k in ("flash", "mcpx") if k in blobs}))
             if request.type == "replace":
                 return js(sdk.file_entry(json.loads(JSON.stringify(request.given))))
             if request.type == "info":
@@ -611,9 +616,17 @@ const digested = async (bytes) => hex(await crypto.subtle.digest("SHA-256", byte
 // first, prime), another File's (build: an AzurKit build to open, mounted only for its read) or none (a mods file, a
 // plan's spoiler). Verify every file hashes here what the image's kept check hasn't (sdk.layout's whole), in
 // WebCrypto as prime does, its bar the bottom bar's, and hands the engine those digests (sdk.verify_all).
-const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler", "replace"];
+const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler", "replace", "saves"];
 const DATA = ["data", "data_edit", "community"];   // the Data tab's and the Patches tab's community list: no image
 async function tool({ py, engine }, data) {
+  if (data.type === "saves") {   // the Saves section: a slot's Files, an HDD image or the image's XBE and BIOS files
+    const given = data.given, blobs = { files: {} };
+    for (const [path, one] of Object.entries(data.files ?? {})) blobs.files[path] = await pickedBytes(one);
+    for (const key of ["flash", "mcpx"]) if (data[key]) blobs[key] = await pickedBytes(data[key]);
+    const asked = (extra = {}) => engine({ type: "saves", given: { ...given, ...extra }, blobs });
+    if (data.hdd) return mounted(py, data.hdd, (image) => asked({ image }));
+    return data.file ? mounted(py, data.file, (iso) => asked({ iso })) : asked();
+  }
   if (data.type === "replace") {   // a file picked to replace one of the image's: its entry; its bytes stay the File's
     const bytes = await pickedBytes(data.picked);
     return engine({ type: "replace", given: { path: data.path, sha256: await digested(bytes), size: bytes.length } });
