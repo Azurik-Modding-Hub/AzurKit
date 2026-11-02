@@ -691,6 +691,26 @@ def test_a_reshapes_kept_dress_is_its_own_shapes_when_another_shape_is_dressed_b
     assert sdk._reshape_kept("plan", stamp, second, {}, lambda: "dress 1.4") == "dress 1.4"
 
 
+def test_a_reshapes_kept_dress_reads_a_recipe_files_wav_again_once_it_is_edited_in_place(monkeypatch, tmp_path):
+    """D35: a WAV a recipe file names (not pinned by its sha256 there)
+    edited in place between two builds in one process, to the same size and
+    time stamp, the next build dresses again and takes its new bytes, not
+    the kept dress's."""
+    monkeypatch.setattr(sdk, "_DRESSED", {})
+    probe = next(p for p in _golden("probes.json").values() if "shapes" in p["character"])
+    recipes, wav = tmp_path / "probe.json", tmp_path / "hurt.wav"
+    recipes.write_text(json.dumps({"probe": probe["variants"]["probe"] | {"wavs": {"hurt": ["hurt.wav"]}}}),
+                       encoding="utf-8")
+    stamp = SimpleNamespace(path=Path("usa.iso"), release=SimpleNamespace(name="usa"))
+    character = {"species": "probe", "variant_file": str(recipes), "shapes": {"hips": 1.4}}
+    wav.write_bytes(b"RIFF one")
+    was = wav.stat()
+    assert sdk._reshape_kept("plan", stamp, character, {}, wav.read_bytes) == b"RIFF one"   # the dress reads it
+    wav.write_bytes(b"RIFF two")
+    os.utime(wav, ns=(was.st_atime_ns, was.st_mtime_ns))
+    assert sdk._reshape_kept("plan", stamp, character, {}, wav.read_bytes) == b"RIFF two"
+
+
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():
     """``shapes`` size a variant's shapes: on a species they are refused by
     name (an empty ``shapes`` sizes none, as Modkit's ``player_variant``),

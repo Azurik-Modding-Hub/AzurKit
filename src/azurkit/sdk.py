@@ -671,14 +671,19 @@ def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mappi
     its pictures and its build make one dress between them, whichever comes
     first (one heap on the site, D1054). Its key holds what the dress reads
     besides the image (D35): the content folder's installed entries (a
-    Content Update) and a recipe file's bytes (``variant_file``, an edit to
-    it). Each call keeps and returns its own key's answer, so the app's
+    Content Update) and a recipe file's bytes and its WAVs' (``variant_file``,
+    an edit to either), each by its sha256, not a stat an edit in place can
+    leave as it was; its glTF, PNG and clip files are pinned by their sha256
+    in it. Each call keeps and returns its own key's answer, so the app's
     threads (a shape's pictures beside another's build) never cross theirs."""
+    from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content as kit
 
     recipes = character.get("variant_file")
+    worn = recipes and variants.resolve(character["species"], recipes)
+    read = [Path(recipes), *(variants.recipe_wav_files(worn) if worn else ())] if recipes else []
     key = json.dumps([str(stamp.path), stamp.release.name, character, packs, kit.installed(),
-                      recipes and hashlib.sha256(Path(recipes).read_bytes()).hexdigest()], sort_keys=True)
+                      [p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest() for p in read]], sort_keys=True)
     if (kept := _DRESSED.get(kind)) is not None and kept[0] == key:
         return kept[1]
     _DRESSED.pop(kind, None)   # the last one's dress goes before this one is worked out (one heap)

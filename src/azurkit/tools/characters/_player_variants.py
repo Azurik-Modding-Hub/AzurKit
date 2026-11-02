@@ -3953,12 +3953,8 @@ def recipe_wavs(variant: Variant) -> dict[str, DropIn]:
     from azurkit.tools.characters.xbox_adpcm import read_wav
 
     folder = sound_folder(variant)
-    named = {**{role: (f"wavs.{role}", files) for role, files in variant.wavs.items()},
-             **{sound: (f"sfx.{sound}.files", p["files"]) for sound, p in variant.sfx.items()
-                if p["generator"] == "wav"},
-             **({SHOUT: ("shouts.files", variant.shouts)} if variant.shouts else {})}
     out: dict[str, DropIn] = {}
-    for name, (where, files) in named.items():
+    for name, (where, files) in _named_wavs(variant).items():
         for take, file in enumerate(files):
             path = folder / file
             if not path.is_file():
@@ -3967,6 +3963,20 @@ def recipe_wavs(variant: Variant) -> dict[str, DropIn]:
             out[take_name(name, take)] = DropIn(path, name, hashlib.sha256(path.read_bytes()).hexdigest(),
                                                 tuple(samples), info, "recipe")
     return out
+
+
+def _named_wavs(variant: Variant) -> dict[str, tuple[str, list[str]]]:
+    """``variant``'s own WAVs (:func:`recipe_wavs`) by the name they take: where its recipe names them, their files."""
+    return {**{role: (f"wavs.{role}", files) for role, files in variant.wavs.items()},
+            **{sound: (f"sfx.{sound}.files", p["files"]) for sound, p in variant.sfx.items() if p["generator"] == "wav"},
+            **({SHOUT: ("shouts.files", variant.shouts)} if variant.shouts else {})}
+
+
+def recipe_wav_files(variant: Variant) -> list[Path]:
+    """The files :func:`recipe_wavs` reads, in its order (one that isn't
+    there too): a recipe file names them without their sha256."""
+    folder = sound_folder(variant)
+    return [folder / file for _, files in _named_wavs(variant).values() for file in files]
 
 
 def variant_sounds(variant: Variant, folder: str | Path | None = None) -> dict[str, DropIn]:
@@ -4350,7 +4360,7 @@ __all__ = ["ARMS", "ATTACKS", "BUILTIN", "CHAINS", "CLIPS", "DRAIN_BOX", "DROP_R
            "chain_springs", "clip_folder", "clip_rate", "colour_folder", "drop_ins", "files_shipped", "fit_sha", "fx_folder",
            "gltf_clip", "grow", "gust",
            "hand_spin", "laid_over", "lend", "load_variants", "moveset_moves", "nova", "options", "overlay", "own_recipe", "recipe_of", "recipe_sha",
-           "recipe_wavs",
+           "recipe_wav_files", "recipe_wavs",
            "refusal", "reread", "reshaped", "resolve",
            "restyled", "Shape", "sound_dir", "sound_folder", "sounds_sha", "status", "t_spin", "take_name", "templated",
            "unarmed", "variant_sounds", "waves"]
