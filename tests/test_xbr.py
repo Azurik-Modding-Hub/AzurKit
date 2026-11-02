@@ -124,9 +124,10 @@ def test_a_cell_edit_writes_only_its_cell_and_refuses_by_name():
     another; a text the table holds is pointed at, a new one rewrites an
     unshared string in place if it fits (its NULs counted only up to its
     table's payload end, not into the zeros after the last table); and
-    every refusal names the table, cell and why. A file that isn't an
-    archive, or whose TOC or trailer runs off it, is refused by what runs
-    off."""
+    every refusal names the table, cell and why. An edit parses only the
+    tables it changed again (the other's parse is kept). A file that isn't
+    an archive, or whose TOC or trailer runs off it, is refused by what
+    runs off."""
     data = _archive(TABLES, ROWS)
     doc = Document(data)
     assert doc.dumps() == data and list(doc.tables) == ["t", "u"] and doc.tables["t"].cols == ("a", "b", "b")
@@ -139,6 +140,7 @@ def test_a_cell_edit_writes_only_its_cell_and_refuses_by_name():
         return Document(made)
 
     assert after(edits.set_number(t, "a", "hp", -1e300)).tables["t"].number("a", "hp") == -1e300
+    assert after(edits.set_number(t, "a", "hp", 2)).tables["u"] is u and Document(data).tables["t"] is t
     assert after(edits.set_number(t, "b", "hp", 7)).tables["t"].number("b", "hp") == 7.0   # the last b
     assert after(edits.set_number(t, "b", "hp", 7, col=1, fill=True)).tables["t"].cell(1, 1).value == 7.0
     assert after(edits.set_text(t, data, "a", "kind", "ice")).tables["t"].find("a", "kind").value == "ice"

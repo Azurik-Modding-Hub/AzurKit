@@ -27,11 +27,17 @@ bytes, then every structure parsed here, and a keyed table's
 (:mod:`.keyed`), from its fields. Nothing else of the file is copied, so
 a round trip of every vanilla archive giving its own bytes back checks
 that the parse covers each file.
+
+A keyed table's parse reads its payload alone, so it is kept by the
+payload's sha256 (:func:`_table`): a build that reads config.xbr's
+tables in several documents, vanilla or edited, parses each table's
+bytes once, and an edit parses only the tables it changed again.
 """
 
 from __future__ import annotations
 
 import functools
+import hashlib
 import struct
 from dataclasses import dataclass
 
@@ -44,6 +50,7 @@ TOC_AT = HEADER.size               # 0x3C
 TAG_ROW = struct.Struct("<4sI")
 NAMED_ROW = struct.Struct("<II")   # TOC index, offset into the pool
 RECORD12 = 12
+KEPT_TABLES = 64   # the keyed tables :func:`_table` keeps (config.xbr holds 18), the oldest dropped first
 
 
 @dataclass(frozen=True)
@@ -144,7 +151,7 @@ class Document:
         for e in self.entries:
             if e.tag == "tabl":
                 name = names.get(e.index, f"tabl_{e.index}").rpartition("/")[2]
-                out[name] = keyed.Table.parse(self.data, name, e.start, e.size)
+                out[name] = _table(self.data, name, e.start, e.size)
         return out
 
     def dumps(self) -> bytes:
@@ -170,3 +177,19 @@ class Document:
         for table in self.tables.values():
             table.write(out)
         return bytes(out)
+
+
+_KEPT: dict[tuple[str, int, int, bytes], keyed.Table] = {}   # the newest last
+
+
+def _table(data: bytes, name: str, start: int, size: int) -> keyed.Table:
+    """:meth:`keyed.Table.parse`, kept by the payload's sha256 with its
+    place and name: what the parse reads, so a kept table is the parse
+    of these bytes (a frozen one, which nothing changes)."""
+    key = (name, start, size, hashlib.sha256(memoryview(data)[start:start + size]).digest())
+    if (table := _KEPT.pop(key, None)) is None:
+        table = keyed.Table.parse(data, name, start, size)
+    _KEPT[key] = table
+    while len(_KEPT) > KEPT_TABLES:
+        _KEPT.pop(next(iter(_KEPT)), None)
+    return table
