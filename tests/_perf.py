@@ -85,7 +85,6 @@ class Op:
     first: bool = True    # each sample in a fresh state (a new HOME or browser context); else repeated in one
     bar: bool = False     # D982: may pass 3 s with a moving bar (an image's first identity check, the first
     #                       engine load; D999 a new shape's first build; D1008 the randomizer's logic's first read)
-    #                       (A75, A76 are none of these: they recur; the owner's to allow or not, see their titles)
     content: bool = False  # reads a clone of Azurik-Custom-Content
     browser_bar: str = ""  # D980: the browser's own bar for its write of a file the page handed it (a download only)
     untimed: str = ""     # why the gate can't time it (it is listed as such)
@@ -149,12 +148,10 @@ OPS = {op.id: op for op in (
        head_start=True),
     Op("A74", "Track, Seed difficulty Hard at Hard movement with a movement slider, no skip (each tier's re-check, "
               "first time)", "tracker", bar=True, head_start=True),
-    Op("A75", "the spoiler's View, Seed difficulty Hard at Hard movement and skips (what's left of its openers, "
-              "clicked as Build ends: the first seed at new settings, then about 1 in 4 with a one-of round; 0.13 s once "
-              "they end)",
-       "randomizer", bar=True),
-    Op("A76", "the tracker's Spoiler ticked as Track ends, Seed difficulty Hard at Hard movement and skips (what's left "
-              "of its openers, as A75)", "tracker", bar=True),
+    Op("A75", "the spoiler's View clicked as Build ends, Seed difficulty Hard at Hard movement and skips (its openers)",
+       "randomizer"),
+    Op("A76", "the tracker's Spoiler ticked as Track ends, Seed difficulty Hard at Hard movement and skips (its openers)",
+       "tracker"),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
