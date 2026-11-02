@@ -76,7 +76,8 @@ jobs:
           uv run --locked playwright install-deps "${engines[@]}"
       - name: The pure tier
         # pytest-xdist isn't in uv.lock at this base; once lane 4.3o adds it, -n auto and its --dist join this line.
-        run: uv run --locked pytest -m "not vanilla"
+        # faulthandler: a test past 20 min prints each thread's stack, as a hang's job only ends at its cap, unnamed.
+        run: uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }})

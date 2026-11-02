@@ -24,6 +24,7 @@ import re
 import struct
 import subprocess
 import sys
+import textwrap
 import threading
 import time
 import types
@@ -60,9 +61,18 @@ NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
 OURS = {"azurkit", "__main__", "web", freeze.ICON.name}
 # The bootloader is under PyInstaller's Bootloader Exception; the loader and runtime hooks it bundles are Apache-2.0.
 PYINSTALLER_RUNTIME = ("pyimod", "pyiboot", "pyi_rth_", "_pyi_rth_utils")
-# The system's libraries numpy's Linux wheel links (read from its ELF files) and PyInstaller's exclude list keeps.
+# The libraries beside the app with no distribution's name, by how their lowercased names start (a wheel's carry a hash),
+# and whose: on Linux what numpy's wheel links (read from its ELF files), the system's ones PyInstaller's exclude list
+# keeps and the wheel's own, which PyInstaller lays at the top; on Windows Python's own build's and Microsoft's C
+# runtime (NOTICE.md has each).
+MICROSOFT = "Microsoft's C runtime (its redistribution terms)"
 LINKED = {"libstdc++.so.6": "GCC's C++ runtime (its Runtime Library Exception)",
-          "libgcc_s.so.1": "GCC's runtime (its Runtime Library Exception)", "libz.so.1": "zlib (Zlib)"}
+          "libgcc_s.so.1": "GCC's runtime (its Runtime Library Exception)", "libz.so.1": "zlib (Zlib)",
+          "libgfortran-": "GCC's Fortran runtime (its Runtime Library Exception)",
+          "libquadmath-": "GCC's libquadmath (LGPL-2.1-or-later)", "libscipy_openblas": "OpenBLAS (BSD-3-Clause)",
+          "api-ms-win-": MICROSOFT, "ucrtbase.": MICROSOFT, "vcruntime140": MICROSOFT, "msvcp140": MICROSOFT,
+          "libcrypto-": "OpenSSL (Apache-2.0)", "libssl-": "OpenSSL (Apache-2.0)", "libffi-": "libffi (MIT)",
+          "zlib1.": "zlib (Zlib)"}
 WINDOW_REFUSED = f"azurkit: no window while {app.NO_WINDOW} is set (the tests' mode)\n"
 
 
@@ -120,11 +130,14 @@ def _owners(app_path: Path) -> dict[str, str]:
     dists = importlib.metadata.packages_distributions()
     owners = {}
     for name in names:
+        module = name.split(".")[0] if name.endswith(".pyd") else name   # Windows' extension modules lie at the top
+        linked = next((owner for start, owner in LINKED.items() if name.lower().startswith(start)), None)
         if name in OURS:
             owners[name] = "AzurKit (MIT)"
         elif name.startswith(PYINSTALLER_RUNTIME):
             owners[name] = "PyInstaller's runtime (Apache-2.0)"
-        elif name in sys.stdlib_module_names or name.startswith(("_sysconfigdata_", "libpython")):
+        elif (module in sys.stdlib_module_names or name.startswith(("_sysconfigdata_", "libpython"))
+              or re.fullmatch(r"python3\d*\.dll", name)):
             owners[name] = "Python (PSF-2.0)"
         elif name.endswith(".dist-info"):   # a distribution's metadata (numpy's, which PyInstaller's hook keeps)
             dist = name.removesuffix(".dist-info").rsplit("-", 1)[0]
@@ -132,10 +145,10 @@ def _owners(app_path: Path) -> dict[str, str]:
         elif name.endswith(".libs"):   # a wheel's own libraries (numpy's on Linux and Windows), under no module's name
             dist = name.removesuffix(".libs")
             owners[name] = f"{dist} ({_licence(dist)})"
-        elif name in LINKED:
-            owners[name] = LINKED[name]
+        elif linked:
+            owners[name] = linked
         else:
-            owners[name] = ", ".join(f"{d} ({_licence(d)})" for d in sorted(set(dists.get(name, ())))) or "unknown"
+            owners[name] = ", ".join(f"{d} ({_licence(d)})" for d in sorted(set(dists.get(module, ())))) or "unknown"
     return owners
 
 
@@ -269,8 +282,9 @@ def test_a_processs_descendants_reach_its_grandchildren():
 
 def test_a_failures_note_ends_with_the_exception_the_app_printed_on_lines_ci_keeps():
     """:func:`_ended_with`: the note is the end of the app's stderr as its own lines, not one line's repr of it, which
-    CI's cut at 240 characters would end long before the exception."""
-    frames = "\n".join(f'  File "frame_{i}.py", line {i}, in frame' for i in range(100))
+    CI's cut at 240 characters would end long before the exception. Past what the note keeps, within a pipe's 4 KiB on
+    Windows (100 frames' CRLFs passed it: the child stopped in its print, this test in its readline, for the job's 3 h)."""
+    frames = "\n".join(f'  File "frame_{i}.py", line {i}, in frame' for i in range(50))
     code = f"import sys; print({frames!r} + '\\nOSError: the cause', file=sys.stderr, flush=True); print('up', flush=True); sys.stdin.read()"
     served = subprocess.Popen([sys.executable, "-c", code], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, text=True)
@@ -294,8 +308,9 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
                                                                     monkeypatch):
     """The app holds no Unicorn, zig, capstone or GPL code (each name in it
     is Python's, PyInstaller's runtime, AzurKit's, a distribution's whose
-    licence isn't GPL or a library :data:`LINKED` names; the runtime's
-    readline is editline). On macOS its
+    licence isn't GPL or a library :data:`LINKED` names, libquadmath's LGPL
+    the one GNU licence, in numpy's Linux wheel; the runtime's readline is
+    editline). On macOS its
     icon is AzurKit's: the .icns its Info.plist names is ``freeze.ICON``,
     byte for byte. Run read-only, with a fresh HOME and TMPDIR from an empty
     folder and the tests' no-window mode, its window path exits 1 at once,
@@ -305,7 +320,8 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
     app_path, before = frozen_app
     owners = _owners(app_path)
     assert [name for name in owners if name.lower().startswith(NEVER)] == []
-    assert {name: owner for name, owner in owners.items() if "GPL" in owner or owner == "unknown"} == {}
+    held = sorted(f"{name}: {owner}" for name, owner in owners.items() if re.search(r"(?<!L)GPL", owner) or owner == "unknown")
+    assert not held, "\n".join(textwrap.wrap(", ".join(held), 200))   # lines CI keeps, where a dict's diff is cut at 40
     assert "readline" not in sys.builtin_module_names or __import__("readline").backend == "editline"
     if app_path.suffix == ".app":
         plist = plistlib.loads((app_path / "Contents" / "Info.plist").read_bytes())
@@ -2720,6 +2736,13 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
     monkeypatch.setattr(loader, "_KEPT", {})   # nothing in this process has read the logic yet
     plan = record_goldens.recorded(record_goldens.PLANS)["default"]["plan"]
     server, replies, seen, planned, seeded = app.serve(_page.WEB), [], [], [], []
+
+    class Followed(dict):   # each record api/progress serves: a poll misses the last stage's 0.1 s on a starved thread
+        def __setitem__(self, ident: object, call: tuple[str, dict]) -> None:
+            super().__setitem__(ident, call)
+            if call[0] == "plan_spoiler":
+                seen.append(call[1])
+    server.calls = Followed()
     try:
         engine._WARM.acquire()   # as the engine's loop takes it for a warm message
         engine._WARMING[:] = [progress_record("plan", "Reading the randomizer's logic")]
@@ -2728,10 +2751,7 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
         seeding = threading.Thread(target=lambda: seeded.append(engine.JOBS["plan"]({"seed": "2"},
                                                                                     progress=planned.append)))
         asking.start(), seeding.start()
-        while asking.is_alive() or seeding.is_alive():
-            if (step := server.progress()["calls"].get("plan_spoiler")) and step not in seen[-1:]:
-                seen.append(step)
-            time.sleep(0.01)
+        asking.join(), seeding.join()
     finally:
         server.close()
 

@@ -41,6 +41,7 @@ from azurkit.tools.characters import body_codec as bc
 from azurkit.tools.characters.index_xbr import IndexRecord, add_index_records, parse_index_xbr
 from scripts import record_goldens, record_shipped
 from tests import _hosts, _pyodide, _speed
+from tests.test_art import _apart
 
 CHARACTERS, FX, INDEX = characters.FILES
 G3 = {"usa": "pipelines.json", "europe": "europe/pipelines.json"}
@@ -1105,13 +1106,14 @@ def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, eur
     ``scripts/record_goldens.py``'s characters family makes from the images, byte for byte: ``species.json``, the
     species ``player_models`` reads from USA's image and from Europe's (the same), which the view lists with no image
     (in their grades), the no-image view itself, and each body's two pictures, ``picker.preview``'s (the app's
-    draw) from USA's image, and from Europe's the same bytes. A built-in variant's are drawn again only when its
-    recipe changes (its dress takes minutes), so here they are the recorded ones."""
+    draw) from USA's image, and from Europe's the same bytes (off the recording host, close enough:
+    :func:`tests.test_art._apart`, D1016; Windows' zlib-ng deflates otherwise). A built-in variant's are drawn again
+    only when its recipe changes (its dress takes minutes), so here they are the recorded ones."""
     from azurkit.tools.characters import picker
 
     made = record_goldens.characters(record_goldens.Images({gate.USA: usa_iso, gate.EUROPE: europe_iso}), 1)
     shipped = record_goldens.kept_files((record_goldens.PICTURES, record_goldens.SPECIES))
-    assert {rel: _sha256(data) for rel, data in made.items()} == {rel: _sha256(data) for rel, data in shipped.items()}
+    assert sorted(made) == sorted(shipped) and _apart(made, shipped, _hosts.recording()) == {}
     assert picker.species_list() == json.loads(made[record_goldens.SPECIES]) and len(picker.species_list()) == 178
     with iso.Reader(europe_iso) as r:
         bodies = r.read(CHARACTERS)

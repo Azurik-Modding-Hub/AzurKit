@@ -539,7 +539,11 @@ Python's builds also carry the software its documentation lists under
 each under the terms given there, and the app's build links into Python
 itself the libraries its extension modules use (OpenSSL among them), which
 [python-build-standalone](https://github.com/astral-sh/python-build-standalone)'s
-distributions name with their licences.
+distributions name with their licences. On Windows the app's folder also
+holds Python's `libcrypto`, `libssl`, `libffi` and zlib libraries and
+Microsoft's C runtime (`vcruntime140`, `ucrtbase`, `api-ms-win-*`), which
+PyInstaller collects from the build and the system, under Microsoft's terms
+for redistributing them.
 
 ## The Pyodide contributors: Pyodide
 
