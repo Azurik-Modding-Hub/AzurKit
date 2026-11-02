@@ -1376,7 +1376,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   and checks each image once (Step 4.3h): its build files hashed
   in WebCrypto (`sdk.layout`, `sdk.prime`), the stamp kept in the browser
   (IndexedDB, by the File's name, size and lastModified) for the next
-  visit. A build's changed files are hashed there too (`sdk.image_staged`,
+  visit, and a character's dress too (D1067: `characters.CACHE` is the
+  worker's `Kept`, IndexedDB's `azurkit-dress` by the build's hint, the
+  last 32; taken only under the engine's own key). A build's changed files are hashed there too (`sdk.image_staged`,
   `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, and each build's answer reports the heap,
   by which the pool keeps the worker or replaces it. It joins the Blob itself, off the page's main thread, and returns the build
@@ -1639,7 +1641,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   runs three times (once past 30 s) and its median decides: over 3 s it
   fails, unless `tests/perf_ceilings.toml` lists it, when it fails over its
   ceiling; an image's first check and the site's first engine load may pass
-  3 s only with a moving bar (D982); past 1 s an op shows progress unless the
+  3 s only with a moving bar (D982), and so may a character's first build
+  in a browser (`S14`, D1067; the same build at a later visit, over its
+  kept dress, `S64`, may not); past 1 s an op shows progress unless the
   list names it a debt (D980). A download (the registry's `browser_bar`: the
   browser writes the file the page handed it, and its download indicator
   shows that) shows it when each sample's page part, the click to the

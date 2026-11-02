@@ -84,7 +84,8 @@ class Op:
     group: str            # one of GROUPS
     first: bool = True    # each sample in a fresh state (a new HOME or browser context); else repeated in one
     bar: bool = False     # D982: may pass 3 s with a moving bar (an image's first identity check, the first
-    #                       engine load; D999 a new shape's first build; D1008 the randomizer's logic's first read)
+    #                       engine load; D999 a new shape's first build; D1008 the randomizer's logic's first read;
+    #                       D1067 a character's first build in a browser)
     content: bool = False  # reads a clone of Azurik-Custom-Content
     browser_bar: str = ""  # D980: the browser's own bar for its write of a file the page handed it (a download only)
     untimed: str = ""     # why the gate can't time it (it is listed as such)
@@ -197,7 +198,8 @@ OPS = {op.id: op for op in (
        content=True),
     Op("S52", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
     Op("S53", "the same reshape's exact pictures again", "characters", first=False, content=True),
-    Op("S14", "Build keylord", "build", head_start=True),
+    Op("S14", "Build keylord, first", "build", bar=True, head_start=True),   # D1067: its dress, made and kept
+    Op("S64", "Build keylord again at a later visit (its dress kept)", "build", first=False, head_start=True),
     Op("S15", "Build booblord", "build", content=True, head_start=True),   # her shipped dress (the content repo's entry)
     Op("S16", "Randomizer tab, first ask", "randomizer"),
     Op("S17", "seed typed, its ask", "randomizer"),
@@ -315,6 +317,12 @@ USA = "() => azurkit.vanilla?.release === 'usa'"
 BUILT = f"() => azurkit.build ? 'built' : {ERROR}"
 SAVE_OPEN = "() => !document.querySelector('#save').disabled"
 RESTED = "() => azurkit.ready && !document.querySelector('#save').disabled"
+DRESS_KEPT = ("() => { const g = globalThis; if (!g.dressAsking) { g.dressAsking = true; "   # a dress kept (D1067):
+              "const o = indexedDB.open('azurkit-dress', 1); "   # IndexedDB answers later, so each poll reads the last ask's
+              "o.onupgradeneeded = () => o.result.createObjectStore('dress'); o.onerror = () => { g.dressAsking = false; }; "
+              "o.onsuccess = () => { const a = o.result.transaction('dress').objectStore('dress').get(''); "
+              "a.onsuccess = () => { o.result.close(); g.dressKept = (a.result ?? []).length > 0; g.dressAsking = false; }; "
+              "}; } return g.dressKept === true; }")
 SAVED = f"() => azurkit.saved ? 'saved' : {ERROR}"
 PICTURES = ("(document.getElementById('char-preview-note').textContent.startsWith('From the') "
             "|| document.getElementById('char-preview-note').textContent.includes('no '))")
@@ -1330,18 +1338,25 @@ def site_start(d: Driver, ctx, url: str) -> None:
     _download(d, p, "S06")
     p.wait(READY, 600)   # the site's engine is replaced after each build
     d.act(p, "S08", click("tab-characters"), SPECIES, 1800)
-    if d.needed(("S10", "S11", "S14", "R14", "S49")):   # slow steps another pass doesn't need are skipped
+    if d.needed(("S10", "S11", "S14", "R14", "S49", "S64")):   # slow steps another pass doesn't need are skipped
         t0, _ = d.act(p, "S10", model("keylord"), chosen("keylord", pictures=False), 1800, change=True)
         d.until(p, "S11", t0, chosen("keylord"), 1800)
-        if d.needed(("S14", "R14", "S49")):
+        if d.needed(("S14", "R14", "S49", "S64")):   # S64's dress is the one this build keeps
             _, built = d.act(p, "S14", build_js(), BUILT, 1800)
             d.until(p, "R14", built, RESTED, 600)
+            if d.need("S64"):   # kept after the answer, while a player saves the build (S49)
+                d.idle(p, "the build's dress kept", done=DRESS_KEPT)
             if d.need("S49"):
                 _download(d, p, "S49")
     d.leave(p)
-    while d.needed(("S02", "S04")):
+    while d.needed(("S02", "S04", "S64")):
         p = _site_page(d, ctx, url + "?again", "S02")
         _pick(d, p, "S04")
+        if d.need("S64"):   # D1067: the same character at a later visit, built over the dress S14's build kept
+            d.act(p, None, click("tab-characters"), SPECIES, 1800)
+            if not p.js(chosen("keylord", pictures=False)):   # the remembered setup wears it: the pick was the change
+                d.act(p, None, model("keylord"), chosen("keylord"), 1800, change=True)
+            d.act(p, "S64", build_js(), BUILT, 1800)
         d.leave(p)
 
 
@@ -1899,7 +1914,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46"), app_data),
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
-                             "S17"),
+                             "S17", "S64"),
                    site_start),
     "site-community": ("site", ("S26", "S27", "S28", "S29"), site_community),
     "site-replace": ("site", ("S54", "S55"), site_replace),
