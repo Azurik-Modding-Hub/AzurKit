@@ -624,7 +624,8 @@ def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(
     its recipe's, in the idle its recipe file names; a match of it still
     reads the recipe's. Its pictures and its build make one dress between
     them in a process, whichever comes first (one heap on the site, D1054),
-    the build's files those of a build that dressed it itself."""
+    the build's files those of a build that dressed it itself; its recipe
+    file edited after them, its next build dresses it again (D35)."""
     probe = next(p for p in _golden("probes.json").values() if "shapes" in p["character"])
     recipes = tmp_path / "probe.json"
     recipes.write_text(json.dumps({"probe": probe["variants"]["probe"] | {"idles": {"idle": "stomp"}}}), encoding="utf-8")
@@ -654,9 +655,14 @@ def test_a_reshaped_variants_pictures_are_the_dress_a_build_of_that_shape_makes(
     monkeypatch.setattr(sdk, "_MATCHES", {})   # the pictures first, then the build
     monkeypatch.setattr(sdk, "_DRESSED", {})
     assert sdk.preview(recipe | {"character": shaped}) == drawn
-    once(monkeypatch)
-    assert {k: hashlib.sha256(v).hexdigest() for k, v in files().items()} == {
-        k: hashlib.sha256(v).hexdigest() for k, v in built.items()}
+    with monkeypatch.context() as m:
+        once(m)
+        assert {k: hashlib.sha256(v).hexdigest() for k, v in files().items()} == {
+            k: hashlib.sha256(v).hexdigest() for k, v in built.items()}
+    edited = json.loads(recipes.read_text(encoding="utf-8"))
+    edited["probe"]["shapes"]["hips"]["value"] = 0.9
+    recipes.write_text(json.dumps(edited), encoding="utf-8")
+    assert files()["characters.xbr"] != built["characters.xbr"]
 
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():

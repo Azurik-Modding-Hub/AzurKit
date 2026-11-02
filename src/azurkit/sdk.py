@@ -670,8 +670,14 @@ def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mappi
     dress: minutes), kept for this process's last reshape, so its pictures
     and its build make one dress between them, whichever comes first (one
     heap on the site, D1054): one of each kind, over the packs it was
-    worked out over."""
-    shape = json.dumps([str(stamp.path), stamp.release.name, character], sort_keys=True)
+    worked out over. The shape holds what the dress reads besides the
+    image (D35): the content folder's installed entries (a Content Update)
+    and a recipe file's bytes (``variant_file``, an edit to it)."""
+    from azurkit.tools.characters import content as kit
+
+    recipes = character.get("variant_file")
+    shape = json.dumps([str(stamp.path), stamp.release.name, character, kit.installed(),
+                        recipes and hashlib.sha256(Path(recipes).read_bytes()).hexdigest()], sort_keys=True)
     if _DRESSED.get("shape") != shape:
         _DRESSED.clear()
         _DRESSED["shape"] = shape
