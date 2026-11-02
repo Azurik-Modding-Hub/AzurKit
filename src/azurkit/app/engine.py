@@ -55,8 +55,9 @@ from azurkit import sdk
 from azurkit.core import gate, iso, native
 from azurkit.core.progress import record
 from azurkit.edits import files as replaced
-from azurkit.tools import characters
+from azurkit.tools import characters, randomizer
 from azurkit.tools.characters import pool
+from azurkit.tools.randomizer.planner import fill
 
 from . import procpool
 
@@ -264,16 +265,28 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
     return run
 
 
-JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save),
-                             "plan": _warmed(lambda recipe, progress=None: sdk.plan(recipe, progress=progress),
-                                             always=True),
+def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
+    """A seed's plan; a shaped one's spoiler openers then go on ahead, low, for the spoiler's View."""
+    doc = sdk.plan(recipe, progress=progress)
+    if doc["settings"].get("seed_difficulty"):
+        threading.Thread(target=_openers_ahead, args=(doc,), name="azurkit-openers", daemon=True).start()
+    return doc
+
+
+def _openers_ahead(doc: Mapping) -> None:
+    procpool.Low()(True)
+    with contextlib.suppress(Exception):   # a head start only: the View names what it refuses
+        randomizer.openers_ahead(doc)
+
+
+JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save), "plan": _warmed(_plan, always=True),
                              "preview": _preview, "match": _kept("match", lambda recipe, progress=None:
                                                                     sdk.match(recipe, progress=progress)),
-                             "spoiler": lambda plan: sdk.spoiler(plan, built=True),
+                             "spoiler": lambda plan, progress=None: sdk.spoiler(plan, built=True, progress=progress),
                              "plan_spoiler": _warmed(lambda plan, progress=None: sdk.spoiler(plan, progress=progress),
                                                      always=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
-``preview``, ``match`` and ``plan_spoiler``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
+``preview``, ``match``, ``spoiler`` and ``plan_spoiler``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
 ``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
@@ -538,6 +551,7 @@ def _main(conn, stores: bool = False) -> None:
 
     orphaned()
     procpool.install()   # the swap's parallel work in children of this process
+    fill.WIDTH, fill.INHERIT = sdk.cores(4), sdk.INHERIT   # a shaped fill's attempts past its first at once
     if stores:
         swapcache.install()
     sending, stops, fores = threading.Lock(), {}, {}   # fores: each call's ahead.Job.fore (None: the player's)

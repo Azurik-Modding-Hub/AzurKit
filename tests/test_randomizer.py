@@ -255,7 +255,7 @@ def _shaped_rows(rows: dict, **env) -> dict[str, list]:
         return dict(zip(rows, pool.map(one, range(len(rows)), rows.values())))
 
 
-def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close():
+def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close(monkeypatch):
     """D1031, D1037: at each row's settings the fill's plan passes the verify under them (beatable); the promise the
     rate table asks is met or says how close, in the spoiler's line and the tracker's head, whose parts are
     ``difficulty.profile`` recomputed from the plan; each row's plans are pinned, in a process a row under two hash
@@ -276,9 +276,10 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close():
     assert (table["db_digest"], table["skips"]) == (fill.db_digest(logic.db), difficulty.skips_tag(skips)), (
         "stale: re-run scripts/seed_forcing.py")
     close = Settings(2, "standard", 1, {}, seed_difficulty=2)
-    with concurrent.futures.ThreadPoolExecutor(3) as pool:
-        for seed in "1234":    # Standard/Standard's: one in three or so ends the bound with no ok
-            assert fill.accepted(logic, seed, close, 3, pool.map).placement == fill.fill(logic, seed, close).placement
+    one = [fill._fill(logic, seed, close).placement for seed in "1234"]   # Standard/Standard's: one in three or so
+    monkeypatch.setattr(fill, "WIDTH", 3)                                  # ends the bound with no ok
+    assert [fill._fill(logic, seed, close).placement for seed in "1234"] == one
+    monkeypatch.undo()
 
     def lines(tier, ceiling, off=(), kept=(), level=0):
         return difficulty.levels(Settings(ceiling, tier, 1, dict.fromkeys(off, False), frozenset(kept),
@@ -305,6 +306,15 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close():
     assert slid["settings"]["seed_difficulty"] == 3    # the rungs on the Logic re-checked at each tier under the slider
     assert sdk.tracker({"plan": slid})["head"]["requires"]["asks"] == 3
     randomizer.openers_ahead(slid)
+
+
+def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reach_of_their_own(monkeypatch):
+    """The app's job ahead of the spoiler's View: the View takes its answer, in one Logic's kept openers."""
+    logic, settings = kept_logic(), Settings(3, "hard", 1, {}, seed_difficulty=3)
+    doc = plan_doc(fill.fill(logic, "1", settings), logic.db)
+    randomizer.openers_ahead(doc)
+    monkeypatch.setattr(Logic, "reach", lambda *_, **__: pytest.fail("a reach the job ahead already made"))
+    assert difficulty.openers(logic, settings, load_plan(doc, logic.db).placement)
 
 
 def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_the_tier():

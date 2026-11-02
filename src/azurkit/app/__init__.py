@@ -853,8 +853,8 @@ class Server(http.server.ThreadingHTTPServer):
             raise ValueError("No spoiler: build with Randomize ticked first")
         out = self.writable(_path(body["out"], "spoiler"), "spoiler") if body.get("out") else None
         if (text := self.spoiler) is None:
-            with self.follow("spoiler", record("spoiler")):
-                text = self.engine.call("spoiler", plan)["text"]
+            with self.follow("spoiler", record("spoiler")) as report:
+                text = self.engine.call("spoiler", plan, progress=report)["text"]
             if self.seeded is plan:   # no build since
                 self.spoiler = text
         if out is None:

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import functools
 import json
+import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from fractions import Fraction
@@ -443,13 +444,27 @@ def _opener_text(opener: Mapping) -> str:
     return f"one of {named}" if opener["one_of"] else named
 
 
+_OPENING = threading.Lock()   # openers' one call at a time: the View waits on the host's job ahead, not beside it
+_OPENED = ["reading what opens each step"]   # what the call in flight tells: its count too, for a call that waits
+
+
 def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int = 2) -> list[dict]:
     """Each of play_r's step-ups' openers, as ``{"picks": [...], "one_of": bool}``, a pick with its rating: the picks
     rated >= r whose removal from the settings loses some of that round's new progression, ``(movement)`` when only
     the tier does, and "one of" an irreducible set when neither does: picks, and ``(movement)`` when all of them off
     still open the round, so that the set only loses it with the tier lowered too. Each removal is a new option set, its
     rules compiled on the Logic (a host's job ahead, or the View's bar, pays that) and kept for the next plan at these
-    settings; another settings' openers drop them (about 20 MiB a set)."""
+    settings; another settings' openers drop them (about 20 MiB a set). The last plan's answer is kept with them: the
+    spoiler's View takes the job ahead's."""
+    while not _OPENING.acquire(timeout=0.2):
+        progress.note(_OPENED[0])
+    try:
+        return _openers(logic, settings, placement, rating)
+    finally:
+        _OPENING.release()
+
+
+def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
     skips = logic.skip_tables
     mine = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire, tuple(sorted(settings.skip_override.items())))
     held = getattr(logic, "_opener_sets", None)
@@ -459,6 +474,9 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
         for key in held[2]:
             logic._native.pop(key, None)
         held = None
+    asked_of = rating, tuple(sorted(placement.items()))
+    if held is not None and held[3][0] == asked_of:
+        return held[3][1]
     before = set(logic._compiled), set(logic._native)
     on = picks_on(settings, skips)
     hi = sorted(pid for pid, ids in on.items() if _rated(ids, skips) >= rating)
@@ -467,7 +485,7 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
     below = rung_logic(logic, settings, tier)
 
     def reached(st: Settings, got: frozenset[str], at: Logic = logic) -> Reach:
-        progress.note(NOTE)
+        progress.note(_OPENED[0])
         return at.reach(st, placement, collected=got, traps=False, replay=True)
 
     def without(off: Sequence[str]) -> Settings:
@@ -477,7 +495,8 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
         return f"{pid} ({RATING_NAMES[_rated(on[pid], skips)]})"
 
     out = []
-    for got, gain in made.rounds:
+    for i, (got, gain) in enumerate(made.rounds, 1):
+        _OPENED[0] = f"reading what opens each step, {i} of {len(made.rounds)}"
         lost = [p for p in hi if gain - reached(without((p,)), got).locations]
         if lost:
             out.append({"picks": [named(p) for p in lost], "one_of": False})
@@ -501,7 +520,7 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
                 del at._native[key]
         out.append({"picks": [named(p) for p in some] + [MOVEMENT] * by_tier, "one_of": True})
     logic._opener_sets = (mine, (held[1] if held else set()) | (set(logic._compiled) - before[0]),
-                          (held[2] if held else set()) | (set(logic._native) - before[1]))
+                          (held[2] if held else set()) | (set(logic._native) - before[1]), (asked_of, out))
     return out
 
 

@@ -1181,7 +1181,9 @@ def spoiler(plan: Mapping, *, built: bool = False, progress: Callable[[dict], ob
     sha = plan.get("sha256") if isinstance(plan, Mapping) else None
     if (kept := _SPOILERS.get(sha)) is None:
         raise ValueError("spoiler: this engine no longer keeps that build's spoiler: build it again")
-    text = generator.spoiler(*kept)
+    with noting(Steps(progress)) as steps:
+        steps("spoiler")
+        text = generator.spoiler(*kept)
     return {"lines": text.splitlines(), "text": text}
 
 

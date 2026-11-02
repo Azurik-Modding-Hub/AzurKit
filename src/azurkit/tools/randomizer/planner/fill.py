@@ -78,8 +78,8 @@ marks stay in charge, and every attempt is verified as today. **The acceptance**
 meets the promise is the plan, else, after :data:`~.difficulty.BOUND` of them or
 :data:`MAX_ATTEMPTS` attempts, the highest score, the first on a tie. Attempt k
 is a pure function of the seed, k, the settings digest and the database, so a
-host may run several at once (:func:`one_attempt`, :func:`accepted`): the same
-plan at any width. D1038's optional rewards take no code of their own: the
+host may run those past the first at once (:data:`WIDTH`): the same plan at any
+width. D1038's optional rewards take no code of their own: the
 obsidians already lie past a trick by the shaping, and the useful items all
 fill the vaults (Q290).
 
@@ -119,6 +119,11 @@ GENERATOR = "azurik-rando-fill/4"     # the fill's version: bumped when the same
 #                                       (/2, Step R1.12: the trap gate; /3, Step R1.8m: own spots, trades, repairs;
 #                                       /4, Step R1.37: no progression or obsidian on an unsaved spot, AZ-467)
 MAX_ATTEMPTS = 20
+WIDTH: int = 1
+"""A shaped fill's attempts past its first at once, on threads: the app's engine's (its reaches leave the GIL), so the
+costliest seeds' fills end sooner; every other host's, the site's worker's too, one at a time."""
+INHERIT: Callable[[], Callable[[], object]] | None = None
+"""What gives those threads the fill's priority (``sdk.INHERIT``'s form): a job ahead's stay as low as the job."""
 MAX_REPAIRS = 8                       # the trap gate's repairs in one attempt (Step R1.8m)
 VAULT_ITEMS = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # Q290: the items a closed field blocks
 USEFUL_MAJOR_WEIGHT = 3               # plan §3.3: useful items lean toward major spots, 3 to 1
@@ -791,8 +796,8 @@ def fill(logic: Logic, seed: str, settings: Settings | None = None) -> Fill:
     so a cancel stops the waiter there) and taking a copy when it ends; one
     that ends without a fill (refused or cancelled) is made again by its
     waiter, which names its own refusal. The fill's notes count its spots
-    (:class:`_Count`). The engine holds no threads (the site's worker runs
-    it as it is): the in-flight fills are one dict whose ``setdefault`` is
+    (:class:`_Count`). The engine holds no threads of its own past
+    :data:`WIDTH` (the site's worker runs it as it is): the in-flight fills are one dict whose ``setdefault`` is
     atomic, and a waiter sleeps between looks."""
     st = settings if settings is not None else logic.db.defaults
     key = (str(seed), settings_digest(st))
@@ -916,32 +921,6 @@ class _Accept:
                         self.run.slots.open_proven(), self.reasons)
 
 
-_RUN: list = [None]   # one_attempt's: the process's last _Run, its Logic and database held, by the settings' digest
-
-
-def one_attempt(logic: Logic, seed: str, settings: Settings, k: int) -> Outcome:
-    """Attempt ``k`` alone: a pure function of the seed, k, the settings and the database, so a host's worker (with a
-    Logic of its own) may run it beside others, and :func:`accepted` keeps the same plan as one attempt at a time."""
-    last = _RUN[0]
-    if last is None or last.logic is not logic or last.logic.db is not logic.db or last.digest != settings_digest(settings):
-        last = _RUN[0] = _Run(logic, settings)
-    return last.attempt(str(seed), k, _Count.SILENT)
-
-
-def accepted(logic: Logic, seed: str, settings: Settings, width: int,
-             each: Callable[[Callable[[int], Outcome], Iterable[int]], Iterable[Outcome]] = map) -> Fill:
-    """:func:`fill`'s plan with ``width`` attempts at a time (``each``, a pool's ``map``: :func:`one_attempt` in attempt
-    order): the first that meets the promise in attempt order, else the highest score, the first on a tie, whatever
-    the width; the width never enters the plan."""
-    run = _RUN[0] = _Run(logic, settings)
-    accept = _Accept(run, str(seed))
-    for first in range(0, MAX_ATTEMPTS, width):
-        for o in each(lambda k: one_attempt(logic, seed, settings, k), range(first, min(first + width, MAX_ATTEMPTS))):
-            if (made := accept.add(o)) is not None:
-                return made
-    return accept.end()
-
-
 class _Making:
     """A fill in flight (:func:`fill`): its Logic and database (held, so
     their ids stay theirs), the note it told last, the fill once made and
@@ -960,9 +939,22 @@ _MAKING: dict[tuple, _Making] = {}   # the fills in flight, by their Logic's and
 def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) -> Fill:
     run = _Run(logic, st, making)
     accept = _Accept(run, seed)
-    for k in range(MAX_ATTEMPTS):
-        if (made := accept.add(run.attempt(seed, k))) is not None:
-            return made
+    if (made := accept.add(run.attempt(seed, 0))) is not None:   # most seeds' only one, so never beside others
+        return made
+    width = WIDTH if run.shape is not None else 1
+    for first in range(1, MAX_ATTEMPTS, width):
+        if width == 1:
+            outcomes = [run.attempt(seed, first)]
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(width, thread_name_prefix="azurkit-attempt", initializer=INHERIT and INHERIT()) as pool:
+                outcomes = list(pool.map(lambda k: run.attempt(seed, k, _Count.SILENT),
+                                         range(first, min(first + width, MAX_ATTEMPTS))))
+            progress.note(run.count.say.removesuffix(", ") or "placing the items")   # a cancel point between them
+        for o in outcomes:
+            if (made := accept.add(o)) is not None:
+                return made
     return accept.end()
 
 

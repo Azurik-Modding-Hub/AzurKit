@@ -190,12 +190,14 @@ def spoiler(doc: Mapping) -> list[str]:
 
 
 def openers_ahead(doc: Mapping) -> None:
-    """Work out a shaped plan's spoiler openers ahead (each a rules' compile the kept Logic then keeps): a host's
-    background job after Track, so the spoiler's View needn't wait on them. Nothing at level 0 or with nothing to shape."""
+    """Work out a shaped plan's spoiler openers ahead (each a rules' compile the kept Logic then keeps, and the answer):
+    the app's engine's background job after a plan, so the spoiler's View needn't wait on them. Nothing at level 0, with
+    nothing to shape, or under movement sliders (their Logic, its own first read, is the plan's cost, not this one's)."""
     logic = kept_logic()
     planned = load_plan(doc, logic.db)
-    if planned.settings.seed_difficulty and difficulty.asked(planned.settings, logic.skip_tables) is not None:
-        difficulty.openers(logic_of(logic, planned.settings), planned.settings, planned.placement)
+    if planned.settings.seed_difficulty and not planned.settings.sliders \
+            and difficulty.asked(planned.settings, logic.skip_tables) is not None:
+        difficulty.openers(logic, planned.settings, planned.placement)
 
 
 def literal(settings: Settings) -> dict:
