@@ -243,6 +243,10 @@ OPS = {op.id: op for op in (
        head_start=True),   # "B dropped": A58's
     Op("S60", "Track a median seed (plan and tracker)", "tracker", head_start=True),   # S18's
     Op("S61", "Build a median seed, no Track first", "randomizer", head_start=True),   # S24's
+    Op("S62", "Build booblord reshaped (one slider moved), first, on a fresh page", "build", bar=True, content=True,
+       head_start=True),   # D999 on the site (D1021, D1054): A31's
+    Op("S63", "Build booblord reshaped, first, after her own build in the page", "build", bar=True, content=True,
+       head_start=True),
     # the next op's wait: the same or a new worker, and Firefox's Save greyed while its Blob is made
     Op("R14", "the engine ready again and Save open after Build keylord", "build"),
     Op("R24", "the engine ready again and Save open after a seed's build", "randomizer"),
@@ -1377,9 +1381,8 @@ def site_reshape_pictures(d: Driver, ctx, url: str) -> None:
     d.leave(p)
 
 
-def site_booblord(d: Driver, ctx, url: str) -> None:
-    if not d.need("S15"):   # no content clone: its op has that error
-        return
+def _booblord(d: Driver, ctx, url: str) -> Page:
+    """A new page with booblord installed and chosen (the player's last change), her pictures drawn."""
     p = _site_page(d, ctx, url, None)
     d.act(p, None, click("tab-characters"), SPECIES_LISTED, 600)
     d.act(p, None, CONTENT_SOURCE, "() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
@@ -1388,8 +1391,40 @@ def site_booblord(d: Driver, ctx, url: str) -> None:
           """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
                && !azurkit.characters.state.installing""", 1800)
     d.act(p, None, model("booblord"), chosen("booblord"), 3600, change=True)
+    return p
+
+
+def site_booblord(d: Driver, ctx, url: str) -> None:
+    if not d.need("S15"):   # no content clone: its op has that error
+        return
+    p = _booblord(d, ctx, url)
     d.act(p, "S15", build_js(), BUILT, 1800)
     d.leave(p)
+
+
+def _site_reshape(d: Driver, ctx, url: str, op: str, after: bool) -> None:
+    """D999 on the site (D1021, D1054): booblord with one slider moved, built first with a bar (``op``), on a fresh
+    page or ``after`` her own build in it (a heap a heavy job grew); then, untimed, the page drawing the reshape's
+    exact pictures, so the run's memory peak holds what the page does after the build too."""
+    if not d.need(op):   # no content clone: its op has that error
+        return
+    p = _booblord(d, ctx, url)
+    if after:
+        d.idle(p, "the head start before her own build", HEAD_START)
+        d.act(p, None, build_js(), BUILT, 1800)
+        d.idle(p, "her own build's rest", done=RESTED)
+    d.act(p, None, RESHAPE, RESHAPED, 600, change=True)
+    d.act(p, op, build_js(), BUILT, 3600)
+    d.idle(p, "the reshape's exact pictures after its build", done=EXACT)
+    d.leave(p)
+
+
+def site_reshape(d: Driver, ctx, url: str) -> None:
+    _site_reshape(d, ctx, url, "S62", after=False)
+
+
+def site_reshape_after(d: Driver, ctx, url: str) -> None:
+    _site_reshape(d, ctx, url, "S63", after=True)
 
 
 def site_track(d: Driver, ctx, url: str) -> None:
@@ -1867,6 +1902,8 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-booblord": ("site", ("S15",), site_booblord),
+    "site-reshape": ("site", ("S62",), site_reshape),
+    "site-reshape-after": ("site", ("S63",), site_reshape_after),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
     "site-seed": ("site", ("S24", "R24", "S50"), site_seed),
     "site-ahead-track": ("site", ("S60",), site_ahead_track),
