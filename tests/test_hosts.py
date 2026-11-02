@@ -1294,6 +1294,9 @@ def test_randomize_ticked_with_no_seed_in_the_apps_page_stops_the_build_ahead(br
             on.dispatchEvent(new Event("change", { bubbles: true }));
         }""")
         assert job.done.wait(60) and isinstance(job.error, engine.Cancelled) and server.slots.job("build") is job
+        # The page's api/setup has been sent: its check reads the logic (seconds), and left running it would write this
+        # setup into the next test's HOME, whose page would restore Randomize ticked (run 41372636477's data edits test).
+        _until(lambda: app._kept().get("setup", {}).get("randomizer"))
         page.close()
     finally:
         server.close()
