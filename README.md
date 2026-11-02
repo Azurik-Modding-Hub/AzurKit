@@ -228,8 +228,9 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **On a computer:** a Mac or a PC; on a phone or a tablet the page says to use a computer.
 - **The web page:** the whole builder, randomizer and tracker run in your browser through WebAssembly, tested in
   Chromium, Safari's engine and Firefox.
-- **Builds back to back:** the page keeps its engine loaded after a build, so the next one starts at once (after a
-  large one, such as a character, it loads a fresh engine).
+- **Builds back to back:** the page keeps its engine loaded after a build, so the next one starts at once.
+- **Ready when you click:** the web page plans the seed you typed and builds what you set up in a second engine while
+  you look it over, so Track and Build often answer at once; a change drops that work.
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
