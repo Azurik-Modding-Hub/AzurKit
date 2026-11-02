@@ -92,14 +92,16 @@ def normalize(entries: object) -> list[dict]:
     return [{key: item[key] for key in KEYS} for item in entries]
 
 
-def plan(entries: Sequence[Mapping], picked: Mapping[str, bytes], release: Release) -> Layer:
+def plan(entries: Sequence[Mapping], picked: Mapping[str, bytes], release: Release,
+         hashed: Mapping[str, str] | None = None) -> Layer:
     """The layer ``entries`` (:func:`normalize` d) make of ``release``'s
     vanilla files, each the bytes the player picked for its path this
     session (``picked``, by path), whole, planned against the vanilla
     file's sha256 its manifest gives (nothing of the image is read here);
     ``ValueError`` names every entry the image has no file for, whose file
     isn't picked, or whose picked file isn't the one it names, and a file
-    picked for a path no entry names (D35)."""
+    picked for a path no entry names (D35). ``hashed`` holds a picked file's
+    sha256 a host hashed from those bytes itself (the site's WebCrypto)."""
     changes, failed = [], []
     for k, item in enumerate(entries, 1):
         path, where = item["path"], f"files {k} ({item['path']})"
@@ -113,7 +115,7 @@ def plan(entries: Sequence[Mapping], picked: Mapping[str, bytes], release: Relea
         if len(data) != item["size"]:
             failed.append(f"{where}: the picked file is {len(data):,} B, not the {item['size']:,} B it names")
             continue
-        if hashlib.sha256(data).hexdigest() != item["sha256"]:
+        if ((hashed or {}).get(path) or hashlib.sha256(data).hexdigest()) != item["sha256"]:
             failed.append(f"{where}: the picked file isn't the one it names (another sha256)")
             continue
         changes.append(Change(path, 0, release.files[path][1], bytes(data), f"put {path}", whole=True))

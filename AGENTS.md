@@ -862,8 +862,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Engine halves no host calls yet** (each tested alone; its hub half wires
   it): the site's work ahead (`web/workers.mjs`), the warm-up
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
-  `web/memo.mjs`), the service worker (`web/sw.js`), Replace files
-  (`edits/files.py`) and Saves (`tools/saves/`).
+  `web/memo.mjs`), the service worker (`web/sw.js`) and Saves
+  (`tools/saves/`).
 - **The page** (`web/`): pick the image, choose packs and set their sliders
   (a box takes any value; the track widens to hold it), Build, then Save. One
   page for both hosts: `host.json` names the host's engine. It decides no
@@ -1135,6 +1135,21 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (D979). The app's saves without a dialog go to the Downloads folder,
     through `writable` (SEC-16). `tests/test_site.py`, `test_hosts.py` and
     `test_edits.py` hold it; `tests/_perf.py`'s A47-A55 and S40-S48 time it.
+    **Replace files** (Step 4.7d, `web/replace.mjs`, `edits/files.py`): a
+    file from the computer stands in for one of the image's, whole, in one
+    layer after every other (a group it shadows is a D28 conflict, named). A
+    recipe, a build and a mods file name it by path, sha256 and size
+    (`files`, read back by `read_mods` and `open_build`), never its bytes or
+    where it was, and a share link refuses it by name (Q174); a recipe that
+    names one builds only once it is picked again, nothing read until then
+    (SEC-11). The bytes reach a build outside the recipe: `sdk.image`'s
+    `picked` and, on the site, `hashed` (the worker reads the File and hashes
+    it in WebCrypto for each build); the app holds the computer path the
+    player picked (`api/replace`: a share or device path refused before
+    anything opens), by its own record (`Server._held`), and its engine reads
+    it per job. A build reads no vanilla bytes of a file only Replace files
+    writes (`edits.manifest.staged`). `azurkit build --file PATH=FILE`
+    builds one. `tests/_perf.py`'s A62-A63 and S54-S55 time it.
   - **Share links** (WEB §4.1): Copy link asks the engine for
     `sdk.preset_encode`'s `#p=` fragment of the page's ticks, sliders, a
     loaded recipe's config.xbr cells and, ticked, the randomizer's seed,

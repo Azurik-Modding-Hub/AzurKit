@@ -819,6 +819,42 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
         server.close()
 
 
+def test_the_apps_replace_files_holds_the_picked_file_and_refuses_a_share_or_an_unpicked_path(tmp_path, monkeypatch, usa_iso):
+    """The app's Replace files (Step 4.7d, SEC-11): ``api/replace`` makes the picked file's entry and holds its path for
+    this launch; a network share, a device path and a file the build owns are refused with nothing read; a build takes
+    the file the server holds, whatever path a page sends (a recipe's own ``picked`` is dropped), and its reply carries
+    no computer path; a recipe naming a file not picked here stops by name."""
+    from azurkit.edits import files
+
+    _home(monkeypatch, tmp_path / "home")
+    (page := tmp_path / "page").mkdir()
+    (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
+    mine = tmp_path / "mine.bin"
+    mine.write_bytes(b"mine" * 1000)
+    other = tmp_path / "other.bin"
+    other.write_bytes(b"other" * 1000)
+    server = app.serve(page)
+
+    def call(path: str, body: dict) -> dict:
+        replies = []
+        _post(server.url, path, body, replies)
+        return replies[0]
+    name = "gamedata/config.xbr"
+    try:
+        for given in ("//host/share/x", "\\\\host\\share\\x", "\\\\?\\C:\\x", "/net/host/x"):
+            assert "never read" in call("api/replace", {"path": name, "file": given})["refused"], given
+        assert "the packs' file" in call("api/replace", {"path": "default.xbe", "file": str(mine)})["refused"]
+        entry = call("api/replace", {"path": name, "file": str(mine)})["entry"]
+        assert entry == files.entry(name, mine.read_bytes())
+        lost = files.entry("gamedata/fx.xbr", b"x")
+        assert "isn't picked in this session" in call("api/build", {"iso": str(usa_iso), "packs": {}, "files": [lost]})["refused"]
+        built = call("api/build", {"iso": str(usa_iso), "packs": {}, "files": [entry], "picked": {name: str(other)}})
+        assert built["report"]["result"][name] == entry["sha256"] and "picked" not in built["recipe"]
+        assert str(mine) not in json.dumps(built)
+    finally:
+        server.close()
+
+
 def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_packs_locked(
         browser, tmp_path, monkeypatch, usa_iso):
     """The app's community group (Step 4.3k): an empty list says so; a folder source's pack lists with its tick greyed

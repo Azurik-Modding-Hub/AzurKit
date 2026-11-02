@@ -16,10 +16,10 @@ import zlib
 
 import pytest
 
-from azurkit import __version__, sdk
+from azurkit import __version__, cli, sdk
 from azurkit.core import gate, iso
 from azurkit.edits import manifest as edits
-from azurkit.edits import layer, preset
+from azurkit.edits import files, layer, preset
 from azurkit.edits.layer import Change, Layer, compose
 from azurkit.tools.randomizer import generator, needs, tracking
 from azurkit.tools.randomizer.planner import fill as rando_fill
@@ -289,6 +289,52 @@ def test_a_host_hashes_a_builds_changed_files_and_blobs_and_gets_images_bytes(tm
     assert told.result["a.bin"] == _sha256(composed) == manifest.result["a.bin"]
     with pytest.raises(ValueError, match="^blob:0: the host gave no sha256 of it$"):
         drive(lambda jobs: {"file:a.bin": "0" * 64})
+
+
+@pytest.mark.vanilla
+def test_the_sdk_builds_a_replaced_file_and_a_build_a_mods_file_and_the_command_line_name_it_never_a_link(
+        usa_iso, tmp_path):
+    """Replace files through the sdk and the CLI (Step 4.7d's hub half): a recipe's replacement lands last, the Data
+    tab's set on the same file named and dropped (D28), its layer's record naming the path, sha256 and size; a rebuild
+    without the file stops by name, as does a file that isn't the one named, never echoing a sha256; a mods file and a
+    build's recipe carry the entry and a share link refuses it by name; ``azurkit build --file`` builds the same
+    file; a network share is refused before anything is read."""
+    path = "gamedata/config.xbr"
+    data = b"replaced config " * 4000
+    entry = files.entry(path, data)
+    recipe = {"iso": str(usa_iso), "packs": {}, "files": [entry],
+              "xbr": [{"op": "set", "file": path, "table": "critters_damage", "entity": "golem", "prop": "hitPoints",
+                       "value": 321}]}
+    made, report = sdk.image(recipe, picked={path: data})
+    assert [la["id"] for la in report["layers"]] == ["data xbr", "files put"]
+    assert report["result"][path] == entry["sha256"] and len(report["conflicts"]) == 1
+    assert "data xbr" in report["conflicts"][0] and "files put" in report["conflicts"][0]
+    out = tmp_path / "built.iso"
+    sdk.save(made, str(out))
+    with iso.Reader(out) as r:
+        assert r.read(path) == data
+    opened = sdk.open_build(str(out))
+    assert {la["tool"]: la["recipe"] for la in opened["layers"]}["files"] == {"files": [entry]}
+    mods = sdk.mods_file({"recipe": recipe})["text"]
+    assert sdk.read_mods(mods)["files"] == [entry] and sdk.mods_file({"text": mods})["preset"]["layers"][-1]["tool"] == "files"
+    with pytest.raises(ValueError, match="never carries a replaced file .* gamedata/config.xbr"):
+        sdk.preset_encode(recipe)
+    with pytest.raises(ValueError, match=r"\(gamedata/config.xbr\): its file isn.t picked in this session; pick it again"):
+        sdk.image(recipe)
+    with pytest.raises(ValueError) as caught:
+        sdk.image(recipe, picked={path: data[:-1] + b"x"})
+    assert "isn't the one it names (another sha256)" in str(caught.value) and entry["sha256"] not in str(caught.value)
+    with pytest.raises(ValueError, match=r"\(default.xbe\): the packs' file"):
+        sdk.file_entry({"path": "default.xbe", "sha256": "0" * 64, "size": 1})
+
+    local = tmp_path / "mine.xbr"
+    local.write_bytes(data)
+    assert cli.main(["build", "--iso", str(usa_iso), "--out", str(tmp_path / "cli.iso"), "--no-defaults",
+                     "--file", f"{path}={local}"]) == 0
+    assert sdk.open_build(str(tmp_path / "cli.iso"))["result"][path] == entry["sha256"]
+    assert cli.main(["build", "--iso", str(usa_iso), "--out", str(tmp_path / "no.iso"), "--no-defaults",
+                     "--file", f"{path}=//host/share/x"]) == 1
+    assert not (tmp_path / "no.iso").exists()
 
 
 def test_a_replaced_file_lands_whole_after_every_layer_and_its_recipe_names_it(tmp_path, monkeypatch):

@@ -189,10 +189,14 @@ def staged(stamp: gate.Stamp, layers: Sequence[Layer], base: Mapping[str, bytes 
             return out
         return hashed
     base = dict(base or {})
+    # A file only Replace files writes (edits.files, whole, the last layer): its old bytes never land, so it isn't read.
+    puts = {c.file: c.before for la in layers if la.tool == "files" for c in la.changes}
+    others = {c.file for la in layers if la.tool != "files" for c in (*la.changes, *la.claims)}
     with iso.Reader(stamp.path) as r:
-        base |= {name: r.read(name) for name in names if name not in base}
+        base |= {name: b"" if name in puts and name not in others else r.read(name) for name in names
+                 if name not in base}
         known = {name: stamp.release.files[name][1] for name in base
-                 if name in stamp.release.files and name.startswith(gate.BUILD_FILES)}
+                 if name in stamp.release.files and name.startswith(gate.BUILD_FILES)} | puts
         files, conflicts = compose(base, layers, known,
                                    None if progress is None else lambda done, _: progress(done, 2 * len(names)))
         changed = {}

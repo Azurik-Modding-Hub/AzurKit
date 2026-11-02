@@ -105,6 +105,7 @@ from azurkit.core import gate, iso, native
 from azurkit.core.progress import Steps, noting
 from azurkit.core.xbr import Document
 from azurkit.edits import manifest as edits
+from azurkit.edits import files as replaced
 from azurkit.edits import preset, xbr
 from azurkit.edits.layer import Layer
 from azurkit.tools import characters, mods, randomizer
@@ -117,8 +118,8 @@ __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_st
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
            "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file", "community",
-           "content_refusal"]
-RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community")
+           "content_refusal", "file_entry"]
+RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
 """Where Azurik-Custom-Content is read from by default (D966: the hub's, public at Step 4.4)."""
@@ -340,10 +341,11 @@ def _picks(recipe: Mapping) -> list[dict]:
     return communal.resolve(recipe["community"], kit.installed(), lambda path: (kit.ROOT / path).read_bytes())
 
 
-def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes | iso.View], list[Layer],
-                                                         Callable | None, generator.Prepared | None]:
+def _plan(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, bytes] | None = None,
+          hashed: Mapping[str, str] | None = None) -> tuple[gate.Stamp, dict[str, bytes | iso.View], list[Layer],
+                                                            Callable | None, generator.Prepared | None]:
     """:func:`_planning`, on a host that reads as it goes."""
-    run = _planning(recipe, steps)
+    run = _planning(recipe, steps, picked, hashed)
     try:
         next(run)
     except StopIteration as done:
@@ -351,20 +353,24 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
     raise AssertionError("a plan with no reads ahead yields nothing")
 
 
-def _planning(recipe: Mapping, steps: Steps = Steps(), ahead: bool = False):
+def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, bytes] | None = None,
+              hashed: Mapping[str, str] | None = None, ahead: bool = False):
     """The recipe's vanilla image (its build files checked, D27), the files
     read from it (a seed's levels only as ``generator.sections``' views, but
     any another layer reads), its randomizer's layer (its plan written, the
     first), each pack's layer, the character's, each community pack's edits,
-    then its xbr operations' (the Data tool's, last), the randomizer's
-    read-back of the built image and its plan (``None`` without one); every
-    refusal named. ``steps`` hears each stage. A generator, its
+    then its xbr operations' (the Data tool's), the files it replaces
+    (``picked``, the bytes the player picked this session by path, ``hashed``
+    their sha256 if the host hashed them; last, ``edits.files``), the
+    randomizer's read-back of the built image and its plan (``None`` without
+    one); every refusal named. ``steps`` hears each stage. A generator, its
     ``StopIteration``'s value those: with ``ahead`` it first yields a seed's
     ``generator.heads`` and ``generator.pages``, for a host whose reads are
     late to read them all at once, else nothing."""
     packs = own = _packs(recipe)
     picks = _picks(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
+    entries = replaced.normalize(recipe.get("files", []))
     character = characters.normalize(recipe["character"]) if "character" in recipe else None
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
@@ -431,6 +437,11 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), ahead: bool = False):
         steps("data")
         try:
             layers.append(xbr.plan(ops, stamp.release, base))
+        except ValueError as exc:
+            failed.append(str(exc))
+    if entries or picked:
+        try:
+            layers.append(replaced.plan(entries, picked or {}, stamp.release, hashed))
         except ValueError as exc:
             failed.append(str(exc))
     if failed:
@@ -743,8 +754,8 @@ def _report(made: edits.Manifest, prepared: generator.Prepared | None, steps: St
     return out
 
 
-def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
-          spoiler: bool = True) -> tuple[iso.Image, dict]:
+def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None, spoiler: bool = True,
+          picked: Mapping[str, bytes] | None = None) -> tuple[iso.Image, dict]:
     """The image ``recipe`` builds, unwritten, and its report: the release,
     each layer's sites and bytes, the sha256 of each file that differs from
     vanilla, every conflict (D28) and each layer's notes (a slider value
@@ -763,15 +774,18 @@ def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
     total), the data edits, laying out the image (each file composed and
     hashed, done of total), reading it back against the plan (each level
     file, done of total) and writing the spoiler; an exception it raises stops the
-    build."""
+    build. ``picked`` holds the bytes of the files a recipe's ``files``
+    replaces, by the image's path (``edits.files``: a recipe names them, never
+    holds them)."""
     steps = Steps(progress)
-    stamp, base, layers, judge, prepared = _plan(recipe, steps)
+    stamp, base, layers, judge, prepared = _plan(recipe, steps, picked)
     steps("layout")
     made, manifest = edits.image(stamp, layers, base, judge=judge, map=_map, progress=steps.counter("layout"))
     return made, _report(manifest, prepared, steps, spoiler)
 
 
 def image_staged(recipe: Mapping, *, progress: Callable[[dict], object] | None = None, spoiler: bool = True,
+                 picked: Mapping[str, bytes] | None = None, hashed: Mapping[str, str] | None = None,
                  ahead: bool = False):
     """:func:`image` for a host that hashes the build's changed files itself
     (the site's worker: WebCrypto, off its engine's thread), as a generator
@@ -781,11 +795,13 @@ def image_staged(recipe: Mapping, *, progress: Callable[[dict], object] | None =
     yield; a :class:`iso.Patched`'s md5 too, at once), and returns ``(image,
     report)``, :func:`image`'s, byte for byte, as its ``StopIteration``'s
     value. Its refusals are :func:`image`'s; a key missing from the shas is a
-    ``ValueError`` naming it. With ``ahead``, for a host whose reads are late,
-    it first yields twice at most a list of ``(image offset, size)``, what it
-    reads next, and is resumed once those are at hand (:func:`_planning`)."""
+    ``ValueError`` naming it. ``picked`` as :func:`image`'s, with ``hashed``
+    the sha256 of each that the host hashed. With ``ahead``, for a host whose
+    reads are late, it first yields twice at most a list of ``(image offset,
+    size)``, what it reads next, and is resumed once those are at hand
+    (:func:`_planning`)."""
     steps = Steps(progress)
-    stamp, base, layers, judge, prepared = yield from _planning(recipe, steps, ahead)
+    stamp, base, layers, judge, prepared = yield from _planning(recipe, steps, picked, hashed, ahead)
     steps("layout")
     made, manifest = yield from edits.staged(stamp, layers, base, judge=judge, map=_map,
                                              progress=steps.counter("layout"))
@@ -836,12 +852,14 @@ def _never_vanilla(target: Path) -> None:
             raise ValueError(f"{target}: it is the vanilla {release.label} image, which a build never writes over")
 
 
-def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] | None = None) -> dict:
+def build(recipe: Mapping, out: str, *, progress: Callable[[int, int], object] | None = None,
+          picked: Mapping[str, bytes] | None = None) -> dict:
     """Write the image ``recipe`` builds to ``out`` (never its input or a
     vanilla image, D36); :func:`image`'s report with the output's path,
     size and sha256. ``progress(done, total)`` follows the write; an
-    exception it raises cancels it, and nothing is written."""
-    stamp, base, layers, judge, prepared = _plan(recipe)
+    exception it raises cancels it, and nothing is written. ``picked`` as
+    :func:`image`'s."""
+    stamp, base, layers, judge, prepared = _plan(recipe, picked=picked)
     target = Path(out)
     _never_vanilla(target)
     sha256, manifest = edits.build(stamp, layers, target, base=base, progress=progress, judge=judge, map=_map)
@@ -863,7 +881,7 @@ def open_build(path: str, *, whole: bool = True) -> dict:
 
 
 _NO_TOOL = ("preset: no tool {tool!r} with {kind!r} (AzurKit's: mods with packs, data with xbr, randomizer with plan, "
-            "characters with characters, community with packs)")
+            "characters with characters, community with packs, files with put)")
 
 
 def _pins(recipe: Mapping) -> list[dict]:
@@ -892,6 +910,8 @@ def read_mods(given: str | bytes | Mapping) -> dict:
             out["character"] = _character(layer["recipe"])[0]
         elif (layer["tool"], layer["kind"]) == (communal.TOOL, communal.KIND) and set(layer["recipe"]) == {"packs"}:
             out["community"] = communal.normalize(layer["recipe"]["packs"])
+        elif (layer["tool"], layer["kind"]) == (replaced.TOOL, replaced.KIND) and set(layer["recipe"]) == {"files"}:
+            out["files"] = replaced.normalize(layer["recipe"]["files"])
         else:
             raise ValueError(_NO_TOOL.format(**layer))
     return out
@@ -934,6 +954,10 @@ def _shared(ops: list[dict]) -> list[dict]:
     return ops
 
 
+_NO_LINK = ("preset: a share link never carries a replaced file (Q174): save a mods file for {}, and pick the file "
+            "again where it is loaded")
+
+
 def preset_encode(recipe: Mapping, report: Mapping | None = None) -> str:
     """The share link's fragment (``#p=…``) for ``recipe``'s randomizer
     (its seed, settings or share string and obsidian cost, checked as a
@@ -962,6 +986,10 @@ def _preset(recipe: Mapping, report: Mapping | None = None, *, link: bool = True
         made["layers"].append({"tool": communal.TOOL, "kind": communal.KIND, "recipe": {"packs": pins}})
     if ops := (_shared if link else list)(xbr.normalize(recipe.get("xbr", []))):
         made["layers"].append({"tool": xbr.TOOL, "kind": xbr.KIND, "recipe": {"ops": ops}})
+    if entries := replaced.normalize(recipe.get("files", [])):
+        if link:
+            raise ValueError(_NO_LINK.format(", ".join(e["path"] for e in entries)))
+        made["layers"].append({"tool": replaced.TOOL, "kind": replaced.KIND, "recipe": {"files": entries}})
     if report is not None:
         name = report.get("release") if isinstance(report, Mapping) else None
         release = next((r for r in gate.RELEASES if r.name == name), None)
@@ -997,6 +1025,10 @@ def _loaded(found: dict, *, link: bool = True) -> dict:
             layer["recipe"] = _character(layer["recipe"])[1]
         elif (layer["tool"], layer["kind"]) == (communal.TOOL, communal.KIND) and set(layer["recipe"]) == {"packs"}:
             layer["recipe"] = {"packs": _pins({"community": layer["recipe"]["packs"]})}
+        elif (layer["tool"], layer["kind"]) == (replaced.TOOL, replaced.KIND) and set(layer["recipe"]) == {"files"}:
+            layer["recipe"] = {"files": replaced.normalize(layer["recipe"]["files"])}
+            if link:
+                raise ValueError(_NO_LINK.format(", ".join(e["path"] for e in layer["recipe"]["files"])))
         else:
             raise ValueError(_NO_TOOL.format(**layer))
     return found
@@ -1341,6 +1373,14 @@ def _still(pins: object) -> tuple[list[dict], list[str]]:
         except ValueError as exc:
             dropped.append(str(exc))
     return kept, dropped
+
+
+def file_entry(given: Mapping) -> dict:
+    """``{"entry"}``: ``given`` (``{"path", "sha256", "size"}``, a picked
+    file's) as a recipe's ``files`` holds it, or the refusal named: a file
+    the build owns, a size past what an image's file holds
+    (``edits.files``)."""
+    return {"entry": replaced.normalize([given])[0]}
 
 
 def community() -> dict:

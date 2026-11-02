@@ -792,6 +792,68 @@ COMMUNITY = """() => [...document.querySelectorAll("#char-community .entry")].ma
     [...e.querySelectorAll(".model")].map((m) => m.dataset.model)])"""
 
 
+def test_a_build_with_a_replaced_file_is_the_apps_image(browser, site, usa_iso, tmp_path):
+    """Replace files on the site (Step 4.7d): greyed with its line until an image is picked; a file the build owns is
+    refused by name; a picked File builds the image the engine builds on CPython for the same bytes, by the whole
+    image's sha256; a share link refuses it by name; a mods file loaded in a fresh page asks for the file again and
+    stops a Build by name, reading nothing."""
+    from azurkit.edits import files
+
+    name = "gamedata/fx.xbr"
+    mine = tmp_path / "mine.bin"
+    mine.write_bytes(b"a file of the player's own " * 30000)
+    entry = files.entry(name, mine.read_bytes())
+    defaults = {pack["name"]: {} for pack in sdk.catalog()["packs"] if pack["default_on"]}
+    made, expected = sdk.image({"iso": str(usa_iso), "packs": defaults, "files": [entry]},
+                               picked={name: mine.read_bytes()})
+    out = tmp_path / "cpython.iso"
+    sdk.save(made, str(out))
+    with open(out, "rb") as f:
+        want = hashlib.file_digest(f, "sha256").hexdigest()
+    out.unlink()
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.evaluate("() => document.getElementById('tab-tools').click()")
+        assert page.evaluate("""() => [document.getElementById('replace-path').disabled,
+            document.getElementById('replace-line').textContent]""") == [True, "Choose your image first (1.)"]
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa' && !document.getElementById('replace-path').disabled", 300)
+        page.evaluate("() => { document.getElementById('replace-path').value = 'default.xbe'; }")
+        page.set_input_files("#replace-file", str(mine))
+        _page.until(page, "() => /default.xbe isn't replaced: .*the packs' file/.test(document.getElementById('status').textContent)", 120)
+        page.evaluate(f"() => {{ document.getElementById('replace-path').value = {json.dumps(name)}; }}")
+        page.set_input_files("#replace-file", str(mine))
+        _page.until(page, "() => azurkit.replace.entries().length === 1", 120)
+        assert page.evaluate("() => azurkit.replace.entries()") == [entry]
+        page.evaluate("() => document.getElementById('share').click()")
+        _page.until(page, "() => /never carries a replaced file/.test(document.getElementById('status').textContent)", 60)
+        page.evaluate("() => document.getElementById('tab-patches').click()")
+        page.evaluate("() => document.getElementById('build').click()")
+        _page.until(page, "() => azurkit.build || document.getElementById('status').classList.contains('error')", 600)
+        assert page.evaluate("() => azurkit.build.report.result") == expected["result"]
+        with page.expect_download(timeout=600_000) as caught:
+            page.evaluate("() => document.getElementById('save').click()")
+        with open(caught.value.path(), "rb") as f:
+            assert hashlib.file_digest(f, "sha256").hexdigest() == want
+        caught.value.delete()
+        _page.until(page, "() => azurkit.ready", 300)
+        mods = tmp_path / "mods.json"
+        mods.write_text(sdk.mods_file({"recipe": {"packs": defaults, "files": [entry]}})["text"], encoding="utf-8")
+        fresh = served.open()
+        fresh.set_input_files("#iso", str(usa_iso))
+        _page.until(fresh, "() => azurkit.vanilla?.release === 'usa'", 300)
+        fresh.evaluate("() => document.getElementById('tab-tools').click()")
+        fresh.set_input_files("#tools-mods-file", str(mods))
+        _page.until(fresh, "() => azurkit.replace.entries().length === 1", 120)
+        assert "Not picked here" in fresh.evaluate("() => document.getElementById('replace-rows').textContent")
+        fresh.evaluate("() => document.getElementById('build').click()")
+        _page.until(fresh, "() => /isn't picked in this session/.test(document.getElementById('status').textContent)", 300)
+        _page.check_csp(fresh)
+    finally:
+        served.close()
+
+
 def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_and_builds_it(
         browser, site, usa_iso, tmp_path, monkeypatch):
     """The site's community group (Step 4.3k): read from the site's own address when first opened, a pack's tick greyed

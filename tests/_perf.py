@@ -160,6 +160,8 @@ OPS = {op.id: op for op in (
     Op("A57", "Build a median seed, no Track first", "randomizer", head_start=True),
     Op("A58", "Build a median seed, another seed's work ahead going stale 1 s into the head start", "randomizer",
        head_start=True),
+    Op("A62", "Replace files: a 148 MB file picked, its sha256", "build"),   # Step 4.7d
+    Op("A63", "Build with one 148 MB file replaced", "build", head_start=True),
     Op("S01", "page start, first visit (the engine load)", "start", bar=True),
     Op("S02", "page start, a return visit", "start", first=False),
     Op("S03", "choose the image, first time", "image", bar=True),
@@ -215,6 +217,8 @@ OPS = {op.id: op for op in (
     Op("S48", "the last build's report, View", "build", first=False),
     Op("S49", "Save keylord's build (the browser's download)", "build", browser_bar=DOWNLOAD_BAR),   # X5
     Op("S50", "Save a seed's build (the browser's download)", "randomizer", browser_bar=DOWNLOAD_BAR),
+    Op("S54", "Replace files: a 148 MB file picked, its sha256", "build"),   # Step 4.7d
+    Op("S55", "Build with one 148 MB file replaced", "build", head_start=True),
     Op("R14", "the engine ready again after Build keylord", "build"),   # the next op's wait: the same or a new worker
     Op("R24", "the engine ready again after a seed's build", "randomizer"),
 )}
@@ -306,6 +310,7 @@ LAG = (
      f"{{ const late = performance.now() + {LAG_MS}; while (performance.now() < late); }} "
      "data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));"),
     ("await ends.arrayBuffer()", f"await {_WAIT}ends.arrayBuffer())"),   # identify's sample of the File
+    ("await picked.arrayBuffer()", f"await {_WAIT}picked.arrayBuffer())"),   # Replace files' picked file
     ("await file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer()",   # the folders' tables read ahead (R2.5)
      f"await {_WAIT}file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer())"),
     ("await file.slice(i * PAGE, (i + 1) * PAGE).arrayBuffer()",   # a seed's sections read ahead (AM-HUB-E)
@@ -1451,6 +1456,45 @@ def site_community(d: Driver, ctx, url: str) -> None:
     p.page.close()
 
 
+# ---- Replace files (Step 4.7d): a file of the size of the image's largest picked to replace it, then a Build with it.
+def _replacement(d: Driver) -> tuple[str, Path]:
+    """The image's largest file that may be replaced, and a file of its size, made once a run (no game bytes)."""
+    from azurkit.core import gate
+    name = max((p for p in gate.USA.files if p.endswith(".xbr")), key=lambda p: gate.USA.files[p][0])
+    made = d.scratch / "replacement.bin"
+    if not made.is_file():
+        made.write_bytes(os.urandom(1 << 20) * (gate.USA.files[name][0] >> 20) + os.urandom(gate.USA.files[name][0] & 0xFFFFF))
+    return name, made
+
+
+REPLACED = "() => /will be replaced/.test(document.getElementById('status').textContent) && 'held'"
+
+
+def app_replace(d: Driver, app: App, ctx) -> None:
+    name, made = _replacement(d)
+    p = app.launch(d, ctx, None)
+    d.act(p, None, typed("iso-path", str(d.iso)), USA)
+    p.js(click("tab-tools"))
+    p.js(f"""() => {{ document.getElementById('replace-path').value = {json.dumps(name)};
+                     document.getElementById('replace-from').value = {json.dumps(str(made))}; }}""")
+    d.act(p, "A62", click("replace-use"), REPLACED, 300, change=True)
+    p.js(click("tab-patches"))
+    d.act(p, "A63", build_js(), BUILT, 900)
+    app.quit(p)
+
+
+def site_replace(d: Driver, ctx, url: str) -> None:
+    name, made = _replacement(d)
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    p.js(click("tab-tools"))
+    p.js(f"() => {{ document.getElementById('replace-path').value = {json.dumps(name)}; }}")
+    d.act(p, "S54", lambda: p.page.set_input_files("#replace-file", str(made)), REPLACED, 300, change=True)
+    p.js(click("tab-patches"))
+    d.act(p, "S55", build_js(), BUILT, 900)
+    p.page.close()
+
+
 # ---- the Data tab (Step 4.7a): its first open (the index and the Player view, no image), a critter's view, the
 # picker's search, critters_damage's grid, an edit committed and its Undo (each the engine's check or view again), a
 # Build of the defaults and 100 data edits (the site's loaded in the Tools tab, the app's its remembered setup at the
@@ -1589,6 +1633,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"), app_start),
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
     "app-community": ("app", ("A33", "A34", "A35", "A36"), app_community),
+    "app-replace": ("app", ("A62", "A63"), app_replace),
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
     "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38"), app_track),
     "app-ahead-track": ("app", ("A56",), app_ahead_track),
@@ -1603,6 +1648,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
                              "S17"),
                    site_start),
     "site-community": ("site", ("S26", "S27", "S28", "S29"), site_community),
+    "site-replace": ("site", ("S54", "S55"), site_replace),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),

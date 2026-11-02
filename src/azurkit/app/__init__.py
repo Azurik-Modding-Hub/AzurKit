@@ -92,7 +92,9 @@ The Characters tab's calls (Step 4.3d): ``POST api/pickers`` ``{"given"}``
 pictures as base64 PNG), and Azurik-Custom-Content's ``api/content``
 ``{"source"}`` (``sdk.content``) and ``api/install`` ``{"id", "source"}``
 (``sdk.content_install``, into the content folder); ``api/community``
-``{}`` the community packs that folder holds (``sdk.community``); ``api/content_source``
+``{}`` the community packs that folder holds (``sdk.community``); ``api/replace``
+``{"path", "file"}`` picks a computer file to replace one of the image's (``sdk.file_entry``, held for this session);
+``api/content_source``
 ``{"source"}`` remembers the tab's Content from (``null``: the default),
 which ``host.json``'s ``content_source`` gives the next page, and
 ``api/show_objects`` ``{"show"}`` its Show objects (D1034: ``false``, the
@@ -141,6 +143,7 @@ from __future__ import annotations
 
 import contextlib
 import glob
+import hashlib
 import hmac
 import http.server
 import json
@@ -158,6 +161,7 @@ from pathlib import Path
 from azurkit import __version__, sdk
 from azurkit.core import gate
 from azurkit.core.progress import record
+from azurkit.edits import files as replaced
 from azurkit.edits import xbr
 from azurkit.tools import randomizer
 from azurkit.tools.randomizer import tracking
@@ -470,6 +474,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.tracking = threading.Lock()    # the tracker the page's asks and Live's feed share
         self.feed: live.Feed | None = None  # Live, while it is on
         self.drawing = pictures.Drawing()   # the tracker's maps and icons, shipped with the page
+        self.picks: dict[str, Path] = {}    # the files picked this session to replace the image's, by its path
         self.slots = ahead.Ahead(kill=self._quiet)   # the work ahead, each click's way to it (D1007)
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
@@ -552,10 +557,35 @@ class Server(http.server.ThreadingHTTPServer):
                 "setup": _kept().get("setup"), "tracker": _kept().get("tracker"),
                 "content_source": _kept().get("content_source"), "show_objects": _kept().get("show_objects") is True}
 
-    @staticmethod
-    def _recipe(body: dict) -> dict:
+    def _recipe(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
-        return recipe | {key: body[key] for key in ("xbr", "randomizer", "character", "community") if body.get(key)}
+        return self._held(recipe | {key: body[key] for key in ("xbr", "randomizer", "character", "community", "files")
+                                    if body.get(key)})
+
+    def _held(self, recipe: object) -> object:
+        """``recipe`` with the files its ``files`` names that the player
+        picked this session (``api/replace``), by the server's own record:
+        no recipe, and no page, names a computer path it reads (SEC-11)."""
+        if not isinstance(recipe, dict) or not isinstance(recipe.get("files"), list):
+            return recipe
+        named = [e["path"] for e in recipe["files"] if isinstance(e, dict) and isinstance(e.get("path"), str)]
+        return {k: v for k, v in recipe.items() if k != "picked"} | {
+            "picked": {path: str(self.picks[path]) for path in named if path in self.picks}}
+
+    def replace(self, body: dict) -> dict:
+        """``api/replace``: ``{"path", "file"}``, a computer file the player
+        picked to stand in for the image's ``path``: its entry
+        (``sdk.file_entry``), and the file held for this session's builds. A
+        network share or device path is refused before anything is opened
+        (``edits.files.source``)."""
+        path, file = body.get("path"), replaced.source(str(body.get("file") or ""))
+        given = _path(file, "replacement")
+        sdk.file_entry({"path": path, "sha256": "0" * 64, "size": given.stat().st_size})   # refused before it is read
+        with self.follow("replace", record("check", f"Reading {given.name}")), open(given, "rb") as f:
+            sha = hashlib.file_digest(f, "sha256").hexdigest()
+            entry = sdk.file_entry({"path": path, "sha256": sha, "size": f.tell()})
+        self.picks[path] = given
+        return entry
 
     def _image(self, recipe: dict) -> Callable[[ahead.Job], dict]:
         """A build of ``recipe`` in the engine, as a slot's job, its peak told to the slots (``ahead.room``)."""
@@ -624,6 +654,7 @@ class Server(http.server.ThreadingHTTPServer):
         from platformdirs import user_downloads_path
         iso = Path(recipe["iso"])
         stem = iso.stem if iso.suffix.lower() in (".iso", ".xiso") else iso.name   # the site's download's name
+        recipe = {k: v for k, v in recipe.items() if k != "picked"}   # the server holds it (_held)
         return {"report": report, "size": built["size"], "recipe": recipe, "build": built["build"],
                 "out": str(user_downloads_path() / f"{stem} (AzurKit).iso")}
 
@@ -640,7 +671,7 @@ class Server(http.server.ThreadingHTTPServer):
         return out
 
     def save(self, body: dict) -> dict:
-        recipe, out = body.get("recipe"), self.writable(_path(body.get("out"), "saved image"), "out")
+        recipe, out = self._held(body.get("recipe")), self.writable(_path(body.get("out"), "saved image"), "out")
 
         with self.busy, self.writing, self.follow("save", record("write")) as report:
             def progress(step: dict) -> None:
@@ -885,7 +916,8 @@ class Server(http.server.ThreadingHTTPServer):
             picked = self.window.create_file_dialog(webview.FileDialog.SAVE, directory=folder,
                                                     save_filename=given.name if given else "")
         else:
-            picked = self.window.create_file_dialog(webview.FileDialog.OPEN, directory=folder, file_types=IMAGES)
+            picked = self.window.create_file_dialog(webview.FileDialog.OPEN, directory=folder, **(
+                {} if body.get("kind") == "replacement" else {"file_types": IMAGES}))
         if isinstance(picked, (list, tuple)):
             picked = picked[0] if picked else None
         if picked and body.get("kind") in SAVES:
@@ -967,7 +999,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/preview": lambda body: self.server.dressed("preview", body),
                 "/api/match": lambda body: self.server.dressed("match", body),
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
-                "/api/community": lambda body: sdk.community(),
+                "/api/community": lambda body: sdk.community(), "/api/replace": self.server.replace,
                 "/api/install": self.server.install,
                 "/api/speculate": self.server.speculate, "/api/prefetch": self.server.prefetch,
                 "/api/content_source": _set_source, "/api/show_objects": _set_objects,

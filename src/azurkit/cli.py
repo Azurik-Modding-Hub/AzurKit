@@ -65,6 +65,7 @@ from pathlib import Path
 
 from azurkit import __version__, sdk
 from azurkit.core import gate
+from azurkit.edits import files as replaced
 
 
 def _verify(args: argparse.Namespace) -> int:
@@ -148,12 +149,29 @@ def _randomizer(args: argparse.Namespace) -> dict | None:
     return given | ({"obsidian_cost": args.obsidian_cost} if args.obsidian_cost is not None else {})
 
 
+def _replacing(flags: list[str], listed: list[dict]) -> tuple[list[dict], dict[str, bytes]]:
+    """``--file PATH=FILE``: the recipe's ``files`` (``listed``, a mods file's,
+    then each new path's entry) and the bytes each flag picked; ``ValueError``
+    names a flag that isn't one, or a file no host reads (a network share, a
+    device path: ``edits.files.source``)."""
+    picked = {}
+    for flag in flags:
+        path, sep, file = flag.partition("=")
+        if not sep or not path or not file:
+            raise ValueError(f"--file {flag}: not PATH=FILE")
+        picked[path] = Path(replaced.source(file)).read_bytes()
+    known = {entry["path"] for entry in listed}
+    return [*listed, *(replaced.entry(path, data) for path, data in picked.items() if path not in known)], picked
+
+
 def _build(args: argparse.Namespace) -> int:
     try:
         given = sdk.read_mods(Path(args.mods).read_bytes()) if args.mods else None
         made = recipe(args.iso, args.pack, args.no_pack, not args.no_defaults, args.pack_param, given,
                       _randomizer(args), args.community)
-        built = sdk.build(made | ({"character": json.loads(args.character)} if args.character else {}), args.out)
+        entries, picked = _replacing(args.file, (given or {}).get("files", []))
+        built = sdk.build(made | ({"character": json.loads(args.character)} if args.character else {})
+                          | ({"files": entries} if entries else {}), args.out, picked=picked)
     except (OSError, ValueError) as exc:    # tomllib.TOMLDecodeError is a ValueError
         print(f"azurkit: {exc}", file=sys.stderr)
         return 1
@@ -328,6 +346,9 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--community", action="append", default=[], metavar="ID",
                        help="a community pack installed with `azurkit content install` (repeatable): its packs and "
                             "game-data edits join the build")
+    build.add_argument("--file", action="append", default=[], metavar="PATH=FILE",
+                       help="replace the image's file PATH with your FILE, whole, after every other change (repeatable; "
+                            "not default.xbe or filelist.txt; a mods file names one and needs this flag to build)")
     build.set_defaults(run=_build)
     opened = verbs.add_parser("open", help="print an AzurKit build's recipe as a mods file",
                               description="Read BUILD's /azurkit.json, check every file of the image against it, "

@@ -49,10 +49,12 @@ import secrets
 import signal
 import threading
 from collections.abc import Callable, Mapping
+from pathlib import Path
 
 from azurkit import sdk
 from azurkit.core import gate, iso, native
 from azurkit.core.progress import record
+from azurkit.edits import files as replaced
 from azurkit.tools import characters
 from azurkit.tools.characters import pool
 
@@ -172,11 +174,22 @@ def _drop() -> None:
     _BUILT.clear()
 
 
+def _picked(recipe: Mapping) -> tuple[dict, dict]:
+    """``recipe`` less the server's ``picked`` (``{image's path: the computer
+    path the player picked this session}``), and those files' bytes as
+    ``sdk.image``'s ``picked``: read here, in the job, so a recipe names a
+    file and only a build holds it."""
+    recipe = dict(recipe)
+    held = recipe.pop("picked", None)
+    return recipe, {"picked": {path: Path(replaced.source(file)).read_bytes() for path, file in held.items()}} if held else {}
+
+
 def _image(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
     from . import procpool
 
     _drop()   # before the build: never two builds' images held at once
-    made, report = sdk.image(recipe, progress=progress, spoiler=False)   # a seed's spoiler when asked: JOBS' spoiler
+    recipe, picked = _picked(recipe)
+    made, report = sdk.image(recipe, progress=progress, spoiler=False, **picked)   # a seed's spoiler when asked: JOBS' spoiler
     ident = secrets.token_hex(8)
     _BUILT[ident] = _Built(made, report)
     return {"size": made.size, "report": report, "build": ident, "peak": procpool._peak()}
@@ -193,7 +206,8 @@ def _save(recipe: Mapping, out: str, build: str | None = None,
     kept = _BUILT.get(build) if isinstance(build, str) else None
     if kept is not None and kept.holds():
         return kept.report | sdk.save(kept.made, out, progress=report, sha256=lambda: kept.sha256(report))
-    return sdk.build(recipe, out, progress=lambda done, total: report(record("write", None, done, total)))
+    recipe, picked = _picked(recipe)
+    return sdk.build(recipe, out, progress=lambda done, total: report(record("write", None, done, total)), **picked)
 
 
 def _kept(job: str, fn: Callable[[Mapping, Callable | None], dict]) -> Callable[..., dict]:

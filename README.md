@@ -197,6 +197,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
   changed.
 - **Your original stays safe:** a build never writes over the image it reads.
 - **All or nothing:** if anything fails, nothing is written, and the error says what and why.
+- **Replace files:** pick a file from your computer to stand in for one of the image's, at any size, in the Tools tab
+  or with `azurkit build --file`; the recipe names it, never holds it, and a share link refuses it.
 - **Clashes named:** when two changes touch the same spot, the later one wins and the build says so.
 - **Builds carry their recipe:** two small files on the disc; `azurkit open`, or picking the build in the page,
   gives it back.

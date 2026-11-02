@@ -186,8 +186,10 @@ def engine(request):
             return js(sdk.prime(request.recipe.iso, request.digests.to_py()))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
-    if request.type in ("info", "verify_all", "files", "mods_file", "plan_spoiler"):   # the Tools tab's
+    if request.type in ("info", "verify_all", "files", "mods_file", "plan_spoiler", "replace"):   # the Tools tab's
         try:
+            if request.type == "replace":
+                return js(sdk.file_entry(json.loads(JSON.stringify(request.given))))
             if request.type == "info":
                 return js(sdk.image_info(request.recipe.iso))
             if request.type == "verify_all":
@@ -228,7 +230,9 @@ def engine(request):
             STAGED[0].send(json.loads(JSON.stringify(request.shas)))
             raise RuntimeError("the staged build asked for more")
         if request.type == "build":   # to the pages it reads next, then its composed files, which the worker hashes (build())
-            STAGED = sdk.image_staged(request.recipe.to_py(), progress=progressed, spoiler=False, ahead=True), None
+            extra = {"picked": {k: bytes(v) for k, v in request.picked.to_py().items()},
+                     "hashed": request.hashed.to_py()} if getattr(request, "picked", None) else {}
+            STAGED = sdk.image_staged(request.recipe.to_py(), progress=progressed, spoiler=False, ahead=True, **extra), None
         step = next(STAGED[0])   # "build" or "ahead": the pages it asked for are in the read cache
         if isinstance(step, list):
             return js({"ahead": step})
@@ -599,13 +603,21 @@ function character(loaded, data) {
   mounted(py, data.file, (iso) => post({ type: "reply", call: data.call, reply: engine({ ...data, iso }) }));
 }
 
+// A file picked to replace one of the image's, in memory for one ask or build, and its sha256 in WebCrypto.
+const pickedBytes = async (picked) => new Uint8Array(await picked.arrayBuffer());
+const digested = async (bytes) => hex(await crypto.subtle.digest("SHA-256", bytes));
+
 // A Tools tab's ask (answered whatever happens: the page waits on it): the picked image's (file: mounted, checked
 // first, prime), another File's (build: an AzurKit build to open, mounted only for its read) or none (a mods file, a
 // plan's spoiler). Verify every file hashes here what the image's kept check hasn't (sdk.layout's whole), in
 // WebCrypto as prime does, its bar the bottom bar's, and hands the engine those digests (sdk.verify_all).
-const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler"];
+const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler", "replace"];
 const DATA = ["data", "data_edit", "community"];   // the Data tab's and the Patches tab's community list: no image
 async function tool({ py, engine }, data) {
+  if (data.type === "replace") {   // a file picked to replace one of the image's: its entry; its bytes stay the File's
+    const bytes = await pickedBytes(data.picked);
+    return engine({ type: "replace", given: { path: data.path, sha256: await digested(bytes), size: bytes.length } });
+  }
   if (data.type === "open") return mounted(py, data.build, (iso) => engine({ type: "open", recipe: { iso } }));
   if (data.type === "mods_file" || data.type === "plan_spoiler") {
     const { type, call, ...given } = data;
@@ -626,10 +638,16 @@ async function tool({ py, engine }, data) {
 // for its digest, so the worker's JS holds one file beside the engine's heap. A seed's build (AM-HUB-E) first asks for the
 // pages it reads, twice at most, and its levels (668 MiB in all) never enter the heap: each is read here, its patches
 // over it, for its sha256 and md5 (hasher.mjs), and only its patches are the build's bytes.
-async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character, community }) {
+async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character, community, files, picked }) {
   const before = self.azurkitLateReads ?? 0;
+  const held = {}, hashes = {};
+  for (const [path, one] of Object.entries(picked ?? {})) {
+    held[path] = await pickedBytes(one);
+    hashes[path] = await digested(held[path]);
+  }
   const made = await mounted(py, file, async (iso) => {
-    let composed = engine({ type: "build", recipe: { iso, packs, xbr,
+    let composed = engine({ type: "build", ...(files ? { picked: held, hashed: hashes } : {}), recipe: { iso, packs, xbr,
+      ...(files ? { files } : {}),
       ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}),
       ...(community ? { community } : {}) } });
     while (composed.ahead) {

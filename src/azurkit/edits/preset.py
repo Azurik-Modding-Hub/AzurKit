@@ -131,7 +131,7 @@ def from_manifest(record: Mapping) -> dict:
     layers = record.get("layers", [])
     if not (isinstance(layers, list) and all(isinstance(layer, Mapping) for layer in layers)):
         raise ValueError("preset: a manifest's layers is a list of {tool, kind, recipe}")
-    packs, ops, plan, character, community, failed = {}, None, None, None, [], []
+    packs, ops, plan, character, community, put, failed = {}, None, None, None, [], None, []
     for layer in layers:
         recipe, where = layer.get("recipe"), (layer.get("tool"), layer.get("kind"))
         if where == ("mods", "packs") and isinstance(recipe, Mapping) and isinstance(recipe.get("pack"), str) \
@@ -147,10 +147,12 @@ def from_manifest(record: Mapping) -> dict:
                 and isinstance(recipe.get("sha256"), str) and SHA256.fullmatch(recipe["sha256"]) \
                 and all(pin["id"] != recipe["id"] for pin in community):
             community.append({"id": recipe["id"], "sha": recipe["sha256"][:12]})
+        elif where == ("files", "put") and isinstance(recipe, Mapping) and set(recipe) == {"files"} and put is None:
+            put = recipe["files"]
         else:
             failed.append(f"a {layer.get('kind')!r} layer of tool {layer.get('tool')!r}")
     if failed:
-        raise ValueError(f"preset: a mods file carries a plan, packs, a character, community packs and xbr only, not "
+        raise ValueError(f"preset: a mods file carries a plan, packs, a character, community packs, xbr and files only, not "
                          f"{', '.join(failed)}")
     base = record.get("base")
     made = {"format": FORMAT, "schema_version": SCHEMA_VERSION,
@@ -159,7 +161,8 @@ def from_manifest(record: Mapping) -> dict:
                       + [{"tool": "mods", "kind": "packs", "recipe": packs}]
                       + ([{"tool": "characters", "kind": "characters", "recipe": character}] if character else [])
                       + ([{"tool": "community", "kind": "packs", "recipe": {"packs": community}}] if community else [])
-                      + ([{"tool": "data", "kind": "xbr", "recipe": {"ops": ops}}] if ops is not None else []),
+                      + ([{"tool": "data", "kind": "xbr", "recipe": {"ops": ops}}] if ops is not None else [])
+                      + ([{"tool": "files", "kind": "put", "recipe": {"files": put}}] if put is not None else []),
             "result": record.get("result")}
     if "azurkit" in record:
         made["azurkit"] = record["azurkit"]

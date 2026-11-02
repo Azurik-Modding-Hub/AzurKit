@@ -143,7 +143,7 @@ call vouched for at ``path`` is dropped first, whatever the answer):
 that isn't the release's.
 
 
-def image(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True) -> 'tuple[iso.Image, dict]':
+def image(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True, picked: 'Mapping[str, bytes] | None' = None) -> 'tuple[iso.Image, dict]':
 
 The image ``recipe`` builds, unwritten, and its report: the release,
 each layer's sites and bytes, the sha256 of each file that differs from
@@ -163,10 +163,12 @@ and dressing the body, reading its files, applying each pack (done of
 total), the data edits, laying out the image (each file composed and
 hashed, done of total), reading it back against the plan (each level
 file, done of total) and writing the spoiler; an exception it raises stops the
-build.
+build. ``picked`` holds the bytes of the files a recipe's ``files``
+replaces, by the image's path (``edits.files``: a recipe names them, never
+holds them).
 
 
-def image_staged(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True, ahead: 'bool' = False):
+def image_staged(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True, picked: 'Mapping[str, bytes] | None' = None, hashed: 'Mapping[str, str] | None' = None, ahead: 'bool' = False):
 
 :func:`image` for a host that hashes the build's changed files itself
 (the site's worker: WebCrypto, off its engine's thread), as a generator
@@ -176,9 +178,11 @@ host hashes them while the image's layout runs, then the shas at the next
 yield; a :class:`iso.Patched`'s md5 too, at once), and returns ``(image,
 report)``, :func:`image`'s, byte for byte, as its ``StopIteration``'s
 value. Its refusals are :func:`image`'s; a key missing from the shas is a
-``ValueError`` naming it. With ``ahead``, for a host whose reads are late,
-it first yields twice at most a list of ``(image offset, size)``, what it
-reads next, and is resumed once those are at hand (:func:`_planning`).
+``ValueError`` naming it. ``picked`` as :func:`image`'s, with ``hashed``
+the sha256 of each that the host hashed. With ``ahead``, for a host whose
+reads are late, it first yields twice at most a list of ``(image offset,
+size)``, what it reads next, and is resumed once those are at hand
+(:func:`_planning`).
 
 
 def image_checks(made: 'iso.Image', report: 'Mapping') -> 'dict[str, list[list]]':
@@ -208,12 +212,13 @@ it (``iso.digest``, from Build on), called once the bytes are written;
 else it is hashed as they are.
 
 
-def build(recipe: 'Mapping', out: 'str', *, progress: 'Callable[[int, int], object] | None' = None) -> 'dict':
+def build(recipe: 'Mapping', out: 'str', *, progress: 'Callable[[int, int], object] | None' = None, picked: 'Mapping[str, bytes] | None' = None) -> 'dict':
 
 Write the image ``recipe`` builds to ``out`` (never its input or a
 vanilla image, D36); :func:`image`'s report with the output's path,
 size and sha256. ``progress(done, total)`` follows the write; an
-exception it raises cancels it, and nothing is written.
+exception it raises cancels it, and nothing is written. ``picked`` as
+:func:`image`'s.
 
 
 def open_build(path: 'str', *, whole: 'bool' = True) -> 'dict':
@@ -585,3 +590,11 @@ def content_refusal(entry: 'Mapping', files: 'Mapping[str, bytes]') -> 'str | No
 Why a content entry can't be installed, or ``None``: a variant's
 recipe (``content.builtin_refusal``), a community pack
 (``community.refusal``). ``content.verify``'s ``refusal``.
+
+
+def file_entry(given: 'Mapping') -> 'dict':
+
+``{"entry"}``: ``given`` (``{"path", "sha256", "size"}``, a picked
+file's) as a recipe's ``files`` holds it, or the refusal named: a file
+the build owns, a size past what an image's file holds
+(``edits.files``).

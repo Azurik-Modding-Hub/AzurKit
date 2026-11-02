@@ -53,6 +53,7 @@ import { content } from "./content.mjs";
 import { dataTab } from "./data.mjs";
 import { hashed } from "./hasher.mjs";
 import { alone } from "./dress.mjs";
+import { replaceFiles } from "./replace.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 
@@ -699,8 +700,8 @@ function pick(id) {
 // The ticked packs, each with its sliders' values as typed: the engine normalizes them and names what it refuses.
 // What a recipe holds beside its packs, xbr, randomizer and character, as a build's ask and a link's recipe carry it.
 function extras() {
-  const pins = state.community.pins();
-  return pins.length ? { community: pins } : {};
+  const pins = state.community.pins(), files = state.replace.entries();
+  return { ...(pins.length ? { community: pins } : {}), ...(files.length ? { files } : {}) };
 }
 
 function chosen() {
@@ -806,6 +807,7 @@ function load(preset, from) {
   const character = preset.layers.find((layer) => layer.tool === "characters")?.recipe ?? null;
   state.characters.set(character);
   state.community.set(preset.layers.find((layer) => layer.tool === "community")?.recipe.packs ?? []).then(remember);
+  state.replace.set(preset.layers.find((layer) => layer.tool === "files")?.recipe.files ?? []);
   pick(rando ? "randomizer" : character ? "characters" : "patches");
   state.loaded = preset;
   remember();
@@ -837,6 +839,7 @@ function restored({ ticked, values, xbr, dropped, randomizer, character, communi
 // forgotten (the next change is remembered again, so the status says what happened, not what is kept).
 function reset() {
   state.community.clear();
+  state.replace.set([]);
   setTo(new Set(state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name)), {}, []);
   setRando(randoDefaults());
   state.characters.set(null);
@@ -937,6 +940,9 @@ function ready(catalog, version) {
     state.tools = tools({ root: $("tools"), call: state.engine.call, app: state.app, say, image: () => state.file,
                           out: toolsOut, pick: state.dialogs ? () => state.engine.choose("build", "") : null,
                           setup: recipe, load, track: trackBuild });
+    state.replace = replaceFiles({ root: $("tools"), call: state.engine.call, app: state.app, say,
+                                   image: () => state.file, changed: state.changed,
+                                   pick: state.dialogs ? () => state.engine.choose("replacement", "") : null });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
@@ -1080,6 +1086,7 @@ function pickInApp(host) {
     state.characters?.imaged();
     state.data?.imaged();
     state.tools?.imaged();
+    state.replace?.imaged();
   };
   picked();
   $("iso-path").addEventListener("input", picked);
@@ -1599,6 +1606,7 @@ async function main() {
       if (state.characters?.character()) askRando();   // the worn body's size folds in from the image
       state.data?.imaged();
       state.tools?.imaged();
+      state.replace?.imaged();
     });
   }
 
@@ -1636,7 +1644,8 @@ async function main() {
         + (character ? ` (as ${character.species})` : ""));
     state.sent = chosen();
     asking("build");
-    state.engine.build(state.file, state.sent, state.xbr, randomizer, character, extras());
+    state.engine.build(state.file, state.sent, state.xbr, randomizer, character,
+                       { ...extras(), ...(state.app ? {} : state.replace.picked()) });
   });
   randoEvents(changed);
   $("cancel").addEventListener("click", () => {
