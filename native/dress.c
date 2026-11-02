@@ -300,6 +300,71 @@ API i64 az_heights(const i64 *parent, const double *bone, i64 nb, const double *
     return 0;
 }
 
+/* jiggle._skinned: n points (4 bones B, weights W, places U, n x 4 x 3) by the bones' rotations R (3x3) and origins
+ * O; positions, or unit normals; -1 (the twin's) where a bone isn't one of nb. */
+API i64 az_skinned(const i64 *B, const double *W, const double *U, i64 n, const double *R, const double *O, i64 nb,
+                   i64 normals, double *out) {
+    for (i64 p = 0; p < n * 4; p++)
+        if (B[p] < 0 || B[p] >= nb) return -1;
+    for (i64 p = 0; p < n; p++) {
+        double *o = out + 3 * p;
+        o[0] = o[1] = o[2] = 0.0;
+        for (int s = 0; s < 4; s++) {
+            i64 b = B[4 * p + s];
+            const double *r = R + 9 * b, *u = U + 12 * p + 3 * s;
+            double w = W[4 * p + s];
+            for (int c = 0; c < 3; c++) {
+                double turned = r[3 * c] * u[0] + r[3 * c + 1] * u[1] + r[3 * c + 2] * u[2];
+                o[c] += w * (normals ? turned : O[3 * b + c] + turned);
+            }
+        }
+        if (normals) {
+            double len = __builtin_elementwise_sqrt(o[0] * o[0] + o[1] * o[1] + o[2] * o[2]);
+            for (int c = 0; c < 3; c++) o[c] = o[c] / len;
+        }
+    }
+    return 0;
+}
+
+/* jiggle._signed: each of n points P's signed distance d from the nearest of the nx skin points X in reach of P's
+ * bounds (normals N), and that normal into nout; inf and zeros with none in reach. n >= 1. */
+API i64 az_signed(const double *P, i64 n, const double *X, const double *N, i64 nx, double reach, double cell,
+                  double *d, double *nout) {
+    double lo[3], hi[3];
+    for (int c = 0; c < 3; c++) {
+        lo[c] = hi[c] = P[c];
+        for (i64 p = 1; p < n; p++) {   /* numpy's min and max: a NaN holds */
+            double v = P[3 * p + c];
+            if (v != v || v < lo[c]) lo[c] = lo[c] != lo[c] ? lo[c] : v;
+            if (v != v || v > hi[c]) hi[c] = hi[c] != hi[c] ? hi[c] : v;
+        }
+        lo[c] = lo[c] - reach, hi[c] = hi[c] + reach;
+    }
+    for (i64 p = 0; p < n; p++) {
+        const double *q = P + 3 * p;
+        i64 j = -1;
+        double near = 0.0;
+        for (i64 x = 0; x < nx; x++) {
+            const double *y = X + 3 * x;
+            if (!(y[0] >= lo[0] && y[0] <= hi[0] && y[1] >= lo[1] && y[1] <= hi[1] && y[2] >= lo[2] && y[2] <= hi[2]))
+                continue;
+            double dx = q[0] - y[0], dy = q[1] - y[1], dz = q[2] - y[2], d2 = dx * dx + dy * dy + dz * dz;
+            if (j < 0 || (near == near && (d2 != d2 || d2 < near))) j = x, near = d2;   /* argmin: the first, a NaN first */
+        }
+        if (j < 0) {
+            d[p] = __builtin_inf();
+            nout[3 * p] = nout[3 * p + 1] = nout[3 * p + 2] = 0.0;
+            continue;
+        }
+        const double *y = X + 3 * j, *m = N + 3 * j;
+        double e = (q[0] - y[0]) * m[0] + (q[1] - y[1]) * m[1] + (q[2] - y[2]) * m[2], aside = near - e * e;
+        if (aside > cell * cell && aside > e * e) e = __builtin_elementwise_sqrt(near);
+        d[p] = near <= reach * reach ? e : __builtin_inf();
+        for (int c = 0; c < 3; c++) nout[3 * p + c] = m[c];
+    }
+    return 0;
+}
+
 /* characters._rotate: v turned by q normalised (its plain sum of squares, sqrt or 1.0), each row's sum() of 3. */
 static void rotate(const double *q, const double *v, double *o) {
     double x = q[0], y = q[1], z = q[2], w = q[3];

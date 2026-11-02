@@ -43,7 +43,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("win32", "x86_64"): "windows-x86_64.dll",
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
-KERNELS = ("reach", "origins", "linear", "chain", "boxes", "sample", "heights", "runs")
+KERNELS = ("reach", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -97,6 +97,8 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
                          ("az_boxes", [vp, i64, f64, vp]),
                          ("az_sample", [vp, i64, vp, i64, vp, vp, i64, vp, vp]),
                          ("az_heights", [vp, vp, i64, vp, vp, i64, vp, vp]),
+                         ("az_skinned", [vp, vp, vp, i64, vp, vp, i64, i64, vp]),
+                         ("az_signed", [vp, i64, vp, vp, i64, f64, f64, vp, vp]),
                          ("az_runs", [ctypes.c_char_p, i64, ctypes.c_char_p, i64, vp, i64])):
             getattr(lib, fn).argtypes, getattr(lib, fn).restype = args, i64
     except AttributeError as e:
@@ -722,6 +724,21 @@ def heights(parent: array, bone: array, q: int, t: int, nt: int, out: int) -> bo
     scratch = array("d", bytes(56 * len(parent)))
     lib.az_heights(_at(parent), _at(bone), len(parent), q, t, nt, out, _at(scratch))
     return True
+
+
+def skinned(b: int, w: int, u: int, n: int, r: int, o: int, nb: int, normals: bool, out: int) -> bool:
+    """``jiggle._skinned`` of ``n`` points (their 4 bones ``b``, int64,
+    weights ``w`` and places ``u``) by ``nb`` bones' rotations ``r`` (3x3)
+    and origins ``o`` into ``out`` (n x 3): the numpy buffers' addresses;
+    False without the library or for a bone past ``nb`` (the twin's)."""
+    return (lib := library()) is not None and lib.az_skinned(b, w, u, n, r, o, nb, int(normals), out) == 0
+
+
+def signed(p: int, n: int, x: int, normals: int, nx: int, reach: float, cell: float, d: int, near: int) -> bool:
+    """``jiggle._signed`` of ``n`` points ``p`` (n >= 1) from ``nx`` skin
+    points ``x`` with ``normals``: their distances into ``d`` and nearest
+    normals into ``near`` (addresses); False without the library."""
+    return (lib := library()) is not None and lib.az_signed(p, n, x, normals, nx, reach, cell, d, near) == 0
 
 
 def runs(old: bytes, new: bytes) -> list[tuple[int, int]] | None:

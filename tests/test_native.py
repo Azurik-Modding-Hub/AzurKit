@@ -201,7 +201,7 @@ def _dress_cases(seed: int, count: int):
         return {str(c): keys() for c in range(4) if rng.random() < 0.6}
 
     for _ in range(count):
-        n = rng.randint(1, 40)
+        n, m = rng.randint(1, 40), rng.randint(0, 30)
         bones = [[rng.randrange(-1, k) if k and rng.random() < 0.9 else -1, *([f() for _ in range(m)] for m in (4, 4, 4, 3))]
                  for k in range(n)]
         tracks = [[rng.randrange(n + 2), rng.randrange(10), keys()] for _ in range(rng.randint(0, 3 * n))]
@@ -220,7 +220,11 @@ def _dress_cases(seed: int, count: int):
                                  *(k[0] for c in chain for ks in c.values() for k in ks if 0.0 <= k[0] <= length)}),
                          length],
                "runs": [old.hex(), (new + bytes(rng.randrange(3) for _ in range(rng.choice((0, 3))))).hex()],
-               "boxes": [[[f() for _ in range(12)] for _ in range(rng.randint(0, 6))], f()]}
+               "boxes": [[[f() for _ in range(12)] for _ in range(rng.randint(0, 6))], f()],
+               "skin": [[[rng.randrange(n) for _ in range(4)] for _ in range(m)], [[f() for _ in range(4)] for _ in range(m)],
+                        [[[f() for _ in range(3)] for _ in range(4)] for _ in range(2 * m)],
+                        [[[f() for _ in range(3)] for _ in range(3)] for _ in range(n)], [[f() for _ in range(3)] for _ in range(n)],
+                        [[rng.uniform(-0.2, 0.2) for _ in range(3)] for _ in range(rng.randint(1, 9))]]}
 
 
 def _dress_answer(case: dict) -> list:
@@ -228,8 +232,11 @@ def _dress_answer(case: dict) -> list:
     loaded, else the twins), every float its bits in hex and NaN as such."""
     import struct
 
+    import numpy as np
+
     from azurkit.tools import characters
     from azurkit.tools.characters import _player_crossfade as fade
+    from azurkit.tools.characters import jiggle
     from azurkit.tools.characters import retarget as rt
     from azurkit.tools.characters.characters import BoneRecord, _boxes
 
@@ -251,25 +258,33 @@ def _dress_answer(case: dict) -> list:
     rows += [[t, *v] for t, *v in rt._chain_rows(list(bones[:len(chain)]), [keyed(x) for x in chain], tuple(a),
                                                  tuple(c), cts, length)]
     pose = fade.sample(rig, clip, case["times"])
+    skin = case["skin"]
+    pts = {"B": np.array(skin[0], dtype=np.int64).reshape(-1, 4), "W": np.array(skin[1]).reshape(-1, 4),
+           "U": np.array(skin[2][:len(skin[0])]).reshape(-1, 4, 3), "UN": np.array(skin[2][len(skin[0]):]).reshape(-1, 4, 3)}
+    R, O = np.array(skin[3]), np.array(skin[4])
     return [bits(rt.origins_at(rig, clip, case["times"])), bits(rt.pose(rig, clip, case["times"][0])), bits(rows),
             characters._runs(*map(bytes.fromhex, case["runs"])), bits(_boxes(*case["boxes"])),
-            bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist())]
+            bits(pose[0].tolist()), bits(pose[1].tolist()), bits(fade._heights(rig, pose).tolist()),
+            *(bits(jiggle._skinned(pts, R, O, normals=normals).tolist()) for normals in (False, True)),
+            *(bits(x.tolist()) for x in jiggle._signed(np.asarray(skin[5]), jiggle._skinned(pts, R, O),
+                                                       jiggle._skinned(pts, R, O, normals=True)))]
 
 
 def test_the_dress_kernels_give_their_twins_answers_bit_for_bit(monkeypatch):
     """retarget's pose and origins, bake_clip's linear and sampled rows and
-    the damage boxes, the crossfade's sample and heights and the
+    the damage boxes, the crossfade's sample and heights, jiggle's skinning
+    and signed distances and the
     character layer's byte runs (``native/dress.c``) equal their twins
     over seeded random inputs, every NaN a NaN (its sign and payload aren't
     held: the compiler may order an operation's two NaN inputs either way)."""
     cases, ran = list(_dress_cases(1404, 400)), collections.Counter()
-    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "runs"):   # every call the library's
+    for name in ("origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs"):
         monkeypatch.setattr(native, name, lambda *a, real=getattr(native, name), name=name, **k:
                             ran.update([name]) or real(*a, **k))
     assert native.report()["loaded"]
     got = [_dress_answer(case) for case in cases]
     assert ran == {"origins": 800, "linear": 400, "chain": 400, "boxes": 400, "sample": 400, "heights": 400,
-                   "runs": 400}
+                   "skinned": 1600, "signed": 400, "runs": 400}   # each case's every call answered by the library
     monkeypatch.setattr(native, "_LIB", (None, "the twins", None))
     with numpy.errstate(all="ignore"):   # the twins' numpy on infinities
         assert got == [_dress_answer(case) for case in cases]

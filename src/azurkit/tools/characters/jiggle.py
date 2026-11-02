@@ -101,7 +101,7 @@ import struct
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from azurkit.core import fdlibm
+from azurkit.core import fdlibm, native
 from azurkit.tools.characters import body_codec, mesh_edit, skeleton
 from azurkit.tools.characters.characters import BoneRecord
 from azurkit.tools.characters.retarget import Clip, Rig, Track, evaluate, qinv, qmul, _turn
@@ -670,6 +670,17 @@ def _matrix(q: Quat) -> tuple:
             (2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)))
 
 
+def _fits(*arrays) -> bool:
+    """Whether each (array, dtype, shape) is a numpy array of that dtype
+    and shape (the compiled kernels' buffers)."""
+    return all(getattr(a, "dtype", None) == dtype and a.shape == shape for a, dtype, shape in arrays)
+
+
+def _at(a) -> int:
+    """A C-contiguous numpy array's address."""
+    return a.__array_interface__["data"][0]
+
+
 def _skinned(pts: dict, R, O, sel=None, normals: bool = False):
     """``pts`` (or rows ``sel`` of them) skinned by the bones' world
     rotations ``R`` (3x3 each) and origins ``O`` (numpy, by bone): positions,
@@ -680,6 +691,11 @@ def _skinned(pts: dict, R, O, sel=None, normals: bool = False):
     if sel is not None:
         B, W, U = B[sel], W[sel], U[sel]
     out = np.zeros((len(B), 3))
+    if _fits((B, np.int64, (len(B), 4)), (W, np.float64, (len(B), 4)), (U, np.float64, (len(B), 4, 3)),
+             (R, np.float64, (len(R), 3, 3)), (O, np.float64, (len(R), 3))):
+        B, W, U, R, O = (np.ascontiguousarray(a) for a in (B, W, U, R, O))
+        if native.skinned(_at(B), _at(W), _at(U), len(B), _at(R), _at(O), len(R), normals, _at(out)):
+            return out   # the compiled kernel's (core.native); else its twin's
     for s in range(4):
         r, u, w = R[B[:, s]], U[:, s], W[:, s]
         for c in range(3):
@@ -697,6 +713,11 @@ def _signed(P, X, N):
     :data:`SKIN_CELL` aside of it and more aside than over or under it: past
     an edge, not over or under the skin), and that normal."""
     import numpy as np
+    if len(P) and _fits((P, np.float64, (len(P), 3)), (X, np.float64, (len(X), 3)), (N, np.float64, (len(X), 3))):
+        P, X, N = (np.ascontiguousarray(a) for a in (P, X, N))
+        d, near = np.empty(len(P)), np.empty((len(P), 3))
+        if native.signed(_at(P), len(P), _at(X), _at(N), len(X), SKIN_REACH, SKIN_CELL, _at(d), _at(near)):
+            return d, near   # the compiled kernel's (core.native); else its twin's
     box = np.all((X >= P.min(0) - SKIN_REACH) & (X <= P.max(0) + SKIN_REACH), axis=1)   # the rest are out of reach
     if not box.any():
         return np.full(len(P), np.inf), np.zeros((len(P), 3))
