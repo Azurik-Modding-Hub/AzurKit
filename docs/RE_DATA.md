@@ -2343,6 +2343,24 @@ offsets only, no positions.
   melted; frag_air_1 (6.0 m) in f1's acid block from 10 of 13, even 14 m
   below it, before and none after, and once it dissolved [xemu, the
   research's probe].
+- **One spot's item needs the vanilla item's reach** (Step 4.3az835,
+  AZ-835, D1041). a1/g0/r1102 is frag_air_1's, R 6, Z 6, 8.5 m over its
+  platform: a wind (Vac2, then the chamber's push fields, where air
+  control is 0.1 x) carries the player past it, 4.6 m across and 3 m
+  under on the first pass, and on up to the chamber's one-way roof, and
+  items there stay at their point instead of falling [xemu]. Seed 1's
+  obsidian (R 1.45, Z 1.9) was taken on 1 input of 87. Obsidian has 99
+  other copies, so its row can't change; the node names a spare row,
+  `small_chromatic_fuel`, which no location, enemy drop or other cell
+  names: every cell but its name and the reach's is the placed item's,
+  the strings by reference, so config.xbr doesn't grow, with
+  `collisionRadius` and `collisionAspectRatio` at frag_air_1's touch and
+  `useCenterBasis` as frag_air_1's, 1.0. That cell moves the touch: an
+  item with it set has its centre at the point, one with it empty
+  collisionRadius x aspect over it (obsidian 0.3 x 2 = 0.6 m; 3.33 x 1
+  with the reach, which the pass then takes 23 ticks later) [xemu, frag_air_1,
+  obsidian and both rows read]. `critters_sounds` has no such row, so that obsidian
+  lacks the hum of within 3 m [from the table; xemu's at volume 0].
 - **An exit's trigger is touched at the body centre.** The player's
   input build calls the volume query 0x60BD0 at 0x85587 with the body
   centre (critter+0x15C) as a point: the objects whose tree bounds hold

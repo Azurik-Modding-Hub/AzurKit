@@ -505,11 +505,12 @@ def test_a_sparse_read_back_fails_an_image_its_sections_or_lines_dont_hold_thoug
 def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_fails_the_build(usa_iso):
     """The plan's layer is each node graph it edits, whole, the obsidian
     cost's lock thresholds (x1 to x10 in both of town.xbr's tables; above
-    vanilla's, the logic is unverified) and each contained species' touch
-    (AZ-834). An ``xbr`` operation over a placement's name field drops its
-    graph, and one over a touch's cell its species' touch (D28): the build
-    goes on, its logic unverified, each changed placement of that graph
-    and the touch a conflict naming the later layer. An image that doesn't
+    vanilla's, the logic is unverified), each contained species' touch
+    (AZ-834) and the long-reach spot's own row (AZ-835). An ``xbr`` operation
+    over a placement's name field drops its graph, and one over a touch's or
+    an own row's cell that group (D28): the build goes on, its logic
+    unverified, each changed placement of that graph, the touch and the row
+    a conflict naming the later layer. An image that doesn't
     hold the plan (the vanilla one) fails the read-back, by location
     (D35)."""
     prepared = generator.prepare({"seed": "2", "obsidian_cost": 20.0}, {})
@@ -518,8 +519,9 @@ def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_f
     planned = generator.plan_layer(prepared, base)
     groups = {c.group for c in planned.changes}
     (species, _), = generator.contained(prepared.plan.placement, kept_logic().db, base[generator.CONFIG])
+    (item, _), = generator.own_rows(prepared.plan.placement, kept_logic().db, base[generator.CONFIG])
     assert groups == {f"randomizer {key}" for key in prepared.edits} | {
-        generator.OBSIDIAN_GROUP, f"{generator.CONTAINED_GROUP} {species}"}
+        generator.OBSIDIAN_GROUP, f"{generator.CONTAINED_GROUP} {species}", f"{generator.OWN_GROUP} {item}"}
     lock = [c for c in planned.changes if c.group == generator.OBSIDIAN_GROUP]
     assert sorted(c.after for c in lock) == sorted(struct.pack("<f", 20.0 * k) for k in range(1, 11) for _ in range(2))
     assert prepared.why_not == [layer.obsidian_reason(20.0)]
@@ -534,20 +536,71 @@ def test_a_later_layer_over_a_placement_is_a_conflict_and_any_other_difference_f
           "expected": {"sha256": hashlib.sha256(held).hexdigest(), "size": 8}}
     cell = {"op": "set", "file": generator.CONFIG, "table": "critters_engine", "entity": species,
             "prop": "collisionRadius", "value": 0.3}
+    own = {**cell, "entity": next(iter(writer.OWN_ROW.values()))}
     _, report = sdk.image({"iso": str(usa_iso), "randomizer": {"seed": "2", "obsidian_cost": 20.0},
-                           "xbr": [op, cell]})
+                           "xbr": [op, cell, own]})
     plan = report["randomizer"]
     assert plan["logic_verified"] is False and plan["why_not"][0] == layer.obsidian_reason(20.0)
-    assert plan["why_not"][-2:] == [f"{len(edit.repoint)} placement(s) changed by a later layer",
+    assert plan["why_not"][-3:] == [f"{len(edit.repoint)} placement(s) changed by a later layer",
                                     "1 contained item(s) given another touch by a later layer, so they may be taken "
-                                    "through their container"]
-    assert len(plan["conflicts"]) == len(edit.repoint) + 1 and all(
+                                    "through their container",
+                                    "1 item(s) in a row of their own changed by a later layer, so they may be out of "
+                                    "reach"]
+    assert len(plan["conflicts"]) == len(edit.repoint) + 2 and all(
         line.startswith(f"{edit.key}/") and line.endswith("data xbr wrote it after the randomizer (D28)")
-        for line in plan["conflicts"][:-1])
-    assert plan["conflicts"][-1] == (f"contained touch {species}: config.xbr's critters_engine doesn't hold the "
-                                     "plan's cells: data xbr wrote it after the randomizer (D28)")
-    for group in (key, f"contained touch {species}"):
+        for line in plan["conflicts"][:-2])
+    assert plan["conflicts"][-2:] == [
+        f"contained touch {species}: config.xbr's critters_engine doesn't hold the plan's cells: data xbr wrote it "
+        "after the randomizer (D28)",
+        f"own row {item}: config.xbr's tables don't hold the plan's cells: data xbr wrote it after the randomizer "
+        "(D28)"]
+    for group in (key, f"contained touch {species}", f"own row {item}"):
         assert [c for c in report["conflicts"] if f"whose group randomizer {group} is dropped whole" in c]
+
+
+def test_the_item_on_a1s_long_reach_spot_is_taken_with_the_vanilla_items_reach_in_a_row_of_its_own():
+    """A wind carries the player past a1's frag_air_1 (6 m) too far from
+    anything smaller, and the obsidian there has 99 other copies, so its
+    node names a spare row (``writer.OWN_ROW``): that row becomes the item,
+    bar its name, with the vanilla item's collision, and nothing else
+    changes. The row is free: no location, drop or other cell names it. The
+    fill still counts the plan's name (its plans don't move), and the gap
+    holds the row's name on top of a longest name per location. In xemu the
+    obsidian there is taken at the tick and place frag_air_1 is."""
+    from azurkit.core.xbr import Document
+    from azurkit.tools import data
+
+    db, config = kept_logic().db, data.vanilla()
+    (lid, row), = writer.OWN_ROW.items()
+    names, vanilla = writer.Names(db), Document(config)
+    assert names.locations[lid]["template"] == "frag_air_1" and row not in {
+        loc["template"] for loc in names.locations.values()}
+    assert not [(t.name, c.at) for t in vanilla.tables.values() for i, c in enumerate(t.cells)
+                if c.value == row and i % len(t.rows)]
+    pool = [x for x, loc in names.locations.items() if writer.graph_of(x) == writer.graph_of(lid) and loc["pool"]]
+    assert names.budget(writer.graph_of(lid)) >= (len(pool) + 1) * max(map(writer.string_cost, names.items))
+
+    def others(table):   # every cell of the table but the row's
+        return [c.value for i, c in enumerate(table.cells) if table.cols[i // len(table.rows)] != row]
+
+    for item in ("obsidian", "all_fuel"):
+        assert names.target(lid, item) == item and names.written(lid, item) == row
+        assert writer.layout({lid: item}, db)[writer.graph_of(lid)].repoint == {lid: row}
+        (species, writes), = generator.own_rows({lid: item}, db, config)
+        out = bytearray(config)
+        for at, value in writes:
+            out[at:at + len(value)] = value
+        built = Document(bytes(out))
+        engine = built.tables["critters_engine"]
+        assert species == item and generator.touch(engine, row) == (6.0, 6.0)
+        assert engine.number(row, "useCenterBasis") == engine.number("frag_air_1", "useCenterBasis") == 1.0
+        for name, table in built.tables.items():
+            if row in table.cols:
+                reach = ("collisionRadius", "collisionAspectRatio", "useCenterBasis") if name == "critters_engine" else ()
+                assert [p for r, p in enumerate(table.rows) if r and p not in reach and table.find(
+                    row, p).value != table.find(item, p).value] == [], name
+            assert others(table) == others(vanilla.tables[name]), name
+    assert generator.own_rows({lid: "frag_air_1"}, db, config) == [] and names.written(lid, "frag_air_1") is None
 
 
 # AZ-834 (D1036, D1041): each kind of container that encloses pool spots (derived enclosed_by: the kind of the object

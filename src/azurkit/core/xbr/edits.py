@@ -12,6 +12,7 @@ cell and why, never the file's bytes.
   other reference shares its string, the string is rewritten in place if
   the text fits its slot (its length and the NULs after it, inside its
   table's payload), NUL-padded.
+- :func:`copy_cells`: a column's cells made another's, name aside.
 
 With ``fill``, an empty cell becomes a number or a string cell, unless
 its row holds only the other kind (no vanilla row mixes them).
@@ -22,7 +23,7 @@ from __future__ import annotations
 import math
 import struct
 
-from azurkit.core.xbr.keyed import EMPTY, KINDS, NUMBER, STRING, Table
+from azurkit.core.xbr.keyed import EMPTY, KINDS, NUMBER, SIZE, STRING, Table
 
 Writes = list[tuple[int, bytes]]
 
@@ -106,3 +107,22 @@ def set_text(table: Table, data: bytes, entity: str, prop: str, text: str, *, co
         raise ValueError(f"{where}: its string is shared with {shared} other reference(s), which a rewrite in "
                          "place would change too")
     return [(cell.text_at, raw + bytes(slot - len(raw))), (cell.at + 8, struct.pack("<I", len(raw)))]
+
+
+def copy_cells(table: Table, source: str, entity: str, *, skip: tuple[str, ...] = ()) -> Writes:
+    """Make column ``entity`` hold what column ``source`` holds, but for its
+    first row (a column's name) and the rows ``skip``: a string cell points
+    at ``source``'s string, so nothing grows."""
+    writes, a, b = [], table.column(source), table.column(entity)
+    for r, prop in enumerate(table.rows):
+        cell, was = table.cell(a, r), table.cell(b, r)
+        if r == 0 or prop in skip or (cell.kind, cell.value) == (was.kind, was.value):
+            continue
+        if cell.kind == STRING:
+            length = len(cell.value.encode("latin-1"))
+            writes.append((was.at, struct.pack("<IIII", STRING, 0, length, (cell.text_at - (was.at + 12)) & 0xFFFFFFFF)))
+        elif cell.kind == NUMBER:
+            writes.append((was.at, struct.pack("<IId", NUMBER, 0, cell.value)))
+        else:
+            writes.append((was.at, bytes(SIZE)))
+    return writes

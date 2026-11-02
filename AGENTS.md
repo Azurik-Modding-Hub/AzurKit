@@ -522,10 +522,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   pickup reaches further than the vanilla item's there takes that item's
   `collisionRadius` and `collisionAspectRatio` in config.xbr, so it is
   taken only once the container opens; one held more than once keeps its
-  own). `edits.manifest.image`'s `judge` reads the image back against the
+  own), and one a row for an own row (`own_rows`, AZ-835: `writer.OWN_ROW`'s
+  spot, a1's frag_air_1, names a spare pickup row made its item with the
+  vanilla item's reach; the fill counts the plan's name, so no plan moves).
+  `edits.manifest.image`'s `judge` reads the image back against the
   plan before anything is written: a difference a later layer explains (it
-  wrote the location's fields or string or a touch's cells, or dropped its
-  group) is a conflict and `logic_verified` false (D28), any other fails
+  wrote the location's fields or string or a touch's or own row's cells, or
+  dropped its group) is a conflict and `logic_verified` false (D28), any other fails
   the build by location (D35). The movement check reads the packs' catalog (each
   slider's `logic_floor`, D83(c)); the tools never import each other. The
   report's `randomizer` and the manifest's `verdicts` carry the verdict, and

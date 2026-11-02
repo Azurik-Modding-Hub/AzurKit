@@ -12,13 +12,13 @@ through the packs' catalog (D83(c)).
   per-file writes, each computed from the vanilla bytes), one group a node
   graph (its new strings, its TOC size and each location it repoints land
   whole, ``edits.layer.compose``), the obsidian cost's lock thresholds
-  as one more group, and :func:`contained`'s touches in config.xbr, one
-  group a species.
+  as one more group, :func:`contained`'s touches in config.xbr, one group
+  a species, and :func:`own_rows`, one group a row.
 - :func:`read_back`: ``writer.read_back`` of the built image; a difference
   a later layer explains (it wrote the location's type field, its name
   field or the string that names, or a conflict dropped its graph's group)
   is a D28 conflict and the logic unverified, and any other fails the
-  build, by name (D35); a contained touch's cells likewise.
+  build, by name (D35); a contained touch's and an own row's cells likewise.
 - :func:`sections`, :func:`heads` and :func:`pages`: a build reading only each
   level's TOC and node sections (:class:`iso.View` s for ``edits.image``'s
   base), and the reads a host whose reads are late takes ahead, two rounds
@@ -63,6 +63,7 @@ RECIPE = ("seed", "settings", "share", "obsidian_cost")
 OBSIDIAN_GROUP = f"{LAYER} obsidian lock thresholds"
 CONFIG, ENGINE = "gamedata/config.xbr", "critters_engine"
 CONTAINED_GROUP = f"{LAYER} contained touch"   # + its species: one group a species (contained)
+OWN_GROUP = f"{LAYER} own row"                 # + its species: one group a row (own_rows)
 TOUCH = ("collisionRadius", "scale", "collisionAspectRatio", "playerCollisionRadius")
 
 
@@ -234,6 +235,17 @@ def touch(engine, species: str) -> tuple[float, float]:
     return scale * (cr if pcr is None else pcr) + 1, scale * cr * aspect + 1
 
 
+def _reach(engine, was: str, species: str) -> dict[str, float]:
+    """The cells that give ``species``, at its own scale, the collision of the
+    species ``was``: collisionRadius and collisionAspectRatio, and
+    playerCollisionRadius where either sets one."""
+    (cr, scale, aspect, pcr), own = _cells(engine, was), _cells(engine, species)
+    cells = {"collisionRadius": cr * scale / own[1], "collisionAspectRatio": aspect}
+    if pcr is not None or own[3] is not None:
+        cells["playerCollisionRadius"] = (cr if pcr is None else pcr) * scale / own[1]
+    return cells
+
+
 def inside(placed: tuple[float, float], vanilla: tuple[float, float]) -> bool:
     """Whether the :func:`touch` ``placed`` lies inside ``vanilla``, both
     resting on one floor (so both ellipsoids' bottoms meet, 1 m under it):
@@ -257,7 +269,7 @@ def contained(placement: Mapping[str, str], db, config: bytes) -> list[tuple[str
     container opens, for any body. A species held more than once keeps its
     own, so it looks and plays the same everywhere."""
     names = writer.Names(db)
-    held = {lid: (names.target(lid, placement[lid]) if lid in placement else None) or loc["template"]
+    held = {lid: (names.written(lid, placement[lid]) if lid in placement else None) or loc["template"]
             for lid, loc in names.locations.items()}
     copies = collections.Counter(held.values())
     engine, out = Document(config).tables[ENGINE], []
@@ -266,12 +278,32 @@ def contained(placement: Mapping[str, str], db, config: bytes) -> list[tuple[str
         species, was = held[lid], names.locations[lid]["template"]
         if copies[species] != 1 or species == was or inside(touch(engine, species), touch(engine, was)):
             continue
-        (cr, scale, aspect, pcr), own = _cells(engine, was), _cells(engine, species)
-        cells = {"collisionRadius": cr * scale / own[1], "collisionAspectRatio": aspect}
-        if pcr is not None or own[3] is not None:
-            cells["playerCollisionRadius"] = (cr if pcr is None else pcr) * scale / own[1]
-        out.append((species, [w for row, value in cells.items()
+        out.append((species, [w for row, value in _reach(engine, was, species).items()
                               for w in edits.set_number(engine, species, row, value, fill=True)]))
+    return out
+
+
+def own_rows(placement: Mapping[str, str], db, config: bytes) -> list[tuple[str, list[tuple[int, bytes]]]]:
+    """The rows a plan's ``placement`` writes into the vanilla ``config``,
+    each ``(its name, its writes)`` (AZ-835, D1041): a spot of
+    ``writer.OWN_ROW`` holding anything but its vanilla item names that row,
+    which becomes the item in every table the row has (only obsidian's
+    critters_sounds, its hum within 3 m, has no row to go in), with the
+    vanilla item's collision (:func:`_reach`) and the row's own
+    useCenterBasis, 1.0, as frag_air_1's: without it a bigger obsidian's
+    centre rises 3.3 m and the wind's pass is taken later. The item looks and
+    gives what it does everywhere and is taken there as the vanilla item was:
+    in xemu, at the same tick and place."""
+    names, doc, out = writer.Names(db), Document(config), []
+    for lid, row in writer.OWN_ROW.items():
+        if lid not in placement or (species := names.target(lid, placement[lid])) is None:
+            continue
+        reach = _reach(doc.tables[ENGINE], names.locations[lid]["template"], species)
+        writes = [w for table in doc.tables.values() if row in table.cols and species in table.cols
+                  for w in edits.copy_cells(table, species, row,
+                                            skip=(*reach, "useCenterBasis") if table.name == ENGINE else ())]
+        out.append((species, writes + [w for cell, value in reach.items()
+                                       for w in edits.set_number(doc.tables[ENGINE], row, cell, value, fill=True)]))
     return out
 
 
@@ -294,6 +326,8 @@ def plan_layer(prepared: Prepared, base: Mapping[str, bytes]) -> Layer:
                     for at, value in layer._thresholds(town, cost)]
     for species, writes in contained(prepared.plan.placement, db, base[CONFIG]):
         changes += [_change(base[CONFIG], CONFIG, at, data, f"{CONTAINED_GROUP} {species}") for at, data in writes]
+    for species, writes in own_rows(prepared.plan.placement, db, base[CONFIG]):
+        changes += [_change(base[CONFIG], CONFIG, at, data, f"{OWN_GROUP} {species}") for at, data in writes]
     return Layer(LAYER, TOOL, KIND, dict(prepared.recipe), tuple(changes))
 
 
@@ -306,7 +340,8 @@ def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], con
     sha256, the conflicts a later layer made (D28) and whether the logic
     still holds, with each reason it doesn't. A contained touch's cells
     (:func:`contained`) are read back too: one a later layer changed
-    leaves its item takeable through its container. ``ValueError`` names
+    leaves its item takeable through its container, and an own row's
+    (:func:`own_rows`) leaves its item out of reach. ``ValueError`` names
     every difference no later layer explains (D35). ``progress(done, total)``
     hears each level file read back (``writer.read_back``, as its ``sparse``
     for a build over :func:`sections`)."""
@@ -333,8 +368,9 @@ def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], con
             later.append(f"{problem}: {', '.join(sorted(who))} wrote it after the randomizer (D28)")
         else:
             failures.append(problem)
-    touches = [c for la in layers if la.id == LAYER for c in la.changes if c.group.startswith(CONTAINED_GROUP)]
-    opened = []   # the touches a later layer explains (D28)
+    touches = [c for la in layers if la.id == LAYER for c in la.changes
+               if c.group.startswith((CONTAINED_GROUP, OWN_GROUP))]
+    opened, rows = [], []   # the touches and own rows a later layer explains (D28)
     if touches:
         with iso.Reader(image) as r:
             config = r.read(CONFIG)
@@ -342,13 +378,15 @@ def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], con
         mine = [c for c in touches if c.group == group]
         if all(config[c.offset:c.offset + len(c.after)] == c.after for c in mine):
             continue
-        problem = f"{group.removeprefix(f'{LAYER} ')}: config.xbr's critters_engine doesn't hold the plan's cells"
+        where = "critters_engine doesn't" if group.startswith(CONTAINED_GROUP) else "tables don't"
+        problem = f"{group.removeprefix(f'{LAYER} ')}: config.xbr's {where} hold the plan's cells"
         who = {la.id for la in layers if la.id != LAYER for d in la.changes if d.file == CONFIG
                and any(d.offset < c.offset + len(c.after) and c.offset < d.offset + len(d.after) for c in mine)}
         if (by := dropped.get(group)) is not None:
             who.add(by)
         if who:
-            opened.append(f"{problem}: {', '.join(sorted(who))} wrote it after the randomizer (D28)")
+            (opened if group.startswith(CONTAINED_GROUP) else rows).append(
+                f"{problem}: {', '.join(sorted(who))} wrote it after the randomizer (D28)")
         else:
             failures.append(problem)
     if failures:
@@ -360,11 +398,13 @@ def read_back(prepared: Prepared, image: iso.Image, layers: Sequence[Layer], con
     if opened:
         why.append(f"{len(opened)} contained item(s) given another touch by a later layer, so they may be taken "
                    "through their container")
+    if rows:
+        why.append(f"{len(rows)} item(s) in a row of their own changed by a later layer, so they may be out of reach")
     return {"seed": plan.doc["seed"], "share": plan.doc["share"], "settings": layer.settings_doc(plan.settings),
             "plan": plan.doc["sha256"], "attempt": plan.doc["attempt"],
             "sliders": {pack: dict(values) for pack, values in sorted(plan.settings.sliders.items())},
             "obsidian_cost": prepared.recipe.get("obsidian_cost"), "logic_verified": not why,
-            "why_not": why, "conflicts": later + opened}
+            "why_not": why, "conflicts": later + opened + rows}
 
 
 def movement_reasons(packs: Mapping[str, Mapping[str, float]], catalog: Sequence[Mapping]) -> list[str]:

@@ -141,7 +141,7 @@ def spot_table(tracker, gems: bool = False) -> SpotTable:
             by_level.setdefault(level, []).append(Spot(
                 loc["id"], level, None if kind == "C" else int(g[1:]), None if kind == "C" else int(r[1:]), item,
                 kind, unique_field(item, fourcc) if items.count(item) == 1 else None,
-                "" if kind == "C" else names.target(loc["id"], item) or loc["template"], vanilla=loc["template"]))
+                "" if kind == "C" else names.written(loc["id"], item) or loc["template"], vanilla=loc["template"]))
     levels = {}
     for level, spots in by_level.items():
         main = next(g for g in db.generated[level]["graphs"] if g.get("saved_nodes", 0) > 0)

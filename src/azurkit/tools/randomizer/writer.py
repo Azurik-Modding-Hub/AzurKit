@@ -21,7 +21,8 @@ Every target is computed from vanilla: the generated data's
 against the bytes before anything is written.  Each graph's new strings
 must fit its gap: :func:`layout` refuses a placement whose distinct new
 names cost more (:func:`string_cost` each) than the gap holds, and the
-fill (R1.9) reads the same numbers (:class:`Names`).  Only critter-name fields, the gap
+fill (R1.9) reads the same numbers (:class:`Names`).  A spot of :data:`OWN_ROW` names
+its own row (AZ-835).  Only critter-name fields, the gap
 and the grown TOC sizes are written: never an exit's or a spot's string,
 since exits stay vanilla in v1 (§5.2 item 9).
 
@@ -65,6 +66,12 @@ from azurkit.core.xbr.nodes import TOC_ROW_SIZE, TOC_START, parse_toc
 NAME_FIELD = 0x1C
 """A critterGenerator record's (length, ref) critter-name field."""
 GENERATOR = "critterGenerator"
+OWN_ROW = {"a1/g0/r1102": "small_chromatic_fuel"}
+"""The spot whose placed item is taken only with its vanilla item's reach
+(AZ-835: a wind carries the player past a1's frag_air_1, 6 m, too far from
+anything smaller), and the row its item stands in: a pickup no location,
+drop or other row names, which :func:`~azurkit.tools.randomizer.generator.own_rows`
+makes that item with that reach, so its other copies stay as they are."""
 
 
 class WriteError(ValueError):
@@ -141,6 +148,15 @@ class Names:
             return mv
         return item
 
+    def written(self, lid: str, item: str) -> str | None:
+        """The string ``lid``'s node holds for ``item`` in the image:
+        :meth:`target`'s, or the spot's own row (:data:`OWN_ROW`). The fill
+        counts :meth:`target`'s, so an own row moves no plan; a graph with
+        one has the room: a1/g0's gap holds a longest name for every one of
+        its pool locations and one more."""
+        name = self.target(lid, item)
+        return OWN_ROW.get(lid, name) if name is not None else None
+
 
 def layout(placement: Mapping[str, str], db) -> dict[str, GraphEdit]:
     """The edit of each node graph ``placement`` changes, by graph key
@@ -160,7 +176,7 @@ def layout(placement: Mapping[str, str], db) -> dict[str, GraphEdit]:
         if item not in names.items:
             problems.append(f"{lid}: items.toml defines no {item!r}")
             continue
-        name = names.target(lid, item)
+        name = names.written(lid, item)
         if name is None:
             continue                                   # its vanilla item: nothing to write
         if loc.get("guardian_slot"):
@@ -322,7 +338,8 @@ def read_back(image, placement: Mapping[str, str], db, progress: Callable[[int, 
     want: dict[str, dict[str, str]] = {}
     for lid, loc in sorted(_locations(db).items()):
         item = placement.get(lid, loc["item"])
-        want.setdefault(lid.split("/", 1)[0], {})[lid] = base.get(item, item)
+        item = base.get(item, item)
+        want.setdefault(lid.split("/", 1)[0], {})[lid] = OWN_ROW.get(lid, item) if item != loc["item"] else item
     out = []
     md5 = image.md5 if isinstance(image, iso.Image) else lambda _, data: hashlib.md5(data).hexdigest()
     with iso.Reader(image) as r:
