@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -84,3 +86,21 @@ def test_under_loadgroup_the_frozen_apps_tests_share_one_worker_and_keep_their_a
     workers = re.findall(r"^\[(gw\d+)\] .*\b(?:PASSED|SKIPPED) test_g\.py::test_(?:frozen\[\d\]|listed)@frozen_app\b",
                          run.stdout.str(), re.M)
     assert len(workers) == 5 and len(set(workers)) == 1, run.stdout.str()
+
+
+def test_a_worker_killed_under_either_ci_tiers_flags_ends_the_run_and_names_its_test(pytester, monkeypatch):
+    """``tests.yml`` runs both tiers on each matrix row's workers. A worker
+    killed there (a runner short of memory) ends the run with a FAILED line
+    naming its test: left to replace it, xdist 3.8 under ``loadgroup`` never
+    ends the run, so the job would sit to its cap with nothing printed."""
+    text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    flags = re.findall(r"--numprocesses=\$\{\{ matrix\.workers \}\} (--dist=loadgroup --max-worker-restart=0)", text)
+    assert len(flags) == 2 and len(re.findall(r"\{os: [\w.-]+, label: [\w-]+, workers: [1-9]\}", text)) == 8
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
+    pytester.makepyfile(test_d="import os\n\ndef test_passes():\n    pass\n\ndef test_dies():\n    os._exit(9)\n")
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    for workers in (1, 2):
+        run = pytester.runpytest_subprocess("-p", "no:cacheprovider", f"--numprocesses={workers}", *flags[0].split(),
+                                            timeout=120)
+        assert run.ret == pytest.ExitCode.TESTS_FAILED, run.stdout.str()
+        run.stdout.fnmatch_lines(["FAILED test_d.py::test_dies - worker 'gw*' crashed*"])

@@ -45,10 +45,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: macos-15, label: macos-arm64}
-          - {os: macos-15-intel, label: macos-x86_64}
-          - {os: windows-latest, label: windows-x86_64}
-          - {os: ubuntu-latest, label: linux-x86_64}
+          # No image in this tier: a Mac on Apple Silicon has 3 cores and about 4.4 GiB to spare, the others 4 and 11-14.
+          - {os: macos-15, label: macos-arm64, workers: 2}
+          - {os: macos-15-intel, label: macos-x86_64, workers: 3}
+          - {os: windows-latest, label: windows-x86_64, workers: 3}
+          - {os: ubuntu-latest, label: linux-x86_64, workers: 3}
     defaults:
       run:
         shell: bash
@@ -75,9 +76,11 @@ jobs:
           read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
           uv run --locked playwright install-deps "${engines[@]}"
       - name: The pure tier
-        # pytest-xdist isn't in uv.lock at this base; once lane 4.3o adds it, -n auto and its --dist join this line.
-        # faulthandler: a test past 20 min prints each thread's stack, as a hang's job only ends at its cap, unnamed.
-        run: uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200
+        # On the matrix's workers, a group on one as the local gate has them (tests/conftest.py). --max-worker-restart=0:
+        # under loadgroup, xdist 3.8 replacing a killed worker hangs the run to the job's cap, unnamed; this way it ends and
+        # its FAILED line names the test. faulthandler: a test past 20 min prints each thread's stack, as a hang's job only
+        # ends at its cap, unnamed.
+        run: uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }})
@@ -89,10 +92,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: macos-15, label: macos-arm64}
-          - {os: macos-15-intel, label: macos-x86_64}
-          - {os: windows-latest, label: windows-x86_64}
-          - {os: ubuntu-latest, label: linux-x86_64}
+          # The serial tier's lowest free memory, of what was free at its most (GiB, scripts/ci_resources.py's lines): Apple
+          # Silicon 1.1 of 4.4 and Linux 2.0-2.6 of 13.9, near that often, so one worker each; Intel 5.6 of 11.0 and Windows
+          # 5.2-5.3 of 13.2, seldom near it, so two. More gains no time while Apple Silicon's one worker sets the round.
+          - {os: macos-15, label: macos-arm64, workers: 1}
+          - {os: macos-15-intel, label: macos-x86_64, workers: 2}
+          - {os: windows-latest, label: windows-x86_64, workers: 2}
+          - {os: ubuntu-latest, label: linux-x86_64, workers: 1}
     defaults:
       run:
         shell: bash
@@ -175,7 +181,7 @@ jobs:
           image parts usa.iso
           image europe europe.iso europe
       - name: The vanilla and europe tiers
-        # pytest-xdist isn't in uv.lock at this base; once lane 4.3o adds it, -n auto and its --dist join this line.
+        # On the matrix's workers, a group on one, and a killed worker ends the run by name, as in the pure tier's step.
         # pytest writes to a log, of which only the last 60 lines, the summary from conftest's "vanilla: N run" (at most
         # 200 lines), every FAILED line and each failure's heading and first 40 E lines (at most 600; byte-safe,
         # tests/_byte_safe.py) are printed, each cut at 240 characters (§12.4 item 4). On Linux the tests run under Modkit
@@ -206,7 +212,7 @@ jobs:
           watcher=$!
           trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla -o tmp_path_retention_policy=failed > "$log" 2>&1 &
+          tier -m vanilla -o tmp_path_retention_policy=failed --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 > "$log" 2>&1 &
           wait "$!" || status=$?
           touch "$stop"
           wait "$watcher" || true

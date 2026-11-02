@@ -1445,7 +1445,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   behind harden-runner's egress block, which starts with the job (its
   pre-step), so its installs' hosts are named too, and on Linux its tests
   run with no network as well (Modkit's §12.4 hygiene), and only the
-  pytest log's tail and summary are printed. `checks.yml` runs the leak
+  pytest log's tail and summary are printed. Each tier runs on xdist's
+  workers (`--dist=loadgroup`, as the gate does) in a number each runner's
+  memory sets, in the matrix: a killed worker ends the run by name
+  (`--max-worker-restart=0`), where replacing one under loadgroup hangs it.
+  `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
   --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four
   apps (`scripts/freeze.py --check`, which refuses one whose compiled library
