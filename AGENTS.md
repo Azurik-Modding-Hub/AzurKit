@@ -1346,7 +1346,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   typed seed's plan and first view, the settled recipe's build; never a reshape,
   which takes minutes and whose heap a change's terminate() would leave resident
   in WebKit), each key the recipe, the File by identity, what this browser keeps
-  installed and the engine's version; a change drops B's job by `terminate()`, a
+  installed and the engine's version; a change drops B's job by `terminate()` (a
+  heavy one goes on, unkept, while the list holds no heavy job, a reshape's, so
+  its heap is the next heavy job's, not resident beside it), a
   click matching its finished job takes its answer and one it is still working on
   follows its records. One heavy job at a time, none of B's beside F's build. One
   heap (w-reshape): a worker a job grew stays for the next heavy job (wasm memory

@@ -3125,6 +3125,22 @@ WORKERS_ROWS = """
         b.say({ type: "built", report: { size: 7 }, heap: KEEP + 2 });
         out.oneHeapB = [b.stopped, f.stopped, ran, (await answered).report, pool.state().swapped, pool.state().kept];
     }
+    {   // one heap: B's heavy job ahead the list drops for one with no heavy job (a reshape's) goes on, its answer
+        // unkept, and the next heavy click runs in its heap, and the next heavy job ahead too; for a list with a heavy
+        // job it is dropped
+        const { pool, f, b } = make();
+        pool.want([{ key: "build r", message: build("r"), heavy: true }]);
+        pool.want([]);
+        const on = b.stopped;
+        b.say({ type: "built", report: { size: 10 }, heap: 2 ** 29 });
+        const clicked = pool.ask(build("s"), { heavy: true });
+        b.say({ type: "built", report: { size: 11 }, heap: 2 ** 29 });
+        const report = (await clicked).report;
+        pool.want([{ key: "build t", message: build("t"), heavy: true }]);
+        pool.want([{ key: "build u", message: build("u"), heavy: true }]);
+        out.stale = [on, report, b.tags(), f.tags(), pool.state().kept, pool.state().swapped, b.stopped,
+                     pool.state().dropped];
+    }
     {   // a heavy ask waits for the heavy job a click took from B: one at a time, whichever worker runs it
         const { pool, f, b } = make();
         pool.want([{ key: "build w", message: build("w"), heavy: true }]);
@@ -3273,7 +3289,8 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
     names B's running job follows its records, and a change after the click
     doesn't drop it); another list terminates B's job; a worker a job grew
     stays for the next heavy job and answers as F, with nothing heavy beside
-    it (one heap); B takes F's place after a build past that worker's line
+    it (one heap), and B's heavy job ahead that a list with no heavy job
+    drops goes on, unkept, its heap the next heavy click's; B takes F's place after a build past that worker's line
     only when idle under KEEP; B is retired after a job past the line, its
     answer kept; F's build drops B's heavy job and B
     starts nothing beside it; a small ask that may go anywhere is B's while
@@ -3296,6 +3313,7 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "keep": [True, "b", {"size": 1}, True, [], 1],
         "oneHeapF": [False, [["build", "build g"], []], {"view": 5}, {"size": 6}, 0, 1],
         "oneHeapB": [False, False, [["build g", "build h"], []], {"size": 7}, 1, ["build g"]],
+        "stale": [False, {"size": 11}, ["build r", "build s", "build t"], [], [], 2, True, 1],
         "waits": [[], 9, ["preview"]],
         "free": [{"size": 8}],
         "csp": [{"view": 9}, ["csp"]],
