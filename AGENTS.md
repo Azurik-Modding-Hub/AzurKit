@@ -1414,9 +1414,26 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     FinalizationRegistry, which needs the GIL, and WebKit runs that cleanup
     inside WORKERFS's read of the image, where CPython has released the GIL
     (`NoGilError`, Step 4.1d3).
-  - **The service worker** (D1013, Step 4.3z; `web/sw.js`, which no page
-    registers yet: the hub's turn, which must also lift `app.mjs`'s `main()`
-    stop on a page a service worker controls): `site()` writes the release
+  - **The service worker** (D1013, Steps 4.3z and 4.3r4p; `web/sw.js`,
+    which the site's page registers once its engine is first ready,
+    `app.mjs`'s `registered()`; its `main()` stops only under a service
+    worker that isn't the site's own `sw.js`): a first visit never waits
+    for it (it runs uncontrolled, as before, while the release is kept;
+    holding it for the install and a reload cost S01 0.5-0.97 s in every
+    profile, 4.3r4p's x6b/x6c), and each later page comes from the release
+    at once, cross-origin isolated (no service worker, as in a private
+    window, or a refusal: uncontrolled, as before); a
+    controlled page starts its workers (the engine's, a dress's, the hash's)
+    from their own URLs, as Firefox sends a blob: worker's imports past the
+    worker, shows "An update is ready: Reload" when the next release waits
+    and asks for one every half hour; the Tools tab's Storage counts the
+    release kept and Clear deletes it (the page runs on, each file it asks
+    for kept again, checked). Another origin's content (the community
+    source on raw.githubusercontent.com) is a CORS fetch, which
+    cross-origin isolation allows as its host sends
+    `Access-Control-Allow-Origin: *`; sw.js handles only its own scope's
+    requests. `tests/test_site.py`'s routed pages block it (routing never
+    sees a worker's requests). `site()` writes the release
     into it
     (`web_tools.release`: each file the site serves but `sw.js`,
     `.nojekyll` and `content-source/`, with its sha256 and size; the
@@ -1434,7 +1451,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     install posts its progress and its outcome (`installed`, `failed`) to
     the site's pages; the first takes over at once; an activation deletes
     the scope's older releases' caches. `tests/test_service_worker.py` holds it in the
-    three browsers on small sites `site()` writes.
+    three browsers on small sites `site()` writes and on the site itself.
 - **The app** (D732) is `python -m azurkit` (`src/azurkit/__main__.py`): with
   no arguments the page in a pywebview window, else in the default browser;
   `serve` serves it without opening either (the tests' way in); any other

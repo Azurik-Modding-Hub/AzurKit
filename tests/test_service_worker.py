@@ -4,11 +4,12 @@ release whole in one cache, each file checked against the list's sha256,
 serves the page, its modules and its engine from it, isolates what it serves
 (COOP, COEP, CORP and the page's CSP) and holds an update until the page
 takes it. Here on small sites of its own that ``site()`` writes (a page that
-starts as the site's page is to start, an engine that reads ``host.json``
-and fetches the wheel by its integrity, as the site's worker does), served
-on 127.0.0.1 (a secure context; Playwright's routing doesn't see a service
-worker's own requests) with GitHub Pages' ``max-age=600``, in Chromium,
-WebKit and Firefox."""
+registers it and reloads once onto its release, an engine that reads
+``host.json`` and fetches the wheel by its integrity, as the site's worker
+does), and on the site itself (``web/app.mjs`` registers it behind a first
+visit), served on 127.0.0.1 (a secure
+context; Playwright's routing doesn't see a service worker's own requests)
+with GitHub Pages' ``max-age=600``, in Chromium, WebKit and Firefox."""
 
 from __future__ import annotations
 
@@ -44,7 +45,7 @@ PAGE = f"""<!doctype html>
 <body></body>
 </html>
 """
-# The page's start under the worker, as web/app.mjs's main() is to take it (the hub's turn): register sw.js; on a page
+# A test page's start under the worker (app.mjs registers it behind a first visit): register sw.js; on a page
 # it doesn't control, wait for its release to be kept and active and reload once (a sessionStorage guard; a failed
 # install, which sw.js posts, runs the page as it is); then the engine, a module worker from its own URL. sw.* drive
 # it for the tests.
@@ -258,6 +259,57 @@ def take(page) -> dict | None:
         return page.evaluate("sw.take()")
     except PlaywrightError:
         return None
+
+
+@pytest.fixture(scope="module")
+def site(tmp_path_factory) -> Path:
+    """The site, with this checkout's wheel."""
+    return web_tools.site(tmp_path_factory.mktemp("site") / "site")
+
+
+def ready(page, timeout: float = 120) -> None:
+    """Once the site's page has its engine ready (a reload under it is waited out)."""
+    end = time.monotonic() + timeout
+    while True:
+        with contextlib.suppress(PlaywrightError):
+            if page.evaluate("() => globalThis.azurkit?.ready === true"):
+                return
+        assert time.monotonic() < end, f"the page's engine wasn't ready: {page.url}"
+        time.sleep(0.2)
+
+
+KEPT_ROW = """() => [...document.querySelectorAll("#tools-storage td")].map((td) => td.textContent)
+  .includes("AzurKit itself, kept for offline use")"""
+
+
+def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_run_isolated_on_it_offline_too(
+        browser, site):
+    """The site's own page (``web/app.mjs``) registers ``sw.js`` once its
+    engine is ready: the first visit runs as before, uncontrolled, while the
+    release is kept; a later page comes from it at once, cross-origin
+    isolated, its engine's workers started from their own URLs (Firefox
+    sends a blob: worker's imports past the worker), with the Tools tab's
+    Storage counting the release; with the host down another starts its
+    engine from the release alone."""
+    with hosted(browser, site) as (host, context):
+        first = context.new_page()
+        first.goto(host.url)
+        ready(first)
+        assert first.evaluate("() => [crossOriginIsolated, Boolean(navigator.serviceWorker.controller)]") == [False, False]
+        assert _page.until(first, "async () => Boolean((await navigator.serviceWorker.getRegistration())?.active)", 60)
+        page = context.new_page()
+        page.goto(host.url)
+        ready(page)
+        assert page.evaluate("() => [crossOriginIsolated, navigator.serviceWorker.controller?.scriptURL, "
+                             "azurkit.violations]") == [True, f"{host.url}sw.js", []]
+        assert f"{host.url}worker.mjs" in [worker.url for worker in page.workers]
+        page.evaluate("() => document.getElementById('tab-tools').click()")
+        assert _page.until(page, KEPT_ROW, 60)
+        host.down = True
+        other = context.new_page()
+        other.goto(host.url)
+        ready(other)
+        assert other.evaluate("() => crossOriginIsolated")
 
 
 def test_the_sites_worker_lists_every_file_the_site_serves_with_its_sha256(tmp_path, monkeypatch):

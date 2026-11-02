@@ -66,14 +66,15 @@ export async function hashed(source, files, progress = () => {}, longest = RUN) 
   return digests;
 }
 
-// hashed in a worker of its own that ends with it (hashworker.mjs; started from a blob: URL so that it keeps the page's
-// CSP), as an image's whole check takes memory the thread it runs in wouldn't give back; hashed here where a worker can't
-// start one.
+// hashed in a worker of its own that ends with it (hashworker.mjs; started from its own URL on a page sw.js controls,
+// else from a blob: URL so that it keeps the page's CSP: app.mjs's engine's way), as an image's whole check takes memory
+// the thread it runs in wouldn't give back; hashed here where a worker can't start one.
 export function hashedApart(source, rows, progress = () => {}, longest = RUN) {
   let worker, url;
   try {
-    url = URL.createObjectURL(new Blob([`import ${JSON.stringify(new URL("hashworker.mjs", import.meta.url).href)};\n`],
-                                       { type: "text/javascript" }));
+    const entry = new URL("hashworker.mjs", import.meta.url).href;
+    url = globalThis.navigator?.serviceWorker?.controller?.scriptURL === new URL("sw.js", import.meta.url).href ? entry
+      : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
     worker = new Worker(url, { type: "module" });
   } catch {
     return hashed(source, rows, progress, longest);

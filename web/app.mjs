@@ -293,7 +293,9 @@ function unchecked() {
 }
 
 // The site's engine: two module workers (web/workers.mjs, Step 4.3r4l: F answers the page's asks, B works ahead), each
-// started from a blob: URL so that it keeps the page's CSP. A worker a job grew stays for the next heavy job, wasm memory
+// started from its own URL once sw.js controls the page (sw.js sends it the page's CSP as a header and serves its
+// imports: Firefox sends a blob: worker's past it), else from a blob: URL so that it keeps the page's CSP. A worker a
+// job grew stays for the next heavy job, wasm memory
 // never shrinking (one heap, workers.mjs); one past its line is replaced, "Preparing the engine…" meanwhile, by B at once
 // when B is idle and small. A seed's build comes without its spoiler, which the worker sends next (built's spoiled: a
 // promise of it). A click whose key is B's finished job takes its answer; one B is still working on follows B's records.
@@ -312,10 +314,11 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       starting = asking("start");
     }
     const entry = new URL("worker.mjs", location.href).href;
-    const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
+    const url = ours() ? entry
+      : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
     const worker = new Worker(url, { type: "module" });
     worker.addEventListener("message", ({ data }) => {
-      if (data?.type === "ready") URL.revokeObjectURL(url);
+      if (data?.type === "ready" && url !== entry) URL.revokeObjectURL(url);
       if (data?.type === "native") {   // every worker's, for the perf gate's native assert (a worker's ends with it)
         state.calls = { kernel: (state.calls?.kernel ?? 0) + (data.kernel ?? 0),
                         twin: (state.calls?.twin ?? 0) + (data.twin ?? 0) };
@@ -1018,6 +1021,7 @@ function unopen() {
 // remembered setup back, unless a link brought a recipe (D915: the link wins); it is ready once that is back.
 function ready(catalog, version) {
   if (!state.packs) {
+    if (!state.app && "serviceWorker" in navigator) registered();
     state.packs = catalog;
     renderTabs(catalog.tabs);
     renderPacks(catalog);
@@ -1773,9 +1777,49 @@ function randoEvents(changed) {
   $("spoiler-save").addEventListener("click", saveSpoiler);
 }
 
+// The site's service worker (web/sw.js, D1013), registered by the site only (the app's address is new each launch), once
+// its engine is first ready: a first visit never waits for it (its release is kept in the background, the page running
+// uncontrolled, as before), and each later page of the site comes from that release at once, cross-origin isolated,
+// offline too. A controlled page shows when the next release waits ("An update is ready: Reload": sw.js posts
+// "installed"; Firefox shows a registration's new worker late), asks sw.js to look for one every half hour, and its
+// Reload asks the waiting release to take over, which it refuses while another of the site's pages is open: the page
+// names how many.
+const WORKER = "sw.js";
+const ours = () => navigator.serviceWorker?.controller?.scriptURL === new URL(WORKER, location.href).href;
+const told = (worker, message) => new Promise((done) => {
+  const channel = new MessageChannel();
+  channel.port1.onmessage = ({ data }) => done(data);
+  worker.postMessage(message, [channel.port2]);
+});
+
+function registered() {
+  const sw = navigator.serviceWorker;
+  if (ours()) return sw.getRegistration().then((reg) => reg && updates(reg));
+  sw.register(WORKER).catch(() => {});   // none (a private window, a refusal): the page runs as it is
+}
+
+function updates(reg) {
+  const sw = navigator.serviceWorker;
+  $("update").hidden = !reg.waiting;
+  sw.addEventListener("message", ({ data }) => data?.type === "installed" && ($("update").hidden = false));
+  sw.startMessages();
+  $("update-reload").addEventListener("click", async () => {
+    if (!reg.waiting) return say("The update is still being kept: Reload again in a moment");
+    const reload = () => location.reload();
+    sw.addEventListener("controllerchange", reload);
+    const answer = await told(reg.waiting, { type: "reload" });
+    if (answer.ok) return;
+    sw.removeEventListener("controllerchange", reload);
+    say(`Close AzurKit's ${answer.others === 1 ? "other page" : `${answer.others} other pages`} to update it`, true);
+  });
+  setInterval(() => ours() && told(sw.controller, { type: "check" }), 30 * 60 * 1000);
+}
+
 async function main() {
   if (window.top !== window.self) return stop("AzurKit doesn't run inside another page: open it on its own.");
-  if (navigator.serviceWorker?.controller) return stop("A service worker controls this page: AzurKit won't run.");
+  if (navigator.serviceWorker?.controller && !ours()) {
+    return stop("A service worker controls this page: AzurKit won't run.");
+  }
   theme(document.documentElement.dataset.theme);   // theme.js's
   $("theme").addEventListener("click", () => theme(state.theme === "light" ? "dark" : "light", true));
   document.addEventListener("securitypolicyviolation", (e) => {

@@ -169,10 +169,14 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
 
 class Site:
     """The site served to a fresh browser context at :data:`ORIGIN` from its
-    folder (Playwright's routing, no server), every request logged."""
+    folder (Playwright's routing, no server), every request logged. Its
+    service worker is blocked: routing never sees a service worker's own
+    requests, so these pages run uncontrolled, as a browser without one does
+    (``tests/test_service_worker.py`` holds the site under ``sw.js``)."""
 
     def __init__(self, browser, root: Path, profile: Path | None = None, **options):
         self.root, self.requests = root.resolve(), []
+        options = {"service_workers": "block", **options}
         self.context = (browser.browser_type.launch_persistent_context(str(profile), headless=True, accept_downloads=True,
                                                                        **options) if profile
                         else browser.new_context(accept_downloads=True, **options))
@@ -1426,7 +1430,7 @@ def test_the_site_serves_the_favicon_the_page_links(browser, site):
     byte for byte ``web/``'s. (A static server here: Playwright aborts a
     routed request whose address ends in ``/favicon.ico``.)"""
     with _static(site) as url:
-        context = browser.new_context()
+        context = browser.new_context(service_workers="block")   # its icons, not sw.js's first visit (its own file's)
         try:
             page = context.new_page()
             page.goto(url)

@@ -229,6 +229,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **The web page:** the whole builder, randomizer and tracker run in your browser through WebAssembly, tested in
   Chromium, Safari's engine and Firefox.
 - **Builds back to back:** the page keeps its engine loaded after a build, so the next one starts at once.
+- **Offline once loaded:** the web page keeps itself in your browser on the first visit, so later visits start from
+  there, with no network, and an update waits until you click Reload.
 - **Ready when you click:** the web page plans the seed you typed and builds what you set up in a second engine while
   you look it over, so Track and Build often answer at once; a change drops that work.
 - **Nothing uploaded:** the page asks for nothing but its own files, and the browser checks its engine's integrity.

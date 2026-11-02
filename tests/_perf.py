@@ -913,6 +913,8 @@ def served(site: Path, lag: bool = False) -> Iterator[str]:
     late = {} if not lag else {
         "/worker.mjs": lagged((site / "worker.mjs").read_text(encoding="utf-8")),
         "/hasher.mjs": lagged((site / "hasher.mjs").read_text(encoding="utf-8"), HASHER_LAG)}
+    if late:   # sw.js keeps only the files its release lists (D1013): it lists the lag model's as served
+        late["/sw.js"] = relisted((site / "sw.js").read_text(encoding="utf-8"), late)
     handler = type("Handler", (_Quiet,), {"late": late})
     server = http.server.ThreadingHTTPServer(("127.0.0.1", free_port()),
                                              functools.partial(handler, directory=str(site)))
@@ -923,6 +925,17 @@ def served(site: Path, lag: bool = False) -> Iterator[str]:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def relisted(worker: str, late: dict[str, str]) -> str:
+    """``sw.js``'s ``worker`` with its release listing each of ``late``'s files (path: text) by the served text's
+    sha256 and size, as its install refuses any other bytes (Step 4.3r4p)."""
+    line = next(line for line in worker.splitlines() if line.startswith("const RELEASE = {"))
+    release = json.loads(line.removeprefix("const RELEASE = ").removesuffix(";"))
+    for path, text in late.items():
+        body = text.encode()
+        release["files"][path.lstrip("/")] = {"sha256": hashlib.sha256(body).hexdigest(), "size": len(body)}
+    return worker.replace(line, f"const RELEASE = {json.dumps(release, sort_keys=True)};")
 
 
 def lagged(text: str, reads: tuple = LAG) -> str:
@@ -1269,13 +1282,14 @@ def app_reshape_pictures(d: Driver, app: App, ctx) -> None:
 
 
 def _site_page(d: Driver, ctx, url: str, op: str | None) -> Page:
-    """A new page on ``url``, ``op`` timed by its own clock from its navigation to the engine's ready flag."""
+    """A new page on ``url``, ``op`` timed by its own clock from its navigation to the engine's ready flag. A return
+    visit (S02) the release ``sw.js`` keeps doesn't serve cross-origin isolated (D1013) fails its sample."""
     p = Page(ctx.new_page())
     p.page.goto(url)
     t1, _ = p.wait(READY, 600)
     d.engine(p)
     d.fresh(p)
-    d.record(op, t1 / 1000, d.ev, 0, t1)
+    d.record(op, t1 / 1000, d.ev, 0, t1, None if op != "S02" or p.js("() => crossOriginIsolated") else "not isolated")
     return p
 
 

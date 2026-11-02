@@ -8,7 +8,7 @@
 // one's Track this build: the tracker on its own plan, replayed from its seed and share string), Load a mods
 // file…, Save the setup as a mods file…, a plan file's spoiler (View, Save) and the last build's report (View, Save).
 // AzurKit's storage: what it keeps on this computer, by name, and Clear (the site: its own named keys and databases
-// in this browser; the app: the named entries its engine lists, never an image or the folder, SEC-10). Everything
+// in this browser, and the release sw.js keeps for offline use, D1013, D1015; the app: the named entries its engine lists, never an image or the folder, SEC-10). Everything
 // that waits for an image is greyed with the line that says so until one is picked (D979). The engine decides every
 // answer; this page asks and draws what comes back, through textContent only (the CSP: no eval).
 //
@@ -37,6 +37,20 @@
 // changes, built after each build (its report, sdk.image's) and each save ({out, size, sha256}).
 
 import { listed, sweep } from "./outputs.mjs";
+
+// sw.js's release on a page it controls (D1013): {name, files, cached, bytes}; else null.
+const release = () => new Promise((done) => {
+  const sw = navigator.serviceWorker?.controller;
+  if (!sw) return done(null);
+  const channel = new MessageChannel();
+  channel.port1.onmessage = ({ data }) => done(data);
+  sw.postMessage({ type: "release" }, [channel.port2]);
+});
+// The Cache Storage keys sw.js keeps this site's releases in (azurkit:<scope>:<name>): never another site's.
+const releases = async () => {
+  const scope = (await navigator.serviceWorker?.getRegistration?.().catch(() => null))?.scope;
+  return scope && globalThis.caches ? (await caches.keys()).filter((key) => key.startsWith(`azurkit:${scope}:`)) : [];
+};
 
 export const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits for an image
 export const VANILLA = "Only a vanilla image is checked against its release";   // Verify, for another image
@@ -393,6 +407,10 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
       }
       const files = await listed();
       if (files.length) rows.push(["Built images' files, until they're saved", files.reduce((n, f) => n + f.size, 0)]);
+      const kept = await release();   // its size once whole: a file cleared from it comes back as the page asks
+      if (kept?.cached || (await releases()).length) {
+        rows.push(["AzurKit itself, kept for offline use", kept?.cached === kept?.files ? kept.bytes : null]);
+      }
       const usage = (await navigator.storage?.estimate?.().catch(() => null))?.usage;
       ui.storageLine.textContent = usage == null ? "" : `This site keeps ${sized(usage)} in this browser in all.`;
     }
@@ -417,6 +435,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
       } catch {}
     }
     await sweep();   // those no page or worker holds
+    await Promise.all((await releases()).map((key) => caches.delete(key)));   // this page runs on: sw.js keeps again
     const later = (await Promise.all(KEPT.databases.map(([name]) => new Promise((done) => {
       const request = indexedDB.deleteDatabase(name);
       request.onsuccess = request.onerror = () => done(false);

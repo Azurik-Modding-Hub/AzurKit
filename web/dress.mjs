@@ -10,8 +10,9 @@ const WATCH = 250;
 const DRAWING = { stage: "start", label: "Drawing the model", percent: null };
 
 export function alone(body, { content, stopping, asking, answered, posted }) {
-  const entry = new URL("worker.mjs", location.href).href;
-  const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
+  const entry = new URL("worker.mjs", location.href).href;   // its own URL under sw.js, as app.mjs's engine starts
+  const url = navigator.serviceWorker?.controller?.scriptURL === new URL("sw.js", location.href).href ? entry
+    : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
   const worker = new Worker(url, { type: "module" }), id = asking("preview");
   return new Promise((resolve) => {
     const end = (reply) => {
