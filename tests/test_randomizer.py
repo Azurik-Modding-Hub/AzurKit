@@ -66,33 +66,32 @@ TRACKER = {key: row["view"] for key, row in record_goldens.recorded(record_golde
 TRACKER_MAP = {key: row["map"] for key, row in record_goldens.recorded(record_goldens.TRACKER).items()}
 # the hosts' tests (test_site, test_hosts) take these from here: seed 2's plan by case, and tracker.json's states
 _profile, tracker_states, shows_gems = record_goldens.profile, record_goldens.tracker_states, record_goldens.shows_gems
-# RS1's 80 plans (round 2's R2.1, Step 4.3u): seeds 1 to 20 under four option sets (skip ceiling, movement tier,
-# dark_fire; the goldens' strict, default and max and a skip ceiling of 2), each "attempt, the plan's sha256[:12], its
+# RS1's 80 plans (round 2's R2.1, Step 4.3u): seeds 1 to 20 under four option sets (skip ceiling, movement tier;
+# the goldens' strict, default and max and a skip ceiling of 2), each "attempt, the plan's sha256[:12], its
 # spoiler lines' sha256[:12]" as the solver before R2.1 made them (AzurKit 3cd8a44, RS1's proof20-A)
-OPTIONS80 = {"strict": (0, "safe", 2), "default": (0, "standard", 1), "max": (4, "frame_perfect", 1),
-             "ceiling2": (2, "standard", 1)}
+OPTIONS80 = {"strict": (0, "safe"), "default": (0, "standard"), "max": (4, "frame_perfect"), "ceiling2": (2, "standard")}
 PLANS80 = {
     "strict": (
-        "0 560d55211d25 af25adac2ba2",
-        "0 2c1114ccb4de ccdd50baffda",
-        "0 72b01f69ea38 28a6a241d31e",
-        "0 65059ebe749a 03f3db9e5ed7",
-        "1 9deb3b38e26c f699536f1576",
-        "1 8daa3c542547 95cb81521efb",
-        "0 0a64449cc22f 4fff5580cf04",
-        "0 7505c33a8657 394f9e0d6ead",
-        "1 c53fca681a63 c77bed991c87",
-        "0 d184d4c6e6e6 1ed182570359",
-        "0 d7a1549d9fc7 91670887951b",
-        "1 f32d0eb20a56 cd21f987f1f4",
-        "0 99c7210abd49 5ccbef2c8839",
-        "0 dfd3bc168487 dcc0db762873",
-        "0 d24fd97d0d67 9cd83797a4b4",
-        "1 bcc1e234892a a855d3573b4f",
-        "0 7caabd6060d1 203c732545b3",
-        "3 e4ce7987187e a968c8bda3e5",
-        "1 dfd573c60472 868fa3c7a9c9",
-        "0 201ec9c1acc9 3b91f83d5d75",
+        "0 329ecaca3e86 56b8f90d6db0",
+        "1 42f64b314152 284357947518",
+        "0 7180891bd7da a29820fbdf14",
+        "1 1e0b3427c5f5 87e972b414f5",
+        "1 67f3d3958552 b66c769ec7c9",
+        "0 e0bfc568a1ae e6a10b9fb2b5",
+        "1 d9db4051bad5 7cc549652434",
+        "0 148961baad6a cf07e65527fb",
+        "0 6a295c6396b0 34a141289098",
+        "0 f88761c309d2 9dceedd7e1b0",
+        "1 17d94dd6f03e de0746453885",
+        "0 18297ff7d13c 059407f99787",
+        "0 c4325ba4c5d5 1fdca6341b64",
+        "0 2492075fefb1 40c7ba590220",
+        "0 77028a62f9d3 189a6ba2bd03",
+        "0 5c239627cb14 95947e082cd2",
+        "0 1fe8f2520d69 588d47e8c703",
+        "2 4736ffbf9349 b1ecc168be36",
+        "0 2cfb19022260 d1a696e23b83",
+        "1 2937bec750a9 a82b93c335e9",
     ),
     "default": (
         "0 ea41d8df6d67 45f92dc9acdb",
@@ -275,14 +274,14 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close(monkeypa
     table = difficulty.forcing()
     assert (table["db_digest"], table["skips"]) == (fill.db_digest(logic.db), difficulty.skips_tag(skips)), (
         "stale: re-run scripts/seed_forcing.py")
-    close = Settings(2, "standard", 1, {}, seed_difficulty=2)
+    close = Settings(2, "standard", {}, seed_difficulty=2)
     one = [fill._fill(logic, seed, close).placement for seed in "1234"]   # Standard/Standard's: one in three or so
     monkeypatch.setattr(fill, "WIDTH", 3)                                  # ends the bound with no ok
     assert [fill._fill(logic, seed, close).placement for seed in "1234"] == one
     monkeypatch.undo()
 
     def lines(tier, ceiling, off=(), kept=(), level=0):
-        return difficulty.levels(Settings(ceiling, tier, 1, dict.fromkeys(off, False), frozenset(kept),
+        return difficulty.levels(Settings(ceiling, tier, dict.fromkeys(off, False), frozenset(kept),
                                           seed_difficulty=level), skips)
 
     def enabled(view):
@@ -302,7 +301,7 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close(monkeypa
     assert "Keeping the powers" in lines("hard", 3, kept=("powers",))["levels"][2][3]
     assert "plays as Standard" in lines("hard", 3, off=SHAPED["hard-toggled-more"][0][3])["levels"][2][3]
     assert sdk.randomizer_settings({"settings": randomizer.literal(logic.db.defaults)})["difficulty"]["note"] is None
-    slid = sdk.plan({"seed": "1", "share": share_encode(Settings(0, "hard", 1, {}, sliders=JUMP, seed_difficulty=3), skips)})
+    slid = sdk.plan({"seed": "1", "share": share_encode(Settings(0, "hard", {}, sliders=JUMP, seed_difficulty=3), skips)})
     assert slid["settings"]["seed_difficulty"] == 3    # the rungs on the Logic re-checked at each tier under the slider
     assert sdk.tracker({"plan": slid})["head"]["requires"]["asks"] == 3
     randomizer.openers_ahead(slid)
@@ -310,7 +309,7 @@ def test_each_seed_difficulty_level_keeps_its_promise_or_says_how_close(monkeypa
 
 def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reach_of_their_own(monkeypatch):
     """The app's job ahead of the spoiler's View: the View takes its answer, in one Logic's kept openers."""
-    logic, settings = kept_logic(), Settings(3, "hard", 1, {}, seed_difficulty=3)
+    logic, settings = kept_logic(), Settings(3, "hard", {}, seed_difficulty=3)
     doc = plan_doc(fill.fill(logic, "1", settings), logic.db)
     randomizer.openers_ahead(doc)
     assert kept_logic() is logic      # their keep is a memo: it doesn't make the View read a new Logic
@@ -343,7 +342,7 @@ def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_
     monkeypatch.setattr(fill, "LOW", low)
     with pytest.raises(Gone), progress.noting(progress.Steps(report)) as steps:
         steps("plan")
-        fill._fill(kept_logic(), "31", Settings(3, "hard", 1, {}, frozenset({"fragments"}), seed_difficulty=3))
+        fill._fill(kept_logic(), "31", Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3))
     for thread in threading.enumerate():
         if thread.name.startswith("azurkit-attempt"):
             thread.join(5)
@@ -363,14 +362,14 @@ def test_a_shaped_fills_attempts_at_once_read_a_slider_rungs_logic_on_the_fills_
     monkeypatch.setattr(movement, "logic_for", read)
     monkeypatch.setattr(difficulty, "_RUNG_LOGIC", {})
     monkeypatch.setattr(fill, "WIDTH", 4)
-    made = fill._fill(logic, "6", Settings(3, "hard", 1, {}, sliders={"player_physics": {"jump_speed_scale": 1.3}},
+    made = fill._fill(logic, "6", Settings(3, "hard", {}, sliders={"player_physics": {"jump_speed_scale": 1.3}},
                                            seed_difficulty=3))     # its attempt 0 misses need_L: E_2's first read is past it
     assert made.attempt and threads and set(threads) == {threading.current_thread()}
 
 
 def test_a_logic_handed_another_database_works_its_openers_out_again(monkeypatch):
     """As the kept fill does (``loader.kept_logic``'s stated way to hand a Logic another database)."""
-    logic, settings = kept_logic(), Settings(3, "hard", 1, {}, seed_difficulty=3)
+    logic, settings = kept_logic(), Settings(3, "hard", {}, seed_difficulty=3)
     placement = fill.fill(logic, "1", settings).placement
     first = difficulty.openers(logic, settings, placement)
     monkeypatch.setattr(logic, "db", dataclasses.replace(logic.db))
@@ -436,7 +435,7 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
 
     logic, off = kept_logic(), {"a6.rjump_platforms": False}
     plans = [plan_doc(fill.fill(logic, "1", settings), logic.db)
-             for settings in (Settings(3, "hard", 1, {}, seed_difficulty=3), Settings(3, "hard", 1, off, seed_difficulty=3))]
+             for settings in (Settings(3, "hard", {}, seed_difficulty=3), Settings(3, "hard", off, seed_difficulty=3))]
     answered = iter(plans)
     monkeypatch.setattr(engine.sdk, "plan", lambda *_, **__: next(answered))
     monkeypatch.setattr(engine, "_NEWEST", [None])
@@ -460,7 +459,7 @@ def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_th
     """Hard/Hard seed 21's last step-up opens with Hard movement and no pick, or with the tier lowered by one pick: its
     "one of" names those two, not every pick rated high enough."""
     logic = kept_logic()
-    st = Settings(3, "hard", 1, {}, seed_difficulty=3)
+    st = Settings(3, "hard", {}, seed_difficulty=3)
     opened = difficulty.openers(logic, st, fill.fill(logic, "21", st).placement)
     assert opened[-1] == {"picks": ["f6.mound_climb_air1 (Hard)", difficulty.MOVEMENT], "one_of": True}
 
@@ -471,7 +470,7 @@ def test_frame_perfects_line_says_a_seed_may_need_one_only_where_the_table_saw_i
     skips = kept_logic().skip_tables
 
     def line(ceiling, kept=()):
-        return difficulty.levels(Settings(ceiling, "frame_perfect", 1, {}, frozenset(kept)), skips)["levels"][3][3]
+        return difficulty.levels(Settings(ceiling, "frame_perfect", {}, frozenset(kept)), skips)["levels"][3][3]
 
     assert "a few seeds" in line(4)
     for ceiling in (0, 2, 3):
@@ -506,17 +505,17 @@ def test_a_share_string_and_settings_file_carry_seed_difficulty_and_older_ones_r
     pick = next(p for p, ids in picks(skips).items() if turnable(skips[ids[0]]) and skips[ids[0]]["difficulty"] == 2)
     for level in (2, 3, 4):
         for toggles, sliders in (({}, {}), ({pick: True}, JUMP)):
-            st = Settings(4, "frame_perfect", 1, toggles, seed_difficulty=level, sliders=sliders)
+            st = Settings(4, "frame_perfect", toggles, seed_difficulty=level, sliders=sliders)
             text = share_encode(st, skips)
             assert base64.b32decode(text[4:] + "=" * (-len(text[4:]) % 8))[0] == 4
             assert share_decode(text, skips) == st and share_sliders(text, skips) == sliders
     for kept in ({"powers", "upgrades"}, {"powers"}, {"upgrades"}):
-        st = Settings(3, "hard", 1, {}, frozenset(kept), seed_difficulty=2)
+        st = Settings(3, "hard", {}, frozenset(kept), seed_difficulty=2)
         assert share_decode(share_encode(st, skips), skips) == st
         back = load_plan(plan_doc(fill.Fill("1", st, 0, {}), logic.db), logic.db).settings
         assert back.exclude_categories == kept and back.seed_difficulty == 2
     assert share_encode(logic.db.defaults, skips) == "AZR-AAEA"
-    for old in ("AZR-AAEA", _share(JUMP), share_encode(Settings(3, "hard", 1, {}, frozenset({"powers"})), skips)):
+    for old in ("AZR-AAEA", _share(JUMP), share_encode(Settings(3, "hard", {}, frozenset({"powers"})), skips)):
         assert share_decode(old, skips).seed_difficulty == 0
         assert share_encode(share_decode(old, skips), skips) == old
 
@@ -529,7 +528,7 @@ def test_a_share_string_and_settings_file_carry_seed_difficulty_and_older_ones_r
                       (raw(1 << 3 | 3, 0x00), "asks for Hard tricks; Movement and Skips allow Safe at most")):
         with pytest.raises(ValueError, match=why):
             share_decode(text, skips)
-    doc = plan_doc(fill.Fill("1", Settings(3, "hard", 1, {}, seed_difficulty=3), 0, {}), logic.db)
+    doc = plan_doc(fill.Fill("1", Settings(3, "hard", {}, seed_difficulty=3), 0, {}), logic.db)
     edited = {**doc, "settings": {**doc["settings"], "seed_difficulty_fill": 2}}
     body = {k: v for k, v in edited.items() if k != "sha256"}
     with pytest.raises(PlanError, match="fill 2; this AzurKit plans with fill 1"):
@@ -553,7 +552,7 @@ def test_a_share_string_and_settings_file_carry_seed_difficulty_and_older_ones_r
 
 def _share(sliders: dict) -> str:
     skips = {sid: s for sid, (_, s) in kept_logic().db.skips.items()}
-    return share_encode(Settings(0, "standard", 1, {}, sliders=sliders), skips)
+    return share_encode(Settings(0, "standard", {}, sliders=sliders), skips)
 
 
 def test_seed_2s_plan_under_each_profile_is_its_goldens_and_the_default_plan_file_byte_for_byte(capsys, tmp_path):
@@ -648,13 +647,37 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
     assert sdk.read_mods(sdk.preset_encode({"packs": {}, "randomizer": rando}))["randomizer"] == rando
     kept = {"on": True, "seed": "2", "settings": given, "obsidian_cost": 20.0}
     assert sdk.restore({"ticked": [], "randomizer": kept})["randomizer"] == kept
-    bad = given | {"dark_fire": 9}
+    bad = given | {"dark_fire": 2}
     for refused in (lambda: sdk.preset_encode({"packs": {}, "randomizer": {"seed": "2", "settings": bad}}),
                     lambda: sdk.randomizer_settings({"settings": bad})):
-        with pytest.raises(ValueError, match="dark_fire: 9 is not 1-3"):
+        with pytest.raises(ValueError, match="dark_fire: 2: dark areas always need Fire 1 now"):
             refused()
     assert sdk.restore({"ticked": [], "randomizer": kept | {"settings": bad}})["dropped"] == [
-        "the randomizer's settings (settings: dark_fire: 9 is not 1-3)"]
+        "the randomizer's settings (settings: dark_fire: 2: dark areas always need Fire 1 now; this seed can't be remade)"]
+
+
+def test_dark_areas_always_need_fire_1_so_an_old_fire_2_or_3_is_refused_by_name():
+    """D1061: the option is gone, its key stays at 1 in every table (every seed's digest holds it). A settings table, a
+    share string or a plan file made at Fire 2 or 3 is refused by name: read as Fire 1 it would give another seed under
+    the same string. A dark area needs Fire 1 unless its own nolight skip is on."""
+    logic = kept_logic()
+    skips = logic.skip_tables
+    assert fill.settings_table(logic.db.defaults)["dark_fire"] == 1 and share_encode(logic.db.defaults, skips) == "AZR-AAEA"
+    table = fill.settings_table(logic.db.defaults)
+    for fire, share in ((2, "AZR-AAUA"), (3, "AZR-ABEA")):
+        with pytest.raises(ValueError, match=f"dark_fire: {fire}: dark areas always need Fire 1 now"):
+            settings_from_table(table | {"dark_fire": fire}, skips)
+        with pytest.raises(ValueError, match=f"dark_fire: {fire}: dark areas always need Fire 1 now"):
+            share_decode(share, skips)
+    doc = sdk.plan({"seed": "2"})
+    old = {**doc, "settings": {**doc["settings"], "dark_fire": 2}}
+    old["sha256"] = hashlib.sha256(fill.canonical({k: v for k, v in old.items() if k != "sha256"})).hexdigest()
+    with pytest.raises(PlanError, match="dark_fire: 2: dark areas always need Fire 1 now"):
+        load_plan(old, logic.db)
+    dark = next(n for n in logic.db.nodes if logic.db.nodes[n][1].get("dark") == "e7.dark_room_nolight")
+    for override, fire, lit in (({}, 0, False), ({}, 1, True), ({"e7.dark_room_nolight": True}, 0, True)):
+        rule = logic.rules(dataclasses.replace(logic.db.defaults, skip_override=override)).light_at(dark)
+        assert rule({"fire": fire}, frozenset()) is lit, (override, fire)
 
 
 def test_the_tab_folds_the_worn_bodys_size_in_as_its_build_does_so_a_seed_planned_there_is_the_builds(usa_iso):
@@ -750,7 +773,7 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     monkeypatch.setattr(native, "_native", lambda *a, real=native._native, **k: kernels.append(1) or real(*a, **k))
     monkeypatch.setattr(native, "_twin", lambda *a, real=native._twin, **k: twins.append(1) or real(*a, **k))
     args = record_goldens.cases(G3[release])[case]["args"]
-    options = {k: args[k] for k in ("skip_ceiling", "movement_tier", "dark_fire") if args[k] is not None}
+    options = {k: args[k] for k in ("skip_ceiling", "movement_tier") if args[k] is not None}
     settings = layer.settings_doc(kept_logic().db.defaults) | options
     given = {"seed": args["seed"]} | ({"settings": settings} if options else {})
     made, report = sdk.image(cli.recipe(str(path), [], [], True, randomizer=given))
@@ -1157,7 +1180,7 @@ def test_the_grammar_has_no_negation_and_each_rule_the_solver_compiles_holds_at_
             parse(text)
     logic, rng = kept_logic(), random.Random(0)
     counters = sorted({c for cs in logic.items.values() for c in cs})
-    for st in (logic.db.defaults, Settings(4, "frame_perfect", 1, {})):
+    for st in (logic.db.defaults, Settings(4, "frame_perfect", {})):
         for physical in (False, True):
             g = logic.rules(st, physical)
             rules = [r for edges in g.adj.values() for _, r in edges] + [t[2] for t in g.teleports] + [
@@ -1331,7 +1354,7 @@ def test_the_trackers_verdicts_are_their_goldens_at_each_state_and_a_click_marks
     plain = view(doc, None, False)
     assert {s["item"] for s in plain["spots"].values()} == {None}
     assert plain["head"] == {"seed": "2", "share": doc["share"], "sha256": doc["sha256"], "skips": [], "text": (
-        f"Seed 2 · {doc['share']} · skips None, movement standard, Fire 1 · 0 skips on")}   # a level 0's: no new key
+        f"Seed 2 · {doc['share']} · skips None, movement standard · 0 skips on")}   # a level 0's: no new key
     near = sorted(loc for loc, s in plain["spots"].items() if s["state"] == "near")[0]
     marked = sdk.tracker({"plan": doc, "toggle": near})
     assert (marked["marks"], marked["spots"][near]["state"], marked["spots"][near]["item"]) == (

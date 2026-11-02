@@ -1148,7 +1148,6 @@ function renderRando(options) {
   choices(R("movement"), options.movement, options.tips.movement);
   choices(R("ceiling"), options.ceilings, options.tips.ceiling);
   choices(R("difficulty"), options.seed_difficulty, options.tips.seed_difficulty);
-  choices(R("dark"), options.dark_fire.map((level) => [level, `Fire ${level}`]));
   R("cost-note").textContent = `vanilla ${options.obsidian_cost}`;   // D910
   // Each item row: its box, its icons (the icon sheet's tiles), its name, how many the base game places, its note
   R("items").replaceChildren(...options.items.map(([category, label, note, count, icons]) => {
@@ -1184,7 +1183,7 @@ function randoSettings() {
     if (!(pick.id in overrides) && !pick.levels.every((level) => level <= ceiling)) overrides[pick.id] = true;
   }
   return { format: defaults.format, skip_ceiling: ceiling, movement_tier: R("movement").value,
-           dark_fire: Number(R("dark").value), ...(level ? { seed_difficulty: level } : {}),
+           dark_fire: defaults.dark_fire, ...(level ? { seed_difficulty: level } : {}),
            exclude_categories: categories.filter((c) => kept.has(c)),
            skip_override: Object.fromEntries(Object.entries(overrides).sort()) };
 }
@@ -1245,7 +1244,6 @@ function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
   R("seed").value = seed;
   R("movement").value = settings.movement_tier;
   R("ceiling").value = String(settings.skip_ceiling);
-  R("dark").value = String(settings.dark_fire);
   for (const box of R("items").querySelectorAll("input[data-category]")) {
     box.checked = !settings.exclude_categories.includes(box.dataset.category);
   }
@@ -1573,12 +1571,12 @@ function randoEvents(changed) {
     lockRando();
     edited();
   });
-  for (const id of ["movement", "ceiling", "dark"]) {
+  for (const id of ["movement", "ceiling"]) {
     R(id).addEventListener("change", () => {
       offered();
       renderGroups();
       renderSkips();
-      (id === "dark" ? edited : reread)();
+      reread();
     });
   }
   R("difficulty").addEventListener("change", edited);

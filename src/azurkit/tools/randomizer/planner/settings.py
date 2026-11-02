@@ -2,7 +2,7 @@
 table's rules, which skips it turns on, and the share string.
 
 There are no presets. A settings file sets ``skip_ceiling`` (0-4),
-``movement_tier``, ``dark_fire`` (1-3) and ``[skip_override]``, the per-skip
+``movement_tier``, ``dark_fire`` (always 1, D1061) and ``[skip_override]``, the per-skip
 toggles, which win over the ceiling but never turn on a held or manual
 skip; ``exclude_categories`` (Step R1.10b, optional) names the item
 categories whose items keep their vanilla places. In format /1 and share
@@ -44,7 +44,8 @@ SETTINGS_FORMAT = "azurik-rando-settings/1"
 SETTINGS_FORMAT_ELEMENTAL = "azurik-rando-settings/2"   # /1, but its "powers" is the elemental powers alone
 MOVEMENT_TIERS = ("safe", "standard", "hard", "frame_perfect")   # index + 1 = an edge's difficulty (§4.3)
 SKIP_CEILINGS = (0, 1, 2, 3, 4)   # 0 none, 1 safe (D259: no skip is rated 1, so none), 2 standard ... 4 frame-perfect
-DARK_FIRES = (1, 2, 3)                                            # 0 is refused (default taken under D115, §7.1)
+DARK_FIRE = 1   # D1061: a dark area always needs Fire 1, unless its own nolight skip is on. A file and a settings digest
+#                 keep the key at 1 for good: dropping it would move every seed (settings_digest seeds every stream)
 OPTIONS = ("skip_ceiling", "movement_tier", "dark_fire")
 # exclude_categories' values and the share string's mask bits: append only (a bit is its index)
 CATEGORIES = ("fragments", "powers", "gems", "obsidians", "consumables", "upgrades")
@@ -95,14 +96,13 @@ def category(item: str) -> str | None:
 class Settings:
     skip_ceiling: int
     movement_tier: str
-    dark_fire: int
     skip_override: Mapping[str, bool] = field(default_factory=dict)
     exclude_categories: frozenset[str] = frozenset()
     sliders: Mapping[str, Mapping[str, float]] = field(default_factory=dict)   # {pack: {slider: value}}, AZ-383
     seed_difficulty: int = 0   # D1037: one of SEED_DIFFICULTIES
 
 
-D144_DEFAULTS = Settings(0, "standard", 1, {})   # D186: standard movement (was hard, D144)
+D144_DEFAULTS = Settings(0, "standard", {})   # D186: standard movement (was hard, D144)
 
 
 class SettingsError(ValueError):
@@ -189,8 +189,9 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
     if "movement_tier" in table and table["movement_tier"] not in MOVEMENT_TIERS:
         out.append(("settings_bad_movement_tier", "movement_tier",
                     f"{table['movement_tier']!r} is not one of {', '.join(MOVEMENT_TIERS)}"))
-    if "dark_fire" in table and not _int_in(table["dark_fire"], DARK_FIRES):
-        out.append(("settings_bad_dark_fire", "dark_fire", f"{table['dark_fire']!r} is not 1-3"))
+    if "dark_fire" in table and not _int_in(table["dark_fire"], (DARK_FIRE,)):
+        out.append(("settings_bad_dark_fire", "dark_fire", f"{table['dark_fire']!r}: dark areas always need Fire 1 now; "
+                                                           "this seed can't be remade"))
     level = table.get("seed_difficulty", 0)
     if not _int_in(level, SEED_DIFFICULTIES):
         out.append(("settings_bad_seed_difficulty", "seed_difficulty", f"{level!r} is not one of 0, 2, 3, 4"))
@@ -216,7 +217,7 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
             out.append(("settings_enables_held_or_manual_skip", key,
                         f"turns on a {why} skip; a toggle never does (D144, D114)"))
     if level and not out:
-        top = top_rating(Settings(table["skip_ceiling"], table["movement_tier"], 1, _folded(toggles, skips)), skips)
+        top = top_rating(Settings(table["skip_ceiling"], table["movement_tier"], _folded(toggles, skips)), skips)
         if level > top:
             out.append(("settings_seed_difficulty_above_top", "seed_difficulty",
                         f"{level} asks for {RATING_NAMES[level]} tricks; Movement and Skips allow "
@@ -232,7 +233,7 @@ def settings_from_table(table: Mapping, skips: Mapping[str, Mapping], where: str
     excluded = set(table.get("exclude_categories", ()))
     if "powers" in excluded and table["format"] == SETTINGS_FORMAT:
         excluded.add("upgrades")      # /1's powers keep the upgrades too
-    return Settings(table["skip_ceiling"], table["movement_tier"], table["dark_fire"],
+    return Settings(table["skip_ceiling"], table["movement_tier"],
                     _folded(table.get("skip_override", {}), skips), frozenset(excluded),
                     seed_difficulty=table.get("seed_difficulty", 0))
 
@@ -283,8 +284,7 @@ def share_encode(settings: Settings, skips: Mapping[str, Mapping] | Iterable[str
 
 def _encode(settings: Settings, registry: list[str]) -> str:
     toggles = settings.skip_override
-    head = (settings.skip_ceiling | MOVEMENT_TIERS.index(settings.movement_tier) << 3
-            | (settings.dark_fire - 1) << 5 | (0x80 if toggles else 0))
+    head = settings.skip_ceiling | MOVEMENT_TIERS.index(settings.movement_tier) << 3 | (0x80 if toggles else 0)   # bits 5-6: D1061
     level = settings.seed_difficulty
     form, kept = category_table(settings.exclude_categories)
     mask = sum(1 << CATEGORIES.index(c) for c in (settings.exclude_categories if level else kept))

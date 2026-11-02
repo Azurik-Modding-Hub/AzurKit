@@ -66,7 +66,7 @@ source ([Development](#development)).
   several points through the game, and the seed stays beatable.
 - **36 rated skips:** each on or off, or by group: power storage, roll and flap tricks, barriers, dark rooms,
   out of bounds.
-- **Dark areas:** choose whether they need Fire 1, 2 or 3.
+- **Dark areas:** they need Fire 1, unless a dark-room skip is on; then no fire.
 - **Obsidian cost:** any number per lock (the game's is 10).
 - **Seeds:** any text is a seed, or New draws one; the same seed and settings give the same game everywhere.
 - **Share strings and files:** one `AZR-` string holds every setting; settings files save and load,

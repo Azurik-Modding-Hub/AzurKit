@@ -221,7 +221,7 @@ def rung(settings: Settings, rating: int, skips: Mapping[str, Mapping]) -> Setti
     on = picks_on(settings, skips)
     off = {pid: False for pid, value in settings.skip_override.items()
            if value and pid in on and min(skips[sid].get("difficulty", 0) for sid in on[pid]) >= rating}
-    return Settings(ceiling, tier, settings.dark_fire, {**settings.skip_override, **off})
+    return Settings(ceiling, tier, {**settings.skip_override, **off})
 
 
 _RUNG_LOGIC: dict[tuple, tuple] = {}    # the sliders' Logic at a tier below a plan's, kept for the process's last ones:
@@ -478,7 +478,7 @@ def openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rati
 
 
 def _openers(logic: Logic, settings: Settings, placement: Mapping[str, str], rating: int) -> list[dict]:
-    mine = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire, tuple(sorted(settings.skip_override.items())))
+    mine = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())))
     held = getattr(logic, "_opener_sets", None)
     if held is not None and (held[0] != mine or held[4] is not logic.db):
         for key in held[1]:

@@ -141,7 +141,7 @@ RANDOMIZE = {"gravity": "gravity", "player_walk_scale": "walk_speed_scale", "pla
 
 FLAG_PACKS = {"gem_popups": "qol_gem_popups", "other_popups": "qol_other_popups", "pickup_anims": "qol_pickup_anims",
               "skip_logo": "qol_skip_logo", "fps_unlock": "fps_unlock"}   # randomize-full's flags that turn a pack on
-SETTINGS = ("skip_ceiling", "movement_tier", "dark_fire")   # randomize-full's settings flags over D144's defaults
+SETTINGS = ("skip_ceiling", "movement_tier")   # randomize-full's settings flags over D144's defaults
 # randomize-full's player flags -> a recipe's character (tools.characters.normalize)
 FIELDS = {"player_character_mode": "mode", "player_character_size": "size", "player_character_scale": "scale",
           "player_attack_reach": "attack_reach", "player_attack_damage": "attack_damage",
@@ -628,7 +628,7 @@ def plan_recipe(case: Mapping) -> dict:
 
     st = case["settings"]
     return {"seed": case["seed"], "settings": settings_table(Settings(
-        st["skip_ceiling"], st["movement_tier"], st["dark_fire"], st["skip_override"],
+        st["skip_ceiling"], st["movement_tier"], st["skip_override"],
         frozenset(st["exclude_categories"]), st["sliders"]))}
 
 

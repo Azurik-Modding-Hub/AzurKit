@@ -11,6 +11,6 @@
 format = "azurik-rando-settings/1"  # D144
 skip_ceiling = 0  # D144: "the default being no skips". The in_logic skips rated at or below it are on (0 none; 2 standard, 3 hard, 4 frame-perfect; D259: no skip is rated 1, safe, so 1 turns on none)
 movement_tier = "standard"  # D186 (owner, 2026-10-13, amending D144's "hard movement" once Step R1.2b recalibrated the tiers): ordinary jumps and flaps use the standard tier's margins (safe | standard | hard | frame_perfect; draft/tiers.toml)
-dark_fire = 1  # D144 (follow-up): dark areas need "Fire 1" (fire >= this, 1..3); an enabled nolight skip lifts it for its dark area
+dark_fire = 1  # D1061: always 1, dark areas need "Fire 1"; an enabled nolight skip lifts it for its dark area. The key stays: every seed's digest holds it
 
 [skip_override]  # D144: skip id -> true (on whatever the ceiling) or false (off); a toggle never turns on a held or manual skip. Empty: the ceiling alone decides, so no skip is on

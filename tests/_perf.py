@@ -1111,7 +1111,7 @@ SHAPED_SLIDER = """() => { const box = document.querySelector('#packs input[data
 def _shaped_share(tier: str, ceiling: int, level: int, kept: tuple) -> str:
     from azurkit.tools.randomizer.planner.settings import Settings, share_encode
 
-    return share_encode(Settings(ceiling, tier, 1, {}, frozenset(kept), seed_difficulty=level), [])
+    return share_encode(Settings(ceiling, tier, {}, frozenset(kept), seed_difficulty=level), [])
 
 
 def app_shaped(d: Driver, app: App, ctx) -> None:

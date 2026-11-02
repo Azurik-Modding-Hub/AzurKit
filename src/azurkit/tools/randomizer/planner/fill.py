@@ -107,6 +107,7 @@ from azurkit.core import progress
 from azurkit.tools.randomizer.planner.difficulty import BOUND, Shape, asked
 from azurkit.tools.randomizer.planner.grammar import atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
+    DARK_FIRE,
     SEED_DIFFICULTY_FILL,
     Settings,
     category,
@@ -183,14 +184,14 @@ def canonical(obj) -> bytes:
 
 def settings_table(settings: Settings) -> dict:
     """The options as a settings file holds them (RANDOMIZER_DB §7.2):
-    D144's, and ``exclude_categories`` only when it names one, so a
+    D144's (``dark_fire`` stays, at 1: every seed's digest holds it), and ``exclude_categories`` only when it names one, so a
     setting without it keeps its digest (and both powers rows kept are
     format /1's ``powers``, so an old setting's too, Step 2.90a); a seed
     difficulty and its fill's version likewise only when over 0, so a level 0
     plan is today's."""
     form, kept = category_table(settings.exclude_categories)
     table = {"format": form, "skip_ceiling": settings.skip_ceiling,
-             "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire,
+             "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE,
              "skip_override": dict(sorted(settings.skip_override.items()))}
     if kept:
         table["exclude_categories"] = kept

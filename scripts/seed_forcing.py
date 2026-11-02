@@ -67,7 +67,7 @@ def _measure(job: tuple) -> dict:
     campaign, whatever it would ask) throughout at the level's rating."""
     tier, ceiling, level, kept, n, forced = job
     logic = kept_logic()
-    st = Settings(ceiling, tier, 1, {}, frozenset(kept), seed_difficulty=level)
+    st = Settings(ceiling, tier, {}, frozenset(kept), seed_difficulty=level)
     ask = D.Ask(level, False, D.Fraction(1)) if forced else D.asked(st, logic.skip_tables)
     shape = D.Shape(logic, st, ask)
     rating = ask.rating

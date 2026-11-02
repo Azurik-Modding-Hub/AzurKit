@@ -182,7 +182,7 @@ def _requires(t: Tracker, spoiler: bool, openers: Callable[[Mapping], list] | No
 
 def head(t: Tracker, spoiler: bool = False, openers: Callable[[Mapping], list] | None = None) -> dict:
     """The tracker's head line (Modkit's): the seed, its share string, the skip ceiling, the movement tier,
-    the fire dark areas need, the categories kept vanilla and each skip on (a batch once, D275); with a seed
+    the categories kept vanilla and each skip on (a batch once, D275); with a seed
     difficulty over 0, the level and ``requires`` (:func:`.planner.difficulty.requires`, ``openers`` as
     :func:`_requires` takes it)."""
     st, doc = t.settings, t.doc
@@ -191,7 +191,7 @@ def head(t: Tracker, spoiler: bool = False, openers: Callable[[Mapping], list] |
     level = f" · seed difficulty {RATING_NAMES[st.seed_difficulty]}" if st.seed_difficulty else ""
     return {"seed": doc["seed"], "share": doc["share"], "sha256": doc["sha256"],
             "text": (f"Seed {doc['seed']} · {doc['share']} · skips {RATINGS[st.skip_ceiling]}, movement "
-                     f"{st.movement_tier.replace('_', '-')}, Fire {st.dark_fire}"
+                     f"{st.movement_tier.replace('_', '-')}"
                      + (f", vanilla {' '.join(kept)}" if kept else "") + f" · {len(on)} skips on{level}"),
             "skips": on} | ({"requires": _requires(t, spoiler, openers)} if st.seed_difficulty else {})
 

@@ -138,7 +138,7 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
     if "settings" in recipe:
         share = share_encode(settings_from_table(recipe["settings"], _skips(db), "settings"), _skips(db))
     args = SimpleNamespace(plan=None, seed=recipe["seed"], settings=None, share=share, skip_ceiling=None,
-                           movement_tier=None, dark_fire=None, skip=None, no_skip=None, exclude_category=None)
+                           movement_tier=None, skip=None, no_skip=None, exclude_category=None)
     note("placing the items")   # the seed's fill starts (core.progress: the call's stage folds it)
     plan, logic, _, why = layer.plan_for(args, db, sliders(packs))
     made = {"seed": plan.doc["seed"], "share": plan.doc["share"]}

@@ -804,7 +804,7 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
             pid if ids == [pid] else f"{pid} ({kits})")
     lines = [
         f"plan {doc['sha256'][:12]}: seed {doc['seed']!r}, attempt {doc['attempt']}, {doc['generator']}",
-        f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {st.movement_tier}, dark_fire {st.dark_fire}, "
+        f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {st.movement_tier}, dark_fire 1, "
         + (f"seed_difficulty {st.seed_difficulty}, " if st.seed_difficulty else "") +
         f"toggles: {toggles}" + (f", kept vanilla: {kept}" if kept else "") + f"; share {doc['share']} "
         f"(skip registry tag {registry_tag(picks(logic.skip_tables)).hex()})",

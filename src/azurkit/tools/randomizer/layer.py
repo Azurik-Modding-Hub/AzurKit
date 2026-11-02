@@ -43,6 +43,7 @@ from pathlib import Path
 
 from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES,
+    DARK_FIRE,
     Settings,
     SettingsError,
     category_table,
@@ -58,7 +59,7 @@ OBSIDIAN_LOCK_COUNT = 10
 OBSIDIAN_COST_VANILLA = 10.0    # lock k opens at 10k (lock 10 just under 100): Q243
 
 # The settings the option flags set, and the flags no --plan or --no-randomize build takes.
-_OPTION_FLAGS = ("skip_ceiling", "movement_tier", "dark_fire", "skip", "no_skip", "exclude_category")
+_OPTION_FLAGS = ("skip_ceiling", "movement_tier", "skip", "no_skip", "exclude_category")
 _PLAN_FLAGS = ("seed", "settings", "share", *_OPTION_FLAGS)
 
 
@@ -84,7 +85,7 @@ def settings_from_args(args, db) -> Settings:
     else:
         base = db.defaults
     table = settings_doc(base)
-    for name in ("skip_ceiling", "movement_tier", "dark_fire"):
+    for name in ("skip_ceiling", "movement_tier"):
         if getattr(args, name, None) is not None:
             table[name] = getattr(args, name)
     on, off = ({pick_of(sid, skips) for sid in getattr(args, name, None) or ()} for name in ("skip", "no_skip"))
@@ -115,7 +116,7 @@ def settings_doc(settings: Settings) -> dict:
     form, kept = category_table(settings.exclude_categories)
     level = {"seed_difficulty": settings.seed_difficulty} if settings.seed_difficulty else {}
     return {"format": form, "skip_ceiling": settings.skip_ceiling,
-            "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire, **level,
+            "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE, **level,
             "exclude_categories": kept, "skip_override": dict(sorted(settings.skip_override.items()))}
 
 

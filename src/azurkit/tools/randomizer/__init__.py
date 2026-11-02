@@ -53,7 +53,7 @@ from azurkit.tools.randomizer.planner.fill import fill, starved
 from azurkit.tools.randomizer.planner.loader import DATA_DIR, kept_logic
 from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc, spoiler_lines
 from azurkit.tools.randomizer.planner.settings import (
-    CATEGORIES, MOVEMENT_TIERS, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table,
+    CATEGORIES, DARK_FIRE, MOVEMENT_TIERS, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table,
     share_decode, share_encode, turnable)
 from azurkit.tools.randomizer.planner.solver import Logic
 
@@ -215,7 +215,7 @@ def literal(settings: Settings) -> dict:
     sets each row's box as it is; a seed difficulty only when over 0."""
     level = {"seed_difficulty": settings.seed_difficulty} if settings.seed_difficulty else {}
     return {"format": SETTINGS_FORMAT_ELEMENTAL, "skip_ceiling": settings.skip_ceiling,
-            "movement_tier": settings.movement_tier, "dark_fire": settings.dark_fire, **level,
+            "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE, **level,
             "exclude_categories": sorted(settings.exclude_categories, key=CATEGORIES.index),
             "skip_override": dict(sorted(settings.skip_override.items()))}
 
@@ -257,8 +257,7 @@ def base_counts() -> dict[str, int]:
 def options() -> dict:
     """What the Randomizer tab offers, read without the database: D144's
     defaults (``data/settings/defaults.toml``, :func:`literal`), Movement's
-    tiers, the skip ceilings, the seed difficulty levels and the fire levels,
-    each ``[value, label]``
+    tiers, the skip ceilings and the seed difficulty levels, each ``[value, label]``
     (``loaded``: those offered only when a loaded setting holds them), the
     item rows (each ``[category or None, label, note]``) and the categories
     in the order a settings table lists them, the vanilla
@@ -269,7 +268,7 @@ def options() -> dict:
     return {"defaults": literal(settings_from_table(table, {}, "settings/defaults.toml")),
             "movement": [list(m) for m in MOVEMENT], "ceilings": [list(c) for c in CEILINGS], "loaded": LOADED,
             "seed_difficulty": [list(level) for level in SEED_DIFFICULTY],
-            "dark_fire": [1, 2, 3], "categories": list(CATEGORIES),
+            "categories": list(CATEGORIES),
             "items": [[category, label, note, counts[kind], list(icons)] for category, label, note, kind, icons in ITEMS],
             "obsidian_cost": layer.OBSIDIAN_COST_VANILLA, "tips": {"movement": MOVEMENT_TIP, "ceiling": CEILING_TIP,
                                                                       "seed_difficulty": SEED_DIFFICULTY_TIP}}

@@ -575,7 +575,7 @@ def test_the_trackers_spoiler_on_a_shaped_plan_takes_its_openers_from_the_engine
             return super().call(job, *args, progress=progress, fore=fore)
     server = app.serve(_page.WEB, Beside())
     try:
-        recipe = {"seed": "1", "share": share_encode(Settings(3, "hard", 1, {}, seed_difficulty=3), [])}
+        recipe = {"seed": "1", "share": share_encode(Settings(3, "hard", {}, seed_difficulty=3), [])}
         assert server.prefetch({"gen": 1, "recipe": recipe, "view": {"spoiler": True}}) == {"ahead": True}
         plan = server.plan({"recipe": recipe})["plan"]
         assert asked == ["plan"] and server.slots.job("view") is None

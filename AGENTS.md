@@ -976,7 +976,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   - **The Randomizer tab** (Step 4.2c1, RANDOMIZER_PLAN §5.5): Randomize
     (off by default, the tab's one switch, which unlocks its settings,
     D907), the seed (any text; New draws 0-999999), Movement, the skip
-    ceiling, the fire dark areas need and the obsidian cost (vanilla 10,
+    ceiling and the obsidian cost (vanilla 10,
     D910), with D144's defaults (`sdk.catalog`'s `randomizer`, which offers
     the Seed difficulty levels and their tip; `randomizer_settings`'
     `difficulty`: each level's `[value, name, enabled, line]` from the shipped

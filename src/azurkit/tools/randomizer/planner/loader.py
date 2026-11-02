@@ -41,6 +41,7 @@ from azurkit.tools.randomizer.planner import proofs as pr
 from azurkit.tools.randomizer.planner.grammar import COUNTERS, DISCS, ParseError, atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
     D144_DEFAULTS,
+    DARK_FIRE,
     MOVEMENT_TIERS,
     SKIP_CEILINGS,
     Settings,
@@ -1528,10 +1529,10 @@ class _Checker:
         for name, st in sorted(self.parsed_settings.items()):
             on = skips_on(st, skips)
             settings[name] = {"skip_ceiling": st.skip_ceiling, "movement_tier": st.movement_tier,
-                              "dark_fire": st.dark_fire, "overrides": len(st.skip_override), "skips_on": len(on),
+                              "dark_fire": DARK_FIRE, "overrides": len(st.skip_override), "skips_on": len(on),
                               "nolight_on": sum(1 for i in on if "nolight" in skips[i]["tricks"]),
                               "skips_on_ids": on, "share": share_encode(st, skips)}
-        by_ceiling = {str(c): len(skips_on(Settings(c, "hard", 1, {}), skips)) for c in SKIP_CEILINGS}
+        by_ceiling = {str(c): len(skips_on(Settings(c, "hard", {}), skips)) for c in SKIP_CEILINGS}
         proven = collections.Counter({by: 0 for by in PROVEN_BY})
         by_realm = {REALM_OF.get(lvl, lvl): 0 for lvl in sorted(self.levels, key=lambda v: (REALM_OF.get(v, "~"), v))}
         for lvl, doc in self.levels.items():

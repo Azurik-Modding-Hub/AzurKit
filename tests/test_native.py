@@ -133,8 +133,8 @@ def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables()
     from azurkit.tools.randomizer.planner.settings import Settings
     logic, rng, lib = kept_logic(), random.Random(1403), native.library()
     spots = [x for x, lvl in sorted(logic.pool.items()) if lvl not in logic.db.stubs and x not in logic.guardian]
-    for st in (Settings(0, "safe", 2, {}), logic.db.defaults, Settings(2, "standard", 1, {}),
-               Settings(4, "frame_perfect", 1, {})):
+    for st in (Settings(0, "safe", {}), logic.db.defaults, Settings(2, "standard", {}),
+               Settings(4, "frame_perfect", {})):
         nt = logic._tables(st)
         for _ in range(6):
             stock = [logic.vanilla[x][0] for x in spots]

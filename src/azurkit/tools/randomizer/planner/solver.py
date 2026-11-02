@@ -82,6 +82,7 @@ from dataclasses import dataclass
 from azurkit.core import native
 from azurkit.tools.randomizer.planner.grammar import DISCS, parse
 from azurkit.tools.randomizer.planner.settings import (
+    DARK_FIRE,
     MOVEMENT_TIERS,
     SETTINGS_FORMAT,
     Settings,
@@ -91,9 +92,9 @@ from azurkit.tools.randomizer.planner.settings import (
 )
 
 Rule = Callable[[Mapping[str, int], Container[str]], bool]
-MAX_SETTINGS = Settings(4, "frame_perfect", 1, {})   # every in-logic skip on, every player tier's edge usable
-TRICK_FREE = Settings(0, "frame_perfect", 1, {})     # no skip, every player tier's edge usable
-STRICTEST = Settings(0, "safe", 1, {})               # no skip, the safe tier (rule 10's options)
+MAX_SETTINGS = Settings(4, "frame_perfect", {})   # every in-logic skip on, every player tier's edge usable
+TRICK_FREE = Settings(0, "frame_perfect", {})     # no skip, every player tier's edge usable
+STRICTEST = Settings(0, "safe", {})               # no skip, the safe tier (rule 10's options)
 NAMED_KEPT = 1024                                     # :meth:`Logic._named`'s sets, then it starts again
 _ALL = 1 << 30                                        # a counter "with every item"
 
@@ -229,7 +230,6 @@ class _Rules:
     def __init__(self, logic: Logic, settings: Settings, physical: bool = False):
         self.logic, self.db, self.physical = logic, logic.db, physical
         self.on = frozenset(skips_on(settings, logic.skip_tables))
-        self.dark_fire = 1 if physical else settings.dark_fire   # dark_fire is logic's leniency, like the tier
         self.tier = MOVEMENT_TIERS.index(settings.movement_tier) + 1
         self.memo: dict[tuple, Rule] = {}
         self.reads: dict[str, set[int]] = collections.defaultdict(set)   # counter -> the thresholds compiled
@@ -329,12 +329,12 @@ class _Rules:
         return self.memoised(("skip", sid), lambda: self.expr(self.logic.skip_tables[sid].get("requires", "true")))
 
     def light(self, dark: bool | str) -> Rule:
-        """§2.12, D144: a dark edge (or anything done at a dark node) needs
-        fire >= dark_fire, or, when ``dark`` names a nolight skip, that skip
+        """§2.12, D1061: a dark edge (or anything done at a dark node) needs
+        Fire 1, or, when ``dark`` names a nolight skip, that skip
         once the options turn it on: it lifts its own dark area only."""
         if dark is False:
             return _true
-        fire = self.counter("fire", self.dark_fire)
+        fire = self.counter("fire", DARK_FIRE)
         return fire if dark is True else _any([fire, self.skip(dark)])
 
     def light_at(self, node: str) -> Rule:
@@ -543,7 +543,7 @@ class Logic:
         """One option set's compiled graph (the physical one when
         ``physical``), compiled once: the fill reaches many placements under
         the same options."""
-        key = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire,
+        key = (settings.skip_ceiling, settings.movement_tier,
                tuple(sorted(settings.skip_override.items())), physical)
         if (got := self._compiled.get(key)) is None:   # one look: a spoiler's openers drop other settings' on their thread
             got = self._compiled[key] = _Rules(self, settings, physical)
@@ -806,7 +806,7 @@ class Logic:
         a skip on (else the physical again), each name an id (the canonical
         nodes, locations and items in sorted order) and each rule its
         closures' ``ast``, numbered children first."""
-        key = (settings.skip_ceiling, settings.movement_tier, settings.dark_fire,
+        key = (settings.skip_ceiling, settings.movement_tier,
                tuple(sorted(settings.skip_override.items())))
         if (got := self._native.get(key)) is not None:
             return got
@@ -999,7 +999,7 @@ class Logic:
     def without(self, picks: Iterable[str]) -> Settings:
         """The most lenient options with ``picks`` (D275's: a batch's id or a
         lone skip's) toggled off."""
-        return Settings(MAX_SETTINGS.skip_ceiling, MAX_SETTINGS.movement_tier, MAX_SETTINGS.dark_fire,
+        return Settings(MAX_SETTINGS.skip_ceiling, MAX_SETTINGS.movement_tier,
                         dict.fromkeys(picks, False))
 
     def route_terms(self, loc: str, kin: Mapping[str, int],
@@ -1047,7 +1047,7 @@ class Logic:
             kout = dict(kin)
             self._add(collections.Counter(), kout, *self.vanilla[loc])
         st, memo = settings, self._kit_memo
-        reads, opts = self.reads(st), (st.skip_ceiling, st.movement_tier, st.dark_fire,
+        reads, opts = self.reads(st), (st.skip_ceiling, st.movement_tier,
                                        tuple(sorted(st.skip_override.items())))
         every = {it["name"]: self.items[it["name"]] for it in self.db.items["item"] if it["class"] == "progression"}
         prog = every if items is None else {name: every[name] for name in items}
@@ -1128,7 +1128,7 @@ class Logic:
         db = self.db
         st = settings if settings is not None else db.defaults
         settings_from_table({"format": SETTINGS_FORMAT, "skip_ceiling": st.skip_ceiling,
-                             "movement_tier": st.movement_tier, "dark_fire": st.dark_fire,
+                             "movement_tier": st.movement_tier, "dark_fire": DARK_FIRE,
                              "skip_override": dict(st.skip_override)}, self.skip_tables, "solver settings")
         placement = self.vanilla_placement() if placement is None else placement
         for loc, item in placement.items():
