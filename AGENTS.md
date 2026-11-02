@@ -992,12 +992,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `file`, the app's `api/settings_file`), the item rows (each a category
     it shuffles, its icons (the icon sheet's tiles), and how many the base
     game places, `tools.randomizer.base_counts`; keys and barriers stay
-    vanilla), the skip groups (D258, `tools.randomizer.SKIP_GROUP`, every
-    skip of the database in one: a ticked group turns on its picks rated at
-    or below the Movement tier, as toggles the page adds where the ceiling
-    doesn't; a loaded setting shows them as toggles, the groups unticked)
-    and the skips a setting can turn on (a click toggles one against the
-    ceiling and the groups). The page holds the settings as
+    vanilla), the skip groups (D258, D1061, `tools.randomizer.SKIP_GROUP`,
+    every skip of the database in one: a tick turns on all its picks, whatever
+    their rating, an untick all off, each by a toggle only where the ceiling
+    differs; a box is derived from what's on, ticked all, half some, empty
+    none, with "6 of 7 · up to Frame-perfect", so a loaded setting's show
+    too) and the skips a setting can turn on (a click toggles one against
+    the ceiling, and its group goes half). The page holds the settings as
     a settings table in format /2 (each category as it is) and asks the
     engine what they give (`sdk.randomizer_settings`; the site's worker,
     the app's `api/randomizer`): the share string with the Patches tab's

@@ -53,7 +53,7 @@ from azurkit.tools.randomizer.planner.fill import fill, starved
 from azurkit.tools.randomizer.planner.loader import DATA_DIR, kept_logic
 from azurkit.tools.randomizer.planner.plan import load_plan, plan_doc, spoiler_lines
 from azurkit.tools.randomizer.planner.settings import (
-    CATEGORIES, DARK_FIRE, MOVEMENT_TIERS, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table,
+    CATEGORIES, DARK_FIRE, SETTINGS_FORMAT_ELEMENTAL, Settings, picks, settings_from_table,
     share_decode, share_encode, turnable)
 from azurkit.tools.randomizer.planner.solver import Logic
 
@@ -63,7 +63,7 @@ loader.SHIPPED = functools.partial(dbcache.shipped_logic, logic_type=Logic)
 
 RECIPE = ("seed", "settings", "share")
 #: The tab's offers (§5.5): Movement's three tiers (D261; a loaded safe shows as its own), the skip ceiling's none and
-#: D259's three skip tiers (a loaded 1 shows as its own), and the fire levels dark areas need (D144).
+#: D259's three skip tiers (a loaded 1 shows as its own).
 MOVEMENT = (("standard", "Standard"), ("hard", "Hard"), ("frame_perfect", "Frame-perfect"), ("safe", "Safe (loaded)"))
 CEILINGS = ((0, "None"), (2, "Standard"), (3, "Hard"), (4, "Frame-perfect"), (1, "Safe (loaded)"))
 LOADED = {"movement_tier": "safe", "skip_ceiling": 1}   # offered only when a loaded setting holds it
@@ -102,10 +102,11 @@ ITEMS = (("fragments", "Disc fragments", "Guardians keep their 4th.", "disc_frag
 #: (Modkit's ``render_level_maps.DAMAGE_KINDS``, M17, AZ-463).
 DAMAGE_KINDS = {"watr": "firewall", "stem": "iceblock", "acid": "acidblock", "smsh": "smashwall"}
 UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")
-#: D258: the skip groups (Modkit's ``gui/rando_view.SKIP_GROUPS``, our own data): a ticked group turns on each of its
-#: picks rated at or below the Movement tier (a batch, D275, once every in-logic variant is), unticked by default.
+#: D258: the skip groups (Modkit's ``gui/rando_view.SKIP_GROUPS``, our own data): D1061, a tick turns on all a group's
+#: picks whatever their rating (no tier filter), and a group's box is what's on: ticked all, half some, empty none.
 SKIP_GROUPS = {"storage": "Power storage", "movement": "Roll jumps and flap tricks", "barriers": "Barrier skips",
                "dark": "Dark rooms without light", "bounds": "Out of bounds", "superjump": "Super jumps"}
+SKIP_GROUP_TIPS = {"dark": "Dark areas need Fire 1 unless this is on; then no fire."}
 #: Each skip's group (Modkit's ``SKIP_GROUP``): every [[skip]] of tricks.toml, held ones too, by its tricks. Out of
 #: bounds and Super jumps apart (D1061), two by call: w1.shoreline_rollthrough rolls through the push band to open
 #: ocean, past the level's edge; f4.ledgepop keeps the name the community gives it, though its route is a fluttered
@@ -313,9 +314,9 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     proven at, an obsidian cost above vanilla's) and the preflight's
     refusal (``preflight``: too few proven spots, AZ-454), the settings
     file of them (``file``: Save settings' text, Modkit's ``--save-settings``
-    file) and the skip groups (``groups``, D258: each group's picks a
-    setting can turn on, each with its in-logic variants' ratings, which
-    the page compares with the Movement tier) and the seed difficulty's
+    file) and the skip groups (``groups``, D258, D1061: each group's picks a
+    setting can turn on, ``top`` the highest rating among them and ``tip``)
+    and the seed difficulty's
     levels (``difficulty``: each ``[value, name, enabled, line]``, read from
     the shipped rate table with no reach, and a loaded level's ``note``:
     :func:`.planner.difficulty.levels`). ``ValueError`` names a key,
@@ -347,7 +348,7 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
         raise ValueError("randomizer: settings is a settings file's table")
     cost = _cost(given)
     st = replace(st, sliders={pack: dict(values) for pack, values in sliders.items()})
-    every, rows, groups = picks(skips), [], {key: [] for key in SKIP_GROUPS}
+    every, rows, groups, tops = picks(skips), [], {key: [] for key in SKIP_GROUPS}, dict.fromkeys(SKIP_GROUPS, 0)
     for pid, ids in every.items():
         if live := [skips[v] for v in ids if turnable(skips[v])]:
             n = sum(s.get("difficulty", len(RATINGS)) <= st.skip_ceiling for s in live)
@@ -355,15 +356,16 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
                          "rating": _rating(live), "ceiling": None if 0 < n < len(live) else n == len(live),
                          "toggle": st.skip_override.get(pid)})
             if (group := SKIP_GROUP.get(live[0]["id"])) in groups:
-                groups[group].append({"id": pid, "name": rows[-1]["name"], "rating": rows[-1]["rating"],
-                                      "levels": [s.get("difficulty", len(RATINGS)) for s in live]})
+                groups[group].append({"id": pid, "name": rows[-1]["name"], "rating": rows[-1]["rating"]})
+                tops[group] = max(tops[group], *(s.get("difficulty", 0) for s in live))
     refused = starved(logic, st)
     why = layer.roll_reasons(st, logic.db, sliders) + [r for r in [layer.obsidian_reason(cost)] if r]
     return {"settings": literal(st), "share": share_encode(st, skips), "note": note, "skips": rows,
             "held": len(every) - len(rows), "forfeitable": len(logic.forfeitable), "why_not": why,
             "preflight": refused.reason if refused else None, "file": layer.settings_text(st),
-            "groups": [{"id": key, "label": label, "picks": groups[key]} for key, label in SKIP_GROUPS.items()],
-            "tiers": list(MOVEMENT_TIERS), "difficulty": difficulty.levels(st, skips)}
+            "groups": [{"id": key, "label": label, "picks": groups[key], "top": RATINGS[tops[key]],
+                        "tip": SKIP_GROUP_TIPS.get(key)} for key, label in SKIP_GROUPS.items()],
+            "difficulty": difficulty.levels(st, skips)}
 
 
 def size_fold(made: Mapping, mine: Mapping) -> float | None:

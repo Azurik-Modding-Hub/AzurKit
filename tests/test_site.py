@@ -2297,9 +2297,10 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
     reads it with its own, until the Patches tab's sliders give that share
     string (4.2c1's late review); and a link whose randomizer is a seed
     alone loads it at D144's defaults. Step 4.2c2: each item row counts
-    what the base game places (Modkit's); a ticked skip group turns on its
-    skips rated at or below the Movement tier (D258), and Load settings…
-    takes a settings file's settings (D144)."""
+    what the base game places (Modkit's); a skip group's tick turns on all
+    its skips, whatever their rating, its box what's on: unticking one
+    leaves it half, "5 of 6", and a click on the half turns them all on again
+    (D1061); Load settings… takes a settings file's settings (D144)."""
     on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     other = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"],
                                      "packs": on | {"player_physics": {"jump_speed_scale": 1.3}}})["share"]
@@ -2324,20 +2325,38 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
 
         assert page.evaluate("() => [...document.querySelectorAll('#rando-items .count')].map((c) => c.textContent)") == [
             f"{row[3]:,}" for row in sdk.catalog()["randomizer"]["items"]]
-        page.evaluate("() => document.querySelector('#rando-groups input[data-group=storage]').click()")
-        view = _page.until(page, SETTLED, 120)
-        storage = {p["id"] for g in view["groups"] if g["id"] == "storage" for p in g["picks"] if max(p["levels"]) <= 2}
         defaults = sdk.catalog()["randomizer"]["defaults"]
-        assert storage and view["settings"] == defaults | {"skip_override": dict.fromkeys(sorted(storage), True)}
+
+        def tick(group):
+            page.evaluate("(group) => document.querySelector(`#rando-groups input[data-group=${group}]`).click()", group)
+            return _page.until(page, SETTLED, 120)
+
+        def box(group):
+            return page.evaluate("""(group) => { const box = document.querySelector(`#rando-groups input[data-group=${group}]`);
+                return [box.checked, box.indeterminate, box.parentElement.querySelector(".note").textContent]; }""", group)
+
+        view = tick("dark")   # Standard's movement: Hard's e7 too, and what's on is what's asked
+        assert view["settings"] == defaults | {"skip_override": {"e7.dark_room_nolight": True, "w1.dark_cave_nolight": True}}
+        assert box("dark") == [True, False, "2 of 2 · up to Hard"]
+        tick("dark")
+        view = tick("storage")
+        storage = {p["id"] for g in view["groups"] if g["id"] == "storage" for p in g["picks"]}
+        assert len(storage) == 6 and view["settings"] == defaults | {"skip_override": dict.fromkeys(sorted(storage), True)}
         assert view["share"] == sdk.randomizer_settings({"settings": view["settings"], "packs": mods.normalize(on)})["share"]
-        assert page.evaluate("""() => [...document.querySelectorAll("#rando-skips .skip")]
-            .filter((r) => r.querySelector(".by").textContent === "group").map((r) => r.querySelector("input").dataset.skip)
-            .sort()""") == sorted(storage)
+        assert box("storage") == [True, False, "6 of 6 · up to Standard"] and box("dark")[:2] == [False, False]
+        one = min(storage)
+        page.evaluate("(id) => document.querySelector(`#rando-skips input[data-skip='${id}']`).click()", one)
+        view = _page.until(page, SETTLED, 120)
+        assert view["settings"]["skip_override"] == dict.fromkeys(sorted(storage - {one}), True)
+        assert box("storage") == [False, True, "5 of 6 · up to Standard"]
+        assert tick("storage")["settings"]["skip_override"] == dict.fromkeys(sorted(storage), True)
+        assert box("storage")[:2] == [True, False]
         given = defaults | {"skip_ceiling": 3, "movement_tier": "hard", "exclude_categories": ["gems"]}
         (tmp_path / "settings.toml").write_text(sdk.randomizer_settings({"settings": given})["file"], encoding="utf-8")
         page.set_input_files("#rando-load", str(tmp_path / "settings.toml"))
         _page.until(page, "() => !azurkit.rando.load && document.getElementById('rando-ceiling').value === '3'", 120)
         assert _page.until(page, SETTLED, 120)["settings"] == given
+        assert box("storage") == [True, False, "6 of 6 · up to Standard"]   # a loaded setting's groups show
 
         packs = mods.normalize(on)
         loaded = served.context.new_page()
@@ -2422,6 +2441,18 @@ def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_a
         level, _, line = page.evaluate(LEVELS)
         assert level == 2 and line.startswith("Moved down from Hard. ")
         assert choose(ceiling=0)["share"] == engine("standard", 0)["share"]
+        # A group's tick lifts what Seed difficulty offers (D1061), and its untick moves the level down, no refusal
+        click = "() => document.querySelector('#rando-groups input[data-group=superjump]').click()"
+        page.evaluate(click)
+        view = _page.until(page, SETTLED, 120)
+        top = max(row[0] for row in view["difficulty"]["levels"] if row[2])
+        assert top > 0 and view["settings"]["skip_override"] == dict.fromkeys(
+            sorted(p["id"] for g in view["groups"] if g["id"] == "superjump" for p in g["picks"]), True)
+        assert choose(difficulty=top)["settings"]["seed_difficulty"] == top
+        page.evaluate(click)
+        view = _page.until(page, SETTLED, 120)
+        assert view["share"] == engine("standard", 0)["share"] and page.evaluate(LEVELS)[0] == 0
+        assert page.evaluate(LEVELS)[2].startswith("Moved down from ") and page.evaluate(WARNED) == [""]
         level, _, line = page.evaluate(LEVELS)
         assert level == 0 and line.startswith("Moved down from Standard. ")
         choose(ceiling=2)

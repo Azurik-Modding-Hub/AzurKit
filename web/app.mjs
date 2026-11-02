@@ -66,7 +66,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
-                         note: null, noted: null, asked: null, groups: new Set(), recheck: false, probing: false,
+                         note: null, noted: null, asked: null, recheck: false, probing: false,
                          moved: null } };
 globalThis.azurkit = state;   // the last build and save, for the tests and the console
 
@@ -1123,7 +1123,7 @@ function pickInApp(host) {
 }
 
 // ---- The Randomizer tab (Step 4.2c1) ----
-// Its options come from the catalog (sdk.catalog's randomizer: D144's defaults, the tiers, ceilings and fire levels,
+// Its options come from the catalog (sdk.catalog's randomizer: D144's defaults, the tiers and ceilings,
 // the item rows); the engine reads what they give (sdk.randomizer_settings): the share string, each skip a setting can
 // turn on, what a build would leave unverified (the ⚠ line) and the preflight's refusal. The page holds the settings
 // as a settings file's table in format /2 (each unticked row's category, as it is) and decides no plan.
@@ -1171,44 +1171,49 @@ function randoDefaults() {
 }
 
 // The tab's settings as the build reads them: a settings file's table, its categories in the database's order, its
-// toggles the skip list's picks and, for each pick a ticked skip group turns on that the ceiling doesn't, a true one
-// (D258, Modkit's).
+// toggles the skip list's.
 function randoSettings() {
   const { defaults, categories } = randoOptions();
   const kept = new Set([...R("items").querySelectorAll("input[data-category]")].filter((box) => !box.checked)
     .map((box) => box.dataset.category));
   const ceiling = Number(R("ceiling").value), level = Number(R("difficulty").value);
-  const overrides = { ...state.rando.overrides };
-  for (const pick of byGroup()) {
-    if (!(pick.id in overrides) && !pick.levels.every((level) => level <= ceiling)) overrides[pick.id] = true;
-  }
   return { format: defaults.format, skip_ceiling: ceiling, movement_tier: R("movement").value,
            dark_fire: defaults.dark_fire, ...(level ? { seed_difficulty: level } : {}),
            exclude_categories: categories.filter((c) => kept.has(c)),
-           skip_override: Object.fromEntries(Object.entries(overrides).sort()) };
+           skip_override: Object.fromEntries(Object.entries(state.rando.overrides).sort()) };
 }
 
-// D258: the picks the ticked skip groups turn on at the Movement tier: each of theirs rated at or below it (a batch,
-// D275, once each of its in-logic variants is); none before the engine has given the groups.
-function byGroup() {
-  const level = (state.rando.view?.tiers ?? []).indexOf(R("movement").value) + 1;
-  return (state.rando.view?.groups ?? []).filter((group) => state.rando.groups.has(group.id))
-    .flatMap((group) => group.picks).filter((pick) => pick.levels.every((l) => l <= level));
+// A skip as it stands: its toggle, else the ceiling's state of it: true, false, or null (some of a batch's variants).
+function skipOn(skip) {
+  return state.rando.overrides[skip.id] ?? skip.ceiling;
 }
 
-// The skip groups' boxes (unticked by default), each with how many of its picks the Movement tier takes in.
+// A skip group's tick turns on all its picks, whatever their rating, its untick all off (D1061, amending D258), each by
+// a toggle only where the ceiling doesn't say so already: what's on is what the plan uses.
+function turnGroup(id, on) {
+  const { groups, skips } = state.rando.view;
+  for (const pick of groups.find((group) => group.id === id).picks) {
+    if (skips.find((skip) => skip.id === pick.id).ceiling === on) delete state.rando.overrides[pick.id];
+    else state.rando.overrides[pick.id] = on;
+  }
+}
+
+// The skip groups' boxes, each what's on of it (ticked all, half some, empty none), so a loaded setting's show too,
+// with how many of its picks are on and its highest rating, so a tick hides no Frame-perfect pick.
 function renderGroups() {
-  const view = state.rando.view, level = (view?.tiers ?? []).indexOf(R("movement").value) + 1;
+  const view = state.rando.view;
   R("groups").replaceChildren(...(view?.groups ?? []).map((group) => {
-    const taken = group.picks.filter((pick) => pick.levels.every((l) => l <= level));
-    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: state.rando.groups.has(group.id),
+    const on = group.picks.map((pick) => skipOn(view.skips.find((skip) => skip.id === pick.id)));
+    const full = on.filter((value) => value === true).length;
+    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: full === on.length,
+                                                                 indeterminate: full < on.length && on.some((value) => value !== false),
                                                                  disabled: state.building || !R("on").checked });
     box.dataset.group = group.id;
     const row = Object.assign(document.createElement("label"), { className: "group", title: [
-      `${taken.length} of these ${group.picks.length} at ${R("movement").selectedOptions[0]?.textContent ?? ""}:`,
-      ...group.picks.map((p) => `${taken.includes(p) ? "☑" : "☐"} ${p.name}: ${p.rating}`)].join("\n") });
+      ...(group.tip ? [group.tip] : []),
+      ...group.picks.map((p, i) => `${on[i] === true ? "☑" : on[i] === false ? "☐" : "◪"} ${p.name}: ${p.rating}`)].join("\n") });
     row.append(box, group.label, Object.assign(document.createElement("span"), { className: "note",
-                                                                                textContent: `${taken.length} of ${group.picks.length}` }));
+                                                                                textContent: `${full} of ${on.length} · up to ${group.top}` }));
     return row;
   }));
 }
@@ -1239,7 +1244,6 @@ function randoSetup() {
 function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
   const before = JSON.stringify(randoSetup());
   state.rando.note = null;
-  state.rando.groups.clear();   // shown exactly: its toggles the skip list's picks, no group ticked (Modkit's)
   R("on").checked = on;
   R("seed").value = seed;
   R("movement").value = settings.movement_tier;
@@ -1375,9 +1379,8 @@ function renderSkips() {
   const filter = R("filter").value.trim().toLowerCase();
   const rows = (state.rando.view?.skips ?? []).filter((s) => !filter || `${s.name} ${s.id} ${s.rating}`.toLowerCase()
     .includes(filter));
-  const grouped = new Set(byGroup().map((pick) => pick.id));
   R("skips").replaceChildren(...rows.map((skip) => {
-    const toggle = state.rando.overrides[skip.id] ?? null, on = toggle ?? (grouped.has(skip.id) || skip.ceiling);
+    const toggle = state.rando.overrides[skip.id] ?? null, on = skipOn(skip);
     const row = Object.assign(document.createElement("label"), { className: `skip${toggle === null ? "" : " toggled"}`,
                                                                  title: `${skip.name} (${skip.id}): ${skip.rating}` });
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: on === true,
@@ -1386,16 +1389,14 @@ function renderSkips() {
     box.disabled = state.building || !R("on").checked;
     row.append(box, Object.assign(document.createElement("span"), { className: "name", textContent: skip.name }),
                Object.assign(document.createElement("span"), { className: "rating", textContent: skip.rating }),
-               Object.assign(document.createElement("span"), { className: "by", textContent: toggle !== null
-                                                                 ? "toggle" : grouped.has(skip.id) ? "group" : "ceiling" }));
+               Object.assign(document.createElement("span"), { className: "by", textContent: toggle !== null ? "toggle" : "ceiling" }));
     return row;
   }));
 }
 
 // A click turns a skip (a batch whole) the other way: by a toggle, or by none when the ceiling now gives that.
 function toggleSkip(id) {
-  const skip = state.rando.view.skips.find((s) => s.id === id);
-  const def = byGroup().some((pick) => pick.id === id) || skip.ceiling;
+  const def = state.rando.view.skips.find((s) => s.id === id).ceiling;
   const toggle = state.rando.overrides[id] ?? null, turned = (toggle === null ? def : toggle) !== true;
   if (turned === def || (def === null && toggle === false)) delete state.rando.overrides[id];
   else state.rando.overrides[id] = turned;
@@ -1582,10 +1583,9 @@ function randoEvents(changed) {
   R("difficulty").addEventListener("change", edited);
   R("items").addEventListener("change", reread);
   R("groups").addEventListener("change", (e) => {
-    const id = e.target.dataset.group;
-    if (e.target.checked) state.rando.groups.add(id);
-    else state.rando.groups.delete(id);
+    turnGroup(e.target.dataset.group, e.target.checked);
     renderSkips();
+    renderGroups();
     reread();
   });
   R("load").addEventListener("change", loadSettings);
@@ -1616,6 +1616,7 @@ function randoEvents(changed) {
   R("skips").addEventListener("change", (e) => {
     toggleSkip(e.target.dataset.skip);
     renderSkips();
+    renderGroups();
     reread();
   });
   $("spoiler-view").addEventListener("click", async () => {

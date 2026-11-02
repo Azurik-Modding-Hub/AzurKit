@@ -1222,8 +1222,8 @@ def randomizer_settings(given: Mapping) -> dict:
     floor, D83(c), a roll a skip on was proven at, an obsidian cost above
     vanilla's), the preflight's refusal (``preflight``, AZ-454; ``None``),
     the settings file of the settings (``file``, Save settings') and the
-    skip groups (``groups``, D258: each group's picks with their variants'
-    ratings, which a page compares with the Movement tier, ``tiers``).
+    skip groups (``groups``, D258: each group's picks, its highest rating
+    and its tip).
     ``tools.randomizer.tab``; a refusal names the setting, the share string,
     the settings file or the pack."""
     if not isinstance(given, Mapping):
