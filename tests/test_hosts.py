@@ -819,6 +819,23 @@ def _post(url: str, call: str, body: dict, replies: list, timeout: float = 120) 
         replies.append(json.load(reply))   # the app may quit before it answers
 
 
+def test_serves_engine_answers_while_serve_waits_on_its_input(tmp_path, monkeypatch):
+    """``serve``'s blocked read of its input (a pipe, here) doesn't hold the engine it spawns at that engine's start, as
+    it did on Windows (:func:`azurkit.app._input_kept_from_children`), and the input's end still ends it."""
+    _home(monkeypatch, tmp_path)
+    replies: list = []
+    with subprocess.Popen([sys.executable, "-m", "azurkit", "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True) as served:
+        try:
+            _post(served.stdout.readline().strip(), "api/plan_spoiler", {"plan": {}}, replies)
+            assert "refused" in replies[0]   # by the engine, which read the logic first
+        except BaseException as exc:
+            _ended_with(served, exc)
+            raise
+        served.stdin.close()
+        assert (served.wait(60), served.stderr.read()) == (0, "")
+
+
 def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monkeypatch, usa_iso):
     """Quitting while a save writes cancels it and waits until it has
     removed its part file, before the app can exit (D35): when ``serve``'s

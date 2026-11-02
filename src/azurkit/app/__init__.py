@@ -1033,6 +1033,19 @@ def _window(server: Server) -> bool:
     return True
 
 
+def _input_kept_from_children() -> None:
+    """On Windows, keep this process's input from the processes it starts: each takes its parent's standard handles,
+    and a read blocked on a pipe holds that pipe's lock, so a child's Python stops at its first look at its own stdin
+    until the read ends. ``serve``'s read would hold the engine there for good: it never answers, and it dies at its
+    start when the app is killed. Its standard input becomes NUL; ``sys.stdin`` still reads the pipe."""
+    if os.name == "nt":
+        import ctypes
+        import msvcrt
+        set_std_handle = ctypes.WinDLL("kernel32").SetStdHandle
+        set_std_handle.argtypes = (ctypes.c_ulong, ctypes.c_void_p)
+        set_std_handle(-10 & 0xFFFFFFFF, msvcrt.get_osfhandle(os.open(os.devnull, os.O_RDONLY)))   # STD_INPUT_HANDLE
+
+
 def main(argv: list[str] | None = None) -> int:
     """Open the page: in a window, else in the default browser (served until
     Ctrl-C); exit 1 at once when :data:`NO_WINDOW` is set. ``["serve"]``
@@ -1049,6 +1062,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"azurkit: {PAGE}: no index.html (the page)", file=sys.stderr)
         return 1
     swapcache.install()   # the images checked and the swap's answers, kept across launches (the engine's too)
+    if argv:
+        _input_kept_from_children()   # before the engine's spawn
     server = serve(engine=engines.Spawned(stores=True))
     try:
         if argv:
