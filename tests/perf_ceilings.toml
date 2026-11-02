@@ -7,7 +7,6 @@
 
 [ceilings]
 "A15/app" = 3.7
-"S13/lag" = 4.8
 "S14/chromium" = 6.8
 "S14/firefox" = 9.1
 "S14/lag" = 10.2
