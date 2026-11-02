@@ -1,5 +1,5 @@
-// hashedApart's worker (hasher.mjs): an image's hash in a worker that ends: reading the image through ArrayBuffers leaves
-// up to 1.7 GiB resident in WebKit until a GC comes, which an idle thread never asks for. In: {source, rows, longest} (a File or a
+// hashedApart's worker (hasher.mjs): an image's hash in a worker that ends: reading the image through ArrayBuffers left
+// up to 1.7 GiB resident in WebKit until a GC came, which an idle thread never asks for (hashed now frees each run's). In: {source, rows, longest} (a File or a
 // Blob; hashed's files; its longest run). Out: {done, total} of its bytes, each as read, then {digests} or {error}.
 import { hashed } from "./hasher.mjs";
 

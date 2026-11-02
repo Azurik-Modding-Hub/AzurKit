@@ -30,7 +30,9 @@ function md5(bytes) {
 // HASHERS at a time, each file's digest taken in turn; progress(done, total) hears the bytes. A file with patches
 // ([[its offset, bytes]...]; md5Ready first) is hashed with them over it, and its md5 comes as "md5:<path>" for a key
 // "file:<path>". A source that gives fewer bytes than a run asks (the image got shorter since its pick) throws, as a read
-// a browser refuses (WebKit's, Chromium's) does.
+// a browser refuses (WebKit's, Chromium's) does. Each run's buffer is freed once its digests are taken (transfer(0)), not
+// left to a GC: WebKit counted the runs a check had read, not the three it holds (a Save's check, S49 capped-site: about
+// 1.3 GiB less at its peak).
 export async function hashed(source, files, progress = () => {}, longest = RUN) {
   const runs = [];
   for (const entry of [...files].sort((a, b) => a[1] - b[1])) {
@@ -56,6 +58,7 @@ export async function hashed(source, files, progress = () => {}, longest = RUN) 
         if (patches) digests[key.replace("file:", "md5:")] = md5(view);
         digests[key] = hex(await sha);
       }
+      bytes.buffer.transfer?.(0);   // its memory freed now, not at the next GC: WebCrypto and md5 copied what they read
       done += run.end - run.start;
       progress(done, total);
     }
