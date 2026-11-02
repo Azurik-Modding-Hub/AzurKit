@@ -320,7 +320,8 @@ def test_the_frozen_app_runs_read_only_and_gives_the_same_verdicts(frozen_app, t
     app_path, before = frozen_app
     owners = _owners(app_path)
     assert [name for name in owners if name.lower().startswith(NEVER)] == []
-    held = sorted(f"{name}: {owner}" for name, owner in owners.items() if re.search(r"(?<!L)GPL", owner) or owner == "unknown")
+    held = sorted(f"{name}: {owner}" for name, owner in owners.items()
+                  if ("GPL" in owner and owner != LINKED["libquadmath-"]) or owner == "unknown")
     assert not held, "\n".join(textwrap.wrap(", ".join(held), 200))   # lines CI keeps, where a dict's diff is cut at 40
     assert "readline" not in sys.builtin_module_names or __import__("readline").backend == "editline"
     if app_path.suffix == ".app":
