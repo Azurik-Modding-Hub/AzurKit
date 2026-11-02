@@ -632,6 +632,31 @@ def test_the_apps_page_answers_only_its_launchs_token_on_127_0_0_1(tmp_path):
         second.close()
 
 
+def test_a_read_of_the_apps_config_never_costs_a_write_of_it_what_it_remembers(tmp_path, monkeypatch):
+    """Windows refuses to replace a file that is open: a read in this process
+    waits for the write, and the write outlasts a moment another process
+    holds it. The refusal was swallowed, and the frozen page's setup was lost
+    for good (run 41372636477's Windows job)."""
+    _home(monkeypatch, tmp_path / "home")
+    real, refused = Path.replace, []
+
+    def replace(self, target):
+        if len(refused) < 3:
+            refused.append(target)
+            raise PermissionError(13, "held open")
+        return real(self, target)
+    monkeypatch.setattr(Path, "replace", replace)
+    app._remember(theme="light")
+    assert (len(refused), app._kept()) == (3, {"theme": "light"})
+    with app._REMEMBERING:
+        reader = threading.Thread(target=app._kept, daemon=True)
+        reader.start()
+        reader.join(0.2)
+        assert reader.is_alive()
+    reader.join(10)
+    assert not reader.is_alive()
+
+
 def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_path, monkeypatch):
     """``api/setup`` remembers the page's setup (D915) in the app's config,
     beside the theme, written whole; ``host.json`` gives it to the next

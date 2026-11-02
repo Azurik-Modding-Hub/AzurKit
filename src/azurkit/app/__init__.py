@@ -204,10 +204,16 @@ def _config() -> Path:
     return user_config_path("AzurKit", appauthor=False) / "app.json"
 
 
+_REMEMBERING = threading.RLock()
+"""Held to read the config and to write it: a build's thread and the page's calls each remember a part of it, and
+Windows refuses to replace a file another thread has open."""
+
+
 def _kept() -> dict:
     """What the app remembers (``{"iso", "theme", "setup"}``), else nothing."""
     try:
-        kept = json.loads(_config().read_text(encoding="utf-8"))
+        with _REMEMBERING:
+            kept = json.loads(_config().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     return kept if isinstance(kept, dict) else {}
@@ -232,19 +238,24 @@ def _theme_js() -> bytes:
     return f'document.documentElement.dataset.theme = "{_theme()}";\n'.encode()
 
 
-_REMEMBERING = threading.Lock()   # a build's thread and the page's calls each remember a part of the config
-
-
 def _remember(**kept: object) -> None:
     """Remember ``kept`` beside what the config holds (``None`` forgets a
-    key), written whole or not at all."""
+    key), written whole or not at all, past a moment another process (a
+    virus scanner, on Windows) holds the file open."""
     try:
         with _REMEMBERING:
             _config().parent.mkdir(parents=True, exist_ok=True)
             part = _config().with_suffix(".json.part")
             part.write_text(json.dumps({k: v for k, v in (_kept() | kept).items() if v is not None}) + "\n",
                             encoding="utf-8")
-            part.replace(_config())
+            for wait in (0.05, 0.1, 0.2, 0.4, 0.8, 0):
+                try:
+                    part.replace(_config())
+                    break
+                except PermissionError:
+                    if not wait:
+                        raise
+                    time.sleep(wait)
     except OSError:   # remembering is a convenience: a build doesn't fail for it
         pass
 
