@@ -313,6 +313,7 @@ def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reac
     logic, settings = kept_logic(), Settings(3, "hard", 1, {}, seed_difficulty=3)
     doc = plan_doc(fill.fill(logic, "1", settings), logic.db)
     randomizer.openers_ahead(doc)
+    assert kept_logic() is logic      # their keep is a memo: it doesn't make the View read a new Logic
     monkeypatch.setattr(Logic, "reach", lambda *_, **__: pytest.fail("a reach the job ahead already made"))
     assert difficulty.openers(logic, settings, load_plan(doc, logic.db).placement)
 
