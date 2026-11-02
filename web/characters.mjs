@@ -8,7 +8,8 @@
 // tab's choices and draws what comes back. Its answer with no image and each species' and built-in variant's two
 // pictures ship with the page (Step 4.3f, D961: characters/, scripts/record_goldens.py's characters family), so the
 // list and Garret show at the tab's first click and a model's pictures at its click, before an image and with no
-// engine call; G4 and the Weapon box wait for the image's answer, saying so (D979). Content from (the source Azurik-Custom-Content is read from) is remembered:
+// engine call; G4 waits for the image's answer, saying so (D979), and the Weapon box lists every weapon before it, how
+// each fits after it (the owner's review, D1061). Content from (the source Azurik-Custom-Content is read from) is remembered:
 // by the site in this browser's storage, by the app in its config; an Install checks every file's sha256 before
 // anything is kept (the site's worker, sdk.content_check; the app's engine, sdk.content_install), and an installed
 // entry stays at its version until its Update. The site keeps what it installed in this browser's storage (IndexedDB)
@@ -23,8 +24,7 @@ const $ = (id) => document.getElementById(id);
 const OBJECTS = "azurkit.show_objects";   // the site's remembered Show objects (the app's: host.json's show_objects)
 const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
 const JIGGLE = ["jiggle_strength", "jiggle_stiffness"];
-const CHOOSE_WEAPONS = "Choose your image to see its weapons";   // the Weapon box with no image read
-const READING = "Reading your image…";   // and while the engine reads the one picked
+const READING = "Reading your image…";   // G4 while the engine reads the one picked
 const FROM = "From the front and from behind.";
 // A reshape's dress waits for the slider to rest, past Build's head start (D1014): beside a build's its GiBs pass 6
 // (D1017), so a Build clicked at the change, or running, goes first
@@ -69,7 +69,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   let ships = null, shipping = null;
   const shipped = () => shipping ??= fetch("characters/index.json").then((reply) => reply.ok ? reply.json() : null)
     .catch(() => null).then((found) => ships = found);
-  // The engine's answer read the image picked now (D979: G4 and the weapons need it).
+  // The engine's answer read the image picked now (D979: G4 needs it).
   const imaged = () => Boolean(c.view?.from) && c.view.from === image();
 
   const given = (extra) => app ? { given: { iso: image() || null, ...extra } } : { file: image(), given: { iso: null,
@@ -85,10 +85,10 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     if ("refused" in reply) {
       $("char-refused").hidden = false;
       $("char-refused").textContent = reply.refused;
-      // a field refused with the image read keeps G4 and the weapons (D979), on every refusal: c.read outlives the view
+      // a field refused with the image read keeps G4 (D979), on every refusal: c.read outlives the view
       const read = Boolean(c.read) && c.read === image();
       c.view = null;
-      if (!read) {   // no answer read the image: G4 and the weapons ask for one again, not "Reading"
+      if (!read) {   // no answer read the image: G4 asks for one again, not "Reading"
         c.failed = from;
         unread();
       }
@@ -204,17 +204,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     $("char-mode").value = locked.mode ?? ch.mode ?? defaults.mode;
     $("char-mode").disabled = "mode" in locked;
     $("char-chain").checked = (ch.chain ?? "hit") === "any";   // D1045: off by default, for any model
-    const weapons = imaged() ? chosen.weapons   // D979: none until the image is read
-      : [{ name: null, label: image() ? READING : CHOOSE_WEAPONS }];
-    $("char-weapon").replaceChildren(...weapons.map((w) => {
-      const option = el("option", { value: w.name ?? "", textContent: w.label, title: w.tip ?? "" });
-      if (w.colour) option.style.color = paint(w.colour);
-      return option;
-    }));
-    $("char-weapon").value = imaged() ? chosen.weapon ?? "" : "";
-    $("char-weapon").disabled = weapons.length < 2;
-    const picked = weapons.find((w) => w.name === (chosen.weapon ?? null));
-    $("char-weapon").style.color = paint(picked?.colour);
+    weaponBox(chosen);
     $("char-clips").checked = (ch.anims ?? defaults.anims) === "own";
     $("char-clips").disabled = !live.anims;
     $("char-sounds").checked = (locked.sounds ?? ch.sounds ?? "own") === "own";
@@ -286,6 +276,17 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     return row;
   };
 
+  // The Weapon box: every weapon, image or none (the engine's rows; only how each fits waits for the image).
+  const weaponBox = ({ weapons, weapon }) => {
+    $("char-weapon").replaceChildren(...weapons.map((w) => {
+      const option = el("option", { value: w.name ?? "", textContent: w.label, title: w.tip ?? "" });
+      if (w.colour) option.style.color = paint(w.colour);
+      return option;
+    }));
+    $("char-weapon").value = weapon ?? "";
+    $("char-weapon").style.color = paint(weapons.find((w) => w.name === (weapon ?? null))?.colour);
+  };
+
   // The G4 buttons: live once the engine has read the image to measure in (D979: greyed, saying so, until then), greyed
   // while one dress measures (seconds; a detailed variant minutes, and on the site it may run out of memory: the app
   // then); the value its box takes, 4 figures rounded up.
@@ -298,12 +299,14 @@ export function characters({ call, app, host, say, image, packs, changed, shared
       : imaged() ? "G4 sets a number so the body matches garret4." : reading() ? READING
       : "Choose your image to match garret4 (G4).";
   };
-  // An image picked that no answer has read or refused yet (the engine reads it); with no view, G4 and the Weapon box
-  // say so, or ask for an image (after a refusal of it, Step 4.3m: never "Choose your image…" while one is read).
+  // An image picked that no answer has read or refused yet (the engine reads it); with no view, G4 says so, or asks for
+  // an image (after a refusal of it, Step 4.3m: never "Choose your image…" while one is read), and the Weapon box keeps
+  // its rows (the shipped answer's, if a refusal came first).
   const reading = () => Boolean(image()) && image() !== c.failed;
   const unread = () => {
-    $("char-weapon").replaceChildren(el("option", { value: "", textContent: reading() ? READING : CHOOSE_WEAPONS }));
-    $("char-weapon").disabled = true;
+    shipped().then(() => {
+      if (!$("char-weapon").options.length && ships) weaponBox(ships.view.chosen);
+    });
     g4();
   };
   const match = async (name) => {

@@ -125,7 +125,7 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Objects tucked away:** the 76 pickups, keys and statues you can wear stay out of the list until you tick Show
   objects (remembered); one you already wear stays listed.
 - **See it first:** the chosen model from the front and from behind, at once and before you pick your image; the
-  whole list shows straight away too, and G4 and the weapons say they need your image.
+  whole list and every weapon show straight away too, and G4 and how a weapon fits say they need your image.
 - **Match Garret in one click:** a G4 button beside model size, attack reach, damage and speed sets the body to
   Garret's height, reach, damage per second or timing.
 - **Play as almost anyone:** 178 of the game's 184 creatures, bosses to critters, on both releases. The 30

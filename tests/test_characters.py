@@ -1103,6 +1103,33 @@ def test_the_characters_view_lists_178_species_in_their_grades(usa_iso, tmp_path
     assert view["chosen"]["locked"]["mode"] == "own" and view["character"] == {"species": "beamlord"}
 
 
+def test_every_model_lists_every_weapon_before_an_image_and_a_pick_no_sitting_saw_says_not_tested(usa_iso, monkeypatch,
+                                                                                                  tmp_path):
+    """The owner's review (D1061): with no image read the Weapon box lists all the weapons (the one a model can't miss
+    as its default), a pick kept and shown as not tested; on an image a pick no sitting saw says "not tested" in its
+    label and its tip, how it fits beside that, and one a sitting saw says neither; none is left out."""
+    from azurkit.tools.characters import picker
+    from azurkit.tools.characters._player_weapons import weapons
+
+    monkeypatch.setattr(content, "ROOT", tmp_path / "content")
+    titles = [w.title for w in weapons().values()]
+    labels = lambda view: [p["label"].split(" (")[0] for p in view["chosen"]["weapons"]]   # noqa: E731
+    assert labels(sdk.pickers({"iso": None, "character": {"species": "keylord"}})) == ["Default", *titles]
+    assert [p["label"] for p in sdk.pickers({"iso": None})["chosen"]["weapons"]][0] == "Default (Axion staff)"
+    view = sdk.pickers({"iso": None, "character": {"species": "keylord", "weapon": "farmers_hoe"}})
+    assert view["chosen"]["weapon"] == "farmers_hoe" and view["character"]["weapon"] == "farmers_hoe"
+    assert ["With Farmer's hoe", "Not tested", picker.STATUS_COLOURS["unseen"]] in view["chosen"]["info"]
+    for species in ("keylord", "town_male_1", "booblord", "golem"):
+        rows = sdk.pickers({"iso": str(usa_iso), "character": {"species": species}})["chosen"]["weapons"]
+        assert {p["label"].split(" (")[0] for p in rows[1:]} | {rows[0]["label"][9:-1]} >= set(titles), species
+        for pick in rows[1:]:
+            assert "not seen" not in pick["tip"] and pick["fit"] != "refused", (species, pick)
+            if pick["fit"] not in ("default", "same"):
+                assert ("not tested" in pick["label"]) == ("ot tested" in pick["tip"]), (species, pick)
+    rows = sdk.pickers({"iso": str(usa_iso), "character": {"species": "keylord"}})["chosen"]["weapons"]
+    assert {"not tested" in p["label"] for p in rows[1:] if p["fit"] not in ("default", "same")} == {True, False}
+
+
 def test_the_characters_view_on_an_image_tells_its_models_read_then_the_view_so_the_sites_bar_moves(usa_iso,
                                                                                                     monkeypatch):
     """Step 4.3 round 3 (S10, S11 in Chromium, D980): ``sdk.pickers`` on an

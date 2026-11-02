@@ -48,6 +48,9 @@ OWN_HANDS = "its own attacks are its bare hands"
 WEAPON_FITS = {"odd": "odd look", "look + tip hits": "look + tip hits", "look": "look only",
                "same": "the default's build", "refused": "can't build", OWN_HANDS: "its own attacks"}
 """How the Weapon box marks a pick's fit (Modkit's; a good fit unmarked)."""
+UNTESTED_PICK = {"green": "Should play, not tested", "yellow": "Rough edges, not tested",
+                 "red": "Not playable, not tested", "unseen": "Not tested"}
+"""A pick no sitting saw, by the colour its fit gives it (D810), said plainly (the owner's review, D1061)."""
 COMMUNITY = "Community"
 PREVIEW = 160
 SPECIES = Path(__file__).with_name("species.json")   # [species, body, object] of each the player can wear (above)
@@ -93,7 +96,8 @@ def _weapons(offers: dict, default: str | None, grade_of) -> list[dict]:
     """The Weapon box's entries (Modkit's ``weapon_entries``): "Default
     (<title>)" first (``name`` ``None``), then every other weapon, its fit
     marked; each pick's colour and tip from ``grade_of(name, fit)``
-    (``None``: the theme's)."""
+    (``None``: the theme's), its label saying "not tested" where no sitting
+    saw it. With no image read every fit is ``None``: all the weapons, by name."""
     from azurkit.tools.characters._player_weapons import DEFAULT, OWN, weapons
 
     found = weapons()
@@ -101,14 +105,16 @@ def _weapons(offers: dict, default: str | None, grade_of) -> list[dict]:
     def title(name: str | None) -> str:
         return "its own attacks" if name in (None, OWN) else found[name].title if name in found else name
     mine = default or next((n for n, (fit, _) in offers.items() if fit == DEFAULT), None)
-    out = [{"name": None, "label": f"Default ({title(mine)})" if offers or default else "Default", "colour": None,
+    known = default or any(fit for fit, _ in offers.values())
+    out = [{"name": None, "label": f"Default ({title(mine)})" if known else "Default", "colour": None,
             "tip": "The model's own weapon."}]
     for name, (fit, why) in offers.items():
         if name == mine:
             continue
         mark = WEAPON_FITS[OWN_HANDS] if fit == "same" and why.endswith(OWN_HANDS) else WEAPON_FITS.get(fit)
-        colour, tip = (None, f"Builds the default: {why}") if fit in (DEFAULT, "same") else grade_of(name, fit)
-        out.append({"name": name, "label": title(name) + (f" ({mark})" if mark else ""), "colour": colour,
+        colour, tip, tested = (None, f"Builds the default: {why}", True) if fit in (DEFAULT, "same") else grade_of(name, fit)
+        marks = ", ".join(filter(None, (mark, None if tested else "not tested")))
+        out.append({"name": name, "label": title(name) + (f" ({marks})" if marks else ""), "colour": colour,
                     "tip": tip, "fit": fit})
     return out
 
@@ -145,7 +151,7 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
          root) -> dict:
     """The Characters tab's view (module docstring) of the image's
     ``config_xbr`` and ``characters_xbr`` (``None`` both: no image read, the
-    graded species only and no weapons), the tab's ``character`` (a
+    graded species only and every weapon, its fit unknown), the tab's ``character`` (a
     recipe's, :func:`~azurkit.tools.characters.normalize` d), Azurik-Custom-
     Content as ``sdk.content`` gives it (``community``: its ``entries`` with
     their states; ``None``: none read) and the content folder ``root``."""
@@ -153,7 +159,7 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     from azurkit.tools.characters import _player_character as swap
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content, jiggle_rt
-    from azurkit.tools.characters._player_weapons import DEFAULT, attack_recipe, pick_grade, seen, weapons
+    from azurkit.tools.characters._player_weapons import DEFAULT, NOT_SEEN, attack_recipe, pick_grade, seen, weapons
     from azurkit.tools.characters.characters import object_bodies
 
     species = character.get("species", swap.PLAYER)
@@ -170,7 +176,7 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
         rows = species_list()
         listed = [swap.PlayerModel(name, body, *swap.mode_status(name, mode, size, scale)) for name, body, _ in rows]
         objects = {name for name, _, thing in rows if thing}
-        why = "Choose your image to build, and to see each model's weapons."
+        why = "Choose your image to build, and to see how each weapon fits."
     bodies = {m.species: m.body for m in listed}
     record = content.installed(root)
     entries = (community or {}).get("entries") or content.states(None, record)
@@ -182,7 +188,8 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     unit = worn.scale * scale if worn is not None else scale
     base = worn.base if worn is not None else species
     wear_mode = worn.mode if worn is not None else mode
-    offered = _offers(characters_xbr, digest, bodies.get(base), wear_mode, worn) if characters_xbr else {}
+    offered = (_offers(characters_xbr, digest, bodies.get(base), wear_mode, worn) if characters_xbr
+               else dict.fromkeys(weapons(), (None, "")))
     weapon = character.get("weapon")
 
     def model_grade(name: str, v=None) -> tuple[str, str]:
@@ -191,17 +198,22 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
         found = swap.mode_status(name, mode, size, scale)
         return ("unseen", found[1]) if found == swap.UNTESTED else found
 
-    def grade_of(name: str, fit: str) -> tuple[str | None, str]:
+    def grade_of(name: str, fit: str | None) -> tuple[str | None, str, bool]:
+        """A pick's colour, its tip and whether a sitting saw it."""
         if fit == "refused":
-            return STATUS_COLOURS["red"], "Red: can't build"
+            return STATUS_COLOURS["red"], "Red: can't build", True
         own = swap.mode_status(base, mode, size, scale) if worn is None else variants.status(worn, unit)
         graded = pick_grade(species if worn is not None else base, wear_mode, name,
                             seen(size, unit, worn), bodies.get(base), fit, own)
-        if graded is None:
-            return STATUS_COLOURS["unseen"], "Grey: Not yet tested."
-        colour, note = graded
-        return STATUS_COLOURS[colour], f"{GRADE_WORDS[colour]}" + ("; not seen in game." if "not seen" in note else ".")
-    picks = _weapons(offered, getattr(worn, "weapon", None), grade_of) if characters_xbr else _weapons({}, None, grade_of)
+        colour, note = graded if graded is not None else ("unseen", NOT_SEEN)
+        if colour != "unseen" and NOT_SEEN not in note:
+            return STATUS_COLOURS[colour], f"{GRADE_WORDS[colour]}.", True
+        return (STATUS_COLOURS[colour], UNTESTED_PICK[colour] + ("; pick your image to see how it fits." if fit is None
+                                                                 else "."), False)
+    body = bodies.get(base)
+    mine = getattr(worn, "weapon", None) if characters_xbr or worn is not None else next(   # the one no image can miss
+        (w.name for w in weapons().values() if body and body in (w.prop and w.prop.own_on, w.style.source)), None)
+    picks = _weapons(offered, mine, grade_of)
     if weapon is not None and weapon not in {p["name"] for p in picks} and offered:
         weapon = None   # a pick the body doesn't offer: its default
     rows = []

@@ -1092,7 +1092,7 @@ CHARS_SHOWN = """() => [document.querySelectorAll("#char-species .model").length
     document.getElementById("char-count").textContent, ["char-front", "char-back"].map((id) => document.getElementById(id)
     .getContext("2d").getImageData(0, 0, 160, 160).data.some((v, i) => i % 4 === 3 && v > 0)),
     [...document.querySelectorAll("#char-numbers .g4")].map((b) => b.disabled), document.getElementById("char-g4-note")
-    .textContent, document.getElementById("char-weapon").disabled, document.getElementById("char-weapon").textContent,
+    .textContent, document.getElementById("char-weapon").disabled, document.getElementById("char-weapon").options.length,
     asked.filter((t) => ["preview", "match"].includes(t))]"""
 
 
@@ -1135,11 +1135,11 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
     with Garret's two pictures, and a click on another shows its own at
     once: the site's shipped answer and pictures (``tests/test_characters.py``
     holds them to the images and to the app's draw), no engine call drawing
-    them. G4 and the Weapon box stay greyed, saying the image is needed, and
-    say so again once the engine refuses a file that is no image; the image
-    picked after it, they say it is being read until its answer (Step 4.3m:
-    never "Choose your image" meanwhile). No CSP violation, no request but
-    GETs of the site's files."""
+    them. G4 stays greyed, saying the image is needed, and says so again once
+    the engine refuses a file that is no image; the image picked after it, it
+    says it is being read until its answer (Step 4.3m: never "Choose your image"
+    meanwhile). The Weapon box lists every weapon all the while (D1061). No CSP
+    violation, no request but GETs of the site's files."""
     served = Site(browser, site)
     served.context.add_init_script(script=ASKED)
     try:
@@ -1147,20 +1147,18 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         _page.click(page, "tab-characters")
         _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 60)
         assert page.evaluate(CHARS_SHOWN) == [
-            102, "102 species, 76 objects hidden · Choose your image to build, and to see each model's weapons.",
-            [True, True], [True] * 4, "Choose your image to match garret4 (G4).", True,
-            "Choose your image to see its weapons", []]
+            102, "102 species, 76 objects hidden · Choose your image to build, and to see how each weapon fits.",
+            [True, True], [True] * 4, "Choose your image to match garret4 (G4).", False, 5, []]
         page.evaluate("() => document.querySelector('#char-species .model[data-model=\"keylord\"]').click()")
         _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 120)
         assert page.evaluate(CHARS_SHOWN)[2:] == [[True, True], [True] * 4, "Choose your image to match garret4 (G4).",
-                                                  True, "Choose your image to see its weapons", []]
+                                                  False, 6, []]
         (tmp_path / "not-an-image.iso").write_bytes(bytes(64 * 1024))
         page.set_input_files("#iso", str(tmp_path / "not-an-image.iso"))
         _page.until(page, "() => !document.getElementById('char-refused').hidden", 180)
-        assert page.evaluate(CHARS_SHOWN)[3:7] == [[True] * 4, "Choose your image to match garret4 (G4).", True,
-                                                   "Choose your image to see its weapons"]
+        assert page.evaluate(CHARS_SHOWN)[3:7] == [[True] * 4, "Choose your image to match garret4 (G4).", False, 6]
         page.set_input_files("#iso", str(usa_iso))
-        assert page.evaluate(CHARS_SHOWN)[3:7] == [[True] * 4, "Reading your image…", True, "Reading your image…"]
+        assert page.evaluate(CHARS_SHOWN)[3:7] == [[True] * 4, "Reading your image…", False, 6]
         _page.until(page, "() => Boolean(azurkit.characters.state.view?.from)", 300)
         assert page.evaluate(CHARS_SHOWN)[4] == "G4 sets a number so the body matches garret4."
         index = json.loads((site / "characters" / "index.json").read_text(encoding="utf-8"))
