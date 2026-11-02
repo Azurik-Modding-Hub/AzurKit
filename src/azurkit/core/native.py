@@ -23,6 +23,7 @@ from __future__ import annotations
 import collections
 import ctypes
 import hashlib
+import operator
 import os
 import platform
 import sys
@@ -171,15 +172,16 @@ class Tables:
     twin_only: bool = field(init=False, repr=False)  # a rule deeper than DEPTH or a number past LIMIT: the twin
     _view: object = field(init=False, repr=False, default=None)
     _twin: tuple | None = field(init=False, repr=False, default=None)
+    _limits: tuple | None = field(init=False, repr=False, default=None)
 
     def __post_init__(self):
         self.blob, self.twin_only = _pack(self)
 
     def __getstate__(self):
-        return {k: v for k, v in self.__dict__.items() if k not in ("_view", "_twin")}
+        return {k: v for k, v in self.__dict__.items() if k not in ("_view", "_twin", "_limits")}
 
     def __setstate__(self, state):
-        self.__dict__.update(state, _view=None, _twin=None)
+        self.__dict__.update(state, _view=None, _twin=None, _limits=None)
 
 
 @dataclass(frozen=True)
@@ -509,13 +511,20 @@ def _twin(t: Tables, graph: int, phys: int, free: int, counters: Sequence[int], 
 
 
 def _words(ids: Iterable[int], count: int):
-    out = (ctypes.c_uint64 * max(1, (count + 63) // 64))()
+    out = [0] * max(1, (count + 63) // 64)
     for i in ids:
         out[i >> 6] |= 1 << (i & 63)
-    return out
+    return (ctypes.c_uint64 * len(out))(*out)
+
+
+_DECODED: dict[bytes, frozenset[int]] = {}   # a set's words to its ids: a fill's reaches read a few hundred sets, over and over
+_DECODED_KEPT = 1024
 
 
 def _ids(words, count: int) -> frozenset[int]:
+    raw = bytes(words)[:8 * ((count + 63) // 64)]
+    if (got := _DECODED.get(raw)) is not None:
+        return got
     out = []
     for w in range((count + 63) // 64):
         x = words[w]
@@ -523,7 +532,29 @@ def _ids(words, count: int) -> frozenset[int]:
             low = x & -x
             out.append(w * 64 + low.bit_length() - 1)
             x ^= low
-    return frozenset(out)
+    if len(_DECODED) >= _DECODED_KEPT:
+        _DECODED.clear()
+    got = _DECODED[raw] = frozenset(out)
+    return got
+
+
+def _ids_below(ids: Iterable[int], n: int, what: str) -> list[int]:
+    """``ids`` as a list, each an id below ``n`` (:func:`_id`'s, at a whole set's C speed)."""
+    out = list(ids)
+    if out and (set(map(type, out)) != {int} or min(out) < 0 or max(out) >= n):
+        for x in out:
+            _id(x, n, what)
+    return out
+
+
+def _limits(t: Tables) -> tuple:
+    """What :func:`solve` reads of ``t`` to prove a call's numbers fit the kernel: a sum rule's most terms; each item's
+    largest increment, with a 0 last for an empty location's -1; each location's yield, sized; their sum."""
+    if t._limits is None:
+        yields = tuple(map(abs, t.yields))
+        t._limits = (max([len(r[2]) for r in t.rules if r[0] == "sum"] + [1]),
+                     (*(max([abs(inc) for _, inc in item] + [0]) for item in t.items), 0), yields, sum(yields))
+    return t._limits
 
 
 def _native(lib, t: Tables, graph: int, phys: int, free: int, counters: Sequence[int], held: Sequence[int],
@@ -575,22 +606,22 @@ def solve(t: Tables, graph: int, phys: int, free: int, *, counters: Sequence[int
     nl, ni = t.locations, len(t.items)
     for i in (graph, phys, free):
         _id(i, len(t.graphs), "graph")
-    if any(type(v) is not int for v in (*counters, *held)):
+    if set(map(type, (*counters, *held))) - {int}:
         raise ValueError("counters and held: each value is an integer")
     if len(counters) != t.counters or len(held) != ni or len(gives) != nl:
         raise ValueError(f"counters, held and gives: {len(counters)}, {len(held)} and {len(gives)} values for "
                          f"{t.counters} counters, {ni} items and {nl} locations")
-    flags, late = [_id(x, t.flags, "flag") for x in flags], [_id(x, nl, "late") for x in late]
-    got = None if got is None else [_id(x, nl, "got") for x in got]
-    for loc, x in enumerate(gives):
-        if type(x) is not int or not -1 <= x < ni:
-            raise ValueError(f"gives: location {loc} holds {x!r}, no item id or -1")
+    flags, late = _ids_below(flags, t.flags, "flag"), _ids_below(late, nl, "late")
+    got = None if got is None else _ids_below(got, nl, "got")
+    if gives and (set(map(type, gives)) != {int} or min(gives) < -1 or max(gives) >= ni):
+        for loc, x in enumerate(gives):
+            if type(x) is not int or not -1 <= x < ni:
+                raise ValueError(f"gives: location {loc} holds {x!r}, no item id or -1")
     lib = library()
     if lib is not None and not t.twin_only:
-        terms = max([len(r[2]) for r in t.rules if r[0] == "sum"] + [1])
-        grow = sum(max([abs(inc) for _, inc in t.items[x]] + [0]) * abs(t.yields[loc]) + 1
-                   for loc, x in enumerate(gives) if x >= 0)
-        top = max([abs(v) for v in (*counters, *held)] + [0]) + grow + sum(abs(y) for y in t.yields) + 1
+        terms, largest, yields, all_yields = _limits(t)
+        grow = sum(map(operator.mul, map(largest.__getitem__, gives), yields)) + nl - gives.count(-1)
+        top = max(map(abs, (*counters, *held)), default=0) + grow + all_yields + 1
         if top * terms < LIMIT:
             CALLS["kernel"] += 1
             return _native(lib, t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)

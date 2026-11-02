@@ -76,7 +76,7 @@ imports).
 from __future__ import annotations
 
 import collections
-from collections.abc import Callable, Container, Iterable, Mapping
+from collections.abc import Callable, Container, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from azurkit.core import native
@@ -94,6 +94,7 @@ Rule = Callable[[Mapping[str, int], Container[str]], bool]
 MAX_SETTINGS = Settings(4, "frame_perfect", 1, {})   # every in-logic skip on, every player tier's edge usable
 TRICK_FREE = Settings(0, "frame_perfect", 1, {})     # no skip, every player tier's edge usable
 STRICTEST = Settings(0, "safe", 1, {})               # no skip, the safe tier (rule 10's options)
+NAMED_KEPT = 1024                                     # :meth:`Logic._named`'s sets, then it starts again
 _ALL = 1 << 30                                        # a counter "with every item"
 
 
@@ -453,6 +454,8 @@ class _Native:
     flag: dict[str, int]
     counter: dict[str, int]
     graphs: tuple[int, int, int]
+    gives: list[int]         # what each location gives when the placement names none: an empty one's -1
+    placed: dict[str, int]   # the locations whose item is the placement's, each its id
 
 
 @dataclass(frozen=True)
@@ -534,6 +537,7 @@ class Logic:
                                      and loc not in self.guardian and self.canon(db.node_of[loc]) in lost)
         self._inside: dict[tuple, dict] = {}      # within's graphs by level and rules
         self._kit_memo: dict[tuple, set[str]] = {}   # kit_short's reaches: (options, counter, count, spot, item)
+        self._named_sets: dict[tuple, tuple] = {}    # :meth:`_named`'s
 
     def rules(self, settings: Settings, physical: bool = False) -> _Rules:
         """One option set's compiled graph (the physical one when
@@ -862,13 +866,30 @@ class Logic:
         for f, i in flag.items():
             flags[i] = f
         self._native[key] = got = _Native(t, nodes, locs, items, tuple(flags), loc, item, flag, counter,
-                                          (0, 1, 2 if phys.on else 1))
+                                          (0, 1, 2 if phys.on else 1), [item.get(self._item(x, {}), -1) for x in locs],
+                                          {x: i for i, x in enumerate(locs) if self.pool[x] not in self.db.stubs
+                                           and x not in self.guardian and x not in self.forfeitable})
         return got
+
+    def _named(self, table: Sequence[str] | Mapping[str, Sequence[str]], ids: frozenset) -> frozenset[str]:
+        """``ids``' names in ``table`` (its strings, or, a stub level's nodes by its name, those it stands for), kept: a
+        fill's reaches read a few hundred sets, over and over. Each entry holds its table, so its id stays that table's."""
+        key = id(table), ids
+        if (got := self._named_sets.get(key)) is None or got[0] is not table:
+            if len(self._named_sets) >= NAMED_KEPT:
+                self._named_sets.clear()
+            if isinstance(table, Mapping):
+                stubs = self.db.stubs
+                names = frozenset(n for x in ids for n in (table[x] if x in stubs else (x,)))
+            else:
+                names = frozenset(map(table.__getitem__, ids))
+            got = self._named_sets[key] = table, names
+        return got[1]
 
     def _solve(self, settings: Settings, placement: Mapping, counters: dict, held: collections.Counter,
                flags: Iterable[str], trace: list | None = None, traps_too: bool = True,
                got: Iterable[str] | None = None, late: frozenset[str] = frozenset(),
-               ) -> tuple[set, set, set, set, set, set, set, bool, set]:
+               ) -> tuple[frozenset, frozenset, frozenset, frozenset, frozenset, frozenset, frozenset, bool, frozenset]:
         """The fixpoint (the module's loop) in ``core.native``'s reach: its
         compiled kernel when this platform's library is loaded, else its
         Python twin (``AZURKIT_NATIVE=0``), the same answer. A ``trace``
@@ -880,17 +901,20 @@ class Logic:
                 c[i] = n
         base = frozenset(flags)
         log = trace is not None and got is None
+        gives, open_at, item = nt.gives[:], nt.placed, nt.item
+        for x, name in placement.items():
+            if (i := open_at.get(x)) is not None:
+                gives[i] = item.get(name, -1)
         s = native.solve(nt.tables, *nt.graphs, counters=c, held=[held.get(x, 0) for x in nt.items],
                          flags=[nt.flag[f] for f in base],
-                         gives=[nt.item.get(self._item(x, placement), -1) for x in nt.locs],
+                         gives=gives,
                          got=None if got is None else [nt.loc[x] for x in got], late=[nt.loc[x] for x in late],
                          traps=traps_too, log=log)
         if log:
             self._spheres(trace, s, nt, placement, dict(counters), collections.Counter(held), base)
-        nodes, locs, fl = nt.nodes, nt.locs, nt.flags
-        return ({nodes[i] for i in s.reached}, {nodes[i] for i in s.safe}, {nodes[i] for i in s.phys},
-                {nodes[i] for i in s.traps}, {nodes[i] for i in s.after}, {locs[i] for i in s.got},
-                {fl[i] for i in s.flags}, s.victory, {nodes[i] for i in s.free})
+        named, nodes = self._named, nt.nodes
+        return (named(nodes, s.reached), named(nodes, s.safe), named(nodes, s.phys), named(nodes, s.traps),
+                named(nodes, s.after), named(nt.locs, s.got), named(nt.flags, s.flags), s.victory, named(nodes, s.free))
 
     def _spheres(self, trace: list, s: native.Solved, nt: _Native, placement: Mapping, counters: dict,
                  held: collections.Counter, flags: frozenset[str]) -> None:
@@ -1131,9 +1155,6 @@ class Logic:
         late = frozenset(collected) & self.guardian if replay and collected is not None else frozenset()
         reached, safe, phys, found, after, got, flags, victory, free = self._solve(st, placement, counters, held,
                                                                                   flags, trace, traps, collected, late)
-
-        def nodes(keys: Iterable[str]) -> frozenset[str]:
-            return frozenset(n for key in keys for n in (self.stub_nodes[key] if key in db.stubs else [key]))
-
-        return Reach(nodes(reached), nodes(safe), nodes(phys), nodes(found), nodes(after), frozenset(got),
-                     frozenset(flags), victory, nodes(free))
+        named, stub = self._named, self.stub_nodes
+        return Reach(named(stub, reached), named(stub, safe), named(stub, phys), named(stub, found), named(stub, after),
+                     got, flags, victory, named(stub, free))
