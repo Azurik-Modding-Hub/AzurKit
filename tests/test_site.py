@@ -2450,20 +2450,20 @@ def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_a
         level, _, line = page.evaluate(LEVELS)
         assert level == 2 and line.startswith("Moved down from Hard. ")
         assert choose(ceiling=0)["share"] == engine("standard", 0)["share"]
+        level, _, line = page.evaluate(LEVELS)
+        assert level == 0 and line.startswith("Moved down from Standard. ")
         # A group's tick lifts what Seed difficulty offers (D1061), and its untick moves the level down, no refusal
-        click = "() => document.querySelector('#rando-groups input[data-group=superjump]').click()"
+        click = "() => document.querySelector('#rando-groups input[data-group=bounds]').click()"
         page.evaluate(click)
         view = _page.until(page, SETTLED, 120)
         top = max(row[0] for row in view["difficulty"]["levels"] if row[2])
         assert top > 0 and view["settings"]["skip_override"] == dict.fromkeys(
-            sorted(p["id"] for g in view["groups"] if g["id"] == "superjump" for p in g["picks"]), True)
+            sorted(p["id"] for g in view["groups"] if g["id"] == "bounds" for p in g["picks"]), True)
         assert choose(difficulty=top)["settings"]["seed_difficulty"] == top
         page.evaluate(click)
         view = _page.until(page, SETTLED, 120)
         assert view["share"] == engine("standard", 0)["share"] and page.evaluate(LEVELS)[0] == 0
         assert page.evaluate(LEVELS)[2].startswith("Moved down from ") and page.evaluate(WARNED) == [""]
-        level, _, line = page.evaluate(LEVELS)
-        assert level == 0 and line.startswith("Moved down from Standard. ")
         choose(ceiling=2)
         assert not page.evaluate(LEVELS)[2].startswith("Moved")
 

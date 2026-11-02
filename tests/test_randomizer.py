@@ -456,7 +456,7 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
     for thread in running():
         thread.join(120)
     held = logic._opener_sets
-    assert dict(held[0][3]) == off and held[3][0][1] == tuple(sorted(load_plan(fresh, logic.db).placement.items()))
+    assert dict(held[0][2]) == off and held[3][0][1] == tuple(sorted(load_plan(fresh, logic.db).placement.items()))
 
 
 def test_a_step_up_a_pick_or_the_movement_tier_opens_names_only_that_pick_and_the_tier():

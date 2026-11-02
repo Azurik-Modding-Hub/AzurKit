@@ -337,13 +337,13 @@ unverified so far (``why_not``: the packs' movement past their logic
 floor, D83(c), a roll a skip on was proven at, an obsidian cost above
 vanilla's), the preflight's refusal (``preflight``, AZ-454; ``None``),
 the settings file of the settings (``file``, Save settings') and the
-skip groups (``groups``, D258: each group's picks with their variants'
-ratings, which a page compares with the Movement tier, ``tiers``).
+skip groups (``groups``, D258: each group's picks, its highest rating
+and its tip).
 ``tools.randomizer.tab``; a refusal names the setting, the share string,
 the settings file or the pack.
 
 
-def tracker(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
+def tracker(given: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, openers: 'Callable[[Mapping], list] | None' = None) -> 'dict':
 
 What the item tracker shows (D189, D249) for ``given``: ``plan`` (a
 plan file's object: :func:`plan`'s, or a randomized build's report's),
@@ -364,7 +364,9 @@ each row's collected, reachable now, left, total, where and the game's
 count). Modkit's tracker, the same verdicts on every host
 (``tools.randomizer.tracking``); ``progress(record)`` hears a plan's
 first view build its tracker and read the world map, the maps' exits
-counted on it; a refusal names what it refuses.
+counted on it; ``openers(plan)``: who works out a shaped plan's spoiler
+openers (none: this call; the app: its engine, :func:`azurkit.tools.randomizer.openers`);
+a refusal names what it refuses.
 
 
 def art(path: 'str', part: 'str') -> 'dict':
