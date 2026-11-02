@@ -3111,7 +3111,7 @@ WORKERS_ROWS = """
         const over = [b.stopped, stubs.length];
         pool.hold(2 ** 20);
         const next = stubs[2];
-        next.say({ type: "ready", n: 3, heap: 2 ** 28 });
+        next.say({ type: "ready", n: 3, heap: 2 ** 29 });   // F's: neither heap is the heavy jobs' (oneHeap)
         next.say({ type: "reply", reply: { plan: "t" } });
         next.say({ type: "built", report: {}, segments: [{ kind: "bytes", data: new Uint8Array(2 ** 20) }],
                    heap: 2 ** 29 });
