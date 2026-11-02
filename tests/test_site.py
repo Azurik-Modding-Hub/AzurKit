@@ -31,6 +31,8 @@ import itertools
 import json
 import os
 import re
+import shutil
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -1561,9 +1563,41 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
                 "◆ AzurKit build · USA · 17 packs")
             _page.click(page, "load-build")
             assert list(_page.ticked(page)) == list(mods.PACKS)
+            assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
         finally:
             download.delete()
         assert served.stray() == []
+    finally:
+        served.close()
+
+
+def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, site, usa_iso, tmp_path):
+    """D35: a byte of the picked image changed on disk between Build and Save (Firefox reads the new bytes silently,
+    WebKit and Chromium fail the read): the Save fails with what to do and the build goes, as the page can't stop the
+    browser's download."""
+    image = tmp_path / usa_iso.name
+    if subprocess.run(["cp", "-c", str(usa_iso), str(image)], capture_output=True).returncode:
+        shutil.copyfile(usa_iso, image)
+    image.chmod(0o644)   # a clone keeps the source's read-only mode
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(image))
+        _page.build(page, [])
+        _page.built(page)
+        with iso.Reader(image) as r:   # a file the build didn't change, nor read
+            at = max(r.start(e) + e.size // 2 for e in r.entries() if not e.is_dir and e.size
+                     and not e.path.startswith(gate.BUILD_FILES))
+        with open(image, "r+b") as f:
+            f.seek(at)
+            byte = f.read(1)
+            f.seek(at)
+            f.write(bytes([byte[0] ^ 1]))
+        page.evaluate("() => document.querySelector('#save').click()")
+        failed = _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck")
+        assert failed.startswith("Save failed: your image changed after the build")
+        assert page.evaluate("() => [azurkit.build, document.querySelector('#status').textContent, "
+                             "document.querySelector('#status').classList.contains('error')]") == [None, failed, True]
     finally:
         served.close()
 
@@ -1624,6 +1658,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         assert built["report"]["result"] == {f: s for f, s in golden.items() if f != "ISO"}
         assert (built["report"], built["segments"]) == ({k: v for k, v in report.items() if k != "spoiler"}, segments)
         assert built["report"]["randomizer"]["logic_verified"] is True
+        assert page.evaluate("() => azurkit.build.late") == 0   # its reads ahead: no read of its own, each 200 ms in Safari
         _page.click(page, "spoiler-view")
         assert _page.until(page, "() => !document.getElementById('spoiler').hidden "
                                  "&& document.getElementById('spoiler').textContent", 120) == report["spoiler"]

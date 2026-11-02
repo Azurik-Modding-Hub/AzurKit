@@ -166,16 +166,30 @@ file, done of total) and writing the spoiler; an exception it raises stops the
 build.
 
 
-def image_staged(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True):
+def image_staged(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None, spoiler: 'bool' = True, ahead: 'bool' = False):
 
 :func:`image` for a host that hashes the build's changed files itself
 (the site's worker: WebCrypto, off its engine's thread), as a generator
-(``edits.staged``): it yields ``{key: bytes}`` once they are composed and
-is sent ``{key: sha256}``, each one's (``None`` first, if the host hashes
-them while the image's layout runs, then the shas at the next yield), and
-returns ``(image, report)``, :func:`image`'s, byte for byte, as its
-``StopIteration``'s value. Its refusals are :func:`image`'s; a key missing
-from the shas is a ``ValueError`` naming it.
+(``edits.staged``): it yields ``{key: bytes | iso.Patched}`` once they are
+composed and is sent ``{key: sha256}``, each one's (``None`` first, if the
+host hashes them while the image's layout runs, then the shas at the next
+yield; a :class:`iso.Patched`'s md5 too, at once), and returns ``(image,
+report)``, :func:`image`'s, byte for byte, as its ``StopIteration``'s
+value. Its refusals are :func:`image`'s; a key missing from the shas is a
+``ValueError`` naming it. With ``ahead``, for a host whose reads are late,
+it first yields twice at most a list of ``(image offset, size)``, what it
+reads next, and is resumed once those are at hand (:func:`_planning`).
+
+
+def image_checks(made: 'iso.Image', report: 'Mapping') -> 'list[list]':
+
+``[path, image offset, size, sha256]`` of each of ``made``'s files the
+build vouches for (``report``'s, :func:`image`'s): what it changed by its
+result, the rest by the release's manifest. The site's Save hashes what it
+hands the browser against them, as a File may read otherwise than it did
+at the build (Firefox's, of a file changed on disk, silently: D35). The
+root files a build adds are its own bytes, so they aren't listed; nor is
+what lies between files, which no file of the game reads.
 
 
 def save(made: 'iso.Image', out: 'str', *, progress: 'Callable[[dict], object] | None' = None, sha256: 'Callable[[], str] | None' = None) -> 'dict':

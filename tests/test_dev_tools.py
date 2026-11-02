@@ -146,6 +146,10 @@ def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_onl
         "over", "pass", "listed", "regressed", "bar", "bar", "over", "no progress", "pass", "error",
         "no progress", "pass", "over", "no progress"]
     assert perf.judge(saved(1.3, 0.01), 3.0, browser_bar=True)["page"] == [0.01] * 3
+    empty, bars = {"ceilings": {}, "debts": set()}, [{**s(6.8, bar=5), "page": 0.01}] * 3
+    assert {k: v["verdict"] for k, v in perf.verdicts(   # D1053: Firefox's whole Save passes on its bar, no other's
+        [("S49", "firefox"), ("S49", "webkit")], {("firefox", "S49"): bars, ("webkit", "S49"): bars}, empty,
+        browser_bars={"S49"}).items()} == {"S49/firefox": "bar", "S49/webkit": "over"}
     times = {"A12": [[5.0, 3.2, 2.6], [2.4, 2.5, 2.6]], "A15": [[4.0, 4.1, 4.2], [4.0, 4.0, 4.1]], "A24": [[290.0]]}
     asked = []
 
@@ -210,7 +214,7 @@ def test_the_perf_gate_fails_a_run_whose_engine_answers_without_the_native_libra
 
 def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_one_it_doesnt_know():
     """Safari's read model (the perf gate's lag run) makes every read of the
-    player's File in ``web/worker.mjs`` 200 ms late, the blocks' FileReaderSync
+    player's File in ``web/worker.mjs`` and ``web/hasher.mjs`` 200 ms late, the blocks' FileReaderSync
     reads and the image check's awaited ones alike; a read it doesn't know
     stops the run, naming its line."""
     from tests import _perf
@@ -218,6 +222,8 @@ def test_the_lag_model_makes_each_of_the_workers_file_reads_late_and_stops_on_on
     text = (ROOT / "web" / "worker.mjs").read_text(encoding="utf-8")
     late = _perf.lagged(text)
     assert late.count(f"performance.now() + {_perf.LAG_MS}") == 1 and late.count(_perf._WAIT) == 3
+    hasher = (ROOT / "web" / "hasher.mjs").read_text(encoding="utf-8")
+    assert _perf.lagged(hasher, _perf.HASHER_LAG).count(_perf._WAIT) == 1
     added = "const more = await file.slice(0, 1).arrayBuffer();"
     with pytest.raises(SystemExit, match=re.escape(repr(added))):
         _perf.lagged(text.replace("async function prime(", f"{added}\nasync function prime(", 1))

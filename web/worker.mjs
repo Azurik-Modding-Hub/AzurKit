@@ -40,6 +40,8 @@
 //      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "reply", call, reply}
 //      (a tracker's, plan's, Characters', Data or Tools' answer: the view, {plan}, or {refused}), {type: "csp", directive,
 //      blocked}
+import { hashed, md5Ready } from "./hasher.mjs";
+
 const base = new URL("./", import.meta.url);
 const post = (message, transfer = []) => self.postMessage(message, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
@@ -217,14 +219,20 @@ def engine(request):
             return js({"refused": str(exc)})
     global STAGED
     try:
-        if request.type == "build":   # to its composed files, which the worker hashes (build())
-            run = sdk.image_staged(request.recipe.to_py(), progress=progressed, spoiler=False)
-            STAGED = run, next(run)
-            return js({"hash": list(STAGED[1])})
         if request.type == "hash":
             return js({"data": STAGED[1][request.key]})
-        STAGED[0].send(json.loads(JSON.stringify(request.shas)))   # "hashed": the layout, the manifest, the read-back
-        raise RuntimeError("the staged build asked for more")
+        if request.type == "hashed":   # the layout, the manifest, the read-back
+            STAGED[0].send(json.loads(JSON.stringify(request.shas)))
+            raise RuntimeError("the staged build asked for more")
+        if request.type == "build":   # to the pages it reads next, then its composed files, which the worker hashes (build())
+            STAGED = sdk.image_staged(request.recipe.to_py(), progress=progressed, spoiler=False, ahead=True), None
+        step = next(STAGED[0])   # "build" or "ahead": the pages it asked for are in the read cache
+        if isinstance(step, list):
+            return js({"ahead": step})
+        STAGED = STAGED[0], step
+        return js({"hash": [key for key, data in step.items() if not isinstance(data, iso.Patched)],
+                   "patched": [[key, data.start, data.size, [list(patch) for patch in data.patches]]
+                               for key, data in step.items() if isinstance(data, iso.Patched)]})
     except StopIteration as done:
         image, report = done.value
     except (OSError, ValueError) as exc:
@@ -234,7 +242,7 @@ def engine(request):
     pieces = [{"kind": "copy", "offset": p.offset, "size": p.size} if isinstance(p, iso.Copy)
               else {"kind": "zero", "size": p.size} if isinstance(p, iso.Zero)
               else {"kind": "bytes", "size": p.size, "data": blobbed(p.data)} for p in image.segments()]
-    return js({"report": report, "size": image.size, "segments": pieces})
+    return js({"report": report, "size": image.size, "segments": pieces, "checks": sdk.image_checks(image, report)})
 
 
 engine`;
@@ -247,8 +255,9 @@ engine`;
 // PAGES pages and BLOCKS blocks are kept (256 MiB at most), for the last image only (by its id, which ids holds for
 // each File: each message brings its own File object of it; a File with none keeps its own), from one message to the
 // next, so a worker reads the folders' tables once, not once a call. Before the engine's first walk of an image in a
-// worker, its tables' pages are read ahead (ahead(): R2.5), every folder of a depth at once.
-const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 64, BLOCKS = 3;
+// worker, its tables' pages are read ahead (ahead(): R2.5), every folder of a depth at once; a seed's build asks for
+// its levels' TOCs and node sections' too (spans(): AM-HUB-E), as many pages again as the tables, so PAGES holds both.
+const PAGE = 1 << 20, BLOCK = 64 << 20, PAGES = 128, BLOCKS = 3;
 const ids = new WeakMap();   // a message's File -> its image's id (identify)
 function readInBlocks(WORKERFS) {
   const kept = new Map();   // the last image's id -> its unit -> index -> bytes, the least recently used first
@@ -271,6 +280,7 @@ function readInBlocks(WORKERFS) {
       if (data) {
         cache.delete(index);   // used last now
       } else {
+        self.azurkitLateReads = (self.azurkitLateReads ?? 0) + 1;
         data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));
         if (cache.size >= keep) cache.delete(cache.keys().next().value);
       }
@@ -282,7 +292,27 @@ function readInBlocks(WORKERFS) {
     }
     return end - position;
   };
-  return (file, id, hint) => ahead(file, cachesOf(id).get(PAGE), hint);
+  return { tables: (file, id, hint) => ahead(file, cachesOf(id).get(PAGE), hint),
+           spans: (file, id, wanted) => spans(file, cachesOf(id).get(PAGE), wanted) };
+}
+
+// The pages of wanted ([image offset, size]) a seed's build reads next, all at once and awaited (AM-HUB-E: one by one,
+// WebKit's 200 ms a read would cost about 90 x that), into the cache (used last now), as the engine's own reads would
+// be. A hint: a page the cache lacks later is read by the engine.
+async function spans(file, pages, wanted) {
+  const indexes = new Set();
+  for (const [at, n] of wanted) {
+    const end = Math.min(at + n, file.size);
+    for (let i = Math.floor(at / PAGE); i * PAGE < end; i++) indexes.add(i);
+  }
+  const listed = [...indexes].slice(0, PAGES);
+  const got = await Promise.all(listed.map(async (i) => pages.get(i)
+    ?? new Uint8Array(await file.slice(i * PAGE, (i + 1) * PAGE).arrayBuffer())));
+  for (const [i, index] of listed.entries()) {
+    pages.delete(index);
+    if (pages.size >= PAGES) pages.delete(pages.keys().next().value);
+    pages.set(index, got[i]);
+  }
 }
 
 // The folders' tables read ahead (R2.5): the engine walks them (iso.Reader) with WORKERFS's reads, one at a time, which
@@ -427,7 +457,7 @@ async function load() {
   const restored = heap && await import(new URL("pyodide.asm.mjs", pyodide).href).then(({ default: create }) =>
     loadPyodide({ ...options, _loadSnapshot: heap, createPyodideModule: grown(create, heap.length) })).catch(() => null);
   const py = restored ?? await loadPyodide({ ...options, _makeSnapshot: true });
-  const readAhead = readInBlocks(py.FS.filesystems.WORKERFS);
+  const reads = readInBlocks(py.FS.filesystems.WORKERFS);
   starting(1);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });
   if (!wheel.ok) throw new Error(`${site.wheel}: HTTP ${wheel.status}`);
@@ -445,7 +475,7 @@ async function load() {
       // no snapshot: the next worker starts as this one did
     }
   }
-  return { py, engine: py.runPython(ENGINE), readAhead, start: restored ? "snapshot" : "cold" };
+  return { py, engine: py.runPython(ENGINE), reads, start: restored ? "snapshot" : "cold" };
 }
 
 // fn(the path of file mounted read-only at /in), unmounted after it (after the promise it gives, if it gives one). The
@@ -470,13 +500,13 @@ function mounted(py, file, fn) {
 }
 
 // The image's check (D27), hashed here once a File: its build files (sdk.layout's offsets, 1.0 GB) in WebCrypto, the
-// browser's native sha256 (about 10x wasm's), RUNS of up to 128 MiB read HASHERS at a time, then handed to the engine
+// browser's native sha256 (about 10x wasm's; hasher.mjs), then handed to the engine
 // (sdk.prime), which checks them against its manifest and keeps the stamp for every later call on the image. Its
 // progress is posted as the engine's record (core/progress.py). A refusal (not an image, a file that differs) is left
 // to the call that follows, which names it. The digests of an image that passed are kept in the browser (IndexedDB,
 // the last image's by its id), so the same File picked again after a reload is not read again (self.azurkitChecks
 // counts the hashings, for the tests).
-const HASHERS = 3, RUN = 128 << 20, STORE = "azurkit-stamp", SAMPLE = 1 << 20;
+const STORE = "azurkit-stamp", SAMPLE = 1 << 20;
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
 // An image's id: its name, size and lastModified and the sha256 of its first and last MiB (the volume's descriptor
@@ -496,7 +526,7 @@ async function prime(loaded, file) {
   const { py, engine } = loaded, id = await identify(file);
   const kept = loaded.primed === id ? null : await stamps("readonly", (store) => store.get("last")).catch(() => null);
   if (kept?.id === id) stage("check", "Reading your image", 0, 1);   // its walk: the first read of its folders here
-  await loaded.readAhead(file, id, kept?.id === id ? kept.pages : null).catch(() => null);   // a hint: a failed read
+  await loaded.reads.tables(file, id, kept?.id === id ? kept.pages : null).catch(() => null);   // a hint: a failed read
   if (loaded.primed === id) return;                                                         // leaves them to the engine
   loaded.primed = null;   // the engine's stamp is this File's from its prime on (sdk.prime checks it by its digests)
   if (kept?.id === id) {
@@ -509,44 +539,16 @@ async function prime(loaded, file) {
   self.azurkitChecks = (self.azurkitChecks ?? 0) + 1;
   const listed = mounted(py, file, (iso) => engine({ type: "layout", recipe: { iso } }));
   if ("refused" in listed) return;
-  const digests = await hashed(file, listed.files, "Checking your image");
+  const digests = await hashed(file, listed.files, checking("Checking your image"));
   const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests }));
   if ("refused" in checked) return;
   loaded.primed = id;
   await stamps("readwrite", (store) => store.put({ id, digests, pages: walked.get(id) }, "last")).catch(() => null);
 }
 
-// {path: sha256} of each of files ([path, offset, size]) of the File, in WebCrypto, RUNS of up to 128 MiB read HASHERS
-// at a time, its progress posted as the engine's record with label (stage check).
-async function hashed(file, files, label) {
-  const runs = [];
-  for (const entry of [...files].sort((a, b) => a[1] - b[1])) {   // [path, offset, size], by offset
-    const run = runs.at(-1), [, at, size] = entry;
-    if (run && at >= run.end && at + size - run.start <= RUN) {
-      run.files.push(entry);
-      run.end = at + size;
-    } else {
-      runs.push({ start: at, end: at + size, files: [entry] });
-    }
-  }
-  const digests = {}, total = runs.reduce((n, run) => n + run.end - run.start, 0);
-  let done = 0;
-  const checking = () => post({ type: "progress", stage: "check", label, done, total,
-                                percent: total ? Math.floor(done * 100 / total) : null });
-  checking();
-  await Promise.all(Array.from({ length: HASHERS }, async () => {
-    for (let run; (run = runs.shift());) {
-      const bytes = new Uint8Array(await file.slice(run.start, run.end).arrayBuffer());
-      for (const [path, at, size] of run.files) {
-        const from = at - run.start;
-        digests[path] = hex(await crypto.subtle.digest("SHA-256", bytes.subarray(from, from + size)));
-      }
-      done += run.end - run.start;
-      checking();
-    }
-  }));
-  return digests;
-}
+// A hash's progress, posted as the engine's record with label (stage check).
+const checking = (label) => (done, total) => post({ type: "progress", stage: "check", label, done, total,
+                                                    percent: total ? Math.floor(done * 100 / total) : null });
 
 // The image's own values of the sliders at its XBE's sites, or, when it is an AzurKit build, its recipe; the image
 // mounted only for the read: a build mounts it again.
@@ -600,7 +602,7 @@ async function tool({ py, engine }, data) {
   if (data.type !== "verify_all") return mounted(py, data.file, (iso) => engine({ type: data.type, recipe: { iso } }));
   const rest = mounted(py, data.file, (iso) => engine({ type: "layout", recipe: { iso }, whole: true }));
   if ("refused" in rest) return rest;
-  const digests = await hashed(data.file, rest.files, "Checking every file");
+  const digests = await hashed(data.file, rest.files, checking("Checking every file"));
   return mounted(py, data.file, (iso) => engine({ type: "verify_all", recipe: { iso }, digests }));
 }
 
@@ -609,13 +611,25 @@ async function tool({ py, engine }, data) {
 // where Pyodide hides it. A seed's spoiler comes after it (the page shows the build meanwhile, and replaces a worker
 // it doesn't keep only once it has it). The build's changed files and the bytes its root files hold are hashed by the
 // browser's SHA-256 (R2.6: about 10x wasm's), one at a time, as 14 at once take WebKit 8x as long, each handed over only
-// for its digest, so the worker's JS holds one file beside the engine's heap (a seed's are 668 MiB in all).
-async function build({ py, engine }, { file, packs, xbr, randomizer, character }) {
+// for its digest, so the worker's JS holds one file beside the engine's heap. A seed's build (AM-HUB-E) first asks for the
+// pages it reads, twice at most, and its levels (668 MiB in all) never enter the heap: each is read here, its patches
+// over it, for its sha256 and md5 (hasher.mjs), and only its patches are the build's bytes.
+async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character }) {
+  const before = self.azurkitLateReads ?? 0;
   const made = await mounted(py, file, async (iso) => {
-    const composed = engine({ type: "build", recipe: { iso, packs, xbr,
+    let composed = engine({ type: "build", recipe: { iso, packs, xbr,
       ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } });
+    while (composed.ahead) {
+      await reads.spans(file, ids.get(file) ?? file, composed.ahead).catch(() => null);   // a hint: a failed read is the engine's
+      composed = engine({ type: "ahead" });
+    }
     if ("refused" in composed) return composed;
     const shas = {};
+    if (composed.patched.length) {
+      await md5Ready();
+      Object.assign(shas, await hashed(file, composed.patched, (done, total) => post({ type: "progress", stage: "layout",
+        label: "Hashing the changed files", done, total, percent: total ? Math.floor(done * 100 / total) : null })));
+    }
     for (const key of composed.hash) {
       shas[key] = hex(await crypto.subtle.digest("SHA-256", engine({ type: "hash", key }).data));
     }
@@ -623,7 +637,7 @@ async function build({ py, engine }, { file, packs, xbr, randomizer, character }
   });
   const heap = py._module?.HEAPU8?.length;
   if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
-  post({ type: "built", ...made, heap });   // each piece's bytes a Blob (blobbed): nothing to transfer
+  post({ type: "built", ...made, heap, late: (self.azurkitLateReads ?? 0) - before });   // each piece's bytes a Blob (blobbed)
   if (!made.report.plan) return;
   let reply;
   try {

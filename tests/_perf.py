@@ -196,6 +196,8 @@ OPS = {op.id: op for op in (
     Op("S46", "Save a mods file, then Load it (the slower)", "build"),
     Op("S47", "a plan file's spoiler, ready to View (the logic's first read: D1008)", "build", bar=True),
     Op("S48", "the last build's report, View", "build", first=False),
+    Op("S49", "Save keylord's build (the browser's download)", "build", browser_bar=DOWNLOAD_BAR),   # X5
+    Op("S50", "Save a seed's build (the browser's download)", "randomizer", browser_bar=DOWNLOAD_BAR),
     Op("R14", "the engine ready again after Build keylord", "build"),   # the next op's wait: the same or a new worker
     Op("R24", "the engine ready again after a seed's build", "randomizer"),
 )}
@@ -273,22 +275,25 @@ TOP = "() => { const m = azurkit.tracker.map; m.view(m.top()); }"
 SHOWN_TOP = "() => { const m = azurkit.tracker.map; m.show('w1', true); m.view(m.top()); }"
 DETAILED = ("() => { const m = azurkit.tracker.map, f = m.drawnFor; "
             "return f?.level === 'w1' && f.floor === m.entry('w1').main && f.detail; }")
-# The lag model: each File read worker.mjs makes, and that read made LAG_MS late (a FileReaderSync read by a busy wait
-# before it, as WebKit's blocks the worker; an awaited one by a timer before it). lagged() refuses a worker with a read
-# of a File this doesn't list (READS outside these and NOT_FILE), so a lane that adds one adds it here.
+# The lag model: each File read worker.mjs (and hasher.mjs, for it and for the page's Save) makes, and that read made
+# LAG_MS late (a FileReaderSync read by a busy wait before it, as WebKit's blocks the worker; an awaited one by a timer
+# before it). lagged() refuses a file with a read of a File this doesn't list (READS outside these and NOT_FILE), so a
+# lane that adds one adds it here.
 _WAIT = f"new Promise((late) => setTimeout(late, {LAG_MS})).then(() => "
 LAG = (
     ("data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));",
      f"{{ const late = performance.now() + {LAG_MS}; while (performance.now() < late); }} "
      "data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));"),
     ("await ends.arrayBuffer()", f"await {_WAIT}ends.arrayBuffer())"),   # identify's sample of the File
-    ("await file.slice(run.start, run.end).arrayBuffer()",   # prime's hashers
-     f"await {_WAIT}file.slice(run.start, run.end).arrayBuffer())"),
     ("await file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer()",   # the folders' tables read ahead (R2.5)
      f"await {_WAIT}file.slice(index * PAGE, (index + 1) * PAGE).arrayBuffer())"),
+    ("await file.slice(i * PAGE, (i + 1) * PAGE).arrayBuffer()",   # a seed's sections read ahead (AM-HUB-E)
+     f"await {_WAIT}file.slice(i * PAGE, (i + 1) * PAGE).arrayBuffer())"),
 )
+HASHER_LAG = (("await source.slice(run.start, run.end).arrayBuffer()",   # the image's check, a seed's levels, a Save's
+               f"await {_WAIT}source.slice(run.start, run.end).arrayBuffer())"),)
 READS = re.compile(r"readAsArrayBuffer\(|\.arrayBuffer\(\)")
-NOT_FILE = ("await wheel.arrayBuffer()",)   # the wheel's fetch
+NOT_FILE = ("await wheel.arrayBuffer()", "await module.arrayBuffer()")   # the wheel's fetch, md5.wasm's
 COUNTED = re.compile(r"\d+ of \d+|\d+(?:\.\d+)? ?%")
 
 
@@ -814,14 +819,14 @@ class App:
 
 
 class _Quiet(_page.Static):
-    worker: str | None = None   # the lag model's worker.mjs, served in place of the file
+    late: dict[str, str] = {}   # the lag model's worker.mjs and hasher.mjs, by path, served in place of the files
 
     def log_message(self, *args):
         pass
 
     def do_GET(self):
-        if self.worker is not None and self.path.split("?")[0] == "/worker.mjs":
-            body = self.worker.encode()
+        if (text := self.late.get(self.path.split("?")[0])) is not None:
+            body = text.encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/javascript")
             self.send_header("Content-Length", str(len(body)))
@@ -835,10 +840,12 @@ class _Quiet(_page.Static):
 @contextlib.contextmanager
 def served(site: Path, lag: bool = False) -> Iterator[str]:
     """The site on 127.0.0.1 (the first free port from :data:`PORTS`); with
-    ``lag`` its ``worker.mjs`` answers each File read :data:`LAG_MS` late
-    (:func:`lagged`)."""
-    worker = lagged((site / "worker.mjs").read_text(encoding="utf-8")) if lag else None
-    handler = type("Handler", (_Quiet,), {"worker": worker})
+    ``lag`` its ``worker.mjs`` and ``hasher.mjs`` answer each File read
+    :data:`LAG_MS` late (:func:`lagged`)."""
+    late = {} if not lag else {
+        "/worker.mjs": lagged((site / "worker.mjs").read_text(encoding="utf-8")),
+        "/hasher.mjs": lagged((site / "hasher.mjs").read_text(encoding="utf-8"), HASHER_LAG)}
+    handler = type("Handler", (_Quiet,), {"late": late})
     server = http.server.ThreadingHTTPServer(("127.0.0.1", free_port()),
                                              functools.partial(handler, directory=str(site)))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -850,20 +857,21 @@ def served(site: Path, lag: bool = False) -> Iterator[str]:
         server.server_close()
 
 
-def lagged(text: str) -> str:
-    """``worker.mjs``'s ``text`` with each File read :data:`LAG` lists made
-    :data:`LAG_MS` late: each must be there once, and no other read of a
-    File (:data:`READS` but :data:`NOT_FILE`), else a SystemExit names it."""
+def lagged(text: str, reads: tuple = LAG) -> str:
+    """A module's ``text`` (``worker.mjs``'s, ``hasher.mjs``'s) with each File
+    read ``reads`` lists made :data:`LAG_MS` late: each must be there once,
+    and no other read of a File (:data:`READS` but :data:`NOT_FILE`), else a
+    SystemExit names it."""
     rest = text
-    for read, late in LAG:
+    for read, late in reads:
         if text.count(read) != 1:
-            raise SystemExit(f"perf: the lag model's read is in worker.mjs {text.count(read)} times, not once: "
+            raise SystemExit(f"perf: the lag model's read is there {text.count(read)} times, not once: "
                              f"{read!r} (tests/_perf.py LAG)")
         text, rest = text.replace(read, late), rest.replace(read, "")
     for other in NOT_FILE:
         rest = rest.replace(other, "")
     if unknown := [line.strip() for line in rest.splitlines() if READS.search(line)]:
-        raise SystemExit(f"perf: worker.mjs reads a File the lag model doesn't make late: {unknown[0]!r} "
+        raise SystemExit(f"perf: a module reads a File the lag model doesn't make late: {unknown[0]!r} "
                          "(tests/_perf.py LAG)")
     return text
 
@@ -1112,15 +1120,16 @@ def _pick(d: Driver, p: Page, op: str | None, done: str = USA) -> None:
 
 
 def _download(d: Driver, p: Page, op: str | None) -> None:
-    """The click to the file downloaded, its page part to the download's start (the browser's own bar after)."""
+    """The click to the file downloaded and checked against the build (the page's own check, its bar moving), its page
+    part to the download's start (the browser's own bar after)."""
     t0 = p.now()
     with p.page.expect_download(timeout=1_800_000) as caught:
         p.js("() => document.querySelector('#save').click()")
     started = p.now()
     caught.value.path()
-    t1 = p.now()
+    t1, check = p.wait("() => azurkit.saveCheck !== 'running' && azurkit.saveCheck", 1800)
     d.ev += p.events()
-    d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, page=(started - t0) / 1000)
+    d.record(op, (t1 - t0) / 1000, d.ev, t0, t1, None if check == "held" else check, (started - t0) / 1000)
     caught.value.delete()
 
 
@@ -1135,12 +1144,14 @@ def site_start(d: Driver, ctx, url: str) -> None:
     _download(d, p, "S06")
     p.wait(READY, 600)   # the site's engine is replaced after each build
     d.act(p, "S08", click("tab-characters"), SPECIES, 1800)
-    if d.needed(("S10", "S11", "S14", "R14")):   # slow steps another pass doesn't need are skipped
+    if d.needed(("S10", "S11", "S14", "R14", "S49")):   # slow steps another pass doesn't need are skipped
         t0, _ = d.act(p, "S10", model("keylord"), chosen("keylord", pictures=False), 1800, change=True)
         d.until(p, "S11", t0, chosen("keylord"), 1800)
-        if d.needed(("S14", "R14")):
+        if d.needed(("S14", "R14", "S49")):
             _, built = d.act(p, "S14", build_js(), BUILT, 1800)
             d.until(p, "R14", built, READY, 600)
+            if d.need("S49"):
+                _download(d, p, "S49")
     p.page.close()
     while d.needed(("S02", "S04")):
         p = _site_page(d, ctx, url + "?again", "S02")
@@ -1203,6 +1214,8 @@ def site_seed(d: Driver, ctx, url: str) -> None:
     _seeded(d, p)
     _, built = d.act(p, "S24", build_js(), BUILT, 1800)
     d.until(p, "R24", built, READY, 600)
+    if d.need("S50"):
+        _download(d, p, "S50")
     p.page.close()
 
 
@@ -1458,11 +1471,12 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-reshape": ("app", ("A31", "A32"), app_reshape),
     "app-tools": ("app", ("A47", "A48", "A49", "A50", "A51", "A52", "A53", "A54", "A55"), app_tools),
     "app-data": ("app", ("A39", "A40", "A41", "A42", "A43", "A44", "A45", "A46"), app_data),
-    "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S16", "S17"),
+    "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
+                             "S17"),
                    site_start),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
-    "site-seed": ("site", ("S24", "R24"), site_seed),
+    "site-seed": ("site", ("S24", "R24", "S50"), site_seed),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39"), site_data),
 }

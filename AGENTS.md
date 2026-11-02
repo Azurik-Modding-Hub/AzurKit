@@ -36,7 +36,7 @@ uv run --locked pytest -n 8 --dist loadgroup   # the whole suite, on 8 workers (
 uv run --locked pytest -m "not vanilla"     # the pure tier: no game data
 uv run --locked python scripts/freeze.py --dist DIR   # the app (D732): DIR/AzurKit.app on macOS (a PyInstaller onedir)
 uv run --locked python -m shimkit [--check]           # the prebuilt shim objects, from their sources (zig, dev only)
-uv run --locked python -m nativekit [--check]         # the compiled kernels' libraries, from native/*.c (zig, dev only)
+uv run --locked python -m nativekit [--check]         # the compiled kernels' libraries, from native/*.c, and web/md5.wasm (zig, dev only)
 uv run --locked python -m devkit [AREA [VERB ...]]    # the developer side (D950, dev only): devkit/README.md
 uv run --locked python scripts/record_goldens.py [--check] [GOLDEN ...]   # tests/goldens/ from the player's images
 uv run --locked python scripts/record_shipped.py [--check] [--content CLONE]  # the swap's shipped answers (D995)
@@ -855,12 +855,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
   `web/memo.mjs`), the service worker (`web/sw.js`), community packs
   (`tools/mods/community.py`, `web/content.mjs`), Replace files
-  (`edits/files.py`), Saves (`tools/saves/`) and the sparse seed build: a base of `iso.View`s
-  (`generator.sections`) carried as patches to the image, with
-  `generator.read_back`'s `sparse` and the host's reads ahead
-  (`generator.heads`, `generator.pages`). It stays off on both hosts until
-  its reads ahead are wired, as 57 late page reads would cost Safari more
-  than it saves.
+  (`edits/files.py`) and Saves (`tools/saves/`).
 - **The page** (`web/`): pick the image, choose packs and set their sliders
   (a box takes any value; the track widens to hold it), Build, then Save. One
   page for both hosts: `host.json` names the host's engine. It decides no
@@ -1192,6 +1187,23 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes (Blobs from the worker on, so
   the page holds none of them), and Save downloads it.
+  - **A seed's build is sparse on both hosts:** its base holds each level as
+    an `iso.View` of its TOC and node sections (`generator.sections`, but a
+    file another layer reads, whole), carried as patches to the image, and
+    `generator.read_back`'s `sparse` reads those back through the image
+    (D35), never from the patches. The site's worker asks for what it reads
+    first, in two awaited rounds (`sdk.image_staged`'s `ahead`:
+    `generator.heads`, `generator.pages`; 90 late pages would cost Safari
+    18 s; `PAGES` holds them with the tables), and reads each level with its
+    patches over it for its sha256 in WebCrypto and its md5 in wasm
+    (`web/hasher.mjs`; `web/md5.wasm`, `python -m nativekit`'s, from
+    `native/web/md5.c`). The app hashes on its threads.
+  - **Its Save is checked (D35):** while the browser writes the Blob, the
+    page hashes the same Blob's files against the build's
+    (`sdk.image_checks`: its result, else the release's manifest), its bar
+    moving. A File changed on disk since the pick reads otherwise in
+    Firefox, silently (WebKit and Chromium fail the read): the Save fails
+    with what to do, as a page can't stop a browser's download.
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
   `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
   and Firefox.
@@ -1387,7 +1399,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   browser writes the file the page handed it, and its download indicator
   shows that) shows it when each sample's page part, the click to the
   download's start, is within 1 s or moves the page's own bar; the receipt's
-  case keeps those seconds, and the whole still answers to 3 s. Each page's
+  case keeps those seconds, and the whole still answers to 3 s, but Firefox's,
+  which passes on that moving bar (D1053). Each page's
   engine reports its compiled kernels (`sdk.catalog`'s `native`): a run
   whose engine answers without the library the worktree ships for its
   host (this machine's, the site's side module), loaded, with those bytes'

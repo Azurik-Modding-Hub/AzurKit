@@ -49,13 +49,14 @@
 // its line there too, until it answers.
 import { characters } from "./characters.mjs";
 import { dataTab } from "./data.mjs";
+import { hashed } from "./hasher.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
 
 const $ = (id) => document.getElementById(id);
 const R = (id) => $(`rando-${id}`);
 const state = { engine: null, app: false, dialogs: false, ready: false, building: false, saving: false, file: null,
-                packs: null, sent: null, build: null, url: null, saved: null, violations: [],
+                packs: null, sent: null, build: null, url: null, saved: null, saveCheck: null, violations: [],
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
@@ -939,7 +940,7 @@ function built(reply) {
       : s.kind === "bytes" ? s.data : new Uint8Array(s.size));
     const blob = new Blob(parts, { type: "application/octet-stream" });
     if (blob.size !== size) return report(`The build's pieces make ${bytes(blob.size)}, not ${bytes(size)}`, true);
-    state.build = { report: made, size, segments: reply.segments, blob };
+    state.build = { report: made, size, segments: reply.segments, blob, checks: reply.checks, late: reply.late };
     state.url = URL.createObjectURL(blob);
   }
   const changed = Object.keys(made.result), rz = made.randomizer;
@@ -952,6 +953,41 @@ function built(reply) {
     : () => state.engine.call("spoiler", {}));   // the app's engine makes it when View or Save asks
   if (made.plan) state.tracker.open(made.plan);   // the Tracker view tracks the build's seed
   state.tools.built(made);
+}
+
+// The site's Save: while the browser writes the Blob, the same Blob's files are hashed against the build's and, for the
+// files a build doesn't read, the release's (sdk.image_checks; D35). A File changed on disk since the pick reads
+// otherwise in Firefox, silently, or fails in WebKit and Chromium; a browser's download can't be stopped from here, so
+// the Save fails by name, with what to do. Its bar is the page's own (D1053). state.saveCheck: "running", "held", or the
+// failure's line.
+async function checkSave(build, name) {
+  if (build.checking) return;
+  build.checking = true;
+  state.saveCheck = "running";
+  const id = asking("save");
+  const heard = (done, total) => {
+    const ask = state.asks.get(id);
+    if (ask) ask.record = { stage: "write", label: "Saving", done, total, percent: Math.floor(done * 100 / total) };
+    showing();
+  };
+  let wrong = null;
+  try {
+    const digests = await hashed(build.blob, build.checks.map(([path, at, size]) => [path, at, size]), heard);
+    const file = build.checks.find(([path, , , sha]) => digests[path] !== sha)?.[0];
+    if (file) wrong = `its ${file} isn't the build's or the game's`;
+  } catch (error) {
+    wrong = `reading it failed (${error.message})`;
+  }
+  answered(id);
+  build.checking = false;
+  state.saveCheck = wrong ? `Save failed: your image changed after the build or isn't a clean copy, so ${name} is `
+    + `wrong: ${wrong}. Delete the saved file, choose a clean image and build again` : "held";
+  if (wrong) {
+    if (state.build === build) forget();
+    say(state.saveCheck, true);
+  } else if (state.build === build) {
+    say(`Saved ${name} (${bytes(build.size)}), each of its files the build's; your browser's download shows its progress`);
+  }
 }
 
 function saved({ saved: done }) {
@@ -1568,6 +1604,7 @@ async function main() {
     a.click();
     a.remove();
     say(`Saving ${a.download} (${bytes(state.build.size)}): your browser's download shows its progress`);
+    checkSave(state.build, a.download);
   });
 }
 

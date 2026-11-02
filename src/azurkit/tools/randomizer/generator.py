@@ -19,11 +19,10 @@ through the packs' catalog (D83(c)).
   field or the string that names, or a conflict dropped its graph's group)
   is a D28 conflict and the logic unverified, and any other fails the
   build, by name (D35); a contained touch's cells likewise.
-- :func:`sections`, :func:`heads` and :func:`pages`: the same build reading only
-  each level's TOC and node sections (:class:`iso.View` s for
-  ``edits.image``'s base, the host's reads ahead), which no host asks for yet:
-  until one does (X4: 57 page reads, each 200 ms late in Safari, without its
-  reads ahead), ``read_back``'s ``sparse`` stays off and every read as it was.
+- :func:`sections`, :func:`heads` and :func:`pages`: a build reading only each
+  level's TOC and node sections (:class:`iso.View` s for ``edits.image``'s
+  base), and the reads a host whose reads are late takes ahead, two rounds
+  (one by one, 57 pages at Safari's 200 ms a read would cost 11.4 s).
 - :func:`movement_reasons`: the packs' sliders the logic doesn't model, past
   their ``logic_floor`` (the catalog's), and the speed sliders at 0 or less
   whose move never ends: each leaves the logic unverified, never refused.
@@ -186,8 +185,9 @@ HEAD = 1 << 18   # a level's first bytes a host reads ahead: the largest TOC is 
 def heads(prepared: Prepared, reader: iso.Reader) -> list[tuple[int, int]]:
     """``(image offset, size)``: what a host reads ahead first of a build over
     :func:`sections`, reading only the folders' tables itself: each level's
-    header and TOC, which :func:`pages` then reads."""
+    header and TOC and ``filelist.txt``, which :func:`pages` then reads."""
     entries = [reader.find(f"gamedata/{stem}.xbr") for stem in writer.graphs(prepared.logic.db)]
+    entries.append(reader.find("filelist.txt"))
     return iso.merged((reader.start(e), min(HEAD, e.size)) for e in entries)
 
 

@@ -317,9 +317,11 @@ def rerun(results: dict, samples: list[dict]) -> int:
 
 def verdicts(cases: list[tuple[str, str]], samples: dict, lst: dict, bars=frozenset(),
              browser_bars=frozenset()) -> dict:
-    """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst``."""
+    """``{key: verdict}`` for ``cases`` from ``{(run, op): samples}`` against the list ``lst``; Firefox's whole Save
+    passes 3 s on its moving bar (D1053: its download writer alone takes that), never its page part."""
     return {key(op, c): judge(samples.get((run_of(op, c), op), []), budget_of(c), lst["ceilings"].get(key(op, c)),
-                              key(op, c) in lst["debts"], op in bars, op in browser_bars) for op, c in cases}
+                              key(op, c) in lst["debts"], op in bars or op in browser_bars and c == "firefox",
+                              op in browser_bars) for op, c in cases}
 
 
 def measure(cases: list[tuple[str, str]], drive, lst: dict, untimed=frozenset(), bars=frozenset(),

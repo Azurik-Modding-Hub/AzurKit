@@ -8,7 +8,9 @@ committed in ``src/azurkit/core/_native/`` (``azurkit.core.native`` loads
 this platform's), every one from this machine: no float contraction (zig's
 default fuses a multiply and an add, which rounds otherwise than Python),
 no fast math, the target's baseline CPU (never the host's), no debug info,
-stripped, so a rebuild on any machine gives the same bytes.
+stripped, so a rebuild on any machine gives the same bytes. The page's own
+md5 (``native/web/md5.c``, for ``web/hasher.mjs``) is one module beside them,
+``web/md5.wasm``, built the same way.
 
     uv run --locked python -m nativekit             # build every library
     uv run --locked python -m nativekit --check     # exit 1 when a library isn't its sources' build
@@ -37,17 +39,24 @@ TARGETS = {   # the library (azurkit.core.native.TARGETS' names): zig's target a
     "windows-x86_64.dll": ("x86_64-windows-gnu", ()),
     "emscripten-wasm32.so": ("wasm32-emscripten", SIDE),
 }
+PAGE_OUT = ROOT / "web" / "md5.wasm"
+PAGE_FLAGS = ("-std=c99", "-O2", "-mcpu=baseline", "-g0", "-s", "-Wall", "-Werror", "-nostdlib", "-fno-builtin",
+              "-Wl,--no-entry")   # no libc, and exported by name: web/hasher.mjs instantiates it alone
 
 
 def compile(name: str) -> bytes:
     """The library ``name`` (one of :data:`TARGETS`) zig builds from every
-    source, in a scratch folder of its own (its caches too)."""
+    source."""
     target, own = TARGETS[name]
-    sources = sorted(str(s) for s in SOURCES.glob("*.c"))
+    return _zig(name, target, (*FLAGS, *own), sorted(str(s) for s in SOURCES.glob("*.c")))
+
+
+def _zig(name: str, target: str, flags: tuple[str, ...], sources: list[str]) -> bytes:
+    """What zig builds of ``sources``, in a scratch folder of its own (its caches too)."""
     with tempfile.TemporaryDirectory(prefix="azurkit-nativekit-") as tmp:
         env = os.environ | {"ZIG_GLOBAL_CACHE_DIR": f"{tmp}/zig", "ZIG_LOCAL_CACHE_DIR": f"{tmp}/zig"}
         out = Path(tmp) / name
-        done = subprocess.run([str(zig()), "cc", "-target", target, *FLAGS, *own, "-o", str(out), *sources],
+        done = subprocess.run([str(zig()), "cc", "-target", target, *flags, "-o", str(out), *sources],
                               cwd=tmp, env=env, capture_output=True, text=True, timeout=600)
         if done.returncode:
             raise RuntimeError(f"zig cc could not build {name} (exit {done.returncode}):\n{done.stderr.strip()}")
@@ -55,14 +64,16 @@ def compile(name: str) -> bytes:
 
 
 def build(check: bool = False) -> list[Path]:
-    """Build each library into :data:`OUT` (``check``: write nothing); the
-    libraries that weren't their sources' build."""
+    """Build each library into :data:`OUT` and the page's md5 into
+    :data:`PAGE_OUT` (``check``: write nothing); those that weren't their
+    sources' build."""
     stale = []
-    for name in TARGETS:
-        lib, data = OUT / name, compile(name)
+    made = {OUT / name: compile(name) for name in TARGETS}
+    made[PAGE_OUT] = _zig(PAGE_OUT.name, "wasm32-freestanding", PAGE_FLAGS, [str(SOURCES / "web" / "md5.c")])
+    for lib, data in made.items():
         if not lib.is_file() or lib.read_bytes() != data:
             stale.append(lib)
             if not check:
-                OUT.mkdir(parents=True, exist_ok=True)
+                lib.parent.mkdir(parents=True, exist_ok=True)
                 lib.write_bytes(data)
     return stale

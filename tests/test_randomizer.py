@@ -399,17 +399,22 @@ def test_g3s_seed_cases_build_their_goldens_files_and_image_and_open_back_into_t
     pytest.param("europe", {"randomizer": {"seed": "2"}}, marks=[pytest.mark.vanilla, pytest.mark.europe])])
 def test_a_seed_build_over_sections_reads_only_its_pages_and_is_the_whole_builds_image_manifest_and_verdict(
         release, recipe, request, monkeypatch):
-    """A seed build over ``generator.sections`` (the sparse path, off on both
-    hosts until its hub half: X4): the plan's layer planned on the views alone
+    """A seed build over ``generator.sections`` (the sparse path, both hosts'):
+    the plan's layer planned on the views alone
     is the layer planned on the files, the image and manifest (the verdict in
     it) are the whole build's, byte for byte, with no level's bytes among the
     image's writes but its patches, and every read the host's file sees of it
     (under Python's buffer) but a host's hashes lies in ``generator.pages``,
     each level's TOC in ``generator.heads``."""
     path = str(request.getfixturevalue(f"{release}_iso"))
-    stamp, base, layers, judge, prepared = sdk._plan({"iso": path, **recipe})
-    whole, manifest = edits.image(stamp, layers, base, judge=judge, map=sdk._map)
-    reasons = manifest.verdicts[generator.TOOL]["why_not"][len(prepared.why_not):]
+    stamp, given, layers, _, prepared = sdk._plan({"iso": path, **recipe})
+    reasons = generator.movement_reasons(sdk._packs(recipe), sdk.catalog()["packs"])
+    with iso.Reader(path) as r:
+        base = {file: r.read(file) for file in given}
+
+    def whole_judge(made, manifest):
+        return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts, reasons)}
+    whole, manifest = edits.image(stamp, layers, base, judge=whole_judge, map=sdk._map)
     reads, tracing = [], [True]
 
     class Traced(io.FileIO):

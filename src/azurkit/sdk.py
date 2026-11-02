@@ -112,7 +112,7 @@ from azurkit.tools import data as datatool
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer import layer as rando_layer
 
-__all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_staged", "save", "build", "open_build", "read_mods",
+__all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_staged", "image_checks", "save", "build", "open_build", "read_mods",
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
            "data", "data_edit", "image_info", "verify_all", "files", "extract", "mods_file"]
@@ -322,14 +322,30 @@ def _packs(recipe: object) -> dict[str, dict]:
     return packs
 
 
-def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes], list[Layer], Callable | None,
-                                                         generator.Prepared | None]:
+AHEAD_WHOLE = 1 << 23   # a file another layer reads whole is read ahead under this: past it, a block's read is its size's
+
+
+def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str, bytes | iso.View], list[Layer],
+                                                         Callable | None, generator.Prepared | None]:
+    """:func:`_planning`, on a host that reads as it goes."""
+    run = _planning(recipe, steps)
+    try:
+        next(run)
+    except StopIteration as done:
+        return done.value
+    raise AssertionError("a plan with no reads ahead yields nothing")
+
+
+def _planning(recipe: Mapping, steps: Steps = Steps(), ahead: bool = False):
     """The recipe's vanilla image (its build files checked, D27), the files
-    read from it, its randomizer's layer (its plan written, the first), each
-    pack's layer, then its xbr operations' (the Data tool's, after the
-    packs), the randomizer's read-back of the built image and its plan
-    (``None`` without one); every refusal named. ``steps`` hears each
-    stage."""
+    read from it (a seed's levels only as ``generator.sections``' views, but
+    any another layer reads), its randomizer's layer (its plan written, the
+    first), each pack's layer, then its xbr operations' (the Data tool's,
+    after the packs), the randomizer's read-back of the built image and its
+    plan (``None`` without one); every refusal named. ``steps`` hears each
+    stage. A generator, its ``StopIteration``'s value those: with ``ahead``
+    it first yields a seed's ``generator.heads`` and ``generator.pages``, for
+    a host whose reads are late to read them all at once, else nothing."""
     packs = own = _packs(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
     character = characters.normalize(recipe["character"]) if "character" in recipe else None
@@ -355,9 +371,16 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
     steps("read")
     with iso.Reader(stamp.path) as r:
         names = [f for pack in chosen.values() for f in pack.files()] + xbr.files(ops)
-        names += generator.files(prepared) if prepared else []
         names += list(characters.READS) if character is not None else []
-        base = {file: r.read(file) for file in dict.fromkeys(names) if file in stamp.release.files}
+        others = [file for file in dict.fromkeys(names) if file in stamp.release.files]
+        base: dict[str, bytes | iso.View] = {}
+        if prepared is not None:
+            if ahead:
+                yield generator.heads(prepared, r)
+                yield generator.pages(prepared, r, [f for f in others if r.find(f).size < AHEAD_WHOLE])
+            base = dict(generator.sections(prepared, r, others))
+            others += [file for file in generator.files(prepared) if file not in base and file not in others]
+        base |= {file: r.read(file) for file in others}
     layers, failed, judge = [], [], None
     if prepared is not None:
         layers.append(generator.plan_layer(prepared, base))   # a WriteError or LayerError: nothing planned on
@@ -366,7 +389,7 @@ def _plan(recipe: Mapping, steps: Steps = Steps()) -> tuple[gate.Stamp, dict[str
         def judge(made: iso.Image, manifest: edits.Manifest) -> dict:
             steps("judge")
             return {generator.TOOL: generator.read_back(prepared, made, manifest.layers, manifest.conflicts,
-                                                        reasons, progress=steps.counter("judge"))}
+                                                        reasons, progress=steps.counter("judge"), sparse=True)}
     failed += _pack_layers(stamp, chosen, packs, base, layers, inputs, steps)
     if folded is not None:   # its recipe holds the walk and roll as asked: a rebuild folds the size in again (AZ-829)
         asked = {"pack": rando_layer.SIZE_PACK, "params": own.get(rando_layer.SIZE_PACK, {})}
@@ -699,21 +722,39 @@ def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None,
     return made, _report(manifest, prepared, steps, spoiler)
 
 
-def image_staged(recipe: Mapping, *, progress: Callable[[dict], object] | None = None, spoiler: bool = True):
+def image_staged(recipe: Mapping, *, progress: Callable[[dict], object] | None = None, spoiler: bool = True,
+                 ahead: bool = False):
     """:func:`image` for a host that hashes the build's changed files itself
     (the site's worker: WebCrypto, off its engine's thread), as a generator
-    (``edits.staged``): it yields ``{key: bytes}`` once they are composed and
-    is sent ``{key: sha256}``, each one's (``None`` first, if the host hashes
-    them while the image's layout runs, then the shas at the next yield), and
-    returns ``(image, report)``, :func:`image`'s, byte for byte, as its
-    ``StopIteration``'s value. Its refusals are :func:`image`'s; a key missing
-    from the shas is a ``ValueError`` naming it."""
+    (``edits.staged``): it yields ``{key: bytes | iso.Patched}`` once they are
+    composed and is sent ``{key: sha256}``, each one's (``None`` first, if the
+    host hashes them while the image's layout runs, then the shas at the next
+    yield; a :class:`iso.Patched`'s md5 too, at once), and returns ``(image,
+    report)``, :func:`image`'s, byte for byte, as its ``StopIteration``'s
+    value. Its refusals are :func:`image`'s; a key missing from the shas is a
+    ``ValueError`` naming it. With ``ahead``, for a host whose reads are late,
+    it first yields twice at most a list of ``(image offset, size)``, what it
+    reads next, and is resumed once those are at hand (:func:`_planning`)."""
     steps = Steps(progress)
-    stamp, base, layers, judge, prepared = _plan(recipe, steps)
+    stamp, base, layers, judge, prepared = yield from _planning(recipe, steps, ahead)
     steps("layout")
     made, manifest = yield from edits.staged(stamp, layers, base, judge=judge, map=_map,
                                              progress=steps.counter("layout"))
     return made, _report(manifest, prepared, steps, spoiler)
+
+
+def image_checks(made: iso.Image, report: Mapping) -> list[list]:
+    """``[path, image offset, size, sha256]`` of each of ``made``'s files the
+    build vouches for (``report``'s, :func:`image`'s): what it changed by its
+    result, the rest by the release's manifest. The site's Save hashes what it
+    hands the browser against them, as a File may read otherwise than it did
+    at the build (Firefox's, of a file changed on disk, silently: D35). The
+    root files a build adds are its own bytes, so they aren't listed; nor is
+    what lies between files, which no file of the game reads."""
+    files = next(release for release in gate.RELEASES if release.name == report["release"]).files
+    with iso.Reader(made) as r:
+        return [[e.path, r.start(e), e.size, report["result"].get(e.path) or files[e.path][1]]
+                for e in r.entries() if not e.is_dir and e.size and (e.path in report["result"] or e.path in files)]
 
 
 def save(made: iso.Image, out: str, *, progress: Callable[[dict], object] | None = None,
