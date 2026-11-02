@@ -795,8 +795,9 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
         browser, tmp_path, monkeypatch):
     """D1035 in the app's page: the community entries (its remembered folder source's Beamlord, with its Install
     button) sit under the species list and above Content from and its Reset, all in the list's column, at every
-    width (``test_site.py``'s ``CHARS_LAYOUT``, which the site's Characters test reads too); Install installs it."""
-    from tests.test_site import CHARS_LAYOUT
+    width (``test_site.py``'s ``CHARS_LAYOUT``, which the site's Characters test reads too); Install installs it. The
+    Weapon box's Preview works as on the site (``weapon_previews``)."""
+    from tests.test_site import CHARS_LAYOUT, weapon_previews
 
     app._remember(content_source=str(_beamlord_source(tmp_path, monkeypatch)))
     server = app.serve(_page.WEB)
@@ -807,6 +808,7 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
         _page.click(page, "tab-characters")
         entry = """document.querySelector('#char-community .entry[data-entry="beamlord"]')"""
         _page.until(page, f"() => {entry}?.querySelector('button')?.textContent === 'Install'", 120)
+        weapon_previews(page)
         for width in (1280, 1024, 900, 700):
             page.set_viewport_size({"width": width, "height": 800})
             assert page.evaluate(CHARS_LAYOUT) == [True] * 4, width

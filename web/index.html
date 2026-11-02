@@ -137,7 +137,13 @@ id="char-back" width="160" height="160" aria-label="The model from behind"></can
 >Gameplay <select id="char-mode"></select></label> <label class="on"
 title="Off: a combo's next attack follows only a hit, as Garret's. On: any press in its window, hit or miss."
 ><input type="checkbox" id="char-chain"> Chain on any press</label> <label class="field">Weapon <select
-id="char-weapon"></select></label></p>
+id="char-weapon"></select></label>
+<button id="char-weapon-preview" type="button" title="See the weapon picked">Preview</button></p>
+<dialog id="char-weapon-popup" class="weapon-popup" aria-label="Weapon preview"><p class="rando-row"><b id="char-weapon-title"></b>
+<button id="char-weapon-close" type="button">Close</button></p>
+<p class="previews"><img id="char-weapon-front" width="160" height="160" alt="The weapon from one side"><img
+id="char-weapon-back" width="160" height="160" alt="The weapon from the other"></p>
+<p id="char-weapon-line" class="note"></p></dialog>
 <p class="rando-row"><label class="on" title="On: its own clips at their own length. Off: a humanoid borrows Garret's."
 ><input type="checkbox" id="char-clips"> Own clips for missing moves</label> <label class="on"><input type="checkbox"
 id="char-sounds" checked> Own sounds</label> <label class="on"><input type="checkbox" id="char-balance"> Balance</label>

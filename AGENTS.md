@@ -1087,9 +1087,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     laid under it) and
     `tests/test_characters.py` holds to the images and the app's draw: the
     page shows that answer at the tab's first open and a model's shipped
-    pictures at its click, with no image and no engine call, and G4 and the
-    Weapon box stay greyed, saying the image is needed, until the engine's
-    answer has read it (D979). Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
+    pictures at its click, with no image and no engine call; G4 stays greyed,
+    saying the image is needed, until the engine's answer has read it (D979),
+    and the Weapon box lists every weapon before that, how each fits after it
+    (D1061), a pick no sitting saw marked "not tested". Preview by that box
+    opens a small popup of the weapon's shipped pictures and line (the same
+    family; `weapons.json`'s `previews`), no image and no engine call. Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
     since the content repository went public, D1027) is remembered (the
     site's storage, the app's `content_source`).
     The site reads a source on its own address only (its CSP's

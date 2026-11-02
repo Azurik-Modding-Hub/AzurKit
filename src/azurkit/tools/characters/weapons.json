@@ -22,6 +22,13 @@
   "balthazar_magic": {"title": "Balthazar's magic", "prop": null, "style": "balthazar"},
   "booblord_spin": {"title": "Booblord spin", "prop": null, "style": "booblord_spins"}
  },
+ "previews": {
+  "axion_staff": {"line": "Garret's own staff."},
+  "farmers_hoe": {"line": "A farmer's hoe, swung with Garret's staff moves."},
+  "bare_hands": {"model": "town_male_1", "line": "The townsfolk's punches and kicks."},
+  "balthazar_magic": {"model": "balthazar", "line": "Balthazar's moves and magic."},
+  "booblord_spin": {"model": "booblord", "line": "Fast spins that hit all round her; B for a wider sweep."}
+ },
  "grips": {
   "air_octopus": {"bone": "right_arm_4"},
   "balthazar_spider": {"bone": "left_w"},

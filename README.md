@@ -122,6 +122,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Pick by grade:** every creature in its grade's colour and mark, so it reads without colour too: ✓ green fully
   playable, ~ yellow rough edges, ✕ red not playable; the 73 nobody has tested yet are greyed and marked ?, and the
   weapons on them greyed.
+- **Any weapon on any model:** all five are listed even before you pick your image, a pick nobody has seen in game says
+  (not tested), and Preview shows the weapon in a small popup.
 - **Objects tucked away:** the 76 pickups, keys and statues you can wear stay out of the list until you tick Show
   objects (remembered); one you already wear stays listed.
 - **See it first:** the chosen model from the front and from behind, at once and before you pick your image; the

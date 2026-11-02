@@ -802,10 +802,14 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
     and ``index.json``: the engine's view with no image and
     no content installed (``picker.view``, garret4 at every default), each
     species' and variant's pictures' file name and each variant's recipe
-    digest (one refused too, so it isn't dressed at each check)."""
+    digest (one refused too, so it isn't dressed at each check), and each
+    weapon's preview: its title, line (``weapons.json``'s ``previews``) and
+    pictures, an object's own (``picker.weapon_preview``, USA's) or those of
+    the model it names."""
     from azurkit.tools import characters as kit
     from azurkit.tools.characters import _player_character as swap
     from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import _player_weapons as arms
     from azurkit.tools.characters import content, picker
     from azurkit.tools.characters.characters import object_bodies
 
@@ -832,6 +836,15 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
             if isinstance(got, dict):
                 drawn.append(name)
                 out |= dict(zip(files(name), (got["front"], got["back"])))
+    shown = {s: stem(b) for s, b, _ in rows[gate.USA]} | {n: f"variant--{stem(n)}" for n in drawn}
+    previews = {}
+    for name, weapon in arms.weapons().items():
+        said = arms.previews()[name]
+        previews[name] = {"title": weapon.title, "line": said["line"],
+                          "file": shown[said["model"]] if weapon.prop is None else f"weapon--{name}"}
+        if weapon.prop is not None:
+            out |= {f"{PICTURES}/weapon--{name}.{view}.png": png
+                    for view, png in picker.weapon_preview(read[gate.USA][1], name).items()}
     real = picker.species_list
     picker.species_list = lambda: rows[gate.USA]   # the list just read, whatever species.json holds now
     try:
@@ -842,7 +855,7 @@ def characters(images: Images, workers: int) -> dict[str, bytes]:
         picker.species_list = real
     out[f"{PICTURES}/index.json"] = (json.dumps({
         "view": view, "species": {s: stem(b) for s, b, _ in rows[gate.USA]},
-        "variants": {n: f"variant--{stem(n)}" for n in sorted(drawn)}, "recipes": recipes},
+        "variants": {n: f"variant--{stem(n)}" for n in sorted(drawn)}, "recipes": recipes, "weapons": previews},
         sort_keys=True, separators=(",", ":")) + "\n").encode()
     return out
 

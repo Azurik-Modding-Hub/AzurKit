@@ -107,7 +107,7 @@ def _weapons(offers: dict, default: str | None, grade_of) -> list[dict]:
     mine = default or next((n for n, (fit, _) in offers.items() if fit == DEFAULT), None)
     known = default or any(fit for fit, _ in offers.values())
     out = [{"name": None, "label": f"Default ({title(mine)})" if known else "Default", "colour": None,
-            "tip": "The model's own weapon."}]
+            "tip": "The model's own weapon.", "shows": mine if mine in found else None}]
     for name, (fit, why) in offers.items():
         if name == mine:
             continue
@@ -350,9 +350,35 @@ def preview(characters_xbr: bytes, body: str, size: int = PREVIEW, clip: str | N
     clip = clip or pose.idle_clip(characters_xbr, body)
     parts = draw.body_parts(characters_xbr, toc, index,
                             posed=pose.group_positions(characters_xbr, toc, index, body, clip) if clip else None)
+    return _pictures(parts, size)
+
+
+def _pictures(parts: list, size: int) -> dict[str, bytes]:
+    from azurkit.tools.characters import draw
+
     yaw, pitch = draw.PREVIEW_VIEW
     return {view: draw.png_rgba(draw.draw_batched(parts, at, size, pitch), 6)
             for view, at in (("front", yaw), ("back", yaw - 180.0))}
+
+
+def weapon_preview(characters_xbr: bytes, name: str, size: int = PREVIEW) -> dict[str, bytes]:
+    """The object of the weapon ``name`` alone (its prop's mesh: garret4's
+    staff, which :func:`preview` leaves out, or the farmer's hoe), seen as
+    :func:`preview` sees a body: ``{"front": PNG, "back": PNG}``."""
+    from azurkit.core.xbr.nodes import named_resources, parse_toc
+    from azurkit.tools.characters import draw, render
+    from azurkit.tools.characters._player_weapons import prop_groups, weapons
+    from azurkit.tools.characters.body_codec import read_asset
+
+    prop = weapons()[name].prop
+    toc, names = parse_toc(characters_xbr), {n.casefold(): i for i, n in named_resources(characters_xbr).items()}
+    meshes = render.body_meshes(characters_xbr, toc, names[f"characters/{prop.mesh.body}".casefold()])
+    parts = [draw.Part(characters_xbr, toc, meshes[k])
+             for k in prop_groups(characters_xbr, read_asset(characters_xbr, prop.mesh.body), prop)]
+    for part in parts:
+        if part.lit:   # as draw.body_parts: a lit material isn't alpha-tested
+            part.ref = 0.0
+    return _pictures(parts, size)
 
 
 def dressed(staging, species: str, variant_file: str | None = None) -> dict[str, bytes]:

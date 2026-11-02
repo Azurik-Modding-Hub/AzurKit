@@ -205,6 +205,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     $("char-mode").disabled = "mode" in locked;
     $("char-chain").checked = (ch.chain ?? "hit") === "any";   // D1045: off by default, for any model
     weaponBox(chosen);
+    weaponShown();
     $("char-clips").checked = (ch.anims ?? defaults.anims) === "own";
     $("char-clips").disabled = !live.anims;
     $("char-sounds").checked = (locked.sounds ?? ch.sounds ?? "own") === "own";
@@ -285,6 +286,21 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     }));
     $("char-weapon").value = weapon ?? "";
     $("char-weapon").style.color = paint(weapons.find((w) => w.name === (weapon ?? null))?.colour);
+  };
+
+  // The Weapon box's Preview (the owner's review, D1061): the pick, or the model's own weapon, in a small popup that stays
+  // open and follows the box: shipped pictures and a line (characters/index.json's weapons), with no image and no engine
+  // call. A model's own attacks have none: its pictures are beside the box.
+  const weaponShown = () => {
+    if (!$("char-weapon-popup").open) return;
+    const name = $("char-weapon").value || c.view?.chosen.weapons[0].shows, shown = ships?.weapons?.[name];
+    $("char-weapon-title").textContent = $("char-weapon").selectedOptions[0]?.textContent ?? "";
+    $("char-weapon-line").textContent = shown?.line ?? (name ? "Its picture didn't load."
+      : imaged() ? "Its own attacks: its pictures show the model." : "Pick your image to see what this model carries.");
+    for (const [id, view] of [["char-weapon-front", "front"], ["char-weapon-back", "back"]]) {
+      $(id).hidden = !shown;
+      if (shown) $(id).src = `characters/${shown.file}.${view}.png`;
+    }
   };
 
   // The G4 buttons: live once the engine has read the image to measure in (D979: greyed, saying so, until then), greyed
@@ -465,7 +481,19 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   });
   $("char-mode").addEventListener("change", () => option("mode", $("char-mode").value, defaults().mode));
   $("char-chain").addEventListener("change", () => option("chain", $("char-chain").checked ? "any" : "hit", "hit"));
-  $("char-weapon").addEventListener("change", () => option("weapon", $("char-weapon").value || null, null));
+  $("char-weapon").addEventListener("change", () => {
+    option("weapon", $("char-weapon").value || null, null);
+    weaponShown();
+  });
+  $("char-weapon-preview").addEventListener("click", async () => {
+    $("char-weapon-popup").show();
+    await shipped();
+    weaponShown();
+  });
+  $("char-weapon-close").addEventListener("click", () => $("char-weapon-popup").close());
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") $("char-weapon-popup").close();
+  });
   $("char-clips").addEventListener("change", () => option("anims", $("char-clips").checked ? "own" : "garret4",
                                                           defaults().anims));
   $("char-sounds").addEventListener("change", () => option("sounds", $("char-sounds").checked ? "own" : "garret4", "own"));

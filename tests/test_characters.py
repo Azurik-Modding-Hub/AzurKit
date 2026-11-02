@@ -1149,7 +1149,8 @@ def test_the_characters_view_on_an_image_tells_its_models_read_then_the_view_so_
 
 def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, europe_iso):
     """The Characters tab's shipped files (Step 4.3f, D961; the page shows them before an image) are what
-    ``scripts/record_goldens.py``'s characters family makes from the images, byte for byte: ``species.json``, the
+    ``scripts/record_goldens.py``'s characters family makes from the images, byte for byte (the weapons' too):
+    ``species.json``, the
     species ``player_models`` reads from USA's image and from Europe's (the same), which the view lists with no image
     (in their grades), the no-image view itself, and each body's two pictures, ``picker.preview``'s (the app's
     draw) from USA's image, and from Europe's the same bytes (off the recording host, close enough:
@@ -1166,8 +1167,10 @@ def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, eur
     drawn = {f"{record_goldens.PICTURES}/{body.replace('/', '--')}.{view}.png": png
              for body in dict.fromkeys(b for _, b, _ in picker.species_list())
              for view, png in picker.preview(bodies, body).items()}
-    assert len(drawn) == 272 and {rel: _sha256(png) for rel, png in drawn.items()} == {
-        rel: _sha256(made[rel]) for rel in drawn}
+    assert len(drawn) == 272
+    drawn |= {f"{record_goldens.PICTURES}/weapon--{name}.{view}.png": png for name in ("axion_staff", "farmers_hoe")
+              for view, png in picker.weapon_preview(bodies, name).items()}
+    assert {rel: _sha256(png) for rel, png in drawn.items()} == {rel: _sha256(made[rel]) for rel in drawn}
 
 
 def test_a_bodys_pictures_stand_in_the_first_frame_of_its_idle_with_its_props_where_that_clip_keys_them(usa_iso):
@@ -1214,6 +1217,15 @@ def test_the_shipped_sizes_are_each_listed_species_and_built_in_variant_on_both_
     assert len(want) == 2 * 183 and {record_shipped._key(row) for row in shipped.table()["size"]} == want
 
 
+def test_each_booblords_notes_are_short_and_for_players():
+    """The owner's review (D1061): at most 300 characters, and nothing of how she was made (a D, W, X or Step number, a
+    quote of the owner, sculpting or triangles)."""
+    built = _player_variants.builtins()
+    for name in ("booblord", "booblord_high", "booblord_human", "booblord_high_human"):
+        assert len(built[name].notes) <= 300 and not re.search(
+            r"\b[DWXQ]\d+|Step|owner|\"|triangle|sculpt|recipe", built[name].notes), name
+
+
 def test_a_variants_shipped_pictures_are_drawn_again_when_the_recipe_it_is_from_changes():
     """``scripts/record_goldens.py`` draws a built-in variant's shipped pictures again when its key in
     ``web/characters/index.json`` changes: the sha256 of its recipe as it builds, so booblord's three looks
@@ -1244,15 +1256,6 @@ def test_the_g4_buttons_values_are_their_goldens_garret_match(usa_iso):
         assert got["values"] == {k: want[v] for k, v in keys.items()} and got["why"] == want["why"], name
         assert all(float(got["text"][k]) >= v and len(got["text"][k].replace(".", "").lstrip("0")) <= 4
                    for k, v in got["values"].items()), name
-def test_each_booblords_notes_are_short_and_for_players():
-    """The owner's review (D1061): at most 300 characters, and nothing of how she was made (a D, W, X or Step number, a
-    quote of the owner, sculpting or triangles)."""
-    built = _player_variants.builtins()
-    for name in ("booblord", "booblord_high", "booblord_human", "booblord_high_human"):
-        assert len(built[name].notes) <= 300 and not re.search(
-            r"\b[DWXQ]\d+|Step|owner|\"|triangle|sculpt|recipe", built[name].notes), name
-
-
     garret = sdk.match({"iso": str(usa_iso), "packs": packs, "character": {"species": "garret4"}})
     assert garret["values"] == dict.fromkeys(characters.MATCHED, 1.0) and garret["text"]["scale"] == "1"
 
@@ -1471,6 +1474,11 @@ def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(
     assert characters.plan({"species": "x"}, vanilla, [], folded=1.0) == found
     assert characters.size({"species": "x"}, vanilla) == 1.25 and not kept
 
+    (tmp_path / content.INSTALLED).write_text(json.dumps({"x": {"files": {   # a new note reads nothing a dress reads
+        "clips/x/a.glb": "0" * 64, "variants/x/variant.json": "1" * 64, "variants/x/shipped/usa-0.azkp": "2" * 64}}}))
+    assert shipped.entries({"species": "x"}) == {"x": {"clips/x/a.glb": "0" * 64}}
+    (tmp_path / content.INSTALLED).unlink()
+
     def ask(recipe: dict = {"species": "x"}, folded: float = 1.0, before: tuple = ()):
         over = characters._over(vanilla, list(before))
         return shipped.plan(shipped.rows(recipe, gate.USA, folded, list(before)), gate.USA, over[0], over[3])
@@ -1500,11 +1508,6 @@ def test_a_shipped_answer_is_taken_only_where_it_stands_on_what_the_build_reads(
     assert shipped.held({"plan": seen}, table) == ([shipped.name("plan", row)], [])   # the re-record pin's reading
     assert shipped.held({"plan": seen | {"answer": "0" * 64}}, table)[1] == [
         f"the shipped {shipped.name('plan', row)} isn't a fresh dress's (scripts/record_shipped.py)"]
-
-    (tmp_path / content.INSTALLED).write_text(json.dumps({"x": {"files": {   # a new note reads nothing a dress reads
-        "clips/x/a.glb": "0" * 64, "variants/x/variant.json": "1" * 64, "variants/x/shipped/usa-0.azkp": "2" * 64}}}))
-    assert shipped.entries({"species": "x"}) == {"x": {"clips/x/a.glb": "0" * 64}}
-    (tmp_path / content.INSTALLED).unlink()
 
 
 def test_a_cut_started_ahead_with_no_host_costs_nothing_until_it_is_taken(monkeypatch):

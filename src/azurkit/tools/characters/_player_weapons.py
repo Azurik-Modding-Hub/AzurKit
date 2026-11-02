@@ -415,7 +415,7 @@ def _load(text: str, where: str) -> tuple[dict[str, Weapon], dict[str, Grip], di
     arm fits (:class:`Fit`, W35: a body's or a built-in variant's name,
     ``clips`` {clip: [out, forward] degrees} and a variant's ``sha``)."""
     doc = json.loads(text)
-    _keys(where, doc, (*_FIELDS, "grips"), ("fits",))
+    _keys(where, doc, (*_FIELDS, "grips"), ("fits", "previews"))
     fitted = {}
     if not isinstance(doc.get("fits", {}), dict):
         raise ValueError(f"{where}: fits {doc['fits']!r} is not an object")
@@ -548,6 +548,12 @@ def _built_in() -> tuple[dict[str, Weapon], dict[str, Grip], dict[str, Fit]]:
 def weapons() -> dict[str, Weapon]:
     """The built-in weapons (:data:`WEAPONS_FILE`)."""
     return _built_in()[0]
+
+
+def previews() -> dict[str, dict]:
+    """What the Weapon box's Preview says of each built-in weapon (:data:`WEAPONS_FILE`'s ``previews``): its ``line``
+    and, for one with no object to draw, the ``model`` whose pictures stand for it; no build reads them."""
+    return json.loads(WEAPONS_FILE.read_text(encoding="utf-8"))["previews"]
 
 
 def grips() -> dict[str, Grip]:
@@ -1931,6 +1937,19 @@ def _rest(characters_xbr: bytes, rt: Retarget, lo: Loadout) -> tuple[tuple, tupl
             qnorm(qmul(qmul(hw, staff), k_turn)))
 
 
+def prop_groups(characters_xbr: bytes, asset, prop: Prop) -> list[int]:
+    """The LOD 0 groups of ``prop``'s mesh in its donor ``asset``, by index:
+    those on its ``bones`` alone (garret4's staff) or its :func:`loose_props`
+    (the farmer's hoe)."""
+    m = prop.mesh
+    if m.loose:
+        donor = read_body(characters_xbr, m.body)
+        loose = {(g.lod, g.index) for g in loose_props(characters_xbr, donor, prop)}
+        return [n for n in range(len(asset.lods[0].groups)) if (0, n) in loose]
+    wanted = {asset.bone(b) for b in m.bones}
+    return [n for n, g in enumerate(asset.lods[0].groups) if g.palette and set(g.palette) <= wanted]
+
+
 def _donor(characters_xbr: bytes, prop: Prop) -> tuple[list, list, tuple[int, int], float]:
     """A prop's mesh in its tip carrier's frame (W32, model units at
     garret4's size): its vertices ((position, normal, uv, extra) each),
@@ -1944,13 +1963,7 @@ def _donor(characters_xbr: bytes, prop: Prop) -> tuple[list, list, tuple[int, in
 
     m = prop.mesh
     asset = read_asset(characters_xbr, m.body)
-    if m.loose:
-        donor = read_body(characters_xbr, m.body)
-        loose = {(g.lod, g.index) for g in loose_props(characters_xbr, donor, prop)}
-        groups = [g for n, g in enumerate(asset.lods[0].groups) if (0, n) in loose]
-    else:
-        wanted = {asset.bone(b) for b in m.bones}
-        groups = [g for g in asset.lods[0].groups if g.palette and set(g.palette) <= wanted]
+    groups = [asset.lods[0].groups[n] for n in prop_groups(characters_xbr, asset, prop)]
     if len(groups) != 1:
         raise ValueError(f"the {prop.title}: {m.body}'s LOD 0 has {len(groups)} groups of it, not 1")
     g = groups[0]

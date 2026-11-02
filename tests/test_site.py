@@ -1170,6 +1170,51 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         served.close()
 
 
+def weapon_previews(page) -> None:
+    """Preview by the Weapon box, on either host, before an image: a small popup (no ``showModal``: the box stays live)
+    follows the box through each weapon's shipped pictures and line, the model's own weapon for Default, and Close and
+    Escape shut it; no engine call draws them."""
+    shown = """() => { const [a, b] = ["front", "back"].map((v) => document.getElementById(`char-weapon-${v}`));
+        return document.getElementById("char-weapon-popup").open && !a.hidden && a.complete && b.complete
+            && a.naturalWidth === 160 && b.naturalWidth === 160 ? [a, b].map((i) => i.src.split("/").pop()) : null; }"""
+    _page.click(page, "char-weapon-preview")
+    index = json.loads((_page.WEB / "characters" / "index.json").read_text(encoding="utf-8"))
+    pick = """(name) => { const box = document.getElementById("char-weapon"); box.value = name;
+        box.dispatchEvent(new Event("change")); }"""
+    assert page.evaluate("() => document.getElementById('char-weapon-popup').matches(':modal')") is False
+    assert _page.until(page, shown, 60) == [f"{index['weapons']['axion_staff']['file']}.{v}.png" for v in ("front", "back")]
+    for name, said in index["weapons"].items():
+        if name != "axion_staff":
+            page.evaluate(pick, name)
+        assert _page.until(page, f"""() => {{ const got = ({shown})();
+            return got?.[0] === "{said['file']}.front.png" ? got : null; }}""", 60)[1] == f"{said['file']}.back.png"
+        assert page.evaluate("() => document.getElementById('char-weapon-line').textContent") == said["line"]
+        assert said["title"] in page.evaluate("() => document.getElementById('char-weapon-title').textContent")
+    page.evaluate(pick, "")
+    _page.click(page, "char-weapon-close")
+    assert page.evaluate("() => document.getElementById('char-weapon-popup').open") is False
+    _page.click(page, "char-weapon-preview")
+    page.keyboard.press("Escape")
+    assert page.evaluate("() => document.getElementById('char-weapon-popup').open") is False
+
+
+def test_the_weapon_preview_shows_each_weapons_shipped_pictures_in_a_popup_before_an_image(browser, site):
+    """The owner's review (D1061) on the site: :func:`weapon_previews`, no engine call, no CSP violation, no request
+    but GETs of the site's files."""
+    served = Site(browser, site)
+    served.context.add_init_script(script=ASKED)
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => document.getElementById('char-preview-note').textContent.startsWith('From the')", 60)
+        weapon_previews(page)
+        assert page.evaluate("() => asked.filter((t) => ['preview', 'match'].includes(t))") == []
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 SPECIES_SHOWN = """() => [document.getElementById("char-objects").checked, document.getElementById("char-count").textContent
     .split(" · ")[0], [...document.querySelectorAll("#char-species .model")].map((m) => m.dataset.model),
     document.querySelector("#char-species .model[aria-selected=true]")?.dataset.model ?? null]"""
