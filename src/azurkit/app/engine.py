@@ -75,6 +75,7 @@ class Gone(Exception):
 _WARM = threading.Lock()   # held while the randomizer's logic is built, so a seed's build or plan waits on it
 _BUILDING = threading.Condition()   # held to count _BUILDS
 _BUILDS = 0   # the builds (KILLS' calls) this process has read and not yet answered, which an image's warm waits out
+_PLANS = 0   # the plan calls in flight, which the openers ahead wait out too
 _NEWEST: list = [None]   # the plan this process finished last: whose spoiler openers are worth working out ahead
 _WARMING: list[dict] = []   # that warm-up's records, the newest last, which a call waiting on it shows
 _READING = "Reading the randomizer's logic"   # its stage's line
@@ -267,12 +268,20 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 
 
 def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
-    """A seed's plan; a shaped one's spoiler openers then go on ahead, low, for the spoiler's View, past any build (the
-    two share this process's GIL: beside it they took a Build from 1.4 s to 3.7 s at the click). A call waiting on those
+    """A seed's plan; a shaped one's spoiler openers then go on ahead, low, for the spoiler's View, past any build or
+    other plan (they share this process's GIL: beside them a Build went from 1.4 s to 3.7 s at the click, a Track's fill
+    from 5.4 s to 10.5 s). A call waiting on those
     openers goes first: they run on at its priority, or a build ahead parked for that call and they, paused for the
     build, would hold each other and the call for good. Only the newest plan's are worth working out: a plan with
     another answer ends the last one's at its next note, and the same plan again leaves them running."""
-    doc = sdk.plan(recipe, progress=progress)
+    global _PLANS
+    with _BUILDING:
+        _PLANS += 1
+    try:
+        doc = sdk.plan(recipe, progress=progress)
+    finally:
+        with _BUILDING:
+            _PLANS -= 1
     again, _NEWEST[0] = doc == _NEWEST[0], doc
     if doc["settings"].get("seed_difficulty") and not again:
         threading.Thread(target=_openers_ahead, args=(doc,), name="azurkit-openers", daemon=True).start()
@@ -280,16 +289,16 @@ def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> 
 
 
 def _openers_ahead(doc: Mapping) -> None:
-    def past_builds(_step: dict) -> None:
+    def past_others(_step: dict) -> None:
         with _BUILDING:
-            while _BUILDS and not difficulty.WAITING and _NEWEST[0] is doc:
+            while (_BUILDS or _PLANS) and not difficulty.WAITING and _NEWEST[0] is doc:
                 _BUILDING.wait(0.2)
         if _NEWEST[0] is not doc:
             raise Cancelled
         low(not difficulty.WAITING)
     low = procpool.Low()
     low(True)
-    with contextlib.suppress(Exception, Cancelled), noting(Steps(past_builds)) as steps:   # a head start: the View names its refusal
+    with contextlib.suppress(Exception, Cancelled), noting(Steps(past_others)) as steps:   # a head start: the View names its refusal
         steps("spoiler")
         randomizer.openers_ahead(doc)
 

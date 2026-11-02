@@ -343,6 +343,32 @@ def test_a_call_waiting_on_the_openers_ahead_is_answered_though_they_had_paused_
     assert (seen, ahead.is_alive(), difficulty.WAITING) == ([["kept"]], False, set())
 
 
+def test_the_openers_ahead_wait_out_a_plan_in_flight_so_a_tracks_fill_has_the_gil(monkeypatch):
+    from azurkit.app import engine
+
+    doc = {"settings": {"seed_difficulty": 3}}
+    planning, noted = threading.Event(), threading.Event()
+
+    def work(_doc):
+        assert planning.wait(30)
+        progress.note("reading")
+        noted.set()
+
+    def plan(*_, **__):
+        planning.set()
+        assert not noted.wait(1)   # a note in flight doesn't return while this plan runs
+        return doc                 # the same plan: its openers aren't stale
+
+    monkeypatch.setattr(randomizer, "openers_ahead", work)
+    monkeypatch.setattr(engine.sdk, "plan", plan)
+    monkeypatch.setattr(engine, "_NEWEST", [doc])
+    ahead = threading.Thread(target=engine._openers_ahead, args=(doc,), daemon=True)
+    ahead.start()
+    engine._plan({})
+    ahead.join(30)
+    assert noted.is_set()
+
+
 def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps_what_they_compiled_for_the_drop(monkeypatch):
     """Engine's: each change's plan left a thread no stop reached; a stale one could run last and evict the newest's."""
     from azurkit.app import engine
