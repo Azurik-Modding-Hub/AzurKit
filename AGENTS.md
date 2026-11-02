@@ -1367,6 +1367,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     as after it, so there the File's copy of each file the build changed is
     first hashed against the manifest (everywhere, S50/lag would be 4.1 s).
     The Save fails with what to do, as a page can't stop a browser's download.
+  - **Its Blob in Firefox is few parts:** a blob: URL of a Blob of over about
+    8 parts, or with a part of 1 MiB in memory, makes Firefox's parent copy
+    the whole image into memory at once and hold about 2 GiB more over its
+    download; of few parts, each a file's slice, it reads by reference. So
+    after a build the three longest copies stay the File's slices and all
+    between them goes into one Blob in Firefox's temporary file
+    (`Response.blob()`), the same bytes, ahead of the Save (app.mjs's
+    `byReference`).
   `tests/test_hosts.py` runs the gate under Pyodide on Node, and
   `tests/test_site.py` the packs' G1 cases and a save in Chromium, WebKit
   and Firefox.

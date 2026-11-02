@@ -991,6 +991,35 @@ function report(text, error = false) {
   say(text, error);
 }
 
+// Firefox's blob: URL of a Blob of more than about 8 parts (or a part of 1 MiB in memory) makes its parent process copy the
+// whole Blob into memory at createObjectURL, and hold about 2 GiB more over a download; a Blob of few parts, each a slice
+// of a file, it reads by reference, its tree flat. So there the KEPT longest copies stay the
+// File's slices and all between them goes once into one Blob Firefox keeps in a temporary file (Response.blob()): at most
+// 2 x KEPT + 1 parts, the same bytes. It runs ahead of the Save, after the build's answer; a Save that gets there first waits.
+const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3;
+async function byReference(segments, parts) {
+  const kept = new Set(segments.map((s, i) => [s, i]).filter(([s]) => s.kind === "copy")
+    .sort((a, b) => b[0].size - a[0].size).slice(0, KEPT).map(([, i]) => i));
+  const between = await new Response(new Blob(parts.filter((_, i) => !kept.has(i)))).blob();
+  const flat = [];
+  let at = 0, run = 0;
+  const stretch = () => {
+    if (run) flat.push(between.slice(at, at + run));
+    at += run;
+    run = 0;
+  };
+  for (const [i, part] of parts.entries()) {
+    if (kept.has(i)) {
+      stretch();
+      flat.push(part);
+    } else {
+      run += segments[i].size;
+    }
+  }
+  stretch();
+  return new Blob(flat, { type: "application/octet-stream" });
+}
+
 function built(reply) {
   const { report: made, size } = reply;
   if (state.app) {
@@ -1003,8 +1032,16 @@ function built(reply) {
       : s.kind === "bytes" ? s.data : new Uint8Array(s.size));
     const blob = new Blob(parts, { type: "application/octet-stream" });
     if (blob.size !== size) return report(`The build's pieces make ${bytes(blob.size)}, not ${bytes(size)}`, true);
-    state.build = { report: made, size, segments: reply.segments, file, blob, checks: reply.checks, late: reply.late };
-    state.url = URL.createObjectURL(blob);
+    const build = { report: made, size, segments: reply.segments, file, blob, checks: reply.checks, late: reply.late };
+    state.build = build;
+    if (URL_COPIES) {
+      build.flat = byReference(reply.segments, parts).catch(() => blob).then((flat) => {   // no flat one: still its bytes
+        build.blob = flat;
+        if (state.build === build) state.url = URL.createObjectURL(flat);
+      });
+    } else {
+      state.url = URL.createObjectURL(blob);
+    }
   }
   const changed = Object.keys(made.result), rz = made.randomizer;
   const verdict = !rz ? "" : ` · seed ${rz.seed} · ${rz.share} · ${rz.logic_verified ? "promised beatable"
@@ -1033,6 +1070,7 @@ async function checkSave(build, name) {
   state.saveCheck = "running";
   const id = asking("save_check");
   const sized = (rows) => rows.reduce((n, [, , size]) => n + size, 0);
+  if (build.flat) await build.flat;   // the bar shows from the click; the Blob the download reads is what it hashes
   const passes = [[build.blob, build.checks.image]];
   if (!READS_REFUSED) passes.unshift([build.file, build.checks.input]);
   const whole = passes.reduce((n, [, rows]) => n + sized(rows), 0);
@@ -1743,15 +1781,17 @@ async function main() {
     busy(false);
     say("Cancelled");
   });
-  $("save").addEventListener("click", () => {
+  $("save").addEventListener("click", async () => {
     if (state.app) return saveInApp();
-    const a = Object.assign(document.createElement("a"), {
-      href: state.url, download: `${state.file.name.replace(/\.x?iso$/i, "")} (AzurKit).iso` });
+    const build = state.build, name = `${state.file.name.replace(/\.x?iso$/i, "")} (AzurKit).iso`;
+    checkSave(build, name);
+    if (build.flat) await build.flat;
+    if (state.build !== build) return;   // forgotten while its parts were made
+    const a = Object.assign(document.createElement("a"), { href: state.url, download: name });
     document.body.append(a);
     a.click();
     a.remove();
-    say(`Saving ${a.download} (${bytes(state.build.size)}): your browser's download shows its progress`);
-    checkSave(state.build, a.download);
+    say(`Saving ${name} (${bytes(build.size)}): your browser's download shows its progress`);
   });
 }
 

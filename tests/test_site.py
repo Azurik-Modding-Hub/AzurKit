@@ -2060,6 +2060,28 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
         served.close()
 
 
+def test_a_build_and_its_save_stay_under_6_gib_of_the_browsers_processes(browser, site, usa_iso):
+    """D1017, D1057: a build's image is the File's slices and a few bytes, and no browser's processes hold it. Firefox's
+    parent copied the whole image at a blob: URL of a Blob of many parts and held 2 GiB more over its download (keylord's
+    7.7 GiB): the page's Blob there is few parts it reads by reference."""
+    before = {(pid, started) for pid, _, _, started in _perf.Memory.rows()}
+    served = Site(browser, site)
+    try:
+        with _perf.Memory(lambda rows: _perf.browser_pids(rows, before)) as memory:
+            page = served.open()
+            page.set_input_files("#iso", str(usa_iso))
+            _page.build(page, list(mods.PACKS))
+            _page.built(page)
+            with page.expect_download(timeout=600_000) as caught:
+                page.evaluate("() => document.querySelector('#save').click()")
+            caught.value.path()
+            assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
+            caught.value.delete()
+        assert 0 < memory.peak <= 6 * 2**30
+    finally:
+        served.close()
+
+
 def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, site, usa_iso, tmp_path):
     """D35: a byte of the picked image changed on disk between Build and Save (Firefox reads the new bytes silently,
     WebKit and Chromium fail the read): the Save fails with what to do and the build goes, as the page can't stop the
