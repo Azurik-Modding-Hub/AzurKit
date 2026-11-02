@@ -946,8 +946,7 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
                 page.evaluate(f"() => {row}.querySelector('input').click()")
                 _page.until(page, f"() => {hp}.value === '175' && !{hp}.disabled", 60)
                 page.evaluate(f"() => {row}.querySelector('input').click()")
-            page.evaluate(f"""() => {{ const b = document.getElementById('iso-path'); b.value = {json.dumps(str(usa_iso))};
-                b.dispatchEvent(new Event('change', {{ bubbles: true }})); }}""")
+            _page.fill(page, "iso-path", str(usa_iso))
             _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
             page.evaluate("() => document.getElementById('build').click()")
             _page.until(page, "() => azurkit.build || document.getElementById('status').classList.contains('error')", 300)
@@ -1523,7 +1522,7 @@ def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_
     for message in engine._warm_messages({"image": ("in.iso",), "randomizer": ()}):
         here.send(message)
     here.send(("call", 1, "image", ({"iso": "in.iso", "randomizer": {"seed": "2"}},), False, None))
-    assert here.recv()[:2] == ("done", 1)
+    assert (here.recv()[0], here.recv()[:2]) == ("calls", ("done", 1))   # the engine's native counts come before an answer
     end = time.monotonic() + 10
     while "pictures done" not in log and time.monotonic() < end:
         time.sleep(0.01)

@@ -508,7 +508,7 @@ LONG_READOUT = """() => {
 }"""
 GROUPS = """(fold) => {
     [...document.querySelectorAll("#packs .group > summary")].find((s) => s.firstChild.textContent === fold)?.click();
-    return [...document.querySelectorAll("#packs .group")].map((group) => [group.open,
+    return [...document.querySelectorAll("#packs .group[data-category]")].map((group) => [group.open,
         group.querySelector(".tally").textContent, [...group.querySelectorAll(".pack")].filter((i) => i.checkVisibility()).length]);
 }"""
 BAR = """() => {
@@ -563,7 +563,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
             ["Data", "false", True], ["Tools", "false", True], ["About", "false", True]]
         assert [c["title"] for c in catalog["categories"]] == ["Player", "Enemies", "Quality of Life"]
         grouped = [[p for p in mods.PACKS.values() if p.category == c["id"]] for c in catalog["categories"]]
-        assert page.evaluate("""() => [...document.querySelectorAll("#packs .group")].map((group) =>
+        assert page.evaluate("""() => [...document.querySelectorAll("#packs .group[data-category]")].map((group) =>
             [group.querySelector("summary b").textContent, [...group.querySelectorAll(".pack")].map((item) =>
                 [item.dataset.pack, item.querySelector(".toggle").hidden ? null : item.querySelector(".toggle").textContent])])
             """) == [[c["title"], [[p.name, f"Settings · {len(_rows(p))}" if p.sliders() else None] for p in packs]]

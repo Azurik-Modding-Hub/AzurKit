@@ -692,7 +692,7 @@ def _source(folder: Path, files: dict[str, bytes], entries: list[dict]) -> dict:
         (folder / path).parent.mkdir(parents=True, exist_ok=True)
         (folder / path).write_bytes(data)
     manifest = content.filled({"format": content.FORMAT, "schema_version": content.SCHEMA_VERSION, "entries": [
-        {"kind": "pack", "title": e["id"], "author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1,
+        {"kind": "variant", "title": e["id"], "author": "Azurik-Modding-Hub", "licence": "MIT", "version": 1,
          "requires": []} | e | {"files": [{"path": path} for path in e["files"]]} for e in entries]},
         lambda path: (folder / path).read_bytes())
     (folder / content.MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
