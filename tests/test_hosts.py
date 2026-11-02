@@ -2785,6 +2785,82 @@ def test_the_apps_tools_open_a_build_extract_to_a_new_path_and_clear_only_what_t
         server.close()
 
 
+def test_a_randomized_build_moves_the_tracker_to_its_exact_plan_and_each_plans_marks_stay_with_it(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """D1043: after a randomized Build the tracker holds that build's own
+    plan, its worn body's size folded in, with that plan's marks (none yet);
+    the marks on the plan tracked before stay with it, there again when it
+    is opened again, one made on its map while the new plan's first answer
+    is on its way too. The same plan built again keeps its marks and the map
+    shown."""
+    _home(monkeypatch, tmp_path / "home")
+    older, worn = _profile("default"), {"species": "balthazar"}
+    (tmp_path / "plan.json").write_text(json.dumps(older), encoding="utf-8")
+    index = json.loads((app.pictures.folder() / "maps.json").read_text(encoding="utf-8"))["levels"]
+    where = {i["id"]: i["at"] for e in index.values() for i in e["items"] + e["spots"]}
+    near = sorted(loc for loc, s in sdk.tracker({"plan": older})["spots"].items() if s["state"] == "near" and loc in where
+                  and where[loc][2] == index[s["level"]]["main"])
+    first, second = near[:2]
+    shown = sdk.tracker({"plan": older})["spots"][second]["level"]
+    settled = "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length && azurkit.tracker.state.view"
+    head = "() => azurkit.tracker.state.view?.head.sha256 === %s && !azurkit.tracker.state.running"
+    marks = "(sha) => azurkit.tracker.state.kept.marks[sha]?.collected ?? []"
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page(viewport={"width": 1100, "height": 820})
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.fill(page, "iso-path", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, head % json.dumps(older["sha256"]), 300)
+        page.evaluate("(loc) => azurkit.tracker.ask({ toggle: loc })", first)
+        _page.until(page, "() => azurkit.tracker.state.marks.collected?.length === 1", 60)
+
+        _page.click(page, "rando-view-settings")
+        _page.click(page, "rando-on")
+        _page.fill(page, "rando-seed", "2")
+        page.evaluate("(worn) => azurkit.characters.set(worn)", worn)
+        page.evaluate("() => { azurkit.build = null; document.getElementById('build').click(); }")
+        _page.until(page, "() => azurkit.build", 900)
+        plan = page.evaluate("() => azurkit.build.report.plan")
+        _page.until(page, head % json.dumps(plan["sha256"]), 300)
+        on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
+        assert plan["share"] == sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"], "packs": on,
+                                                         "character": worn, "iso": str(usa_iso)})["share"]
+        assert plan["share"] != older["share"]   # the size's fold is in it
+        assert page.evaluate("() => azurkit.tracker.state.plan") == plan
+        assert page.evaluate("() => azurkit.tracker.state.marks.collected ?? []") == []
+        assert page.evaluate(marks, older["sha256"]) == [first]
+
+        page.evaluate("(loc) => azurkit.tracker.ask({ toggle: loc })", second)
+        _page.until(page, "() => azurkit.tracker.state.marks.collected?.length === 1", 60)
+        page.evaluate("(level) => { azurkit.tracker.state.level = level; azurkit.tracker.draw(); }", shown)
+        page.evaluate("() => { azurkit.build = null; document.getElementById('build').click(); }")
+        _page.until(page, "() => azurkit.build", 900)
+        _page.until(page, settled, 60)
+        assert page.evaluate("() => [azurkit.tracker.state.marks.collected, azurkit.tracker.state.level]") == [
+            [second], shown]
+
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))   # the older plan's marks are back
+        _page.until(page, head % json.dumps(older["sha256"]), 60)
+        assert page.evaluate("() => azurkit.tracker.state.marks.collected") == [first]
+        page.evaluate("(level) => azurkit.tracker.map.show(level, true)", shown)
+        _page.click(page, "rando-view-tracker")
+        _page.until(page, f"() => azurkit.tracker.map.drawnFor?.level === {json.dumps(shown)}", 60)
+        page.evaluate("""(given) => { azurkit.tracker.open(given.plan); (%s)(given.at); }""" % MAP_CLICK.strip(),
+                      {"plan": plan, "at": where[second][:2]})   # on the older plan's map, the new plan on its way
+        _page.until(page, head % json.dumps(plan["sha256"]), 60)
+        _page.until(page, settled, 60)
+        assert sorted(page.evaluate(marks, older["sha256"])) == sorted([first, second])
+        assert page.evaluate("() => azurkit.tracker.state.marks.collected") == [second]
+        page.close()
+    finally:
+        server.close()
+
+
 def test_the_apps_tools_track_an_opened_randomized_build_on_its_own_plan(browser, tmp_path, monkeypatch):
     """Track this build (the Tools tab's Open a build…): an opened build
     that holds a randomizer layer is tracked on its own plan, replayed from

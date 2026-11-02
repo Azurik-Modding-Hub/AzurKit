@@ -10,8 +10,10 @@
 // by default and remembered) draws each gem spot as a tiny dot on its level's map, gone once Live sees it taken. The engine (sdk.tracker, Modkit's tracker) decides every verdict: this page
 // sends the plan, the marks, a click, and draws what comes back. The marks are kept per plan, the last KEEP plans
 // (the site in this browser's storage, the app in its config), with the plan last tracked; the tracker's Reset clears
-// a plan's marks; the plan last tracked opens again when the view first shows. Live (the app's alone, D882) marks
-// what a running xemu shows taken and follows the player.
+// a plan's marks; the plan last tracked opens again when the view first shows. A randomized Build moves the tracker to
+// that build's own plan (D1043, app.mjs's built(): a worn body's size folded in), and marks made on the plan before it
+// stay with that plan, those still on their way too. Live (the app's alone, D882) marks what a running xemu shows taken
+// and follows the player.
 import { artStore } from "./art.mjs";
 import { MapView } from "./mapview.mjs";
 
@@ -51,25 +53,31 @@ export function tracker({ call, app, say, kept, keep }) {
               kept: kept ?? { plan: null, marks: {} }, live: null };
 
   // The engine's asks, one at a time and in order (each click is one, sent with the marks the last answer gave;
-  // one made after a call waits for it); a plan opened meanwhile drops the asks of the one before it.
-  const ask = (extra = {}, after = null) => {
-    if (!t.plan) return Promise.resolve();
-    t.queue.push({ plan: t.plan, extra, after });
+  // one made after a call waits for it); a plan opened meanwhile drops the asks of the one before it, but for its marks
+  // (D1043: they stay with that plan).
+  const ask = (extra = {}, after = null, on = t.plan) => {
+    if (!on) return Promise.resolve();
+    t.queue.push({ plan: on, extra, after });
     return t.running ??= (async () => {
       while (t.queue.length) {
         const { plan, extra: next, after: before } = t.queue.shift();
         await before;
-        if (plan !== t.plan) continue;
+        const older = plan.sha256 !== t.plan.sha256;
+        if (older && !next.toggle && !next.reset) continue;
         $("track-status").textContent = "…";
-        const reply = await call("tracker", { given: { plan, marks: t.marks, spoiler: t.spoiler, gems: t.gems,
-                                                       ...next } });
+        const reply = await call("tracker", { given: { plan, marks: older ? t.kept.marks[plan.sha256] ?? {} : t.marks,
+                                                       spoiler: t.spoiler, gems: t.gems, ...next } });
         $("track-status").textContent = "";
-        if (plan !== t.plan) continue;
+        if (plan.sha256 !== t.plan.sha256) {
+          if (!("refused" in reply)) keep(t.kept = { ...t.kept, marks: { ...t.kept.marks, [plan.sha256]: reply.marks } });
+          continue;
+        }
         if ("refused" in reply) {
           say(`Tracker: ${reply.refused}`, true);
           continue;
         }
         t.view = reply;
+        t.drawn = plan;
         t.marks = reply.marks;
         if (t.live) seeLive(reply.live);
         remember();
@@ -78,6 +86,9 @@ export function tracker({ call, app, say, kept, keep }) {
       t.running = null;
     })();
   };
+
+  // A mark is on the plan its spot was drawn from: until a plan just opened answers, the one before it still shows.
+  const mark = (extra) => ask(extra, null, t.drawn ?? t.plan);
 
   // The marks of each plan the page tracked (the last KEEP), and the plan last tracked, which a page opens on again.
   const remember = () => {
@@ -102,7 +113,7 @@ export function tracker({ call, app, say, kept, keep }) {
     view: () => t.view, art, spoiler: () => t.spoiler, gems: () => t.gems,
     following: () => Boolean(t.live?.here) && $("track-follow").checked,
     collected: () => t.collected, fresh: () => t.fresh,
-    toggle: (loc) => ask({ toggle: loc }),
+    toggle: (loc) => mark({ toggle: loc }),
     navigated: (level, byHand) => {
       if (byHand && t.live?.followed && level !== t.live.followed) {
         $("track-follow").checked = false;
@@ -133,9 +144,11 @@ export function tracker({ call, app, say, kept, keep }) {
     if (!plan || typeof plan !== "object" || typeof plan.sha256 !== "string") {
       return Promise.resolve(say(`${from ?? "That"} isn't a plan file`, true));
     }
+    if (plan.sha256 !== t.plan?.sha256) {   // the same plan again (a rebuild): its marks and the map shown stay
+      t.marks = t.kept.marks[plan.sha256] ?? {};
+      t.level = null;
+    }
     t.plan = plan;
-    t.marks = t.kept.marks[plan.sha256] ?? {};
-    t.level = null;
     $("track-empty").hidden = true;
     $("track-body").hidden = false;
     if (from) say(`Tracking seed ${plan.seed} (${from}): the Randomizer tab's Tracker`);
@@ -407,7 +420,7 @@ export function tracker({ call, app, say, kept, keep }) {
   });
   $("track-level").addEventListener("click", (e) => {
     const spot = e.target.closest(".spot"), exit = e.target.closest(".exit");
-    if (spot) return ask({ toggle: spot.dataset.loc });
+    if (spot) return mark({ toggle: spot.dataset.loc });
     if (exit) return show(exit.dataset.level);
     if (e.target.closest(".back")) show(null);
   });
@@ -434,7 +447,7 @@ export function tracker({ call, app, say, kept, keep }) {
     if (t.plan) remember();
     if (t.view) draw();
   });
-  $("track-reset").addEventListener("click", () => ask({ reset: true }));
+  $("track-reset").addEventListener("click", () => mark({ reset: true }));
   for (const mode of ["map", "table"]) {
     $(`track-${mode}`).addEventListener("click", () => {
       t.mode = mode;
