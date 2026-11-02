@@ -47,7 +47,7 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 // community content path (web/content.mjs: Content from, the list, Install and Update, what the site keeps).
 export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy, dress: alone }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
-              matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
+              matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), wanted: null, dressing: false, settling: null };
   const fallback = () => host.catalog?.characters?.source ?? "";
   // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
@@ -137,6 +137,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     const keep = name === "garret4" ? {}
       : Object.fromEntries(Object.entries(c.character).filter(([k]) => ["size", "scale", ...NUMBERS].includes(k)));
     c.character = { ...keep, species: name };   // (Chain on any press stays with the model it was ticked on, D1045)
+    c.choice++;
     $("char-chain").checked = false;
     changed();
     if (ships?.species[name] || ships?.variants[name]) draw({ name, variant: !ships.species[name] });   // at once
@@ -329,6 +330,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   };
   const match = async (name) => {
     if (c.matching || !c.view) return;
+    const mine = c.choice;   // a Reset or a pick while it measures: its number isn't theirs (a typed number still gets it)
     c.matching = true;
     g4();
     const reply = await call("match", { ...(app ? {} : { file: image() }), recipe: recipe(c.view.character) },
@@ -336,6 +338,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     c.matching = false;
     g4();
     settled();
+    if (mine !== c.choice) return;
     if ("refused" in reply) return say(`G4: ${reply.refused}`, true);
     if (reply.values[name] == null) return say(`G4: none for ${c.view.titles[name]}: ${reply.why[name]}`, true);
     $(`char-${name}`).value = reply.text[name];
@@ -529,6 +532,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   const set = (character) => {
     c.character = character ? { ...character } : { species: "garret4" };
     delete c.character.variant;
+    c.choice++;
     changed();
     if (c.opened) ask();
   };

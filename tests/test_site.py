@@ -1078,6 +1078,13 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
                 [False] * 4, "G4 sets a number so the body matches garret4.", False]
         page.evaluate(scale, "1")
         _page.until(page, "() => document.getElementById('char-refused').hidden && Boolean(azurkit.characters.state.view?.from)", 120)
+        for act, left in (("document.getElementById('char-reset')", {"species": "keylord"}),   # a G4 still measuring: dropped
+                          ("document.querySelector('#char-species .model[data-model=\"garret4\"]')", None)):
+            assert page.evaluate(f"""() => {{ document.getElementById("char-g4-scale").click(); {act}.click();
+                return azurkit.characters.state.matching; }}""") is True
+            _page.until(page, """() => !azurkit.characters.state.matching && azurkit.characters.state.view?.asked
+                === JSON.stringify(azurkit.characters.state.character)""", 300)
+            assert page.evaluate("() => [azurkit.characters.character(), document.getElementById('char-scale').value]") == [left, "1"]
         assert page.evaluate("() => azurkit.violations") == []
         assert [r for r in served.stray() if not r.startswith(f"GET {ORIGIN}/content-test/")] == []
         again = served.open()   # this browser's storage, the Characters tab never opened
