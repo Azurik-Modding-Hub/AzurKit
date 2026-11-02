@@ -48,6 +48,8 @@
 // on a bar, from the app's api/progress or the site's worker; any ask the engine hasn't answered within 1 s shows
 // its line there too, until it answers.
 import { characters } from "./characters.mjs";
+import { communityGroup } from "./community.mjs";
+import { content } from "./content.mjs";
 import { dataTab } from "./data.mjs";
 import { hashed } from "./hasher.mjs";
 import { alone } from "./dress.mjs";
@@ -97,8 +99,8 @@ function setup() {
   const ticked = state.packs.packs.filter((pack) => $("packs").querySelector(`input[data-pack="${pack.name}"]`).checked)
     .map((pack) => pack.name);
   const rando = randoSetup(), character = state.characters?.setup();
-  return { ticked, values, xbr: state.xbr.filter((op) => op.op === "set"), ...(rando ? { randomizer: rando } : {}),
-           ...(character ? { character } : {}) };
+  return state.community.kept({ ticked, values, xbr: state.xbr.filter((op) => op.op === "set"),
+                                ...(rando ? { randomizer: rando } : {}), ...(character ? { character } : {}) });
 }
 
 // The app's work ahead (D1007): once the setup settles, a typed seed planned with its first tracker view, and the
@@ -113,9 +115,9 @@ function ahead() {
   const randomizer = randoRecipe();
   if (state.build) return;
   if (!state.file || state.opened || (randomizer && !randomizer.seed) || state.characters?.refused()
-      || state.characters?.waiting()) return void state.engine.speculate(state.gen, null);
+      || state.characters?.waiting() || state.community?.waiting()) return void state.engine.speculate(state.gen, null);
   state.engine.speculate(state.gen, state.file, chosen(), state.xbr, randomizer,
-                         state.characters?.character() ?? null);
+                         state.characters?.character() ?? null, extras());
 }
 
 // Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
@@ -125,7 +127,7 @@ function remember() {
   ahead();
   const kept = setup(), defaults = state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name);
   state.plain = !kept.xbr.length && !Object.keys(kept.values).length && kept.ticked.join() === defaults.join()
-    && !kept.randomizer && !kept.character;
+    && !kept.randomizer && !kept.character && !kept.community;
   $("reset").disabled = state.building || state.plain;
   const text = state.plain ? null : JSON.stringify(kept);
   if (text === state.kept) return;
@@ -372,8 +374,8 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
   };
   start();
   return {
-    build: (file, packs, xbr, randomizer, character) => worker.postMessage({ type: "build", file, packs, xbr, randomizer,
-                                                                             character }),
+    build: (file, packs, xbr, randomizer, character, extra) => worker.postMessage({ type: "build", file, packs, xbr,
+                                                                                    randomizer, character, ...extra }),
     randomizer: (given, ticket, file) => wait("randomizer", { type: "randomizer", given, ticket,
                                                               ...(file ? { file } : {}) }),
     vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
@@ -430,8 +432,8 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     .then((reply) => "refused" in reply ? failed(reply.refused) : done(reply))
     .catch((error) => failed(`The app's engine didn't answer (${error.message}): restart AzurKit`));
   return {
-    build: (iso, packs, xbr, randomizer, character) => run("api/build", { iso, packs, xbr, randomizer, character },
-                                                           built),
+    build: (iso, packs, xbr, randomizer, character, extra) => run("api/build", { iso, packs, xbr, randomizer, character,
+                                                                                 ...extra }, built),
     randomizer: (given, ticket, iso) => followed("randomizer", post("api/randomizer", { given: iso ? { ...given, iso }
                                                                                        : given }))
       .then((reply) => rando(reply, ticket))
@@ -445,8 +447,8 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     setup: (setup) => post("api/setup", { setup }, true).catch(() => {}),   // remembering is a convenience
     // a head start only: the click asks again either way
     prefetch: (gen, recipe, view) => post("api/prefetch", { gen, recipe, view }).catch(() => {}),
-    speculate: (gen, iso, packs, xbr, randomizer, character) => post("api/speculate",
-      { gen, iso, packs, xbr, randomizer, character }).catch(() => {}),
+    speculate: (gen, iso, packs, xbr, randomizer, character, extra) => post("api/speculate",
+      { gen, iso, packs, xbr, randomizer, character, ...extra }).catch(() => {}),
     save: (recipe, out, build) => run("api/save", { recipe, out, build }, saved),   // that build's image, kept
     progress: async () => (await fetch("api/progress", { cache: "no-store" })).json(),
     choose: async (kind, path) => (await post("api/choose", { kind, path })).path ?? null,
@@ -651,14 +653,16 @@ function place() {
 function lock() {
   for (const item of $("packs").querySelectorAll(".pack")) {
     const box = item.querySelector("input[data-pack]");
-    box.disabled = state.building;
-    for (const field of item.querySelectorAll(".sliders input")) field.disabled = state.building || !box.checked;
+    const owned = state.community?.owns(item.dataset.pack);   // a ticked community pack's: locked while it is
+    box.disabled = state.building || owned;
+    for (const field of item.querySelectorAll(".sliders input")) field.disabled = state.building || !box.checked || owned;
   }
+  state.community?.lock(state.building);
 }
 
 // Each group's count of its packs ticked, which a folded group still shows.
 function tally() {
-  for (const group of $("packs").querySelectorAll(".group")) {
+  for (const group of $("packs").querySelectorAll(".group[data-category]")) {
     const boxes = [...group.querySelectorAll("input[data-pack]")];
     group.querySelector(".tally").textContent = `${boxes.filter((box) => box.checked).length} of ${boxes.length} on`;
   }
@@ -693,6 +697,12 @@ function pick(id) {
 }
 
 // The ticked packs, each with its sliders' values as typed: the engine normalizes them and names what it refuses.
+// What a recipe holds beside its packs, xbr, randomizer and character, as a build's ask and a link's recipe carry it.
+function extras() {
+  const pins = state.community.pins();
+  return pins.length ? { community: pins } : {};
+}
+
 function chosen() {
   const packs = {};
   for (const item of $("packs").querySelectorAll(".pack")) {
@@ -787,6 +797,7 @@ function noteXbr() {
 // in place of the remembered setup, which it becomes (D915). Without a packs layer, the ticks stay as they are.
 function load(preset, from) {
   const packs = preset.layers.find((layer) => layer.tool === "mods")?.recipe;
+  state.community.clear();
   const ticked = [...$("packs").querySelectorAll("input[data-pack]:checked")].map((box) => box.dataset.pack);
   setTo(new Set(packs ? Object.keys(packs) : ticked), packs ?? {},
         preset.layers.find((layer) => layer.tool === "data")?.recipe.ops ?? [], from);
@@ -794,6 +805,7 @@ function load(preset, from) {
   loadRando(rando, from);
   const character = preset.layers.find((layer) => layer.tool === "characters")?.recipe ?? null;
   state.characters.set(character);
+  state.community.set(preset.layers.find((layer) => layer.tool === "community")?.recipe.packs ?? []).then(remember);
   pick(rando ? "randomizer" : character ? "characters" : "patches");
   state.loaded = preset;
   remember();
@@ -805,20 +817,26 @@ function load(preset, from) {
 }
 
 // The remembered setup, as the engine gives it back (sdk.restore): what still applies, and what doesn't, by name.
-function restored({ ticked, values, xbr, dropped, randomizer, character }) {
+function restored({ ticked, values, xbr, dropped, randomizer, character, community }) {
   state.restoring = false;
+  state.community.clear();
   setTo(new Set(ticked), values, xbr);
   setRando(randomizer ?? randoDefaults());
   state.characters.set(character ?? null);
   say(dropped.length ? `Restored your last setup, without ${dropped.join("; ")}`
     : `Restored your last setup: ${ticked.length} pack${ticked.length === 1 ? "" : "s"} on. Reset to defaults clears it.`);
-  remember();   // what is left of it
-  start();
+  const back = () => {
+    remember();   // what is left of it
+    start();
+  };
+  if (community?.length) state.community.set(community).finally(back);
+  else back();
 }
 
 // Reset to defaults: the packs on by default, every setting at its default, no config.xbr cell; the remembered setup
 // forgotten (the next change is remembered again, so the status says what happened, not what is kept).
 function reset() {
+  state.community.clear();
   setTo(new Set(state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name)), {}, []);
   setRando(randoDefaults());
   state.characters.set(null);
@@ -846,7 +864,8 @@ function share() {
 // operations, the randomizer while Randomize is ticked and the character worn.
 function recipe() {
   const randomizer = randoRecipe(), character = state.characters.character();
-  return { packs: chosen(), xbr: state.xbr, ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) };
+  return { packs: chosen(), xbr: state.xbr, ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}),
+           ...extras() };
 }
 
 // Where the Tools tab's save goes in the app: its save dialog's choice beside the build's output (null: cancelled),
@@ -901,10 +920,14 @@ function ready(catalog, version) {
     renderRando(catalog.randomizer);
     state.tracker = tracker({ call: state.engine.call, app: state.app, say, kept: state.tracked, keep: keepTracked,
                               image: () => state.file });
+    const shared = content({ call: state.engine.call, app: state.app, host: { ...state.host, catalog },
+                             handoff: state.engine.content });
     state.characters = characters({ call: state.engine.call, app: state.app, host: { ...state.host, catalog }, say,
-                                    image: () => state.file, packs: chosen, changed: state.changed,
-                                    content: state.engine.content, settled: ahead,
-                                    busy: () => state.building || state.saving, dress: state.engine.dress });
+                                    image: () => state.file, packs: chosen, changed: state.changed, shared,
+                                    settled: ahead, busy: () => state.building || state.saving,
+                                    dress: state.engine.dress });
+    state.community = communityGroup({ root: $("packs"), call: state.engine.call, shared, say, catalog,
+                                       settled: () => { tally(); lock(); } });
     state.data = dataTab({ call: state.engine.call, root: $("data"), say, packs: chosen, image: () => state.file,
                            changed: (ops) => {
                              state.xbr = ops;
@@ -917,8 +940,9 @@ function ready(catalog, version) {
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}.`;
     if (!state.pending && state.remembered != null) {
-      state.restoring = true;
-      return state.engine.restore(state.remembered);
+      state.restoring = true;   // a remembered community pack is read from what the site hands its engine first
+      return (state.remembered.community ? shared.ready : Promise.resolve())
+        .then(() => state.engine.restore(state.remembered));
     }
   }
   start();
@@ -927,7 +951,8 @@ function ready(catalog, version) {
 function start() {
   state.ready = true;
   busy(state.building);
-  if (state.pending) state.engine.decode(state.pending);
+  // a link's community pack or variant is checked against what the site hands its engine first
+  if (state.pending) state.community.ready.then(() => state.engine.decode(state.pending));
   askVanilla();
   if (state.rando.waiting) askRando(state.rando.given);
 }
@@ -955,7 +980,8 @@ function built(reply) {
   const changed = Object.keys(made.result), rz = made.randomizer;
   const verdict = !rz ? "" : ` · seed ${rz.seed} · ${rz.share} · ${rz.logic_verified ? "logic verified"
     : `⚠ logic unverified: ${rz.why_not[0]}${rz.why_not.length > 1 ? ` (+${rz.why_not.length - 1} more)` : ""}`}`;
-  report(`Ready · ${made.label} · ${bytes(size)}${verdict}` + made.conflicts.map((c) => ` · conflict: ${c}`).join("")
+  const communal = made.layers.filter((layer) => layer.id.startsWith("community ")).map((layer) => ` · ${layer.id}`);
+  report(`Ready · ${made.label} · ${bytes(size)}${verdict}${communal.join("")}` + made.conflicts.map((c) => ` · conflict: ${c}`).join("")
          + made.notes.map((n) => ` · note: ${n}`).join("")
          + ` · changed: ${changed.length ? changed.join(", ") : "nothing"}`);   // the file list last: it runs long
   spoiler(made.spoiler ?? null, !made.plan || made.spoiler ? null : reply.spoiled ? () => reply.spoiled
@@ -1602,6 +1628,7 @@ async function main() {
     const randomizer = randoRecipe(), character = state.characters.character();
     if (randomizer && !randomizer.seed) return say("Type a seed on the Randomizer tab, or press New", true);
     if (state.characters.refused()) return say(state.characters.refused(), true);
+    if (state.community.waiting()) return say("Reading the community packs: try again in a moment", true);
     forget();
     if (!state.app) state.ready = false;   // until the site's engine answers: then kept, or replaced
     busy(true);
@@ -1609,7 +1636,7 @@ async function main() {
         + (character ? ` (as ${character.species})` : ""));
     state.sent = chosen();
     asking("build");
-    state.engine.build(state.file, state.sent, state.xbr, randomizer, character);
+    state.engine.build(state.file, state.sent, state.xbr, randomizer, character, extras());
   });
   randoEvents(changed);
   $("cancel").addEventListener("click", () => {

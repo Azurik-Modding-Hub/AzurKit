@@ -1407,7 +1407,7 @@ def _fetch(source: str) -> Callable[..., bytes]:
 
             where = urllib.parse.urljoin(source, urllib.parse.quote(path))
             try:
-                with urllib.request.urlopen(where, timeout=60) as reply:
+                with urllib.request.urlopen(where, timeout=10 if path == content.MANIFEST else 60) as reply:
                     if not _secure(reply.geturl()):   # a redirect's end is held to the source's rule
                         raise OSError(f"redirected to {reply.geturl()}, which isn't https")
                     data = reply.read(most + 1)

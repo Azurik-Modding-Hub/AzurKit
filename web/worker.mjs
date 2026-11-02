@@ -171,8 +171,10 @@ def engine(request):
             return js({"preview": sdk.preview, "match": sdk.match}[request.type](given))
         except (OSError, ValueError) as exc:
             return js({"refused": str(exc)})
-    if request.type in ("data", "data_edit"):   # the Data tab's: through JSON, a null is None (to_py gives JsNull)
+    if request.type in ("data", "data_edit", "community"):   # through JSON: a null is None (to_py gives JsNull)
         try:
+            if request.type == "community":
+                return js(sdk.community())
             given = json.loads(JSON.stringify(request.given))
             return js((sdk.data if request.type == "data" else sdk.data_edit)(given))
         except (OSError, ValueError) as exc:
@@ -602,7 +604,7 @@ function character(loaded, data) {
 // plan's spoiler). Verify every file hashes here what the image's kept check hasn't (sdk.layout's whole), in
 // WebCrypto as prime does, its bar the bottom bar's, and hands the engine those digests (sdk.verify_all).
 const TOOLS = ["info", "verify_all", "files", "open", "mods_file", "plan_spoiler"];
-const DATA = ["data", "data_edit"];   // the Data tab's asks: no image
+const DATA = ["data", "data_edit", "community"];   // the Data tab's and the Patches tab's community list: no image
 async function tool({ py, engine }, data) {
   if (data.type === "open") return mounted(py, data.build, (iso) => engine({ type: "open", recipe: { iso } }));
   if (data.type === "mods_file" || data.type === "plan_spoiler") {
@@ -624,11 +626,12 @@ async function tool({ py, engine }, data) {
 // for its digest, so the worker's JS holds one file beside the engine's heap. A seed's build (AM-HUB-E) first asks for the
 // pages it reads, twice at most, and its levels (668 MiB in all) never enter the heap: each is read here, its patches
 // over it, for its sha256 and md5 (hasher.mjs), and only its patches are the build's bytes.
-async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character }) {
+async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character, community }) {
   const before = self.azurkitLateReads ?? 0;
   const made = await mounted(py, file, async (iso) => {
     let composed = engine({ type: "build", recipe: { iso, packs, xbr,
-      ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}) } });
+      ...(randomizer ? { randomizer } : {}), ...(character ? { character } : {}),
+      ...(community ? { community } : {}) } });
     while (composed.ahead) {
       await reads.spans(file, ids.get(file) ?? file, composed.ahead).catch(() => null);   // a hint: a failed read is the engine's
       composed = engine({ type: "ahead" });

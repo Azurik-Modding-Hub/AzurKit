@@ -166,6 +166,19 @@ button:disabled { color: var(--faint); background: transparent; }
 #packs .pack:has(> label input:not(:checked)) .slider { color: var(--muted); }
 #packs .pack:has(> label input:not(:checked)) > .sliders::before { content: attr(aria-label) " · locked: tick it to change these"; }
 #packs .mark { color: var(--mark); margin-right: 3px; }
+#packs .pack.owned > label { color: var(--muted); }
+#packs .owned-line { display: block; font-size: 11px; color: var(--mark); }
+#packs .cpack { padding: 3px 10px; border-bottom: 1px solid var(--soft); font-size: 11.5px; }
+#packs .cpack:nth-of-type(even) { background: var(--zebra); }
+#packs .cpack > label { display: inline-flex; gap: 6px; align-items: baseline; }
+#packs .cpack .name { padding-right: 0; }
+#packs .cpack .by { color: var(--faint); font-size: 10.5px; margin-left: 6px; }
+#packs .cpack .what { margin: 1px 0 0 19px; color: var(--muted); }
+#packs .cpack button { margin-left: 8px; font-size: 11px; }
+#packs .cpack ul { margin: 2px 0 0 19px; padding: 0 0 0 12px; color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+#packs .community-from { margin: 0; padding: 3px 10px; }
+#packs .community-note { margin: 0; padding: 3px 10px; }
+#packs .community-note:empty { display: none; }
 #packs .mark:empty { display: none; }
 /* The Settings opener, with the pack's count of settings, one width for every pack; gold when a value in it is
    changed or marked. */

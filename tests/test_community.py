@@ -389,7 +389,7 @@ def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refu
     assert out["refused"] == "a: packs/a/pack.json's sha256 0123456789ab isn't the manifest's 0123456789ac"
     assert out["big"] == "its files are 268,435,457 bytes, past the 268,435,456 one Install fetches"
     assert out["bigFetched"] == 0
-    assert out["liar"] == "packs/liar/pack.json: 4 bytes or more, past the community list's 2"
+    assert out["liar"] == "packs/liar/pack.json: past the 2 bytes its manifest lists"
     assert out["untouched"] is True
     assert out["cycle"] == 'entry "x" requires itself (x -> y -> x)'
     assert out["unknown"] == 'no entry "z" in the community list'

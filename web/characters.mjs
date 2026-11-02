@@ -20,7 +20,6 @@
 import { option as pickerOption, picker } from "./picker.mjs";
 
 const $ = (id) => document.getElementById(id);
-const SOURCE = "azurkit.content_source";
 const OBJECTS = "azurkit.show_objects";   // the site's remembered Show objects (the app's: host.json's show_objects)
 const NUMBERS = ["scale", "attack_reach", "attack_damage", "attack_speed"];
 const JIGGLE = ["jiggle_strength", "jiggle_stiffness"];
@@ -40,53 +39,13 @@ const el = (tag, props = {}, ...children) => {
   return node;
 };
 
-// This browser's keeping of what the site installed: the last manifest read, installed.json's record and the files.
-const idb = (() => {
-  let opened = null;
-  const open = () => opened ??= new Promise((done, fail) => {
-    const request = indexedDB.open("azurkit-content", 1);
-    request.onupgradeneeded = () => request.result.createObjectStore("kept");
-    request.onsuccess = () => done(request.result);
-    request.onerror = () => fail(request.error);
-  });
-  const run = async (mode, act) => {
-    const db = await open();
-    return new Promise((done, fail) => {
-      const tx = db.transaction("kept", mode), request = act(tx.objectStore("kept"));
-      tx.oncomplete = () => done(request?.result);
-      tx.onerror = tx.onabort = () => fail(tx.error);
-    });
-  };
-  return { get: (key) => run("readonly", (s) => s.get(key)).catch(() => undefined),
-           put: (entries) => run("readwrite", (s) => { for (const [k, v] of entries) s.put(v, k); }) };
-})();
-
 const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0)) : data;
 
-// An Install's fetches are untrusted (SEC-9): an entry and those it requires hold at most ENTRY bytes as listed, and
-// each file is read to at most its listed size, else refused by name before more is held.
-const ENTRY = 256 << 20;
-async function upTo(reply, size, path) {
-  if (!reply.body) return new Uint8Array(0);
-  const reader = reply.body.getReader(), parts = [];
-  for (let held = 0; ;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    held += value.length;
-    if (held > size) {
-      reader.cancel().catch(() => {});
-      throw new Error(`${path}: past the ${size.toLocaleString("en-US")} bytes its manifest lists`);
-    }
-    parts.push(value);
-  }
-  return new Uint8Array(await new Blob(parts).arrayBuffer());
-}
-
-// characters({call, app, host, say, image, packs, changed, content, settled}): call is the engine's (the site's worker, the
+// characters({call, app, host, say, image, packs, changed, shared, settled}): call is the engine's (the site's worker, the
 // app's api), image() the picked image (the site's File, the app's path), packs() the Patches tab's ticks (a dress
-// stands on them), changed() runs when the tab's choice changes (the page remembers it) and content(files,
-// installed) hands the site's engine what this browser keeps installed.
-export function characters({ call, app, host, say, image, packs, changed, content, settled, busy, dress: alone }) {
+// stands on them), changed() runs when the tab's choice changes (the page remembers it) and shared is the page's one
+// community content path (web/content.mjs: Content from, the list, Install and Update, what the site keeps).
+export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy, dress: alone }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), wanted: null, dressing: false, settling: null };
@@ -99,19 +58,12 @@ export function characters({ call, app, host, say, image, packs, changed, conten
       return false;
     }
   })();
-  c.source = app ? host.content_source || fallback() : (() => {
-    try {
-      return localStorage.getItem(SOURCE) || fallback();
-    } catch {
-      return fallback();
-    }
-  })();
-
-  // What this browser keeps installed, handed to the site's engine now, not on the tab's first open.
-  const kept = app ? Promise.resolve() : Promise.all([idb.get("files"), idb.get("installed")])
-    .then(([files, installed]) => {
-      if (files && installed) content(files, installed);
-    });
+  const synced = () => ({ source: c.source, manifest: c.manifest, why: c.why } = shared.state);
+  synced();
+  shared.on(() => {   // Content from is one setting, shown in both tabs
+    synced();
+    $("char-source").value = c.source;
+  });
 
   // The shipped answer and pictures (the file name of each species' and variant's), read at the tab's first open.
   let ships = null, shipping = null;
@@ -149,43 +101,16 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     draw().finally(settled);
   };
 
-  // The source's manifest: the app's engine reads it (a URL or a folder), the site fetches it (an http(s) or relative
-  // URL, never a folder) and its worker checks it; the last one read is kept, listed while the source can't be read.
-  const read = async () => {
+  // The source's list (web/content.mjs), then what the tab shows for it.
+  const listed = (reading) => {
     $("char-content-note").textContent = "Reading the community content…";
-    if (app) {
-      const reply = await call("content", { source: c.source });
-      if ("refused" in reply) c.why = reply.refused;
-      else ({ manifest: c.manifest, why: c.why } = reply);
-    } else {
-      c.why = null;
-      try {
-        if (/^(\/|~|[A-Za-z]:\\)/.test(c.source)) {
-          throw Object.assign(new Error("The site reads a URL, not a folder: the desktop app reads a folder of your "
-                                        + "own. Every built-in model below works."), { plain: true });
-        }
-        if (new URL(c.source, location.href).origin !== location.origin) {   // the page's CSP: connect-src 'self'
-          throw Object.assign(new Error("Community models come to this site with AzurKit 4.4; the desktop app lists "
-                                        + "them now. Every built-in model below works."), { plain: true });
-        }
-        const reply = await fetch(new URL("manifest.json", new URL(c.source, location.href)), { cache: "no-store" })
-          .catch(() => { throw new Error("no answer"); });
-        if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
-        const text = await reply.text();
-        const checked = await call("content_check", { manifest: text });
-        if ("refused" in checked) throw new Error(checked.refused);
-        c.manifest = checked.manifest;
-        await idb.put([["manifest", text]]).catch(() => {});
-      } catch (error) {
-        c.why = error.plain ? error.message : `Couldn't reach the community list at ${c.source} (${error.message}). `
-          + "Every built-in model below works.";
-        const kept = await idb.get("manifest");
-        if (kept) c.manifest = JSON.parse(kept);
-      }
-    }
-    $("char-content-note").textContent = c.why ? `${c.why}${c.manifest ? " (the last list read is shown)" : ""}` : "";
-    await ask();
+    return reading.then(() => {
+      $("char-content-note").textContent = !c.why ? "" : `${c.why}${app ? "" : " Every built-in model below works."}${
+        c.manifest ? " (the last list read is shown)" : ""}`;
+      return ask();
+    });
   };
+  const read = () => listed(shared.read());
 
   // Install or Update an entry: every file's size and sha256 checked before anything is kept (D35).
   const install = async (entry) => {
@@ -194,40 +119,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
     render();
     say(`Installing ${entry.title}…`);
     try {
-      if (app) {
-        const reply = await call("install", { id: entry.id, source: c.source });
-        if ("refused" in reply) throw new Error(reply.refused);
-        ({ manifest: c.manifest, why: c.why } = reply);
-      } else {
-        const ids = new Map(c.manifest.entries.map((e) => [e.id, e]));
-        const need = [], visit = (id) => {   // those required first, each once (SEC-6)
-          if (need.includes(id)) return;
-          for (const r of ids.get(id).requires) visit(r);
-          if (!need.includes(id)) need.push(id);
-        };
-        visit(entry.id);
-        const listed = need.flatMap((id) => ids.get(id).files);
-        if (listed.reduce((n, f) => n + f.size, 0) > ENTRY) {
-          throw new Error(`its files and those it requires pass the ${ENTRY.toLocaleString("en-US")} bytes an entry may hold`);
-        }
-        const kept = (await idb.get("files")) ?? {}, record = (await idb.get("installed")) ?? {};
-        const files = {};
-        for (const f of listed) {
-          const reply = await fetch(new URL(f.path, new URL(c.source, location.href)), { cache: "no-store" });
-          if (!reply.ok) throw new Error(`${f.path}: HTTP ${reply.status}`);
-          files[f.path] = await upTo(reply, f.size, f.path);
-        }
-        const checked = await call("content_check", { manifest: JSON.stringify(c.manifest), id: entry.id, files });
-        if ("refused" in checked) throw new Error(checked.refused);
-        for (const id of checked.install) {
-          for (const path of Object.keys(record[id]?.files ?? {})) delete kept[path];
-          record[id] = { version: ids.get(id).version, source: c.source,
-                         files: Object.fromEntries(ids.get(id).files.map((f) => [f.path, f.sha256])) };
-          for (const f of ids.get(id).files) kept[f.path] = files[f.path];
-        }
-        await idb.put([["files", kept], ["installed", record]]);
-        content(kept, record);
-      }
+      await shared.install(entry);
       say(`Installed ${entry.title} v${entry.version}: its variants are in the list`);
     } catch (error) {
       say(`${entry.title}: nothing was installed: ${error.message}`, true);
@@ -596,16 +488,8 @@ export function characters({ call, app, host, say, image, packs, changed, conten
   $("char-source").addEventListener("change", () => source($("char-source").value.trim() || fallback()));
   $("char-source-reset").addEventListener("click", () => source(fallback()));
   const source = (url) => {
-    c.source = url;
     $("char-source").value = url;
-    if (app) call("content_source", { source: url === fallback() ? null : url });
-    else {
-      try {
-        if (url === fallback()) localStorage.removeItem(SOURCE);
-        else localStorage.setItem(SOURCE, url);
-      } catch {}
-    }
-    read();
+    listed(shared.source(url));
   };
 
   // The tab's choice set from a link, a build's recipe or the remembered setup (null: garret4, every default).
@@ -635,7 +519,7 @@ export function characters({ call, app, host, say, image, packs, changed, conten
           render();
           draw();
         });
-        kept.then(read);
+        shared.ready.then(read);
       } else ask();
     },
     imaged: () => {

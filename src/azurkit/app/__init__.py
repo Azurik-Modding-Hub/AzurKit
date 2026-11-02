@@ -91,7 +91,8 @@ The Characters tab's calls (Step 4.3d): ``POST api/pickers`` ``{"given"}``
 (``sdk.pickers``), ``api/preview`` and ``api/match`` ``{"recipe"}`` (the
 pictures as base64 PNG), and Azurik-Custom-Content's ``api/content``
 ``{"source"}`` (``sdk.content``) and ``api/install`` ``{"id", "source"}``
-(``sdk.content_install``, into the content folder); ``api/content_source``
+(``sdk.content_install``, into the content folder); ``api/community``
+``{}`` the community packs that folder holds (``sdk.community``); ``api/content_source``
 ``{"source"}`` remembers the tab's Content from (``null``: the default),
 which ``host.json``'s ``content_source`` gives the next page, and
 ``api/show_objects`` ``{"show"}`` its Show objects (D1034: ``false``, the
@@ -554,7 +555,7 @@ class Server(http.server.ThreadingHTTPServer):
     @staticmethod
     def _recipe(body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}
-        return recipe | {key: body[key] for key in ("xbr", "randomizer", "character") if body.get(key)}
+        return recipe | {key: body[key] for key in ("xbr", "randomizer", "character", "community") if body.get(key)}
 
     def _image(self, recipe: dict) -> Callable[[ahead.Job], dict]:
         """A build of ``recipe`` in the engine, as a slot's job, its peak told to the slots (``ahead.room``)."""
@@ -966,6 +967,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 "/api/preview": lambda body: self.server.dressed("preview", body),
                 "/api/match": lambda body: self.server.dressed("match", body),
                 "/api/content": lambda body: sdk.content({"source": body.get("source")}),
+                "/api/community": lambda body: sdk.community(),
                 "/api/install": self.server.install,
                 "/api/speculate": self.server.speculate, "/api/prefetch": self.server.prefetch,
                 "/api/content_source": _set_source, "/api/show_objects": _set_objects,

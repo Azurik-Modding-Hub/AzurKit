@@ -792,6 +792,76 @@ COMMUNITY = """() => [...document.querySelectorAll("#char-community .entry")].ma
     [...e.querySelectorAll(".model")].map((m) => m.dataset.model)])"""
 
 
+def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_and_builds_it(
+        browser, site, usa_iso, tmp_path, monkeypatch):
+    """The site's community group (Step 4.3k): read from the site's own address when first opened, a pack's tick greyed
+    until its Install, which refuses a pack.json no community pack may be by name and keeps nothing; ticked, it sets and
+    locks the rows it names; a Build carries its layer and its game files are the app's engine's for the same recipe;
+    a link carries it by its sha12 and opens with it ticked; a reopened page restores it, handed to its engine first,
+    and its untick gives the rows back."""
+    from azurkit import sdk
+
+    from tests import test_community as made
+
+    source, manifest = made._installed(tmp_path, monkeypatch, {
+        "hard": made.HARD, "bad": made._pack({"qol_memory_upper64_gpu": {}})})
+    sdk.content_install({"id": "hard", "source": str(source)})
+    defaults = {pack["name"]: {} for pack in sdk.catalog()["packs"] if pack["default_on"]}   # the page's own ticks
+    expected = sdk.image({"iso": str(usa_iso), "packs": defaults, "community": [{"id": "hard"}]})[1]["result"]
+    served = Site(browser, site)
+
+    def content(route, request) -> None:
+        rel = urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/")
+        route.fulfill(path=str(source / rel)) if (source / rel).is_file() else route.fulfill(status=404, body="")
+    served.context.route(f"{ORIGIN}/content-test/**", content)
+    row = """document.querySelector('.cpack[data-community="hard"]')"""
+    hp = """document.getElementById("player_max_hp.starting_hp")"""
+    locked = f"() => {hp}.value === '150' && {hp}.disabled && {hp}.closest('.pack').classList.contains('owned')"
+    try:
+        page = served.open()
+        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
+        page = served.open()
+        _page.until(page, "() => azurkit.ready", 300)
+        assert page.evaluate(f"() => {row}") is None   # nothing read until the group opens
+        page.evaluate("() => { document.getElementById('community-group').open = true; }")
+        _page.until(page, f"() => {row}?.querySelector('input').disabled && {row}.textContent.includes('Install it first')",
+                    120)
+        page.evaluate("""() => document.querySelector('.cpack[data-community="bad"] button').click()""")
+        _page.until(page, "() => document.getElementById('status').textContent.startsWith('bad: nothing')", 120)
+        assert "needs 'qol_memory_upper64'" in page.evaluate("() => document.getElementById('status').textContent")
+        page.evaluate(f"() => {row}.querySelector('button').click()")
+        _page.until(page, f"() => {row}?.querySelector('input') && !{row}.querySelector('input').disabled", 120)
+        page.evaluate(f"() => {row}.querySelector('input').click()")
+        _page.until(page, locked, 60)
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        page.evaluate("() => document.getElementById('build').click()")
+        _page.until(page, "() => azurkit.build || document.getElementById('status').classList.contains('error')", 600)
+        assert page.evaluate("() => azurkit.build.report.result") == expected
+        assert " · community hard" in page.evaluate("() => document.getElementById('status').textContent")
+        _page.until(page, "() => azurkit.ready", 300)
+        page.evaluate("() => document.getElementById('share').click()")
+        link = _page.until(page, "() => azurkit.link", 60)
+        _page.until(page, "() => azurkit.kept?.includes('community')", 60)
+        _page.check_csp(page)
+        page = served.open()   # the remembered setup: the engine has the pack before the setup comes back
+        _page.until(page, "() => azurkit.ready", 300)
+        _page.until(page, locked, 60)
+        page.evaluate("() => localStorage.removeItem('azurkit.setup')")
+        page = served.context.new_page()
+        page.goto(link)
+        _page.until(page, "() => globalThis.azurkit?.ready", 300)
+        _page.until(page, locked, 120)
+        assert page.evaluate("() => azurkit.community.pins()")[0]["id"] == "hard"
+        page.evaluate("() => { document.getElementById('community-group').open = true; }")
+        _page.until(page, f"() => {row}?.querySelector('input')?.checked", 120)
+        page.evaluate(f"() => {row}.querySelector('input').click()")
+        _page.until(page, f"() => !{hp}.closest('.pack').classList.contains('owned') && !{hp}.disabled", 60)
+        _page.check_csp(page)
+    finally:
+        served.close()
+
+
 def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from_the_source(
         browser, site, usa_iso, tmp_path):
     """The Characters tab (Step 4.3d, D877, D913) on the site: with the image picked it lists the 178 species the

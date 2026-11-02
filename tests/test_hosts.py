@@ -819,6 +819,66 @@ def test_the_apps_characters_tab_lists_the_community_models_under_the_species_be
         server.close()
 
 
+def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_packs_locked(
+        browser, tmp_path, monkeypatch, usa_iso):
+    """The app's community group (Step 4.3k): an empty list says so; a folder source's pack lists with its tick greyed
+    (Install it first) until its Install, then its tick sets and locks the built-in rows it names, a Build carries its
+    layer, a relaunch restores it with the rows as they were before it, and its untick gives them back."""
+    from azurkit.tools.characters import content
+
+    from tests import test_community as made
+
+    _home(monkeypatch, tmp_path / "home")
+    source, _ = made._installed(tmp_path, monkeypatch, {"hard": made.HARD})
+    (empty := tmp_path / "none").mkdir()
+    (empty / "manifest.json").write_text(json.dumps({"format": content.FORMAT, "schema_version": 1, "entries": []}),
+                                         encoding="utf-8")
+    app._remember(content_source=str(empty))
+    row = """document.querySelector('.cpack[data-community="hard"]')"""
+    hp = """document.getElementById("player_max_hp.starting_hp")"""
+    for launch in (1, 2):
+        server = app.serve(_page.WEB)
+        try:
+            page = browser.new_page()
+            page.goto(server.url)
+            _page.until(page, "() => globalThis.azurkit?.ready", 120)
+            if launch == 1:
+                page.evaluate("() => { document.getElementById('community-group').open = true; }")
+                _page.until(page, "() => document.getElementById('community-note').textContent.startsWith('No community')",
+                            60)
+                page.evaluate(f"""() => {{ const b = document.getElementById('community-source'); b.value = {json.dumps(
+                    str(source))}; b.dispatchEvent(new Event('change', {{ bubbles: true }})); }}""")
+                _page.until(page, f"() => {row}?.querySelector('input').disabled && {row}.textContent.includes('Install it first')",
+                            60)
+                page.evaluate(f"() => {row}.querySelector('button').click()")
+                _page.until(page, f"() => {row}?.querySelector('input') && !{row}.querySelector('input').disabled", 60)
+                assert page.evaluate("() => document.getElementById('char-source').value") == str(source)   # one setting
+                page.evaluate(f"""() => {{ const b = {hp}; b.closest('.pack').querySelector('input[data-pack]').click();
+                    b.value = '175'; b.dispatchEvent(new Event('input', {{ bubbles: true }})); }}""")
+                page.evaluate(f"() => {row}.querySelector('input').click()")
+            _page.until(page, f"() => {hp}.value === '150' && {hp}.disabled && {hp}.closest('.pack').classList.contains('owned')"
+                              f" && {hp}.closest('.pack').querySelector('input[data-pack]').disabled", 60)
+            if launch == 2:
+                page.evaluate(f"() => {row}.querySelector('input').click()")
+                _page.until(page, f"() => {hp}.value === '175' && !{hp}.disabled", 60)
+                page.evaluate(f"() => {row}.querySelector('input').click()")
+            page.evaluate(f"""() => {{ const b = document.getElementById('iso-path'); b.value = {json.dumps(str(usa_iso))};
+                b.dispatchEvent(new Event('change', {{ bubbles: true }})); }}""")
+            _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+            page.evaluate("() => document.getElementById('build').click()")
+            _page.until(page, "() => azurkit.build || document.getElementById('status').classList.contains('error')", 300)
+            assert "community hard" in [la["id"] for la in page.evaluate("() => azurkit.build.report.layers")]
+            assert page.evaluate("() => azurkit.build.recipe.community")[0]["id"] == "hard"
+            assert " · community hard" in page.evaluate("() => document.getElementById('status').textContent")
+            _page.until(page, "() => azurkit.kept?.includes('community')", 60)   # remembered a moment after the change
+            _page.check_csp(page)
+            page.close()
+        finally:
+            server.close()
+    assert app._kept()["setup"]["community"] == [{"id": "hard"}]
+    assert app._kept()["setup"]["values"]["player_max_hp"]["starting_hp"] == 175   # as it was before the pack
+
+
 def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browser, tmp_path, monkeypatch):
     """D1034 in the app's page: Show objects, off at first (102 species listed, the count line naming the 76 objects
     hidden), ticked is remembered in the app's config (``api/show_objects``), so the next launch's page lists all 178;

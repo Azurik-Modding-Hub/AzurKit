@@ -46,6 +46,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import functools
+import hashlib
 import http.server
 import json
 import os
@@ -132,6 +133,10 @@ OPS = {op.id: op for op in (
        content=True),
     Op("A60", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
     Op("A61", "the same reshape's exact pictures again", "characters", first=False, content=True),
+    Op("A33", "the Patches tab's community group, first open -> its list", "build"),   # Step 4.3k: community packs
+    Op("A34", "Install a community pack -> its row tickable", "build"),
+    Op("A35", "tick it -> its rows set and locked", "build"),
+    Op("A36", "Build with it", "build", head_start=True),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -185,6 +190,10 @@ OPS = {op.id: op for op in (
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
+    Op("S26", "the Patches tab's community group, first open -> its list", "build"),   # Step 4.3k: community packs
+    Op("S27", "Install a community pack -> its row tickable", "build"),
+    Op("S28", "tick it -> its rows set and locked", "build"),
+    Op("S29", "Build with it", "build", head_start=True),
     Op("S30", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("S31", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("S32", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -1391,6 +1400,57 @@ def site_tools(d: Driver, ctx, url: str) -> None:
     d.leave(p)
 
 
+# ---- community packs (Step 4.3k): the Patches tab's group opened (a list of one fixture pack, no pack ships: D997),
+# its Install, its tick and a Build with it, the source a folder (the app) or the site's own address.
+PACK = {"format": "azurkit-preset", "schema_version": 1, "layers": [
+    {"tool": "mods", "kind": "packs", "recipe": {"enemy_scaling": {"enemy_damage_dealt_scale": 1.5},
+                                                 "player_max_hp": {"starting_hp": 150}}},
+    {"tool": "data", "kind": "xbr", "recipe": {"ops": [{"op": "set", "file": "gamedata/config.xbr", "table":
+                                                        "critters_damage", "entity": "golem", "prop": "hitPoints",
+                                                        "value": 321}]}}]}
+PACK_ROW = """document.querySelector('.cpack[data-community="perf_hard"]')"""
+
+
+def _pack_source(folder: Path) -> Path:
+    """A content repository of the one fixture pack, in ``folder``."""
+    text = json.dumps(PACK).encode()
+    (folder / "packs/perf_hard").mkdir(parents=True, exist_ok=True)
+    (folder / "packs/perf_hard/pack.json").write_bytes(text)
+    (folder / "manifest.json").write_text(json.dumps({"format": "azurik-custom-content", "schema_version": 1, "entries": [
+        {"id": "perf_hard", "kind": "pack", "title": "Perf Hard", "author": "AzurKit's tests", "licence": "MIT",
+         "version": 1, "requires": [], "files": [{"path": "packs/perf_hard/pack.json", "size": len(text),
+                                                  "sha256": hashlib.sha256(text).hexdigest()}]}]}), encoding="utf-8")
+    return folder
+
+
+def _community(d: Driver, p: Page, ops: tuple[str, str, str, str], url: str, pick: Callable[[], None]) -> None:
+    listed, install, tick, build = ops
+    d.act(p, listed, f"""() => {{ document.getElementById('community-group').open = true;
+      const b = document.getElementById('community-source'); b.value = {json.dumps(url)};
+      b.dispatchEvent(new Event('change')); }}""", f"() => {PACK_ROW}", 300)   # the source's one read: the group's first
+    d.act(p, install, f"() => {PACK_ROW}.querySelector('button').click()",
+          f"() => {PACK_ROW}?.querySelector('input') && !{PACK_ROW}.querySelector('input').disabled", 300)
+    d.act(p, tick, f"() => {PACK_ROW}.querySelector('input').click()",
+          """() => document.getElementById('player_max_hp.starting_hp').disabled""", 60, change=True)
+    pick()
+    d.act(p, build, build_js(), BUILT, 900)
+
+
+def app_community(d: Driver, app: App, ctx) -> None:
+    source = _pack_source(d.scratch / "pack-source")
+    p = app.launch(d, ctx, None)
+    _community(d, p, ("A33", "A34", "A35", "A36"), str(source),
+               lambda: d.act(p, None, typed("iso-path", str(d.iso)), USA, change=True))
+    app.quit(p)
+
+
+def site_community(d: Driver, ctx, url: str) -> None:
+    _pack_source(d.site / "perf-content")
+    p = _site_page(d, ctx, url, None)
+    _community(d, p, ("S26", "S27", "S28", "S29"), "./perf-content/", lambda: _pick(d, p, None))
+    p.page.close()
+
+
 # ---- the Data tab (Step 4.7a): its first open (the index and the Player view, no image), a critter's view, the
 # picker's search, critters_damage's grid, an edit committed and its Undo (each the engine's check or view again), a
 # Build of the defaults and 100 data edits (the site's loaded in the Tools tab, the app's its remembered setup at the
@@ -1528,6 +1588,7 @@ def site_data(d: Driver, ctx, url: str) -> None:
 SCENARIOS = {   # name: (host, its ops, the driver)
     "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"), app_start),
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
+    "app-community": ("app", ("A33", "A34", "A35", "A36"), app_community),
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
     "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38"), app_track),
     "app-ahead-track": ("app", ("A56",), app_ahead_track),
@@ -1541,6 +1602,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-start": ("site", ("S01", "S02", "S03", "S04", "S05", "S06", "S08", "S10", "S11", "S14", "R14", "S49", "S16",
                              "S17"),
                    site_start),
+    "site-community": ("site", ("S26", "S27", "S28", "S29"), site_community),
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
@@ -1589,6 +1651,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
     t = time.monotonic()
     scratch = Path(tempfile.mkdtemp(prefix=f"azurkit-perf-{run.name}.", dir="/tmp"))
     d = Driver(run, targets, scratch, iso, content)
+    d.site = site
     python = python or (venv(wt, scratch / "app") if run.host == "app" else None)
     current: list[App] = []
     before, shared = {(pid, started) for pid, _, comm, started in Memory.rows() if ".xpc/" in comm}, []

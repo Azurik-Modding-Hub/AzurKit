@@ -354,22 +354,31 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `data` xbr layer only: release-free (no `base` or `result`), data only (no
   randomizer, character, XBE site or code), its packs carrying every pack
   they need (`check`). `refusal` is the content folder's Install check of a
-  pack entry, for `content.verify`'s `refusal=` hook (S1's), which the sdk
-  passes from the hub half (H3); until then a pack entry installs with only
-  the size, sha256 and disc-image checks (`tools.characters` may not import
-  `tools.mods`). A recipe pins one by id and its pack.json's
+  pack entry, which every Install passes (`sdk.content_refusal`,
+  `content.verify`'s `refusal=`; `tools.characters` may not import
+  `tools.mods`). A recipe's `community` pins one by id and its pack.json's
   sha12 (`normalize`), and `resolve` takes it only installed, untouched
   since and at the pin, naming what to Install or Update. Its built-in packs
   `merge` with the recipe's own (a pack two sources set to other values is
   refused, naming both and the slider; equal copies are one; nothing is
   unticked) and plan as ordinary pack layers; its edits are a layer of
-  their own (`layer`, `community <id>`) for the sdk to lay after the packs
+  their own (`layer`, `community <id>`) that `sdk._plan` lays after the packs
   and the character and before the player's own `data xbr`, so a later
   layer wins, reported (D28). A build's manifest records it by id, version
   and sha256, never its bytes, and `edits.preset.from_manifest` gives it
-  back as the mods file's `community` layer, `{"packs": [{"id", "sha"}]}`.
-  No pack ships (D997), so no golden records one: fixture packs in
-  `tests/test_community.py` pin them.
+  back as the mods file's `community` layer, `{"packs": [{"id", "sha"}]}`,
+  as a link carries it; a link naming one not installed at its pin is
+  refused by name, and a remembered setup keeps its id alone (`sdk.restore`
+  drops one that isn't installed, by name). `azurkit build --community ID`
+  builds one. The Patches tab's group (`web/community.mjs`, on `web/content.mjs`)
+  lists them with Install and Update, reads the source when first opened or
+  when a link or the setup ticks one, and locks the rows a ticked one sets
+  (`sdk.community`: what the content folder holds). Known flaw (D835): an
+  `xbr` set on a cell the movement model reads leaves a seed's verdict
+  unflagged, as the Data tab's does. No pack ships (D997), so no golden
+  records one: fixture packs in `tests/test_community.py` pin them, its T3
+  against the same recipe written out; `tests/_perf.py`'s A33-A36 and
+  S26-S29 time the group on a fixture pack.
 - **Shims** (Step 4.1f1): a `TrampolinePatch` hooks a site with a CALL or
   JMP rel32 into a C shim. A shim's source and its prebuilt object sit side
   by side in `src/azurkit/tools/mods/shims/` (`<name>.c`, `<name>.o`), both
@@ -853,8 +862,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Engine halves no host calls yet** (each tested alone; its hub half wires
   it): the site's work ahead (`web/workers.mjs`), the warm-up
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
-  `web/memo.mjs`), the service worker (`web/sw.js`), community packs
-  (`tools/mods/community.py`, `web/content.mjs`), Replace files
+  `web/memo.mjs`), the service worker (`web/sw.js`), Replace files
   (`edits/files.py`) and Saves (`tools/saves/`).
 - **The page** (`web/`): pick the image, choose packs and set their sliders
   (a box takes any value; the track widens to hold it), Build, then Save. One

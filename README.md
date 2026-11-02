@@ -52,6 +52,9 @@ source ([Development](#development)).
   copy).
 - **Clear refusals:** only a value the game can't hold is refused, and by name.
 - **Linked packs:** a pack that needs another ticks it too.
+- **Community packs:** ready-made setups from our Azurik-Custom-Content, listed in the Patches tab with Install and
+  Update; a ticked one sets its packs and game data for you, every file checked first, and stays at its version until
+  you update it. None are published yet.
 
 ### Randomizer
 

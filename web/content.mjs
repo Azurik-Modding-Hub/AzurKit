@@ -63,12 +63,11 @@ export function needs(entries, id) {
 // The reply's bytes, refused once past size (the manifest's): its Content-Length first, then as it streams.
 async function capped(reply, path, size) {
   const told = Number(reply.headers?.get?.("content-length"));
-  const past = (n) => new Error(`${path}: ${n.toLocaleString("en-US")} bytes or more, past the community list's `
-                                + `${size.toLocaleString("en-US")}`);
-  if (told > size) throw past(told);
+  const past = () => new Error(`${path}: past the ${size.toLocaleString("en-US")} bytes its manifest lists`);
+  if (told > size) throw past();
   if (!reply.body?.getReader) {
     const data = new Uint8Array(await reply.arrayBuffer());
-    if (data.length > size) throw past(data.length);
+    if (data.length > size) throw past();
     return data;
   }
   const reader = reply.body.getReader(), parts = [];
@@ -79,7 +78,7 @@ async function capped(reply, path, size) {
     n += value.length;
     if (n > size) {
       reader.cancel().catch(() => {});
-      throw past(n);
+      throw past();
     }
     parts.push(value);
   }
@@ -103,6 +102,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
   get ??= (...args) => globalThis.fetch(...args);
   const store = () => storage ?? globalThis.localStorage;
   const s = { source: base, manifest: null, why: null, entries: [], installed: {}, installing: null };
+  let reads = 0;   // a read's answer is dropped once a later read or an Install has begun
   const listeners = new Set();
   const changed = () => {
     for (const listen of listeners) listen(s);
@@ -131,8 +131,10 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
   // can't be read (why says so; each tab adds its own line).
   const read = async () => {
     await ready;
+    const mine = ++reads;
     if (app) {
       const reply = await call("content", { source: s.source });
+      if (mine !== reads) return s;
       if ("refused" in reply) s.why = reply.refused;
       else ({ manifest: s.manifest, why: s.why, entries: s.entries, installed: s.installed } = reply);
       changed();
@@ -153,6 +155,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
       const text = await reply.text();
       const checked = await call("content_check", { manifest: text });
+      if (mine !== reads) return s;
       if ("refused" in checked) throw new Error(checked.refused);
       s.manifest = checked.manifest;
       await kept.put([["manifest", text]]).catch(() => {});
@@ -170,6 +173,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
   const install = async (entry, progress = () => {}) => {
     if (s.installing) throw new Error(`${s.installing} is installing: one at a time`);
     s.installing = entry.id;
+    reads += 1;
     changed();
     try {
       if (app) {
