@@ -1617,7 +1617,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   pyproject's version and whose commit is on `main` builds the four apps,
   the wheel, the sdist, `SHA256SUMS`, their attestations and a draft
   release; the owner's Publish on it uploads that draft's wheel and sdist
-  to PyPI by trusted publishing and then deploys the site to Pages. PyPI's
+  to PyPI by trusted publishing and then deploys the site to Pages. A
+  dispatch is its dry run (D1068): from `main`, the same apps, wheel,
+  sdist, site and checked `SHA256SUMS`, left as the run's own artifacts,
+  and no attestation (Sigstore's log is public), draft, upload or deploy
+  (`tests/test_contracts.py` reads each job's `if:` under each event). PyPI's
   pending publisher names the file and its `pypi` environment: neither
   changes. Before the first Publish, Pages' source must be GitHub Actions
   and the `github-pages` environment must admit the tag rule `v*`, or the

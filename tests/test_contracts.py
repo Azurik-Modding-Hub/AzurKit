@@ -164,38 +164,71 @@ USES = re.compile(r"^\s*(?:- )?uses:\s*(.*?)\s*$", re.M)
 PINNED = re.compile(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}\s+#\s*v\d\S*\Z")
 RELEASE_PERMISSIONS = {
     "check": {"contents": "read"}, "apps": {"contents": "read"}, "python": {"contents": "read"},
-    "site": {"contents": "read"}, "attest": {"id-token": "write", "attestations": "write"},
+    "site": {"contents": "read"}, "sums": {}, "attest": {"id-token": "write", "attestations": "write"},
     "draft": {"contents": "write"}, "pypi": {"contents": "read", "attestations": "read", "id-token": "write"},
     "pages": {"pages": "write", "id-token": "write"}}
 """What each job of ``release.yml`` may do, and no more (a new job names its own)."""
 
 
-def test_the_release_workflow_runs_only_on_a_v_tag_and_its_published_draft_with_every_action_pinned_by_sha():
+def _release_jobs() -> dict[str, str]:
+    """``release.yml``'s jobs, ``{id: its lines}``, comments left out."""
+    text = re.sub(r"(?m)^\s*#.*\n", "", (WORKFLOWS / "release.yml").read_text(encoding="utf-8"))
+    parts = re.split(r"(?m)^  ([a-z]+):\n", "\n" + text.split("\njobs:\n")[1])
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
+def test_the_release_workflow_runs_only_on_a_v_tag_its_published_draft_or_a_dispatch_with_every_action_pinned_by_sha():
     """``release.yml`` (D1022, D885): its name and the pypi job's environment
-    are what PyPI's pending publisher reads; it starts only on a v* tag and
-    on a release's publishing, never on a branch's push, a pull request or a
-    dispatch; the first run ends in a draft and only the second uploads or
-    deploys; each job holds :data:`RELEASE_PERMISSIONS` under an empty top;
-    it reads no secret and no game image. Every action of every workflow is
-    pinned by a commit's sha, its release beside it."""
+    are what PyPI's pending publisher reads; it starts only on a v* tag, on
+    a release's publishing and on a dispatch (D1068's dry run), never on a
+    branch's push or a pull request; the first run ends in a draft and only
+    the second uploads or deploys; each job holds :data:`RELEASE_PERMISSIONS`
+    under an empty top; it reads no secret and no game image. Every action
+    of every workflow is pinned by a commit's sha, its release beside it."""
     text = re.sub(r"(?m)^\s*#.*\n", "", (WORKFLOWS / "release.yml").read_text(encoding="utf-8"))
     head, jobs = text.split("\njobs:\n")
     assert head[head.index("on:\n"):head.index("permissions:")].split() == [
-        "on:", "push:", "tags:", '["v*"]', "release:", "types:", "[published]"]
+        "on:", "push:", "tags:", '["v*"]', "release:", "types:", "[published]", "workflow_dispatch:"]
     assert "permissions: {}" in head
-    assert not re.search(r"secrets\.|gamedata|\.iso\b|AZURKIT_ISO|pull_request|workflow_dispatch|workflow_run|branches:",
-                         text, re.I)
-    parts = re.split(r"(?m)^  ([a-z]+):\n", "\n" + jobs)
-    bodies = dict(zip(parts[1::2], parts[2::2]))
+    assert not re.search(r"secrets\.|gamedata|\.iso\b|AZURKIT_ISO|pull_request|workflow_run|branches:|inputs:", text, re.I)
+    bodies = _release_jobs()
     assert {name: dict(re.findall(r"^      ([a-z-]+): (read|write)$", body[body.index("permissions:"):], re.M))
             for name, body in bodies.items()} == RELEASE_PERMISSIONS
     assert re.findall(r"(?m)^    environment: (\w+)$", jobs) == ["pypi"] and "environment: pypi" in bodies["pypi"]
     assert "pypa/gh-action-pypi-publish@" in bodies["pypi"] and "actions/deploy-pages@" in bodies["pages"]
     assert "--draft" in bodies["draft"] and "release create" in bodies["draft"]
-    for name in ("apps", "python", "attest", "draft"):
-        assert "if: github.event_name == 'push'" in bodies[name], name
-    for name in ("pypi", "pages"):
-        assert "if: github.event_name == 'release'" in bodies[name], name
     unpinned = [f"{path.name}: {use}" for path in sorted(WORKFLOWS.glob("*.yml"))
                 for use in USES.findall(path.read_text(encoding="utf-8")) if not PINNED.fullmatch(use)]
     assert unpinned == []
+
+
+def test_a_dispatched_dry_run_builds_and_checksums_the_release_but_reaches_no_attestation_draft_pypi_or_pages():
+    """D1068 (Step 4.4ci8): each job's ``if:`` and ``needs`` read under each
+    event that starts ``release.yml``. A dispatch on main runs check, the
+    four apps, the wheel and sdist, the site and ``SHA256SUMS``, none of
+    them holding an id-token or a write, and never attest (Sigstore's
+    public log), the draft, pypi or pages; a v* tag's push still runs
+    everything to the draft, and the published draft's run check, the site,
+    pypi and pages. No job overrides a skipped need (``always()``)."""
+    bodies = _release_jobs()
+    assert not re.search(r"always\(\)|failure\(\)|cancelled\(\)", "".join(bodies.values()))
+    names = {"github.repository": "'Azurik-Modding-Hub/AzurKit'", "&&": " and ", "||": " or "}
+
+    def runs(event: str, ref: str) -> set[str]:
+        went: set[str] = set()
+        for name, body in bodies.items():   # each job after those it needs
+            when = re.search(r"(?m)^    if: (?:>-\n((?:      .*\n)+)|(.*)\n)", body)
+            rule = " ".join("".join(when.groups(default="")).split()) if when else "True"
+            for word, value in names.items() | {"github.event_name": repr(event), "github.ref": repr(ref)}.items():
+                rule = rule.replace(word, value)
+            need = re.search(r"(?m)^    needs: \[?([\w, ]+)\]?$", body)
+            if eval(rule, {"__builtins__": {}, "startsWith": str.startswith}) and all(
+                    n.strip() in went for n in (need[1].split(",") if need else ())):
+                went.add(name)
+        return went
+
+    dry = runs("workflow_dispatch", "refs/heads/main")
+    assert dry == {"check", "apps", "python", "site", "sums"}
+    assert all(how == "read" for name in dry for how in RELEASE_PERMISSIONS[name].values())
+    assert runs("push", "refs/tags/v0.9.0") == dry | {"attest", "draft"}
+    assert runs("release", "refs/tags/v0.9.0") == {"check", "site", "pypi", "pages"}

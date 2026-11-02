@@ -1,11 +1,16 @@
 # A release of AzurKit (Step 4.3r4j; D1022, D885, D1026), in two runs, each only on what starts it:
 # - A pushed v* tag builds the draft. check: the tag names pyproject's version and its commit is on main. apps: the four
 #   apps, each frozen on its own OS (Mac arm64, Mac Intel, Windows x64, Linux x64), unsigned (D885). python: the wheel and
-#   the sdist. site: the site, built here only so a broken one stops the draft. attest: SHA256SUMS and the build's
-#   provenance over every file. draft: a DRAFT GitHub release holding them. Nothing public changes.
+#   the sdist. site: the site, built here only so a broken one stops the draft. sums: SHA256SUMS over the apps, the
+#   wheel and the sdist, checked. attest: the build's provenance over every file, SHA256SUMS too. draft: a DRAFT GitHub
+#   release holding them. Nothing public changes.
 # - The owner's Publish on that draft goes live. check runs again and the site is rebuilt from the tag's commit, pypi
 #   uploads the draft's own wheel and sdist (read back and checked against their attestation) by trusted publishing, and
 #   only after that upload pages deploys the site.
+# - A dispatch is a dry run (D1068, Step 4.4ci8): check (its commit on main; there is no tag to name the version), apps,
+#   python, site and sums, as a tag's run makes them, each left as this run's own artifact for a few days. attest
+#   (Sigstore's public log), draft, pypi and pages run only on a tag's push or a release's publishing, so a dry run
+#   holds no id-token and no write, tags nothing and makes nothing public.
 # PyPI's pending publisher reads azurkit / Azurik-Modding-Hub / AzurKit / release.yml / pypi: this file's name and the
 # pypi job's environment must not change.
 # Before the first Publish (repository settings, not made here): Pages' source is GitHub Actions (D1026: off until the
@@ -22,6 +27,7 @@ on:
     tags: ["v*"]
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions: {}
 
@@ -35,7 +41,9 @@ env:
 jobs:
   check:
     name: the tag is this version's, on main
-    if: github.repository == 'Azurik-Modding-Hub/AzurKit' && startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      github.repository == 'Azurik-Modding-Hub/AzurKit'
+      && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -54,7 +62,7 @@ jobs:
       - id: version
         run: |
           version="$(uv version --short)"
-          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+          if [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
             echo "::error::the tag $GITHUB_REF_NAME isn't pyproject.toml's version $version"
             exit 1
           fi
@@ -67,7 +75,7 @@ jobs:
   apps:
     name: freeze (${{ matrix.label }})
     needs: check
-    if: github.event_name == 'push'
+    if: github.event_name != 'release'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     permissions:
@@ -119,7 +127,7 @@ jobs:
   python:
     name: the wheel and the sdist
     needs: check
-    if: github.event_name == 'push'
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -171,9 +179,35 @@ jobs:
         with:
           path: ${{ runner.temp }}/site
 
+  sums:
+    name: SHA256SUMS, checked
+    needs: [apps, python, site]
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: files
+      - name: SHA256SUMS, checked
+        working-directory: files
+        run: |
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: release-sums
+          path: files/SHA256SUMS
+          retention-days: 7
+          if-no-files-found: error
+
   attest:
     name: SHA256SUMS and the provenance
-    needs: [apps, python, site]
+    needs: sums
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -186,20 +220,9 @@ jobs:
           pattern: release-*
           merge-multiple: true
           path: files
-      - name: SHA256SUMS
-        working-directory: files
-        run: |
-          sha256sum -- * > SHA256SUMS
-          cat SHA256SUMS
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: files/*
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: release-sums
-          path: files/SHA256SUMS
-          retention-days: 7
-          if-no-files-found: error
 
   draft:
     name: the draft release
