@@ -53,7 +53,7 @@ from pathlib import Path
 
 from azurkit import sdk
 from azurkit.core import gate, iso, native
-from azurkit.core.progress import record
+from azurkit.core.progress import Steps, noting, record
 from azurkit.edits import files as replaced
 from azurkit.tools import characters, randomizer
 from azurkit.tools.characters import pool
@@ -266,7 +266,8 @@ def _warmed(job: Callable, always: bool = False) -> Callable:
 
 
 def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> dict:
-    """A seed's plan; a shaped one's spoiler openers then go on ahead, low, for the spoiler's View."""
+    """A seed's plan; a shaped one's spoiler openers then go on ahead, low, for the spoiler's View, past any build (the
+    two share this process's GIL: beside it they took a Build from 1.4 s to 3.7 s at the click)."""
     doc = sdk.plan(recipe, progress=progress)
     if doc["settings"].get("seed_difficulty"):
         threading.Thread(target=_openers_ahead, args=(doc,), name="azurkit-openers", daemon=True).start()
@@ -274,8 +275,13 @@ def _plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> 
 
 
 def _openers_ahead(doc: Mapping) -> None:
+    def past_builds(_step: dict) -> None:
+        with _BUILDING:
+            while _BUILDS:
+                _BUILDING.wait()
     procpool.Low()(True)
-    with contextlib.suppress(Exception):   # a head start only: the View names what it refuses
+    with contextlib.suppress(Exception), noting(Steps(past_builds)) as steps:   # a head start: the View names its refusal
+        steps("spoiler")
         randomizer.openers_ahead(doc)
 
 
