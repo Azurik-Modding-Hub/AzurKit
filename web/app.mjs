@@ -1,7 +1,7 @@
 // The page (D866): pick your image, choose packs and set their sliders, Build, then Save. One page for both hosts,
 // the site and the app; it decides no output byte (WEB §3.1). host.json names the host's engine, and the engine, azurkit.sdk, plans and
-// checks the build. The site's, siteEngine(), is the wheel under Pyodide in a module worker, kept while it is small: it
-// returns the build as segments, which this page joins into a Blob of slices of your own file and the bytes the
+// checks the build. The site's, siteEngine(), is the wheel under Pyodide in two module workers (workers.mjs): it
+// returns the build as segments and their Blob, of slices of your own file and the bytes the
 // build writes (WEB §3.4), and Save downloads it. The app's, appEngine(), is azurkit.sdk on CPython behind the app's
 // own server on 127.0.0.1 (azurkit.app), in its window or a browser alike: it reads the image at the path you give
 // and writes the build where you save it. Text reaches the page only through textContent. No eval: the CSP has no
@@ -55,8 +55,10 @@ import { hashed } from "./hasher.mjs";
 import { alone } from "./dress.mjs";
 import { replaceFiles } from "./replace.mjs";
 import { savesSection } from "./saves.mjs";
+import { hold, letGo, sweep } from "./outputs.mjs";
 import { tools } from "./tools.mjs";
 import { tracker } from "./tracker.mjs";
+import { canon, workers } from "./workers.mjs";
 
 const $ = (id) => document.getElementById(id);
 const R = (id) => $(`rando-${id}`);
@@ -110,9 +112,10 @@ function setup() {
 // setup built, before their click (api/prefetch, api/speculate), with the bodies Track and Build send; each carries
 // state.gen, bumped by every change (from the clock: a reloaded page's are newer), so the engine drops an older one at
 // its next record, and a setup with nothing to build yet drops it too (the Characters tab offers again once it answers).
-// The site's is its second worker's, not this one's.
+// The site's is its second worker's (aheadOnSite).
 function ahead() {
-  if (!state.app || !state.ready || state.building || state.saving) return;
+  if (!state.app) return aheadOnSite();
+  if (!state.ready || state.building || state.saving) return;
   const seed = R("seed").value.trim(), share = state.rando.view?.share, t = state.tracker?.state;
   state.engine.prefetch(state.gen, seed && share ? { seed, share } : null, { spoiler: t?.spoiler, gems: t?.gems });
   const randomizer = randoRecipe();
@@ -121,6 +124,33 @@ function ahead() {
       || state.characters?.waiting() || state.community?.waiting()) return void state.engine.speculate(state.gen, null);
   state.engine.speculate(state.gen, state.file, chosen(), state.xbr, randomizer,
                          state.characters?.character() ?? null, extras());
+}
+
+// The site's work ahead (D1007), in B, the second worker: the typed seed's plan and first view (with Randomize on or the
+// Tracker view open), and, once the picked image is read, Build's build of the page's recipe; each change lists them
+// anew, so what no longer matches stops at once (B's job by terminate()) and B starts on the rest once the page holds
+// still. A reshaped character isn't built ahead: minutes, and a heap past KEEP terminated by the next slider's change
+// would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap, alone.
+const reshaped = (character) => Boolean(character?.shapes && Object.keys(character.shapes).length);
+function aheadOnSite() {
+  if (!state.engine?.ahead || !state.packs || state.restoring) return;
+  const seed = R("seed").value.trim(), share = state.rando.view?.share, rando = randoRecipe(), tracking = !$("tracker").hidden;
+  const character = state.characters?.character() ?? null, plans = [], builds = [];
+  if (seed && share && (rando || tracking)) {
+    const asked = { seed, share }, known = JSON.stringify(asked);
+    plans.push(state.engine.planning(asked, ({ reply }) => {
+      if (!reply?.plan) return;
+      state.planned = { known, plan: reply.plan };
+      ahead();
+    }));
+    if (state.planned?.known === known) plans.push(state.engine.viewing(state.tracker.first(state.planned.plan)));
+  }
+  if (state.vanilla && state.read === state.file && !state.opened && state.replace && !state.characters?.refused()
+      && !state.characters?.waiting() && !state.community?.waiting() && (!rando || rando.seed) && !reshaped(character)) {
+    builds.push(state.engine.building(state.file, chosen(), state.xbr, rando, character,
+                                      { ...extras(), ...state.replace.picked() }));
+  }
+  state.engine.ahead(tracking ? [...plans, ...builds] : [...builds, ...plans]);
 }
 
 // Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
@@ -259,152 +289,191 @@ function unchecked() {
   if (checks.length) showing();
 }
 
-// The site's engine: a module worker, started from a blob: URL so that it keeps the page's CSP. It is kept after a
-// build while the heap its answer reports is under KEEP (Step 4.3i: wasm memory never shrinks, so a worker a build grew
-// is replaced, "Preparing the engine…" meanwhile), else replaced, as it is after a cancel or a report with no heap;
-// not after one that never loaded. A seed's build comes without its spoiler, which the worker sends next (built's
-// spoiled: a promise of it); a worker the page doesn't keep is replaced once it has.
-const KEEP = 1 << 30;
+// The site's engine: two module workers (web/workers.mjs, Step 4.3r4l: F answers the page's asks, B works ahead), each
+// started from a blob: URL so that it keeps the page's CSP. A worker a job grew stays for the next heavy job, wasm memory
+// never shrinking (one heap, workers.mjs); one past its line is replaced, "Preparing the engine…" meanwhile, by B at once
+// when B is idle and small. A seed's build comes without its spoiler, which the worker sends next (built's spoiled: a
+// promise of it). A click whose key is B's finished job takes its answer; one B is still working on follows B's records.
+// The key holds everything an answer reads: the recipe, the picked File (by identity: a new pick is a new key), what this
+// browser keeps installed and the engine's version.
+const SMALL = new Set(["pickers", "tracker", "data", "data_edit"]);   // an ask B answers while F builds
+const ASIDE = new Set(["content", "pickers", "content_check"]);   // sent no image, B answers while F runs anything: an
+                                                                  // Install's list never waits for a check (Step 4.3r4m)
 function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, decoded, restored, rando }) {
-  let worker = null, loaded = false, calls = 0, content = null, engine = null, spoiled = null, retiring = false;
-  let starting = null;   // the ask a loading worker's start records show on, answered at its ready or its stop
-  const waits = new Map();   // the posted asks this worker answers by type (the Randomizer tab's, the restore): ask ids
-  const wait = (kind, message) => {
-    answered(waits.get(kind));
-    waits.set(kind, asking(kind));
-    worker.postMessage(message);
-  };
-  const end = (kind) => {
-    answered(waits.get(kind));
-    waits.delete(kind);
-  };
-  const pending = new Map();   // the tracker's asks in flight (call id -> its message and answer), sent again to a
-                               // worker that replaces one stopped before it answered (a once ask it was sent is
-                               // answered refused: a dress that ran the engine out of memory isn't tried again); an
-                               // ask made while the worker loads or retires waits, unsent, for the next one
-  const start = () => {
-    loaded = false;
-    answered(starting);
-    starting = asking("start");
+  let calls = 0, content = null, engine = null, picks = 0;
+  let starting = null;   // the ask a loading F's start records show on, answered at its ready or its stop
+  const picked = new WeakMap();
+  const start = (role) => {
+    if (role === "f") {
+      answered(starting);
+      starting = asking("start");
+    }
     const entry = new URL("worker.mjs", location.href).href;
     const url = URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
-    worker = new Worker(url, { type: "module" });
-    worker.onmessage = ({ data }) => {
-      if (data.type === "native") {   // every worker's, for the perf gate's native assert (a worker's ends with it)
+    const worker = new Worker(url, { type: "module" });
+    worker.addEventListener("message", ({ data }) => {
+      if (data?.type === "ready") URL.revokeObjectURL(url);
+      if (data?.type === "native") {   // every worker's, for the perf gate's native assert (a worker's ends with it)
         state.calls = { kernel: (state.calls?.kernel ?? 0) + (data.kernel ?? 0),
                         twin: (state.calls?.twin ?? 0) + (data.twin ?? 0) };
-        return;
       }
-      // (an answer that stood on no image may overtake a check, which keeps its bar: worker.mjs's aside)
-      if (data.type !== "progress" && !(data.type === "reply" && !pending.get(data.call)?.message.file)) unchecked();
-      if (data.type === "ready") {
-        URL.revokeObjectURL(url);
-        loaded = true;
-        answered(starting);
-        starting = null;
-        engine = [data.catalog, data.version];
-        state.workers = (state.workers ?? 0) + 1;   // the workers that loaded, for the tests
-        if (content) worker.postMessage({ type: "content", ...content });   // what this browser keeps installed
-        for (const ask of pending.values()) {
-          ask.sent = true;
-          worker.postMessage(ask.message);
-        }
-        ready(data.catalog, data.version);
-      } else if (data.type === "progress") {
+      if (data?.out) hold(data.out).then(() => worker.postMessage({ type: "held" }));   // its build file: this page's now
+    });
+    return worker;
+  };
+  const back = () => {   // the page's engine answers again (the same worker, or B's answer taken)
+    if (engine && !state.ready && pool.up()) ready(...engine);
+  };
+  const pool = workers({
+    start,
+    held: (messages) => messages.reduce((n, m) => n + (m.held ?? 0), 0),
+    free: (messages) => messages.forEach((m) => m.out && letGo(m.out)),
+    ready: (data) => {
+      answered(starting);
+      starting = null;
+      engine = [data.catalog, data.version];
+      state.workers = (state.workers ?? 0) + 1;   // the workers that took F's place, for the tests
+      ready(data.catalog, data.version);
+    },
+    told: (data) => {
+      if (data.type === "progress") {
         const { type, ...step } = data;
         posted(step, starting);
-      } else if (data.type === "reply") {
-        pending.get(data.call)?.done(data.reply);
-        pending.delete(data.call);
-      } else if (data.type === "vanilla") {
-        const { type, ...read } = data;
-        vanilla(read);
-      } else if (data.type === "opened") {
-        opened(data.preset);
-      } else if (data.type === "preset") {
-        shared(data.fragment);
-      } else if (data.type === "decoded") {
-        decoded(data.preset);
-      } else if (data.type === "restored") {
-        const { type, ...setup } = data;
-        end("restore");
-        restored(setup);
-      } else if (data.type === "rando") {
-        end("randomizer");
-        rando(data.reply, data.ticket);
-      } else if (data.type === "refused" && data.quiet) {
-        failed(data.message);
-      } else if (data.type === "built" || data.type === "refused") {
-        state.heap = data.heap ?? null;
-        const keep = typeof data.heap === "number" && data.heap < KEEP;
-        const coming = data.type === "built" && data.report.plan && !("spoiler" in data.report);
-        if (coming) data.spoiled = new Promise((give) => spoiled = give);
-        if (!keep && coming) retiring = true;
-        else if (!keep) restart();
-        (data.type === "built" ? built : refused)(data);
-        if (keep) ready(...engine);   // the page's engine is ready again: the same worker
-      } else if (data.type === "spoiled") {
-        const { type, ...reply } = data;
-        spoiled?.(reply);
-        spoiled = null;
-        if (retiring) restart();
       } else if (data.type === "csp") {
         state.violations.push(`worker: ${data.directive} ${data.blocked}`);
         failed(`The page's security policy refused ${data.directive} in the engine`);
       } else if (data.type === "failed") {
-        restart();
+        answered(starting);
+        starting = null;
         failed(data.message);
       }
-    };
-    worker.onerror = (e) => {
-      e.preventDefault();
-      restart();
-      failed(`The engine stopped (${e.message || "out of memory?"}): try again, or use the desktop app`);
-    };
-  };
-  const restart = () => {
-    worker.terminate();
-    unchecked();   // nor finishes a check
-    for (const ask of state.asks.values()) ask.record = null;   // nor runs a stage it reported (Step 4.3 train)
-    retiring = false;
-    answered(starting);
-    starting = null;
-    spoiled?.({ refused: "The engine stopped before it gave the spoiler: build the seed again" });
-    spoiled = null;
-    for (const kind of [...waits.keys()]) end(kind);   // a stopped worker answers none of them
-    for (const [call, { once, sent, done }] of pending) {
-      if (!once || (!sent && loaded)) continue;   // unsent, it waits for the worker that replaces this one
-      pending.delete(call);
-      done({ refused: "The engine stopped before it answered (out of memory?): try again, or use the desktop app" });
+    },
+  });
+  state.pool = pool;   // for the tests
+  const progress = ({ type, ...step }) => posted(step);
+  const plain = ({ type, heap, ...rest }) => rest;
+  const stopped = (data) => data.type === "failed" ? data.message
+    : `The engine stopped (${data.message || "out of memory?"}): try again, or use the desktop app`;
+  const key = (what) => {
+    try {
+      return canon({ ...what, installed: content?.installed ?? null, code: engine?.[1] ?? null });
+    } catch {
+      return null;   // a recipe no key holds: no work ahead, and the click asks F
     }
-    if (loaded) start();
   };
-  start();
+  const image = (file) => file ? picked.get(file) ?? (picked.set(file, ++picks), picks) : null;
+  // (a replaced file's picked File is no JSON: no key, so such a build is never made ahead)
+  const buildKey = (file, packs, xbr, randomizer, character, extra = {}) =>
+    key({ build: { packs, xbr, randomizer, character, ...extra }, image: image(file) });
+  const viewKey = ({ plan, ...rest }) => key({ view: rest, plan: plan?.sha256 ?? null });
+  // An ask answered by one kind of message: its bar, its answer, and a stopped worker's failure named.
+  const asked = (message, options, done) => pool.ask(message, { progress, ...options }).then((data) => {
+    unchecked();
+    if (data.type === "failed" || data.type === "stopped") failed(stopped(data));
+    else if (data.type !== "cancelled") done(data);
+    back();
+  });
+  const waits = new Map();   // the newest Randomizer tab's ask and restore: their bar
+  const wait = (kind, message, options, done) => {
+    answered(waits.get(kind));
+    const id = asking(kind);
+    waits.set(kind, id);
+    asked(message, options, done).finally(() => {
+      if (waits.get(kind) !== id) return;
+      answered(id);
+      waits.delete(kind);
+    });
+  };
   return {
-    build: (file, packs, xbr, randomizer, character, extra) => worker.postMessage({ type: "build", file, packs, xbr,
-                                                                                    randomizer, character, ...extra }),
-    randomizer: (given, ticket, file) => wait("randomizer", { type: "randomizer", given, ticket,
-                                                              ...(file ? { file } : {}) }),
-    vanilla: (file) => worker.postMessage({ type: "vanilla", file }),
-    preset: (recipe, report) => worker.postMessage({ type: "preset", recipe, report }),
-    decode: (text) => worker.postMessage({ type: "decode", text }),
-    restore: (setup) => wait("restore", { type: "restore", setup }),
-    call: (type, body, { once = false } = {}) => new Promise((resolve) => {
-      const message = { type, call: ++calls, ...body }, id = asking(type);
-      const done = (reply) => {
-        answered(id);
-        resolve(reply);
+    build: (file, packs, xbr, randomizer, character, extra = {}) => {
+      let give = null;
+      const shown = (data) => {   // the build (a seed's before its spoiler), or its refusal
+        if (data.type !== "built" && data.type !== "refused") return;
+        unchecked();
+        state.heap = data.heap ?? null;
+        if (data.type === "built") {
+          pool.hold(data.held ?? 0);   // what the page's Blob holds in memory
+          state.took = pool.took(data);   // from B's work ahead, for the tests
+          if (data.report.plan && !("spoiler" in data.report)) data.spoiled = new Promise((g) => give = g);
+        }
+        (data.type === "built" ? built : refused)(data);
+        back();
       };
-      const sent = loaded && !retiring;   // a retiring worker is stopped once it has sent the spoiler
-      pending.set(message.call, { message, done, once, sent });
-      if (sent) worker.postMessage(message);
+      pool.hold(0);   // the last build is gone (forget())
+      pool.ask({ type: "build", file, packs, xbr, randomizer, character, ...extra },
+               { key: buildKey(file, packs, xbr, randomizer, character, extra), heavy: true, alone: reshaped(character),
+                 progress, answer: shown }).then((data) => {
+        unchecked();
+        if (data.type === "spoiled") give?.(plain(data));
+        else if (data.type === "built" || data.type === "refused") shown(data);
+        else {
+          give?.({ refused: "The engine stopped before it gave the spoiler: build the seed again" });
+          if (data.type !== "cancelled") failed(stopped(data));
+        }
+        back();
+      });
+    },
+    randomizer: (given, ticket, file) => wait("randomizer", { type: "randomizer", given, ticket, ...(file ? { file } : {}) },
+                                              { anywhere: true }, (data) => rando(data.reply, data.ticket)),
+    vanilla: (file) => asked({ type: "vanilla", file }, {}, (data) => {
+      if (data.type === "vanilla") vanilla(plain(data));
+      else if (data.type === "opened") opened(data.preset);
+    }),
+    preset: (recipe, report) => asked({ type: "preset", recipe, report }, { anywhere: true }, (data) => {
+      if (data.type === "preset") shared(data.fragment);
+      else failed(data.message);
+    }),
+    decode: (text) => asked({ type: "decode", text }, {}, (data) => {
+      if (data.type === "decoded") decoded(data.preset);
+      else failed(data.message);
+    }),
+    restore: (setup) => wait("restore", { type: "restore", setup }, {}, (data) => restored(plain(data))),
+    call: (type, body, { once = false } = {}) => new Promise((resolve) => {
+      const id = asking(type);
+      const aside = ASIDE.has(type) && !body.file;
+      pool.ask({ type, call: ++calls, ...body }, {
+        once, heavy: once, anywhere: SMALL.has(type) || aside, aside, progress,
+        key: type === "plan" ? key({ plan: body.recipe }) : type === "tracker" ? viewKey(body.given) : null,
+      }).then((data) => {
+        if (data.type !== "reply" || body.file) unchecked();   // one that stood on no image may overtake a check (Step 4.3r4m)
+        answered(id);
+        back();
+        resolve(data.type === "reply" ? data.reply
+          : { refused: data.type === "cancelled" ? "Cancelled"
+            : "The engine stopped before it answered (out of memory?): try again, or use the desktop app" });
+      });
     }),
     content: (files, installed) => {
       content = { files, installed };
-      if (loaded) worker.postMessage({ type: "content", ...content });
+      pool.share({ type: "content", ...content });
+      ahead();
+    },
+    cancel: () => {
+      pool.cancel();
+      setTimeout(sweep, 1000);   // a stopped job's build file, once its lock is gone
+      unchecked();   // nor finishes a check
+      for (const ask of state.asks.values()) ask.record = null;   // nor runs a stage it reported (Step 4.3 train)
+      queueMicrotask(back);
+    },
+    // The work ahead's items: Track this seed's plan and its first view, and Build's build of the page's recipe.
+    planning: (recipe, kept) => {
+      const k = key({ plan: recipe });
+      return k && { key: k, message: { type: "plan", call: 0, recipe }, kept };
+    },
+    viewing: (given) => {
+      const k = viewKey(given);
+      return k && { key: k, message: { type: "tracker", call: 0, given } };
+    },
+    building: (file, packs, xbr, randomizer, character, extra = {}) => {
+      const k = buildKey(file, packs, xbr, randomizer, character, extra);
+      return k && { key: k, heavy: true, message: { type: "build", file, packs, xbr, randomizer, character, ...extra } };
+    },
+    ahead: (items) => {
+      const stopped = pool.state().dropped;
+      pool.want(items.filter(Boolean));
+      if (pool.state().dropped !== stopped) setTimeout(sweep, 1000);   // a dropped job's build file, once its lock is gone
     },
     dress: (body, stopping) => alone(body, { content, stopping, asking, answered, posted }),   // a worker of its own
-    cancel: restart,
   };
 }
 
@@ -540,6 +609,7 @@ function sliderRow(pack, slider, flip) {
 function vanilla(read) {
   if (state.asked !== state.file) return;
   state.vanilla = read;
+  state.read = state.file;
   for (const pack of state.packs?.packs ?? []) {
     for (const slider of pack.sliders) {
       const value = read.packs[pack.name]?.[slider.name];
@@ -775,6 +845,7 @@ function lines() {
 
 function forget() {
   if (state.url) URL.revokeObjectURL(state.url);
+  if (state.build?.out) letGo(state.build.out, state.build.saved);
   state.build = state.url = null;
   $("save").disabled = true;
   lines();
@@ -1004,10 +1075,13 @@ function report(text, error = false) {
 // 2 x KEPT + 1 parts, the same bytes. It runs ahead of the Save, after the build's answer, Save greyed and its own bar
 // moving until it ends (about 1.1-2.3 s of disk on a seed's), so a click never waits for it (D979, D1053). A private
 // window keeps Response.blob() in memory, a part that brings the parent's copy back on top of the tab's (7.2 GiB against
-// the plain Blob's 4.8): it refuses the origin's private file system, so it keeps the plain Blob.
+// the plain Blob's 4.8): it refuses the origin's private file system, so it keeps the plain Blob. The worker joined the
+// build's Blob (Step 4.3r4l); its pieces are its slices, each segment's, a copy's a slice of the File.
 const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3;
-async function byReference(segments, parts) {
+async function byReference(segments, blob) {
   await navigator.storage.getDirectory();
+  let start = 0;
+  const parts = segments.map((s) => blob.slice(start, start += s.size));
   const kept = new Set(segments.map((s, i) => [s, i]).filter(([s]) => s.kind === "copy")
     .sort((a, b) => b[0].size - a[0].size).slice(0, KEPT).map(([, i]) => i));
   const between = await new Response(new Blob(parts.filter((_, i) => !kept.has(i)))).blob();
@@ -1037,16 +1111,14 @@ function built(reply) {
     $("out-path").value = reply.out;
     $("out-row").hidden = state.dialogs;
   } else {
-    const file = state.file;
-    const parts = reply.segments.map((s) => s.kind === "copy" ? file.slice(s.offset, s.offset + s.size)
-      : s.kind === "bytes" ? s.data : new Uint8Array(s.size));
-    const blob = new Blob(parts, { type: "application/octet-stream" });
+    const { blob } = reply;   // joined in the worker, off this thread
     if (blob.size !== size) return report(`The build's pieces make ${bytes(blob.size)}, not ${bytes(size)}`, true);
-    const build = { report: made, size, segments: reply.segments, file, blob, checks: reply.checks, late: reply.late };
+    const build = { report: made, size, segments: reply.segments, file: state.file, blob, checks: reply.checks,
+                    late: reply.late, out: reply.out, saved: false };
     state.build = build;
     if (URL_COPIES) {
       const making = asking("flat");
-      build.flat = byReference(reply.segments, parts).catch(() => blob).then((flat) => {   // no flat one: still its bytes
+      build.flat = byReference(reply.segments, blob).catch(() => blob).then((flat) => {   // no flat one: still its bytes
         answered(making);
         build.blob = flat;
         if (state.build !== build) return;   // forgotten while it was made
@@ -1607,6 +1679,7 @@ function randoPane(view) {
   $("rando-settings").hidden = view !== "settings";
   $("tracker").hidden = view !== "tracker";
   if (view === "tracker") state.tracker?.draw();   // its maps, drawn from the image the first time they show
+  ahead();
 }
 
 // Track this seed: the Settings view's seed and settings (their share string, with the Patches tab's movement
@@ -1729,6 +1802,7 @@ async function main() {
     return stop("This browser can't run AzurKit (it needs WebAssembly and workers): use the desktop app.");
   } else {
     state.engine = siteEngine(callbacks);
+    sweep();   // a crashed page's build files
     state.remembered = stored();
     state.tracked = storedTracked();
     $("iso").addEventListener("change", () => {
@@ -1739,6 +1813,7 @@ async function main() {
       say("");
       busy(false);
       askVanilla();
+      ahead();   // what the last image held stops now
       state.tracker?.draw();   // the tracker's maps are drawn from it, if they aren't yet
       state.characters?.imaged();
       if (state.characters?.character()) askRando();   // the worn body's size folds in from the image
@@ -1755,6 +1830,7 @@ async function main() {
     unlinked();
     clearTimeout(state.later);
     state.later = setTimeout(remember, 250);
+    if (!state.app) ahead();   // the site's: what no longer matches stops now
   };
   $("packs").addEventListener("change", () => {
     changed();
@@ -1801,6 +1877,7 @@ async function main() {
     document.body.append(a);
     a.click();
     a.remove();
+    state.build.saved = true;
     say(`Saving ${a.download} (${bytes(state.build.size)}): your browser's download shows its progress`);
     checkSave(state.build, a.download);
   });

@@ -81,7 +81,8 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   // (asked: none) as it does with none shown.
   const unreadAnswer = async (mine) => {
     const reply = await call("pickers", { given: { iso: null, character: c.character, content: { manifest: c.manifest } } });
-    if (mine !== c.ticket || "refused" in reply) return;   // a refusal is the image's answer's to name
+    // a refusal is the image's answer's to name, and that answer stands if it came first (the site's two workers)
+    if (mine !== c.ticket || c.answered === mine || "refused" in reply) return;
     c.view = { ...reply, asked: null, from: null };
     render();
     draw();
@@ -94,6 +95,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     if (!app && !picked && reading() && c.read !== from) unreadAnswer(mine);
     const reply = await call("pickers", given({ character: c.character, content: { manifest: c.manifest } }));
     if (mine !== c.ticket) return;
+    c.answered = mine;
     if (!("refused" in reply)) Object.assign(reply, { asked, from });
     if ("refused" in reply) {
       $("char-refused").hidden = false;

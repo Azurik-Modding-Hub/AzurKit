@@ -240,6 +240,12 @@ OPS = {op.id: op for op in (
     Op("S56", "Saves: a slot's folder opened", "build"),   # Step 4.7e
     Op("S57", "Saves: the slots of an xemu HDD image", "build"),
     Op("S58", "Saves: a line edited, then the slot saved", "build"),
+    Op("S59", "Build a median seed, another seed's work ahead going stale 1 s into the head start", "randomizer",
+       head_start=True),   # "B dropped": A58's
+    Op("S60", "Track a median seed (plan and tracker)", "tracker", head_start=True),   # S18's
+    Op("S61", "Build a median seed, no Track first", "randomizer", head_start=True),   # S24's
+    Op("S62", "Cancel a build, then Build", "randomizer"),   # the second worker's (Step 4.3r4l), A29's twin: no head start
+    Op("S63", "a small ask while a build runs (a model's pictures)", "randomizer"),   # A30's: its B answers it
     # the next op's wait: the same or a new worker, and Firefox's Save greyed while its Blob is made
     Op("R14", "the engine ready again and Save open after Build keylord", "build"),
     Op("R24", "the engine ready again and Save open after a seed's build", "randomizer"),
@@ -1390,6 +1396,50 @@ def site_seed(d: Driver, ctx, url: str) -> None:
     d.until(p, "R24", built, RESTED, 600)
     if d.need("S50"):
         _download(d, p, "S50")
+    if d.need("S62"):   # a seed no build has made, cancelled at its first stage; then Build, no head start
+        d.act(p, None, typed("rando-seed", "2"), "() => document.getElementById('rando-seed').value === '2'",
+              change=True)
+        d.act(p, None, CANCEL_EARLY, "() => /Cancelled/.test(document.querySelector('#status').textContent)", 600)
+        d.act(p, "S62", build_js(), BUILT, 1800)
+    if d.need("S63"):   # another's build, running; a model's pick and its pictures meanwhile
+        d.act(p, None, typed("rando-seed", "3"), "() => document.getElementById('rando-seed').value === '3'",
+              change=True)
+        p.js(click("tab-characters"))
+        p.wait(SPECIES)
+        p.js(build_js())
+        d.idle(p, "the build's first stage before S52", done=STAGED)
+        d.act(p, "S63", model("keylord"), chosen("keylord"), 1800)
+        p.wait(ANSWERED, 1800)
+    d.leave(p)
+
+
+def site_ahead_track(d: Driver, ctx, url: str) -> None:
+    """Track, on a seed no build has filled (the median's)."""
+    p = _site_page(d, ctx, url, None)
+    _seeded(d, p, randomize=False, seed=MEDIAN)
+    d.act(p, None, click("rando-view-tracker"), WORLD, 600)
+    d.act(p, "S60", click("track-seed"), TRACKED, 1800)
+    d.leave(p)
+
+
+def site_ahead_build(d: Driver, ctx, url: str) -> None:
+    """Build, on a seed no plan has filled (the median's)."""
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    _seeded(d, p, seed=MEDIAN)
+    d.act(p, "S61", build_js(), BUILT, 1800)
+    d.leave(p)
+
+
+def site_ahead_stale(d: Driver, ctx, url: str) -> None:
+    """Build after a change 1 s into the head start: B's job on the seed before is dropped, a new B starts."""
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    _seeded(d, p)                                       # "azurkit": B's work ahead starts
+    d.idle(p, "the stale seed's second", 1.0)
+    d.act(p, None, typed("rando-seed", MEDIAN), f"() => document.getElementById('rando-seed').value === '{MEDIAN}'",
+          change=True)
+    d.act(p, "S59", build_js(), BUILT, 1800)
     d.leave(p)
 
 
@@ -1800,12 +1850,40 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
-    "site-seed": ("site", ("S24", "R24", "S50"), site_seed),
+    "site-seed": ("site", ("S24", "R24", "S50", "S62", "S63"), site_seed),
+    "site-ahead-track": ("site", ("S60",), site_ahead_track),
+    "site-ahead-build": ("site", ("S61",), site_ahead_build),
+    "site-ahead-stale": ("site", ("S59",), site_ahead_stale),
     "site-tools": ("site", ("S40", "S41", "S42", "S43", "S44", "S45", "S46", "S47", "S48"), site_tools),
     "site-data": ("site", ("S32", "S33", "S34", "S35", "S36", "S37", "S38", "S39"), site_data),
 }
 assert sorted(op for _, ops, _ in SCENARIOS.values() for op in ops) == sorted(
     op.id for op in OPS.values() if not op.untimed)
+
+
+# X2: the OPFS of 127.0.0.1:8900 outlives a pass's profile and a run (WebKit's store), so a pass starts and ends with none.
+CLEAN = """async () => {
+  const root = await navigator.storage.getDirectory();
+  for (let i = 0; i < 50; i++) {   // a closing page's worker lets go of its file a moment later
+    const names = [];
+    for await (const name of root.keys()) names.push(name);
+    if (!names.length) return true;
+    await Promise.all(names.map((name) => root.removeEntry(name, { recursive: true }).catch(() => null)));
+    await new Promise((later) => setTimeout(later, 100));
+  }
+  return false;
+}"""
+
+
+def clean_storage(ctx, url: str) -> None:
+    """Every OPFS entry of the site's origin removed, untimed, from a page of the origin that runs no engine."""
+    page = ctx.new_page()
+    try:
+        page.goto(url.split("?")[0].rstrip("/") + "/theme.js")
+        if not page.evaluate(CLEAN):
+            raise RuntimeError("the site's OPFS holds a file no one lets go of")
+    finally:
+        page.close()
 
 
 def venv(wt: Path, folder: Path, wheel: Path | None = None) -> str:
@@ -1883,7 +1961,11 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                             current[:] = [App(python, scratch / f"home-{name}-{n}", run, content)]
                             scenario(d, current[0], ctx)
                         else:
+                            clean_storage(ctx, url)
                             scenario(d, ctx, url)
+                            for page in list(ctx.pages):
+                                page.close()
+                            clean_storage(ctx, url)
                         d.over()
                     except Exception as exc:   # the op being timed has its error; the rest of this pass is lost
                         d.log.append(f"{run.name} {name} pass {n + 1}: {type(exc).__name__}: {str(exc)[:300]}")

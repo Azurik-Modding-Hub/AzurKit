@@ -36,6 +36,8 @@
 // It returns {open(), imaged(), built(report, saved?), state}: open when the tab shows, imaged when the picked image
 // changes, built after each build (its report, sdk.image's) and each save ({out, size, sha256}).
 
+import { listed, sweep } from "./outputs.mjs";
+
 export const CHOOSE = "Choose your image first (1.)";   // D979's line on what waits for an image
 export const VANILLA = "Only a vanilla image is checked against its release";   // Verify, for another image
 export const MODS = "AzurKit mods.json";
@@ -389,6 +391,8 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
       for (const [name, what] of KEPT.databases) {
         if (!have || have.some((db) => db.name === name)) rows.push([what, null]);
       }
+      const files = await listed();
+      if (files.length) rows.push(["Built images' files, until they're saved", files.reduce((n, f) => n + f.size, 0)]);
       const usage = (await navigator.storage?.estimate?.().catch(() => null))?.usage;
       ui.storageLine.textContent = usage == null ? "" : `This site keeps ${sized(usage)} in this browser in all.`;
     }
@@ -412,6 +416,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
         localStorage.removeItem(key);
       } catch {}
     }
+    await sweep();   // those no page or worker holds
     const later = (await Promise.all(KEPT.databases.map(([name]) => new Promise((done) => {
       const request = indexedDB.deleteDatabase(name);
       request.onsuccess = request.onerror = () => done(false);

@@ -957,7 +957,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 ## The two hosts (D866)
 
 - **Engine halves no host calls yet** (each tested alone; its hub half wires
-  it): the site's work ahead (`web/workers.mjs`), the warm-up
+  it): the warm-up
   (`app/warm.py`, `web/warm.mjs`), the kept answers (`app/memo.py`,
   `web/memo.mjs`) and the service worker (`web/sw.js`).
 - **The page** (`web/`): pick the image, choose packs and set their sliders
@@ -1192,10 +1192,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the sliders, options and weapon back to the chosen model's defaults and
     stays on it; picking Garret clears them too, another model keeps the size
     and the numbers (D1062). On the site an ask made while the image is
-    unread goes twice: first with no image, which overtakes the image's
-    check in the worker, so an Install's list and a model's panel never wait
-    for it once the tab has opened (Step 4.3r4m), and then with it; a build
-    takes the second's answer. Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
+    unread goes twice: first with no image, which B answers while F reads
+    the image (`workers.mjs`'s aside asks; in one worker it overtakes the
+    check), so an Install's list and a model's panel never wait for it once
+    the tab has opened (Step 4.3r4m), and then with it; a build takes the
+    second's answer, which stands if it comes first. Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
     since the content repository went public, D1027) is remembered (the
     site's storage, the app's `content_source`).
     The site reads a source on its own address only (its CSP's
@@ -1325,11 +1326,26 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   unchecked-hash bytecode, so Pyodide doesn't compile the source, and the
   shipped database) and its `host.json` (`uv run --locked python scripts/web_tools.py --site DIR`). Its
   engine runs the wheel, unpacked without its dependencies, under Pyodide in
-  a module worker started from a `blob:` URL (so the page's CSP holds there),
-  one worker, kept after a build while the heap its answer reports is under
-  1 GiB (Step 4.3i: wasm memory never shrinks; app.mjs's `KEEP`), else
-  replaced, as after a cancel ("Preparing the engine…"), each later worker
-  starting from Pyodide's memory snapshot, which the first worker of a wheel
+  module workers started from a `blob:` URL (so the page's CSP holds there),
+  two of them (`web/workers.mjs`, Step 4.3r4l; D1006, D1007): F answers the
+  page's asks and B works ahead on what the page lists (`aheadOnSite`: the
+  typed seed's plan and first view, the settled recipe's build; never a reshape,
+  which takes minutes and whose heap a change's terminate() would leave resident
+  in WebKit), each key the recipe, the File by identity, what this browser keeps
+  installed and the engine's version; a change drops B's job by `terminate()`, a
+  click matching its finished job takes its answer and one it is still working on
+  follows its records. One heavy job at a time, none of B's beside F's build. One
+  heap (w-reshape): a worker a job grew stays for the next heavy job (wasm memory
+  never shrinks, and WebKit keeps a terminated worker's pages resident) until its
+  heap reaches 3 GiB after a job (`GROWN`; else as after a cancel, "Preparing the
+  engine…", replaced, by an idle small B at once), answers as F whenever both
+  are idle, and no heavy job starts beside it; a reshape's click drops an idle B
+  first (`alone`). A character's build writes its pieces into an OPFS file of its
+  own (`web/outputs.mjs`, P7, X10): a Web Lock per file, shared by the worker and
+  the page; removed only unlocked, at a build's forget (30 minutes past its Save,
+  whose end a page can't see) or a page's load (a crashed page's); the Tools
+  tab's Storage counts them; where OPFS refuses, Blobs. Each later worker
+  starts from Pyodide's memory snapshot, which the first worker of a wheel
   makes once the engine's modules are imported (no numpy, no image) and the
   browser keeps (IndexedDB, by Pyodide's version and the wheel's integrity;
   any fault starts it cold, and its `ready` says which start it was), which reads the
@@ -1343,7 +1359,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   visit. A build's changed files are hashed there too (`sdk.image_staged`,
   `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, and each build's answer reports the heap,
-  by which the page keeps the worker or replaces it. It returns the build
+  by which the pool keeps the worker or replaces it. It joins the Blob itself, off the page's main thread, and returns the build
   as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes (Blobs from the worker on, so

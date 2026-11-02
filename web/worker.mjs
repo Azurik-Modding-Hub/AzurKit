@@ -1,5 +1,5 @@
 // The site's engine: AzurKit's wheel under Pyodide 314 in a module worker, kept by the page after a build whose answer
-// reports a heap under 1 GiB and replaced after any other (app.mjs's KEEP, Step 4.3i; WEB §3.6). The page
+// reports a heap under its line and replaced after any other (workers.mjs's GROWN; WEB §3.6). The page
 // starts it from a blob: URL that imports this file, so the page's CSP holds here too (WEB §6.4). Pyodide comes from
 // this site alone; the wheel, fetched with the integrity host.json gives, is unpacked without its dependencies
 // (WEB §6.3). The player's image is mounted read-only (WORKERFS, read in blocks: readInBlocks) and azurkit.sdk reads
@@ -40,11 +40,15 @@
 //      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
 //      {type: "rando", ticket, reply} (what the Randomizer tab shows, or {refused}), {type: "reply", call, reply}
 //      (a tracker's, plan's, Characters', Data or Tools' answer: the view, {plan}, or {refused}), {type: "csp", directive,
-//      blocked}
+//      blocked}. A read that is neither an image nor an AzurKit build ends with {type: "unread"}. Each but a progress record
+//      carries the engine's heap then (undefined where Pyodide hides it), which the page's two workers count (workers.mjs).
 import { hashed, md5Ready } from "./hasher.mjs";
+import { PREFIX } from "./outputs.mjs";
 
 const base = new URL("./", import.meta.url);
-const post = (message, transfer = []) => self.postMessage(message, transfer);
+let heap = () => undefined;
+const post = (message, transfer = []) => self.postMessage(
+  message.type === "progress" || "heap" in message ? message : { ...message, heap: heap() }, transfer);
 self.addEventListener("securitypolicyviolation", (e) =>
   post({ type: "csp", directive: e.violatedDirective, blocked: e.blockedURI }));
 
@@ -59,6 +63,7 @@ const ENGINE = `
 import hashlib
 import json
 
+import js as browser
 import pyodide_js
 from js import JSON, Blob, Object, postMessage
 from pyodide.ffi import to_js
@@ -88,8 +93,12 @@ def handed(value):
 
 def blobbed(data):
     """One piece of a build as a Blob, made as soon as its bytes reach JS, so the worker holds one piece's bytes in JS
-    at a time and the page none (mem-site L2): the browser keeps a Blob's bytes outside the page's heap."""
-    return Blob.new(to_js([handed(data)], create_pyproxies=False))
+    at a time and the page none (mem-site L2): the browser keeps a Blob's bytes outside the page's heap. Where the
+    worker holds a build file (P7, built() in worker.mjs), the piece is written there and stands as its offset."""
+    u8 = handed(data)
+    if hasattr(browser, "azurkitOut"):
+        return {"opfs": browser.azurkitOut(u8)}
+    return Blob.new(to_js([u8], create_pyproxies=False))
 
 
 def kept(files, installed):
@@ -579,7 +588,7 @@ function vanilla({ py, engine }, file) {
     const read = engine({ type: "vanilla", recipe });
     if (!("refused" in read)) return post({ type: "vanilla", ...read });
     const opened = engine({ type: "open", recipe });
-    if (!("refused" in opened)) post({ type: "opened", preset: opened.preset });
+    post("refused" in opened ? { type: "unread" } : { type: "opened", preset: opened.preset });
   });
 }
 
@@ -651,7 +660,38 @@ async function tool({ py, engine }, data) {
 // browser's SHA-256 (R2.6: about 10x wasm's), one at a time, as 14 at once take WebKit 8x as long, each handed over only
 // for its digest, so the worker's JS holds one file beside the engine's heap. A seed's build (AM-HUB-E) first asks for the
 // pages it reads, twice at most, and its levels (668 MiB in all) never enter the heap: each is read here, its patches
-// over it, for its sha256 and md5 (hasher.mjs), and only its patches are the build's bytes.
+// over it, for its sha256 and md5 (hasher.mjs), and only its patches are the build's bytes. The pieces are joined here,
+// off the page's main thread, into the Blob the page saves (WEB §3.4: slices of the image and the bytes the build writes),
+// and a segment hands over only its place in it. A character's pieces (218-240 MB) go into a build file of their own
+// (outputs.mjs); a File slice holds no memory where a Blob holds its bytes.
+let out = null;   // a build file's lock: its name and how to let go of it, kept until the page holds it ("held")
+const letGo = () => {
+  out?.release();
+  out = null;
+};
+async function opened() {
+  letGo();
+  try {
+    const name = `${PREFIX}${crypto.randomUUID()}.bin`;
+    const release = await new Promise((held, fail) => {
+      navigator.locks.request(name, { mode: "shared" }, () => new Promise((free) => held(free))).catch(fail);
+    });
+    out = { name, release };
+    const handle = await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true });
+    return { name, handle, sync: await handle.createSyncAccessHandle(), at: 0 };
+  } catch {
+    letGo();
+    return null;   // OPFS refuses (a private window, WebKit's ephemeral contexts): the pieces are Blobs
+  }
+}
+function joined(file, { segments }, written) {
+  const parts = segments.map((s) => s.kind === "copy" ? file.slice(s.offset, s.offset + s.size)
+    : s.kind === "zero" ? new Uint8Array(s.size)
+      : written && typeof s.data?.opfs === "number" ? written.slice(s.data.opfs, s.data.opfs + s.size) : s.data);
+  return { blob: new Blob(parts, { type: "application/octet-stream" }),
+           segments: segments.map(({ data, ...place }) => place),
+           held: written ? 0 : segments.reduce((n, s) => n + (s.kind === "bytes" ? s.size : 0), 0) };
+}
 async function build({ py, engine, reads }, { file, packs, xbr, randomizer, character, community, files, picked }) {
   const before = self.azurkitLateReads ?? 0;
   const held = {}, hashes = {};
@@ -659,6 +699,13 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
     held[path] = await pickedBytes(one);
     hashes[path] = await digested(held[path]);
   }
+  const output = character ? await opened() : null;
+  if (output) self.azurkitOut = (u8) => {
+    const at = output.at;
+    output.sync.write(u8, { at });
+    output.at += u8.length;
+    return at;
+  };
   const made = await mounted(py, file, async (iso) => {
     let composed = engine({ type: "build", ...(files ? { picked: held, hashed: hashes } : {}), recipe: { iso, packs, xbr,
       ...(files ? { files } : {}),
@@ -679,10 +726,15 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
       shas[key] = hex(await crypto.subtle.digest("SHA-256", engine({ type: "hash", key }).data));
     }
     return engine({ type: "hashed", shas });
+  }).finally(() => {
+    delete self.azurkitOut;
+    output?.sync.flush();
+    output?.sync.close();
   });
   const heap = py._module?.HEAPU8?.length;
   if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
-  post({ type: "built", ...made, heap, late: (self.azurkitLateReads ?? 0) - before });   // each piece's bytes a Blob (blobbed)
+  post({ type: "built", ...made, ...joined(file, made, output && await output.handle.getFile()),
+         ...(output ? { out: output.name } : {}), heap, late: (self.azurkitLateReads ?? 0) - before });
   if (!made.report.plan) return;
   let reply;
   try {
@@ -695,12 +747,14 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
 
 try {
   const loaded = await load();
+  heap = () => loaded.py._module?.HEAPU8?.length;
   let queue = Promise.resolve();   // the messages in order: one that loads numpy holds those after it
   // The Characters tab's asks that stand on no image overtake an image's check (a player's Install lists its variants
   // now): the check's waits are the File's and WebCrypto's, the engine idle. They keep their own order (behind: those
   // of them queued), and the engine's answer is sync, so nothing runs beside them.
   let checking = false, behind = 0;
   self.onmessage = ({ data }) => {
+    if (data?.type === "held") return letGo();   // the page holds the last build file now
     if (!["build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
           ...CHARACTER, ...TOOLS, ...DATA].includes(data?.type)) return;
     const aside = !data.file && ["content", ...CHARACTER].includes(data.type);
@@ -751,7 +805,10 @@ try {
         return post(data.type === "preset" ? { type: "preset", fragment: reply.fragment }
           : { type: "decoded", preset: reply.preset });
       }
-      return build(loaded, data);   // its failure is the queue's to post
+      return build(loaded, data).catch((error) => {   // its failure is the queue's to post
+        delete self.azurkitOut;
+        throw error;
+      });
     } catch (error) {
       post({ type: "failed", message: lastLine(error) });
     }

@@ -500,7 +500,8 @@ export function tracker({ call, app, say, kept, keep }) {
   return { open: (...given) => {
     pending = null;
     return open(...given);
-  }, ask, state: t, art, map, draw: () => {
+  }, first: (plan) => ({ plan, marks: t.kept.marks[plan.sha256] ?? {}, spoiler: t.spoiler, gems: t.gems }),   // open's ask
+  ask, state: t, art, map, draw: () => {
     if (pending && !shown()) return;
     return t.view ? draw() : preview();
   } };

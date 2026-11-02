@@ -5,10 +5,13 @@
 // records (D1006's bar) and F never starts it again. A worker can't stop a call it runs, so a change of the page's
 // list drops B's job by terminate(), and a new B loads (from R2.10's snapshot once the engine has it). Cancel answers
 // at once, and a build it stops whose key the list still holds goes on as work ahead (the plan's D4: kept when it
-// ends, dropped by a change), so Build again waits only for its rest. Memory: a worker whose heap reaches KEEP after a
-// job (or reports none after a heavy one) is replaced (app.mjs's rule: wasm memory never shrinks); when F must go
-// (KEEP, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time, and B's work
-// ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead. B starts no
+// ends, dropped by a change), so Build again waits only for its rest. Memory: one heap (w-reshape): wasm memory never
+// shrinks, and WebKit keeps a terminated worker's pages resident while a new worker's heap grows beside them, so a
+// worker a job grew past KEEP stays for the next heavy job (it answers as F whenever both are idle, and B starts no heavy
+// job beside it); only one whose heap reaches GROWN after a job (or reports none after a heavy one) is replaced. When F
+// must go (GROWN, Cancel, a failure) an idle B under KEEP takes its place at once. One heavy job runs at a time, and B's
+// work ahead never runs beside F's build: B starts nothing while F builds, and F's build drops B's job ahead; an ask
+// marked alone drops an idle B too, so its peak has the one heap beside it. B starts no
 // job, and isn't kept, while the page's tally (both heaps, B's kept answers and the bytes the page holds) reaches
 // TALLY, and a new B loads only while the last B's heap when it loaded fits under the line too (or each B would cross
 // it, be retired and load again), nor on a computer with fewer than CORES cores. A worker's priority has no web API:
@@ -22,11 +25,13 @@
 // {type: "stopped", message} (its worker stopped: a once or heavy ask, or one stopped twice); answer() hears each of
 // its other messages first, progress() its records.
 //
-// workers({start, ready, told, cores, settle, keep, tally, ends}) -> {ask, want, cancel, share, hold, took, state,
-// close}: start(role) makes a worker ("f" or "b"); ready(data) hears F's ready, again when B takes F's place;
-// told(data, role) hears what no job asked for (a CSP report, F's failed load, F's start's records). Both are called after the pool's own
-// step (a microtask later), so they may call the pool.
-export const KEEP = 2 ** 30;          // a worker whose heap reaches it after a job is replaced (app.mjs's KEEP)
+// workers({start, ready, told, free, cores, settle, keep, grown, tally, ends, held}) -> {ask, want, cancel, share, hold,
+// took, up, state, close}: start(role) makes a worker ("f" or "b"); ready(data) hears F's ready, again when B takes F's
+// place; told(data, role) hears what no job asked for (a CSP report, F's failed load, F's start's records); free(gone)
+// hears a kept answer's messages when nothing can take them any more. All are called after the pool's own step (a
+// microtask later), so they may call the pool. held(messages) is the bytes an answer holds in memory (bytesOf by default).
+export const KEEP = 2 ** 30;          // a grown worker's heap: B isn't promoted past it, nor runs a heavy job beside it
+export const GROWN = 3 * 2 ** 30;     // a worker whose heap reaches it after a job is replaced: a kept heap's own line
 export const TALLY = 5 * 2 ** 30;     // the page's line (the plan's default): B starts no job at or past it
 export const SETTLE = 250;            // ms the page's list holds still before B starts on it (app.mjs's remember())
 export const CORES = 4;               // B only where navigator.hardwareConcurrency is at least this
@@ -77,8 +82,8 @@ export function bytesOf(value, depth = 0) {
   return Object.values(value).reduce((n, v) => n + bytesOf(v, depth + 1), 0);
 }
 
-export function workers({ start, ready = () => {}, told = () => {}, cores, settle = SETTLE, keep = KEEP,
-                          tally = TALLY, ends: last = ends } = {}) {
+export function workers({ start, ready = () => {}, told = () => {}, free = () => {}, cores, settle = SETTLE, keep = KEEP,
+                          grown = GROWN, tally = TALLY, ends: last = ends, held: heldBy = bytesOf } = {}) {
   cores ??= globalThis.navigator?.hardwareConcurrency ?? 1;
   let f = null, b = null, dead = null, noB = cores < CORES, closed = false, held = 0, list = [], changed = 0;
   let timer = null, clock = 0, base = 0;   // base: the last B's heap when it loaded
@@ -88,7 +93,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
                                          // listed
   const shared = new Map();              // share()'s messages by type
   const ahead = new WeakSet();           // every message that came from B's work ahead (took())
-  const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0 };
+  const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0, swapped: 0 };
   const now = () => globalThis.performance?.now() ?? Date.now();
   const later = (hook, ...args) => queueMicrotask(() => hook(...args));
 
@@ -113,7 +118,13 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
   const heavyF = () => Boolean(f?.job?.heavy) || queue.some((job) => job.heavy);
   const shown = (job) => !job.ahead || job.adopted;   // a job the page waits on: its records and answers go to it
   const small = (slot) => Number.isFinite(slot.heap) && slot.heap < keep;
+  const stays = (slot) => Number.isFinite(slot.heap) && slot.heap < grown;
   const listed = (key) => key !== null && list.some((item) => item.key === key);
+  const unkeep = (key) => {   // a kept answer nothing can take any more
+    const gone = kept.get(key);
+    kept.delete(key);
+    if (gone) later(free, gone.messages);
+  };
 
   // F must go: an idle loaded B under KEEP takes its place at once (a new B loads later), else a new F loads.
   const replaceF = () => {
@@ -143,6 +154,7 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
   const heard = (slot, data) => {
     if (closed || (slot !== f && slot !== b)) return;   // a worker this pool dropped
     if (typeof data?.heap === "number") slot.heap = data.heap;
+    if (data?.type === "csp") return later(told, data, slot.role);   // a report, whatever the worker runs
     if (!slot.loaded) {
       if (data?.type === "ready") {
         slot.loaded = true;
@@ -184,14 +196,15 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
     if (job.heavy && slot.heap === null) slot.heap = Infinity;
     if (job.ahead && !job.adopted) {
       if (!failed) {
-        kept.set(job.key, { messages: job.messages, last: data, bytes: bytesOf(job.messages), at: ++clock });
+        kept.set(job.key, { messages: job.messages, last: data, bytes: heldBy(job.messages), at: ++clock });
+        if (job.kept) later(job.kept, data);
       } else taken.add(job.key);   // not tried again while listed: a click asks F, which shows the failure itself
-      if (failed || !(slot.heap < keep)) dropB("retired");   // B after any job past KEEP: its answer is kept
+      if (failed || !stays(slot) || (f && !small(slot) && !small(f))) dropB("retired");   // never two grown heaps
       trim();
     } else {
       job.resolve(data);
-      if (slot === f && (failed || !(slot.heap < keep))) replaceF();
-      else if (slot === b && (failed || !(slot.heap < keep))) dropB("retired");
+      if (slot === f && (failed || !stays(slot))) replaceF();
+      else if (slot === b && (failed || !stays(slot))) dropB("retired");
     }
     pump();
   };
@@ -233,21 +246,34 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
     for (const [key, k] of [...kept].sort((x, y) => x[1].at - y[1].at)) {
       if (total() < tally) break;
       if (!k.bytes) continue;
-      kept.delete(key);
+      unkeep(key);
       taken.add(key);
     }
+  };
+
+  // The grown heap answers as F whenever both workers are idle, so the next heavy click runs in it, not in a second.
+  const oneHeap = () => {
+    if (!f?.loaded || f.job || !b?.loaded || b.job || small(b) || !small(f)) return;
+    [f, b] = [b, f];
+    f.role = "f";
+    b.role = "b";
+    counts.swapped += 1;
   };
 
   const pump = () => {
     if (closed) return;
     if (!f && !dead) f = spawn("f");
+    oneHeap();
     if (f?.loaded && !f.job && queue.length) {
       const job = queue.shift();
       if (job.heavy && b?.job?.ahead && !b.job.adopted) dropB();   // none beside F's build: B's job ahead goes
+      else if (job.alone && b && !b.job) dropB("retired");
       run(f, job);
     }
-    const spare = queue.findIndex((job) => job.anywhere && !job.heavy);   // a small ask while F works: B answers it
-    if (spare >= 0 && (!f?.loaded || f.job) && b?.loaded && !b.job) run(b, queue.splice(spare, 1)[0]);
+    // A small ask while F builds, or an aside one (it reads no image) while F runs anything: B answers it.
+    const building = !f?.loaded || f.job?.heavy;
+    const spare = queue.findIndex((job) => job.anywhere && !job.heavy && (building || job.aside && f.job));
+    if (spare >= 0 && b?.loaded && !b.job) run(b, queue.splice(spare, 1)[0]);
     if (total() >= tally && b && !b.job) dropB("retired");
     if (!b && !noB && f?.loaded && !heavyF() && total() + base < tally) b = spawn("b");
     if (!b?.loaded || b.job || heavyF() || total() >= tally) return;
@@ -257,18 +283,19 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
       timer = setTimeout(pump, wait);
       return;
     }
-    const item = list.find((i) => !kept.has(i.key) && !taken.has(i.key));
+    const beside = f && !small(f);   // one heap: nothing heavy ahead beside a grown F; its click runs in F's
+    const item = list.find((i) => !kept.has(i.key) && !taken.has(i.key) && !(i.heavy && (beside || !small(b))));
     if (item) {
       run(b, { message: item.message, transfer: item.transfer, key: item.key, heavy: Boolean(item.heavy),
-               ends: item.ends ?? last, ahead: true, adopted: false, messages: [], record: null, tries: 0,
-               resolve: () => {} });
+               ends: item.ends ?? last, kept: item.kept, ahead: true, adopted: false, messages: [], record: null,
+               tries: 0, resolve: () => {} });
     }
   };
 
   const pool = {
     // An ask of the page's. With a key: B's finished job of that key answers it at once, a running one is followed.
-    ask: (message, { key = null, heavy = false, anywhere = false, once = false, progress = null, answer = null,
-                     transfer = null, ends: end = last } = {}) => new Promise((resolve) => {
+    ask: (message, { key = null, heavy = false, anywhere = false, aside = false, once = false, alone = false,
+                     progress = null, answer = null, transfer = null, ends: end = last } = {}) => new Promise((resolve) => {
       if (dead) return resolve(dead);
       if (key !== null) {
         const done = kept.get(key);
@@ -290,16 +317,17 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
         }
         taken.add(key);
       }
-      queue.push({ message, key, heavy, anywhere, once, progress, answer, transfer, ends: end, resolve,
+      queue.push({ message, key, heavy, anywhere, aside, once, alone, progress, answer, transfer, ends: end, resolve,
                    ahead: false, adopted: false, messages: [], record: null, tries: 0 });
       pump();
     }),
-    // The work ahead, most wanted first: [{key, message, heavy, transfer, ends}]. A job whose key leaves the list is
-    // dropped (B's running one by terminate(), a kept one freed); one still listed goes on or stays kept.
+    // The work ahead, most wanted first: [{key, message, heavy, transfer, ends, kept}]; kept(its last message) hears a
+    // job's end. A job whose key leaves the list is dropped (B's running one by terminate(), a kept one freed); one still
+    // listed goes on or stays kept.
     want: (items) => {
       const keys = new Set(items.map((i) => i.key));
       if (b?.job?.ahead && !b.job.adopted && !keys.has(b.job.key)) dropB();
-      for (const key of [...kept.keys()]) if (!keys.has(key)) kept.delete(key);
+      for (const key of [...kept.keys()]) if (!keys.has(key)) unkeep(key);
       for (const key of [...taken]) if (!keys.has(key)) taken.delete(key);
       if (items.map((i) => i.key).join("\n") !== list.map((i) => i.key).join("\n")) changed = now();
       list = [...items];
@@ -346,6 +374,8 @@ export function workers({ start, ready = () => {}, told = () => {}, cores, settl
       pump();
     },
     took: (data) => ahead.has(data),
+    // F answers (or its queue does): not a worker that will be replaced when its running job ends.
+    up: () => Boolean(f?.loaded && (!f.job || stays(f))),
     state: () => {
       const of = (slot) => slot && { loaded: slot.loaded, heap: slot.heap,
                                      job: slot.job && (slot.job.key ?? slot.job.message.type) };

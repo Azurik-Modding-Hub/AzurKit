@@ -58,14 +58,17 @@ RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
 # NotReadableError (one the page made itself too). The page never reads one: Save hands the browser the joined Blob.
 SIGNATURE = """async () => {
   const out = [], step = 32 << 20;
+  let place = 0;
   for (const s of azurkit.build.segments) {
+    const start = place;
+    place += s.size;
     if (s.kind !== "bytes") {
       out.push(s.kind === "copy" ? ["copy", s.offset, s.size] : ["zero", s.size]);
       continue;
     }
     const whole = new Uint8Array(s.size);
     for (let at = 0; at < s.size; at += step) {
-      whole.set(new Uint8Array(await s.data.slice(at, at + step).arrayBuffer()), at);
+      whole.set(new Uint8Array(await azurkit.build.blob.slice(start + at, start + Math.min(at + step, s.size)).arrayBuffer()), at);
     }
     out.push(["bytes", s.size, [...new Uint8Array(await crypto.subtle.digest("SHA-256", whole))]
                                  .map((b) => b.toString(16).padStart(2, "0")).join("")]);
@@ -1871,59 +1874,6 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         served.close()
 
 
-RETIRING = """async (source) => {
-    const code = source.slice(source.indexOf("const KEEP = "),
-                              source.indexOf("\\n}\\n", source.indexOf("function siteEngine(")) + 3);
-    const workers = [];
-    class Fake {
-        constructor() { this.got = []; this.stopped = false; workers.push(this); }
-        postMessage(message) { this.got.push(message.type); }
-        terminate() { this.stopped = true; }
-    }
-    const fakes = { state: { violations: [], asks: new Map() }, asking: () => 0, answered: () => {}, posted: () => {},
-                    unchecked: () => {},
-                    location: { href: "https://azurkit.test/" }, Blob: function () {}, Worker: Fake,
-                    URL: Object.assign(function (url) { this.href = url; },
-                                       { createObjectURL: () => "blob:", revokeObjectURL: () => {} }) };
-    const engine = new Function(...Object.keys(fakes), `${code}\\nreturn siteEngine;`)(...Object.values(fakes))(
-        { ready: () => {}, built: () => {}, refused: () => {}, failed: () => {} });
-    const [first] = workers;
-    first.onmessage({ data: { type: "ready", catalog: {}, version: "0" } });
-    engine.build(null, {}, [], { seed: "2" }, null);
-    first.onmessage({ data: { type: "built", report: { plan: { sha256: "0" } }, heap: 2 ** 31 } });   // past KEEP
-    const preview = engine.call("preview", {}, { once: true });
-    const seen = [first.got.includes("preview")];
-    first.onmessage({ data: { type: "spoiled", text: "" } });
-    const next = workers[1];
-    seen.push(first.stopped, next.got.includes("preview"));
-    next.onmessage({ data: { type: "ready", catalog: {}, version: "0" } });
-    next.onmessage({ data: { type: "reply", call: 1, reply: { drawn: true } } });
-    seen.push(next.got.includes("preview"), await preview);
-    const match = engine.call("match", {}, { once: true });
-    next.onerror({ preventDefault: () => {}, message: "" });
-    return [...seen, await match, workers.length];
-}"""
-"""The site's engine (``web/app.mjs``'s ``siteEngine``) on fake workers: a seed's build whose heap the page doesn't
-keep, a Characters preview asked before its spoiler arrives, the next worker's answer, then a G4 match that worker
-was sent before it stopped: [the preview sent to the retiring worker, that worker stopped, the preview sent to the
-next before it loads, after, the preview's answer, the match's, the workers started]."""
-
-
-def test_a_characters_ask_made_while_a_seeds_worker_retires_waits_for_the_next_and_only_a_sent_one_is_refused(browser):
-    """Step 4.3m (the review's D1): a worker the page doesn't keep after a
-    seed's build stays until it has sent the spoiler; a once ask (a
-    Characters preview or a G4 match) made meanwhile is never sent to it,
-    and the worker that replaces it answers it. Only a once ask a stopped
-    worker was sent is refused, as out of memory."""
-    page = browser.new_page()
-    try:
-        assert page.evaluate(RETIRING, (web_tools.ROOT / "web" / "app.mjs").read_text(encoding="utf-8")) == [
-            False, True, False, True, {"drawn": True},
-            {"refused": "The engine stopped before it answered (out of memory?): try again, or use the desktop app"}, 3]
-    finally:
-        page.close()
-
-
 STUB_ENGINES = """(() => {
     const { catalog, view } = %s, made = globalThis.made = [], later = [];
     globalThis.held = false;
@@ -1971,12 +1921,14 @@ def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shap
     def shows(x: float, preview: bool) -> str:
         shape = json.dumps(json.dumps([["bust", x]], separators=(",", ":")))
         return f"""() => {{ const s = azurkit.characters.state.shown; return s?.shape === {shape} && s.preview === {json.dumps(preview)}; }}"""
+    # the dress's own workers, in the order made (dress.mjs's preview is call 0; the site's two engines' asks count up)
+    DRESSERS = "made.filter((w) => w.got.some((m) => m.type === 'preview' && m.call === 0))"
 
-    def dressed(n: int, x: float) -> None:   # the n-th worker asks the dress of bust x, what's kept handed over first
-        _page.until(page, f"() => made[{n}]?.got.some((m) => m.type === 'preview')", 30)
-        assert page.evaluate(f"""() => [made[{n}].got.map((m) => m.type), made[{n}].got.at(-1).file.name,
-            made[{n}].got.at(-1).recipe.character]""") == [["content", "preview"], "x.iso",
-                                                           {"species": "booblord", "shapes": {"bust": x}}]
+    def dressed(n: int, x: float) -> None:   # the n-th dress worker asks the dress of bust x, what's kept handed over first
+        _page.until(page, f"() => {DRESSERS}[{n}]?.got.some((m) => m.type === 'preview')", 30)
+        assert page.evaluate(f"""() => {{ const w = {DRESSERS}[{n}]; return [w.got.map((m) => m.type), w.got.at(-1).file.name,
+            w.got.at(-1).recipe.character]; }}""") == [["content", "preview"], "x.iso",
+                                                    {"species": "booblord", "shapes": {"bust": x}}]
     line = "() => document.getElementById('progress-row').hidden ? null : document.getElementById('progress-line').textContent"
     try:
         page = served.open()
@@ -1990,37 +1942,38 @@ def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shap
         page.evaluate(moved, "1.25")
         _page.until(page, shows(1.25, True), 10)   # its pickers unanswered
         page.evaluate("() => release()")
-        dressed(1, 1.25)
+        dressed(0, 1.25)
         _page.until(page, f"() => ({line})() === 'Drawing the model…'", 10)
-        page.evaluate("""() => made[1].say({ type: "progress", stage: "dress", label: "Dressing", percent: 40 })""")
+        page.evaluate(f"""() => {DRESSERS}[0].say({{ type: "progress", stage: "dress", label: "Dressing", percent: 40 }})""")
         assert page.evaluate(line) == "Dressing… 40 %"
-        page.evaluate("""() => made[1].say({ type: "progress", stage: "dress", label: "Dressing", percent: 100 })""")
+        page.evaluate(f"""() => {DRESSERS}[0].say({{ type: "progress", stage: "dress", label: "Dressing", percent: 100 }})""")
         assert page.evaluate(line) == "Drawing the model…"
 
         page.evaluate(moved, "1.3")   # a new shape: the Preview at once, the old dress stopped
         _page.until(page, shows(1.3, True), 10)
-        _page.until(page, "() => made[1].stopped", 10)
-        dressed(2, 1.3)
+        _page.until(page, f"() => {DRESSERS}[0].stopped", 10)
+        dressed(1, 1.3)
 
         page.evaluate("() => { azurkit.building = true; }")   # a Build goes first
-        _page.until(page, "() => made[2].stopped", 10)
+        _page.until(page, f"() => {DRESSERS}[1].stopped", 10)
         page.wait_for_timeout(4000)
-        assert page.evaluate("() => made.length") == 3
+        assert page.evaluate(f"() => {DRESSERS}.length") == 2
         page.evaluate("() => { azurkit.building = false; }")
-        dressed(3, 1.3)
+        dressed(2, 1.3)
         drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
                  for side in ("front", "back")}
-        page.evaluate("(reply) => made[3].say({ type: 'reply', call: 0, reply })", drawn)
+        page.evaluate(f"(reply) => {DRESSERS}[2].say({{ type: 'reply', call: 0, reply }})", drawn)
         _page.until(page, shows(1.3, False), 10)
-        assert page.evaluate("() => [made[3].stopped, azurkit.characters.state.dressing]") == [True, False]
+        assert page.evaluate(f"() => [{DRESSERS}[2].stopped, azurkit.characters.state.dressing]") == [True, False]
 
         page.evaluate(moved, "1.35")
-        dressed(4, 1.35)
-        page.evaluate("() => made[4].onerror({ preventDefault: () => {} })")
+        dressed(3, 1.35)
+        page.evaluate(f"() => {DRESSERS}[3].onerror({{ preventDefault: () => {{}} }})")
         _page.until(page, "() => document.getElementById('char-preview-note').textContent === 'Preview: The engine stopped "
                           "before it answered (out of memory?): try again, or use the desktop app'", 10)
-        assert page.evaluate(shows(1.35, True)) and page.evaluate("() => made[4].stopped")
-        assert page.evaluate("() => made[0].got.filter((m) => m.recipe?.character.shapes).length") == 0
+        assert page.evaluate(shows(1.35, True)) and page.evaluate(f"() => {DRESSERS}[3].stopped")
+        assert page.evaluate("() => made.flatMap((w) => w.got).filter((m) => m.recipe?.character.shapes"
+                             " && m.call !== 0).length") == 0
     finally:
         served.close()
 
@@ -2965,7 +2918,7 @@ def _bare_page(browser, root: Path):
 
 
 WORKERS_HARNESS = """
-    const { workers, canon, KEEP } = await import("/workers.mjs");
+    const { workers, canon, KEEP, GROWN } = await import("/workers.mjs");
     const tag = (m) => [m.type, m.recipe?.seed ?? m.randomizer?.seed].filter(Boolean).join(" ");
     const plan = (seed) => ({ type: "plan", recipe: { seed } });
     const build = (seed) => ({ type: "build", packs: {}, xbr: [], ...(seed ? { randomizer: { seed } } : {}) });
@@ -3040,10 +2993,10 @@ WORKERS_ROWS = """
         next.say({ type: "ready", n: 3 });
         out.dropped = [same, b.stopped, b.tags(), next.role, next.tags(), f.tags(), pool.state().dropped];
     }
-    {   // F's build past KEEP: an idle B under KEEP takes F's place (ready again) and a new B loads
+    {   // F's build past its kept line: an idle B under KEEP takes F's place (ready again) and a new B loads
         const { pool, stubs, readies, f, b } = make();
         const built = pool.ask(build(), { heavy: true });
-        f.say({ type: "built", report: {}, heap: KEEP });
+        f.say({ type: "built", report: {}, heap: GROWN });
         await built;
         pool.ask({ type: "tracker" });
         out.promoted = [f.stopped, readies, b.tags(), stubs.length, stubs[2].role, pool.state().promoted];
@@ -3053,7 +3006,7 @@ WORKERS_ROWS = """
         const { pool, stubs, readies, f, b } = make();
         const built = pool.ask(build(), { heavy: true });
         pool.ask({ type: "randomizer" }, { anywhere: true });
-        f.say({ type: "built", report: {}, heap: KEEP });
+        f.say({ type: "built", report: {}, heap: GROWN });
         await built;
         stubs[2].say({ type: "ready", n: 3 });
         const again = pool.ask(build(), { heavy: true });
@@ -3062,13 +3015,61 @@ WORKERS_ROWS = """
         out.unpromoted = [f.stopped, b.stopped, stubs[2].role, stubs[2].stopped, stubs[3].role, readies,
                           pool.state().promoted];
     }
-    {   // B is retired after a job past KEEP and its answer kept; a click takes it
+    {   // B is retired after a job past its kept line and its answer kept; a click takes it
         const { pool, stubs, f, b } = make();
         pool.want([{ key: "build k", message: build("k"), heavy: true }]);
-        b.say({ type: "built", report: { size: 1 }, heap: KEEP + 1 });
+        b.say({ type: "built", report: { size: 1 }, heap: GROWN + 1 });
         const retired = b.stopped;
         const got = await pool.ask(build("k"), { key: "build k", heavy: true });
         out.keep = [retired, stubs[2].role, got.report, pool.took(got), f.tags(), pool.state().retired];
+    }
+    {   // one heap: F's build past KEEP (under its kept line) keeps its worker, whose heap the next heavy click reuses,
+        // and B runs only what is light beside it
+        const { pool, f, b } = make();
+        const built = pool.ask(build(), { heavy: true });
+        f.say({ type: "built", report: {}, heap: KEEP + 1 });
+        await built;
+        pool.want([{ key: "build g", message: build("g"), heavy: true }, { key: "plan g", message: plan("g") }]);
+        const beside = b.tags();
+        b.say({ type: "reply", reply: { plan: "g" } });
+        const again = pool.ask(build("g"), { key: "build g", heavy: true });
+        f.say({ type: "built", report: { size: 6 }, heap: KEEP + 2 });
+        out.oneHeapF = [f.stopped, beside, f.tags(), (await again).report, pool.state().promoted];
+    }
+    {   // one heap: B's job ahead past KEEP keeps it, and with both idle the grown one answers as F, so a heavy click on
+        // another key runs in it, not in a second heap; the small one goes on as B
+        const { pool, f, b } = make();
+        pool.want([{ key: "build g", message: build("g"), heavy: true }]);
+        b.say({ type: "built", report: {}, heap: KEEP + 1 });
+        const answered = pool.ask(build("h"), { heavy: true });
+        const ran = [b.tags(), f.tags()];
+        b.say({ type: "built", report: { size: 7 }, heap: KEEP + 2 });
+        out.oneHeapB = [b.stopped, f.stopped, ran, (await answered).report, pool.state().swapped, pool.state().kept];
+    }
+    {   // an ask alone drops an idle B first: its peak has the one heap beside it
+        const { pool, stubs, f, b } = make();
+        const reshape = pool.ask(build("r"), { heavy: true, alone: true });
+        const dropped = [b.stopped, stubs.length, pool.state().retired];
+        f.say({ type: "built", report: {}, heap: KEEP + 1 });
+        await reshape;
+        out.alone = [dropped, stubs.length, stubs[2].role];
+    }
+    {   // a kept answer nothing can take any more is heard, so its file goes
+        const gone = [];
+        const { pool, b } = make({ free: (messages) => gone.push(messages.at(-1).report) });
+        pool.want([{ key: "build f", message: build("f"), heavy: true }]);
+        b.say({ type: "built", report: { size: 8 }, heap: 2 ** 26 });
+        pool.want([]);
+        await Promise.resolve();
+        out.free = gone;
+    }
+    {   // a CSP report goes to the page whatever the worker runs; it isn't the job's
+        const told = [];
+        const { pool, f } = make({ told: (data) => told.push(data.type) });
+        const asked = pool.ask({ type: "tracker" });
+        f.say({ type: "csp", directive: "script-src", blocked: "x" });
+        f.say({ type: "reply", reply: { view: 9 } });
+        out.csp = [(await asked).reply, told];
     }
     {   // one heavy job at a time: F's build drops B's, B starts nothing beside it, and works on after it
         const { pool, stubs, f, b } = make();
@@ -3092,8 +3093,8 @@ WORKERS_ROWS = """
     }
     {   // the tally: past the line an idle B is retired and none loads; under it B works and its answer's bytes count;
         // past it again a kept answer holding bytes is freed (one holding none stays)
-        const { pool, stubs, b } = make({ heap: 3 * 2 ** 30 });
-        pool.hold(2 * 2 ** 30);
+        const { pool, stubs, b } = make({ heap: 2 ** 29 });
+        pool.hold(4.5 * 2 ** 30);
         pool.want([{ key: "plan t", message: plan("t") }, { key: "build t", message: build("t"), heavy: true }]);
         const over = [b.stopped, stubs.length];
         pool.hold(2 ** 20);
@@ -3103,7 +3104,7 @@ WORKERS_ROWS = """
         next.say({ type: "built", report: {}, segments: [{ kind: "bytes", data: new Uint8Array(2 ** 20) }],
                    heap: 2 ** 29 });
         const under = [next.tags(), pool.state().kept, pool.state().tally];
-        pool.hold(2 * 2 ** 30);
+        pool.hold(4 * 2 ** 30);
         out.tally = [over, under, next.stopped, pool.state().kept];
     }
     {   // Cancel: a build a click took from B, its key still listed, goes on as B's and Build again follows it; an
@@ -3140,7 +3141,7 @@ WORKERS_ROWS = """
         // running when it stopped answers {type: "stopped"}, and a plain one goes to the next F
         const { pool, stubs, f, b } = make();
         const seeded = pool.ask(build("s"), { heavy: true });
-        f.say({ type: "built", report: { plan: { sha256: "0" } }, heap: KEEP });   // F goes once it sends the spoiler
+        f.say({ type: "built", report: { plan: { sha256: "0" } }, heap: GROWN });   // F goes once it sends the spoiler
         const preview = pool.ask({ type: "preview" }, { once: true });
         const sent = [f.tags()];
         f.say({ type: "spoiled", text: "" });
@@ -3176,9 +3177,11 @@ on stub workers, whose messages it posts by hand: what each was sent (``type`` a
 def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click_its_answer(browser):
     """F answers asks, B works ahead and a click takes its answer (one that
     names B's running job follows its records, and a change after the click
-    doesn't drop it); another list terminates B's job; B takes F's place
-    after a build past KEEP only when idle under KEEP; B is retired after a
-    job past KEEP, its answer kept; F's build drops B's heavy job and B
+    doesn't drop it); another list terminates B's job; a worker a job grew
+    stays for the next heavy job and answers as F, with nothing heavy beside
+    it (one heap); B takes F's place after a build past that worker's line
+    only when idle under KEEP; B is retired after a job past the line, its
+    answer kept; F's build drops B's heavy job and B
     starts nothing beside it; a small ask that may go anywhere is B's while
     F builds; past the 5 GiB tally B neither works nor stays, and kept
     bytes are freed; Cancel answers at once and demotes a listed build to
@@ -3196,9 +3199,14 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "promoted": [True, [1, 2], ["tracker"], 3, "b", 1],
         "unpromoted": [True, False, "f", True, "f", [1, 3], 0],
         "keep": [True, "b", {"size": 1}, True, [], 1],
+        "oneHeapF": [False, ["plan g"], ["build", "build g"], {"size": 6}, 0],
+        "oneHeapB": [False, False, [["build g", "build h"], []], {"size": 7}, 1, ["build g"]],
+        "alone": [[True, 2, 1], 3, "b"],
+        "free": [{"size": 8}],
+        "csp": [{"view": 9}, ["csp"]],
         "heavy": [["build x"], ["build y"], [True, 2], False, ["build x"], 1],
         "spare": [["build"], ["randomizer"], {"share": "s"}, False],
-        "tally": [[True, 2], [["plan t", "build t"], ["plan t", "build t"], 3 * gib + 2 ** 29 + 2 ** 20 + 2 ** 20],
+        "tally": [[True, 2], [["plan t", "build t"], ["plan t", "build t"], 2 ** 29 + 2 ** 29 + 2 ** 20 + 2 ** 20],
                   True, ["plan t"]],
         "cancel": ["cancelled", False, {"size": 2}, "cancelled", True, ["build c", "tracker"], {"view": 2}, [1, 2], 1],
         "swapped": ["cancelled", {"size": 3}, True, False, ["build e"], [], [1, 2], 1, 1],
@@ -3268,6 +3276,82 @@ def test_fs_build_drops_bs_plan_ahead_too_so_b_runs_nothing_beside_it_and_plans_
         out.beside = [busy, f.tags(), beside, report, stubs[2].tags(), pool.state().dropped];
     }""")
     assert got == {"beside": [["plan s"], ["build s"], [True, 2, None], {"size": 5}, ["plan s"], 1]}
+
+
+def test_a_click_takes_bs_finished_build_as_cpythons_and_a_change_drops_it_for_the_new_recipes(browser, site, usa_iso):
+    """D1007 on the page: a settled recipe is built ahead in B, its pieces are what CPython builds, and Build takes
+    them with F sent nothing. A slider's change frees that answer, and a Build right after it never gets it: it follows
+    B on the new recipe, or runs its own, and gets the new recipe's bytes."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.set_input_files("#iso", str(usa_iso))
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa' && azurkit.ready", 300)
+        _page.tick(page, ["fps_unlock"])
+        _page.until(page, "() => azurkit.pool.state().kept.length === 1", 300)
+        page.evaluate("() => document.querySelector('#build').click()")
+        built = _built(page)
+        made, report = sdk.image({"iso": str(usa_iso), "packs": page.evaluate("() => azurkit.sent")})
+        assert (built["report"], built["segments"]) == (report, _signature(made)) and page.evaluate("() => azurkit.took")
+        assert page.evaluate("() => azurkit.pool.state().kept") == []
+        _page.tick(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
+        page.evaluate("() => document.querySelector('#build').click()")
+        built = _built(page)
+        made, report = sdk.image({"iso": str(usa_iso), "packs": page.evaluate("() => azurkit.sent")})
+        assert (built["report"], built["segments"]) == (report, _signature(made))
+        assert page.evaluate("() => azurkit.sent.fps_unlock.target_fps") == 120
+        assert served.stray() == [] and page.evaluate("() => azurkit.violations") == []
+    finally:
+        served.close()
+
+
+BUILD_FILES = """async () => {
+    const names = [];
+    for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);
+    return names.filter((name) => name.startsWith("azurkit-build-"));
+}"""
+
+
+def test_a_characters_pieces_live_in_a_build_file_held_until_its_build_is_gone_and_a_crash_leaves_none(
+        browser, site, usa_iso, tmp_path):
+    """P7 and X10: a character's build writes its pieces into an OPFS file, the Blob's bytes CPython's; Storage counts
+    it; another tab's load leaves it while this tab holds it. A change forgets the build and removes it; a saved one
+    stays past that (its download may still read it, and is whole), and the next load removes it once no page holds
+    it, as it does a crashed page's."""
+    recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+              "character": {"species": "keylord"}}
+    made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+    served = Site(browser, site, tmp_path / "profile")
+    try:
+        page = served.context.new_page()
+        page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.until(page, "() => globalThis.azurkit?.loaded", 120)
+        page.set_input_files("#iso", str(usa_iso))
+        page.evaluate("() => document.querySelector('#build').click()")
+        built = _built(page)
+        assert built == _as_cpython(built, report, made)
+        name = page.evaluate("() => azurkit.build.out")
+        assert name in page.evaluate(BUILD_FILES)
+        _page.click(page, "tab-tools")
+        _page.until(page, """() => [...document.querySelectorAll("#tools-storage td")]
+                                 .some((td) => td.textContent.startsWith("Built images"))""", 60)
+        other = served.open()   # its load's sweep
+        assert name in other.evaluate(BUILD_FILES)
+        _page.tick(page, ["fps_unlock"])   # a change: the build is forgotten
+        _page.until(page, f"async () => !(await ({BUILD_FILES})()).includes({json.dumps(name)})", 60)
+        page.evaluate("() => document.querySelector('#build').click()")
+        _page.built(page)
+        name = page.evaluate("() => azurkit.build.out")
+        with page.expect_download(timeout=600_000) as caught:
+            _page.click(page, "save")
+        _page.tick(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})   # forgotten, but saved
+        assert name in page.evaluate(BUILD_FILES)
+        _page.until(page, "() => azurkit.saveCheck === 'held'", 600)
+        page.close()
+        other.reload()
+        _page.until(other, f"async () => !(await ({BUILD_FILES})()).includes({json.dumps(name)})", 60)
+    finally:
+        served.close()
 
 
 WORKERS_SMOKE = """async ({ seed }) => {
