@@ -1,49 +1,46 @@
 #!/usr/bin/env python3
-"""Render the Randomize tab's and the maps' icons from the game's own 3D models (Step 2.52, D191).
+"""The icon sheet of the tracker and the Randomizer's lists, one picture: the
+game's own 2D menu art where it has some, its 3D models where it has none.
 
-Each icon is a model drawn with its own textures (``azurik_mod/xbr/draw.py``):
-an item's character body (characters.xbr, the ``critters_engine`` body
-config.xbr names), or a barrier's platform meshes as a level places them,
-seen in a 3/4 view (a key upright, each key the vanilla data places its
-own) under one light on a transparent ground, at ``SS`` times the size and
-box-filtered down to 20 px.  An opaque part is cut out where its texture's
-alpha is under its material's reference, as the game draws it (a key
-card's plate).  The fire barrier is particles with no mesh, so its drawn
-flame stays; the smash wall, a faint glow plane, is drawn here
-(:data:`DRAWN`).  The fuel's sphere wears fx.xbr's chroma field, the colours
-the game puts on the chromatic fuel, mapped by the surface's facing (D203).
-
-Usage (needs the vanilla ISO)::
-
-    uv run --locked python scripts/render_model_icons.py [--iso PATH] [--out DIR] [--size PX]
-
-A few seconds; prints each icon's name.
+:data:`MENU_ART` is interface.xbr's status screen: each of the 20 disc
+fragments, the 4 gems, the obsidian, each placed key's picture (its medallion,
+the lower half, which reads at a list's size) and the 4 element orbs (cut from
+the status screen's buttons).  The other items have no 2D art: each
+(:data:`ICONS`) is a model drawn with its own textures
+(``azurik_mod/xbr/draw.py``): an item's character body (characters.xbr, the
+``critters_engine`` body config.xbr names), or a barrier's platform meshes as
+a level places them, seen in a 3/4 view under one light on a transparent
+ground, at ``SS`` times the size and box-filtered down.  An opaque part is cut
+out where its texture's alpha is under its material's reference, as the game
+draws it.  The fire barrier is particles with no mesh, so the page's drawn
+flame stays and it has no tile; the smash wall, a faint glow plane, is drawn
+here (:data:`DRAWN`).  The fuel's sphere wears fx.xbr's chroma field, the
+colours the game puts on the chromatic fuel, mapped by the surface's facing
+(D203).  :func:`sheet` lays them out; :func:`css` names each tile for the
+page's lists.
 """
 
 from __future__ import annotations
-
-from pathlib import Path
 
 import numpy as np
 
 from azurkit.tools.randomizer.art.draw import OUTLINE, PITCH, SS, Part, dot, down, draw
 
-REPO = Path(__file__).resolve().parent.parent
+TILE, COLUMNS = 40, 8   # a tile's pixels (sharp at a list's 18 px on a Retina screen, the map's 20) and the sheet's width
+# The status screen's 4 element orbs in status/buttons: x0, y0, x1, y1.
+ORBS = {"power_earth": (106, 18, 149, 63), "power_water": (52, 68, 95, 111),
+        "power_fire": (160, 69, 202, 112), "power_air": (106, 125, 148, 168)}
+MEDALLION = (0, 64, 64, 128)    # a status/key_<fourcc>'s lower half
+SOLID = 128                     # the alpha a picture's own shape holds
 # icon: (source, yaw in degrees); a source is ("body", <characters.xbr body>)
-# or ("barrier", <level>, <its id in the level's generated file>).  Each key
-# the vanilla data places is its own icon, named for it (``keys``).
+# or ("barrier", <level>, <its id in the level's generated file>): the items
+# and barriers with no 2D art.
 ICONS = {
-    "frag_air": (("body", "frag_air_1"), 20), "frag_earth": (("body", "frag_earth_1"), 20),
-    "frag_fire": (("body", "frag_fire_1"), 20), "frag_water": (("body", "frag_water_1"), 20),
-    "frag_life": (("body", "frag_life_1"), 20),
-    "power_air": (("body", "power_air"), 30), "power_earth": (("body", "power_earth"), 30),
-    "power_fire": (("body", "power_fire"), 30), "power_water": (("body", "power_water"), 30),
     "power_life": (("body", "power_life"), 30), "power_ammo": (("body", "power_ammo"), 30),
     "power_staff1": (("body", "power_staff1"), 30), "power_staff2": (("body", "power_staff2"), 30),
-    "gem_diamond": (("body", "diamond"), 30), "gem_emerald": (("body", "emerald"), 30),
-    "gem_ruby": (("body", "ruby"), 30), "gem_sapphire": (("body", "sapphire"), 30),
-    "obsidian": (("body", "obsidian"), 0),
     "fuel": (("body", "large_chromatic_fuel"), 30), "health": (("body", "large_health"), 30),
+    "large_air_fuel": (("body", "large_air_fuel"), 30), "large_earth_fuel": (("body", "large_earth_fuel"), 30),
+    "large_fire_fuel": (("body", "large_fire_fuel"), 30), "large_water_fuel": (("body", "large_water_fuel"), 30),
     "crystal": (("barrier", "e5", "e5/g0/r2304"), 30),
     "ice_block": (("barrier", "w1", "w1/g0/r1433"), 35),
     "acid_block": (("barrier", "a1", "a1/g0/r2356"), 35),
@@ -53,21 +50,18 @@ ICONS = {
 # mean, the model's own colour) as the game does (MODULATE2X: twice), "gain"
 # brightens, "roll" turns the view in the picture's plane (a long model
 # across the diagonal) and "rim" is the rim's colour.  D203 (Step 2.57,
-# the owner's picks): the obsidian upright, seen from the front; the fuel
-# wearing a ``skin`` (an XBR's image, its colour times a factor).  Step 2.84
+# the owner's pick): the fuel wearing a ``skin`` (an XBR's image, its colour
+# times a factor).  Step 2.84
 # (D193's rest): the two staff powers, the darkest on the maps' disc,
 # brightened, the thin second one also turned across the diagonal.
 LOOKS = {
     "power_staff1": {"gain": 2.0},
     "power_staff2": {"gain": 3.0, "roll": 45.0},
-    "frag_earth": {"gain": 1.7},
     "acid_block": {"colours": True, "gain": 3.0},
     "ice_block": {"colours": True},
     "crystal": {"colours": True, "gain": 12.0, "rim": (190, 196, 204)},
-    "obsidian": {"pitch": 5.0, "gain": 1.5},
     "fuel": {"skin": ("gamedata/fx.xbr", "fx/jdtchromafield_000.tif", 2.0)},
 }
-KEY_VIEW = (15.0, 5.0)          # a key's yaw and pitch: upright, its gem showing (the owner's pick)
 
 
 # --------------------------------------------------------------------------- models
@@ -130,24 +124,74 @@ def smash_wall(size: int) -> np.ndarray:
 DRAWN = {"smash_wall": smash_wall}     # icons drawn for the GUI, no model showing at 20 px
 
 
-def keys() -> list[str]:
-    """The keys the vanilla data places (R1.1's generated files); each body
-    is named for its key."""
+def fourccs() -> dict[str, str]:
+    """Each key the vanilla data places (R1.1's generated files) and its
+    fourcc, which names its status picture as the game names it (the XBE's
+    ``key_xxxx``)."""
     import json
 
     from azurkit.tools.randomizer.levels import GENERATED
 
-    return sorted({loc["item"] for path in GENERATED.glob("*.json")
-                   for loc in json.loads(path.read_text(encoding="utf-8"))["locations"]
-                   if loc["item"].startswith("key_")})
+    docs = [json.loads(path.read_text(encoding="utf-8")) for path in GENERATED.glob("*.json")]
+    fourcc = {k["key_type"]: k["key_fourcc"] for doc in docs for k in doc.get("keylocks", ()) if k.get("key_type")}
+    return {item: fourcc[item] for item in sorted({loc["item"] for doc in docs for loc in doc["locations"]
+                                                   if loc["item"].startswith("key_")})}
 
 
-def icon(rd, schema, cache: dict, name: str, size: int = 20) -> np.ndarray:
-    """``ICONS[name]``, or a key's own model, drawn with its ``LOOKS``:
+def menu_art() -> dict[str, tuple[str, tuple[int, int, int, int] | None]]:
+    """The icons with the game's 2D art: each one's interface.xbr picture and the box of it shown (None: all of it)."""
+    return {**{f"frag_{e}_{i}": (f"status/{e}frag{i}", None)
+               for e in ("air", "water", "fire", "earth", "life") for i in (1, 2, 3, 4)},
+            **{f"gem_{g}": (f"status/{g}", None) for g in ("diamond", "emerald", "ruby", "sapphire")},
+            "obsidian": ("status/obsidian", None),
+            **{k: ("status/buttons", box) for k, box in ORBS.items()},
+            **{k: (f"status/key_{f}", MEDALLION) for k, f in fourccs().items()}}
+
+
+def orb(a: np.ndarray) -> np.ndarray:
+    """A box cut round an orb with its corners, the buttons' other parts, clear."""
+    h, w = a.shape[:2]
+    y, x = np.mgrid[0:h, 0:w] + 0.5
+    out = a.copy()
+    out[(2 * x / w - 1) ** 2 + (2 * y / h - 1) ** 2 > 1, 3] = 0
+    return out
+
+
+def names() -> list[str]:
+    """The sheet's icons, in its order."""
+    return sorted([*menu_art(), *ICONS, *DRAWN])
+
+    """The sheet's icons, in its order."""
+    return sorted([*menu_art(), *ICONS, *DRAWN])
+
+
+def _box(a: np.ndarray, n: int, axis: int) -> np.ndarray:
+    """``a`` box-filtered to ``n`` along ``axis``: each new pixel the mean of what it covers of the old ones."""
+    m = a.shape[axis]
+    edges = np.arange(m + 1) * n / m
+    cover = np.minimum(edges[1:], np.arange(n)[:, None] + 1) - np.maximum(edges[:-1], np.arange(n)[:, None])
+    return np.moveaxis(np.tensordot(np.clip(cover, 0, None), a, axes=(1, axis)), 0, axis)
+
+
+def fit(a: np.ndarray, size: int) -> np.ndarray:
+    """An RGBA picture's solid part (past :data:`SOLID`: two life fragments' and two keys' pictures hold a faint stray
+    ring), its shape kept, in the middle of a transparent ``size`` px square, weighted by its alpha as it shrinks:
     (size, size, 4) RGBA uint8."""
-    if name.startswith("key_"):
-        yaw, pitch = KEY_VIEW
-        return draw(body_parts(rd, cache, name), yaw, size, pitch)
+    ys, xs = np.nonzero(a[:, :, 3] > SOLID)
+    a = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.float64)
+    a[:, :, :3] *= a[:, :, 3:] / 255
+    h, w = a.shape[:2]
+    nh, nw = max(1, round(h * size / max(h, w))), max(1, round(w * size / max(h, w)))
+    a = _box(_box(a, nh, 0), nw, 1)
+    a[:, :, :3] = np.where(a[:, :, 3:] > 0, a[:, :, :3] * 255 / np.maximum(a[:, :, 3:], 1e-9), 0)
+    out = np.zeros((size, size, 4), np.uint8)
+    y, x = (size - nh) // 2, (size - nw) // 2
+    out[y:y + nh, x:x + nw] = np.clip(a + 0.5, 0, 255).astype(np.uint8)
+    return out
+
+
+def icon(rd, schema, cache: dict, name: str, size: int = TILE) -> np.ndarray:
+    """``ICONS[name]`` or ``DRAWN[name]``, drawn with its ``LOOKS``: (size, size, 4) RGBA uint8."""
     if name in DRAWN:
         return DRAWN[name](size)
     (src, yaw), look = ICONS[name], dict(LOOKS.get(name, {}))
@@ -156,6 +200,38 @@ def icon(rd, schema, cache: dict, name: str, size: int = 20) -> np.ndarray:
     if skin:
         parts = skinned(rd, parts, *skin, yaw, look.get("pitch", PITCH))
     return draw(parts, yaw, size, **look)
+
+
+def sheet(rd, schema) -> tuple[np.ndarray, dict]:
+    """The sheet (RGBA) and where its tiles are (``{"tile": px, "columns": n, "names": [icon]}``: the icon at index i
+    in row i // n, column i % n): every icon :func:`names` gives."""
+    from azurkit.core.xbr.nodes import named_resources, parse_toc
+    from azurkit.tools.randomizer.art import render
+
+    data = bytes(rd.read_file("gamedata/interface.xbr"))
+    toc, index = parse_toc(data), {n: i for i, n in named_resources(data).items()}
+    flat, cache, all_names = menu_art(), {}, names()
+    out = np.zeros(((len(all_names) + COLUMNS - 1) // COLUMNS * TILE, COLUMNS * TILE, 4), np.uint8)
+    for i, name in enumerate(all_names):
+        if name in flat:
+            picture, box = flat[name]
+            image = render.surf_image(data, toc, index[f"interface/{picture}.tif"])
+            image = image if box is None else image[box[1]:box[3], box[0]:box[2]]
+            tile = fit(orb(image) if name in ORBS else image, TILE)
+        else:
+            tile = icon(rd, schema, cache, name)
+        out[i // COLUMNS * TILE:(i // COLUMNS + 1) * TILE, i % COLUMNS * TILE:(i % COLUMNS + 1) * TILE] = tile
+    return out, {"tile": TILE, "columns": COLUMNS, "names": all_names}
+
+
+def css(version: str, tiles: dict) -> str:
+    """``art/icons.css``, which needs no script, so a list's icons show before the maps' index is read: ``.glyph`` wears
+    the sheet in steps of its ``--g`` (app.css), and ``.glyph.<icon>`` shows that icon's tile."""
+    n = tiles["columns"]
+    lines = [f".glyph {{ background: url({version}/icons.png) no-repeat; background-size: calc(var(--g) * {n}) auto; }}"]
+    lines += [f".glyph.{name} {{ background-position: calc(var(--g) * {-(i % n)}) calc(var(--g) * {-(i // n)}); }}"
+              for i, name in enumerate(tiles["names"])]
+    return "\n".join(lines) + "\n"
 
 
 def skinned(rd, parts: list[Part], xbr: str, image: str, colour: float, yaw: float, pitch: float) -> list[Part]:

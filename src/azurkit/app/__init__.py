@@ -1000,7 +1000,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             return self._send(_theme_js(), "text/javascript")
         if url.path == "/api/progress":
             return self._json(self.server.progress())
-        if url.path.startswith("/art/"):   # the tracker's pictures, from the user cache folder (never the bundle)
+        if url.path.startswith("/art/") and url.path != "/art/icons.css":   # the tracker's pictures (that's a page file)
             version, _, rel = urllib.parse.unquote(url.path).removeprefix("/art/").partition("/")
             root = self.server.drawing.where
             file = (root / rel).resolve()

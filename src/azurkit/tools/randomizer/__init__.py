@@ -75,15 +75,15 @@ CEILING_TIP = "Turns on every skip rated at or below it; a skip's own toggle win
 RATINGS = ("Unrated", "Safe", "Standard", "Hard", "Frame-perfect")   # a skip's difficulty 1-4 (the ceiling's names)
 BARRIERS = "Stay vanilla in v1 (R2.2)."
 #: The item rows (Modkit's Randomize page): each its category, ticked to shuffle it, or None, greyed: it stays vanilla;
-#: its label and note, the kind its base-game count counts (:func:`base_counts`) and its icons (the page's own drawings,
-#: Modkit's icon names).
+#: its label and note, the kind its base-game count counts (:func:`base_counts`) and its icons (tiles of the icon sheet,
+#: :mod:`.art.icons`; the fire barrier's is the page's own drawing).
 ITEMS = (("fragments", "Disc fragments", "Guardians keep their 4th.", "disc_fragment",
-          ("frag_air", "frag_water", "frag_fire", "frag_earth", "frag_life")),
+          ("frag_air_1", "frag_water_1", "frag_fire_1", "frag_earth_1", "frag_life_1")),
          ("powers", "Elemental powers", "Air, water, fire and earth.", "power",
           ("power_air", "power_water", "power_fire", "power_earth")),
          ("upgrades", "Upgrades", "Swap among the 8 town vaults.", "upgrade",
           ("power_life", "power_staff1", "power_staff2", "power_ammo")),
-         (None, "Keys", "Stay vanilla (I-9).", "key", ("key",)),
+         (None, "Keys", "Stay vanilla (I-9).", "key", ("key_life1",)),
          ("gems", "Gems", "Clusters keep their yield.", "gem", ("gem_diamond", "gem_emerald", "gem_ruby", "gem_sapphire")),
          ("obsidians", "Obsidians", "Each lock stays reachable.", "obsidian", ("obsidian",)),
          ("consumables", "Fuel pickups", "Town's health and fuel dispensers stay.", "consumable", ("fuel",)),

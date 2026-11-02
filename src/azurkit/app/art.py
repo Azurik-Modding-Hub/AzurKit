@@ -32,8 +32,8 @@ class Drawing:
         return self._where or folder()
 
     def status(self) -> dict:
-        """``{"version", "index": maps.json's object, "icons": the icons'
-        pictures' names, "detail": {level: how many times finer its detail
+        """``{"version", "index": maps.json's object, "icons": where the icon
+        sheet's tiles are, "detail": {level: how many times finer its detail
         pictures are}}`` (Step 4.3l: ``index.json``'s), ``index`` and
         ``icons`` null and ``detail`` empty where :attr:`where` holds no
         pictures (the page then shows the levels' grid and chips)."""

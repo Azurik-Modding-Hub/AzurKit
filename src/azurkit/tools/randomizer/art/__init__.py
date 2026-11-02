@@ -139,16 +139,14 @@ def unpng(data: bytes) -> np.ndarray:
 
 def part(reader: Vanilla, name: str) -> dict:
     """One part of the pictures from ``reader``'s image: ``"icons"``
-    (``{"pictures": {"icons/<icon>": RGBA}}``, every icon Modkit's script
-    draws: the items' and barriers' models, each key's own, and the smash
-    wall's drawing), or a level of the world map (``{"pictures": {floor:
+    (``{"pictures": {"icons": RGBA}, "sheet": where its tiles are}``, the one
+    icon sheet, :func:`.icons.sheet`), or a level of the world map (``{"pictures": {floor:
     RGB}, "entry": its maps.json entry, "thumb": its main floor's world-map
     thumbnail, "floors": its floors.json table, Live's Follow's, maps.storeys}``)."""
     schema = nodes.Schema(reader.read_file("default.xbe"))
     if name == "icons":
-        cache: dict = {}
-        return {"pictures": {f"icons/{n}": icons.icon(reader, schema, cache, n)
-                             for n in [*icons.ICONS, *icons.DRAWN, *icons.keys()]}}
+        picture, tiles = icons.sheet(reader, schema)
+        return {"pictures": {"icons": picture}, "sheet": tiles}
     if name not in maps.GRID:
         raise ValueError(f"art: no part {name!r} (the icons, or a level of the world map)")
     pictures, entry, floors = maps.render(reader, schema, name)

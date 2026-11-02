@@ -685,7 +685,7 @@ def tracker_states(view: Callable, doc: dict) -> list[tuple]:
 MAP_MODEL = """import { marks, badges } from %s;
 let text = "";
 for await (const chunk of process.stdin) text += chunk;
-const [views, levels, icons] = JSON.parse(text), have = (name) => icons.includes(`icons/${name}`);
+const [views, levels, icons] = JSON.parse(text), have = (name) => icons.includes(name);
 const sorted = (v) => Array.isArray(v) ? v.map(sorted) : v && typeof v === "object"
   ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;
 process.stdout.write(JSON.stringify(views.map((view) => JSON.stringify(sorted({
@@ -711,8 +711,8 @@ def tracker() -> dict[str, dict]:
             for spoiler in (False, True):
                 got = view(doc, marks, spoiler, kit)
                 views[f"{name}/{state}/{'spoiler' if spoiler else 'plain'}"] = (tracking.digest(got), json.dumps(got))
-    drawn = [f"icons/{name}" for name in [*icons.ICONS, *icons.DRAWN, *icons.keys()]]
-    given = f"[[{','.join(text for _, text in views.values())}],{json.dumps(list(tracking.GRID))},{json.dumps(drawn)}]"
+    given = (f"[[{','.join(text for _, text in views.values())}],{json.dumps(list(tracking.GRID))},"
+             f"{json.dumps(icons.names())}]")
     run = subprocess.run(["node", "--input-type=module", "--eval", MAP_MODEL % json.dumps(MAPVIEW.as_uri())],
                          input=given, capture_output=True, text=True, check=True)
     return {key: {"map": _sha256(model.encode())[:32], "view": _sha256(digest.encode())[:32]}
@@ -736,14 +736,15 @@ def art(images: Images, workers: int, detail: Collection[str] | None = None) -> 
     """The tracker's pictures the page ships, by their path: drawn from the
     USA image (``sdk.art``, one part a process, then ``sdk.art_world``;
     Europe's draw the same, ``tests/test_art.py``) under ``ART_VERSION``
-    each picture (``icons/<icon>.png``, each floor's, ``world.png``),
+    each picture (``icons.png``, the icon sheet; each floor's, ``world.png``),
     ``maps.json`` and ``floors.json`` (each level's storeys, the floor under
     a point, Live's Follow's: ``maps.storeys``), then each coarse level's floors again finer
     (``detail/<floor>.png``: ``art.detail`` at its ``art.detail_factor``,
     the largest first; only ``detail``'s levels when it names them, the
-    tests'), and ``index.json``, that version, the icons' names and every
-    coarse level's factor (``detail``), which the site's page reads first
-    (``web/art.mjs``)."""
+    tests'), ``index.json``, that version, where the sheet's tiles are
+    (``icons``) and every coarse level's factor (``detail``), which the
+    site's page reads first (``web/art.mjs``), and ``icons.css``, the
+    tiles for the page's lists (``art.icons.css``)."""
     from azurkit.tools.randomizer import art as drawn
     from azurkit.tools.randomizer import tracking
 
@@ -758,11 +759,12 @@ def art(images: Images, workers: int, detail: Collection[str] | None = None) -> 
     world = sdk.art_world({lv: {"entry": got[lv]["entry"], "thumb": got[lv]["thumb"]} for lv in tracking.GRID})
     out = {f"{v}/{name}.png": png for part in tracking.ART_PARTS for name, png in got[part]["pictures"].items()}
     out |= {f"{v}/{name}.png": png for lv in sorted(finer) for name, png in finer[lv].items()}
-    shipped = {"version": v, "icons": sorted(got["icons"]["pictures"]), "detail": factors}
+    shipped = {"version": v, "icons": got["icons"]["sheet"], "detail": factors}
     floors = {"unit": drawn.maps.STOREY_M, "levels": {lv: got[lv]["floors"] for lv in sorted(tracking.GRID)}}
     out |= {f"{v}/world.png": world["pictures"]["world"], f"{v}/maps.json": world["text"].encode(),
             f"{v}/floors.json": (json.dumps(floors, separators=(",", ":")) + "\n").encode(),
-            "index.json": (json.dumps(shipped) + "\n").encode()}
+            "index.json": (json.dumps(shipped) + "\n").encode(),
+            "icons.css": drawn.icons.css(v, got["icons"]["sheet"]).encode()}
     return {f"{ART}/{rel}": data for rel, data in out.items()}
 
 

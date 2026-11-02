@@ -1148,7 +1148,7 @@ function renderRando(options) {
   choices(R("ceiling"), options.ceilings, options.tips.ceiling);
   choices(R("dark"), options.dark_fire.map((level) => [level, `Fire ${level}`]));
   R("cost-note").textContent = `vanilla ${options.obsidian_cost}`;   // D910
-  // Each item row: its box, its icons (the page's own drawings), its name, how many the base game places, its note
+  // Each item row: its box, its icons (the icon sheet's tiles), its name, how many the base game places, its note
   R("items").replaceChildren(...options.items.map(([category, label, note, count, icons]) => {
     const row = Object.assign(document.createElement("label"), { className: "item" });
     const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: Boolean(category) });

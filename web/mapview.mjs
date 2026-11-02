@@ -38,18 +38,18 @@ const FAINT = 0.45;   // D1044: a spot one floor away from the one shown; two fl
 // Follow's floor (Step 4.3's floors): ground this near the feet is what they stand on; at a seam the floor they were
 // on holds while its ground lies this near
 const FOOT_M = 1.5, HOLD_M = 2;
+const ICON_PX = 20;
 const KINDS = { level: [["conn", "Connections"], ["item", "Items"], ["barrier", "Barriers"], ["feature", "Features"]],
                 world: [["conn", "Connections"], ["spot", "Spots"]] };
 const NEED_ORDER = ["nothing", "keys", "fragments", "event", "air", "water", "fire", "earth", "ice block",
                     "acid block", "smash wall", "crystal", "powers", "unreachable"];
 
-// An item's icon (Modkit's item_icon): a key its own model's where the icons hold one, else the life key's
+// An item's icon (a tile of the icon sheet): a key's own where the sheet holds one, else the life key's
 const ICONS = [["key_", "key_life1"], ["all_fuel", "fuel"], ["all_health", "health"], ["obsidian", "obsidian"]];
 export function itemIcon(item, have = () => false) {
   if (item.startsWith("key_")) return have(item) ? item : "key_life1";
   const found = ICONS.find(([p]) => item.startsWith(p));
   if (found) return found[1];
-  if (/^frag_[a-z]+_\d$/.test(item)) return item.replace(/_\d$/, "");
   if (["diamond", "emerald", "ruby", "sapphire"].includes(item)) return `gem_${item}`;
   return item === "power_water_a3" ? "power_water" : item;
 }
@@ -498,23 +498,25 @@ export class MapView {
     ctx.fill();
   }
 
-  // An icon the engine drew (icons/<name>), centred on (x, y), read once (drawn again once it is).
+  // An icon's tile of the sheet, centred on (x, y) at ICON_PX; the sheet is read once (drawn again once it is).
   icon(x, y, name, faint = false) {
     if (name === "fire_barrier") return this.flame(x, y);
-    const b = this.iconCache?.[name];
-    if (b) {
+    const tile = this.hooks.art.tile(name);
+    if (tile && this.iconSheet) {
       const alpha = this.ctx.globalAlpha;
       this.ctx.globalAlpha = alpha * (faint ? 0.35 : 1);
-      this.ctx.drawImage(b, x - b.width / 2, y - b.height / 2);
+      this.ctx.imageSmoothingEnabled = true;   // the floors' pixels are drawn hard, a tile is shrunk
+      this.ctx.drawImage(this.iconSheet, tile.x, tile.y, tile.size, tile.size,
+                         x - ICON_PX / 2, y - ICON_PX / 2, ICON_PX, ICON_PX);
+      this.ctx.imageSmoothingEnabled = false;
       this.ctx.globalAlpha = alpha;
       return;
     }
-    this.iconCache ??= {};
-    if (this.iconCache[name] === undefined) {
-      this.iconCache[name] = null;
-      this.hooks.art.bitmap(`icons/${name}`).then((bitmap) => {
-        if (!bitmap) return delete this.iconCache[name];
-        this.iconCache[name] = bitmap;
+    if (tile && this.iconSheet === undefined) {
+      this.iconSheet = null;
+      this.hooks.art.bitmap("icons").then((bitmap) => {
+        if (!bitmap) return delete this.iconSheet;
+        this.iconSheet = bitmap;
         this.draw();
       });
     }
@@ -523,8 +525,8 @@ export class MapView {
   drawLevel(view) {
     const ctx = this.ctx, level = this.level, e = this.entry(level), maps = view.world.maps.levels[level];
     const here = (at) => at[2] === this.floor;
-    const gemsOn = this.hooks.gems() && view.gems, held = this.hooks.art.status.icons;
-    const have = (name) => Boolean(held?.includes(`icons/${name}`));
+    const gemsOn = this.hooks.gems() && view.gems, held = this.hooks.art.status.icons?.names;
+    const have = (name) => Boolean(held?.includes(name));
     // the title, and with Gems the level's gems taken and left and the key of the colours its dots show
     let [, , , bottom] = this.label(8, 6, level, "bold 13px system-ui, sans-serif");
     if (gemsOn) {

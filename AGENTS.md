@@ -574,8 +574,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     their `ART_VERSION`, a host's key for what it keeps.
   - **The pictures** (`art/`, Step 4.2c3): `sdk.art(iso, part)` draws
     one part from the player's image, each file it reads checked against
-    its release's vanilla file (`art.Vanilla`): the icons (every item's and
-    barrier's, the game's own model at 20 px), or a level's floors seen
+    its release's vanilla file (`art.Vanilla`): the icon sheet
+    (`art/icons.py`: the game's 2D menu art, interface.xbr's status screen,
+    for the fragments, gems, obsidian, placed keys and element orbs; its
+    model at 40 px for the rest; the smash wall our drawing), or a level's floors seen
     from above, its `maps.json` entry (where its exits, items, spots,
     barriers, features and gems lie, in pixels with their floor; `frame`
     maps metres to them; an item's, a spot's and a gem's floor is the one
@@ -926,7 +928,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     string (editable, Copy), Load settings… and Save settings… (D144:
     a settings file, read and written by the engine: `randomizer_settings`'
     `file`, the app's `api/settings_file`), the item rows (each a category
-    it shuffles, its icons, the page's own drawings, and how many the base
+    it shuffles, its icons (the icon sheet's tiles), and how many the base
     game places, `tools.randomizer.base_counts`; keys and barriers stay
     vanilla), the skip groups (D258, `tools.randomizer.SKIP_GROUP`, every
     skip of the database in one: a ticked group turns on its picks rated at
@@ -992,9 +994,13 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     and an error that ends the feed turns Live off.
   - **The maps** (Step 4.2c3, R1.41, R1.43; shipped since Step 4.3f, D961;
     `web/art.mjs`, `web/mapview.mjs`): Modkit's pictures of every level's
-    floors, the world map and the item icons, with the maps' index
+    floors, the world map and the one icon sheet (`icons.png`), with the maps' index
     (`maps.json`) and the floor table (`floors.json`), ship with the page in `web/art/<ART_VERSION>/`, and
-    `web/art/index.json` names that version and the icons. Only
+    `web/art/index.json` names that version and where the sheet's tiles are, and
+    `web/art/icons.css`, which the page links, names them for the lists (a `.glyph`, no script, so the
+    Randomizer's rows show them before any map is read; the map's canvas draws them from `icons.png`). A
+    spot not shown is a plain dot, so an icon never spoils a seed; the map's gem dots stay dots; the fire
+    barrier is the page's drawing. Only
     `scripts/record_goldens.py`'s `art` family writes them, drawn from the
     USA image (`sdk.art`, Modkit's drawing; `--check` writes nothing), and
     `tests/test_art.py` holds them (Modkit's committed pictures at the

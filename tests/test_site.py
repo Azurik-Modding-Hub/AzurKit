@@ -2290,7 +2290,9 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
         _page.until(page, "() => Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)", 60)
         assert page.evaluate(WORLD_SHOWN) == [None, None, ["track-maps"], False,
                                               [["world", *_png_size((shipped / "world.png").read_bytes())]], []]
-        assert [url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests if "/art/" in url] == [
+        read = [url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests if "/art/" in url]
+        assert {url for url in read if "icons" in url} == {"art/icons.css", f"art/{tracking.ART_VERSION}/icons.png"}
+        assert [url for url in read if "icons" not in url] == [
             "art/index.json", f"art/{tracking.ART_VERSION}/maps.json", f"art/{tracking.ART_VERSION}/world.png"]
         hint = "() => document.getElementById('map-hint').textContent"
         assert page.evaluate(hint) == "Track a seed to open a level's map. Scroll to zoom, drag to pan."
@@ -2386,10 +2388,10 @@ def test_a_level_zoomed_past_its_maps_pixels_shows_its_floors_detail_picture(bro
 TRACKED = "() => !azurkit.tracker.state.running && !azurkit.tracker.state.queue.length && azurkit.tracker.state.view"
 # The maps' model of the view shown (web/mapview.mjs's marks() for each level and badges(); the icons the engine draws),
 # as one canonical JSON text: TRACKER_MAP's
-ICONS = [f"icons/{name}" for name in [*icons.ICONS, *icons.DRAWN, *icons.keys()]]
+ICONS = icons.names()
 MAP_MODEL = """async ([levels, icons]) => {
     const { marks, badges } = await import("./mapview.mjs");
-    const view = azurkit.tracker.state.view, have = (name) => icons.includes(`icons/${name}`);
+    const view = azurkit.tracker.state.view, have = (name) => icons.includes(name);
     const sorted = (v) => Array.isArray(v) ? v.map(sorted) : v && typeof v === "object"
       ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;
     return JSON.stringify(sorted({ levels: Object.fromEntries(levels.map((lv) => [lv, marks(view, lv, have)])),

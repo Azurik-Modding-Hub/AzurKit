@@ -9,9 +9,12 @@
 // Each level's floor table (Step 4.3's floors: art/<version>/floors.json, the art's maps.storeys), which Live's Follow
 // reads for the floor under the player, is read the first time Follow asks for one.
 //
-// artStore({app, changed}) -> {status, load(), bitmap(name), detail(name), drop(), floors(level)}: status is {version,
-// error, levels: {level: maps.json entry}, index (maps.json), icons: [name], detail: {level: factor}}, read once by
-// load(), which runs changed() once it is.
+// The item icons are one sheet, art/<version>/icons.png (art/icons.py: the game's 2D menu art, its models where it has
+// none); art/icons.css names its tiles for the lists (a .glyph), tile(name) for the map's canvas.
+//
+// artStore({app, changed}) -> {status, load(), bitmap(name), tile(name), detail(name), drop(), floors(level)}: status is
+// {version, error, levels: {level: maps.json entry}, index (maps.json), icons: {tile, columns, names}, detail: {level:
+// factor}}, read once by load(), which runs changed() once it is.
 export function artStore({ app, changed }) {
   const status = { version: null, error: null, levels: {}, index: null, icons: null, detail: {} };
   const bitmaps = new Map();   // name -> Promise<ImageBitmap | null>
@@ -53,6 +56,12 @@ export function artStore({ app, changed }) {
         })());
       }
       return bitmaps.get(name);
+    },
+    // Where an icon's tile lies in the sheet, {x, y, size} (null: the sheet has none).
+    tile: (name) => {
+      const sheet = status.icons, i = sheet?.names.indexOf(name) ?? -1;
+      return i < 0 ? null : { x: i % sheet.columns * sheet.tile, y: Math.floor(i / sheet.columns) * sheet.tile,
+                              size: sheet.tile };
     },
     // A floor's detail picture: {bitmap} (null and why: {bitmap: null, error}), the one held; asking another's
     // closes it (the browser's cache keeps the file).

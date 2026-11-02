@@ -1,8 +1,8 @@
 """The item tracker's pictures (Step 4.2c3), shipped with the page since
 Step 4.3f (D961): every level's maps, the world map, the maps' index and
 the item icons in ``web/art/`` (``scripts/record_goldens.py``'s art
-family; Modkit's committed pictures pixel for pixel at the last cut, Step
-4.12b) are what the tracker's drawing gives from each release's image,
+family; the maps Modkit's committed pictures pixel for pixel at the last
+cut, Step 4.12b) are what the tracker's drawing gives from each release's image,
 byte for byte, and nothing else is shipped."""
 
 from __future__ import annotations
@@ -159,6 +159,33 @@ def test_the_art_version_names_the_drawings_sources():
                    if p.is_file() and "__pycache__" not in p.parts)
     lines = "".join(f"{p.relative_to(ART).as_posix()} {hashlib.sha256(p.read_bytes()).hexdigest()}\n" for p in files)
     assert tracking.ART_VERSION == f"1-{hashlib.sha256(lines.encode()).hexdigest()[:12]}"
+
+
+def test_the_icon_sheet_has_a_tile_for_everything_the_lists_and_maps_show_and_each_fragment_its_own():
+    """Every item the vanilla data places (the 4 large element fuels once had no icon anywhere) and every icon of the
+    Randomizer's item rows has a tile with something on it, but the fire barrier, whose drawing is the page's; the 20
+    fragments' tiles all differ; ``icons.css`` names each tile where ``index.json`` says it lies."""
+    from azurkit.tools import randomizer
+
+    root = ROOT / record_goldens.ART
+    sheet = json.loads((root / "index.json").read_text())["icons"]
+    tile, columns, names = sheet["tile"], sheet["columns"], sheet["names"]
+    picture = art.unpng((ROOT / SHIPPED / "icons.png").read_bytes())
+    tiles = {n: picture[i // columns * tile:(i // columns + 1) * tile, i % columns * tile:(i % columns + 1) * tile]
+             for i, n in enumerate(names)}
+    placed = {loc["item"] for path in (ART / "data" / "generated").glob("*.json")
+              for loc in json.loads(path.read_text(encoding="utf-8"))["locations"]}
+    assert {f"large_{e}_fuel" for e in ("air", "earth", "fire", "water")} <= placed
+    shown = {tracking.icon(item) for item in placed} | {i for row in randomizer.ITEMS for i in row[4]}
+    assert sorted(shown - set(names)) == ["fire_barrier"]
+    assert [n for n in names if (tiles[n][:, :, 3] > 128).sum() < tile] == []
+    fragments = [tiles[n].tobytes() for n in names if n.startswith("frag_")]
+    assert len(fragments) == len(set(fragments)) == 20
+    css = (root / "icons.css").read_text()
+    assert f"url({tracking.ART_VERSION}/icons.png)" in css
+    for i, n in enumerate(names):
+        assert (f".glyph.{n} {{ background-position: calc(var(--g) * {-(i % columns)}) "
+                f"calc(var(--g) * {-(i // columns)}); }}") in css
 
 
 def test_each_coarse_levels_floors_ship_drawn_at_two_pixels_a_metre():

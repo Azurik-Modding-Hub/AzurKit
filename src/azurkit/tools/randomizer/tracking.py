@@ -62,7 +62,7 @@ SPOT = {"major": "Item spot", "obsidian": "Obsidian spot", "consumable": "Fuel o
 #: host's key for what it keeps (``tests/test_art.py`` holds it to the drawing's source: a sync that changes how
 #: they are drawn changes it).
 ART_PARTS = ("icons", *GRID)
-ART_VERSION = "1-c529ff9ff433"
+ART_VERSION = "1-400bf44ab2cc"
 _KEPT: OrderedDict[str, Tracker] = OrderedDict()
 _LOGIC: dict[str, object] = {}   # a build's plan sha256 -> the logic it was planned on (:func:`prime`)
 
@@ -88,13 +88,8 @@ def item_name(item: str) -> str:
 
 
 def icon(item: str) -> str:
-    """An item's icon on the page (Modkit's ``item_icon`` names, the page's own drawings, never the game's): a
-    fragment or a power by its element (``frag_air``, ``power_water``), the other powers by their own, any key
-    ``key``, ``obsidian``, ``fuel``, ``health`` or a gem's (``gem_ruby``)."""
-    if m := re.fullmatch(r"frag_([a-z]+)_\d", item):
-        return f"frag_{m[1]}"
-    if item.startswith("key_"):
-        return "key"
+    """An item's tile in the icon sheet (:mod:`.art.icons`): its own, by its name (each fragment, key and power),
+    ``fuel`` or ``health`` for a dispenser's, a gem's ``gem_ruby``, ``power_water_a3``'s the water power's."""
     return {"all_fuel": "fuel", "all_health": "health", "power_water_a3": "power_water"}.get(
         item, f"gem_{item}" if item in ("diamond", "emerald", "ruby", "sapphire") else item)
 

@@ -2717,24 +2717,19 @@ def test_lives_line_with_no_xemu_names_only_what_the_page_offers(monkeypatch):
         feed.stop()
 
 # The tracker's looks (Step 4.2c2's looks seat), as the page measures them: WCAG's contrast ratio of each world-map
-# badge's text and of each flat-filled item icon (the Settings item rows', a level's chips') with the ground it sits
-# on, [what, ratio]; whether the plan file's control is the tab's button (no native "No file chosen"); and the width
-# the Endpoints field's placeholder needs, and the room the field has for it.
+# badge's text with the ground it sits on, [what, ratio]; each shown item icon (the Settings item rows', a level's
+# chips') and the picture it wears; whether the plan file's control is the tab's button (no native "No file chosen");
+# and the width the Endpoints field's placeholder needs, and the room the field has for it.
 TRACKER_LOOKS = """() => {
     const rgb = (text) => text.match(/[\\d.]+/g).slice(0, 3).map(Number);
     const lum = (c) => c.map((v) => v / 255).map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
         .reduce((sum, v, i) => sum + [0.2126, 0.7152, 0.0722][i] * v, 0);
     const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
-    const flat = (bg) => bg !== "transparent" && !/^rgba\\(.*, 0\\)$/.test(bg);
-    const ground = (el) => {
-        for (; el; el = el.parentElement) if (flat(getComputedStyle(el).backgroundColor)) return rgb(getComputedStyle(el).backgroundColor);
-    };
     const badges = [...document.querySelectorAll("#track-world .badge")].filter((b) => b.checkVisibility())
         .map((b) => [`${b.closest(".cell").dataset.level} ${b.className}`, ratio(rgb(getComputedStyle(b).color),
                                                                               rgb(getComputedStyle(b).backgroundColor))]);
     const icons = [...document.querySelectorAll("#rando-items .glyph, #track-level .glyph:not(.dot)")]
-        .filter((g) => flat(getComputedStyle(g).backgroundColor))
-        .map((g) => [g.className, ratio(rgb(getComputedStyle(g).backgroundColor), ground(g.parentElement))]);
+        .map((g) => [g.className, getComputedStyle(g).backgroundImage]);
     const open = document.getElementById("track-open"), ends = document.getElementById("track-endpoints");
     const style = getComputedStyle(ends), pen = document.createElement("canvas").getContext("2d");
     pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
@@ -2764,9 +2759,10 @@ TRACKER_HEADS = """() => {
 
 def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_whole(browser, tmp_path, monkeypatch):
     """Step 4.2c2's looks (in the app's page, the site's the same): in the
-    light theme each world-map badge's count reads (at least 4.5:1) and
-    each item icon stands out from its row or chip (at least 2:1); the plan
-    file's control is the tab's "Open a plan file…" button, with no native
+    light theme each world-map badge's count reads (at least 4.5:1); a spot
+    not shown is a plain dot, so no icon spoils the seed, and with Spoiler
+    each item icon wears the icon sheet's tile (the fire barrier its own
+    drawing); the plan file's control is the tab's "Open a plan file…" button, with no native
     "No file chosen" beside a tracked plan; the Endpoints field holds its
     whole placeholder; with Spoiler on the Table's Where head sits over its
     cells' text and a Where cut short shows whole in its tip; and scrolled
@@ -2775,7 +2771,7 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
     _home(monkeypatch, tmp_path / "home")
     doc = _profile("default")
     (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
-    level = next(s["level"] for s in sdk.tracker({"plan": doc, "spoiler": True})["spots"].values() if s["icon"] == "key")
+    level = next(s["level"] for s in sdk.tracker({"plan": doc, "spoiler": True})["spots"].values() if s["icon"].startswith("key_"))
     monkeypatch.setattr(app.pictures, "folder", lambda: tmp_path / "no-maps")   # no pictures: the chips show
     server = app.serve(_page.WEB)
     try:
@@ -2789,9 +2785,14 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
         _page.click(page, "rando-view-tracker")
         page.set_input_files("#track-open", str(tmp_path / "plan.json"))
         _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running")
+        page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
+        _page.until(page, "() => document.querySelector('#track-level .spot')")
+        assert page.evaluate("() => [...new Set([...document.querySelectorAll('#track-level .glyph')].map((g) => "
+                             "`${g.className} ${getComputedStyle(g).backgroundImage}`))]") == ["glyph dot none"]
+        page.evaluate("() => document.querySelector('#track-level .back').click()")
         _page.click(page, "track-spoiler")
         page.evaluate("(level) => document.querySelector(`#track-world .cell[data-level='${level}']`).click()", level)
-        _page.until(page, "() => !azurkit.tracker.state.running && document.querySelector('#track-level .glyph.key')"
+        _page.until(page, "() => !azurkit.tracker.state.running && document.querySelector('#track-level .glyph[class*=key_]')"
                           " && document.querySelector('#track-world .badge:not(.near):not(.skip):not(:empty)')")
         page.evaluate("() => document.querySelector('#track-level .back').click()")
         looks = page.evaluate(TRACKER_LOOKS)
@@ -2799,8 +2800,9 @@ def test_the_trackers_page_reads_in_the_light_theme_and_its_table_and_bars_show_
         looks["icons"] += page.evaluate(TRACKER_LOOKS)["icons"]
         assert [b for b in looks["badges"] if b[1] < 4.5] == [] and len(looks["badges"]) == len(
             sdk.tracker({"plan": doc})["status"]["levels"])
-        assert [i for i in looks["icons"] if i[1] < 2] == [] and {"glyph key", "glyph gem_diamond", "glyph power_ammo",
-            "glyph ice_block", "glyph acid_block", "glyph crystal"} <= {i[0] for i in looks["icons"]}
+        assert [i for i in looks["icons"] if i[0] != "glyph fire_barrier" and f"{tracking.ART_VERSION}/icons.png" not in i[1]
+                ] == [] and {"glyph key_life1", "glyph gem_diamond", "glyph power_ammo", "glyph ice_block",
+                             "glyph acid_block", "glyph crystal", "glyph frag_air_1"} <= {i[0] for i in looks["icons"]}
         assert looks["file"] == [False, True, "Open a plan file…"]
         assert looks["endpoints"][0] <= looks["endpoints"][1], looks["endpoints"]
         _page.click(page, "track-table")
