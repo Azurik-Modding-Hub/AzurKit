@@ -1040,7 +1040,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     variant entries beside the species, each marked community, its state
     Install, installed vN or Update to vM, its variants once installed); the chosen
     model's two pictures (D772, D919: `picker.preview`'s draw.py, front and
-    back, on both hosts; a variant's from one dress, `sdk.preview`), its
+    back, on both hosts; a variant's from one dress, `sdk.preview`; in the
+    first frame of its idle, D1042, `tools/characters/pose.py`: the body's own
+    `idle`, else the slot's pick among its clips, a recipe's `idles`' base on a
+    variant, the bind pose with no clip), its
     info and its options (Gameplay, Weapon: each pick marked by its fit and
     coloured by the grade its build reads, an untested model's grey,
     AZ-807; the clips, sounds, balance, ground and height boxes; the four

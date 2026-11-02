@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import struct
 import zlib
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -346,12 +347,15 @@ def body_preview(data, toc, index: int, size: int) -> np.ndarray:
     return draw(body_parts(data, toc, index), yaw, size, pitch, ss=4)
 
 
-def body_parts(data, toc, index: int, leave=()) -> list[Part]:
+def body_parts(data, toc, index: int, leave=(), posed=None) -> list[Part]:
     """characters.xbr's body ``index`` as :func:`body_preview` draws it:
     its parts, a lit material's not alpha-tested, one lying apart left out,
-    and the groups ``leave`` names (LOD 0's, by index) too."""
-    parts = [q for q in (Part(data, toc, me) for k, me in enumerate(render.body_meshes(data, toc, index))
-                         if k not in leave) if len(q.T)]
+    and the groups ``leave`` names (LOD 0's, by index) too; ``posed``: each
+    group's positions in a pose (:mod:`~azurkit.tools.characters.pose`), not its bind's."""
+    meshes = render.body_meshes(data, toc, index)
+    if posed is not None:
+        meshes = [replace(me, positions=at) for me, at in zip(meshes, posed)]
+    parts = [q for q in (Part(data, toc, me) for k, me in enumerate(meshes) if k not in leave) if len(q.T)]
     for q in parts:
         if q.lit:
             q.ref = 0.0

@@ -317,14 +317,16 @@ def body_of(config_xbr: bytes, characters_xbr: bytes, species: str) -> str:
     return found.body
 
 
-def preview(characters_xbr: bytes, body: str, size: int = PREVIEW) -> dict[str, bytes]:
-    """``characters/<body>`` of ``characters_xbr`` drawn from its front, a
+def preview(characters_xbr: bytes, body: str, size: int = PREVIEW, clip: str | None = None) -> dict[str, bytes]:
+    """``characters/<body>`` of ``characters_xbr`` in the first frame of
+    ``clip``, by default its idle (D1042, :mod:`~azurkit.tools.characters.pose`;
+    the bind pose with no clip), drawn from its front, a
     quarter round and a little above (``draw.PREVIEW_VIEW``), and from
     behind: ``{"front": PNG, "back": PNG}``, ``size`` px each
     (``draw.draw_batched``); the player's recoloured copy (W38's
     ``characters/<body>/v/skin``) where the archive holds one."""
     from azurkit.core.xbr.nodes import named_resources, parse_toc
-    from azurkit.tools.characters import draw
+    from azurkit.tools.characters import draw, pose
     from azurkit.tools.characters.paint import skin_key
 
     toc, names = parse_toc(characters_xbr), {n.casefold(): i for i, n in named_resources(characters_xbr).items()}
@@ -333,16 +335,20 @@ def preview(characters_xbr: bytes, body: str, size: int = PREVIEW) -> dict[str, 
         index = names.get(f"characters/{body}".casefold())
     if index is None:
         raise ValueError(f"characters.xbr: no body {body!r} to draw")
-    parts = draw.body_parts(characters_xbr, toc, index)
+    clip = clip or pose.idle_clip(characters_xbr, body)
+    parts = draw.body_parts(characters_xbr, toc, index,
+                            posed=pose.group_positions(characters_xbr, toc, index, body, clip) if clip else None)
     yaw, pitch = draw.PREVIEW_VIEW
     return {view: draw.png_rgba(draw.draw_batched(parts, at, size, pitch), 6)
             for view, at in (("front", yaw), ("back", yaw - 180.0))}
 
 
-def dressed(staging, species: str) -> dict[str, bytes]:
+def dressed(staging, species: str, variant_file: str | None = None) -> dict[str, bytes]:
     """:func:`preview` of the body the player wears in a dress's
     ``staging`` (its config.xbr's ``critters_engine`` row for garret4
-    names it), from that staging's characters.xbr."""
+    names it), from that staging's characters.xbr, in the idle its recipe
+    names (booblord's ``hip_idle``), else its body's."""
+    from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters._player_character import PLAYER
     from azurkit.tools.characters.ports import XbrDocument
 
@@ -351,4 +357,5 @@ def dressed(staging, species: str) -> dict[str, bytes]:
     body = cell.string_value if cell is not None and cell.type_code == 2 else None
     if not body:
         raise ValueError(f"{species}: the dress names no body for the player")
-    return preview(bytes(staging["characters.xbr"]), body)
+    worn = variants.resolve(species, variant_file)
+    return preview(bytes(staging["characters.xbr"]), body, clip=worn.idle_clips().get("idle") if worn else None)

@@ -625,7 +625,7 @@ def _dress(recipe: Mapping) -> dict:
         found, staging = characters.match(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
         found["text"] = {k: picker.match_text(v) for k, v in found["values"].items() if v is not None}
         if variants.resolve(character["species"], character.get("variant_file")) is not None:
-            found["preview"] = picker.dressed(staging, character["species"])
+            found["preview"] = picker.dressed(staging, character["species"], character.get("variant_file"))
         while len(_MATCHES) >= 16:
             _MATCHES.pop(next(iter(_MATCHES)))
         _MATCHES[key] = found

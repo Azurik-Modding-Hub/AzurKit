@@ -1124,6 +1124,41 @@ def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, eur
         rel: _sha256(made[rel]) for rel in drawn}
 
 
+def test_a_bodys_pictures_stand_in_the_first_frame_of_its_idle_with_its_props_where_that_clip_keys_them(usa_iso):
+    """D1042: ``picker.preview`` draws a body in its idle as the build's slot 1 plays it (its own ``idle``, else the
+    slot's pick among its clips; none, the bind pose), skinned as the game does (each vertex by ``Vertex.skin``'s
+    weights, the bone's world in that frame times its inverse bind): town_female_4's vase on her head, town_female_2's
+    out of sight at its 1e-12, garret4's staff, a part lying apart in his bind pose, drawn in his hand. A dress draws
+    the idle its recipe names."""
+    from azurkit.tools.characters import draw, gltf, picker, pose
+
+    with iso.Reader(usa_iso) as r:
+        data = r.read(CHARACTERS)
+        config = r.read("gamedata/config.xbr")
+    assert {b: pose.idle_clip(data, b) for b in ("garret4", "keylord", "channeler", "townspeople/female_4",
+                                                 "townspeople/male_1", "frag_air_1")} == {
+        "garret4": "idle", "keylord": "idle_1", "channeler": "fly", "townspeople/female_4": "vaseidle",
+        "townspeople/male_1": "listen_1", "frag_air_1": None}
+    toc, names = parse_toc(data), {n.casefold(): i for i, n in named_resources(data).items()}
+    posed = {b: pose.group_positions(data, toc, names[f"characters/{b}".casefold()], b, pose.idle_clip(data, b))
+             for b in ("garret4", "townspeople/female_2", "townspeople/female_4")}
+    binds = np.array(characters.characters.inverse_binds(data, "garret4"), float).reshape(-1, 4, 4).transpose(0, 2, 1)
+    rig = gltf._Body("garret4", 0, characters.characters.bone_records(data, "garret4"), (), (), ())
+    worlds = np.array(gltf._engine(rig, retarget.named_clip(data, "garret4", "idle"), 0.0)) @ binds
+    for group, got in zip(bc.read_asset(data, "garret4").lods[0].groups, posed["garret4"]):
+        want = [sum(w * worlds[b] for b, w in group.skin(k).items()) @ np.array([*v.position, 1.0])
+                for k, v in enumerate(group.vertices)]
+        assert np.allclose(got, np.array(want)[:, :3], atol=1e-5)
+    head = max(p[:, 2].max() for p in posed["townspeople/female_4"][:5])
+    vase = posed["townspeople/female_4"][5]
+    assert vase[:, 2].min() > head - 0.3 and vase[:, 2].max() > head
+    assert np.ptp(posed["townspeople/female_2"][5], axis=0).max() < 1e-6
+    at = names["characters/garret4"]
+    assert len(draw.body_parts(data, toc, at)) + 1 == len(draw.body_parts(data, toc, at, posed=posed["garret4"]))
+    with pytest.raises(ValueError, match="no clip 'v/hip_idle'"):
+        picker.dressed({"config.xbr": config, "characters.xbr": data}, "booblord")
+
+
 def test_the_shipped_sizes_are_each_listed_species_and_built_in_variant_on_both_releases():
     """``scripts/record_shipped.py`` sizes each species ``species.json`` lists (its ``[species, body, object]``
     rows) and each built-in variant, at its defaults, and ``shipped.json`` holds a size of each on both releases
