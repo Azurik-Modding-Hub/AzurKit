@@ -501,6 +501,28 @@ def test_a_site_builds_sample_logs_its_steady_memory_beside_the_resident_peak(tm
     assert d.log[-1].endswith("steady 3.00 GiB peak 5.00 GiB")
 
 
+def test_each_later_visit_on_the_site_opens_in_its_browser_opened_again_on_the_profile(tmp_path, monkeypatch):
+    """Step 4.4m: S02's return visit and S64's build at a later visit open in the browser closed and opened again on
+    the pass's profile, never beside the first visit's closed page: WebKit keeps that page's process, every page it
+    held resident (a keylord build's 4.12 GiB), for the site's service worker while a page of the site is open, so
+    the capped peak summed both visits (7.17 GiB, of which the closed page's footprint was 1.03 GiB)."""
+    class Page(_Stub):
+        def js(self, fn, arg=None):
+            return True if fn == "() => crossOriginIsolated" else super().js(fn, arg)
+    page = Page({})
+    monkeypatch.setattr(_perf, "Page", lambda _: page)
+    monkeypatch.setattr(_perf, "_download", lambda d, p, op: None)
+    browsers = []   # each browser's pages, as they open
+
+    def browser(old=None):
+        browsers.append(pages := [])
+        return types.SimpleNamespace(new_page=lambda: pages.append(len(browsers)))
+    d = _perf.Driver(_perf.RUNS["webkit"], {"S02": 2}, tmp_path, tmp_path / "usa.iso", None)
+    d.reopened = browser
+    _perf.site_start(d, browser(), "http://127.0.0.1:9800/")
+    assert (browsers, [s.get("error") for s in d.samples["S02"]]) == ([[1], [2], [3]], [None, None])
+
+
 def test_the_engine_ready_again_after_a_seeds_build_is_timed_from_the_builds_answer(tmp_path, monkeypatch):
     """R24 (R14's twin): the next op's wait after a big build, the worker
     replaced, counts from the build's answer, not its click."""

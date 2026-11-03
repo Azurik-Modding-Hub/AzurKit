@@ -1642,7 +1642,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   actions (a head start, a dialog's wait, the warm-up's), and logs the
   lateness inside an action's own wait. The site's samples each take a
   persistent browser context on a new folder, with the storage a player's
-  browser has. An op
+  browser has; a later visit (`S02`, `S64`) opens in that browser closed and
+  opened again on the folder, as WebKit keeps a closed page's process, all it
+  held resident, for the site's service worker while a page of the site is
+  open (Step 4.4m). An op
   runs three times (once past 30 s) and its median decides: over 3 s it
   fails, unless `tests/perf_ceilings.toml` lists it, when it fails over its
   ceiling; an image's first check and the site's first engine load may pass

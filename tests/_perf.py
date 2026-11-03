@@ -515,6 +515,18 @@ class Driver:
         self.memory: Memory | None = None    # the run's tree's CPU seconds (none: its samples have no ``cpu``)
         self.clicked = 0.0                   # those seconds at the last click
         self.retaking: dict[str, dict] = {}  # each op's starved sample, while it is taken once more
+        self.ctx = None                      # the pass's browser context, the one reopen() gave last
+        self.reopened: Callable | None = None   # the pass's browser closed and opened again on its profile
+
+    def reopen(self, ctx):
+        """The browser of ``ctx`` closed and opened again on the pass's profile, its storage kept (the dress, the
+        image's stamp, sw.js's release): a later visit (S02's, S64's). A page opened beside a closed one in its
+        browser would carry it in WebKit: the site's service worker runs in the process of the page that registered
+        it, which WebKit keeps while any page of the site is open and 10 s after, every page it held resident with
+        it (a keylord build's, 4.12 GiB of which 1.03 GiB footprint, beside a later visit's 2.5 GiB: Step 4.4m)."""
+        if self.reopened is not None:
+            self.ctx = ctx = self.reopened(ctx)
+        return ctx
 
     def need(self, op: str) -> bool:
         got = self.samples.get(op, [])
@@ -1350,6 +1362,7 @@ def site_start(d: Driver, ctx, url: str) -> None:
                 _download(d, p, "S49")
     d.leave(p)
     while d.needed(("S02", "S04", "S64")):
+        ctx = d.reopen(ctx)   # a later visit: the browser opened again on its profile (Driver.reopen)
         p = _site_page(d, ctx, url + "?again", "S02")
         _pick(d, p, "S04")
         if d.need("S64"):   # D1067: the same character at a later visit, built over the dress S14's build kept
@@ -2014,6 +2027,13 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
             d.memory = None if run.lag else memory   # the lag run's reads wait by design: not a busy machine's waits
             engine = getattr(pw, run.browser)
             browser = engine.launch(headless=True, downloads_path=str(scratch)) if run.host == "app" else None
+
+            def launched(profile):   # the site's in a persistent context on a folder: an ephemeral one is WebKit's
+                made = engine.launch_persistent_context(str(profile), headless=True, accept_downloads=True,   # 1 GiB
+                                                        downloads_path=str(scratch))                        # no OPFS
+                made.add_init_script(INIT)
+                return made
+
             for name, (host, ops, scenario) in SCENARIOS.items():
                 if host != run.host:
                     continue
@@ -2026,11 +2046,13 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                             d.record(op, 0.0, [], 0, 0, "needs a clone of Azurik-Custom-Content (perf.py --content)")
                     if browser:
                         profile, ctx = None, browser.new_context(accept_downloads=True)
-                    else:   # the site's in a persistent context on a new folder: an ephemeral one is WebKit's 1 GiB
-                        profile = Path(tempfile.mkdtemp(prefix=f"profile-{name}-{n}.", dir=scratch))   # with no OPFS
-                        ctx = engine.launch_persistent_context(str(profile), headless=True, accept_downloads=True,
-                                                               downloads_path=str(scratch))
-                    ctx.add_init_script(INIT)
+                        ctx.add_init_script(INIT)
+                        d.reopened = None
+                    else:
+                        profile = Path(tempfile.mkdtemp(prefix=f"profile-{name}-{n}.", dir=scratch))
+                        ctx = launched(profile)
+                        d.reopened = lambda old, profile=profile: (old.close(), launched(profile))[1]
+                    d.ctx = ctx
                     try:
                         if run.host == "app":
                             current[:] = [App(python, scratch / f"home-{name}-{n}", run, content)]
@@ -2038,6 +2060,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                         else:
                             clean_storage(ctx, url)
                             scenario(d, ctx, url)
+                            ctx = d.ctx
                             for page in list(ctx.pages):
                                 page.close()
                             clean_storage(ctx, url)
@@ -2052,7 +2075,7 @@ def drive(wt: Path, run: Run, targets: dict[str, int], iso: Path, content: Path 
                         for app in current:
                             app.quit()
                         current.clear()
-                        ctx.close()
+                        d.ctx.close()
                         if profile:
                             shutil.rmtree(profile, ignore_errors=True)
             if browser:
