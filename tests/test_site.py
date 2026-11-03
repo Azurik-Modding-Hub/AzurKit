@@ -167,6 +167,13 @@ def test_the_sites_content_is_its_checked_regular_files_and_a_fault_writes_nothi
     assert not (tmp_path / "bad").exists()
 
 
+FOUR_CORES = "Object.defineProperty(Navigator.prototype, 'hardwareConcurrency', { get: () => 4 });"
+"""The site's pages say they have 4 cores, the computer AzurKit must run well on (D1017), so workers.mjs starts B on
+any host: GitHub's Apple Silicon runner has 3, where Chromium and Firefox said 3 and the tests that wait on B's work
+waited for a B that never started (run 41521288667). The pool's path with no B is pinned on stubs (``WORKERS_ROWS``'s
+``cores``)."""
+
+
 class Site:
     """The site served to a fresh browser context at :data:`ORIGIN` from its
     folder (Playwright's routing, no server), every request logged. Its
@@ -180,6 +187,7 @@ class Site:
         self.context = (browser.browser_type.launch_persistent_context(str(profile), headless=True, accept_downloads=True,
                                                                        **options) if profile
                         else browser.new_context(accept_downloads=True, **options))
+        self.context.add_init_script(FOUR_CORES)
         self.context.route("**/*", self._serve)
 
     def _serve(self, route, request) -> None:
@@ -3184,10 +3192,21 @@ WORKERS_ROWS = """
         stubs[2].say({ type: "reply", reply: { view: 3 } });
         out.once = [sent, drawn, stopped, stubs[3].tags(), stubs[2].tags(), (await view).reply];
     }
-    {   // fewer than 4 cores: no B
-        const { pool, stubs } = make({ cores: 2 });
+    {   // fewer than 4 cores: no B, and F answers every ask in turn: a small and an aside one wait for its build, the
+        // list's work ahead never runs, and a click on a listed key asks F
+        const { pool, stubs, f } = make({ cores: 2 });
         pool.want([{ key: "plan 7", message: plan("7") }]);
-        out.cores = [stubs.length];
+        const built = pool.ask(build("7"), { key: "build 7", heavy: true });
+        const view = pool.ask({ type: "tracker" }, { anywhere: true });
+        const listed = pool.ask({ type: "pickers" }, { anywhere: true, aside: true });
+        const sent = f.tags();
+        f.say({ type: "built", report: { size: 7 }, heap: 2 ** 25 });
+        f.say({ type: "reply", reply: { view: 7 } });
+        f.say({ type: "reply", reply: { pickers: 7 } });
+        const planned = pool.ask(plan("7"), { key: "plan 7" });
+        f.say({ type: "reply", reply: { plan: "p7" } });
+        out.cores = [sent, f.tags(), (await built).report, (await view).reply, (await listed).reply,
+                     (await planned).reply, stubs.length];
     }
     try {
         canon({ file: new Blob([]) });
@@ -3213,7 +3232,8 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
     work ahead, which Build again follows; a once ask waits, unsent, for
     the F after a seed's build past KEEP, and a stopped worker's running
     once ask answers stopped while a plain one goes to the next F; no B
-    under 4 cores. A key is canonical JSON, a File refused by name."""
+    under 4 cores, where F answers every ask in turn. A key is canonical
+    JSON, a File refused by name."""
     got = _on_stubs(browser, WORKERS_ROWS)
     gib = 2 ** 30
     assert got == {
@@ -3236,7 +3256,8 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "cancel": ["cancelled", False, {"size": 2}, "cancelled", True, ["build c", "tracker"], {"view": 2}, [1, 2], 1],
         "swapped": ["cancelled", {"size": 3}, True, False, ["build e"], [], [1, 2], 1, 1],
         "once": [[["build s"], True, ["preview"]], {"drawn": True}, "stopped", ["tracker"], ["tracker"], {"view": 3}],
-        "cores": [1],
+        "cores": [["build 7"], ["build 7", "tracker", "pickers", "plan 7"], {"size": 7}, {"view": 7}, {"pickers": 7},
+                  {"plan": "p7"}, 1],
         "canon": ['{"a":[2,{"c":2,"d":1}],"b":1}', "a key holds [object Blob] at key.file"],
     }
 
