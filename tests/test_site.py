@@ -3564,7 +3564,8 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
     WebKit each build left two, 4.3r4s: about 0.5 GB a build of a page built again and again). Storage counts it;
     another tab's load leaves it while this tab holds it. A change forgets the build and removes it; a saved one stays
     past that (its download may still read it, and is whole), and the next load removes it once no page holds it, as
-    it does a crashed page's."""
+    it does a crashed page's. Where the browser gives no sync handle, only WebKit on Windows, the pieces are Blobs and
+    no file is left."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "character": {"species": "keylord"}}
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
@@ -3581,9 +3582,13 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
         assert built == _as_cpython(built, report, made)
+        name = page.evaluate("() => azurkit.build.out")
+        if name is None:   # WebKit on Windows makes the file but gives no sync handle to it (run 41551497620): Blobs,
+            # the file removed (WebKit's IPC::SharedFileHandle::create is std::nullopt without Unix sockets)
+            assert [sys.platform, browser.browser_type.name, page.evaluate(BUILD_FILES)] == ["win32", "webkit", []]
+            return
         writes = page.evaluate("() => writes")
         assert writes and not [w for w in writes if w["copy"]]
-        name = page.evaluate("() => azurkit.build.out")
         assert name in page.evaluate(BUILD_FILES)
         _page.click(page, "tab-tools")
         _page.until(page, """() => [...document.querySelectorAll("#tools-storage td")]

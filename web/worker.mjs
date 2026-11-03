@@ -767,17 +767,22 @@ const letGo = () => {
 };
 async function opened() {
   letGo();
+  const name = `${PREFIX}${crypto.randomUUID()}.bin`;
+  let folder = null;
   try {
-    const name = `${PREFIX}${crypto.randomUUID()}.bin`;
     const release = await new Promise((held, fail) => {
       navigator.locks.request(name, { mode: "shared" }, () => new Promise((free) => held(free))).catch(fail);
     });
     out = { name, release };
-    const handle = await (await navigator.storage.getDirectory()).getFileHandle(name, { create: true });
+    folder = await navigator.storage.getDirectory();
+    const handle = await folder.getFileHandle(name, { create: true });
     return { name, handle, sync: await handle.createSyncAccessHandle(), at: 0 };
   } catch {
+    // OPFS refuses (a private window, WebKit's ephemeral contexts) or gives no sync handle to the file it made
+    // (WebKit on Windows: NotSupportedError, its SharedFileHandle has no Windows form): the pieces are Blobs, no file
+    await folder?.removeEntry(name).catch(() => null);
     letGo();
-    return null;   // OPFS refuses (a private window, WebKit's ephemeral contexts): the pieces are Blobs
+    return null;
   }
 }
 function joined(file, { segments }, written) {
