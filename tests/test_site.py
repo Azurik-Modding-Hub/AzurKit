@@ -185,15 +185,11 @@ class _Held:
     0.24-0.35 GiB), and a site page sends 35 MB: beside WebKit's pages, more than GitHub's 7 GiB Apple Silicon runner
     had free, whose WebKit page processes died ("Target crashed", runs 41551497620, 41610020282)."""
 
-    class _Quiet(_page.Static):
-        def log_message(self, *args):
-            pass
-
     def __init__(self, browser_type, root: Path):
         from playwright._impl._sync_base import mapping
         self.request = mapping.from_impl(browser_type._impl_obj._playwright.request).new_context()
         self.root, self.held = root, {}
-        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(self._Quiet, directory=str(root)))
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(root)))
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def fulfill(self, route, file: Path) -> None:
