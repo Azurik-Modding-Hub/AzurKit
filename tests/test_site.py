@@ -269,9 +269,12 @@ class Site:
         self.held.fulfill(route, file)
 
     def open(self):
-        """A new page, its engine loaded, each call bounded (``_page.within``)."""
+        """A new page, its engine loaded, each call bounded (``_page.within``). Its load (the page's own files, about
+        0.4 MB, in 0.1-0.2 s here; the engine's 35 MB come after it) has the new page's bound, not Playwright's 30 s,
+        which GitHub's Intel Mac runner went past with nothing said but the navigation (Firefox, run 41678038275): past
+        it the failure names the page's state, whether its browser still answers, and its driver's processes."""
         page = _page.within(self.context, self.context._impl_obj.new_page(), _page.STALL, "a new page")
-        page.goto(f"{ORIGIN}/")
+        _page.within(page, page._impl_obj.goto(f"{ORIGIN}/", timeout=0), _page.STALL, "the page's load")
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         return page
 
