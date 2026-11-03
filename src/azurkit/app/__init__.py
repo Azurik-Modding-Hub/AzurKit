@@ -253,17 +253,17 @@ def _kept() -> dict:
         return {}
 
 
-def _start_image() -> str:
-    """The image the last build read, else a release's own image, else ``""``."""
-    last = _kept().get("iso")
+def _start_image(kept: dict | None = None) -> str:
+    """The image the last build read (in ``kept``, else the config), else a release's own image, else ``""``."""
+    last = (_kept() if kept is None else kept).get("iso")
     if isinstance(last, str) and Path(last).is_file():
         return last
     return str(next(filter(None, map(gate.find, gate.RELEASES)), ""))
 
 
-def _theme() -> str:
-    """The theme the player last picked, else dark (D897)."""
-    return theme if (theme := _kept().get("theme")) in THEMES else THEMES[0]
+def _theme(kept: dict | None = None) -> str:
+    """The theme the player last picked (in ``kept``, else the config), else dark (D897)."""
+    return theme if (theme := (_kept() if kept is None else kept).get("theme")) in THEMES else THEMES[0]
 
 
 def _theme_js() -> bytes:
@@ -588,8 +588,8 @@ class Server(http.server.ThreadingHTTPServer):
 
     def host_info(self) -> dict:
         kept = _kept()
-        return {"engine": "app", "version": __version__, "commit": commit(), "catalog": sdk.catalog(), "iso": _start_image(),
-                "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
+        return {"engine": "app", "version": __version__, "commit": commit(), "catalog": sdk.catalog(), "iso": _start_image(kept),
+                "dialogs": self.window is not None, "site": SITE, "theme": _theme(kept),
                 "setup": kept.get("setup"), "tracker": kept.get("tracker"),
                 "content_source": kept.get("content_source"), "show_objects": kept.get("show_objects") is True}
 

@@ -749,7 +749,7 @@ def test_a_config_read_refused_for_a_moment_costs_no_remembered_setting_and_one_
 def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_path, monkeypatch):
     """``api/setup`` remembers the page's setup (D915) in the app's config,
     beside the theme, written whole; ``host.json`` gives it to the next
-    page, and ``api/restore`` gives back what of it still applies, the rest
+    page, the config read once (Step 4.4ci16), and ``api/restore`` gives back what of it still applies, the rest
     named (``sdk.restore``). ``null`` forgets it, and a setup holding
     anything but pack and setting names, numbers and config.xbr ``set``
     cells (an image's path as a pack or setting name, a ``replace_bytes``,
@@ -791,7 +791,12 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
     try:
         assert [call("api/theme", {"theme": "light"}), call("api/setup", {"setup": setup})] == [{}, {}]
         assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
-        assert call("host.json")["setup"] == setup
+        with monkeypatch.context() as counting:   # host.json reads the config once, its theme and start image too
+            reads, real = [], Path.read_text
+            counting.setattr(Path, "read_text", lambda path, *args, **kwargs: (
+                reads.append(path) if path == app._config() else None, real(path, *args, **kwargs))[1])
+            host = call("host.json")
+        assert [reads, host["theme"], host["setup"]] == [[app._config()], "light", setup]
         assert call("api/restore", {"setup": setup}) == sdk.restore(setup) == {
             "ticked": ["fps_unlock"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell],
             "dropped": ["qol_retired (no such pack)"]}
