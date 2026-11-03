@@ -36,8 +36,8 @@ def commit() -> str | None:
     """The commit this AzurKit was built from, which About shows beside the
     version: the one its wheel's or frozen app's build wrote (:data:`STAMP`),
     else, run from a git checkout of AzurKit, its HEAD (:func:`head`); None
-    from a source tree without git (the site's Pyodide and the frozen app
-    ask no git)."""
+    from a build or source tree without git (the site's Pyodide and the
+    frozen app ask no git)."""
     here = Path(__file__).resolve().parent
     if (stamp := here / STAMP).is_file():
         return stamp.read_text(encoding="utf-8").strip() or None

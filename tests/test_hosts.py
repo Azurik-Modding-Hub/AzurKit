@@ -1038,7 +1038,7 @@ def test_the_apps_about_names_its_version_and_commit_or_says_no_git_can_name_it(
     """About shows the version and the commit AzurKit was built from (D992's release check, item 7), from what the
     host knows, never a fetch: the app run from this checkout names its HEAD (``host.json``'s ``commit``:
     ``azurkit.commit`` asks this computer's git), About its first 12 digits; reloaded where no git runs, ``host.json``
-    names none and About says plainly that a source checkout without git can't name its commit."""
+    names none and About says plainly that its commit is unknown, true of any build or checkout without git."""
     _home(monkeypatch, tmp_path / "home")
     head, version = _head(), azurkit.__version__
     about = """async () => [(await (await fetch("host.json")).json()).commit,
@@ -1055,7 +1055,7 @@ def test_the_apps_about_names_its_version_and_commit_or_says_no_git_can_name_it(
         page.reload()
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         assert page.evaluate(about) == [
-            None, f"This is AzurKit {version}, run from a source checkout without git, so its commit is unknown."]
+            None, f"This is AzurKit {version}, its commit is unknown (built or run without git)."]
         _page.check_csp(page)
     finally:
         server.close()

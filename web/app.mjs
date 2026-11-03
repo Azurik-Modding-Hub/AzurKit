@@ -1053,7 +1053,7 @@ function ready(catalog, version, commit) {
                                  pick: state.dialogs ? (kind) => state.engine.choose(kind, "") : null });
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}, ${commit ? `built from commit ${commit.slice(0, 12)}`
-      : "run from a source checkout without git, so its commit is unknown"}.`;   // the engine's azurkit.commit()
+      : "its commit is unknown (built or run without git)"}.`;   // the engine's azurkit.commit()
     if (!state.pending && state.remembered != null) {
       state.restoring = true;   // a remembered community pack is read from what the site hands its engine first
       return (state.remembered.community ? shared.ready : Promise.resolve())
