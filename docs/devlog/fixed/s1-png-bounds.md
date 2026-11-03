@@ -1,0 +1,1 @@
+- A PNG is inflated with bounds (`core/inflate.py`): one past 4096x4096 is refused before a byte inflates, and image data longer than its header's rows (a zlib bomb: 64 MiB of file to about 66 GB) is refused after at most one byte more, in the textures' reader and in a glTF folder's read-back (Step S1, D992 SEC-5).
