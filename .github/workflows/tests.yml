@@ -197,8 +197,9 @@ jobs:
         # printed): a test past 60 min puts each thread's stack in the log (faulthandler: the slowest legit one, the
         # variant cases, takes about 45 min on the slowest runner, scripts/ci_resources.py's STALL_S says how), and
         # the watch there, once the log hasn't grown in 90 min or 10 min before the job's limit, prints its tail and
-        # the tier's processes and stops them, so this step ends, prints the rest and fails with time left. Git Bash's
-        # process ids are its own: Windows' is in /proc. The next step prints the log's tail whatever cut this one off.
+        # the tier's processes and stops them, xdist's workers 2 min before the rest so pytest still writes its summary
+        # and failures, so this step ends, prints the rest and fails with time left. Git Bash's process ids are its
+        # own: Windows' is in /proc. The next step prints the log's tail whatever cut this one off.
         run: |
           iso="$TIER_ROOM/iso" content="$RUNNER_TEMP/content" log="$TIER_ROOM/pytest.log" stop="$TIER_ROOM/resources.stop"
           if [ "$RUNNER_OS" = Linux ]; then

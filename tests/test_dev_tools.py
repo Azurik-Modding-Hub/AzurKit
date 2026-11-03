@@ -791,12 +791,15 @@ def test_ci_resources_prints_the_lowest_room_by_label_and_never_a_path(tmp_path)
                         r"memory [\d.]+ GiB free \(memory of [\d.]+\)\n", done.stdout), (done.stdout, done.stderr)
 
 
-def test_ci_resources_stops_a_tier_whose_log_stops_growing_once_it_printed_the_logs_tail_and_the_tiers_processes(
+def test_ci_resources_stops_a_tier_whose_log_stops_growing_its_workers_before_pytest_once_it_printed_the_logs_tail(
         tmp_path):
     """A CI tier that hangs names itself (run 41521288667: Windows' tier sat silent 3.5 h until the job's limit cut it
     off, its log never printed). A log that grows is never quiet; one that stays the same size for the stall time
     stops the tier: the watcher prints the log's last 200 lines, each cut at 240 characters, and the tier's processes
-    under it with their ages, ends them all, and exits 3 once STOP exists, so the step fails with time left."""
+    under it with their ages, then ends xdist's workers (execnet's command line) and only after a while what is
+    left, so pytest's controller still writes its summary and failures to the log (Step 4.4ci12's review, F1), and
+    exits 3 once STOP exists, so the step fails with time left."""
+    from execnet.gateway_io import popen_bootstrapline
     from scripts import ci_resources
     log, stop, stall = tmp_path / "pytest.log", tmp_path / "stop", ci_resources.STALL_S
     growth = ci_resources.Growth(str(log), now=0.0)
@@ -807,10 +810,22 @@ def test_ci_resources_stops_a_tier_whose_log_stops_growing_once_it_printed_the_l
     assert growth.quiet(2 * stall) == 0.0                 # a test ended
     assert growth.quiet(3 * stall) == stall               # quiet for the stall time: stalled
     log.write_text("".join(f"line {i}\n" for i in range(300)) + "x" * 300 + "\n")
-    sleeper = "import subprocess, sys, time; c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])"
-    tier = subprocess.Popen([sys.executable, "-c", sleeper + "; print(c.pid, flush=True); time.sleep(300)"],
-                            stdout=subprocess.PIPE, text=True)
-    under = int(tier.stdout.readline())
+    fake = tmp_path / "tier.py"
+    fake.write_text(f"""import os, subprocess, sys, time
+if sys.argv[1] == "tier":   # the step's subshell, which only ends when it is ended
+    subprocess.Popen([sys.executable, __file__, "pytest"])
+else:   # pytest's controller: once its worker has ended, it writes its summary, then hangs
+    worker = subprocess.Popen([sys.executable, "-u", "-c", {popen_bootstrapline!r}], stdin=subprocess.PIPE, text=True)
+    worker.stdin.write(repr("import time; time.sleep(300)") + "\\n")
+    worker.stdin.flush()
+    print(os.getpid(), worker.pid, flush=True)
+    worker.wait()
+    with open({str(log)!r}, "a") as f:
+        f.write("the summary\\n")
+time.sleep(300)
+""")
+    tier = subprocess.Popen([sys.executable, str(fake), "tier"], stdout=subprocess.PIPE, text=True)
+    controller, worker = map(int, tier.stdout.readline().split())
     watcher = subprocess.Popen([sys.executable, "-I", "scripts/ci_resources.py", str(stop), f"--watch={log}",
                                 f"--tier={tier.pid}", "--stall=2", f"tier={tmp_path}"],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=ROOT)
@@ -821,17 +836,24 @@ def test_ci_resources_stops_a_tier_whose_log_stops_growing_once_it_printed_the_l
         out, err = watcher.communicate(timeout=90)
         if tier.poll() is None:
             tier.kill()
-            os.kill(under, getattr(signal, "SIGKILL", signal.SIGTERM))
+            for pid in (controller, worker):
+                try:
+                    os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+                except OSError:
+                    pass
         tier.stdout.close()
     assert watcher.returncode == 3, (out, err)
     printed = out.split("--- the tier's log hasn't grown in 0 min: the log's last 200 lines\n")[1]
     assert printed.split("\n--- the tier's processes")[0].split("\n") == [f"line {i}" for i in range(101, 300)] + [
         "x" * 240], out
     assert re.search(rf"^\S*python\S* \(id {tier.pid}\): 0 min$", out, re.M | re.I), out
-    assert re.search(rf"^ +\S*python\S* \(id {under}\): 0 min$", out, re.M | re.I), out
+    for pid in (controller, worker):
+        assert re.search(rf"^ +\S*python\S* \(id {pid}\): 0 min$", out, re.M | re.I), out
+    assert log.read_text().splitlines()[-1] == "the summary", out   # pytest outlived its worker
+    assert "--- the tier stopped" in out, out                       # and was ended once it hung on
     for _ in range(50):
-        if under not in {row[0] for row in ci_resources.processes()}:
+        if not {controller, worker} & {row[0] for row in ci_resources.processes()}:
             break
         time.sleep(0.2)
     else:
-        raise AssertionError(f"the process under the tier, {under}, still runs")
+        raise AssertionError(f"pytest's controller {controller} or its worker {worker} still runs")

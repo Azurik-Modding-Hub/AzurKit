@@ -12,10 +12,13 @@ printed): once ``LOG`` hasn't grown for :data:`STALL_S` (``--stall=SECONDS``
 in the tests), or at ``--until`` (seconds since the epoch, the job's clock),
 it prints the log's last :data:`TAIL` lines, each cut at :data:`WIDTH`
 characters as the step's own tail (the tier's output, never game bytes), and
-the tier's processes with their ages, then stops them (every process under
-the one ``ID`` names, Windows' own id under Git Bash, then that one if it
-hasn't ended by itself), so the step ends, prints its summary and fails while
-the job has time left; it exits 3 once ``STOP`` exists.
+the tier's processes with their ages, then stops them: xdist's workers
+first (each matched by its command line, which is never printed), so
+pytest's controller still writes its summary, its failures and the test each
+worker was running before it ends, then every process left under the one
+``ID`` names (Windows' own id under Git Bash), then that one if it hasn't
+ended by itself. So the step ends, prints its summary and fails while the
+job has time left; it exits 3 once ``STOP`` exists.
 """
 
 from __future__ import annotations
@@ -45,6 +48,12 @@ STOPPED = 3
 """The watcher's exit code once it stopped the tier."""
 GRACE_S = 10
 """How long the tier's own process has to end by itself once every process under it has been ended."""
+SETTLE_S = 120
+"""How long pytest's controller has, once its workers have been ended, to write its summary, its failures and the
+test each worker was running (xdist's "worker 'gwN' crashed while running ...") and end, the tier with it."""
+WORKER = "import sys;exec(eval(sys.stdin.readline()))"
+"""On each xdist worker's command line, every OS's, Windows' venv launcher's and its interpreter's alike: execnet's
+``gateway_io.popen_bootstrapline``."""
 NAMED = re.compile(r"^(?:uv|node|python[\d.]*w?)(?:\.exe)?$|firefox|chrom|webkit|msedge|playwright", re.I)
 """Processes listed even outside the tier's tree (a browser its parent left behind)."""
 
@@ -120,26 +129,36 @@ def _seconds(age: str) -> int:
     return total + int(days or 0) * 86400
 
 
-def processes() -> list[tuple[int, int, int, str]]:
-    """(id, its parent's id, age in seconds, name) of each process on this machine."""
+def _lines(command: list[str]) -> list[str]:
+    return subprocess.run(command, capture_output=True, text=True, errors="replace", check=True,
+                          timeout=120).stdout.splitlines()
+
+
+def processes() -> list[tuple[int, int, int, str, str]]:
+    """(id, its parent's id, age in seconds, name, command line) of each process on this machine. The command line
+    is read to find xdist's workers (:data:`WORKER`), never printed."""
     if sys.platform == "win32":
         script = ("$now = Get-Date; Get-CimInstance Win32_Process | Where-Object CreationDate | ForEach-Object "
-                  "{ '{0} {1} {2} {3}' -f $_.ProcessId, $_.ParentProcessId, "
-                  "[long]($now - $_.CreationDate).TotalSeconds, $_.Name }")
-        command = ["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand",
-                   base64.b64encode(script.encode("utf-16-le")).decode("ascii")]
-    else:
-        command = ["ps", "-A", "-o", "pid=,ppid=,etime=,comm="]
+                  "{ ('{0} {1} {2} {3}' -f $_.ProcessId, $_.ParentProcessId, "
+                  "[long]($now - $_.CreationDate).TotalSeconds, $_.Name) + [char]9 + "
+                  "($_.CommandLine -replace '[\\t\\r\\n]', ' ') }")
+        rows = [row.partition("\t")[::2] for row in _lines(["powershell", "-NoProfile", "-NonInteractive",
+                                                            "-EncodedCommand",
+                                                            base64.b64encode(script.encode("utf-16-le")).decode()])]
+    else:   # comm last, as macOS's is the program's path, spaces and all; the command lines by id
+        commands = dict(row.strip().partition(" ")[::2] for row in _lines(["ps", "-A", "-ww", "-o", "pid=,args="]))
+        rows = [(row, commands.get(row.split()[0], "")) for row in _lines(["ps", "-A", "-o", "pid=,ppid=,etime=,comm="])
+                if row.strip()]
     found = []
-    for row in subprocess.run(command, capture_output=True, text=True, errors="replace", check=True,
-                              timeout=120).stdout.splitlines():
+    for row, command in rows:
         parts = row.split(None, 3)
         if len(parts) == 4 and parts[0].isdigit() and parts[1].isdigit():
-            found.append((int(parts[0]), int(parts[1]), _seconds(parts[2]), os.path.basename(parts[3].strip())))
+            found.append((int(parts[0]), int(parts[1]), _seconds(parts[2]), os.path.basename(parts[3].strip()),
+                          command))
     return found
 
 
-def tree(rows: list[tuple[int, int, int, str]], root: int) -> list[tuple[int, tuple[int, int, int, str]]]:
+def tree(rows: list[tuple[int, int, int, str, str]], root: int) -> list[tuple[int, tuple[int, int, int, str, str]]]:
     """(depth, row) of ``root`` and each process under it, each parent before its children. A child is never older
     than its parent (within the second ``ps`` rounds to): Windows hands an ended parent's id to a new process."""
     children: dict[int, list] = {}
@@ -159,7 +178,7 @@ def tree(rows: list[tuple[int, int, int, str]], root: int) -> list[tuple[int, tu
     return found
 
 
-def _listed() -> list[tuple[int, int, int, str]]:
+def _listed() -> list[tuple[int, int, int, str, str]]:
     try:
         return processes()
     except (OSError, subprocess.SubprocessError) as e:
@@ -174,38 +193,77 @@ def _end(pid: int) -> None:
         pass
 
 
-def stop_tier(why: str, log: str, root: int | None, grace: float = GRACE_S) -> None:
-    """Print the log's tail and the tier's processes, then end those under the tier's own, the deepest first, and
-    the tier's own if it hasn't ended by itself within ``grace`` seconds (the step's subshell, which Git Bash
-    tracks as its own)."""
+def _under(members: list, worker) -> list:
+    """The members under each one ``worker`` picks, that one included (:func:`tree`'s order puts each one's own right
+    after it, deeper)."""
+    picked, depth_in = [], None
+    for depth, row in members:
+        if depth_in is not None and depth <= depth_in:
+            depth_in = None
+        if depth_in is None and worker(row):
+            depth_in = depth
+        if depth_in is not None:
+            picked.append((depth, row))
+    return picked
+
+
+def _end_all(members: list, mine: set[int]) -> None:
+    for _, (pid, *_) in sorted(members, key=lambda member: -member[0]):   # the deepest first
+        if pid not in mine:
+            _end(pid)
+
+
+def _running(own: tuple) -> bool | None:
+    """Whether the process ``own`` (a row) still runs, it and not a new one with its id; None if the list can't be
+    read."""
+    if not (rows := _listed()):
+        return None
+    return any(row[0] == own[0] and row[2] >= own[2] for row in rows)
+
+
+def stop_tier(why: str, log: str, root: int | None, grace: float = GRACE_S, settle: float = SETTLE_S) -> None:
+    """Print the log's tail and the tier's processes, then end xdist's workers under the tier's own (each with what
+    runs under it) and give pytest's controller ``settle`` seconds to write its summary and failures and end; then
+    end what is left under the tier's own, the deepest first, and the tier's own if it hasn't ended by itself
+    within ``grace`` seconds (the step's subshell, which Git Bash tracks as its own). Ending the controller with its
+    workers would lose every line it writes once they are gone (Step 4.4ci12's review, F1)."""
     print(f"--- {why}: the log's last {TAIL} lines", flush=True)
     if lines := tail(log):
         print("\n".join(lines), flush=True)
     rows = _listed()
-    parents = {pid: parent for pid, parent, _, _ in rows}
+    parents = {pid: parent for pid, parent, *_ in rows}
     mine, pid = set(), os.getpid()
     while pid not in mine and pid in parents:   # this watcher and the processes it runs under
         mine.add(pid)
         pid = parents[pid]
     members = tree(rows, root) if root and root > 1 and root not in mine else []
     print("--- the tier's processes (age), each under its parent", flush=True)
-    for depth, (pid, _, age, name) in members:
+    for depth, (pid, _, age, name, _) in members:
         print(f"{'  ' * depth}{name} (id {pid}): {age // 60} min", flush=True)
     inside = {row[0] for _, row in members}
     others = [row for row in rows if row[0] not in inside and NAMED.search(row[3])]
     if others:
         print("--- outside the tier: python, node, uv and the browsers", flush=True)
-        for pid, parent, age, name in others:
+        for pid, parent, age, name, _ in others:
             print(f"{name} (id {pid}, parent {parent}): {age // 60} min", flush=True)
     if not members:
         print("--- the tier's process isn't running, isn't known or runs this watcher: nothing stopped", flush=True)
         return
-    for _, (pid, *_) in sorted(members[1:], key=lambda member: -member[0]):
-        if pid not in mine:
-            _end(pid)
-    time.sleep(grace)
     own = members[0][1]
-    if any(row[0] == own[0] and row[2] >= own[2] for row in _listed()):   # still it, not a new one with its id
+    if workers := _under(members[1:], lambda row: WORKER in row[4]):
+        _end_all(workers, mine)
+        print(f"--- xdist's workers stopped ({len(workers)} processes): pytest has {settle:.0f} s to write its "
+              "summary and end", flush=True)
+        deadline = time.monotonic() + settle
+        while (running := _running(own)) is not False and time.monotonic() < deadline:
+            time.sleep(min(SAMPLE_S, settle / 5))
+        if running is False:
+            print(f"--- the tier ended by itself once its workers stopped ({len(members)} processes)", flush=True)
+            return
+        members = tree(_listed(), own[0])
+    _end_all(members[1:], mine)
+    time.sleep(grace)
+    if _running(own):
         _end(own[0])
     print(f"--- the tier stopped ({len(members)} processes)", flush=True)
 
@@ -238,11 +296,12 @@ def main(argv: list[str]) -> int:
             print(f"resources at {elapsed / 60:.0f} min: {line(now, low)}", flush=True)
         if growth and not stopped:
             if (quiet := growth.quiet(time.monotonic())) >= stall:
-                stop_tier(f"the tier's log hasn't grown in {quiet / 60:.0f} min", log, root, min(GRACE_S, stall))
+                stop_tier(f"the tier's log hasn't grown in {quiet / 60:.0f} min", log, root, min(GRACE_S, stall),
+                          min(SETTLE_S, stall))
                 stopped = True
             elif until is not None and time.time() >= until:
                 stop_tier("the tier ran to its deadline, the job's limit less the time its end needs", log, root,
-                          min(GRACE_S, stall))
+                          min(GRACE_S, stall), min(SETTLE_S, stall))
                 stopped = True
         time.sleep(min(SAMPLE_S, stall / 5))
 
