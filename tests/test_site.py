@@ -1556,6 +1556,43 @@ def test_an_images_check_that_never_ends_names_the_reads_it_waits_on(browser, si
         served.close()
 
 
+HELD = """const made = [];
+globalThis.Worker = class {   // hashedApart's worker, a stub: each one made, weakly
+    constructor() { made.push(new WeakRef(this)); }
+    postMessage() {}
+    terminate() {}
+};
+const { hashedApart } = await import(%s);
+const turn = () => new Promise((done) => setTimeout(done, 0));
+const alive = async () => {   // after three collections
+    for (let i = 0; i < 3; i++) {
+        await turn();
+        gc();
+    }
+    return Boolean(made[0].deref());
+};
+let settled = null;
+hashedApart(new Blob([new Uint8Array(8)]), [["file:a", 0, 8]]).then((digests) => { settled = digests; });
+const running = await alive();
+made[0].deref()?.onmessage({ data: { digests: { "file:a": "0" } } });
+await turn();
+console.log(JSON.stringify([running, settled, await alive()]));
+"""
+
+
+def test_a_hash_worker_is_held_until_its_check_settles_so_a_collection_never_loses_its_answer(site):
+    """Step 4.3r4t: ``web/hasher.mjs`` under Node (``--expose-gc``) holds the worker hashedApart starts until its
+    answer comes, and lets it go then. Firefox collects a Worker object that nothing holds (its own handlers don't) and
+    the messages that worker posted last never arrive: one call in about 100 of the image's check (6 runs of 32 MiB)
+    never settled in Firefox, each at its last run, none of 300 with the worker held, and two full gates' characters
+    tab waited 300 s for the USA image's answer, F's last word a progress."""
+    run = subprocess.run(["node", "--expose-gc", "--input-type=module", "--eval",
+                          HELD % json.dumps((site / "hasher.mjs").as_uri())],
+                         capture_output=True, text=True, timeout=120)
+    assert run.returncode == 0, run.stderr[-2000:]
+    assert json.loads(run.stdout) == [True, {"file:a": "0"}, False]
+
+
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
 # or null while it is hidden
 BARS = """() => {

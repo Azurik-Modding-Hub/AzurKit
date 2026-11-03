@@ -79,7 +79,11 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
 // hashed in a worker of its own that ends with it (hashworker.mjs; started from its own URL on a page sw.js controls,
 // else from a blob: URL so that it keeps the page's CSP: app.mjs's engine's way), as an image's whole check takes memory
 // the thread it runs in wouldn't give back; hashed here where a worker can't start one.
-// Its worker's at() comes as at("hash worker: …"), and at("hash worker: started") until its first.
+// Its worker's at() comes as at("hash worker: …"), and at("hash worker: started") until its first. Each worker
+// is held here (apart) until it settles: Firefox collects a Worker object that nothing holds (its own handlers don't),
+// and the messages its worker posted last, its digests among them, never came, so about one check in 100 never
+// settled (Step 4.3r4t: two full gates' characters tab waited 300 s for the USA image's answer).
+const apart = new Set();
 export function hashedApart(source, rows, progress = () => {}, longest = RUN, at = () => {}) {
   let worker, url;
   try {
@@ -87,11 +91,13 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN, at
     url = globalThis.navigator?.serviceWorker?.controller?.scriptURL === new URL("sw.js", import.meta.url).href ? entry
       : URL.createObjectURL(new Blob([`import ${JSON.stringify(entry)};\n`], { type: "text/javascript" }));
     worker = new Worker(url, { type: "module" });
+    apart.add(worker);
   } catch {
     return hashed(source, rows, progress, longest, at);
   }
   return new Promise((resolve, reject) => {
     const over = (settle, value) => {
+      apart.delete(worker);
       worker.terminate();
       URL.revokeObjectURL(url);
       settle(value);
