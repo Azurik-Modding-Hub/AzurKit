@@ -3447,6 +3447,10 @@ def test_a_characters_pieces_live_in_a_build_file_held_until_its_build_is_gone_a
         assert name in page.evaluate(BUILD_FILES)
         _page.until(page, "() => azurkit.saveCheck === 'held'", 600)
         page.close()
+        # no page holds it once its lock is gone, which a closed page's may not be yet as close() returns (Linux's
+        # Chromium: the file outlived the reload's one sweep, run 41521288667)
+        _page.until(other, f"async () => !(await navigator.locks.query()).held.some((l) => l.name === {json.dumps(name)})",
+                    60)
         other.reload()
         _page.until(other, f"async () => !(await ({BUILD_FILES})()).includes({json.dumps(name)})", 60)
     finally:
