@@ -176,9 +176,47 @@ waited for a B that never started (run 41521288667). The pool's path with no B i
 ``cores``)."""
 
 
+class _Held:
+    """The files under ``root`` for a browser context's routes, each as Playwright's driver fetched it itself, once,
+    from a static server of this process's on 127.0.0.1 (``route.fulfill(response=)``), in a request context of its
+    own that outlives the browser context (a late request while it closes still finds its file), never as a body this
+    process sends: the driver's pipe reader joins its whole buffer again at each chunk it reads, so one 20 MiB file
+    sent so took it from 0.1 to 1.7-1.9 GiB, which it kept, in every browser (2.5-2.9 GiB at its peak; fetched itself,
+    0.24-0.35 GiB), and a site page sends 35 MB: beside WebKit's pages, more than GitHub's 7 GiB Apple Silicon runner
+    had free, whose WebKit page processes died ("Target crashed", runs 41551497620, 41610020282)."""
+
+    class _Quiet(_page.Static):
+        def log_message(self, *args):
+            pass
+
+    def __init__(self, browser_type, root: Path):
+        from playwright._impl._sync_base import mapping
+        self.request = mapping.from_impl(browser_type._impl_obj._playwright.request).new_context()
+        self.root, self.held = root, {}
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(self._Quiet, directory=str(root)))
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def fulfill(self, route, file: Path) -> None:
+        """Answer ``route`` with ``file`` (under ``root``), its type the app's and its length, nothing else."""
+        if (response := self.held.get(file)) is None:
+            rel = urllib.parse.quote(file.relative_to(self.root).as_posix())
+            response = self.held[file] = self.request.get(f"http://127.0.0.1:{self.server.server_port}/{rel}")
+        assert response.ok, (file.name, response.status)
+        route.fulfill(response=response, headers={"content-type": _page.content_type(file.name),
+                                                  "content-length": str(file.stat().st_size)})
+
+    def close(self) -> None:
+        """Once its browser context has closed."""
+        try:
+            self.request.dispose()
+        finally:
+            self.server.shutdown()
+            self.server.server_close()
+
+
 class Site:
     """The site served to a fresh browser context at :data:`ORIGIN` from its
-    folder (Playwright's routing, no server), every request logged. Its
+    folder (Playwright's routing, :class:`_Held`'s files), every request logged. Its
     service worker is blocked: routing never sees a service worker's own
     requests, so these pages run uncontrolled, as a browser without one does
     (``tests/test_service_worker.py`` holds the site under ``sw.js``). A
@@ -201,6 +239,7 @@ class Site:
                                                                        **options) if profile
                         else browser.new_context(accept_downloads=True, **options))
         self.context.add_init_script(FOUR_CORES)
+        self.held = _Held(browser.browser_type, self.root)
         self.context.route("**/*", self._serve)
 
     def _serve(self, route, request) -> None:
@@ -211,7 +250,7 @@ class Site:
         file = (self.root / (urllib.parse.unquote(url.path).lstrip("/") or "index.html")).resolve()
         if f"{url.scheme}://{url.netloc}" != ORIGIN or not file.is_relative_to(self.root) or not file.is_file():
             return route.fulfill(status=404, body="")
-        route.fulfill(path=str(file), content_type=_page.content_type(file.name))
+        self.held.fulfill(route, file)
 
     def open(self):
         """A new page, its engine loaded, each call bounded (``_page.within``)."""
@@ -228,7 +267,30 @@ class Site:
                 if method != "GET" or body or (url if url != f"{ORIGIN}/" else f"{ORIGIN}/index.html") not in files]
 
     def close(self) -> None:
-        _page.within(self.context, self.context._impl_obj.close(), _page.STALL, "the context's close")
+        try:
+            _page.within(self.context, self.context._impl_obj.close(), _page.STALL, "the context's close")
+        finally:
+            self.held.close()
+
+
+def test_a_site_pages_files_reach_its_browser_without_crossing_the_drivers_pipe(browser, site, monkeypatch):
+    """A site page's load (35 MB of files: Pyodide's core, the wheel) sends Playwright's driver under 1 MiB from this
+    process, the files being the driver's own fetches (:class:`_Held`): their bodies sent through its pipe took the
+    driver to 1.7-1.9 GiB, which it kept for the module's later tests, and with WebKit's pages that was more than
+    GitHub's 7 GiB Apple Silicon runner had free (its page processes died: "Target crashed")."""
+    served = Site(browser, site)
+    transport, sent = served.context._impl_obj._connection._transport, []
+    real = transport.send
+    monkeypatch.setattr(transport, "send", lambda message: (sent.append(len(transport.serialize_message(message))),
+                                                            real(message))[1])
+    try:
+        served.open()
+        files = {urllib.parse.urlsplit(url).path for _, url, _ in served.requests}
+        assert {"/pyodide/pyodide.asm.wasm", f"/{next(site.glob('azurkit-*.whl')).name}"} <= files
+        assert sum(sent) < 1 << 20, sum(sent)
+    finally:
+        monkeypatch.undo()
+        served.close()
 
 
 def _built(page) -> dict:
@@ -3098,8 +3160,10 @@ WORKERS_BARE = b"<!doctype html><meta charset=utf-8><title>workers</title>"
 
 def _bare_page(browser, root: Path):
     """A page at :data:`ORIGIN` that is a bare document (no app.mjs: no
-    engine of its own), every other path served from ``root``."""
+    engine of its own), every other path served from ``root`` (:class:`_Held`)."""
     context = browser.new_context()
+    held = _Held(browser.browser_type, root.resolve())
+    context.on("close", lambda _: held.close())
 
     def serve(route, request) -> None:
         if request.url.startswith("blob:"):   # the page's own blob: (WebKit routes them; Chromium doesn't)
@@ -3110,7 +3174,7 @@ def _bare_page(browser, root: Path):
         file = (root / path).resolve()
         if not request.url.startswith(f"{ORIGIN}/") or not file.is_relative_to(root.resolve()) or not file.is_file():
             return route.fulfill(status=404, body="")
-        route.fulfill(path=str(file), content_type=_page.content_type(file.name))
+        held.fulfill(route, file)
 
     context.route("**/*", serve)
     page = context.new_page()
