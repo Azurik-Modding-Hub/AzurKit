@@ -57,7 +57,8 @@ const lastLine = (error) => String(error?.message ?? error).trim().split("\n").a
 
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
-// as a Uint8Array of their own through the file system: Pyodide 314.0.7's to_js (and assign, getBuffer) reads a buffer
+// as their place in the heap where they are a bytes object's (placed), else as a Uint8Array of their own through the
+// file system: Pyodide 314.0.7's to_js (and assign, getBuffer) reads a buffer
 // past 2 GiB of the heap at its address taken as signed, so a build that held more than that came out with other
 // bytes (a seed wearing keylord: three of its levels). A build's pieces reach the page as Blobs (blobbed).
 const ENGINE = `
@@ -94,7 +95,12 @@ def handed(value):
 
 def placed(data):
     """Where a bytes object's bytes lie in the heap (CPython's PyBytesObject; JS reads them there, as a view, unsigned, so
-    no copy through the file system or past to_js's 2 GiB); None for any other kind of value."""
+    no copy through the file system or past to_js's 2 GiB), a memoryview of all of one's too: a build's pieces are such
+    views (iso.Image.segments), and each copy handed() made of one stayed in the worker's JS until a GC, which a worker
+    building again at once doesn't get (twice a build's pieces a build in WebKit: 4.3r4s); None for any other kind of
+    value."""
+    if type(data) is memoryview and data.c_contiguous and type(data.obj) is bytes and data.nbytes == len(data.obj):
+        data = data.obj
     return id(data) + bytes.__basicsize__ - 1 if type(data) is bytes else None
 
 

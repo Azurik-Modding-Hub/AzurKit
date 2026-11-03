@@ -1809,20 +1809,22 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
         served.close()
 
 
-HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, each digest
+HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, digest and write
     const Real = Worker;
-    Object.assign(globalThis, { starts: [], digests: [] });
+    Object.assign(globalThis, { starts: [], digests: [], writes: [] });
     globalThis.Worker = class extends Real {
         constructor(...args) {
             super(...args);
             this.addEventListener("message", ({ data }) => {
                 if (data?.type === "ready") starts.push(data.start);
                 if (data?.type === "digest") digests.push(data);
+                if (data?.type === "wrote") writes.push(data);
             });
         }
     };
 })();"""
-"""An init script: the page's workers' starts in ``starts``, their digests (DIGESTS) in ``digests``."""
+"""An init script: the page's workers' starts in ``starts``, their digests (DIGESTS) in ``digests``, their build
+files' writes (WROTE) in ``writes``."""
 DIGESTS = """self.azurkitDigest = crypto.subtle.digest.bind(crypto.subtle);
 crypto.subtle.digest = async (name, data) => {
     const out = await azurkitDigest(name, data);
@@ -3469,17 +3471,33 @@ BUILD_FILES = """async () => {
 }"""
 
 
-def test_a_characters_pieces_live_in_a_build_file_held_until_its_build_is_gone_and_a_crash_leaves_none(
+WROTE = """const azurkitWrite = FileSystemSyncAccessHandle.prototype.write;
+FileSystemSyncAccessHandle.prototype.write = function (bytes, options) {
+    postMessage({ type: "wrote", size: bytes.byteLength, copy: bytes.byteLength === bytes.buffer.byteLength });
+    return azurkitWrite.call(this, bytes, options);
+};
+"""
+"""The worker's first lines in the next test: it posts each write to a build file, and whether its bytes were a copy
+of their own (HEARD holds them)."""
+
+
+def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_until_its_build_is_gone_and_a_crash_leaves_none(
         browser, site, usa_iso, tmp_path):
-    """P7 and X10: a character's build writes its pieces into an OPFS file, the Blob's bytes CPython's; Storage counts
-    it; another tab's load leaves it while this tab holds it. A change forgets the build and removes it; a saved one
-    stays past that (its download may still read it, and is whole), and the next load removes it once no page holds
-    it, as it does a crashed page's."""
+    """P7 and X10: a character's build writes its pieces into an OPFS file, the Blob's bytes CPython's, each piece
+    straight from the engine's heap: no copy of it is left in the worker for a GC an idle worker doesn't ask for (in
+    WebKit each build left two, 4.3r4s: about 0.5 GB a build of a page built again and again). Storage counts it;
+    another tab's load leaves it while this tab holds it. A change forgets the build and removes it; a saved one stays
+    past that (its download may still read it, and is whole), and the next load removes it once no page holds it, as
+    it does a crashed page's."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "character": {"species": "keylord"}}
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
     served = Site(browser, site, tmp_path / "profile")
     try:
+        served.context.add_init_script(HEARD)
+        worker = (site / "worker.mjs").read_text(encoding="utf-8")
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(
+            body=WROTE + worker, content_type="text/javascript"))
         page = served.context.new_page()
         page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
@@ -3487,6 +3505,8 @@ def test_a_characters_pieces_live_in_a_build_file_held_until_its_build_is_gone_a
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
         assert built == _as_cpython(built, report, made)
+        writes = page.evaluate("() => writes")
+        assert writes and not [w for w in writes if w["copy"]]
         name = page.evaluate("() => azurkit.build.out")
         assert name in page.evaluate(BUILD_FILES)
         _page.click(page, "tab-tools")
