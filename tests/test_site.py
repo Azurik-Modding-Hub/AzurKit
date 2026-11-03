@@ -1413,7 +1413,8 @@ def test_kept_content_reaches_the_engine_only_at_a_content_path_holding_its_inst
     """What this browser keeps installed (IndexedDB, which any script of the site's origin can write) is written into
     the engine's content folder file by file only where its path is one a manifest may list and installed.json holds
     its sha256: a planted ``../`` key never reaches Pyodide's file system (one once wrote over the engine's own
-    packages), nor does a file whose bytes aren't the record's; each is left out with a line naming it."""
+    packages), nor does a file whose bytes aren't the record's; each is left out with a line naming it, once in each
+    of the site's two workers."""
     recipe = json.dumps({"beamlord": {}}).encode()   # lists beamlord under its entry wherever it is read
     planted = "../content/variants/planted/variant.json"   # variants/planted/variant.json, were it written
     escaped = "../../../lib/python3.14/site-packages/azurkit_planted/__init__.py"
@@ -1421,8 +1422,9 @@ def test_kept_content_reaches_the_engine_only_at_a_content_path_holding_its_inst
                  for name in ("kept", "planted", "swapped")}
     files = {"variants/kept/variant.json": recipe, planted: recipe, escaped: b"raise SystemExit",
              "variants/swapped/variant.json": b'{"beamlord": 1}'}
-    served, lines = Site(browser, site), []
-    served.context.on("console", lambda m: lines.append(m.text) if m.text.startswith("AzurKit left out") else None)
+    served, lines = Site(browser, site), {}
+    served.context.on("console", lambda m: lines.setdefault(m.worker and m.worker.url, []).append(m.text)
+                      if m.text.startswith("AzurKit left out") else None)
     try:
         page = served.open()
         listed = page.evaluate("""async ([files, installed]) => {
@@ -1432,13 +1434,17 @@ def test_kept_content_reaches_the_engine_only_at_a_content_path_holding_its_inst
             return Object.fromEntries(reply.community.map((e) => [e.id, e.variants.map((v) => v.name)]));
         }""", [{k: list(v) for k, v in files.items()}, installed])
         assert listed == {"kept": ["beamlord"], "planted": [], "swapped": []}
-        end = time.monotonic() + 30
-        while len(lines) < 3 and time.monotonic() < end:   # the worker's lines, as Playwright delivers them
+        want = sorted([f"AzurKit left out kept content: path {path!r} isn't a file under variants/, clips/, sounds/, "
+                       f"fx/, packs/" for path in (planted, escaped)]
+                      + ["AzurKit left out kept content: variants/swapped/variant.json's sha256 # isn't installed.json's"])
+        # each worker's lines, by the worker Playwright names: share() sends the content to F, and to B once it loads
+        # (the 4 cores the page says start it), whose lines came beside F's before the check on Linux's WebKit (run
+        # 41521288667)
+        end = time.monotonic() + 120
+        while (len(lines) < 2 or any(len(got) < len(want) for got in lines.values())) and time.monotonic() < end:
             page.wait_for_timeout(200)
-        assert sorted(re.sub(r"[0-9a-f]{12}", "#", line) for line in lines) == sorted(
-            [f"AzurKit left out kept content: path {path!r} isn't a file under variants/, clips/, sounds/, fx/, packs/"
-             for path in (planted, escaped)]
-            + ["AzurKit left out kept content: variants/swapped/variant.json's sha256 # isn't installed.json's"])
+        assert {worker: sorted(re.sub(r"[0-9a-f]{12}", "#", line) for line in got) for worker, got in lines.items()} \
+            == dict.fromkeys(lines, want) and len(lines) == 2 and None not in lines, lines
     finally:
         served.close()
 
