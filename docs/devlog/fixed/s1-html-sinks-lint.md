@@ -1,1 +1,0 @@
-- A lint test keeps the page free of HTML sinks: no file under `web/` sets `innerHTML` or `outerHTML`, calls `insertAdjacentHTML`, `document.write`, `createContextualFragment` or `parseFromString`, or holds a `srcdoc` or a `javascript:` URL, so no text from a manifest, recipe or mods file becomes markup on the site's origin (Step S1, D992 SEC-18).

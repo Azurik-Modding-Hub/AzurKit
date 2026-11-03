@@ -1,1 +1,0 @@
-- An Update that renames a file by letter case only (`Note.md` to `note.md`) removes the dropped files before the new ones move in, so on a case-blind disk (APFS, NTFS) the new file stays and `installed.json` lists what is there; a dropped file another entry holds, letter case aside, stays (Step S1, D992 SEC-15).

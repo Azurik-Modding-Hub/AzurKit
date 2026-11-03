@@ -257,7 +257,7 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 
 ## Download and check it
 
-These hold from the first release (there is none yet):
+These hold from the first release:
 
 - **Download only from [Releases](https://github.com/Azurik-Modding-Hub/AzurKit/releases).** An app is code that runs as
   you, and a copy posted anywhere else may not be ours. Each release holds `AzurKit-<version>-macos-arm64.zip`,
