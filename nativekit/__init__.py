@@ -31,9 +31,12 @@ OUT = ROOT / "src" / "azurkit" / "core" / "_native"
 FLAGS = ("-std=c99", "-O2", "-ffp-contract=off", "-fno-fast-math", "-mcpu=baseline", "-g0", "-s", "-shared",
          "-Wall", "-Werror")
 SIDE = ("-fPIC", "-nostdlib", "-fvisibility=default", "-Wl,--export-dynamic")   # a side module Pyodide's ctypes loads
+PAD = ("-Wl,-headerpad_max_install_names",)   # room after a Mach-O's load commands: zig leaves none, and the freeze's
+#                                               codesign then writes the 16-byte LC_CODE_SIGNATURE over the first
+#                                               function's code (az_origins' prologue: x86_64's fault at 0xf0000000)
 TARGETS = {   # the library (azurkit.core.native.TARGETS' names): zig's target and its own flags
-    "macos-arm64.dylib": ("aarch64-macos", ("-Wl,-install_name,@rpath/macos-arm64.dylib",)),
-    "macos-x86_64.dylib": ("x86_64-macos", ("-Wl,-install_name,@rpath/macos-x86_64.dylib",)),
+    "macos-arm64.dylib": ("aarch64-macos", ("-Wl,-install_name,@rpath/macos-arm64.dylib", *PAD)),
+    "macos-x86_64.dylib": ("x86_64-macos", ("-Wl,-install_name,@rpath/macos-x86_64.dylib", *PAD)),
     "linux-x86_64.so": ("x86_64-linux-gnu.2.17", ("-fPIC",)),
     "linux-aarch64.so": ("aarch64-linux-gnu.2.17", ("-fPIC",)),
     "windows-x86_64.dll": ("x86_64-windows-gnu", ()),

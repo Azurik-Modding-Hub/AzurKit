@@ -359,3 +359,24 @@ def test_an_engine_process_whose_twin_answers_shows_in_its_servers_report_and_fa
 
 def test_nativekit_rebuilds_each_committed_library_to_its_bytes():
     assert nativekit.build(check=True) == []
+
+
+def test_each_macos_library_leaves_room_after_its_load_commands_for_the_freezes_signature():
+    """A freeze signs each library (``codesign``), adding a 16-byte
+    LC_CODE_SIGNATURE after its load commands where it has none: with no
+    room there (zig's default, and its x86_64 build is unsigned) that went
+    over az_origins' first bytes, and the frozen app on an Intel Mac faulted
+    at 0xf0000000 dressing keylord (run 41521288667)."""
+    import struct
+
+    for name in ("macos-arm64.dylib", "macos-x86_64.dylib"):
+        data = (native.FOLDER / name).read_bytes()
+        ncmds, size = struct.unpack_from("<2I", data, 16)
+        at, first = 32, len(data)
+        for _ in range(ncmds):
+            cmd, step = struct.unpack_from("<2I", data, at)
+            if cmd == 0x19:   # LC_SEGMENT_64: its sections' file offsets (0: a zero-fill one)
+                for s in range(struct.unpack_from("<I", data, at + 64)[0]):
+                    first = min(first, struct.unpack_from("<I", data, at + 72 + 80 * s + 48)[0] or first)
+            at += step
+        assert first - (32 + size) >= 16, (name, first - (32 + size))
