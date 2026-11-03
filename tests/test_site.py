@@ -1657,6 +1657,43 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         served.close()
 
 
+STOPPED = """import asyncio, json, sys, time
+from playwright.sync_api import sync_playwright
+from tests import _page
+_page.HEAR = 1
+with sync_playwright() as playwright:
+    browser = getattr(playwright, sys.argv[1]).launch(headless=True)
+    page = browser.new_page()
+    page.context._impl_obj.cookies = lambda: asyncio.sleep(600)   # its browser answers nothing either
+    said, at = [], [time.monotonic()]
+    for call in (lambda: _page.answer(page, "() => new Promise(() => {})", seconds=1), lambda: page.evaluate("1"),
+                 browser.close):
+        try:
+            said.append(call())
+        except Exception as error:
+            said.append(str(error))
+        at.append(time.monotonic())
+print(json.dumps({"said": said, "took": [b - a for a, b in zip(at, at[1:])]}))
+"""
+"""A browser whose page leaves a call unanswered and that answers nothing either (its cookies), in a Playwright of its
+own: the calls after the stall, an evaluate and the browser's close, said and timed."""
+
+
+def test_a_browser_that_answers_nothing_fails_its_later_calls_at_once(browser):
+    """D1072: a call left unanswered whose browser answers nothing either says so and closes that browser's Playwright
+    connection naming the call, so the next call fails at once by that name and the browser's close returns at once:
+    a module's later tests on a browser that stopped fail fast, never a silent wait. In a Python of its own, as the
+    closed connection is its Playwright's, every browser's of it."""
+    done = subprocess.run([sys.executable, "-c", STOPPED, browser.browser_type.name], cwd=_page.WEB.parent,
+                          capture_output=True, text=True, timeout=_page.STALL)
+    assert done.returncode == 0, done.stderr[-2000:]
+    (stalled, later, closed), took = json.loads(done.stdout).values()
+    assert stalled.splitlines()[0] == "no answer in 1 s: () => new Promise(() => {})"
+    assert "its browser answers nothing either (in 1 s): every later call to it fails at once" in stalled.splitlines()
+    assert "the browser stopped answering: () => new Promise(() => {})" in later and closed is None
+    assert took[1] < 1 and took[2] < 1, took
+
+
 HELD = """const made = [];
 globalThis.Worker = class {   // hashedApart's worker, a stub: each one made, weakly
     constructor() { made.push(new WeakRef(this)); }
