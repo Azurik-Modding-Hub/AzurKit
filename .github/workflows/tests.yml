@@ -16,7 +16,8 @@
 #   run 41265131863), and on Linux the tests also run with no network and a reset environment (no unshare
 #   elsewhere); on every OS pytest writes to a log and only its tail and summary are printed. scripts/ci_resources.py
 #   prints the free disk and memory each minute and their lowest (labels and numbers, no path), so a run that is shut
-#   down still names what it ran out of.
+#   down still names what it ran out of, and stops a tier whose log has stalled or whose job nears its limit, its
+#   log's tail and processes printed first, so a hang names itself.
 # Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
 # their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
 name: tests
@@ -121,6 +122,8 @@ jobs:
             cdn.playwright.dev:443 playwright.download.prss.microsoft.com:443 storage.googleapis.com:443
             azure.archive.ubuntu.com:80 security.ubuntu.com:80 packages.microsoft.com:443
             ppa.launchpadcontent.net:443
+      - name: The job's clock, for the tier's deadline
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: Check out files as committed (the Windows runner's git would turn LF into CRLF)
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
@@ -189,10 +192,13 @@ jobs:
         # sudo's and setpriv's environment reset, so only the variables named here reach them (no GITHUB_* file, no
         # runtime token); hence the venv's own python, since uv's cache and settings aren't in that environment. Its
         # temp folder is on the tier's disk too, a test that passed leaves its folder to the next (the retention policy),
-        # and a signal (the runner's shutdown) prints the log's tail, as pytest's own end would never come. Windows'
-        # cancel never reaches that trap (run 41521288667: its tier sat idle from about 115 min to the job's cap, its log
-        # never printed), so a tier still running at 300 min prints the log's last 200 lines then, on every OS, and a test
-        # past 20 min has put each thread's stack in it (faulthandler, as in the pure tier).
+        # and a signal (the runner's shutdown) prints the log's tail, as pytest's own end would never come.
+        # A hang names itself (run 41521288667: Windows' tier sat silent 3.5 h to the job's limit, its log never
+        # printed): a test past 60 min puts each thread's stack in the log (faulthandler: the slowest legit one, the
+        # variant cases, takes about 45 min on the slowest runner, scripts/ci_resources.py's STALL_S says how), and
+        # the watch there, once the log hasn't grown in 90 min or 10 min before the job's limit, prints its tail and
+        # the tier's processes and stops them, so this step ends, prints the rest and fails with time left. Git Bash's
+        # process ids are its own: Windows' is in /proc. The next step prints the log's tail whatever cut this one off.
         run: |
           iso="$TIER_ROOM/iso" content="$RUNNER_TEMP/content" log="$TIER_ROOM/pytest.log" stop="$TIER_ROOM/resources.stop"
           if [ "$RUNNER_OS" = Linux ]; then
@@ -211,25 +217,35 @@ jobs:
             # folder, under /var/folders, not here: a tier that crosses 03:35 UTC lost files a later test reads.
             if [ "$RUNNER_OS" = macOS ]; then mkdir -p "$TIER_ROOM/tmp"; export TMPDIR="$TIER_ROOM/tmp"; fi
           fi
-          uv run --locked python -I scripts/ci_resources.py "$stop" "tier=$TIER_ROOM" "runner=$RUNNER_TEMP" &
-          watcher=$!
           trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla -o tmp_path_retention_policy=failed -o faulthandler_timeout=1200 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 > "$log" 2>&1 &
+          tier -m vanilla -o tmp_path_retention_policy=failed -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 > "$log" 2>&1 &
           pid=$!
-          (sleep 18000 > /dev/null 2>&1 && echo "--- the tier is still running at 300 min: the log's last 200 lines" && tail -n 200 "$log" | cut -c 1-240) &
-          late=$!
+          tier_id=$pid
+          if [ "$RUNNER_OS" = Windows ]; then tier_id="$(cat "/proc/$pid/winpid" 2> /dev/null || true)"; fi
+          uv run --locked python -I scripts/ci_resources.py "$stop" --watch="$log" --tier="$tier_id" \
+            --until=$((JOB_START + 320 * 60)) "tier=$TIER_ROOM" "runner=$RUNNER_TEMP" &
+          watcher=$!
           wait "$pid" || status=$?
-          kill "$late" 2>/dev/null || true
           touch "$stop"
-          wait "$watcher" || true
+          watched=0
+          wait "$watcher" || watched=$?
+          if [ "$watched" = 3 ] && [ "$status" = 0 ]; then status=1; fi
           tail -n 60 "$log" | cut -c 1-240
           echo "--- the summary"
           sed -n '/^vanilla: /,$p' "$log" | head -n 200 | cut -c 1-240 || true
           echo "--- each failure's heading and E lines"
           grep -E '^(FAILED|ERROR) ' "$log" | cut -c 1-240 || true
           awk '/^_+ .* _+$/ { n = 0; print } /^E  / { if (n++ < 40) print }' "$log" | head -n 600 | cut -c 1-240 || true
+          touch "$TIER_ROOM/tier.printed"
           exit "$status"
+      - name: The tier's log, if its step was cut off before printing it (the job's limit runs no trap)
+        if: always()
+        run: |
+          if [ -n "${TIER_ROOM:-}" ] && [ -f "$TIER_ROOM/pytest.log" ] && [ ! -e "$TIER_ROOM/tier.printed" ]; then
+            echo "--- the tier's step never printed its log: its last 200 lines"
+            tail -n 200 "$TIER_ROOM/pytest.log" | cut -c 1-240
+          fi
       - name: Delete the images and any parts left
         if: always()
         run: if [ -n "${TIER_ROOM:-}" ]; then rm -rf "$TIER_ROOM"; fi
