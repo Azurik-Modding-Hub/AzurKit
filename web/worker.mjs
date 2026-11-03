@@ -29,7 +29,7 @@
 //      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image). A message with a File
 //      (file) has the image checked first, once a File (prime).
 // Out: {type: "native", kernel?, twin?} (the reach calls each path answered since the last, before the answer they
-//      went into), {type: "ready", catalog, version, start} (start: "snapshot" or "cold", load()'s), {type: "progress", stage, label, done, total, percent} (core/progress.py's
+//      went into), {type: "ready", catalog, version, commit, start} (start: "snapshot" or "cold", load()'s), {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages; the worker's own: its start before ready, the kept image's
 //      walk), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
 //      "spoiled", text | refused} brings next: the build shows sooner),
@@ -166,7 +166,7 @@ def engine(request):
         return to_js(handed(value), dict_converter=Object.fromEntries, create_pyproxies=False)
 
     if request.type == "catalog":
-        return js({"catalog": sdk.catalog(), "version": azurkit.__version__})
+        return js({"catalog": sdk.catalog(), "version": azurkit.__version__, "commit": azurkit.commit()})
     if request.type == "warm":   # numpy's loaded: what a dress imports, so a body's build starts at its first step
         from azurkit.tools.characters import _player_character  # noqa: F401
         return js({})

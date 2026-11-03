@@ -1,6 +1,7 @@
 """The wheel: built from this checkout (``web_tools.wheel``), it carries
-every file of the package, each module's bytecode and the checked
-randomizer database (Step 4.3g), and nothing the leak guard refuses, and
+every file of the package, each module's bytecode, the checked
+randomizer database (Step 4.3g) and the commit it was built from (About's,
+Step 4.4rel-a), and nothing the leak guard refuses, and
 installs alone in a clean venv (only its declared dependencies, at the
 lock's versions, offline: ``web_tools.install``; the wheel declares
 pyproject's dependencies, so the venv holds just what it declares) where
@@ -17,6 +18,7 @@ import tomllib
 import zipfile
 from pathlib import Path
 
+import azurkit
 from azurkit import __version__
 from scripts import web_tools
 from tests import _leak_guard
@@ -48,7 +50,9 @@ def test_the_wheel_carries_the_package_and_installs_alone_in_a_clean_venv(tmp_pa
     pyc = {f"{folder}/__pycache__/{name[:-3]}.{sys.implementation.cache_tag}.pyc"
            for folder, _, name in (rel.rpartition("/") for rel in package if rel.endswith(".py"))}
     (shipped,) = {n for n in names if n.startswith(f"{web_tools.SHIPPED}/") and n.endswith(".pickle")}
-    assert {n for n in names if not n.startswith(f"azurkit-{__version__}.dist-info/")} == package | pyc | {shipped}
+    stamp = f"azurkit/{azurkit.STAMP}"   # the commit About names (the site's About test reads it)
+    assert {n for n in names if not n.startswith(f"azurkit-{__version__}.dist-info/")} == (
+        package | pyc | {shipped, stamp})
     python = web_tools.install(wheel, tmp_path / "venv")
     scripts = Path(python).parent
     dependencies = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["dependencies"]

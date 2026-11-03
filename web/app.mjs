@@ -337,9 +337,9 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     ready: (data) => {
       answered(starting);
       starting = null;
-      engine = [data.catalog, data.version];
+      engine = [data.catalog, data.version, data.commit];
       state.workers = (state.workers ?? 0) + 1;   // the workers that took F's place, for the tests
-      ready(data.catalog, data.version);
+      ready(...engine);
     },
     told: (data) => {
       if (data.type === "progress") {
@@ -510,7 +510,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
       if (mine === ticket) failed(`The app's engine didn't answer (${error.message}): restart AzurKit`);
     }
   };
-  setTimeout(() => ready(host.catalog, host.version));
+  setTimeout(() => ready(host.catalog, host.version, host.commit));
   const ask = (path, body, done) => post(path, body)
     .then((reply) => "refused" in reply ? failed(reply.refused) : done(reply))
     .catch((error) => failed(`The app's engine didn't answer (${error.message}): restart AzurKit`));
@@ -1019,7 +1019,7 @@ function unopen() {
 
 // The engine is ready (the site's again after each build). The first time, the page draws the catalog and asks for the
 // remembered setup back, unless a link brought a recipe (D915: the link wins); it is ready once that is back.
-function ready(catalog, version) {
+function ready(catalog, version, commit) {
   if (!state.packs) {
     if (!state.app && "serviceWorker" in navigator) registered();
     state.packs = catalog;
@@ -1052,7 +1052,8 @@ function ready(catalog, version) {
                                  out: (name) => toolsOut(name, "saves"),
                                  pick: state.dialogs ? (kind) => state.engine.choose(kind, "") : null });
     $("version").textContent = `AzurKit ${version}`;
-    $("about-version").textContent = `This is AzurKit ${version}.`;
+    $("about-version").textContent = `This is AzurKit ${version}, ${commit ? `built from commit ${commit.slice(0, 12)}`
+      : "run from a source checkout without git, so its commit is unknown"}.`;   // the engine's azurkit.commit()
     if (!state.pending && state.remembered != null) {
       state.restoring = true;   // a remembered community pack is read from what the site hands its engine first
       return (state.remembered.community ? shared.ready : Promise.resolve())

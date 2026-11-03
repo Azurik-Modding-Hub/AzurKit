@@ -201,14 +201,17 @@ def wheel(out: Path, root: Path = ROOT) -> Path:
     start at once (Step 4.3g): each module's bytecode
     (``__pycache__/<name>.cpython-314.pyc``, unchecked-hash, so Pyodide
     imports it without compiling the source; the ``.py`` stays, for
-    tracebacks) and the checked randomizer database
-    (:func:`ship_database`, from the wheel's own files), in its RECORD."""
+    tracebacks), the checked randomizer database
+    (:func:`ship_database`, from the wheel's own files) and, from a git
+    checkout, the commit it was built from (``azurkit.STAMP``, which About
+    shows: ``azurkit.commit``), in its RECORD."""
+    import azurkit
     subprocess.run(["uv", "build", "--offline", "--quiet", "--wheel", "--out-dir", str(out), str(root)],
                    check=True, capture_output=True, timeout=300)
     (built,) = out.glob("azurkit-*.whl")
     with zipfile.ZipFile(built) as zf:
         entries = [(info, zf.read(info)) for info in zf.infolist()]
-    added = {}
+    added = {} if (head := azurkit.head(root)) is None else {f"azurkit/{azurkit.STAMP}": f"{head}\n".encode()}
     with tempfile.TemporaryDirectory(prefix="azurkit-wheel.") as tmp:
         for info, data in entries:
             if not info.is_dir():

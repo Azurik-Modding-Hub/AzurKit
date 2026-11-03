@@ -19,6 +19,8 @@ compiled library (``core/native.py``), named on its own because
 ``--collect-data`` skips every ``.so`` (Python's extension suffix) and
 ``--collect-binaries`` every ``.so`` not named ``lib*`` (Step 4.3r4e); macOS's
 build rewrites and re-signs it, so its sha12 there isn't the committed file's.
+From a git checkout it carries the commit it was frozen from
+(``azurkit.STAMP``), which its About shows.
 ``--check`` then runs the app (``serve``: no window, in this user's folders,
 so a CI runner's) and refuses one whose report says the library didn't load.
 """
@@ -52,18 +54,24 @@ def freeze(dist: Path, work: Path, check: bool = False) -> Path:
     import web_tools
     from PyInstaller.__main__ import run
 
+    import azurkit
     from azurkit.core import native
     from azurkit.tools.randomizer import dbcache
 
     if (library := native.target()) is None:
         raise SystemExit(native.report()["why"])
     shipped = web_tools.ship_database(work / "shipped", planner=False)
+    stamped = ()   # the commit it was built from, which About shows (azurkit.commit)
+    if (head := azurkit.head(ROOT)) is not None:
+        (stamp := work / "stamp" / azurkit.STAMP).parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(f"{head}\n", encoding="utf-8")
+        stamped = ("--add-data", f"{stamp}{os.pathsep}azurkit")
 
     run(["--noconfirm", "--clean", "--onedir", "--name", NAME, "--log-level", "WARN",
          *(("--windowed", "--osx-bundle-identifier", BUNDLE_ID, "--icon", str(ICON)) if MACOS else ()),
          "--distpath", str(dist), "--workpath", str(work), "--specpath", str(work),
          "--paths", str(ROOT / "src"), "--collect-data", "azurkit", "--add-data", f"{ROOT / 'web'}{os.pathsep}web",
-         "--add-data", f"{shipped}{os.pathsep}{web_tools.SHIPPED}",
+         "--add-data", f"{shipped}{os.pathsep}{web_tools.SHIPPED}", *stamped,
          "--add-binary", f"{native.FOLDER / library}{os.pathsep}azurkit/core/_native",
          *(arg for module in EXCLUDE for arg in ("--exclude-module", module)),
          str(ROOT / "src" / "azurkit" / "__main__.py")])

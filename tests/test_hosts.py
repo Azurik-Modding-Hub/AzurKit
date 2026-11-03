@@ -38,6 +38,7 @@ from pathlib import Path
 import platformdirs
 import pytest
 
+import azurkit
 from azurkit import __main__ as _entry  # noqa: F401 (the frozen app's entry; fullsuite picks this file for it)
 from azurkit import app, cli, sdk
 from azurkit.app import engine
@@ -178,6 +179,12 @@ def frozen_app(tmp_path_factory):
     finally:
         for path in writable:
             path.chmod(path.stat().st_mode | 0o200)
+
+
+def _head() -> str:
+    """This checkout's HEAD, as its git gives it: the commit the app's About names."""
+    return subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True,
+                          check=True).stdout.strip()
 
 
 def _home(monkeypatch, home: Path) -> None:
@@ -367,9 +374,10 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     theme the page picked, from its first paint (the app's own theme.js),
     and with the page's setup as it was left: every pack ticked (D915; all
     three remembered in platformdirs' config folder: the page's address, and
-    so its storage, is new each launch). No CSP violation, no request but to
-    the app's own server, and the app, the folder, HOME and TMPDIR are as they
-    were but for platformdirs' folders and the saved build."""
+    so its storage, is new each launch); its ``host.json`` names the commit
+    it was frozen from (About's: this checkout's HEAD). No CSP violation, no
+    request but to the app's own server, and the app, the folder, HOME and
+    TMPDIR are as they were but for platformdirs' folders and the saved build."""
     app_path, before = frozen_app
     box = Sandbox(tmp_path, monkeypatch)
     out = tmp_path / "out" / f"{usa_iso.stem} (AzurKit).iso"
@@ -428,7 +436,8 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
         with box.serving(app_path) as url:
             with urllib.request.urlopen(url.replace("/?token=", "/host.json?token="), timeout=30) as reply:
                 host = json.load(reply)
-            assert [host["iso"], host["theme"], host["setup"]] == [str(usa_iso), "light", setup]
+            assert [host["iso"], host["theme"], host["setup"], host["commit"]] == [
+                str(usa_iso), "light", setup, _head()]
             page = context.new_page()
             assert _page.first_paint(page, url) == ["light", "rgb(232, 236, 241)"]
             assert page.evaluate("() => [azurkit.theme, document.documentElement.dataset.theme]") == ["light"] * 2
@@ -1023,6 +1032,34 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
                 assert "show_objects" not in app._kept()
         finally:
             server.close()
+
+
+def test_the_apps_about_names_its_version_and_commit_or_says_no_git_can_name_it(browser, tmp_path, monkeypatch):
+    """About shows the version and the commit AzurKit was built from (D992's release check, item 7), from what the
+    host knows, never a fetch: the app run from this checkout names its HEAD (``host.json``'s ``commit``:
+    ``azurkit.commit`` asks this computer's git), About its first 12 digits; reloaded where no git runs, ``host.json``
+    names none and About says plainly that a source checkout without git can't name its commit."""
+    _home(monkeypatch, tmp_path / "home")
+    head, version = _head(), azurkit.__version__
+    about = """async () => [(await (await fetch("host.json")).json()).commit,
+        document.getElementById("about-version").textContent]"""
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        azurkit.commit.cache_clear()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        assert page.evaluate(about) == [head, f"This is AzurKit {version}, built from commit {head[:12]}."]
+        monkeypatch.setenv("PATH", str(tmp_path / "no-git"))   # a folder that isn't there: no git to run
+        azurkit.commit.cache_clear()
+        page.reload()
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        assert page.evaluate(about) == [
+            None, f"This is AzurKit {version}, run from a source checkout without git, so its commit is unknown."]
+        _page.check_csp(page)
+    finally:
+        server.close()
+        azurkit.commit.cache_clear()
 
 
 def test_the_apps_server_types_each_file_from_its_table_never_the_systems_guess(tmp_path, monkeypatch):

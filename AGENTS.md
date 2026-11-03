@@ -1012,7 +1012,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     read. The About tab's licence and credits
     restate `LICENSE` and `NOTICE.md` (`tests/test_site.py` holds them
     to those files); its privacy line says only that AzurKit collects
-    nothing and that the image never leaves the computer (D883).
+    nothing and that the image never leaves the computer (D883); its
+    version line names the commit AzurKit was built from, never fetched
+    (`azurkit.commit`: what the wheel's or the frozen app's build wrote,
+    `azurkit.STAMP`, else a git checkout's HEAD; a source checkout without
+    git says it can't name one).
   - **The Randomizer tab** (Step 4.2c1, RANDOMIZER_PLAN §5.5): Randomize
     (off by default, the tab's one switch, which unlocks its settings,
     D907), the seed (any text; New draws 0-999999), Movement, the skip

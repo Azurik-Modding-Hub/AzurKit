@@ -11,7 +11,8 @@ The engine below never starts a thread; this host does, for the server,
 and the app's engine process (:mod:`.engine`).
 
 The server is the page's engine too. ``host.json`` tells the page it is in
-the app, with the catalog, AzurKit's version, the image to start from (the
+the app, with the catalog, AzurKit's version and the commit it was built
+from (``azurkit.commit``, About's), the image to start from (the
 one the last build read, remembered in platformdirs' config folder, else a
 release's own image), whether there are file dialogs (the window's), the
 site's address, which its share links name (:data:`SITE`, D884), and the
@@ -159,7 +160,7 @@ import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 
-from azurkit import __version__, sdk
+from azurkit import __version__, commit, sdk
 from azurkit.core import gate
 from azurkit.core.progress import record
 from azurkit.edits import files as replaced
@@ -556,7 +557,7 @@ class Server(http.server.ThreadingHTTPServer):
         return {**(calls[-1][1] if calls else IDLE), "calls": dict(calls)}
 
     def host_info(self) -> dict:
-        return {"engine": "app", "version": __version__, "catalog": sdk.catalog(), "iso": _start_image(),
+        return {"engine": "app", "version": __version__, "commit": commit(), "catalog": sdk.catalog(), "iso": _start_image(),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
                 "setup": _kept().get("setup"), "tracker": _kept().get("tracker"),
                 "content_source": _kept().get("content_source"), "show_objects": _kept().get("show_objects") is True}

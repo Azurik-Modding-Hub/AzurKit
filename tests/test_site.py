@@ -548,7 +548,8 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
     rather than growing it. The About tab says what AzurKit is, that it
     collects nothing and that the image never leaves the computer (and
     nothing anywhere in it about a host's logs, D883), its licence (the
-    checkout's LICENSE), its credits (NOTICE.md's) and its version. No CSP
+    checkout's LICENSE), its credits (NOTICE.md's), its version and the
+    commit its wheel was built from (this checkout's HEAD). No CSP
     violation, no request but GETs of the site's files."""
     from azurkit import __version__
     served = Site(browser, site, color_scheme="light", viewport={"width": 1280, "height": 600})
@@ -617,7 +618,9 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         notice = (_page.WEB.parent / "NOTICE.md").read_text(encoding="utf-8").splitlines()
         assert [line[3:] for line in notice if line.startswith("## ") and f"{line[3:]}." in credits] == [
             line[3:] for line in notice if line.startswith("## ")] != []
-        assert version == f"This is AzurKit {__version__}."
+        head = subprocess.run(["git", "-C", str(_page.WEB.parent), "rev-parse", "HEAD"], capture_output=True, text=True,
+                              check=True).stdout.strip()
+        assert version == f"This is AzurKit {__version__}, built from commit {head[:12]}."
         for each in served.context.pages:
             _page.check_csp(each)
         assert served.stray() == []
