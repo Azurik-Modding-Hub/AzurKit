@@ -11,6 +11,7 @@ its launch's token, and takes the engine's calls only from its own page."""
 from __future__ import annotations
 
 import base64
+import collections
 import contextlib
 import hashlib
 import importlib.metadata
@@ -1619,7 +1620,10 @@ def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_
     at once: it reads the randomizer's logic, builds the seed, and only then
     reads the image as the pictures do, so neither the logic's read nor the
     build waits on the pictures' Python ("Cancel a build, then Build", A29:
-    about 0.3 s; Step 4.3 round 3)."""
+    about 0.3 s; Step 4.3 round 3). The build's kernel count comes before
+    its answer: the build counts its own, on counts of the test's own (it
+    read ones an earlier test left in this process, and with none the
+    engine sends no count, so its wait never ended: Step 4.4ci16)."""
     from azurkit.app import procpool
 
     log = []
@@ -1632,14 +1636,24 @@ def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_
     monkeypatch.setattr(procpool, "install", lambda: None)
     monkeypatch.setattr(sdk, "randomizer_logic", lambda progress=None: step("logic", 0.2))
     monkeypatch.setattr(sdk, "pickers", lambda given: step("pictures"))
-    monkeypatch.setitem(engine.JOBS, "image", engine._warmed(lambda recipe: step("build", 0.2) or {}))
+    monkeypatch.setattr(native, "CALLS", collections.Counter())
+
+    def build(recipe) -> dict:
+        native.CALLS["kernel"] += 1   # the seed's fill reaches through the kernel
+        step("build", 0.2)
+        return {}
+    monkeypatch.setitem(engine.JOBS, "image", engine._warmed(build))
     here, there = multiprocessing.Pipe()
     loop = threading.Thread(target=engine._main, args=(there,), daemon=True)
     loop.start()
     for message in engine._warm_messages({"image": ("in.iso",), "randomizer": ()}):
         here.send(message)
     here.send(("call", 1, "image", ({"iso": "in.iso", "randomizer": {"seed": "2"}},), False, None))
-    assert (here.recv()[0], here.recv()[:2]) == ("calls", ("done", 1))   # the engine's native counts come before an answer
+
+    def heard() -> tuple:
+        assert here.poll(10), f"the engine sent nothing more in 10 s: {log}"
+        return here.recv()
+    assert (heard(), heard()[:2]) == (("calls", 1, {"kernel": 1}), ("done", 1))   # the counts before the answer
     end = time.monotonic() + 10
     while "pictures done" not in log and time.monotonic() < end:
         time.sleep(0.01)
