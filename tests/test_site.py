@@ -2093,9 +2093,9 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
         served.close()
 
 
-HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, digest and write
+HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, digest, write and note
     const Real = Worker;
-    Object.assign(globalThis, { starts: [], digests: [], writes: [] });
+    Object.assign(globalThis, { starts: [], digests: [], writes: [], notes: [] });
     globalThis.Worker = class extends Real {
         constructor(...args) {
             super(...args);
@@ -2103,12 +2103,14 @@ HEARD = """(() => {   // what the page's workers post that the page shows nowher
                 if (data?.type === "ready") starts.push(data.start);
                 if (data?.type === "digest") digests.push(data);
                 if (data?.type === "wrote") writes.push(data);
+                if (data?.type === "progress") notes.push(data.label);
             });
         }
     };
 })();"""
 """An init script: the page's workers' starts in ``starts``, their digests (DIGESTS) in ``digests``, their build
-files' writes (WROTE) in ``writes``."""
+files' writes (WROTE) in ``writes``, and the label of each record they post in ``notes``, in the order the page hears
+them (the bar shows the newest ask's latest: a newer ask's line, or B's work a click takes up, can hide one)."""
 DIGESTS = """self.azurkitDigest = crypto.subtle.digest.bind(crypto.subtle);
 crypto.subtle.digest = async (name, data) => {
     const out = await azurkitDigest(name, data);
@@ -3848,25 +3850,27 @@ DRESSED = ("Dressing keylord (reading its files)", "Dressing keylord (kept from 
 def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_browser_kept_as_cpython_dresses_it(
         browser, site, usa_iso, tmp_path):
     """D1067 (D1015's store on the site): a character's first build keeps its dress in this browser (azurkit-dress, by
-    the build's hint), and the same build at a later visit is dressed from it (its bar says so; the body's files aren't
-    read again) and is the newest kept again, past a hint kept after it (the least recently built go first), each
-    CPython's image."""
+    the build's hint), and the same build at a later visit is dressed from it (its engine's notes say so; the body's
+    files aren't read again) and is the newest kept again, past a hint kept after it (the least recently built go
+    first), each CPython's image. The notes are read as the page's workers post them (HEARD), not off the bar, which
+    shows the newest ask's latest: on Windows' WebKit the models' ask, made after the click, held the bar past the
+    first visit's "(reading its files)" (run 41678038275)."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "character": {"species": "keylord"}}
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
     served = Site(browser, site, tmp_path / "profile")
     try:
+        served.context.add_init_script(HEARD)
         for visit in range(2):
             page = served.context.new_page()
             page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
             _page.until(page, "() => globalThis.azurkit?.loaded", 120)
-            page.evaluate(BARS)
             page.set_input_files("#iso", str(usa_iso))
             page.evaluate("() => document.querySelector('#build').click()")
             built = _built(page)
             assert built == _as_cpython(built, report, made)
-            lines = [line for _, line in filter(None, page.evaluate("() => bars"))]
-            assert [any(line.startswith(stage) for line in lines) for stage in DRESSED] == [not visit, bool(visit)], lines
+            notes = page.evaluate("() => notes")
+            assert [any(note.startswith(stage) for note in notes) for stage in DRESSED] == [not visit, bool(visit)], notes
             if not visit:   # kept after the answer; then a hint kept after it
                 hint, = _page.until(page, f"() => ({KEPT_DRESSES})().then((hints) => hints.length === 1 && hints)", 120)
                 page.evaluate(KEPT_DRESSES, [hint, "later"])
