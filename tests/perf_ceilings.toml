@@ -6,7 +6,6 @@
 # raised ceiling against main's. Empty for a release (scripts/land.py --release).
 
 [ceilings]
-"S14/lag" = 3.9
 
 [debts]
 keys = [
