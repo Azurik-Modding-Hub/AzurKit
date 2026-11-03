@@ -1630,11 +1630,11 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each) and the
     listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
     10 min, run 41610020282)."""
-    monkeypatch.setattr(_page, "STALL", 2)
-    monkeypatch.setattr(_page, "HEAR", 1)
     served = Site(browser, site)
     try:
-        page = served.open()
+        page = served.open()   # in the bound a page's opening has, not the test's
+        monkeypatch.setattr(_page, "STALL", 2)
+        monkeypatch.setattr(_page, "HEAR", 1)
         t0 = time.monotonic()
         with pytest.raises(AssertionError) as never:
             _page.answer(page, "() => new Promise(() => {})", seconds=1)
