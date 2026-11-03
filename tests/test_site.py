@@ -34,6 +34,7 @@ import os
 import re
 import select
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -177,6 +178,14 @@ waited for a B that never started (run 41521288667). The pool's path with no B i
 ``cores``)."""
 
 
+class _Files(http.server.ThreadingHTTPServer):
+    """:class:`_Held`'s file server, its listen queue the system's longest (``socket.SOMAXCONN``), not socketserver's
+    5: the driver fetches a page's files at once (a load routes 33), and Windows refuses a connect past a full queue,
+    where macOS and Linux drop it and the client tries again (29 site tests failed so on Windows, ECONNREFUSED, run
+    41666183947)."""
+    request_queue_size = socket.SOMAXCONN
+
+
 class _Held:
     """The files under ``root`` for a browser context's routes, each as Playwright's driver fetched it itself, once,
     from a static server of this process's on 127.0.0.1 (``route.fulfill(response=)``), in a request context of its
@@ -190,7 +199,7 @@ class _Held:
         from playwright._impl._sync_base import mapping
         self.request = mapping.from_impl(browser_type._impl_obj._playwright.request).new_context()
         self.context, self.root, self.held = context, root, {}
-        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(root)))
+        self.server = _Files(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(root)))
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def fulfill(self, route, file: Path) -> None:
@@ -334,6 +343,26 @@ def test_a_site_closed_while_its_driver_fetches_a_file_leaves_the_next_sites_fir
         assert again.context.cookies() == []
     finally:
         again.close()
+
+
+def test_a_sites_file_server_holds_64_connections_made_at_once_and_answers_each(tmp_path):
+    """:class:`_Files` (each Site's file server) holds 64 connections made before it accepts any, and answers each:
+    the driver fetches a page's files at once, and with socketserver's queue of 5 Windows refused the rest (29 site
+    tests failed on ECONNREFUSED, run 41666183947); here a connect past the queue waits for a retry instead."""
+    (tmp_path / "a.txt").write_text("a")
+    with _Files(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(tmp_path))) as server:
+        held = [socket.create_connection(server.server_address, timeout=5) for _ in range(64)]   # none accepted yet
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            for sock in held:
+                sock.sendall(b"GET /a.txt HTTP/1.0\r\n\r\n")
+            answers = [sock.makefile("rb").read() for sock in held]
+        finally:
+            server.shutdown()
+            for sock in held:
+                sock.close()
+    assert [(answer.partition(b"\r\n")[0], answer.rpartition(b"\r\n\r\n")[2]) for answer in answers] == [
+        (b"HTTP/1.0 200 OK", b"a")] * 64
 
 
 def _built(page) -> dict:
