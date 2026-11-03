@@ -1900,7 +1900,7 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
 
 
 STUB_ENGINES = """(() => {
-    const { catalog, view } = %s, made = globalThis.made = [], later = [];
+    const { catalog, view, drawn } = %s, made = globalThis.made = [], later = [];
     globalThis.held = false;
     const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, reply: { ...view, character: m.given.character } });
     globalThis.release = () => {
@@ -1922,6 +1922,7 @@ STUB_ENGINES = """(() => {
         }
         postMessage(m) {
             this.got.push(m);
+            if (m.type === "preview" && m.call !== 0) this.say({ type: "reply", call: m.call, reply: drawn });
             if (m.type !== "pickers") return;
             if (held) later.push([this, m]);
             else pickers(this, m);
@@ -1929,8 +1930,11 @@ STUB_ENGINES = """(() => {
         terminate() { this.stopped = true; }
     };
 })();"""
-"""The site's engines as stubs that load at once and answer pickers (held until ``release()``): ``made`` holds each with
-what it ``got``, its ``stopped``; the test answers each preview with ``say``."""
+"""The site's engines as stubs that load at once and answer pickers (held until ``release()``) and the page's own
+previews, with ``drawn``: ``made`` holds each with what it ``got``, its ``stopped``; the test answers each dress's
+preview (call 0) with ``say``. Left unanswered, the page's preview of the chosen model (sent whenever its first draw
+comes before ``characters/index.json``) held F, so the pickers after it waited on B (none on a 3-core runner, run
+41521288667) and a draw for its key while the index loaded left the model unshown."""
 
 
 def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shape_or_a_build(browser, site):
@@ -1943,8 +1947,10 @@ def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shap
     and one that stops leaves the Preview marked, saying why."""
     view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
     view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
+    drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+             for side in ("front", "back")}
     served = Site(browser, site)
-    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view}))
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
     moved = """(value) => { const b = document.getElementById("char-shape:bust"); b.value = value;
         b.dispatchEvent(new Event("change")); }"""
 
@@ -1990,8 +1996,6 @@ def test_a_sites_reshape_dress_runs_in_a_worker_of_its_own_stopped_by_a_new_shap
         assert page.evaluate(f"() => {DRESSERS}.length") == 2
         page.evaluate("() => { azurkit.building = false; }")
         dressed(2, 1.3)
-        drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
-                 for side in ("front", "back")}
         page.evaluate(f"(reply) => {DRESSERS}[2].say({{ type: 'reply', call: 0, reply }})", drawn)
         _page.until(page, shows(1.3, False), 10)
         assert page.evaluate(f"() => [{DRESSERS}[2].stopped, azurkit.characters.state.dressing]") == [True, False]
