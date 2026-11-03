@@ -3265,7 +3265,7 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
 # came 259 ms after it on a loaded 3-core runner, run 41521288667: the round trip, not the page)
 BARS = """(click) => {
     globalThis.bars = [];
-    const t = performance.now();
+    const t = globalThis.barsAt = performance.now();
     new MutationObserver(() => {
         const hidden = document.getElementById("progress-row").hidden;
         bars.push(hidden ? null : [performance.now() - t, document.getElementById("progress").getAttribute("value"),
@@ -3273,6 +3273,19 @@ BARS = """(click) => {
     }).observe(document.querySelector("footer"), { subtree: true, childList: true, characterData: true,
                                                    attributes: true });
     if (click) document.getElementById(click).click();
+}"""
+# Evaluated after BARS, on its clock: ``picking.picked`` is the ms of the page's next change event, a file's pick as the
+# page hears it (Playwright's set_input_files is a call of its own: on GitHub's Intel Mac runner the bar came 1430 ms
+# after BARS's clock, run 41678038275, the round trip's, not the page's), and ``picking.requests`` [ms, path] of each
+# request the page makes from now on
+PICKING = """() => {
+    const real = globalThis.fetch.bind(globalThis);
+    globalThis.picking = { picked: null, requests: [] };
+    document.addEventListener("change", () => { picking.picked ??= performance.now() - barsAt; }, true);
+    globalThis.fetch = (resource, options) => {
+        picking.requests.push([performance.now() - barsAt, String(resource)]);
+        return real(resource, options);
+    };
 }"""
 
 
@@ -3317,7 +3330,11 @@ def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(bro
     plan file's spoiler asked while the engine still reads the randomizer's
     logic cold shows its bar from the pick and polls it at once, as Track's
     plan (it waited 750 ms to ask, so a spoiler done at 1.1 s showed one
-    value), so the logic's counted checks move it."""
+    value), so the logic's counted checks move it. Each on the page's own
+    clock and order (Step 4.4ci16): it asks for the spoiler within 500 ms of
+    the pick it hears, the bar shows the ask's own line before its first
+    poll (a kind it doesn't follow shows only after a poll, or at 1 s), and
+    that poll comes under the 750 ms the old wait took."""
     _home(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(loader, "_KEPT", {})   # nothing in this process has read the logic yet
     plan = tmp_path / "azurkit plan.json"
@@ -3329,16 +3346,20 @@ def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(bro
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         _page.click(page, "tab-tools")
         page.evaluate(BARS)
+        page.evaluate(PICKING)
         page.set_input_files("#tools-plan-file", str(plan))
         _page.until(page, "() => azurkit.tools.state.spoiler", 300)
-        bars = page.evaluate("() => bars")
+        bars, picking = page.evaluate("() => [bars, picking]")
         assert page.evaluate(_perf.CALLS) == native.report()   # what the perf gate's native assert reads as a page leaves
         page.close()
     finally:
         server.close()
     shown = [b for b in bars if b is not None]
-    assert (shown[0][0] < 500, shown[0][2].startswith(("Writing the spoiler", "Reading the randomizer's logic")),
-            len({b[1] for b in shown}) >= 2) == (True, True, True), bars
+    asked = next(ms for ms, path in picking["requests"] if path == "api/plan_spoiler")
+    polled = next(ms for ms, path in picking["requests"] if path == "api/progress" and ms >= asked)
+    first = next(b for b in shown if b[0] >= asked)
+    assert (asked - picking["picked"] < 500, first[1:] == [None, "Writing the spoiler…"], first[0] <= polled,
+            polled - asked < 750, len({b[1] for b in shown}) >= 2) == (True, True, True, True, True), (picking, bars)
 
 
 def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_path, monkeypatch, usa_iso):
