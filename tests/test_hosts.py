@@ -3261,8 +3261,9 @@ def test_calls_waiting_on_the_engines_cold_logic_read_count_its_checks_and_never
 
 
 # The bottom bar from now on: ``bars`` is the bar at each change, [ms since now, its value (null: a moving stripe), its
-# line], or null while it is hidden
-BARS = """() => {
+# line], or null while it is hidden; given a button's id, now is its click, in the same call (a click in a call of its own
+# came 259 ms after it on a loaded 3-core runner, run 41521288667: the round trip, not the page)
+BARS = """(click) => {
     globalThis.bars = [];
     const t = performance.now();
     new MutationObserver(() => {
@@ -3271,6 +3272,7 @@ BARS = """() => {
                                    document.getElementById("progress-line").textContent]);
     }).observe(document.querySelector("footer"), { subtree: true, childList: true, characterData: true,
                                                    attributes: true });
+    if (click) document.getElementById(click).click();
 }"""
 
 
@@ -3298,8 +3300,7 @@ def test_the_apps_track_this_seed_bar_follows_its_plan_from_the_click_and_the_fi
         _page.click(page, "tab-randomizer")
         _page.until(page, "() => azurkit.rando.view?.share", 300)
         _page.fill(page, "rando-seed", "2")
-        page.evaluate(BARS)
-        _page.click(page, "track-seed")
+        page.evaluate(BARS, "track-seed")
         _page.until(page, "() => document.getElementById('track-head').textContent.trim()", 300)
         bars = page.evaluate("() => bars")
         page.close()
