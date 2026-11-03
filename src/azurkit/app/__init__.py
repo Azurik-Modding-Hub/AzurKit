@@ -215,16 +215,42 @@ def _config() -> Path:
 _REMEMBERING = threading.RLock()
 """Held to read the config and to write it: a build's thread and the page's calls each remember a part of it, and
 Windows refuses to replace a file another thread has open."""
+WAITS = (0.05, 0.1, 0.2, 0.4, 0.8, 0)
+"""s between the tries of the config's read or replace that Windows refuses while another process (a virus scanner)
+holds the file open for a moment; refused at the last, it fails."""
+
+
+def _tried(attempt: Callable[[], object]) -> object:
+    """``attempt()``, tried again after each of :data:`WAITS` it raises PermissionError."""
+    for wait in WAITS:
+        try:
+            return attempt()
+        except PermissionError:
+            if not wait:
+                raise
+            time.sleep(wait)
+
+
+def _read() -> dict:
+    """What the config holds, read past a moment it is held open (:func:`_tried`): ``{}`` when there is none;
+    ValueError for a file that holds no settings object, OSError for one it still can't read."""
+    with _REMEMBERING:
+        try:
+            kept = json.loads(_tried(lambda: _config().read_text(encoding="utf-8")))
+        except FileNotFoundError:
+            return {}
+    if not isinstance(kept, dict):
+        raise ValueError(f"a JSON {type(kept).__name__}, not an object")
+    return kept
 
 
 def _kept() -> dict:
-    """What the app remembers (``{"iso", "theme", "setup"}``), else nothing."""
+    """What the app remembers (``{"iso", "theme", "setup"}``), else nothing. Read past a moment it is held open too: a
+    page handed no setup for one would remember the next change over it."""
     try:
-        with _REMEMBERING:
-            kept = json.loads(_config().read_text(encoding="utf-8"))
+        return _read()
     except (OSError, ValueError):
         return {}
-    return kept if isinstance(kept, dict) else {}
 
 
 def _start_image() -> str:
@@ -249,25 +275,29 @@ def _theme_js() -> bytes:
 def _remember(**kept: object) -> None:
     """Remember ``kept`` beside what the config holds (``None`` forgets a
     key), written whole or not at all, past a moment another process (a
-    virus scanner, on Windows) holds the file open. A write it can't make
-    says why on stderr, and no more: a build doesn't fail for it."""
+    virus scanner, on Windows) holds the file open, to read it or to
+    replace it (:func:`_read`): a read refused past that writes nothing,
+    as what it couldn't read would be lost, and a file that holds no
+    settings is written over. Each says why on stderr, and no more: a build
+    doesn't fail for it."""
+    def say(text: str) -> None:
+        with contextlib.suppress(OSError, ValueError):   # a stderr gone with its reader
+            print(f"azurkit: {text}", file=sys.stderr)
+
     try:
         with _REMEMBERING:
+            try:
+                was = _read()
+            except ValueError as exc:
+                say(f"the config held no settings ({exc}): remembering {', '.join(kept)} writes it over")
+                was = {}
             _config().parent.mkdir(parents=True, exist_ok=True)
             part = _config().with_suffix(".json.part")
-            part.write_text(json.dumps({k: v for k, v in (_kept() | kept).items() if v is not None}) + "\n",
+            part.write_text(json.dumps({k: v for k, v in (was | kept).items() if v is not None}) + "\n",
                             encoding="utf-8")
-            for wait in (0.05, 0.1, 0.2, 0.4, 0.8, 0):
-                try:
-                    part.replace(_config())
-                    break
-                except PermissionError:
-                    if not wait:
-                        raise
-                    time.sleep(wait)
+            _tried(lambda: part.replace(_config()))
     except OSError as exc:
-        with contextlib.suppress(OSError, ValueError):   # a stderr gone with its reader
-            print(f"azurkit: can't remember {', '.join(kept)}: {exc}", file=sys.stderr)
+        say(f"can't remember {', '.join(kept)}: {exc}")
 
 
 def _set_theme(body: dict) -> dict:
@@ -557,10 +587,11 @@ class Server(http.server.ThreadingHTTPServer):
         return {**(calls[-1][1] if calls else IDLE), "calls": dict(calls)}
 
     def host_info(self) -> dict:
+        kept = _kept()
         return {"engine": "app", "version": __version__, "commit": commit(), "catalog": sdk.catalog(), "iso": _start_image(),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(),
-                "setup": _kept().get("setup"), "tracker": _kept().get("tracker"),
-                "content_source": _kept().get("content_source"), "show_objects": _kept().get("show_objects") is True}
+                "setup": kept.get("setup"), "tracker": kept.get("tracker"),
+                "content_source": kept.get("content_source"), "show_objects": kept.get("show_objects") is True}
 
     def _recipe(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}

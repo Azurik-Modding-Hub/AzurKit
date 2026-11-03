@@ -713,6 +713,39 @@ def test_what_the_app_cant_remember_it_says_on_its_stderr_and_goes_on(tmp_path, 
     app._remember(theme="light")
 
 
+def test_a_config_read_refused_for_a_moment_costs_no_remembered_setting_and_one_refused_past_the_waits_writes_nothing(
+        tmp_path, monkeypatch, capsys):
+    """Windows refuses to read a file another process holds open for a moment (a virus scanner on the config just
+    replaced), and such a read was taken for an empty config: the next remember (a build's image path) wrote its own key
+    alone, the player's setup lost, a likely cause of a relaunch with no setup (run 41678038275, Step 4.4ci16). The read
+    is tried again on the replace's waits, a page's (host.json) too; one refused past them writes nothing and says why;
+    a file that holds no settings is written over, and said."""
+    _home(monkeypatch, tmp_path / "home")
+    setup = {"ticked": ["fps_unlock"]}
+    app._remember(setup=setup, theme="light")
+    real, held = Path.read_text, [0]
+
+    def read_text(self, *args, **kwargs):
+        if self == app._config() and held[0]:
+            held[0] -= 1
+            raise PermissionError(13, "held open")
+        return real(self, *args, **kwargs)
+    monkeypatch.setattr(Path, "read_text", read_text)
+    held[0] = 3
+    app._remember(iso="a.iso")
+    assert (held[0], capsys.readouterr().err) == (0, "")
+    held[0] = 2
+    assert app._kept() == {"setup": setup, "theme": "light", "iso": "a.iso"}
+    held[0] = len(app.WAITS)
+    app._remember(theme="dark")
+    assert (held[0], capsys.readouterr().err) == (0, "azurkit: can't remember theme: [Errno 13] held open\n")
+    assert app._kept() == {"setup": setup, "theme": "light", "iso": "a.iso"}   # nothing written
+    app._config().write_text("[]", encoding="utf-8")
+    app._remember(theme="dark")
+    assert (app._kept(), capsys.readouterr().err) == ({"theme": "dark"}, "azurkit: the config held no settings (a JSON "
+                                                      "list, not an object): remembering theme writes it over\n")
+
+
 def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_path, monkeypatch):
     """``api/setup`` remembers the page's setup (D915) in the app's config,
     beside the theme, written whole; ``host.json`` gives it to the next
