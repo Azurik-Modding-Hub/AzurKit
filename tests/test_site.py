@@ -214,8 +214,8 @@ class Site:
         route.fulfill(path=str(file), content_type=_page.content_type(file.name))
 
     def open(self):
-        """A new page, its engine loaded."""
-        page = self.context.new_page()
+        """A new page, its engine loaded, each call bounded (``_page.within``)."""
+        page = _page.within(self.context, self.context._impl_obj.new_page(), _page.STALL, "a new page")
         page.goto(f"{ORIGIN}/")
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         return page
@@ -228,13 +228,13 @@ class Site:
                 if method != "GET" or body or (url if url != f"{ORIGIN}/" else f"{ORIGIN}/index.html") not in files]
 
     def close(self) -> None:
-        self.context.close()
+        _page.within(self.context, self.context._impl_obj.close(), _page.STALL, "the context's close")
 
 
 def _built(page) -> dict:
     """The page's build once it is ready: its report and its segments
     (``["copy", offset, size]``, ``["bytes", size, sha256]``, ``["zero", size]``)."""
-    return {"report": _page.built(page), "segments": page.evaluate(SIGNATURE)}
+    return {"report": _page.built(page), "segments": _page.answer(page, SIGNATURE)}
 
 
 def _signature(made: iso.Image) -> list[list]:
@@ -322,12 +322,12 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
                 if name in read["packs"]:
                     assert _page.until(page, "() => azurkit.vanilla") == read
                     for slider, value in read["packs"][name].items():
-                        low, high = page.evaluate(TRACK, f"{name}.{slider}")
+                        low, high = _page.answer(page, TRACK, f"{name}.{slider}")
                         assert float(low) <= value <= float(high)
-                        assert page.evaluate(UNIT, f"{name}.{slider}").endswith(f" · vanilla {value:g}")
+                        assert _page.answer(page, UNIT, f"{name}.{slider}").endswith(f" · vanilla {value:g}")
                 _page.build(page, [name], {name: values})
             for (name, values, case), page in zip(group, pages):
-                built, sent = _built(page), page.evaluate("() => azurkit.sent")
+                built, sent = _built(page), _page.answer(page, "() => azurkit.sent")
                 assert sent == {other: {s.name: float(values.get(s.name, s.default) if other == name else s.default)
                                         for s in mods.PACKS[other].sliders()}
                                 for other in (name, *mods.PACKS[name].requires)}
@@ -337,10 +337,10 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
                 if values.get("fly_speed") == "1e39":
                     note = "qol_photo_mode fly_speed: 1e+39 is past float32's range: written as inf (Q110)"
                     assert built["report"]["notes"] == [note]
-                    assert f" · note: {note} · changed: " in page.evaluate(STATUS)   # before the files, which run long
+                    assert f" · note: {note} · changed: " in _page.answer(page, STATUS)   # before the files, which run long
                 assert (built["report"], built["segments"]) == (report, _signature(made)), (name, values)
                 _page.check_csp(page)
-                page.close()
+                _page.close(page)
         assert served.stray() == []
     finally:
         served.close()
@@ -1555,6 +1555,43 @@ def test_an_images_check_that_never_ends_names_the_reads_it_waits_on(browser, si
             waits, "at", None]
         assert waits in _page.hang(page)
     finally:
+        served.close()
+
+
+BUSY = "() => { setTimeout(() => { const end = Date.now() + 8000; while (Date.now() < end); }); }"
+"""The page's thread busy 8 s from its next task: it answers no call meanwhile, as a browser that stopped wouldn't."""
+
+
+def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its_bound(browser, site, monkeypatch):
+    """D1072: a page promise that never settles fails its call by name past its bound, with the page's state, and a
+    page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
+    unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each) and the
+    listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
+    10 min, run 41610020282)."""
+    monkeypatch.setattr(_page, "STALL", 2)
+    monkeypatch.setattr(_page, "HEAR", 1)
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        t0 = time.monotonic()
+        with pytest.raises(AssertionError) as never:
+            _page.answer(page, "() => new Promise(() => {})", seconds=1)
+        settled = time.monotonic() - t0
+        lines = str(never.value).splitlines()
+        assert lines[0] == "no answer in 1 s: () => new Promise(() => {})" and lines[1].startswith("state: {'asks': [")
+        assert lines[-2:-1] == ["its browser still answers"] and lines[-1].startswith("under its driver: ")
+        page.evaluate(BUSY)
+        t1 = time.monotonic()
+        with pytest.raises(AssertionError) as busy:
+            _page.until(page, "() => azurkit.build", 1)
+        held = time.monotonic() - t1
+        lines = str(busy.value).splitlines()
+        assert re.fullmatch(r"no answer in [23] s: \(\) => azurkit\.build", lines[0])
+        assert lines[1:2] + lines[-2:-1] == ["state: unread (no answer in 1 s)", "its browser still answers"]
+        assert 1 <= settled < 20 and 3 <= held < 20, (settled, held)
+        assert _page.until(page, "() => azurkit.ready", 30)   # the page answers again once its thread is free
+    finally:
+        monkeypatch.undo()   # the close has its own bound
         served.close()
 
 
