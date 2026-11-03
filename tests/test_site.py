@@ -183,7 +183,7 @@ class _Held:
     process sends: the driver's pipe reader joins its whole buffer again at each chunk it reads, so one 20 MiB file
     sent so took it from 0.1 to 1.7-1.9 GiB, which it kept, in every browser (2.5-2.9 GiB at its peak; fetched itself,
     0.24-0.35 GiB), and a site page sends 35 MB: beside WebKit's pages, more than GitHub's 7 GiB Apple Silicon runner
-    had free, whose WebKit page processes died ("Target crashed", runs 41551497620, 41610020282)."""
+    had free, the likeliest reason its WebKit page processes died ("Target crashed", runs 41551497620, 41610020282)."""
 
     def __init__(self, browser_type, root: Path):
         from playwright._impl._sync_base import mapping
@@ -273,7 +273,7 @@ def test_a_site_pages_files_reach_its_browser_without_crossing_the_drivers_pipe(
     """A site page's load (35 MB of files: Pyodide's core, the wheel) sends Playwright's driver under 1 MiB from this
     process, the files being the driver's own fetches (:class:`_Held`): their bodies sent through its pipe took the
     driver to 1.7-1.9 GiB, which it kept for the module's later tests, and with WebKit's pages that was more than
-    GitHub's 7 GiB Apple Silicon runner had free (its page processes died: "Target crashed")."""
+    GitHub's 7 GiB Apple Silicon runner had free (likely why its page processes died: "Target crashed")."""
     served = Site(browser, site)
     transport, sent = served.context._impl_obj._connection._transport, []
     real = transport.send
