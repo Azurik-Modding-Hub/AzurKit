@@ -296,8 +296,7 @@ def browser(request, tmp_path_factory):
             launched = getattr(playwright, request.param).launch(
                 headless=True, downloads_path=str(tmp_path_factory.mktemp("downloads")))
             yield launched
-            if launched._impl_obj._connection._closed_error is None:   # one that stopped answering, closed by
-                launched.close()   # _page.stalled(), ends with its driver at the with's end
+            launched.close()
 
 
 def _fail_unlisted_skip(report):
