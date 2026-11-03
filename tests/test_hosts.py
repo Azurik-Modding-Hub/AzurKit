@@ -944,7 +944,9 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
         browser, tmp_path, monkeypatch, usa_iso):
     """The app's community group (Step 4.3k): an empty list says so; a folder source's pack lists with its tick greyed
     (Install it first) until its Install, then its tick sets and locks the built-in rows it names, a Build carries its
-    layer, a relaunch restores it with the rows as they were before it, and its untick gives them back."""
+    layer, a relaunch restores it with the rows as they were before it, and its untick gives them back. The setup's
+    way to the relaunch is held at each step by name (Step 4.4ci16): Windows' WebKit once relaunched to the rows
+    unlocked with no status (no "Restored your last setup"), so with no setup to restore (run 41678038275)."""
     from azurkit.tools.characters import content
 
     from tests import test_community as made
@@ -957,12 +959,22 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
     app._remember(content_source=str(empty))
     row = """document.querySelector('.cpack[data-community="hard"]')"""
     hp = """document.getElementById("player_max_hp.starting_hp")"""
+
+    def kept(when: str) -> None:   # the app's config holds the setup with the pack (api/setup, 250 ms after a change)
+        end = time.monotonic() + 60
+        while (app._kept().get("setup") or {}).get("community") != [{"id": "hard"}]:
+            assert time.monotonic() < end, f"{when}: the app's config holds no setup with hard in 60 s: {app._kept()}"
+            time.sleep(0.1)
+
     for launch in (1, 2):
         server = app.serve(_page.WEB)
         try:
             page = browser.new_page()
             page.goto(server.url)
             _page.until(page, "() => globalThis.azurkit?.ready", 120)
+            if launch == 2:
+                assert page.evaluate("() => azurkit.remembered?.community ?? null") == [{"id": "hard"}], (
+                    f"the relaunch's page has no setup with hard to restore: {app._kept()}")
             if launch == 1:
                 page.evaluate("() => { document.getElementById('community-group').open = true; }")
                 _page.until(page, "() => document.getElementById('community-note').textContent.startsWith('No community')",
@@ -979,6 +991,8 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
                 page.evaluate(f"() => {row}.querySelector('input').click()")
             _page.until(page, f"() => {hp}.value === '150' && {hp}.disabled && {hp}.closest('.pack').classList.contains('owned')"
                               f" && {hp}.closest('.pack').querySelector('input[data-pack]').disabled", 60)
+            if launch == 1:
+                kept("launch 1's tick")
             if launch == 2:
                 page.evaluate(f"() => {row}.querySelector('input').click()")
                 _page.until(page, f"() => {hp}.value === '175' && !{hp}.disabled", 60)
@@ -991,11 +1005,11 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
             assert page.evaluate("() => azurkit.build.recipe.community")[0]["id"] == "hard"
             assert " · community hard" in page.evaluate("() => document.getElementById('status').textContent")
             _page.until(page, "() => azurkit.kept?.includes('community')", 60)   # remembered a moment after the change
+            kept(f"launch {launch}'s build")   # the build's own remember (the image's path) keeps the rest
             _page.check_csp(page)
             page.close()
         finally:
             server.close()
-    assert app._kept()["setup"]["community"] == [{"id": "hard"}]
     assert app._kept()["setup"]["values"]["player_max_hp"]["starting_hp"] == 175   # as it was before the pack
 
 
