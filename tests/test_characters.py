@@ -691,12 +691,15 @@ def test_a_reshapes_kept_dress_is_its_own_shapes_when_another_shape_is_dressed_b
     assert sdk._reshape_kept("plan", stamp, second, {}, lambda: "dress 1.4") == "dress 1.4"
 
 
-def test_a_reshapes_kept_dress_reads_a_recipe_files_wav_again_once_it_is_edited_in_place(monkeypatch, tmp_path):
+def test_a_reshapes_kept_dress_dresses_again_once_a_wav_is_edited_in_place_or_the_content_updated(monkeypatch,
+                                                                                                   tmp_path):
     """D35: a WAV a recipe file names (not pinned by its sha256 there)
     edited in place between two builds in one process, to the same size and
-    time stamp, the next build dresses again and takes its new bytes, not
-    the kept dress's."""
+    time stamp, or a Content Update between them (the content folder's
+    installed entries), the next build dresses again and takes the new
+    bytes, not the kept dress's."""
     monkeypatch.setattr(sdk, "_DRESSED", {})
+    monkeypatch.setattr(content, "installed", lambda root=None: {"booblord": {"version": 1}})
     probe = next(p for p in _golden("probes.json").values() if "shapes" in p["character"])
     recipes, wav = tmp_path / "probe.json", tmp_path / "hurt.wav"
     recipes.write_text(json.dumps({"probe": probe["variants"]["probe"] | {"wavs": {"hurt": ["hurt.wav"]}}}),
@@ -709,6 +712,8 @@ def test_a_reshapes_kept_dress_reads_a_recipe_files_wav_again_once_it_is_edited_
     wav.write_bytes(b"RIFF two")
     os.utime(wav, ns=(was.st_atime_ns, was.st_mtime_ns))
     assert sdk._reshape_kept("plan", stamp, character, {}, wav.read_bytes) == b"RIFF two"
+    monkeypatch.setattr(content, "installed", lambda root=None: {"booblord": {"version": 2}})   # a Content Update
+    assert sdk._reshape_kept("plan", stamp, character, {}, lambda: b"updated") == b"updated"
 
 
 def test_a_variants_shapes_and_options_are_refused_by_name_where_it_cant_take_them():
