@@ -189,7 +189,10 @@ jobs:
         # sudo's and setpriv's environment reset, so only the variables named here reach them (no GITHUB_* file, no
         # runtime token); hence the venv's own python, since uv's cache and settings aren't in that environment. Its
         # temp folder is on the tier's disk too, a test that passed leaves its folder to the next (the retention policy),
-        # and a signal (the runner's shutdown) prints the log's tail, as pytest's own end would never come.
+        # and a signal (the runner's shutdown) prints the log's tail, as pytest's own end would never come. Windows'
+        # cancel never reaches that trap (run 41521288667: its tier sat idle from about 115 min to the job's cap, its log
+        # never printed), so a tier still running at 300 min prints the log's last 200 lines then, on every OS, and a test
+        # past 20 min has put each thread's stack in it (faulthandler, as in the pure tier).
         run: |
           iso="$TIER_ROOM/iso" content="$RUNNER_TEMP/content" log="$TIER_ROOM/pytest.log" stop="$TIER_ROOM/resources.stop"
           if [ "$RUNNER_OS" = Linux ]; then
@@ -212,8 +215,12 @@ jobs:
           watcher=$!
           trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla -o tmp_path_retention_policy=failed --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 > "$log" 2>&1 &
-          wait "$!" || status=$?
+          tier -m vanilla -o tmp_path_retention_policy=failed -o faulthandler_timeout=1200 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 > "$log" 2>&1 &
+          pid=$!
+          (sleep 18000 > /dev/null 2>&1 && echo "--- the tier is still running at 300 min: the log's last 200 lines" && tail -n 200 "$log" | cut -c 1-240) &
+          late=$!
+          wait "$pid" || status=$?
+          kill "$late" 2>/dev/null || true
           touch "$stop"
           wait "$watcher" || true
           tail -n 60 "$log" | cut -c 1-240
