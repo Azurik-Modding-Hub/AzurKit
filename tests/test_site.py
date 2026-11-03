@@ -1706,14 +1706,14 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     try:
         page = served.open()   # in the bound a page's opening has, not the test's
         monkeypatch.setattr(_page, "STALL", 2)
-        monkeypatch.setattr(_page, "HEAR", 1)
-        t0 = time.monotonic()
-        with pytest.raises(AssertionError) as never:
+        t0 = time.monotonic()   # its reads in the HEAR they have outside the test: in 1 s GitHub's Intel Mac runner
+        with pytest.raises(AssertionError) as never:   # left the open WebKit page's state unread (run 41666183947)
             _page.answer(page, "() => new Promise(() => {})", seconds=1)
         settled = time.monotonic() - t0
         lines = str(never.value).splitlines()
         assert lines[0] == "no answer in 1 s: () => new Promise(() => {})" and lines[1].startswith("state: {'asks': [")
         assert lines[-2:-1] == ["its browser still answers"] and lines[-1].startswith("under its driver: ")
+        monkeypatch.setattr(_page, "HEAR", 1)   # the busy page's state read ends unread inside its 8 s
         page.evaluate(BUSY)
         t1 = time.monotonic()
         with pytest.raises(AssertionError) as busy:
