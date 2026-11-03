@@ -2200,7 +2200,8 @@ def test_a_build_and_its_save_stay_under_6_gib_of_firefoxs_processes(browser, si
 
 def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_never_waits_at_the_click(browser, site, usa_iso):
     """D979, D980, D1053: Firefox's Blob is made after the build's answer (the Response held here), Save greyed and named
-    with a bar of its own, which a worker's record doesn't take over. So in every browser a click's download and check
+    with a bar of its own, which a worker's record doesn't take over and which counts the copy's bytes to the end (a
+    keylord build's copy took 0.56-1.18 s, R14's wait: Step 4.4m). So in every browser a click's download and check
     start in its tick."""
     held = """() => { const real = Response.prototype.blob;
         Response.prototype.blob = function () {
@@ -2223,11 +2224,16 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
             assert page.evaluate("""() => { const save = document.getElementById('save');
                 return [save.disabled, save.title, document.getElementById('progress-row').hidden]; }""") == [
                 True, f"{ready}…", False]
+            page.evaluate("""() => { const bar = document.getElementById('progress'); globalThis.shown = [];
+                new MutationObserver(() => shown.push(bar.getAttribute('value')))
+                  .observe(bar, { attributes: true, attributeFilter: ['value'] }); }""")
             page.evaluate("() => workers[0].onmessage({ data: { type: 'progress', stage: 'read', label: 'Other', percent: 5 } })")
             _page.until(page, f"() => {line}.startsWith('{ready}')")
-            assert page.evaluate("() => document.getElementById('progress').hasAttribute('value')") is False
+            assert page.evaluate("() => document.getElementById('progress').getAttribute('value')") == "0"
             page.evaluate("() => globalThis.release()")
         _page.built(page)
+        if browser.browser_type.name == "firefox":
+            assert "100" in page.evaluate("() => shown")   # its bytes counted to the end
         with page.expect_download(timeout=600_000) as caught:
             assert page.evaluate("() => { document.querySelector('#save').click(); return azurkit.saveCheck; }") == "running"
         assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"

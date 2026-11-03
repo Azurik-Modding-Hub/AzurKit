@@ -1082,15 +1082,27 @@ function report(text, error = false) {
 // moving until it ends (about 1.1-2.3 s of disk on a seed's), so a click never waits for it (D979, D1053). A private
 // window keeps Response.blob() in memory, a part that brings the parent's copy back on top of the tab's (7.2 GiB against
 // the plain Blob's 4.8): it refuses the origin's private file system, so it keeps the plain Blob. The worker joined the
-// build's Blob (Step 4.3r4l); its pieces are its slices, each segment's, a copy's a slice of the File.
-const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3;
-async function byReference(segments, blob) {
+// build's Blob (Step 4.3r4l); its pieces are its slices, each segment's, a copy's a slice of the File. The copy reads
+// its parts in runs of FLAT_RUN, heard(the share copied) after each, so its bar moves (D980: a keylord build's took
+// 0.56-1.18 s, R14's wait in Firefox; a TransformStream's count of each chunk took it to 1.84 s: Step 4.4m).
+const URL_COPIES = /Firefox\//.test(navigator.userAgent), KEPT = 3, FLAT_RUN = 16 << 20;
+async function byReference(segments, blob, heard = () => {}) {
   await navigator.storage.getDirectory();
   let start = 0;
   const parts = segments.map((s) => blob.slice(start, start += s.size));
   const kept = new Set(segments.map((s, i) => [s, i]).filter(([s]) => s.kind === "copy")
     .sort((a, b) => b[0].size - a[0].size).slice(0, KEPT).map(([, i]) => i));
-  const between = await new Response(new Blob(parts.filter((_, i) => !kept.has(i)))).blob();
+  const rest = new Blob(parts.filter((_, i) => !kept.has(i)));
+  let read = 0;
+  heard(0);
+  const between = await new Response(new ReadableStream({
+    async pull(out) {
+      if (read >= rest.size) return out.close();
+      out.enqueue(new Uint8Array(await rest.slice(read, read += FLAT_RUN).arrayBuffer()));
+      heard(Math.min(read / rest.size, 1));
+    },
+  }, { highWaterMark: 0 })).blob();
+  heard(1);
   const flat = [];
   let at = 0, run = 0;
   const stretch = () => {
@@ -1124,7 +1136,13 @@ function built(reply) {
     state.build = build;
     if (URL_COPIES) {
       const making = asking("flat");
-      build.flat = byReference(reply.segments, blob).catch(() => blob).then((flat) => {   // no flat one: still its bytes
+      const heard = (share) => {   // the bar's record, shown at each percent
+        const ask = state.asks.get(making), percent = Math.floor(share * 100);
+        if (!ask || ask.record?.percent === percent) return;
+        ask.record = { stage: "write", label: READYING, done: percent, total: 100, percent };
+        showing();
+      };
+      build.flat = byReference(reply.segments, blob, heard).catch(() => blob).then((flat) => {   // none: still its bytes
         answered(making);
         build.blob = flat;
         if (state.build !== build) return;   // forgotten while it was made
