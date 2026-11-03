@@ -32,6 +32,7 @@ import itertools
 import json
 import os
 import re
+import select
 import shutil
 import subprocess
 import sys
@@ -185,21 +186,31 @@ class _Held:
     0.24-0.35 GiB), and a site page sends 35 MB: beside WebKit's pages, more than GitHub's 7 GiB Apple Silicon runner
     had free, the likeliest reason its WebKit page processes died ("Target crashed", runs 41551497620, 41610020282)."""
 
-    def __init__(self, browser_type, root: Path):
+    def __init__(self, context, browser_type, root: Path):
         from playwright._impl._sync_base import mapping
         self.request = mapping.from_impl(browser_type._impl_obj._playwright.request).new_context()
-        self.root, self.held = root, {}
+        self.context, self.root, self.held = context, root, {}
         self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(root)))
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def fulfill(self, route, file: Path) -> None:
-        """Answer ``route`` with ``file`` (under ``root``), its type the app's and its length, nothing else."""
-        if (response := self.held.get(file)) is None:
-            rel = urllib.parse.quote(file.relative_to(self.root).as_posix())
-            response = self.held[file] = self.request.get(f"http://127.0.0.1:{self.server.server_port}/{rel}")
-        assert response.ok, (file.name, response.status)
-        route.fulfill(response=response, headers={"content-type": _page.content_type(file.name),
-                                                  "content-length": str(file.stat().st_size)})
+        """Answer ``route`` with ``file`` (under ``root``), its type the app's and its length, nothing else. A route
+        its browser context's close overtakes (its fetch's request context disposed under it, or the route gone with
+        the context) is left to Playwright, which drops a closed context's requests: raised, sync Playwright kept that
+        error for its next call, a later test's (the gate on 7cb671e). Every other error raises, and that one too
+        while the context is open."""
+        from playwright._impl._errors import TargetClosedError
+        try:
+            if (response := self.held.get(file)) is None:
+                rel = urllib.parse.quote(file.relative_to(self.root).as_posix())
+                response = self.held[file] = self.request.get(f"http://127.0.0.1:{self.server.server_port}/{rel}")
+            assert response.ok, (file.name, response.status)
+            route.fulfill(response=response, headers={"content-type": _page.content_type(file.name),
+                                                      "content-length": str(file.stat().st_size)})
+        except TargetClosedError:
+            if not self.context.is_closed():
+                raise
+            route.fallback()
 
     def close(self) -> None:
         """Once its browser context has closed."""
@@ -235,7 +246,7 @@ class Site:
                                                                        **options) if profile
                         else browser.new_context(accept_downloads=True, **options))
         self.context.add_init_script(FOUR_CORES)
-        self.held = _Held(browser.browser_type, self.root)
+        self.held = _Held(self.context, browser.browser_type, self.root)
         self.context.route("**/*", self._serve)
 
     def _serve(self, route, request) -> None:
@@ -287,6 +298,42 @@ def test_a_site_pages_files_reach_its_browser_without_crossing_the_drivers_pipe(
     finally:
         monkeypatch.undo()
         served.close()
+
+
+def test_a_site_closed_while_its_driver_fetches_a_file_leaves_the_next_sites_first_call_clean(browser, tmp_path):
+    """A Site closed while a route's file is still being fetched by the driver (:class:`_Held`; here held until the
+    driver drops it, as the Site's close disposes the fetch's request context) leaves the next Site's first call clean:
+    the route ends with its context, where the disposal was raised at the next test's first call (the gate on 7cb671e:
+    two site tests, in WebKit and Firefox, failed so at Site's add_init_script)."""
+    (tmp_path / "index.html").write_text("<!doctype html><title>held</title>")
+    (tmp_path / "held.bin").write_bytes(bytes(1024))
+    reached, dropped = threading.Event(), []
+
+    class Holding(_Quiet):
+        def do_GET(self) -> None:
+            if self.path != "/held.bin":
+                return super().do_GET()
+            reached.set()
+            dropped.append(bool(select.select([self.connection], [], [], 60)[0]))   # its fetch's end, unanswered
+
+    served = Site(browser, tmp_path)
+    served.held.server.RequestHandlerClass = functools.partial(Holding, directory=str(tmp_path))
+    try:
+        page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
+        page.goto(f"{ORIGIN}/")
+        _page.answer(page, "() => { fetch('/held.bin').catch(() => {}); }")
+        end = time.monotonic() + 60
+        while not reached.is_set():   # the route's fetch reaches the server (the driver is heard only in a call)
+            assert time.monotonic() < end, "the route's fetch never reached its file server"
+            page.wait_for_timeout(50)
+    finally:
+        served.close()
+    assert dropped == [True]
+    again = Site(browser, tmp_path)
+    try:
+        assert again.context.cookies() == []
+    finally:
+        again.close()
 
 
 def _built(page) -> dict:
@@ -3195,7 +3242,7 @@ def _bare_page(browser, root: Path):
     """A page at :data:`ORIGIN` that is a bare document (no app.mjs: no
     engine of its own), every other path served from ``root`` (:class:`_Held`)."""
     context = browser.new_context()
-    held = _Held(browser.browser_type, root.resolve())
+    held = _Held(context, browser.browser_type, root.resolve())
     context.on("close", lambda _: held.close())
 
     def serve(route, request) -> None:
