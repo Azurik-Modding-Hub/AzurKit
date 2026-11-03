@@ -176,7 +176,9 @@ class Kept:
     build() in this file), handed in with the build, and those the build works out (a plan's AZKP1: no pickle, its
     sizes checked as it inflates), made once its answer is out (the kept call) and handed back to be kept. The swap
     takes one only under its own key (its code, the layers under it, the content): a kept answer is the one it would
-    work out again. Nothing is kept outside a build."""
+    work out again. Nothing is kept outside a build: any ask but its own (BUILDING) ends what it kept, as one the page
+    asks nothing of (no character, or one that failed) leaves it open, where a reshape's pictures after it kept each
+    shape's plan (D1054's one heap)."""
 
     def __init__(self):
         self.offered, self.made = {}, None
@@ -195,10 +197,13 @@ class Kept:
 
 
 KEPT = characters.CACHE = Kept()
+BUILDING = ("build", "ahead", "hash", "hashed", "spoiler", "kept")   # a build's own asks (build()), its kept ask last
 
 
 def engine(request):
     LAST.clear()
+    if request.type not in BUILDING:
+        KEPT.taken(made=False)
 
     def js(value):
         return to_js(handed(value), dict_converter=Object.fromEntries, create_pyproxies=False)

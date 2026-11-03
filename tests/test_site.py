@@ -37,6 +37,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 import urllib.parse
 from pathlib import Path
 
@@ -44,7 +45,8 @@ import pytest
 
 from azurkit import sdk
 from azurkit.core import gate, iso
-from azurkit.tools import data, mods
+from azurkit.tools import characters, data, mods
+from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
@@ -3653,6 +3655,54 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
             page.close()
     finally:
         served.close()
+
+
+def test_the_site_engine_keeps_a_characters_build_dress_and_nothing_a_reshapes_pictures_work_out_after_a_build(
+        monkeypatch, tmp_path):
+    """Step 4.3r4t (D1054's one heap, D1067): worker.mjs's engine, its Python
+    run here under CPython (Pyodide's js modules, sdk's build and pictures
+    stood in for), hands a character's build's dress to its kept ask; after a
+    build the page asks nothing of (no character, as B's ahead build of the
+    default recipe), a reshape's pictures in that worker keep nothing. They
+    kept each shape's dress (booblord's plan: about 117 MB) to its next build."""
+    js, pyodide, ffi, pyodide_js = map(types.ModuleType, ("js", "pyodide", "pyodide.ffi", "pyodide_js"))
+    js.JSON, js.Object = types.SimpleNamespace(stringify=json.dumps), types.SimpleNamespace(fromEntries=dict)
+    js.Blob, js.postMessage, pyodide.ffi, ffi.to_js = None, None, ffi, lambda value, **_: value
+    pyodide_js.FS = types.SimpleNamespace(readFile=lambda path: Path(path).read_bytes(), unlink=os.unlink)
+    for module in (js, pyodide, ffi, pyodide_js):
+        monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setattr(characters, "CACHE", characters.CACHE)   # each as it was after
+    monkeypatch.setattr(pool, "TICK", pool.TICK)
+
+    def staged(recipe, **_):   # a build, its character's dress worked out on its way
+        if "character" in recipe:
+            characters._kept("the dress", lambda: b"dress", bytes, bytes)
+        yield {}
+        return types.SimpleNamespace(segments=list, size=0), {}
+
+    def preview(recipe):   # a reshape's pictures, its shape's dress worked out on their way
+        characters._kept(json.dumps(recipe["character"]), lambda: b"plan", bytes, bytes)
+        return {}
+
+    monkeypatch.setattr(sdk, "image_staged", staged)
+    monkeypatch.setattr(sdk, "image_checks", lambda image, report: [])
+    monkeypatch.setattr(sdk, "preview", preview)
+    engine = {"__name__": "worker"}
+    exec((_page.WEB / "worker.mjs").read_text(encoding="utf-8").split("const ENGINE = `")[1].split("`;")[0], engine)
+    engine["PIECE"] = str(tmp_path / "piece")
+
+    def ask(kind, **given):
+        return engine["engine"](types.SimpleNamespace(type=kind, **given))
+
+    for character in ({"species": "booblord"}, None):   # its asks as build() sends them
+        recipe = {"iso": "x.iso", "packs": {}} | ({"character": character} if character else {})
+        assert ask("build", recipe=types.SimpleNamespace(to_py=lambda: recipe)) == {"hash": [], "patched": []}
+        assert ask("hashed", shas={})["size"] == 0
+        if character:
+            assert ask("kept") == {"the dress": b"dress"}
+    for x in (1.25, 1.4):
+        assert ask("preview", recipe={"character": {"species": "booblord", "shapes": {"bust": x}}}) == {}
+    assert ask("kept") == {}   # what the worker holds
 
 
 WORKERS_SMOKE = """async ({ seed }) => {
