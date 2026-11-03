@@ -28,8 +28,11 @@ page's opening or close), as long as a page has to start its engine (``test_site
 by name with the page's state (D1072). Windows' Firefox once left an evaluate unanswered 2 h 10 min, its processes gone
 and Playwright's driver unaware, until the tier's stall watch ended the run (run 41610020282)."""
 HEAR = 10
-"""s each read of a stalled page's state, and the probe of its browser, may take: a browser that answers gives them in
-ms."""
+"""s each read of a stalled page's state may take: a page that answers gives it in ms."""
+PROBE = 10
+"""s the probe of a stalled call's browser (its cookies) may take: a browser that answers gives them in ms. A bound of
+its own, so a test that cuts :data:`HEAR` for a state read that must go unread leaves this one whole (GitHub's Intel
+Mac runner took over 1 s for a page's read, run 41666183947)."""
 
 
 class Static(http.server.SimpleHTTPRequestHandler):
@@ -108,7 +111,7 @@ def _drivers(owner) -> str:
 
 def stalled(owner, what: str, seconds: float) -> str:
     """What a call to ``owner`` (a page or a context) that went unanswered ``seconds`` s says: ``what`` it was, the
-    page's state (:func:`hang`), whether its browser still answers a call of its own (its cookies, in :data:`HEAR` s)
+    page's state (:func:`hang`), whether its browser still answers a call of its own (its cookies, in :data:`PROBE` s)
     and the processes under its driver. A browser that answers nothing either has stopped: its Playwright connection is
     closed naming ``what``, so every later call to it fails at once by name, its module's next tests too, never a
     silent wait (D1072)."""
@@ -116,10 +119,10 @@ def stalled(owner, what: str, seconds: float) -> str:
     context = page.context if page else owner
     said = [f"no answer in {seconds:.0f} s: {_short(what)}"] + ([hang(page)] if page else [])
     try:
-        _heard(context, context._impl_obj.cookies(), HEAR)
+        _heard(context, context._impl_obj.cookies(), PROBE)
         said.append("its browser still answers")
     except TimeoutError:
-        said.append(f"its browser answers nothing either (in {HEAR} s): every later call to it fails at once")
+        said.append(f"its browser answers nothing either (in {PROBE} s): every later call to it fails at once")
         context._impl_obj._connection.cleanup(f"the browser stopped answering: {_short(what)}")
     except Exception as error:
         said.append(f"its browser: {_short(str(error), 200)}")

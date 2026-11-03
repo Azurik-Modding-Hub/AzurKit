@@ -1699,8 +1699,8 @@ BUSY = "() => { setTimeout(() => { const end = Date.now() + 8000; while (Date.no
 def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its_bound(browser, site, monkeypatch):
     """D1072: a page promise that never settles fails its call by name past its bound, with the page's state, and a
     page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
-    unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each) and the
-    listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
+    unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
+    browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
     10 min, run 41610020282)."""
     served = Site(browser, site)
     try:
@@ -1713,7 +1713,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         lines = str(never.value).splitlines()
         assert lines[0] == "no answer in 1 s: () => new Promise(() => {})" and lines[1].startswith("state: {'asks': [")
         assert lines[-2:-1] == ["its browser still answers"] and lines[-1].startswith("under its driver: ")
-        monkeypatch.setattr(_page, "HEAR", 1)   # the busy page's state read ends unread inside its 8 s
+        monkeypatch.setattr(_page, "HEAR", 1)   # the busy page's state read ends unread inside its 8 s (PROBE whole)
         page.evaluate(BUSY)
         t1 = time.monotonic()
         with pytest.raises(AssertionError) as busy:
@@ -1732,7 +1732,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
 STOPPED = """import asyncio, json, sys, time
 from playwright.sync_api import sync_playwright
 from tests import _page
-_page.HEAR = 1
+_page.HEAR = _page.PROBE = 1
 with sync_playwright() as playwright:
     browser = getattr(playwright, sys.argv[1]).launch(headless=True)
     page = browser.new_page()
