@@ -1221,6 +1221,35 @@ def test_quitting_the_app_mid_save_leaves_nothing_where_it_saves(tmp_path, monke
     assert left == []
 
 
+def test_an_answer_worked_out_long_is_kept_when_it_answers_so_a_quit_right_after_it_loses_none(tmp_path, monkeypatch):
+    """Step 4.4bc: the app's store writes behind the answer, and a quit ends
+    its engine process at once (D1012), so a reshape's dress (minutes, its plan
+    kept as its build answered) was lost to a quit right after Built and worked
+    out again at the next launch (A32/capped's 86-149 s takes). An answer worked
+    out for ``swapcache.LONG`` or more is written before its call answers: a
+    process that ends the moment its long answer and then a quick one are out
+    keeps the long one, which the next process's same ask reads with no work,
+    and the quick one stays behind its answer, lost to that end."""
+    from azurkit.app import swapcache
+    from azurkit.tools import characters
+
+    folder, key, long, quick = tmp_path / "cache", tmp_path / "cache.key", "a" * 64, "b" * 64
+    ended = subprocess.run([sys.executable, "-c", textwrap.dedent(f"""
+        import os, sys, time
+        from azurkit.app import swapcache
+        from azurkit.tools import characters
+        swapcache.LONG, characters.CACHE = 0.2, swapcache.Folder(sys.argv[1], key=sys.argv[2])
+        slow = lambda found: (time.sleep(0.5), found.encode())[1]   # each answer's bytes, made slowly by the writer
+        characters._kept({long!r}, lambda: (time.sleep(0.3), "long")[1], slow, bytes.decode)
+        characters._kept({quick!r}, lambda: "quick", slow, bytes.decode)
+        os._exit(0)   # as a quit ends the app's engine process: at once
+        """), str(folder), str(key)], capture_output=True, text=True, timeout=120)
+    assert (ended.returncode, ended.stderr) == (0, "")
+    monkeypatch.setattr(characters, "CACHE", swapcache.Folder(folder, key=key))   # the next launch's
+    assert characters._kept(long, lambda: pytest.fail("worked out again"), str.encode, bytes.decode) == "long"
+    assert characters.CACHE.get(quick) is None
+
+
 def test_closing_the_app_during_a_long_build_returns_within_2_s_and_leaves_no_part_file(tmp_path, monkeypatch):
     """Closing the app (``Server.quit``, the window's closing hook: its
     close button and Cmd-Q) never waits on a build (AZ-823): mid-build it

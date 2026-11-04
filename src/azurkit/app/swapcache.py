@@ -32,7 +32,11 @@ thread, which makes, seals, writes and prunes them once the call has
 answered, and a get of what it hasn't written yet is answered from them.
 The thread is a daemon, so a quit never waits on it
 (D1012): a write it cuts short leaves a part file, never an entry (a miss
-at the next launch), which a later write removes."""
+at the next launch), which a later write removes. An answer worked out for
+:data:`LONG` or more (a reshape's dress: minutes) is the one exception: its
+put waits until the writer has written it (Step 4.4bc), so the call answers
+with it kept, and a quit right after (the app's ends its engine process at
+once) never loses minutes of work, as A32's third take lost its plan."""
 
 from __future__ import annotations
 
@@ -42,6 +46,7 @@ import json
 import os
 import secrets
 import threading
+import time
 from collections.abc import Callable, Collection
 from pathlib import Path
 
@@ -49,6 +54,10 @@ from azurkit import store
 
 STAMPS_KEPT = 64        # the images vouched for, newest kept
 KEY = 32                # the install's key, in bytes
+LONG = 10.0
+"""A swap answer worked out in this many seconds or more, from its get's miss to its put, is written before the put
+returns (its write, under a second, a small part of that work); a quicker one is written behind the answer."""
+KEEP_WAIT = 60.0        # the most a long answer's put waits on its write (a stalled disk): then it is written behind
 
 
 def root() -> Path:
@@ -164,6 +173,14 @@ class _Behind:
         with self.lock:
             return self.lock.wait_for(lambda: not self.held, timeout)
 
+    def written(self, kept: Kept, kind: str, key: str, body: bytes | _Made, timeout: float) -> bool:
+        """Wait until the writer has done with ``body``, put under ``key``
+        (written, or refused: a store that can't be written holds nothing),
+        ``timeout`` seconds at most; whether it has."""
+        at = (kept.folder, kind, key)
+        with self.lock:
+            return self.lock.wait_for(lambda: (held := self.held.get(at)) is None or held[1] is not body, timeout)
+
     def _write(self) -> None:
         while True:
             with self.lock:
@@ -209,14 +226,16 @@ class Kept(store.Store):
             return store.decode(kind, held)
         return super().get(kind, key)
 
-    def put(self, kind: str, key: str, value: object) -> bool:
+    def put(self, kind: str, key: str, value: object, now: bool = False) -> bool:
         """Hand ``value`` to the writer (refused by name first, as
         :func:`azurkit.store.encode` refuses, writing nothing), or a callable
         that gives it, made there, a refusal keeping nothing; it writes it
-        after this answers."""
+        after this answers, or, ``now``, before (:data:`KEEP_WAIT` at most)."""
         body = _Made(lambda: store.encode(kind, value())) if callable(value) else store.encode(kind, value)
         self.file(kind, key)
         _BEHIND.put(self, kind, key, body)
+        if now:
+            _BEHIND.written(self, kind, key, body, KEEP_WAIT)
         return True
 
     def clear(self, kinds: Collection[str] | None = None) -> list[str]:
@@ -231,16 +250,23 @@ class Kept(store.Store):
 class Folder:
     """``tools.characters.CACHE``: the swap's answers (``get(key) -> bytes |
     None``, ``put(key, bytes or what makes them)``), the ``swap`` kind of the
-    app's store under ``folder`` (:class:`Kept`, with ``most`` and ``key``)."""
+    app's store under ``folder`` (:class:`Kept`, with ``most`` and ``key``).
+    A put that answers a get's miss :data:`LONG` seconds or more before
+    (``characters._kept``'s and ``engine._kept``'s work in between) is
+    written before it returns."""
 
     def __init__(self, folder: Path, most: int = store.BUDGET, key: Path | None = None):
         self.kept = Kept(folder, most, key)
+        self.missed: dict[str, float] = {}   # a key's last miss, when, until a put answers it
 
     def get(self, key: str) -> bytes | None:
-        return self.kept.get("swap", key)
+        if (found := self.kept.get("swap", key)) is None:
+            self.missed[key] = time.monotonic()
+        return found
 
     def put(self, key: str, data: bytes | Callable[[], bytes]) -> None:
-        self.kept.put("swap", key, data)
+        missed = self.missed.pop(key, None)
+        self.kept.put("swap", key, data, now=missed is not None and time.monotonic() - missed >= LONG)
 
 
 class Stamps:

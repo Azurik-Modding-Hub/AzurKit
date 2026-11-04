@@ -1550,7 +1550,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   are never read and are removed by the next write. A put is written behind
   the answer (one daemon writer thread a process: a get meanwhile answers
   from what it holds, a quit never waits on it, and a write it cuts short
-  leaves only a part file, a miss);
+  leaves only a part file, a miss), but an answer worked out for
+  `swapcache.LONG` (10 s) or more, written before its call answers, so a
+  quit right after a reshape's Built never loses its dress (Step 4.4bc);
   `serve()` and `Spawned()` keep nothing past their process. In-process `app.serve()` (the tests') runs
   them on the request's thread (`engine.Here`), so a test's stand-in sdk
   call takes. A script that calls `app.main` guards it with `if __name__ ==
