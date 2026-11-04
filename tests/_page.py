@@ -27,6 +27,10 @@ STALL = 120
 page's opening or close), as long as a page has to start its engine (``test_site.Site.open``): past it the wait fails
 by name with the page's state (D1072). Windows' Firefox once left an evaluate unanswered 2 h 10 min, its processes gone
 and Playwright's driver unaware, until the tier's stall watch ended the run (run 41610020282)."""
+ACT = 30
+"""s a page's load, reload or file pick may take (:func:`load`, :func:`pick`): Playwright's own bound for them, which
+they had, past which it named nothing but the call. A load takes 0.1-0.2 s here, a reload 26-68 ms and a pick ms; a
+page's first load, which starts its engine (``test_site.Site.open``), has :data:`STALL`."""
 HEAR = 10
 """s each read of a stalled page's state may take: a page that answers gives it in ms."""
 PROBE = 10
@@ -149,24 +153,25 @@ def close(page) -> None:
     within(page, page._impl_obj.close(), STALL, "the page's close")
 
 
-def load(page, url: str | None = None, until: str = "load"):
+def load(page, url: str | None = None, until: str = "load", seconds: float | None = None):
     """``page.goto(url)``, or with no ``url`` ``page.reload()``, to its ``until`` (Playwright's ``wait_until``), in at
-    most :data:`STALL` s (:func:`within`), not Playwright's 30 s, past which it failed naming nothing but the
-    navigation (a site page's load in Firefox, run 41678038275; a reload in WebKit on 4a178cc, both on GitHub's Intel
-    Mac runner): past it the failure names the page's state, whether its browser still answers and its driver's
-    processes."""
+    most ``seconds`` s, :data:`ACT` unless given (:func:`within`), where past Playwright's own 30 s it failed naming
+    nothing but the navigation (a site page's load in Firefox, run 41678038275; a reload in WebKit on 4a178cc, both on
+    GitHub's Intel Mac runner): past it the failure names the page's state, whether its browser still answers and its
+    driver's processes."""
     call = (page._impl_obj.reload(timeout=0, waitUntil=until) if url is None
             else page._impl_obj.goto(url, timeout=0, waitUntil=until))
-    return within(page, call, STALL, "the page's reload" if url is None else f"the page's load of {url}")
+    return within(page, call, ACT if seconds is None else seconds,
+                  "the page's reload" if url is None else f"the page's load of {url}")
 
 
 def pick(page, selector: str, path) -> None:
     """``page.set_input_files(selector, path)``: the file at ``path`` picked in the page's file input ``selector``, in
-    at most :data:`STALL` s (:func:`within`), not a wait its driver alone bounds (Playwright's 30 s): a pick takes ms
-    here, and the pack golden's Firefox page on GitHub's Windows runner left a call that had no bound of this side's
-    unanswered an hour, its browser gone and its driver unaware (run 41744982709), its picks among those calls. Past it
-    the failure names the pick, the page's state and its driver's processes."""
-    within(page, page._impl_obj.set_input_files(selector, str(path), timeout=0), STALL,
+    at most :data:`ACT` s (:func:`within`), the bound its driver gave it, now this side's too: the pack golden's Firefox
+    page on GitHub's Windows runner left a call that had no bound of this side's unanswered an hour, its browser gone
+    and its driver unaware (run 41744982709), its picks among those calls. Past it the failure names the pick, the
+    page's state and its driver's processes."""
+    within(page, page._impl_obj.set_input_files(selector, str(path), timeout=0), ACT,
            f"the pick of {Path(path).name} in {selector}")
 
 

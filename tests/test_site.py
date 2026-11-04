@@ -269,10 +269,11 @@ class Site:
         self.held.fulfill(route, file)
 
     def open(self):
-        """A new page, its engine loaded, each call bounded (``_page.within``; its load ``_page.load``'s: the page's
-        own files, about 0.4 MB, in 0.1-0.2 s here; the engine's 35 MB come after it)."""
+        """A new page, its engine loaded, each call bounded (``_page.within``; its load ``_page.load`` in
+        ``_page.STALL``, as the new page has: the page's own files, about 0.4 MB, in 0.1-0.2 s here; the engine's 35 MB
+        come after it)."""
         page = _page.within(self.context, self.context._impl_obj.new_page(), _page.STALL, "a new page")
-        _page.load(page, f"{ORIGIN}/")
+        _page.load(page, f"{ORIGIN}/", seconds=_page.STALL)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         return page
 
@@ -1743,12 +1744,16 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
     10 min, run 41610020282). A pick whose input never comes (``_page.pick``, every set_input_files of the site's tests)
     and a navigation whose document never comes (``_page.load``, every goto and reload of the site's tests) fail so
-    past ``_page.STALL``, naming the file or the address, and a browser's close its driver never answers (the
-    ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its browser and driver."""
+    past ``_page.ACT``, Playwright's own bound for them, naming the file or the address, and a browser's close its
+    driver never answers (the ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its
+    browser and driver."""
+    from playwright._impl._helper import DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS
+    assert _page.ACT * 1000 == DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS   # no wider than the bound the calls had
     served = Site(browser, site)
     try:
         page = served.open()   # in the bound a page's opening has, not the test's
         monkeypatch.setattr(_page, "STALL", 2)
+        monkeypatch.setattr(_page, "ACT", 2)
         t0 = time.monotonic()   # its reads in the HEAR they have outside the test: in 1 s GitHub's Intel Mac runner
         with pytest.raises(AssertionError) as never:   # left the open WebKit page's state unread (run 41666183947)
             _page.answer(page, "() => new Promise(() => {})", seconds=1)
