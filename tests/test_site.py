@@ -1546,6 +1546,38 @@ def test_reset_stays_on_the_chosen_model_and_picking_garret_clears_everything(br
         served.close()
 
 
+# A pick of keylord made while F works: [F's job as it is made, B's job just after it]
+PICKED_BUSY = """() => {
+    const pool = azurkit.pool, busy = pool.state().f.job;
+    document.querySelector('#char-species .model[data-model="keylord"]').click();
+    return [busy, pool.state().b.job];
+}"""
+KEYLORD_AHEAD = "() => [azurkit.pool.state().b.job, ...azurkit.pool.state().kept].some((k) => k?.includes('keylord'))"
+
+
+def test_a_pick_while_the_tab_reads_the_image_is_answered_by_the_free_worker_before_its_build_ahead(
+        browser, site, usa_iso):
+    """A model picked while F still works out the Characters tab's first answer on the picked image is answered at once
+    without the image by B, the free worker, and its build ahead starts once B has answered: the build ahead took B
+    first, and the pick's answer waited behind F's earlier asks (S12 in WebKit, 1.0-1.3 s with no change of its bar;
+    Step 4.4ci21)."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.until(page, "() => { const s = azurkit.pool.state(); return s.b?.loaded && !s.b.job && s.kept.length; }",
+                    600)   # the image's setup built ahead: B is free
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => document.querySelector('#char-species .model[data-model=\"keylord\"]')", 300)
+        assert page.evaluate(PICKED_BUSY) == ["pickers", "pickers"]
+        _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 300)
+        _page.until(page, KEYLORD_AHEAD, 300)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
 SPECIES_SHOWN = """() => [document.getElementById("char-objects").checked, document.getElementById("char-count").textContent
     .split(" · ")[0], [...document.querySelectorAll("#char-species .model")].map((m) => m.dataset.model),
     document.querySelector("#char-species .model[aria-selected=true]")?.dataset.model ?? null]"""

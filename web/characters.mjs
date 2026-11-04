@@ -155,9 +155,12 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     c.character = { ...keep, species: name };   // (Chain on any press stays with the model it was ticked on, D1045)
     c.choice++;
     $("char-chain").checked = false;
-    changed({ now: true });   // a pick: the site's work ahead starts on it at once, not when the page holds still
     if (ships?.species[name] || ships?.variants[name]) draw({ name, variant: !ships.species[name] });   // at once
+    // Asked before the work ahead starts: while the image's answer is still worked out (F busy), the answer without the
+    // image goes to B, the free worker, and the build ahead waits the moment it takes, where it took B first and the
+    // pick waited behind F's earlier asks (1.0-1.3 s in WebKit, Step 4.4ci21).
     ask();
+    changed({ now: true });   // a pick: the site's work ahead starts on it at once, not when the page holds still
   };
   // A grade's name from the engine's colour, and its colour as drawn: through its theme's --grade-* (app.css), so a
   // theme toggle repaints it.
