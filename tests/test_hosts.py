@@ -1704,17 +1704,20 @@ def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_
     about 0.3 s; Step 4.3 round 3). The build's kernel count comes before
     its answer: the build counts its own, on counts of the test's own (it
     read ones an earlier test left in this process, and with none the
-    engine sends no count, so its wait never ended: Step 4.4ci16)."""
+    engine sends no count, so its wait never ended: Step 4.4ci16). The
+    engine hands its swaps' parallel work to its pool once, as it starts
+    (``procpool.install``: Step 4.4bh's small calls start no child, so no
+    build test sees one)."""
     from azurkit.app import procpool
 
-    log = []
+    log, installed = [], []
 
     def step(name: str, seconds: float = 0.0) -> None:
         log.append(name)
         time.sleep(seconds)
         log.append(f"{name} done")
     monkeypatch.setattr(engine, "orphaned", lambda: None)   # the loop on a thread of this process, not its own
-    monkeypatch.setattr(procpool, "install", lambda: None)
+    monkeypatch.setattr(procpool, "install", lambda: installed.append(1))
     monkeypatch.setattr(sdk, "randomizer_logic", lambda progress=None: step("logic", 0.2))
     monkeypatch.setattr(sdk, "pickers", lambda given: step("pictures"))
     monkeypatch.setattr(native, "CALLS", collections.Counter())
@@ -1740,8 +1743,8 @@ def test_a_cancels_next_engine_reads_the_logic_then_builds_then_reads_the_image_
         time.sleep(0.01)
     here.close()
     loop.join(10)
-    assert (log, loop.is_alive(), engine._BUILDS) == (
-        ["logic", "logic done", "build", "build done", "pictures", "pictures done"], False, 0)
+    assert (log, loop.is_alive(), engine._BUILDS, installed) == (
+        ["logic", "logic done", "build", "build done", "pictures", "pictures done"], False, 0, [1])
 
 
 def test_the_apps_engine_counts_the_swaps_items_on_the_stage_its_call_reported_last(monkeypatch):
