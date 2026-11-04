@@ -198,9 +198,12 @@ build vouches for (``report``'s, :func:`image`'s): what it changed by its
 result, the rest by the release's manifest. ``input``: the same of each
 file it changed as the input holds it, by the manifest, as the result's
 sha was hashed from that input whatever it held at the build (a browser
-that refuses a changed File's reads needn't hash these). The root files a
-build adds are its own bytes, so they aren't listed; nor is what lies
-between files, which no file of the game reads.
+that refuses a changed File's reads needn't hash these). Each ``image``
+row ends with the file's offset in the input where the input holds it at
+that size, else ``None``: a host that hashed the input's file knows the
+image's where the image's bytes there are a copy of the input's at that
+offset. The root files a build adds are its own bytes, so they aren't
+listed; nor is what lies between files, which no file of the game reads.
 
 
 def save(made: 'iso.Image', out: 'str', *, progress: 'Callable[[dict], object] | None' = None, sha256: 'Callable[[], str] | None' = None) -> 'dict':

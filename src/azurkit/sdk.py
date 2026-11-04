@@ -867,16 +867,22 @@ def image_checks(made: iso.Image, report: Mapping) -> dict[str, list[list]]:
     result, the rest by the release's manifest. ``input``: the same of each
     file it changed as the input holds it, by the manifest, as the result's
     sha was hashed from that input whatever it held at the build (a browser
-    that refuses a changed File's reads needn't hash these). The root files a
-    build adds are its own bytes, so they aren't listed; nor is what lies
-    between files, which no file of the game reads."""
+    that refuses a changed File's reads needn't hash these). Each ``image``
+    row ends with the file's offset in the input where the input holds it at
+    that size, else ``None``: a host that hashed the input's file knows the
+    image's where the image's bytes there are a copy of the input's at that
+    offset. The root files a build adds are its own bytes, so they aren't
+    listed; nor is what lies between files, which no file of the game reads."""
     files = next(release for release in gate.RELEASES if release.name == report["release"]).files
-    with iso.Reader(made) as r:
-        image = [[e.path, r.start(e), e.size, report["result"].get(e.path) or files[e.path][1]]
-                 for e in r.entries() if not e.is_dir and e.size and (e.path in report["result"] or e.path in files)]
     with iso.Reader(made.source) as r:
-        changed = [[e.path, r.start(e), e.size, files[e.path][1]]
-                   for e in r.entries() if not e.is_dir and e.size and e.path in report["result"] and e.path in files]
+        held = [(e, r.start(e)) for e in r.entries() if not e.is_dir and e.size]
+    placed = {e.path: (at, e.size) for e, at in held}
+    with iso.Reader(made) as r:
+        image = [[e.path, r.start(e), e.size, report["result"].get(e.path) or files[e.path][1],
+                  placed[e.path][0] if placed.get(e.path, (None, None))[1] == e.size else None]
+                 for e in r.entries() if not e.is_dir and e.size and (e.path in report["result"] or e.path in files)]
+    changed = [[e.path, at, e.size, files[e.path][1]] for e, at in held
+               if e.path in report["result"] and e.path in files]
     return {"image": image, "input": changed}
 
 

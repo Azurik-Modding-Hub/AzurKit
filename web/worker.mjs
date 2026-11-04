@@ -633,7 +633,8 @@ async function prime(loaded, file) {
     const checked = mounted(py, file, (iso) => engine({ type: "prime", recipe: { iso }, digests: kept.digests }));
     if (!("refused" in checked)) {
       stage("check", "Reading your image", 1, 1);
-      return void (loaded.primed = id);
+      loaded.primed = id;
+      return vouched(loaded, file, id, kept);
     }
   }
   self.azurkitChecks = (self.azurkitChecks ?? 0) + 1;
@@ -648,6 +649,41 @@ async function prime(loaded, file) {
   loaded.primed = id;
   awaiting("check: keeping the stamp");
   await stamps("readwrite", (store) => store.put({ id, digests, pages: walked.get(id) }, "last")).catch(() => null);
+  vouched(loaded, file, id, { digests });
+}
+
+// What a Save needn't hash again (Step 4.4ba): where a browser refuses every read of a File changed on disk since its
+// pick (WebKit's, Chromium's: app.mjs's READS_REFUSED), the page is told the sha256 of each of the image's files hashed
+// from the picked File, by the image's id ({type: "vouched", id, digests}; the pool's jobs ignore it): the build files'
+// at its check, then the rest (sdk.layout's whole), hashed once an image in the background once the ask the check came
+// with is answered (loaded.rest, the queue's), by one worker of this browser at a time (a Web Lock), and kept with the
+// stamp, so a later visit hashes neither. A Save hashes what the page doesn't know yet. Firefox reads a changed File
+// silently: there a Save hashes every file, and none of this runs.
+const VOUCHING = /AppleWebKit/.test(navigator.userAgent), resting = new Set();
+function vouched(loaded, file, id, kept) {
+  if (!VOUCHING) return;
+  self.postMessage({ type: "vouched", id, digests: { ...kept.digests, ...kept.rest } });
+  if (kept.rest || resting.has(id)) return;
+  loaded.rest = () => {   // in the queue's turn: the engine's call
+    const rest = mounted(loaded.py, file, (iso) => loaded.engine({ type: "layout", recipe: { iso }, whole: true }));
+    if ("refused" in rest || !rest.files.length) return;
+    resting.add(id);
+    const hash = async (lock) => {
+      if (!lock) return;   // another worker of this browser hashes it
+      const last = await stamps("readonly", (store) => store.get("last")).catch(() => null);
+      if (last?.id === id && last.rest) return;   // another hashed it first
+      const digests = await hashedApart(file, rest.files);
+      await stamps("readwrite", (store) => {
+        const last = store.get("last");
+        last.onsuccess = () => last.result?.id === id && store.put({ ...last.result, rest: digests }, "last");
+        return last;
+      });
+      self.postMessage({ type: "vouched", id, digests });
+    };
+    const locked = () => navigator.locks ? navigator.locks.request(`azurkit-rest ${id}`, { ifAvailable: true }, hash)
+      : hash(true);
+    Promise.resolve().then(locked).catch(() => null).finally(() => resting.delete(id));   // a read refused: none vouched
+  };
 }
 
 // A hash's progress, posted as the engine's record with label (stage check).
@@ -864,6 +900,7 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
   });
   const heap = py._module?.HEAPU8?.length;
   if ("refused" in made) return post({ type: "refused", message: made.refused, heap });
+  made.checks.id = ids.get(file) ?? null;   // whose files the page's vouched digests are (vouched())
   post({ type: "built", ...made, ...joined(file, made, output && await output.handle.getFile()),
          ...(output ? { out: output.name } : {}), heap, late: (self.azurkitLateReads ?? 0) - before });
   if (made.report.plan) {
@@ -906,6 +943,12 @@ try {
         if (aside) behind--;
         awaiting(data.type);
         return handle(data);
+      }).then(() => {   // a check's rest (vouched()), once its ask is answered: work of no ask's, so never its failure
+        const rest = loaded.rest;
+        loaded.rest = null;
+        try {
+          rest?.();
+        } catch {}
       }).catch((error) => post({ type: "failed", message: lastLine(error) }));
   };
   const handle = (data) => {

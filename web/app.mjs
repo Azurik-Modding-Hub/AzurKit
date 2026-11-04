@@ -66,6 +66,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
+                vouched: new Map(), tracking: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, recheck: false, probing: false,
                          moved: null } };
@@ -133,8 +134,8 @@ function ahead() {
 // the tab's choice before the engine's answer to it, and each build is keyed on the character it sends: the answer
 // drops what the body locks or doesn't take (a variant's size, say), so a click takes B's build only when the two match.
 const reshaped = (character) => Boolean(character?.shapes && Object.keys(character.shapes).length);
-function aheadOnSite(begin = false) {
-  if (!state.engine?.ahead || !state.packs || state.restoring) return;
+function aheadOnSite(begin = false) {   // none while a Save is checked: checkSave's end asks again
+  if (!state.engine?.ahead || !state.packs || state.restoring || state.saveCheck === "running") return;
   const seed = R("seed").value.trim(), share = state.rando.view?.share, rando = randoRecipe(), tracking = !$("tracker").hidden;
   const character = state.characters?.choice() ?? null, plans = [], builds = [];
   if (character || state.vanilla) state.engine.warm();   // numpy and the dress's imports: S14's second, in its head start
@@ -326,6 +327,7 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
                         twin: (state.calls?.twin ?? 0) + (data.twin ?? 0) };
       }
       if (data?.out) hold(data.out).then(() => worker.postMessage({ type: "held" }));   // its build file: this page's now
+      if (data?.type === "vouched") state.vouched.set(data.id, { ...state.vouched.get(data.id), ...data.digests });
     });
     return worker;
   };
@@ -1165,7 +1167,8 @@ function built(reply) {
          + ` · changed: ${changed.length ? changed.join(", ") : "nothing"}`);   // the file list last: it runs long
   spoiler(made.spoiler ?? null, !made.plan || made.spoiler ? null : reply.spoiled ? () => reply.spoiled
     : () => state.engine.call("spoiler", {}));   // the app's engine makes it when View or Save asks
-  if (made.plan) state.tracker.open(made.plan);   // the Tracker view tracks the build's seed
+  if (made.plan && state.saveCheck === "running") state.tracking = made.plan;   // after the check (checkSave)
+  else if (made.plan) state.tracker.open(made.plan);   // the Tracker view tracks the build's seed
   state.tools.built(made);
 }
 
@@ -1175,15 +1178,35 @@ function built(reply) {
 // would pass one changed before the Build, being hashed from it, so where a read may be silent (READS_REFUSED false) the
 // File's copy of each file the build changed is hashed against the release's first. (Everywhere, it costs S50/lag 4.1 s.)
 // A browser's download can't be stopped from here, so the Save fails by name, with what to do. Its bar is the page's own
-// (D1053). state.saveCheck: "running", "held", or the failure's line.
+// (D1053). Where a read is refused (Step 4.4ba), a file of the Blob that is a copy of the File at its own offset, and
+// there in the File too (the build's segments and checks say so), is known by the sha256 the page was told of it,
+// hashed from that File (state.vouched by the image's id: worker.mjs's vouched(), and the files a Save here passed),
+// so only the rest is hashed, beside one read of the File, which the browser refuses once it changed. A changed file's
+// bytes are the build's, hashed at every Save. state.saveCheck: "running", "held", or the failure's line. The site's
+// work ahead and a built seed's Tracker view wait for it (aheadOnSite, built()).
 const READS_REFUSED = /AppleWebKit/.test(navigator.userAgent);
+function inPlace(segments) {   // whether [start, end) of the Blob is the File's own bytes there
+  const spans = [];
+  let at = 0;
+  for (const s of segments) {
+    if (s.kind === "copy" && s.offset === at) {
+      if (spans.at(-1)?.[1] === at) spans.at(-1)[1] += s.size;
+      else spans.push([at, at + s.size]);
+    }
+    at += s.size;
+  }
+  return (start, end) => spans.some(([from, to]) => from <= start && end <= to);
+}
 async function checkSave(build, name) {
   if (build.checking) return;
   build.checking = true;
   state.saveCheck = "running";
   const id = asking("save_check");
   const sized = (rows) => rows.reduce((n, [, , size]) => n + size, 0);
-  const passes = [[build.blob, build.checks.image]];
+  const copied = READS_REFUSED ? inPlace(build.segments) : () => false;
+  const own = ([, at, size, , from]) => from === at && copied(at, at + size);
+  const known = state.vouched.get(build.checks.id) ?? {};
+  const passes = [[build.blob, build.checks.image.filter((row) => !(own(row) && known[row[0]] === row[3]))]];
   if (!READS_REFUSED) passes.unshift([build.file, build.checks.input]);
   const whole = passes.reduce((n, [, rows]) => n + sized(rows), 0);
   let before = 0, wrong = null;
@@ -1192,19 +1215,26 @@ async function checkSave(build, name) {
     if (ask) ask.record = { stage: "write", label: "Saving", done: at, total: whole, percent: Math.floor(at * 100 / whole) };
     showing();
   };
-  try {
+  const hashing = async () => {
     for (const [source, rows] of passes) {
+      if (!rows.length) continue;
       const share = sized(rows);
       const digests = await hashedApart(source, rows.map(([path, at, size]) => [path, at, size]), heard(share));
       const file = rows.find(([path, , , sha]) => digests[path] !== sha)?.[0];
-      if (file) {
-        wrong = `its ${file} isn't the build's or the game's`;
-        break;
-      }
+      if (file) return `its ${file} isn't the build's or the game's`;
       before += share;
     }
+    return null;
+  };
+  try {
+    [wrong] = await Promise.all([hashing(), READS_REFUSED && build.file.slice(0, 1).arrayBuffer()]);
   } catch (error) {
     wrong = `reading it failed (${error.message})`;
+  }
+  if (!wrong && READS_REFUSED && build.checks.id) {   // its own copies hashed now are known for the next Save
+    const vouched = { ...state.vouched.get(build.checks.id) };
+    for (const row of passes[0][1]) if (own(row)) vouched[row[0]] = row[3];
+    state.vouched.set(build.checks.id, vouched);
   }
   answered(id);
   build.checking = false;
@@ -1216,6 +1246,10 @@ async function checkSave(build, name) {
   } else if (state.build === build) {
     say(`Saved ${name} (${bytes(build.size)}), each of its files the build's; your browser's download shows its progress`);
   }
+  const tracked = state.tracking;   // what waited for the check
+  state.tracking = null;
+  if (tracked) state.tracker.open(tracked);
+  ahead();
 }
 
 function saved({ saved: done }) {

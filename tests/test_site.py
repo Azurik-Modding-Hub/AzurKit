@@ -2713,6 +2713,66 @@ def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, si
         served.close()
 
 
+def test_a_save_hashes_only_what_the_page_hasnt_hashed_from_its_image_and_fails_once_the_image_changed(
+        browser, site, usa_iso, tmp_path):
+    """D35, Step 4.4ba: where a File changed on disk refuses every read (WebKit's, Chromium's), the page knows the
+    sha256 of each file of the picked image hashed from it (the pick's check, then the rest, hashed after it in the
+    background), so a Save hashes only the Blob's files that aren't the File's own bytes in place (the build's changed
+    files), and one read of the File, refused once it changed, fails the next Save by name. Firefox reads a changed
+    File silently: its Save hashes the changed files' input and every file of the Blob. The site's work ahead waits
+    while a Save is checked."""
+    image = tmp_path / usa_iso.name
+    if subprocess.run(["cp", "-c", str(usa_iso), str(image)], capture_output=True).returncode:
+        shutil.copyfile(usa_iso, image)
+    image.chmod(0o644)   # a clone keeps the source's read-only mode
+    files, refused = len(gate.layout(image, ("",))), browser.browser_type.name != "firefox"
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script("""{ const real = Worker.prototype.postMessage; globalThis.hashing = [];
+            Worker.prototype.postMessage = function (message, ...rest) {   // each page hash's bytes
+                if (message?.rows) hashing.push(message.rows.reduce((n, [, , size]) => n + size, 0));
+                return real.call(this, message, ...rest); }; }""")
+        page = served.open()
+        _page.pick(page, "#iso", image)
+        if refused:   # the rest too, hashed after the pick's check
+            _page.until(page, f"() => [...azurkit.vouched.values()].some((k) => Object.keys(k).length === {files})", 300)
+        page.evaluate("() => document.querySelector('#build').click()")   # the page's default packs
+        _page.built(page)
+        rows, given, segments = page.evaluate("() => [azurkit.build.checks.image, azurkit.build.checks.input, "
+                                              "azurkit.build.segments]")
+        with page.expect_download(timeout=600_000) as caught:
+            page.evaluate("() => { hashing.length = 0; document.querySelector('#save').click(); }")
+        assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
+        written, at = [], 0   # the Blob's spans that aren't the File's own bytes there
+        for segment in segments:
+            if not (segment["kind"] == "copy" and segment["offset"] == at):
+                written.append((at, at + segment["size"]))
+            at += segment["size"]
+        mine = [size for _, at, size, _, held in rows   # its files the build wrote or moved (default.xbe, filelist.txt)
+                if held != at or any(start < at + size and at < end for start, end in written)]
+        assert 0 < len(mine) < len(rows) and page.evaluate("() => hashing") == (
+            [sum(mine)] if refused else [sum(row[2] for row in given), sum(row[2] for row in rows)])
+        caught.value.delete()
+        with iso.Reader(image) as r:   # a file the build didn't change, nor read
+            at = max(r.start(e) + e.size // 2 for e in r.entries() if not e.is_dir and e.size
+                     and not e.path.startswith(gate.BUILD_FILES))
+        with open(image, "r+b") as f:
+            f.seek(at)
+            byte = f.read(1)
+            f.seek(at)
+            f.write(bytes([byte[0] ^ 1]))
+        assert page.evaluate("""() => { const asked = [], real = azurkit.engine.ahead;
+            azurkit.engine.ahead = (...items) => asked.push(items);
+            document.querySelector('#save').click();
+            azurkit.changed();   // a change while the Save is checked: no work ahead until it ends
+            azurkit.engine.ahead = real;
+            return [azurkit.saveCheck, asked.length]; }""") == ["running", 0]
+        failed = _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck")
+        assert failed.startswith("Save failed: your image changed since you picked it")
+    finally:
+        served.close()
+
+
 def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_save(browser, site, usa_iso, tmp_path):
     """D35: a byte of a level, outside what the seed's build reads and patches, changed after the pick and before Build.
     The changed level's sha is hashed from that File, so the build's own number agrees with it: Firefox reads the new bytes
@@ -2769,8 +2829,8 @@ def test_a_saves_check_keeps_its_bar_through_a_later_build_cancelled_and_the_eng
         _page.build(page, [])
         _page.built(page)
         _page.until(page, "() => azurkit.ready", 300)
-        with page.expect_download(timeout=600_000) as caught:
-            page.evaluate("() => document.querySelector('#save').click()")
+        with page.expect_download(timeout=600_000) as caught:   # every file hashed, as on a page that hashed none
+            page.evaluate("() => { azurkit.vouched.clear(); document.querySelector('#save').click(); }")
         page.evaluate("() => document.querySelector('#build').click()")
         _page.click(page, "cancel")
         _page.until(page, "() => azurkit.ready", 300)
