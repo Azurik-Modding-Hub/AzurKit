@@ -918,9 +918,9 @@ time.sleep(300)
     printed = out.split("--- the tier's log hasn't grown in 0 min: the log's last 200 lines\n")[1]
     assert printed.split("\n--- the tier's processes")[0].split("\n") == [f"line {i}" for i in range(101, 300)] + [
         "x" * 240], out
-    assert re.search(rf"^\S*python\S* \(id {tier.pid}\): 0 min$", out, re.M | re.I), out
+    assert re.search(rf"^\S*python\S* \(id {tier.pid}\): 0 min, \d+ MiB$", out, re.M | re.I), out
     for pid in (controller, worker):
-        assert re.search(rf"^ +\S*python\S* \(id {pid}\): 0 min$", out, re.M | re.I), out
+        assert re.search(rf"^ +\S*python\S* \(id {pid}\): 0 min, \d+ MiB$", out, re.M | re.I), out
     assert log.read_text().splitlines()[-1] == "the summary", out   # pytest outlived its worker
     assert "--- the tier stopped" in out, out                       # and was ended once it hung on
     for _ in range(50):

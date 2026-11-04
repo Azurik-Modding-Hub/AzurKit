@@ -26,6 +26,18 @@ the tier's end what macOS wrote of one that ended (a crash report, a jetsam
 kill: :func:`reports`), with the free memory as this watcher last read it
 (Step 4.4ci17: the pure tier's WebKit page "Target crashed" on GitHub's 7 GB
 Apple Silicon runner, where nothing said its memory).
+
+What a browser's close waits on (:func:`held`, Step 4.4ci18; the ``browser``
+fixture's close at its bound and this watch's listing print it): Playwright's
+driver answers a close only once the browser's process has ended and every
+handle of its stdout, stderr and protocol pipes has closed, and Playwright's
+WebKit on Windows starts each of its processes (pages, network, GPU) with
+its own stdout and stderr and every handle it may pass on (its
+``ProcessLauncherWin.cpp``: ``STARTF_USESTDHANDLES``, ``bInheritHandles``
+true), so one that outlives it holds the close, out of reach of the
+driver's kill (``taskkill /T`` walks only a live parent's children). So the
+listing names, with its memory, each process left running by a parent that
+ended, the crash handlers, and the browsers' temporary folders.
 """
 
 from __future__ import annotations
@@ -64,6 +76,18 @@ WORKER = "import sys;exec(eval(sys.stdin.readline()))"
 ``gateway_io.popen_bootstrapline``."""
 NAMED = re.compile(r"^(?:uv|node|python[\d.]*w?)(?:\.exe)?$|firefox|chrom|webkit|msedge|playwright", re.I)
 """Processes listed even outside the tier's tree (a browser its parent left behind)."""
+CRASH = re.compile(r"^(?:WerFault|WerFaultSecure|wermgr|crashhelper|crashreporter|minidump-analyzer|pingsender|"
+                   r"ReportCrash)(?:\.exe)?$", re.I)
+"""Crash handlers, always listed: Windows Error Reporting's (a crashed process stays, its handles open, until its
+report is written), Firefox's crash helper, reporter, minidump analyzer and ping sender, macOS's ReportCrash."""
+MIB = 1 << 20
+SAY_S = 10
+"""s :func:`held` may take: a listing of the processes and the folders' sizes (``ps`` takes ms; Windows' CIM query 1-3
+s on the runner), so a close that never answered still fails promptly, the rest of the folders' sizes left unread."""
+LISTED = 20
+"""Processes at most in each of :func:`held`'s lists."""
+WER = ("CrashDumps", "Microsoft/Windows/WER/ReportQueue", "Microsoft/Windows/WER/ReportArchive")
+"""Where Windows Error Reporting writes a crash's dump and report, under the user's and the machine's app data."""
 PLAYWRIGHT = re.compile(r"[/\\]playwright[/\\]")
 """On the command line of each of Playwright's processes: its driver (the package's own node) and the browsers it
 starts from their folder (``.tools/playwright``), with each process they start, WebKit's pages, network and GPU too,
@@ -149,32 +173,34 @@ def _seconds(age: str) -> int:
     return total + int(days or 0) * 86400
 
 
-def _lines(command: list[str]) -> list[str]:
+def _lines(command: list[str], timeout: float = 120) -> list[str]:
     return subprocess.run(command, capture_output=True, text=True, errors="replace", check=True,
-                          timeout=120).stdout.splitlines()
+                          timeout=timeout).stdout.splitlines()
 
 
-def processes() -> list[tuple[int, int, int, str, str]]:
-    """(id, its parent's id, age in seconds, name, command line) of each process on this machine. The command line
-    is read to find xdist's workers (:data:`WORKER`), never printed."""
+def processes(timeout: float = 120) -> list[tuple[int, int, int, str, str, int]]:
+    """(id, its parent's id, age in seconds, name, command line, memory in bytes: its working set, ``ps``'s rss) of
+    each process on this machine, read in at most ``timeout`` s. The command line is read to find xdist's workers
+    (:data:`WORKER`) and Playwright's processes (:data:`PLAYWRIGHT`), never printed."""
     if sys.platform == "win32":
         script = ("$now = Get-Date; Get-CimInstance Win32_Process | Where-Object CreationDate | ForEach-Object "
-                  "{ ('{0} {1} {2} {3}' -f $_.ProcessId, $_.ParentProcessId, "
-                  "[long]($now - $_.CreationDate).TotalSeconds, $_.Name) + [char]9 + "
+                  "{ ('{0} {1} {2} {3} {4}' -f $_.ProcessId, $_.ParentProcessId, "
+                  "[long]($now - $_.CreationDate).TotalSeconds, [long]$_.WorkingSetSize, $_.Name) + [char]9 + "
                   "($_.CommandLine -replace '[\\t\\r\\n]', ' ') }")
-        rows = [row.partition("\t")[::2] for row in _lines(["powershell", "-NoProfile", "-NonInteractive",
-                                                            "-EncodedCommand",
-                                                            base64.b64encode(script.encode("utf-16-le")).decode()])]
+        rows = [(*row.partition("\t")[::2], 1) for row in _lines(
+            ["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand",
+             base64.b64encode(script.encode("utf-16-le")).decode()], timeout)]
     else:   # comm last, as macOS's is the program's path, spaces and all; the command lines by id
-        commands = dict(row.strip().partition(" ")[::2] for row in _lines(["ps", "-A", "-ww", "-o", "pid=,args="]))
-        rows = [(row, commands.get(row.split()[0], "")) for row in _lines(["ps", "-A", "-o", "pid=,ppid=,etime=,comm="])
-                if row.strip()]
+        commands = dict(row.strip().partition(" ")[::2] for row in _lines(["ps", "-A", "-ww", "-o", "pid=,args="],
+                                                                         timeout))
+        rows = [(row, commands.get(row.split()[0], ""), 1024) for row in _lines(
+            ["ps", "-A", "-o", "pid=,ppid=,etime=,rss=,comm="], timeout) if row.strip()]
     found = []
-    for row, command in rows:
-        parts = row.split(None, 3)
-        if len(parts) == 4 and parts[0].isdigit() and parts[1].isdigit():
-            found.append((int(parts[0]), int(parts[1]), _seconds(parts[2]), os.path.basename(parts[3].strip()),
-                          command))
+    for row, command, unit in rows:
+        parts = row.split(None, 4)
+        if len(parts) == 5 and parts[0].isdigit() and parts[1].isdigit() and parts[3].isdigit():
+            found.append((int(parts[0]), int(parts[1]), _seconds(parts[2]), os.path.basename(parts[4].strip()),
+                          command, int(parts[3]) * unit))
     return found
 
 
@@ -207,7 +233,7 @@ def footprints(rows: list[tuple[int, int, int, str, str]]) -> dict[int, tuple[st
     import ctypes
     usage = ctypes.CDLL("/usr/lib/libSystem.B.dylib").proc_pid_rusage
     found = {}
-    for pid, _, _, name, command in rows:
+    for pid, _, _, name, command, *_ in rows:
         info = (ctypes.c_uint64 * 40)()   # rusage_info_v4: a 16-byte uuid, then its counters, phys_footprint the 7th
         if PLAYWRIGHT.search(command) and usage(pid, 4, info) == 0:   # (from 0) and lifetime_max_phys_footprint the 28th
             found[pid] = (name, info[9], info[30])
@@ -264,7 +290,123 @@ def _last(read: tuple[str, int, int, int]) -> str:
             f"memory then {read[3] / GIB:.1f} GiB free")
 
 
-def _listed() -> list[tuple[int, int, int, str, str]]:
+def described(row: tuple) -> str:
+    """A process as :func:`held` and the watch list it: its name, id, parent's id, age and memory."""
+    pid, parent, age, name, *_ = row
+    memory = f", {row[5] / MIB:.0f} MiB" if len(row) > 5 else ""
+    return f"{name} (id {pid}, parent {parent}): {age // 60} min{memory}"
+
+
+def orphans(rows: list[tuple], age: int) -> list[tuple]:
+    """Each process of ``rows`` (:func:`processes`) at most ``age`` s old whose parent has ended: its parent's id is
+    no process's, or a younger one's (Windows hands an ended process's id to a new one). Where a process's end leaves
+    its children running (Windows; elsewhere they pass to init, whose id lives), the driver's kill of a browser's tree
+    can't reach them."""
+    born = {pid: when for pid, _, when, *_ in rows}
+    return [row for row in rows if row[2] <= age and row[1] > 4 and (row[1] not in born or born[row[1]] < row[2] - 1)]
+
+
+def _size(folder: Path, deadline: float) -> str:
+    """The bytes and files under ``folder``, as many as are read by ``deadline`` (``time.monotonic``'s)."""
+    total = files = 0
+    stack = [folder]
+    while stack:
+        if time.monotonic() > deadline:
+            return f"at least {total / MIB:.1f} MiB in {files} files (the rest unread)"
+        try:
+            entries = os.scandir(stack.pop())
+        except OSError:
+            continue
+        with entries:
+            for entry in entries:
+                try:
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(Path(entry.path))
+                    else:
+                        total, files = total + entry.stat(follow_symlinks=False).st_size, files + 1
+                except OSError:
+                    pass
+    return f"{total / MIB:.1f} MiB in {files} files"
+
+
+def _made(path: Path) -> float:
+    st = path.stat()
+    return getattr(st, "st_birthtime", st.st_mtime)
+
+
+def temp_folders(age: float | None, deadline: float) -> list[str]:
+    """Each of Playwright's temporary folders (a browser's profile, its artifacts) made in the last ``age`` s (any
+    age: ``None``), by kind and age, with its size (:func:`_size`): the driver removes a browser's only once its close
+    has heard it end. Labels and numbers only."""
+    said, now = [], time.time()
+    try:
+        found = sorted((_made(p), p) for p in Path(tempfile.gettempdir()).glob("playwright*") if p.is_dir())
+    except OSError as e:
+        return [f"unread ({type(e).__name__})"]
+    for made, folder in found:
+        if age is not None and made < now - age - 2:
+            continue
+        kind = re.match(r"playwright_(\w+?)dev_profile-|playwright-(artifacts)-", folder.name)
+        label = (f"{kind[1]}'s profile" if kind and kind[1] else "artifacts" if kind else "another")
+        said.append(f"{label} ({(now - made) / 60:.0f} min): {_size(folder, deadline)}")
+    return said
+
+
+def wer_reports(age: float | None) -> list[str]:
+    """What Windows Error Reporting wrote in the last ``age`` s (any age: ``None``): each crash dump's program and
+    id and each report's kind and program, from their names (the folders of :data:`WER` under the user's and the
+    machine's app data); none off Windows."""
+    if sys.platform != "win32":
+        return []
+    said, now = [], time.time()
+    for base in filter(None, (os.environ.get("LOCALAPPDATA"), os.environ.get("ProgramData"))):
+        for sub in WER:
+            try:
+                entries = sorted(Path(base, sub).iterdir(), key=_made)
+            except OSError:
+                continue
+            for entry in entries:
+                try:
+                    if age is not None and _made(entry) < now - age - 2:
+                        continue
+                except OSError:
+                    continue
+                said.append(" ".join(entry.name.split("_")[:2]) if "_" in entry.name else entry.name)
+    return said[-LISTED:]
+
+
+def held(driver: int, folders: dict[str, Path] | None = None, seconds: float = SAY_S) -> list[str]:
+    """What a browser whose close its driver (id ``driver``) never answered may wait on, a line each, in at most
+    about ``seconds`` s: the processes under the driver, each process left running since the driver began by a parent
+    that ended (:func:`orphans`), the crash handlers (:data:`CRASH`), each :func:`described`; Playwright's temporary
+    folders since then (:func:`temp_folders`), each of ``folders`` (``{label: folder}``) with its size, and what
+    Windows Error Reporting wrote since then (:func:`wer_reports`). Never raises: what can't be read says so."""
+    deadline, said, age = time.monotonic() + seconds, [], None
+    try:
+        rows = processes(seconds)
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        said.append(f"its processes unread ({type(e).__name__})")
+    else:
+        under = tree(rows, driver)
+        age = under[0][1][2] if under else None
+        said.append("under its driver: " + ("; ".join(described(row) for _, row in under[:LISTED])
+                                            or f"none (the driver {driver} is gone)"))
+        if age is not None:
+            mine = {row[0] for _, row in under}
+            left = [row for row in orphans(rows, age) if row[0] not in mine]
+            said.append("left running since it began by a parent that ended: "
+                        + ("; ".join(described(row) for row in left[-LISTED:]) or "none"))
+        said.append("crash handlers: " + ("; ".join(described(row) for row in rows if CRASH.search(row[3]))
+                                          or "none"))
+    said.append("Playwright's temporary folders since it began: " + ("; ".join(temp_folders(age, deadline)) or "none"))
+    for label, folder in (folders or {}).items():
+        said.append(f"{label}: {_size(Path(folder), deadline)}")
+    if sys.platform == "win32":
+        said.append("Windows Error Reporting's since it began: " + ("; ".join(wer_reports(age)) or "none"))
+    return said
+
+
+def _listed() -> list[tuple[int, int, int, str, str, int]]:
     try:
         return processes()
     except (OSError, subprocess.SubprocessError) as e:
@@ -323,15 +465,23 @@ def stop_tier(why: str, log: str, root: int | None, grace: float = GRACE_S, sett
         mine.add(pid)
         pid = parents[pid]
     members = tree(rows, root) if root and root > 1 and root not in mine else []
-    print("--- the tier's processes (age), each under its parent", flush=True)
-    for depth, (pid, _, age, name, _) in members:
-        print(f"{'  ' * depth}{name} (id {pid}): {age // 60} min", flush=True)
+    print("--- the tier's processes (age, memory), each under its parent", flush=True)
+    for depth, (pid, _, age, name, *rest) in members:
+        print(f"{'  ' * depth}{name} (id {pid}): {age // 60} min, {rest[1] / MIB:.0f} MiB", flush=True)
     inside = {row[0] for _, row in members}
-    others = [row for row in rows if row[0] not in inside and NAMED.search(row[3])]
+    left = {row[0] for row in orphans(rows, members[0][1][2])} if members else set()
+    others = [row for row in rows if row[0] not in inside
+              and (NAMED.search(row[3]) or CRASH.search(row[3]) or row[0] in left)]
     if others:
-        print("--- outside the tier: python, node, uv and the browsers", flush=True)
-        for pid, parent, age, name, _ in others:
-            print(f"{name} (id {pid}, parent {parent}): {age // 60} min", flush=True)
+        print("--- outside the tier: python, node, uv, the browsers, the crash handlers and what a parent that ended "
+              "left running since the tier began", flush=True)
+        for row in others:
+            print(described(row), flush=True)
+    print("--- Playwright's temporary folders: " + ("; ".join(temp_folders(None, time.monotonic() + SAY_S))
+                                                   or "none"), flush=True)
+    if sys.platform == "win32":
+        print("--- Windows Error Reporting's since the tier began: " + (
+            "; ".join(wer_reports(members[0][1][2] if members else None)) or "none"), flush=True)
     if not members:
         print("--- the tier's process isn't running, isn't known or runs this watcher: nothing stopped", flush=True)
         return

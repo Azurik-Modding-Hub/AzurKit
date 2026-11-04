@@ -1781,10 +1781,19 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert 2 <= time.monotonic() - t3 < 20
         monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
         t4 = time.monotonic()
-        with pytest.raises(AssertionError, match=f"^no answer in 1 s: the {browser.browser_type.name} browser's close, "
-                                                 r"its driver \d+$"):
-            conftest.close_browser(browser, 1)
+        with pytest.raises(AssertionError) as unclosed:
+            conftest.close_browser(browser, 1, downloads=site)
         assert 1 <= time.monotonic() - t4 < 10
+        name, lines = browser.browser_type.name, str(unclosed.value).splitlines()
+        driver = re.fullmatch(rf"no answer in 1 s: the {name} browser's close, its driver (\d+)", lines[0])[1]
+        assert lines[1] == "its driver heard its browser's pipe close: no", lines
+        assert re.match(rf"under its driver: \S+ \(id {driver}, parent \d+\): \d+ min, \d+ MiB; .+ \(id \d+, "
+                        rf"parent \d+\): \d+ min, \d+ MiB", lines[2]), lines   # its browser under it
+        assert [line.partition(": ")[0] for line in lines[3:7]] == [
+            "left running since it began by a parent that ended", "crash handlers",
+            "Playwright's temporary folders since it began", "its downloads"], lines
+        assert re.search(rf"\b{name}'s profile \(\d+ min\): [\d.]+ MiB in \d+ files", lines[5]), lines
+        assert re.fullmatch(r"its downloads: [\d.]+ MiB in [1-9]\d* files", lines[6]), lines
         routes = []   # a navigation whose document never comes
         page.route("**/held.html", lambda route: routes.append(route))
         t2 = time.monotonic()
