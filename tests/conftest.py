@@ -299,29 +299,67 @@ def browser(request, tmp_path_factory):
             close_browser(launched, downloads=downloads)
 
 
-def close_browser(browser, seconds: float = 120, downloads: Path | None = None) -> None:
-    """``browser.close()`` in at most ``seconds`` (``tests/_page.py``'s STALL, the bound a site test's call with none of
-    its own has; a close took at most 0.5 s here): Playwright's driver answers a browser's close only once the
-    browser's process has ended and every handle of its pipes has closed, then its temporary folders are removed (its
-    ``launchProcess``), and its kill 30 s in reaches only the browser and the children of a live parent. On GitHub's
-    Windows runner WebKit's close after the pack golden never answered (run 41779807138), and twice before the worker
-    went silent there with its driver's browser gone and a WebKitWebProcess.exe left by its ended parent (runs
-    41744982709 and 182336a's), at the next item's setup, a Firefox one's. Past it the close fails by name, saying
-    whether the driver heard the browser's pipe close and what it may wait on (``scripts/ci_resources.py``'s
-    ``held``: the processes under the driver and those a parent that ended left running, with their memory, the crash
-    handlers and the browser's temporary and ``downloads`` folders' sizes); the driver ends with the fixture's
-    ``sync_playwright`` (its own 30 s after its pipe closes)."""
+LEFT_S = 10
+"""s a browser's close waits before the ``browser`` fixture ends what its ended browser left running (a close took at
+most 0.5 s here, the browser's processes ending with it)."""
+EVERY_S = 2
+"""s between the fixture's looks for them while the close waits on."""
+
+
+async def _closed(close, driver: int, seconds: float, ended: list) -> None:
+    """Await ``close``, a browser's, in at most ``seconds`` s (past them TimeoutError, the close cancelled): once it
+    has waited :data:`LEFT_S`, and every :data:`EVERY_S` after, end each browser's process a parent that ended left
+    running since its driver (id ``driver``) began (``scripts/ci_resources.py``'s ``left``), each one's row added to
+    ``ended``."""
     import asyncio
 
     from scripts import ci_resources
+    loop = asyncio.get_running_loop()
+    task, end = asyncio.ensure_future(close), loop.time() + seconds
+    look = loop.time() + LEFT_S
+    while not (await asyncio.wait({task}, timeout=max(0.0, (until := min(end, look)) - loop.time())))[0]:
+        if until == end:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            raise TimeoutError
+        ended.extend(await asyncio.to_thread(ci_resources.end_left, driver))
+        look = loop.time() + EVERY_S
+    task.result()
+
+
+def close_browser(browser, seconds: float = 120, downloads: Path | None = None) -> None:
+    """``browser.close()`` in at most ``seconds`` (``tests/_page.py``'s STALL, the bound a site test's call with none of
+    its own has; a close took at most 0.5 s here). Playwright's driver answers a browser's close only once the
+    browser's process has ended and every handle of its stdout, stderr and protocol pipes has closed, then removes its
+    temporary folders (its ``launchProcess``), and its kill 30 s in, ``taskkill /T`` on Windows, reaches only the
+    browser and the children of a live parent; Playwright's WebKit on Windows starts each of its processes with its own
+    stdout and stderr and every handle it may pass on (its ``ProcessLauncherWin.cpp``). So a WebKitWebProcess.exe left
+    by its ended browser held the close: on GitHub's Windows runner WebKit's close after the pack golden never
+    answered (run 41779807138), and twice before the worker went silent there with its driver's browser gone and a
+    WebKitWebProcess.exe left by its ended parent (runs 41744982709 and 182336a's), at the next item's setup, a Firefox
+    one's. Once the close has waited :data:`LEFT_S`, what a parent that ended left running of the browsers' since the
+    driver began is ended (:func:`_closed`), as the driver's kill would have had its parent lived, and a warning names
+    each. Past ``seconds`` the close fails by name, saying whether the driver heard the browser's pipe close, what was
+    ended and what it may wait on (``scripts/ci_resources.py``'s ``held``: the processes under the driver and those a
+    parent that ended left running, with their memory, the crash handlers and the browser's temporary and
+    ``downloads`` folders' sizes); the driver ends with the fixture's ``sync_playwright`` (its own 30 s after its pipe
+    closes)."""
+    import warnings
+
+    from scripts import ci_resources
+    driver, name, ended = browser._impl_obj._connection._transport._proc.pid, browser.browser_type.name, []
     try:
-        browser._sync(asyncio.wait_for(browser._impl_obj.close(), seconds))
+        browser._sync(_closed(browser._impl_obj.close(), driver, seconds, ended))
     except TimeoutError:
-        driver = browser._impl_obj._connection._transport._proc.pid
         raise AssertionError("\n".join([
-            f"no answer in {seconds:.0f} s: the {browser.browser_type.name} browser's close, its driver {driver}",
+            f"no answer in {seconds:.0f} s: the {name} browser's close, its driver {driver}",
             f"its driver heard its browser's pipe close: {'no' if browser.is_connected() else 'yes'}",
+            *([f"ended, left running by a parent that ended: {'; '.join(map(ci_resources.described, ended))}"]
+              if ended else []),
             *ci_resources.held(driver, {"its downloads": downloads} if downloads else {})])) from None
+    if ended:
+        warnings.warn(f"the {name} browser's close waited on what a parent that ended left running, out of its "
+                      f"driver's kill's reach, ended: {'; '.join(map(ci_resources.described, ended))}", stacklevel=2)
 
 
 def _fail_unlisted_skip(report):

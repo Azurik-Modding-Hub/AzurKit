@@ -1810,6 +1810,53 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         served.close()
 
 
+def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(monkeypatch):
+    """Step 4.4ci18: a browser's close its driver holds until a process the browser's ended parent left running ends
+    (Windows' WebKit: a WebKitWebProcess.exe left by its ended browser holds the driver's pipes, out of reach of the
+    driver's ``taskkill /T``; runs 41744982709, 182336a's, 41779807138) answers once the ``browser`` fixture's close
+    (``conftest.close_browser``) has waited ``conftest.LEFT_S`` and ended it, and a warning names it; a browser's
+    process under the driver, one that began before the driver and one of another name, each also left by an ended
+    parent, run on."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from scripts import ci_resources
+    procs = {what: subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+             for what in ("held", "under", "older", "other")}
+    gone, driver = 999_999_999, os.getpid()   # a parent id no process has
+    rows = {"held": (gone, 30, "WebKitWebProcess.exe"), "under": (driver, 50, "Playwright.exe"),
+            "older": (gone, 200, "WebKitWebProcess.exe"), "other": (gone, 30, "git.exe")}
+    monkeypatch.setattr(ci_resources, "processes", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20)] + [
+        (procs[what].pid, parent, age, name, "", 1 << 20) for what, (parent, age, name) in rows.items()
+        if procs[what].poll() is None])
+
+    async def close():   # the driver's: it answers once the held process has ended
+        while procs["held"].poll() is None:
+            await asyncio.sleep(0.05)
+    def apart(call):   # sync Playwright's loop, a module's browser's, may run in this thread: asyncio.run in another
+        with ThreadPoolExecutor(1) as pool:
+            return pool.submit(asyncio.run, call).result()
+    fake = types.SimpleNamespace(browser_type=types.SimpleNamespace(name="webkit"), _sync=apart,
+                                 is_connected=lambda: True, _impl_obj=types.SimpleNamespace(close=close, _connection=(
+                                     types.SimpleNamespace(_transport=types.SimpleNamespace(
+                                         _proc=types.SimpleNamespace(pid=driver))))))
+    monkeypatch.setattr(conftest, "LEFT_S", 0.5)
+    monkeypatch.setattr(conftest, "EVERY_S", 0.2)
+    try:
+        t0 = time.monotonic()
+        with pytest.warns(UserWarning) as said:
+            conftest.close_browser(fake, 30)
+        assert 0.5 <= time.monotonic() - t0 < 10
+        assert {what: proc.poll() is None for what, proc in procs.items()} == {
+            "held": False, "under": True, "older": True, "other": True}
+        assert [str(w.message) for w in said] == [
+            "the webkit browser's close waited on what a parent that ended left running, out of its driver's kill's "
+            f"reach, ended: WebKitWebProcess.exe (id {procs['held'].pid}, parent {gone}): 0 min, 1 MiB"]
+    finally:
+        for proc in procs.values():
+            proc.kill()
+            proc.wait()
+
+
 STOPPED = """import asyncio, json, sys, time
 from playwright.sync_api import sync_playwright
 from tests import _page
