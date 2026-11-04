@@ -349,7 +349,8 @@ answering`;
 // next, so a worker reads the folders' tables once, not once a call. Before the engine's first walk of an image in a
 // worker, its tables' pages are read ahead (ahead(): R2.5), every folder of a depth at once; a seed's build asks for
 // its levels' TOCs and node sections' too (spans(): AM-HUB-E): 95 pages on USA, 147 on Europe, whose French.xbr and
-// German.xbr it reads whole, and a worn body's its files (about 110 pages), so PAGES holds them with the tables.
+// German.xbr it reads whole, a worn body's its files (107 pages) and, before a dress it works out, English.xbr (36),
+// so PAGES holds them with the tables.
 const PAGE = 1 << 20, BLOCK = 16 << 20, PAGES = 192, BLOCKS = 3;
 const ids = new WeakMap();   // a message's File -> its image's id (identify)
 function readInBlocks(WORKERFS) {

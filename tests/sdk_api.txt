@@ -184,9 +184,9 @@ report)``, :func:`image`'s, byte for byte, as its ``StopIteration``'s
 value. Its refusals are :func:`image`'s; a key missing from the shas is a
 ``ValueError`` naming it. ``picked`` as :func:`image`'s, with ``hashed``
 the sha256 of each that the host hashed. With ``ahead``, for a host whose
-reads are late, it first yields twice at most a list of ``(image offset,
-size)``, what it reads next, and is resumed once those are at hand
-(:func:`_planning`).
+reads are late, it first yields three times at most a list of ``(image
+offset, size)``, what it reads next, and is resumed once those are at
+hand (:func:`_planning`).
 
 
 def image_checks(made: 'iso.Image', report: 'Mapping') -> 'dict[str, list[list]]':

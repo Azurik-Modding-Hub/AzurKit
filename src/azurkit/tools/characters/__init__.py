@@ -66,6 +66,8 @@ FILES = ("gamedata/characters.xbr", "gamedata/fx.xbr", "gamedata/index/index.xbr
 XBE, CONFIG = "default.xbe", "gamedata/config.xbr"
 READS = (XBE, CONFIG, *FILES)
 """The files a swap reads to plan (a level's too, read where it asks)."""
+SOUNDS = ("gamedata/english.xbr",)
+"""The file a dress reads its voices from, whole (``_player_sounds``); a kept or shipped answer reads none."""
 FIELDS = {   # a recipe's field -> (its type, apply_player_model's keyword)
     "species": (str, None), "mode": (str, "mode"), "size": (str, "size"), "scale": (float, "model_scale"),
     "attack_reach": (float, "attack_reach"), "attack_ground": (bool, "attack_ground"),
@@ -378,6 +380,23 @@ def _over(vanilla, before: Sequence[Layer]):
     base = {f: vanilla.read(f) for f in (*READS, *sorted(reached - {*READS}))}
     current, _ = compose(base, kept)
     return base, kept, current, ports.IsoStaging(vanilla, _Left(vanilla, before, current))
+
+
+def reads_voices(recipe: Mapping, release: gate.Release, before: Sequence[Layer], folded: float | None = None) -> bool:
+    """Whether :func:`plan` reads :data:`SOUNDS` over ``before``: it dresses
+    ``recipe``'s body itself (no shipped row stands on this build and
+    :data:`CACHE` keeps no answer of it) with the body's own sounds, not
+    garret4's. A host's hint for its reads ahead: a shipped row whose reads
+    don't hold still dresses."""
+    from azurkit.tools.characters import shipped
+    from azurkit.tools.characters._player_sounds import PLAYER
+
+    if recipe["species"] == PLAYER or recipe.get("sounds", "own") != "own":
+        return False
+    if shipped.rows(recipe, release, folded, before):
+        return False
+    key = cache_key("plan", recipe, release, before, folded)
+    return key is None or CACHE.get(key) is None
 
 
 def plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str, object] = (),

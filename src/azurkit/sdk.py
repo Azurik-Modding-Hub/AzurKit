@@ -370,8 +370,10 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
     randomizer's read-back of the built image and its plan (``None`` without
     one); every refusal named. ``steps`` hears each stage. A generator, its
     ``StopIteration``'s value those: with ``ahead`` it first yields a seed's
-    ``generator.heads`` and ``generator.pages``, or a worn body's files, for a
-    host whose reads are late to read them all at once, else nothing."""
+    ``generator.heads`` and ``generator.pages``, or a worn body's files, and
+    before a dress that reads its voices (``characters.reads_voices``)
+    their file (``characters.SOUNDS``), for a host whose reads are late to read
+    them all at once, else nothing."""
     packs = own = _packs(recipe)
     picks = _picks(recipe)
     ops = xbr.normalize(recipe.get("xbr", []))
@@ -428,6 +430,11 @@ def _planning(recipe: Mapping, steps: Steps = Steps(), picked: Mapping[str, byte
                   for la in layers]
     if character is not None and not failed:
         steps("dress", f"Dressing {character['species']}")
+        sounds = [f for f in characters.SOUNDS if f in stamp.release.files]
+        if (ahead and sounds and not (character.get("shapes") and prepared is None)
+                and characters.reads_voices(character, stamp.release, layers, folded)):
+            with iso.Reader(stamp.path) as r:   # the file its dress reads its voices from, at once
+                yield [(r.start(entry), entry.size) for entry in map(r.find, sounds)]
 
         def dress():
             return characters.plan(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS), folded,
@@ -841,9 +848,9 @@ def image_staged(recipe: Mapping, *, progress: Callable[[dict], object] | None =
     value. Its refusals are :func:`image`'s; a key missing from the shas is a
     ``ValueError`` naming it. ``picked`` as :func:`image`'s, with ``hashed``
     the sha256 of each that the host hashed. With ``ahead``, for a host whose
-    reads are late, it first yields twice at most a list of ``(image offset,
-    size)``, what it reads next, and is resumed once those are at hand
-    (:func:`_planning`)."""
+    reads are late, it first yields three times at most a list of ``(image
+    offset, size)``, what it reads next, and is resumed once those are at
+    hand (:func:`_planning`)."""
     steps = Steps(progress)
     stamp, base, layers, judge, prepared = yield from _planning(recipe, steps, picked, hashed, ahead)
     steps("layout")

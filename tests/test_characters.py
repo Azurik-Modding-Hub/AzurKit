@@ -540,6 +540,70 @@ def test_a_character_builds_recipe_rebuilds_its_image(release, request):
     assert sdk.image({"iso": path} | recipe)[0].sha256() == made.sha256()
 
 
+@pytest.mark.vanilla
+def test_a_bodys_staged_build_asks_ahead_for_its_files_and_for_its_voices_only_before_a_dress_it_works_out(
+        usa_iso, monkeypatch):
+    """A worn body's build for a host whose reads are late (the site's: ``sdk.image_staged`` with ``ahead``) asks at
+    once for the body's files, then, before a dress it works out, for english.xbr, which that dress reads its voices
+    from whole (Step 4.4bi: the site read it after the asks, as three late blocks); each read of those files after
+    its first ask lies in a page it asked for, and it builds ``sdk.image``'s image and report. With its dress kept
+    (the site's later visit: ``characters.CACHE``) it reads no voices, so it asks for none."""
+    recipe = {"iso": str(usa_iso), "packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+              "character": {"species": "keylord"}}
+    with iso.Reader(usa_iso) as r:
+        files = {f: (r.start(r.find(f)), r.find(f).size) for f in (*characters.READS, *characters.SOUNDS)}
+    body, english = sorted(files[f] for f in characters.READS), files[characters.SOUNDS[0]]
+    reads, tracing = [], [False]
+
+    class Traced(io.FileIO):
+        def readinto(self, into):
+            at, n = self.tell(), super().readinto(into)
+            if tracing[0] and n:
+                reads.append((at, n))
+            return n
+
+    class Kept:   # web/worker.mjs's: the answers handed in with a build, and those it works out
+        def __init__(self):
+            self.offered, self.made = {}, {}
+
+        def get(self, key):
+            return self.offered.get(key)
+
+        def put(self, key, make):
+            self.made[key] = make
+
+    def pages(at: int, n: int) -> set[int]:   # the site's read cache's 1 MiB pages a read touches
+        return set(range(at >> 20, (at + n - 1 >> 20) + 1))
+
+    def staged() -> tuple[list[list], list[tuple[int, int]], tuple[iso.Image, dict]]:
+        reads.clear()
+        run, asks = sdk.image_staged(recipe, ahead=True), []
+        while isinstance(step := next(run), list):
+            asks.append(sorted(step))
+            tracing[0] = True
+        tracing[0] = False
+        hashes = {key: edits_manifest._hashes(data) if isinstance(data, iso.Patched)
+                  else (hashlib.sha256(data).hexdigest(), None) for key, data in step.items()}
+        with pytest.raises(StopIteration) as done:
+            run.send({key: sha for key, (sha, _) in hashes.items()} | {
+                key.replace("file:", "md5:"): md5 for key, (_, md5) in hashes.items() if md5})
+        late = [(at, n) for at, n in reads if any(at < a + size and a < at + n for a, size in files.values())]
+        held = set().union(*(pages(a, size) for ask in asks for a, size in ask))
+        assert all(pages(at, n) <= held for at, n in late), [(at >> 20, n) for at, n in late if not pages(at, n) <= held]
+        return asks, late, done.value.value
+
+    monkeypatch.setattr(iso, "open", lambda name, mode: io.BufferedReader(Traced(name)), raising=False)
+    monkeypatch.setattr(characters, "CACHE", kept := Kept())
+    asks, late, (made, report) = staged()
+    assert asks == [body, [english]] and any(english[0] <= at < sum(english) for at, _ in late)
+    kept.offered, kept.made = {key: make() for key, make in kept.made.items()}, {}
+    asks, late, (again, _) = staged()
+    assert asks == [body] and not any(english[0] <= at < sum(english) for at, _ in late)
+    monkeypatch.setattr(characters, "CACHE", None)
+    whole, told = sdk.image(recipe)
+    assert made.sha256() == again.sha256() == whole.sha256() and report == told
+
+
 def test_a_worn_combo_chains_only_on_a_stun_unless_chain_is_any_and_every_sets_first_three_attacks_stun(
         usa_iso, no_content, monkeypatch):
     """D1045: by default (``chain`` "hit", as a link or mods file without the field reads) the combo's rows 28-31
