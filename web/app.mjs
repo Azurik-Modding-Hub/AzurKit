@@ -201,9 +201,9 @@ const bytes = (n) => `${n.toLocaleString("en-US")} B`;
 
 const READYING = "Getting your image ready to save";
 // Progress (D980): one bar for both hosts. Each ask in flight is kept (asking(kind) -> its id, answered(id)) with the
-// last record the engine gave for it (the app's api/progress, polled every 250 ms; the site's worker's posts); the
-// newest that is a build, a save, Track this seed's plan or a plan file's spoiler, has a record, or has waited 1 s
-// shows: its label and percent, or a moving stripe while it has no count.
+// last record the engine gave for it (the app's api/progress, polled every 250 ms from the click while any ask is in
+// flight; the site's worker's posts); the newest that is a build, a save, Track this seed's plan or a plan file's
+// spoiler, has a record, or has waited 1 s shows: its label and percent, or a moving stripe while it has no count.
 const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanilla: "Checking your image", check: "Checking your image",
                  start: "Starting the engine", plan: "Planning the seed", tracker: "Reading the seed's logic",
                  randomizer: "Reading the randomizer",
@@ -215,9 +215,9 @@ const LABELS = { build: "Building", save: "Saving", save_check: "Saving", vanill
                  mods_file: "Reading the mods file", plan_spoiler: "Writing the spoiler", report: "Saving the report",
                  storage: "Reading AzurKit's storage", data: "Reading the game data", data_edit: "Checking the edit",
                  flat: READYING };
-const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other after 1 s
-// shown and polled from the click: Track this seed's plan and a plan file's spoiler (the logic's read) too, and the site's
-// Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it
+const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with the build or save; any other from its
+// first record, else after 1 s. Shown from the click too: Track this seed's plan and a plan file's spoiler (the logic's
+// read), and the site's Save's check, which is over when it is: no later Build, Cancel, pick or engine's ready ends it
 const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler", "save_check", "flat"]);
 const PAGES = new Set(["save_check", "flat"]);   // the page's own waits, with their own records: never a worker's
 let asked = 0, ticking = null;
@@ -261,12 +261,12 @@ async function tick() {
     ticking = null;
     return progressed(null);
   }
-  const now = performance.now();
-  if (state.app && [...state.asks.values()].some((a) => FOLLOWED.has(a.kind) || now - a.since >= 750)) {
+  if (state.app) {   // each ask's record from its click: a G4 match's bar, polled from 750 ms, moved only past 1 s
+    const at = performance.now();
     const reply = await state.engine.progress().catch(() => null);
     for (const ask of state.asks.values()) {
       const step = reply?.calls?.[ask.kind];
-      if (step?.stage) ask.record = step;
+      if (step?.stage && ask.since <= at) ask.record = step;   // never a record of a call of its kind that ended before it
     }
   }
   showing();

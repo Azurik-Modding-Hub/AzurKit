@@ -3440,6 +3440,44 @@ def test_the_apps_plan_file_spoiler_bar_follows_the_logic_read_from_the_pick(bro
             polled - asked < 750, len({b[1] for b in shown}) >= 2) == (True, True, True, True, True), (picking, bars)
 
 
+def test_the_apps_bar_polls_any_asks_record_from_its_click_so_a_counted_1_2_s_call_moves_before_1_s(
+        browser, tmp_path, monkeypatch):
+    """Step 4.4bb (A11, D980): in the app's page every ask in flight has its
+    record polled from its click, not from 750 ms, by when a G4 match's bar
+    took its second value past 1 s and a 1.4 s match could show only one.
+    Verify every file, a kind the bar doesn't follow from the click, its
+    record counting 12 steps over 1.2 s, moves the bar to its second value
+    within 1 s of its ask, on the page's own clock."""
+    _home(monkeypatch, tmp_path / "home")
+
+    def counted(iso: str, progress) -> dict:   # 12 steps, 0.1 s apart
+        for done in range(13):
+            progress(progress_record("check", sdk.CHECK_ALL, done, 12))
+            time.sleep(0.1)
+        return {"files": 0}
+    monkeypatch.setattr(sdk, "verify_all", counted)
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready && !azurkit.asks.size", 120)
+        page.evaluate(BARS)
+        page.evaluate(PICKING)
+        page.evaluate("() => { azurkit.verified = null; azurkit.engine.call('verify_all', { iso: '/nowhere/usa.iso' })"
+                      ".then((reply) => { azurkit.verified = reply; }); }")
+        _page.until(page, "() => azurkit.verified && !azurkit.asks.size", 60)
+        bars, picking = page.evaluate("() => [bars, picking]")
+        page.close()
+    finally:
+        server.close()
+    asked = next(ms for ms, path in picking["requests"] if path == "api/verify_all")
+    values = {}   # each value the bar took, at the ms it first took it
+    for b in bars:
+        if b is not None and b[1] is not None:
+            values.setdefault(b[1], b[0])
+    assert len(values) >= 2 and sorted(values.values())[1] - asked < 1000, (picking, bars)
+
+
 def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_path, monkeypatch, usa_iso):
     """Step 4.7a in the app's page: a Data tab edit made before an image
     (api/data, api/data_edit) is the setup the app remembers (api/setup),
