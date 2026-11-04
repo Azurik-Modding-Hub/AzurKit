@@ -407,15 +407,24 @@ def settings_file(table: object) -> str:
     settings); ``ValueError`` names a setting refused."""
     if not isinstance(table, Mapping):
         raise ValueError("settings is a settings file's table")
-    return layer.settings_text(settings_from_table(table, {sid: s for sid, (_, s) in kept_logic().db.skips.items()},
-                                                   "settings"))
+    return layer.settings_text(settings_from_table(table, _skips(), "settings"))
+
+
+def _skips() -> dict:
+    """The database's skips (``{id: skip}``): the skip table shipped apart
+    from its logic (``dbcache.shipped_skips``, Step 4.4bd), else the kept
+    Logic's."""
+    if (table := dbcache.shipped_skips(DATA_DIR)) is not None:
+        return table
+    return {sid: s for sid, (_, s) in kept_logic().db.skips.items()}
 
 
 def remembered(given: object) -> dict:
     """A page's remembered randomizer (D915): ``on``, ``seed`` (a string of
     at most :data:`SEED_MAX` characters), ``settings`` (a settings file's
     table) and, when not vanilla's, ``obsidian_cost``, checked as a build
-    checks them; ``ValueError`` names the first refusal."""
+    checks them, against the shipped skip table, so a launch never reads the
+    logic for it; ``ValueError`` names the first refusal."""
     keys = ("on", "seed", "settings", "obsidian_cost")
     if not isinstance(given, Mapping) or not {"on", "seed", "settings"} <= set(given) <= set(keys):
         raise ValueError(f"not an object of {', '.join(keys)}")
@@ -425,7 +434,6 @@ def remembered(given: object) -> dict:
         raise ValueError(f"seed is a string of at most {SEED_MAX} characters")
     if not isinstance(given["settings"], Mapping):
         raise ValueError("settings is a settings file's table")
-    skips = {sid: s for sid, (_, s) in kept_logic().db.skips.items()}
     out = {"on": given["on"], "seed": given["seed"],
-           "settings": literal(settings_from_table(given["settings"], skips, "settings"))}
+           "settings": literal(settings_from_table(given["settings"], _skips(), "settings"))}
     return out | ({"obsidian_cost": cost} if (cost := _cost(given)) is not None else {})

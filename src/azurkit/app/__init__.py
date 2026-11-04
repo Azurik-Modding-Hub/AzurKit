@@ -167,10 +167,10 @@ from azurkit.edits import files as replaced
 from azurkit.edits import xbr
 from azurkit.tools import randomizer
 from azurkit.tools.mods import community as communal
-from azurkit.tools.randomizer import tracking
+from azurkit.tools.randomizer import dbcache, tracking
 from azurkit.tools.randomizer.live import link
 
-from . import ahead, live, swapcache
+from . import ahead, live, swapcache, warm
 from . import art as pictures
 from . import engine as engines
 from .engine import Cancelled
@@ -242,6 +242,19 @@ def _read() -> dict:
     if not isinstance(kept, dict):
         raise ValueError(f"a JSON {type(kept).__name__}, not an object")
     return kept
+
+
+def _logic_ahead() -> None:
+    """The randomizer's logic, read ahead from the server's start on D1008's
+    intent (Randomize on in the remembered setup, a tracked plan
+    remembered), off the launch's path, which checks the setup against the
+    shipped skip table alone: the Randomizer tab's first ask or the tracker's
+    view that follows finds it read, or waits for this read (Step 4.4bd).
+    Only the wheel's or the frozen app's shipped one, never a checkout's
+    check (about 4 s)."""
+    with contextlib.suppress(Exception):   # a refusal: the page's own call names it
+        if dbcache.shipped_skips(randomizer.DATA_DIR) is not None:
+            randomizer.kept_logic()
 
 
 def _kept() -> dict:
@@ -511,6 +524,8 @@ class Server(http.server.ThreadingHTTPServer):
         self.drawing = pictures.Drawing()   # the tracker's maps and icons, shipped with the page
         self.picks: dict[str, Path] = {}    # the files picked this session to replace the image's, by its path
         self.slots = ahead.Ahead(kill=self._quiet)   # the work ahead, each click's way to it (D1007)
+        if warm.intent((kept := _kept()).get("setup"), kept.get("tracker")):
+            threading.Thread(target=_logic_ahead, name="azurkit-logic", daemon=True).start()
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
     def quit(self) -> None:
@@ -764,8 +779,8 @@ class Server(http.server.ThreadingHTTPServer):
         """``api/randomizer``: what the Randomizer tab shows; the engine
         builds the randomizer's logic meanwhile, for a seed's build."""
         self.engine.warm("randomizer")
-        with self.follow("randomizer", record("plan", "Reading the randomizer's logic")):
-            return sdk.randomizer_settings(body.get("given"))
+        with self.follow("randomizer", record("plan", "Reading the randomizer's logic")) as report:
+            return sdk.randomizer_settings(body.get("given"), progress=report)
 
     def restore(self, body: dict) -> dict:
         """``api/restore``: what of the setup still applies; with Randomize

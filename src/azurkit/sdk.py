@@ -1255,7 +1255,7 @@ def randomizer_logic(*, progress: Callable[[dict], object] | None = None) -> dic
     return {}
 
 
-def randomizer_settings(given: Mapping) -> dict:
+def randomizer_settings(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
     """What the Randomizer tab shows for ``given``: its ``settings`` (a
     settings file's table), ``share`` (a share string) or ``file`` (a
     settings file's text, D144's Load settings), its
@@ -1279,7 +1279,17 @@ def randomizer_settings(given: Mapping) -> dict:
     skip groups (``groups``, D258: each group's picks, its highest rating
     and its tip).
     ``tools.randomizer.tab``; a refusal names the setting, the share string,
-    the settings file or the pack."""
+    the settings file or the pack. ``progress(record)`` hears the logic's
+    read while the first ask reads it (``plan``, "Reading the randomizer's
+    logic", counted: the shipped file's twentieths, a checkout's checks), and
+    an ask once it is read hears nothing, so its bar never flashes
+    (Step 4.4bd)."""
+    with noting(Steps(progress and (lambda step: progress(step) if step["total"] else None))) as steps:
+        steps("plan", "Reading the randomizer's logic")   # heard from its first count on: a read that is counted
+        return _randomizer_settings(given)
+
+
+def _randomizer_settings(given: Mapping) -> dict:
     if not isinstance(given, Mapping):
         raise ValueError(f"randomizer: a JSON object, not {type(given).__name__}")
     packs = _packs({"packs": given.get("packs", {})})

@@ -520,7 +520,19 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     loader's `SHIPPED` hook (the package sets it), hands `kept_logic` the
     Logic as built, a fresh one each call, so neither checks nor builds;
     what it reads is frozen out of the cycle collector's walks (`gc.freeze`:
-    its million objects' full walks held the app's server 0.8 s).
+    its million objects' full walks held the app's server 0.8 s). The file
+    holds the database's skip table first (`{id: skip}`, about 14 KB), then
+    the database (Step 4.4bd): `dbcache.shipped_skips` reads the table
+    alone, so a page's remembered randomizer (`randomizer.remembered`, a
+    launch's restore and `api/setup`) is checked without reading the logic,
+    and a file of the other layout fails by name. The logic itself is read
+    as a counted stream, a note each twentieth ("reading its logic, k of
+    20"), which `sdk.randomizer_settings` passes on only when counted, so
+    the Randomizer tab's first ask moves a bar and a later one shows none.
+    `kept_logic` reads or builds one at a time (a caller meanwhile waits and
+    is served it), and the app's server reads it ahead from its start on
+    D1008's intent (`app._logic_ahead`; a shipped one only), so the tab's
+    ask or the tracker's view after a launch finds it read.
   - The engine's progress notes are one stream (Step 4.3 train B3):
     `core.progress.note(text)` from the fill ("placing the items", then
     "placing the items, k of n", k the item it is placing of the n steps
@@ -528,9 +540,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     at once, its last, so the count moves as the reaches' time goes; each
     percent and at each reach), the logic's checks as
     a checkout reads it cold ("checking the levels, 5 of 15", then
-    "building its logic") and the tracker's exits ("the maps' exits, k of
+    "building its logic"), the shipped logic's read ("reading its logic, k
+    of 20") and the tracker's exits ("the maps' exits, k of
     22"). `core.progress.noting`, the calling thread's (`randomizer.plan`,
-    `sdk.image`, `sdk.tracker`, `sdk.spoiler`, `sdk.randomizer_logic`),
+    `sdk.image`, `sdk.tracker`, `sdk.spoiler`, `sdk.randomizer_logic`,
+    `sdk.randomizer_settings`),
     folds each into the stage the call reported last: its label and the
     note, a "k of n" note counted inside that stage's step (the tracker's
     world map, 50 % to 100 %; a plan's fill, 33 % to 66 %), and a note

@@ -277,7 +277,7 @@ def engine(request):
             if request.type == "spoiler":   # the seed just built, its spoiler left out (sdk.image's spoiler false)
                 return js(sdk.spoiler({"sha256": request.sha256}, built=True))
             if request.type == "randomizer":   # through JSON: a character's null is None (to_py gives JsNull)
-                return js(sdk.randomizer_settings(json.loads(JSON.stringify(request.given))))
+                return js(sdk.randomizer_settings(json.loads(JSON.stringify(request.given)), progress=progressed))
             if request.type == "tracker":   # through JSON: a mark's null clock is None (to_py gives JsNull)
                 return js(sdk.tracker(json.loads(JSON.stringify(request.given)), progress=progressed))
             if request.type == "plan":

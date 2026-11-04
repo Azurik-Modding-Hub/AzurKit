@@ -1340,8 +1340,14 @@ def test_an_ask_that_finds_the_fill_kept_after_taking_its_in_flight_slot_ends_it
         second.join(5)
 
 
+@pytest.fixture(scope="module")
+def shipped_database(tmp_path_factory) -> Path:
+    """The database the wheel and the app ship (``web_tools.ship_database``), written once for this file's tests."""
+    return web_tools.ship_database(tmp_path_factory.mktemp("shipped"))
+
+
 def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic_unwalked(
-        tmp_path, monkeypatch):
+        shipped_database, monkeypatch):
     """The database the wheel and the app ship (``web_tools.ship_database``:
     checked in a child under PYTHONHASHSEED=0, its root dropped) is keyed by
     the data and planner it was made from, holds no path of the checkout
@@ -1352,11 +1358,11 @@ def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_th
     (train B2: two full walks of it held the app's server 0.8 s); the
     planner's kept Logic is that one, with no database checked and no Logic
     built (the loader's ``SHIPPED`` hook)."""
-    shipped = web_tools.ship_database(tmp_path)
+    shipped = shipped_database
     blob = shipped.read_bytes()
     assert (shipped.stem, b"pathlib" in blob, str(Path(web_tools.ROOT)).encode() in blob,
             str(Path.home()).encode() in blob) == (dbcache.entry(loader.DATA_DIR).name, False, False, False)
-    monkeypatch.setattr(dbcache, "SHIPPED", tmp_path)
+    monkeypatch.setattr(dbcache, "SHIPPED", shipped.parent)
     monkeypatch.setattr(dbcache, "FROZEN", True)
     got, fresh = dbcache.shipped_logic(loader.DATA_DIR, Logic), Logic(loader.check_database(loader.DATA_DIR).database)
     assert got.db == fresh.db and not any(o is got.db for o in gc.get_objects())
@@ -1368,6 +1374,39 @@ def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_th
     monkeypatch.setattr(loader, "load_database", lambda root: pytest.fail(f"{root}: checked, not the shipped one"))
     kept = kept_logic()
     assert kept.db == fresh.db and kept_logic() is kept
+    gc.unfreeze()   # the rest of this process's tests as they were
+
+
+def test_a_launchs_restore_checks_the_skip_table_shipped_apart_never_the_logic_whose_read_is_counted(
+        shipped_database, monkeypatch):
+    """Step 4.4bd: the shipped database's file holds its skip table ahead of
+    the database, the logic's own skips, so a launch's restore of a
+    remembered randomizer (``sdk.restore``) checks its settings against
+    that table, about 14 KB, and never reads the 87.6 MB logic (A02's
+    0.4 s). The logic's read is counted:
+    the Randomizer tab's first ask hears each twentieth of it, once, and an
+    ask once it is read hears nothing, so no bar flashes; two callers at
+    once (the app's server: that ask beside the tracker's view) are served
+    one read."""
+    monkeypatch.setattr(dbcache, "SHIPPED", shipped_database.parent)
+    monkeypatch.setattr(dbcache, "FROZEN", True)
+    monkeypatch.setattr(loader, "_KEPT", {})
+    table, defaults = dbcache.shipped_skips(loader.DATA_DIR), randomizer.options()["defaults"]
+    pick = next(sid for sid, s in table.items() if turnable(s))
+    kept = {"on": True, "seed": "2", "settings": defaults | {"skip_override": {pick: True}}}
+    with monkeypatch.context() as m:
+        m.setattr(randomizer, "kept_logic", lambda: pytest.fail("the restore read the logic"))
+        restored = sdk.restore({"ticked": [], "randomizer": kept})
+    heard, again = [], []
+    sdk.randomizer_settings({"settings": defaults}, progress=heard.append)
+    sdk.randomizer_settings({"settings": defaults}, progress=again.append)
+    assert (restored["randomizer"], restored["dropped"], table) == (
+        kept, [], {sid: s for sid, (_, s) in kept_logic().db.skips.items()})
+    assert ([r["percent"] for r in heard], again) == (list(range(0, 100, 5)), [])
+    monkeypatch.setattr(loader, "_KEPT", {})
+    with concurrent.futures.ThreadPoolExecutor(2) as pool:
+        first, second = pool.map(lambda _: kept_logic(), range(2))
+    assert first is second
     gc.unfreeze()   # the rest of this process's tests as they were
 
 

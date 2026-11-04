@@ -790,7 +790,7 @@ function renderTabs(tabs) {
 
 function pick(id) {
   state.tab = id;
-  if (id === "randomizer" && state.packs) askRando();   // the Patches tab's packs may have changed
+  if (id === "randomizer" && state.packs) askRando(null, 0);   // the Patches tab's packs may have changed (at once)
   if (id === "characters" && state.characters) state.characters.open();
   if (id === "data" && state.data) state.data.open();   // the Patches tab's ticks may have changed: its ⚠ marks
   if (id === "tools" && state.tools) state.tools.open();
@@ -1478,8 +1478,8 @@ function loadRando(rando, from) {
 
 // Ask the engine what the tab's settings give (or `given`'s: a recipe's or a typed share string, whose settings become
 // the tab's), once it is ready, while the tab shows or a recipe waits on it (the database loads at the first ask); only
-// the latest ask's answer is taken.
-function askRando(given = null) {
+// the latest ask's answer is taken, `wait` ms after the last change (a tab's open: at once).
+function askRando(given = null, wait = 100) {
   clearTimeout(state.rando.later);
   const ticket = ++state.rando.ticket;
   if (given) state.rando.given = given;
@@ -1495,7 +1495,7 @@ function askRando(given = null) {
     const character = state.characters?.character() ?? null;   // its size folds into the walk and roll, as a build's
     state.engine.randomizer({ ...randoCost(), ...asked, packs: chosen(), ...(character ? { character } : {}) }, ticket,
                             character ? state.file : null);
-  }, 100);
+  }, wait);
 }
 
 // The engine's answer: the settings it read (a loaded recipe's become the tab's), the share string, the skips, the

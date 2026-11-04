@@ -30,6 +30,7 @@ import hashlib
 import json
 import pickle
 import re
+import time
 import tomllib
 import zlib
 from collections.abc import Callable, Mapping
@@ -59,9 +60,10 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 VERSION = 1
 # Each of the checks :func:`check_database` runs and "building its logic" is a core.progress note ("checking the
 # levels, 5 of 15"), which the call on this thread folds into its stage. A host's hook, None by default:
-# SHIPPED(root) is a Logic of ``root``'s checked database the host already holds (AzurKit's shipped one), or None,
-# and :func:`kept_logic` builds it as before
-SHIPPED: Callable[[Path], Logic | None] | None = None
+# SHIPPED(root, key=key) is a Logic of ``root``'s checked database the host already holds (AzurKit's shipped one,
+# found by ``key``, :func:`.dbcache.entry`'s name, so it is worked out once), or None, and :func:`kept_logic` builds it
+# as before
+SHIPPED: Callable[..., Logic | None] | None = None
 FORMATS = {kind: f"azurik-rando-{kind}/{VERSION}"
            for kind in ("generated", "derived", "level", "items", "world", "settings", "tricks", "route", "movement",
                         "contact")}
@@ -1673,6 +1675,10 @@ def load_database(root: Path | str = DATA_DIR) -> Database:
 _KEPT: dict[Path, tuple[str, Database, bytes, Logic]] = {}   # root -> (its cache key, its database, its tables' digest)
 _MEMOS = frozenset({"db", "_compiled", "_native", "_defaults", "_inside", "_kit_memo", "_named_sets",
                     "_opener_sets", "_reached"})   # what a Logic fills in as it is asked
+# kept_logic's reads in flight, by root (one at a time): the engine holds no threads, so no lock (as fill's fills in
+# flight): a dict whose setdefault is atomic, and a waiter that looks every _POLL s and tells a note each WAIT s
+_READING: dict[Path, list] = {}
+_POLL, WAIT = 0.02, 0.1
 
 
 def kept_logic(root: Path | str = DATA_DIR) -> Logic:
@@ -1687,22 +1693,47 @@ def kept_logic(root: Path | str = DATA_DIR) -> Logic:
     Step 2.221: the database's own 87.5 MB pickle is no longer hashed a
     call (0.7 s, 87 times in the tracker's first ask), so treat the Logic
     and its database as read-only: a holder that wants another database
-    hands it one (``logic.db = replace(logic.db, ...)``) or builds its own."""
+    hands it one (``logic.db = replace(logic.db, ...)``) or builds its own.
+    One is read or built at a time: a caller meanwhile (the app's server:
+    the Randomizer tab's ask beside the tracker's view and the read ahead)
+    waits for it and is served it, never reading another (Step 4.4bd)."""
     from azurkit.tools.randomizer import dbcache
 
     root = Path(root).resolve()
     key = dbcache.entry(root).name
+    while (logic := _served(root, key)) is None:
+        if (busy := _READING.setdefault(root, mine := [False])) is mine:
+            break
+        told = time.monotonic()
+        while not busy[0]:   # another thread's read: served it once it ends (read again if it raised)
+            time.sleep(_POLL)
+            if time.monotonic() - told >= WAIT:
+                told = time.monotonic()
+                progress.note("reading its logic")   # a cancel point
+    else:
+        return logic
+    try:
+        if (logic := _served(root, key)) is not None:   # kept since the first look
+            return logic
+        if (logic := SHIPPED(root, key=key) if SHIPPED is not None else None) is None:
+            db = load_database(root)
+            _note("building its logic", 0, 1)
+            logic = Logic(db)
+        if (tables := _tables(logic)) is not None:
+            _KEPT[root] = (key, logic.db, tables, logic)
+        return logic
+    finally:
+        del _READING[root]
+        mine[0] = True
+
+
+def _served(root: Path, key: str) -> Logic | None:
+    """The Logic kept for ``root`` while :func:`kept_logic` may serve it again, else None."""
     if (kept := _KEPT.get(root)) is not None:
         was, db, tables, logic = kept
         if was == key and logic.db is db and _tables(logic) == tables:
             return logic
-    if (logic := SHIPPED(root) if SHIPPED is not None else None) is None:
-        db = load_database(root)
-        _note("building its logic", 0, 1)
-        logic = Logic(db)
-    if (tables := _tables(logic)) is not None:
-        _KEPT[root] = (key, logic.db, tables, logic)
-    return logic
+    return None
 
 
 def _digest(value) -> bytes:
