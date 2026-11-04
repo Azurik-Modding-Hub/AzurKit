@@ -1185,6 +1185,28 @@ def test_twenty_seeds_under_four_option_sets_plan_and_spoil_as_the_solver_before
         assert tuple(out.splitlines()) == PLANS80[name], name
 
 
+def test_a_reach_refuses_the_first_bad_spot_of_a_placement_and_bad_options_by_name_every_time():
+    """Step 4.4bk: a reach checks a placement by whole sets and lists its spots
+    only to name a refusal, the first as the placement lists them (an id no
+    authored level's pool location, an item items.toml lacks, a guardian
+    slot's other item); options it refused once it refuses again."""
+    logic = kept_logic()
+    st, slot = logic.db.defaults, min(logic.guardian)
+    spot = next(loc for loc, lvl in sorted(logic.pool.items()) if lvl not in logic.db.stubs and loc not in logic.guardian)
+    for placement, why in (({spot: None, "w1/nowhere": None, slot: None},
+                            "placement: w1/nowhere is no pool location of an authored level"),
+                           ({spot: "no such item", "w1/nowhere": None},
+                            f"placement: {spot} holds 'no such item', which items.toml doesn't define"),
+                           ({spot: None, slot: None},
+                            f"placement: {slot} is a guardian slot, which keeps its {logic.vanilla[slot][0]} (D81)")):
+        with pytest.raises(ValueError, match=f"^{re.escape(why)}$"):
+            logic.reach(st, placement, traps=False)
+    assert logic.reach(st, {spot: None}, traps=False) == logic.reach(st, {spot: None}, traps=False)
+    for _ in range(2):
+        with pytest.raises(ValueError, match="movement_tier"):
+            logic.reach(Settings(0, "no such tier", {}), {}, traps=False)
+
+
 def test_the_grammar_has_no_negation_and_each_rule_the_solver_compiles_holds_at_any_larger_state():
     """The reach's escapes rest on monotone rules (a failed escape fails
     every node it saw whose starting flags it held, their escapes inside

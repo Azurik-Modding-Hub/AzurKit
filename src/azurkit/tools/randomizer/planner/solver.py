@@ -747,6 +747,19 @@ class Logic:
             return self.vanilla[loc][0]
         return None if loc in self.forfeitable else placement.get(loc)
 
+    def _reach_memo(self) -> dict:
+        """What :meth:`reach` reads alike every call, kept: the options validated, the authored pool locations and
+        each spot whose item no placement changes (:meth:`_item`: a stub's or guardian slot's vanilla one, a
+        forfeitable one's none)."""
+        if (memo := getattr(self, "_reached", None)) is None:
+            stubs = self.db.stubs
+            memo = self._reached = {
+                "valid": set(), "authored": frozenset(loc for loc, lvl in self.pool.items() if lvl not in stubs),
+                "fixed": {loc: self.vanilla[loc][0] if lvl in stubs or loc in self.guardian else None
+                          for loc, lvl in self.pool.items()
+                          if lvl in stubs or loc in self.guardian or loc in self.forfeitable}}
+        return memo
+
     def _take(self, held: collections.Counter, counters: dict, loc: str, placement: Mapping) -> None:
         """Collect pool location ``loc``: add what it gives (:meth:`_item`).
         A refund key taken off its spot is held now, so its pending counter
@@ -1144,17 +1157,23 @@ class Logic:
         as the settings with those skips' picks turned off."""
         db = self.db
         st = settings if settings is not None else db.defaults
-        settings_from_table({"format": SETTINGS_FORMAT, "skip_ceiling": st.skip_ceiling,
-                             "movement_tier": st.movement_tier, "dark_fire": DARK_FIRE,
-                             "skip_override": dict(st.skip_override)}, self.skip_tables, "solver settings")
+        memo = self._reach_memo()
+        if (key := (st.skip_ceiling, st.movement_tier, tuple(sorted(st.skip_override.items())))) not in memo["valid"]:
+            settings_from_table({"format": SETTINGS_FORMAT, "skip_ceiling": st.skip_ceiling,
+                                 "movement_tier": st.movement_tier, "dark_fire": DARK_FIRE,
+                                 "skip_override": dict(st.skip_override)}, self.skip_tables, "solver settings")
+            memo["valid"].add(key)   # the same options validate alike every time
         placement = self.vanilla_placement() if placement is None else placement
-        for loc, item in placement.items():
-            if loc not in self.pool or self.pool[loc] in db.stubs:
-                raise SolverError(f"placement: {loc} is no pool location of an authored level")
-            if item is not None and item not in self.items:
-                raise SolverError(f"placement: {loc} holds {item!r}, which items.toml doesn't define")
-            if loc in self.guardian and item != self.vanilla[loc][0]:
-                raise SolverError(f"placement: {loc} is a guardian slot, which keeps its {self.vanilla[loc][0]} (D81)")
+        if (placement.keys() - memo["authored"] or set(placement.values()) - self.items.keys() - {None}
+                or any(placement[loc] != self.vanilla[loc][0] for loc in self.guardian & placement.keys())):
+            for loc, item in placement.items():   # a refusal: the first, as the placement lists them
+                if loc not in self.pool or self.pool[loc] in db.stubs:
+                    raise SolverError(f"placement: {loc} is no pool location of an authored level")
+                if item is not None and item not in self.items:
+                    raise SolverError(f"placement: {loc} holds {item!r}, which items.toml doesn't define")
+                if loc in self.guardian and item != self.vanilla[loc][0]:
+                    raise SolverError(f"placement: {loc} is a guardian slot, which keeps its "
+                                      f"{self.vanilla[loc][0]} (D81)")
         held, counters = collections.Counter(), {}
         for name in [*db.world["starting_items"], *items]:
             if name not in self.items:
@@ -1167,8 +1186,14 @@ class Logic:
             collected = set(collected)
             if collected - self.pool.keys():
                 raise SolverError(f"collected: {sorted(collected - self.pool.keys())} are no pool locations")
-            for loc in sorted(collected):
-                self._take(held, counters, loc, placement)
+            fixed, vanilla, items, refund = memo["fixed"], self.vanilla, self.items, self.refund
+            for loc in sorted(collected):   # _take's, each spot's own item read once a database (_item)
+                if (name := fixed[loc] if loc in fixed else placement.get(loc)) is None:
+                    continue
+                self._add(held, counters, name, vanilla[loc][1])
+                key, pending = refund.get(loc, (None, None))
+                if items[name].get(key, 0) > 0 and counters.get(pending, 0) > 0:
+                    counters[pending] -= 1
         late = frozenset(collected) & self.guardian if replay and collected is not None else frozenset()
         reached, safe, phys, found, after, got, flags, victory, free = self._solve(
             st, placement, counters, held, flags, trace, traps, collected, late, None if off is None else frozenset(off))

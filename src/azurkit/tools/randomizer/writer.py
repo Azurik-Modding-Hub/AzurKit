@@ -111,6 +111,7 @@ def _locations(db) -> dict[str, dict]:
     return {loc["id"]: loc for doc in db.generated.values() for loc in doc["locations"]}
 
 
+@functools.cache   # the fill asks it of the same few thousand ids, hundreds of thousands of times a plan
 def graph_of(lid: str) -> str:
     """A location id's node graph key: ``w1/g0/r1717`` -> ``w1/g0``."""
     return lid.rsplit("/", 1)[0]
@@ -132,6 +133,7 @@ class Names:
         self.have: dict[str, set[str]] = {}
         for lid, loc in self.locations.items():
             self.have.setdefault(graph_of(lid), set()).add(loc["template"])
+        self._targets: dict[tuple[str, str], str | None] = {}   # :meth:`target`'s, by (lid, item)
 
     def budget(self, gkey: str) -> int:
         """A graph's new-string budget: its gap rounded down to 4."""
@@ -141,12 +143,17 @@ class Names:
         """The string location ``lid`` names when it holds ``item``: None
         for its vanilla item (nothing is written); a ``_move`` location
         keeps its suffix when its graph holds that string (§5.2 item 4)."""
+        if (key := (lid, item)) in self._targets:
+            return self._targets[key]
         loc = self.locations[lid]
         if self.base[item] == loc["item"]:
-            return None
-        if loc["template"] != loc["item"] and (mv := self.move_of.get(self.base[item])) in self.have[graph_of(lid)]:
-            return mv
-        return item
+            name = None
+        elif loc["template"] != loc["item"] and (mv := self.move_of.get(self.base[item])) in self.have[graph_of(lid)]:
+            name = mv
+        else:
+            name = item
+        self._targets[key] = name
+        return name
 
     def written(self, lid: str, item: str) -> str | None:
         """The string ``lid``'s node holds for ``item`` in the image:
