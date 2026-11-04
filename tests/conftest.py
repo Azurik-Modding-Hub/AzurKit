@@ -337,9 +337,9 @@ def close_browser(browser, seconds: float = 120, downloads: Path | None = None) 
     by its ended browser held the close: on GitHub's Windows runner WebKit's close after the pack golden never
     answered (run 41779807138), and twice before the worker went silent there with its driver's browser gone and a
     WebKitWebProcess.exe left by its ended parent (runs 41744982709 and 182336a's), at the next item's setup, a Firefox
-    one's. Once the close has waited :data:`LEFT_S`, what a parent that ended left running of the browsers' since the
-    driver began is ended (:func:`_closed`), as the driver's kill would have had its parent lived, and a warning names
-    each. Past ``seconds`` the close fails by name, saying whether the driver heard the browser's pipe close, what was
+    one's. Once the close has waited :data:`LEFT_S`, what a parent that ended left running of the browsers' from
+    Playwright's folders since the driver began is ended (:func:`_closed`), as the driver's kill would have had its
+    parent lived, and a warning names each. Past ``seconds`` the close fails by name, saying whether the driver heard the browser's pipe close, what was
     ended and what it may wait on (``scripts/ci_resources.py``'s ``held``: the processes under the driver and those a
     parent that ended left running, with their memory, the crash handlers and the browser's temporary and
     ``downloads`` folders' sizes); the driver ends with the fixture's ``sync_playwright`` (its own 30 s after its pipe

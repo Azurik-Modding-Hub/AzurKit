@@ -410,15 +410,17 @@ def held(driver: int, folders: dict[str, Path] | None = None, seconds: float = S
 
 
 def left(driver: int) -> list[tuple]:
-    """Each browser's process (:data:`BROWSER`) that a parent that ended left running since the driver (id ``driver``)
-    began (:func:`orphans`), none under it: on Windows a closed browser's process left so holds its stdout and stderr
-    (Playwright's WebKit hands every process it starts its own), so its driver never hears it end, and the driver's
-    kill, ``taskkill /T`` of the browser, can't reach it. None if the driver isn't running."""
+    """Each browser's process (:data:`BROWSER`) run from Playwright's folders (:data:`PLAYWRIGHT`, so never the user's
+    own Chrome or Edge) that a parent that ended left running since the driver (id ``driver``) began (:func:`orphans`),
+    none under it: on Windows a closed browser's process left so holds its stdout and stderr (Playwright's WebKit
+    hands every process it starts its own), so its driver never hears it end, and the driver's kill, ``taskkill /T``
+    of the browser, can't reach it. None if the driver isn't running."""
     rows = processes(SAY_S)
     if not (under := tree(rows, driver)):
         return []
     mine = {row[0] for _, row in under}
-    return [row for row in orphans(rows, under[0][1][2]) if row[0] not in mine and BROWSER.search(row[3])]
+    return [row for row in orphans(rows, under[0][1][2])
+            if row[0] not in mine and BROWSER.search(row[3]) and PLAYWRIGHT.search(row[4])]
 
 
 def end_left(driver: int) -> list[tuple]:

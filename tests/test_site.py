@@ -1815,18 +1815,22 @@ def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(m
     (Windows' WebKit: a WebKitWebProcess.exe left by its ended browser holds the driver's pipes, out of reach of the
     driver's ``taskkill /T``; runs 41744982709, 182336a's, 41779807138) answers once the ``browser`` fixture's close
     (``conftest.close_browser``) has waited ``conftest.LEFT_S`` and ended it, and a warning names it; a browser's
-    process under the driver, one that began before the driver and one of another name, each also left by an ended
-    parent, run on."""
+    process under the driver, one that began before the driver, one of another name and the user's own Chrome
+    outside Playwright's folders, each also left by an ended parent, run on."""
     from concurrent.futures import ThreadPoolExecutor
 
     from scripts import ci_resources
     procs = {what: subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
-             for what in ("held", "under", "older", "other")}
+             for what in ("held", "under", "older", "other", "theirs")}
     gone, driver = 999_999_999, os.getpid()   # a parent id no process has
-    rows = {"held": (gone, 30, "WebKitWebProcess.exe"), "under": (driver, 50, "Playwright.exe"),
-            "older": (gone, 200, "WebKitWebProcess.exe"), "other": (gone, 30, "git.exe")}
+    webkit = "D:\\a\\AzurKit\\AzurKit\\.tools\\playwright\\webkit-2370\\"   # Playwright's WebKit's folder on CI
+    rows = {"held": (gone, 30, "WebKitWebProcess.exe", f'"{webkit}WebKitWebProcess.exe" 2 -clientIdentifier 1'),
+            "under": (driver, 50, "Playwright.exe", f"{webkit}Playwright.exe"),
+            "older": (gone, 200, "WebKitWebProcess.exe", f'"{webkit}WebKitWebProcess.exe" 2 -clientIdentifier 1'),
+            "other": (gone, 30, "git.exe", "C:\\Program Files\\Git\\cmd\\git.exe"),
+            "theirs": (gone, 30, "chrome.exe", '"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"')}
     monkeypatch.setattr(ci_resources, "processes", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20)] + [
-        (procs[what].pid, parent, age, name, "", 1 << 20) for what, (parent, age, name) in rows.items()
+        (procs[what].pid, parent, age, name, command, 1 << 20) for what, (parent, age, name, command) in rows.items()
         if procs[what].poll() is None])
 
     async def close():   # the driver's: it answers once the held process has ended
@@ -1847,7 +1851,7 @@ def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(m
             conftest.close_browser(fake, 30)
         assert 0.5 <= time.monotonic() - t0 < 10
         assert {what: proc.poll() is None for what, proc in procs.items()} == {
-            "held": False, "under": True, "older": True, "other": True}
+            "held": False, "under": True, "older": True, "other": True, "theirs": True}
         assert [str(w.message) for w in said] == [
             "the webkit browser's close waited on what a parent that ended left running, out of its driver's kill's "
             f"reach, ended: WebKitWebProcess.exe (id {procs['held'].pid}, parent {gone}): 0 min, 1 MiB"]
