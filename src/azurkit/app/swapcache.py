@@ -251,21 +251,23 @@ class Folder:
     """``tools.characters.CACHE``: the swap's answers (``get(key) -> bytes |
     None``, ``put(key, bytes or what makes them)``), the ``swap`` kind of the
     app's store under ``folder`` (:class:`Kept`, with ``most`` and ``key``).
-    A put that answers a get's miss :data:`LONG` seconds or more before
-    (``characters._kept``'s and ``engine._kept``'s work in between) is
-    written before it returns."""
+    A put that answers its own thread's miss of the key :data:`LONG` seconds
+    or more before (``characters._kept``'s and ``engine._kept``'s work in
+    between, a get and its put on one thread) is written before it returns:
+    another call's later miss of that key (the engine runs each call on its
+    own thread) never makes a long answer quick."""
 
     def __init__(self, folder: Path, most: int = store.BUDGET, key: Path | None = None):
         self.kept = Kept(folder, most, key)
-        self.missed: dict[str, float] = {}   # a key's last miss, when, until a put answers it
+        self.missed: dict[tuple[int, str], float] = {}   # a thread's miss of a key, when, until its put answers it
 
     def get(self, key: str) -> bytes | None:
         if (found := self.kept.get("swap", key)) is None:
-            self.missed[key] = time.monotonic()
+            self.missed[threading.get_ident(), key] = time.monotonic()
         return found
 
     def put(self, key: str, data: bytes | Callable[[], bytes]) -> None:
-        missed = self.missed.pop(key, None)
+        missed = self.missed.pop((threading.get_ident(), key), None)
         self.kept.put("swap", key, data, now=missed is not None and time.monotonic() - missed >= LONG)
 
 
