@@ -2010,6 +2010,35 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
         served.close()
 
 
+# The bottom bar shown with ``value`` (null: no count): [the bar's look, the stripe's display, its stripe's animation and
+# how often it runs, the properties each of that animation's keyframes sets]
+LOOK = """(value) => {
+    document.getElementById("progress-row").hidden = false;
+    const bar = document.getElementById("progress"), stripe = document.querySelector("#progress-row .stripe");
+    value === null ? bar.removeAttribute("value") : bar.setAttribute("value", value);
+    const moving = getComputedStyle(stripe, "::before"), rules = [...document.styleSheets].flatMap((s) => [...s.cssRules]);
+    const frames = rules.find((r) => r.type === CSSRule.KEYFRAMES_RULE && r.name === moving.animationName);
+    return [getComputedStyle(bar).appearance, getComputedStyle(stripe).display, moving.animationName,
+            moving.animationIterationCount, frames && [...frames.cssRules].map((frame) => [...frame.style])];
+}"""
+
+
+def test_the_bottom_bars_stripe_with_no_count_is_a_transform_its_compositor_moves(browser, site):
+    """D980's moving stripe while a call has no count is a transform the browser's compositor moves, over a plain
+    track, never the bar's own look with no value, which WebKit draws again each frame (60 a second, each a round trip
+    to its GPU process: 4 such pages took 9 % of a core in it, 14 % in their page processes; the stripe, none of
+    either: Step 4.4ci21), as Firefox does its own; with a count the stripe goes and the bar has its own look."""
+    served = Site(browser, site)
+    try:
+        page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
+        _page.load(page, f"{ORIGIN}/")
+        assert _page.answer(page, LOOK, None) == ["none", "block", "stripe", "infinite", [["transform"], ["transform"]]]
+        assert _page.answer(page, LOOK, "50")[:2] == ["auto", "none"]
+        _page.close(page)
+    finally:
+        served.close()
+
+
 # What D979 greys and the lines that say why: [Build disabled, Save disabled, the bottom bar's line, Build's title, the
 # spoiler's line, how many packs' settings say their vanilla values wait on the image]
 GREYED = """() => [document.getElementById("build").disabled, document.getElementById("save").disabled,

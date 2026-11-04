@@ -116,9 +116,25 @@ button:disabled { color: var(--faint); background: transparent; }
 }
 #status:empty::before { content: "—"; color: var(--faint); }
 #status.error { color: var(--error); border-left-color: var(--error); }
-/* A long call's bar (D980): its stage and percent, or a moving stripe while it has no count. */
+/* A long call's bar (D980): its stage and percent, or a moving stripe while it has no count. The stripe is a transform
+   the browser's compositor moves, over a plain track: a bar with no value drawn in its own look is drawn again every
+   frame (WebKit's 60 a second, each a round trip to its GPU process, which a busy computer starves: Step 4.4ci21). */
 .progress { flex: 0 1 20rem; min-width: 0; display: flex; align-items: center; gap: 6px; }
-.progress progress { flex: 0 0 8rem; height: 8px; accent-color: var(--accent); }
+.progress .bar { flex: 0 0 8rem; position: relative; display: flex; }
+.progress progress { width: 100%; height: 8px; accent-color: var(--accent); }
+.progress progress:indeterminate {
+  -webkit-appearance: none; appearance: none; border: 1px solid var(--line); border-radius: 4px; background: var(--field);
+}
+.progress progress:indeterminate::-webkit-progress-bar { background: transparent; }
+.progress progress:indeterminate::-moz-progress-bar { background: transparent; }
+.progress .stripe { display: none; position: absolute; inset: 0; overflow: hidden; border-radius: 4px; pointer-events: none; }
+.progress .bar:has(progress:indeterminate) .stripe { display: block; }
+.progress .stripe::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: 4px; background: var(--accent);
+  animation: stripe 1.2s linear infinite;
+}
+@keyframes stripe { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .progress .stripe::before { animation: none; transform: translateX(75%); } }
 #progress-line {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--mono); color: var(--muted);
 }
