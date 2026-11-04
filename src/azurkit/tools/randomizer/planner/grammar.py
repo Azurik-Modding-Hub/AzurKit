@@ -66,9 +66,21 @@ def _atom(tok: str, tricks: Collection[str]) -> tuple:
     raise ParseError(f"unknown token {tok!r}")
 
 
+_PARSED: dict[str, tuple] = {}   # each text's AST (no tricks named): an option set's rules parse the same few thousand
+
+
 def parse(text: str, tricks: Collection[str] = ()) -> tuple:
     """Parse ``text`` into the AST above. ``tricks`` are the family names,
-    refused as bare atoms with D113's message. Raises :class:`ParseError`."""
+    refused as bare atoms with D113's message. Raises :class:`ParseError`.
+    An AST is a tuple of tuples, kept: a text parsed again is the same one."""
+    if tricks or type(text) is not str:
+        return _parse(text, tricks)
+    if (ast := _PARSED.get(text)) is None:
+        ast = _PARSED[text] = _parse(text, ())
+    return ast
+
+
+def _parse(text: str, tricks: Collection[str]) -> tuple:
     if not isinstance(text, str):
         raise ParseError(f"not a string: {text!r}")
     toks = _tokens(text)

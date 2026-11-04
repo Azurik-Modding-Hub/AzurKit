@@ -1211,14 +1211,18 @@ def test_the_grammar_has_no_negation_and_each_rule_the_solver_compiles_holds_at_
     """The reach's escapes rest on monotone rules (a failed escape fails
     every node it saw whose starting flags it held, their escapes inside
     its own): the grammar refuses a negation however it is
-    spelled, and every rule of the default and max options' graphs, logic
+    spelled (each time; a text it reads is kept), and every rule of the default and max options' graphs, logic
     and physical (edges, teleports, locations, credits, victory), that
     holds at a random state holds at any larger one (more of each counter,
     more flags)."""
     for text in ("not water1", "!water1", "~water1", "-water1", "water1 & !fire1", "!(water1)", "water<1",
                  "water<=1", "water!=1", "water==0", "water1 & not(fire1)"):
-        with pytest.raises(ParseError):
-            parse(text)
+        for _ in range(2):   # refused again: a refusal isn't kept
+            with pytest.raises(ParseError):
+                parse(text)
+    text = "(water1 | fire2) & air>=1"   # Step 4.4bk: a text's AST is kept, the same tuple the next time
+    assert parse(text) is parse(text) == ("and", (("or", (("counter", "water", 1), ("counter", "fire", 2))),
+                                                   ("counter", "air", 1)))
     logic, rng = kept_logic(), random.Random(0)
     counters = sorted({c for cs in logic.items.values() for c in cs})
     for st in (logic.db.defaults, Settings(4, "frame_perfect", {})):
