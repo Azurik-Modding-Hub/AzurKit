@@ -78,6 +78,26 @@ def _tables(rng: random.Random) -> native.Tables:
         tuple(graph() for _ in range(3)))
 
 
+def _monotone_of(t: native.Tables) -> native.Tables:
+    """``t`` made tables whose takes never make a rule false (reach.c's
+    ``H_MONO``): every increment and yield at least 0 (1), its refund keys
+    neither discs nor another's pending counter, and each pending counter
+    read only in sums holding its key as often."""
+    rows = [(k, p) for k, p in t.refund if k >= 0 and k != p and k not in t.discs]
+    pends, keys = {p for _, p in rows}, collections.defaultdict(list)
+    refund = tuple((k, p) if (k, p) in rows and k not in pends and p not in {k for k, _ in rows} else (-1, -1)
+                   for k, p in t.refund)
+    for k, p in refund:
+        if k >= 0:
+            keys[p].append(k)
+    rules = tuple(("sum", r[2], (r[1], *keys[r[1]])) if r[0] == "counter" and r[1] in keys else
+                  ("sum", r[1], (*r[2], *(k for c in r[2] for k in keys.get(c, ())))) if r[0] == "sum" else r
+                  for r in t.rules)
+    fields = {f: getattr(t, f) for f in native.Tables.__match_args__}
+    return native.Tables(**fields | {"rules": rules, "refund": refund, "yields": tuple(max(1, y) for y in t.yields),
+                                     "items": tuple(tuple((c, abs(inc)) for c, inc in item) for item in t.items)})
+
+
 def _call(rng: random.Random, t: native.Tables) -> dict:
     phys = rng.randrange(3)
     got = rng.sample(range(t.locations), rng.randint(0, t.locations // 2)) if rng.random() < 0.3 else None
@@ -128,6 +148,21 @@ def test_the_reach_kernel_gives_its_twins_answer_bit_for_bit_and_this_platforms_
         assert native._native(lib, t, **call) == native._twin(t, **call)
 
 
+def test_the_reach_kernels_shortcuts_on_tables_whose_takes_never_make_a_rule_false_give_its_twins_answer():
+    """On ``H_MONO``'s tables (the randomizer's own are) an escape ends once
+    it reaches a node of the round's backward search (Step 4.4bk): over
+    seeded random tables made monotone, and those that aren't, reach.c's
+    answer is its twin's bit for bit."""
+    lib, kinds = native.library(), collections.Counter()
+    for t, call in _cases(1406, 300):
+        m = _monotone_of(t)
+        kinds[native._monotone(t)] += 1
+        assert native._monotone(m)
+        for tables in (t, m):
+            assert native._native(lib, tables, **call) == native._twin(tables, **call)
+    assert kinds[True] and kinds[False], kinds
+
+
 def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables():
     """The planner's own tables (``Logic._tables`` of its database) under
     RS1's four option sets, each over seeded placements (the pool's items
@@ -140,6 +175,7 @@ def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables()
     for st in (Settings(0, "safe", {}), logic.db.defaults, Settings(2, "standard", {}),
                Settings(4, "frame_perfect", {})):
         nt = logic._tables(st)
+        assert native._monotone(nt.tables), st
         for _ in range(6):
             stock = [logic.vanilla[x][0] for x in spots]
             rng.shuffle(stock)
@@ -164,6 +200,7 @@ def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables()
 
 def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path, monkeypatch):
     cases = list(_cases(1401, 40))
+    cases += [(_monotone_of(t), call) for t, call in cases[:30]]
     dress = list(_dress_cases(1405, 60))
     docs = [[{k: sorted(v) if k == "discs" else v for k, v in vars(t).items() if k in native.Tables.__match_args__}
              | {"graphs": [[*vars(g).values()] for g in t.graphs]}, call] for t, call in cases]

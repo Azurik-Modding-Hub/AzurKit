@@ -32,7 +32,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-ABI = 1                                   # native/reach.c's ABI: a library of another one isn't loaded
+ABI = 2                                   # native/reach.c's ABI: a library of another one isn't loaded
 MAGIC = 0x314843524b5a                    # its tables' first word
 FOLDER = Path(__file__).with_name("_native")
 TARGETS = {                               # (sys.platform, machine) -> the library nativekit builds for it
@@ -52,7 +52,7 @@ CALLS: collections.Counter = collections.Counter()   # the calls this process an
 #                                                      and those its engine's process handed it (:func:`taken`)
 
 _OPS = {"false": 0, "true": 1, "counter": 2, "flag": 3, "sum": 4, "and": 5, "or": 6}
-_H, _G = 19, 10                           # the tables' header words and a graph's (reach.c's H_* and G_*)
+_H, _G = 20, 11                           # the tables' header words and a graph's (reach.c's H_* and G_*)
 
 
 def target() -> str | None:
@@ -349,9 +349,37 @@ def _pack(t: Tables) -> tuple[array, bool]:
             words += [_id(a, n, f"graph {gi}'s teleport"), _id(b, n, f"graph {gi}'s teleport"),
                       rule(r, f"graph {gi}'s teleport rule"), _id(slot, nl, f"graph {gi}'s teleport slot")]
         words[head + 9] = rule(g.victory, f"graph {gi}'s victory")
+        at_node = [[] for _ in range(n)]
+        for j, (_, node, _) in enumerate(g.locations):
+            at_node[node].append(j)
+        words[head + 10] = csr(at_node, lambda u, j: [j])   # G_LBN: each node's location rows
         kmax, mmax = max(kmax, len(g.credits)), max(mmax, len(g.locations))
     words[:11] = [MAGIC, ABI, n, f, nl, nc, ni, t.start, len(t.graphs), kmax, mmax]
+    words[19] = int(_monotone(t))                     # H_MONO
     return array("q", words), bool(big) or max(depth, default=0) > DEPTH
+
+
+def _monotone(t: Tables) -> bool:
+    """Whether no take can make a rule false (reach.c's ``H_MONO``): no
+    increment or yield below 0, and each refund key's pending counter, which
+    its take lowers by one, read only in sums holding the key (which that
+    take raises by at least one: no disc, a yield of at least one) as often."""
+    if any(inc < 0 for item in t.items for _, inc in item) or any(y < 0 for y in t.yields):
+        return False
+    keys = collections.defaultdict(set)
+    for loc, (key, pend) in enumerate(t.refund):
+        if key >= 0:
+            if key in t.discs or key == pend or t.yields[loc] < 1:
+                return False
+            keys[pend].add(key)
+    for r in t.rules:
+        if r[0] == "counter" and r[1] in keys:
+            return False
+        if r[0] == "sum" and keys.keys() & set(r[2]):
+            terms = collections.Counter(r[2])
+            if any(terms[key] < terms[pend] for pend in keys.keys() & terms.keys() for key in keys[pend]):
+                return False
+    return True
 
 
 def _twin_rules(t: Tables) -> tuple:
