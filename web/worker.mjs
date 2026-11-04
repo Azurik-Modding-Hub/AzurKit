@@ -220,7 +220,10 @@ def engine(request):
         return js({"dropped": kept(request.files, json.loads(JSON.stringify(getattr(request, "installed", None))
                                                              or "null"))})
     if request.type == "restore":
-        return js(sdk.restore(json.loads(JSON.stringify(request.setup)) if request.setup else request.setup))
+        out = sdk.restore(json.loads(JSON.stringify(request.setup)) if request.setup else request.setup)
+        if out.get("randomizer", {}).get("on") is True:   # its logic read before the page is ready, as the app's
+            sdk.randomizer_logic()                         # server reads it ahead (D1008), so a reopen's tab finds it
+        return js(out)
     if request.type in ("pickers", "preview", "match", "content_check"):
         try:
             if request.type == "content_check":

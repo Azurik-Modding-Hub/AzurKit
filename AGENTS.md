@@ -531,8 +531,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the Randomizer tab's first ask moves a bar and a later one shows none.
     `kept_logic` reads or builds one at a time (a caller meanwhile waits and
     is served it), and the app's server reads it ahead from its start on
-    D1008's intent (`app._logic_ahead`; a shipped one only), so the tab's
-    ask or the tracker's view after a launch finds it read.
+    D1008's intent (`app._logic_ahead`; a shipped one only), the site's
+    engine in a restore that brings Randomize back on, before the page is
+    ready (`web/worker.mjs`), so the tab's ask or the tracker's view after
+    a launch or a reopen finds it read.
   - The engine's progress notes are one stream (Step 4.3 train B3):
     `core.progress.note(text)` from the fill ("placing the items", then
     "placing the items, k of n", k the item it is placing of the n steps

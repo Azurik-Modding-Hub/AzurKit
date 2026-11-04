@@ -47,7 +47,7 @@ import pytest
 
 from azurkit import sdk
 from azurkit.core import gate, iso
-from azurkit.tools import characters, data, mods
+from azurkit.tools import characters, data, mods, randomizer
 from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
@@ -4261,14 +4261,9 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
         served.close()
 
 
-def test_the_site_engine_keeps_a_characters_build_dress_and_nothing_a_reshapes_pictures_work_out_after_a_build(
-        monkeypatch, tmp_path):
-    """Step 4.3r4t (D1054's one heap, D1067): worker.mjs's engine, its Python
-    run here under CPython (Pyodide's js modules, sdk's build and pictures
-    stood in for), hands a character's build's dress to its kept ask; after a
-    build the page asks nothing of (no character, as B's ahead build of the
-    default recipe), a reshape's pictures in that worker keep nothing. They
-    kept each shape's dress (booblord's plan: about 117 MB) to its next build."""
+def _site_engine(monkeypatch, tmp_path):
+    """worker.mjs's engine, its Python run here under CPython (Pyodide's js
+    modules stood in for): its ``ask(kind, **given)``, a request's answer."""
     js, pyodide, ffi, pyodide_js = map(types.ModuleType, ("js", "pyodide", "pyodide.ffi", "pyodide_js"))
     js.JSON, js.Object = types.SimpleNamespace(stringify=json.dumps), types.SimpleNamespace(fromEntries=dict)
     js.Blob, js.postMessage, pyodide.ffi, ffi.to_js = None, None, ffi, lambda value, **_: value
@@ -4277,6 +4272,21 @@ def test_the_site_engine_keeps_a_characters_build_dress_and_nothing_a_reshapes_p
         monkeypatch.setitem(sys.modules, module.__name__, module)
     monkeypatch.setattr(characters, "CACHE", characters.CACHE)   # each as it was after
     monkeypatch.setattr(pool, "TICK", pool.TICK)
+    engine = {"__name__": "worker"}
+    exec((_page.WEB / "worker.mjs").read_text(encoding="utf-8").split("const ENGINE = `")[1].split("`;")[0], engine)
+    engine["PIECE"] = str(tmp_path / "piece")
+    return lambda kind, **given: engine["engine"](types.SimpleNamespace(type=kind, **given))
+
+
+def test_the_site_engine_keeps_a_characters_build_dress_and_nothing_a_reshapes_pictures_work_out_after_a_build(
+        monkeypatch, tmp_path):
+    """Step 4.3r4t (D1054's one heap, D1067): worker.mjs's engine, its Python
+    run here under CPython (Pyodide's js modules, sdk's build and pictures
+    stood in for), hands a character's build's dress to its kept ask; after a
+    build the page asks nothing of (no character, as B's ahead build of the
+    default recipe), a reshape's pictures in that worker keep nothing. They
+    kept each shape's dress (booblord's plan: about 117 MB) to its next build."""
+    ask = _site_engine(monkeypatch, tmp_path)
 
     def staged(recipe, **_):   # a build, its character's dress worked out on its way
         if "character" in recipe:
@@ -4291,13 +4301,6 @@ def test_the_site_engine_keeps_a_characters_build_dress_and_nothing_a_reshapes_p
     monkeypatch.setattr(sdk, "image_staged", staged)
     monkeypatch.setattr(sdk, "image_checks", lambda image, report: [])
     monkeypatch.setattr(sdk, "preview", preview)
-    engine = {"__name__": "worker"}
-    exec((_page.WEB / "worker.mjs").read_text(encoding="utf-8").split("const ENGINE = `")[1].split("`;")[0], engine)
-    engine["PIECE"] = str(tmp_path / "piece")
-
-    def ask(kind, **given):
-        return engine["engine"](types.SimpleNamespace(type=kind, **given))
-
     for character in ({"species": "booblord"}, None):   # its asks as build() sends them
         recipe = {"iso": "x.iso", "packs": {}} | ({"character": character} if character else {})
         assert ask("build", recipe=types.SimpleNamespace(to_py=lambda: recipe)) == {"hash": [], "patched": []}
@@ -4307,6 +4310,27 @@ def test_the_site_engine_keeps_a_characters_build_dress_and_nothing_a_reshapes_p
     for x in (1.25, 1.4):
         assert ask("preview", recipe={"character": {"species": "booblord", "shapes": {"bust": x}}}) == {}
     assert ask("kept") == {}   # what the worker holds
+
+
+def test_the_site_engines_restore_reads_the_logic_before_the_page_is_ready_when_randomize_comes_back_on(
+        monkeypatch, tmp_path):
+    """Step 4.4bd (review D1): worker.mjs's restore, whose remembered
+    randomizer is checked against the shipped skip table alone, reads the
+    randomizer's logic when Randomize comes back on, before the page is
+    ready, as the app's server reads it ahead (D1008's intent), so a
+    reopen's Randomizer tab and tracker (S21) find it read; Randomize off,
+    or none remembered, reads nothing. Without it S21 read the logic inside
+    its click (WebKit 1.01 -> 1.58 s)."""
+    ask, read = _site_engine(monkeypatch, tmp_path), []
+    monkeypatch.setattr(randomizer, "remembered", lambda given: given)   # checked, as the shipped skip table checks it
+    monkeypatch.setattr(randomizer, "kept_logic", lambda: read.append("read"))
+    heard = []
+    for rando in ({"on": True, "seed": "2", "settings": {}}, {"on": False, "seed": "2", "settings": {}}, None):
+        out = ask("restore", setup={"ticked": []} | ({"randomizer": rando} if rando else {}))
+        heard.append((out.get("randomizer"), out["dropped"], read.copy()))
+        read.clear()
+    assert heard == [({"on": True, "seed": "2", "settings": {}}, [], ["read"]),
+                     ({"on": False, "seed": "2", "settings": {}}, [], []), (None, [], [])]
 
 
 WORKERS_SMOKE = """async ({ seed }) => {
