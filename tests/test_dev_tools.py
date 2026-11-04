@@ -880,6 +880,10 @@ Call graph:
     + 800 thread_start  (in libsystem_pthread.dylib) + 8  [0x18319bc1c]
     +   780 WebKit::RemoteImageBuffer::flushContext()  (in WebKit) + 40  [0x1a]  RemoteImageBuffer.cpp:90
     +   ! 780 IOSurfaceLock  (in IOSurface) + 12  [0x1b]
+    800 Thread_<multiple>   DispatchQueue_9: CA::CG::Queue  (serial)
+    + 800 thread_start  (in libsystem_pthread.dylib) + 8  [0x18319bc1c]
+    +   800 CA::CG::ContextDelegate::operation_(CGContextDelegate*)  (in QuartzCore) + 12  [0x1d]
+    +   ! 800 _dispatch_sync_f_slow  (in libdispatch.dylib) + 168  [0x1e]
     800 Thread_4: JavaScriptCore libpas scavenger
     + 800 thread_start  (in libsystem_pthread.dylib) + 8  [0x18319bc1c]
 
@@ -908,7 +912,9 @@ def test_ci_resources_names_what_webkits_gpu_process_did_as_it_stopped_answering
     assert ci_resources.stacks(SAMPLE_REPORT) == (
         "main thread: mach_msg2_trap (libsystem_kernel.dylib) < xpc_main (libxpc.dylib) < start (dyld); 2 x "
         "RemoteRenderingBackend work queue: IOSurfaceLock (IOSurface) < WebKit::RemoteImageBuffer::flushContext() "
-        "(WebKit) < thread_start (libsystem_pthread.dylib); most often in: IOSurfaceLock (IOSurface) 1560, "
+        "(WebKit) < thread_start (libsystem_pthread.dylib); CA::CG::Queue: _dispatch_sync_f_slow (libdispatch.dylib) < "
+        "CA::CG::ContextDelegate::operation_(CGContextDelegate*) (QuartzCore) < thread_start (libsystem_pthread.dylib); "
+        "most often in: IOSurfaceLock (IOSurface) 1560, "
         "mach_msg2_trap (libsystem_kernel.dylib) 800")
     monkeypatch.setattr(ci_resources, "sampled", lambda pid: f"stacks of {pid}")
     read = {7: ("com.apple.WebKit.GPU.Development", 100 << 20, 0), 8: ("com.apple.WebKit.WebContent.Development", 1, 1)}

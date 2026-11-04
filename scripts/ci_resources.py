@@ -331,13 +331,15 @@ TOP = re.compile(r"^\s+(.+?)  \(in ([^)]+)\)\s+(\d+)$", re.M)
 
 def stacks(text: str) -> str:
     """What a process was doing, from ``sample``'s report ``text``: the heaviest stack (each frame's heaviest callee)
-    of each of its :data:`WATCHED` threads, :data:`FRAMES` frames from the call it was in (threads of one name and
+    of each of its :data:`WATCHED` threads (a dispatch queue whose work ran on several threads, ``Thread_<multiple>``,
+    among them), :data:`FRAMES` frames from the call it was in (threads of one name and
     stack once, with their count), and the 3 calls its threads were most often in, each with its library; thread
     names, symbols and library names only, never a path, a source line or an address."""
     graph = text.partition("Call graph:\n")[2].partition("\nTotal number in stack")[0].splitlines()
     said: dict[str, int] = {}
     for i, head in enumerate(graph):
-        if not (thread := re.match(r"^ {4}\d+ Thread_\d+(?:\s+DispatchQueue_\d+)?:? *(.*?)(?:\s+\(serial\))?$", head)):
+        if not (thread := re.match(r"^ {4}\d+ Thread_(?:\d+|<multiple>)(?:\s+DispatchQueue_\d+)?:? *(.*?)(?:\s+\(serial\))?$",
+                                 head)):
             continue
         if not WATCHED.search(name := thread[1]) or len(said) == THREADS:
             continue
