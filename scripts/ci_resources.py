@@ -19,11 +19,19 @@ worker was running before it ends, then every process left under the one
 ``ID`` names (Windows' own id under Git Bash), then that one if it hasn't
 ended by itself. So the step ends, prints its summary and fails while the
 job has time left; it exits 3 once ``STOP`` exists.
+
+On macOS each line also has Playwright's processes' footprint (its driver and
+the browsers it starts, WebKit's pages among them: :func:`footprints`), and
+the tier's end what macOS wrote of one that ended (a crash report, a jetsam
+kill: :func:`reports`), with the free memory as this watcher last read it
+(Step 4.4ci17: the pure tier's WebKit page "Target crashed" on GitHub's 7 GB
+Apple Silicon runner, where nothing said its memory).
 """
 
 from __future__ import annotations
 
 import base64
+import json
 import os
 import re
 import shutil
@@ -56,6 +64,18 @@ WORKER = "import sys;exec(eval(sys.stdin.readline()))"
 ``gateway_io.popen_bootstrapline``."""
 NAMED = re.compile(r"^(?:uv|node|python[\d.]*w?)(?:\.exe)?$|firefox|chrom|webkit|msedge|playwright", re.I)
 """Processes listed even outside the tier's tree (a browser its parent left behind)."""
+PLAYWRIGHT = re.compile(r"[/\\]playwright[/\\]")
+"""On the command line of each of Playwright's processes: its driver (the package's own node) and the browsers it
+starts from their folder (``.tools/playwright``), with each process they start, WebKit's pages, network and GPU too,
+which launchd starts outside the tier's tree."""
+REPORTS = (Path.home() / "Library" / "Logs" / "DiagnosticReports", Path("/Library/Logs/DiagnosticReports"))
+"""Where macOS writes a crash report (the user's) and a jetsam event (the system's)."""
+ENDINGS = ('subsystem == "com.apple.WebKit" AND (eventMessage CONTAINS "processDidTerminate" OR eventMessage CONTAINS '
+           '"MemoryLimit" OR eventMessage CONTAINS "CPULimit" OR eventMessage CONTAINS "kill threshold" OR eventMessage '
+           'CONTAINS "nresponsive")')
+"""WebKit's own lines (macOS's log) on a process of its that ended or that it ended: why a page's process ended
+(``WebPageProxy::processDidTerminate``'s ``reason=``: ``Crash``, ``ExceededMemoryLimit``, ``ExceededCPULimit``...), its
+memory and CPU kills and their thresholds, and a process that stopped answering. A WebKit kill writes no report."""
 
 
 def free_memory() -> tuple[int, int]:
@@ -178,6 +198,72 @@ def tree(rows: list[tuple[int, int, int, str, str]], root: int) -> list[tuple[in
     return found
 
 
+def footprints(rows: list[tuple[int, int, int, str, str]]) -> dict[int, tuple[str, int, int]]:
+    """{id: (name, footprint, its highest)} in bytes of each of Playwright's processes in ``rows`` (:func:`processes`,
+    :data:`PLAYWRIGHT`), by macOS's own count (``proc_pid_rusage``: the phys_footprint that jetsam and WebKit's memory
+    kill read); none on the other OSes."""
+    if sys.platform != "darwin":
+        return {}
+    import ctypes
+    usage = ctypes.CDLL("/usr/lib/libSystem.B.dylib").proc_pid_rusage
+    found = {}
+    for pid, _, _, name, command in rows:
+        info = (ctypes.c_uint64 * 40)()   # rusage_info_v4: a 16-byte uuid, then its counters, phys_footprint the 7th
+        if PLAYWRIGHT.search(command) and usage(pid, 4, info) == 0:   # (from 0) and lifetime_max_phys_footprint the 28th
+            found[pid] = (name, info[9], info[30])
+    return found
+
+
+def reports(since: float, seen: dict[int, tuple[str, int, int, int]]) -> list[str]:
+    """What macOS wrote since ``since`` (seconds since the epoch) of a process of Playwright's that ended, of ``seen``
+    (``{id: (name, footprint, its highest, the free memory)}`` as this watcher last read each): each crash report's
+    exception and each jetsam event's kill with its reason, each with that footprint and free memory, and the free
+    memory the jetsam event counted. Names and numbers only."""
+    said = []
+    for folder, whose in zip(REPORTS, ("the user's", "the system's")):
+        try:
+            found = sorted((f.stat().st_mtime, f) for f in folder.glob("*.ips") if f.stat().st_mtime >= since)
+        except OSError as e:
+            said.append(f"{whose} reports unread ({type(e).__name__})")
+            continue
+        for at, file in found:
+            try:
+                body = json.loads(file.read_text(encoding="utf-8", errors="replace").partition("\n")[2])
+            except (OSError, ValueError) as e:
+                said.append(f"a report of {whose} unread ({type(e).__name__})")
+                continue
+            when = f"at {(at - since) / 60:.0f} min"
+            if (pid := body.get("pid")) in seen:   # a crash report
+                why = body.get("exception") or {}
+                said.append(f"{seen[pid][0]} (id {pid}) crashed {when}: {why.get('type')} ({why.get('signal')}); "
+                            + _last(seen[pid]))
+            for killed in (p for p in body.get("processes", ()) if p.get("reason") and p.get("pid") in seen):
+                status = body.get("memoryStatus") or {}
+                free = (status.get("memoryPages") or {}).get("free", 0) * status.get("pageSize", 0)
+                said.append(f"{seen[killed['pid']][0]} (id {killed['pid']}) killed by jetsam {when}: {killed['reason']}, "
+                            f"memory {free / GIB:.1f} GiB free by its count; " + _last(seen[killed["pid"]]))
+    return said
+
+
+def webkit_said(since: float) -> list[str]:
+    """WebKit's lines in macOS's log since ``since`` (seconds since the epoch) on a process that ended (:data:`ENDINGS`),
+    each its time, process and message (the object's address dropped, cut at :data:`WIDTH`), at most 20."""
+    try:
+        out = subprocess.run(["log", "show", "--style", "compact", "--start",
+                              time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since)), "--predicate", ENDINGS],
+                             capture_output=True, text=True, errors="replace", timeout=300).stdout
+    except (OSError, subprocess.SubprocessError) as e:
+        return [f"its log unread ({type(e).__name__})"]
+    said = [f"{at} {who}: {what}"[:WIDTH] for at, who, what in re.findall(
+        r"^\S+ (\d\d:\d\d:\d\d)\.\d+ +\w+ +([^\[\s]+)\[[^\]]*\] \[[^\]]*\] (?:0x[0-9a-f]+ - )?(.*)$", out, re.M)]
+    return said[:20] + [f"and {len(said) - 20} more"] * (len(said) > 20)
+
+
+def _last(read: tuple[str, int, int, int]) -> str:
+    return (f"its footprint last read {read[1] / GIB:.2f} GiB (its highest {read[2] / GIB:.2f}), "
+            f"memory then {read[3] / GIB:.1f} GiB free")
+
+
 def _listed() -> list[tuple[int, int, int, str, str]]:
     try:
         return processes()
@@ -282,18 +368,34 @@ def main(argv: list[str]) -> int:
     stopped = False
     low: dict[str, int] = {}
     told = -PRINT_S
+    began, seen, most = time.time(), {}, [0, 0, ""]   # Playwright's processes as last read; their most together, one's
     while True:
         now = sample(folders)
         low = {label: min(value, low.get(label, value)) for label, value in now.items()}
         elapsed = time.monotonic() - start
+        read = footprints(_listed()) if sys.platform == "darwin" else {}
+        seen |= {pid: (*row, now["memory"]) for pid, row in read.items()}
+        biggest = max(read.values(), key=lambda row: row[1], default=("", 0, 0))
+        most[0] = max(most[0], together := sum(row[1] for row in read.values()))
+        if (top := max(read.values(), key=lambda row: row[2], default=None)) and top[2] > most[1]:
+            most[1:] = top[2], top[0]
         if os.path.exists(stop):
             print(f"resources, the lowest of the tier in {elapsed / 60:.0f} min: "
                   + ", ".join(f"{label} {value / GIB:.1f} GiB free" for label, value in low.items())
-                  + f" (memory of {total / GIB:.1f})", flush=True)
+                  + f" (memory of {total / GIB:.1f})"
+                  + (f"; Playwright's processes at most {most[0] / GIB:.1f} GiB together, one {most[1] / GIB:.1f} "
+                     f"({most[2]})" if sys.platform == "darwin" else ""), flush=True)
+            if sys.platform == "darwin":
+                print("--- what macOS wrote of Playwright's processes that ended: "
+                      + ("; ".join(reports(began, seen)) or "nothing"), flush=True)
+                print("--- what WebKit's log says of a process that ended: "
+                      + ("; ".join(webkit_said(began)) or "nothing"), flush=True)
             return STOPPED if stopped else 0
         if elapsed - told >= PRINT_S:
             told = elapsed
-            print(f"resources at {elapsed / 60:.0f} min: {line(now, low)}", flush=True)
+            print(f"resources at {elapsed / 60:.0f} min: {line(now, low)}"
+                  + (f"; Playwright's processes {together / GIB:.1f} GiB in {len(read)}, the largest "
+                     f"{biggest[1] / GIB:.1f} ({biggest[0]})" if sys.platform == "darwin" else ""), flush=True)
         if growth and not stopped:
             if (quiet := growth.quiet(time.monotonic())) >= stall:
                 stop_tier(f"the tier's log hasn't grown in {quiet / 60:.0f} min", log, root, min(GRACE_S, stall),

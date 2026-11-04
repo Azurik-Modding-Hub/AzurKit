@@ -809,8 +809,58 @@ def test_ci_resources_prints_the_lowest_room_by_label_and_never_a_path(tmp_path)
     (tmp_path / "stop").touch()
     done = subprocess.run([sys.executable, "-I", "scripts/ci_resources.py", str(tmp_path / "stop"), f"tier={tmp_path}"],
                           capture_output=True, text=True, timeout=60, cwd=Path(__file__).resolve().parent.parent)
+    macos = (r"; Playwright's processes at most [\d.]+ GiB together, one [\d.]+ \([^/\\\n]*\)\n"
+             r"--- what macOS wrote of Playwright's processes that ended: [^/\\\n]+\n"
+             r"--- what WebKit's log says of a process that ended: [^/\\\n]+") if sys.platform == "darwin" else ""
     assert re.fullmatch(r"resources, the lowest of the tier in 0 min: tier [\d.]+ GiB free, temp [\d.]+ GiB free, "
-                        r"memory [\d.]+ GiB free \(memory of [\d.]+\)\n", done.stdout), (done.stdout, done.stderr)
+                        rf"memory [\d.]+ GiB free \(memory of [\d.]+\){macos}\n", done.stdout), (done.stdout, done.stderr)
+
+
+def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrote_of_one_that_ended(tmp_path,
+                                                                                                   monkeypatch):
+    """A site test's WebKit page that died ("Target crashed", run 41744982709's Apple Silicon pure tier) named nothing
+    of its memory: on macOS the watcher reads the footprint of each of Playwright's processes (its command under a
+    playwright folder), the count jetsam and WebKit's memory kill read, and at the tier's end names each one that a
+    crash report or a jetsam event since the tier began says ended, with its last footprint and the free memory then;
+    another process's report, an older one and an unreadable one aren't taken for it. Names and numbers only."""
+    from scripts import ci_resources
+    me = (os.getpid(), 1, 5, "node", "/x/.tools/playwright/driver/node run-driver")
+    read = ci_resources.footprints([me, (1, 0, 9, "launchd", "/sbin/launchd")])
+    if sys.platform != "darwin":
+        assert read == {}
+    else:
+        assert list(read) == [me[0]] and read[me[0]][0] == "node" and 0 < read[me[0]][1] <= read[me[0]][2]
+    mine, system = tmp_path / "user", tmp_path / "system"
+    for folder in (mine, system):
+        folder.mkdir()
+    monkeypatch.setattr(ci_resources, "REPORTS", (mine, system))
+
+    def report(folder: Path, name: str, body: dict, age: float = 0) -> None:
+        (folder / name).write_text('{"bug_type":"309"}\n' + json.dumps(body), encoding="utf-8")
+        os.utime(folder / name, (time.time() - age,) * 2)
+    gib, since = 1 << 30, time.time() - 120
+    seen = {11: ("com.apple.WebKit.WebContent.Development", 2 * gib, 3 * gib, gib // 2),
+            12: ("com.apple.WebKit.WebContent.Development", gib, gib, gib)}
+    report(mine, "wc.ips", {"pid": 11, "exception": {"type": "EXC_BAD_ACCESS", "signal": "SIGSEGV"}}, age=3)
+    report(mine, "other.ips", {"pid": 99, "exception": {"type": "EXC_CRASH", "signal": "SIGABRT"}}, age=2)
+    report(mine, "old.ips", {"pid": 12, "exception": {"type": "EXC_CRASH", "signal": "SIGABRT"}}, age=600)
+    (mine / "torn.ips").write_text("{}\n{", encoding="utf-8")   # being written
+    report(system, "JetsamEvent.ips", {"memoryStatus": {"pageSize": 16384, "memoryPages": {"free": 32768}},
+                                       "processes": [{"pid": 12, "name": "x", "reason": "vm-pageshortage"},
+                                                     {"pid": 11, "name": "x"}, {"pid": 98, "reason": "per-process-limit"}]})
+    said = ci_resources.reports(since, seen)
+    assert said == [
+        "com.apple.WebKit.WebContent.Development (id 11) crashed at 2 min: EXC_BAD_ACCESS (SIGSEGV); its footprint "
+        "last read 2.00 GiB (its highest 3.00), memory then 0.5 GiB free",
+        "a report of the user's unread (JSONDecodeError)",
+        "com.apple.WebKit.WebContent.Development (id 12) killed by jetsam at 2 min: vm-pageshortage, memory 0.5 GiB "
+        "free by its count; its footprint last read 1.00 GiB (its highest 1.00), memory then 1.0 GiB free"], said
+    log = ("Timestamp               Ty Process[PID:TID]\n2026-11-04 00:36:51.123 E  Playwright[812:9a1] "   # a WebKit kill
+           "[com.apple.WebKit:Process] 0x12ab - [pageProxyID=7, webPageID=8, PID=901] WebPageProxy::processDidTerminate: "
+           "(pid 901), reason=ExceededMemoryLimit\n")
+    monkeypatch.setattr(ci_resources.subprocess, "run", lambda *_, **__: types.SimpleNamespace(stdout=log))
+    assert ci_resources.webkit_said(since) == ["00:36:51 Playwright: [pageProxyID=7, webPageID=8, PID=901] "
+                                               "WebPageProxy::processDidTerminate: (pid 901), reason=ExceededMemoryLimit"]
 
 
 def test_ci_resources_stops_a_tier_whose_log_stops_growing_its_workers_before_pytest_once_it_printed_the_logs_tail(

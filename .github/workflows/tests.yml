@@ -80,8 +80,18 @@ jobs:
         # On the matrix's workers, a group on one as the local gate has them (tests/conftest.py). --max-worker-restart=0:
         # under loadgroup, xdist 3.8 replacing a killed worker hangs the run to the job's cap, unnamed; this way it ends and
         # its FAILED line names the test. faulthandler: a test past 20 min prints each thread's stack, as a hang's job only
-        # ends at its cap, unnamed.
-        run: uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0
+        # ends at its cap, unnamed. scripts/ci_resources.py prints the room each minute beside it, on macOS with
+        # Playwright's processes' footprint, and at the end what macOS wrote of one that ended (a WebKit page's "Target
+        # crashed" on Apple Silicon named nothing of its memory: run 41744982709).
+        run: |
+          stop="$RUNNER_TEMP/resources.stop"
+          uv run --locked python -I scripts/ci_resources.py "$stop" "runner=$RUNNER_TEMP" &
+          watcher=$!
+          status=0
+          uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 || status=$?
+          touch "$stop"
+          wait "$watcher" || true
+          exit "$status"
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }})
