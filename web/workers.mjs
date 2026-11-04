@@ -21,9 +21,11 @@
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
 // job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "at"} says the await it is in
 // (state()'s at, Step 4.3r4t); {type: "failed"} ends the job and
-// replaces the worker; {type: "ready"} once loaded (a heap in it is counted). One is the pool's own (Step 4.4bf):
+// replaces the worker; {type: "ready"} once loaded (a heap in it is counted). Two are the pool's own (Step 4.4bf):
 // {type: "wasm", module}, the engine's wasm a worker compiled, which is sent first to each later worker, which
-// instantiates it and compiles none of its own. A shared message (share(): what this
+// instantiates it and compiles none of its own; and {type: "id", id}, the image's id a worker read for the File of its
+// job's message, which each later message with that File brings (as id: the File's ends read once a pick, not once a
+// message, each a read Safari answers 200 ms late). A shared message (share(): what this
 // browser keeps installed, the table pages F read) goes to every worker, and to each new one before its first job;
 // it gets no answer. An ask resolves with its job's last message, or {type: "cancelled"} (Cancel), or
 // {type: "stopped", message} (its worker stopped: a once or heavy ask, or one stopped twice); answer() hears each of
@@ -98,6 +100,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
                                          // listed, and while an ask waits on them (asked(); its end frees one unlisted)
   const shared = new Map();              // share()'s messages by type
   const ahead = new WeakSet();           // every message that came from B's work ahead (took())
+  const ids = new WeakMap();             // a File the page sent -> its image's id, as a worker read it ({type: "id"})
   let wasm = null;                       // the engine's compiled wasm, as the first worker that compiled it posted it
   const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0, swapped: 0 };
   const now = () => globalThis.performance?.now() ?? Date.now();
@@ -161,7 +164,8 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     slot.job = job;
     slot.at = null;
     if (job.heavy) slot.heap = null;   // known again once the job reports it: none reported means past KEEP
-    slot.worker.postMessage(job.message, job.transfer ?? []);
+    const id = job.message?.file && ids.get(job.message.file);
+    slot.worker.postMessage(id ? { ...job.message, id } : job.message, job.transfer ?? []);
   };
 
   const heard = (slot, data) => {
@@ -169,6 +173,11 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     slot.last = [data?.type ?? null, now()];   // for state(): what a silent worker said last, and when
     if (data?.type === "at") return void (slot.at = data.where);   // for state(): the await its job is in
     if (data?.type === "wasm") return void (wasm ??= data.module ?? null);
+    if (data?.type === "id") {
+      const file = slot.job?.message?.file;
+      if (file && typeof file === "object" && typeof data.id === "string") ids.set(file, data.id);
+      return;
+    }
     if (typeof data?.heap === "number") slot.heap = data.heap;
     if (data?.type === "csp") return later(told, data, slot.role);   // a report, whatever the worker runs
     if (!slot.loaded) {

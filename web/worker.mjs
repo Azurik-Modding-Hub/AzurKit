@@ -636,12 +636,15 @@ const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16)
 // An image's id: its name, size and lastModified and the sha256 of its first and last MiB (the volume's descriptor
 // and tables and, on both releases, the XBE's header, at 532 and 536 KiB; the last file's end), read in one read once
 // a File (ids). A look-alike with the name, size and time of the image picked before it and other bytes there is
-// checked as itself, and its reads never come from the other's blocks.
+// checked as itself, and its reads never come from the other's blocks. Each message brings its own clone of the
+// page's File, so the id read is posted ({type: "id"}) and the pool sends it with each later message of that File
+// (id, Step 4.4bf), to every worker: the ends are read once a pick, not once a message.
 async function identify(file) {
   if (!ids.has(file)) {
     const ends = new Blob([file.slice(0, SAMPLE), file.slice(Math.max(SAMPLE, file.size - SAMPLE))]);
     const sample = hex(await crypto.subtle.digest("SHA-256", await ends.arrayBuffer()));
     ids.set(file, `${file.name}|${file.size}|${file.lastModified}|${sample}`);
+    post({ type: "id", id: ids.get(file) });
   }
   return ids.get(file);
 }
@@ -960,6 +963,7 @@ try {
     if (data?.type === "held") return letGo();   // the page holds the last build file now
     if (!["warm", "build", "vanilla", "preset", "decode", "restore", "randomizer", "tracker", "plan", "content",
           ...CHARACTER, ...TOOLS, ...DATA].includes(data?.type)) return;
+    if (data.file && typeof data.id === "string" && !ids.has(data.file)) ids.set(data.file, data.id);   // read before
     const aside = !data.file && ["content", ...CHARACTER].includes(data.type);
     if (aside && checking && !behind && loaded.numpied) return handle(data);
     if (aside) behind++;

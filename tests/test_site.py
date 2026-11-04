@@ -2387,7 +2387,7 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
 
 HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, digest, write and note
     const Real = Worker;
-    Object.assign(globalThis, { starts: [], digests: [], writes: [], notes: [], compiled: [] });
+    Object.assign(globalThis, { starts: [], digests: [], writes: [], notes: [], compiled: [], identified: [] });
     globalThis.Worker = class extends Real {
         constructor(...args) {
             super(...args);
@@ -2397,6 +2397,7 @@ HEARD = """(() => {   // what the page's workers post that the page shows nowher
                 if (data?.type === "wrote") writes.push(data);
                 if (data?.type === "progress") notes.push(data.label);
                 if (data?.type === "wasm") compiled.push(data.module instanceof WebAssembly.Module);
+                if (data?.type === "id") identified.push(data.id);
             });
         }
     };
@@ -2404,7 +2405,7 @@ HEARD = """(() => {   // what the page's workers post that the page shows nowher
 """An init script: the page's workers' starts in ``starts``, their digests (DIGESTS) in ``digests``, their build
 files' writes (WROTE) in ``writes``, and the label of each record they post in ``notes``, in the order the page hears
 them (the bar shows the newest ask's latest: a newer ask's line, or B's work a click takes up, can hide one); each
-wasm a worker compiled itself in ``compiled`` (the pool's own message)."""
+wasm a worker compiled itself in ``compiled`` and each image id it read in ``identified`` (the pool's own messages)."""
 DIGESTS = """self.azurkitDigest = crypto.subtle.digest.bind(crypto.subtle);
 crypto.subtle.digest = async (name, data) => {
     const out = await azurkitDigest(name, data);
@@ -2496,6 +2497,30 @@ def test_a_later_engine_worker_instantiates_the_wasm_the_pages_first_worker_comp
         page = served.open()
         _page.until(page, "() => azurkit.pool.state().b?.loaded", 300)
         assert page.evaluate("() => [starts.length, compiled]") == [2, [True]]
+        assert page.evaluate("() => azurkit.violations") == []
+    finally:
+        served.close()
+
+
+def test_a_seeds_build_after_the_pick_reads_the_images_id_no_more(browser, site, usa_iso):
+    """Step 4.4bf: the image's id is read once a pick (by the first worker or two its File reaches, as F checks it
+    while B builds ahead), never for a later message of that File: each brings the id read, B's new worker's after
+    the seed's change too. The seed's build is the engine's (logic verified)."""
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script(HEARD)
+        page = served.open()
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa' && azurkit.pool.state().b?.loaded", 300)
+        picked = page.evaluate("() => identified.length")
+        _page.click(page, "tab-randomizer")
+        _page.until(page, "() => azurkit.rando.view")
+        _page.click(page, "rando-on")
+        _page.fill(page, "rando-seed", "2")
+        page.evaluate("() => document.querySelector('#build').click()")
+        assert _page.built(page)["randomizer"]["logic_verified"] is True
+        heard = page.evaluate("() => [new Set(identified).size, identified.length]")
+        assert picked in (1, 2) and heard == [1, picked], (picked, heard)
         assert page.evaluate("() => azurkit.violations") == []
     finally:
         served.close()
