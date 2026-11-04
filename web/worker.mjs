@@ -530,10 +530,34 @@ const stored = (database, name, mode, fn) => new Promise((resolve) => {   // Ind
 // system isn't in the heap). The heap holds no image: it is made before any is read. Any fault making, keeping or
 // starting from one starts the worker as before; "ready" says which start it was (start). Stock Pyodide can't restore a
 // heap grown past the module's initial memory, 31,457,280 B (a RangeError), so the restore grows it first (grown).
+// Pyodide's wasm (9.6 MB) is compiled once a page (Step 4.4bf): the first worker compiles it as Pyodide does and posts
+// its Module ({type: "wasm"}), which the pool sends each later worker first (workers.mjs), and Pyodide's own
+// instantiateStreaming of its fetch is answered from that Module (about 0.1 s and 0.25-0.42 CPU-s a worker start: B's
+// after a change, F's after a big build); one that won't instantiate compiles as before.
 const SNAPSHOT = "azurkit-snapshot", IMPORTS = "import azurkit\nfrom azurkit import sdk\nfrom azurkit.core import iso\n";
+let compiled = null;   // the Module the pool sent this worker, if any
+self.addEventListener("message", ({ data }) => {
+  if (data?.type === "wasm" && data.module instanceof WebAssembly.Module) compiled = data.module;
+}, { once: true });
 const grown = (create, size) => (settings) => {
-  const instantiate = settings.instantiateWasm;
+  const instantiate = settings.instantiateWasm, given = compiled, streaming = WebAssembly.instantiateStreaming;
+  let mine = !given;
+  if (given) {
+    WebAssembly.instantiateStreaming = async (response, imports) => {   // Pyodide's one call, once
+      WebAssembly.instantiateStreaming = streaming;
+      try {
+        const instance = await WebAssembly.instantiate(given, imports);
+        Promise.resolve(response).then((r) => r.body?.cancel()).catch(() => {});   // its fetch, unread
+        return { instance, module: given };
+      } catch {
+        mine = true;
+        return streaming.call(WebAssembly, response, imports);
+      }
+    };
+  }
   settings.instantiateWasm = (imports, ready) => instantiate(imports, (instance, module) => {
+    WebAssembly.instantiateStreaming = streaming;
+    if (mine) post({ type: "wasm", module });
     const { memory } = instance.exports, short = Math.ceil(size / 65536) - memory.buffer.byteLength / 65536;
     if (short > 0) memory.grow(short);
     return ready(instance, module);
@@ -552,9 +576,10 @@ async function load() {
   };
   const key = `${version} ${site.integrity}`;
   const heap = await stored(SNAPSHOT, "heap", "readonly", (store) => store.get(key)).catch(() => null);
-  const restored = heap && await import(new URL("pyodide.asm.mjs", pyodide).href).then(({ default: create }) =>
-    loadPyodide({ ...options, _loadSnapshot: heap, createPyodideModule: grown(create, heap.length) })).catch(() => null);
-  const py = restored ?? await loadPyodide({ ...options, _makeSnapshot: true });
+  const { default: create } = await import(new URL("pyodide.asm.mjs", pyodide).href);
+  const restored = heap && await loadPyodide({ ...options, _loadSnapshot: heap,
+                                               createPyodideModule: grown(create, heap.length) }).catch(() => null);
+  const py = restored ?? await loadPyodide({ ...options, _makeSnapshot: true, createPyodideModule: grown(create, 0) });
   const reads = readInBlocks(py.FS.filesystems.WORKERFS);
   starting(1);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });

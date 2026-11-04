@@ -21,7 +21,9 @@
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
 // job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "at"} says the await it is in
 // (state()'s at, Step 4.3r4t); {type: "failed"} ends the job and
-// replaces the worker; {type: "ready"} once loaded (a heap in it is counted). A shared message (share(): what this
+// replaces the worker; {type: "ready"} once loaded (a heap in it is counted). One is the pool's own (Step 4.4bf):
+// {type: "wasm", module}, the engine's wasm a worker compiled, which is sent first to each later worker, which
+// instantiates it and compiles none of its own. A shared message (share(): what this
 // browser keeps installed, the table pages F read) goes to every worker, and to each new one before its first job;
 // it gets no answer. An ask resolves with its job's last message, or {type: "cancelled"} (Cancel), or
 // {type: "stopped", message} (its worker stopped: a once or heavy ask, or one stopped twice); answer() hears each of
@@ -96,6 +98,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
                                          // listed, and while an ask waits on them (asked(); its end frees one unlisted)
   const shared = new Map();              // share()'s messages by type
   const ahead = new WeakSet();           // every message that came from B's work ahead (took())
+  let wasm = null;                       // the engine's compiled wasm, as the first worker that compiled it posted it
   const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0, swapped: 0 };
   const now = () => globalThis.performance?.now() ?? Date.now();
   const later = (hook, ...args) => queueMicrotask(() => hook(...args));
@@ -103,6 +106,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const spawn = (role) => {
     const slot = { role, worker: start(role), loaded: false, heap: 0, job: null, ready: null, last: null, at: null };
     counts.started += 1;
+    if (wasm) slot.worker.postMessage({ type: "wasm", module: wasm });   // before anything: its load instantiates it
     slot.worker.onmessage = ({ data }) => heard(slot, data);
     slot.worker.onerror = (e) => {
       e?.preventDefault?.();
@@ -164,6 +168,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     if (closed || (slot !== f && slot !== b)) return;   // a worker this pool dropped
     slot.last = [data?.type ?? null, now()];   // for state(): what a silent worker said last, and when
     if (data?.type === "at") return void (slot.at = data.where);   // for state(): the await its job is in
+    if (data?.type === "wasm") return void (wasm ??= data.module ?? null);
     if (typeof data?.heap === "number") slot.heap = data.heap;
     if (data?.type === "csp") return later(told, data, slot.role);   // a report, whatever the worker runs
     if (!slot.loaded) {

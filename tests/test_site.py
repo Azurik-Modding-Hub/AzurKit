@@ -2387,7 +2387,7 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
 
 HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, digest, write and note
     const Real = Worker;
-    Object.assign(globalThis, { starts: [], digests: [], writes: [], notes: [] });
+    Object.assign(globalThis, { starts: [], digests: [], writes: [], notes: [], compiled: [] });
     globalThis.Worker = class extends Real {
         constructor(...args) {
             super(...args);
@@ -2396,13 +2396,15 @@ HEARD = """(() => {   // what the page's workers post that the page shows nowher
                 if (data?.type === "digest") digests.push(data);
                 if (data?.type === "wrote") writes.push(data);
                 if (data?.type === "progress") notes.push(data.label);
+                if (data?.type === "wasm") compiled.push(data.module instanceof WebAssembly.Module);
             });
         }
     };
 })();"""
 """An init script: the page's workers' starts in ``starts``, their digests (DIGESTS) in ``digests``, their build
 files' writes (WROTE) in ``writes``, and the label of each record they post in ``notes``, in the order the page hears
-them (the bar shows the newest ask's latest: a newer ask's line, or B's work a click takes up, can hide one)."""
+them (the bar shows the newest ask's latest: a newer ask's line, or B's work a click takes up, can hide one); each
+wasm a worker compiled itself in ``compiled`` (the pool's own message)."""
 DIGESTS = """self.azurkitDigest = crypto.subtle.digest.bind(crypto.subtle);
 crypto.subtle.digest = async (name, data) => {
     const out = await azurkitDigest(name, data);
@@ -2481,6 +2483,20 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         _page.until(grew, SNAPSHOT_KEPT, 60)
         after = served.open()
         assert grew.evaluate("() => starts[0]") == "cold" and set(after.evaluate("() => starts")) == {"snapshot"}
+    finally:
+        served.close()
+
+
+def test_a_later_engine_worker_instantiates_the_wasm_the_pages_first_worker_compiled(browser, site):
+    """Step 4.4bf: Pyodide's wasm is compiled once a page, by its first worker, which posts the Module; B, loaded
+    after F, is sent it first and instantiates it, compiling none of its own."""
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script(HEARD)
+        page = served.open()
+        _page.until(page, "() => azurkit.pool.state().b?.loaded", 300)
+        assert page.evaluate("() => [starts.length, compiled]") == [2, [True]]
+        assert page.evaluate("() => azurkit.violations") == []
     finally:
         served.close()
 
