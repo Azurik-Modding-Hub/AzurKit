@@ -23,6 +23,7 @@ from __future__ import annotations
 import collections
 import ctypes
 import hashlib
+import itertools
 import operator
 import os
 import platform
@@ -561,22 +562,27 @@ def _words(ids: Iterable[int], count: int):
 
 _DECODED: dict[bytes, frozenset[int]] = {}   # a set's words to its ids: a fill's reaches read a few hundred sets, over and over
 _DECODED_KEPT = 1024
+_BITS = tuple(bytes((b >> i) & 1 for i in range(8)) for b in range(256))   # a byte's bits, the lowest first, as 0 or 1
 
 
 def _ids(words, count: int) -> frozenset[int]:
     raw = bytes(words)[:8 * ((count + 63) // 64)]
     if (got := _DECODED.get(raw)) is not None:
         return got
-    out = []
-    for w in range((count + 63) // 64):
-        x = words[w]
-        while x:
-            low = x & -x
-            out.append(w * 64 + low.bit_length() - 1)
-            x ^= low
+    if sys.byteorder == "little":   # bit i is byte i // 8's bit i % 8: the ids picked at C speed
+        got = frozenset(itertools.compress(range(8 * len(raw)), b"".join(map(_BITS.__getitem__, raw))))
+    else:
+        out = []
+        for w in range((count + 63) // 64):
+            x = words[w]
+            while x:
+                low = x & -x
+                out.append(w * 64 + low.bit_length() - 1)
+                x ^= low
+        got = frozenset(out)
     if len(_DECODED) >= _DECODED_KEPT:
         _DECODED.clear()
-    got = _DECODED[raw] = frozenset(out)
+    _DECODED[raw] = got
     return got
 
 
@@ -591,12 +597,19 @@ def _ids_below(ids: Iterable[int], n: int, what: str) -> list[int]:
 
 def _limits(t: Tables) -> tuple:
     """What :func:`solve` reads of ``t`` to prove a call's numbers fit the kernel: a sum rule's most terms; each item's
-    largest increment, with a 0 last for an empty location's -1; each location's yield, sized; their sum."""
+    largest increment, with a 0 last for an empty location's -1; each location's yield, sized; their sum; the largest
+    increment."""
     if t._limits is None:
         yields = tuple(map(abs, t.yields))
-        t._limits = (max([len(r[2]) for r in t.rules if r[0] == "sum"] + [1]),
-                     (*(max([abs(inc) for _, inc in item] + [0]) for item in t.items), 0), yields, sum(yields))
+        largest = (*(max([abs(inc) for _, inc in item] + [0]) for item in t.items), 0)
+        t._limits = (max([len(r[2]) for r in t.rules if r[0] == "sum"] + [1]), largest, yields, sum(yields),
+                     max(largest))
     return t._limits
+
+
+def _row(a: array):
+    """An array of int64 as the kernel's pointer to its words."""
+    return (ctypes.c_int64 * len(a)).from_buffer(a)
 
 
 def _native(lib, t: Tables, graph: int, phys: int, free: int, counters: Sequence[int], held: Sequence[int],
@@ -612,16 +625,15 @@ def _native(lib, t: Tables, graph: int, phys: int, free: int, counters: Sequence
     n, nl, nf, nw = t.nodes, t.locations, t.flags, max(1, (t.nodes + 63) // 64)
     cap = nl + nf + 2 if log else 0
     call = (i64 * 6)(graph, phys, free, int(got is not None), int(bool(traps)), cap)
-    c = (i64 * max(1, t.counters))(*counters)
-    h = (i64 * max(1, len(t.items)))(*held)
+    # the long rows as arrays (their ints packed at C speed), each the kernel's through its buffer
+    c, h, gv = array("q", counters or (0,)), array("q", held or (0,)), array("q", gives or (0,))
+    loc_round, flag_round = array("q", bytes(8 * max(1, nl))), array("q", bytes(8 * max(1, nf)))
     fl, gt, lt = _words(flags, nf), _words(got or (), nl), _words(late, nl)
-    gv = (i64 * max(1, nl))(*gives)
     reached, safe, ph, traps_, after, freed = ((u64 * nw)() for _ in range(6))
-    loc_round, flag_round = (i64 * max(1, nl))(), (i64 * max(1, nf))()
     found_log, walked_log = (u64 * max(1, cap * nw))(), (u64 * max(1, cap * nw))()
     out = (i64 * 2)()
-    rc = lib.az_reach(view, call, c, h, fl, gt, lt, gv, reached, safe, ph, traps_, after, freed, loc_round,
-                      flag_round, found_log, walked_log, out, (u64 * wbn)(), (i64 * win)())
+    rc = lib.az_reach(view, call, *(_row(a) for a in (c, h)), fl, gt, lt, _row(gv), reached, safe, ph, traps_, after,
+                      freed, _row(loc_round), _row(flag_round), found_log, walked_log, out, (u64 * wbn)(), (i64 * win)())
     if rc:
         raise RuntimeError(f"reach.c refused the call ({rc}): the tables aren't its ABI {ABI}'s or the log overflowed")
     rounds = out[0]
@@ -661,9 +673,10 @@ def solve(t: Tables, graph: int, phys: int, free: int, *, counters: Sequence[int
                 raise ValueError(f"gives: location {loc} holds {x!r}, no item id or -1")
     lib = library()
     if lib is not None and not t.twin_only:
-        terms, largest, yields, all_yields = _limits(t)
-        grow = sum(map(operator.mul, map(largest.__getitem__, gives), yields)) + nl - gives.count(-1)
-        top = max(map(abs, (*counters, *held)), default=0) + grow + all_yields + 1
+        terms, largest, yields, all_yields, most = _limits(t)
+        top = max(map(abs, (*counters, *held)), default=0) + all_yields + 1
+        if (top + most * all_yields + nl) * terms >= LIMIT:   # past the growth's bound: its sum decides
+            top += sum(map(operator.mul, map(largest.__getitem__, gives), yields)) + nl - gives.count(-1)
         if top * terms < LIMIT:
             CALLS["kernel"] += 1
             return _native(lib, t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)

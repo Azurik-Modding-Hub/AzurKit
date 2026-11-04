@@ -357,18 +357,24 @@ def test_tables_the_kernel_cant_read_are_refused_by_name(change, why):
 def test_a_reach_counts_the_path_that_answered_it_and_the_report_shows_the_count(monkeypatch):
     """With the library loaded, the twin still answers a rule deeper than
     the kernel's (``Tables.twin_only``) or a number past ``LIMIT``, in the
-    tables or the call: ``report`` shows that call; ``taken`` hands them over."""
+    tables or the call, or one its takes could grow past it (an increment
+    times a yield, only where the location gives that item): ``report``
+    shows that call; ``taken`` hands them over."""
     monkeypatch.setattr(native, "CALLS", collections.Counter())
     assert native.report()["loaded"]
     deep = (("false",), *(("and", (i,)) for i in range(native.DEPTH)))
-    for tables, counters, path in (({}, [0], "kernel"),
-                                   ({}, [native.LIMIT], "twin"),
-                                   ({"rules": deep}, [0], "twin"),
-                                   ({"rules": (("counter", 0, native.LIMIT),)}, [0], "twin")):
+    huge = {"items": (((0, native.LIMIT - 10),),), "yields": (2,)}
+    for tables, call, path in (({}, {}, "kernel"),
+                               ({}, {"counters": [native.LIMIT]}, "twin"),
+                               ({"rules": deep}, {}, "twin"),
+                               ({"rules": (("counter", 0, native.LIMIT),)}, {}, "twin"),
+                               (huge, {"held": [0]}, "kernel"),
+                               (huge, {"held": [0], "gives": [0]}, "twin")):
         before = native.report()["calls"]
-        native.solve(native.Tables(**_ONE_NODE | tables), 0, 0, 0, counters=counters, held=[], flags=[], gives=[-1])
-        assert native.report()["calls"] == before | {path: before[path] + 1}, (tables, counters)
-    assert native.taken() == {"kernel": 1, "twin": 3}
+        native.solve(native.Tables(**_ONE_NODE | tables), 0, 0, 0, flags=[],
+                     **{"counters": [0], "held": [], "gives": [-1]} | call)
+        assert native.report()["calls"] == before | {path: before[path] + 1}, (tables, call)
+    assert native.taken() == {"kernel": 2, "twin": 4}
     assert native.report()["calls"] == {"kernel": 0, "twin": 0} and native.taken() == {}
 
 
