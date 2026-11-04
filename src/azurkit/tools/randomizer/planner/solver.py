@@ -913,8 +913,10 @@ class Logic:
         """The fixpoint (the module's loop) in ``core.native``'s reach: its
         compiled kernel when this platform's library is loaded, else its
         Python twin (``AZURKIT_NATIVE=0``), the same answer. A ``trace``
-        gets its spheres from the kernel's rounds, replayed here. ``off``:
-        :meth:`reach`'s, on the switchable tables."""
+        gets its spheres from the kernel's rounds, replayed here. ``got``:
+        the collected locations, whose items the reach takes first (``counters``
+        and ``held`` are the state before them). ``off``: :meth:`reach`'s, on the
+        switchable tables."""
         nt = self._tables(settings, off is not None)
         c = [0] * nt.tables.counters
         for name, n in counters.items():
@@ -932,7 +934,7 @@ class Logic:
                              if (i := nt.flag.get(SWITCH + sid)) is not None]),   # a switch no rule reads: none
                          gives=gives,
                          got=None if got is None else [nt.loc[x] for x in got], late=[nt.loc[x] for x in late],
-                         traps=traps_too, log=log)
+                         traps=traps_too, log=log, take_got=True)
         if log:
             self._spheres(trace, s, nt, placement, dict(counters), collections.Counter(held), base)
         named, nodes = self._named, nt.nodes
@@ -1186,14 +1188,6 @@ class Logic:
             collected = set(collected)
             if collected - self.pool.keys():
                 raise SolverError(f"collected: {sorted(collected - self.pool.keys())} are no pool locations")
-            fixed, vanilla, items, refund = memo["fixed"], self.vanilla, self.items, self.refund
-            for loc in sorted(collected):   # _take's, each spot's own item read once a database (_item)
-                if (name := fixed[loc] if loc in fixed else placement.get(loc)) is None:
-                    continue
-                self._add(held, counters, name, vanilla[loc][1])
-                key, pending = refund.get(loc, (None, None))
-                if items[name].get(key, 0) > 0 and counters.get(pending, 0) > 0:
-                    counters[pending] -= 1
         late = frozenset(collected) & self.guardian if replay and collected is not None else frozenset()
         reached, safe, phys, found, after, got, flags, victory, free = self._solve(
             st, placement, counters, held, flags, trace, traps, collected, late, None if off is None else frozenset(off))

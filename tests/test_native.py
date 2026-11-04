@@ -107,7 +107,8 @@ def _call(rng: random.Random, t: native.Tables) -> dict:
             "flags": rng.sample(range(t.flags), rng.randint(0, min(5, t.flags))),
             "gives": [rng.randrange(-1, len(t.items)) for _ in range(t.locations)],
             "got": got, "late": rng.sample(got, rng.randint(0, len(got))) if got else [],
-            "traps": rng.random() < 0.8, "log": rng.random() < 0.7}
+            "traps": rng.random() < 0.8, "log": rng.random() < 0.7,
+            "take_got": got is not None and len(got) % 2 == 0}   # got's items taken first (no draw: the stream as before)
 
 
 def _cases(seed: int, count: int):
@@ -194,7 +195,7 @@ def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables()
                     "gives": [nt.item.get(logic._item(x, placement), -1) for x in nt.locs],
                     "got": None if got is None else [nt.loc[x] for x in got],
                     "late": [nt.loc[x] for x in got or () if x in logic.guardian],
-                    "traps": rng.random() < 0.8, "log": rng.random() < 0.5}
+                    "traps": rng.random() < 0.8, "log": rng.random() < 0.5, "take_got": got is not None}
             assert native._native(lib, nt.tables, **call) == native._twin(nt.tables, **call), st
 
 

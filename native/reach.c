@@ -38,7 +38,7 @@ enum { H_MAGIC, H_ABI, H_N, H_F, H_L, H_C, H_I, H_START, H_G, H_KMAX, H_MMAX, H_
 /* A graph's words. */
 enum { G_ADJ, G_RADJ, G_K, G_CREDITS, G_CBN, G_M, G_LOCS, G_T, G_TELE, G_VICTORY, G_LBN };
 /* A call's words. */
-enum { C_GRAPH, C_PHYS, C_FREE, C_COLLECTED, C_TRAPS, C_LOG_CAP };
+enum { C_GRAPH, C_PHYS, C_FREE, C_COLLECTED, C_TRAPS, C_LOG_CAP, C_TAKE };
 
 /* A search from the start kept across a call's rounds: its nodes and the edges it asked that didn't pass (each
  * edge's word in its CSR), on H_MONO's tables; else begun again each time. */
@@ -381,8 +381,9 @@ API i64 az_reach_need(const i64 *t, i64 *ints) {
 API i64 az_abi(void) { return ABI; }
 
 /* Logic._solve: the rounds of R, Safe, R_phys and the traps, collecting what is safe, until a round adds nothing.
- * `counters`, `held`, `flags` and `got` are the state, updated in place; `late` the guardian slots collected only
- * from the round that reaches them; `gives` each location's item (or -1). `out` gets the rounds and the victory.
+ * `counters`, `held`, `flags` and `got` are the state, updated in place (with C_TAKE, got's items taken first, in
+ * id order: Logic.reach's collected); `late` the guardian slots collected only from the round that reaches them;
+ * `gives` each location's item (or -1). `out` gets the rounds and the victory.
  * Returns 0, -1 when the tables aren't this build's, -2 when the rounds outgrow the log. */
 API i64 az_reach(const i64 *t, const i64 *call, i64 *counters, i64 *held, u64 *flags, u64 *got, const u64 *late,
                  const i64 *gives, u64 *reached, u64 *safe, u64 *phys, u64 *traps, u64 *after, u64 *freed,
@@ -413,6 +414,9 @@ API i64 az_reach(const i64 *t, const i64 *call, i64 *counters, i64 *held, u64 *f
     const i64 *lc = t + rg[G_LOCS], *lbn = t + rg[G_LBN], *cr = t + rg[G_CREDITS], *rf = t + t[H_REFUND];
     i64 cap = call[C_LOG_CAP];
 
+    if (call[C_TAKE])
+        for (i64 w = 0; w < k.lw; w++)
+            for (u64 bits = got[w]; bits; bits &= bits - 1) take(&k, held, counters, w * 64 + __builtin_ctzll(bits));
     copy(k.base, flags, k.fw);
     clear(k.alone, k.nw);
     put(k.alone, k.start);

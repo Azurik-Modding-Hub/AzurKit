@@ -415,7 +415,7 @@ def _twin_rules(t: Tables) -> tuple:
 
 def _twin(t: Tables, graph: int, phys: int, free: int, counters: Sequence[int], held: Sequence[int],
           flags: Iterable[int], gives: Sequence[int], got: Iterable[int] | None, late: Iterable[int], traps: bool,
-          log: bool) -> Solved:
+          log: bool, take_got: bool = False) -> Solved:
     """The reach in Python (the reference): ``Logic._solve``, line for line, over ids."""
     if t._twin is None:
         t._twin = _twin_rules(t)
@@ -507,6 +507,9 @@ def _twin(t: Tables, graph: int, phys: int, free: int, counters: Sequence[int], 
         return out
 
     safe = {start}
+    if take_got:   # Logic.reach's collected: their items held first
+        for loc in sorted(got):
+            take(h, c, loc)
     for loc, (key, pend) in enumerate(t.refund):     # Logic._pending
         if key >= 0 and loc not in got and (name := gives[loc]) >= 0 and incs[name].get(key, 0) > 0:
             c[pend] = max(c[pend], 1)
@@ -614,7 +617,7 @@ def _row(a: array):
 
 def _native(lib, t: Tables, graph: int, phys: int, free: int, counters: Sequence[int], held: Sequence[int],
             flags: Iterable[int], gives: Sequence[int], got: Iterable[int] | None, late: Iterable[int], traps: bool,
-            log: bool) -> Solved:
+            log: bool, take_got: bool = False) -> Solved:
     """The reach in reach.c."""
     i64, u64 = ctypes.c_int64, ctypes.c_uint64
     if t._view is None:
@@ -624,7 +627,8 @@ def _native(lib, t: Tables, graph: int, phys: int, free: int, counters: Sequence
     view, wbn, win = t._view
     n, nl, nf, nw = t.nodes, t.locations, t.flags, max(1, (t.nodes + 63) // 64)
     cap = nl + nf + 2 if log else 0
-    call = (i64 * 6)(graph, phys, free, int(got is not None), int(bool(traps)), cap)
+    call = (i64 * 7)(graph, phys, free, int(got is not None), int(bool(traps)), cap,
+                     int(bool(take_got) and got is not None))
     # the long rows as arrays (their ints packed at C speed), each the kernel's through its buffer
     c, h, gv = array("q", counters or (0,)), array("q", held or (0,)), array("q", gives or (0,))
     loc_round, flag_round = array("q", bytes(8 * max(1, nl))), array("q", bytes(8 * max(1, nf)))
@@ -646,14 +650,16 @@ def _native(lib, t: Tables, graph: int, phys: int, free: int, counters: Sequence
 
 def solve(t: Tables, graph: int, phys: int, free: int, *, counters: Sequence[int], held: Sequence[int],
           flags: Iterable[int], gives: Sequence[int], got: Iterable[int] | None = None, late: Iterable[int] = (),
-          traps: bool = True, log: bool = False) -> Solved:
+          traps: bool = True, log: bool = False, take_got: bool = False) -> Solved:
     """``Logic._solve``'s fixpoint on ``t``: the logic graph ``graph``, the
     physical ``phys`` and the trick-free physical ``free`` (``phys`` again
     when the options turn no skip on), from ``counters`` and the items
     ``held`` (``t.items``' order), the ``flags`` credited from the start,
     each location's item ``gives`` (-1: none), and with ``got`` (the
     tracker's collected locations) and ``late`` (the guardian slots among
-    them collected only from the round that reaches them) or not; the traps
+    them collected only from the round that reaches them) or not, with
+    ``take_got`` each of ``got``'s items taken first (in id order: the counters
+    and items held after them, as :meth:`Logic.reach`'s collected); the traps
     only with ``traps``, each round's with ``log``. In reach.c when this
     platform's library is loaded and holds the call's numbers, else in the
     twin: the same answer."""
@@ -679,9 +685,9 @@ def solve(t: Tables, graph: int, phys: int, free: int, *, counters: Sequence[int
             top += sum(map(operator.mul, map(largest.__getitem__, gives), yields)) + nl - gives.count(-1)
         if top * terms < LIMIT:
             CALLS["kernel"] += 1
-            return _native(lib, t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)
+            return _native(lib, t, graph, phys, free, counters, held, flags, gives, got, late, traps, log, take_got)
     CALLS["twin"] += 1
-    return _twin(t, graph, phys, free, counters, held, flags, gives, got, late, traps, log)
+    return _twin(t, graph, phys, free, counters, held, flags, gives, got, late, traps, log, take_got)
 
 
 # ---- the dress ------------------------------------------------------------------------------------------------------
