@@ -3790,6 +3790,31 @@ def test_a_job_ahead_that_failed_or_whose_worker_stopped_isnt_tried_again_while_
     assert got == {"failed": [[["build k"], ["plan m"], [], 4], [["build k"], {"size": 4}], ["build k"], 2]}
 
 
+def test_a_clicks_build_whose_key_the_list_drops_and_lists_again_before_its_answer_is_built_once(browser):
+    """A click's build queued behind the image's read, whose key the page's list drops (an ahead() before the image is
+    read lists no build) and lists again (the image read), is built once, by F: no worker is sent it again after its
+    answer. The pool forgot F's key at the drop, so after the build one heap swapped the grown F out as B and built it
+    again over the dress it had just kept (a second dress of the same visit, on GitHub's Windows runner). A list
+    without the key once it is answered frees it, as after a change."""
+    got = _on_stubs(browser, """
+    {
+        const { pool, f, b } = make();
+        const item = { key: "build k", message: build("k"), heavy: true };
+        const read = pool.ask({ type: "vanilla" });
+        const built = pool.ask(build("k"), { key: "build k", heavy: true });
+        pool.want([]);
+        f.say({ type: "vanilla" });
+        await read;
+        pool.want([item]);
+        f.say({ type: "built", report: { size: 1 }, heap: KEEP + 1 });
+        const once = [(await built).report, f.tags(), b.tags(), pool.state().swapped];
+        pool.want([]);
+        pool.want([item]);
+        out.once = [once, f.tags(), b.tags(), pool.state().swapped];
+    }""")
+    assert got == {"once": [[{"size": 1}, ["vanilla", "build k"], [], 0], ["vanilla", "build k", "build k"], [], 1]}
+
+
 def test_a_b_retired_at_the_tally_line_isnt_loaded_again_until_a_fresh_bs_heap_fits_under_it(browser):
     """At the page's 5 GiB tally an idle B is retired, and a new B loads
     only once the tally plus the last B's heap when it loaded is under the

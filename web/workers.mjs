@@ -93,7 +93,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
   const taken = new Set();               // keys a click took, F runs, trim() freed or B failed on: B leaves them while
-                                         // listed
+                                         // listed, and while an ask waits on them (asked())
   const shared = new Map();              // share()'s messages by type
   const ahead = new WeakSet();           // every message that came from B's work ahead (took())
   const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0, swapped: 0 };
@@ -123,6 +123,11 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const small = (slot) => Number.isFinite(slot.heap) && slot.heap < keep;
   const stays = (slot) => Number.isFinite(slot.heap) && slot.heap < grown;
   const listed = (key) => key !== null && list.some((item) => item.key === key);
+  // A key the page's ask still waits on (queued for F, F's job, or B's that a click took): it stays taken while the
+  // list drops it, as a list holding it again before that job ends (the picked image read, after an ahead() made
+  // while it was read listed no build) would have B build it once more after the job: a second dress of one visit.
+  const asked = (key) => queue.some((job) => job.key === key)
+    || [f, b].some((slot) => slot?.job && shown(slot.job) && slot.job.key === key);
   const unkeep = (key) => {   // a kept answer nothing can take any more
     const gone = kept.get(key);
     kept.delete(key);
@@ -345,7 +350,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
         dropB();
       }
       for (const key of [...kept.keys()]) if (!keys.has(key)) unkeep(key);
-      for (const key of [...taken]) if (!keys.has(key)) taken.delete(key);
+      for (const key of [...taken]) if (!keys.has(key) && !asked(key)) taken.delete(key);
       if (items[0]?.key !== list[0]?.key) changed = begin ? -settle : now();   // an item added after it: no new wait
       list = [...items];
       pump();
