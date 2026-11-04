@@ -93,7 +93,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
   const taken = new Set();               // keys a click took, F runs, trim() freed or B failed on: B leaves them while
-                                         // listed, and while an ask waits on them (asked())
+                                         // listed, and while an ask waits on them (asked(); its end frees one unlisted)
   const shared = new Map();              // share()'s messages by type
   const ahead = new WeakSet();           // every message that came from B's work ahead (took())
   const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0, swapped: 0 };
@@ -312,7 +312,11 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const pool = {
     // An ask of the page's. With a key: B's finished job of that key answers it at once, a running one is followed.
     ask: (message, { key = null, heavy = false, anywhere = false, aside = false, once = false, progress = null,
-                     answer = null, transfer = null, ends: end = last } = {}) => new Promise((resolve) => {
+                     answer = null, transfer = null, ends: end = last } = {}) => new Promise((settle) => {
+      const resolve = (data) => {   // its end, however it ends: the list then decides, as want() would have meanwhile
+        if (!listed(key) && !asked(key)) taken.delete(key);
+        settle(data);
+      };
       if (dead) return resolve(dead);
       if (key !== null) {
         const done = kept.get(key);

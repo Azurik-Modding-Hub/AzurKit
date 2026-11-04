@@ -3794,15 +3794,20 @@ def test_a_clicks_build_whose_key_the_list_drops_and_lists_again_before_its_answ
     """A click's build queued behind the image's read, whose key the page's list drops (an ahead() before the image is
     read lists no build) and lists again (the image read), is built once, by F: no worker is sent it again after its
     answer. The pool forgot F's key at the drop, so after the build one heap swapped the grown F out as B and built it
-    again over the dress it had just kept (a second dress of the same visit, on GitHub's Windows runner). A list
-    without the key once it is answered frees it, as after a change."""
+    again over the dress it had just kept (a second dress of the same visit, on GitHub's Windows runner). A key the list
+    doesn't hold when its ask ends (answered or cancelled) is freed, as after a change: a list holding it again (the
+    change undone, whose build the page forgot) has B build it ahead."""
     got = _on_stubs(browser, """
-    {
+    const item = { key: "build k", message: build("k"), heavy: true };
+    const clicked = () => {   // the click's build queued behind the image's read, and an ahead() made meanwhile
         const { pool, f, b } = make();
-        const item = { key: "build k", message: build("k"), heavy: true };
         const read = pool.ask({ type: "vanilla" });
         const built = pool.ask(build("k"), { key: "build k", heavy: true });
         pool.want([]);
+        return { pool, f, b, read, built };
+    };
+    {
+        const { pool, f, b, read, built } = clicked();
         f.say({ type: "vanilla" });
         await read;
         pool.want([item]);
@@ -3811,8 +3816,26 @@ def test_a_clicks_build_whose_key_the_list_drops_and_lists_again_before_its_answ
         pool.want([]);
         pool.want([item]);
         out.once = [once, f.tags(), b.tags(), pool.state().swapped];
+    }
+    {
+        const { pool, f, b, read, built } = clicked();
+        f.say({ type: "vanilla" });
+        await read;
+        f.say({ type: "built", report: { size: 1 }, heap: KEEP + 1 });
+        await built;
+        pool.want([item]);
+        out.after = [f.tags(), b.tags(), pool.state().swapped];
+    }
+    {
+        const { pool, f, b, built } = clicked();
+        pool.cancel();
+        const cancelled = (await built).type;
+        pool.want([item]);
+        out.cancelled = [cancelled, f.tags(), b.tags()];
     }""")
-    assert got == {"once": [[{"size": 1}, ["vanilla", "build k"], [], 0], ["vanilla", "build k", "build k"], [], 1]}
+    assert got == {"once": [[{"size": 1}, ["vanilla", "build k"], [], 0], ["vanilla", "build k", "build k"], [], 1],
+                   "after": [["vanilla", "build k", "build k"], [], 1],
+                   "cancelled": ["cancelled", ["vanilla"], ["build k"]]}
 
 
 def test_a_b_retired_at_the_tally_line_isnt_loaded_again_until_a_fresh_bs_heap_fits_under_it(browser):
