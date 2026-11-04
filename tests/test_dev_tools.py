@@ -811,7 +811,8 @@ def test_ci_resources_prints_the_lowest_room_by_label_and_never_a_path(tmp_path)
                           capture_output=True, text=True, timeout=60, cwd=Path(__file__).resolve().parent.parent)
     macos = (r"; Playwright's processes at most [\d.]+ GiB together, one [\d.]+ \([^/\\\n]*\)\n"
              r"--- what macOS wrote of Playwright's processes that ended: [^/\\\n]+\n"
-             r"--- what WebKit's log says of a process that ended: [^/\\\n]+") if sys.platform == "darwin" else ""
+             r"--- what WebKit's log says of a process that ended: [^/\\\n]+\n"
+             r"--- the runner's GPU: [^/\\\n]+") if sys.platform == "darwin" else ""
     assert re.fullmatch(r"resources, the lowest of the tier in 0 min: tier [\d.]+ GiB free, temp [\d.]+ GiB free, "
                         rf"memory [\d.]+ GiB free \(memory of [\d.]+\){macos}\n", done.stdout), (done.stdout, done.stderr)
 
@@ -861,6 +862,87 @@ def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrot
     monkeypatch.setattr(ci_resources.subprocess, "run", lambda *_, **__: types.SimpleNamespace(stdout=log))
     assert ci_resources.webkit_said(since) == ["00:36:51 Playwright: [pageProxyID=7, webPageID=8, PID=901] "
                                                "WebPageProxy::processDidTerminate: (pid 901), reason=ExceededMemoryLimit"]
+
+
+SAMPLE_REPORT = """Analysis of sampling com.apple.WebKit.GPU.Development (pid 7) every 1 millisecond
+Call graph:
+    800 Thread_1   DispatchQueue_1: com.apple.main-thread  (serial)
+    + 800 start  (in dyld) + 6992  [0x182dd54e4]
+    +   800 xpc_main  (in libxpc.dylib) + 60  [0x18315cfc0]
+    +     800 mach_msg2_trap  (in libsystem_kernel.dylib) + 8  [0x18315cc34]
+    +     2 other  (in libxpc.dylib) + 8  [0x18315cc35]
+    800 Thread_2: RemoteRenderingBackend work queue
+    + 800 thread_start  (in libsystem_pthread.dylib) + 8  [0x18319bc1c]
+    +   780 WebKit::RemoteImageBuffer::flushContext()  (in WebKit) + 40  [0x1a]  RemoteImageBuffer.cpp:90
+    +   ! 780 IOSurfaceLock  (in IOSurface) + 12  [0x1b]
+    +   20 IPC::Semaphore::wait()  (in WebKit) + 4  [0x1c]
+    800 Thread_3: RemoteRenderingBackend work queue
+    + 800 thread_start  (in libsystem_pthread.dylib) + 8  [0x18319bc1c]
+    +   780 WebKit::RemoteImageBuffer::flushContext()  (in WebKit) + 40  [0x1a]  RemoteImageBuffer.cpp:90
+    +   ! 780 IOSurfaceLock  (in IOSurface) + 12  [0x1b]
+    800 Thread_4: JavaScriptCore libpas scavenger
+    + 800 thread_start  (in libsystem_pthread.dylib) + 8  [0x18319bc1c]
+
+Total number in stack (recursive counted multiple, when >=5):
+
+Sort by top of stack, same collapsed (when >= 5):
+        IOSurfaceLock  (in IOSurface)        1560
+        mach_msg2_trap  (in libsystem_kernel.dylib)        800
+
+Binary Images:
+       0x1 -        0x2 +com.apple.WebKit.GPU.Development /x/.tools/playwright/webkit/WebKit.framework
+"""
+
+
+def test_ci_resources_names_what_webkits_gpu_process_did_as_it_stopped_answering_and_its_state_each_minute(
+        monkeypatch):
+    """Run 41818469100's Intel runner ended WebKit's GPU process about 40 times in its WebKit hour (a page's wait on it
+    ran out, then each new one left its first message 3 s), every WebKit test after failing, and nothing said what it
+    was doing: on macOS the watcher follows WebKit's log as it is written, and the first :data:`SAMPLED` times a line
+    says a process stopped answering it samples each of Playwright's GPU processes and the process that wrote it, at
+    once, printing each watched thread's heaviest stack (threads alike once, counted) and the calls its threads were
+    most often in, never a path, a source line or an address; each minute's line has each GPU process's share of a
+    core, page-ins and footprint, WindowServer's share and the load; WebKit's lines at the tier's end past the first 20
+    are counted by the call that wrote them."""
+    from scripts import ci_resources
+    assert ci_resources.stacks(SAMPLE_REPORT) == (
+        "main thread: mach_msg2_trap (libsystem_kernel.dylib) < xpc_main (libxpc.dylib) < start (dyld); 2 x "
+        "RemoteRenderingBackend work queue: IOSurfaceLock (IOSurface) < WebKit::RemoteImageBuffer::flushContext() "
+        "(WebKit) < thread_start (libsystem_pthread.dylib); most often in: IOSurfaceLock (IOSurface) 1560, "
+        "mach_msg2_trap (libsystem_kernel.dylib) 800")
+    monkeypatch.setattr(ci_resources, "sampled", lambda pid: f"stacks of {pid}")
+    read = {7: ("com.apple.WebKit.GPU.Development", 100 << 20, 0), 8: ("com.apple.WebKit.WebContent.Development", 1, 1)}
+    gone = "GPUProcessProxy::didBecomeUnresponsive: GPUProcess with PID 7 became unresponsive"
+    rows = [f"2026-11-04 13:59:{s}.1 E  {who}[{pid}:9a1] [com.apple.WebKit:Process] 0x12ab - {what}\n"
+            for s, who, pid, what in (
+                ("30", "Playwright", 5, "WebPageProxy::processDidTerminate: reason=Crash"),
+                ("34", "com.apple.WebKit.WebContent.Development", 8,
+                 "[renderingBackend=11] RemoteRenderingBackendProxy::didBecomeUnresponsive"),
+                ("53", "Playwright", 5, gone), ("57", "Playwright", 5, gone))]
+    said, left = ci_resources.stuck(rows, read, 2)
+    assert (said, left) == ([
+        "--- WebKit's log at 13:59:34, com.apple.WebKit.WebContent.Development: [renderingBackend=11] "
+        "RemoteRenderingBackendProxy::didBecomeUnresponsive; com.apple.WebKit.GPU.Development (id 7) sampled 1 s: "
+        "stacks of 7",
+        "--- WebKit's log at 13:59:34, com.apple.WebKit.WebContent.Development: [renderingBackend=11] "
+        "RemoteRenderingBackendProxy::didBecomeUnresponsive; com.apple.WebKit.WebContent.Development (id 8) sampled "
+        "1 s: stacks of 8",
+        f"--- WebKit's log at 13:59:53, Playwright: {gone}; com.apple.WebKit.GPU.Development (id 7) sampled 1 s: "
+        "stacks of 7"], 0)
+    used = iter([(10.0, 40), (40.0, 43)])
+    monkeypatch.setattr(ci_resources, "cpu_used", lambda pid: next(used))
+    monkeypatch.setattr(ci_resources, "cpu_used_ps", lambda name: 100.0 if name == "WindowServer" else None)
+    then = {}
+    ci_resources.gpu_state(read, then, 0.0)
+    assert re.fullmatch(r"; WebKit's GPU processes: id 7 50% of a core, 3 page-ins, 100 MiB; WindowServer 0% of a "
+                        r"core; load [\d.]+", ci_resources.gpu_state(read, then, 60.0))
+    calls = ("didBecomeUnresponsive: x", "gpuProcessExited: reason=Unresponsive")
+    log = "".join(f"2026-11-04 14:{m:02}:00.1 E  Playwright[5:9a1] [com.apple.WebKit:Process] 0x1 - "
+                  f"GPUProcessProxy::{calls[m % 2]}\n" for m in range(25))
+    monkeypatch.setattr(ci_resources.subprocess, "run", lambda *_, **__: types.SimpleNamespace(stdout=log))
+    assert ci_resources.webkit_said(0)[20:] == [
+        "and 5 more; all 25 by the call that wrote them: GPUProcessProxy::didBecomeUnresponsive 13 (the last at "
+        "14:24:00), GPUProcessProxy::gpuProcessExited 12 (the last at 14:23:00)"]
 
 
 def test_ci_resources_stops_a_tier_whose_log_stops_growing_its_workers_before_pytest_once_it_printed_the_logs_tail(

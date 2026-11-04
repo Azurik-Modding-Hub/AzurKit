@@ -51,6 +51,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -274,18 +275,208 @@ def reports(since: float, seen: dict[int, tuple[str, int, int, int]]) -> list[st
     return said
 
 
+LINE = re.compile(r"^\S+ (\d\d:\d\d:\d\d)\.\d+ +\w+ +([^\[\s]+)\[(\d+)[^\]]*\] \[[^\]]*\] (?:0x[0-9a-f]+ - )?(.*)$",
+                  re.M)
+"""One of WebKit's lines in macOS's log (``--style compact``): its time, process, process id and message, the
+object's address dropped."""
+
+
 def webkit_said(since: float) -> list[str]:
     """WebKit's lines in macOS's log since ``since`` (seconds since the epoch) on a process that ended (:data:`ENDINGS`),
-    each its time, process and message (the object's address dropped, cut at :data:`WIDTH`), at most 20."""
+    each its time, process and message (cut at :data:`WIDTH`), at most 20; past them, every line counted by the call
+    that wrote it with its last time (run 41818469100's ended GPU processes were "and 260 more")."""
     try:
         out = subprocess.run(["log", "show", "--style", "compact", "--start",
                               time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since)), "--predicate", ENDINGS],
                              capture_output=True, text=True, errors="replace", timeout=300).stdout
     except (OSError, subprocess.SubprocessError) as e:
         return [f"its log unread ({type(e).__name__})"]
-    said = [f"{at} {who}: {what}"[:WIDTH] for at, who, what in re.findall(
-        r"^\S+ (\d\d:\d\d:\d\d)\.\d+ +\w+ +([^\[\s]+)\[[^\]]*\] \[[^\]]*\] (?:0x[0-9a-f]+ - )?(.*)$", out, re.M)]
-    return said[:20] + [f"and {len(said) - 20} more"] * (len(said) > 20)
+    lines = LINE.findall(out)
+    said = [f"{at} {who}: {what}"[:WIDTH] for at, who, _, what in lines]
+    if len(said) <= 20:
+        return said
+    calls: dict[str, list] = {}
+    for at, _, _, what in lines:
+        call = calls.setdefault(m[0] if (m := re.search(r"\w+::\w+", what)) else what[:40], [0, at])
+        call[0], call[1] = call[0] + 1, at
+    return said[:20] + [f"and {len(said) - 20} more; all {len(said)} by the call that wrote them: "
+                        + ", ".join(f"{call} {n} (the last at {at})" for call, (n, at) in calls.items())]
+
+
+GPU_PROCESS = "WebKit.GPU"
+"""In the name of WebKit's GPU process (Playwright's macOS build: ``com.apple.WebKit.GPU.Development``), which draws its
+pages' layers, canvases and media for their page processes."""
+STUCK = re.compile(r"RemoteRenderingBackendProxy::didBecomeUnresponsive|gpuProcessConnectionDidBecomeUnresponsive|"
+                   r"GPUProcessProxy::didBecomeUnresponsive|WebProcessProxy::didBecomeUnresponsive")
+"""WebKit's lines on a process of its that stopped answering: a page process's wait on its GPU process ran out
+(``RemoteRenderingBackendProxy``, 15 s: ``WebProcess::gpuProcessTimeoutDuration``) and it told its UI process, which
+ends that GPU process at once; a GPU process that left its UI process's message unanswered 3 s
+(``ResponsivenessTimer::defaultResponsivenessTimeout``: its first, a new page process's connection, among them), ended
+so too; a page process that left its UI process 3 s (it is not ended). Run 41818469100's Intel runner ended a GPU
+process so about 40 times in its WebKit hour, a new one 3 s after the last, every WebKit test after failing."""
+SAMPLED = 3
+"""Times a tier samples Playwright's processes as WebKit's log says one stopped answering: the first ones say why."""
+FRAMES = 8
+"""Frames of each watched thread's heaviest stack printed, from the call it was in down."""
+WATCHED = re.compile(r"com\.apple\.main-thread|RemoteRenderingBackend|CA::|coreanimation")
+"""The threads of a sampled process whose stacks are printed: its main thread, and in a GPU process each page's
+drawing queue and CoreAnimation's, which draws their layers and hands them to Metal."""
+THREADS = 6
+"""Watched threads printed at most, a process."""
+FRAME = re.compile(r"^([ +!:|]*)(\d+) (.+?)  \(in ([^)]+)\)")
+"""A frame of ``sample``'s call graph: its depth (the marks before its count), its samples, symbol and library."""
+TOP = re.compile(r"^\s+(.+?)  \(in ([^)]+)\)\s+(\d+)$", re.M)
+"""A row of ``sample``'s calls threads were most often in (its "Sort by top of stack")."""
+
+
+def stacks(text: str) -> str:
+    """What a process was doing, from ``sample``'s report ``text``: the heaviest stack (each frame's heaviest callee)
+    of each of its :data:`WATCHED` threads, :data:`FRAMES` frames from the call it was in (threads of one name and
+    stack once, with their count), and the 3 calls its threads were most often in, each with its library; thread
+    names, symbols and library names only, never a path, a source line or an address."""
+    graph = text.partition("Call graph:\n")[2].partition("\nTotal number in stack")[0].splitlines()
+    said: dict[str, int] = {}
+    for i, head in enumerate(graph):
+        if not (thread := re.match(r"^ {4}\d+ Thread_\d+(?:\s+DispatchQueue_\d+)?:? *(.*?)(?:\s+\(serial\))?$", head)):
+            continue
+        if not WATCHED.search(name := thread[1]) or len(said) == THREADS:
+            continue
+        path, depth = [], -1
+        for row in graph[i + 1:]:
+            if not (frame := FRAME.match(row)) or len(frame[1]) <= depth:
+                break
+            depth = len(frame[1])
+            path.append(f"{frame[3][:100]} ({frame[4]})")
+        key = f"{'main thread' if 'main-thread' in name else name}: {' < '.join(reversed(path[-FRAMES:]))}"
+        said[key] = said.get(key, 0) + 1
+    top = TOP.findall(text.partition("Sort by top of stack, same collapsed (when >= 5):\n")[2].partition("\n\n")[0])
+    return "; ".join([f"{n} x {key}" if n > 1 else key for key, n in said.items()] or ["no thread read"]) + (
+        "; most often in: ") + (
+        ", ".join(f"{name[:100]} ({lib}) {n}" for name, lib, n in top[:3]) or "unread")
+
+
+def sampled(pid: int, seconds: int = 1) -> str:
+    """What process ``pid`` was doing over ``seconds`` s (macOS's ``sample``, :func:`stacks`), or why it is unread."""
+    with tempfile.TemporaryDirectory() as folder:
+        report = Path(folder) / "sample.txt"
+        try:
+            subprocess.run(["sample", str(pid), str(seconds), "-mayDie", "-file", str(report)], capture_output=True,
+                           timeout=60 + seconds)
+            return stacks(report.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, subprocess.SubprocessError) as e:
+            return f"unsampled ({type(e).__name__})"
+
+
+class Said:
+    """WebKit's lines as macOS's log takes them (``log stream`` on :data:`ENDINGS`), read on a thread of their own."""
+
+    def __init__(self):
+        self.rows, self.lock = [], threading.Lock()
+        try:
+            self.proc = subprocess.Popen(["log", "stream", "--style", "compact", "--predicate", ENDINGS],
+                                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, errors="replace")
+        except OSError:
+            self.proc = None
+            return
+        threading.Thread(target=self._read, daemon=True).start()
+
+    def _read(self) -> None:
+        for row in self.proc.stdout:
+            with self.lock:
+                self.rows.append(row)
+
+    def take(self) -> list[str]:
+        with self.lock:
+            rows, self.rows = self.rows, []
+        return rows
+
+    def close(self) -> None:
+        if self.proc:
+            self.proc.kill()
+            self.proc.wait()
+
+
+def stuck(rows: list[str], read: dict[int, tuple], left: int) -> tuple[list[str], int]:
+    """For each of WebKit's ``rows`` (:class:`Said`) on a process that stopped answering (:data:`STUCK`), while
+    ``left`` samples remain: what each of Playwright's GPU processes (``read``, :func:`footprints`) and the process that
+    wrote the row, if it is one of Playwright's, were doing (:func:`sampled`), sampled at once, as the UI process
+    ends a GPU process that stopped answering at once. The lines to print, and the samples left."""
+    from concurrent.futures import ThreadPoolExecutor
+    said = []
+    for at, who, pid, what in (found.groups() for row in rows if (found := LINE.match(row.rstrip("\n")))):
+        if not left or not STUCK.search(what):
+            continue
+        left -= 1
+        gpus = [p for p, row in read.items() if GPU_PROCESS in row[0]]
+        chosen = [*gpus, *([int(pid)] if int(pid) in read and int(pid) not in gpus else [])][:4]
+        with ThreadPoolExecutor(max(1, len(chosen))) as pool:
+            for p, stack in zip(chosen, pool.map(sampled, chosen)):
+                said.append(f"--- WebKit's log at {at}, {who}: {what[:120]}; {read[p][0]} (id {p}) sampled 1 s: "
+                            f"{stack}")
+    return said, left
+
+
+def gpu_state(read: dict[int, tuple], then: dict[int, tuple[float, float, int]], now: float) -> str:
+    """Each of Playwright's GPU processes in ``read`` (:func:`footprints`) for the minute line: its share of a core
+    and its page-ins since ``then`` (``{id: (time, CPU seconds, page-ins)}`` as last read, updated), and its footprint;
+    then WindowServer's share of a core and the 1-minute load, which say whether a GPU process that stopped answering
+    was starved, spinning, waiting on the disk, or waiting on the screen's server."""
+    parts = []
+    for pid, (name, footprint, *_) in sorted(read.items()):
+        if GPU_PROCESS not in name or (used := cpu_used(pid)) is None:
+            continue
+        at, cpu, pageins = then.get(pid, (now, *used))
+        then[pid] = (now, *used)
+        share = (used[0] - cpu) / (now - at) if now > at else 0.0
+        parts.append(f"id {pid} {share:.0%} of a core, {used[1] - pageins} page-ins, {footprint / MIB:.0f} MiB")
+    window, server = cpu_used_ps("WindowServer"), "unread"
+    if window is not None:
+        at, cpu, _ = then.get(-1, (now, window, 0))
+        then[-1] = (now, window, 0)
+        server = f"{(window - cpu) / (now - at) if now > at else 0.0:.0%} of a core"
+    return (f"; WebKit's GPU processes: {'; '.join(parts) or 'none'}; WindowServer {server}; "
+            f"load {os.getloadavg()[0]:.1f}")
+
+
+def cpu_used(pid: int) -> tuple[float, int] | None:
+    """(CPU seconds, page-ins) of one of this user's processes, by macOS's own count (``proc_pid_rusage``)."""
+    import ctypes
+    lib = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+    info, base = (ctypes.c_uint64 * 40)(), (ctypes.c_uint32 * 2)()
+    if lib.proc_pid_rusage(pid, 4, info) != 0:
+        return None
+    lib.mach_timebase_info(base)   # its times are in the machine's ticks (ns on Intel, 125/3 ns on Apple Silicon)
+    return (info[2] + info[3]) * base[0] / base[1] / 1e9, info[6]
+
+
+def cpu_used_ps(name: str) -> float | None:
+    """CPU seconds of the process named ``name`` (``ps``'s, which reads another user's too)."""
+    try:
+        for row in _lines(["ps", "-A", "-o", "time=,comm="], 30):
+            clock, _, comm = row.strip().partition(" ")
+            if os.path.basename(comm.strip()) == name:
+                whole, _, part = clock.partition(".")
+                return _seconds(whole) + float(f"0.{part or 0}")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+    return None
+
+
+def machine_gpu() -> str:
+    """The runner's GPU and screens, by macOS's own report (``system_profiler``): its model, its Metal support and
+    each screen's resolution; a VM's emulated GPU often has no Metal, which WebKit's GPU process falls back from."""
+    try:
+        cards = json.loads(subprocess.run(["system_profiler", "-json", "SPDisplaysDataType"], capture_output=True,
+                                          text=True, timeout=120).stdout or "{}").get("SPDisplaysDataType", [])
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        return f"unread ({type(e).__name__})"
+    said = []
+    for card in cards:
+        screens = [s.get("_spdisplays_resolution", s.get("_name", "?")) for s in card.get("spdisplays_ndrvs", [])]
+        metal = card.get("spdisplays_mtlgpufamilysupport", "none").removeprefix("spdisplays_")
+        said.append(f"{card.get('sppci_model', card.get('_name', '?'))}, Metal {metal}, "
+                    f"screens: {', '.join(screens) or 'none'}")
+    return "; ".join(said) or "none"
 
 
 def _last(read: tuple[str, int, int, int]) -> str:
@@ -547,43 +738,54 @@ def main(argv: list[str]) -> int:
     low: dict[str, int] = {}
     told = -PRINT_S
     began, seen, most = time.time(), {}, [0, 0, ""]   # Playwright's processes as last read; their most together, one's
-    while True:
-        now = sample(folders)
-        low = {label: min(value, low.get(label, value)) for label, value in now.items()}
-        elapsed = time.monotonic() - start
-        read = footprints(_listed()) if sys.platform == "darwin" else {}
-        seen |= {pid: (*row, now["memory"]) for pid, row in read.items()}
-        biggest = max(read.values(), key=lambda row: row[1], default=("", 0, 0))
-        most[0] = max(most[0], together := sum(row[1] for row in read.values()))
-        if (top := max(read.values(), key=lambda row: row[2], default=None)) and top[2] > most[1]:
-            most[1:] = top[2], top[0]
-        if os.path.exists(stop):
-            print(f"resources, the lowest of the tier in {elapsed / 60:.0f} min: "
-                  + ", ".join(f"{label} {value / GIB:.1f} GiB free" for label, value in low.items())
-                  + f" (memory of {total / GIB:.1f})"
-                  + (f"; Playwright's processes at most {most[0] / GIB:.1f} GiB together, one {most[1] / GIB:.1f} "
-                     f"({most[2]})" if sys.platform == "darwin" else ""), flush=True)
-            if sys.platform == "darwin":
-                print("--- what macOS wrote of Playwright's processes that ended: "
-                      + ("; ".join(reports(began, seen)) or "nothing"), flush=True)
-                print("--- what WebKit's log says of a process that ended: "
-                      + ("; ".join(webkit_said(began)) or "nothing"), flush=True)
-            return STOPPED if stopped else 0
-        if elapsed - told >= PRINT_S:
-            told = elapsed
-            print(f"resources at {elapsed / 60:.0f} min: {line(now, low)}"
-                  + (f"; Playwright's processes {together / GIB:.1f} GiB in {len(read)}, the largest "
-                     f"{biggest[1] / GIB:.1f} ({biggest[0]})" if sys.platform == "darwin" else ""), flush=True)
-        if growth and not stopped:
-            if (quiet := growth.quiet(time.monotonic())) >= stall:
-                stop_tier(f"the tier's log hasn't grown in {quiet / 60:.0f} min", log, root, min(GRACE_S, stall),
-                          min(SETTLE_S, stall))
-                stopped = True
-            elif until is not None and time.time() >= until:
-                stop_tier("the tier ran to its deadline, the job's limit less the time its end needs", log, root,
-                          min(GRACE_S, stall), min(SETTLE_S, stall))
-                stopped = True
-        time.sleep(min(SAMPLE_S, stall / 5))
+    said, left, gpus = (Said(), SAMPLED, {}) if sys.platform == "darwin" else (None, 0, {})
+    try:
+        while True:
+            now = sample(folders)
+            low = {label: min(value, low.get(label, value)) for label, value in now.items()}
+            elapsed = time.monotonic() - start
+            read = footprints(_listed()) if sys.platform == "darwin" else {}
+            seen |= {pid: (*row, now["memory"]) for pid, row in read.items()}
+            biggest = max(read.values(), key=lambda row: row[1], default=("", 0, 0))
+            most[0] = max(most[0], together := sum(row[1] for row in read.values()))
+            if (top := max(read.values(), key=lambda row: row[2], default=None)) and top[2] > most[1]:
+                most[1:] = top[2], top[0]
+            if said:
+                for row in (printed := stuck(said.take(), read, left))[0]:
+                    print(row, flush=True)
+                left = printed[1]
+            if os.path.exists(stop):
+                print(f"resources, the lowest of the tier in {elapsed / 60:.0f} min: "
+                      + ", ".join(f"{label} {value / GIB:.1f} GiB free" for label, value in low.items())
+                      + f" (memory of {total / GIB:.1f})"
+                      + (f"; Playwright's processes at most {most[0] / GIB:.1f} GiB together, one {most[1] / GIB:.1f} "
+                         f"({most[2]})" if sys.platform == "darwin" else ""), flush=True)
+                if sys.platform == "darwin":
+                    print("--- what macOS wrote of Playwright's processes that ended: "
+                          + ("; ".join(reports(began, seen)) or "nothing"), flush=True)
+                    print("--- what WebKit's log says of a process that ended: "
+                          + ("; ".join(webkit_said(began)) or "nothing"), flush=True)
+                    print(f"--- the runner's GPU: {machine_gpu()}", flush=True)
+                return STOPPED if stopped else 0
+            if elapsed - told >= PRINT_S:
+                told = elapsed
+                print(f"resources at {elapsed / 60:.0f} min: {line(now, low)}"
+                      + (f"; Playwright's processes {together / GIB:.1f} GiB in {len(read)}, the largest "
+                         f"{biggest[1] / GIB:.1f} ({biggest[0]})" + gpu_state(read, gpus, time.monotonic())
+                         if sys.platform == "darwin" else ""), flush=True)
+            if growth and not stopped:
+                if (quiet := growth.quiet(time.monotonic())) >= stall:
+                    stop_tier(f"the tier's log hasn't grown in {quiet / 60:.0f} min", log, root, min(GRACE_S, stall),
+                              min(SETTLE_S, stall))
+                    stopped = True
+                elif until is not None and time.time() >= until:
+                    stop_tier("the tier ran to its deadline, the job's limit less the time its end needs", log, root,
+                              min(GRACE_S, stall), min(SETTLE_S, stall))
+                    stopped = True
+            time.sleep(min(SAMPLE_S, stall / 5))
+    finally:
+        if said:
+            said.close()
 
 
 if __name__ == "__main__":
