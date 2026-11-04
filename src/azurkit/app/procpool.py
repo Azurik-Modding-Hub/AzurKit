@@ -53,6 +53,12 @@ fewer children idle than it would split over runs its items here, the
 cheapest first, while they stay under this (:func:`_small`), and splits the rest.
 A child costs about 0.16 CPU-s to start: a G4 match's one map (35 clips,
 1-3 ms each) started 16 for 2.6 CPU-s (Step 4.4bh). 0: every call splits."""
+CLOCK = time.perf_counter if sys.platform == "win32" else time.process_time
+"""What :func:`_small` times an item by: this process's CPU seconds, which a
+busy computer doesn't stretch; on Windows the wall clock, as its CPU clock
+(``GetProcessTimes``) moves only at each tick of about 15.6 ms: an item
+under one read 0, and the next one's guess and the rest's floor with it,
+so a dear item ran here (Step 4.4bh). A busy Windows splits sooner."""
 
 _CONTEXT = multiprocessing.get_context("spawn")
 _IDLE: list[_Child] = []
@@ -185,8 +191,8 @@ def _small(fn: Callable, shared, items: list, cost: Callable[[int], float] | Non
     """The indices of ``items`` :func:`map_` has left to split, once a
     costed call that would start a child ran here, into ``results``, the
     items it could (:data:`SMALL`): in rising ``cost``, each while what they
-    took (this process's CPU seconds, which a busy computer doesn't
-    stretch) and the next one's guess (the last one's by its ``cost``) or
+    took (:data:`CLOCK`: this process's CPU seconds, which a busy computer
+    doesn't stretch) and the next one's guess (the last one's by its ``cost``) or
     the rest's floor (the least one's each) come under it; none left when
     all did. A call with no ``cost`` splits as before: its first item may
     be its dearest (paint's two bakes take about 9 s each); so does a low
@@ -198,12 +204,12 @@ def _small(fn: Callable, shared, items: list, cost: Callable[[int], float] | Non
     order = sorted(range(len(items)), key=lambda n: (cost(n), n))
     done, spent, least = set(), 0.0, float("inf")
     for k, n in enumerate(order):
-        began = time.process_time()
+        began = CLOCK()
         try:
             results[n] = fn(shared, items[n])
         except Exception:   # it raises in its turn, as a part's
             break
-        took = time.process_time() - began
+        took = CLOCK() - began
         done.add(n)
         if tick is not None:
             tick(1)

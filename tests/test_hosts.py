@@ -1344,11 +1344,29 @@ def test_a_pool_child_grown_past_the_line_leaves_with_its_results_and_a_small_on
         procpool.stop()
 
 
-def _spun(here: int, seconds: float) -> bool:   # a pool item: ``seconds`` of CPU; whether it ran in ``here``
-    began = time.process_time()
-    while time.process_time() - began < seconds:
+def _spun(here: int, seconds: float) -> bool:   # a pool item: ``seconds`` on the pool's clock; whether it ran in ``here``
+    from azurkit.app import procpool
+
+    began = procpool.CLOCK()
+    while procpool.CLOCK() - began < seconds:
         pass
     return os.getpid() == here
+
+
+def test_the_pool_times_a_small_item_by_a_clock_that_sees_under_a_millisecond():
+    """Step 4.4bh: ``procpool.CLOCK`` times each item a small call runs
+    here. Windows' CPU clock moves only at each tick of about 15.6 ms, so
+    an item under one read 0 and a dear one ran in the engine; there the
+    pool takes the wall clock, which moves by less than a millisecond, as
+    the CPU clock does elsewhere."""
+    from azurkit.app import procpool
+
+    steps, last, end = [], procpool.CLOCK(), time.monotonic() + 10
+    while len(steps) < 20 and time.monotonic() < end:
+        if (now := procpool.CLOCK()) != last:
+            steps.append(now - last)
+            last = now
+    assert steps and min(steps) < 0.001, steps
 
 
 def test_a_small_pool_call_with_no_idle_child_runs_here_and_starts_none(monkeypatch):
