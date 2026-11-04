@@ -104,3 +104,21 @@ def test_a_worker_killed_under_either_ci_tiers_flags_ends_the_run_and_names_its_
                                             timeout=120)
         assert run.ret == pytest.ExitCode.TESTS_FAILED, run.stdout.str()
         run.stdout.fnmatch_lines(["FAILED test_d.py::test_dies - worker 'gw*' crashed*"])
+
+
+def test_the_ci_vanilla_tiers_printed_summary_names_its_slowest_tests(pytester, monkeypatch):
+    """``tests.yml``'s vanilla tier prints only its log's tail and its summary from conftest's ``vanilla: N run`` on,
+    and that summary holds pytest's ``--durations`` (each test phase past a minute, the slowest 60): run 41779807138's
+    Intel tier took 293 min where 4a178cc's took 159, and its log named no test's time."""
+    text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    flags, = re.findall(r"--max-worker-restart=0 (--durations=\d+ --durations-min=\d+) >", text)
+    assert text.count("sed -n '/^vanilla: /,$p' \"$log\" | head -n 200") == 1
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
+    pytester.makepyfile(test_t="import time\n\ndef test_takes_a_while():\n    time.sleep(0.3)\n")
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    run = pytester.runpytest_subprocess("-p", "no:cacheprovider", "--numprocesses=1", *flags.split(),
+                                        "--durations-min=0.2", timeout=120)
+    lines = run.stdout.str().splitlines()
+    printed = lines[next(i for i, line in enumerate(lines) if line.startswith("vanilla: ")):][:200]
+    assert any(re.search(r"slowest \d+ durations", line) for line in printed), run.stdout.str()
+    assert any(re.match(r"\d+\.\d+s call +test_t\.py::test_takes_a_while$", line) for line in printed), printed

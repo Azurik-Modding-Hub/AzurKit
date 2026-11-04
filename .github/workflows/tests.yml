@@ -196,9 +196,11 @@ jobs:
       - name: The vanilla and europe tiers
         # On the matrix's workers, a group on one, and a killed worker ends the run by name, as in the pure tier's step.
         # pytest writes to a log, of which only the last 60 lines, the summary from conftest's "vanilla: N run" (at most
-        # 200 lines), every FAILED line and each failure's heading and first 40 E lines (at most 600; byte-safe,
-        # tests/_byte_safe.py) are printed, each cut at 240 characters (§12.4 item 4). On Linux the tests run under Modkit
-        # full.yml's offline() (§12.4 item 3, V13): a network namespace with only loopback up, back as this user with
+        # 200 lines, with each test phase past a minute, the slowest 60: --durations, as run 41779807138's Intel tier
+        # took 293 min where 4a178cc's took 159 and its log named no test's time), every FAILED line and each failure's
+        # heading and first 40 E lines (at most 600; byte-safe, tests/_byte_safe.py) are printed, each cut at 240
+        # characters (§12.4 item 4). On Linux the tests run under Modkit full.yml's offline() (§12.4 item 3, V13): a
+        # network namespace with only loopback up, back as this user with
         # sudo's and setpriv's environment reset, so only the variables named here reach them (no GITHUB_* file, no
         # runtime token); hence the venv's own python, since uv's cache and settings aren't in that environment. Its
         # temp folder is on the tier's disk too, a test that passed leaves its folder to the next (the retention policy),
@@ -230,7 +232,7 @@ jobs:
           fi
           trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla -o tmp_path_retention_policy=failed -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 > "$log" 2>&1 &
+          tier -m vanilla -o tmp_path_retention_policy=failed -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 --durations=60 --durations-min=60 > "$log" 2>&1 &
           pid=$!
           tier_id=$pid
           if [ "$RUNNER_OS" = Windows ]; then tier_id="$(cat "/proc/$pid/winpid" 2> /dev/null || true)"; fi
