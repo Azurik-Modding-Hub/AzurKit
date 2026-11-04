@@ -1542,6 +1542,7 @@ def test_a_swap_under_the_apps_process_pool_is_its_goldens_file_for_file(usa_iso
     monkeypatch.setattr(pool, "MAP", None)
     monkeypatch.setattr(pool, "LATER", None)
     monkeypatch.setattr(procpool, "RETIRE", 0)
+    monkeypatch.setattr(procpool, "SMALL", 0)   # every call splits: keylord's and beamlord's are small (Step 4.4bh)
     monkeypatch.setattr(procpool, "_Child", type("Counted", (child,), {
         "__init__": lambda self: (made.append(1), child.__init__(self))[1]}))
     assert procpool.install() >= 2 and (pool.MAP, pool.LATER) == (procpool.map_, procpool.later)

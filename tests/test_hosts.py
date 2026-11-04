@@ -1344,6 +1344,45 @@ def test_a_pool_child_grown_past_the_line_leaves_with_its_results_and_a_small_on
         procpool.stop()
 
 
+def _spun(here: int, seconds: float) -> bool:   # a pool item: ``seconds`` of CPU; whether it ran in ``here``
+    began = time.process_time()
+    while time.process_time() - began < seconds:
+        pass
+    return os.getpid() == here
+
+
+def test_a_small_pool_call_with_no_idle_child_runs_here_and_starts_none(monkeypatch):
+    """Step 4.4bh: a costed call that would start a child runs its items
+    here, the cheapest first, while they stay under ``procpool.SMALL`` CPU
+    seconds: a G4 match's 35 clips, 1-3 ms each, started 16 children for
+    2.6 CPU-s. Its answers are the same list; a call whose next item would
+    pass it by ``cost`` splits the rest, and one with no cost (its first
+    item may be its dearest) or a low one (work ahead, which would hold the
+    engine's GIL beside the player's ask) splits all, as before."""
+    from azurkit.app import procpool
+
+    made, child = [], procpool._Child
+    monkeypatch.setattr(procpool, "_Child", type("Counted", (child,), {
+        "__init__": lambda self: (made.append(1), child.__init__(self))[1]}))
+    monkeypatch.delenv(procpool.CORES, raising=False)
+    procpool.stop()
+    here, dear = os.getpid(), [0.3, 0.01, 0.3]
+    try:
+        assert (procpool.map_(_spun, here, [0.0] * 35, lambda n: 35 - n), made) == ([True] * 35, [])
+        assert procpool.map_(_spun, here, dear, lambda n: dear[n]) == [False, True, False] and len(made) == 2
+        procpool.stop()
+        assert procpool.map_(_spun, here, [0.0, 0.0]) == [False, False] and len(made) == 4
+        procpool.stop()
+        low = []
+        ahead = threading.Thread(target=lambda: (procpool.Low()(True), low.append(procpool.map_(
+            _spun, here, [0.0] * 2, lambda n: 1))))
+        ahead.start()
+        ahead.join(60)
+        assert low == [[False, False]] and len(made) == 6
+    finally:
+        procpool.stop()
+
+
 def test_a_call_beside_every_held_core_takes_one_child_and_never_waits_for_them(monkeypatch):
     """Step 4.3r4c: ``$AZURKIT_CORES`` caps the children across the process,
     not a call's alone, so a call asking for 2 beside a ``later``'s call
@@ -1375,8 +1414,8 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
     """Step 4.3i: the app's builds run in its engine process
     (``app.engine.Spawned``), so the server's own answers (the species list,
     the setup, the build's progress: its stage's ``core.progress`` record)
-    come within 0.5 s while keylord builds, its swap's work spread over that
-    process's pool (``app.procpool``); Cancel refuses the build at once and
+    come within 0.5 s while keylord builds (her swap's calls are small, so
+    worked out in that process: ``procpool.SMALL``); Cancel refuses the build at once and
     stops it at its next record, so the same process, its logic and its
     pool, takes the next Build (``app.ahead``, D1007), and closing the app
     ends it."""
@@ -1400,12 +1439,11 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         building = threading.Thread(target=_post, args=(server.url, "api/build", {
             "iso": str(usa_iso), "packs": {}, "character": {"species": "keylord"}}, replies))
         building.start()
-        # Each waited for while the build runs (Step 4.4ci19's measures: the build takes about 4 s here, 25-69 s under
+        # Waited for while the build runs (Step 4.4ci19's measures: the build takes about 4 s here, 25-69 s under
         # taskpolicy -b and nice 19 beside a load of 30-49): its first record, the build's Python, 0.3 s after the post
         # here and up to 7.8 s so slowed, the engine process's start first (2.9-4.6 s from its spawn), where a fixed
-        # 1.5 s found no stage yet; then the swap's first parallel part, its dress's bake (retarget.bake_body), after
-        # its check, size, read and pack: 0.6-0.9 s after the post here, 4.9-14.4 s so slowed, past the 10 s this
-        # waited on GitHub's Intel Mac runner (run 41779807138). A build that ends first says what it gave.
+        # 1.5 s found no stage yet. Her swap starts no pool child (its calls are small, Step 4.4bh), so nothing more is
+        # waited for. A build that ends first says what it gave.
         while building.is_alive() and progressed()["calls"].get("build", {}).get("stage") is None:
             time.sleep(0.05)
         assert building.is_alive(), f"the build ended before its first record: {replies}"
@@ -1413,11 +1451,7 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         assert all(s < 0.5 or s < 0.5 * _speed.factor() for s, _ in took) and took[1][1] == {}, took
         step = progressed()
         assert step["calls"]["build"]["stage"] in progress.STAGES and step["stage"] == step["calls"]["build"]["stage"]
-        pool = []
-        while building.is_alive() and not pool:
-            pool = _children(first)
-            time.sleep(0.05)
-        assert pool, f"the build ended before its pool started: {replies}"
+        assert building.is_alive(), f"the build ended before its cancel: {replies}"
         assert ask("api/cancel", {})[1] == {}
         building.join(5)
         assert (building.is_alive(), replies) == (False, [{"refused": "Cancelled: nothing was built"}])

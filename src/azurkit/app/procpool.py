@@ -18,9 +18,11 @@ the process, not a call's alone: a ``later``'s call shares them with the
 call it runs beside (:data:`_BUSY`), so ``$AZURKIT_CORES`` caps what the
 process runs on (one finished is idle at once, for the call beside it). A
 call never waits for them: with none free it takes one child past the cap,
-so a small ask beside a dress answers within its 3 s. A part of a low call
-(:class:`Low`: work ahead no click follows yet, D1007) runs low in its child,
-and a :func:`later` thread as its caller does."""
+so a small ask beside a dress answers within its 3 s. A costed call at
+the click's priority that would start a child runs what it can of its items here first, within
+:data:`SMALL` (a child costs more to start than such items to run). A
+part of a low call (:class:`Low`: work ahead no click follows yet, D1007)
+runs low in its child, and a :func:`later` thread as its caller does."""
 
 from __future__ import annotations
 
@@ -29,6 +31,7 @@ import multiprocessing.connection
 import os
 import sys
 import threading
+import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -44,6 +47,12 @@ it has sent a part's results, so the heap that part grew goes back to the
 OS (a collection or the allocator's trim returns none of it) and the next
 call takes a fresh child: booblord's jiggle keying leaves each of 4
 children holding 250-512 MB through the rest of her dress."""
+SMALL = 0.25
+"""CPU seconds: a call of two items or more with a ``cost``, not low, that finds
+fewer children idle than it would split over runs its items here, the
+cheapest first, while they stay under this (:func:`_small`), and splits the rest.
+A child costs about 0.16 CPU-s to start: a G4 match's one map (35 clips,
+1-3 ms each) started 16 for 2.6 CPU-s (Step 4.4bh). 0: every call splits."""
 
 _CONTEXT = multiprocessing.get_context("spawn")
 _IDLE: list[_Child] = []
@@ -171,17 +180,55 @@ def _give(children: list[_Child]) -> None:
             child.stop()
 
 
+def _small(fn: Callable, shared, items: list, cost: Callable[[int], float] | None,
+           tick: Callable[[int], object] | None, results: list) -> list[int]:
+    """The indices of ``items`` :func:`map_` has left to split, once a
+    costed call that would start a child ran here, into ``results``, the
+    items it could (:data:`SMALL`): in rising ``cost``, each while what they
+    took (this process's CPU seconds, which a busy computer doesn't
+    stretch) and the next one's guess (the last one's by its ``cost``) or
+    the rest's floor (the least one's each) come under it; none left when
+    all did. A call with no ``cost`` splits as before: its first item may
+    be its dearest (paint's two bakes take about 9 s each); so does a low
+    one (:func:`lowered`: work ahead), whose items here would hold this
+    process's GIL beside the call a player waits on (a model's pictures
+    asked while the pick's dress runs ahead, A30, +0.07 s)."""
+    if SMALL <= 0 or cost is None or len(items) < 2 or lowered() or len(_IDLE) >= min(workers(), len(items)):
+        return list(range(len(items)))
+    order = sorted(range(len(items)), key=lambda n: (cost(n), n))
+    done, spent, least = set(), 0.0, float("inf")
+    for k, n in enumerate(order):
+        began = time.process_time()
+        try:
+            results[n] = fn(shared, items[n])
+        except Exception:   # it raises in its turn, as a part's
+            break
+        took = time.process_time() - began
+        done.add(n)
+        if tick is not None:
+            tick(1)
+        if k + 1 == len(order):
+            return []
+        spent, least = spent + took, min(least, took)
+        guess = took * cost(order[k + 1]) / cost(n) if cost(n) > 0 else SMALL
+        if spent + max(guess, least * (len(order) - k - 1)) >= SMALL:
+            break
+    return [n for n in range(len(items)) if n not in done]
+
+
 def map_(fn: Callable, shared, items: list, cost: Callable[[int], float] | None = None,
          tick: Callable[[int], object] | None = None) -> list:
     """``[fn(shared, item) for item in items]``, split over children (the
-    module's docstring); ``tick(k)`` as each part's ``k`` items come back."""
+    module's docstring), or here when small (:data:`SMALL`); ``tick(k)``
+    as each part's ``k`` items come back."""
     results: list = [None] * len(items)
-    if not items:
+    if not (left := _small(fn, shared, items, cost, tick, results)):
         return results
-    held, low = _BUSY.take(min(workers(), len(items))), lowered()
+    held, low = _BUSY.take(min(workers(), len(left))), lowered()
     children, here, broken, waiting = [], [], [], {}
     try:
-        parts = [part for part in _split(len(items), held, cost) if part]
+        parts = [[left[i] for i in part] for part in _split(len(left), held, None if cost is None else
+                                                            lambda i: cost(left[i])) if part]
         _BUSY.give(held - len(parts))
         held = len(parts)
         children = _take(len(parts))

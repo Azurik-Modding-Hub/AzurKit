@@ -739,7 +739,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     $AZURKIT_CORES)` busy across the process (a `later`'s call shares them
     with the call beside it, and takes one past them rather than wait), kept for the next, but one that has peaked
     past `RETIRE` (256 MiB; not on Windows, which has no peak to read), which
-    leaves after its part so its heap goes back to the OS, through pipes alone; the
+    leaves after its part so its heap goes back to the OS, through pipes alone;
+    a costed call that would start a child runs its items in the engine first,
+    the cheapest first, while they stay under `SMALL` (0.25 CPU-s; the G4
+    match's 35 clips, Step 4.4bh), and splits the rest; the
     results are each item's in order, so no byte depends on it
     (`test_characters.py` builds G3's cases under it).
   - A recipe's `character` (`tools.characters.normalize`): `species` and
