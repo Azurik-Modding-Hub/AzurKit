@@ -149,6 +149,17 @@ def close(page) -> None:
     within(page, page._impl_obj.close(), STALL, "the page's close")
 
 
+def load(page, url: str | None = None, until: str = "load"):
+    """``page.goto(url)``, or with no ``url`` ``page.reload()``, to its ``until`` (Playwright's ``wait_until``), in at
+    most :data:`STALL` s (:func:`within`), not Playwright's 30 s, past which it failed naming nothing but the
+    navigation (a site page's load in Firefox, run 41678038275; a reload in WebKit on 4a178cc, both on GitHub's Intel
+    Mac runner): past it the failure names the page's state, whether its browser still answers and its driver's
+    processes."""
+    call = (page._impl_obj.reload(timeout=0, waitUntil=until) if url is None
+            else page._impl_obj.goto(url, timeout=0, waitUntil=until))
+    return within(page, call, STALL, "the page's reload" if url is None else f"the page's load of {url}")
+
+
 def until(page, js: str, timeout: float = 600):
     """``js``'s value once it is truthy; past ``timeout`` s, a failure that says what the page was waiting on
     (:func:`hang`), and one evaluate unanswered :data:`STALL` s past it fails so too (:func:`answer`)."""
@@ -262,7 +273,7 @@ def first_paint(page, url: str) -> list[str]:
     engine."""
     held = []
     page.route("**/app.mjs", lambda route: held.append(route))
-    page.goto(url, wait_until="commit")
+    load(page, url, "commit")
     unrun, classic, *shown = until(page, FIRST, 120)
     assert (unrun, classic, len(held)) == (True, True, 1)
     held[0].fallback()

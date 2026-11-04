@@ -269,12 +269,10 @@ class Site:
         self.held.fulfill(route, file)
 
     def open(self):
-        """A new page, its engine loaded, each call bounded (``_page.within``). Its load (the page's own files, about
-        0.4 MB, in 0.1-0.2 s here; the engine's 35 MB come after it) has the new page's bound, not Playwright's 30 s,
-        which GitHub's Intel Mac runner went past with nothing said but the navigation (Firefox, run 41678038275): past
-        it the failure names the page's state, whether its browser still answers, and its driver's processes."""
+        """A new page, its engine loaded, each call bounded (``_page.within``; its load ``_page.load``'s: the page's
+        own files, about 0.4 MB, in 0.1-0.2 s here; the engine's 35 MB come after it)."""
         page = _page.within(self.context, self.context._impl_obj.new_page(), _page.STALL, "a new page")
-        _page.within(page, page._impl_obj.goto(f"{ORIGIN}/", timeout=0), _page.STALL, "the page's load")
+        _page.load(page, f"{ORIGIN}/")
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         return page
 
@@ -332,7 +330,7 @@ def test_a_site_closed_while_its_driver_fetches_a_file_leaves_the_next_sites_fir
     served.held.server.RequestHandlerClass = functools.partial(Holding, directory=str(tmp_path))
     try:
         page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
-        page.goto(f"{ORIGIN}/")
+        _page.load(page, f"{ORIGIN}/")
         _page.answer(page, "() => { fetch('/held.bin').catch(() => {}); }")
         end = time.monotonic() + 60
         while not reached.is_set():   # the route's fetch reaches the server (the driver is heard only in a call)
@@ -507,7 +505,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         assert (link, page.evaluate("() => location.hash")) == (f"{ORIGIN}/{fragment}", fragment)
         assert page.evaluate("() => document.querySelector('#link').value") == link
         loaded = served.context.new_page()
-        loaded.goto(link)
+        _page.load(loaded, link)
         _page.until(loaded, "() => globalThis.azurkit?.loaded")
         assert _page.ticked(loaded) == _page.ticked(page)
         assert list(_page.ticked(loaded)) == ["fps_unlock", "player_physics", "qol_memory_budget"]
@@ -525,7 +523,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
                 "prop": "hitPoints", "value": 321}
         with_cell = f"{ORIGIN}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}, 'xbr': [cell]})}"
         again = served.context.new_page()
-        again.goto(with_cell)
+        _page.load(again, with_cell)
         _page.until(again, "() => globalThis.azurkit?.loaded")
         assert again.evaluate("() => [azurkit.xbr, document.querySelector('#xbr-note').textContent]") == [
             [cell], "The Data tab holds 1 config.xbr edit, which each build applies."]
@@ -533,7 +531,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         _page.click(again, "share")
         assert _page.until(again, "() => azurkit.link") == with_cell
         bad = served.context.new_page()
-        bad.goto(f"{ORIGIN}/#p=@@")
+        _page.load(bad, f"{ORIGIN}/#p=@@")
         assert _page.until(bad, """() => document.querySelector("#status").classList.contains("error")
                                    && document.querySelector("#status").textContent""").startswith(
             "preset: no #p= and base64url")
@@ -798,7 +796,7 @@ def test_a_phone_or_a_tablet_gets_one_plain_line_to_use_a_computer(browser, site
         served = Site(browser, site, **options)
         try:
             page = served.context.new_page()
-            page.goto(f"{ORIGIN}/")
+            _page.load(page, f"{ORIGIN}/")
             assert page.evaluate(shown) == [seen, line], options
         finally:
             served.close()
@@ -877,7 +875,7 @@ def _remembered(page, setup: dict | None) -> None:
 
 
 def _reload(page) -> None:
-    page.reload()
+    _page.load(page)
     _page.until(page, "() => globalThis.azurkit?.ready", 120)
 
 
@@ -935,7 +933,7 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
                            "xbr": []})
 
         linked = served.context.new_page()
-        linked.goto(f"{ORIGIN}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}})}")
+        _page.load(linked, f"{ORIGIN}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}})}")
         _page.until(linked, "() => globalThis.azurkit?.loaded")
         assert list(_page.ticked(linked)) == ["qol_alloc_race"]
         _remembered(linked, {"ticked": ["qol_alloc_race"], "values": {}, "xbr": []})
@@ -1145,7 +1143,7 @@ def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_an
         _page.until(page, locked, 60)
         page.evaluate("() => localStorage.removeItem('azurkit.setup')")
         page = served.context.new_page()
-        page.goto(link)
+        _page.load(page, link)
         _page.until(page, "() => globalThis.azurkit?.ready", 300)
         _page.until(page, locked, 120)
         assert page.evaluate("() => azurkit.community.pins()")[0]["id"] == "hard"
@@ -1608,7 +1606,7 @@ def test_the_site_serves_the_favicon_the_page_links(browser, site):
         context = browser.new_context(service_workers="block")   # its icons, not sw.js's first visit (its own file's)
         try:
             page = context.new_page()
-            page.goto(url)
+            _page.load(page, url)
             _page.check_icons(page)
         finally:
             context.close()
@@ -1704,7 +1702,8 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
     unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
     browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
-    10 min, run 41610020282)."""
+    10 min, run 41610020282). A navigation whose document never comes (``_page.load``, every goto and reload of the
+    site's tests) fails so past ``_page.STALL``, naming the address."""
     served = Site(browser, site)
     try:
         page = served.open()   # in the bound a page's opening has, not the test's
@@ -1727,6 +1726,17 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert lines[1:2] + lines[-2:-1] == ["state: unread (no answer in 1 s)", "its browser still answers"]
         assert 1 <= settled < 20 and 3 <= held < 20, (settled, held)
         assert _page.until(page, "() => azurkit.ready", 30)   # the page answers again once its thread is free
+        routes = []   # a navigation whose document never comes
+        page.route("**/held.html", lambda route: routes.append(route))
+        t2 = time.monotonic()
+        with pytest.raises(AssertionError) as unloaded:
+            _page.load(page, f"{ORIGIN}/held.html")
+        lines = str(unloaded.value).splitlines()
+        assert lines[0] == f"no answer in 2 s: the page's load of {ORIGIN}/held.html" and len(routes) == 1, lines
+        # its state read or not: Chromium's page left it unread in 1 s while its navigation was held
+        assert lines[1].startswith("state: ") and lines[-2:-1] == ["its browser still answers"], lines
+        assert 2 <= time.monotonic() - t2 < 20
+        routes[0].abort()
     finally:
         monkeypatch.undo()   # the close has its own bound
         served.close()
@@ -2649,7 +2659,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         recipe = {"packs": page.evaluate("() => azurkit.sent"), "randomizer": {"seed": "2", "settings": defaults}}
         assert link == f"{ORIGIN}/{sdk.preset_encode(recipe, report)}"
         loaded = served.context.new_page()
-        loaded.goto(link)
+        _page.load(loaded, link)
         _page.until(loaded, "() => globalThis.azurkit?.loaded && !azurkit.rando.load && azurkit.rando.view")
         assert loaded.evaluate(TAB)[:2] == [True, "2"]
         assert loaded.evaluate("() => document.querySelector('#randomizer .on .mark').textContent") == "●"
@@ -2712,7 +2722,7 @@ def test_a_seed_wearing_a_character_builds_on_the_site_as_cpython_builds_it(brow
     served = Site(browser, site)
     try:
         page = served.context.new_page()
-        page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded && !azurkit.rando.load && azurkit.rando.view", 120)
         page.set_input_files("#iso", str(usa_iso))
         page.evaluate("() => document.querySelector('#build').click()")
@@ -2732,7 +2742,7 @@ def test_a_weapon_a_body_lifts_off_the_floor_builds_on_the_site_as_cpython_build
     served = Site(browser, site)
     try:
         page = served.context.new_page()
-        page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
         page.set_input_files("#iso", str(usa_iso))
         page.evaluate("() => document.querySelector('#build').click()")
@@ -2842,7 +2852,7 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
 
         packs = mods.normalize(on)
         loaded = served.context.new_page()
-        loaded.goto(f"{ORIGIN}/{sdk.preset_encode({'packs': packs, 'randomizer': {'seed': '7'}})}")
+        _page.load(loaded, f"{ORIGIN}/{sdk.preset_encode({'packs': packs, 'randomizer': {'seed': '7'}})}")
         assert _page.until(loaded, SETTLED, 120)["share"] == "AZR-AAEA"
         assert loaded.evaluate(TAB)[:2] == [True, "7"]
         assert loaded.evaluate(STATUS).endswith(f": {len(packs)} packs and the randomizer (seed 7), marked ●. "
@@ -3292,7 +3302,7 @@ def _bare_page(browser, root: Path):
 
     context.route("**/*", serve)
     page = context.new_page()
-    page.goto(f"{ORIGIN}/")
+    _page.load(page, f"{ORIGIN}/")
     return context, page
 
 
@@ -3797,7 +3807,7 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         served.context.route("**/worker.mjs", lambda route: route.fulfill(
             body=WROTE + worker, content_type="text/javascript"))
         page = served.context.new_page()
-        page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
         page.set_input_files("#iso", str(usa_iso))
         page.evaluate("() => document.querySelector('#build').click()")
@@ -3831,7 +3841,7 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         # Chromium: the file outlived the reload's one sweep, run 41521288667)
         _page.until(other, f"async () => !(await navigator.locks.query()).held.some((l) => l.name === {json.dumps(name)})",
                     60)
-        other.reload()
+        _page.load(other)
         _page.until(other, f"async () => !(await ({BUILD_FILES})()).includes({json.dumps(name)})", 60)
     finally:
         served.close()
@@ -3866,7 +3876,7 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
         served.context.add_init_script(HEARD)
         for visit in range(2):
             page = served.context.new_page()
-            page.goto(f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+            _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
             _page.until(page, "() => globalThis.azurkit?.loaded", 120)
             page.set_input_files("#iso", str(usa_iso))
             page.evaluate("() => document.querySelector('#build').click()")

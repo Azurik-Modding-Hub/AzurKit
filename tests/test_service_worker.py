@@ -240,7 +240,7 @@ def settled(page, host: Host, timeout: float = 30) -> None:
 
 def opened(context, host: Host, path: str = "") -> tuple:
     page = context.new_page()
-    page.goto(host.url + path)
+    _page.load(page, host.url + path)
     return page, started(page)
 
 
@@ -293,12 +293,12 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
     engine from the release alone."""
     with hosted(browser, site) as (host, context):
         first = context.new_page()
-        first.goto(host.url)
+        _page.load(first, host.url)
         ready(first)
         assert first.evaluate("() => [crossOriginIsolated, Boolean(navigator.serviceWorker.controller)]") == [False, False]
         assert _page.until(first, "async () => Boolean((await navigator.serviceWorker.getRegistration())?.active)", 60)
         page = context.new_page()
-        page.goto(host.url)
+        _page.load(page, host.url)
         ready(page)
         assert page.evaluate("() => [crossOriginIsolated, navigator.serviceWorker.controller?.scriptURL, "
                              "azurkit.violations]") == [True, f"{host.url}sw.js", []]
@@ -307,7 +307,7 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
         assert _page.until(page, KEPT_ROW, 60)
         host.down = True
         other = context.new_page()
-        other.goto(host.url)
+        _page.load(other, host.url)
         ready(other)
         assert other.evaluate("() => crossOriginIsolated")
 
