@@ -28,7 +28,6 @@ import contextlib
 import functools
 import hashlib
 import http.server
-import itertools
 import json
 import os
 import re
@@ -409,6 +408,27 @@ TRACK = """(id) => [document.getElementById(id).previousElementSibling.min,
                     document.getElementById(id).previousElementSibling.max]"""
 
 
+PAGE_BUILDING = 5 << 28
+"""Bytes of the machine's memory one page of the pack golden takes while it builds (1.25 GiB), rounded up from WebKit's,
+the most of the three browsers': its page process at most 1045 MiB with 2 at once (Step 4.4ci17's results/g1-cpu3-free4,
+the USA golden on this Mac read as the Apple Silicon runner: 3 cores, 4.0 GiB free), 874-936 MiB with 3 (Step 4.4ci14's
+a-final-g1-pair-fp), and its share of WebKit's GPU and network processes (108 and 40 MiB)."""
+KEPT_FREE = 3 << 29
+"""Bytes the pack golden leaves free beside its pages (1.5 GiB): pytest's and its driver's growth for each page's image
+(their 635 MiB grew to 1131 MiB in results/g1-cpu3-free4) and 1 GiB more for the test the tier's other worker runs
+beside it. GitHub's 7 GB Apple Silicon runner, 4.0-4.5 GiB free at the golden's start, killed a WebKit page of its 3 at
+once ("Target crashed", the tier's lowest 1.2 GiB free: run 41744982709), whose 3 take 3.3 GiB with the driver and
+pytest (Step 4.4ci14); 2 took 2.8 GiB here at their peak."""
+
+
+def _at_once() -> int:
+    """How many of the pack golden's pages build at once: a page and its engine a core (at least 2), and no more than
+    the machine's free memory holds (:data:`PAGE_BUILDING` each past :data:`KEPT_FREE`), at least 1."""
+    from scripts import ci_resources
+    free = ci_resources.free_memory()[0]
+    return max(1, min(max(2, os.cpu_count() or 2), (free - KEPT_FREE) // PAGE_BUILDING))
+
+
 @pytest.mark.parametrize("release", RELEASES)
 def test_the_table_pages_the_site_ships_are_the_ones_the_recorder_finds_in_each_release(release, request):
     """web/tables.json's row of each release, which worker.mjs's ahead() reads in one round, is
@@ -422,8 +442,9 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
     """One page per pack, one with fps_unlock's slider typed to 120 FPS,
     one with enemy_damage's sliders at a G1 case's values (config.xbr's
     cells) and one with photo mode's fly speed past float32's range, built
-    as many at once as the host has cores: each page's report and segments are CPython's for the values
-    it sent, and the packs at their defaults and the slider case hold their
+    as many at once as the host has cores and its free memory holds
+    (``_at_once``): each page's report and segments are CPython's for the
+    values it sent, and the packs at their defaults and the slider case hold their
     G1 golden's files (and only ``filelist.txt`` besides); the fly speed
     is written as infinity with Q110's note, which the page shows, and one
     with player_physics' jump height at 1.5 and two of its L3 toggles on
@@ -445,8 +466,11 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
         name: {s.name for s in pack.sliders() if s.catalog()["vanilla"] is None and release.name in pack.releases}
         for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
     try:
-        # A page and its engine a core: all 21 open on a 3-core runner, Firefox's next ran out of its 120 s to start
-        for group in itertools.batched(cases, max(2, os.cpu_count() or 2)):
+        # A page and its engine a core (all 21 open on a 3-core runner, Firefox's next ran out of its 120 s to start),
+        # as many as the free memory holds, read before each group
+        at = 0
+        while group := cases[at:at + _at_once()]:
+            at += len(group)
             pages = [served.open() for _ in group]
             for (name, values, case), page in zip(group, pages):
                 if (name, values, case) == FPS:
@@ -479,6 +503,19 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
         assert served.stray() == []
     finally:
         served.close()
+
+
+def test_the_pack_golden_builds_no_more_pages_at_once_than_the_cores_and_the_free_memory_hold(monkeypatch):
+    """A page a core, at least 2, and a page of :data:`PAGE_BUILDING` past :data:`KEPT_FREE` of the free memory, at
+    least 1: GitHub's Apple Silicon runner (3 cores, at most 4.0-4.5 GiB free), where 3 at once cost a WebKit page
+    ("Target crashed", run 41744982709), builds 2, and 1 as it has less; its Windows runner (4 cores, 16 GB), 4; this
+    Mac, its cores."""
+    from scripts import ci_resources
+    for cores, free, want in ((3, 4.5, 2), (3, 4.0, 2), (3, 2.7, 1), (3, 1.0, 1), (4, 9.0, 4), (1, 64.0, 2),
+                              (24, 64.0, 24)):
+        monkeypatch.setattr(os, "cpu_count", lambda: cores)
+        monkeypatch.setattr(ci_resources, "free_memory", lambda: (int(free * (1 << 30)), 7 << 30))
+        assert _at_once() == want, (cores, free)
 
 
 def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_marked(browser, site):
