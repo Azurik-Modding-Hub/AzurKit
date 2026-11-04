@@ -635,21 +635,23 @@ def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None)
     (``character``). A refusal names the field or the image.
     ``progress(record)`` hears its steps on an image (``read``, 2 of them):
     the image's model files read (once an image), then the models' view,
-    so a host's bar moves while the tab waits (Step 4.3 round 3)."""
+    its body's weapons counted inside it ("the weapons, k of n": where the
+    view's time goes), so a host's bar moves while the tab waits (Step 4.3
+    round 3, Step 4.4be)."""
     if not isinstance(given, Mapping):
         raise ValueError("pickers: a JSON object")
-    steps = Steps(progress)
-    character = characters.normalize(given.get("character") or {"species": "garret4"})
-    config = bodies = None
-    if isinstance(given.get("iso"), str) and given["iso"]:
-        _, config, bodies = _game(given["iso"], lambda: steps("read", "Reading your image's models", 0, 2))
-        steps("read", "Reading the models", 1, 2)
-    from azurkit.tools.characters import content as kit
-    from azurkit.tools.characters import picker
+    with noting(Steps(progress)) as steps:
+        character = characters.normalize(given.get("character") or {"species": "garret4"})
+        config = bodies = None
+        if isinstance(given.get("iso"), str) and given["iso"]:
+            _, config, bodies = _game(given["iso"], lambda: steps("read", "Reading your image's models", 0, 2))
+            steps("read", "Reading the models", 1, 2)
+        from azurkit.tools.characters import content as kit
+        from azurkit.tools.characters import picker
 
-    manifest = (given.get("content") or {}).get("manifest")
-    entries = kit.states(kit.check(manifest) if manifest else None, kit.installed())
-    return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
+        manifest = (given.get("content") or {}).get("manifest")
+        entries = kit.states(kit.check(manifest) if manifest else None, kit.installed())
+        return picker.view(config, bodies, character, {"entries": entries}, kit.ROOT)
 
 
 def _under_a_dress(stamp: gate.Stamp, packs: Mapping) -> tuple[object, list[Layer]]:

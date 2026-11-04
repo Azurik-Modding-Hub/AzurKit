@@ -1276,21 +1276,30 @@ def test_every_model_lists_every_weapon_before_an_image_and_a_pick_no_sitting_sa
     assert {"not tested" in p["label"] for p in rows[1:] if p["fit"] not in ("default", "same")} == {True, False}
 
 
-def test_the_characters_view_on_an_image_tells_its_models_read_then_the_view_so_the_sites_bar_moves(usa_iso,
-                                                                                                    monkeypatch):
+def test_the_characters_view_on_an_image_tells_its_models_read_then_the_views_weapons_counted(usa_iso, monkeypatch):
     """Step 4.3 round 3 (S10, S11 in Chromium, D980): ``sdk.pickers`` on an
     image tells its two steps (``read``), the image's model files read and
     then the models' view, the first only while the image isn't read yet:
     the site's worker posts them, so a model picked while the tab's own
     first answer (a new worker's) is worked shows its bar moving (1.4 s
-    with none in Chromium), and never back from one answer to the next."""
+    with none in Chromium), and never back from one answer to the next.
+    Step 4.4be (S10-S12 at load 35: 1.0-1.6 s with one value): the view's
+    time is its body's Weapon box, each weapon's loadout counted inside its
+    step ("the weapons, k of n"), so a model's pick moves its bar through
+    it, and a kept one (keylord again) tells no count."""
+    from azurkit.tools.characters import picker
+
     monkeypatch.setattr(sdk, "_GAME", {})   # the image's model files not kept from another test
+    monkeypatch.setattr(picker, "_OFFERS", {})   # nor the bodies' Weapon boxes
     told: list[dict] = []
-    for species in ("garret4", "keylord"):
+    for species in ("garret4", "keylord", "keylord"):
         sdk.pickers({"iso": str(usa_iso), "character": {"species": species}}, progress=told.append)
-    assert [(s["stage"], s["percent"], s["label"]) for s in told] == [
-        ("read", 0, "Reading your image's models"), ("read", 50, "Reading the models"),
-        ("read", 50, "Reading the models")]
+    said = [(s["stage"], s["percent"], s["label"]) for s in told]
+    assert said == [("read", 0, "Reading your image's models"), ("read", 50, "Reading the models"),
+                    *(("read", 50 + 50 * k // 5, f"Reading the models (the weapons, {k + 1} of 5)") for k in range(5)),
+                    ("read", 50, "Reading the models"),
+                    *(("read", 50 + 50 * k // 6, f"Reading the models (the weapons, {k + 1} of 6)") for k in range(6)),
+                    ("read", 50, "Reading the models")]
 
 
 def test_the_shipped_species_and_pictures_are_what_each_image_gives(usa_iso, europe_iso):

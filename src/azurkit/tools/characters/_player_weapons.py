@@ -118,6 +118,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from azurkit.core import fdlibm
+from azurkit.core import progress as _progress
 from azurkit.tools.characters import fx_edit, fx_templates
 from azurkit.tools.characters.characters import (
     VERTEX_SIZE,
@@ -1103,7 +1104,9 @@ def offers(characters_xbr: bytes, body: Body, mode: str = "own", variant=None) -
     ``same`` naming why it builds the default (:func:`same_why`).  Step
     2.209 (D939): a recipe's weapon over moves of its own (booblord's Axion
     staff) is its default, first, and the build its moves make (Booblord
-    spin) a pick."""
+    spin) a pick. Each weapon's loadout, where its time goes, is a counted
+    note ("the weapons, k of n", ``core.progress.note``) for a call that notes
+    them (``sdk.pickers``: S10-S12's bar, Step 4.4be)."""
     out = {}
     own = default_weapon(characters_xbr, body, variant) if variant is not None else None
     worn = variant.weapon if variant is not None and variant.columns and variant.weapon in weapons() else None
@@ -1111,7 +1114,8 @@ def offers(characters_xbr: bytes, body: Body, mode: str = "own", variant=None) -
                                            else None) if n))
     names = ([OWN] if attack_clips(body) and body.name != PLAYER else []) + first + [
         n for n in weapons() if n not in first]
-    for name in names:
+    for k, name in enumerate(names, 1):
+        _progress.note(f"the weapons, {k} of {len(names)}")
         try:
             lo = loadout(characters_xbr, body, mode, True, variant, name)
         except ValueError as exc:

@@ -476,7 +476,9 @@ panel, Weapon box, springs, shapes and the options its recipe decides
 (``character``). A refusal names the field or the image.
 ``progress(record)`` hears its steps on an image (``read``, 2 of them):
 the image's model files read (once an image), then the models' view,
-so a host's bar moves while the tab waits (Step 4.3 round 3).
+its body's weapons counted inside it ("the weapons, k of n": where the
+view's time goes), so a host's bar moves while the tab waits (Step 4.3
+round 3, Step 4.4be).
 
 
 def match(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = None) -> 'dict':
