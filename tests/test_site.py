@@ -475,6 +475,11 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
         while group := cases[at:at + _at_once()]:
             at += len(group)
             pages = [served.open() for _ in group]
+            # Each page's image picked before any of them builds: a pick is Playwright's round trips to its page
+            # (its locator, its input, the files), which the group's pages building beside it starved under
+            # taskpolicy -b and nice 19 here (up to 8.6-14.0 s; a group's first pick at most 2.4 s; the page's own
+            # change handler 1-6 ms) and past _page.ACT on GitHub's Intel Mac runner (run 41779807138); so picked,
+            # at most 3.6 s there with 8 busy loops beside it at a load of 31 (Step 4.4ci19)
             for (name, values, case), page in zip(group, pages):
                 if (name, values, case) == FPS:
                     _page.tick(page, ["fps_unlock"])   # which unlocks its settings (D907)
@@ -487,6 +492,7 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
                         low, high = _page.answer(page, TRACK, f"{name}.{slider}")
                         assert float(low) <= value <= float(high)
                         assert _page.answer(page, UNIT, f"{name}.{slider}").endswith(f" · vanilla {value:g}")
+            for (name, values, case), page in zip(group, pages):
                 _page.build(page, [name], {name: values})
             for (name, values, case), page in zip(group, pages):
                 built, sent = _built(page), _page.answer(page, "() => azurkit.sent")
