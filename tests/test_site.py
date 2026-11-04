@@ -479,7 +479,7 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
             # (its locator, its input, the files), which the group's pages building beside it starved under
             # taskpolicy -b and nice 19 here (up to 8.6-14.0 s; a group's first pick at most 2.4 s; the page's own
             # change handler 1-6 ms) and past _page.ACT on GitHub's Intel Mac runner (run 41779807138); so picked,
-            # at most 3.6 s there with 8 busy loops beside it at a load of 31 (Step 4.4ci19)
+            # at most 3.6 s here, slowed, with 8 busy loops beside it at a load of 31 (Step 4.4ci19)
             for (name, values, case), page in zip(group, pages):
                 if (name, values, case) == FPS:
                     _page.tick(page, ["fps_unlock"])   # which unlocks its settings (D907)
