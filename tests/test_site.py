@@ -1943,15 +1943,22 @@ def test_a_hash_worker_is_held_until_its_check_settles_so_a_collection_never_los
 
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
 # or null while it is hidden
+# Each look the bottom bar takes (``bars``), and how often the page wrote the bar with the look it already had
+# (``redrawn``: each write draws it again)
 BARS = """() => {
     globalThis.bars = [];
+    globalThis.redrawn = 0;
+    const row = document.getElementById("progress-row"), shows = () => row.hidden ? null
+        : [document.getElementById("progress").getAttribute("value"), document.getElementById("progress-line").textContent];
     const look = () => {
-        const seen = document.getElementById("progress-row").hidden ? null
-            : [document.getElementById("progress").getAttribute("value"), document.getElementById("progress-line").textContent];
+        const seen = shows();
         if (JSON.stringify(seen) !== JSON.stringify(bars.length ? bars.at(-1) : null)) bars.push(seen);
     };
     new MutationObserver(look).observe(document.querySelector("footer"), { subtree: true, childList: true,
                                                                             characterData: true, attributes: true });
+    let shown = JSON.stringify(shows());
+    new MutationObserver(() => { const now = JSON.stringify(shows()); redrawn += now === shown; shown = now; })
+        .observe(row, { subtree: true, childList: true, characterData: true, attributes: true });
 }"""
 # The page's clock stopped (only the bar reads it): every answer lands inside a check's moment after it is whole
 STILL = "() => { const at = performance.now(); performance.now = () => at; }"
@@ -1977,7 +1984,10 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
     behind it must end, and the bar goes with its answer. The clock is stopped
     here (:data:`STILL`), as a race made it: Chromium built two packs in
     0.1 s, inside the 250 ms the check's whole bar stayed for (Step 4.3
-    train)."""
+    train). The page writes the bar only when its look changes: each write
+    draws it again, in WebKit a round trip to its GPU process, which a busy
+    computer starves, and its tick and the worker's records rewrote it 23
+    times a second, half of them unchanged (Step 4.4ci21)."""
     served = Site(browser, site)
     try:
         page = served.open()
@@ -1993,7 +2003,7 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
         lines = [line for _, line in filter(None, bars)]
         assert [any(line.startswith(stage) for line in lines) for stage in (
             "Reading its files", "Applying fps_unlock", "Applying qol_skip_logo", "Laying out the image")] == [True] * 4
-        assert bars[-1] is None and served.stray() == []
+        assert bars[-1] is None and page.evaluate("() => redrawn") == 0 and served.stray() == []
     finally:
         served.close()
     served = Site(browser, site)   # a fresh browser checks the image again

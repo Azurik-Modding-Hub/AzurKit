@@ -221,13 +221,16 @@ const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler", "save_check", "fla
 const PAGES = new Set(["save_check", "flat"]);   // the page's own waits, with their own records: never a worker's
 let asked = 0, ticking = null;
 
+// The bar shows ``step`` (none: hidden), each of its parts written only when it changes: a write of what it already
+// shows draws it again all the same, a round trip to the browser's drawing process (WebKit's GPU process, which a busy
+// computer starves), and the tick and the worker's records rewrote it 23 times a second, half of them unchanged.
 function progressed(step) {
-  const row = $("progress-row"), bar = $("progress");
-  row.hidden = !step;
-  if (!step) return bar.removeAttribute("value");
-  if (step.percent == null) bar.removeAttribute("value");
-  else bar.setAttribute("value", String(step.percent));
-  $("progress-line").textContent = `${step.label}…${step.percent == null ? "" : ` ${step.percent} %`}`;
+  const row = $("progress-row"), bar = $("progress"), line = $("progress-line");
+  const value = step?.percent == null ? null : String(step.percent);
+  if (row.hidden !== !step) row.hidden = !step;
+  if (bar.getAttribute("value") !== value) value === null ? bar.removeAttribute("value") : bar.setAttribute("value", value);
+  const text = step && `${step.label}…${value === null ? "" : ` ${value} %`}`;
+  if (step && line.textContent !== text) line.textContent = text;
 }
 
 function asking(kind, until = null) {
