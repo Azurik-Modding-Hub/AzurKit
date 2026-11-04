@@ -1975,6 +1975,50 @@ def test_a_hash_worker_is_held_until_its_check_settles_so_a_collection_never_los
     assert json.loads(run.stdout) == [True, {"file:a": "0"}, False]
 
 
+AHEAD = """import { createHash } from "node:crypto";
+const blob = new Blob([Uint8Array.from({ length: 12 << 10 }, (_, i) => (i * 7919) %% 251)]);
+const bytes = new Uint8Array(await blob.arrayBuffer());
+const files = Array.from({ length: 12 }, (_, i) => [`file:${i}`, i << 10, 1 << 10]);
+let flying = 0, most = 0, taken = 0;
+const held = [];   // the buffers read, each held until hashed() frees it (transfer(0))
+const source = { slice: (start, end) => ({ arrayBuffer: async () => {
+    flying += 1;
+    most = Math.max(most, flying);
+    taken = Math.max(taken, flying + held.filter((b) => b.byteLength).length);
+    await new Promise((late) => setTimeout(late, 20));   // a slow read
+    const buffer = await blob.slice(start, end).arrayBuffer();
+    flying -= 1;
+    held.push(buffer);
+    return buffer;
+} }) };
+const seen = [];
+for (const agent of ["AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",   // Safari's, WebKit's
+                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"]) {   // Chromium's
+    Object.defineProperty(globalThis, "navigator", { value: { userAgent: agent }, configurable: true });
+    const { hashed } = await import(%s + "?" + seen.length);   // the module again, as in that browser
+    most = taken = 0;
+    const digests = await hashed(source, files, () => {}, 1 << 10);
+    const same = files.every(([key, at, size]) =>
+        digests[key] === createHash("sha256").update(bytes.subarray(at, at + size)).digest("hex"));
+    seen.push([most, taken, same]);
+}
+console.log(JSON.stringify(seen));
+"""
+
+
+def test_each_hashing_lane_reads_its_next_run_while_it_hashes_one_in_safari_and_one_at_a_time_elsewhere(site):
+    """Step 4.4bg: ``web/hasher.mjs``'s hashed() under Node, over a slow source. In WebKit (Safari's user agent) each of
+    its three lanes has its next run's read in flight while it awaits or digests one (six reads at once, so a read's
+    wait, Safari's 200 ms whatever its size, overlaps the lane's other: S03/lag, S41/lag and the lag Saves wait half
+    the rounds), never more than two runs a lane read or being read (a Save's check 768 MiB at most, was 384). In
+    Chromium (its agent) a lane reads one run at a time: its browser process reads the File for a Save's download as
+    for its check, and its Saves took 0.4-0.6 s longer with reads ahead. The digests are the same."""
+    run = subprocess.run(["node", "--input-type=module", "--eval", AHEAD % json.dumps((site / "hasher.mjs").as_uri())],
+                         capture_output=True, text=True, timeout=120)
+    assert run.returncode == 0, run.stderr[-2000:]
+    assert json.loads(run.stdout) == [[6, 6, True], [3, 3, True]]
+
+
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
 # or null while it is hidden
 # Each look the bottom bar takes (``bars``), and how often the page wrote the bar with the look it already had

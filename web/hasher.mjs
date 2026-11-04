@@ -2,6 +2,12 @@
 // lacks, in wasm (md5.wasm, from native/web/md5.c; about 3x Pyodide's hashlib: no copy into the engine's heap). Both off
 // the engine's thread's Python, on bytes read from a File or a Blob with awaited reads, so neither heap holds them long.
 const RUN = 128 << 20, HASHERS = 3;
+// Where each read of a File waits (Safari's: WebKit's, the perf gate's lag model's 200 ms whatever its size), each of
+// the HASHERS keeps AHEAD read in flight beyond the run it digests, so the wait overlaps its lane's other read and digests
+// (Step 4.4bg). Chromium's and Firefox's reads don't wait so, and Chromium's browser process reads the File for a Save's
+// download as for its check: its Saves took 0.4-0.6 s longer with reads ahead, so there a lane reads one run at a time.
+const AGENT = globalThis.navigator?.userAgent ?? "";
+const AHEAD = /AppleWebKit/.test(AGENT) && !/Chrome\//.test(AGENT) ? 1 : 0;
 const CHUNK = 1 << 20;   // native/web/md5.c's
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -32,8 +38,9 @@ function md5(bytes) {
 // "file:<path>". A source that gives fewer bytes than a run asks (the image got shorter since its pick) throws, as a read
 // a browser refuses (WebKit's, Chromium's) does. Each run's buffer is freed once its digests are taken (transfer(0)), not
 // left to a GC: WebKit counted the runs a check had read, not the three it holds (a Save's check, S49 capped-site: about
-// 1.3 GiB less at its peak). at(step) hears where each of its HASHERS is: a run's read (its number and offset), its
-// digests or done, so a check that stalls says which await it waits on (Step 4.3r4t).
+// 1.3 GiB less at its peak); a lane holds at most AHEAD + 1 runs. at(step) hears where each of the HASHERS is: the run
+// whose read it awaits (its number and offset), its digests or done, so a check that stalls says which await it waits
+// on (Step 4.3r4t).
 export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}) {
   const runs = [];
   for (const entry of [...files].sort((a, b) => a[1] - b[1])) {
@@ -53,11 +60,20 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
   };
   let done = 0;
   progress(done, total);
-  await Promise.all(Array.from({ length: HASHERS }, async (_, lane) => {
-    for (let run; (run = runs.shift());) {
-      const k = count - runs.length;
+  const read = async (run) => new Uint8Array(await source.slice(run.start, run.end).arrayBuffer());
+  const taken = Array.from({ length: HASHERS }, () => []);   // each lane's runs read or being read, oldest first
+  const take = (mine) => {
+    if (!runs.length) return;
+    const run = runs.shift(), reading = read(run);
+    reading.catch(() => {});   // awaited in its turn; a lane that throws first leaves its next one unawaited
+    mine.push({ run, k: count - runs.length, reading });
+  };
+  for (let ahead = 0; ahead <= AHEAD; ahead++) taken.forEach(take);   // runs 1..HASHERS first, one a lane
+  await Promise.all(taken.map(async (mine, lane) => {
+    for (let item; (item = mine[0]);) {
+      const { run, k } = item;
       step(lane, `run ${k}/${count} read at ${Math.floor(run.start / 2 ** 20)} MiB`);
-      const bytes = new Uint8Array(await source.slice(run.start, run.end).arrayBuffer());
+      const bytes = await item.reading;
       if (bytes.length !== run.end - run.start) throw new Error("the image got shorter after it was picked");
       step(lane, `run ${k}/${count} digest`);
       for (const [key, at, size, patches] of run.files) {
@@ -68,6 +84,8 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
         digests[key] = hex(await sha);
       }
       bytes.buffer.transfer?.(0);   // its memory freed now, not at the next GC: WebCrypto and md5 copied what they read
+      mine.shift();
+      take(mine);
       done += run.end - run.start;
       progress(done, total);
     }
