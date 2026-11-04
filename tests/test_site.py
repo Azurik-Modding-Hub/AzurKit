@@ -416,10 +416,11 @@ the USA golden on this Mac read as the Apple Silicon runner: 3 cores, 4.0 GiB fr
 a-final-g1-pair-fp), and its share of WebKit's GPU and network processes (108 and 40 MiB)."""
 KEPT_FREE = 3 << 29
 """Bytes the pack golden leaves free beside its pages (1.5 GiB): pytest's and its driver's growth for each page's image
-(their 635 MiB grew to 1131 MiB in results/g1-cpu3-free4) and 1 GiB more for the test the tier's other worker runs
-beside it. GitHub's 7 GB Apple Silicon runner, 4.0-4.5 GiB free at the golden's start, killed a WebKit page of its 3 at
-once ("Target crashed", the tier's lowest 1.2 GiB free: run 41744982709), whose 3 take 3.3 GiB with the driver and
-pytest (Step 4.4ci14); 2 took 2.8 GiB here at their peak."""
+(their 635 MiB grew to 1131 MiB in results/g1-cpu3-free4) and 1 GiB more as headroom. GitHub's 7 GB Apple Silicon
+runner, whose vanilla tier runs one worker (nothing else beside the golden), lost a WebKit page of the golden's 3 at
+once ("Target crashed": run 41744982709), and 3 take 3.3 GiB with the driver and pytest (Step 4.4ci14), which leaves
+at most 1.2 GiB of its most free; 2 took 2.8 GiB here at their peak. That tier read 1.2-5.3 GiB free a minute, 3.0 the
+median: 2 pages at once there with 4.0 GiB free, then 1 once pytest has grown (3.0-3.5 GiB)."""
 
 
 def _at_once() -> int:
@@ -508,12 +509,12 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
 
 def test_the_pack_golden_builds_no_more_pages_at_once_than_the_cores_and_the_free_memory_hold(monkeypatch):
     """A page a core, at least 2, and a page of :data:`PAGE_BUILDING` past :data:`KEPT_FREE` of the free memory, at
-    least 1: GitHub's Apple Silicon runner (3 cores, at most 4.0-4.5 GiB free), where 3 at once cost a WebKit page
-    ("Target crashed", run 41744982709), builds 2, and 1 as it has less; its Windows runner (4 cores, 16 GB), 4; this
-    Mac, its cores."""
+    least 1: GitHub's Apple Silicon runner (3 cores; its vanilla tier read 1.2-5.3 GiB free, 3.0 the median), where 3
+    at once cost a WebKit page ("Target crashed", run 41744982709), builds 2 with 4.0 GiB free or more, then 1 once
+    pytest has grown (3.0-3.5 GiB) and as it has less; its Windows runner (4 cores, 16 GB), 4; this Mac, its cores."""
     from scripts import ci_resources
-    for cores, free, want in ((3, 4.5, 2), (3, 4.0, 2), (3, 2.7, 1), (3, 1.0, 1), (4, 9.0, 4), (1, 64.0, 2),
-                              (24, 64.0, 24)):
+    for cores, free, want in ((3, 4.5, 2), (3, 4.0, 2), (3, 3.5, 1), (3, 3.0, 1), (3, 1.0, 1), (4, 9.0, 4),
+                              (1, 64.0, 2), (24, 64.0, 24)):
         monkeypatch.setattr(os, "cpu_count", lambda: cores)
         monkeypatch.setattr(ci_resources, "free_memory", lambda: (int(free * (1 << 30)), 7 << 30))
         assert _at_once() == want, (cores, free)
