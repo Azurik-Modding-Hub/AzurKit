@@ -1354,24 +1354,36 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         _post(server.url, path, body, got)
         return time.monotonic() - began, got[0]
 
+    host, query = urllib.parse.urlsplit(server.url).netloc, urllib.parse.urlsplit(server.url).query
+
+    def progressed() -> dict:
+        with urllib.request.urlopen(f"http://{host}/api/progress?{query}", timeout=10) as reply:
+            return json.load(reply)
+
     try:
         ask("api/pickers", {"given": {}})   # the species list read once, as the page's first ask reads it
         building = threading.Thread(target=_post, args=(server.url, "api/build", {
             "iso": str(usa_iso), "packs": {}, "character": {"species": "keylord"}}, replies))
         building.start()
-        time.sleep(1.5)   # into the build's Python (it takes about 5 s)
-        assert building.is_alive()
+        # Each waited for while the build runs (Step 4.4ci19's measures: the build takes about 4 s here, 25-69 s under
+        # taskpolicy -b and nice 19 beside a load of 30-49): its first record, the build's Python, 0.3 s after the post
+        # here and up to 7.8 s so slowed, the engine process's start first (2.9-4.6 s from its spawn), where a fixed
+        # 1.5 s found no stage yet; then the swap's first parallel part, its dress's bake (retarget.bake_body), after
+        # its check, size, read and pack: 0.6-0.9 s after the post here, 4.9-14.4 s so slowed, past the 10 s this
+        # waited on GitHub's Intel Mac runner (run 41779807138). A build that ends first says what it gave.
+        while building.is_alive() and progressed()["calls"].get("build", {}).get("stage") is None:
+            time.sleep(0.05)
+        assert building.is_alive(), f"the build ended before its first record: {replies}"
         took = [ask("api/pickers", {"given": {}}), ask("api/setup", {"setup": {"ticked": ["fps_unlock"]}})]
         assert all(s < 0.5 or s < 0.5 * _speed.factor() for s, _ in took) and took[1][1] == {}, took
-        host, query = urllib.parse.urlsplit(server.url).netloc, urllib.parse.urlsplit(server.url).query
-        with urllib.request.urlopen(f"http://{host}/api/progress?{query}", timeout=10) as reply:
-            step = json.load(reply)
+        step = progressed()
         assert step["calls"]["build"]["stage"] in progress.STAGES and step["stage"] == step["calls"]["build"]["stage"]
-        end, pool = time.monotonic() + 10, []
-        while building.is_alive() and not pool and time.monotonic() < end:
+        pool = []
+        while building.is_alive() and not pool:
             pool = _children(first)
             time.sleep(0.05)
-        assert pool and ask("api/cancel", {})[1] == {}
+        assert pool, f"the build ended before its pool started: {replies}"
+        assert ask("api/cancel", {})[1] == {}
         building.join(5)
         assert (building.is_alive(), replies) == (False, [{"refused": "Cancelled: nothing was built"}])
         assert server.engine.pid == first
