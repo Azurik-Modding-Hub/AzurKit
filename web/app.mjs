@@ -426,8 +426,10 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
     randomizer: (given, ticket, file) => wait("randomizer", { type: "randomizer", given, ticket, ...(file ? { file } : {}) },
                                               { anywhere: true }, (data) => rando(data.reply, data.ticket)),
     vanilla: (file) => asked({ type: "vanilla", file }, {}, (data) => {
-      if (data.type === "vanilla") vanilla(plain(data));
-      else if (data.type === "opened") opened(data.preset);
+      if (data.type === "vanilla") {   // with the image's info for the Tools tab (worker.mjs's vanilla)
+        const { info, ...read } = plain(data);
+        vanilla(read, info);
+      } else if (data.type === "opened") opened(data.preset);
     }),
     preset: (recipe, report) => asked({ type: "preset", recipe, report }, { anywhere: true }, (data) => {
       if (data.type === "preset") shared(data.fragment);
@@ -615,10 +617,12 @@ function sliderRow(pack, slider, flip) {
 }
 
 // The picked image's own value of each slider at its XBE's sites (the catalog has none: the wheel holds no game
-// constant), shown beside it and held by its track (D42). A reply for an image no longer picked is dropped.
-function vanilla(read) {
+// constant), shown beside it and held by its track (D42), and (the site's) the engine's info of it, which the Tools tab
+// shows with no ask of its own. A reply for an image no longer picked is dropped.
+function vanilla(read, info = null) {
   if (state.asked !== state.file) return;
   state.vanilla = read;
+  state.imageInfo = info;
   state.read = state.file;
   for (const pack of state.packs?.packs ?? []) {
     for (const slider of pack.sliders) {
@@ -1045,6 +1049,7 @@ function ready(catalog, version, commit) {
                              state.changed();
                            } });
     state.tools = tools({ root: $("tools"), call: state.engine.call, app: state.app, say, image: () => state.file,
+                          known: () => (state.read === state.file && state.imageInfo ? { ...state.imageInfo } : null),
                           out: toolsOut, pick: state.dialogs ? () => state.engine.choose("build", "") : null,
                           setup: recipe, load, track: trackBuild });
     state.replace = replaceFiles({ root: $("tools"), call: state.engine.call, app: state.app, say,

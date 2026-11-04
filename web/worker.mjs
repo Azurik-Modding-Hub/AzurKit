@@ -35,7 +35,8 @@
 //      "spoiled", text | refused} brings next: the build shows sooner),
 //      {type: "refused", message, heap}
 //      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
-//      {type: "vanilla", release, label, packs} (the image's own value of each slider at a site of its XBE),
+//      {type: "vanilla", release, label, packs, info} (the image's own value of each slider at a site of its XBE, and
+//      sdk.image_info's answer, which the Tools tab shows with no ask of its own),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
 //      {type: "preset", fragment} (the share link's #p=…), {type: "decoded", preset} (a link's recipe),
 //      {type: "restored", ticked, values, xbr, dropped, randomizer} (the remembered setup, sdk.restore),
@@ -285,8 +286,8 @@ def engine(request):
                 return js(sdk.tracker(json.loads(JSON.stringify(request.given)), progress=progressed))
             if request.type == "plan":
                 return js({"plan": sdk.plan(request.recipe.to_py(), progress=progressed)})
-            if request.type == "vanilla":
-                return js(sdk.vanilla(request.recipe.iso))
+            if request.type == "vanilla":   # with what the Tools tab says of it, so the tab's open asks nothing
+                return js(sdk.vanilla(request.recipe.iso) | {"info": sdk.image_info(request.recipe.iso)})
             if request.type == "open":
                 return js({"preset": sdk.open_build(request.recipe.iso, whole=False)})
             if request.type == "preset":

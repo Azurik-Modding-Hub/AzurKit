@@ -14,15 +14,15 @@
 //
 // app.mjs makes it with tools({...}) once the engine is ready (index.html's #tools panel) and tells it when the image
 // changes and a build is made or saved; the hosts answer its asks (the site's worker, the app's api/<ask>).
-// tools({root, call, app, say, image, out, pick, setup, load}): root the panel; call(type, body) the engine's ask, its
-// reply or {refused}; app whether the host is the app; say(text, error) the status line; image() the picked image
-// (the site's File, the app's path) or null; out(name, kind) (the app's) where a file the tab saves goes: a path (its
-// save dialog's), "" (no dialogs: the engine's place, the Downloads folder) or null (the dialog cancelled); pick()
-// (the app's, with dialogs) an AzurKit build's path from its open dialog, or null; setup() the page's recipe now (what
-// its share link and mods file carry: packs, xbr, randomizer, character); load(preset, from) sets the page to a
-// preset; track(preset, from) tracks a randomized build's plan. The asks (body -> reply), where the site's worker
-// mounts `file` (or `build`) and hands its path to the
-// engine as the app's `iso`:
+// tools({root, call, app, say, image, known, out, pick, setup, load}): root the panel; call(type, body) the engine's
+// ask, its reply or {refused}; app whether the host is the app; say(text, error) the status line; image() the picked
+// image (the site's File, the app's path) or null; known() the engine's info of that image as its pick's answer brought
+// it (the site's vanilla image, Step 4.4be: the tab's open asks nothing) or null; out(name, kind) (the app's) where a
+// file the tab saves goes: a path (its save dialog's), "" (no dialogs: the engine's place, the Downloads folder) or
+// null (the dialog cancelled); pick() (the app's, with dialogs) an AzurKit build's path from its open dialog, or null;
+// setup() the page's recipe now (what its share link and mods file carry: packs, xbr, randomizer, character);
+// load(preset, from) sets the page to a preset; track(preset, from) tracks a randomized build's plan. The asks (body ->
+// reply), where the site's worker mounts `file` (or `build`) and hands its path to the engine as the app's `iso`:
 //   info         {iso | file}                -> {release, label, size, kind, whole, version?, layers?, differs?}
 //   verify_all   {iso | file}                -> {release, label, whole: true}; refused: the first file that differs
 //   files        {iso | file}                -> {files: [[path, offset, size]]}
@@ -121,7 +121,7 @@ function download(blob, name) {   // the site's: the browser's download of a Blo
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-export function tools({ root, call, app, say, image, out, pick = null, setup, load, track }) {
+export function tools({ root, call, app, say, image, known = () => null, out, pick = null, setup, load, track }) {
   const t = { info: null, files: null, opened: null, plan: null, spoiler: null, report: null, saved: null,
               shown: false, ticket: 0, opening: 0, refused: null };
   const asked = () => app ? { iso: image() } : { file: image() };
@@ -207,7 +207,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     toggle.textContent = text.hidden ? "View" : "Hide";
   }
 
-  // The image: what it is, asked once a picked image (and again once it changes).
+  // The image: what it is, asked once a picked image (and again once it changes), unless its pick's answer brought it.
   async function info() {
     const ticket = ++t.ticket;
     t.info = t.files = t.refused = null;
@@ -215,7 +215,7 @@ export function tools({ root, call, app, say, image, out, pick = null, setup, lo
     ui.imageLine.textContent = image() ? "Reading your image…" : CHOOSE;
     lines();
     if (!image()) return;
-    const reply = await call("info", asked());
+    const reply = known() ?? await call("info", asked());
     if (ticket !== t.ticket) return;
     if ("refused" in reply) {
       ui.imageLine.textContent = t.refused = reply.refused;

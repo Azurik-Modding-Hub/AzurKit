@@ -2237,6 +2237,27 @@ def test_the_tools_tab_checks_lists_and_extracts_the_image(browser, site, usa_is
         served.close()
 
 
+def test_the_tools_tab_opened_after_the_pick_says_what_the_image_is_with_no_engine_ask(browser, site, usa_iso):
+    """Step 4.4be (S40, D980, D1107): the site's pick of a vanilla image
+    brings the engine's info of it with its sliders' values (worker.mjs's
+    vanilla: ``sdk.image_info`` of the image the pick checked), so the Tools
+    tab opened after it says what the image is at once and asks the engine
+    nothing (S40 was its own worker ask: 0.5-0.9 s with no bar); an image
+    picked while the tab is open is asked as before (the test above)."""
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script(ASKED)
+        page = served.open()
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.click(page, "tab-tools")
+        _page.until(page, "() => azurkit.tools.state.info")
+        assert page.evaluate(TOOLS_LINE) == f"USA · {gate.USA.iso_size:,} B · vanilla · its build files checked"
+        assert page.evaluate("() => asked.filter((t) => t === 'info')") == [] and served.stray() == []
+    finally:
+        served.close()
+
+
 # The Data tab (Step 4.7a): a cell of the view by its table and name ([its text, its classes, its note]); an edit typed
 # into it and committed with Enter; one of the tab's bar buttons by its label.
 DATA_FIND = """const td = [...document.querySelectorAll("#data td.cell")].find((n) => {
