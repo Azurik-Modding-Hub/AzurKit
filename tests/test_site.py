@@ -23,6 +23,7 @@ never leaves the page. The page is driven as
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import contextlib
 import functools
@@ -51,7 +52,7 @@ from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
-from tests import _g1, _hosts, _page, _perf
+from tests import _g1, _hosts, _page, _perf, conftest
 from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
 ORIGIN = "https://azurkit.test"
@@ -477,7 +478,7 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
                     _page.tick(page, ["fps_unlock"])   # which unlocks its settings (D907)
                     assert _page.slide(page, "fps_unlock", "target_fps", "60") == ["30", "120", "60", "60"]
                     assert _page.slide(page, "fps_unlock", "target_fps", "1000") == ["30", "1000", "1000", "1000"]
-                page.set_input_files("#iso", str(path))
+                _page.pick(page, "#iso", path)
                 if name in read["packs"]:
                     assert _page.until(page, "() => azurkit.vanilla") == read
                     for slider, value in read["packs"][name].items():
@@ -1045,7 +1046,7 @@ def test_the_saves_section_round_trips_a_slot(browser, site, tmp_path):
         with open(caught.value.path(), "rb") as f:
             assert f.read() == slot.zip()
         caught.value.delete()
-        page.set_input_files("#saves-hdd", str(hdd))
+        _page.pick(page, "#saves-hdd", hdd)
         _page.until(page, "() => azurkit.saves.state.slots.length === 2", 120)
         assert page.evaluate("() => azurkit.saves.state.slots.map((s) => s.id)") == sorted((made.ID, "FEDCBA987654"))
         _page.check_csp(page)
@@ -1080,17 +1081,17 @@ def test_a_build_with_a_replaced_file_is_the_apps_image(browser, site, usa_iso, 
         page.evaluate("() => document.getElementById('tab-tools').click()")
         assert page.evaluate("""() => [document.getElementById('replace-path').disabled,
             document.getElementById('replace-line').textContent]""") == [True, "Choose your image first (1.)"]
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa' && !document.getElementById('replace-path').disabled", 300)
         page.evaluate("() => { document.getElementById('replace-path').value = 'default.xbe'; }")
-        page.set_input_files("#replace-file", str(mine))
+        _page.pick(page, "#replace-file", mine)
         _page.until(page, "() => /default.xbe isn't replaced: .*the packs' file/.test(document.getElementById('status').textContent)", 120)
         page.evaluate(f"""() => {{ document.getElementById('replace-path').value = {json.dumps(name)};
             const bar = document.getElementById('progress'), line = document.getElementById('progress-line');
             globalThis.readBar = [];
             new MutationObserver(() => bar.hasAttribute('value') && readBar.push(line.textContent))
               .observe(bar, {{ attributes: true, attributeFilter: ['value'] }}); }}""")
-        page.set_input_files("#replace-file", str(mine))
+        _page.pick(page, "#replace-file", mine)
         _page.until(page, "() => azurkit.replace.entries().length === 1", 120)
         assert page.evaluate("() => azurkit.replace.entries()") == [entry]
         shown = page.evaluate("() => readBar")
@@ -1110,10 +1111,10 @@ def test_a_build_with_a_replaced_file_is_the_apps_image(browser, site, usa_iso, 
         mods = tmp_path / "mods.json"
         mods.write_text(sdk.mods_file({"recipe": {"packs": defaults, "files": [entry]}})["text"], encoding="utf-8")
         fresh = served.open()
-        fresh.set_input_files("#iso", str(usa_iso))
+        _page.pick(fresh, "#iso", usa_iso)
         _page.until(fresh, "() => azurkit.vanilla?.release === 'usa'", 300)
         fresh.evaluate("() => document.getElementById('tab-tools').click()")
-        fresh.set_input_files("#tools-mods-file", str(mods))
+        _page.pick(fresh, "#tools-mods-file", mods)
         _page.until(fresh, "() => azurkit.replace.entries().length === 1", 120)
         assert "Not picked here" in fresh.evaluate("() => document.getElementById('replace-rows').textContent")
         fresh.evaluate("() => document.getElementById('build').click()")
@@ -1164,7 +1165,7 @@ def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_an
         _page.until(page, f"() => {row}?.querySelector('input') && !{row}.querySelector('input').disabled", 120)
         page.evaluate(f"() => {row}.querySelector('input').click()")
         _page.until(page, locked, 60)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         page.evaluate("() => document.getElementById('build').click()")
         _page.until(page, "() => azurkit.build || document.getElementById('status').classList.contains('error')", 600)
@@ -1238,7 +1239,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
         page = served.open()
         page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.click(page, "tab-characters")
         _page.until(page, "() => Boolean(azurkit.characters.state.view?.from) && azurkit.characters.state.view.community"
                           ".length === 3", 300)   # the engine's answer, the image read
@@ -1343,7 +1344,7 @@ def test_an_install_lists_its_variants_while_the_images_check_runs(browser, site
                 held();
             };
         })""")
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         page.evaluate(f"() => {entry} button').click()")
         _page.until(page, f"() => {entry} .model')", 120)
         assert page.evaluate("""() => [azurkit.characters.state.view.from, azurkit.characters.waiting(),
@@ -1424,10 +1425,10 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         assert page.evaluate(CHARS_SHOWN)[2:] == [[True, True], [True] * 4, "Choose your image to match garret4 (G4).",
                                                   False, 6, []]
         (tmp_path / "not-an-image.iso").write_bytes(bytes(64 * 1024))
-        page.set_input_files("#iso", str(tmp_path / "not-an-image.iso"))
+        _page.pick(page, "#iso", tmp_path / "not-an-image.iso")
         _page.until(page, "() => !document.getElementById('char-refused').hidden", 180)
         assert page.evaluate(CHARS_SHOWN)[3:7] == [[True] * 4, "Choose your image to match garret4 (G4).", False, 6]
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         assert page.evaluate(CHARS_SHOWN)[3:7] == [[True] * 4, "Reading your image…", False, 6]
         _page.until(page, "() => Boolean(azurkit.characters.state.view?.from)", 300)
         assert page.evaluate(CHARS_SHOWN)[4] == "G4 sets a number so the body matches garret4."
@@ -1660,14 +1661,14 @@ def test_the_pick_and_the_characters_tab_check_the_image_once_and_a_page_opened_
         return sum(w.evaluate("() => self.azurkitChecks ?? 0") for w in page.workers)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.click(page, "tab-characters")
         _page.until(page, "() => azurkit.characters.state.view?.species.length === 178", 300)
         assert hashed(page) == 1
         page.close()
         again = served.open()
-        again.set_input_files("#iso", str(usa_iso))
+        _page.pick(again, "#iso", usa_iso)
         _page.until(again, "() => azurkit.vanilla?.release === 'usa'", 300)
         assert hashed(again) == 0 and again.evaluate("() => azurkit.violations") == []
         assert served.stray() == []
@@ -1684,7 +1685,7 @@ def test_two_files_with_the_same_name_size_and_time_but_other_bytes_get_other_st
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         answers = page.evaluate("""async (at) => {
             const real = azurkit.file, [byte] = new Uint8Array(await real.slice(at, at + 1).arrayBuffer());
@@ -1720,7 +1721,7 @@ def test_an_images_check_that_never_ends_names_the_reads_it_waits_on(browser, si
         served.context.route("**/hashworker.mjs", lambda route: route.fulfill(body=STALLED + hasher,
                                                                           content_type="text/javascript"))
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         waits = _page.until(page, WAITS_ON, 120)
         time.sleep(2)
         assert page.evaluate("() => [azurkit.pool.state().f.at, azurkit.pool.state().f.last[0], azurkit.vanilla]") == [
@@ -1739,8 +1740,10 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
     unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
     browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
-    10 min, run 41610020282). A navigation whose document never comes (``_page.load``, every goto and reload of the
-    site's tests) fails so past ``_page.STALL``, naming the address."""
+    10 min, run 41610020282). A pick whose input never comes (``_page.pick``, every set_input_files of the site's tests)
+    and a navigation whose document never comes (``_page.load``, every goto and reload of the site's tests) fail so
+    past ``_page.STALL``, naming the file or the address, and a browser's close its driver never answers (the
+    ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its browser and driver."""
     served = Site(browser, site)
     try:
         page = served.open()   # in the bound a page's opening has, not the test's
@@ -1763,6 +1766,19 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert lines[1:2] + lines[-2:-1] == ["state: unread (no answer in 1 s)", "its browser still answers"]
         assert 1 <= settled < 20 and 3 <= held < 20, (settled, held)
         assert _page.until(page, "() => azurkit.ready", 30)   # the page answers again once its thread is free
+        t3 = time.monotonic()   # a pick whose input never comes
+        with pytest.raises(AssertionError) as unpicked:
+            _page.pick(page, "#nowhere", site / "index.html")
+        lines = str(unpicked.value).splitlines()
+        assert lines[0] == "no answer in 2 s: the pick of index.html in #nowhere", lines
+        assert lines[1].startswith("state: {'asks': [") and lines[-2:-1] == ["its browser still answers"], lines
+        assert 2 <= time.monotonic() - t3 < 20
+        monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
+        t4 = time.monotonic()
+        with pytest.raises(AssertionError, match=f"^no answer in 1 s: the {browser.browser_type.name} browser's close, "
+                                                 r"its driver \d+$"):
+            conftest.close_browser(browser, 1)
+        assert 1 <= time.monotonic() - t4 < 10
         routes = []   # a navigation whose document never comes
         page.route("**/held.html", lambda route: routes.append(route))
         t2 = time.monotonic()
@@ -1895,7 +1911,7 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
         page = served.open()
         page.evaluate(BARS)
         page.evaluate(STILL)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.build(page, ["fps_unlock", "qol_skip_logo"])
         _page.built(page)
@@ -1914,7 +1930,7 @@ def test_the_bottom_bar_walks_the_images_check_by_its_percent_then_a_builds_stag
         page.evaluate(BARS)
         page.evaluate(STILL)
         page.evaluate(CANCEL)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         assert _page.until(page, "() => globalThis.cancelled", 120) == ["check", True]
         _page.until(page, "() => azurkit.ready && azurkit.vanilla?.release === 'usa'", 300)
         assert page.evaluate("() => bars.at(-1)") is None and served.stray() == []
@@ -1944,7 +1960,7 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         assert page.evaluate(GREYED) == [True, True, "Pick your image (1.) to build", "Pick your image (1.) to build",
                                          "Pick your image (1.), then build with Randomize ticked to see its spoiler.",
                                          len(vanilla)]
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         assert page.evaluate(GREYED) == [False, True, "Save follows a build", "",
                                          "Build with Randomize ticked to see its spoiler.", 0]
@@ -1981,7 +1997,7 @@ def test_the_tools_tab_checks_lists_and_extracts_the_image(browser, site, usa_is
         assert page.evaluate(TOOLS_GREYED) == [True, True, True, "Choose your image first (1.)",
                                                "Choose your image first (1.)"]
         page.evaluate(BARS)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.tools.state.info", 300)
         assert page.evaluate(TOOLS_GREYED)[:4] == [False, False, False, ""]
         assert page.evaluate(TOOLS_LINE) == f"USA · {gate.USA.iso_size:,} B · vanilla · its build files checked"
@@ -2085,7 +2101,7 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
         assert _page.until(page, f"""() => {{ const c = ({DATA_CELL})({json.dumps(cell)});
             return c && !c[1].includes("written") && c[0]; }}""") == "● 500"
         _page.tick(page, list(packs), {"player_max_hp": {"starting_hp": "300"}})
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla")
         assert page.evaluate(DATA_LINES)[3] == f"{waiting}."
         page.evaluate("() => document.querySelector('#build').click()")
@@ -2127,7 +2143,7 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.build(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "fast"}})
         refused = _page.until(page, "() => !azurkit.building && document.querySelector('#status').textContent")
@@ -2180,7 +2196,7 @@ def test_a_site_build_hashes_its_changed_files_in_webcrypto_and_is_cpythons_buil
         served.context.route("**/worker.mjs", lambda route: route.fulfill(
             body=DIGESTS + worker, content_type="text/javascript"))
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         page.evaluate("() => { digests.length = 0; }")   # the image's check's
         _page.build(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
@@ -2219,7 +2235,7 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         _page.until(first, SNAPSHOT_KEPT, 60)
         again = served.open()
         assert first.evaluate("() => starts[0]") == "cold" and set(again.evaluate("() => starts")) == {"snapshot"}
-        again.set_input_files("#iso", str(usa_iso))
+        _page.pick(again, "#iso", usa_iso)
         _page.until(again, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.build(again, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
         built = _built(again)
@@ -2404,7 +2420,7 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.build(page, list(mods.PACKS))
         _page.built(page)
         with page.expect_download(timeout=600_000) as caught:
@@ -2417,7 +2433,7 @@ def test_the_saved_file_is_the_image_cpython_builds_and_opens_back_into_its_reci
             made, _ = sdk.image({"iso": str(usa_iso), "packs": {name: {} for name in mods.PACKS}})
             assert got == (_page.saved_name(browser, f"{usa_iso.stem} (AzurKit).iso"), made.size, made.sha256())
             _page.tick(page, [])
-            page.set_input_files("#iso", str(saved))
+            _page.pick(page, "#iso", saved)
             opened = _page.until(page, "() => azurkit.opened")
             assert opened == json.loads(json.dumps(sdk.open_build(made)))
             assert page.evaluate("() => document.querySelector('#picked').textContent").startswith(
@@ -2444,7 +2460,7 @@ def test_a_build_and_its_save_stay_under_6_gib_of_firefoxs_processes(browser, si
     try:
         with memory:
             page = served.open()
-            page.set_input_files("#iso", str(usa_iso))
+            _page.pick(page, "#iso", usa_iso)
             _page.build(page, list(mods.PACKS))
             _page.built(page)
             with page.expect_download(timeout=600_000) as caught:
@@ -2477,7 +2493,7 @@ def test_a_builds_save_is_greyed_with_its_own_bar_while_its_blob_is_made_and_nev
         served.context.add_init_script(workers)
         page = served.open()
         page.evaluate(held)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.build(page, [])
         _page.until(page, "() => azurkit.build && azurkit.ready", 300)
         if browser.browser_type.name == "firefox":
@@ -2511,7 +2527,7 @@ def test_a_private_window_keeps_the_plain_blob_its_save_reads(browser, site, usa
         page = served.open()
         page.evaluate("""() => { const real = Response.prototype.blob; globalThis.made = 0;
             Response.prototype.blob = function () { globalThis.made += !this.url; return real.call(this); }; }""")
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.build(page, [])
         _page.built(page)
         with page.expect_download(timeout=600_000) as caught:
@@ -2534,7 +2550,7 @@ def test_a_save_fails_by_name_when_its_image_changed_after_the_build(browser, si
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(image))
+        _page.pick(page, "#iso", image)
         _page.build(page, [])
         _page.built(page)
         with iso.Reader(image) as r:   # a file the build didn't change, nor read
@@ -2570,7 +2586,7 @@ def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(image))
+        _page.pick(page, "#iso", image)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         _page.click(page, "tab-randomizer")
         _page.until(page, "() => azurkit.rando.view")
@@ -2606,7 +2622,7 @@ def test_a_saves_check_keeps_its_bar_through_a_later_build_cancelled_and_the_eng
         slow = hasher.replace(read, f"await new Promise((late) => setTimeout(late, 2000)).then(() => {read.removeprefix('await ')})")
         served.context.route("**/hasher.mjs", lambda route: route.fulfill(body=slow, content_type="text/javascript"))
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.build(page, [])
         _page.built(page)
         _page.until(page, "() => azurkit.ready", 300)
@@ -2674,7 +2690,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         _page.click(page, "rando-on")
         _page.fill(page, "rando-seed", "2")
         assert set(page.evaluate(TAB)[2]) == {False}
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
         assert built["report"]["result"] == {f: s for f, s in golden.items() if f != "ISO"}
@@ -2735,7 +2751,7 @@ def test_a_europe_seed_is_built_on_the_site_with_no_read_of_its_own(browser, sit
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(europe_iso))
+        _page.pick(page, "#iso", europe_iso)
         _page.click(page, "tab-randomizer")
         _page.until(page, "() => azurkit.rando.view")
         _page.click(page, "rando-on")
@@ -2761,7 +2777,7 @@ def test_a_seed_wearing_a_character_builds_on_the_site_as_cpython_builds_it(brow
         page = served.context.new_page()
         _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded && !azurkit.rando.load && azurkit.rando.view", 120)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
         assert built == _as_cpython(built, report, made)
@@ -2781,7 +2797,7 @@ def test_a_weapon_a_body_lifts_off_the_floor_builds_on_the_site_as_cpython_build
         page = served.context.new_page()
         _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
         assert built == _as_cpython(built, report, made)
@@ -2882,7 +2898,7 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
             "skip_ceiling": 2, "skip_override": dict.fromkeys(sorted(storage), False)}   # Standard's ceiling has them on
         given = defaults | {"skip_ceiling": 3, "movement_tier": "hard", "exclude_categories": ["gems"]}
         (tmp_path / "settings.toml").write_text(sdk.randomizer_settings({"settings": given})["file"], encoding="utf-8")
-        page.set_input_files("#rando-load", str(tmp_path / "settings.toml"))
+        _page.pick(page, "#rando-load", tmp_path / "settings.toml")
         _page.until(page, "() => !azurkit.rando.load && document.getElementById('rando-ceiling').value === '3'", 120)
         assert _page.until(page, SETTLED, 120)["settings"] == given
         assert box("storage") == [True, False, "6 of 6 · up to Standard"]   # a loaded setting's groups show
@@ -3001,7 +3017,7 @@ def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_a
         (tmp_path / "shaped.json").write_text(json.dumps(doc), encoding="utf-8")
         _page.click(page, "rando-view-tracker")
         assert page.evaluate("() => document.getElementById('track-requires').hidden")
-        page.set_input_files("#track-open", str(tmp_path / "shaped.json"))
+        _page.pick(page, "#track-open", tmp_path / "shaped.json")
         _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])} && ({TRACKED})()", 300)
         shown = """() => [document.getElementById("track-head").textContent, document.getElementById("track-requires").textContent,
                           document.getElementById("track-requires").hidden]"""
@@ -3063,7 +3079,7 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
         hint = "() => document.getElementById('map-hint').textContent"
         assert page.evaluate(hint) == "Track a seed to open a level's map. Scroll to zoom, drag to pan."
         (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
-        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.pick(page, "#track-open", tmp_path / "plan.json")
         _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
         assert page.evaluate(hint) == "Click a level to open its map. Scroll to zoom, drag to pan."
         calls = page.evaluate(_perf.CALLS)["calls"]   # the worker's, in the page for the perf gate's native assert
@@ -3110,7 +3126,7 @@ def test_a_level_zoomed_past_its_maps_pixels_shows_its_floors_detail_picture(bro
         _page.click(page, "tab-randomizer")
         _page.click(page, "rando-view-tracker")
         (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
-        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.pick(page, "#track-open", tmp_path / "plan.json")
         _page.until(page, TRACKED, 300)
         page.evaluate("() => azurkit.tracker.map.show('w1', true)")
         _page.until(page, "() => azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
@@ -3195,7 +3211,7 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
         for name in ("default", "max"):
             doc = _profile(name)
             (tmp_path / f"{name}.json").write_text(json.dumps(doc), encoding="utf-8")
-            page.set_input_files("#track-open", str(tmp_path / f"{name}.json"))
+            _page.pick(page, "#track-open", tmp_path / f"{name}.json")
             _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
                               f" && ({TRACKED})()", 300)
 
@@ -3288,14 +3304,14 @@ def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_w
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa' && azurkit.ready && !azurkit.asks.size", 300)
         _page.click(page, "tab-randomizer")
         _page.until(page, f"() => ({SETTLED})() && !azurkit.asks.size", 300)   # the tab's read: the view's is the newest
         _page.click(page, "rando-view-tracker")
         doc = _profile("default")
         (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
-        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.pick(page, "#track-open", tmp_path / "plan.json")
         _page.until(page, "() => [...azurkit.asks.values()].some((a) => a.kind === 'tracker'"   # the stage, its exits'
                           " && a.record?.label?.startsWith('Reading the world map'))", 300)   # note folded in or not
         page.evaluate(BUILD_CANCEL)
@@ -3745,7 +3761,7 @@ def test_a_click_takes_bs_finished_build_as_cpythons_and_a_change_drops_it_for_t
     served = Site(browser, site)
     try:
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa' && azurkit.ready", 300)
         _page.tick(page, ["fps_unlock"])
         _page.until(page, "() => azurkit.pool.state().kept.length === 1", 300)
@@ -3788,7 +3804,7 @@ def test_a_click_never_takes_bs_build_of_a_choice_the_engines_answer_changes(bro
     try:
         served.open().evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
         page = served.open()
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         _page.click(page, "tab-characters")
         _page.until(page, "() => azurkit.characters.state.view?.from && azurkit.characters.state.view.community.length", 300)
         beamlord = "document.querySelector('#char-community .entry[data-entry=\"beamlord\"] {}')"
@@ -3846,7 +3862,7 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         page = served.context.new_page()
         _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
-        page.set_input_files("#iso", str(usa_iso))
+        _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
         assert built == _as_cpython(built, report, made)
@@ -3915,7 +3931,7 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
             page = served.context.new_page()
             _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
             _page.until(page, "() => globalThis.azurkit?.loaded", 120)
-            page.set_input_files("#iso", str(usa_iso))
+            _page.pick(page, "#iso", usa_iso)
             page.evaluate("() => document.querySelector('#build').click()")
             built = _built(page)
             assert built == _as_cpython(built, report, made)

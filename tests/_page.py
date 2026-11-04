@@ -160,6 +160,16 @@ def load(page, url: str | None = None, until: str = "load"):
     return within(page, call, STALL, "the page's reload" if url is None else f"the page's load of {url}")
 
 
+def pick(page, selector: str, path) -> None:
+    """``page.set_input_files(selector, path)``: the file at ``path`` picked in the page's file input ``selector``, in
+    at most :data:`STALL` s (:func:`within`), not a wait its driver alone bounds (Playwright's 30 s): a pick takes ms
+    here, and the pack golden's Firefox page on GitHub's Windows runner left a call that had no bound of this side's
+    unanswered an hour, its browser gone and its driver unaware (run 41744982709), its picks among those calls. Past it
+    the failure names the pick, the page's state and its driver's processes."""
+    within(page, page._impl_obj.set_input_files(selector, str(path), timeout=0), STALL,
+           f"the pick of {Path(path).name} in {selector}")
+
+
 def until(page, js: str, timeout: float = 600):
     """``js``'s value once it is truthy; past ``timeout`` s, a failure that says what the page was waiting on
     (:func:`hang`), and one evaluate unanswered :data:`STALL` s past it fails so too (:func:`answer`)."""

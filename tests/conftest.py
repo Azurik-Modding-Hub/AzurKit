@@ -296,7 +296,21 @@ def browser(request, tmp_path_factory):
             launched = getattr(playwright, request.param).launch(
                 headless=True, downloads_path=str(tmp_path_factory.mktemp("downloads")))
             yield launched
-            launched.close()
+            close_browser(launched)
+
+
+def close_browser(browser, seconds: float = 120) -> None:
+    """``browser.close()`` in at most ``seconds`` (``tests/_page.py``'s STALL, the bound a site test's call with none of
+    its own has; a close took at most 0.5 s here): Playwright's driver answers a browser's close only once the
+    browser's process and its pipes have closed, and on GitHub's Windows runner a Firefox of the pack golden ended, no
+    firefox.exe left, with its driver never hearing it and the tier silent an hour (run 41744982709). Past it the close
+    fails by name; the driver ends with the fixture's ``sync_playwright`` (its own 30 s after its pipe closes)."""
+    import asyncio
+    try:
+        browser._sync(asyncio.wait_for(browser._impl_obj.close(), seconds))
+    except TimeoutError:
+        raise AssertionError(f"no answer in {seconds:.0f} s: the {browser.browser_type.name} browser's close, its "
+                             f"driver {browser._impl_obj._connection._transport._proc.pid}") from None
 
 
 def _fail_unlisted_skip(report):
