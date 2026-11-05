@@ -4500,6 +4500,43 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
         served.close()
 
 
+# Web Locks refused, as a browser that keeps no site data refuses them, query() too (Firefox with every cookie blocked:
+# "SecurityError: LockManager.request: request() is not allowed in this context"), on a page and in a worker
+LOCKS_REFUSED = """for (const call of ["request", "query"]) LockManager.prototype[call] = function () {
+    return Promise.reject(new DOMException(`LockManager.${call}: ${call}() is not allowed in this context`,
+                                           "SecurityError"));
+};
+"""
+REFUSED = "() => navigator.locks.request('any', () => 0).then(() => '', (refused) => refused.name)"
+
+
+def test_a_build_wearing_a_character_builds_as_cpython_builds_it_where_the_browser_refuses_web_locks(
+        browser, site, usa_iso):
+    """Step 4.4ci25's review: an ask that carries a character runs holding ``DRESSING`` (``worker.mjs``'s
+    dressing()), and ran only as the lock's callback, so where the browser refuses Web Locks (Firefox with every cookie
+    blocked) it never ran and the build failed by the refusal. Refused on the page and in its engine's worker, the
+    ask runs without the lock and the build is CPython's."""
+    recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
+              "character": {"species": "keylord"}}
+    made, report = sdk.image(recipe | {"iso": str(usa_iso)})
+    served = Site(browser, site)
+    try:
+        served.context.add_init_script(LOCKS_REFUSED)
+        worker = (site / "worker.mjs").read_text(encoding="utf-8")
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(
+            body=LOCKS_REFUSED + worker, content_type="text/javascript"))
+        page = served.context.new_page()
+        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.until(page, "() => globalThis.azurkit?.loaded", 120)
+        assert page.evaluate(REFUSED) == "SecurityError"
+        _page.pick(page, "#iso", usa_iso)
+        page.evaluate("() => document.querySelector('#build').click()")
+        built = _built(page)
+        assert built == _as_cpython(built, report, made)
+    finally:
+        served.close()
+
+
 def _site_engine(monkeypatch, tmp_path):
     """worker.mjs's engine, its Python run here under CPython (Pyodide's js
     modules stood in for): its ``ask(kind, **given)``, a request's answer."""

@@ -694,9 +694,15 @@ async function prime(loaded, file) {
 // (hasher.mjs's DRESSING, held while an ask that carries a character runs: dressing()), Step 4.4ci25.
 const VOUCHING = /AppleWebKit/.test(navigator.userAgent), resting = new Set();
 // An ask that carries a character (a build wearing one, a reshape's pictures and matches) runs holding DRESSING, shared
-// (any of this browser's workers may hold it at once), which the rest's hash gives way to (Step 4.4ci25).
-const dressing = (data, run) => (data.character || data.recipe?.character) && navigator.locks
-  ? navigator.locks.request(DRESSING, { mode: "shared" }, run) : run();
+// (any of this browser's workers may hold it at once), which the rest's hash gives way to (Step 4.4ci25). Where the
+// browser refuses Web Locks (one that keeps no site data: Firefox with every cookie blocked), the ask runs without it:
+// the rest's own lock is refused there too, so no rest runs beside it.
+const dressing = (data, run) => {
+  if (!(data.character || data.recipe?.character) || !navigator.locks) return run();
+  let ran = false;
+  return navigator.locks.request(DRESSING, { mode: "shared" }, () => { ran = true; return run(); })
+    .catch((error) => { if (ran) throw error; return run(); });   // the ask's own failure stays its own
+};
 function vouched(loaded, file, id, kept) {
   if (!VOUCHING) return;
   self.postMessage({ type: "vouched", id, digests: { ...kept.digests, ...kept.rest } });
