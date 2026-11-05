@@ -148,6 +148,22 @@ def answer(page, js: str, arg=None, seconds: float = STALL):
     return within(page, page._impl_obj.evaluate(js, mapping.to_impl(arg)), seconds, js)
 
 
+def checks(page) -> int:
+    """The image checks the page's workers ran (worker.mjs's ``self.azurkitChecks``), over those still running: a
+    worker the page ends as its answer comes (the one it starts once the pick's check is done) stays in
+    ``page.workers`` until Playwright hears its close, and its evaluate then throws TargetClosedError (run
+    41981438506's Linux tier; 1 in 5 runs here, its close heard 3.6 ms after the read). An ended worker's checks went
+    with it; a page or browser that ended answers no worker, so its count is 0."""
+    from playwright._impl._errors import TargetClosedError
+    found = 0
+    for worker in page.workers:
+        try:
+            found += worker.evaluate("() => self.azurkitChecks ?? 0")
+        except TargetClosedError:
+            pass
+    return found
+
+
 def close(page) -> None:
     """``page.close()``, in at most :data:`STALL` s (:func:`within`)."""
     within(page, page._impl_obj.close(), STALL, "the page's close")
