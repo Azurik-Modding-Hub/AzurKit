@@ -46,6 +46,6 @@ def writes(folder: Path) -> float:
 def slower_writes(folder: Path) -> float:
     """The seconds more than the bounds' Mac this host takes now to write what an Install refused at its fourth 5 MiB
     file writes (:func:`writes`, the quickest of three), at least 0: added to a bound that covers those writes, as a
-    file system can slow them far more than its CPU (Windows' runner: that Install took 0.282 s where :func:`factor`
-    scaled its bound to 0.201 s, run 41521288667)."""
+    file system can slow them more than its CPU (Windows' runner wrote them 0.008 s slower than the Mac, run
+    42071325305, where :func:`factor`'s 1.6 x would have them 0.002 s slower)."""
     return max(0.0, min(writes(folder) for _ in range(3)) - WRITES)
