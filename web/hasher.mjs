@@ -17,9 +17,17 @@ const CHUNK = 1 << 20;   // native/web/md5.c's
 // the background after its pick, gives way to it (dressed()): its runs in flight, up to 768 MiB in Safari, took the
 // kept-dress test's WebKit page from 1.7-1.8 to 2.7-2.9 GiB at its peak when a build followed the pick (Step 4.4ci25).
 export const DRESSING = "azurkit-dressing";
+// A Save made while the rest is hashed waits for its digests (app.mjs's checkSave, Step 4.4bl), holding WAITED (shared)
+// meanwhile: the rest is then the Save's own hash, so it no longer gives way to a dress and reads as the Save's own
+// hash would, every lane with its read ahead; else a Save after a dress waited on one run at a time (Step 4.4stack2).
+export const WAITED = "azurkit-rest-waited";
 const YIELD_MS = 100;   // between a lane's looks while it gives way
-export const dressed = async () => Boolean((await globalThis.navigator?.locks?.query?.())?.held
-  ?.some((lock) => lock.name === DRESSING));
+// The rest's say before its next read: 1 to give way (a dress runs and no Save waits on it), -1 while a Save waits on
+// it, else 0.
+export const dressed = async () => {
+  const held = ((await globalThis.navigator?.locks?.query?.())?.held ?? []).map((lock) => lock.name);
+  return held.includes(WAITED) ? -1 : held.includes(DRESSING) ? 1 : 0;
+};
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
 let wasm = null;
@@ -52,10 +60,11 @@ function md5(bytes) {
 // 1.3 GiB less at its peak); a lane holds at most ahead + 1 runs (an image's check AHEAD + 1). at(step) hears where each
 // of the HASHERS is: the run whose read it awaits (its number and offset), its digests or done, so a check that stalls
 // says which await it waits on (Step 4.3r4t). A hash no ask waits on (worker.mjs's rest of an image) gives way
-// (yields: an async () => whether to wait, dressed() in a browser): while it says so, no lane starts a read, each
+// (yields: an async () => > 0 to wait, dressed() in a browser): while it says so, no lane starts a read, each
 // digests what it has in flight and then waits; once it gave way it goes on with one run in flight (one lane's, none
 // ahead), as the page then holds what it gave way to (a dress's heap, which wasm never gives back): its runs never sit
-// on top of a dress, during it or after (Step 4.4ci25).
+// on top of a dress, during it or after (Step 4.4ci25). Once an ask waits on it (yields says < 0: a Save, WAITED) it
+// reads as that ask's own hash would, every lane again (widen()), and gives way no more while it does.
 export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}, ahead = 0,
                              yields = null) {
   const runs = [];
@@ -84,45 +93,72 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
     reading.catch(() => {});   // awaited in its turn; a lane that throws first leaves its next one unawaited
     mine.push({ run, k: count - runs.length, reading });
   };
-  let narrow = false;   // it gave way: one run in flight from then on, lane 0's
-  const given = async (lane) => {   // once nothing it gives way to runs
+  let narrow = false;   // it gave way: one run in flight from then on, lane 0's, until an ask waits on it
+  const given = async (lane) => {   // once nothing it gives way to runs; its last say
     narrow = true;
-    for (let first = true; await yields(); first = false) {
+    let say;
+    for (let first = true; (say = await yields()) > 0; first = false) {
       if (first) step(lane, "giving way");
       await new Promise((later) => setTimeout(later, YIELD_MS));
     }
+    return say;
   };
-  if (yields && await yields()) await given(0);
+  const busy = Array(HASHERS).fill(false), pumps = [];
+  const widen = () => {   // an ask waits on it: every lane reads again, each refilled in its own turn or started here
+    narrow = false;
+    taken.forEach((mine, lane) => {
+      if (busy[lane]) return;
+      for (let k = mine.length; k <= ahead; k++) take(mine);
+      if (mine.length) pump(lane);
+    });
+  };
+  const pump = (lane) => {   // a lane: its runs read and digested in turn, each refilled as it goes
+    const mine = taken[lane];
+    busy[lane] = true;
+    const going = (async () => {
+      try {
+        for (let item; (item = mine[0]);) {
+          const { run, k } = item;
+          step(lane, `run ${k}/${count} read at ${Math.floor(run.start / 2 ** 20)} MiB`);
+          const bytes = await item.reading;
+          if (bytes.length !== run.end - run.start) throw new Error("the image got shorter after it was picked");
+          step(lane, `run ${k}/${count} digest`);
+          for (const [key, at, size, patches] of run.files) {
+            const view = bytes.subarray(at - run.start, at - run.start + size);
+            for (const [where, patch] of patches ?? []) view.set(patch, where);
+            const sha = crypto.subtle.digest("SHA-256", view);   // WebCrypto's thread, while md5 takes this one
+            if (patches) digests[key.replace("file:", "md5:")] = md5(view);
+            digests[key] = hex(await sha);
+          }
+          bytes.buffer.transfer?.(0);   // its memory freed now, not at the next GC: WebCrypto and md5 copied what they read
+          mine.shift();
+          done += run.end - run.start;
+          progress(done, total);
+          const say = yields ? await yields() : 0;
+          if (say > 0) {   // its read ahead digested first, then none until it may go on
+            narrow = true;
+            if (mine.length) continue;
+            if (await given(lane) < 0) widen();
+          } else if (say < 0 && narrow) widen();
+          if (!narrow) for (let k = mine.length; k <= ahead; k++) take(mine);
+          else if (!lane && !mine.length) take(mine);
+        }
+      } finally {
+        busy[lane] = false;
+      }
+      step(lane, "done");
+    })();
+    going.catch(() => {});   // awaited below, but one may throw while an earlier one is awaited
+    pumps.push(going);
+  };
+  if (yields && await yields() > 0 && await given(0) < 0) narrow = false;
   if (narrow) take(taken[0]);
   else for (let k = 0; k <= ahead; k++) taken.forEach(take);   // runs 1..HASHERS first, one a lane
-  await Promise.all(taken.map(async (mine, lane) => {
-    for (let item; (item = mine[0]);) {
-      const { run, k } = item;
-      step(lane, `run ${k}/${count} read at ${Math.floor(run.start / 2 ** 20)} MiB`);
-      const bytes = await item.reading;
-      if (bytes.length !== run.end - run.start) throw new Error("the image got shorter after it was picked");
-      step(lane, `run ${k}/${count} digest`);
-      for (const [key, at, size, patches] of run.files) {
-        const view = bytes.subarray(at - run.start, at - run.start + size);
-        for (const [where, patch] of patches ?? []) view.set(patch, where);
-        const sha = crypto.subtle.digest("SHA-256", view);   // WebCrypto's thread, while md5 takes this one
-        if (patches) digests[key.replace("file:", "md5:")] = md5(view);
-        digests[key] = hex(await sha);
-      }
-      bytes.buffer.transfer?.(0);   // its memory freed now, not at the next GC: WebCrypto and md5 copied what they read
-      mine.shift();
-      done += run.end - run.start;
-      progress(done, total);
-      if (yields && await yields()) {   // its read ahead digested first, then none until it may go on
-        narrow = true;
-        if (mine.length) continue;
-        await given(lane);
-      }
-      if (!narrow) for (let k = mine.length; k <= ahead; k++) take(mine);
-      else if (!lane && !mine.length) take(mine);
-    }
-    step(lane, "done");
-  }));
+  taken.forEach((_, lane) => pump(lane));
+  for (let n = 0; n < pumps.length;) {   // with the lanes widen() started again meanwhile
+    n = pumps.length;
+    await Promise.all(pumps);
+  }
   return digests;
 }
 

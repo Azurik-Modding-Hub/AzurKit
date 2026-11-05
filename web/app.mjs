@@ -51,7 +51,7 @@ import { characters } from "./characters.mjs";
 import { communityGroup } from "./community.mjs";
 import { content } from "./content.mjs";
 import { dataTab } from "./data.mjs";
-import { hashedApart } from "./hasher.mjs";
+import { hashedApart, WAITED } from "./hasher.mjs";
 import { replaceFiles } from "./replace.mjs";
 import { savesSection } from "./saves.mjs";
 import { hold, letGo, sweep } from "./outputs.mjs";
@@ -1198,7 +1198,8 @@ function built(reply) {
 // hashed in the background (state.resting by the image's id, the worker's "resting" messages) waits for those digests
 // for the in-place files the page doesn't know yet, its bar moving with the rest's, and hashes only the build's files
 // meanwhile, then any the rest didn't vouch for (its worker stopped, a read refused): the same files read and hashed
-// twice at once made S06/lag wait on its check, 1.5-1.8 s against the download's 1.3-1.6 (Step 4.4bl).
+// twice at once made S06/lag wait on its check, 1.5-1.8 s against the download's 1.3-1.6 (Step 4.4bl). It holds
+// hasher.mjs's WAITED while it waits, so the rest no longer gives way to a dress and reads at a Save's width.
 const READS_REFUSED = /AppleWebKit/.test(navigator.userAgent);
 function rested(data, worker) {   // a worker's rest of the image data.id: its progress, or its end
   let rest = state.resting.get(data.id);
@@ -1274,6 +1275,7 @@ async function checkSave(build, name) {
     };
     rest.heard.add(heard);
     heard();
+    navigator.locks?.request(WAITED, { mode: "shared" }, () => rest.settled).catch(() => null);   // Locks refused: no rest
     await rest.settled;
     rest.heard.delete(heard);
     const left = waits.filter((row) => !knows(row)), from = waited;

@@ -2147,10 +2147,11 @@ def test_an_images_check_reads_each_lanes_next_run_ahead_in_safari_and_a_builds_
 
 
 GIVES_WAY = """import { createHash } from "node:crypto";
-let dress = false;   // whether an ask that carries a character holds hasher.mjs's DRESSING
+let dress = false, waited = false;   // whether a character's ask holds hasher.mjs's DRESSING, a Save its WAITED
 Object.defineProperty(globalThis, "navigator", { configurable: true, value: {
     userAgent: "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",   // Safari's: reads ahead
-    locks: { query: async () => ({ held: dress ? [{ name: "azurkit-dressing", mode: "shared" }] : [] }) } } });
+    locks: { query: async () => ({ held: [...dress ? [{ name: "azurkit-dressing", mode: "shared" }] : [],
+                                          ...waited ? [{ name: "azurkit-rest-waited", mode: "shared" }] : []] }) } } });
 let settle;
 const steps = [];
 Object.defineProperty(globalThis, "self", { configurable: true, value: { postMessage: (message) => {
@@ -2165,19 +2166,24 @@ const dressedFor = (ms) => {
     dress = true;
     setTimeout(() => { dress = false; }, ms);
 };
-let reads = 0, whileDressed = 0, flying = 0, most = 0;
+let reads = 0, whileDressed = 0, flying = 0, most = 0, saving = false;
 const source = { slice: (start, end) => ({ arrayBuffer: async () => {
     reads += 1;
     if (dress) whileDressed += 1;
     if (reads === 6) dressedFor(300);   // a character's build starts beside it
+    if (saving && reads === 12) {   // gone on one at a time after it, a Save waits on it with a dress held again
+        dress = waited = true;
+        most = flying;
+    }
     most = Math.max(most, ++flying);
     await new Promise((late) => setTimeout(late, 20));   // a slow read
     flying -= 1;
     return blob.slice(start, end).arrayBuffer();
 } }) };
 const seen = [];
-for (const yields of [true, false]) {   // the rest of an image (worker.mjs's vouched()); an image's check, a Save's
-    reads = whileDressed = most = steps.length = 0;
+for (const [yields, save] of [[true, false], [false, false], [true, true]]) {   // the rest of an image (worker.mjs's
+    reads = whileDressed = most = steps.length = 0;   // vouched()); an image's check, a Save's; the rest a Save waits on
+    saving = save;
     dressedFor(200);   // and one before it starts
     const { digests } = await new Promise((answer) => {
         settle = answer;
@@ -2186,12 +2192,13 @@ for (const yields of [true, false]) {   // the rest of an image (worker.mjs's vo
     const same = files.every(([key, at, size]) =>
         digests?.[key] === createHash("sha256").update(bytes.subarray(at, at + size)).digest("hex"));
     seen.push([whileDressed, steps.some((step) => step.includes("giving way")), most, same]);
+    dress = waited = false;
 }
 console.log(JSON.stringify(seen));
 """
 
 
-def test_an_images_rest_hashed_in_the_background_reads_nothing_while_a_character_is_dressed_and_a_check_never_waits(
+def test_an_images_rest_hashed_in_the_background_gives_way_to_a_dress_until_a_save_waits_on_it_and_a_check_never_waits(
         site):
     """Step 4.4ci25: ``web/hashworker.mjs`` under Node, as in Safari, over a slow source. The rest of an image, hashed
     after its pick for a later Save (``worker.mjs``'s vouched()), gives way to a character's dress (an ask that carries
@@ -2199,13 +2206,15 @@ def test_an_images_rest_hashed_in_the_background_reads_nothing_while_a_character
     once it has begun, and from then on keeps one read in flight, as the page holds the dress's heap after it (wasm's
     never shrinks). Its six runs in flight on top of keylord's build took the kept-dress test's WebKit page from
     1.7-1.8 to 2.7-2.9 GiB at its peak (Chromium's 2.0-2.3 to 2.5-2.6), and given way to the build only, to 2.3-2.4
-    GiB as it went on after it. An image's check (the pick, Verify, a Save's) never waits and reads six at once. The
-    digests are the same."""
+    GiB as it went on after it. An image's check (the pick, Verify, a Save's) never waits and reads six at once. Once a
+    Save waits on the rest (``app.mjs`` holds ``WAITED``, Step 4.4stack2) it is that Save's hash: it reads beside a dress
+    and six at once again, its lanes that ended started again. The digests are the same."""
     run = subprocess.run(["node", "--input-type=module", "--eval", GIVES_WAY % json.dumps(
         (site / "hashworker.mjs").as_uri())], capture_output=True, text=True, timeout=120)
     assert run.returncode == 0, run.stderr[-2000:]
-    rest, check = json.loads(run.stdout)
+    rest, check, waited = json.loads(run.stdout)
     assert rest == [0, True, 1, True] and check[0] > 0 and check[1:] == [False, 6, True], (rest, check)
+    assert waited == [12, True, 6, True], waited
 
 
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
