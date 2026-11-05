@@ -1499,11 +1499,27 @@ def test_the_apps_build_takes_the_build_ahead_of_its_recipe_after_it_mid_flight_
     recipe stopped it at its next record, each the plain Build's image and
     report; an offer of an older change is dropped. On a machine with room
     for it (``test_ahead.py`` holds ``ahead.room``): the peak a Here build
-    reports is this whole test process's, which is over its line under 16 GiB."""
+    reports is this whole test process's, which is over its line under 16 GiB.
+    A pack's build here ends within 30 ms, as fast as the next call reaches
+    the server (on a Windows runner the stop came after the job's last
+    record), so the job taken mid-flight and the one stopped wait at their
+    first record until their click or stop has come."""
     _home(monkeypatch, tmp_path / "home")
     monkeypatch.setattr(app.ahead, "room", lambda peak: True)
-    images, image = [], sdk.image
-    monkeypatch.setattr(sdk, "image", lambda *args, **kwargs: images.append(1) or image(*args, **kwargs))
+    images, image, holds = [], sdk.image, []
+
+    def imaged(*args, progress, **kwargs):
+        images.append(1)
+        hold = holds.pop() if holds else None
+
+        def first(step: dict) -> None:
+            nonlocal hold
+            if hold is not None:
+                hold, held = None, hold
+                _until(held)
+            progress(step)
+        return image(*args, progress=first, **kwargs)
+    monkeypatch.setattr(sdk, "image", imaged)
     server = app.serve(_page.WEB)
     a, c = {"iso": str(usa_iso), "packs": packs, **more}, {"iso": str(usa_iso), "packs": {"fps_unlock": {"fps": 30}}}
 
@@ -1524,15 +1540,20 @@ def test_the_apps_build_takes_the_build_ahead_of_its_recipe_after_it_mid_flight_
         ahead(2, a)
         took = [built(a), len(images)]   # after it ended: nothing built again
         ahead(3, c)
+        holds.append(lambda: server.slots.job("build").state == "taken")
         ahead(4, a, wait=False)
         took += [built(a), len(images)]  # mid-flight
         ahead(5, c)
+        reached, go = threading.Event(), threading.Event()
+        holds.append(lambda: reached.set() or go.is_set())
         ahead(6, a, wait=False)
         stopped = server.slots.job("build")
-        ahead(7, c, wait=False)
+        _until(reached.is_set)
+        ahead(7, c, wait=False)          # stops it mid-flight
         late = []
         _post(server.url, "api/speculate", {"gen": 6, **a}, late)
         ahead(8, a, wait=False)
+        go.set()
         took += [built(a)]               # remade
         assert stopped.done.wait(120) and isinstance(stopped.error, engine.Cancelled) and late == [{"ahead": False}]
         assert took == [plain, 3, plain, 5, plain]
