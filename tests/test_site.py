@@ -4571,7 +4571,7 @@ LOCKS_REFUSED = """for (const call of ["request", "query"]) LockManager.prototyp
                                            "SecurityError"));
 };
 """
-REFUSED = "() => navigator.locks.request('any', () => 0).then(() => '', (refused) => refused.name)"
+LOCK_ASKED = "() => navigator.locks.request('any', () => 0).then(() => '', (refused) => refused.name)"
 
 
 def test_a_build_wearing_a_character_builds_as_cpython_builds_it_where_the_browser_refuses_web_locks(
@@ -4592,7 +4592,7 @@ def test_a_build_wearing_a_character_builds_as_cpython_builds_it_where_the_brows
         page = served.context.new_page()
         _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
-        assert page.evaluate(REFUSED) == "SecurityError"
+        assert page.evaluate(LOCK_ASKED) == "SecurityError"
         _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
         built = _built(page)
