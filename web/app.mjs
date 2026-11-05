@@ -66,7 +66,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
-                vouched: new Map(), tracking: null,
+                vouched: new Map(), resting: new Map(), tracking: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, recheck: false, probing: false,
                          moved: null } };
@@ -328,7 +328,13 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       }
       if (data?.out) hold(data.out).then(() => worker.postMessage({ type: "held" }));   // its build file: this page's now
       if (data?.type === "vouched") state.vouched.set(data.id, { ...state.vouched.get(data.id), ...data.digests });
+      if (data?.type === "resting" || data?.type === "rested") rested(data, worker);
     });
+    const terminate = worker.terminate.bind(worker);
+    worker.terminate = () => {   // the pool's: a rest it was hashing ends with it
+      terminate();
+      for (const [id, rest] of state.resting) if (rest.worker === worker) rested({ type: "rested", id }, worker);
+    };
     return worker;
   };
   const back = () => {   // the page's engine answers again (the same worker, or B's answer taken)
@@ -1188,8 +1194,27 @@ function built(reply) {
 // hashed from that File (state.vouched by the image's id: worker.mjs's vouched(), and the files a Save here passed),
 // so only the rest is hashed, beside one read of the File, which the browser refuses once it changed. A changed file's
 // bytes are the build's, hashed at every Save. state.saveCheck: "running", "held", or the failure's line. The site's
-// work ahead and a built seed's Tracker view wait for it (aheadOnSite, built()).
+// work ahead and a built seed's Tracker view wait for it (aheadOnSite, built()). A Save while the image's rest is
+// hashed in the background (state.resting by the image's id, the worker's "resting" messages) waits for those digests
+// for the in-place files the page doesn't know yet, its bar moving with the rest's, and hashes only the build's files
+// meanwhile, then any the rest didn't vouch for (its worker stopped, a read refused): the same files read and hashed
+// twice at once made S06/lag wait on its check, 1.5-1.8 s against the download's 1.3-1.6 (Step 4.4bl).
 const READS_REFUSED = /AppleWebKit/.test(navigator.userAgent);
+function rested(data, worker) {   // a worker's rest of the image data.id: its progress, or its end
+  let rest = state.resting.get(data.id);
+  if (data.type === "resting") {
+    if (!rest) {
+      rest = { worker, done: 0, total: 0, heard: new Set() };
+      rest.settled = new Promise((settle) => { rest.settle = settle; });
+      state.resting.set(data.id, rest);
+    }
+    Object.assign(rest, { done: data.done, total: data.total });
+    rest.heard.forEach((heard) => heard());
+  } else if (rest?.worker === worker) {
+    state.resting.delete(data.id);
+    rest.settle();
+  }
+}
 function inPlace(segments) {   // whether [start, end) of the Blob is the File's own bytes there
   const spans = [];
   let at = 0;
@@ -1210,35 +1235,67 @@ async function checkSave(build, name) {
   const sized = (rows) => rows.reduce((n, [, , size]) => n + size, 0);
   const copied = READS_REFUSED ? inPlace(build.segments) : () => false;
   const own = ([, at, size, , from]) => from === at && copied(at, at + size);
-  const known = state.vouched.get(build.checks.id) ?? {};
-  const passes = [[build.blob, build.checks.image.filter((row) => !(own(row) && known[row[0]] === row[3]))]];
+  const knows = (row) => state.vouched.get(build.checks.id)?.[row[0]] === row[3];   // read again once a rest ends
+  const rows = build.checks.image.filter((row) => !(own(row) && knows(row)));
+  const rest = READS_REFUSED && state.resting.get(build.checks.id), waits = rest ? rows.filter(own) : [];
+  const passes = [[build.blob, rest ? rows.filter((row) => !own(row)) : rows]];
   if (!READS_REFUSED) passes.unshift([build.file, build.checks.input]);
-  const whole = passes.reduce((n, [, rows]) => n + sized(rows), 0);
-  let before = 0, wrong = null;
-  const heard = (share) => (done, total) => {
-    const ask = state.asks.get(id), at = Math.floor(before + share * done / total);
+  const whole = passes.reduce((n, [, rows]) => n + sized(rows), 0) + sized(waits);
+  let before = 0, now = 0, waited = 0, wrong = null;
+  const show = () => {
+    const ask = state.asks.get(id), at = Math.floor(before + now + waited);
     if (ask) ask.record = { stage: "write", label: "Saving", done: at, total: whole, percent: Math.floor(at * 100 / whole) };
     showing();
+  };
+  const heard = (share) => (done, total) => {
+    now = share * done / total;
+    show();
+  };
+  const hashed = async (source, rows, progress) => {
+    const digests = await hashedApart(source, rows.map(([path, at, size]) => [path, at, size]), progress);
+    const file = rows.find(([path, , , sha]) => digests[path] !== sha)?.[0];
+    return file ? `its ${file} isn't the build's or the game's` : null;
   };
   const hashing = async () => {
     for (const [source, rows] of passes) {
       if (!rows.length) continue;
-      const share = sized(rows);
-      const digests = await hashedApart(source, rows.map(([path, at, size]) => [path, at, size]), heard(share));
-      const file = rows.find(([path, , , sha]) => digests[path] !== sha)?.[0];
-      if (file) return `its ${file} isn't the build's or the game's`;
+      const share = sized(rows), failed = await hashed(source, rows, heard(share));
+      if (failed) return failed;
       before += share;
+      now = 0;
     }
     return null;
   };
+  const waiting = async () => {   // the rest's digests for the in-place files, then a hash of those it didn't vouch for
+    if (!waits.length) return null;
+    const share = sized(waits), heard = () => {
+      waited = share * (rest.total ? rest.done / rest.total : 0);
+      show();
+    };
+    rest.heard.add(heard);
+    heard();
+    await rest.settled;
+    rest.heard.delete(heard);
+    const left = waits.filter((row) => !knows(row)), from = waited;
+    if (!left.length) {
+      waited = share;
+      show();
+      return null;
+    }
+    return hashed(build.blob, left, (done, total) => {
+      waited = from + (share - from) * done / total;
+      show();
+    });
+  };
   try {
-    [wrong] = await Promise.all([hashing(), READS_REFUSED && build.file.slice(0, 1).arrayBuffer()]);
+    const checks = await Promise.all([hashing(), waiting(), READS_REFUSED && build.file.slice(0, 1).arrayBuffer()]);
+    wrong = checks[0] ?? checks[1] ?? null;
   } catch (error) {
     wrong = `reading it failed (${error.message})`;
   }
   if (!wrong && READS_REFUSED && build.checks.id) {   // its own copies hashed now are known for the next Save
     const vouched = { ...state.vouched.get(build.checks.id) };
-    for (const row of passes[0][1]) if (own(row)) vouched[row[0]] = row[3];
+    for (const row of [...passes[0][1], ...waits]) if (own(row)) vouched[row[0]] = row[3];
     state.vouched.set(build.checks.id, vouched);
   }
   answered(id);

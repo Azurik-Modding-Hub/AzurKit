@@ -3070,6 +3070,61 @@ def test_a_save_hashes_only_what_the_page_hasnt_hashed_from_its_image_and_fails_
         served.close()
 
 
+def test_a_save_while_the_images_rest_is_hashed_waits_for_its_digests_and_hashes_only_the_builds_files(
+        browser, site, usa_iso):
+    """D35, Step 4.4bl: a Save made while the picked image's rest is hashed in the background (WebKit's, Chromium's;
+    slowed here) hashes only the Blob's files that aren't the File's own bytes in place and waits for the rest's digests
+    for the others, never hashing them a second time beside it; when the worker hashing the rest stops first, the Save
+    hashes those files itself. Firefox has no rest: its Save hashes the input's files and every file, as before."""
+    refused = browser.browser_type.name != "firefox"
+    hasher = (site / "hasher.mjs").read_text(encoding="utf-8")
+    read = "await source.slice(run.start, run.end).arrayBuffer()"
+    assert hasher.count(read) == 1
+    slow = hasher.replace(read, f"await new Promise((late) => setTimeout(late, 3000)).then(() => {read.removeprefix('await ')})")
+    for stop in (False, True) if refused else (False,):
+        served = Site(browser, site)
+        try:
+            served.context.route("**/hasher.mjs", lambda route: route.fulfill(body=slow, content_type="text/javascript"))
+            served.context.add_init_script("""{ const real = Worker.prototype.postMessage; globalThis.hashing = [];
+                Worker.prototype.postMessage = function (message, ...rest) {   // each page hash's bytes
+                    if (message?.rows) hashing.push(message.rows.reduce((n, [, , size]) => n + size, 0));
+                    return real.call(this, message, ...rest); }; }""")
+            page = served.open()
+            _page.pick(page, "#iso", usa_iso)
+            if refused:
+                _page.until(page, "() => azurkit.resting.size === 1", 300)
+            page.evaluate("() => document.querySelector('#build').click()")   # the page's default packs
+            _page.built(page)
+            rows, given, segments = page.evaluate("() => [azurkit.build.checks.image, azurkit.build.checks.input, "
+                                                  "azurkit.build.segments]")
+            with page.expect_download(timeout=600_000) as caught:
+                resting, known = page.evaluate("""(stop) => {
+                    hashing.length = 0;
+                    const resting = azurkit.resting.size, known = Object.keys(azurkit.vouched.get(azurkit.build.checks.id) ?? {});
+                    document.querySelector('#save').click();
+                    if (stop) for (const rest of azurkit.resting.values()) rest.worker.terminate();
+                    return [resting, known]; }""", stop)
+            assert _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck") == "held"
+            caught.value.delete()
+            written, at = [], 0   # the Blob's spans that aren't the File's own bytes there
+            for segment in segments:
+                if not (segment["kind"] == "copy" and segment["offset"] == at):
+                    written.append((at, at + segment["size"]))
+                at += segment["size"]
+            mine = [row for row in rows if row[4] != row[1]
+                    or any(start < row[1] + row[2] and row[1] < end for start, end in written)]
+            waited = [row for row in rows if row not in mine and row[0] not in known]
+            assert resting == refused and 0 < len(mine) < len(rows) and waited
+            assert sorted(page.evaluate("() => hashing")) == (
+                sorted([sum(r[2] for r in mine), sum(r[2] for r in waited)]) if stop
+                else [sum(r[2] for r in mine)] if refused
+                else sorted([sum(r[2] for r in given), sum(r[2] for r in rows)]))
+            assert stop or not refused or page.evaluate(
+                "(paths) => paths.every((p) => p in azurkit.vouched.get(azurkit.build.checks.id))", [r[0] for r in rows])
+        finally:
+            served.close()
+
+
 def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_save(browser, site, usa_iso, tmp_path):
     """D35: a byte of a level, outside what the seed's build reads and patches, changed after the pick and before Build.
     The changed level's sha is hashed from that File, so the build's own number agrees with it: Firefox reads the new bytes

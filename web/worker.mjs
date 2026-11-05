@@ -691,7 +691,10 @@ async function prime(loaded, file) {
 // with is answered (loaded.rest, the queue's), by one worker of this browser at a time (a Web Lock), and kept with the
 // stamp, so a later visit hashes neither. A Save hashes what the page doesn't know yet. Firefox reads a changed File
 // silently: there a Save hashes every file, and none of this runs. The rest gives way to a character's dress
-// (hasher.mjs's DRESSING, held while an ask that carries a character runs: dressing()), Step 4.4ci25.
+// (hasher.mjs's DRESSING, held while an ask that carries a character runs: dressing()), Step 4.4ci25. While the rest is
+// hashed the page hears so, with its progress ({type: "resting", id, done, total}), then {type: "rested", id} after its
+// digests or its failure, so a Save meanwhile waits for them rather than hashing the same files again beside it (Step
+// 4.4bl).
 const VOUCHING = /AppleWebKit/.test(navigator.userAgent), resting = new Set();
 // An ask that carries a character (a build wearing one, a reshape's pictures and matches) runs holding DRESSING, shared
 // (any of this browser's workers may hold it at once), which the rest's hash gives way to (Step 4.4ci25). Where the
@@ -715,13 +718,19 @@ function vouched(loaded, file, id, kept) {
       if (!lock) return;   // another worker of this browser hashes it
       const last = await stamps("readonly", (store) => store.get("last")).catch(() => null);
       if (last?.id === id && last.rest) return;   // another hashed it first
-      const digests = await hashedApart(file, rest.files, undefined, undefined, undefined, true);   // gives way
-      await stamps("readwrite", (store) => {
-        const last = store.get("last");
-        last.onsuccess = () => last.result?.id === id && store.put({ ...last.result, rest: digests }, "last");
-        return last;
-      });
-      self.postMessage({ type: "vouched", id, digests });
+      const told = (done, total) => self.postMessage({ type: "resting", id, done, total });
+      told(0, rest.files.reduce((n, [, , size]) => n + size, 0));
+      try {
+        const digests = await hashedApart(file, rest.files, told, undefined, undefined, true);   // gives way
+        await stamps("readwrite", (store) => {
+          const last = store.get("last");
+          last.onsuccess = () => last.result?.id === id && store.put({ ...last.result, rest: digests }, "last");
+          return last;
+        });
+        self.postMessage({ type: "vouched", id, digests });
+      } finally {
+        self.postMessage({ type: "rested", id });
+      }
     };
     const locked = () => navigator.locks ? navigator.locks.request(`azurkit-rest ${id}`, { ifAvailable: true }, hash)
       : hash(true);
