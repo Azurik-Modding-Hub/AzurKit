@@ -436,12 +436,23 @@ def gpu_state(read: dict[int, tuple], then: dict[int, tuple[float, float, int]],
         at, cpu, _ = then.get(-1, (now, window, 0))
         then[-1] = (now, window, 0)
         server = f"{(window - cpu) / (now - at) if now > at else 0.0:.0%} of a core"
-    return (f"; WebKit's GPU processes: {'; '.join(parts) or 'none'}; WindowServer {server}; "
-            f"load {os.getloadavg()[0]:.1f}")
+    return f"; WebKit's GPU processes: {'; '.join(parts) or 'none'}; WindowServer {server}; load {load()}"
+
+
+def load() -> str:
+    """The 1-minute load where the OS keeps one (``os.getloadavg``: macOS's and Linux's), else ``unread`` (Windows
+    keeps none: run 41981438506's pure tier's AttributeError)."""
+    try:
+        return f"{os.getloadavg()[0]:.1f}"
+    except (AttributeError, OSError):
+        return "unread"
 
 
 def cpu_used(pid: int) -> tuple[float, int] | None:
-    """(CPU seconds, page-ins) of one of this user's processes, by macOS's own count (``proc_pid_rusage``)."""
+    """(CPU seconds, page-ins) of one of this user's processes, by macOS's own count (``proc_pid_rusage``); none on
+    the other OSes, which have no such call."""
+    if sys.platform != "darwin":
+        return None
     import ctypes
     lib = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
     info, base = (ctypes.c_uint64 * 40)(), (ctypes.c_uint32 * 2)()

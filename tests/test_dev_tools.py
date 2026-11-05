@@ -906,7 +906,8 @@ def test_ci_resources_names_what_webkits_gpu_process_did_as_it_stopped_answering
     says a process stopped answering it samples each of Playwright's GPU processes and the process that wrote it, at
     once, printing each watched thread's heaviest stack (threads alike once, counted) and the calls its threads were
     most often in, never a path, a source line or an address; each minute's line has each GPU process's share of a
-    core, page-ins and footprint, WindowServer's share and the load; WebKit's lines at the tier's end past the first 20
+    core, page-ins and footprint, WindowServer's share and the load (where the OS keeps one), its own calls read on
+    every OS without raising (Windows has no load: run 41981438506); WebKit's lines at the tier's end past the first 20
     are counted by the call that wrote them."""
     from scripts import ci_resources
     assert ci_resources.stacks(SAMPLE_REPORT) == (
@@ -935,13 +936,17 @@ def test_ci_resources_names_what_webkits_gpu_process_did_as_it_stopped_answering
         "1 s: stacks of 8",
         f"--- WebKit's log at 13:59:53, Playwright: {gone}; com.apple.WebKit.GPU.Development (id 7) sampled 1 s: "
         "stacks of 7"], 0)
+    load = r"[\d.]+" if hasattr(os, "getloadavg") else "unread"   # Windows keeps no load (run 41981438506)
+    assert (ci_resources.cpu_used(os.getpid()) is None) == (sys.platform != "darwin")   # macOS's call, none elsewhere
+    assert re.fullmatch(rf"; WebKit's GPU processes: none; WindowServer (?:0% of a core|unread); load {load}",
+                        ci_resources.gpu_state({}, {}, 0.0))   # this OS's own calls
     used = iter([(10.0, 40), (40.0, 43)])
     monkeypatch.setattr(ci_resources, "cpu_used", lambda pid: next(used))
     monkeypatch.setattr(ci_resources, "cpu_used_ps", lambda name: 100.0 if name == "WindowServer" else None)
     then = {}
     ci_resources.gpu_state(read, then, 0.0)
-    assert re.fullmatch(r"; WebKit's GPU processes: id 7 50% of a core, 3 page-ins, 100 MiB; WindowServer 0% of a "
-                        r"core; load [\d.]+", ci_resources.gpu_state(read, then, 60.0))
+    assert re.fullmatch(rf"; WebKit's GPU processes: id 7 50% of a core, 3 page-ins, 100 MiB; WindowServer 0% of a "
+                        rf"core; load {load}", ci_resources.gpu_state(read, then, 60.0))
     calls = ("didBecomeUnresponsive: x", "gpuProcessExited: reason=Unresponsive")
     log = "".join(f"2026-11-04 14:{m:02}:00.1 E  Playwright[5:9a1] [com.apple.WebKit:Process] 0x1 - "
                   f"GPUProcessProxy::{calls[m % 2]}\n" for m in range(25))
