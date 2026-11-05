@@ -748,16 +748,12 @@ class Logic:
         return None if loc in self.forfeitable else placement.get(loc)
 
     def _reach_memo(self) -> dict:
-        """What :meth:`reach` reads alike every call, kept: the options validated, the authored pool locations and
-        each spot whose item no placement changes (:meth:`_item`: a stub's or guardian slot's vanilla one, a
-        forfeitable one's none)."""
+        """What :meth:`reach` reads alike every call, kept: the options validated and the authored pool
+        locations."""
         if (memo := getattr(self, "_reached", None)) is None:
             stubs = self.db.stubs
             memo = self._reached = {
-                "valid": set(), "authored": frozenset(loc for loc, lvl in self.pool.items() if lvl not in stubs),
-                "fixed": {loc: self.vanilla[loc][0] if lvl in stubs or loc in self.guardian else None
-                          for loc, lvl in self.pool.items()
-                          if lvl in stubs or loc in self.guardian or loc in self.forfeitable}}
+                "valid": set(), "authored": frozenset(loc for loc, lvl in self.pool.items() if lvl not in stubs)}
         return memo
 
     def _take(self, held: collections.Counter, counters: dict, loc: str, placement: Mapping) -> None:
