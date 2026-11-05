@@ -3,11 +3,14 @@
 // the engine's thread's Python, on bytes read from a File or a Blob with awaited reads, so neither heap holds them long.
 const RUN = 128 << 20, HASHERS = 3;
 // Where each read of a File waits (Safari's: WebKit's, the perf gate's lag model's 200 ms whatever its size), each of
-// the HASHERS keeps AHEAD read in flight beyond the run it digests, so the wait overlaps its lane's other read and digests
-// (Step 4.4bg). Chromium's and Firefox's reads don't wait so, and Chromium's browser process reads the File for a Save's
-// download as for its check: its Saves took 0.4-0.6 s longer with reads ahead, so there a lane reads one run at a time.
+// the HASHERS of an image's check (hashedApart's: the pick, Verify, a Save's) keeps AHEAD read in flight beyond the run it
+// digests, so the wait overlaps its lane's other read and digests (Step 4.4bg). A build's hash of the files it changed
+// (worker.mjs, hashed's default) reads none ahead: it runs in the engine's worker beside Pyodide's heap, where reads
+// ahead made a seed build (S24) 0.31-0.39 GiB heavier at capped-site's peak for no time. Chromium's and Firefox's reads
+// don't wait so, and Chromium's browser process reads the File for a Save's download as for its check: its Saves took
+// 0.4-0.6 s longer with reads ahead, so there a lane reads one run at a time.
 const AGENT = globalThis.navigator?.userAgent ?? "";
-const AHEAD = /AppleWebKit/.test(AGENT) && !/Chrome\//.test(AGENT) ? 1 : 0;
+export const AHEAD = /AppleWebKit/.test(AGENT) && !/Chrome\//.test(AGENT) ? 1 : 0;
 const CHUNK = 1 << 20;   // native/web/md5.c's
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -38,10 +41,10 @@ function md5(bytes) {
 // "file:<path>". A source that gives fewer bytes than a run asks (the image got shorter since its pick) throws, as a read
 // a browser refuses (WebKit's, Chromium's) does. Each run's buffer is freed once its digests are taken (transfer(0)), not
 // left to a GC: WebKit counted the runs a check had read, not the three it holds (a Save's check, S49 capped-site: about
-// 1.3 GiB less at its peak); a lane holds at most AHEAD + 1 runs. at(step) hears where each of the HASHERS is: the run
-// whose read it awaits (its number and offset), its digests or done, so a check that stalls says which await it waits
-// on (Step 4.3r4t).
-export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}) {
+// 1.3 GiB less at its peak); a lane holds at most ahead + 1 runs (an image's check AHEAD + 1). at(step) hears where each
+// of the HASHERS is: the run whose read it awaits (its number and offset), its digests or done, so a check that stalls
+// says which await it waits on (Step 4.3r4t).
+export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}, ahead = 0) {
   const runs = [];
   for (const entry of [...files].sort((a, b) => a[1] - b[1])) {
     const run = runs.at(-1), [, at, size] = entry;
@@ -68,7 +71,7 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
     reading.catch(() => {});   // awaited in its turn; a lane that throws first leaves its next one unawaited
     mine.push({ run, k: count - runs.length, reading });
   };
-  for (let ahead = 0; ahead <= AHEAD; ahead++) taken.forEach(take);   // runs 1..HASHERS first, one a lane
+  for (let k = 0; k <= ahead; k++) taken.forEach(take);   // runs 1..HASHERS first, one a lane
   await Promise.all(taken.map(async (mine, lane) => {
     for (let item; (item = mine[0]);) {
       const { run, k } = item;
@@ -111,7 +114,7 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN, at
     worker = new Worker(url, { type: "module" });
     apart.add(worker);
   } catch {
-    return hashed(source, rows, progress, longest, at);
+    return hashed(source, rows, progress, longest, at, AHEAD);
   }
   return new Promise((resolve, reject) => {
     const over = (settle, value) => {

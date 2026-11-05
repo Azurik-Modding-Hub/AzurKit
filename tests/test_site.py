@@ -1976,6 +1976,13 @@ def test_a_hash_worker_is_held_until_its_check_settles_so_a_collection_never_los
 
 
 AHEAD = """import { createHash } from "node:crypto";
+Object.defineProperty(globalThis, "navigator", { value: { userAgent: %s }, configurable: true });   // that browser's
+let settle;
+Object.defineProperty(globalThis, "self", { configurable: true, value: { postMessage: (message) => {
+    if ("digests" in message || "error" in message) settle(message);
+} } });
+await import(%s);   // hashworker.mjs: an image's check (hashedApart's worker), as in that browser
+const { hashed } = await import(%s);   // the hasher.mjs it imported
 const blob = new Blob([Uint8Array.from({ length: 12 << 10 }, (_, i) => (i * 7919) %% 251)]);
 const bytes = new Uint8Array(await blob.arrayBuffer());
 const files = Array.from({ length: 12 }, (_, i) => [`file:${i}`, i << 10, 1 << 10]);
@@ -1991,13 +1998,14 @@ const source = { slice: (start, end) => ({ arrayBuffer: async () => {
     held.push(buffer);
     return buffer;
 } }) };
+const check = () => new Promise((answer) => {
+    settle = answer;
+    self.onmessage({ data: { source, rows: files, longest: 1 << 10 } });
+}).then(({ digests, error }) => digests ?? Promise.reject(new Error(error)));
 const seen = [];
-for (const agent of ["AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",   // Safari's, WebKit's
-                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"]) {   // Chromium's
-    Object.defineProperty(globalThis, "navigator", { value: { userAgent: agent }, configurable: true });
-    const { hashed } = await import(%s + "?" + seen.length);   // the module again, as in that browser
+for (const hash of [check, () => hashed(source, files, () => {}, 1 << 10)]) {   // the check; a build's (worker.mjs)
     most = taken = 0;
-    const digests = await hashed(source, files, () => {}, 1 << 10);
+    const digests = await hash();
     const same = files.every(([key, at, size]) =>
         digests[key] === createHash("sha256").update(bytes.subarray(at, at + size)).digest("hex"));
     seen.push([most, taken, same]);
@@ -2006,17 +2014,25 @@ console.log(JSON.stringify(seen));
 """
 
 
-def test_each_hashing_lane_reads_its_next_run_while_it_hashes_one_in_safari_and_one_at_a_time_elsewhere(site):
-    """Step 4.4bg: ``web/hasher.mjs``'s hashed() under Node, over a slow source. In WebKit (Safari's user agent) each of
-    its three lanes has its next run's read in flight while it awaits or digests one (six reads at once, so a read's
-    wait, Safari's 200 ms whatever its size, overlaps the lane's other: S03/lag, S41/lag and the lag Saves wait half
-    the rounds), never more than two runs a lane read or being read (a Save's check 768 MiB at most, was 384). In
-    Chromium (its agent) a lane reads one run at a time: its browser process reads the File for a Save's download as
-    for its check, and its Saves took 0.4-0.6 s longer with reads ahead. The digests are the same."""
-    run = subprocess.run(["node", "--input-type=module", "--eval", AHEAD % json.dumps((site / "hasher.mjs").as_uri())],
-                         capture_output=True, text=True, timeout=120)
-    assert run.returncode == 0, run.stderr[-2000:]
-    assert json.loads(run.stdout) == [[6, 6, True], [3, 3, True]]
+def test_an_images_check_reads_each_lanes_next_run_ahead_in_safari_and_a_builds_hash_reads_one_run_a_lane(site):
+    """Step 4.4bg: ``web/hashworker.mjs`` (an image's check: the pick, Verify, a Save's) and ``web/hasher.mjs``'s
+    hashed() as a build calls it (``worker.mjs``: the files it changed) under Node, over a slow source, as in Safari and
+    in Chromium (their user agents). In Safari each of the check's three lanes has its next run's read in flight while
+    it awaits or digests one (six reads at once, so a read's wait, Safari's 200 ms whatever its size, overlaps the
+    lane's other: S03/lag, S41/lag and the lag Saves wait half the rounds), never more than two runs a lane read or
+    being read (a Save's check 768 MiB at most, was 384). A build's hash reads one run a lane there too: it runs in the
+    engine's worker beside Pyodide's heap, where reads ahead made a seed build (S24) 0.31-0.39 GiB heavier at
+    capped-site's peak for no time. In Chromium both read one run a lane: its browser process reads the File for a
+    Save's download as for its check, and its Saves took 0.4-0.6 s longer with reads ahead. The digests are the same."""
+    seen = []
+    for agent in ("AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",   # Safari's, WebKit's
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"):   # Chromium's
+        run = subprocess.run(["node", "--input-type=module", "--eval", AHEAD % (
+            json.dumps(agent), json.dumps((site / "hashworker.mjs").as_uri()), json.dumps((site / "hasher.mjs").as_uri()))],
+                             capture_output=True, text=True, timeout=120)
+        assert run.returncode == 0, run.stderr[-2000:]
+        seen.append(json.loads(run.stdout))
+    assert seen == [[[6, 6, True], [3, 3, True]], [[3, 3, True], [3, 3, True]]]
 
 
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
