@@ -817,13 +817,15 @@ def test_ci_resources_prints_the_lowest_room_by_label_and_never_a_path(tmp_path)
                         rf"memory [\d.]+ GiB free \(memory of [\d.]+\){macos}\n", done.stdout), (done.stdout, done.stderr)
 
 
-def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrote_of_one_that_ended(tmp_path,
-                                                                                                   monkeypatch):
+def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrote_of_one_that_ended_and_where(
+        tmp_path, monkeypatch):
     """A site test's WebKit page that died ("Target crashed", run 41744982709's Apple Silicon pure tier) named nothing
     of its memory: on macOS the watcher reads the footprint of each of Playwright's processes (its command under a
     playwright folder), the count jetsam and WebKit's memory kill read, and at the tier's end names each one that a
     crash report or a jetsam event since the tier began says ended, with its last footprint and the free memory then;
-    another process's report, an older one and an unreadable one aren't taken for it. Names and numbers only."""
+    another process's report, an older one and an unreadable one aren't taken for it. A crash names where it faulted
+    (run 41981438506's SIGBUS at 0.52 GiB said only its kind): the address's kind and region, what the process said
+    and its crashed thread's innermost frames. Names and numbers only, no path."""
     from scripts import ci_resources
     me = (os.getpid(), 1, 5, "node", "/x/.tools/playwright/driver/node run-driver")
     read = ci_resources.footprints([me, (1, 0, 9, "launchd", "/sbin/launchd")])
@@ -842,7 +844,18 @@ def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrot
     gib, since = 1 << 30, time.time() - 120
     seen = {11: ("com.apple.WebKit.WebContent.Development", 2 * gib, 3 * gib, gib // 2),
             12: ("com.apple.WebKit.WebContent.Development", gib, gib, gib)}
-    report(mine, "wc.ips", {"pid": 11, "exception": {"type": "EXC_BAD_ACCESS", "signal": "SIGSEGV"}}, age=3)
+    report(mine, "wc.ips", {"pid": 11, "exception": {"type": "EXC_BAD_ACCESS", "signal": "SIGBUS",
+                                                     "subtype": "KERN_PROTECTION_FAILURE at 0x0000000340004000"},
+                            "vmRegionInfo": "0x340004000 is in 0x340000000-0x740000000;  bytes after start: 16384\n"
+                                            "      REGION TYPE    START - END   [ VSIZE] PRT/MAX SHRMOD  REGION DETAIL\n"
+                                            "      MALLOC_SMALL   300000000-300800000 [ 8192K] rw-/rwx SM=PRV\n"
+                                            "--->  mapped file    340000000-740000000 [ 16.0G] ---/rwx SM=NUL  "
+                                            "/Users/runner/x.bin\n",
+                            "asi": {"JavaScriptCore": ["a thread's last words /Users/runner/y"]}, "faultingThread": 1,
+                            "usedImages": [{"name": "JavaScriptCore"}, {"name": "WebCore"}],
+                            "threads": [{"frames": []}, {"name": "WebCore: Worker", "frames": [
+                                {"imageIndex": 0, "symbol": "JSC::Wasm::f"}, {"imageIndex": 1, "imageOffset": 4096},
+                                {"imageIndex": 7}] + [{"imageIndex": 0, "symbol": "g"}] * 9}]}, age=3)
     report(mine, "other.ips", {"pid": 99, "exception": {"type": "EXC_CRASH", "signal": "SIGABRT"}}, age=2)
     report(mine, "old.ips", {"pid": 12, "exception": {"type": "EXC_CRASH", "signal": "SIGABRT"}}, age=600)
     (mine / "torn.ips").write_text("{}\n{", encoding="utf-8")   # being written
@@ -851,8 +864,11 @@ def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrot
                                                      {"pid": 11, "name": "x"}, {"pid": 98, "reason": "per-process-limit"}]})
     said = ci_resources.reports(since, seen)
     assert said == [
-        "com.apple.WebKit.WebContent.Development (id 11) crashed at 2 min: EXC_BAD_ACCESS (SIGSEGV); its footprint "
-        "last read 2.00 GiB (its highest 3.00), memory then 0.5 GiB free",
+        "com.apple.WebKit.WebContent.Development (id 11) crashed at 2 min: EXC_BAD_ACCESS (SIGBUS); "
+        "KERN_PROTECTION_FAILURE at 0x0000000340004000; the address is in mapped file [ 16.0G] ---/rwx SM=NUL; "
+        "JavaScriptCore said: a thread's last words; its crashed thread (WebCore: Worker): "
+        "JavaScriptCore JSC::Wasm::f < WebCore +0x1000 < ? +0x0 < " + " < ".join(["JavaScriptCore g"] * 5)
+        + "; its footprint last read 2.00 GiB (its highest 3.00), memory then 0.5 GiB free",
         "a report of the user's unread (JSONDecodeError)",
         "com.apple.WebKit.WebContent.Development (id 12) killed by jetsam at 2 min: vm-pageshortage, memory 0.5 GiB "
         "free by its count; its footprint last read 1.00 GiB (its highest 1.00), memory then 1.0 GiB free"], said

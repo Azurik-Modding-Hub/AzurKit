@@ -346,13 +346,48 @@ def reports(since: float, seen: dict[int, tuple[str, int, int, int]]) -> list[st
             when = f"at {(at - since) / 60:.0f} min"
             if (pid := body.get("pid")) in seen:   # a crash report
                 why = body.get("exception") or {}
-                said.append(f"{seen[pid][0]} (id {pid}) crashed {when}: {why.get('type')} ({why.get('signal')}); "
-                            + _last(seen[pid]))
+                said.append(f"{seen[pid][0]} (id {pid}) crashed {when}: {why.get('type')} ({why.get('signal')})"
+                            + "".join(f"; {part}" for part in faulted(body)) + "; " + _last(seen[pid]))
             for killed in (p for p in body.get("processes", ()) if p.get("reason") and p.get("pid") in seen):
                 status = body.get("memoryStatus") or {}
                 free = (status.get("memoryPages") or {}).get("free", 0) * status.get("pageSize", 0)
                 said.append(f"{seen[killed['pid']][0]} (id {killed['pid']}) killed by jetsam {when}: {killed['reason']}, "
                             f"memory {free / GIB:.1f} GiB free by its count; " + _last(seen[killed["pid"]]))
+    return said
+
+
+FRAMES = 8
+"""How many of a crashed thread's frames :func:`faulted` names, its innermost first."""
+
+
+def faulted(body: dict) -> list[str]:
+    """Where a crash report (``body``) says its process faulted (Step 4.4ci25: run 41981438506's WebKit page ended in
+    EXC_BAD_ACCESS (SIGBUS) at 0.52 GiB with 3.6 GiB free, its report's fault unprinted): the exception's kind and
+    address, the region macOS says the address is in (its ``vmRegionInfo`` line: the region's kind, size, protection
+    and detail, its range and any path dropped), what the process said as it ended (its ``asi``) and the crashed
+    thread's name and its innermost :data:`FRAMES` frames, each its image and symbol. Names and numbers only."""
+    def bare(text: str) -> str:   # no path, no address range
+        return " ".join(w for w in re.sub(r"\b[0-9a-f]+-[0-9a-f]+\b", " ", text).split() if w[:1] != "/")[:WIDTH]
+    said = [str(subtype)] if (subtype := (body.get("exception") or {}).get("subtype")) else []
+    regions = str(body.get("vmRegionInfo") or "")
+    if region := re.search(r"^--->[ \t]*(\S.*)$", regions, re.M):
+        said.append("the address is in " + bare(region[1]))
+    elif nowhere := re.match(r"\S+ (is not in any region)", regions):
+        said.append("the address " + nowhere[1])
+    for owner, lines in (body.get("asi") or {}).items():
+        said.append(f"{owner} said: " + bare(" | ".join(map(str, lines if isinstance(lines, list) else [lines]))))
+    threads, images = body.get("threads") or [], body.get("usedImages") or []
+    crashed = next((t for t in threads if t.get("triggered")), None)
+    if crashed is None and isinstance(at := body.get("faultingThread"), int) and 0 <= at < len(threads):
+        crashed = threads[at]
+    if crashed is not None:
+        def frame(f: dict) -> str:
+            index = f.get("imageIndex")
+            image = images[index].get("name", "?") if isinstance(index, int) and 0 <= index < len(images) else "?"
+            return f"{image} {f.get('symbol') or '+' + hex(f.get('imageOffset') or 0)}"[:120]
+        label = " ".join(str(crashed[k]) for k in ("name", "queue") if crashed.get(k))
+        said.append(f"its crashed thread{f' ({label})' if label else ''}: "
+                    + " < ".join(map(frame, (crashed.get("frames") or [])[:FRAMES])))
     return said
 
 
