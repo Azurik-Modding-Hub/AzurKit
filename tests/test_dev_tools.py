@@ -979,7 +979,9 @@ def test_ci_resources_stops_a_tier_whose_log_stops_growing_its_workers_before_py
     stops the tier: the watcher prints the log's last 200 lines, each cut at 240 characters, and the tier's processes
     under it with their ages, then ends xdist's workers (execnet's command line) and only after a while what is
     left, so pytest's controller still writes its summary and failures to the log (Step 4.4ci12's review, F1), and
-    exits 3 once STOP exists, so the step fails with time left."""
+    exits 3 once STOP exists, so the step fails with time left. The watcher writes to files, as CI's runner reads a
+    step's output as it comes: it prints all that before it ends anything, and a pipe read only once the tier ended
+    holds about 4 KiB on Windows, so its print waited on the test that waited on the tier (tests.yml run 42122369507)."""
     from execnet.gateway_io import popen_bootstrapline
     from scripts import ci_resources
     log, stop, stall = tmp_path / "pytest.log", tmp_path / "stop", ci_resources.STALL_S
@@ -1007,14 +1009,19 @@ time.sleep(300)
 """)
     tier = subprocess.Popen([sys.executable, str(fake), "tier"], stdout=subprocess.PIPE, text=True)
     controller, worker = map(int, tier.stdout.readline().split())
-    watcher = subprocess.Popen([sys.executable, "-I", "scripts/ci_resources.py", str(stop), f"--watch={log}",
-                                f"--tier={tier.pid}", "--stall=2", f"tier={tmp_path}"],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=ROOT)
+    said, warned = tmp_path / "watcher.out", tmp_path / "watcher.err"
+    with open(said, "wb") as stdout, open(warned, "wb") as stderr:
+        watcher = subprocess.Popen([sys.executable, "-I", "scripts/ci_resources.py", str(stop), f"--watch={log}",
+                                    f"--tier={tier.pid}", "--stall=2", f"tier={tmp_path}"],
+                                   stdout=stdout, stderr=stderr, cwd=ROOT)
     try:
-        tier.wait(timeout=90)
+        ended = tier.wait(timeout=90)
+    except subprocess.TimeoutExpired:
+        ended = None
     finally:
         stop.touch()
-        out, err = watcher.communicate(timeout=90)
+        watcher.wait(timeout=90)
+        out, err = said.read_text(errors="replace"), warned.read_text(errors="replace")
         if tier.poll() is None:
             tier.kill()
             for pid in (controller, worker):
@@ -1023,6 +1030,7 @@ time.sleep(300)
                 except OSError:
                     pass
         tier.stdout.close()
+    assert ended is not None, ("the watcher didn't end the tier in 90 s", out, err)
     assert watcher.returncode == 3, (out, err)
     printed = out.split("--- the tier's log hasn't grown in 0 min: the log's last 200 lines\n")[1]
     assert printed.split("\n--- the tier's processes")[0].split("\n") == [f"line {i}" for i in range(101, 300)] + [
