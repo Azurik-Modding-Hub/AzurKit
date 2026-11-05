@@ -12,6 +12,14 @@ const RUN = 128 << 20, HASHERS = 3;
 const AGENT = globalThis.navigator?.userAgent ?? "";
 export const AHEAD = /AppleWebKit/.test(AGENT) && !/Chrome\//.test(AGENT) ? 1 : 0;
 const CHUNK = 1 << 20;   // native/web/md5.c's
+// A character's dress is the most the page's workers hold at once (keylord's build: about 1.6 GiB of WebKit's page):
+// worker.mjs holds DRESSING (shared) while an ask that carries a character runs, and the rest of an image, hashed in
+// the background after its pick, gives way to it (dressed()): its runs in flight, up to 768 MiB in Safari, took the
+// kept-dress test's WebKit page from 1.7-1.8 to 2.7-2.9 GiB at its peak when a build followed the pick (Step 4.4ci25).
+export const DRESSING = "azurkit-dressing";
+const YIELD_MS = 100;   // between a lane's looks while it gives way
+export const dressed = async () => Boolean((await globalThis.navigator?.locks?.query?.())?.held
+  ?.some((lock) => lock.name === DRESSING));
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
 let wasm = null;
@@ -43,8 +51,13 @@ function md5(bytes) {
 // left to a GC: WebKit counted the runs a check had read, not the three it holds (a Save's check, S49 capped-site: about
 // 1.3 GiB less at its peak); a lane holds at most ahead + 1 runs (an image's check AHEAD + 1). at(step) hears where each
 // of the HASHERS is: the run whose read it awaits (its number and offset), its digests or done, so a check that stalls
-// says which await it waits on (Step 4.3r4t).
-export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}, ahead = 0) {
+// says which await it waits on (Step 4.3r4t). A hash no ask waits on (worker.mjs's rest of an image) gives way
+// (yields: an async () => whether to wait, dressed() in a browser): while it says so, no lane starts a read, each
+// digests what it has in flight and then waits; once it gave way it goes on with one run in flight (one lane's, none
+// ahead), as the page then holds what it gave way to (a dress's heap, which wasm never gives back): its runs never sit
+// on top of a dress, during it or after (Step 4.4ci25).
+export async function hashed(source, files, progress = () => {}, longest = RUN, at = () => {}, ahead = 0,
+                             yields = null) {
   const runs = [];
   for (const entry of [...files].sort((a, b) => a[1] - b[1])) {
     const run = runs.at(-1), [, at, size] = entry;
@@ -71,7 +84,17 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
     reading.catch(() => {});   // awaited in its turn; a lane that throws first leaves its next one unawaited
     mine.push({ run, k: count - runs.length, reading });
   };
-  for (let k = 0; k <= ahead; k++) taken.forEach(take);   // runs 1..HASHERS first, one a lane
+  let narrow = false;   // it gave way: one run in flight from then on, lane 0's
+  const given = async (lane) => {   // once nothing it gives way to runs
+    narrow = true;
+    for (let first = true; await yields(); first = false) {
+      if (first) step(lane, "giving way");
+      await new Promise((later) => setTimeout(later, YIELD_MS));
+    }
+  };
+  if (yields && await yields()) await given(0);
+  if (narrow) take(taken[0]);
+  else for (let k = 0; k <= ahead; k++) taken.forEach(take);   // runs 1..HASHERS first, one a lane
   await Promise.all(taken.map(async (mine, lane) => {
     for (let item; (item = mine[0]);) {
       const { run, k } = item;
@@ -88,9 +111,15 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
       }
       bytes.buffer.transfer?.(0);   // its memory freed now, not at the next GC: WebCrypto and md5 copied what they read
       mine.shift();
-      take(mine);
       done += run.end - run.start;
       progress(done, total);
+      if (yields && await yields()) {   // its read ahead digested first, then none until it may go on
+        narrow = true;
+        if (mine.length) continue;
+        await given(lane);
+      }
+      if (!narrow) for (let k = mine.length; k <= ahead; k++) take(mine);
+      else if (!lane && !mine.length) take(mine);
     }
     step(lane, "done");
   }));
@@ -104,8 +133,9 @@ export async function hashed(source, files, progress = () => {}, longest = RUN, 
 // is held here (apart) until it settles: Firefox collects a Worker object that nothing holds (its own handlers don't),
 // and the messages its worker posted last, its digests among them, never came, so about one check in 100 never
 // settled (Step 4.3r4t: two full gates' characters tab waited 300 s for the USA image's answer).
+// yields: it gives way to a character's dress (dressed()), as a hash no ask waits on does.
 const apart = new Set();
-export function hashedApart(source, rows, progress = () => {}, longest = RUN, at = () => {}) {
+export function hashedApart(source, rows, progress = () => {}, longest = RUN, at = () => {}, yields = false) {
   let worker, url;
   try {
     const entry = new URL("hashworker.mjs", import.meta.url).href;
@@ -114,7 +144,7 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN, at
     worker = new Worker(url, { type: "module" });
     apart.add(worker);
   } catch {
-    return hashed(source, rows, progress, longest, at, AHEAD);
+    return hashed(source, rows, progress, longest, at, AHEAD, yields ? dressed : null);
   }
   return new Promise((resolve, reject) => {
     const over = (settle, value) => {
@@ -133,7 +163,7 @@ export function hashedApart(source, rows, progress = () => {}, longest = RUN, at
       e.preventDefault();
       over(reject, new Error(e.message || "the hash's worker stopped"));
     };
-    worker.postMessage({ source, rows, longest });
+    worker.postMessage({ source, rows, longest, yields });
     at("hash worker: started");
   });
 }

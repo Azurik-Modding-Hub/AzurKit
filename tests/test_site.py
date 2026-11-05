@@ -2072,6 +2072,68 @@ def test_an_images_check_reads_each_lanes_next_run_ahead_in_safari_and_a_builds_
     assert seen == [[[6, 6, True], [3, 3, True]], [[3, 3, True], [3, 3, True]]]
 
 
+GIVES_WAY = """import { createHash } from "node:crypto";
+let dress = false;   // whether an ask that carries a character holds hasher.mjs's DRESSING
+Object.defineProperty(globalThis, "navigator", { configurable: true, value: {
+    userAgent: "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",   // Safari's: reads ahead
+    locks: { query: async () => ({ held: dress ? [{ name: "azurkit-dressing", mode: "shared" }] : [] }) } } });
+let settle;
+const steps = [];
+Object.defineProperty(globalThis, "self", { configurable: true, value: { postMessage: (message) => {
+    if ("at" in message) steps.push(message.at);
+    if ("digests" in message || "error" in message) settle(message);
+} } });
+await import(%s);   // hashworker.mjs, hashedApart's worker
+const blob = new Blob([Uint8Array.from({ length: 24 << 10 }, (_, i) => (i * 7919) %% 251)]);
+const bytes = new Uint8Array(await blob.arrayBuffer());
+const files = Array.from({ length: 24 }, (_, i) => [`file:${i}`, i << 10, 1 << 10]);
+const dressedFor = (ms) => {
+    dress = true;
+    setTimeout(() => { dress = false; }, ms);
+};
+let reads = 0, whileDressed = 0, flying = 0, most = 0;
+const source = { slice: (start, end) => ({ arrayBuffer: async () => {
+    reads += 1;
+    if (dress) whileDressed += 1;
+    if (reads === 6) dressedFor(300);   // a character's build starts beside it
+    most = Math.max(most, ++flying);
+    await new Promise((late) => setTimeout(late, 20));   // a slow read
+    flying -= 1;
+    return blob.slice(start, end).arrayBuffer();
+} }) };
+const seen = [];
+for (const yields of [true, false]) {   // the rest of an image (worker.mjs's vouched()); an image's check, a Save's
+    reads = whileDressed = most = steps.length = 0;
+    dressedFor(200);   // and one before it starts
+    const { digests } = await new Promise((answer) => {
+        settle = answer;
+        self.onmessage({ data: { source, rows: files, longest: 1 << 10, yields } });
+    });
+    const same = files.every(([key, at, size]) =>
+        digests?.[key] === createHash("sha256").update(bytes.subarray(at, at + size)).digest("hex"));
+    seen.push([whileDressed, steps.some((step) => step.includes("giving way")), most, same]);
+}
+console.log(JSON.stringify(seen));
+"""
+
+
+def test_an_images_rest_hashed_in_the_background_reads_nothing_while_a_character_is_dressed_and_a_check_never_waits(
+        site):
+    """Step 4.4ci25: ``web/hashworker.mjs`` under Node, as in Safari, over a slow source. The rest of an image, hashed
+    after its pick for a later Save (``worker.mjs``'s vouched()), gives way to a character's dress (an ask that carries
+    one holds ``DRESSING``, which ``navigator.locks`` shows): it starts no read while one is held, before it starts or
+    once it has begun, and from then on keeps one read in flight, as the page holds the dress's heap after it (wasm's
+    never shrinks). Its six runs in flight on top of keylord's build took the kept-dress test's WebKit page from
+    1.7-1.8 to 2.7-2.9 GiB at its peak (Chromium's 2.0-2.3 to 2.5-2.6), and given way to the build only, to 2.3-2.4
+    GiB as it went on after it. An image's check (the pick, Verify, a Save's) never waits and reads six at once. The
+    digests are the same."""
+    run = subprocess.run(["node", "--input-type=module", "--eval", GIVES_WAY % json.dumps(
+        (site / "hashworker.mjs").as_uri())], capture_output=True, text=True, timeout=120)
+    assert run.returncode == 0, run.stderr[-2000:]
+    rest, check = json.loads(run.stdout)
+    assert rest == [0, True, 1, True] and check[0] > 0 and check[1:] == [False, 6, True], (rest, check)
+
+
 # The bottom bar's progress as the page shows it, each change: [the bar's value (null: a moving stripe), its line],
 # or null while it is hidden
 # Each look the bottom bar takes (``bars``), and how often the page wrote the bar with the look it already had
@@ -4323,6 +4385,7 @@ KEPT_DRESSES = """(order) => new Promise((done) => {   // the hints azurkit-dres
     };
 })"""
 DRESSED = ("Dressing keylord (reading its files)", "Dressing keylord (kept from an earlier build)")
+DRESSING_HELD = """async () => (await navigator.locks.query()).held.some((lock) => lock.name === "azurkit-dressing")"""
 
 
 def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_browser_kept_as_cpython_dresses_it(
@@ -4332,7 +4395,8 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
     files aren't read again) and is the newest kept again, past a hint kept after it (the least recently built go
     first), each CPython's image. The notes are read as the page's workers post them (HEARD), not off the bar, which
     shows the newest ask's latest: on Windows' WebKit the models' ask, made after the click, held the bar past the
-    first visit's "(reading its files)" (run 41678038275)."""
+    first visit's "(reading its files)" (run 41678038275). While the first visit's dress is made, a worker of its holds
+    the lock the image's rest, hashed in the background after the pick, gives way to (Step 4.4ci25)."""
     recipe = {"packs": {name: {} for name, pack in mods.PACKS.items() if pack.default_on},
               "character": {"species": "keylord"}}
     made, report = sdk.image(recipe | {"iso": str(usa_iso)})
@@ -4345,6 +4409,8 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
             _page.until(page, "() => globalThis.azurkit?.loaded", 120)
             _page.pick(page, "#iso", usa_iso)
             page.evaluate("() => document.querySelector('#build').click()")
+            if not visit:
+                assert _page.until(page, DRESSING_HELD, 120)
             built = _built(page)
             assert built == _as_cpython(built, report, made)
             notes = page.evaluate("() => notes")

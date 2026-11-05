@@ -44,7 +44,7 @@
 //      (a tracker's, plan's, Characters', Data or Tools' answer: the view, {plan}, or {refused}), {type: "csp", directive,
 //      blocked}. A read that is neither an image nor an AzurKit build ends with {type: "unread"}. Each but a progress record
 //      carries the engine's heap then (undefined where Pyodide hides it), which the page's two workers count (workers.mjs).
-import { hashed, hashedApart, md5Ready } from "./hasher.mjs";
+import { DRESSING, hashed, hashedApart, md5Ready } from "./hasher.mjs";
 import { text } from "./memo.mjs";
 import { PREFIX } from "./outputs.mjs";
 
@@ -690,8 +690,13 @@ async function prime(loaded, file) {
 // at its check, then the rest (sdk.layout's whole), hashed once an image in the background once the ask the check came
 // with is answered (loaded.rest, the queue's), by one worker of this browser at a time (a Web Lock), and kept with the
 // stamp, so a later visit hashes neither. A Save hashes what the page doesn't know yet. Firefox reads a changed File
-// silently: there a Save hashes every file, and none of this runs.
+// silently: there a Save hashes every file, and none of this runs. The rest gives way to a character's dress
+// (hasher.mjs's DRESSING, held while an ask that carries a character runs: dressing()), Step 4.4ci25.
 const VOUCHING = /AppleWebKit/.test(navigator.userAgent), resting = new Set();
+// An ask that carries a character (a build wearing one, a reshape's pictures and matches) runs holding DRESSING, shared
+// (any of this browser's workers may hold it at once), which the rest's hash gives way to (Step 4.4ci25).
+const dressing = (data, run) => (data.character || data.recipe?.character) && navigator.locks
+  ? navigator.locks.request(DRESSING, { mode: "shared" }, run) : run();
 function vouched(loaded, file, id, kept) {
   if (!VOUCHING) return;
   self.postMessage({ type: "vouched", id, digests: { ...kept.digests, ...kept.rest } });
@@ -704,7 +709,7 @@ function vouched(loaded, file, id, kept) {
       if (!lock) return;   // another worker of this browser hashes it
       const last = await stamps("readonly", (store) => store.get("last")).catch(() => null);
       if (last?.id === id && last.rest) return;   // another hashed it first
-      const digests = await hashedApart(file, rest.files);
+      const digests = await hashedApart(file, rest.files, undefined, undefined, undefined, true);   // gives way
       await stamps("readwrite", (store) => {
         const last = store.get("last");
         last.onsuccess = () => last.result?.id === id && store.put({ ...last.result, rest: digests }, "last");
@@ -975,7 +980,7 @@ try {
       }).then(() => {
         if (aside) behind--;
         awaiting(data.type);
-        return handle(data);
+        return dressing(data, () => handle(data));
       }).then(() => {   // a check's rest (vouched()), once its ask is answered: work of no ask's, so never its failure
         const rest = loaded.rest;
         loaded.rest = null;
