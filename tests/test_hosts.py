@@ -3537,7 +3537,9 @@ def test_the_apps_bar_polls_any_asks_record_from_its_click_so_a_counted_1_2_s_ca
     took its second value past 1 s and a 1.4 s match could show only one.
     Verify every file, a kind the bar doesn't follow from the click, its
     record counting 12 steps over 1.2 s, moves the bar to its second value
-    within 1 s of its ask, on the page's own clock."""
+    within 1 s of its ask, on the page's own clock. Its image's path is a full
+    one on every OS (Windows refused '/nowhere/usa.iso', no drive, at once:
+    run 41981438506's bars [])."""
     _home(monkeypatch, tmp_path / "home")
 
     def counted(iso: str, progress) -> dict:   # 12 steps, 0.1 s apart
@@ -3553,13 +3555,14 @@ def test_the_apps_bar_polls_any_asks_record_from_its_click_so_a_counted_1_2_s_ca
         _page.until(page, "() => globalThis.azurkit?.ready && !azurkit.asks.size", 120)
         page.evaluate(BARS)
         page.evaluate(PICKING)
-        page.evaluate("() => { azurkit.verified = null; azurkit.engine.call('verify_all', { iso: '/nowhere/usa.iso' })"
-                      ".then((reply) => { azurkit.verified = reply; }); }")
+        page.evaluate("(iso) => { azurkit.verified = null; azurkit.engine.call('verify_all', { iso })"
+                      ".then((reply) => { azurkit.verified = reply; }); }", str(tmp_path / "usa.iso"))
         _page.until(page, "() => azurkit.verified && !azurkit.asks.size", 60)
-        bars, picking = page.evaluate("() => [bars, picking]")
+        bars, picking, verified = page.evaluate("() => [bars, picking, azurkit.verified]")
         page.close()
     finally:
         server.close()
+    assert verified == {"files": 0}, verified   # the counted call's answer, not a refusal
     asked = next(ms for ms, path in picking["requests"] if path == "api/verify_all")
     values = {}   # each value the bar took, at the ms it first took it
     for b in bars:
