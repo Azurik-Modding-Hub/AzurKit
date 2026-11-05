@@ -850,8 +850,8 @@ def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrot
                                             "      REGION TYPE    START - END   [ VSIZE] PRT/MAX SHRMOD  REGION DETAIL\n"
                                             "      MALLOC_SMALL   300000000-300800000 [ 8192K] rw-/rwx SM=PRV\n"
                                             "--->  mapped file    340000000-740000000 [ 16.0G] ---/rwx SM=NUL  "
-                                            "/Users/runner/x.bin\n",
-                            "asi": {"JavaScriptCore": ["a thread's last words /Users/runner/y"]}, "faultingThread": 1,
+                                            "/private/tmp/x.bin\n",
+                            "asi": {"JavaScriptCore": ["a thread's last words /private/tmp/y"]}, "faultingThread": 1,
                             "usedImages": [{"name": "JavaScriptCore"}, {"name": "WebCore"}],
                             "threads": [{"frames": []}, {"name": "WebCore: Worker", "frames": [
                                 {"imageIndex": 0, "symbol": "JSC::Wasm::f"}, {"imageIndex": 1, "imageOffset": 4096},
