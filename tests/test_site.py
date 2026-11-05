@@ -1744,7 +1744,47 @@ def test_two_files_with_the_same_name_size_and_time_but_other_bytes_get_other_st
         served.close()
 
 
-STALLED = "Blob.prototype.arrayBuffer = () => new Promise(() => {});   // this hash worker's reads never settle\n"
+def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_on_a_running_workers_error(
+        browser, tmp_path):
+    """``_page.checks`` (the stamp tests' count) sums the image checks of the page's workers still running: a worker
+    the page ends while its count is asked counts none in every engine (Chromium and WebKit fail that ask with
+    TargetClosedError, Firefox with a plain Error, "Worker was closed": the race of run 41981438506's Linux tier), and
+    a running worker whose count fails fails it, by its error."""
+    from playwright.sync_api import Error
+    for name, source in (("ends.js", "Object.defineProperty(self, 'azurkitChecks', { get() { postMessage('asked');"
+                                     " return new Promise(() => {}); } });"),   # its count asked, the page ends it
+                         ("counts.js", "self.azurkitChecks = 2;"),
+                         ("fails.js", "Object.defineProperty(self, 'azurkitChecks', { get() { throw new Error("
+                                      "'no count here'); } });"),
+                         ("index.html", "<!doctype html><title>checks</title>")):
+        (tmp_path / name).write_text(source)
+    served = Site(browser, tmp_path)
+    try:
+        page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
+        _page.load(page, f"{ORIGIN}/")
+
+        def start(*names: str) -> None:
+            listed = len(page.workers) + len(names)
+            _page.answer(page, """(names) => { for (const name of names) {
+                const worker = new Worker(`/${name}`);
+                worker.onmessage = () => worker.terminate();
+                (globalThis.started ??= []).push(worker);
+            } }""", list(names))
+            end = time.monotonic() + 30
+            while len(page.workers) < listed:   # Playwright lists a worker once it hears it start
+                assert time.monotonic() < end, (names, page.workers)
+                page.wait_for_timeout(50)
+
+        start("ends.js", "counts.js")
+        assert _page.checks(page) == 2 and [w.url.rpartition("/")[2] for w in page.workers] == ["counts.js"]
+        start("fails.js")
+        with pytest.raises(Error, match="no count here"):
+            _page.checks(page)
+    finally:
+        served.close()
+
+
+STALLED ="Blob.prototype.arrayBuffer = () => new Promise(() => {});   // this hash worker's reads never settle\n"
 """hashworker.mjs's first line in the next test: none of the hash worker's reads of the image settles."""
 WAITS_ON = r"""() => azurkit.pool.state().f.at?.match(
     /^check: hash worker: run 1\/(\d+) read at \d+ MiB, run 2\/\1 read at \d+ MiB, run 3\/\1 read at \d+ MiB$/)?.[0]"""

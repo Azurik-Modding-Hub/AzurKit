@@ -152,15 +152,18 @@ def checks(page) -> int:
     """The image checks the page's workers ran (worker.mjs's ``self.azurkitChecks``), over those still running: a
     worker the page ends as its answer comes (the one it starts once the pick's check is done) stays in
     ``page.workers`` until Playwright hears its close, and its evaluate then throws TargetClosedError (run
-    41981438506's Linux tier; 1 in 5 runs here, its close heard 3.6 ms after the read). An ended worker's checks went
-    with it; a page or browser that ended answers no worker, so its count is 0."""
-    from playwright._impl._errors import TargetClosedError
+    41981438506's Linux tier; 1 in 5 runs here, its close heard 3.6 ms after the read), or in Firefox, the worker
+    ending while the evaluate is in flight, a plain Error ("Worker was closed"). Playwright's driver sends the close
+    before that error, so an ended worker is no longer listed once it comes: its checks went with it. A worker still
+    listed raises its error."""
+    from playwright._impl._errors import Error
     found = 0
     for worker in page.workers:
         try:
             found += worker.evaluate("() => self.azurkitChecks ?? 0")
-        except TargetClosedError:
-            pass
+        except Error:
+            if worker in page.workers:
+                raise
     return found
 
 
