@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
 
 import pytest
@@ -122,3 +123,56 @@ def test_the_ci_vanilla_tiers_printed_summary_names_its_slowest_tests(pytester, 
     printed = lines[next(i for i, line in enumerate(lines) if line.startswith("vanilla: ")):][:200]
     assert any(re.search(r"slowest \d+ durations", line) for line in printed), run.stdout.str()
     assert any(re.match(r"\d+\.\d+s call +test_t\.py::test_takes_a_while$", line) for line in printed), printed
+
+
+def test_the_ci_tier_takes_the_roomiest_disk_frees_unused_toolchains_when_short_and_stops_by_name_below_its_need(
+        tmp_path, monkeypatch, capsys):
+    """``tests.yml``'s tier folder, before the images land (``scripts/ci_resources.py --room``): on the disk with the
+    most free room, once that holds the two images and the most the tier's writes took (run 41981438506's Linux runner,
+    on AWS, had 9.5 GiB free past the images where each Azure one had 78.3, and fell to 3.8). Short of that and a
+    margin, the toolchains it names go first, each one's freed room printed; still short, it stops by name and makes
+    nothing. It prints labels and numbers, never a path."""
+    from scripts import ci_resources
+    text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    assert text.index("scripts/ci_resources.py --room --env=\"$GITHUB_ENV\"") < text.index("image parts usa.iso")
+    gib, need = 1 << 30, 14 << 30
+    disks = {"root": 0, "eph": 0, "toolchain": False}
+    spare = tmp_path / "root" / "toolchain"
+
+    def usage(path):   # each folder's disk by its first part under tmp_path; a toolchain deleted frees root 25 GiB
+        disk = Path(path).relative_to(tmp_path).parts[0]
+        freed = disk == "root" and disks["toolchain"] and not spare.exists()
+        return shutil._ntuple_diskusage(0, 0, disks[disk] + 25 * gib * freed)
+    monkeypatch.setattr(ci_resources.shutil, "disk_usage", usage)
+    for root, eph, toolchain, chosen in ((9, 66, True, "eph"), (80, 66, True, "root"), (12, None, True, "root"),
+                                         (9, None, False, None)):
+        for made in ("root", "eph", "env"):
+            shutil.rmtree(tmp_path / made, ignore_errors=True)
+        (tmp_path / "root").mkdir()
+        if eph is not None:
+            (tmp_path / "eph").mkdir()
+        if toolchain:
+            spare.mkdir()
+            (spare / "bin").write_bytes(b"\0")
+        disks.update(root=root * gib, eph=(eph or 0) * gib, toolchain=toolchain)
+        (tmp_path / "env").mkdir()
+        env = tmp_path / "env" / "github_env"
+        code = ci_resources.main(["--room", f"--env={env}", f"--need={need}", f"runner={tmp_path / 'root' / 'tier'}",
+                                  f"mnt={tmp_path / 'eph' / 'tier'}", f"--spare=toolchain={spare}"])
+        out = capsys.readouterr().out
+        assert str(tmp_path) not in out, out
+        assert re.match(r"room before the images: runner [\d.]+ GiB free(, mnt [\d.]+ GiB free)?; the tier needs 14\.0 "
+                        r"\(the two images and the most its writes took\), 19\.0 with its margin\n", out), out
+        assert spare.exists() == (toolchain and max(root, eph or 0) >= 19), out
+        if chosen is None:
+            assert code == 1 and not env.exists() and not (tmp_path / "root" / "tier").exists(), out
+            assert out.endswith("::error::the tier needs 14.0 GiB free on one disk, and the roomiest (runner) has 9.0: "
+                                "stopping before the images land\n"), out
+            continue
+        folder = tmp_path / chosen / "tier"
+        assert code == 0 and env.read_text(encoding="utf-8") == f"TIER_ROOM={folder}\n", out
+        assert (folder / "iso").is_dir() and (folder / "tmp").is_dir(), out
+        label = {"root": "runner", "eph": "mnt"}[chosen]
+        assert out.endswith(f"the tier's folder: {label}\n"), out
+        if root < 19 and eph is None:
+            assert "toolchain: freed 25.0 GiB\nroom after freeing the unused toolchains: runner 37.0 GiB free\n" in out

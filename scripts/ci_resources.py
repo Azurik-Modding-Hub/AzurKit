@@ -27,6 +27,14 @@ kill: :func:`reports`), with the free memory as this watcher last read it
 (Step 4.4ci17: the pure tier's WebKit page "Target crashed" on GitHub's 7 GB
 Apple Silicon runner, where nothing said its memory).
 
+    python -I scripts/ci_resources.py --room --env=FILE [--sudo] [--spare=LABEL=FOLDER ...] LABEL=FOLDER ...
+
+chooses the tier's folder before its images land (:func:`room`, Step 4.4ci24): of the ``LABEL=FOLDER``s whose parent
+exists, the one on the disk with the most free room, made (by ``sudo`` with ``--sudo``, where its parent is root's)
+with its ``iso`` and ``tmp`` and written to ``FILE`` as ``TIER_ROOM``; each ``--spare`` toolchain deleted first if
+that room is short of :data:`MARGIN` past the tier's need (the two images and :data:`PEAK`), and if it is still short
+of the need, it stops by name (exit 1) and makes nothing.
+
 What a browser's close waits on (:func:`held`, Step 4.4ci18; the ``browser``
 fixture's close at its bound and this watch's listing print it): Playwright's
 driver answers a close only once the browser's process has ended and every
@@ -132,6 +140,79 @@ def sample(folders: dict[str, str]) -> dict[str, int]:
     """Each folder's free disk and the free memory, in bytes."""
     room = {label: shutil.disk_usage(folder).free for label, folder in folders.items() if os.path.exists(folder)}
     return room | {"memory": free_memory()[0]}
+
+
+PEAK = 10 * GIB
+"""The most a tier writes on its disk beside the images: the most a tier's disk fell below its start in the runs
+logged, 9.8 GiB (b339758's Windows tier; Linux's at most 6.1, macOS's 6.9)."""
+MARGIN = 5 * GIB
+"""The room past the need under which the unused toolchains go: two USA builds' output at once (899cf05's Linux tier
+fell 5.2 GiB in a minute)."""
+
+
+def room(folders: dict[str, str], spares: dict[str, str], need: int,
+         sudo: bool = False) -> tuple[str | None, list[str]]:
+    """(the tier's folder, made, or None, what to print): of ``folders`` ({label: folder}) whose parent exists, the one
+    on the disk with the most free room, the first of equals, each of ``spares`` deleted first if that room is under
+    ``need`` + :data:`MARGIN`; None, with the reason, if it is still under ``need``. Labels and numbers only."""
+    def free() -> dict[str, int]:
+        return {label: shutil.disk_usage(os.path.dirname(folder)).free for label, folder in folders.items()
+                if os.path.isdir(os.path.dirname(folder))}
+
+    def said(when: str, now: dict[str, int]) -> str:
+        return f"room {when}: " + ", ".join(f"{label} {value / GIB:.1f} GiB free" for label, value in now.items())
+
+    now = free()
+    lines = [said("before the images", now) + f"; the tier needs {need / GIB:.1f} (the two images and the most its "
+                                              f"writes took), {(need + MARGIN) / GIB:.1f} with its margin"]
+    best = max(now, key=now.get)
+    if now[best] < need + MARGIN and spares:
+        for label, folder in spares.items():
+            if not os.path.isdir(folder):
+                lines.append(f"{label}: not on this runner")
+                continue
+            parent = os.path.dirname(folder)
+            before = shutil.disk_usage(parent).free
+            if sudo:
+                subprocess.run(["sudo", "-n", "rm", "-rf", "--", folder], check=True, timeout=900)
+            else:
+                shutil.rmtree(folder)
+            lines.append(f"{label}: freed {(shutil.disk_usage(parent).free - before) / GIB:.1f} GiB")
+        now = free()
+        lines.append(said("after freeing the unused toolchains", now))
+        best = max(now, key=now.get)
+    if now[best] < need:
+        return None, lines + [f"the tier needs {need / GIB:.1f} GiB free on one disk, and the roomiest ({best}) has "
+                              f"{now[best] / GIB:.1f}: stopping before the images land"]
+    folder = folders[best]
+    if sudo and not os.access(os.path.dirname(folder), os.W_OK):
+        subprocess.run(["sudo", "-n", "mkdir", "-p", "--", folder], check=True, timeout=60)
+        subprocess.run(["sudo", "-n", "chown", f"{os.getuid()}:{os.getgid()}", "--", folder], check=True, timeout=60)
+    for sub in ("iso", "tmp"):
+        os.makedirs(os.path.join(folder, sub), exist_ok=True)
+    return folder, lines + [f"the tier's folder: {best}"]
+
+
+def room_main(argv: list[str]) -> int:
+    """``--room``'s command line (the module's docstring): the tier's folder to ``--env``'s file, or exit 1."""
+    options = [a[2:].partition("=") for a in argv if a.startswith("--")]
+    folders = dict(a.split("=", 1) for a in argv if not a.startswith("--"))
+    spares = dict(value.split("=", 1) for key, _, value in options if key == "spare")
+    given = {key: value for key, _, value in options if key != "spare"}
+    if "need" in given:   # bytes, in the tests
+        need = int(given["need"])
+    else:
+        from azurkit.core import gate
+        need = sum(release.iso_size for release in gate.RELEASES) + PEAK
+    folder, lines = room(folders, spares, need, "sudo" in given)
+    print(*lines[:-1], sep="\n", flush=True)
+    if folder is None:
+        print(f"::error::{lines[-1]}", flush=True)
+        return 1
+    print(lines[-1], flush=True)
+    with open(given["env"], "a", encoding="utf-8") as env:
+        env.write(f"TIER_ROOM={folder}\n")
+    return 0
 
 
 def line(now: dict[str, int], low: dict[str, int]) -> str:
@@ -737,7 +818,9 @@ def stop_tier(why: str, log: str, root: int | None, grace: float = GRACE_S, sett
 
 
 def main(argv: list[str]) -> int:
-    options = {k: v for k, _, v in (a[2:].partition("=") for a in argv[1:] if a.startswith("--"))}
+    if argv[:1] == ["--room"]:
+        return room_main(argv[1:])
+    options ={k: v for k, _, v in (a[2:].partition("=") for a in argv[1:] if a.startswith("--"))}
     stop = argv[0]
     folders = dict(item.split("=", 1) for item in argv[1:] if not item.startswith("--")) | {
         "temp": tempfile.gettempdir()}

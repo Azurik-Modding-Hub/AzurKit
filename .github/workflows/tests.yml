@@ -5,8 +5,9 @@
 #   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
 #   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries.
 # - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main in this repository.
-#   Each image is rebuilt in the tier's folder, on the runner's largest disk (Linux's root disk has room for an image or
-#   two, and a Linux build streams a whole image where an APFS one clones it: its tier twice ran out at about 48 min),
+#   Each image is rebuilt in the tier's folder, on the runner's roomiest disk, and the tier stops by name before it if
+#   no disk has its room (scripts/ci_resources.py --room; a Linux build streams a whole image where an APFS one clones
+#   it, and GitHub's Linux runners on AWS have far less room than its Azure ones: run 41981438506),
 #   from the private game-data repository's parts, one release at a time, with its read-only deploy key GAMEDATA_DEPLOY_KEY (the gamedata environment's secret; no other job
 #   reads a secret). That repository's own reassemble.py checks every part's sha256 and the whole image's, and the
 #   parts go at once. No cache and no artifact hold an image, its path is never printed, and the images are deleted
@@ -159,17 +160,19 @@ jobs:
         run: |
           read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
           uv run --locked playwright install-deps "${engines[@]}"
-      - name: The tier's folder, on the runner's largest disk
+      - name: The tier's folder, on the runner's roomiest disk, or a stop by name if none has the tier's room
+        # scripts/ci_resources.py --room: each disk's free room, and the folder on the one with the most (Linux's /mnt
+        # only where it has more), once it has the two images and the most the tier's writes took beside them (run
+        # 41981438506's Linux runner, on AWS, had 9.5 GiB free past the images where each Azure one had 78.3, and fell
+        # to 3.8). Short of that and a margin, Linux's toolchains the tier never uses go first, each one's freed room
+        # printed; still short, the job stops here, by name, before an image is rebuilt.
         run: |
-          room="$RUNNER_TEMP/tier"
-          if [ "$RUNNER_OS" = Linux ] && [ -d /mnt ] &&
-             [ "$(df -Pk /mnt | awk 'NR==2 {print $4}')" -gt "$(df -Pk "$RUNNER_TEMP" | awk 'NR==2 {print $4}')" ]; then
-            sudo mkdir -p /mnt/azurkit-tier
-            sudo chown "$(id -u):$(id -g)" /mnt/azurkit-tier
-            room=/mnt/azurkit-tier
+          more=()
+          if [ "$RUNNER_OS" = Linux ]; then
+            more=(--sudo "mnt=/mnt/azurkit-tier" --spare=dotnet=/usr/share/dotnet --spare=android=/usr/local/lib/android
+                  --spare=ghc=/opt/ghc --spare=codeql=/opt/hostedtoolcache/CodeQL)
           fi
-          mkdir -p "$room/iso" "$room/tmp"
-          echo "TIER_ROOM=$room" >> "$GITHUB_ENV"
+          uv run --locked python -I scripts/ci_resources.py --room --env="$GITHUB_ENV" "runner=$RUNNER_TEMP/tier" "${more[@]}"
       - name: Azurik-Custom-Content, for booblord's tests
         run: git clone --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$RUNNER_TEMP/content"
       - name: The USA and Europe images, from the game-data repository's parts, one release at a time
