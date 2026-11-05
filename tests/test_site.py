@@ -1570,6 +1570,8 @@ def test_a_pick_while_the_tab_reads_the_image_is_answered_by_the_free_worker_bef
                     600)   # the image's setup built ahead: B is free
         _page.click(page, "tab-characters")
         _page.until(page, "() => document.querySelector('#char-species .model[data-model=\"keylord\"]')", 300)
+        # the shipped answer lists the models about 5 ms before the tab's own ask reaches F: picked once F has it
+        _page.until(page, "() => azurkit.pool.state().f?.job === 'pickers'", 300)
         assert page.evaluate(PICKED_BUSY) == ["pickers", "pickers"]
         _page.until(page, "() => azurkit.characters.state.view?.chosen.name === 'keylord'", 300)
         _page.until(page, KEYLORD_AHEAD, 300)
