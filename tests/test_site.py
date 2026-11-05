@@ -185,6 +185,10 @@ class _Files(http.server.ThreadingHTTPServer):
     41666183947)."""
     request_queue_size = socket.SOMAXCONN
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.taken = {}   # each GET's path: when its handler (_Taken) took it and answered it, for _Held.unanswered
+
 
 class _Held:
     """The files under ``root`` for a browser context's routes, each as Playwright's driver fetched it itself, once,
@@ -193,13 +197,15 @@ class _Held:
     process sends: the driver's pipe reader joins its whole buffer again at each chunk it reads, so one 20 MiB file
     sent so took it from 0.1 to 1.7-1.9 GiB, which it kept, in every browser (2.5-2.9 GiB at its peak; fetched itself,
     0.24-0.35 GiB), and a site page sends 35 MB: beside WebKit's pages, more than GitHub's 7 GiB Apple Silicon runner
-    had free, the likeliest reason its WebKit page processes died ("Target crashed", runs 41551497620, 41610020282)."""
+    had free, the likeliest reason its WebKit page processes died ("Target crashed", runs 41551497620, 41610020282).
+    A fetch with no answer in ``fetch_s`` (Playwright's own 30 s) fails naming its server's part
+    (:meth:`unanswered`)."""
 
-    def __init__(self, context, browser_type, root: Path):
+    def __init__(self, context, browser_type, root: Path, fetch_s: float = 30):
         from playwright._impl._sync_base import mapping
-        self.request = mapping.from_impl(browser_type._impl_obj._playwright.request).new_context()
+        self.request = mapping.from_impl(browser_type._impl_obj._playwright.request).new_context(timeout=fetch_s * 1000)
         self.context, self.root, self.held = context, root, {}
-        self.server = _Files(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(root)))
+        self.server = _Files(("127.0.0.1", 0), functools.partial(_Taken, directory=str(root)))
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def fulfill(self, route, file: Path) -> None:
@@ -209,10 +215,15 @@ class _Held:
         error for its next call, a later test's (the gate on 7cb671e). Every other error raises, and that one too
         while the context is open."""
         from playwright._impl._errors import TargetClosedError
+        from playwright._impl._errors import TimeoutError as Unanswered
         try:
             if (response := self.held.get(file)) is None:
                 rel = urllib.parse.quote(file.relative_to(self.root).as_posix())
-                response = self.held[file] = self.request.get(f"http://127.0.0.1:{self.server.server_port}/{rel}")
+                asked, cpu = time.monotonic(), time.process_time()
+                try:
+                    response = self.held[file] = self.request.get(f"http://127.0.0.1:{self.server.server_port}/{rel}")
+                except Unanswered:
+                    raise AssertionError(self.unanswered(f"/{rel}", asked, cpu)) from None
             assert response.ok, (file.name, response.status)
             route.fulfill(response=response, headers={"content-type": _page.content_type(file.name),
                                                       "content-length": str(file.stat().st_size)})
@@ -220,6 +231,27 @@ class _Held:
             if not self.context.is_closed():
                 raise
             route.fallback()
+
+    def unanswered(self, path: str, asked: float, cpu: float) -> str:
+        """Why the driver's fetch of ``path``, asked at ``asked`` (``time.monotonic()``; this process's CPU then
+        ``cpu``), had no answer (two site loads on GitHub's Intel Mac runner, run 41981438506: data.mjs and icons.css
+        unanswered 30 s, its memory 6 GiB free): whether this process's file server took it and answered it, and when,
+        the CPU this process ran meanwhile and each of its threads' innermost calls. Names and numbers only."""
+        now, taken = time.monotonic(), self.server.taken.get(path)
+        when = ("its server never took it" if taken is None else f"its server took it {taken[0] - asked:.1f} s in and "
+                + ("never answered" if taken[1] is None else f"answered {taken[1] - asked:.1f} s in"))
+        names, calls = {t.ident: t.name for t in threading.enumerate()}, []
+        for ident, frame in sys._current_frames().items():
+            inner = []
+            for _ in range(3):
+                if frame is None:
+                    break
+                inner.append(frame.f_code.co_name)
+                frame = frame.f_back
+            calls.append(f"{names.get(ident, ident)}: {' < '.join(inner)}")
+        return (f"the driver's fetch of {path} from this process's file server had no answer in {now - asked:.0f} s: "
+                f"{when}; this process ran {time.process_time() - cpu:.1f} CPU-s meanwhile; its threads: "
+                + "; ".join(calls))
 
     def close(self) -> None:
         """Once its browser context has closed."""
@@ -309,6 +341,37 @@ def test_a_site_pages_files_reach_its_browser_without_crossing_the_drivers_pipe(
     finally:
         monkeypatch.undo()
         served.close()
+
+
+def test_a_site_file_the_drivers_fetch_hears_nothing_of_fails_naming_whether_its_server_took_and_answered_it(
+        browser, tmp_path, monkeypatch):
+    """Two site loads on GitHub's Intel Mac runner waited 30 s on a file the driver fetched from this process's file
+    server (:class:`_Held`; run 41981438506: data.mjs in Chromium, icons.css in Firefox), the failure naming only
+    Playwright's timeout. Past its bound the fetch fails saying whether the server took the request and when it
+    answered, the CPU this process ran meanwhile and its threads' innermost calls: once with the answer held past the
+    bound, once with the server taking nothing."""
+    for name in ("x.mjs", "y.mjs"):
+        (tmp_path / name).write_text("export {};", encoding="utf-8")
+    held, go = _Held(None, browser.browser_type, tmp_path, fetch_s=1), threading.Event()
+    answer = http.server.SimpleHTTPRequestHandler.do_GET
+    monkeypatch.setattr(_Quiet, "do_GET", lambda self: (go.wait(10), answer(self))[1])   # held past the fetch's bound
+    said = []
+    try:
+        for name in ("x.mjs", "y.mjs"):
+            if name == "y.mjs":
+                go.set()
+                held.server.shutdown()   # its socket still listening, nothing taken from it
+            with pytest.raises(AssertionError) as caught:
+                held.fulfill(None, tmp_path / name)
+            said.append(str(caught.value))
+    finally:
+        go.set()
+        held.close()
+    took, never = said
+    assert re.match(r"the driver's fetch of /x\.mjs from this process's file server had no answer in \d+ s: its server "
+                    r"took it \d+\.\d s in and never answered; this process ran \d+\.\d CPU-s meanwhile; its threads: "
+                    r".*MainThread: \w+", took), took
+    assert re.match(r"the driver's fetch of /y\.mjs [^:]*: its server never took it; ", never), never
 
 
 def test_a_site_closed_while_its_driver_fetches_a_file_leaves_the_next_sites_first_call_clean(browser, tmp_path):
@@ -998,6 +1061,17 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
 class _Quiet(_page.Static):
     def log_message(self, *args) -> None:
         pass
+
+
+class _Taken(_Quiet):
+    """:class:`_Held`'s handler: when it took each GET and when it answered it, in its server's ``taken``."""
+
+    def do_GET(self) -> None:
+        mark = self.server.taken.setdefault(self.path, [time.monotonic(), None])
+        try:
+            super().do_GET()
+        finally:
+            mark[1] = time.monotonic()
 
 
 @contextlib.contextmanager
