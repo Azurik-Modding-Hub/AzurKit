@@ -14,13 +14,10 @@ with GitHub Pages' ``max-age=600``, in Chromium, WebKit and Firefox."""
 from __future__ import annotations
 
 import contextlib
-import functools
 import hashlib
-import http.server
 import json
 import re
 import shutil
-import threading
 import time
 from pathlib import Path
 
@@ -162,38 +159,24 @@ def releases(tmp_path_factory) -> dict[str, Path]:
 
 class Host:
     """``root`` (settable: a deploy) served on 127.0.0.1 as GitHub Pages serves it (``Cache-Control: max-age=600``),
-    every answer whole (no 304), or each a 503 while ``down``; ``workers`` counts the requests for ``sw.js``."""
+    every answer whole (no 304), or each a 503 while ``down``, by a server of a process of its own
+    (:class:`_page.Served`): a server of this process's waited on its interpreter, and a plan or a full collection here
+    held a first visit's install past 60 s on GitHub's Intel runner (run 42071325305). ``workers`` counts the requests
+    for ``sw.js``."""
 
     def __init__(self, root: Path):
-        self.root, self.down, self.workers = root, False, 0
-        host = self
+        self.served = _page.Served(root, pages=True)
+        self.url = f"{self.served.url}/"
 
-        class Handler(_page.Static):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, directory=str(host.root), **kwargs)
+    root = property(lambda self: self.served.root, lambda self, root: setattr(self.served, "root", root))
+    down = property(lambda self: self.served.down, lambda self, down: setattr(self.served, "down", down))
 
-            def send_head(self):
-                host.workers += self.path == f"/{web_tools.WORKER}"
-                if host.down:
-                    self.send_error(503)
-                    return None
-                del self.headers["If-Modified-Since"]
-                return super().send_head()
-
-            def end_headers(self):
-                self.send_header("Cache-Control", "max-age=600")
-                super().end_headers()
-
-            def log_message(self, *args):
-                pass
-
-        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.url = f"http://127.0.0.1:{self.server.server_address[1]}/"
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+    @property
+    def workers(self) -> int:
+        return sum(path == f"/{web_tools.WORKER}" for _, path, _ in self.served.log())
 
     def close(self) -> None:
-        self.server.shutdown()
-        self.server.server_close()
+        self.served.close()
 
 
 @contextlib.contextmanager
@@ -310,6 +293,22 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
         _page.load(other, host.url)
         ready(other)
         assert other.evaluate("() => crossOriginIsolated")
+
+
+def test_a_first_visit_keeps_its_release_and_reloads_on_it_while_this_process_holds_its_interpreter(
+        browser, releases):
+    """A first visit's install fetches its release from the host's own process (:class:`Host`), never this one: with
+    this interpreter held (``_page.hold``: its GIL, as a plan or a full collection here held it, when an install past
+    60 s on GitHub's Intel runner waited on a server of this process's, run 42071325305), the page registers ``sw.js``,
+    the release is kept and the page reloads onto it, all before the hold ends."""
+    with hosted(browser, releases["one"]) as (host, context):
+        page = context.new_page()
+        _page.load(page, host.url)
+        _page.hold()
+        held_until = time.time() * 1000
+        got = started(page, after=1)
+        assert (got["loads"], got["controller"], page.evaluate("() => performance.timeOrigin") < held_until) == (
+            2, f"{host.url}sw.js", True)
 
 
 def test_the_sites_worker_lists_every_file_the_site_serves_with_its_sha256(tmp_path, monkeypatch):

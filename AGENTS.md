@@ -81,8 +81,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     gets a home of its own (`CFFIXED_USER_HOME`, as `test_site.Site` does),
     or another test's page load sweeps its held build files.
   - A page's files come from a server of a process of its own
-    (`tests/_page.py`'s `Served`, `tests/_static.py`: `test_site.Site` and
-    its bare page), never through the test's own
+    (`tests/_page.py`'s `Served`, `tests/_static.py`: `test_site.Site`, its
+    bare page and `test_service_worker.Host`), never through the test's own
     interpreter, which a plan in a thread or a full collection of a heap a
     randomizer test left holds for seconds (on GitHub's Intel runner 98 s);
     only a request elsewhere, and a test's own routes, come back to it.

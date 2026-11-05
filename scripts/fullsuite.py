@@ -81,9 +81,11 @@ DOCS = (".md", ".txt")
 ABOUT = "tests/test_site.py::test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_always_in_view"
 #: A path's own tests (a folder's ends in "/"), what reads it outside the import graph: the page (web/) is the
 #: site's, its service worker's, the app's (it serves it and freezes it in) and the favicons'; the About tab restates
-#: LICENSE and NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme).
+#: LICENSE and NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme);
+#: tests/_static.py is the site's and its service worker's tests' file server, which they run as a program.
 RULES = (("web/", ("tests/test_site.py", "tests/test_service_worker.py", "tests/test_hosts.py", "tests/test_icon.py")),
-         ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)))
+         ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)),
+         ("tests/_static.py", ("tests/test_site.py", "tests/test_service_worker.py")))
 #: The data folders the tests read by path, not by import (AzurKit's goldens): each is named by the modules that hold
 #: its last name as a string (``ROOT / "tests" / "goldens"``: ``scripts/record_goldens.py``), so a change in it picks
 #: the test files that reach one of them (:func:`graph`).
