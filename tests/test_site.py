@@ -32,7 +32,6 @@ import http.server
 import json
 import os
 import re
-import select
 import shutil
 import socket
 import subprocess
@@ -52,10 +51,9 @@ from azurkit.tools.characters import pool
 from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
-from tests import _g1, _hosts, _page, _perf, conftest
+from tests import _g1, _hosts, _page, _perf, _static, conftest
 from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
-ORIGIN = "https://azurkit.test"
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
 # A piece at a time, in slices: WebKit answers a whole read of a Blob held in memory over about 100 MB with
@@ -178,244 +176,123 @@ waited for a B that never started (run 41521288667). The pool's path with no B i
 ``cores``)."""
 
 
-class _Files(http.server.ThreadingHTTPServer):
-    """:class:`_Held`'s file server, its listen queue the system's longest (``socket.SOMAXCONN``), not socketserver's
-    5: the driver fetches a page's files at once (a load routes 33), and Windows refuses a connect past a full queue,
-    where macOS and Linux drop it and the client tries again (29 site tests failed so on Windows, ECONNREFUSED, run
-    41666183947)."""
-    request_queue_size = socket.SOMAXCONN
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.taken = {}   # each GET's path: when its handler (_Taken) took it and answered it, for _Held.unanswered
-
-
-class _Held:
-    """The files under ``root`` for a browser context's routes, each as Playwright's driver fetched it itself, once,
-    from a static server of this process's on 127.0.0.1 (``route.fulfill(response=)``), in a request context of its
-    own that outlives the browser context (a late request while it closes still finds its file), never as a body this
-    process sends: the driver's pipe reader joins its whole buffer again at each chunk it reads, so one 20 MiB file
-    sent so took it from 0.1 to 1.7-1.9 GiB, which it kept, in every browser (2.5-2.9 GiB at its peak; fetched itself,
-    0.24-0.35 GiB), and a site page sends 35 MB: beside WebKit's pages, more than GitHub's 7 GiB Apple Silicon runner
-    had free, the likeliest reason its WebKit page processes died ("Target crashed", runs 41551497620, 41610020282).
-    A fetch with no answer in ``fetch_s`` (Playwright's own 30 s) fails naming its server's part
-    (:meth:`unanswered`)."""
-
-    def __init__(self, context, browser_type, root: Path, fetch_s: float = 30):
-        from playwright._impl._sync_base import mapping
-        self.request = mapping.from_impl(browser_type._impl_obj._playwright.request).new_context(timeout=fetch_s * 1000)
-        self.context, self.root, self.held = context, root, {}
-        self.server = _Files(("127.0.0.1", 0), functools.partial(_Taken, directory=str(root)))
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-
-    def fulfill(self, route, file: Path) -> None:
-        """Answer ``route`` with ``file`` (under ``root``), its type the app's and its length, nothing else. A route
-        its browser context's close overtakes (its fetch's request context disposed under it, or the route gone with
-        the context) is left to Playwright, which drops a closed context's requests: raised, sync Playwright kept that
-        error for its next call, a later test's (the gate on 7cb671e). Every other error raises, and that one too
-        while the context is open."""
-        from playwright._impl._errors import TargetClosedError
-        from playwright._impl._errors import TimeoutError as Unanswered
-        try:
-            if (response := self.held.get(file)) is None:
-                rel = urllib.parse.quote(file.relative_to(self.root).as_posix())
-                asked, cpu = time.monotonic(), time.process_time()
-                try:
-                    response = self.held[file] = self.request.get(f"http://127.0.0.1:{self.server.server_port}/{rel}")
-                except Unanswered:
-                    raise AssertionError(self.unanswered(f"/{rel}", asked, cpu)) from None
-            assert response.ok, (file.name, response.status)
-            route.fulfill(response=response, headers={"content-type": _page.content_type(file.name),
-                                                      "content-length": str(file.stat().st_size)})
-        except TargetClosedError:
-            if not self.context.is_closed():
-                raise
-            route.fallback()
-
-    def unanswered(self, path: str, asked: float, cpu: float) -> str:
-        """Why the driver's fetch of ``path``, asked at ``asked`` (``time.monotonic()``; this process's CPU then
-        ``cpu``), had no answer (two site loads on GitHub's Intel Mac runner, run 41981438506: data.mjs and icons.css
-        unanswered 30 s, its memory 6 GiB free): whether this process's file server took it and answered it, and when,
-        the CPU this process ran meanwhile and each of its threads' innermost calls. Names and numbers only."""
-        now, taken = time.monotonic(), self.server.taken.get(path)
-        when = ("its server never took it" if taken is None else f"its server took it {taken[0] - asked:.1f} s in and "
-                + ("never answered" if taken[1] is None else f"answered {taken[1] - asked:.1f} s in"))
-        names, calls = {t.ident: t.name for t in threading.enumerate()}, []
-        for ident, frame in sys._current_frames().items():
-            inner = []
-            for _ in range(3):
-                if frame is None:
-                    break
-                inner.append(frame.f_code.co_name)
-                frame = frame.f_back
-            calls.append(f"{names.get(ident, ident)}: {' < '.join(inner)}")
-        return (f"the driver's fetch of {path} from this process's file server had no answer in {now - asked:.0f} s: "
-                f"{when}; this process ran {time.process_time() - cpu:.1f} CPU-s meanwhile; its threads: "
-                + "; ".join(calls))
-
-    def close(self) -> None:
-        """Once its browser context has closed."""
-        try:
-            self.request.dispose()
-        finally:
-            self.server.shutdown()
-            self.server.server_close()
-
-
 class Site:
-    """The site served to a fresh browser context at :data:`ORIGIN` from its
-    folder (Playwright's routing, :class:`_Held`'s files), every request logged. Its
-    service worker is blocked: routing never sees a service worker's own
-    requests, so these pages run uncontrolled, as a browser without one does
-    (``tests/test_service_worker.py`` holds the site under ``sw.js``). A
-    ``profile`` makes it persistent; in WebKit with a home of its own
-    (``<profile>-home``), as Playwright's WebKit keeps OPFS, the build files,
-    in the user's ``~/Library/WebKit/org.webkit.Playwright`` for every browser
-    it launches while each browser's Web Locks are its own, so another test's
-    page load swept this one's held build file (the gate on 3fd00b2: its
-    Save's check failed reading it). CoreFoundation's ``CFFIXED_USER_HOME``
-    moves it (macOS)."""
+    """The site served to a fresh browser context from its folder by a server
+    of a process of its own (:class:`_page.Served`, at ``origin``, a secure
+    context), every request logged (``requests``): its files never wait on
+    this interpreter. They did when Playwright's routes fetched them through a
+    server of this process's: a plan in a thread here or a full collection of
+    the heap a randomizer test left here held its GIL, and on GitHub's 4-core
+    Intel runner a reshape's picture waited 98 s (run 42071325305). Only a
+    request elsewhere is routed here (a 404). Its service worker is blocked:
+    routing never sees a service worker's own requests, so these pages run
+    uncontrolled, as a browser without one does (``tests/test_service_worker.py``
+    holds the site under ``sw.js``). A ``profile`` makes it persistent; in
+    WebKit with a home of its own (``<profile>-home``), as Playwright's WebKit
+    keeps OPFS, the build files, in the user's
+    ``~/Library/WebKit/org.webkit.Playwright`` for every browser it launches
+    while each browser's Web Locks are its own, so another test's page load
+    swept this one's held build file (the gate on 3fd00b2: its Save's check
+    failed reading it). CoreFoundation's ``CFFIXED_USER_HOME`` moves it
+    (macOS)."""
 
     def __init__(self, browser, root: Path, profile: Path | None = None, **options):
-        self.root, self.requests = root.resolve(), []
+        self.root, self.routed = root.resolve(), []   # routed: the requests answered here (elsewhere, a test's routes)
+        self.files = _page.Served(self.root)
+        self.origin = self.files.url
         options = {"service_workers": "block", **options}
         if profile and browser.browser_type.name == "webkit":
             home = profile.with_name(f"{profile.name}-home")
             home.mkdir(parents=True, exist_ok=True)
             options = {"env": {**os.environ, "CFFIXED_USER_HOME": str(home)}} | options
-        self.context = (browser.browser_type.launch_persistent_context(str(profile), headless=True, accept_downloads=True,
-                                                                       **options) if profile
-                        else browser.new_context(accept_downloads=True, **options))
+        try:
+            self.context = (browser.browser_type.launch_persistent_context(str(profile), headless=True,
+                                                                           accept_downloads=True, **options)
+                            if profile else browser.new_context(accept_downloads=True, **options))
+        except BaseException:
+            self.files.close()
+            raise
         self.context.add_init_script(FOUR_CORES)
-        self.held = _Held(self.context, browser.browser_type, self.root)
-        self.context.route("**/*", self._serve)
+        self.context.route(re.compile(rf"^(?!{re.escape(self.origin)}/)"), self._elsewhere)
 
-    def _serve(self, route, request) -> None:
-        if request.url.startswith(f"blob:{ORIGIN}/"):   # the page's own blob: (WebKit routes them; Chromium doesn't)
+    def _elsewhere(self, route, request) -> None:
+        if request.url.startswith(f"blob:{self.origin}/"):   # the page's own blob: (WebKit routes them; Chromium doesn't)
             return route.continue_()
-        url = urllib.parse.urlsplit(request.url)
-        self.requests.append((request.method, request.url, request.post_data_buffer))
-        file = (self.root / (urllib.parse.unquote(url.path).lstrip("/") or "index.html")).resolve()
-        if f"{url.scheme}://{url.netloc}" != ORIGIN or not file.is_relative_to(self.root) or not file.is_file():
-            return route.fulfill(status=404, body="")
-        self.held.fulfill(route, file)
+        self.routed.append((request.method, request.url, request.post_data_buffer))
+        route.fulfill(status=404, body="")
+
+    @property
+    def requests(self) -> list[tuple]:
+        """Each request: ``(method, url, body)``, those the site's server heard (a body as its size) and those
+        answered here."""
+        return [(method, f"{self.origin}{path}", size or None) for method, path, size in self.files.log()] + self.routed
 
     def open(self):
         """A new page, its engine loaded, each call bounded (``_page.within``; its load ``_page.load`` in
         ``_page.STALL``, as the new page has: the page's own files, about 0.4 MB, in 0.1-0.2 s here; the engine's 35 MB
         come after it)."""
         page = _page.within(self.context, self.context._impl_obj.new_page(), _page.STALL, "a new page")
-        _page.load(page, f"{ORIGIN}/", seconds=_page.STALL)
+        _page.load(page, f"{self.origin}/", seconds=_page.STALL)
         _page.until(page, "() => globalThis.azurkit?.ready", 120)
         return page
 
     def stray(self) -> list[str]:
-        """Each request that isn't a GET of a site file, with no body, at :data:`ORIGIN`."""
-        files = {f"{ORIGIN}/{p.relative_to(self.root).as_posix()}" for p in self.root.rglob("*") if p.is_file()}
+        """Each request that isn't a GET of a site file, with no body, at ``origin``."""
+        files = {f"{self.origin}/{p.relative_to(self.root).as_posix()}" for p in self.root.rglob("*") if p.is_file()}
         bare = ((method, url.partition("#")[0], body) for method, url, body in self.requests)   # a link's fragment
         return [f"{method} {url}" for method, url, body in bare
-                if method != "GET" or body or (url if url != f"{ORIGIN}/" else f"{ORIGIN}/index.html") not in files]
+                if method != "GET" or body or (url if url != f"{self.origin}/" else f"{self.origin}/index.html") not in files]
 
     def close(self) -> None:
         try:
             _page.within(self.context, self.context._impl_obj.close(), _page.STALL, "the context's close")
         finally:
-            self.held.close()
+            self.files.close()
 
 
-def test_a_site_pages_files_reach_its_browser_without_crossing_the_drivers_pipe(browser, site, monkeypatch):
-    """A site page's load (35 MB of files: Pyodide's core, the wheel) sends Playwright's driver under 1 MiB from this
-    process, the files being the driver's own fetches (:class:`_Held`): their bodies sent through its pipe took the
-    driver to 1.7-1.9 GiB, which it kept for the module's later tests, and with WebKit's pages that was more than
-    GitHub's 7 GiB Apple Silicon runner had free (likely why its page processes died: "Target crashed")."""
+def test_a_site_pages_files_reach_it_from_a_server_of_their_own_while_this_process_holds_its_interpreter(
+        browser, site, monkeypatch):
+    """A site page's files come to its browser from a server of their own process (:class:`_page.Served`), never
+    through this one: a page's load (35 MB: Pyodide's core, the wheel) sends Playwright's driver under 1 MiB from here,
+    and ten of its files the page fetches are all answered while this interpreter is held (``_page.hold``: its GIL, as
+    a full collection of a big heap or a plan here held it, on GitHub's Intel runner 98 s for a reshape's picture that
+    a server of this process's served, run 42071325305)."""
     served = Site(browser, site)
     transport, sent = served.context._impl_obj._connection._transport, []
     real = transport.send
     monkeypatch.setattr(transport, "send", lambda message: (sent.append(len(transport.serialize_message(message))),
                                                             real(message))[1])
+    names = ["characters/index.json", *(f"characters/{p.name}" for p in sorted((site / "characters").glob("*.png"))[:9])]
     try:
-        served.open()
+        page = served.open()
         files = {urllib.parse.urlsplit(url).path for _, url, _ in served.requests}
         assert {"/pyodide/pyodide.asm.wasm", f"/{next(site.glob('azurkit-*.whl')).name}"} <= files
         assert sum(sent) < 1 << 20, sum(sent)
+        asked = page.evaluate("""(names) => {
+            globalThis.fetched = [];
+            for (const name of names) fetch(name, { cache: "no-store" }).then((r) => r.arrayBuffer())
+                .then(() => fetched.push([name, performance.now()]));
+            return performance.now();
+        }""", names)
+        _page.hold()
+        fetched = page.evaluate("() => fetched")
+        assert sorted(name for name, _ in fetched) == sorted(names) and all(
+            at - asked < _page.HOLD * 1000 for _, at in fetched), (asked, fetched)
     finally:
         monkeypatch.undo()
         served.close()
 
 
-def test_a_site_file_the_drivers_fetch_hears_nothing_of_fails_naming_whether_its_server_took_and_answered_it(
-        browser, tmp_path, monkeypatch):
-    """Two site loads on GitHub's Intel Mac runner waited 30 s on a file the driver fetched from this process's file
-    server (:class:`_Held`; run 41981438506: data.mjs in Chromium, icons.css in Firefox), the failure naming only
-    Playwright's timeout. Past its bound the fetch fails saying whether the server took the request and when it
-    answered, the CPU this process ran meanwhile and its threads' innermost calls: once with the answer held past the
-    bound, once with the server taking nothing."""
-    for name in ("x.mjs", "y.mjs"):
-        (tmp_path / name).write_text("export {};", encoding="utf-8")
-    held, go = _Held(None, browser.browser_type, tmp_path, fetch_s=1), threading.Event()
-    answer = http.server.SimpleHTTPRequestHandler.do_GET
-    monkeypatch.setattr(_Quiet, "do_GET", lambda self: (go.wait(10), answer(self))[1])   # held past the fetch's bound
-    said = []
-    try:
-        for name in ("x.mjs", "y.mjs"):
-            if name == "y.mjs":
-                go.set()
-                held.server.shutdown()   # its socket still listening, nothing taken from it
-            with pytest.raises(AssertionError) as caught:
-                held.fulfill(None, tmp_path / name)
-            said.append(str(caught.value))
-    finally:
-        go.set()
-        held.close()
-    took, never = said
-    assert re.match(r"the driver's fetch of /x\.mjs from this process's file server had no answer in \d+ s: its server "
-                    r"took it \d+\.\d s in and never answered; this process ran \d+\.\d CPU-s meanwhile; its threads: "
-                    r".*MainThread: \w+", took), took
-    assert re.match(r"the driver's fetch of /y\.mjs [^:]*: its server never took it; ", never), never
-
-
-def test_a_site_closed_while_its_driver_fetches_a_file_leaves_the_next_sites_first_call_clean(browser, tmp_path):
-    """A Site closed while a route's file is still being fetched by the driver (:class:`_Held`; here held until the
-    driver drops it, as the Site's close disposes the fetch's request context) leaves the next Site's first call clean:
-    the route ends with its context, where the disposal was raised at the next test's first call (the gate on 7cb671e:
-    two site tests, in WebKit and Firefox, failed so at Site's add_init_script)."""
-    (tmp_path / "index.html").write_text("<!doctype html><title>held</title>")
-    (tmp_path / "held.bin").write_bytes(bytes(1024))
-    reached, dropped = threading.Event(), []
-
-    class Holding(_Quiet):
-        def do_GET(self) -> None:
-            if self.path != "/held.bin":
-                return super().do_GET()
-            reached.set()
-            dropped.append(bool(select.select([self.connection], [], [], 60)[0]))   # its fetch's end, unanswered
-
-    served = Site(browser, tmp_path)
-    served.held.server.RequestHandlerClass = functools.partial(Holding, directory=str(tmp_path))
-    try:
-        page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
-        _page.load(page, f"{ORIGIN}/")
-        _page.answer(page, "() => { fetch('/held.bin').catch(() => {}); }")
-        end = time.monotonic() + 60
-        while not reached.is_set():   # the route's fetch reaches the server (the driver is heard only in a call)
-            assert time.monotonic() < end, "the route's fetch never reached its file server"
-            page.wait_for_timeout(50)
-    finally:
-        served.close()
-    assert dropped == [True]
-    again = Site(browser, tmp_path)
-    try:
-        assert again.context.cookies() == []
-    finally:
-        again.close()
-
-
 def test_a_sites_file_server_holds_64_connections_made_at_once_and_answers_each(tmp_path):
-    """:class:`_Files` (each Site's file server) holds 64 connections made before it accepts any, and answers each:
-    the driver fetches a page's files at once, and with socketserver's queue of 5 Windows refused the rest (29 site
-    tests failed on ECONNREFUSED, run 41666183947); here a connect past the queue waits for a retry instead."""
+    """:class:`_static.Files` (the site's file server) holds 64 connections made before it accepts any, and answers
+    each: the driver fetches a page's files at once, and with socketserver's queue of 5 Windows refused the rest (29
+    site tests failed on ECONNREFUSED, run 41666183947); here a connect past the queue waits for a retry instead."""
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *args) -> None:
+            pass
+
     (tmp_path / "a.txt").write_text("a")
-    with _Files(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(tmp_path))) as server:
+    with _static.Files(("127.0.0.1", 0), functools.partial(Quiet, directory=str(tmp_path))) as server:
         held = [socket.create_connection(server.server_address, timeout=5) for _ in range(64)]   # none accepted yet
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
@@ -611,7 +488,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         fragment = sdk.preset_encode({"packs": {"fps_unlock": {"target_fps": 120},
                                                 "player_physics": {"gravity": 4.9, "toggle_gravity": 1},
                                                 "qol_memory_budget": {}}})
-        assert (link, page.evaluate("() => location.hash")) == (f"{ORIGIN}/{fragment}", fragment)
+        assert (link, page.evaluate("() => location.hash")) == (f"{served.origin}/{fragment}", fragment)
         assert page.evaluate("() => document.querySelector('#link').value") == link
         loaded = served.context.new_page()
         _page.load(loaded, link)
@@ -630,7 +507,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
                   "Pick your vanilla image, then Build."]
         cell = {"op": "set", "file": "gamedata/config.xbr", "table": "critters_damage", "entity": "golem",
                 "prop": "hitPoints", "value": 321}
-        with_cell = f"{ORIGIN}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}, 'xbr': [cell]})}"
+        with_cell = f"{served.origin}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}, 'xbr': [cell]})}"
         again = served.context.new_page()
         _page.load(again, with_cell)
         _page.until(again, "() => globalThis.azurkit?.loaded")
@@ -640,7 +517,7 @@ def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_mark
         _page.click(again, "share")
         assert _page.until(again, "() => azurkit.link") == with_cell
         bad = served.context.new_page()
-        _page.load(bad, f"{ORIGIN}/#p=@@")
+        _page.load(bad, f"{served.origin}/#p=@@")
         assert _page.until(bad, """() => document.querySelector("#status").classList.contains("error")
                                    && document.querySelector("#status").textContent""").startswith(
             "preset: no #p= and base64url")
@@ -823,7 +700,7 @@ def test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_a
         assert page.evaluate(GROUND) == DARK
         _page.click(page, "theme")
         later = served.context.new_page()
-        assert _page.first_paint(later, f"{ORIGIN}/") == LIGHT
+        assert _page.first_paint(later, f"{served.origin}/") == LIGHT
         assert [page.evaluate(GROUND), later.evaluate(GROUND)] == [LIGHT, LIGHT]
         _page.click(later, "theme")
         assert [later.evaluate(GROUND), served.open().evaluate(GROUND)] == [DARK, DARK]
@@ -905,7 +782,7 @@ def test_a_phone_or_a_tablet_gets_one_plain_line_to_use_a_computer(browser, site
         served = Site(browser, site, **options)
         try:
             page = served.context.new_page()
-            _page.load(page, f"{ORIGIN}/")
+            _page.load(page, f"{served.origin}/")
             assert page.evaluate(shown) == [seen, line], options
         finally:
             served.close()
@@ -1042,7 +919,7 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
                            "xbr": []})
 
         linked = served.context.new_page()
-        _page.load(linked, f"{ORIGIN}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}})}")
+        _page.load(linked, f"{served.origin}/{sdk.preset_encode({'packs': {'qol_alloc_race': {}}})}")
         _page.until(linked, "() => globalThis.azurkit?.loaded")
         assert list(_page.ticked(linked)) == ["qol_alloc_race"]
         _remembered(linked, {"ticked": ["qol_alloc_race"], "values": {}, "xbr": []})
@@ -1056,33 +933,6 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
         assert served.stray() == []
     finally:
         served.close()
-
-
-class _Quiet(_page.Static):
-    def log_message(self, *args) -> None:
-        pass
-
-
-class _Taken(_Quiet):
-    """:class:`_Held`'s handler: when it took each GET and when it answered it, in its server's ``taken``."""
-
-    def do_GET(self) -> None:
-        mark = self.server.taken.setdefault(self.path, [time.monotonic(), None])
-        try:
-            super().do_GET()
-        finally:
-            mark[1] = time.monotonic()
-
-
-@contextlib.contextmanager
-def _static(root: Path):
-    """``root`` served as a static host does, at an address on 127.0.0.1."""
-    with http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(_Quiet, directory=str(root))) as httpd:
-        threading.Thread(target=httpd.serve_forever, daemon=True).start()
-        try:
-            yield f"http://127.0.0.1:{httpd.server_port}/"
-        finally:
-            httpd.shutdown()
 
 
 COMMUNITY = """() => [...document.querySelectorAll("#char-community .entry")].map((e) => [e.dataset.entry,
@@ -1227,7 +1077,7 @@ def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_an
     def content(route, request) -> None:
         rel = urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/")
         route.fulfill(path=str(source / rel)) if (source / rel).is_file() else route.fulfill(status=404, body="")
-    served.context.route(f"{ORIGIN}/content-test/**", content)
+    served.context.route(f"{served.origin}/content-test/**", content)
     row = """document.querySelector('.cpack[data-community="hard"]')"""
     hp = """document.getElementById("player_max_hp.starting_hp")"""
     locked = f"() => {hp}.value === '150' && {hp}.disabled && {hp}.closest('.pack').classList.contains('owned')"
@@ -1313,10 +1163,10 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     served = Site(browser, site)
 
     def source(route, request) -> None:
-        served.requests.append((request.method, request.url, request.post_data_buffer))
+        served.routed.append((request.method, request.url, request.post_data_buffer))
         rel = urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/")
         route.fulfill(path=str(repo / rel)) if (repo / rel).is_file() else route.fulfill(status=404, body="")
-    served.context.route(f"{ORIGIN}/content-test/**", source)
+    served.context.route(f"{served.origin}/content-test/**", source)
     try:
         page = served.open()
         page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
@@ -1381,7 +1231,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
                 === JSON.stringify(azurkit.characters.state.character)""", 300)
             assert page.evaluate("() => [azurkit.characters.character(), document.getElementById('char-scale').value]") == [left, "1"]
         assert page.evaluate("() => azurkit.violations") == []
-        assert [r for r in served.stray() if not r.startswith(f"GET {ORIGIN}/content-test/")] == []
+        assert [r for r in served.stray() if not r.startswith(f"GET {served.origin}/content-test/")] == []
         again = served.open()   # this browser's storage, the Characters tab never opened
         assert _page.until(again, """async () => !azurkit.characters.state.opened && (await azurkit.engine.call(
             "pickers", {given: {iso: null}})).community.map((e) => `${e.id} ${e.state}`).join() === "beamlord installed"
@@ -1407,7 +1257,7 @@ def test_an_install_lists_its_variants_while_the_images_check_runs(browser, site
              "kind": "variant", "title": "Beamlord", "files": [{"path": path}]}]},
         lambda p: (repo / p).read_bytes())), encoding="utf-8")
     served = Site(browser, site)
-    served.context.route(f"{ORIGIN}/content-test/**", lambda route, request: route.fulfill(
+    served.context.route(f"{served.origin}/content-test/**", lambda route, request: route.fulfill(
         path=str(repo / urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/"))))
     entry = "document.querySelector('#char-community .entry[data-entry=\"beamlord\"]"
     try:
@@ -1516,7 +1366,7 @@ def test_the_characters_tab_shows_every_species_and_its_pictures_before_an_image
         assert page.evaluate(CHARS_SHOWN)[4] == "G4 sets a number so the body matches garret4."
         index = json.loads((site / "characters" / "index.json").read_text(encoding="utf-8"))
         assert {f"characters/{index['species'][s]}.{v}.png" for s in ("garret4", "keylord") for v in ("front", "back")} <= {
-            url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests}
+            url.removeprefix(f"{served.origin}/") for _, url, _ in served.requests}
         _page.check_csp(page)
         assert served.stray() == []
     finally:
@@ -1754,16 +1604,17 @@ def test_kept_content_reaches_the_engine_only_at_a_content_path_holding_its_inst
 def test_the_site_serves_the_favicon_the_page_links(browser, site):
     """The page links the favicon (the mark, D892), and the site's folder,
     served as a static host serves it, gives each file the page asks for,
-    byte for byte ``web/``'s. (A static server here: Playwright aborts a
-    routed request whose address ends in ``/favicon.ico``.)"""
-    with _static(site) as url:
-        context = browser.new_context(service_workers="block")   # its icons, not sw.js's first visit (its own file's)
-        try:
-            page = context.new_page()
-            _page.load(page, url)
-            _page.check_icons(page)
-        finally:
-            context.close()
+    byte for byte ``web/``'s. (A context with no route: Playwright aborts a
+    request whose address ends in ``/favicon.ico`` once a context routes.)"""
+    files = _page.Served(site)
+    context = browser.new_context(service_workers="block")   # its icons, not sw.js's first visit (its own file's)
+    try:
+        page = context.new_page()
+        _page.load(page, f"{files.url}/")
+        _page.check_icons(page)
+    finally:
+        context.close()
+        files.close()
 
 
 def test_the_pick_and_the_characters_tab_check_the_image_once_and_a_page_opened_again_keeps_its_stamp(
@@ -1835,7 +1686,7 @@ def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_
     served = Site(browser, tmp_path)
     try:
         page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
-        _page.load(page, f"{ORIGIN}/")
+        _page.load(page, f"{served.origin}/")
 
         def start(*names: str) -> None:
             listed = len(page.workers) + len(names)
@@ -1949,9 +1800,9 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         page.route("**/held.html", lambda route: routes.append(route))
         t2 = time.monotonic()
         with pytest.raises(AssertionError) as unloaded:
-            _page.load(page, f"{ORIGIN}/held.html")
+            _page.load(page, f"{served.origin}/held.html")
         lines = str(unloaded.value).splitlines()
-        assert lines[0] == f"no answer in 2 s: the page's load of {ORIGIN}/held.html" and len(routes) == 1, lines
+        assert lines[0] == f"no answer in 2 s: the page's load of {served.origin}/held.html" and len(routes) == 1, lines
         # its state read or not: Chromium's page left it unread in 1 s while its navigation was held
         assert lines[1].startswith("state: ") and lines[-2:-1] == ["its browser still answers"], lines
         assert 2 <= time.monotonic() - t2 < 20
@@ -2317,7 +2168,7 @@ def test_the_bottom_bars_stripe_with_no_count_is_a_transform_its_compositor_move
     served = Site(browser, site)
     try:
         page = _page.within(served.context, served.context._impl_obj.new_page(), _page.STALL, "a new page")
-        _page.load(page, f"{ORIGIN}/")
+        _page.load(page, f"{served.origin}/")
         assert _page.answer(page, LOOK, None) == ["none", "block", "stripe", "infinite", [["transform"], ["transform"]]]
         assert _page.answer(page, LOOK, "50")[:2] == ["auto", "none"]
         _page.close(page)
@@ -3274,14 +3125,14 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         _page.click(page, "share")
         link = _page.until(page, "() => azurkit.link")
         recipe = {"packs": page.evaluate("() => azurkit.sent"), "randomizer": {"seed": "2", "settings": defaults}}
-        assert link == f"{ORIGIN}/{sdk.preset_encode(recipe, report)}"
+        assert link == f"{served.origin}/{sdk.preset_encode(recipe, report)}"
         loaded = served.context.new_page()
         _page.load(loaded, link)
         _page.until(loaded, "() => globalThis.azurkit?.loaded && !azurkit.rando.load && azurkit.rando.view")
         assert loaded.evaluate(TAB)[:2] == [True, "2"]
         assert loaded.evaluate("() => document.querySelector('#randomizer .on .mark').textContent") == "●"
         _page.click(loaded, "share")
-        assert _page.until(loaded, "() => azurkit.link") == f"{ORIGIN}/{sdk.preset_encode(recipe)}"
+        assert _page.until(loaded, "() => azurkit.link") == f"{served.origin}/{sdk.preset_encode(recipe)}"
         _page.click(loaded, "reset")
         _page.fill(loaded, "rando-seed", "x")
         opened = {"format": "azurkit-preset", "schema_version": 1, "layers": [   # a randomized build's (sdk.open_build)
@@ -3339,7 +3190,7 @@ def test_a_seed_wearing_a_character_builds_on_the_site_as_cpython_builds_it(brow
     served = Site(browser, site)
     try:
         page = served.context.new_page()
-        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.load(page, f"{served.origin}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded && !azurkit.rando.load && azurkit.rando.view", 120)
         _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
@@ -3359,7 +3210,7 @@ def test_a_weapon_a_body_lifts_off_the_floor_builds_on_the_site_as_cpython_build
     served = Site(browser, site)
     try:
         page = served.context.new_page()
-        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.load(page, f"{served.origin}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
         _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
@@ -3469,7 +3320,7 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
 
         packs = mods.normalize(on)
         loaded = served.context.new_page()
-        _page.load(loaded, f"{ORIGIN}/{sdk.preset_encode({'packs': packs, 'randomizer': {'seed': '7'}})}")
+        _page.load(loaded, f"{served.origin}/{sdk.preset_encode({'packs': packs, 'randomizer': {'seed': '7'}})}")
         assert _page.until(loaded, SETTLED, 120)["share"] == "AZR-AAEA"
         assert loaded.evaluate(TAB)[:2] == [True, "7"]
         assert loaded.evaluate(STATUS).endswith(f": {len(packs)} packs and the randomizer (seed 7), marked ●. "
@@ -3521,7 +3372,7 @@ def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_a
         return _page.until(page, SETTLED, 120)
 
     served = Site(browser, site)
-    served.context.route(f"{ORIGIN}/art/**", lambda route: route.fulfill(status=404, body=""))
+    served.context.route(f"{served.origin}/art/**", lambda route: route.fulfill(status=404, body=""))
     try:
         page = served.open()
         _page.click(page, "tab-randomizer")
@@ -3636,7 +3487,7 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
         _page.until(page, "() => Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)", 60)
         assert page.evaluate(WORLD_SHOWN) == [None, None, ["track-maps"], False,
                                               [["world", *_png_size((shipped / "world.png").read_bytes())]], []]
-        read = [url.removeprefix(f"{ORIGIN}/") for _, url, _ in served.requests if "/art/" in url]
+        read = [url.removeprefix(f"{served.origin}/") for _, url, _ in served.requests if "/art/" in url]
         assert {url for url in read if "icons" in url} == {"art/icons.css", f"art/{tracking.ART_VERSION}/icons.png"}
         assert [url for url in read if "icons" not in url] == [
             "art/index.json", f"art/{tracking.ART_VERSION}/maps.json", f"art/{tracking.ART_VERSION}/world.png"]
@@ -3684,7 +3535,7 @@ def test_a_level_zoomed_past_its_maps_pixels_shows_its_floors_detail_picture(bro
     served = Site(browser, site, viewport={"width": 900, "height": 520})
 
     def read() -> list[str]:
-        return [url.removeprefix(f"{ORIGIN}/art/{v}/detail/") for _, url, _ in served.requests if "/detail/" in url]
+        return [url.removeprefix(f"{served.origin}/art/{v}/detail/") for _, url, _ in served.requests if "/detail/" in url]
     try:
         page = served.open()
         _page.click(page, "tab-randomizer")
@@ -3765,7 +3616,7 @@ def test_the_tracker_gives_modkits_verdicts_and_a_click_on_a_spot_marks_it(brows
     once the Tracker view shows (not as the page starts). No
     CSP violation, no request but GETs of the site's files."""
     served = Site(browser, site)
-    served.context.route(f"{ORIGIN}/art/**", lambda route: route.fulfill(status=404, body=""))   # no maps: the grid
+    served.context.route(f"{served.origin}/art/**", lambda route: route.fulfill(status=404, body=""))   # no maps: the grid
     try:
         page = served.open()
         _page.click(page, "tab-randomizer")
@@ -3921,26 +3772,16 @@ WORKERS_BARE = b"<!doctype html><meta charset=utf-8><title>workers</title>"
 
 
 def _bare_page(browser, root: Path):
-    """A page at :data:`ORIGIN` that is a bare document (no app.mjs: no
-    engine of its own), every other path served from ``root`` (:class:`_Held`)."""
+    """A page that is a bare document (no app.mjs: no engine of its own), every other path served from ``root`` by a
+    server of a process of its own (:class:`_page.Served`), as :class:`Site` serves it."""
+    files = _page.Served(root.resolve())
     context = browser.new_context()
-    held = _Held(context, browser.browser_type, root.resolve())
-    context.on("close", lambda _: held.close())
-
-    def serve(route, request) -> None:
-        if request.url.startswith("blob:"):   # the page's own blob: (WebKit routes them; Chromium doesn't)
-            return route.continue_()
-        path = urllib.parse.unquote(urllib.parse.urlsplit(request.url).path).lstrip("/")
-        if not path:
-            return route.fulfill(body=WORKERS_BARE, content_type="text/html")
-        file = (root / path).resolve()
-        if not request.url.startswith(f"{ORIGIN}/") or not file.is_relative_to(root.resolve()) or not file.is_file():
-            return route.fulfill(status=404, body="")
-        held.fulfill(route, file)
-
-    context.route("**/*", serve)
+    context.on("close", lambda _: files.close())
+    context.route(f"{files.url}/", lambda route: route.fulfill(body=WORKERS_BARE, content_type="text/html"))
+    context.route(re.compile(rf"^(?!{re.escape(files.url)}/)"), lambda route: route.continue_()   # the page's own blob:
+                  if route.request.url.startswith(f"blob:{files.url}/") else route.fulfill(status=404, body=""))
     page = context.new_page()
-    _page.load(page, f"{ORIGIN}/")
+    _page.load(page, f"{files.url}/")
     return context, page
 
 
@@ -4433,7 +4274,7 @@ def test_a_click_never_takes_bs_build_of_a_choice_the_engines_answer_changes(bro
     def source(route, request) -> None:
         rel = repo / urllib.parse.urlsplit(request.url).path.removeprefix("/content-test/")
         route.fulfill(path=str(rel)) if rel.is_file() else route.fulfill(status=404, body="")
-    served.context.route(f"{ORIGIN}/content-test/**", source)
+    served.context.route(f"{served.origin}/content-test/**", source)
     try:
         served.open().evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
         page = served.open()
@@ -4493,7 +4334,7 @@ def test_a_characters_pieces_go_from_the_engines_heap_into_a_build_file_held_unt
         served.context.route("**/worker.mjs", lambda route: route.fulfill(
             body=WROTE + worker, content_type="text/javascript"))
         page = served.context.new_page()
-        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.load(page, f"{served.origin}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
         _page.pick(page, "#iso", usa_iso)
         page.evaluate("() => document.querySelector('#build').click()")
@@ -4564,7 +4405,7 @@ def test_a_character_built_again_at_a_later_visit_is_dressed_from_what_this_brow
         served.context.add_init_script(HEARD)
         for visit in range(2):
             page = served.context.new_page()
-            _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+            _page.load(page, f"{served.origin}/{sdk.preset_encode(recipe)}")
             _page.until(page, "() => globalThis.azurkit?.loaded", 120)
             _page.pick(page, "#iso", usa_iso)
             page.evaluate("() => document.querySelector('#build').click()")
@@ -4611,7 +4452,7 @@ def test_a_build_wearing_a_character_builds_as_cpython_builds_it_where_the_brows
         served.context.route("**/worker.mjs", lambda route: route.fulfill(
             body=LOCKS_REFUSED + worker, content_type="text/javascript"))
         page = served.context.new_page()
-        _page.load(page, f"{ORIGIN}/{sdk.preset_encode(recipe)}")
+        _page.load(page, f"{served.origin}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
         assert page.evaluate(LOCK_ASKED) == "SecurityError"
         _page.pick(page, "#iso", usa_iso)

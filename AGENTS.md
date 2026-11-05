@@ -80,6 +80,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     while each browser's Web Locks are its own: a persistent WebKit context
     gets a home of its own (`CFFIXED_USER_HOME`, as `test_site.Site` does),
     or another test's page load sweeps its held build files.
+  - A page's files come from a server of a process of its own
+    (`tests/_page.py`'s `Served`, `tests/_static.py`: `test_site.Site` and
+    its bare page), never through the test's own
+    interpreter, which a plan in a thread or a full collection of a heap a
+    randomizer test left holds for seconds (on GitHub's Intel runner 98 s);
+    only a request elsewhere, and a test's own routes, come back to it.
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.
@@ -1482,8 +1488,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     source on raw.githubusercontent.com) is a CORS fetch, which
     cross-origin isolation allows as its host sends
     `Access-Control-Allow-Origin: *`; sw.js handles only its own scope's
-    requests. `tests/test_site.py`'s routed pages block it (routing never
-    sees a worker's requests). `site()` writes the release
+    requests. `tests/test_site.py`'s pages block it (routing never sees a
+    worker's requests). `site()` writes the release
     into it
     (`web_tools.release`: each file the site serves but `sw.js`,
     `.nojekyll` and `content-source/`, with its sha256 and size; the

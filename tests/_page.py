@@ -14,11 +14,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import http.server
+import json
+import subprocess
 import sys
 import time
 from pathlib import Path
 
-from azurkit.app import content_type
+from azurkit.app import CONTENT_TYPES, content_type
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 ICONS = {"favicon.ico": "16x16 32x32 48x48", "favicon-32.png": "32x32"}   # the favicon (D892): the mark, free
@@ -44,6 +46,77 @@ class Static(http.server.SimpleHTTPRequestHandler):
 
     def guess_type(self, path) -> str:
         return content_type(str(path))
+
+
+HOLD = 5
+"""s a test holds this interpreter (:func:`hold`) while its page fetches from a :class:`Served` server (a few small
+files: tens of ms here)."""
+
+
+def hold(seconds: int = HOLD) -> None:
+    """Hold this interpreter's GIL ``seconds`` s, idle: a C call that keeps it (``ctypes.PyDLL``), as a full collection
+    of a big heap holds it."""
+    import ctypes
+    if sys.platform == "win32":
+        ctypes.PyDLL("kernel32").Sleep(seconds * 1000)
+    else:
+        ctypes.PyDLL(None).sleep(seconds)
+
+
+class Served:
+    """``root`` served on 127.0.0.1 (``url``, no trailing ``/``) from a process of its own (``tests/_static.py``), so a
+    page's files never wait on this interpreter: they did when this process served them and the site's routes fetched
+    them through it, and a plan or a full collection here beside the page held them (on GitHub's Intel runner a
+    reshape's picture 98 s and a service worker's install past 60 s, run 42071325305). ``pages``: as GitHub Pages
+    serves (``max-age=600``). ``root`` and ``down`` are settable (a deploy, a host that answers 503); :meth:`log` is
+    every request it heard."""
+
+    def __init__(self, root: Path, pages: bool = False):
+        self.process = subprocess.Popen(
+            [sys.executable, "-I", str(Path(__file__).with_name("_static.py")), str(root), json.dumps(CONTENT_TYPES),
+             *(["--pages"] if pages else [])], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8")
+        if not (port := self.process.stdout.readline().strip()).isdigit():
+            self.process.kill()
+            raise AssertionError(f"tests/_static.py didn't start: {port!r}")
+        self.url, self._root, self._down = f"http://127.0.0.1:{port}", Path(root), False
+
+    def _ask(self, line: str) -> str:
+        self.process.stdin.write(line + "\n")
+        self.process.stdin.flush()
+        return self.process.stdout.readline().rstrip("\n")
+
+    @property
+    def root(self) -> Path:
+        return self._root
+
+    @root.setter
+    def root(self, root: Path) -> None:
+        assert self._ask(f"root {root}") == "ok"
+        self._root = Path(root)
+
+    @property
+    def down(self) -> bool:
+        return self._down
+
+    @down.setter
+    def down(self, down: bool) -> None:
+        assert self._ask(f"down {int(bool(down))}") == "ok"
+        self._down = bool(down)
+
+    def log(self) -> list[tuple[str, str, int]]:
+        """Each request so far: its method, path (with its query) and body's size."""
+        return [tuple(row) for row in json.loads(self._ask("log"))]
+
+    def close(self) -> None:
+        """Ends it (it ends as its stdin closes, so also with this process)."""
+        try:
+            self.process.stdin.close()
+            self.process.wait(10)
+        except (OSError, subprocess.TimeoutExpired):
+            self.process.kill()
+            self.process.wait()
+        finally:
+            self.process.stdout.close()
 
 
 def saved_name(browser, name: str) -> str:
