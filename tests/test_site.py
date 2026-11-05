@@ -3856,6 +3856,25 @@ BUILD_CANCEL = """() => {
     document.getElementById("cancel").click();
     look();
 }"""
+CANCEL_AT_THE_WORLD = f"""(() => {{   // BUILD_CANCEL, once armed, as the page takes the stage onto the tracker's ask
+    const Real = Worker;
+    globalThis.Worker = class extends Real {{
+        get onmessage() {{ return super.onmessage; }}
+        set onmessage(heard) {{   // the pool's handler first: the record it brings is on its ask after it
+            super.onmessage = heard && ((event) => {{
+                heard(event);
+                if (globalThis.cancelAt !== "armed" || ![...azurkit.asks.values()].some((a) => a.kind === "tracker"
+                    && a.record?.label?.startsWith("Reading the world map"))) return;   // its exits' note in or not
+                globalThis.cancelAt = "done";
+                ({BUILD_CANCEL})();
+            }});
+        }}
+    }};
+}})();"""
+"""An init script: :data:`BUILD_CANCEL` in the turn the page puts the tracker's world map stage on its ask, once the
+page's ``cancelAt`` is ``"armed"`` (then ``"done"``). Polled from the test, the stage (0.7 s of a 0.9 s view here)
+passed between two looks on GitHub's macOS runner (run 42071325305): a busy page takes the records a worker posted
+meanwhile, and the answer after them, in one go, and a look waits until they are taken."""
 
 
 def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_worker(browser, site, usa_iso, tmp_path):
@@ -3864,9 +3883,12 @@ def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_w
     ask is sent again to the worker that replaces it, and until that worker
     is ready the bottom bar shows no value: never the stopped worker's stage
     ("Reading the world map… 50 %", or with its exits' note, 4.3m's fold),
-    which nothing runs. It hides once the view is shown."""
+    which nothing runs. It hides once the view is shown. The Build and
+    Cancel come as the page shows the stage (:data:`CANCEL_AT_THE_WORLD`),
+    not when a look of the test's sees it (Step 4.4ci28)."""
     served = Site(browser, site)
     try:
+        served.context.add_init_script(CANCEL_AT_THE_WORLD)
         page = served.open()
         _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa' && azurkit.ready && !azurkit.asks.size", 300)
@@ -3875,12 +3897,11 @@ def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_w
         _page.click(page, "rando-view-tracker")
         doc = _profile("default")
         (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
+        page.evaluate("() => { globalThis.cancelAt = 'armed'; }")
         _page.pick(page, "#track-open", tmp_path / "plan.json")
-        _page.until(page, "() => [...azurkit.asks.values()].some((a) => a.kind === 'tracker'"   # the stage, its exits'
-                          " && a.record?.label?.startsWith('Reading the world map'))", 300)   # note folded in or not
-        page.evaluate(BUILD_CANCEL)
         _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
                           f" && ({TRACKED})()", 300)
+        assert page.evaluate("() => cancelAt") == "done"   # the view's ask showed the stage, and the cancel came then
         seen = page.evaluate("() => seen")
         assert not seen[0][0] and [s for s in seen if not s[0] and s[1] is not None
                                    and not s[2].startswith("Starting the engine")] == [], seen
