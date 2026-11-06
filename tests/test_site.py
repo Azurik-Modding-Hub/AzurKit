@@ -2687,7 +2687,8 @@ def test_a_seeds_build_after_the_pick_reads_the_images_id_no_more(browser, site,
 
 
 STUB_ENGINES = """(() => {
-    const { catalog, view, drawn, modes = {} } = %s, made = globalThis.made = [], later = [];
+    const { catalog, view, drawn, modes = {} } = %s, made = globalThis.made = [], sent = globalThis.sent = [],
+        later = [];
     globalThis.held = false;
     const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, heap: 2 ** 28, reply: { ...view,
         chosen: { ...view.chosen, ...modes[m.given.character?.mode], weapon: m.given.character?.weapon ?? null },
@@ -2711,6 +2712,7 @@ STUB_ENGINES = """(() => {
         }
         postMessage(m) {
             this.got.push(m);
+            sent.push(m);
             if (m.type === "preview" && !m.recipe.character.shapes) {   // a body's own pictures
                 return setTimeout(() => this.say({ type: "reply", call: m.call, reply: drawn, heap: 2 ** 28 }));
             }
@@ -2723,7 +2725,8 @@ STUB_ENGINES = """(() => {
 })();"""
 """The site's engines as stubs that load at once and answer pickers (``view``, with the weapon asked and, asked at a
 mode ``modes`` names, that mode's chosen fields; held until ``release()``) and a body's own pictures (``drawn``):
-``made`` holds each with what it ``got``, its ``stopped``; the test answers each reshape's preview with ``say``.
+``made`` holds each with what it ``got``, its ``stopped``, ``sent`` what the page posted to any of them, in order;
+the test answers each reshape's preview with ``say``.
 Left unanswered, the page's preview of the chosen model (sent whenever its first draw comes before
 ``characters/index.json``) held F, so the pickers after it waited on B (none on a 3-core runner, run 41521288667)
 and a draw for its key while the index loaded left the model unshown."""
@@ -2903,7 +2906,8 @@ def test_a_sliders_drag_keeps_one_ask_in_flight_and_asks_its_last_value_once_tha
              for side in ("front", "back")}
     served = Site(browser, site)
     served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
-    sizes = "() => made.flatMap((w) => w.got.filter((m) => m.type === 'pickers' && m.file).map((m) => m.given.character.scale))"
+    # the image's asks in the order the page sent them, to F or B (F's list, then B's, put one B took after F's later)
+    sizes = "() => sent.filter((m) => m.type === 'pickers' && m.file).map((m) => m.given.character.scale)"
     answered = "() => azurkit.characters.state.view?.asked === JSON.stringify(azurkit.characters.state.character)"
     try:
         page = served.open()
@@ -2911,7 +2915,9 @@ def test_a_sliders_drag_keeps_one_ask_in_flight_and_asks_its_last_value_once_tha
         _page.click(page, "tab-characters")
         _page.until(page, "() => azurkit.characters.state.view && made.length === 2", 60)
         page.evaluate("() => azurkit.characters.set({ species: 'keylord' })")
-        _page.until(page, f"() => ({answered})() && azurkit.characters.state.view.chosen.name === 'keylord'", 60)
+        # keylord's answer shown, the community list read (its end asks again) and no ask in flight
+        _page.until(page, f"() => ({answered})() && azurkit.characters.state.view.chosen.name === 'keylord' "
+                          f"&& ({_perf.SPECIES_LISTED})() && !azurkit.characters.state.asking", 60)
         before = len(page.evaluate(sizes))
         page.evaluate("() => { held = true; }")
         page.evaluate(_perf.DRAG)
