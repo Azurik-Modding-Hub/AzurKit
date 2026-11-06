@@ -385,7 +385,7 @@ def test_the_flake_stage_builds_nothing_again_that_the_gates_run_built(tmp_path,
     assert (tmp_path / "builds").read_text() == "1" and not meta.with_suffix(".cache").exists()
 
 
-def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_its_failed_and_unpassed_cases(
+def test_a_flake_run_or_collection_past_the_stages_cap_is_ended_with_its_processes_and_fails_the_stage_by_name(
         tmp_path, monkeypatch):
     """The stage's wall is FLAKE_CAP: a run still going at it is ended with
     every process under it (here a child in a session of its own, as
@@ -393,7 +393,9 @@ def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_i
     stage, though it passed an earlier run (the slowest run is the one the
     cap ends), and each case that never passed fails it by name as capped,
     never a silent pass; a case that passed before the cap isn't named. The
-    receipt keeps each run's wall time. The two stages run side by side."""
+    receipt keeps each run's wall time. A collection still going at it is
+    ended with its processes too (a child in its session, as ``uv run``
+    starts pytest) and fails the stage. The three stages run side by side."""
     _quick_flake(monkeypatch)
     monkeypatch.setattr(fullsuite, "FLAKE_CAP", 15)
 
@@ -415,7 +417,11 @@ def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_i
             "    RUNS.write_text(str(n := int(RUNS.read_text() if RUNS.exists() else 0) + 1))\n"
             "    assert n == 1, f'run {n} of the flaky test fails'\n\n\ndef test_late():\n"
             "    if RUNS.read_text() != '1':\n        time.sleep(600)\n"), ["test_x.py::test_flaky", "test_x.py::test_late"])
-        (flake, meta), (flaked, _) = hung.result(), late.result()
+        listing = pool.submit(stage, "listing", (   # its import hangs the stage's collection
+            "import subprocess, sys, time\nfrom pathlib import Path\n\nchild = subprocess.Popen([sys.executable, '-c', "
+            "'import time; time.sleep(600)'])\nPath(__file__).with_name('child').write_text(str(child.pid))\n"
+            "time.sleep(600)\n\n\ndef test_never():\n    pass\n"), ["test_x.py::test_never"])
+        (flake, meta), (flaked, _), (listed, _) = hung.result(), late.result(), listing.result()
     assert (flake["passed"], flake["done"], len(flake["walls"])) == (False, 0, 1)
     assert [(f["test"], f.get("capped")) for f in flake["failures"]] == [("test_x.py::test_hangs[c d]", True)]
     assert flake["walls"][0] < fullsuite.FLAKE_CAP and flake["wall_s"] < fullsuite.FLAKE_CAP + 5
@@ -426,10 +432,13 @@ def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_i
         False, 1, 2, "run 2 ended at the stage's 15 s")
     assert [(f["test"], f["run"], f.get("capped")) for f in flaked["failures"]] == [("test_x.py::test_flaky", 2, None)]
     assert "test_x.py::test_flaky FAILED" in "\n".join(flaked["failures"][0]["tail"])
-    child, deadline = int((tmp_path / "hung" / "child").read_text()), time.time() + 10
-    while _running(child) and time.time() < deadline:
-        time.sleep(0.1)
-    assert not _running(child), "the ended run's child outlived it"
+    assert (listed["passed"], [f["test"] for f in listed["failures"]], listed["walls"]) == (
+        False, ["(their collection: exit past 15 s)"], [])
+    for name in ("hung", "listing"):
+        child, deadline = int((tmp_path / name / "child").read_text()), time.time() + 10
+        while _running(child) and time.time() < deadline:
+            time.sleep(0.1)
+        assert not _running(child), f"the ended {name}'s child outlived it"
 
 
 def test_the_flake_stage_counts_a_grouped_cases_runs_under_the_id_its_collection_gives_it(tmp_path, monkeypatch):

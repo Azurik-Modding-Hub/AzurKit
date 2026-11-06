@@ -810,9 +810,10 @@ def flake_stage(meta: Path, m: dict) -> dict:
     time and slowing kept. Nothing built once is built
     slowed: the runs copy the wheel and database the gate's run built (its
     cache, ``<meta>.cache``: ``web_tools.kept``), and their cases are
-    collected first at the gate's nice 10. It stops at the first failing
-    run, naming each test it failed with the output's tail. The stage's wall
-    is :data:`FLAKE_CAP`: no run starts that its longest run so far won't
+    collected first at the gate's nice 10 (a collection past the cap is
+    ended as a run is). It stops at the first failing run, naming each
+    test it failed with the output's tail. The stage's wall is
+    :data:`FLAKE_CAP`: no run starts that its longest run so far won't
     fit in, and a run still going at it is ended with every process under
     it (:func:`end`): each case it failed so far fails the block (one that
     passed an earlier run too), and each case with no passing run by then
@@ -824,12 +825,15 @@ def flake_stage(meta: Path, m: dict) -> dict:
              "walls": [], "slowed": [], "workers": FLAKE_WORKERS, "cap_s": FLAKE_CAP}
     if block["runs"] < FLAKE_RUNS:
         block["note"] = f"{len(tests)} tests, past {FLAKE_MANY}: one slowed run each"
-    try:
-        listed = subprocess.run([*niced(10), *PYTEST, "--collect-only", "-q", *tests], cwd=m["worktree"], text=True,
-                                capture_output=True, stdin=subprocess.DEVNULL, env=env, timeout=FLAKE_CAP)
-        code, ids, said = listed.returncode, listed.stdout, listed.stdout + listed.stderr
-    except subprocess.TimeoutExpired:
-        code, ids, said = f"past {FLAKE_CAP} s", "", ""
+    with subprocess.Popen([*niced(10), *PYTEST, "--collect-only", "-q", *tests], cwd=m["worktree"], text=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, env=env,
+                          start_new_session=True) as listing:   # a session of its own: end() reaches uv's python
+        try:
+            ids, err = listing.communicate(timeout=FLAKE_CAP)
+            code, said = listing.returncode, ids + err
+        except subprocess.TimeoutExpired:
+            end(listing)
+            code, ids, said = f"past {FLAKE_CAP} s", "", "".join(listing.communicate())   # what it said so far
     if code or not (cases := re.findall(r"^(\S+::.*?) *$", ids, re.M)):
         tail = [line[:240] for line in said.splitlines()[-FLAKE_TAIL:]]
         block["failures"] = [{"test": f"(their collection: exit {code})", "run": 0, "tail": tail}]
