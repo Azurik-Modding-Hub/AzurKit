@@ -1752,7 +1752,10 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
     unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
     browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
-    10 min, run 41610020282). A pick whose input never comes (``_page.pick``, every set_input_files of the site's tests)
+    10 min, run 41610020282). The state's status line comes on lines of its own, its `` · `` parts whole up to
+    ``_page.STATUS`` and the rest counted, no line past ``_page.WIDTH``, which CI's log cuts no more (run 42168608453
+    cut a load failure's at "ValueError: can").
+    A pick whose input never comes (``_page.pick``, every set_input_files of the site's tests)
     and a navigation whose document never comes (``_page.load``, every goto and reload of the site's tests, and the
     frozen app page's first load) fail so past ``_page.ACT``, Playwright's own bound for them, naming the file or the
     address, the load also the requests it waits on (Step 4.4ci30), and a browser's close its
@@ -1763,6 +1766,9 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     served = Site(browser, site)
     try:
         page = served.open()   # in the bound a page's opening has, not the test's
+        status = " · ".join(["AzurKit didn't load: ValueError: " + " ".join(["can't read it"] * 30),
+                             *(f"file{i:03}.xbr" for i in range(200))])   # one long part, then more than STATUS holds
+        _page.answer(page, "(text) => { document.getElementById('status').textContent = text; }", status)
         monkeypatch.setattr(_page, "STALL", 2)
         monkeypatch.setattr(_page, "ACT", 2)
         t0 = time.monotonic()   # its reads in the HEAR they have outside the test: in 1 s GitHub's Intel Mac runner
@@ -1772,6 +1778,12 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         lines = str(never.value).splitlines()
         assert lines[0] == "no answer in 1 s: () => new Promise(() => {})" and lines[1].startswith("state: {'asks': [")
         assert lines[-2:-1] == ["its browser still answers"] and lines[-1].startswith("under its driver: ")
+        said = [line for line in lines[2:] if line.startswith(("status: ", "  "))]   # whole, on lines CI doesn't cut
+        shown, _, rest = " ".join(line.removeprefix("status: ").strip() for line in said).partition(" · …and ")
+        assert said[0].startswith("status: AzurKit didn't load: ValueError: can't read it can't") and max(
+            map(len, said)) <= _page.WIDTH and status.startswith(f"{shown} · ") and len(shown) <= _page.STATUS
+        left = status.count(" · ") - shown.count(" · ")
+        assert rest == f"{left} more of its parts ({len(status) - len(shown)} characters)"
         monkeypatch.setattr(_page, "HEAR", 1)   # the busy page's state read ends unread inside its 8 s (PROBE whole)
         page.evaluate(BUSY)
         t1 = time.monotonic()
