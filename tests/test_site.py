@@ -3196,12 +3196,20 @@ def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_
         served.close()
 
 
+DEEP = 45
+"""How many Python frames down a build's trap in :func:`_faults` is: Pyodide's dump of them (a header, then a line a
+frame, innermost first) runs past the 40 lines the worker keeps, as its dump at numpy's import did (72 lines)."""
+
+
 def _faults(worker: str, usa: str) -> str:
     """worker.mjs with the engine's call failing: the prime of an image that isn't ``usa`` and the build of fps_unlock
-    trap the engine's wasm (a read past the heap: Pyodide's fatal error), any other build raises."""
+    trap the engine's wasm (a read past the heap: Pyodide's fatal error), the build's DEEP Python frames down, past
+    the lines of Pyodide's dump the worker keeps; any other build raises."""
     prime, build = '    if request.type in ("layout", "prime"):', '        if request.type == "build":   # to the pages'
     assert worker.count(prime) == worker.count(build) == 1
-    return worker.replace(prime, f"""    def azurkit_fault():
+    return worker.replace(prime, f"""    def azurkit_fault(depth=0):
+        if depth:
+            return azurkit_fault(depth - 1)
         import ctypes
         ctypes.string_at(0xFFFFFFF0, 64)
 
@@ -3209,7 +3217,7 @@ def _faults(worker: str, usa: str) -> str:
         azurkit_fault()
 {prime}""").replace(build, f"""        if request.type == "build":
             if "fps_unlock" in request.recipe.packs.to_py():
-                azurkit_fault()
+                azurkit_fault({DEEP})
             raise RuntimeError("no build here")
 {build}""")
 
@@ -3221,11 +3229,14 @@ def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_an
     Python frames it was in (Pyodide's dump of them: no message of the error holds them), innermost first, and the wasm
     functions; so does every later ask of that engine (an image's check, whose failure the worker doesn't post, traps
     before the pick's read), never Pyodide's "already fatally failed", nor the image's unmount after a build's trap. A
-    build that raises names its call and its traceback's frames; a new engine answers each next ask."""
+    trap :data:`DEEP` frames down names its innermost frames, not the dump's last. A build that raises names its call
+    and its traceback's frames; a new engine answers each next ask."""
     status = """(start) => { const s = document.querySelector("#status");
         return s.classList.contains("error") && s.textContent.startsWith(start) && s.textContent; }"""
-    trapped = (r"Python at ctypes/__init__\.py line \d+ \(string_at\) < <exec> line \d+ \(azurkit_fault\)"
-               r" < <exec> line \d+ \(engine\) < <exec> line \d+ \(answering\)")
+    frame = r" < <exec> line \d+ \({}\)"
+    first = r"Python at ctypes/__init__\.py line \d+ \(string_at\)" + frame.format("azurkit_fault")
+    trapped = {"prime": first + frame.format("engine") + frame.format("answering"),
+               "build": first + frame.format("azurkit_fault") * 2}
     served = Site(browser, site)
     try:
         worker = _faults((site / "worker.mjs").read_text(encoding="utf-8"), usa_iso.name)
@@ -3237,7 +3248,7 @@ def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_an
                 _page.build(page, packs)
             head = f"The engine's WebAssembly failed in its {call} call: "
             got, python, wasm = _page.until(page, f"() => ({status})({head!r})").split(" · ")
-            assert "fatally" not in got and re.fullmatch(trapped, python), (got, python)
+            assert "fatally" not in got and re.fullmatch(trapped[call], python), (got, python)
             assert re.fullmatch(r"wasm functions \d+(, \d+){0,3}", wasm), wasm
             _page.until(page, "() => azurkit.ready", 300)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
