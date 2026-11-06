@@ -104,9 +104,9 @@ CRASH = re.compile(r"^(?:WerFault|WerFaultSecure|wermgr|crashhelper|crashreporte
 report is written), Firefox's crash helper, reporter, minidump analyzer and ping sender, macOS's ReportCrash."""
 MIB = 1 << 20
 SAY_S = 10
-"""s :func:`held` may take: a listing of the processes and the folders' sizes (the listing takes ms: ``ps``, Windows'
-own calls), so a close that never answered still fails promptly, the rest of the folders' sizes left unread; and the
-bound of each ``ps`` the watch runs."""
+"""s :func:`held` may take: a listing of the processes and the folders' names and sizes (the listing takes ms:
+``ps``, Windows' own calls), so a close that never answered still fails promptly, what is left of the folders unread;
+and the bound of each ``ps`` the watch runs."""
 LISTED = 20
 """Processes at most in each of :func:`held`'s lists."""
 WER = ("CrashDumps", "Microsoft/Windows/WER/ReportQueue", "Microsoft/Windows/WER/ReportArchive")
@@ -721,18 +721,19 @@ def orphans(rows: list[tuple], age: int) -> list[tuple]:
 
 
 def _size(folder: Path, deadline: float) -> str:
-    """The bytes and files under ``folder``, as many as are read by ``deadline`` (``time.monotonic``'s)."""
+    """The bytes and files under ``folder``, as many as are read by ``deadline`` (``time.monotonic``'s), which each
+    name's read is held to: at background priority a read of names may wait seconds (:func:`temp_folders`)."""
     total = files = 0
-    stack = [folder]
-    while stack:
-        if time.monotonic() > deadline:
-            return f"at least {total / MIB:.1f} MiB in {files} files (the rest unread)"
+    stack, whole = [folder], True
+    while stack and (whole := time.monotonic() <= deadline):
         try:
             entries = os.scandir(stack.pop())
         except OSError:
             continue
         with entries:
             for entry in entries:
+                if not (whole := time.monotonic() <= deadline):
+                    break
                 try:
                     if entry.is_dir(follow_symlinks=False):
                         stack.append(Path(entry.path))
@@ -740,7 +741,8 @@ def _size(folder: Path, deadline: float) -> str:
                         total, files = total + entry.stat(follow_symlinks=False).st_size, files + 1
                 except OSError:
                     pass
-    return f"{total / MIB:.1f} MiB in {files} files"
+    read = f"{total / MIB:.1f} MiB in {files} files"
+    return read if whole else f"at least {read} (the rest unread)"
 
 
 def _made(path: Path) -> float:
@@ -751,19 +753,31 @@ def _made(path: Path) -> float:
 def temp_folders(age: float | None, deadline: float) -> list[str]:
     """Each of Playwright's temporary folders (a browser's profile, its artifacts) made in the last ``age`` s (any
     age: ``None``), by kind and age, with its size (:func:`_size`): the driver removes a browser's only once its close
-    has heard it end. Labels and numbers only."""
-    said, now = [], time.time()
+    has heard it end. As many as are read by ``deadline``, which each name's read is held to, the rest said unread:
+    the temporary folder is every program's, and this Mac's held 29,742 names, read in 0.02 s at normal priority and in
+    0.7-38 s at background priority (``taskpolicy -b``, the gate's flake stage's), waiting all but 0.05 s of it
+    (Step 4.4ci36). Labels and numbers only."""
+    said, found, now, cut = [], [], time.time(), False
     try:
-        found = sorted((_made(p), p) for p in Path(tempfile.gettempdir()).glob("playwright*") if p.is_dir())
+        with os.scandir(tempfile.gettempdir()) as entries:
+            for entry in entries:
+                if time.monotonic() > deadline:
+                    cut = True
+                    break
+                try:
+                    if entry.name.startswith("playwright") and entry.is_dir():
+                        found.append((_made(Path(entry.path)), Path(entry.path)))
+                except OSError:   # removed since it was listed
+                    pass
     except OSError as e:
         return [f"unread ({type(e).__name__})"]
-    for made, folder in found:
+    for made, folder in sorted(found):
         if age is not None and made < now - age - 2:
             continue
         kind = re.match(r"playwright_(\w+?)dev_profile-|playwright-(artifacts)-", folder.name)
         label = (f"{kind[1]}'s profile" if kind and kind[1] else "artifacts" if kind else "another")
         said.append(f"{label} ({(now - made) / 60:.0f} min): {_size(folder, deadline)}")
-    return said
+    return [*said, "the rest of the temporary folder unread"] if cut else said
 
 
 def wer_reports(age: float | None) -> list[str]:
@@ -794,10 +808,13 @@ def held(driver: int, folders: dict[str, Path] | None = None, seconds: float = S
     about ``seconds`` s: the processes under the driver, each process left running since the driver began by a parent
     that ended (:func:`orphans`), the crash handlers (:data:`CRASH`), each :func:`described`; Playwright's temporary
     folders since then (:func:`temp_folders`), each of ``folders`` (``{label: folder}``) with its size, and what
-    Windows Error Reporting wrote since then (:func:`wer_reports`). Never raises: what can't be read says so."""
+    Windows Error Reporting wrote since then (:func:`wer_reports`). Never raises: what can't be read says so. The reads
+    of ``folders``, of the processes and of the temporary folder's names, in that order (those names may take the
+    rest), are held to what is left of ``seconds``."""
     deadline, said, age = time.monotonic() + seconds, [], None
-    try:
-        rows = table(seconds)   # what it prints, never a command line: macOS's ps reads those apart, seconds slowed
+    sizes = [f"{label}: {_size(Path(folder), deadline)}" for label, folder in (folders or {}).items()]
+    try:   # what it prints, never a command line: macOS's ps reads those apart, seconds slowed
+        rows = table(max(deadline - time.monotonic(), 0))
     except (OSError, subprocess.SubprocessError, ValueError) as e:
         said.append(f"its processes unread ({type(e).__name__})")
     else:
@@ -813,8 +830,7 @@ def held(driver: int, folders: dict[str, Path] | None = None, seconds: float = S
         said.append("crash handlers: " + ("; ".join(described(row) for row in rows if CRASH.search(row[3]))
                                           or "none"))
     said.append("Playwright's temporary folders since it began: " + ("; ".join(temp_folders(age, deadline)) or "none"))
-    for label, folder in (folders or {}).items():
-        said.append(f"{label}: {_size(Path(folder), deadline)}")
+    said += sizes
     if sys.platform == "win32":
         said.append("Windows Error Reporting's since it began: " + ("; ".join(wer_reports(age)) or "none"))
     return said

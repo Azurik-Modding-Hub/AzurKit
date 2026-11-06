@@ -1747,7 +1747,8 @@ BUSY = "() => { setTimeout(() => { const end = Date.now() + 8000; while (Date.no
 """The page's thread busy 8 s from its next task: it answers no call meanwhile, as a browser that stopped wouldn't."""
 
 
-def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its_bound(browser, site, monkeypatch):
+def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its_bound(browser, site, monkeypatch,
+                                                                                        tmp_path):
     """D1072: a page promise that never settles fails its call by name past its bound, with the page's state, and a
     page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
     unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
@@ -1811,9 +1812,15 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert 2 <= time.monotonic() - t3 < 20
         monkeypatch.setattr(_page, "HEAR", 1)   # the held navigation's state read below may end unread in 1 s
         monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
+        # what the close may wait on, listed in 5 s (its 10 s outside the test), the close's 1 s with it inside the
+        # test's 10 s; it reads the temporary folder's names last, every program's folder (29,742 names here, read in
+        # up to 38 s at taskpolicy -b's background priority, 4.4ci36), so they may be what it leaves unread
+        monkeypatch.setattr(ci_resources, "held", functools.partial(ci_resources.held, seconds=5))
+        (downloads := tmp_path / "downloads").mkdir()
+        (downloads / "a.txt").write_bytes(b"a")
         t4 = time.monotonic()
         with pytest.raises(AssertionError) as unclosed:
-            conftest.close_browser(browser, 1, downloads=site)
+            conftest.close_browser(browser, 1, downloads=downloads)
         assert 1 <= (closed := time.monotonic() - t4) < 10 and not read, (closed, read)
         name, lines = browser.browser_type.name, str(unclosed.value).splitlines()
         driver = re.fullmatch(rf"no answer in 1 s: the {name} browser's close, its driver (\d+)", lines[0])[1]
@@ -1823,8 +1830,9 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         assert [line.partition(": ")[0] for line in lines[3:7]] == [
             "left running since it began by a parent that ended", "crash handlers",
             "Playwright's temporary folders since it began", "its downloads"], lines
-        assert re.search(rf"\b{name}'s profile \(\d+ min\): [\d.]+ MiB in \d+ files", lines[5]), lines
-        assert re.fullmatch(r"its downloads: [\d.]+ MiB in [1-9]\d* files", lines[6]), lines
+        assert re.fullmatch(rf"[^:]+: (.*\b{name}'s profile \(\d+ min\): (at least )?[\d.]+ MiB in \d+ files\b.*|"
+                            r"(.+; )?the rest of the temporary folder unread)", lines[5]), lines
+        assert lines[6] == "its downloads: 0.0 MiB in 1 files", lines
         routes = []   # a navigation whose document never comes
         page.route("**/held.html", lambda route: routes.append(route))
         t2 = time.monotonic()
