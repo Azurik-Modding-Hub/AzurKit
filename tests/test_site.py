@@ -3229,8 +3229,9 @@ def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_an
     Python frames it was in (Pyodide's dump of them: no message of the error holds them), innermost first, and the wasm
     functions; so does every later ask of that engine (an image's check, whose failure the worker doesn't post, traps
     before the pick's read), never Pyodide's "already fatally failed", nor the image's unmount after a build's trap. A
-    trap :data:`DEEP` frames down names its innermost frames, not the dump's last. A build that raises names its call
-    and its traceback's frames; a new engine answers each next ask."""
+    trap :data:`DEEP` frames down names its innermost frames, not the dump's last. Each trapped ask is sent to a new
+    engine once (D1126), whose trap fails it so by name. A build that raises names its call and its traceback's frames;
+    a new engine answers each next ask."""
     status = """(start) => { const s = document.querySelector("#status");
         return s.classList.contains("error") && s.textContent.startsWith(start) && s.textContent; }"""
     frame = r" < <exec> line \d+ \({}\)"
@@ -3256,6 +3257,97 @@ def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_an
         raised = _page.until(page, f"() => ({status})('RuntimeError')").split(" · ")
         assert raised[:2] == ["RuntimeError: no build here", "in the engine's build call"] and len(raised) == 3, raised
         assert re.fullmatch(r"Python at <exec> line \d+ \(engine\) < <exec> line \d+ \(answering\)", raised[2]), raised
+    finally:
+        served.close()
+
+
+TRAPPED_ROWS = """
+    const { TRAPS } = await import("/workers.mjs");
+    const trap = (message) => ({ type: "failed", message, trapped: true });
+    {   // F's build traps: F goes at once, and idle B takes its place and is sent the build again, which it builds
+        const heard = [];
+        const { pool, f, b } = make({ restarted: (data, redo) => heard.push([data.message, redo]) });
+        const built = pool.ask(build("t"), { heavy: true });
+        f.say(trap("trap 1"));
+        b.say({ type: "built", report: { size: 1 }, heap: 2 ** 25 });
+        out.redone = [f.stopped, b.tags(), (await built).report, heard, pool.state().promoted];
+    }
+    {   // the job sent again traps too: it fails by name, sent no third time (no B: a new F loads each time)
+        const heard = [];
+        const { pool, stubs } = make({ cores: 2, restarted: (data, redo) => heard.push([data.message, redo]) });
+        const built = pool.ask(build("u"), { heavy: true });
+        stubs[0].say(trap("trap 1"));
+        stubs[1].say({ type: "ready", n: 2 });
+        stubs[1].say(trap("trap 2"));
+        out.twice = [stubs[1].tags(), await built, heard, stubs.length];
+    }
+    {   // B's own job ahead traps: B goes, its key isn't tried again while listed, and a click asks F
+        const heard = [];
+        const { pool, stubs, f, b } = make({ restarted: (data, redo) => heard.push([data.message, redo]) });
+        pool.want([{ key: "build v", message: build("v"), heavy: true }]);
+        b.say(trap("trap b"));
+        stubs[2].say({ type: "ready", n: 3 });
+        const asked = pool.ask(build("v"), { key: "build v", heavy: true });
+        f.say({ type: "built", report: { size: 2 }, heap: 2 ** 25 });
+        out.ahead = [b.stopped, stubs[2].tags(), f.tags(), (await asked).report, heard];
+    }
+    {   // an idle F that traps (a shared warm-up's) is replaced, nothing sent again, TRAPS times a visit; then a trap
+        // is any failure: told, its F kept
+        const heard = [], told = [];
+        const { stubs } = make({ cores: 2, restarted: (data, redo) => heard.push([data.message, redo]),
+                                 told: (data, role) => told.push([data.message, role]) });
+        for (let n = 1; n <= TRAPS + 1; n++) {
+            if (n > 1) stubs.at(-1).say({ type: "ready", n });
+            stubs.at(-1).say(trap(`trap ${n}`));
+        }
+        await null;
+        out.idle = [TRAPS, heard, told, stubs.map((stub) => stub.stopped)];
+    }
+"""
+"""The pool's restart of a worker whose engine trapped (workers.mjs's ``restart()``), on stub workers (each a scenario
+of :func:`test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_saying_so`)."""
+
+TWO_CORES = "Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 2 });"
+"""The page says it has 2 cores, so workers.mjs starts no B (:data:`FOUR_CORES` is the prototype's: this is the
+navigator's own)."""
+
+
+def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_saying_so(browser, site, usa_iso):
+    """D1126: the cause of the arm64 WebKit golden's trap ("access to a null reference", Step 4.4ci44) isn't found, so
+    the page recovers from such a trap. A worker whose engine trapped is replaced at once; the page's job it ran is sent
+    to the next engine once (a second trap fails it by name), and the page says so; B's own job ahead is dropped, its
+    key not tried again while listed; a trap with no job (a shared warm-up's) restarts it too, :data:`TRAPS` a visit,
+    past which a trap is any failure. On the page: a build whose first engine traps (the route's first worker.mjs is
+    :func:`_faults`'s, its later ones plain) ends built, said "The engine stopped and started again: building again"
+    meanwhile and keeps where the trap was (``azurkit.recovered``)."""
+    assert _on_stubs(browser, TRAPPED_ROWS) == {
+        "redone": [True, ["build t"], {"size": 1}, [["trap 1", "build"]], 1],
+        "twice": [["build u"], {"type": "failed", "message": "trap 2", "trapped": True}, [["trap 1", "build"]], 3],
+        "ahead": [True, [], ["build v"], {"size": 2}, [["trap b", None]]],
+        "idle": [3, [["trap 1", None], ["trap 2", None], ["trap 3", None]], [["trap 4", "f"]],
+                 [True, True, True, False]],
+    }
+    served = Site(browser, site)
+    try:
+        plain = (site / "worker.mjs").read_text(encoding="utf-8")
+        bodies = [_faults(plain, usa_iso.name)]
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=bodies.pop() if bodies else plain,
+                                                                          content_type="text/javascript",
+                                                                          headers={"cache-control": "no-store"}))
+        served.context.add_init_script(TWO_CORES)
+        page = served.open()
+        page.evaluate("""() => { const s = document.querySelector("#status");
+            window.said = [];
+            new MutationObserver(() => said.push(s.textContent)).observe(s, { childList: true, subtree: true }); }""")
+        _page.pick(page, "#iso", usa_iso)
+        _page.build(page, ["fps_unlock"])
+        _page.built(page)
+        frame = r" < <exec> line \d+ \(azurkit_fault\)"
+        trapped = (r"The engine's WebAssembly failed in its build call: [^·]+ · Python at ctypes/__init__\.py line \d+"
+                   rf" \(string_at\){frame * 3} · wasm functions \d+(, \d+){{0,3}}")
+        recovered, said = page.evaluate("() => [azurkit.recovered, said]")
+        assert len(recovered) == 1 and re.fullmatch(trapped, recovered[0]), recovered
+        assert "The engine stopped and started again: building again" in said and not bodies, said
     finally:
         served.close()
 

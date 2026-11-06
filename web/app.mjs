@@ -66,7 +66,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
-                vouched: new Map(), resting: new Map(), tracking: null,
+                vouched: new Map(), resting: new Map(), tracking: null, recovered: [],
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, recheck: false, probing: false,
                          moved: null } };
@@ -363,6 +363,12 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
         starting = null;
         failed(data.message);
       }
+    },
+    // A worker whose engine trapped was started again (D1126): the page says so where it sends the player's ask again,
+    // and keeps where each trap was (worker.mjs's located()) for the tests and CI, its cause being open.
+    restarted: (data, redo) => {
+      state.recovered.push(data.message);
+      if (redo) say(`The engine stopped and started again: ${(LABELS[redo] ?? "working").toLowerCase()} again`);
     },
   });
   state.pool = pool;   // for the tests

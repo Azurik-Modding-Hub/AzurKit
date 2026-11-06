@@ -23,7 +23,8 @@
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
 // job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "at"} says the await it is in
 // (state()'s at, Step 4.3r4t); {type: "failed"} ends the job and
-// replaces the worker; {type: "ready"} once loaded (a heap in it is counted). Two are the pool's own (Step 4.4bf):
+// replaces the worker (one whose engine trapped, at once, its job or none, and the page's job goes to the next F once:
+// restart()); {type: "ready"} once loaded (a heap in it is counted). Two are the pool's own (Step 4.4bf):
 // {type: "wasm", module}, the engine's wasm a worker compiled, which is sent first to each later worker, which
 // instantiates it and compiles none of its own; and {type: "id", id}, the image's id a worker read for the File of its
 // job's message, which each later message with that File brings (as id: the File's ends read once a pick, not once a
@@ -33,14 +34,17 @@
 // {type: "stopped", message} (its worker stopped: a once or heavy ask, or one stopped twice); answer() hears each of
 // its other messages first, progress() its records.
 //
-// workers({start, ready, told, free, cores, settle, keep, grown, tally, ends, held}) -> {ask, want, cancel, share, hold,
-// took, up, state, close}: start(role) makes a worker ("f" or "b"); ready(data) hears F's ready, again when B takes F's
-// place; told(data, role) hears what no job asked for (a CSP report, F's failed load, F's start's records); free(gone)
-// hears a kept answer's messages when nothing can take them any more. All are called after the pool's own step (a
-// microtask later), so they may call the pool. held(messages) is the bytes an answer holds in memory (bytesOf by default).
+// workers({start, ready, told, free, restarted, cores, settle, keep, grown, tally, ends, held}) -> {ask, want,
+// cancel, share, hold, took, up, state, close}: start(role) makes a worker ("f" or "b"); ready(data) hears F's ready,
+// again when B takes F's place; told(data, role) hears what no job asked for (a CSP report, F's failed load, F's
+// start's records); free(gone) hears a kept answer's messages when nothing can take them any more; restarted(data,
+// redo) a trapped worker's failure, and the type of the page's job it sends again (redo), if any. All are called
+// after the pool's own step (a microtask later), so they may call the pool. held(messages) is the bytes an answer holds
+// in memory (bytesOf by default).
 export const KEEP = 2 ** 30;          // a grown worker's heap: B isn't promoted past it, nor two of them kept
 export const SLACK = 2 ** 26;         // a heap this much over the other's is the heavy jobs' (oneHeap())
 export const GROWN = 3 * 2 ** 30;     // a worker whose heap reaches it after a job is replaced: a kept heap's own line
+export const TRAPS = 3;               // trapped workers a visit restarts (restart()): past them a trap is any failure
 export const TALLY = 5 * 2 ** 30;     // the page's line (the plan's default): B starts no job at or past it
 export const SETTLE = 250;            // ms the page's list holds still before B starts on it (app.mjs's remember())
 export const CORES = 4;               // B only where navigator.hardwareConcurrency is at least this
@@ -92,7 +96,8 @@ export function bytesOf(value, depth = 0) {
   return Object.values(value).reduce((n, v) => n + bytesOf(v, depth + 1), 0);
 }
 
-export function workers({ start, ready = () => {}, told = () => {}, free = () => {}, cores, settle = SETTLE, keep = KEEP,
+export function workers({ start, ready = () => {}, told = () => {}, free = () => {}, restarted = () => {}, cores,
+                          settle = SETTLE, keep = KEEP,
                           grown = GROWN, tally = TALLY, ends: last = ends, held: heldBy = bytesOf } = {}) {
   cores ??= globalThis.navigator?.hardwareConcurrency ?? 1;
   let f = null, b = null, dead = null, noB = cores < CORES, closed = false, held = 0, list = [], changed = 0;
@@ -208,6 +213,9 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       }
       return pump();
     }
+    if (data?.type === "failed" && data.trapped && traps < TRAPS && !(slot.job && shown(slot.job) && slot.job.tries)) {
+      return restart(slot, data);
+    }
     const job = slot.job;
     if (!job) return later(told, data, slot.role);
     if (data?.type === "progress") {
@@ -261,6 +269,29 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
         queue.unshift(job);
       }
     }
+    pump();
+  };
+
+  // A worker whose engine trapped (worker.mjs's {type: "failed", trapped}: Pyodide's fatal error, which fails each
+  // later call of that engine) is replaced at once, its job or none (D1126: the cause of CI's arm64 WebKit trap isn't
+  // found, so a player is never left at it): the page's job goes to the next F once, a second trap failing it; B's own
+  // work is dropped as a failed job's is, not tried again while listed. TRAPS a visit: one at each start (a shared
+  // warm-up's) would restart engines without end.
+  let traps = 0;
+  const restart = (slot, data) => {
+    traps += 1;
+    const job = slot.job;
+    slot.job = null;
+    slot.at = null;
+    if (slot === f) replaceF();
+    else dropB("retired");
+    const redo = job && shown(job) ? job : null;
+    if (redo) {
+      Object.assign(redo, { message: redo.own ?? redo.message, tries: 1, ahead: false, adopted: false, record: null,
+                            messages: [] });
+      queue.unshift(redo);
+    } else if (job) taken.add(job.key);
+    later(restarted, data, redo?.message.type ?? null);
     pump();
   };
 

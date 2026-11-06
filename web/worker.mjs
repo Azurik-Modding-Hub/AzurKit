@@ -35,7 +35,8 @@
 //      walk), {type: "at", where} (the await the job is in: awaiting()), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
 //      "spoiled", text | refused} brings next: the build shows sooner),
 //      {type: "refused", message, heap}
-//      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message},
+//      (the engine's refusal, which names what and why, never game bytes), {type: "failed", message, trapped?}
+//      (trapped: the engine's wasm trapped, failure()),
 //      {type: "vanilla", release, label, packs, info} (the image's own value of each slider at a site of its XBE, and
 //      sdk.image_info's answer, which the Tools tab shows with no ask of its own),
 //      {type: "opened", preset} (the image is an AzurKit build: its recipe, sdk.open_build of the files it changed),
@@ -71,12 +72,13 @@ const lastLine = (error) => String(error?.message ?? error).trim().split("\n").a
 // named importlib's frames from mid-stack as the innermost. A trap leaves that engine for good: every later call and
 // mount says that first failure (dead, which Pyodide's on_fatal sets wherever it traps: numpy's load too), never
 // Pyodide's "already fatally failed" (a failed prime's, a kept dress's or the rest's is not posted, and numpy's load
-// swallows its own), and the pool replaces the worker once one is (workers.mjs). A page of CI's WebKit said only
-// "access to a null reference (evaluating '__pyproxy_apply(t,e,n,o,s)')": JavaScriptCore's name for a fault of wasm
-// code at an address below the lowest one a process may map (its fault handler's, meant for Wasm GC's struct and array
-// reads), inside the C call of a Python function the worker called (pyproxy.c's), so a trap, not a destroyed PyProxy
-// (Pyodide refuses a call of one in JS, before any wasm runs); and, bare, from a call no mount held (a build's unmount
-// said "already fatally failed").
+// swallows its own), and each failure it posts says so (trapped), so the pool replaces the worker at once and sends the
+// page's job to the next once (workers.mjs's restart(), D1126). A page of CI's WebKit said only "access to a null
+// reference (evaluating '__pyproxy_apply(t,e,n,o,s)')": JavaScriptCore's name for a fault of wasm code at an address
+// below the lowest one a process may map (its fault handler's, meant for Wasm GC's struct and array reads), inside the
+// C call of a Python function the worker called (pyproxy.c's), so a trap, not a destroyed PyProxy (Pyodide refuses a
+// call of one in JS, before any wasm runs); and, bare, from a call no mount held (a build's unmount said "already
+// fatally failed").
 const SAID = 40, FRAMES = 4, said = [];
 let dead = null, calling = null;   // the trap that ended this worker's engine, located; the call it was in
 const told = (line) => {
@@ -96,6 +98,8 @@ function located(error, call) {
   if (wasm.length) parts.push(`wasm functions ${wasm.map((m) => m[1]).join(", ")}`);
   return parts.join(" · ");
 }
+// A call's failure, as posted: after a trap, marked so (trapped), and the pool starts the engine again (workers.mjs).
+const failure = (error) => ({ type: "failed", message: lastLine(error), ...(dead ? { trapped: true } : {}) });
 
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
@@ -1135,7 +1139,7 @@ try {
         const rest = loaded.rest;
         loaded.rest = null;
         return rest?.().catch(() => {});
-      }).catch((error) => post({ type: "failed", message: lastLine(error) }));
+      }).catch((error) => post(failure(error)));
   };
   const handle = (data) => {
     try {
@@ -1178,7 +1182,7 @@ try {
         throw error;
       });
     } catch (error) {
-      post({ type: "failed", message: lastLine(error) });
+      post(failure(error));
     }
   };
   post({ type: "ready", start: loaded.start, ...(loaded.cold ? { cold: loaded.cold } : {}),
