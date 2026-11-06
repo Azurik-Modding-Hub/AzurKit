@@ -1244,7 +1244,9 @@ def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrot
     crash report or a jetsam event since the tier began says ended, with its last footprint and the free memory then;
     another process's report, an older one and an unreadable one aren't taken for it. A crash names where it faulted
     (run 41981438506's SIGBUS at 0.52 GiB said only its kind): the address's kind and region, what the process said
-    and its crashed thread's innermost frames. Names and numbers only, no path."""
+    and its crashed thread's innermost frames. Names and numbers only, no path. WebKit's log lines name the IPC message
+    its network process refused before it asked for a page process's end (run 42198913490's Intel tier lost a live page
+    so, ``reason=RequestedByNetworkProcess``, and the refusal's fault report named no message)."""
     from scripts import ci_resources
     me = (os.getpid(), 1, 5, "node", "/x/.tools/playwright/driver/node run-driver")
     read = ci_resources.footprints([me, (1, 0, 9, "launchd", "/sbin/launchd")])
@@ -1293,10 +1295,17 @@ def test_ci_resources_names_playwrights_processes_footprints_and_what_macos_wrot
         "free by its count; its footprint last read 1.00 GiB (its highest 1.00), memory then 1.0 GiB free"], said
     log = ("Timestamp               Ty Process[PID:TID]\n2026-11-04 00:36:51.123 E  Playwright[812:9a1] "   # a WebKit kill
            "[com.apple.WebKit:Process] 0x12ab - [pageProxyID=7, webPageID=8, PID=901] WebPageProxy::processDidTerminate: "
-           "(pid 901), reason=ExceededMemoryLimit\n")
-    monkeypatch.setattr(ci_resources.subprocess, "run", lambda *_, **__: types.SimpleNamespace(stdout=log))
-    assert ci_resources.webkit_said(since) == ["00:36:51 Playwright: [pageProxyID=7, webPageID=8, PID=901] "
-                                               "WebPageProxy::processDidTerminate: (pid 901), reason=ExceededMemoryLimit"]
+           "(pid 901), reason=ExceededMemoryLimit\n2026-11-04 00:36:52.004 E  com.apple.WebKit.Networking.Development"
+           "[813:9b2] [com.apple.WebKit:IPC] Received an invalid message NetworkStorageManager_SetItem from WebContent "
+           "process 5, requesting for it to be terminated.\n")   # the network process's refusal before it asks for one
+    asked = []
+    monkeypatch.setattr(ci_resources.subprocess, "run", lambda argv, **_: (asked.append(argv[-1]),
+                                                                           types.SimpleNamespace(stdout=log))[1])
+    assert ci_resources.webkit_said(since) == [
+        "00:36:51 Playwright: [pageProxyID=7, webPageID=8, PID=901] WebPageProxy::processDidTerminate: (pid 901), "
+        "reason=ExceededMemoryLimit", "00:36:52 com.apple.WebKit.Networking.Development: Received an invalid message "
+        "NetworkStorageManager_SetItem from WebContent process 5, requesting for it to be terminated."]
+    assert asked == [ci_resources.ENDINGS] and '"Received an invalid message"' in ci_resources.ENDINGS
 
 
 SAMPLE_REPORT = """Analysis of sampling com.apple.WebKit.GPU.Development (pid 7) every 1 millisecond
