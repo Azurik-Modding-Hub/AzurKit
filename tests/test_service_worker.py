@@ -299,7 +299,8 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
 RELOADED = 60
 """s a first visit may take to keep its release and start again on it: :func:`started`'s bound for a page's start. Here
 the reload began 0.2-0.7 s after the first load at the runner's pace (``taskpolicy -b``, nice 19, 4 CPU loops); on
-GitHub's Windows runner Firefox's began past 5 s once (run 42168608453)."""
+GitHub's Windows runner Firefox's reload once had its timeOrigin past a 5 s hold's end (run 42168608453: a late reload
+or its clock, not shown)."""
 
 
 def test_a_first_visit_keeps_its_release_and_reloads_on_it_while_this_process_holds_its_interpreter(
