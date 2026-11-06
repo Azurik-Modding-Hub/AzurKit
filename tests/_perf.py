@@ -108,6 +108,8 @@ OPS = {op.id: op for op in (
     Op("A09", "Characters tab with the image", "characters"),
     Op("A10", "choose keylord (options and pictures)", "characters"),
     Op("A11", "G4 match, keylord", "characters"),
+    Op("A81", "Reset, keylord's sliders, options and weapon moved -> its defaults and pictures", "characters",
+       first=False),   # Step 4.4u2
     Op("A12", "Build, defaults", "build", head_start=True),
     Op("A13", "Save, defaults, after the save dialog", "build"),
     Op("A14", "Save, defaults, clicked at once", "build"),
@@ -198,6 +200,8 @@ OPS = {op.id: op for op in (
        content=True),
     Op("S52", "the reshape's exact pictures, first", "characters", bar=True, content=True),   # D999's kind, by D1011
     Op("S53", "the same reshape's exact pictures again", "characters", first=False, content=True),
+    Op("S66", "Reset, keylord's sliders, options and weapon moved -> its defaults and pictures", "characters",
+       first=False),   # Step 4.4u2
     Op("S14", "Build keylord, first", "build", bar=True, head_start=True),   # D1067: its dress, made and kept
     Op("S64", "Build keylord again at a later visit (its dress kept)", "build", first=False, head_start=True),
     Op("S15", "Build booblord", "build", content=True, head_start=True),   # her shipped dress (the content repo's entry)
@@ -334,6 +338,27 @@ WORLD = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker
 LEVEL = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.level === 'w1' "
          "&& azurkit.tracker.map.pictures.length > 0 && azurkit.tracker.map.pictures.every((p) => p.bitmap)")
 SPECIES = "() => azurkit.characters.state.view?.species.length === 178"
+# Reset (D1062, Step 4.4u2): every slider, option and the weapon moved, each a change the engine answers (MOVED); then
+# the click to every box at the chosen model's defaults (its panel's) and its own pictures shown (RESET)
+MOVE_ALL = """() => { const $ = (id) => document.getElementById(id), changed = (b) => b.dispatchEvent(new Event("change"));
+  for (const b of document.querySelectorAll("#char-numbers input[type=text]")) { b.value = "1.2"; changed(b); }
+  const w = $("char-weapon"), m = $("char-mode"), pick = [...w.options].find((o) => o.value);
+  if (pick) { w.value = pick.value; changed(w); }
+  if (!m.disabled) { m.value = [...m.options].find((o) => o.value !== m.value).value; changed(m); }
+  for (const id of ["char-chain", "char-clips", "char-sounds", "char-height", "char-balance", "char-ground"]) {
+    if (!$(id).disabled) $(id).click(); } }"""
+MOVED = """() => { const c = azurkit.characters.state;
+  return Object.keys(c.character).length > 1 && c.view?.asked === JSON.stringify(c.character); }"""
+RESET = """() => { const c = azurkit.characters.state, d = c.view?.chosen, s = c.shown, $ = (id) => document.getElementById(id);
+  if (!d || d.name !== c.character.species || JSON.stringify(c.character) !== JSON.stringify({ species: d.name })) return false;
+  const boxes = [...document.querySelectorAll("#char-numbers input[type=text]")], { defaults, live, locked } = d;
+  return boxes.length === 4 + (d.springs ? 2 : 0) + d.shapes.length && boxes.every((b) => b.value === "1")
+    && $("char-weapon").value === "" && $("char-mode").value === (locked.mode ?? defaults.mode) && !$("char-chain").checked
+    && $("char-clips").checked === (defaults.anims === "own") && $("char-sounds").checked === ((locked.sounds ?? "own") === "own")
+    && $("char-height").checked === ((locked.size ?? "own") === "garret4")
+    && $("char-balance").checked === (locked.attack_balance ?? (live.attack_balance && defaults.attack_balance))
+    && $("char-ground").checked === (locked.attack_ground ?? (live.attack_ground && defaults.attack_ground))
+    && Boolean(s && s.name === d.name && s.shape === "[]" && !s.preview) && $("char-preview-note").textContent.startsWith("From the"); }"""
 # w1 at the top zoom (Step 4.3l): drawn from its main floor's detail picture (shown and zoomed at once, so the
 # picture is read whatever the fit fetched before)
 TOP = "() => { const m = azurkit.tracker.map; m.view(m.top()); }"
@@ -1015,7 +1040,20 @@ def app_start(d: Driver, app: App, ctx) -> None:
     d.act(p, "A10", model("keylord"), chosen("keylord"))
     d.act(p, "A11", click("char-g4-scale"), "() => !azurkit.characters.state.matching && "
                     "document.getElementById('char-scale').value !== '1' && document.getElementById('char-scale').value")
+    _reset(d, p, "A81")
     app.quit(p)
+
+
+def _reset(d: Driver, p: Page, op: str) -> None:
+    """Reset (D1062) with keylord chosen and every slider, option and the weapon moved, the engine's answer to them in
+    and a head start's worth of their work ahead under way: the click to the tab at keylord's defaults, its pictures with
+    them (Step 4.4u2: they waited for the engine's answer to the Reset)."""
+    if not p.js(chosen("keylord")):
+        d.act(p, None, model("keylord"), chosen("keylord"), 1800)
+    while d.need(op):
+        d.act(p, None, MOVE_ALL, MOVED, 900, change=True)
+        d.idle(p, f"the moved setup's work ahead before {op}", HEAD_START)
+        d.act(p, op, click("char-reset"), RESET, 900)
 
 
 def _out(d: Driver, name: str) -> Path:
@@ -1395,6 +1433,7 @@ def site_characters(d: Driver, ctx, url: str) -> None:
                    && !azurkit.characters.state.installing && azurkit.characters.state.view
                    && !azurkit.characters.state.view.perfOld""", 1800)
         d.act(p, "S12", model("beamlord"), chosen("beamlord"), 1800)
+    _reset(d, p, "S66")
     d.leave(p)
 
 
@@ -1910,7 +1949,7 @@ def site_data(d: Driver, ctx, url: str) -> None:
 
 
 SCENARIOS = {   # name: (host, its ops, the driver)
-    "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11"), app_start),
+    "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11", "A81"), app_start),
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
     "app-community": ("app", ("A33", "A34", "A35", "A36"), app_community),
     "app-replace": ("app", ("A62", "A63"), app_replace),
@@ -1932,7 +1971,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-community": ("site", ("S26", "S27", "S28", "S29"), site_community),
     "site-replace": ("site", ("S54", "S55"), site_replace),
     "site-saves": ("site", ("S56", "S57", "S58"), site_saves),
-    "site-characters": ("site", ("S07", "S09", "S12", "S13"), site_characters),
+    "site-characters": ("site", ("S07", "S09", "S12", "S13", "S66"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-booblord": ("site", ("S15",), site_booblord),
     "site-reshape": ("site", ("S62", "S65"), site_reshape),

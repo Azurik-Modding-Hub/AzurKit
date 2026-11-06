@@ -1236,9 +1236,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     opens a small popup of the weapon's shipped pictures and line (the same
     family; `weapons.json`'s `previews`), no image and no engine call. Reset takes
     the sliders, options and weapon back to the chosen model's defaults and
-    stays on it; picking Garret clears them too, another model keeps the size
-    and the numbers (D1062). On the site an ask made while the image is
-    unread goes twice: first with no image, which B answers while F reads
+    stays on it, shown in its click with the model's own pictures (Step 4.4u2:
+    the options from the last answer at the model's mode and weapon defaults,
+    which alone change them; the engine's answer follows); picking Garret
+    clears them too, another model keeps the size and the numbers (D1062;
+    `tests/_perf.py`'s A81 and S66 time Reset). On the site an ask made while
+    the image is unread goes twice: first with no image, which B answers while F reads
     the image (`workers.mjs`'s aside asks; with no B it waits for the
     check), so an Install's list and a model's panel never wait for it once
     the tab has opened (Step 4.3r4m), and then with it; a build takes the

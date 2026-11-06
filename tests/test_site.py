@@ -2689,8 +2689,8 @@ def test_a_seeds_build_after_the_pick_reads_the_images_id_no_more(browser, site,
 STUB_ENGINES = """(() => {
     const { catalog, view, drawn } = %s, made = globalThis.made = [], later = [];
     globalThis.held = false;
-    const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, reply: { ...view, character: m.given.character },
-                                                heap: 2 ** 28 });
+    const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, heap: 2 ** 28, reply: { ...view,
+        chosen: { ...view.chosen, weapon: m.given.character.weapon ?? null }, character: m.given.character } });
     globalThis.release = () => {
         held = false;
         for (const [worker, m] of later.splice(0)) pickers(worker, m);
@@ -2720,8 +2720,9 @@ STUB_ENGINES = """(() => {
         terminate() { this.stopped = true; }
     };
 })();"""
-"""The site's engines as stubs that load at once and answer pickers (held until ``release()``) and a body's own
-pictures (``drawn``): ``made`` holds each with what it ``got``, its ``stopped``; the test answers each reshape's preview
+"""The site's engines as stubs that load at once and answer pickers (``view``, with the weapon asked; held until
+``release()``) and a body's own pictures (``drawn``): ``made`` holds each with what it ``got``, its ``stopped``; the test
+answers each reshape's preview
 with ``say``. Left unanswered, the page's preview of the chosen model (sent whenever its first draw comes before
 ``characters/index.json``) held F, so the pickers after it waited on B (none on a 3-core runner, run 41521288667)
 and a draw for its key while the index loaded left the model unshown."""
@@ -2835,6 +2836,54 @@ def test_a_cancel_of_a_build_queued_behind_a_reshapes_dress_dresses_the_shape_sh
             made.find((w) => w.got.includes(m)).say({{ type: "reply", call: m.call, reply, heap: 2 ** 30 }}); }}""", drawn)
         _page.until(page, f"""() => {{ const s = azurkit.characters.state.shown;
             return s?.shape === {exact} && s.preview === false; }}""", 10)
+    finally:
+        served.close()
+
+
+def test_reset_puts_every_slider_option_and_the_weapon_back_in_its_click(browser, site):
+    """D1062, Step 4.4u2: Reset shows the chosen model's defaults in its
+    own click, before the engine answers it: every number (the jiggle's and
+    a shape's too) at 1, every option and the Weapon box at the model's own
+    (the moved mode's defaults not), and its own pictures, the shape's
+    dress no longer wanted; the engine's answer, held here, changes none
+    of them."""
+    view = sdk.pickers({"iso": None, "character": {"species": "town_female_1"}})   # springs, its options live
+    view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
+    weapon = next(w["name"] for w in view["chosen"]["weapons"] if w["name"])
+    drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+             for side in ("front", "back")}
+    served = Site(browser, site)
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
+    shown = """() => { const c = azurkit.characters.state, $ = (id) => document.getElementById(id);
+        return [c.character, [...document.querySelectorAll("#char-numbers input[type=text]")].map((b) => b.value).join(),
+                $("char-weapon").value, $("char-mode").value, ["char-chain", "char-clips", "char-sounds", "char-height",
+                "char-balance", "char-ground"].map((id) => $(id).checked), c.shown && [c.shown.shape, c.shown.preview]]; }"""
+    answered = """() => { const c = azurkit.characters.state;
+        return c.view?.asked === JSON.stringify(c.character) && Object.keys(c.character).length; }"""
+    try:
+        page = served.open()
+        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.asked = azurkit.file; }")
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view && made.length === 2", 60)
+        page.evaluate("() => azurkit.characters.set({ species: 'booblord' })")
+        _page.until(page, f"() => ({answered})() && azurkit.characters.state.shown?.name === 'booblord'", 60)
+        own = page.evaluate(shown)
+        assert own == [{"species": "booblord"}, ",".join(["1"] * 7), "", "own", [False, False, True, False, True, True],
+                       ["[]", False]]
+        page.evaluate(_perf.MOVE_ALL)
+        assert _page.until(page, f"() => ({_perf.MOVED})() && ({shown})()", 60) == [
+            {"species": "booblord", **dict.fromkeys(("scale", "attack_reach", "attack_damage", "attack_speed",
+                                                     "jiggle_strength", "jiggle_stiffness"), 1.2),
+             "shapes": {"bust": 1.2}, "weapon": weapon, "mode": "garret4", "chain": "any", "anims": "own",
+             "sounds": "garret4", "size": "garret4", "attack_balance": False, "attack_ground": False},
+            ",".join(["1.2"] * 7), weapon, "garret4", [True, True, False, True, False, False], ['[["bust",1.2]]', True]]
+        page.evaluate("() => { held = true; }")
+        assert page.evaluate(f"() => {{ document.getElementById('char-reset').click(); return ({shown})(); }}") == own
+        assert page.evaluate(f"() => [({answered})(), azurkit.characters.state.wanted, ({_perf.RESET})()]") == [
+            False, None, True]   # A81's and S66's done-state too
+        page.evaluate("() => release()")
+        _page.until(page, answered, 10)
+        assert page.evaluate(shown) == own
     finally:
         served.close()
 

@@ -49,7 +49,8 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
-              shown: null, pictures: new Map(), shipped: new Map(), wanted: null, dressing: false, settling: null };
+              shown: null, pictures: new Map(), shipped: new Map(), wanted: null, dressing: false, settling: null,
+              panels: new Map() };
   const fallback = () => host.catalog?.characters?.source ?? "";
   // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
   c.objects = app ? host.show_objects === true : (() => {
@@ -85,8 +86,24 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     // a refusal is the image's answer's to name, and that answer stands if it came first (the site's two workers)
     if (mine !== c.ticket || c.answered === mine || "refused" in reply) return;
     c.view = { ...reply, asked: null, from: null };
+    panel(reply);
     render();
     draw();
+  };
+
+  // The options a model shows at its defaults, which Reset puts back at once (D1062, Step 4.4u2): its defaults, locked
+  // and live boxes change with its mode and weapon alone (sdk.pickers), so an answer with both at theirs holds them; a
+  // model shown with neither asks for its own as it is shown (with no image: they need none).
+  const panel = (reply) => {
+    const { name, weapon, defaults, locked, live } = reply.chosen;
+    if (weapon == null && !("mode" in reply.character)) return void c.panels.set(name, { defaults, locked, live });
+    if (c.panels.has(name)) return;
+    c.panels.set(name, null);   // asked
+    call("pickers", { given: { iso: null, character: { species: name }, content: { manifest: c.manifest } } })
+      .then((own) => {
+        if (own.chosen?.name === name && !("refused" in own)) panel(own);
+        else if (c.panels.get(name) === null) c.panels.delete(name);
+      });
   };
 
   // Ask the engine what the tab shows for its choices; an answer to an older ask is dropped. The image's pick shows
@@ -111,6 +128,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
       return;
     }
     c.view = reply;
+    panel(reply);
     c.read = from;   // the image the last answer read
     c.failed = null;
     render();
@@ -141,6 +159,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
       say(`${entry.title}: nothing was installed: ${error.message}`, true);
     }
     c.installing = null;
+    c.panels.clear();   // an Update's recipe may lock others
     render();
     await ask();
   };
@@ -535,7 +554,17 @@ export function characters({ call, app, host, say, image, packs, changed, shared
                                                             defaults().attack_balance));
   $("char-ground").addEventListener("change", () => option("attack_ground", $("char-ground").checked,
                                                            defaults().attack_ground));
-  $("char-reset").addEventListener("click", () => set({ species: c.character.species }));   // D1062: stays on the model
+  // Reset (D1062: stays on the model): its defaults shown at once, from the answer held and the options it shows at its
+  // defaults (every number's is 1, the Weapon box's its own), and its own pictures; the engine's answer follows (the
+  // list's colours, the info). They waited for that answer, behind a dress or a build in its worker (Step 4.4u2).
+  $("char-reset").addEventListener("click", () => {
+    const name = c.character.species, held = c.panels.get(name);
+    set({ species: name });
+    if (!held || c.view?.chosen.name !== name) return;   // none held: the answer shows them
+    c.view = { ...c.view, chosen: { ...c.view.chosen, ...held, weapon: null } };
+    render();
+    draw();
+  });
   $("char-objects").checked = c.objects;
   $("char-objects").addEventListener("change", () => {
     c.objects = $("char-objects").checked;
