@@ -21,6 +21,7 @@ import multiprocessing
 import operator
 import os
 import plistlib
+import socket
 import re
 import struct
 import subprocess
@@ -1141,6 +1142,43 @@ def _post(url: str, call: str, body: dict, replies: list, timeout: float = 120) 
                                      {"Origin": f"http://{host}", "Content-Type": "application/json"})
     with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=timeout) as reply:
         replies.append(json.load(reply))   # the app may quit before it answers
+
+
+def test_a_long_call_never_leaves_its_connection_quiet_the_5_s_firefox_aborts_one_after_a_network_change(
+        tmp_path, monkeypatch):
+    """Step 4.4ci36: Firefox aborts every connection that carried no byte in the 5 s after the computer's network
+    changes (``network.http.network-changed.timeout``; this Mac's IPv6 changed every 1-8 min), and a call's answer went
+    only once the call was done, so a plan file's spoiler and Track this seed, both in flight at one change, failed
+    with "NetworkError" in 4.4ci27's slowed pure tier (three 240 s calls here, all at the change, 5.2 s after it). A
+    call past ``app.KEEP`` s sends its answer's headers and a space each ``KEEP`` s until its answer, which reads as
+    the call's JSON; a quick call's answer keeps its length."""
+    _home(monkeypatch, tmp_path / "home")
+    pause = [0.0]
+
+    def checked(iso: str, progress) -> dict:
+        time.sleep(pause[0])
+        return {"files": 0}
+    monkeypatch.setattr(sdk, "verify_all", checked)
+    server = app.serve(_page.WEB)
+    heard = []
+    try:
+        for pause[0] in (0.0, 6.0):   # the slow call past Firefox's 5 s
+            body = json.dumps({"iso": str(tmp_path / "usa.iso")}).encode()
+            with socket.create_connection(("127.0.0.1", server.server_port), timeout=30) as conn:
+                conn.sendall(f"POST /api/verify_all?token={server.token} HTTP/1.1\r\nHost: {server.host}\r\n"
+                             f"Origin: http://{server.host}\r\nContent-Type: application/json\r\n"
+                             f"Content-Length: {len(body)}\r\n\r\n".encode() + body)
+                came, data = [time.monotonic()], b""
+                while chunk := conn.recv(1 << 16):
+                    came.append(time.monotonic())
+                    data += chunk
+            head, _, answer = data.partition(b"\r\n\r\n")
+            heard.append((head.split(b"\r\n")[0], b"Content-Length:" in head, json.loads(answer),
+                          max(b - a for a, b in zip(came, came[1:])) < 5, came[-1] - came[0] >= pause[0]))
+    finally:
+        server.close()
+    assert heard == [(b"HTTP/1.0 200 OK", True, {"files": 0}, True, True),
+                     (b"HTTP/1.0 200 OK", False, {"files": 0}, True, True)], heard
 
 
 def test_serves_engine_answers_while_serve_waits_on_its_input(tmp_path, monkeypatch):
