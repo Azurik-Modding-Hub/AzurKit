@@ -893,10 +893,13 @@ function vanilla({ py, engine }, file) {
 }
 
 // numpy (Pyodide's pinned wheel, which the site carries beside its core, checked by the lock's sha256), loaded once:
-// every character call needs it (the swap's modules import it).
-const numpy = (loaded) => loaded.numpy ??= (calling = "numpy load", loaded.py.loadPackage("numpy", {
-  messageCallback: () => {}, errorCallback: () => {} })).finally(() => { calling = null; })
-  .then(() => void (loaded.numpied = true));
+// every character call needs it (the swap's modules import it). After a trap it says that trap (dead), as engine()
+// does: Pyodide refuses even a read of its loadPackage then ("already fatally failed"), and a trap no ask's failure
+// posted (the rest's hash) was named so by the next ask that loads numpy (a shared warm-up).
+const numpy = (loaded) => dead ? Promise.reject(new Error(dead))
+  : loaded.numpy ??= (calling = "numpy load", loaded.py.loadPackage("numpy", {
+    messageCallback: () => {}, errorCallback: () => {} })).finally(() => { calling = null; })
+    .then(() => void (loaded.numpied = true));
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
 const needsNumpy = (data) => data.type === "warm" || CHARACTER.includes(data.type) || data.character || data.recipe?.character
   || data.given?.character

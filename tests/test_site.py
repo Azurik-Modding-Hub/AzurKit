@@ -3261,6 +3261,20 @@ def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_an
         served.close()
 
 
+def _rest_faults(worker: str) -> str:
+    """worker.mjs whose image's rest (its whole layout, which vouched() has the engine walk after the pick's read, a
+    call whose failure no ask posts) traps the engine's wasm as :func:`_faults`' do, in every browser (VOUCHING: Firefox
+    hashes no rest)."""
+    vouching = "const VOUCHING = /AppleWebKit/.test(navigator.userAgent)"
+    layout = '            if request.type == "layout":'
+    assert worker.count(vouching) == worker.count(layout) == 1
+    trap = f"""{layout.replace(":", ' and getattr(request, "whole", False):')}
+                import ctypes
+                ctypes.string_at(0xFFFFFFF0, 64)
+"""
+    return worker.replace(vouching, "const VOUCHING = true").replace(layout, trap + layout)
+
+
 TRAPPED_ROWS = """
     const { TRAPS } = await import("/workers.mjs");
     const trap = (message) => ({ type: "failed", message, trapped: true });
@@ -3317,9 +3331,10 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
     the page recovers from such a trap. A worker whose engine trapped is replaced at once; the page's job it ran is sent
     to the next engine once (a second trap fails it by name), and the page says so; B's own job ahead is dropped, its
     key not tried again while listed; a trap with no job (a shared warm-up's) restarts it too, :data:`TRAPS` a visit,
-    past which a trap is any failure. On the page: a build whose first engine traps (the route's first worker.mjs is
-    :func:`_faults`'s, its later ones plain) ends built, said "The engine stopped and started again: building again"
-    meanwhile and keeps where the trap was (``azurkit.recovered``)."""
+    past which a trap is any failure. On the page, whose first engine's rest traps (:func:`_rest_faults`), its next
+    :func:`_faults` and the rest plain: the shared warm-up's numpy load says the rest's trap, never Pyodide's "already
+    fatally failed", and its engine starts again; a build whose engine traps ends built, said "The engine stopped and
+    started again: building again" meanwhile, and the page keeps where each trap was (``azurkit.recovered``)."""
     assert _on_stubs(browser, TRAPPED_ROWS) == {
         "redone": [True, ["build t"], {"size": 1}, [["trap 1", "build"]], 1],
         "twice": [["build u"], {"type": "failed", "message": "trap 2", "trapped": True}, [["trap 1", "build"]], 3],
@@ -3330,7 +3345,7 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
     served = Site(browser, site)
     try:
         plain = (site / "worker.mjs").read_text(encoding="utf-8")
-        bodies = [_faults(plain, usa_iso.name)]
+        bodies = [_faults(plain, usa_iso.name), _rest_faults(plain)]   # each worker's, popped
         served.context.route("**/worker.mjs", lambda route: route.fulfill(body=bodies.pop() if bodies else plain,
                                                                           content_type="text/javascript",
                                                                           headers={"cache-control": "no-store"}))
@@ -3340,13 +3355,15 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
             window.said = [];
             new MutationObserver(() => said.push(s.textContent)).observe(s, { childList: true, subtree: true }); }""")
         _page.pick(page, "#iso", usa_iso)
+        rest = _page.until(page, "() => azurkit.recovered[0]", 300)
+        assert rest.startswith("The engine's WebAssembly failed in its layout call: ") and "fatally" not in rest, rest
         _page.build(page, ["fps_unlock"])
         _page.built(page)
         frame = r" < <exec> line \d+ \(azurkit_fault\)"
         trapped = (r"The engine's WebAssembly failed in its build call: [^·]+ · Python at ctypes/__init__\.py line \d+"
                    rf" \(string_at\){frame * 3} · wasm functions \d+(, \d+){{0,3}}")
         recovered, said = page.evaluate("() => [azurkit.recovered, said]")
-        assert len(recovered) == 1 and re.fullmatch(trapped, recovered[0]), recovered
+        assert len(recovered) == 2 and re.fullmatch(trapped, recovered[1]), recovered
         assert "The engine stopped and started again: building again" in said and not bodies, said
     finally:
         served.close()
