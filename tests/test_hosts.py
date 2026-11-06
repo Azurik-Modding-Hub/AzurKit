@@ -2249,15 +2249,23 @@ def test_live_in_the_apps_page_marks_what_the_game_shows_taken_and_follows_the_p
             "Endpoints: 'gdb:1234': Live reads no gdbstub")
         _page.fill(page, "track-endpoints", "")
         page.evaluate("() => document.getElementById('track-endpoints').dispatchEvent(new Event('change'))")
+        clicked = time.monotonic()   # the scripted take comes after the click, on this process's clock (the server's)
         _page.click(page, "track-live")
-        _page.until(page, "() => azurkit.tracker.state.live?.here && azurkit.tracker.state.marks.live")
+        # What the page shows as it first shows the take. Each ask (every 0.7 s) writes Live's line anew, with the
+        # take's age as it then is, so the test bounds that age by its own clock since the click (Step 4.4ci45: Windows'
+        # Firefox read "0:12 ago" where the test wanted under 10 s, from an ask 12 s after the take)
+        dot, state, line, follows, you = _page.until(
+            page, f"() => azurkit.tracker.state.live?.here && azurkit.tracker.state.marks.live && ({shown})()")
+        since = time.monotonic() - clicked
         view = page.evaluate("() => azurkit.tracker.state.view")
         assert tracking.digest(view) == tracking.digest(sdk.tracker(
             {"plan": doc, "marks": {"collected": [near], "live": {near: 0.5}}, "kit": kit, "held": dict(at.inv)}))
-        dot, state, line, follows, you = page.evaluate(shown)
         assert (dot, state, follows, you) == ("●", "live", level, "● you are here")
         item = sdk.tracker({"plan": doc, "spoiler": True})["spots"][near]["name"]
-        assert line.startswith(f"{level} · USA · xemu, scripted · last: {item} ({level}), 0:0")
+        took, _, ago = line.rpartition(", ")
+        age = re.fullmatch(r"(\d+):([0-5]\d) ago", ago)
+        assert took == f"{level} · USA · xemu, scripted · last: {item} ({level})" and age, line
+        assert 60 * int(age[1]) + int(age[2]) <= since, (line, since)   # the take's age, never older than Live
         assert page.evaluate(f"() => document.querySelector(`#track-level .spot[data-loc='{near}']`).className").split()[:2] == [
             "spot", "live"]   # (and "fresh" while its pickup flashes)
         page.evaluate("() => document.querySelector('#track-level .back').click()")   # by hand: Follow goes off
