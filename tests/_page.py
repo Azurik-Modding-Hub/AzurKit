@@ -18,6 +18,7 @@ import json
 import subprocess
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 
 from azurkit.app import CONTENT_TYPES, content_type
@@ -251,11 +252,36 @@ def load(page, url: str | None = None, until: str = "load", seconds: float | Non
     most ``seconds`` s, :data:`ACT` unless given (:func:`within`), where past Playwright's own 30 s it failed naming
     nothing but the navigation (a site page's load in Firefox, run 41678038275; a reload in WebKit on 4a178cc, both on
     GitHub's Intel Mac runner): past it the failure names the page's state, whether its browser still answers and its
-    driver's processes."""
+    driver's processes, then the requests the page made since the call that neither finished nor failed, each one's
+    method, address with no query (the app's page carries its token in it) and age, or none: the frozen app's page in
+    Firefox on GitHub's Windows runner went past Playwright's 30 s at its first load, the app running, its stderr empty,
+    the failure naming no file (tests.yml run 42122369507)."""
+    asked, ended = [], set()
+
+    def asking(request) -> None:
+        asked.append((request, time.monotonic()))
+
+    def answered(request) -> None:
+        ended.add(request._impl_obj)
+
+    heard = (("request", asking), ("requestfinished", answered), ("requestfailed", answered))
+    for event, handler in heard:
+        page.on(event, handler)
     call = (page._impl_obj.reload(timeout=0, waitUntil=until) if url is None
             else page._impl_obj.goto(url, timeout=0, waitUntil=until))
-    return within(page, call, ACT if seconds is None else seconds,
-                  "the page's reload" if url is None else f"the page's load of {url}")
+    try:
+        return within(page, call, ACT if seconds is None else seconds,
+                      "the page's reload" if url is None else f"the page's load of {url}")
+    except AssertionError as stall:
+        now, waiting = time.monotonic(), []
+        for request, at in asked:
+            if request._impl_obj not in ended:
+                where = urllib.parse.urlsplit(request.url)._replace(query="", fragment="").geturl()
+                waiting.append(f"{request.method} {_short(where)} ({now - at:.0f} s)")
+        raise AssertionError(f"{stall}\nits requests unanswered: {', '.join(waiting[-10:]) or 'none'}") from None
+    finally:
+        for event, handler in heard:
+            page.remove_listener(event, handler)
 
 
 def pick(page, selector: str, path) -> None:

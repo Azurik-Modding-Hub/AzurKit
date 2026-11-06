@@ -1745,8 +1745,9 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
     browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
     10 min, run 41610020282). A pick whose input never comes (``_page.pick``, every set_input_files of the site's tests)
-    and a navigation whose document never comes (``_page.load``, every goto and reload of the site's tests) fail so
-    past ``_page.ACT``, Playwright's own bound for them, naming the file or the address, and a browser's close its
+    and a navigation whose document never comes (``_page.load``, every goto and reload of the site's tests, and the
+    frozen app page's first load) fail so past ``_page.ACT``, Playwright's own bound for them, naming the file or the
+    address, the load also the requests it waits on (Step 4.4ci30), and a browser's close its
     driver never answers (the ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its
     browser and driver."""
     from playwright._impl._helper import DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS
@@ -1804,7 +1805,9 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         lines = str(unloaded.value).splitlines()
         assert lines[0] == f"no answer in 2 s: the page's load of {served.origin}/held.html" and len(routes) == 1, lines
         # its state read or not: Chromium's page left it unread in 1 s while its navigation was held
-        assert lines[1].startswith("state: ") and lines[-2:-1] == ["its browser still answers"], lines
+        assert lines[1].startswith("state: ") and lines[-3:-2] == ["its browser still answers"], lines
+        assert re.fullmatch(rf"its requests unanswered: GET {re.escape(served.origin)}/held\.html \(\d+ s\)",
+                            lines[-1]), lines
         assert 2 <= time.monotonic() - t2 < 20
         routes[0].abort()
     finally:

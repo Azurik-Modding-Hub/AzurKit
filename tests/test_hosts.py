@@ -388,7 +388,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     try:
         with box.serving(app_path) as url:
             page = context.new_page()
-            page.goto(url)
+            _page.load(page, url)
             _page.until(page, "() => globalThis.azurkit?.ready", 60)
             assert page.evaluate("() => [azurkit.app, azurkit.dialogs]") == [True, False]
             _page.check_icons(page)
