@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import shutil
 from pathlib import Path
@@ -96,7 +98,8 @@ def test_a_worker_killed_under_either_ci_tiers_flags_ends_the_run_and_names_its_
     ends the run, so the job would sit to its cap with nothing printed."""
     text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
     flags = re.findall(r"--numprocesses=\$\{\{ matrix\.workers \}\} (--dist=loadgroup --max-worker-restart=0)", text)
-    assert len(flags) == 2 and len(re.findall(r"\{os: [\w.-]+, label: [\w-]+, workers: [1-9]\}", text)) == 8
+    rows = re.findall(r"\{os: [\w.-]+, label: [\w-]+, workers: [1-9](?:, shard: [1-9], shards: [1-9])?\}", text)
+    assert len(flags) == 2 and len(rows) == 4 + len(_vanilla_rows(text))
     pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
     pytester.makepyfile(test_d="import os\n\ndef test_passes():\n    pass\n\ndef test_dies():\n    os._exit(9)\n")
     monkeypatch.setenv("PYTHONPATH", str(ROOT))
@@ -123,6 +126,113 @@ def test_the_ci_vanilla_tiers_printed_summary_names_its_slowest_tests(pytester, 
     printed = lines[next(i for i, line in enumerate(lines) if line.startswith("vanilla: ")):][:200]
     assert any(re.search(r"slowest \d+ durations", line) for line in printed), run.stdout.str()
     assert any(re.match(r"\d+\.\d+s call +test_t\.py::test_takes_a_while$", line) for line in printed), printed
+
+
+def _vanilla_rows(text: str) -> list[tuple[str, str, int, int, int]]:
+    """``tests.yml``'s vanilla matrix rows: (os, label, workers, shard, shards)."""
+    return [(os, label, int(w), int(k), int(n)) for os, label, w, k, n in re.findall(
+        r"\{os: ([\w.-]+), label: ([\w-]+), workers: (\d+), shard: (\d+), shards: (\d+)\}", text)]
+
+
+def test_the_ci_vanilla_tiers_parts_are_disjoint_and_whole_cut_by_measured_seconds_each_xdist_group_in_one(
+        pytester, monkeypatch, tmp_path):
+    """``tests.yml`` runs each runner's vanilla tier as N jobs at once (Step 4.4ci35: Intel's took up to 2:56 in one),
+    each ``--shard=LABEL:K/N`` (``scripts/ci_shards.py``): its matrix holds each label's parts 1..N once, on one image
+    and worker count, each label in ``tests/ci_durations.json``. That table comes from the jobs' logs (gh's, each line
+    under its job's name): each test the ``--durations`` lines name, its phases summed and averaged over the jobs, the
+    rest at the mean of each job's test time on its workers less those, over the tests it ran that they leave out. A
+    part keeps the selected tests in their run order, cut where the largest part's seconds are least and the parts
+    closest to even, an xdist_group's tests in the part of its first even from another module; the parts are disjoint,
+    whole, and the summary says which, with the whole's ids' sha256, under xdist too."""
+    from scripts import ci_shards
+    text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    rows, table = _vanilla_rows(text), json.loads(ci_shards.TABLE.read_text(encoding="utf-8"))
+    by_label: dict[str, list] = {}
+    for os_, label, workers, k, n in rows:
+        by_label.setdefault(label, []).append((os_, workers, n, k))
+    assert by_label and set(by_label) == set(table), (sorted(by_label), sorted(table))
+    for label, parts in by_label.items():   # one image and worker count, parts 1..N once
+        assert len({p[:3] for p in parts}) == 1, parts
+        assert sorted(p[3] for p in parts) == list(range(1, parts[0][2] + 1)), parts
+    name, = re.findall(r"name: (vanilla and europe \(.*\))\n", text)
+    assert ci_shards.JOB.match(name.replace("${{ matrix.label }}", "macos-x86_64").replace(
+        "${{ matrix.shard }}", "2").replace("${{ matrix.shards }}", "3"))
+    assert text.count("tier -m vanilla --shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} ") == 1
+
+    job1, job2 = "vanilla and europe (fake-os, 1 of 2)", "vanilla and europe (fake-os, 2 of 2)"
+    at = "2026-11-05T22:32:42Z"
+    summary = {job1: ["90.00s call     test_a.py::test_long", "30.00s setup    test_a.py::test_grouped_a@built",
+                      "10.00s call     test_a.py::test_grouped_a@built",
+                      "7 passed, 6 deselected in 100.00s (0:01:40)", 2],
+               job2: ["110.00s call     test_a.py::test_long", "20.00s call     test_b.py::test_grouped_b@built",
+                      "4 passed, 1 failed, 8 deselected, 1 warning in 160.00s (0:02:40)", 1]}
+    lines = [f"{job1}\tSet up job\t{ci_shards.BOM}{at} Current runner version", "pure (fake-os)\tThe pure tier\t"
+             f"{at} tier -m vanilla --numprocesses=9", f"pure (fake-os)\tThe pure tier\t{at} = 9 passed in 9.00s ="]
+    for job, (*timed, result, workers) in summary.items():
+        lines += [f"{job}\tThe vanilla and europe tiers\t{at} \x1b[36;1mtier -m vanilla --shard=fake-os:1/2 -o x "
+                  f"--numprocesses={workers} --dist=loadgroup\x1b[0m", f"{job}\tThe vanilla and europe tiers\t  more"]
+        for _ in range(2):   # the step prints its summary twice: its log's tail, then the summary
+            lines += [f"{job}\tThe vanilla and europe tiers\t{at} {line}" for line in [
+                "vanilla: 7 run", "===== slowest 60 durations =====", *timed, "", "(3 durations < 60s hidden.)",
+                f"===== {result} ====="]]
+    (log := tmp_path / "run.log").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (measured := tmp_path / "table.json").write_text('{"other-os": {"rest": 5, "tests": {}}}', encoding="utf-8")
+    assert ci_shards.main([str(log), f"--table={measured}"]) == 0
+    assert json.loads(measured.read_text(encoding="utf-8")) == {"fake-os": {"rest": 12, "tests": {
+        "test_a.py::test_grouped_a": 40, "test_a.py::test_long": 100, "test_b.py::test_grouped_b": 20}},
+        "other-os": {"rest": 5, "tests": {}}}   # rest: ((2 * 100 - 130) / 5 + (160 - 130) / 3) / 2
+
+    pytester.makeconftest("from tests.conftest import *  # noqa: F403\n")
+    pytester.makepyfile(test_a="""
+        import pytest
+
+        @pytest.mark.parametrize("n", range(6))
+        def test_short(n):
+            pass
+
+        @pytest.mark.xdist_group("built")
+        def test_grouped_a():
+            pass
+
+        def test_long():
+            pass
+    """, test_b="""
+        import pytest
+
+        @pytest.mark.xdist_group("built")
+        def test_grouped_b():
+            pass
+
+        @pytest.mark.parametrize("n", range(4))
+        def test_more(n):
+            pass
+    """)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    whole = [*(f"test_a.py::test_short[{n}]" for n in range(6)), "test_a.py::test_grouped_a", "test_a.py::test_long",
+             "test_b.py::test_grouped_b", *(f"test_b.py::test_more[{n}]" for n in range(4))]
+    digest = hashlib.sha256("\n".join(whole).encode()).hexdigest()[:12]
+    # The runs' seconds: shorts and mores 12 each, the group 40 + 20, test_long 100: 132 | 100 | 48 (not 72 | 160 | 48)
+    want = [[*whole[:7], "test_b.py::test_grouped_b"], ["test_a.py::test_long"], whole[-4:]]
+    got = []
+    for k in (1, 2, 3):
+        run = pytester.runpytest_subprocess("-p", "no:cacheprovider", "--collect-only", "-q", f"--shard=fake-os:{k}/3",
+                                            f"--shard-table={measured}")
+        got.append(re.findall(r"^(test_[ab]\.py::\S+)$", run.stdout.str(), re.M))
+        assert f"shard {k} of 3 (fake-os): {len(want[k - 1])} of the 13 tests selected (their ids' sha256 {digest})" \
+               in run.stdout.str(), run.stdout.str()
+    assert got == want and sorted(sum(got, [])) == sorted(whole)
+    run = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-n", "2", "--dist", "loadgroup", "-v",
+                                        "--shard=fake-os:1/3", f"--shard-table={measured}")
+    run.assert_outcomes(passed=8)
+    workers = re.findall(r"^\[(gw\d)\] .*PASSED test_[ab]\.py::test_grouped_[ab]@built\b", run.stdout.str(), re.M)
+    assert len(workers) == 2 and len(set(workers)) == 1, run.stdout.str()
+    out = run.stdout.str()
+    assert re.search(rf"^web: 0 run\n(?:.*\n)*?shard 1 of 3 \(fake-os\): 8 of the 13 tests selected \(their ids' sha256 "
+                     rf"{digest}\), each xdist_group in one shard, about 1 min on 2 workers; each shard's measured s: "
+                     r"132, 100, 48$", out, re.M), out
+    bad = pytester.runpytest_subprocess("-p", "no:cacheprovider", "--shard=nowhere:1/2", f"--shard-table={measured}")
+    assert bad.ret == pytest.ExitCode.USAGE_ERROR and "table.json has no nowhere (it has fake-os, other-os)" in \
+        bad.stderr.str(), bad.stderr.str()
 
 
 def test_the_ci_tier_takes_the_roomiest_disk_frees_unused_toolchains_when_short_and_stops_by_name_below_its_need(

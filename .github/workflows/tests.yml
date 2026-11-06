@@ -4,10 +4,10 @@
 # - pure: the pure tier (-m "not vanilla") on every push to main and every pull request. The web tier is in it: Node
 #   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
 #   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries.
-# - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main in this repository.
-#   Each image is rebuilt in the tier's folder, on the runner's roomiest disk, and the tier stops by name before it if
-#   no disk has its room (scripts/ci_resources.py --room; a Linux build streams a whole image where an APFS one clones
-#   it, and GitHub's Linux runners on AWS have far less room than its Azure ones: run 41981438506),
+# - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main in this repository,
+#   each runner's in parts at once, a job each (--shard, scripts/ci_shards.py). Each image is rebuilt in the tier's
+#   folder, on the runner's roomiest disk, and the tier stops by name before it if no disk has its room
+#   (scripts/ci_resources.py --room; a Linux build streams a whole image where an APFS one clones it, and GitHub's Linux runners on AWS have far less room than its Azure ones: run 41981438506),
 #   from the private game-data repository's parts, one release at a time, with its read-only deploy key GAMEDATA_DEPLOY_KEY (the gamedata environment's secret; no other job
 #   reads a secret). That repository's own reassemble.py checks every part's sha256 and the whole image's, and the
 #   parts go at once. No cache and no artifact hold an image, its path is never printed, and the images are deleted
@@ -95,7 +95,7 @@ jobs:
           exit "$status"
 
   vanilla:
-    name: vanilla and europe (${{ matrix.label }})
+    name: vanilla and europe (${{ matrix.label }}, ${{ matrix.shard }} of ${{ matrix.shards }})
     if: github.event_name == 'push' && github.repository == 'Azurik-Modding-Hub/AzurKit' && github.ref == 'refs/heads/main'
     runs-on: ${{ matrix.os }}
     environment: gamedata
@@ -106,11 +106,25 @@ jobs:
         include:
           # The serial tier's lowest free memory, of what was free at its most (GiB, scripts/ci_resources.py's lines): Apple
           # Silicon 1.1 of 4.4 and Linux 2.0-2.6 of 13.9, near that often, so one worker each; Intel 5.6 of 11.0 and Windows
-          # 5.2-5.3 of 13.2, seldom near it, so two. More gains no time while Apple Silicon's one worker sets the round.
-          - {os: macos-15, label: macos-arm64, workers: 1}
-          - {os: macos-15-intel, label: macos-x86_64, workers: 2}
-          - {os: windows-latest, label: windows-x86_64, workers: 2}
-          - {os: ubuntu-latest, label: linux-x86_64, workers: 1}
+          # 5.2-5.3 of 13.2, seldom near it, so two.
+          # Each runner's tier runs as `shards` jobs at once (Step 4.4ci35), each its part of the tier (--shard,
+          # scripts/ci_shards.py: the tier's tests cut in their run order by that runner's seconds in
+          # tests/ci_durations.json, from the tier's logs, each xdist_group in one part). Whole, the tier took Intel
+          # 2:28-2:56 of tests, Apple Silicon 1:52-2:08, Windows 1:02-1:26 and Linux 1:26-1:28 (runs on 899cf05,
+          # bde5dae, b33204e and da30856), each job's setup and images 6-14 min more: so 3, 2, 2 and 2 parts, by the
+          # table about 60, 63, 43 and 45 min each (no part ends before its longest test: Intel's variant case, 56 min).
+          # GitHub runs 5 macOS jobs at once here: with the pure tier's two (22-32 min) these 5 make 7, so Intel's 3,
+          # listed first, start at once and Apple Silicon's 2 as the pure ones end, all done about 1 h 45 min in; 3 macOS
+          # parts, the most that never wait, would leave Apple Silicon's 2 h tier in one job, done about 2 h 20 min in.
+          - {os: macos-15-intel, label: macos-x86_64, workers: 2, shard: 1, shards: 3}
+          - {os: macos-15-intel, label: macos-x86_64, workers: 2, shard: 2, shards: 3}
+          - {os: macos-15-intel, label: macos-x86_64, workers: 2, shard: 3, shards: 3}
+          - {os: macos-15, label: macos-arm64, workers: 1, shard: 1, shards: 2}
+          - {os: macos-15, label: macos-arm64, workers: 1, shard: 2, shards: 2}
+          - {os: windows-latest, label: windows-x86_64, workers: 2, shard: 1, shards: 2}
+          - {os: windows-latest, label: windows-x86_64, workers: 2, shard: 2, shards: 2}
+          - {os: ubuntu-latest, label: linux-x86_64, workers: 1, shard: 1, shards: 2}
+          - {os: ubuntu-latest, label: linux-x86_64, workers: 1, shard: 2, shards: 2}
     defaults:
       run:
         shell: bash
@@ -197,10 +211,12 @@ jobs:
           image parts usa.iso
           image europe europe.iso europe
       - name: The vanilla and europe tiers
-        # On the matrix's workers, a group on one, and a killed worker ends the run by name, as in the pure tier's step.
-        # pytest writes to a log, of which only the last 60 lines, the summary from conftest's "vanilla: N run" (at most
-        # 200 lines, with each test phase past a minute, the slowest 60: --durations, as run 41779807138's Intel tier
-        # took 293 min where 4a178cc's took 159 and its log named no test's time), every FAILED line and each failure's
+        # The matrix row's part of the tier (--shard), on its workers, a group on one, and a killed worker ends the run by
+        # name, as in the pure tier's step. pytest writes to a log, of which only the last 60 lines, the summary from
+        # conftest's "vanilla: N run" (at most 200 lines, with each test phase past a minute, the slowest 60: --durations,
+        # as run 41779807138's Intel tier took 293 min where 4a178cc's took 159 and its log named no test's time, and
+        # what scripts/ci_shards.py reads to write tests/ci_durations.json; then the shard line: its part, its count of
+        # the whole and the whole's ids' sha256, alike in a runner's parts), every FAILED line and each failure's
         # heading and first 40 E lines (at most 600; byte-safe, tests/_byte_safe.py) are printed, each cut at 240
         # characters (§12.4 item 4). On Linux the tests run under Modkit full.yml's offline() (§12.4 item 3, V13): a
         # network namespace with only loopback up, back as this user with
@@ -235,7 +251,7 @@ jobs:
           fi
           trap 'echo "--- a signal stopped the tier: the log'"'"'s tail"; tail -n 20 "$log" | cut -c 1-240; touch "$stop"; exit 143' TERM
           status=0
-          tier -m vanilla -o tmp_path_retention_policy=failed -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 --durations=60 --durations-min=60 > "$log" 2>&1 &
+          tier -m vanilla --shard=${{ matrix.label }}:${{ matrix.shard }}/${{ matrix.shards }} -o tmp_path_retention_policy=failed -o faulthandler_timeout=3600 --numprocesses=${{ matrix.workers }} --dist=loadgroup --max-worker-restart=0 --durations=60 --durations-min=60 > "$log" 2>&1 &
           pid=$!
           tier_id=$pid
           if [ "$RUNNER_OS" = Windows ]; then tier_id="$(cat "/proc/$pid/winpid" 2> /dev/null || true)"; fi

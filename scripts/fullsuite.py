@@ -71,7 +71,7 @@ FINAL = {"done", "capped", "error"}
 PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op in every profile)
 PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
-SESSION = {"tests.conftest", "tests._byte_safe"}   # loaded by every run: a change to what they import is whole
+SESSION = {"tests.conftest", "tests._byte_safe", "scripts.ci_shards"}   # every run loads them: what they import is whole
 WHEEL = "tests/test_wheel.py"                      # builds the wheel from every file under src/ and installs it
 #: The test files that run every module under src/ outside the import graph: the wheel's, and those whose tests
 #: take the pyodide, browser or frozen_app fixture (the wheel under Pyodide, the site in a browser, the frozen app).

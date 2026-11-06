@@ -43,6 +43,7 @@ uv run --locked python scripts/record_shipped.py [--check] [--content CLONE]  # 
 uv run --locked python scripts/gen_facts.py [--check]                     # the facts' XBE half from the images
 uv run --locked python scripts/web_tables.py [--check]                    # web/tables.json: each release's table pages (the site's read ahead)
 uv run --locked python scripts/slider_tiers.py [--check]                  # the movement sliders' tier table, from the physics (D1066)
+uv run --locked python scripts/ci_shards.py [LABEL=]LOG ...               # tests/ci_durations.json, CI's vanilla parts' seconds, from its logs
 uv run --locked --group icon python assets/icon/render.py   # the icon, from its sources (macOS, dev only)
 ```
 
@@ -1738,6 +1739,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   workers (`--dist=loadgroup`, as the gate does) in a number each runner's
   memory sets, in the matrix: a killed worker ends the run by name
   (`--max-worker-restart=0`), where replacing one under loadgroup hangs it.
+  Each runner's vanilla tier runs as parts at once, a job each
+  (`--shard=LABEL:K/N`, `scripts/ci_shards.py`, Step 4.4ci35): the tier's
+  tests cut in their run order by that runner's seconds in
+  `tests/ci_durations.json`, each `xdist_group` in one part, so every part
+  takes about an hour; refresh the table from a run's logs (`gh run view RUN
+  --log`) when the tier's tests or their times change much, and change a
+  runner's count of parts in the matrix (`tests/test_tiers.py` holds each
+  label's parts 1..N once).
   `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
   --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four
