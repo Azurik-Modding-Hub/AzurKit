@@ -495,7 +495,9 @@ object's address dropped."""
 def webkit_said(since: float) -> list[str]:
     """WebKit's lines in macOS's log since ``since`` (seconds since the epoch) on a process that ended (:data:`ENDINGS`),
     each its time, process and message (cut at :data:`WIDTH`), at most 20; past them, every line counted by the call
-    that wrote it with its last time (run 41818469100's ended GPU processes were "and 260 more")."""
+    that wrote it, its ``reason=`` and the IPC message refused, with its last time (run 41818469100's ended GPU
+    processes were "and 260 more"; a WebKit tier's page closes write about 20 harmless refusals, which a line's start
+    merged with the one before a kill and the kill's lines without their reason)."""
     try:
         out = subprocess.run(["log", "show", "--style", "compact", "--start",
                               time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since)), "--predicate", ENDINGS],
@@ -508,7 +510,8 @@ def webkit_said(since: float) -> list[str]:
         return said
     calls: dict[str, list] = {}
     for at, _, _, what in lines:
-        call = calls.setdefault(m[0] if (m := re.search(r"\w+::\w+", what)) else what[:40], [0, at])
+        call = calls.setdefault(" ".join(re.findall(r"\w+::\w+|reason=\w+|invalid message \w+", what)) or what[:40],
+                                [0, at])
         call[0], call[1] = call[0] + 1, at
     return said[:20] + [f"and {len(said) - 20} more; all {len(said)} by the call that wrote them: "
                         + ", ".join(f"{call} {n} (the last at {at})" for call, (n, at) in calls.items())]

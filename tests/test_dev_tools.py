@@ -1217,7 +1217,9 @@ def test_ci_resources_names_what_webkits_gpu_process_did_as_it_stopped_answering
     most often in, never a path, a source line or an address; each minute's line has each GPU process's share of a
     core, page-ins and footprint, WindowServer's share and the load (where the OS keeps one), its own calls read on
     every OS without raising (Windows has no load: run 41981438506); WebKit's lines at the tier's end past the first 20
-    are counted by the call that wrote them."""
+    are counted by the call that wrote them, its reason and the IPC message refused (a WebKit tier's page closes write
+    about 20 harmless refusals, which a line's start merged with the one before a kill, and the kill without its
+    reason)."""
     from scripts import ci_resources
     assert ci_resources.stacks(SAMPLE_REPORT) == (
         "main thread: mach_msg2_trap (libsystem_kernel.dylib) < xpc_main (libxpc.dylib) < start (dyld); 2 x "
@@ -1259,10 +1261,20 @@ def test_ci_resources_names_what_webkits_gpu_process_did_as_it_stopped_answering
     calls = ("didBecomeUnresponsive: x", "gpuProcessExited: reason=Unresponsive")
     log = "".join(f"2026-11-04 14:{m:02}:00.1 E  Playwright[5:9a1] [com.apple.WebKit:Process] 0x1 - "
                   f"GPUProcessProxy::{calls[m % 2]}\n" for m in range(25))
+    log += "".join(f"2026-11-04 14:{m}:00.1 E  com.apple.WebKit.Networking.Development[6:9b2] [com.apple.WebKit:IPC] "
+                   f"Received an invalid message NetworkStorageManager_{name} from WebContent process 8, requesting "
+                   "for it to be terminated.\n" for m, name in ((25, "DatabaseConnectionClosed"), (26, "SetItem")))
+    log += "".join(f"2026-11-04 14:26:00.2 E  Playwright[5:9a1] [com.apple.WebKit:Process] 0x1 - [pageProxyID=7] "
+                   f"WebPageProxy::processDidTerminate: (pid 8), reason={why}\n"
+                   for why in ("Crash", "RequestedByNetworkProcess"))
     monkeypatch.setattr(ci_resources.subprocess, "run", lambda *_, **__: types.SimpleNamespace(stdout=log))
     assert ci_resources.webkit_said(0)[20:] == [
-        "and 5 more; all 25 by the call that wrote them: GPUProcessProxy::didBecomeUnresponsive 13 (the last at "
-        "14:24:00), GPUProcessProxy::gpuProcessExited 12 (the last at 14:23:00)"]
+        "and 9 more; all 29 by the call that wrote them: GPUProcessProxy::didBecomeUnresponsive 13 (the last at "
+        "14:24:00), GPUProcessProxy::gpuProcessExited reason=Unresponsive 12 (the last at 14:23:00), invalid message "
+        "NetworkStorageManager_DatabaseConnectionClosed 1 (the last at 14:25:00), invalid message "
+        "NetworkStorageManager_SetItem 1 (the last at 14:26:00), WebPageProxy::processDidTerminate reason=Crash 1 (the "
+        "last at 14:26:00), WebPageProxy::processDidTerminate reason=RequestedByNetworkProcess 1 (the last at "
+        "14:26:00)"]
 
 
 def test_ci_resources_stops_a_tier_whose_log_stops_growing_its_workers_before_pytest_once_it_printed_the_logs_tail(
