@@ -1967,6 +1967,22 @@ function updates(reg) {
   setInterval(() => ours() && told(sw.controller, { type: "check" }), 30 * 60 * 1000);
 }
 
+// A refusal of the page's policy is the page's own when its file (sourceFile) is at the page's origin: Chromium,
+// Firefox and WebKit name the page's script that inserted the refused <style>, set the refused style or asked the
+// refused fetch. Another's names none of the page's files (an extension's content script; Playwright's evaluate, or
+// its WebKit screenshot's <style>body {}</style>, which name no file at all: Step 4.4u4): it goes to the violations
+// the tests read, never to the status line.
+function refusal(e) {
+  let own = false;
+  try {
+    own = new URL(e.sourceFile).origin === location.origin;
+  } catch {}
+  if (!own) return void state.violations.push(`page: ${e.violatedDirective} ${e.blockedURI}, not the page's `
+                                              + `(${e.sourceFile || "no file"})`);
+  state.violations.push(`page: ${e.violatedDirective} ${e.blockedURI}`);
+  say(`The page's security policy refused ${e.violatedDirective}`, true);
+}
+
 async function main() {
   if (window.top !== window.self) return stop("AzurKit doesn't run inside another page: open it on its own.");
   if (navigator.serviceWorker?.controller && !ours()) {
@@ -1974,10 +1990,7 @@ async function main() {
   }
   theme(document.documentElement.dataset.theme);   // theme.js's
   $("theme").addEventListener("click", () => theme(state.theme === "light" ? "dark" : "light", true));
-  document.addEventListener("securitypolicyviolation", (e) => {
-    state.violations.push(`page: ${e.violatedDirective} ${e.blockedURI}`);
-    say(`The page's security policy refused ${e.violatedDirective}`, true);
-  });
+  document.addEventListener("securitypolicyviolation", refusal);
   let host;
   try {
     const reply = await fetch("host.json", { cache: "no-store" });

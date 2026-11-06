@@ -4055,6 +4055,48 @@ def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_v
         served.close()
 
 
+STATUS_SAYS = "() => [document.getElementById('status').textContent, document.getElementById('status').className]"
+OWN_STYLE = "setTimeout(() => document.head.append(Object.assign(document.createElement('style'), {textContent: 'b {}'})))"
+"""A script of the page's origin (a test's route) that inserts a ``<style>`` the page's policy refuses."""
+
+
+def test_the_status_line_says_the_pages_own_policy_refusals_and_only_logs_anothers(browser, site):
+    """Step 4.4u4: the tracker's view with no seed refuses nothing; a refusal
+    of the page's policy that isn't the page's own goes to
+    ``azurkit.violations`` only (which ``_page.check_csp`` reads), the status
+    line left as it was: a ``<style>`` Playwright's evaluate inserts, as an
+    extension's content script does, and in WebKit a screenshot's
+    (Playwright's adds ``<style>body {}</style>`` a moment: 4.4u3's WebKit
+    shot of that view said "The page's security policy refused
+    style-src-elem" in red). One a script of the page's origin causes is
+    said in red."""
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        _page.until(page, "() => Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)", 60)
+        _page.check_csp(page)
+        page.evaluate("() => document.head.append(Object.assign(document.createElement('style'), {textContent: 'i {}'}))")
+        others = 1
+        if browser.browser_type.name == "webkit":
+            page.screenshot()
+            others = 2
+        _page.until(page, f"() => azurkit.violations.length === {others}", 10)
+        said, kind = page.evaluate(STATUS_SAYS)
+        assert "security policy" not in said and "error" not in kind
+        assert [v.startswith("page: style-src-elem inline, not the page's (") for v in page.evaluate(
+            "() => azurkit.violations")] == [True] * others
+        page.route(f"{served.origin}/own.js", lambda route: route.fulfill(body=OWN_STYLE, content_type="text/javascript"))
+        page.evaluate("""(src) => new Promise((done) => document.head.append(Object.assign(
+            document.createElement('script'), {src, onload: done})))""", f"{served.origin}/own.js")
+        _page.until(page, f"() => azurkit.violations.length === {others + 1}", 10)
+        assert page.evaluate(STATUS_SAYS) == ["The page's security policy refused style-src-elem", "error"]
+        assert page.evaluate("() => azurkit.violations.at(-1)") == "page: style-src-elem inline"
+    finally:
+        served.close()
+
+
 # The level map shown: its level, floor, whether its detail picture was drawn, and its canvas's colour at points
 DETAIL_DRAWN = "() => { const f = azurkit.tracker.map.drawnFor; return [f?.level, f?.floor, f?.detail]; }"
 CANVAS_AT = """(points) => { const g = document.getElementById("map-canvas").getContext("2d"), r = devicePixelRatio || 1;

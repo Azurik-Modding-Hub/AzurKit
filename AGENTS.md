@@ -81,6 +81,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     while each browser's Web Locks are its own: a persistent WebKit context
     gets a home of its own (`CFFIXED_USER_HOME`, as `test_site.Site` does),
     or another test's page load sweeps its held build files.
+  - Playwright's WebKit screenshot appends `<style>body {}</style>` a moment
+    (its animation sync), which the page's CSP refuses: the page keeps it in
+    `azurkit.violations` as not its own (no file of its origin behind it),
+    so `_page.check_csp` after a WebKit screenshot fails. The status line
+    says only the page's own refusals (`web/app.mjs`'s `refusal`).
   - A page's files come from a server of a process of its own
     (`tests/_page.py`'s `Served`, `tests/_static.py`: `test_site.Site`, its
     bare page and `test_service_worker.Host`), never through the test's own
