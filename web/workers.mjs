@@ -15,8 +15,10 @@
 // B stays: terminated, its pages would stay resident in WebKit and its next load add its own, r1). B starts no
 // job, and isn't kept, while the page's tally (both heaps, B's kept answers and the bytes the page holds) reaches
 // TALLY, and a new B loads only while the last B's heap when it loaded fits under the line too (or each B would cross
-// it, be retired and load again), nor on a computer with fewer than CORES cores. A worker's priority has no web API:
-// B runs at the page's (a known flaw, D835), held small by the rules above.
+// it, be retired and load again), nor on a computer with fewer than CORES cores. A B that doesn't load (a fetch or the
+// engine's start failed) is loaded again at once, until LOADS B loads of the visit have failed: one failed load left
+// the whole visit with no work ahead (Step 4.4ci39). A worker's priority has no web API: B runs at the page's (a known
+// flaw, D835), held small by the rules above.
 //
 // The workers speak worker.mjs's protocol: each is sent one message at a time, so every message it posts until the
 // job's last (ends(): its answer) is that job's; {type: "progress"} is a record; {type: "at"} says the await it is in
@@ -42,6 +44,7 @@ export const GROWN = 3 * 2 ** 30;     // a worker whose heap reaches it after a 
 export const TALLY = 5 * 2 ** 30;     // the page's line (the plan's default): B starts no job at or past it
 export const SETTLE = 250;            // ms the page's list holds still before B starts on it (app.mjs's remember())
 export const CORES = 4;               // B only where navigator.hardwareConcurrency is at least this
+export const LOADS = 3;               // B's loads that may fail a visit before the page goes on without B
 
 // A value as one canonical JSON text: object keys sorted, so two recipes that differ only in their keys' order give
 // one key, and a property holding undefined left out, as JSON.stringify leaves it. Only JSON's values: anything else
@@ -94,6 +97,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   cores ??= globalThis.navigator?.hardwareConcurrency ?? 1;
   let f = null, b = null, dead = null, noB = cores < CORES, closed = false, held = 0, list = [], changed = 0;
   let timer = null, clock = 0, base = 0;   // base: the last B's heap when it loaded
+  let lost = null;                       // the message of the last B load that failed (state()'s)
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
   const taken = new Set();               // keys a click took, F runs, trim() freed or B failed on: B leaves them while
@@ -102,7 +106,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   const ahead = new WeakSet();           // every message that came from B's work ahead (took())
   const ids = new WeakMap();             // a File the page sent -> its image's id, as a worker read it ({type: "id"})
   let wasm = null;                       // the engine's compiled wasm, as the first worker that compiled it posted it
-  const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0, swapped: 0 };
+  const counts = { started: 0, dropped: 0, retired: 0, promoted: 0, demoted: 0, swapped: 0, unloaded: 0 };
   const now = () => globalThis.performance?.now() ?? Date.now();
   const later = (hook, ...args) => queueMicrotask(() => hook(...args));
 
@@ -187,10 +191,12 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
         if (slot.role === "b") base = heapOf(slot);
         for (const message of shared.values()) slot.worker.postMessage(message);
         if (slot === f) later(ready, data);
-      } else if (data?.type === "failed") {   // it didn't load: F's asks get its message, B isn't tried again
+      } else if (data?.type === "failed") {   // it didn't load: F's asks get its message, B loads again (LOADS)
         kill(slot);
-        if (slot.role === "b") noB = true;
-        else {
+        if (slot.role === "b") {
+          lost = data.message ?? null;
+          noB = ++counts.unloaded >= LOADS;
+        } else {
           dead = data;
           noB = true;
           if (b) kill(b);
@@ -420,7 +426,8 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       const of = (slot) => slot && { loaded: slot.loaded, heap: slot.heap,
                                      job: slot.job && (slot.job.key ?? slot.job.message.type),
                                      last: slot.last && [slot.last[0], Math.round(now() - slot.last[1])], at: slot.at };
-      return { f: of(f), b: of(b), queued: queue.length, kept: [...kept.keys()], tally: total(), ...counts };
+      return { f: of(f), b: of(b), ...(lost === null ? {} : { lost }), queued: queue.length, kept: [...kept.keys()],
+               tally: total(), ...counts };
     },
     close: () => {
       closed = true;
