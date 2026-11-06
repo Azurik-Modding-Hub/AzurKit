@@ -144,6 +144,23 @@ def test_what_every_session_runs_is_whole_and_what_only_a_fixture_runs_picks_its
                      "src/pkg/core.py": sorted({*SMOKE, *fullsuite.SRC_TESTS, "tests/test_pkg.py"})}
 
 
+def test_a_change_to_a_functions_decorators_or_defaults_is_its_modules_top_level():
+    """Step 4.4dx3, review F2: a function's decorators and defaults run as its
+    module loads, so a change to them is its module's (conftest's: the whole
+    suite): a fixture whose ``autouse`` goes ran for every test, not only for
+    those the head tree finds taking it; so is a default computed, or a
+    function added with a decorator. A literal default runs nothing: a change
+    to one, or a function added with one, is a part of its own."""
+    base = "import pytest\n\n\n@pytest.fixture(autouse=True)\ndef guard():\n    pass\n\n\ndef helper(n=1):\n    return n\n"
+    for new in (base.replace("(autouse=True)", ""), base.replace("n=1", "n=int('2')"),
+                base + "\n\n@pytest.fixture\ndef more():\n    pass\n"):
+        changed = fullsuite.parts("tests/conftest.py", base, new)
+        deps = fullsuite.graph_of({"tests/conftest.py": new, "tests/test_a.py": "def test_a():\n    pass\n"})
+        assert changed == ["tests/conftest.py"] and fullsuite.plan(changed, deps) is None, new
+    assert fullsuite.parts("tests/conftest.py", base, base.replace("n=1", "n=-2") + "\n\ndef bare(s=120.0):\n    pass\n"
+                           ) == ["tests/conftest.py::bare", "tests/conftest.py::helper"]
+
+
 def _users(*names: str) -> set[str]:
     """The test files whose import lines reach one of ``names`` (``tests._page``, ``scripts.perf``), directly or
     through tests/ and scripts/ modules, or that run one by its file name beside them: read from the sources by

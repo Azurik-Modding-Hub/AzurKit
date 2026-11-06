@@ -380,15 +380,26 @@ def parts(rel: str, old: str | None, new: str | None) -> list[str]:
     """A module's change from ``old`` to ``new`` as the top-level functions it
     changes (``rel::NAME``; none for its docstring, comments or layout alone),
     or ``[rel]`` when anything else differs: its top level (imports, classes,
-    values, its ``__main__`` block), a function gone or defined twice, or either
-    side missing or unparsable."""
+    values, its ``__main__`` block, its functions' decorators and defaults
+    but literal ones, which run as it loads: removing ``autouse`` would leave
+    the head tree's takers short of the tests the fixture ran for), a function
+    gone or defined twice, or either side missing or unparsable."""
+    def runs(node):   # a literal (120, -1, ("a", 2)) runs nothing as its module loads
+        try:
+            ast.literal_eval(node)
+        except (ValueError, TypeError, RecursionError):
+            return True
+        return False
+
     def split(text):
         body = ast.parse(text).body
         body = body[1:] if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) else body
         funcs = [n for n in body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
-        return [ast.dump(n) for n in body if n not in funcs], {n.name: ast.dump(n) for n in funcs}, len(funcs)
+        made = {n.name: m for n in funcs if (m := [ast.dump(d) for d in (
+            *n.decorator_list, *n.args.defaults, *filter(None, n.args.kw_defaults)) if runs(d)])}
+        return [ast.dump(n) for n in body if n not in funcs], made, {n.name: ast.dump(n) for n in funcs}, len(funcs)
     try:
-        (top_a, fa, na), (top_b, fb, nb) = split(old), split(new)
+        (*top_a, fa, na), (*top_b, fb, nb) = split(old), split(new)
     except (SyntaxError, TypeError, ValueError):   # TypeError: a side missing
         return [rel]
     if top_a != top_b or len(fa) != na or len(fb) != nb or fa.keys() - fb.keys():
