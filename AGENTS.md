@@ -1646,7 +1646,16 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   checks the app's no-window mode in a Python of its own) and a path no
   rule covers run the whole suite. A changed-area run drives the page in
   Chromium alone, the whole suite in every browser (D970), and the receipt
-  says which (`browsers`). A run is killed past its
+  says which (`browsers`). Once a changed-area run's tests pass, its flake
+  stage (Step 4.4dx2) runs each test function the stack adds or edits (a
+  `def test*` whose source differs from the base's; a helper's change adds
+  none) 5 times at CI's runners' pace: `taskpolicy -b` and nice 19 on macOS
+  (nice 19 elsewhere), 4 busy loops beside it, on 2 workers, in every
+  browser its parameters name. A failure fails the receipt with the test,
+  the run and its output's tail; the receipt's `flake` block keeps the
+  tests, runs and wall time; no run starts once the stage's time and its
+  longest run pass 600 s, and past 20 tests each runs once (the block says
+  so); `land.py` needs it passed. A whole run has none. A run is killed past its
   cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
   it is still running, so issue the same command again.

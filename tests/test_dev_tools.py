@@ -124,6 +124,73 @@ def test_the_cap_scales_with_the_load_per_cpu_up_to_twice():
     assert [fullsuite.cap(load5, 24) for load5 in (0, 24, 36, 48, 96)] == [1800, 1800, 2700, 3600, 3600]
 
 
+def test_the_flake_stage_takes_the_tests_a_stack_added_or_edited_and_only_in_a_changed_run(tmp_path, monkeypatch):
+    """A changed-area run's flake stage takes each test function the stack
+    adds or edits against its base (a new or renamed one, an edited body or
+    decorator; committed, or in an untracked file), not one left word for
+    word (moved, or beside an edited helper), a helper file's or a deleted
+    file's; a whole run has none (Step 4.4dx2)."""
+    _, lane, _, _ = _repo(tmp_path, monkeypatch)
+    tests = lane / "tests"
+    tests.mkdir()
+    kept, marked = "def test_kept():\n    assert helper()\n", "@pytest.mark.parametrize('x', [1])\ndef test_marked(x):"
+    (tests / "test_a.py").write_text(f"import pytest\n\n\ndef helper():\n    return 1\n\n\n{kept}\n\ndef test_body():"
+                                     "\n    assert 1\n\n\ndef test_marked():\n    pass\n\n\ndef test_renamed():\n"
+                                     "    pass\n", encoding="utf-8")
+    for name in ("_help.py", "test_gone.py"):
+        (tests / name).write_text("def test_like():\n    pass\n", encoding="utf-8")
+    _git(lane, "add", "tests")
+    _git(lane, "commit", "-q", "-m", "base")
+    base = _git(lane, "rev-parse", "HEAD")
+    (tests / "test_a.py").write_text(f"import pytest\n\n\ndef helper():\n    return 2\n\n\ndef test_body():\n    assert 2"
+                                     f"\n\n\n{marked}\n    pass\n\n\ndef test_other():\n    pass\n\n\n{kept}",
+                                     encoding="utf-8")
+    (tests / "_help.py").write_text("def test_like():\n    assert 1\n", encoding="utf-8")
+    _git(lane, "rm", "-q", "tests/test_gone.py")
+    _git(lane, "commit", "-q", "-am", "edits")
+    (tests / "test_b.py").write_text("def test_new():\n    pass\n", encoding="utf-8")
+    changed, whole = fullsuite.prepare(lane, True, base), fullsuite.prepare(lane, False, base)
+    assert (changed["mode"], changed["flake_tests"]) == ("changed", [f"tests/test_a.py::test_{name}" for name in (
+        "body", "marked", "other")] + ["tests/test_b.py::test_new"])
+    assert (whole["mode"], whole["flake_tests"]) == ("full", [])
+
+
+def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_passes_a_steady_one(tmp_path,
+                                                                                                  monkeypatch):
+    """Once the selected tests pass, the flake stage runs the tests a stack
+    added or edited FLAKE_RUNS times at CI's pace (``taskpolicy -b`` and
+    nice 19 on macOS, busy loops beside it) on FLAKE_WORKERS: a test that
+    fails one run in three fails the receipt at its third run by its name
+    with its output's tail, and no perf stage runs; a steady one passes
+    every run. The receipt keeps the stage: its tests, runs and wall time."""
+    assert fullsuite.slowed() == ["taskpolicy", "-b"] * (sys.platform == "darwin") + fullsuite.niced(19)
+    assert fullsuite.flake_command(["t"])[-3:] == ["-rfE", "--numprocesses=2", "--dist=loadgroup"]   # no --browsers
+    monkeypatch.setattr(fullsuite, "slowed", lambda: fullsuite.niced(19))   # taskpolicy -b: seconds a pytest start
+    monkeypatch.setattr(fullsuite, "PYTEST", (sys.executable, "-m", "pytest", "-p", "no:cacheprovider"))
+    monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 0)   # in the run's own process: xdist's start is most of a run
+    monkeypatch.setattr(fullsuite, "FLAKE_LOOPS", 1)
+    monkeypatch.setattr(fullsuite, "perf_stage", lambda meta, m: pytest.fail("a perf stage after a failed flake stage"))
+    (tmp_path / "test_x.py").write_text(
+        "from pathlib import Path\n\nRUNS = Path(__file__).with_name('runs')\n\n\ndef test_flaky():\n"
+        "    RUNS.write_text(str(n := int(RUNS.read_text() if RUNS.exists() else 0) + 1))\n"
+        "    assert n % 3, f'run {n} of the flaky test fails'\n\n\ndef test_steady():\n    pass\n", encoding="utf-8")
+    meta = tmp_path / "suite-k.meta"
+    m = fullsuite.stages(meta, {"key": "k", "subject": "s", "mode": "changed", "worktree": str(tmp_path), "cap_s": 600,
+                                "pytest_args": [], "perf_args": ["--select", "a"], "state": "running", "exit_code": 0,
+                                "flake_tests": ["test_x.py::test_flaky", "test_x.py::test_steady"]})
+    flake = m["flake"]
+    assert fullsuite.load(meta)["state"] == "flake"   # saved as it ran
+    assert (flake["passed"], flake["runs"], flake["done"]) == (False, fullsuite.FLAKE_RUNS, 3)
+    assert flake["tests"] == m["flake_tests"] and flake["wall_s"] > 0 and "perf" not in m
+    assert [(f["test"], f["run"]) for f in flake["failures"]] == [("test_x.py::test_flaky", 3)]
+    assert "run 3 of the flaky test fails" in "\n".join(flake["failures"][0]["tail"])
+    done = m | {"state": "done"}
+    assert fullsuite.status_code(done) == 1
+    assert "test_x.py::test_flaky failed in run 3" in fullsuite.describe(done, meta)
+    steady = fullsuite.flake_stage(meta, m | {"flake_tests": ["test_x.py::test_steady"]})
+    assert (steady["passed"], steady["done"], steady["failures"]) == (True, fullsuite.FLAKE_RUNS, [])
+
+
 def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_only_shrinks():
     """D981-D985 on fake timings: an op not in the list fails when its
     median is over 3 s (the capped profile's 9 s); an image's first check
@@ -623,12 +690,13 @@ def test_land_fast_forwards_main_only_with_a_passing_receipt_and_removes_the_lan
     _git(lane, "commit", "-q", "--allow-empty", "-m", "b")
     top = _git(lane, "rev-parse", "HEAD")
     _git(repo, "branch", "p2/y", base)
-    for refused in ({"exit_code": 1}, {"vanilla_run": 0}, {"europe_run": None}):   # D26: both tiers ran
+    for refused in ({"exit_code": 1}, {"vanilla_run": 0}, {"europe_run": None},   # D26: both tiers ran
+                    {"mode": "changed", "base": base, "flake_tests": ["t"], "flake": {"passed": False}}):
         _receipt(receipts, top, **refused)
         assert land.land(repo, "p2/x")[0] == 1, refused
     _receipt(receipts, top[:11] + "f", clean=False)
     assert land.land(repo, "p2/x")[0] == 1
-    _receipt(receipts, top, mode="changed", base=base)
+    _receipt(receipts, top, mode="changed", base=base, flake_tests=["t"], flake={"passed": True})
     assert land.land(repo, "p2/x") == (0, f"land: moved main {base[:12]} -> {top[:12]} (p2/x; receipt "
                                           f"{top[:12]}-0, changed)")
     assert _git(repo, "rev-parse", "main") == top and not lane.exists()

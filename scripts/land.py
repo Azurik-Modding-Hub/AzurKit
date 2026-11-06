@@ -6,7 +6,9 @@ covers its head (the twin of Modkit's ``land``).
 It refuses unless BRANCH's head fast-forwards from main (an unborn main takes
 any head) and a passing ``scripts/fullsuite.py`` receipt covers that head's
 clean tree, in which at least one vanilla and one europe test ran (D26):
-either a whole-suite run, or a changed-area run whose base is main's head. A
+either a whole-suite run, or a changed-area run whose base is main's head
+and whose flake stage, when it has one (the tests the stack added or edited,
+run again and again slowed: ``fullsuite.flake_stage``), passed. A
 stack that changes a file under ``src/`` or ``web/`` also needs the
 receipt's passing perf block (D981, ``scripts/perf.py``). Every stack's
 ``tests/perf_ceilings.toml`` only shrinks: it refuses one that adds an op, a
@@ -53,6 +55,7 @@ def receipt_for(folder: Path, head: str, main: str | None, perf_block: bool = Fa
         if (m["head"] == head and m["clean"] and fs.status_code(m) == 0
                 and (m.get("vanilla_run") or 0) >= 1 and (m.get("europe_run") or 0) >= 1
                 and (m["mode"] == "full" or (main is not None and m["base"] == main))
+                and fs.flake_passed(m)   # a changed run's flake stage (the tests the stack added or edited, slowed)
                 and (not perf_block or (m.get("perf") or {}).get("passed") is True)):
             found.append(m)
     return max(found, key=lambda m: m.get("finished_at") or "", default=None)
