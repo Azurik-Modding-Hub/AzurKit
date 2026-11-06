@@ -119,10 +119,13 @@ REPORTS = (Path.home() / "Library" / "Logs" / "DiagnosticReports", Path("/Librar
 """Where macOS writes a crash report (the user's) and a jetsam event (the system's)."""
 ENDINGS = ('subsystem == "com.apple.WebKit" AND (eventMessage CONTAINS "processDidTerminate" OR eventMessage CONTAINS '
            '"MemoryLimit" OR eventMessage CONTAINS "CPULimit" OR eventMessage CONTAINS "kill threshold" OR eventMessage '
-           'CONTAINS "nresponsive")')
+           'CONTAINS "nresponsive" OR eventMessage CONTAINS "Received an invalid message")')
 """WebKit's own lines (macOS's log) on a process of its that ended or that it ended: why a page's process ended
-(``WebPageProxy::processDidTerminate``'s ``reason=``: ``Crash``, ``ExceededMemoryLimit``, ``ExceededCPULimit``...), its
-memory and CPU kills and their thresholds, and a process that stopped answering. A WebKit kill writes no report."""
+(``WebPageProxy::processDidTerminate``'s ``reason=``: ``Crash``, ``ExceededMemoryLimit``, ``ExceededCPULimit``,
+``RequestedByNetworkProcess``...), its memory and CPU kills and their thresholds, a process that stopped answering, and
+the IPC message its network process refused before it asked for the sending page process's end ("Received an invalid
+message <name> from WebContent process <id>"): run 42198913490's Intel tier lost a live page so, and the fault report
+the refusal wrote names no message. A WebKit kill writes no report."""
 SAYING = threading.RLock()
 """Held by each of the watch's prints, which two threads make (:class:`Readings`), so no line is cut by another's."""
 
