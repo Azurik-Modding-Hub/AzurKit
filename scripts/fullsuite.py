@@ -31,7 +31,7 @@ whole one in every browser (D970); the meta's ``browsers`` says which.
 Once a changed-area run's pytest passes, its flake stage (Step 4.4dx2,
 :func:`flake_stage`) runs each test function the changes add or edit
 (:func:`edited_tests`: a changed ``def test*``, not a helper)
-:data:`FLAKE_RUNS` times at CI's runners' pace (:func:`slowed`), inside the
+:data:`FLAKE_RUNS` times slowed toward CI's runners' pace (:func:`slowed`), inside the
 same lock and within :data:`FLAKE_CAP`, copying the wheel and database the
 run built (its build cache, ``<meta>.cache``); a failure fails the receipt
 with the test, the run and its output's tail, as does a case with no
@@ -676,15 +676,18 @@ def slowings() -> list[tuple[list[str], list[str], int]]:
 
 
 def slowed() -> tuple[tuple[list[str], list[str], int], dict[str, float | None]]:
-    """The slowing (:func:`slowings`) that runs a flake run at about CI's
-    Intel runners' pace, and what chose it: the first whose :data:`PROBE`
-    (a fixed CPU-bound loop timed under it) ends within
-    :data:`FLAKE_QUIET`, else the last; ``{prefix: the probe's s, None past
-    the bound}``. ``taskpolicy -b`` keeps CI's pace on a quiet box, but on a
-    busy one its processes starve behind every other's: its one-time builds
-    took over 900 s where they take 8 s, and at load 45 two runs of two
-    tests that pass in 48 s ended at 240-300 s with 1 case of 6 passed and 3
-    failed (Step 4.4dx4), while the utility clamp ran them at CI's pace."""
+    """The slowing (:func:`slowings`) for a flake run, and what chose it:
+    the first whose :data:`PROBE` (a fixed CPU-bound loop timed under it)
+    ends within :data:`FLAKE_QUIET`, else the last; ``{prefix: the probe's
+    s, None past the bound}``. ``taskpolicy -b`` keeps CI's pace on a quiet
+    box (Step 4.4ci27), but on a busy one its processes starve behind every
+    other's: its one-time builds took over 900 s where they take 8 s, and at
+    load 45 two runs of two tests that pass in 48 s ended at 240-300 s with
+    1 case of 6 passed and 3 failed (Step 4.4dx4). The utility clamp keeps
+    them from starving, but reaches CI's Intel pace only near load 60: at
+    load 43 those tests took 63 s, their CPU-heavy cases 27-37 s, at load
+    58 166 s and 99-119 s, where CI's Intel runner takes 77-84 s (its cases
+    take a median 3.4 times this box's gate run's)."""
     options, probed = slowings(), {}
     for option in options[:-1]:
         t0 = time.time()

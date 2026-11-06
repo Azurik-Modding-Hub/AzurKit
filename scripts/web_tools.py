@@ -72,7 +72,7 @@ CACHE = "AZURKIT_BUILD_CACHE"
 :func:`ship_database` build, by their inputs' sha256 (:func:`kept`): the
 gate's run and its flake stage share one (``scripts/fullsuite.py``), so the
 stage's slowed runs copy the gate's wheel and database, never build them
-again at CI's pace (Step 4.4dx4). Unset: each call builds."""
+again slowed (Step 4.4dx4). Unset: each call builds."""
 WORKER = "sw.js"   # the site's service worker (D1013): web/sw.js, with the release site() lists in it
 RELEASE_LINE = "const RELEASE = null;"
 """The line of ``web/sw.js`` :func:`site` writes the release into: the

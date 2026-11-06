@@ -308,7 +308,7 @@ def test_the_flake_stage_takes_the_tests_a_stack_added_or_edited_and_only_in_a_c
 def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_passes_a_steady_one(tmp_path,
                                                                                                   monkeypatch):
     """Once the selected tests pass, the flake stage runs the tests a stack
-    added or edited FLAKE_RUNS times at CI's pace on FLAKE_WORKERS: on macOS
+    added or edited FLAKE_RUNS times slowed on FLAKE_WORKERS: on macOS
     under ``taskpolicy -b`` and nice 19 beside FLAKE_LOOPS at nice 10 if a
     probe under it ends within FLAKE_QUIET (a busy box starves it), else
     under the utility clamp beside FLAKE_UTILITY_LOOPS of its class;

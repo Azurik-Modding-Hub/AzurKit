@@ -1659,20 +1659,24 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   says which (`browsers`). Once a changed-area run's tests pass, its flake
   stage (Step 4.4dx2) runs each test function the stack adds or edits (a
   `def test*` whose source differs from the base's; a helper's change adds
-  none) 5 times at CI's Intel runners' pace, on 3 workers, in every
-  browser its parameters name (Step 4.4dx4): on macOS each run under
+  none) 5 times, slowed toward CI's Intel runners' pace, on 3 workers, in
+  every browser its parameters name (Step 4.4dx4): on macOS each run under
   `taskpolicy -b` and nice 19 beside 4 busy loops at nice 10 when a CPU
   probe under it ends within 3 s (a quiet box), else under `taskpolicy -c
   utility` and nice 19 beside 12 busy loops of that class (on a busy box
-  `taskpolicy -b` starves: past 900 s for builds of 8 s, false failures);
-  nice 19 and 4 loops elsewhere. Nothing built once is built slowed: the
+  `taskpolicy -b` starves: past 900 s for builds of 8 s, false failures;
+  the utility clamp doesn't starve, but reaches CI's Intel pace only near
+  load 60: at load 43 its runs took 1.3 times the gate's); nice 19 and 4
+  loops elsewhere. Nothing built once is built slowed: the
   gate's run and the stage share one build cache (`web_tools.CACHE`,
   `<meta>.cache`), so the stage copies the run's wheel and database. A
   failure fails the receipt with the test, the run and its output's tail;
   the stage's wall is 840 s: no run starts that its longest so far won't
-  fit in, a run still going at it is ended with every process under it,
-  and each case with no passing run by then fails the receipt by name,
-  capped; past 20 tests each runs once (the block says so); the receipt's
+  fit in, a run (or the stage's collection) still going at it is ended
+  with every process under it, each case that run failed so far fails the
+  receipt, and each case with no passing run by then fails it by name,
+  capped (a case of an xdist group by its collected id, not its worker's
+  `<id>@group`); past 20 tests each runs once (the block says so); the receipt's
   `flake` block keeps the tests, runs, each run's wall time and slowing;
   `land.py` needs it passed. A whole run has none. A run is killed past its
   cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
