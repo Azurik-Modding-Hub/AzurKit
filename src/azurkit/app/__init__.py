@@ -180,6 +180,11 @@ SITE = "https://azurik-modding-hub.github.io/AzurKit/"   # the site (D884), whic
 PAGE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[3])) / "web"   # the frozen app's, else the checkout's
 NO_WINDOW = "AZURKIT_NO_WINDOW"   # set: main() opens nothing (the tests' mode)
 MAX_BODY = 1 << 20
+KEEP = 1.0
+"""s a call may run before its answer's headers go, and between the spaces that follow them until the answer (JSON
+reads past them): Firefox aborts every connection that carried no byte in the 5 s after the computer's network
+changes (``network.http.network-changed.timeout``), and a call that sent nothing until its answer lost it, a plan's or
+a spoiler's of seconds, tens on a slow runner ("NetworkError"; a Mac's IPv6 changed every 1-8 min here, Step 4.4ci36)."""
 IMAGES = ("Disc images (*.iso;*.xiso)",)   # the open dialog's filter (another name can be typed in)
 SAVES = ("out", "spoiler", "settings", "extract", "mods", "report", "saves")   # the kinds of save the save dialog chooses for
 MODS = "AzurKit mods.json"   # the Tools tab's mods file, by default (web/tools.mjs's)
@@ -1114,11 +1119,46 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             return self.send_error(400)
         if not isinstance(body, dict):
             return self.send_error(400)
+        with self._kept() as sent:
+            try:
+                reply = call(body)
+            except (OSError, ValueError, engines.Gone) as exc:   # the sdk's refusals name what and why, never game bytes
+                reply = {"refused": str(exc)}
+        if sent:
+            self.wfile.write(json.dumps(reply).encode())
+        else:
+            self._json(reply)
+
+    @contextlib.contextmanager
+    def _kept(self):
+        """While a call runs, its connection never quiet (:data:`KEEP`): past ``KEEP`` s its answer's headers go (200,
+        JSON, no length: the answer ends at the close) and a space each ``KEEP`` s after them. Yields a list that holds
+        ``True`` once they went."""
+        sent, done, lock = [], threading.Event(), threading.Lock()
+
+        def keep() -> None:
+            while not done.wait(KEEP):
+                with lock:
+                    if done.is_set():
+                        return
+                    try:
+                        if not sent:
+                            self.send_response(200)
+                            self.send_header("Content-Type", "application/json")
+                            self.send_header("Cache-Control", "no-store")
+                            self.end_headers()
+                            sent.append(True)
+                        self.wfile.write(b" ")
+                    except OSError:   # the page went: the answer's own write says so
+                        return
+        keeper = threading.Thread(target=keep, name="azurkit-keep", daemon=True)
+        keeper.start()
         try:
-            reply = call(body)
-        except (OSError, ValueError, engines.Gone) as exc:   # the sdk's refusals name what and why, never game bytes
-            reply = {"refused": str(exc)}
-        self._json(reply)
+            yield sent
+        finally:
+            with lock:
+                done.set()
+            keeper.join()
 
     def log_message(self, *args) -> None:   # the token is in the first request's line
         pass
