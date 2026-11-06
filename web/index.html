@@ -78,8 +78,10 @@ spellcheck="false" autocomplete="off"> <button id="rando-clear" type="button">Cl
 <div id="tracker" class="tracker" hidden>
 <p class="rando-row"><button id="track-seed" type="button" title="Plan the seed and settings of the Settings view and track it"
 >Track this seed</button> <label class="file" title="Track a plan file's seed (azurkit plan's)">Open a plan
-file… <input type="file" id="track-open" accept=".json,application/json"></label> <span id="track-empty"
-class="note">Build with Randomize ticked, track the seed you set, or open a plan file (azurkit plan's).</span></p>
+file… <input type="file" id="track-open" accept=".json,application/json"></label> <label class="field"
+id="track-pick-box">Map <select id="track-pick" disabled><option value="">World map</option></select></label>
+<span id="track-empty" class="note">Build with Randomize ticked, track the seed you set, or open a plan file
+(azurkit plan's). Map shows any level with the vanilla game's items.</span></p>
 <div id="track-body" hidden><p id="track-got" class="got-line" role="status" hidden></p>
 <p class="rando-row"><label class="on"><input type="checkbox" id="track-spoiler"> Spoiler</label>
 <label class="on" title="Each gem a tiny dot on its level's map, gone once Live sees it taken, with the gems taken and left"

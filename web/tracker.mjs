@@ -6,7 +6,9 @@
 // nothing names an item not yet collected. The maps (Step 4.2c3) are Modkit's pictures, shipped with the page (Step
 // 4.3f, web/art.mjs) and shown by web/mapview.mjs, Modkit's map view: the world map shows with every level's picture
 // as soon as the view does, before any plan, its badges and exits once one is tracked; where the pictures can't be
-// read, the world map is a grid of the levels and a level's spots are chips. Gems (R1.43, D928, off
+// read, the world map is a grid of the levels and a level's spots are chips. With no plan (Step 4.4u3) any level's map
+// opens (Map, the level picker, or a click on the world map) with the vanilla game's spots: the engine's tracker with
+// no plan, the same database a plan's reads (no image), asked once as the view first shows. Gems (R1.43, D928, off
 // by default and remembered) draws each gem spot as a tiny dot on its level's map, gone once Live sees it taken. The engine (sdk.tracker, Modkit's tracker) decides every verdict: this page
 // sends the plan, the marks, a click, and draws what comes back. The marks are kept per plan, the last KEEP plans
 // (the site in this browser's storage, the app in its config), with the plan last tracked; the tracker's Reset clears
@@ -50,7 +52,8 @@ const el = (tag, props = {}, ...children) => {
 export function tracker({ call, app, say, kept, keep }) {
   const t = { plan: null, marks: {}, view: null, level: null, mode: "map", spoiler: false, gems: false, queue: [],
               running: null, collected: false, fresh: new Map(),   // fresh: Live's pickups, loc -> when (ms)
-              kept: kept ?? { plan: null, marks: {} }, live: null };
+              kept: kept ?? { plan: null, marks: {} }, live: null,
+              browse: null, browsing: null };   // browse: the vanilla game's spots, the maps' with no plan (Step 4.4u3)
 
   // The engine's asks, one at a time and in order (each click is one, sent with the marks the last answer gave;
   // one made after a call waits for it); a plan opened meanwhile drops the asks of the one before it, but for its marks
@@ -110,7 +113,8 @@ export function tracker({ call, app, say, kept, keep }) {
   const map = new MapView({ room: $("map-room"), canvas: $("map-canvas"), back: $("map-back"), fit: $("map-fit"),
                             switches: $("map-switches"), floors: $("map-floors"), key: $("map-key"),
                             note: $("map-note"), hint: $("map-hint"), tip: $("map-tip") }, {
-    view: () => t.view, art, spoiler: () => t.spoiler, gems: () => t.gems,
+    view: () => t.view ?? t.browse, art, spoiler: () => t.spoiler, gems: () => t.gems,
+    waiting: () => Boolean(t.browsing),
     following: () => Boolean(t.live?.here) && $("track-follow").checked,
     collected: () => t.collected, fresh: () => t.fresh,
     toggle: (loc) => mark({ toggle: loc }),
@@ -120,6 +124,7 @@ export function tracker({ call, app, say, kept, keep }) {
         t.live.followed = null;
       }
       t.level = level;
+      $("track-pick").value = level ?? "";
       if (byHand && t.view) draw();
     },
   });
@@ -128,16 +133,50 @@ export function tracker({ call, app, say, kept, keep }) {
     $("track-art").classList.toggle("error", Boolean(art.status.error));
   };
 
-  // Before a plan is tracked (and while the first is asked): the world map alone, every level's picture on it, as soon
-  // as the Tracker view shows (Modkit's: it needs no plan).
+  // Before a plan is tracked (and while the first is asked): the maps alone, the world map with every level's picture
+  // as soon as the Tracker view shows (Modkit's: it needs no plan), and once the vanilla game's spots are in any level's
+  // map, picked on Map or the world map (Step 4.4u3).
   const preview = () => {
     if ($("tracker").hidden || t.view) return;
     art.load();
+    browse();
+    picker();
     if (!map.ready(null)) return;
     $("track-body").hidden = false;
     for (const node of $("track-body").children) if (node.id !== "track-got") node.hidden = node.id !== "track-maps";
-    if (map.level !== null || !map.pictures?.length) map.show(null);
-    else map.draw();
+    const level = t.browse && map.ready(t.level) ? t.level : null;
+    if (map.level !== level || !map.pictures?.length) map.show(level);
+    else {
+      map.floorButtons();
+      map.draw();
+    }
+  };
+
+  // The vanilla game's spots, asked of the engine once (again after a refusal, at the next show) while no plan is open.
+  const browse = () => {
+    if (t.browse || t.browsing || t.plan) return;
+    t.browsing = call("tracker", { given: {} }).then((reply) => {
+      t.browsing = null;
+      if ("refused" in reply) return say(`Tracker: ${reply.refused}`, true);
+      t.browse = reply;
+      preview();
+    });
+  };
+
+  // Map, the level picker: the world map, then every level by realm as the Table groups them (a realm of one level
+  // its own row), shown while no plan is open, greyed until the levels' spots and maps are read.
+  const picker = () => {
+    const pick = $("track-pick");
+    $("track-pick-box").hidden = Boolean(t.plan);
+    if (t.browse && pick.options.length === 1) {
+      pick.append(...t.browse.levels.map(([name, levels]) => (levels.length === 1 && levels[0] === name.toLowerCase()
+        ? el("option", { value: levels[0], textContent: name })
+        : el("optgroup", { label: name }, ...levels.map((lv) => el("option", { value: lv, textContent: lv }))))));
+    }
+    pick.disabled = !t.browse || !map.ready(null);
+    pick.title = pick.disabled ? "Reading the levels' maps and spots…"
+      : "Any level's map with what the vanilla game puts at each spot, before you track a seed";
+    pick.value = t.level ?? "";
   };
 
   const open = (plan, from = null) => {
@@ -146,10 +185,11 @@ export function tracker({ call, app, say, kept, keep }) {
     }
     if (plan.sha256 !== t.plan?.sha256) {   // the same plan again (a rebuild): its marks and the map shown stay
       t.marks = t.kept.marks[plan.sha256] ?? {};
-      t.level = null;
+      if (t.plan) t.level = null;   // the first plan: on the level browsed (Step 4.4u3), its own spots
     }
     t.plan = plan;
     $("track-empty").hidden = true;
+    $("track-pick-box").hidden = true;
     $("track-body").hidden = false;
     if (from) say(`Tracking seed ${plan.seed} (${from}): the Randomizer tab's Tracker`);
     if (t.live) liveOn();   // Live follows the plan shown
@@ -416,6 +456,9 @@ export function tracker({ call, app, say, kept, keep }) {
     if (!$("track-maps").hidden) map.follow(t.live.seen, true);   // their floor, centred
   };
 
+  $("track-pick").addEventListener("change", () => {
+    if (!t.plan && t.browse) map.show($("track-pick").value || null, true);
+  });
   $("track-world").addEventListener("click", (e) => {
     const cell = e.target.closest(".cell");
     if (cell) show(cell.dataset.level);

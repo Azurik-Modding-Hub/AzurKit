@@ -16,10 +16,12 @@
 // Zoomed past its own pixels, a coarse level's map shows its floor's detail picture (Step 4.3l, Modkit's R1.41: the
 // floor drawn again finer, shipped with the page), read when the zoom comes within a notch of needing it.
 // Every verdict is the engine's (sdk.tracker's view): this draws what it says (marks(), the tests' too). Before a plan
-// is tracked (no view) the world map shows its picture and the levels' names alone.
+// is tracked (no view) the world map shows its picture and the levels' names alone; with the engine's view of no plan
+// (Step 4.4u3: its spots' state "vanilla", their items the vanilla game's) a level's map shows each spot ringed plain
+// with its vanilla item's icon, and a click on a spot marks nothing.
 const DARK = "#1b1f24";
 // Modkit's TRACK: reachable now, only by a skip (R1.41's amber), not yet, a live mark or the player
-export const TRACK = { near: "#3fb950", skip: "#ff8800", far: "#6e7681", live: "#58a6ff" };
+export const TRACK = { near: "#3fb950", skip: "#ff8800", far: "#6e7681", live: "#58a6ff", vanilla: "#c9d1d9" };
 const GEMS = { emerald: "#3fd17a", diamond: "#e6edf3", ruby: "#ff5c5c", sapphire: "#5b8cff" };
 const NOTHING = "#c9d1d9";
 const SPOT = { major: "Item spot", obsidian: "Obsidian spot", consumable: "Fuel or health spot" };
@@ -56,16 +58,17 @@ export function itemIcon(item, have = () => false) {
 const gemName = (item) => item.charAt(0).toUpperCase() + item.slice(1).replace(/_/g, " ");
 
 // What a level's map draws of the tracker's view (Modkit's track() and gem_dots()): each tracked spot of the level
-// (sorted) with its ring (skip, near or far), whether it is reachable now (a thick ring), the icon it shows (its
-// item, once collected or with Spoiler; else none: a dot), faint (out of reach and not collected), and its check
-// (got, live or none); with Gems each gem spot not all taken (its colour's gem, a cluster's dot larger). The tests
-// hold these to Modkit's map verdicts.
+// (sorted) with its ring (skip, near or far; vanilla with no plan), whether it is reachable now (a thick ring), the
+// icon it shows (its item, once collected or with Spoiler, and with no plan the vanilla game's; else none: a dot),
+// faint (out of reach and not collected), and its check (got, live or none); with Gems each gem spot not all taken
+// (its colour's gem, a cluster's dot larger). The tests hold these to Modkit's map verdicts.
 export function marks(view, level, have = () => false) {
   const spots = Object.entries(view.spots).filter(([, s]) => s.level === level).sort(([a], [b]) => a < b ? -1 : 1)
     .map(([loc, s]) => {
       const got = s.state === "got" || s.state === "live", near = s.state === "near" || s.state === "skip";
-      return { loc, ring: s.state === "skip" ? "skip" : near ? "near" : "far", near,
-               icon: s.item ? itemIcon(s.item, have) : null, faint: !(got || near), check: got ? s.state : null };
+      const plain = s.state === "vanilla";
+      return { loc, ring: plain ? "vanilla" : s.state === "skip" ? "skip" : near ? "near" : "far", near,
+               icon: s.item ? itemIcon(s.item, have) : null, faint: !(got || near || plain), check: got ? s.state : null };
     });
   const gems = Object.entries(view.gems?.spots ?? {}).filter(([, g]) => g.level === level && g.taken < g.full)
     .sort(([a], [b]) => a < b ? -1 : 1).map(([loc, g]) => ({ loc, item: g.item, full: g.full, taken: g.taken }));
@@ -76,7 +79,7 @@ export function marks(view, level, have = () => false) {
 // only with a skip, and its collected.
 export function badges(view) {
   const out = {};
-  for (const level of view.status.levels) {
+  for (const level of view.status?.levels ?? []) {   // (no plan's view: none)
     const mine = Object.values(view.spots).filter((s) => s.level === level);
     out[level] = { n: mine.filter((s) => s.state === "near" || s.state === "skip").length,
                    k: mine.filter((s) => s.state === "skip").length,
@@ -126,7 +129,7 @@ export function floorUnder(t, px, py, z, held, s) {
 export class MapView {
   // els: {side, room, canvas, back, fit, switches, floors, key, note, hint, tip}; hooks: {view(), art, spoiler(),
   // gems(), toggle(loc), navigated(level, byHand), following(): Follow is on, collected(): Show collected,
-  // fresh(): Live's pickups, Map(loc -> when, ms)}
+  // fresh(): Live's pickups, Map(loc -> when, ms), waiting(): the vanilla game's spots asked, not yet in}
   constructor(els, hooks) {
     Object.assign(this, { els, hooks, level: null, floor: 0, size: null, s: 1, fitted: 1, o: [0, 0], want: 1,
                           shown: {}, hits: [], press: null, clicked: undefined, here: null, drawnFor: null,
@@ -236,11 +239,14 @@ export class MapView {
     this.floorButtons();
   }
 
-  // What a click does, set at each draw: a level opens from the world map only once a seed is tracked (its view).
+  // What a click does, set at each draw: a level opens from the world map once a seed is tracked (its view) or the
+  // vanilla game's spots are in (no plan's view: its spots mark nothing).
   hint() {
-    const text = (this.level !== null ? "Click a spot to mark it collected, an exit to open its level."
-      : this.hooks.view() ? "Click a level to open its map." : "Track a seed to open a level's map.")
-      + " Scroll to zoom, drag to pan.";
+    const view = this.hooks.view();
+    const text = (this.level !== null ? view?.vanilla ? "The vanilla game's items: click an exit to open its level."
+      : "Click a spot to mark it collected, an exit to open its level."
+      : view ? "Click a level to open its map." : this.hooks.waiting?.() ? "Reading the levels' spots…"
+      : "Track a seed to open a level's map.") + " Scroll to zoom, drag to pan.";
     if (this.els.hint.textContent !== text) this.els.hint.textContent = text;
   }
 
@@ -274,7 +280,8 @@ export class MapView {
         label.append(radio, ` ${k + 1}`);
         if (items[k]) {
           label.append(Object.assign(document.createElement("b"), { className: "left", textContent: String(items[k]),
-                                                                    title: `${items[k]} not collected on floor ${k + 1}` }));
+                                                                    title: `${items[k]} ${view.vanilla ? "spots"
+                                                                      : "not collected"} on floor ${k + 1}` }));
         }
         if (gems) label.append(` · ${left[k]}`);
         return label;
@@ -528,7 +535,8 @@ export class MapView {
     const gemsOn = this.hooks.gems() && view.gems, held = this.hooks.art.status.icons?.names;
     const have = (name) => Boolean(held?.includes(name));
     // the title, and with Gems the level's gems taken and left and the key of the colours its dots show
-    let [, , , bottom] = this.label(8, 6, level, "bold 13px system-ui, sans-serif");
+    let [, , , bottom] = this.label(8, 6, view.vanilla ? `${level} · the vanilla game's items` : level,
+                                    "bold 13px system-ui, sans-serif");
     if (gemsOn) {
       const [got, total] = view.gems.counts[level] ?? [0, 0];
       [, , , bottom] = this.label(8, bottom + 2, `Gems: ${got} taken, ${total - got} left`, "10px system-ui, sans-serif");
@@ -678,6 +686,10 @@ export class MapView {
           ctx.textAlign = "start";
         }
         ctx.globalAlpha = 1;
+        if (view.vanilla) {   // no plan: nothing to mark
+          this.hit(x, y, 12, `${s.name} · ${SPOT[s.class]}`);
+          continue;
+        }
         const name = m.icon ? s.name : SPOT[s.class];
         this.hit(x, y, 12, `${name}: ${STATE[s.state]}`, () => this.hooks.toggle(m.loc));
       }
@@ -801,7 +813,7 @@ export class MapView {
   // The key: the spots' states first (a level's rings, the world's badges), then each colour drawn, two to a row.
   key(kinds) {
     if (!this.hooks.view()) return this.els.key.replaceChildren();
-    const rows = (this.level === null ? [["near", "reachable"], ["skip", "with a skip"]]
+    const rows = (this.hooks.view().vanilla ? [] : this.level === null ? [["near", "reachable"], ["skip", "with a skip"]]
       : [["near", "reachable"], ["skip", "with a skip"], ["far", "not yet"]])
       .map(([state, text]) => ({ colour: TRACK[state], text, ring: this.level !== null }));
     if (rows.length % 2) rows.push(null);

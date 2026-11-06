@@ -53,7 +53,7 @@ from azurkit.tools.randomizer import generator, tracking
 from azurkit.tools.randomizer.art import icons
 from scripts import record_goldens, web_tables, web_tools
 from tests import _g1, _hosts, _page, _perf, _static, conftest
-from tests.test_randomizer import TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
+from tests.test_randomizer import BROWSED, TRACKER, TRACKER_MAP, _profile, shows_gems, tracker_states
 
 RELEASES = [pytest.param(gate.USA, marks=pytest.mark.vanilla, id="usa"),
             pytest.param(gate.EUROPE, marks=[pytest.mark.vanilla, pytest.mark.europe], id="europe")]
@@ -3946,17 +3946,22 @@ def _png_size(png: bytes) -> list[int]:
     return [int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")]
 
 
-def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_call(browser, site, tmp_path):
+def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_vanilla_spots(browser, site, tmp_path):
     """Step 4.3f (D961): the Tracker view shows Modkit's world map, every
     level's picture on it, as soon as it shows, with no image picked and no
     plan tracked: the page reads the pictures the site ships (``art/``,
     which ``tests/test_art.py`` holds to Modkit's pixels and to the
-    tracker's drawing) and asks its engine nothing for them; its hint says
-    a level opens once a seed is tracked. A tracked plan's level shows its
-    own map, each floor from the same files. No CSP violation, no request
-    but GETs of the site's files."""
+    tracker's drawing) and asks its engine nothing for them. Step 4.4u3:
+    with no plan its engine's tracker gives the vanilla game's spots (no
+    image picked), and each level picked on Map (the levels by realm as
+    the Table groups them) opens its map with each spot ringed plain and
+    its vanilla item's icon, a spot's tip naming that item and a click on
+    it marking nothing. A plan opened then shows the level browsed with
+    the plan's spots, and each floor from the same files. No CSP
+    violation, no request but GETs of the site's files."""
     shipped = site / "art" / tracking.ART_VERSION
-    entry = json.loads((shipped / "maps.json").read_text(encoding="utf-8"))["levels"]["e6"]
+    levels = json.loads((shipped / "maps.json").read_text(encoding="utf-8"))["levels"]
+    bare = sdk.tracker({})
     served = Site(browser, site)
     served.context.add_init_script(script=ASKED)
     try:
@@ -3964,24 +3969,46 @@ def test_the_site_shows_the_trackers_shipped_maps_with_no_image_and_no_engine_ca
         _page.click(page, "tab-randomizer")
         _page.click(page, "rando-view-tracker")
         _page.until(page, "() => Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)", 60)
-        assert page.evaluate(WORLD_SHOWN) == [None, None, ["track-maps"], False,
-                                              [["world", *_png_size((shipped / "world.png").read_bytes())]], []]
+        shown, asked = page.evaluate(WORLD_SHOWN)[:-1], page.evaluate(WORLD_SHOWN)[-1]
+        assert shown == [None, None, ["track-maps"], False, [["world", *_png_size((shipped / "world.png").read_bytes())]]]
+        assert set(asked) <= {"tracker"}   # the vanilla game's spots alone: no picture drawn, nothing planned
         read = [url.removeprefix(f"{served.origin}/") for _, url, _ in served.requests if "/art/" in url]
         assert {url for url in read if "icons" in url} == {"art/icons.css", f"art/{tracking.ART_VERSION}/icons.png"}
         assert [url for url in read if "icons" not in url] == [
             "art/index.json", f"art/{tracking.ART_VERSION}/maps.json", f"art/{tracking.ART_VERSION}/world.png"]
+        _page.until(page, "() => !document.getElementById('track-pick').disabled", 300)
         hint = "() => document.getElementById('map-hint').textContent"
-        assert page.evaluate(hint) == "Track a seed to open a level's map. Scroll to zoom, drag to pan."
+        assert page.evaluate(hint) == "Click a level to open its map. Scroll to zoom, drag to pan."
+        assert page.evaluate("""() => [...document.getElementById("track-pick").children].map((n) => n.tagName === "OPTGROUP"
+            ? [n.label, [...n.children].map((o) => o.value)] : [n.textContent, [n.value]])""") == [
+            ["World map", [""]], *bare["levels"]]   # a realm of one level (life, town, the airship) its own row
+        for level in [*sorted(levels), "e6"]:
+            page.select_option("#track-pick", level)
+            _page.until(page, f"() => azurkit.tracker.map.level === '{level}' "
+                              "&& azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
+            at, picked, whole, spots, tips = page.evaluate(BROWSED)
+            mine = sorted(loc for loc, s in bare["spots"].items() if s["level"] == level)
+            main = {i["id"] for i in levels[level]["items"] + levels[level]["spots"] if i["at"][2] == levels[level]["main"]}
+            assert (at, picked, whole, [m["loc"] for m in spots]) == (level, level, True, mine), level
+            assert all((m["ring"], m["faint"], m["check"], bool(m["icon"])) == ("vanilla", False, None, True)
+                       for m in spots), level
+            assert sorted(tips) == sorted([f"{bare['spots'][loc]['name']} · {tracking.SPOT[bare['spots'][loc]['class']]}",
+                                           False] for loc in main), level
+        assert page.evaluate(hint) == "The vanilla game's items: click an exit to open its level. Scroll to zoom, drag to pan."
+        assert page.evaluate("() => azurkit.tracker.state.marks") == {}
         (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
         _page.pick(page, "#track-open", tmp_path / "plan.json")
         _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
-        assert page.evaluate(hint) == "Click a level to open its map. Scroll to zoom, drag to pan."
+        at, _, whole, spots, tips = page.evaluate(BROWSED)
+        plan = page.evaluate("() => azurkit.tracker.state.view.spots")
+        assert (at, whole, page.evaluate("() => document.getElementById('track-pick-box').hidden")) == ("e6", True, True)
+        assert {m["ring"] for m in spots} <= {"near", "skip", "far"} and [m["loc"] for m in spots] == sorted(
+            loc for loc, s in plan.items() if s["level"] == "e6") and tips == []
+        assert page.evaluate(hint) == "Click a spot to mark it collected, an exit to open its level. Scroll to zoom, drag to pan."
         calls = page.evaluate(_perf.CALLS)["calls"]   # the worker's, in the page for the perf gate's native assert
         assert calls["kernel"] > 0 and calls["twin"] == 0, calls
-        page.evaluate("() => azurkit.tracker.map.show('e6', true)")
-        _page.until(page, "() => azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
         assert page.evaluate("() => azurkit.tracker.map.pictures.map((p) => [p.name, p.bitmap.width, p.bitmap.height])"
-                             ) == [[name, *_png_size((shipped / f"{name}.png").read_bytes())] for name in entry["floors"]]
+                             ) == [[name, *_png_size((shipped / f"{name}.png").read_bytes())] for name in levels["e6"]["floors"]]
         _page.check_csp(page)
         assert served.stray() == []
     finally:
@@ -4207,7 +4234,7 @@ passed between two looks on GitHub's macOS runner (run 42071325305): a busy page
 meanwhile, and the answer after them, in one go, and a look waits until they are taken."""
 
 
-def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_worker(browser, site, usa_iso, tmp_path):
+def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_worker(browser, site, usa_iso):
     """Step 4.3 train: a Build and its Cancel while the Tracker's first view
     of an opened plan reads the world map stop the site's worker. The view's
     ask is sent again to the worker that replaces it, and until that worker
@@ -4215,20 +4242,23 @@ def test_a_cancel_during_the_trackers_first_view_shows_no_stage_of_the_stopped_w
     ("Reading the world map… 50 %", or with its exits' note, 4.3m's fold),
     which nothing runs. It hides once the view is shown. The Build and
     Cancel come as the page shows the stage (:data:`CANCEL_AT_THE_WORLD`),
-    not when a look of the test's sees it (Step 4.4ci28)."""
+    not when a look of the test's sees it (Step 4.4ci28). The plan is the
+    one this browser remembers, opened as the view first shows: a view
+    shown with no plan reads the world map first, for the vanilla game's
+    spots (Step 4.4u3)."""
+    doc = _profile("default")
     served = Site(browser, site)
     try:
         served.context.add_init_script(CANCEL_AT_THE_WORLD)
+        served.context.add_init_script(script="localStorage.setItem('azurkit.tracker', %s);"
+                                       % json.dumps(json.dumps({"plan": doc, "marks": {}})))
         page = served.open()
         _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa' && azurkit.ready && !azurkit.asks.size", 300)
         _page.click(page, "tab-randomizer")
         _page.until(page, f"() => ({SETTLED})() && !azurkit.asks.size", 300)   # the tab's read: the view's is the newest
-        _page.click(page, "rando-view-tracker")
-        doc = _profile("default")
-        (tmp_path / "plan.json").write_text(json.dumps(doc), encoding="utf-8")
         page.evaluate("() => { globalThis.cancelAt = 'armed'; }")
-        _page.pick(page, "#track-open", tmp_path / "plan.json")
+        _page.click(page, "rando-view-tracker")
         _page.until(page, f"() => azurkit.tracker.state.view?.head.sha256 === {json.dumps(doc['sha256'])}"
                           f" && ({TRACKED})()", 300)
         assert page.evaluate("() => cancelAt") == "done"   # the view's ask showed the stage, and the cancel came then

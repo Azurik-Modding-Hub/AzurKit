@@ -370,7 +370,10 @@ class, state (``got``, ``live``, ``near``, ``skip``: only with a skip,
 or ``far``) and item (once collected, or with ``spoiler``), and the
 Table's two trees (``table``: the items by kind and the spots by level,
 each row's collected, reachable now, left, total, where and the game's
-count). Modkit's tracker, the same verdicts on every host
+count). With no ``plan`` (Step 4.4u3): the maps to browse before a
+seed is tracked, each spot with the item the vanilla game puts there
+(``vanilla``, state ``vanilla``), the world map and its levels by
+realm (``levels``), no image read. Modkit's tracker, the same verdicts on every host
 (``tools.randomizer.tracking``); ``progress(record)`` hears a plan's
 first view build its tracker and read the world map, the maps' exits
 counted on it; ``openers(plan)``: who works out a shaped plan's spoiler

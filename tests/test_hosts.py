@@ -57,7 +57,7 @@ from scripts import freeze, record_goldens
 from devkit.xemu import queue
 from tests import _g1, _page, _perf, _speed
 from tests._xiso import fill, image
-from tests.test_randomizer import TRACKER, _profile, shows_gems, tracker_states
+from tests.test_randomizer import BROWSED, TRACKER, _profile, shows_gems, tracker_states
 
 ROOT = Path(__file__).resolve().parent.parent
 NEVER = ("unicorn", "capstone", "zig", "tkinter", "_tkinter", "_gdbm", "_dbm")
@@ -2422,6 +2422,43 @@ def test_the_apps_tracker_shows_a_levels_shipped_map_and_lives_gem_takes_remove_
                           f".test(h.tip ?? '')).length === {dots - 1}")
         assert page.evaluate("() => azurkit.tracker.state.marks.gems") == {gem["id"]: [0.75]}
         _page.until(page, f"() => ({COUNTER})().endsWith(' · Gems 1 of {gems}')")
+        _page.check_csp(page)
+        page.close()
+    finally:
+        server.close()
+
+
+def test_the_apps_tracker_opens_any_levels_map_with_the_vanilla_games_items_before_a_plan(browser, tmp_path, monkeypatch):
+    """Step 4.4u3: the app's page, with no plan tracked and no image, opens
+    the level picked on Map with the vanilla game's spots (its engine's
+    tracker with no plan, ``api/tracker``): each ringed plain with its
+    vanilla item's icon, its tip naming that item, a click on it marking
+    nothing; another level picked switches; a plan opened then shows the
+    level browsed with the plan's spots. No CSP violation."""
+    _home(monkeypatch, tmp_path / "home")
+    (tmp_path / "plan.json").write_text(json.dumps(_profile("default")), encoding="utf-8")
+    bare = sdk.tracker({})
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page(viewport={"width": 1100, "height": 820})
+        page.goto(server.url)
+        _page.until(page, "() => globalThis.azurkit?.ready", 120)
+        _page.click(page, "tab-randomizer")
+        _page.click(page, "rando-view-tracker")
+        _page.until(page, "() => !document.getElementById('track-pick').disabled", 300)
+        for level in ("w1", "e6"):
+            page.select_option("#track-pick", level)
+            _page.until(page, f"() => azurkit.tracker.map.level === '{level}' "
+                              "&& azurkit.tracker.map.pictures.every((p) => p.bitmap)", 60)
+            at, picked, _, spots, tips = page.evaluate(BROWSED)
+            assert (at, picked, [m["loc"] for m in spots], {m["ring"] for m in spots}) == (
+                level, level, sorted(loc for loc, s in bare["spots"].items() if s["level"] == level), {"vanilla"})
+            assert tips and all(not act and tip.split(" · ")[0] in {s["name"] for s in bare["spots"].values()}
+                                for tip, act in tips)
+        page.set_input_files("#track-open", str(tmp_path / "plan.json"))
+        _page.until(page, "() => azurkit.tracker.state.view && !azurkit.tracker.state.running", 300)
+        at, _, _, spots, _ = page.evaluate(BROWSED)
+        assert at == "e6" and spots and {m["ring"] for m in spots} <= {"near", "skip", "far"}
         _page.check_csp(page)
         page.close()
     finally:

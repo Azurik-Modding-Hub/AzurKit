@@ -18,6 +18,12 @@ A spot's ``state``: ``got`` (collected by hand), ``live`` (marked by Live),
 R1.41) or ``far`` (not yet); ``vanilla`` names the item the base game puts
 there, which tells the spot without telling what the seed put there.
 
+With no plan (Step 4.4u3), :func:`vanilla` gives the maps to browse before
+a seed is tracked: every spot the tracker marks with the item the base game
+puts there (state ``vanilla``, from the same database a plan's tracker
+reads, so no image is read), the world map's data and its levels as the
+Table groups them.
+
 With ``gems`` (Step R1.43, D928: off by default), each gem spot's gems
 (a cluster's yield), how many Live saw taken and the plan's gem there (a
 gem spot holds only gems and no requirement reads one, so its colour shows
@@ -45,7 +51,7 @@ from azurkit.tools.randomizer.planner import difficulty
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
 from azurkit.tools.randomizer.planner.settings import CATEGORIES, RATING_NAMES, picks_on
-from azurkit.tools.randomizer.tracker import ELEMENTS, Row, Tracker, held_counts, marks
+from azurkit.tools.randomizer.tracker import ELEMENTS, Row, Tracker, held_counts, marks, realms, spot_classes
 
 KEEP = 3                     # the plans whose trackers the process keeps
 GIVEN = ("plan", "marks", "kit", "held", "spoiler", "gems", "toggle", "reset")
@@ -97,6 +103,26 @@ def world() -> dict:
                                     if e["kind"] == "exit" and e["live"] and e["dest_level"] in GRID
                                     and e["dest_level"] != lv)) for lv in GRID if lv in db.generated}
     return {"grid": {lv: list(at) for lv, at in GRID.items()}, "exits": exits, "maps": needs.overlays(tuple(GRID))}
+
+
+def vanilla(progress: Callable[[dict], object] | None = None) -> dict:
+    """What the tracker shows with no plan (Step 4.4u3: a level's map browsed before a seed is tracked):
+    ``vanilla`` true, :func:`world` (with ``art``), ``levels`` (:data:`GRID`'s by realm as the Table groups them:
+    ``[realm, [level, ...]]``) and each spot the tracker marks (:func:`.tracker.spot_classes`) as :func:`view`
+    gives it, its ``state`` ``vanilla`` and its ``item`` the one the base game puts there (``Logic.vanilla``, a
+    plan's stub's too). ``progress`` hears the logic's read and the world map's (``plan``, done of 2)."""
+    steps = Steps(progress)
+    steps("plan", "Reading the vanilla game's spots", 0, 2)
+    logic = kept_logic()
+    spots = {}
+    for loc, cls in sorted(spot_classes(logic.db).items()):
+        item = logic.vanilla[loc][0]
+        spots[loc] = {"level": logic.pool[loc], "class": cls, "state": "vanilla", "item": item,
+                      "name": item_name(item), "icon": icon(item), "vanilla": item_name(item)}
+    if not world.cache_info().currsize:
+        steps("plan", "Reading the world map", 1, 2)
+    return {"vanilla": True, "world": world() | {"art": {"version": ART_VERSION, "parts": list(ART_PARTS)}},
+            "levels": [[name, lvs] for name, lvs in realms(GRID)], "spots": spots}
 
 
 def tracker_of(doc: Mapping, progress: Callable[[dict], object] | None = None) -> Tracker:
@@ -202,12 +228,14 @@ def view(given: Mapping, events: Sequence = (), progress: Callable[[dict], objec
     does (``core.progress``'s ``plan``, done of 2): the seed's logic (its
     tracker built) and the world map (:func:`world`, once a process); a view
     of a kept plan reports nothing. ``openers(plan)``: who works out a shaped
-    plan's spoiler openers (none: this call). ``ValueError`` names what it
-    refuses."""
+    plan's spoiler openers (none: this call). With no ``plan`` (none, or
+    null): :func:`vanilla`'s view. ``ValueError`` names what it refuses."""
     if not isinstance(given, Mapping):
         raise ValueError(f"tracker: a JSON object, not {type(given).__name__}")
     if unknown := sorted(set(given) - set(GIVEN), key=str):
         raise ValueError(f"tracker: no key {', '.join(map(repr, unknown))} (its keys: {', '.join(GIVEN)})")
+    if given.get("plan") is None:
+        return vanilla(progress)
     t = tracker_of(given.get("plan"), progress)
     m, spoiler = marks_of(given.get("marks")), bool(given.get("spoiler"))
     held = given.get("held") or {}

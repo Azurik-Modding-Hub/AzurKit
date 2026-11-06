@@ -64,6 +64,15 @@ JUMP = {"player_physics": {"jump_speed_scale": 1.3}}
 # (tracking.digest) and of the maps' model the page draws of it (web/mapview.mjs, tests/test_site.py's MAP_MODEL)
 TRACKER = {key: row["view"] for key, row in record_goldens.recorded(record_goldens.TRACKER).items()}
 TRACKER_MAP = {key: row["map"] for key, row in record_goldens.recorded(record_goldens.TRACKER).items()}
+# A level's map as the page draws it with no plan (Step 4.4u3): its level, the picker's, whether every floor's picture
+# is in, and its spots' marks (web/mapview.mjs's marks()) and their tips with whether a click on one does anything
+BROWSED = """async () => {
+    const { marks } = await import("./mapview.mjs");
+    const m = azurkit.tracker.map, view = m.hooks.view(), names = new Set(Object.values(view.spots).map((s) => s.name));
+    return [m.level, document.getElementById("track-pick").value, m.pictures.every((p) => p.bitmap),
+            marks(view, m.level, () => true).spots,
+            m.hits.filter((h) => names.has(h.tip?.split(" · ")[0])).map((h) => [h.tip, Boolean(h.act)])];
+}"""
 # the hosts' tests (test_site, test_hosts) take these from here: seed 2's plan by case, and tracker.json's states
 _profile, tracker_states, shows_gems = record_goldens.profile, record_goldens.tracker_states, record_goldens.shows_gems
 # RS1's 80 plans (round 2's R2.1, Step 4.3u): seeds 1 to 20 under four option sets (skip ceiling, movement tier;
@@ -1452,6 +1461,33 @@ def test_the_trackers_verdicts_are_their_goldens_at_each_state_and_a_click_marks
                        ({"plan": doc, "marks": {"collected": [1]}}, "by their ids"), ({"plan": doc, "x": 1}, "no key 'x'")):
         with pytest.raises(ValueError, match=why):
             sdk.tracker(given)
+
+
+def test_the_tracker_with_no_plan_gives_each_spot_the_vanilla_games_item_where_its_map_draws_it():
+    """Step 4.4u3: with no plan the tracker gives the maps to browse: every
+    spot a plan's tracker marks, in its level and class, its state
+    ``vanilla`` and its item the one the base game puts there, which is
+    the one the shipped maps place on that level's map; the world map as a
+    plan's; and the world map's levels by realm in the Table's order (the
+    airship, with no spot, last)."""
+    from azurkit.tools.randomizer.tracker import realm
+
+    doc = _profile("default")
+    plan, bare = sdk.tracker({"plan": doc}), sdk.tracker({})
+    assert sdk.tracker({"plan": None, "spoiler": True}) == bare and bare["vanilla"] is True
+    assert {loc: (s["level"], s["class"]) for loc, s in bare["spots"].items()} == {
+        loc: (s["level"], s["class"]) for loc, s in plan["spots"].items()}
+    vanilla = kept_logic().vanilla
+    assert all((s["state"], s["item"], s["name"], s["icon"]) == (
+        "vanilla", vanilla[loc][0], tracking.item_name(vanilla[loc][0]), tracking.icon(vanilla[loc][0]))
+        for loc, s in bare["spots"].items())
+    maps = json.loads((Path(web_tools.ROOT) / "web" / "art" / tracking.ART_VERSION / "maps.json").read_text(encoding="utf-8"))
+    assert {(lv, i["id"], i["item"]) for lv, e in maps["levels"].items() for i in e["items"] + e["spots"]} == {
+        (s["level"], loc, s["item"]) for loc, s in bare["spots"].items()}
+    assert bare["world"] == plan["world"]
+    assert sorted(lv for _, lvs in bare["levels"] for lv in lvs) == sorted(tracking.GRID)
+    assert all(lvs == sorted(lvs) and {realm(lv) for lv in lvs} == {name} for name, lvs in bare["levels"])
+    assert [name for name, _ in bare["levels"]] == [r["label"] for r in plan["table"]["levels"][:-1]] + ["Airship"]
 
 
 def test_a_seeds_plan_and_its_first_tracker_view_report_their_stages_and_answer_as_without_them(monkeypatch):

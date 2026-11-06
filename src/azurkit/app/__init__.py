@@ -67,7 +67,8 @@ in the Downloads folder), never over an existing file but one the save
 dialog chose.
 ``POST api/tracker`` ``{"given"}`` gives what the item tracker shows
 (``sdk.tracker``; a shaped plan's Spoiler's openers are the engine's, as
-its work ahead keeps them); with Live on for its plan, it first merges what Live
+its work ahead keeps them; with no plan the vanilla game's spots, never in
+the slot a typed seed's first view is read ahead in); with Live on for its plan, it first merges what Live
 read since the last ask (:mod:`.live`: the spots the game shows taken, the
 element levels it holds) and gives Live's status and where it saw the
 player (``live``). ``POST api/live`` ``{"on", "plan", "marks",
@@ -823,6 +824,8 @@ class Server(http.server.ThreadingHTTPServer):
         with self.tracking, self.follow("tracker", record("plan", "Reading the seed's logic")) as report:
             feed = self.feed
             plan = given.get("plan") if isinstance(given, dict) else None
+            if isinstance(given, dict) and plan is None:   # the maps browsed with no plan (Step 4.4u3): the work
+                return sdk.tracker(given, progress=report)   # ahead's view of a typed seed goes on
             if feed is None or not isinstance(plan, dict) or plan.get("sha256") != feed.sha256:
                 try:   # a plan's first view, read ahead (api/prefetch) if it was
                     return self.slots.take("view", ahead.key(given), lambda job: sdk.tracker(

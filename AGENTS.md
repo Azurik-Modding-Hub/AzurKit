@@ -1153,7 +1153,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (`azurkit.app.art`: its bundle's folder, or the checkout's) and serves
     `art/<version>/<name>`. The Tracker view shows the world map with every
     level's picture as soon as it shows, before any plan (its badges and
-    exits once one is tracked), and a level as Modkit's map view on a canvas: its picture by floor (the floor
+    exits once one is tracked; with no plan, Step 4.4u3, `sdk.tracker({})`'s
+    vanilla game's spots, asked once, open any level from Map, the level
+    picker, or the world map, each spot ringed plain with its vanilla item,
+    a click on it marking nothing; a plan opened then shows the level
+    browsed), and a level as Modkit's map view on a canvas: its picture by floor (the floor
     buttons, each badged with its tracked spots not collected yet), its features, barriers, tracked spots and exits at their
     vanilla places (each spot's ring, icon and check as Modkit's track(), an
     exit's ring by what using it needs, `tracking.world()`'s `maps`; a

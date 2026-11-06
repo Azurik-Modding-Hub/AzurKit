@@ -78,6 +78,26 @@ def realm(level: str) -> str:
     return REALMS[level[0]] if level[0] in REALMS and level[1:].isdigit() else level.capitalize()
 
 
+def _ordered(names, first):
+    return sorted(names, key=lambda n: (first.index(n) if n in first else len(first), n))
+
+
+def realms(levels: Iterable[str]) -> list[tuple[str, list[str]]]:
+    """``levels`` by realm as the Table groups them: Air, Earth, Fire, Water and Death, then Life and Town (each a
+    level of its own), then any other by name (the airship); each realm's levels sorted."""
+    out = defaultdict(list)
+    for lv in sorted(levels):
+        out[realm(lv)].append(lv)
+    return [(name, out[name]) for name in _ordered(out, (*REALMS.values(), "Life", "Town"))]
+
+
+def spot_classes(db) -> dict[str, str]:
+    """Each spot the tracker marks and its class (:data:`TRACKED`): the pool's live locations of the major items,
+    the obsidians and fuel and health, in the database's order."""
+    return {loc["id"]: loc["class"] for doc in db.generated.values() for loc in doc["locations"]
+            if loc["pool"] and not loc["dead"] and loc["class"] in TRACKED}
+
+
 @dataclass(frozen=True)
 class Row:
     """A row of the Table tab (Step R1.26): its key (the tree's id) and
@@ -135,11 +155,10 @@ class Tracker:
                  veto: Iterable[str] = (), slot: str | None = None,
                  gems: Mapping[str, list[float | None]] | None = None):
         self.logic, self.settings, self.placement = logic, settings, dict(placement)
-        locs = [loc for doc in logic.db.generated.values() for loc in doc["locations"]
-                if loc["pool"] and not loc["dead"]]
-        self.spot_class = {loc["id"]: loc["class"] for loc in locs if loc["class"] in TRACKED}
+        self.spot_class = spot_classes(logic.db)
         self.spots = frozenset(self.spot_class)
-        self.gem_full = {loc["id"]: loc["yield"] for loc in locs if loc["class"] in GEM_CLASSES}
+        self.gem_full = {loc["id"]: loc["yield"] for doc in logic.db.generated.values() for loc in doc["locations"]
+                         if loc["pool"] and not loc["dead"] and loc["class"] in GEM_CLASSES}
         self.collected = set(collected) & self.spots
         self.live = {loc: c for loc, c in (live or {}).items() if loc in self.collected}
         self.veto, self.slot = set(veto) & self.spots, slot
@@ -312,15 +331,12 @@ class Tracker:
                        len(locs), ", ".join(sorted({pool[loc] for loc in left})) if where else "", game,
                        tuple(children))
 
-        def ordered(names, first):
-            return sorted(names, key=lambda n: (first.index(n) if n in first else len(first), n))
-
         kinds = defaultdict(list)       # (group, kind) -> its spots
         for loc in sorted(self.spots):
             kinds[kind_of(self.item(loc))].append(loc)
         items = []
         for group, name in GROUPS.items():
-            subs = ordered({k for g, k in kinds if g == group}, KINDS.get(group, ()))
+            subs = _ordered({k for g, k in kinds if g == group}, KINDS.get(group, ()))
             children = []
             for k in filter(None, subs):          # obsidians have no kinds
                 r = row(f"{group}/{k}", k if group in ("key", "other") else k.capitalize(), kinds[group, k],
@@ -344,12 +360,8 @@ class Tracker:
                 children.append(Row(f"{lv}/gems", "Gems", gem_counts[lv][0], None, gem_counts[lv][1]))
             return row(lv, label, by_level[lv], children, now=True)
 
-        realms = defaultdict(list)
-        for lv in sorted(by_level):
-            realms[realm(lv)].append(lv)
         levels = []
-        for name in ordered(realms, (*REALMS.values(), "Life", "Town")):
-            lvs = realms[name]
+        for name, lvs in realms(by_level):
             levels.append(level(lvs[0], name) if lvs == [name.lower()] else      # life, town: a level of their own
                           row(name.lower(), name, [loc for lv in lvs for loc in by_level[lv]],
                               [level(lv, lv) for lv in lvs], now=True))
