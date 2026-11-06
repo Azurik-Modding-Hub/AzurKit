@@ -62,6 +62,38 @@ self.addEventListener("securitypolicyviolation", (e) =>
 
 const lastLine = (error) => String(error?.message ?? error).trim().split("\n").at(-1);
 
+// Where a call failed (Step 4.4ci44), as its message's last line and " · " parts: the engine's call (its request's
+// type), the innermost FRAMES of Python's stack and, where the engine's WebAssembly itself failed (a trap, Pyodide's
+// fatal error), the wasm functions it was in by index. A Python exception's traceback is in its message; a trap's
+// stack is only in Pyodide's dump of it (dump_traceback, written to the engine's stdout), so the engine's last SAID
+// lines out are kept (said). A trap leaves that engine for good: every later call and mount says that first failure
+// (dead, which Pyodide's on_fatal sets wherever it traps: numpy's load too), never Pyodide's "already fatally failed"
+// (a failed prime's, a kept dress's or the rest's is not posted, and numpy's load swallows its own), and
+// the pool replaces the worker once one is (workers.mjs). A page of CI's WebKit said only "access to a null reference
+// (evaluating '__pyproxy_apply(t,e,n,o,s)')": JavaScriptCore's name for a fault of wasm code at an address below the
+// lowest one a process may map (its fault handler's, meant for Wasm GC's struct and array reads), inside the C call of
+// a Python function the worker called (pyproxy.c's), so a trap, not a destroyed PyProxy (Pyodide refuses a call of one
+// in JS, before any wasm runs); and, bare, from a call no mount held (a build's unmount said "already fatally failed").
+const SAID = 40, FRAMES = 4, said = [];
+let dead = null, calling = null;   // the trap that ended this worker's engine, located; the call it was in
+const told = (line) => {
+  said.push(line);
+  if (said.length > SAID) said.shift();
+};
+const FRAME = /^\s*File "([^"]+)", line (\d+),? in (.+)$/;
+const where = (file) => file.replace(/^.*\/(site-packages|python\d+\.zip|python\d+\.\d+)\//, "");
+function located(error, call) {
+  const trapped = Boolean(error?.pyodide_fatal_error), message = lastLine(error);
+  const frames = (trapped ? said : String(error?.message ?? "").split("\n").reverse()).map((line) => FRAME.exec(line))
+    .filter(Boolean).slice(0, FRAMES).map(([, file, line, fn]) => `${where(file)} line ${line} (${fn})`);
+  const wasm = trapped ? [...String(error?.stack ?? "").matchAll(/wasm-function\[(\d+)\]/g)].slice(0, FRAMES) : [];
+  const parts = [trapped ? `The engine's WebAssembly failed${call ? ` in its ${call} call` : ""}: ${message}`
+    : `${message}${call ? ` · in the engine's ${call} call` : ""}`];
+  if (frames.length) parts.push(`Python at ${frames.join(" < ")}`);
+  if (wasm.length) parts.push(`wasm functions ${wasm.map((m) => m[1]).join(", ")}`);
+  return parts.join(" · ");
+}
+
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
 // as their place in the heap where they are a bytes object's (placed), else as a Uint8Array of their own through the
@@ -624,7 +656,7 @@ async function load() {
   const { loadPyodide, version } = await import(new URL("pyodide.mjs", pyodide).href);
   const options = {
     indexURL: pyodide, lockFileURL: new URL("pyodide-lock.json", pyodide).href, packageBaseUrl: pyodide,
-    stdout: () => {}, stderr: () => {},
+    stdout: told, stderr: told,
   };
   const key = `${version} ${site.integrity}`;
   const record = await stored(SNAPSHOT, "heap", "readonly", (store) => store.get(key)).catch(() => null);
@@ -659,14 +691,20 @@ async function load() {
       // no snapshot: the next worker starts as this one did
     }
   }
+  if (py._api) py._api.on_fatal = (error) => { dead ??= located(error, calling); };   // after its dump, before its throw
   const asked = py.runPython(ENGINE);
   const engine = (request) => {   // a call that met an unreadable image (readInBlocks) refuses naming its change
+    if (dead) throw new Error(dead);
     unreadable = false;
+    said.length = 0;
+    calling = request.type;
     let reply;
     try {
       reply = asked(request);
     } catch (error) {
-      throw unreadable ? new Error(CHANGED) : error;
+      throw new Error(unreadable ? CHANGED : dead ?? located(error, request.type));
+    } finally {
+      calling = null;
     }
     if (unreadable && reply && typeof reply === "object" && "refused" in reply) reply.refused = CHANGED;
     return reply;
@@ -679,18 +717,24 @@ async function load() {
 // time of the mount), so the engine's check of an image holds from one message to the next (sdk._stamp: by its path,
 // size and times) and a changed File is checked again.
 function mounted(py, file, fn) {
+  if (dead) throw new Error(dead);
   if (!file.lastModifiedDate) Object.defineProperty(file, "lastModifiedDate", { value: new Date(file.lastModified) });
   py.FS.mkdirTree("/in");
   py.FS.mount(py.FS.filesystems.WORKERFS, { files: [file] }, "/in");
   const unmount = () => py.FS.unmount("/in");
+  const failed = (error) => {   // the call's own failure stands: after a trap Pyodide refuses its FS too (located())
+    try {
+      unmount();
+    } catch {}
+    throw error;
+  };
   let done;
   try {
     done = fn(`/in/${file.name}`);
   } catch (error) {
-    unmount();
-    throw error;
+    failed(error);
   }
-  if (done instanceof Promise) return done.finally(unmount);
+  if (done instanceof Promise) return done.then((value) => (unmount(), value), failed);
   unmount();
   return done;
 }
@@ -843,8 +887,8 @@ function vanilla({ py, engine }, file) {
 
 // numpy (Pyodide's pinned wheel, which the site carries beside its core, checked by the lock's sha256), loaded once:
 // every character call needs it (the swap's modules import it).
-const numpy = (loaded) => loaded.numpy ??= loaded.py.loadPackage("numpy", { messageCallback: () => {},
-                                                                           errorCallback: () => {} })
+const numpy = (loaded) => loaded.numpy ??= (calling = "numpy load", loaded.py.loadPackage("numpy", {
+  messageCallback: () => {}, errorCallback: () => {} })).finally(() => { calling = null; })
   .then(() => void (loaded.numpied = true));
 const CHARACTER = ["pickers", "preview", "match", "content_check"];
 const needsNumpy = (data) => data.type === "warm" || CHARACTER.includes(data.type) || data.character || data.recipe?.character
@@ -1137,5 +1181,5 @@ try {
   post({ type: "ready", start: loaded.start, ...(loaded.cold ? { cold: loaded.cold } : {}),
          ...loaded.engine({ type: "catalog" }) });
 } catch (error) {
-  post({ type: "failed", message: `AzurKit didn't load: ${lastLine(error)}` });
+  post({ type: "failed", message: `AzurKit didn't load: ${located(error, null)}` });
 }

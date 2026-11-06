@@ -3196,6 +3196,59 @@ def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_
         served.close()
 
 
+def _faults(worker: str, usa: str) -> str:
+    """worker.mjs with the engine's call failing: the prime of an image that isn't ``usa`` and the build of fps_unlock
+    trap the engine's wasm (a read past the heap: Pyodide's fatal error), any other build raises."""
+    prime, build = '    if request.type in ("layout", "prime"):', '        if request.type == "build":   # to the pages'
+    assert worker.count(prime) == worker.count(build) == 1
+    return worker.replace(prime, f"""    def azurkit_fault():
+        import ctypes
+        ctypes.string_at(0xFFFFFFF0, 64)
+
+    if request.type == "prime" and not str(request.recipe.iso).endswith({usa!r}):
+        azurkit_fault()
+{prime}""").replace(build, f"""        if request.type == "build":
+            if "fps_unlock" in request.recipe.packs.to_py():
+                azurkit_fault()
+            raise RuntimeError("no build here")
+{build}""")
+
+
+def test_a_call_whose_engine_traps_or_raises_names_its_call_and_pythons_place_and_the_engine_starts_again(
+        browser, site, usa_iso, europe_iso):
+    """Step 4.4ci44: a page of CI's WebKit stopped saying only "access to a null reference (evaluating
+    '__pyproxy_apply(t,e,n,o,s)')", a trap of the engine's wasm. A call whose engine's wasm traps names the call, the
+    Python frames it was in (Pyodide's dump of them: no message of the error holds them), innermost first, and the wasm
+    functions; so does every later ask of that engine (an image's check, whose failure the worker doesn't post, traps
+    before the pick's read), never Pyodide's "already fatally failed", nor the image's unmount after a build's trap. A
+    build that raises names its call and its traceback's frames; a new engine answers each next ask."""
+    status = """(start) => { const s = document.querySelector("#status");
+        return s.classList.contains("error") && s.textContent.startsWith(start) && s.textContent; }"""
+    trapped = (r"Python at ctypes/__init__\.py line \d+ \(string_at\) < <exec> line \d+ \(azurkit_fault\)"
+               r" < <exec> line \d+ \(engine\) < <exec> line \d+ \(answering\)")
+    served = Site(browser, site)
+    try:
+        worker = _faults((site / "worker.mjs").read_text(encoding="utf-8"), usa_iso.name)
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=worker, content_type="text/javascript"))
+        page = served.open()
+        for image, call, packs in ((europe_iso, "prime", None), (usa_iso, "build", ["fps_unlock"])):
+            _page.pick(page, "#iso", image)
+            if packs:
+                _page.build(page, packs)
+            head = f"The engine's WebAssembly failed in its {call} call: "
+            got, python, wasm = _page.until(page, f"() => ({status})({head!r})").split(" · ")
+            assert "fatally" not in got and re.fullmatch(trapped, python), (got, python)
+            assert re.fullmatch(r"wasm functions \d+(, \d+){0,3}", wasm), wasm
+            _page.until(page, "() => azurkit.ready", 300)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.build(page, [])
+        raised = _page.until(page, f"() => ({status})('RuntimeError')").split(" · ")
+        assert raised[:2] == ["RuntimeError: no build here", "in the engine's build call"] and len(raised) == 3, raised
+        assert re.fullmatch(r"Python at <exec> line \d+ \(engine\) < <exec> line \d+ \(answering\)", raised[2]), raised
+    finally:
+        served.close()
+
+
 def test_a_saves_check_keeps_its_bar_through_a_later_build_cancelled_and_the_engine_ready_again(browser, site, usa_iso):
     """D980, D1053: the check of a Save runs on past what ends a build's bar: a Build cancelled during it, and the new
     worker's ready (a Save at once after a build a big heap retires its worker meets the same on a slower disk)."""
