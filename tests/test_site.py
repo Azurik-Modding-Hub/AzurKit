@@ -1670,11 +1670,14 @@ def test_two_files_with_the_same_name_size_and_time_but_other_bytes_get_other_st
 
 
 def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_on_a_running_workers_error(
-        browser, tmp_path):
+        browser, tmp_path, monkeypatch):
     """``_page.checks`` (the stamp tests' count) sums the image checks of the page's workers still running: a worker
     the page ends while its count is asked counts none in every engine (Chromium and WebKit fail that ask with
-    TargetClosedError, Firefox with a plain Error, "Worker was closed": the race of run 41981438506's Linux tier), and
-    a running worker whose count fails fails it, by its error."""
+    TargetClosedError, Firefox with a plain Error: the race of run 41981438506's Linux tier), whether Playwright hears
+    its close before that error or after it (Firefox's order on run 42156372553's Linux tier, 15 runs of 400 here:
+    "Execution context was destroyed", the worker still listed; held here, its close heard 0.1 s late), and a
+    running worker whose count fails fails it, by its error."""
+    from playwright._impl._page import Worker
     from playwright.sync_api import Error
     for name, source in (("ends.js", "Object.defineProperty(self, 'azurkitChecks', { get() { postMessage('asked');"
                                      " return new Promise(() => {}); } });"),   # its count asked, the page ends it
@@ -1702,6 +1705,11 @@ def test_the_image_checks_count_a_worker_that_ends_while_asked_as_none_and_fail_
 
         start("ends.js", "counts.js")
         assert _page.checks(page) == 2 and [w.url.rpartition("/")[2] for w in page.workers] == ["counts.js"]
+        heard, late = Worker._on_close, 0.1   # s: past the ask's error, within ms of the close's message either side
+        with monkeypatch.context() as held:
+            held.setattr(Worker, "_on_close", lambda worker: asyncio.get_running_loop().call_later(late, heard, worker))
+            start("ends.js")
+            assert _page.checks(page) == 2 and [w.url.rpartition("/")[2] for w in page.workers] == ["counts.js"]
         start("fails.js")
         with pytest.raises(Error, match="no count here"):
             _page.checks(page)

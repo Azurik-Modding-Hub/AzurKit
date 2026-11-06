@@ -40,6 +40,12 @@ PROBE = 10
 """s the probe of a stalled call's browser (its cookies) may take: a browser that answers gives them in ms. A bound of
 its own, so a test that cuts :data:`HEAR` for a state read that must go unread leaves this one whole (GitHub's Intel
 Mac runner took over 1 s for a page's read, run 41666183947)."""
+CLOSED = 2
+"""s a worker whose evaluate failed may stay in ``page.workers`` before Playwright hears its close (:func:`checks`):
+Firefox fails an evaluate in flight as the worker's thread closes (Juggler's worker debugger ``onClose`` ends the
+call's channel) but tells the driver the worker is gone only at its unregister, later. Its close came 1.6-3.1 ms after
+the error here (9 runs of 200), at most 21 ms slowed by ``taskpolicy -b`` and nice 19 (6 of 200): about 100 times that.
+A running worker's error waits it out once before it is raised."""
 
 
 class Static(http.server.SimpleHTTPRequestHandler):
@@ -225,20 +231,25 @@ def answer(page, js: str, arg=None, seconds: float = STALL):
 def checks(page, counter: str = "azurkitChecks") -> int:
     """The image checks the page's workers ran (worker.mjs's ``self.azurkitChecks``, or another ``counter`` a worker
     keeps: a test's own, in a worker.mjs it routed), over those still running: a
-    worker the page ends as its answer comes (the one it starts once the pick's check is done) stays in
-    ``page.workers`` until Playwright hears its close, and its evaluate then throws TargetClosedError (run
-    41981438506's Linux tier; 1 in 5 runs here, its close heard 3.6 ms after the read), or in Firefox, the worker
-    ending while the evaluate is in flight, a plain Error ("Worker was closed"). Playwright's driver sends the close
-    before that error, so an ended worker is no longer listed once it comes: its checks went with it. A worker still
-    listed raises its error."""
+    worker the page ends as its answer comes (the one it starts once the pick's check is done) fails its evaluate,
+    with TargetClosedError in Chromium and WebKit (run 41981438506's Linux tier; 1 in 5 runs here, its close heard
+    3.6 ms after the read), in Firefox with a plain Error, "Worker was closed" once the driver heard the worker end,
+    or "Execution context was destroyed, most likely because of a navigation." before (run 42156372553's Linux tier;
+    Juggler fails the call as the worker's thread closes, the driver's rewrite of that error). Its checks went with
+    it. A worker is told ended by its own close, which takes it out of ``page.workers``, whichever comes first: one
+    whose evaluate failed counts none once its close is heard, within :data:`CLOSED` s, and one still listed past
+    them is running and raises its error."""
     from playwright._impl._errors import Error
     found = 0
     for worker in page.workers:
         try:
             found += worker.evaluate(f"() => self.{counter} ?? 0")
         except Error:
-            if worker in page.workers:
-                raise
+            end = time.monotonic() + CLOSED
+            while worker in page.workers:
+                if time.monotonic() >= end:
+                    raise
+                page.wait_for_timeout(10)   # Playwright hears the close only while its loop runs
     return found
 
 
