@@ -6,12 +6,16 @@ on GitHub's 4-core Intel runner 98 s for one 17 KB picture (run 42071325305). St
 ``python -I _static.py ROOT TYPES [--pages]``: ``TYPES`` the app's ``Content-Type`` by suffix (JSON). It prints its port,
 then answers a GET or HEAD of a file under the root (``/`` is ``index.html``) with its bytes, its type and length and no
 validator, as the site's routes did; with ``--pages`` as GitHub Pages does, ``Cache-Control: max-age=600`` and
-``Last-Modified`` too, every answer whole (no 304). Anything else is a 404 (another method a 405). Each request is
-logged. It reads commands on stdin, one line each, and answers each with one line: ``root PATH`` (a deploy: serve that
-folder from now on), ``down 1`` or ``down 0`` (each answer a 503 while down), ``log`` (every request so far, JSON:
-``[method, path, body bytes]``), ``heard SECONDS PATH`` (``heard`` once a request for ``PATH``, with its query, is
-logged, at once if one was, else ``unheard`` past ``SECONDS``: the answer a test reads with its interpreter held,
-``_page.Served.held``). It ends when stdin closes."""
+``Last-Modified`` too, every answer whole (no 304). Anything else is a 404 (another method a 405, which closes its
+connection). It keeps each connection for the next request (HTTP/1.1) and sends without Nagle's delay, as GitHub Pages
+serves a page's files over a few kept connections, never one a file: a first visit's install asks for its release's
+551 files, which took one loopback connection each and passed its 60 s on GitHub's Windows runner (run 42236789239),
+where the page's second engine, a few big files, loaded in 2.9 s. Each request is logged. It reads commands on stdin,
+one line each, and answers each with one line: ``root PATH`` (a deploy: serve that folder from now on), ``down 1`` or
+``down 0`` (each answer a 503 while down), ``log`` (every request so far, JSON: ``[method, path, body bytes]``),
+``heard SECONDS PATH`` (``heard`` once a request for ``PATH``, with its query, is logged, at once if one was, else
+``unheard`` past ``SECONDS``: the answer a test reads with its interpreter held, ``_page.Served.held``). It ends when
+stdin closes."""
 
 from __future__ import annotations
 
@@ -32,12 +36,21 @@ class Files(http.server.ThreadingHTTPServer):
     request_queue_size = socket.SOMAXCONN
     daemon_threads = True
 
+    def handle_error(self, request, client_address) -> None:
+        """A browser that closed a kept connection (a context's close resets them) or left mid-answer is no fault of
+        the host's: only another error prints its traceback."""
+        if not isinstance(sys.exception(), ConnectionError):
+            super().handle_error(request, client_address)
+
 
 def main(argv: list[str]) -> None:
     types, pages = json.loads(argv[2]), "--pages" in argv[3:]
     state, log, lock = {"root": Path(argv[1]).resolve(), "down": False}, [], threading.Condition()
 
     class Handler(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"   # kept connections, as GitHub Pages keeps its, never one a file
+        disable_nagle_algorithm = True  # TCP_NODELAY: an answer's body never waits on the client's ACK of its headers
+
         def log_message(self, *args) -> None:
             pass
 
@@ -66,9 +79,11 @@ def main(argv: list[str]) -> None:
             if body:
                 self.wfile.write(data)
 
-        def _empty(self, status: int) -> None:
+        def _empty(self, status: int, close: bool = False) -> None:
             self.send_response(status)
             self.send_header("Content-Length", "0")
+            if close:   # the request's body, never read, would start the connection's next request
+                self.send_header("Connection", "close")
             self.end_headers()
 
         def do_GET(self) -> None:
@@ -79,7 +94,7 @@ def main(argv: list[str]) -> None:
 
         def _refused(self) -> None:
             self._heard()
-            self._empty(405)
+            self._empty(405, close=True)
 
         do_POST = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = _refused
 

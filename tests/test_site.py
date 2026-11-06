@@ -28,6 +28,7 @@ import base64
 import contextlib
 import functools
 import hashlib
+import http.client
 import http.server
 import json
 import os
@@ -305,6 +306,30 @@ def test_a_sites_file_server_holds_64_connections_made_at_once_and_answers_each(
                 sock.close()
     assert [(answer.partition(b"\r\n")[0], answer.rpartition(b"\r\n\r\n")[2]) for answer in answers] == [
         (b"HTTP/1.0 200 OK", b"a")] * 64
+
+
+def test_a_sites_file_server_answers_a_pages_files_over_one_kept_connection(tmp_path):
+    """The site's file server (:class:`_page.Served`) keeps a connection for the next file (HTTP/1.1, no Nagle delay),
+    as GitHub Pages serves a page's files over a few kept connections: with a connection a file, a first visit's
+    install of its release's 551 files passed its 60 s on GitHub's Windows runner (run 42236789239), where its
+    second engine's few big files loaded in 2.9 s. Two files and a missing one come over one connection, each whole; a
+    refused method's answer closes it, as its body is never read."""
+    (tmp_path / "a.txt").write_text("a")
+    (tmp_path / "b.txt").write_text("bb")
+    served = _page.Served(tmp_path)
+    connection = http.client.HTTPConnection(urllib.parse.urlsplit(served.url).netloc, timeout=10)
+    got = []
+    try:
+        for method, path in (("GET", "/a.txt"), ("GET", "/b.txt"), ("GET", "/none.txt"), ("POST", "/a.txt")):
+            connection.request(method, path, body=b"x" if method == "POST" else None)
+            port = connection.sock.getsockname()[1]
+            reply = connection.getresponse()
+            got.append((reply.status, reply.read(), reply.will_close, port))
+    finally:
+        connection.close()
+        served.close()
+    assert [row[:3] for row in got] == [(200, b"a", False), (200, b"bb", False), (404, b"", False),
+                                        (405, b"", True)] and len({port for *_, port in got}) == 1, got
 
 
 def _built(page) -> dict:
