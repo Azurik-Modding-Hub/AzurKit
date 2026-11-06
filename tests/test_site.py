@@ -3204,7 +3204,7 @@ frame, innermost first) runs past the 40 lines the worker keeps, as its dump at 
 def _faults(worker: str, usa: str) -> str:
     """worker.mjs with the engine's call failing: the prime of an image that isn't ``usa`` and the build of fps_unlock
     trap the engine's wasm (a read past the heap: Pyodide's fatal error), the build's DEEP Python frames down, past
-    the lines of Pyodide's dump the worker keeps; any other build raises."""
+    the lines of Pyodide's dump the worker keeps, once it posted a stage at 80 %; any other build raises."""
     prime, build = '    if request.type in ("layout", "prime"):', '        if request.type == "build":   # to the pages'
     assert worker.count(prime) == worker.count(build) == 1
     return worker.replace(prime, f"""    def azurkit_fault(depth=0):
@@ -3217,6 +3217,7 @@ def _faults(worker: str, usa: str) -> str:
         azurkit_fault()
 {prime}""").replace(build, f"""        if request.type == "build":
             if "fps_unlock" in request.recipe.packs.to_py():
+                progressed(progress.record("pack", "Applying fps_unlock", 4, 5))
                 azurkit_fault({DEEP})
             raise RuntimeError("no build here")
 {build}""")
@@ -3334,7 +3335,8 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
     past which a trap is any failure. On the page, whose first engine's rest traps (:func:`_rest_faults`), its next
     :func:`_faults` and the rest plain: the shared warm-up's numpy load says the rest's trap, never Pyodide's "already
     fatally failed", and its engine starts again; a build whose engine traps ends built, said "The engine stopped and
-    started again: building again" meanwhile, and the page keeps where each trap was (``azurkit.recovered``)."""
+    started again: building again" meanwhile, its bar then Building's own line, not the trapped attempt's last stage,
+    and the page keeps where each trap was (``azurkit.recovered``)."""
     assert _on_stubs(browser, TRAPPED_ROWS) == {
         "redone": [True, ["build t"], {"size": 1}, [["trap 1", "build"]], 1],
         "twice": [["build u"], {"type": "failed", "message": "trap 2", "trapped": True}, [["trap 1", "build"]], 3],
@@ -3352,8 +3354,12 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
         served.context.add_init_script(TWO_CORES)
         page = served.open()
         page.evaluate("""() => { const s = document.querySelector("#status");
+            const line = document.querySelector("#progress-line");
             window.said = [];
-            new MutationObserver(() => said.push(s.textContent)).observe(s, { childList: true, subtree: true }); }""")
+            new MutationObserver(() => {   // a microtask after restarted(): the bar it left
+                said.push(s.textContent);
+                if (s.textContent.startsWith("The engine stopped")) window.bar = line.textContent;
+            }).observe(s, { childList: true, subtree: true }); }""")
         _page.pick(page, "#iso", usa_iso)
         rest = _page.until(page, "() => azurkit.recovered[0]", 300)
         assert rest.startswith("The engine's WebAssembly failed in its layout call: ") and "fatally" not in rest, rest
@@ -3362,9 +3368,10 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
         frame = r" < <exec> line \d+ \(azurkit_fault\)"
         trapped = (r"The engine's WebAssembly failed in its build call: [^·]+ · Python at ctypes/__init__\.py line \d+"
                    rf" \(string_at\){frame * 3} · wasm functions \d+(, \d+){{0,3}}")
-        recovered, said = page.evaluate("() => [azurkit.recovered, said]")
+        recovered, said, bar = page.evaluate("() => [azurkit.recovered, said, window.bar]")
         assert len(recovered) == 2 and re.fullmatch(trapped, recovered[1]), recovered
         assert "The engine stopped and started again: building again" in said and not bodies, said
+        assert bar == "Building…", bar
     finally:
         served.close()
 

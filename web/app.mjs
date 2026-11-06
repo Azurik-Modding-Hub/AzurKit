@@ -365,10 +365,14 @@ function siteEngine({ ready, built, refused, failed, vanilla, opened, shared, de
       }
     },
     // A worker whose engine trapped was started again (D1126): the page says so where it sends the player's ask again,
-    // and keeps where each trap was (worker.mjs's located()) for the tests and CI, its cause being open.
+    // and keeps where each trap was (worker.mjs's located()) for the tests and CI, its cause being open. The ask's bar
+    // drops the trapped attempt's stage: the next engine's start and warm-up post none of the ask's.
     restarted: (data, redo) => {
       state.recovered.push(data.message);
-      if (redo) say(`The engine stopped and started again: ${(LABELS[redo] ?? "working").toLowerCase()} again`);
+      if (!redo) return;
+      say(`The engine stopped and started again: ${(LABELS[redo] ?? "working").toLowerCase()} again`);
+      for (const ask of state.asks.values()) if (ask.kind === redo) ask.record = null;
+      showing();
     },
   });
   state.pool = pool;   // for the tests
