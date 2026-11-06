@@ -2258,7 +2258,8 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
     Step 4.4u1: with Randomize ticked and Obsidians unticked, whose vanilla
     spots are most of those the disc fragments and powers may take, Build
     greys with "Tick Obsidians on the Randomizer tab to build" and the tab's
-    ⚠ line says why, until Obsidians is ticked again or Randomize unticked."""
+    ⚠ line says why, until Obsidians is ticked again or Randomize unticked;
+    a reload that restores that setup greys it so on the Patches tab too."""
     vanilla = {name for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
     starved = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"]
                                        | {"exclude_categories": ["obsidians"]}})["preflight"]
@@ -2295,6 +2296,14 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         _page.until(page, f"() => ({SETTLED})() && !azurkit.rando.view.preflight", 120)
         assert page.evaluate(GREYED)[:4] == works
         assert not [line for line in page.evaluate(WARNED) if line.startswith("⚠ Can't")] and served.stray() == []
+
+        page.evaluate(obsidians)
+        _page.until(page, f"() => ({SETTLED})()?.preflight", 120)   # remembered (D915)
+        _reload(page)   # restored on the first tab, Patches: Randomize ticked asks there
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, f"() => azurkit.vanilla?.release === 'usa' && ({SETTLED})()?.preflight", 300)
+        assert [page.evaluate("() => azurkit.tab"), *page.evaluate(GREYED)[:4]] == ["patches", True, True, tick, tick]
+        assert served.stray() == []
     finally:
         served.close()
 

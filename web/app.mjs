@@ -1570,14 +1570,15 @@ function loadRando(rando, from) {
 }
 
 // Ask the engine what the tab's settings give (or `given`'s: a recipe's or a typed share string, whose settings become
-// the tab's), once it is ready, while the tab shows or a recipe waits on it (the database loads at the first ask); only
-// the latest ask's answer is taken, `wait` ms after the last change (a tab's open: at once).
+// the tab's), once it is ready, while the tab shows, Randomize is ticked (Build greys on the answer, a restored setup's
+// too) or a recipe waits on it (the database loads at the first ask); only the latest ask's answer is taken, `wait` ms
+// after the last change (a tab's open: at once).
 function askRando(given = null, wait = 100) {
   clearTimeout(state.rando.later);
   const ticket = ++state.rando.ticket;
   if (given) state.rando.given = given;
   if (given) state.rando.asked = given.share ?? null;   // a share string loaded: its AZ-383 note's own
-  if (!state.rando.given && state.tab !== "randomizer") return;
+  if (!state.rando.given && state.tab !== "randomizer" && !R("on").checked) return;
   state.rando.waiting = true;
   if (!state.ready || state.building) return;
   state.rando.later = setTimeout(() => {
