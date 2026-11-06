@@ -156,6 +156,8 @@ OPS = {op.id: op for op in (
        "randomizer"),
     Op("A76", "the tracker's Spoiler ticked as Track ends, Seed difficulty Hard at Hard movement and skips (its openers)",
        "tracker"),
+    Op("A85", "the Tracker view with no plan: Map ready (the vanilla game's spots)", "tracker"),   # Step 4.4u3
+    Op("A86", "a level's map with no plan, picked on Map", "tracker", first=False),
     Op("A37", "w1 zoomed past its map's pixels: its detail picture drawn, first", "tracker"),
     Op("A38", "w1 zoomed again after Fit (the detail held)", "tracker", first=False),
     Op("A39", "Data tab, first open (the index and the Player view)", "build"),   # Step 4.7a: the Data tab
@@ -214,6 +216,8 @@ OPS = {op.id: op for op in (
     Op("S20", "the maps' first draw", "tracker"),
     Op("S21", "the tracker, a reopen", "tracker"),
     Op("S22", "a level's map", "tracker", first=False),
+    Op("S70", "the Tracker view with no plan: Map ready (the vanilla game's spots)", "tracker"),   # Step 4.4u3: S19's
+    Op("S71", "a level's map with no plan, picked on Map", "tracker", first=False),
     Op("S23", "Build a seed after Track", "randomizer", head_start=True),
     Op("S24", "Build a seed, no Track first", "randomizer", head_start=True),
     Op("S25", "the spoiler's View", "randomizer", first=False),
@@ -339,6 +343,16 @@ WORLD = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker
          "&& Boolean(azurkit.tracker.map.pictures?.[0]?.bitmap)")
 LEVEL = ("() => !document.getElementById('track-maps').hidden && azurkit.tracker.map.level === 'w1' "
          "&& azurkit.tracker.map.pictures.length > 0 && azurkit.tracker.map.pictures.every((p) => p.bitmap)")
+# Step 4.4u3: with no plan, Map ready (the vanilla game's spots in and the maps' index read), a level picked on it
+# (BROWSE, its arg the level, "" the world map) and its map drawn with them (BROWSED % level), a level new to the page
+# each sample (BROWSE_LEVELS: their floors' pictures read then)
+BROWSABLE = "() => Boolean(azurkit.tracker.state.browse) && !document.getElementById('track-pick').disabled"
+BROWSE = ("(level) => { const s = document.getElementById('track-pick'); s.value = level; "
+          "s.dispatchEvent(new Event('change')); }")
+BROWSED = ("() => { const m = azurkit.tracker.map; return !document.getElementById('track-maps').hidden "
+           "&& m.level === '%s' && Boolean(m.hooks.view()?.vanilla) && m.drawnFor?.level === m.level "
+           "&& m.pictures.length > 0 && m.pictures.every((p) => p.bitmap); }")
+BROWSE_LEVELS = ("w1", "e6", "a3", "f1", "d1", "town", "w2", "e2", "f3", "a1")
 SPECIES = "() => azurkit.characters.state.view?.species.length === 178"
 # Reset (D1062, Step 4.4u2): every slider, option and the weapon moved, each a change the engine answers (MOVED); then
 # the click to every box at the chosen model's defaults (its panel's) and its own pictures shown (RESET)
@@ -1250,10 +1264,22 @@ def _detail(d: Driver, p: Page, first: str, again: str) -> None:
     d.act(p, None, click("map-back"), WORLD, 600)
 
 
+def _browse(d: Driver, p: Page, op: str) -> None:
+    """With no plan (Step 4.4u3), a level new to the page picked on Map until ``op`` has its samples, each timed to its
+    map drawn with the vanilla game's spots, then the world map picked again."""
+    levels = iter(BROWSE_LEVELS)
+    while d.need(op):
+        level = next(levels)
+        d.act(p, op, BROWSE, BROWSED % level, 600, arg=level)
+        d.act(p, None, BROWSE, WORLD, 600, arg="")
+
+
 def app_track(d: Driver, app: App, ctx) -> None:
     p = app.launch(d, ctx, None)
     _seeded(d, p, randomize=False)
-    d.act(p, None, click("rando-view-tracker"), WORLD, 600)   # its own work, before the head start
+    d.act(p, "A85", click("rando-view-tracker"), BROWSABLE, 600)   # its own work, before the head start
+    p.wait(WORLD, 600)
+    _browse(d, p, "A86")
     d.act(p, "A23", click("track-seed"), "() => document.getElementById('track-head').textContent.trim()", 1800)
     p.js(click("rando-view-settings"))
     d.act(p, None, typed("iso-path", str(d.iso)), USA)
@@ -1510,7 +1536,8 @@ def site_track(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     _pick(d, p, None)
     _seeded(d, p, randomize=False)
-    d.act(p, "S19", click("rando-view-tracker"), WORLD, 600)   # a tab's open: no head start, its work its own
+    d.race(p, "S19", click("rando-view-tracker"), {"S19": WORLD, "S70": BROWSABLE}, 600)   # a tab's open: no head
+    _browse(d, p, "S71")                                                                 # start, its work its own
     d.race(p, "S18", click("track-seed"), {"S18": TRACKED, "S20": ART_DONE}, 3600, after={"S20": "S18"})
     while d.need("S22"):
         d.act(p, "S22", "() => azurkit.tracker.map.show('w1', true)", LEVEL, 600)
@@ -1963,7 +1990,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "app-replace": ("app", ("A62", "A63"), app_replace),
     "app-saves": ("app", ("A64", "A65", "A66"), app_saves),
     "app-seed": ("app", ("A27", "A28", "A29", "A30"), app_seed),
-    "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38"), app_track),
+    "app-track": ("app", ("A02", "A23", "A24", "A25", "A26", "A37", "A38", "A85", "A86"), app_track),
     "app-ahead-track": ("app", ("A56",), app_ahead_track),
     "app-ahead-build": ("app", ("A57",), app_ahead_build),
     "app-ahead-stale": ("app", ("A58",), app_ahead_stale),
@@ -1984,7 +2011,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-booblord": ("site", ("S15",), site_booblord),
     "site-reshape": ("site", ("S62", "S65"), site_reshape),
     "site-reshape-after": ("site", ("S63",), site_reshape_after),
-    "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31"), site_track),
+    "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31", "S70", "S71"), site_track),
     "site-seed": ("site", ("S24", "R24", "S50"), site_seed),
     "site-ahead-track": ("site", ("S60",), site_ahead_track),
     "site-ahead-build": ("site", ("S61",), site_ahead_build),
