@@ -4056,8 +4056,15 @@ def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_v
 
 
 STATUS_SAYS = "() => [document.getElementById('status').textContent, document.getElementById('status').className]"
-OWN_STYLE = "setTimeout(() => document.head.append(Object.assign(document.createElement('style'), {textContent: 'b {}'})))"
-"""A script of the page's origin (a test's route) that inserts a ``<style>`` the page's policy refuses."""
+IMPORTED = "https://example.invalid/imported.css"
+OWN = {"import.js": "setTimeout(() => document.head.append(Object.assign(document.createElement('link'), "
+                    "{rel: 'stylesheet', href: '/own/import.css'})))",
+       "import.css": f'@import url("{IMPORTED}");',
+       "style.js": "setTimeout(() => document.head.append(Object.assign(document.createElement('style'), "
+                   "{textContent: 'b {}'})))"}
+"""Files of the page's origin (a test's routes) whose refusals are the page's own: a stylesheet a script links whose
+``@import`` the policy refuses (a load checked off the script's stack: no file named in all three browsers), and a
+script that inserts a ``<style>`` the policy refuses (its file named)."""
 
 
 def test_the_status_line_says_the_pages_own_policy_refusals_and_only_logs_anothers(browser, site):
@@ -4068,8 +4075,8 @@ def test_the_status_line_says_the_pages_own_policy_refusals_and_only_logs_anothe
     extension's content script does, and in WebKit a screenshot's
     (Playwright's adds ``<style>body {}</style>`` a moment: 4.4u3's WebKit
     shot of that view said "The page's security policy refused
-    style-src-elem" in red). One a script of the page's origin causes is
-    said in red."""
+    style-src-elem" in red). The page's own are said in red, a load that
+    names no file (its stylesheet's ``@import``) as one that does."""
     served = Site(browser, site)
     try:
         page = served.open()
@@ -4087,12 +4094,17 @@ def test_the_status_line_says_the_pages_own_policy_refusals_and_only_logs_anothe
         assert "security policy" not in said and "error" not in kind
         assert [v.startswith("page: style-src-elem inline, not the page's (") for v in page.evaluate(
             "() => azurkit.violations")] == [True] * others
-        page.route(f"{served.origin}/own.js", lambda route: route.fulfill(body=OWN_STYLE, content_type="text/javascript"))
-        page.evaluate("""(src) => new Promise((done) => document.head.append(Object.assign(
-            document.createElement('script'), {src, onload: done})))""", f"{served.origin}/own.js")
-        _page.until(page, f"() => azurkit.violations.length === {others + 1}", 10)
-        assert page.evaluate(STATUS_SAYS) == ["The page's security policy refused style-src-elem", "error"]
-        assert page.evaluate("() => azurkit.violations.at(-1)") == "page: style-src-elem inline"
+        def own(route, request):
+            name = request.url.rsplit("/", 1)[1]
+            route.fulfill(body=OWN[name], content_type="text/css" if name.endswith(".css") else "text/javascript")
+
+        page.route(f"{served.origin}/own/*", own)
+        for n, (script, said) in enumerate([("import.js", IMPORTED), ("style.js", "inline")], others + 1):
+            page.evaluate("""(src) => new Promise((done) => document.head.append(Object.assign(
+                document.createElement('script'), {src, onload: done})))""", f"{served.origin}/own/{script}")
+            _page.until(page, f"() => azurkit.violations.length === {n}", 10)
+            assert page.evaluate("() => azurkit.violations.at(-1)") == f"page: style-src-elem {said}"
+            assert page.evaluate(STATUS_SAYS) == ["The page's security policy refused style-src-elem", "error"]
     finally:
         served.close()
 

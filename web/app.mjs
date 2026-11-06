@@ -1967,15 +1967,16 @@ function updates(reg) {
   setInterval(() => ours() && told(sw.controller, { type: "check" }), 30 * 60 * 1000);
 }
 
-// A refusal of the page's policy is the page's own when its file (sourceFile) is at the page's origin: Chromium,
-// Firefox and WebKit name the page's script that inserted the refused <style>, set the refused style or asked the
-// refused fetch. Another's names none of the page's files (an extension's content script; Playwright's evaluate, or
-// its WebKit screenshot's <style>body {}</style>, which name no file at all: Step 4.4u4): it goes to the violations
-// the tests read, never to the status line.
+// A refusal of the page's policy is the page's own unless it is an inline style or script with no file of the page's
+// origin (sourceFile) behind it: Chromium, Firefox and WebKit name the page's script that inserted the refused <style>
+// or set the refused style, but a load checked once the page's code has returned (an <img>'s src, a stylesheet's
+// @import or @font-face, an Audio) may name no file at all, though the page's own code asked it. An inline one with
+// none is another's (an extension's content script; Playwright's evaluate, or its WebKit screenshot's
+// <style>body {}</style>: Step 4.4u4): it goes to the violations the tests read, never to the status line.
 function refusal(e) {
-  let own = false;
+  let own = e.blockedURI !== "inline";
   try {
-    own = new URL(e.sourceFile).origin === location.origin;
+    own ||= new URL(e.sourceFile).origin === location.origin;
   } catch {}
   if (!own) return void state.violations.push(`page: ${e.violatedDirective} ${e.blockedURI}, not the page's `
                                               + `(${e.sourceFile || "no file"})`);

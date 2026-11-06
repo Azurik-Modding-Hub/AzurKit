@@ -83,7 +83,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     or another test's page load sweeps its held build files.
   - Playwright's WebKit screenshot appends `<style>body {}</style>` a moment
     (its animation sync), which the page's CSP refuses: the page keeps it in
-    `azurkit.violations` as not its own (no file of its origin behind it),
+    `azurkit.violations` as not its own (an inline style with no file of
+    its origin behind it),
     so `_page.check_csp` after a WebKit screenshot fails. The status line
     says only the page's own refusals (`web/app.mjs`'s `refusal`).
   - A page's files come from a server of a process of its own
