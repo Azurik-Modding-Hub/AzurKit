@@ -2985,6 +2985,38 @@ def test_a_save_while_the_images_rest_is_hashed_waits_for_its_digests_and_hashes
             served.close()
 
 
+def test_the_images_rest_is_walked_by_the_worker_that_hashes_it_and_the_other_reads_nothing_of_the_image_for_it(
+        browser, site, usa_iso):
+    """Step 4.4ci30: where a browser refuses a changed File's reads (WebKit's, Chromium's), the picked image's rest is
+    hashed in the background by the worker whose check hashed the image (Step 4.4ba; slowed here). B, the free worker,
+    primes for its first job (the image's setup built ahead) while that hash runs, and looks before it walks the image
+    for the rest: with the rest's lock held, or its digests in the stamp, it reads nothing of the image after its job,
+    where it walked the image's whole layout for nothing, its engine held and the File read again (and on Windows a
+    File WebKit reads can't be written meanwhile). Firefox reads a changed File silently: no rest, no walk."""
+    refused = browser.browser_type.name != "firefox"
+    hasher, worker = ((site / name).read_text(encoding="utf-8") for name in ("hasher.mjs", "worker.mjs"))
+    read = "await source.slice(run.start, run.end).arrayBuffer()"
+    walk = 'const rest = mounted(loaded.py, file, (iso) => loaded.engine({ type: "layout", recipe: { iso }, whole: true }));'
+    assert hasher.count(read) == 1 and worker.count(walk) == 1
+    slow = hasher.replace(read, f"await new Promise((late) => setTimeout(late, 3000)).then(() => {read.removeprefix('await ')})")
+    counted = worker.replace(walk, f"self.restWalks = (self.restWalks ?? 0) + 1; {walk}")   # each walk for the rest
+    files = len(gate.layout(usa_iso, ("",)))
+    served = Site(browser, site)
+    try:
+        served.context.route("**/hasher.mjs", lambda route: route.fulfill(body=slow, content_type="text/javascript"))
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=counted, content_type="text/javascript"))
+        page = served.open()
+        _page.pick(page, "#iso", usa_iso)
+        _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
+        _page.until(page, "() => { const s = azurkit.pool.state(); return s.b?.loaded && !s.b.job && s.kept.length; }",
+                    600)   # B's first job ended: the image's setup built ahead
+        if refused:   # and the rest hashed
+            _page.until(page, f"() => [...azurkit.vouched.values()].some((k) => Object.keys(k).length === {files})", 300)
+        assert _page.checks(page, "restWalks") == (1 if refused else 0)
+    finally:
+        served.close()
+
+
 def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_save(browser, site, usa_iso, tmp_path):
     """D35: a byte of a level, outside what the seed's build reads and patches, changed after the pick and before Build.
     The changed level's sha is hashed from that File, so the build's own number agrees with it: Firefox reads the new bytes

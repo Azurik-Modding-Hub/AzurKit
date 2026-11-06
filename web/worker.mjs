@@ -706,11 +706,25 @@ const dressing = (data, run) => {
   return navigator.locks.request(DRESSING, { mode: "shared" }, () => { ran = true; return run(); })
     .catch((error) => { if (ran) throw error; return run(); });   // the ask's own failure stays its own
 };
+// A worker that primed while another hashes the rest (B, whose first job came with the pick, as F hashes it) looks
+// before it walks the image for it: with the rest's lock held, or its digests in the stamp, it reads nothing of the
+// image for the rest (Step 4.4ci30). It walked the image's whole layout after its job for nothing, its engine held
+// meanwhile and the File read again; and on Windows WebKit opens each read of a File sharing it with readers only, so
+// while one is open the image can't be written (a player's edit is refused by Windows then, not by the page).
+const RESTING = (id) => `azurkit-rest ${id}`;
+async function restElsewhere(id) {   // another of this browser's workers hashes the image's rest, or one hashed it
+  const held = await Promise.resolve(navigator.locks?.query?.())
+    .then((locks) => locks?.held?.some((lock) => lock.name === RESTING(id)), () => false);
+  if (held) return true;
+  const last = await stamps("readonly", (store) => store.get("last")).catch(() => null);
+  return Boolean(last?.id === id && last.rest);
+}
 function vouched(loaded, file, id, kept) {
   if (!VOUCHING) return;
   self.postMessage({ type: "vouched", id, digests: { ...kept.digests, ...kept.rest } });
   if (kept.rest || resting.has(id)) return;
-  loaded.rest = () => {   // in the queue's turn: the engine's call
+  loaded.rest = async () => {   // in the queue's turn (it waits for this, not for the hash): the engine's call
+    if (await restElsewhere(id)) return;
     const rest = mounted(loaded.py, file, (iso) => loaded.engine({ type: "layout", recipe: { iso }, whole: true }));
     if ("refused" in rest || !rest.files.length) return;
     resting.add(id);
@@ -732,7 +746,7 @@ function vouched(loaded, file, id, kept) {
         self.postMessage({ type: "rested", id });
       }
     };
-    const locked = () => navigator.locks ? navigator.locks.request(`azurkit-rest ${id}`, { ifAvailable: true }, hash)
+    const locked = () => navigator.locks ? navigator.locks.request(RESTING(id), { ifAvailable: true }, hash)
       : hash(true);
     Promise.resolve().then(locked).catch(() => null).finally(() => resting.delete(id));   // a read refused: none vouched
   };
@@ -999,9 +1013,7 @@ try {
       }).then(() => {   // a check's rest (vouched()), once its ask is answered: work of no ask's, so never its failure
         const rest = loaded.rest;
         loaded.rest = null;
-        try {
-          rest?.();
-        } catch {}
+        return rest?.().catch(() => {});
       }).catch((error) => post({ type: "failed", message: lastLine(error) }));
   };
   const handle = (data) => {

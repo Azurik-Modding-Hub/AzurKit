@@ -221,8 +221,9 @@ def answer(page, js: str, arg=None, seconds: float = STALL):
     return within(page, page._impl_obj.evaluate(js, mapping.to_impl(arg)), seconds, js)
 
 
-def checks(page) -> int:
-    """The image checks the page's workers ran (worker.mjs's ``self.azurkitChecks``), over those still running: a
+def checks(page, counter: str = "azurkitChecks") -> int:
+    """The image checks the page's workers ran (worker.mjs's ``self.azurkitChecks``, or another ``counter`` a worker
+    keeps: a test's own, in a worker.mjs it routed), over those still running: a
     worker the page ends as its answer comes (the one it starts once the pick's check is done) stays in
     ``page.workers`` until Playwright hears its close, and its evaluate then throws TargetClosedError (run
     41981438506's Linux tier; 1 in 5 runs here, its close heard 3.6 ms after the read), or in Firefox, the worker
@@ -233,7 +234,7 @@ def checks(page) -> int:
     found = 0
     for worker in page.workers:
         try:
-            found += worker.evaluate("() => self.azurkitChecks ?? 0")
+            found += worker.evaluate(f"() => self.{counter} ?? 0")
         except Error:
             if worker in page.workers:
                 raise
