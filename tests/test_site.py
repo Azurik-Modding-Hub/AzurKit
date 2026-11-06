@@ -3020,7 +3020,10 @@ def test_the_images_rest_is_walked_by_the_worker_that_hashes_it_and_the_other_re
 def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_save(browser, site, usa_iso, tmp_path):
     """D35: a byte of a level, outside what the seed's build reads and patches, changed after the pick and before Build.
     The changed level's sha is hashed from that File, so the build's own number agrees with it: Firefox reads the new bytes
-    silently and builds, and only the release's sha of the level fails its Save; WebKit and Chromium refuse the read."""
+    silently and builds, and only the release's sha of the level fails its Save; WebKit and Chromium refuse the read.
+    The byte changes once the page holds still, its image's rest hashed (WebKit's, Chromium's, Step 4.4ba) and no worker
+    on a job: on Windows WebKit opens each read of a File sharing it with readers only, so a write while one is open is
+    refused by Windows itself (``PermissionError``), not by the page (Step 4.4ci30)."""
     image = tmp_path / usa_iso.name
     if subprocess.run(["cp", "-c", str(usa_iso), str(image)], capture_output=True).returncode:
         shutil.copyfile(usa_iso, image)
@@ -3030,20 +3033,24 @@ def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_
     at = level.size // 2
     while level.holds(at, at + 1):
         at += 4096
+    files, refused = len(gate.layout(image, ("",))), browser.browser_type.name != "firefox"
     served = Site(browser, site)
     try:
         page = served.open()
         _page.pick(page, "#iso", image)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
-        _page.click(page, "tab-randomizer")
-        _page.until(page, "() => azurkit.rando.view")
-        _page.click(page, "rando-on")
-        _page.fill(page, "rando-seed", "2")
+        _page.until(page, f"""() => {{ const s = azurkit.pool.state();   // the File read by nothing now
+            return !s.queued && !s.f?.job && (!s.b || (s.b.loaded && !s.b.job)) && (!{json.dumps(refused)}
+                || [...azurkit.vouched.values()].some((k) => Object.keys(k).length === {files})); }}""", 600)
         with open(image, "r+b") as f:
             f.seek(level.start + at)
             byte = f.read(1)
             f.seek(level.start + at)
             f.write(bytes([byte[0] ^ 1]))
+        _page.click(page, "tab-randomizer")
+        _page.until(page, "() => azurkit.rando.view")
+        _page.click(page, "rando-on")
+        _page.fill(page, "rando-seed", "2")
         page.evaluate("() => { azurkit.build = null; document.querySelector('#build').click(); }")
         if _page.until(page, "() => azurkit.build ? 'built' : document.querySelector('#status').classList.contains('error') "
                              "&& 'refused'", 900) == "built":
