@@ -725,6 +725,24 @@ def test_lanes_devlog_bullets_merge_once_each_and_land_refuses_the_stale_copy_of
         f"{devlog.LOG}: lines 2 and 3 are one bullet twice", f"{devlog.LOG}: lines 6 and 7 are both **Bullet a**: keep one"]
 
 
+def test_the_landing_tools_read_gits_output_as_utf8_whatever_the_locales_code_page(tmp_path, monkeypatch):
+    """Step 4.4dx1: Windows' CPython 3.14 decodes a text subprocess's output
+    in the locale's code page (cp1252 on CI's runners), which has no byte
+    0x8F of the developer log's ``●``: ``fullsuite.git``, which land.py reads
+    the log with, decodes git's output as UTF-8 on any runner."""
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo := tmp_path / "repo"))
+    (repo / "log.md").write_text("- ● done\n", encoding="utf-8")
+    _git(repo, "add", "log.md")
+    _git(repo, "commit", "-q", "-m", "log")
+    run = subprocess.run
+
+    def windows(*args, text=False, encoding=None, **kw):   # a text read with no encoding named gets the code page
+        return run(*args, text=text, encoding=encoding or ("cp1252" if text else None), **kw)
+
+    monkeypatch.setattr(subprocess, "run", windows)
+    assert fullsuite.git(repo, "show", "HEAD:log.md") == "- ● done\n"
+
+
 def test_the_perf_gate_logs_firefoxs_tree_peak_and_no_verdict_or_list_reads_it(tmp_path, monkeypatch):
     """Firefox's Save holds gigabytes in its parent, so its first record keeps
     the tree's peak (``tree_peaks``, the run's kept file too), even over 6 GiB;

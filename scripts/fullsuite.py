@@ -96,7 +96,8 @@ TIER = re.compile(r"^(vanilla|europe): (\d+) run$", re.M)
 
 
 def git(wt: Path, *args: str, check: bool = True) -> str:
-    return subprocess.run(["git", "-C", str(wt), *args], capture_output=True, text=True, check=check).stdout
+    return subprocess.run(["git", "-C", str(wt), *args], capture_output=True, text=True, encoding="utf-8",
+                          check=check).stdout   # Windows' code page can't read the log's UTF-8 (Step 4.4dx1)
 
 
 def receipts(wt: Path) -> Path:
