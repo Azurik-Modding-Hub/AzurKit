@@ -19,6 +19,7 @@ import json
 import re
 import shutil
 import time
+import urllib.parse
 from pathlib import Path
 
 import pytest
@@ -264,6 +265,29 @@ def ready(page, timeout: float = 120) -> None:
 
 KEPT_ROW = """() => [...document.querySelectorAll("#tools-storage td")].map((td) => td.textContent)
   .includes("AzurKit itself, kept for offline use")"""
+REGISTRATION = """async () => {
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg ? Object.fromEntries(["installing", "waiting", "active"].map((k) => [k, reg[k]?.state ?? null])) : null;
+}"""
+
+
+def kept(page, host: Host, release: dict, timeout: float) -> None:
+    """Once ``page``'s registration has its release active; past ``timeout`` s a failure that also says the
+    registration (none once an install failed) and how many of the host's answers were the release's files (the
+    page's own load's with the install's), so a slow install tells itself from a failed one (run 42236789239's said
+    neither)."""
+    try:
+        _page.until(page, "async () => Boolean((await navigator.serviceWorker.getRegistration())?.active)", timeout)
+    except AssertionError as error:
+        files = release["files"]
+        asked = sum(urllib.parse.unquote(urllib.parse.urlsplit(path).path)[1:] in files
+                    for _, path, _ in host.served.log())
+        try:
+            registration = _page.answer(page, REGISTRATION, seconds=_page.HEAR)
+        except AssertionError:
+            registration = f"unread in {_page.HEAR} s"
+        raise AssertionError(f"{error}\nregistration: {registration}; the host answered {asked} requests for its "
+                             f"{len(files)} files") from None
 
 
 def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_run_isolated_on_it_offline_too(
@@ -280,7 +304,7 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
         _page.load(first, host.url)
         ready(first)
         assert first.evaluate("() => [crossOriginIsolated, Boolean(navigator.serviceWorker.controller)]") == [False, False]
-        assert _page.until(first, "async () => Boolean((await navigator.serviceWorker.getRegistration())?.active)", 60)
+        kept(first, host, listed(site), 60)
         page = context.new_page()
         _page.load(page, host.url)
         ready(page)
