@@ -1,10 +1,11 @@
 # AzurKit's tests on GitHub Actions (Step 4.4ci; D1022-D1024), on the four platforms the apps ship for: macOS on
 # Apple Silicon (macos-15) and on Intel (macos-15-intel, GitHub's Intel image since it retired macos-13), Windows x64
 # and Linux x64.
-# - pure: the pure tier (-m "not vanilla") on every push to main and every pull request. The web tier is in it: Node
+# - pure: the pure tier (-m "not vanilla") on every push to main or a lane branch (p2/*) and every pull request. The web tier is in it: Node
 #   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
 #   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries.
-# - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main in this repository,
+# - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main or to a lane branch
+#   (p2/*, the gamedata environment's two allowed branches, D1123) in this repository,
 #   each runner's in parts at once, a job each (--shard, scripts/ci_shards.py). Each image is rebuilt in the tier's
 #   folder, on the runner's roomiest disk, and the tier stops by name before it if no disk has its room
 #   (scripts/ci_resources.py --room; a Linux build streams a whole image where an APFS one clones it, and GitHub's Linux runners on AWS have far less room than its Azure ones: run 41981438506),
@@ -25,7 +26,7 @@ name: tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'p2/**']
   pull_request:
 
 permissions:
@@ -96,7 +97,7 @@ jobs:
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }}, ${{ matrix.shard }} of ${{ matrix.shards }})
-    if: github.event_name == 'push' && github.repository == 'Azurik-Modding-Hub/AzurKit' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.repository == 'Azurik-Modding-Hub/AzurKit' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/p2/'))
     runs-on: ${{ matrix.os }}
     environment: gamedata
     timeout-minutes: 330

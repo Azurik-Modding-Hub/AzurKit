@@ -286,3 +286,27 @@ def test_the_ci_tier_takes_the_roomiest_disk_frees_unused_toolchains_when_short_
         assert out.endswith(f"the tier's folder: {label}\n"), out
         if root < 19 and eph is None:
             assert "toolchain: freed 25.0 GiB\nroom after freeing the unused toolchains: runner 37.0 GiB free\n" in out
+
+
+def test_the_ci_vanilla_tier_reads_the_game_data_only_on_a_push_to_main_or_a_lane_branch_of_this_repository():
+    """D1123: the vanilla tier, the only job that reads the gamedata environment's deploy key, runs on a push to main
+    or to a lane branch (p2/*) of this repository and on nothing else: not a pull request, not a fork's push, not
+    another branch. tests.yml's push trigger names the same two, and no other job names the environment."""
+    text = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    assert re.search(r"(?m)^  push:\n    branches: \[main, 'p2/\*\*'\]$", text)
+    jobs = re.split(r"(?m)^  (?=[\w-]+:\n)", text.split("\njobs:\n", 1)[1])
+    keyed = [job for job in jobs if re.search(r"(?m)^    environment: gamedata$", job)]
+    assert len(keyed) == 1, [job.split(":", 1)[0] for job in keyed]
+    rule = re.search(r"(?m)^    if: (.+)$", keyed[0])[1]
+
+    def runs(event: str, repository: str, ref: str) -> bool:
+        expr = (rule.replace("github.event_name", repr(event)).replace("github.repository", repr(repository))
+                .replace("github.ref", repr(ref)).replace("&&", " and ").replace("||", " or "))
+        return eval(expr, {"__builtins__": {}, "startsWith": str.startswith})
+
+    ours = "Azurik-Modding-Hub/AzurKit"
+    assert runs("push", ours, "refs/heads/main") and runs("push", ours, "refs/heads/p2/4.4ci40-lane-ci")
+    assert not runs("pull_request", ours, "refs/heads/main")
+    assert not runs("push", "someone/AzurKit", "refs/heads/main")
+    assert not runs("push", ours, "refs/heads/feature")
+    assert not runs("push", ours, "refs/tags/p2/x")
