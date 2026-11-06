@@ -1245,7 +1245,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     the image (`workers.mjs`'s aside asks; with no B it waits for the
     check), so an Install's list and a model's panel never wait for it once
     the tab has opened (Step 4.3r4m), and then with it; a build takes the
-    second's answer, which stands if it comes first. Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
+    second's answer, which stands if it comes first. The tab keeps one ask
+    in flight: the choices made while it runs are asked once it answers, as
+    they are then (Step 4.4u2: a drag queued an ask an input event; A82 and
+    S67 time a drag's answer). Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
     since the content repository went public, D1027) is remembered (the
     site's storage, the app's `content_source`).
     The site reads a source on its own address only (its CSP's

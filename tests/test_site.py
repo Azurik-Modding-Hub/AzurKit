@@ -2871,7 +2871,7 @@ def test_reset_puts_every_slider_option_and_the_weapon_back_in_its_click(browser
         assert own == [{"species": "booblord"}, ",".join(["1"] * 7), "", "own", [False, False, True, False, True, True],
                        ["[]", False]]
         page.evaluate(_perf.MOVE_ALL)
-        assert _page.until(page, f"() => ({_perf.MOVED})() && ({shown})()", 60) == [
+        assert _page.until(page, f"() => ({_perf.MOVED})() && ({_perf.PREVIEWED})() && ({shown})()", 60) == [
             {"species": "booblord", **dict.fromkeys(("scale", "attack_reach", "attack_damage", "attack_speed",
                                                      "jiggle_strength", "jiggle_stiffness"), 1.2),
              "shapes": {"bust": 1.2}, "weapon": weapon, "mode": "garret4", "chain": "any", "anims": "own",
@@ -2884,6 +2884,39 @@ def test_reset_puts_every_slider_option_and_the_weapon_back_in_its_click(browser
         page.evaluate("() => release()")
         _page.until(page, answered, 10)
         assert page.evaluate(shown) == own
+    finally:
+        served.close()
+
+
+def test_a_sliders_drag_keeps_one_ask_in_flight_and_asks_its_last_value_once_that_answers(browser, site):
+    """Step 4.4u2: the Characters tab asks the engine one ask at a time: a
+    drag's input events while one runs are asked once it answers, as the
+    tab's choice is then (one ask, its last value), where each event queued
+    an ask of its own in the engine's worker (about 0.4 s each in WebKit) and
+    every answer after them, a Reset's too, waited for them all."""
+    view = sdk.pickers({"iso": None, "character": {"species": "keylord"}})
+    drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
+             for side in ("front", "back")}
+    served = Site(browser, site)
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
+    sizes = "() => made.flatMap((w) => w.got.filter((m) => m.type === 'pickers' && m.file).map((m) => m.given.character.scale))"
+    answered = "() => azurkit.characters.state.view?.asked === JSON.stringify(azurkit.characters.state.character)"
+    try:
+        page = served.open()
+        page.evaluate("() => { azurkit.file = new File(['x'], 'x.iso'); azurkit.asked = azurkit.file; }")
+        _page.click(page, "tab-characters")
+        _page.until(page, "() => azurkit.characters.state.view && made.length === 2", 60)
+        page.evaluate("() => azurkit.characters.set({ species: 'keylord' })")
+        _page.until(page, f"() => ({answered})() && azurkit.characters.state.view.chosen.name === 'keylord'", 60)
+        before = len(page.evaluate(sizes))
+        page.evaluate("() => { held = true; }")
+        page.evaluate(_perf.DRAG)
+        assert page.evaluate(sizes)[before:] == [1.05]   # the first value's ask runs; the rest wait for it
+        page.evaluate("() => release()")
+        _page.until(page, answered, 10)
+        assert page.evaluate(sizes)[before:] == [1.05, 2]
+        assert page.evaluate("() => [azurkit.characters.character(), document.getElementById('char-scale').value]") == [
+            {"species": "keylord", "scale": 2}, "2"]
     finally:
         served.close()
 

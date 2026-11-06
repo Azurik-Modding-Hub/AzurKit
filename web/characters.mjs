@@ -50,7 +50,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
               shown: null, pictures: new Map(), shipped: new Map(), wanted: null, dressing: false, settling: null,
-              panels: new Map() };
+              panels: new Map(), asking: false, again: false };
   const fallback = () => host.catalog?.characters?.source ?? "";
   // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
   c.objects = app ? host.show_objects === true : (() => {
@@ -107,11 +107,29 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   };
 
   // Ask the engine what the tab shows for its choices; an answer to an older ask is dropped. The image's pick shows
-  // nothing new until the image is read (picked).
-  const ask = async ({ picked = false } = {}) => {
-    const mine = ++c.ticket, asked = JSON.stringify(c.character), from = image() || null;
-    if (!app && !picked && reading() && c.read !== from) unreadAnswer(mine);
-    const reply = await call("pickers", given({ character: c.character, content: { manifest: c.manifest } }));
+  // nothing new until the image is read (picked). One ask at a time (Step 4.4u2): the choices made while it runs are
+  // asked once it answers, as they are then, where each change queued an ask of its own in the engine's worker (a
+  // slider's drag dozens, about 0.4 s each in WebKit), and every answer after them, a pick's or a Reset's, waited for
+  // them all.
+  const ask = ({ picked = false } = {}) => {
+    const mine = ++c.ticket;
+    if (!app && !picked && reading() && c.read !== (image() || null)) unreadAnswer(mine);
+    if (!c.asking) return send(mine);
+    c.again = true;
+  };
+  const send = async (mine) => {
+    const asked = JSON.stringify(c.character), from = image() || null;
+    c.asking = true;
+    let reply;
+    try {
+      reply = await call("pickers", given({ character: c.character, content: { manifest: c.manifest } }));
+    } finally {
+      c.asking = false;
+    }
+    if (c.again) {   // its answer is an older choice's
+      c.again = false;
+      return send(c.ticket);
+    }
     if (mine !== c.ticket) return;
     c.answered = mine;
     if (!("refused" in reply)) Object.assign(reply, { asked, from });

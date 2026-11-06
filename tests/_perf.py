@@ -110,6 +110,7 @@ OPS = {op.id: op for op in (
     Op("A11", "G4 match, keylord", "characters"),
     Op("A81", "Reset, keylord's sliders, options and weapon moved -> its defaults and pictures", "characters",
        first=False),   # Step 4.4u2
+    Op("A82", "a slider's drag (30 input events) -> the engine's answer to its last value", "characters", first=False),
     Op("A12", "Build, defaults", "build", head_start=True),
     Op("A13", "Save, defaults, after the save dialog", "build"),
     Op("A14", "Save, defaults, clicked at once", "build"),
@@ -202,6 +203,7 @@ OPS = {op.id: op for op in (
     Op("S53", "the same reshape's exact pictures again", "characters", first=False, content=True),
     Op("S66", "Reset, keylord's sliders, options and weapon moved -> its defaults and pictures", "characters",
        first=False),   # Step 4.4u2
+    Op("S67", "a slider's drag (30 input events) -> the engine's answer to its last value", "characters", first=False),
     Op("S14", "Build keylord, first", "build", bar=True, head_start=True),   # D1067: its dress, made and kept
     Op("S64", "Build keylord again at a later visit (its dress kept)", "build", first=False, head_start=True),
     Op("S15", "Build booblord", "build", content=True, head_start=True),   # her shipped dress (the content repo's entry)
@@ -347,6 +349,9 @@ MOVE_ALL = """() => { const $ = (id) => document.getElementById(id), changed = (
   if (!m.disabled) { m.value = [...m.options].find((o) => o.value !== m.value).value; changed(m); }
   for (const id of ["char-chain", "char-clips", "char-sounds", "char-height", "char-balance", "char-ground"]) {
     if (!$(id).disabled) $(id).click(); } }"""
+# A drag of the first number's track (the model's size): an input event a frame for half a second, each a change
+DRAG = """() => { const t = document.querySelector("#char-numbers input[type=range]");
+  for (let i = 1; i <= 30; i++) { t.value = String(1 + i / 30); t.dispatchEvent(new Event("input")); } }"""
 MOVED = """() => { const c = azurkit.characters.state;
   return Object.keys(c.character).length > 1 && c.view?.asked === JSON.stringify(c.character); }"""
 RESET = """() => { const c = azurkit.characters.state, d = c.view?.chosen, s = c.shown, $ = (id) => document.getElementById(id);
@@ -1040,19 +1045,21 @@ def app_start(d: Driver, app: App, ctx) -> None:
     d.act(p, "A10", model("keylord"), chosen("keylord"))
     d.act(p, "A11", click("char-g4-scale"), "() => !azurkit.characters.state.matching && "
                     "document.getElementById('char-scale').value !== '1' && document.getElementById('char-scale').value")
-    _reset(d, p, "A81")
+    _reset(d, p, "A81", "A82")
     app.quit(p)
 
 
-def _reset(d: Driver, p: Page, op: str) -> None:
+def _reset(d: Driver, p: Page, op: str, drag: str) -> None:
     """Reset (D1062) with keylord chosen and every slider, option and the weapon moved, the engine's answer to them in
-    and a head start's worth of their work ahead under way: the click to the tab at keylord's defaults, its pictures with
-    them (Step 4.4u2: they waited for the engine's answer to the Reset)."""
+    and a head start's worth of their work ahead under way; then a drag of its size's track, to the engine's answer to
+    its last value (``drag``: each value an ask); then the click to the tab at keylord's defaults, its pictures with
+    them (``op``). Step 4.4u2: Reset waited for the engine's answer to it, behind each ask queued before it."""
     if not p.js(chosen("keylord")):
         d.act(p, None, model("keylord"), chosen("keylord"), 1800)
-    while d.need(op):
+    while d.needed((op, drag)):
         d.act(p, None, MOVE_ALL, MOVED, 900, change=True)
-        d.idle(p, f"the moved setup's work ahead before {op}", HEAD_START)
+        d.idle(p, f"the moved setup's work ahead before {drag}", HEAD_START)
+        d.act(p, drag, DRAG, MOVED, 900, change=True)
         d.act(p, op, click("char-reset"), RESET, 900)
 
 
@@ -1433,7 +1440,7 @@ def site_characters(d: Driver, ctx, url: str) -> None:
                    && !azurkit.characters.state.installing && azurkit.characters.state.view
                    && !azurkit.characters.state.view.perfOld""", 1800)
         d.act(p, "S12", model("beamlord"), chosen("beamlord"), 1800)
-    _reset(d, p, "S66")
+    _reset(d, p, "S66", "S67")
     d.leave(p)
 
 
@@ -1949,7 +1956,8 @@ def site_data(d: Driver, ctx, url: str) -> None:
 
 
 SCENARIOS = {   # name: (host, its ops, the driver)
-    "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11", "A81"), app_start),
+    "app-start": ("app", ("A01", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10", "A11", "A81", "A82"),
+                  app_start),
     "app-build": ("app", ("A12", "A13", "A14", "A15", "A16", "A17"), app_build),
     "app-community": ("app", ("A33", "A34", "A35", "A36"), app_community),
     "app-replace": ("app", ("A62", "A63"), app_replace),
@@ -1971,7 +1979,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-community": ("site", ("S26", "S27", "S28", "S29"), site_community),
     "site-replace": ("site", ("S54", "S55"), site_replace),
     "site-saves": ("site", ("S56", "S57", "S58"), site_saves),
-    "site-characters": ("site", ("S07", "S09", "S12", "S13", "S66"), site_characters),
+    "site-characters": ("site", ("S07", "S09", "S12", "S13", "S66", "S67"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-booblord": ("site", ("S15",), site_booblord),
     "site-reshape": ("site", ("S62", "S65"), site_reshape),
