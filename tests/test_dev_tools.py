@@ -39,7 +39,7 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
             "azurkit.sdk": {"azurkit", "azurkit.core", "azurkit.core.iso"},
             "tests.conftest": {"azurkit", "azurkit.core", "azurkit.core.gate"},
             "tests.test_sdk": {"azurkit", "azurkit.sdk"}, "tests.test_gate": {"azurkit.core.iso"},
-            "tests.test_wheel": {"azurkit"}, "tests.test_other": {"json"}}
+            "tests.test_wheel": {"azurkit"}, "tests.test_other": {"json"}, "bootstrap": set()}
     assert "tests/test_gate.py" in SMOKE
     assert any("pytest.mark.europe" in (ROOT / f.partition("::")[0]).read_text(encoding="utf-8") for f in SMOKE)  # D26
     assert fullsuite.plan(["src/azurkit/core/iso.py"], deps) == sorted(
@@ -142,6 +142,31 @@ def test_what_every_session_runs_is_whole_and_what_only_a_fixture_runs_picks_its
                      "scripts/deep.py": sorted(takers),
                      "tests/_server.py": sorted({*SMOKE, "tests/test_serves.py"}),
                      "src/pkg/core.py": sorted({*SMOKE, *fullsuite.SRC_TESTS, "tests/test_pkg.py"})}
+
+
+def test_a_deleted_or_renamed_module_picks_the_tests_that_still_name_it_and_one_none_names_is_the_whole_suite(
+        tmp_path, monkeypatch):
+    """Step 4.4dx3, second review D1: a deleted module run by its path
+    (``tests/_page.py`` runs ``tests/_static.py``) still picks the test files
+    that reach the one naming it, and an imported one its importers; a
+    deleted module no module names is the whole suite (who ran it isn't in
+    the head tree), a deleted test file only the smoke files. A rename is its
+    old path deleted and its new one added."""
+    deps = fullsuite.graph_of({"tests/_runner.py": "from pathlib import Path\n\nS = Path(__file__).with_name('_x.py')\n",
+                               "tests/test_serves.py": "from tests import _runner  # noqa: F401\n"})
+    assert fullsuite.plan(["tests/_x.py"], deps) == sorted({*SMOKE, "tests/test_serves.py"})
+    assert fullsuite.plan(["tests/_gone.py"], deps) is None
+    assert fullsuite.plan(["tests/test_gone.py"], deps) == SMOKE
+    _, lane, _, _ = _repo(tmp_path, monkeypatch)
+    (lane / "tests").mkdir()
+    (lane / "tests" / "_old.py").write_text("", encoding="utf-8")
+    (lane / "tests" / "test_a.py").write_text("from tests import _old  # noqa: F401\n", encoding="utf-8")
+    _git(lane, "add", "tests")
+    _git(lane, "commit", "-q", "-m", "base")
+    base = _git(lane, "rev-parse", "HEAD")
+    _git(lane, "mv", "tests/_old.py", "tests/_new.py")
+    _git(lane, "commit", "-q", "-m", "renamed")
+    assert "tests/test_a.py" in fullsuite.prepare(lane, True, base)["pytest_args"]
 
 
 def test_a_change_to_a_functions_decorators_or_defaults_is_its_modules_top_level():

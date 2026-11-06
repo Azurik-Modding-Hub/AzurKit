@@ -180,10 +180,11 @@ def reads(source: str | ast.AST) -> set[str]:
     return {folder for folder in DATA if folder.rstrip("/").rpartition("/")[2] in names}
 
 
-def _runs(tree: ast.AST, rel: str, mods: dict[str, str]) -> set[str]:
+def _runs(tree: ast.AST, rel: str) -> set[str]:
     """The modules a source runs as programs by their paths: a string (no
-    docstring, no space) that is another file's path, ends in "/" and it, or is
-    the name of one beside it (``Path(__file__).with_name("_static.py")``). A
+    docstring, no space) that is a Python file's path, ends in "/" and it, or
+    is the name of one beside it (``Path(__file__).with_name("_static.py")``),
+    whether or not the file is there (a deleted one's users still name it). A
     test file named so is pytest's to run, not a program."""
     docs = {id(node.body[0].value) for node in ast.walk(tree)
             if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
@@ -193,7 +194,7 @@ def _runs(tree: ast.AST, rel: str, mods: dict[str, str]) -> set[str]:
         if isinstance(node, ast.Constant) and isinstance(text := node.value, str) and id(node) not in docs \
                 and text and not any(c.isspace() for c in text):
             ends = {text, *(text[i + 1:] for i, c in enumerate(text) if c == "/"), f"{folder}/{text}".lstrip("/")}
-            out |= {mods[o] for o in ends & mods.keys() if o != rel and not mods[o].startswith("tests.test_")}
+            out |= {m for o in ends if o != rel and (m := module_of(o)) and not m.startswith("tests.test_")}
     return out
 
 
@@ -351,7 +352,7 @@ def graph_of(files: dict[str, str]) -> Graph:
     mods = {rel: module_of(rel) for rel in files}
     trees = {rel: ast.parse(text) for rel, text in files.items()}
     scopes = {mods[rel]: _scope(tree, mods[rel], rel.endswith("__init__.py")) for rel, tree in trees.items()}
-    runs = {mods[rel]: _runs(tree, rel, mods) for rel, tree in trees.items()}
+    runs = {mods[rel]: _runs(tree, rel) for rel, tree in trees.items()}
     deps = Graph({mods[rel]: imports(tree, mods[rel], rel.endswith("__init__.py")) | reads(tree) | runs[mods[rel]]
                   for rel, tree in trees.items()})
     seen = _reach(scopes, modules=SESSION)   # and the folders and programs its modules name by path
@@ -429,8 +430,10 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     :data:`SRC_TESTS` for a change under src/, a path's :data:`RULES` tests,
     and :data:`SMOKE`; nothing more for other docs. A change to the suite's
     configuration, to what every session runs (``deps.every_run``; for a plain
-    dict, :data:`SESSION` and all it imports) or to a path no rule covers is the
-    whole suite. The session checks the app's no-window mode in a Python of its
+    dict, :data:`SESSION` and all it imports), to a path no rule covers or a
+    deleted module no module still names is the whole suite (a renamed one is
+    its old path deleted, :func:`prepare` lists both; a deleted test file
+    drops only its own tests). The session checks the app's no-window mode in a Python of its
     own, so the app isn't what every session runs. A function of such a module
     (``path::NAME``, :func:`narrowed`) the session doesn't call picks its
     module's importers and the takers of the conftest fixtures that call it."""
@@ -457,9 +460,11 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
             continue
         if (module := module_of(rel)) is None:
             return None
-        else:
-            touched.add(module)
-            picked.update(SRC_TESTS if rel.startswith("src/") else ())
+        if module not in deps and not module.startswith("tests.test_") and not any(
+                module in uses for uses in deps.values()):
+            return None   # a deleted module no module names: who ran it isn't in the head tree
+        touched.add(module)
+        picked.update(SRC_TESTS if rel.startswith("src/") else ())
     if (every := getattr(deps, "every_run", None)) is None:
         every, todo = set(), list(SESSION)
         while todo:
@@ -584,7 +589,7 @@ def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
     diff = subprocess.run(["git", "-C", str(wt), "diff", "HEAD", "--binary"], capture_output=True, check=True).stdout
     untracked = sorted(filter(None, git(wt, "ls-files", "-z", "--others", "--exclude-standard").split("\0")))
     selection = None
-    changed = sorted(set(git(wt, "diff", "--name-only", base).split() + untracked)) if base else []
+    changed = sorted(set(git(wt, "diff", "--no-renames", "--name-only", base).split() + untracked)) if base else []
     if changed_area and base:
         selection = plan(narrowed(wt, base, changed, deps := graph(wt)), deps)
     mode, browsers = ("full", "all") if selection is None else ("changed", list(CHANGED_BROWSERS))
