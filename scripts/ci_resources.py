@@ -20,6 +20,16 @@ worker was running before it ends, then every process left under the one
 ended by itself. So the step ends, prints its summary and fails while the
 job has time left; it exits 3 once ``STOP`` exists.
 
+The stop reads only what it needs, each in ms (Step 4.4ci32: run 42146627936's
+Windows test of it saw the tier unended in 90 s, each of its reads a CIM
+query of every process through PowerShell, seconds long and on a busy runner
+far longer): the OS's own list of processes (:func:`table`; on Windows
+ntdll's, never WMI) and the tier's own command lines. What only describes the
+tier's end (Playwright's temporary folders, Windows Error Reporting's) is read
+once it is stopped, and the minute line's readings of every process on macOS
+run on a thread of their own (:class:`Readings`), so no diagnostic holds the
+stall check or the stop.
+
 On macOS each line also has Playwright's processes' footprint (its driver and
 the browsers it starts, WebKit's pages among them: :func:`footprints`), and
 the tier's end what macOS wrote of one that ended (a crash report, a jetsam
@@ -50,7 +60,7 @@ ended, the crash handlers, and the browsers' temporary folders.
 
 from __future__ import annotations
 
-import base64
+import ctypes
 import json
 import os
 import re
@@ -94,8 +104,9 @@ CRASH = re.compile(r"^(?:WerFault|WerFaultSecure|wermgr|crashhelper|crashreporte
 report is written), Firefox's crash helper, reporter, minidump analyzer and ping sender, macOS's ReportCrash."""
 MIB = 1 << 20
 SAY_S = 10
-"""s :func:`held` may take: a listing of the processes and the folders' sizes (``ps`` takes ms; Windows' CIM query 1-3
-s on the runner), so a close that never answered still fails promptly, the rest of the folders' sizes left unread."""
+"""s :func:`held` may take: a listing of the processes and the folders' sizes (the listing takes ms: ``ps``, Windows'
+own calls), so a close that never answered still fails promptly, the rest of the folders' sizes left unread; and the
+bound of each ``ps`` the watch runs."""
 LISTED = 20
 """Processes at most in each of :func:`held`'s lists."""
 WER = ("CrashDumps", "Microsoft/Windows/WER/ReportQueue", "Microsoft/Windows/WER/ReportArchive")
@@ -112,13 +123,45 @@ ENDINGS = ('subsystem == "com.apple.WebKit" AND (eventMessage CONTAINS "processD
 """WebKit's own lines (macOS's log) on a process of its that ended or that it ended: why a page's process ended
 (``WebPageProxy::processDidTerminate``'s ``reason=``: ``Crash``, ``ExceededMemoryLimit``, ``ExceededCPULimit``...), its
 memory and CPU kills and their thresholds, and a process that stopped answering. A WebKit kill writes no report."""
+SAYING = threading.RLock()
+"""Held by each of the watch's prints, which two threads make (:class:`Readings`), so no line is cut by another's."""
+
+
+def say(*lines: str) -> None:
+    """Print ``lines`` at once, each whole (:data:`SAYING`), flushed, as CI's runner reads them as they come."""
+    if lines:
+        with SAYING:
+            sys.stdout.write("".join(f"{line}\n" for line in lines))
+            sys.stdout.flush()
+
+
+def _why(error: Exception) -> str:
+    """Why a read failed, for a line: one that ran out of its time says so, with its bound, else the error's kind."""
+    if isinstance(error, subprocess.TimeoutExpired):
+        return f"no answer in {error.timeout:.0f} s"
+    return type(error).__name__
+
+
+class _Text(ctypes.Structure):
+    """Windows' UNICODE_STRING: a length in bytes and where its UTF-16 is."""
+    _fields_ = [("length", ctypes.c_uint16), ("room", ctypes.c_uint16), ("buffer", ctypes.c_void_p)]
+
+
+class _Process(ctypes.Structure):
+    """Windows' SYSTEM_PROCESS_INFORMATION as far as its working set (``winternl.h``, its reserved fields named as
+    System Informer's ``phnt`` headers name them): an entry of NtQuerySystemInformation's list of processes."""
+    _fields_ = [("next", ctypes.c_uint32), ("threads", ctypes.c_uint32), ("private", ctypes.c_int64),
+                ("hard_faults", ctypes.c_uint32), ("most_threads", ctypes.c_uint32), ("cycles", ctypes.c_uint64),
+                ("created", ctypes.c_int64), ("user", ctypes.c_int64), ("kernel", ctypes.c_int64), ("name", _Text),
+                ("priority", ctypes.c_int32), ("pid", ctypes.c_void_p), ("parent", ctypes.c_void_p),
+                ("handles", ctypes.c_uint32), ("session", ctypes.c_uint32), ("key", ctypes.c_void_p),
+                ("most_virtual", ctypes.c_size_t), ("virtual", ctypes.c_size_t), ("faults", ctypes.c_uint32),
+                ("most_working", ctypes.c_size_t), ("working", ctypes.c_size_t)]
 
 
 def free_memory() -> tuple[int, int]:
     """(available, total) bytes of this machine's memory, by the system's own count of what it can hand out."""
     if sys.platform == "win32":
-        import ctypes
-
         class Status(ctypes.Structure):
             _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong), ("total", ctypes.c_ulonglong),
                         ("available", ctypes.c_ulonglong), ("rest", ctypes.c_ulonglong * 5)]
@@ -258,35 +301,85 @@ def _seconds(age: str) -> int:
     return total + int(days or 0) * 86400
 
 
-def _lines(command: list[str], timeout: float = 120) -> list[str]:
+def _lines(command: list[str], timeout: float = SAY_S) -> list[str]:
     return subprocess.run(command, capture_output=True, text=True, errors="replace", check=True,
                           timeout=timeout).stdout.splitlines()
 
 
-def processes(timeout: float = 120) -> list[tuple[int, int, int, str, str, int]]:
-    """(id, its parent's id, age in seconds, name, command line, memory in bytes: its working set, ``ps``'s rss) of
-    each process on this machine, read in at most ``timeout`` s. The command line is read to find xdist's workers
-    (:data:`WORKER`) and Playwright's processes (:data:`PLAYWRIGHT`), never printed."""
+def table(timeout: float = SAY_S) -> list[tuple[int, int, int, str, str, int]]:
+    """(id, its parent's id, age in seconds, name, ``""``, memory in bytes: its working set, ``ps``'s rss) of each
+    process on this machine, the OS's own list, in ms: ``ps`` (bound at ``timeout`` s), or on Windows one call of
+    ntdll's (``NtQuerySystemInformation``), never WMI, whose CIM query of every process through PowerShell took 1-3 s
+    on the runner and, on a busy one, held the stall watch's stop past its test's 90 s (Step 4.4ci32). The command
+    lines are :func:`commands`'s."""
     if sys.platform == "win32":
-        script = ("$now = Get-Date; Get-CimInstance Win32_Process | Where-Object CreationDate | ForEach-Object "
-                  "{ ('{0} {1} {2} {3} {4}' -f $_.ProcessId, $_.ParentProcessId, "
-                  "[long]($now - $_.CreationDate).TotalSeconds, [long]$_.WorkingSetSize, $_.Name) + [char]9 + "
-                  "($_.CommandLine -replace '[\\t\\r\\n]', ' ') }")
-        rows = [(*row.partition("\t")[::2], 1) for row in _lines(
-            ["powershell", "-NoProfile", "-NonInteractive", "-EncodedCommand",
-             base64.b64encode(script.encode("utf-16-le")).decode()], timeout)]
-    else:   # comm last, as macOS's is the program's path, spaces and all; the command lines by id
-        commands = dict(row.strip().partition(" ")[::2] for row in _lines(["ps", "-A", "-ww", "-o", "pid=,args="],
-                                                                         timeout))
-        rows = [(row, commands.get(row.split()[0], ""), 1024) for row in _lines(
-            ["ps", "-A", "-o", "pid=,ppid=,etime=,rss=,comm="], timeout) if row.strip()]
-    found = []
-    for row, command, unit in rows:
+        return _windows_table()
+    found = []   # comm last, as macOS's is the program's path, spaces and all
+    for row in _lines(["ps", "-A", "-o", "pid=,ppid=,etime=,rss=,comm="], timeout):
         parts = row.split(None, 4)
         if len(parts) == 5 and parts[0].isdigit() and parts[1].isdigit() and parts[3].isdigit():
-            found.append((int(parts[0]), int(parts[1]), _seconds(parts[2]), os.path.basename(parts[4].strip()),
-                          command, int(parts[3]) * unit))
+            found.append((int(parts[0]), int(parts[1]), _seconds(parts[2]), os.path.basename(parts[4].strip()), "",
+                          int(parts[3]) * 1024))
     return found
+
+
+def _windows_table() -> list[tuple[int, int, int, str, str, int]]:
+    query = ctypes.WinDLL("ntdll").NtQuerySystemInformation
+    query.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32)]
+    query.restype = ctypes.c_uint32
+    size, needed = 1 << 20, ctypes.c_uint32()
+    for _ in range(8):
+        buffer = ctypes.create_string_buffer(size)
+        if (status := query(5, buffer, size, ctypes.byref(needed))) != 0xC0000004:   # SystemProcessInformation;
+            break                                                                     # STATUS_INFO_LENGTH_MISMATCH
+        size = max(2 * size, needed.value + (1 << 16))
+    if status:
+        raise OSError(f"NtQuerySystemInformation: NTSTATUS {status:#x}")
+    now, found, at = int((time.time() + 11644473600) * 10 ** 7), [], 0   # Windows' clock: 100 ns since 1601
+    while True:
+        entry = _Process.from_buffer(buffer, at)
+        if entry.created:   # the idle process has no start (as WMI's had no CreationDate)
+            name = ctypes.wstring_at(entry.name.buffer, entry.name.length // 2) if entry.name.buffer else ""
+            found.append((entry.pid or 0, entry.parent or 0, max(0, now - entry.created) // 10 ** 7, name, "",
+                          entry.working))
+        if not entry.next:
+            return found
+        at += entry.next
+
+
+def commands(pids: list[int], timeout: float = SAY_S) -> dict[int, str]:
+    """{id: command line} of each of ``pids`` whose command line can be read (``ps``, bound at ``timeout`` s; on Windows
+    ntdll's ``NtQueryInformationProcess`` of each, in ms), read to find xdist's workers (:data:`WORKER`) and
+    Playwright's processes (:data:`PLAYWRIGHT`), never printed."""
+    if sys.platform != "win32":
+        lines = {int(pid): command for pid, _, command in (row.strip().partition(" ") for row in _lines(
+            ["ps", "-A", "-ww", "-o", "pid=,args="], timeout)) if pid.isdigit()}
+        return {pid: lines[pid] for pid in pids if pid in lines}
+    kernel32, ntdll = ctypes.WinDLL("kernel32"), ctypes.WinDLL("ntdll")
+    opened, close, query = kernel32.OpenProcess, kernel32.CloseHandle, ntdll.NtQueryInformationProcess
+    opened.argtypes, opened.restype = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32], ctypes.c_void_p
+    close.argtypes, close.restype = [ctypes.c_void_p], ctypes.c_int
+    query.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32,
+                      ctypes.POINTER(ctypes.c_uint32)]
+    query.restype = ctypes.c_uint32
+    buffer, got, found = ctypes.create_string_buffer(ctypes.sizeof(_Text) + 2 * 32768), ctypes.c_uint32(), {}
+    for pid in pids:   # a command line is at most 32767 UTF-16 characters
+        if not (handle := opened(0x1000, False, pid)):   # PROCESS_QUERY_LIMITED_INFORMATION: one that ended, or
+            continue                                      # not this user's to open, is left out
+        try:
+            if query(handle, 60, buffer, len(buffer), ctypes.byref(got)) == 0:   # ProcessCommandLineInformation
+                line = _Text.from_buffer(buffer)
+                found[pid] = ctypes.wstring_at(line.buffer, line.length // 2) if line.buffer else ""
+        finally:
+            close(handle)
+    return found
+
+
+def processes(timeout: float = SAY_S) -> list[tuple[int, int, int, str, str, int]]:
+    """Each process on this machine as :func:`table` lists it, with its command line (:func:`commands`)."""
+    rows = table(timeout)
+    lines = commands([row[0] for row in rows], timeout)
+    return [(*row[:4], lines.get(row[0], ""), row[5]) for row in rows]
 
 
 def tree(rows: list[tuple[int, int, int, str, str]], root: int) -> list[tuple[int, tuple[int, int, int, str, str]]]:
@@ -315,7 +408,6 @@ def footprints(rows: list[tuple[int, int, int, str, str]]) -> dict[int, tuple[st
     kill read); none on the other OSes."""
     if sys.platform != "darwin":
         return {}
-    import ctypes
     usage = ctypes.CDLL("/usr/lib/libSystem.B.dylib").proc_pid_rusage
     found = {}
     for pid, _, _, name, command, *_ in rows:
@@ -569,7 +661,6 @@ def cpu_used(pid: int) -> tuple[float, int] | None:
     the other OSes, which have no such call."""
     if sys.platform != "darwin":
         return None
-    import ctypes
     lib = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
     info, base = (ctypes.c_uint64 * 40)(), (ctypes.c_uint32 * 2)()
     if lib.proc_pid_rusage(pid, 4, info) != 0:
@@ -579,9 +670,9 @@ def cpu_used(pid: int) -> tuple[float, int] | None:
 
 
 def cpu_used_ps(name: str) -> float | None:
-    """CPU seconds of the process named ``name`` (``ps``'s, which reads another user's too)."""
+    """CPU seconds of the process named ``name`` (``ps``'s, which reads another user's too, in :data:`SAY_S` s)."""
     try:
-        for row in _lines(["ps", "-A", "-o", "time=,comm="], 30):
+        for row in _lines(["ps", "-A", "-o", "time=,comm="]):
             clock, _, comm = row.strip().partition(" ")
             if os.path.basename(comm.strip()) == name:
                 whole, _, part = clock.partition(".")
@@ -755,11 +846,77 @@ def end_left(driver: int) -> list[tuple]:
 
 
 def _listed() -> list[tuple[int, int, int, str, str, int]]:
+    """The OS's list of processes (:func:`table`), or none if it can't be read, said as such."""
     try:
-        return processes()
-    except (OSError, subprocess.SubprocessError) as e:
-        print(f"--- the processes couldn't be listed ({type(e).__name__})", flush=True)
+        return table()
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        say(f"--- the processes couldn't be listed ({_why(e)})")
         return []
+
+
+class Readings:
+    """Playwright's processes on macOS as the watch reads them, on a thread of their own each :data:`SAMPLE_S` s, so
+    neither a listing of every process nor a sample of one holds the watch's stall check or its stop (Step 4.4ci32):
+    each one's footprint (:func:`footprints`) as last read with the free memory then (``seen``), their most together
+    and one's highest (``most``), and WebKit's samples as its log asks for them (:func:`stuck`), printed as taken."""
+
+    def __init__(self):
+        self.lock, self.said, self.left, self.gpus = threading.Lock(), Said(), SAMPLED, {}
+        self.read, self.seen, self.most = {}, {}, [0, 0, ""]
+        self.why, self.since = "not read yet", time.monotonic()   # why the last read is unread; when this one began
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self) -> None:
+        while True:
+            try:
+                read, free = footprints(processes()), free_memory()[0]
+            except (OSError, subprocess.SubprocessError, ValueError) as e:
+                with self.lock:
+                    self.why, self.since = f"unread ({_why(e)})", None
+            else:
+                with self.lock:
+                    self.read, self.why, self.since = read, None, None
+                    self.seen |= {pid: (*row, free) for pid, row in read.items()}
+                    self.most[0] = max(self.most[0], sum(row[1] for row in read.values()))
+                    if (top := max(read.values(), key=lambda row: row[2], default=None)) and top[2] > self.most[1]:
+                        self.most[1:] = top[2], top[0]
+                printed, self.left = stuck(self.said.take(), read, self.left)
+                say(*printed)
+            time.sleep(SAMPLE_S)
+            with self.lock:
+                self.since = time.monotonic()
+
+    def minute(self) -> str:
+        """The minute line's part: Playwright's processes as last read, or why they are unread (a listing that
+        failed, or one running past :data:`SAY_S`), and their GPU processes' state (:func:`gpu_state`)."""
+        with self.lock:
+            read, why, since = dict(self.read), self.why, self.since
+        if since is not None and (running := time.monotonic() - since) > SAY_S:
+            why = f"unread (its listing has run {running:.0f} s)"
+        if not why:
+            biggest = max(read.values(), key=lambda row: row[1], default=("", 0, 0))
+            why = (f"{sum(row[1] for row in read.values()) / GIB:.1f} GiB in {len(read)}, the largest "
+                   f"{biggest[1] / GIB:.1f} ({biggest[0]})")
+        return f"; Playwright's processes {why}" + gpu_state(read, self.gpus, time.monotonic())
+
+    def lowest(self) -> str:
+        """The tier's lowest line's part: Playwright's processes' most together and one's highest."""
+        with self.lock:
+            most = list(self.most)
+        return f"; Playwright's processes at most {most[0] / GIB:.1f} GiB together, one {most[1] / GIB:.1f} ({most[2]})"
+
+    def ended(self, began: float) -> list[str]:
+        """The tier's end's lines: what macOS wrote of one of Playwright's processes that ended since ``began``
+        (seconds since the epoch), what WebKit's log says of one, and the runner's GPU."""
+        with self.lock:
+            seen = dict(self.seen)
+        return ["--- what macOS wrote of Playwright's processes that ended: " + ("; ".join(reports(began, seen))
+                                                                                or "nothing"),
+                "--- what WebKit's log says of a process that ended: " + ("; ".join(webkit_said(began)) or "nothing"),
+                f"--- the runner's GPU: {machine_gpu()}"]
+
+    def close(self) -> None:
+        self.said.close()
 
 
 def _end(pid: int) -> None:
@@ -801,55 +958,66 @@ def stop_tier(why: str, log: str, root: int | None, grace: float = GRACE_S, sett
     """Print the log's tail and the tier's processes, then end xdist's workers under the tier's own (each with what
     runs under it) and give pytest's controller ``settle`` seconds to write its summary and failures and end; then
     end what is left under the tier's own, the deepest first, and the tier's own if it hasn't ended by itself
-    within ``grace`` seconds (the step's subshell, which Git Bash tracks as its own). Ending the controller with its
-    workers would lose every line it writes once they are gone (Step 4.4ci12's review, F1)."""
-    print(f"--- {why}: the log's last {TAIL} lines", flush=True)
-    if lines := tail(log):
-        print("\n".join(lines), flush=True)
-    rows = _listed()
-    parents = {pid: parent for pid, parent, *_ in rows}
-    mine, pid = set(), os.getpid()
-    while pid not in mine and pid in parents:   # this watcher and the processes it runs under
-        mine.add(pid)
-        pid = parents[pid]
-    members = tree(rows, root) if root and root > 1 and root not in mine else []
-    print("--- the tier's processes (age, memory), each under its parent", flush=True)
-    for depth, (pid, _, age, name, *rest) in members:
-        print(f"{'  ' * depth}{name} (id {pid}): {age // 60} min, {rest[1] / MIB:.0f} MiB", flush=True)
-    inside = {row[0] for _, row in members}
-    left = {row[0] for row in orphans(rows, members[0][1][2])} if members else set()
-    others = [row for row in rows if row[0] not in inside
-              and (NAMED.search(row[3]) or CRASH.search(row[3]) or row[0] in left)]
-    if others:
-        print("--- outside the tier: python, node, uv, the browsers, the crash handlers and what a parent that ended "
-              "left running since the tier began", flush=True)
-        for row in others:
-            print(described(row), flush=True)
-    print("--- Playwright's temporary folders: " + ("; ".join(temp_folders(None, time.monotonic() + SAY_S))
-                                                   or "none"), flush=True)
-    if sys.platform == "win32":
-        print("--- Windows Error Reporting's since the tier began: " + (
-            "; ".join(wer_reports(members[0][1][2] if members else None)) or "none"), flush=True)
-    if not members:
-        print("--- the tier's process isn't running, isn't known or runs this watcher: nothing stopped", flush=True)
-        return
+    within ``grace`` seconds (the step's subshell, which Git Bash tracks as its own); then Playwright's temporary
+    folders and what Windows Error Reporting wrote. Ending the controller with its workers would lose every line it
+    writes once they are gone (Step 4.4ci12's review, F1). It reads the OS's own list (:func:`table`) and the tier's
+    own command lines, never every process's (:func:`processes`), and the folders once the tier is stopped, so no
+    read of them holds the stop (Step 4.4ci32)."""
+    with SAYING:   # the tail and the tier's processes together, no line of another thread's between
+        say(f"--- {why}: the log's last {TAIL} lines", *tail(log))
+        rows = _listed()
+        parents = {pid: parent for pid, parent, *_ in rows}
+        mine, pid = set(), os.getpid()
+        while pid not in mine and pid in parents:   # this watcher and the processes it runs under
+            mine.add(pid)
+            pid = parents[pid]
+        members = tree(rows, root) if root and root > 1 and root not in mine else []
+        tier_age = members[0][1][2] if members else None
+        left = {row[0] for row in orphans(rows, tier_age)} if members else set()
+        inside = {row[0] for _, row in members}
+        others = [row for row in rows if row[0] not in inside
+                  and (NAMED.search(row[3]) or CRASH.search(row[3]) or row[0] in left)]
+        say("--- the tier's processes (age, memory), each under its parent",
+            *(f"{'  ' * depth}{name} (id {pid}): {age // 60} min, {memory / MIB:.0f} MiB"
+              for depth, (pid, _, age, name, _, memory) in members),
+            *(["--- outside the tier: python, node, uv, the browsers, the crash handlers and what a parent that ended "
+               "left running since the tier began", *map(described, others)] if others else []))
+    try:
+        if not members:
+            say("--- the tier's process isn't running, isn't known or runs this watcher: nothing stopped")
+            return
+        _end_tier(members, mine, grace, settle)
+    finally:
+        say("--- Playwright's temporary folders: " + ("; ".join(temp_folders(None, time.monotonic() + SAY_S))
+                                                     or "none"),
+            *(["--- Windows Error Reporting's since the tier began: " + ("; ".join(wer_reports(tier_age)) or "none")]
+              if sys.platform == "win32" else []))
+
+
+def _end_tier(members: list, mine: set[int], grace: float, settle: float) -> None:
+    """:func:`stop_tier`'s end of the tier's ``members`` (:func:`tree`'s, its own first), none of ``mine``."""
     own = members[0][1]
-    if workers := _under(members[1:], lambda row: WORKER in row[4]):
+    try:
+        lines = commands([row[0] for _, row in members])
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        say(f"--- the tier's command lines couldn't be read ({_why(e)}): no worker of xdist's known")
+        lines = {}
+    if workers := _under(members[1:], lambda row: WORKER in lines.get(row[0], "")):
         _end_all(workers, mine)
-        print(f"--- xdist's workers stopped ({len(workers)} processes): pytest has {settle:.0f} s to write its "
-              "summary and end", flush=True)
+        say(f"--- xdist's workers stopped ({len(workers)} processes): pytest has {settle:.0f} s to write its summary "
+            "and end")
         deadline = time.monotonic() + settle
         while (running := _running(own)) is not False and time.monotonic() < deadline:
             time.sleep(min(SAMPLE_S, settle / 5))
         if running is False:
-            print(f"--- the tier ended by itself once its workers stopped ({len(members)} processes)", flush=True)
+            say(f"--- the tier ended by itself once its workers stopped ({len(members)} processes)")
             return
         members = tree(_listed(), own[0])
     _end_all(members[1:], mine)
     time.sleep(grace)
     if _running(own):
         _end(own[0])
-    print(f"--- the tier stopped ({len(members)} processes)", flush=True)
+    say(f"--- the tier stopped ({len(members)} processes)")
 
 
 def main(argv: list[str]) -> int:
@@ -868,42 +1036,23 @@ def main(argv: list[str]) -> int:
     stopped = False
     low: dict[str, int] = {}
     told = -PRINT_S
-    began, seen, most = time.time(), {}, [0, 0, ""]   # Playwright's processes as last read; their most together, one's
-    said, left, gpus = (Said(), SAMPLED, {}) if sys.platform == "darwin" else (None, 0, {})
+    began = time.time()
+    readings = Readings() if sys.platform == "darwin" else None
     try:
         while True:
             now = sample(folders)
             low = {label: min(value, low.get(label, value)) for label, value in now.items()}
             elapsed = time.monotonic() - start
-            read = footprints(_listed()) if sys.platform == "darwin" else {}
-            seen |= {pid: (*row, now["memory"]) for pid, row in read.items()}
-            biggest = max(read.values(), key=lambda row: row[1], default=("", 0, 0))
-            most[0] = max(most[0], together := sum(row[1] for row in read.values()))
-            if (top := max(read.values(), key=lambda row: row[2], default=None)) and top[2] > most[1]:
-                most[1:] = top[2], top[0]
-            if said:
-                for row in (printed := stuck(said.take(), read, left))[0]:
-                    print(row, flush=True)
-                left = printed[1]
             if os.path.exists(stop):
-                print(f"resources, the lowest of the tier in {elapsed / 60:.0f} min: "
-                      + ", ".join(f"{label} {value / GIB:.1f} GiB free" for label, value in low.items())
-                      + f" (memory of {total / GIB:.1f})"
-                      + (f"; Playwright's processes at most {most[0] / GIB:.1f} GiB together, one {most[1] / GIB:.1f} "
-                         f"({most[2]})" if sys.platform == "darwin" else ""), flush=True)
-                if sys.platform == "darwin":
-                    print("--- what macOS wrote of Playwright's processes that ended: "
-                          + ("; ".join(reports(began, seen)) or "nothing"), flush=True)
-                    print("--- what WebKit's log says of a process that ended: "
-                          + ("; ".join(webkit_said(began)) or "nothing"), flush=True)
-                    print(f"--- the runner's GPU: {machine_gpu()}", flush=True)
+                say(f"resources, the lowest of the tier in {elapsed / 60:.0f} min: "
+                    + ", ".join(f"{label} {value / GIB:.1f} GiB free" for label, value in low.items())
+                    + f" (memory of {total / GIB:.1f})" + (readings.lowest() if readings else ""))
+                if readings:
+                    say(*readings.ended(began))
                 return STOPPED if stopped else 0
             if elapsed - told >= PRINT_S:
                 told = elapsed
-                print(f"resources at {elapsed / 60:.0f} min: {line(now, low)}"
-                      + (f"; Playwright's processes {together / GIB:.1f} GiB in {len(read)}, the largest "
-                         f"{biggest[1] / GIB:.1f} ({biggest[0]})" + gpu_state(read, gpus, time.monotonic())
-                         if sys.platform == "darwin" else ""), flush=True)
+                say(f"resources at {elapsed / 60:.0f} min: {line(now, low)}" + (readings.minute() if readings else ""))
             if growth and not stopped:
                 if (quiet := growth.quiet(time.monotonic())) >= stall:
                     stop_tier(f"the tier's log hasn't grown in {quiet / 60:.0f} min", log, root, min(GRACE_S, stall),
@@ -915,8 +1064,8 @@ def main(argv: list[str]) -> int:
                     stopped = True
             time.sleep(min(SAMPLE_S, stall / 5))
     finally:
-        if said:
-            said.close()
+        if readings:
+            readings.close()
 
 
 if __name__ == "__main__":

@@ -981,7 +981,10 @@ def test_ci_resources_stops_a_tier_whose_log_stops_growing_its_workers_before_py
     left, so pytest's controller still writes its summary and failures to the log (Step 4.4ci12's review, F1), and
     exits 3 once STOP exists, so the step fails with time left. The watcher writes to files, as CI's runner reads a
     step's output as it comes: it prints all that before it ends anything, and a pipe read only once the tier ended
-    holds about 4 KiB on Windows, so its print waited on the test that waited on the tier (tests.yml run 42122369507)."""
+    holds about 4 KiB on Windows, so its print waited on the test that waited on the tier (tests.yml run 42122369507).
+    No listing of every process holds the stop (run 42146627936's Windows tier was unended in 90 s, each of the
+    watcher's reads of it a CIM query of every process through PowerShell): here one that doesn't answer in 100 s,
+    the minute line's on macOS, keeps the watcher neither from ending the tier nor from exiting."""
     from execnet.gateway_io import popen_bootstrapline
     from scripts import ci_resources
     log, stop, stall = tmp_path / "pytest.log", tmp_path / "stop", ci_resources.STALL_S
@@ -1010,8 +1013,10 @@ time.sleep(300)
     tier = subprocess.Popen([sys.executable, str(fake), "tier"], stdout=subprocess.PIPE, text=True)
     controller, worker = map(int, tier.stdout.readline().split())
     said, warned = tmp_path / "watcher.out", tmp_path / "watcher.err"
+    slow = ("import sys, time; sys.path.insert(0, sys.argv.pop(1)); from scripts import ci_resources; "
+            "ci_resources.processes = lambda *_, **__: time.sleep(100); sys.exit(ci_resources.main(sys.argv[1:]))")
     with open(said, "wb") as stdout, open(warned, "wb") as stderr:
-        watcher = subprocess.Popen([sys.executable, "-I", "scripts/ci_resources.py", str(stop), f"--watch={log}",
+        watcher = subprocess.Popen([sys.executable, "-I", "-c", slow, str(ROOT), str(stop), f"--watch={log}",
                                     f"--tier={tier.pid}", "--stall=2", f"tier={tmp_path}"],
                                    stdout=stdout, stderr=stderr, cwd=ROOT)
     try:
