@@ -548,11 +548,12 @@ const stored = (database, name, mode, fn) => new Promise((resolve) => {   // Ind
 // starting from one starts the worker as before; "ready" says which start it was (start) and, where a kept one wasn't
 // started from, why (cold). Stock Pyodide can't restore a heap grown past the module's initial memory, 31,457,280 B (a
 // RangeError), so the restore grows it first (grown).
-// It is kept as one record, {heap, size, sha256}, written in one transaction, and a worker starts only from a whole
-// one: a record that isn't one, or whose heap isn't its size and sha256 (another page's older form, a write cut short),
-// is refused by name and deleted, and the worker starts cold. A heap cut to 60 % or 90 % of its bytes held the
-// restoring worker's thread for good, the page never ready and saying nothing (Step 4.4ci37); the check costs a SHA-256
-// of the heap (30 MB).
+// It is kept as one record, {heap, size}, written in one transaction, and a worker starts only from a whole one: a
+// record that isn't one, or whose heap isn't its size (another page's older form, a write cut short), is refused by name
+// and deleted, and the worker starts cold. A heap cut to 60 % or 90 % of its bytes held the restoring worker's thread for
+// good, the page never ready and saying nothing (Step 4.4ci37). Its length is all that is checked: a heap of its size
+// spoiled (its header, magic, tail or middle) failed Pyodide's restore and started cold, 4 of 4, and a SHA-256 of it
+// held each snapshot start 13-19 ms more and copied its 30 MB.
 // Pyodide's wasm (9.6 MB) is compiled once a page (Step 4.4bf): the first worker compiles it as Pyodide does and posts
 // its Module ({type: "wasm"}), which the pool sends each later worker first (workers.mjs), and Pyodide's own
 // instantiateStreaming of its fetch is answered from that Module (about 0.1 s and 0.25-0.42 CPU-s a worker start: B's
@@ -604,17 +605,14 @@ const loading = (loadPyodide, create, size, options) => new Promise((resolve, re
 });
 
 // The kept record's heap if it is a whole one, [heap, null]; else [null, why it was refused] ([null, null]: none kept).
-async function whole(record) {
+function whole(record) {
   if (record == null) return [null, null];
-  const { heap, size, sha256 } = record;
-  if (!(heap instanceof Uint8Array) || !Number.isSafeInteger(size) || typeof sha256 !== "string") {
-    return [null, "the kept snapshot was refused: it isn't a {heap, size, sha256} record"];
+  const { heap, size } = record;
+  if (!(heap instanceof Uint8Array) || !Number.isSafeInteger(size)) {
+    return [null, "the kept snapshot was refused: it isn't a {heap, size} record"];
   }
   if (heap.length !== size) {
     return [null, `the kept snapshot was refused: its heap is ${heap.length} bytes, not ${size}`];
-  }
-  if (hex(await crypto.subtle.digest("SHA-256", heap)) !== sha256) {
-    return [null, "the kept snapshot was refused: its heap's sha256 isn't the one kept with it"];
   }
   return [heap, null];
 }
@@ -630,7 +628,7 @@ async function load() {
   };
   const key = `${version} ${site.integrity}`;
   const record = await stored(SNAPSHOT, "heap", "readonly", (store) => store.get(key)).catch(() => null);
-  let [heap, cold] = await whole(record).catch((error) => [null, `the kept snapshot wasn't checked: ${lastLine(error)}`]);
+  let [heap, cold] = whole(record);
   if (cold) stored(SNAPSHOT, "heap", "readwrite", (store) => store.delete(key)).catch(() => null);   // not awaited
   const { default: create } = await import(new URL("pyodide.asm.mjs", pyodide).href);
   const restored = heap && await loading(loadPyodide, create, heap.length, { ...options, _loadSnapshot: heap })
@@ -653,10 +651,10 @@ async function load() {
     try {
       py.runPython(IMPORTS);
       const made = py.makeMemorySnapshot();
-      crypto.subtle.digest("SHA-256", made).then((sha) => stored(SNAPSHOT, "heap", "readwrite", (store) => {
+      stored(SNAPSHOT, "heap", "readwrite", (store) => {
         store.clear();
-        store.put({ heap: made, size: made.length, sha256: hex(sha) }, key);
-      })).catch(() => null);   // not awaited
+        store.put({ heap: made, size: made.length }, key);
+      }).catch(() => null);   // not awaited
     } catch {
       // no snapshot: the next worker starts as this one did
     }

@@ -2517,22 +2517,24 @@ SNAPSHOT_CUT = """() => new Promise((done) => {   // the kept record's heap cut 
         keys.onsuccess = () => {
             const got = store.get(keys.result[0]);
             got.onsuccess = () => {
-                const { heap, size, sha256 } = got.result;
-                store.put({ heap: heap.slice(0, Math.floor(size * 0.9)), size, sha256 }, keys.result[0]);
+                const { heap, size } = got.result;
+                store.put({ heap: heap.slice(0, Math.floor(size * 0.9)), size }, keys.result[0]);
                 sizes = [Math.floor(size * 0.9), size];
             };
         };
         t.oncomplete = () => { db.close(); done(sizes); };
     };
 })"""
-SNAPSHOT_WHOLE = """() => new Promise((done) => {
+SNAPSHOT_WHOLE = """() => new Promise((done) => {   // one record, its heap and size alone: no digest to wait on
     const opened = indexedDB.open("azurkit-snapshot", 1);
     opened.onupgradeneeded = () => opened.result.createObjectStore("heap");
     opened.onsuccess = () => {
         const asked = opened.result.transaction("heap").objectStore("heap").getAll();
         asked.onsuccess = () => {
             opened.result.close();
-            done(asked.result.length === 1 && asked.result[0].heap?.length === asked.result[0].size);
+            const [record] = asked.result;
+            done(asked.result.length === 1 && Object.keys(record).sort().join() === "heap,size"
+                 && record.heap.length === record.size);
         };
     };
 })"""
@@ -2557,7 +2559,8 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
     stock Pyodide throws there). Step 4.4ci37: a kept record whose heap
     isn't its size (a write cut short: one cut to 90 % held the restoring
     worker's thread for good, the page never ready and saying nothing) is
-    refused by name and replaced, and a restore whose grow is refused (as
+    refused by name and replaced by a record of its heap and size alone
+    (no hash to wait on at a start), and a restore whose grow is refused (as
     where memory is short: Pyodide swallowed the throw and never settled its
     load) starts cold, saying why: each page gets ready."""
     served = Site(browser, site, tmp_path / "profile")   # persistent: WebKit's ephemeral storage refuses a big heap's put

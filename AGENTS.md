@@ -1400,7 +1400,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   starts from Pyodide's memory snapshot, which the first worker of a wheel
   makes once the engine's modules are imported (no numpy, no image) and the
   browser keeps (IndexedDB, by Pyodide's version and the wheel's integrity;
-  one record of its heap, size and SHA-256, any other refused by name and replaced; any fault starts it cold, and
+  one record of its heap and size, any other refused by name and replaced; any fault starts it cold, and
   its `ready` says which start it was and why it was cold), which reads the
   image in blocks (WebKit takes about 200 ms for each read of a File,
   whatever its size), kept from one message to the next for the last image,
