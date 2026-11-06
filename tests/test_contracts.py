@@ -13,6 +13,7 @@ Beside them, the lint set's other rule: the developer log holds no bullet twice
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 
@@ -259,3 +260,44 @@ def test_each_release_job_starts_behind_harden_runner_the_dry_runs_blocking_all_
     hosts = {name: re.findall(r"(?m)^ {12}(.*)$", step) for name, step in first.items()}
     assert all(re.fullmatch(r"[a-z0-9.-]+:\d+", host) for name in DRY_RUN for line in hosts[name] for host in line.split())
     assert [name for name in first if bool(hosts[name]) != (name in DRY_RUN)] == []
+
+
+UV_RUNNERS = {"aarch64-apple-darwin": "tar.gz", "x86_64-apple-darwin": "tar.gz", "x86_64-pc-windows-msvc": "zip",
+              "x86_64-unknown-linux-gnu": "tar.gz"}
+"""uv's artifact for each runner the workflows run on, and its archive's format."""
+
+
+def test_every_setup_uv_step_reads_its_manifest_inline_the_record_of_the_uv_it_installs_alike_in_every_workflow():
+    """Step 4.4ci43: setup-uv v10.3.3 reads uv's manifest from
+    releases.astral.sh in at most 5 s, its body too, and retries only a
+    request that got no headers, so one slow answer failed a job (run
+    42236495854's Intel job). Every setup-uv step of every workflow names
+    ``manifest-file: ${{ env.SETUP_UV_MANIFEST }}``, a ``data:`` URL in the
+    workflow's env that setup-uv reads without a request: one record, the
+    version every step installs, an artifact for each runner from uv's own
+    GitHub release with its sha256, and no ``#`` or ``%`` (a URL's fragment
+    or escape would change it); the same record in every workflow."""
+    manifests = set()
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        text = path.read_text(encoding="utf-8")
+        steps = [step for step in re.split(r"(?m)^(?=      - )", text)
+                 if re.search(r"(?m)^ +(?:- )?uses: astral-sh/setup-uv@", step)]
+        assert len(steps) == text.count("uses: astral-sh/setup-uv@"), path.name
+        if not steps:
+            continue
+        named = r"(?m)^          manifest-file: \$\{\{ env\.SETUP_UV_MANIFEST \}\}$"
+        assert all(re.search(named, step) for step in steps), path.name
+        versions = {re.search(r'(?m)^          version: "([^"]+)"$', step)[1] for step in steps}
+        block = re.search(r"(?m)^env:\n(?:  .*\n)*?  SETUP_UV_MANIFEST: >-\n((?:    .*\n)+)", text)
+        manifest = " ".join(line.strip() for line in block[1].splitlines())   # YAML's folding
+        assert manifest.startswith("data:application/x-ndjson,") and not set("#%") & set(manifest), path.name
+        record = json.loads(manifest.split(",", 1)[1])
+        assert {record["version"]} == versions, path.name
+        version = record["version"]
+        assert {a["platform"]: a["url"] for a in record["artifacts"]} == {
+            platform: f"https://github.com/astral-sh/uv/releases/download/{version}/uv-{platform}.{form}"
+            for platform, form in UV_RUNNERS.items()}, path.name
+        assert all(a["archive_format"] == UV_RUNNERS[a["platform"]] and re.fullmatch(r"[0-9a-f]{64}", a["sha256"])
+                   for a in record["artifacts"]), path.name
+        manifests.add(manifest)
+    assert len(manifests) == 1

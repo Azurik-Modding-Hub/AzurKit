@@ -38,6 +38,25 @@ concurrency:
 
 env:
   UV_PYTHON_PREFERENCE: only-managed
+  # Every setup-uv step's manifest-file: uv's own manifest's record of the version the steps install, its artifact for
+  # each of the four runners and their sha256s (setup-uv's own known ones), inline, so setup-uv fetches no manifest.
+  # v10.3.3 reads it from releases.astral.sh in at most 5 s, its body too, and retries only a request that got no
+  # headers: behind harden-runner a macOS job's first answers took 3.5-5 s, and run 42236495854's Intel job failed when
+  # the 5 s cut the body off. The same record in every workflow, of the version every step names (tests/test_contracts.py).
+  SETUP_UV_MANIFEST: >-
+    data:application/x-ndjson,{"version": "0.12.24", "artifacts": [
+    {"platform": "aarch64-apple-darwin", "archive_format": "tar.gz", "sha256":
+    "0c4346de7abdb49495b393b9ec809fe387aa43e586be20fecb972216c1e71732",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-aarch64-apple-darwin.tar.gz"},
+    {"platform": "x86_64-apple-darwin", "archive_format": "tar.gz", "sha256":
+    "4fa82e37cb94767661f532b001e470b67a186c7260e305bd84ddb78fd545c0b6",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-apple-darwin.tar.gz"},
+    {"platform": "x86_64-pc-windows-msvc", "archive_format": "zip", "sha256":
+    "7c38608c8a18ee137d748a1773053b07ec8f3a30fab49aebaa6f4e4efeceb019",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-pc-windows-msvc.zip"},
+    {"platform": "x86_64-unknown-linux-gnu", "archive_format": "tar.gz", "sha256":
+    "b4dfaef47d491a7296981f8374a4595f55dbf84e8937c8ecd2983574d8bb3da6",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-unknown-linux-gnu.tar.gz"}]}
 
 jobs:
   pure:
@@ -66,6 +85,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           version: "0.12.24"
+          manifest-file: ${{ env.SETUP_UV_MANIFEST }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: "24"
@@ -159,6 +179,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           version: "0.12.24"
+          manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false   # no cache in a job that holds the images (a pull request can restore main's)
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
