@@ -1222,6 +1222,56 @@ def test_every_name_the_perf_registrys_functions_call_is_one_the_module_has():
     assert set().union(*(missing(child) for child in top.get_children())) == set()
 
 
+def test_web_tools_downloads_ask_again_after_a_dropped_answer_and_fail_by_name_after_their_tries(tmp_path, monkeypatch):
+    """Step 4.4ci46: a CI job's setup failed on one dropped answer. ``web_tools.download`` (Pyodide's core and its
+    wheels) asks a stand-in server again, 5 s after a failed ask and 10 s after the next, when its first answer ends
+    short of its length or closes before its headers, and keeps the whole body; one cut every time fails naming the URL
+    after 3 asks, a 404 at once, and neither leaves a part of the file."""
+    import http.server
+    import threading
+
+    from scripts import web_tools
+    body, asked, waits = bytes(range(256)) * 64, [], []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args) -> None:
+            pass
+
+        def do_GET(self) -> None:
+            asked.append(self.path)
+            first = asked.count(self.path) == 1
+            if self.path == "/missing":
+                return self.send_error(404)
+            if self.path == "/silent-once" and first:
+                return   # the connection closes with no answer
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            cut = self.path == "/cut-always" or (self.path == "/cut-once" and first)
+            self.wfile.write(body[:len(body) // 2] if cut else body)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setattr(web_tools, "time", types.SimpleNamespace(sleep=waits.append))
+    url, out = f"http://127.0.0.1:{server.server_port}", tmp_path / "file"
+    try:
+        for path in ("/cut-once", "/silent-once"):
+            waits.clear()
+            assert web_tools.download(url + path, out) == out and out.read_bytes() == body
+            assert (asked.count(path), waits) == (2, [5.0]), path
+        waits.clear()
+        with pytest.raises(SystemExit, match=r"/cut-always: 3 asks failed; the last: the answer ended at 8,192 of its "
+                                             r"16,384 B$"):
+            web_tools.download(url + "/cut-always", out)
+        assert (asked.count("/cut-always"), waits, out.exists()) == (3, [5.0, 10.0], False)
+        with pytest.raises(SystemExit, match=r"/missing: 404 "):
+            web_tools.download(url + "/missing", out)
+        assert (asked.count("/missing"), waits, out.exists()) == (1, [5.0, 10.0], False)
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_ci_resources_prints_the_lowest_room_by_label_and_never_a_path(tmp_path):
     """The runner's room as a CI tier ends (a run the runner shut down named nothing): each label's free disk and the
     free memory, in numbers; never the folders' paths."""

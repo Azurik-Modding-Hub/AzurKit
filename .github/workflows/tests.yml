@@ -20,6 +20,9 @@
 #   prints the free disk and memory each minute and their lowest (labels and numbers, no path), so a run that is shut
 #   down still names what it ran out of, and stops a tier whose log has stalled or whose job nears its limit, its
 #   log's tail and processes printed first, so a hang names itself.
+# Each setup download with no retry of its own runs through one (Step 4.4ci46: run 42255487123's Linux job lost two
+# packages to a mirror that closed the connection): apt under install-deps and the two clones through
+# scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; a few tries, then a failure by name.
 # Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
 # their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
 name: tests
@@ -96,8 +99,9 @@ jobs:
       - name: The browsers' system libraries (Linux)
         if: runner.os == 'Linux'
         run: |
+          . scripts/ci_retry.sh
           read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
-          uv run --locked playwright install-deps "${engines[@]}"
+          retry "the browsers' system libraries (playwright install-deps)" uv run --locked playwright install-deps "${engines[@]}"
       - name: The pure tier
         # On the matrix's workers, a group on one as the local gate has them (tests/conftest.py). --max-worker-restart=0:
         # under loadgroup, xdist 3.8 replacing a killed worker hangs the run to the job's cap, unnamed; this way it ends and
@@ -194,8 +198,9 @@ jobs:
       - name: The browsers' system libraries (Linux)
         if: runner.os == 'Linux'
         run: |
+          . scripts/ci_retry.sh
           read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
-          uv run --locked playwright install-deps "${engines[@]}"
+          retry "the browsers' system libraries (playwright install-deps)" uv run --locked playwright install-deps "${engines[@]}"
       - name: The tier's folder, on the runner's roomiest disk, or a stop by name if none has the tier's room
         # scripts/ci_resources.py --room: each disk's free room, and the folder on the one with the most (Linux's /mnt
         # only where it has more), once it has the two images and the most the tier's writes took beside them (run
@@ -210,11 +215,15 @@ jobs:
           fi
           uv run --locked python -I scripts/ci_resources.py --room --env="$GITHUB_ENV" "runner=$RUNNER_TEMP/tier" "${more[@]}"
       - name: Azurik-Custom-Content, for booblord's tests
-        run: git clone --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$RUNNER_TEMP/content"
+        run: |
+          . scripts/ci_retry.sh
+          content() { rm -rf "$RUNNER_TEMP/content" && git clone --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$RUNNER_TEMP/content"; }
+          retry "Azurik-Custom-Content's clone" content
       - name: The USA and Europe images, from the game-data repository's parts, one release at a time
         env:
           GAMEDATA_DEPLOY_KEY: ${{ secrets.GAMEDATA_DEPLOY_KEY }}
         run: |
+          . scripts/ci_retry.sh
           key="$(mktemp)" hosts="$(mktemp)"
           trap 'rm -f "$key" "$hosts"' EXIT
           chmod 600 "$key"
@@ -222,9 +231,13 @@ jobs:
           # github.com's published ed25519 host key (GET /meta's ssh_keys), so the clone trusts no other host.
           echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$hosts"
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes"
+          parts() {   # parts <the parts' folder>: a fresh sparse clone holding only that folder (its blobs come with the set)
+            rm -rf "$TIER_ROOM/gd" &&
+              git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Modding-Hub/AzurKit-gamedata.git "$TIER_ROOM/gd" &&
+              git -C "$TIER_ROOM/gd" sparse-checkout set "$1"
+          }
           image() {   # image <the parts' folder> <the image's name> [reassemble.py's release argument]
-            git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Modding-Hub/AzurKit-gamedata.git "$TIER_ROOM/gd"
-            git -C "$TIER_ROOM/gd" sparse-checkout set "$1"
+            retry "the game data's $1 folder" parts "$1"
             rm -rf "$TIER_ROOM/gd/.git"
             uv run --locked python -I "$TIER_ROOM/gd/reassemble.py" "$TIER_ROOM/iso/$2" "${@:3}" > /dev/null
             rm -rf "$TIER_ROOM/gd"

@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import http.client
 import importlib.util
 import json
 import os
@@ -39,6 +40,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -51,6 +54,10 @@ SHA256 = "2abdcc2e35208af406e07724cffa85bc582ced97e9028383ecf5462541393f95"
 FILES = ("pyodide.mjs", "pyodide.asm.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json")
 PACKAGES = ("numpy",)
 CDN = f"https://cdn.jsdelivr.net/pyodide/v{VERSION}/full/"
+TRIES = 3
+"""How many times :func:`download` asks for a file before it fails by name (Step 4.4ci46)."""
+WAIT = 5.0
+"""The seconds :func:`download` waits after a failed ask, doubled after each."""
 # The web tests' engines (Step 4.1d3; Firefox D994): each test that takes the ``browser`` fixture runs in each. Each
 # one's name in Playwright's browsers.json, and its label.
 BROWSERS = {"chromium": ("chromium-headless-shell", "Chromium"), "webkit": ("webkit", "WebKit"),
@@ -119,9 +126,7 @@ def fetch(root: Path = ROOT) -> Path:
     if any(name not in FILES for name in missing(root)):   # the core is there: only a package's wheel is missing
         return fetch_wheels(root)
     with tempfile.TemporaryDirectory(prefix="azurkit-pyodide.") as tmp:
-        archive = Path(tmp) / "core.tar.bz2"
-        with urllib.request.urlopen(URL, timeout=120) as response, open(archive, "wb") as out:
-            shutil.copyfileobj(response, out)
+        archive = download(URL, Path(tmp) / "core.tar.bz2")
         with open(archive, "rb") as f:
             sha = hashlib.file_digest(f, "sha256").hexdigest()
         if (archive.stat().st_size, sha) != (SIZE, SHA256):
@@ -145,14 +150,43 @@ def fetch_wheels(root: Path = ROOT) -> Path:
     for name, want in wheels(root).items():
         if (folder / name).is_file():
             continue
-        with urllib.request.urlopen(CDN + name, timeout=120) as response:
-            data = response.read()
-        if (got := hashlib.sha256(data).hexdigest()) != want:
+        part = download(CDN + name, folder / f"{name}.part")
+        with open(part, "rb") as f:
+            got = hashlib.file_digest(f, "sha256").hexdigest()
+        if got != want:
+            part.unlink()
             raise SystemExit(f"{CDN}{name}: sha256 {got[:12]}, not the lock's {want[:12]}")
-        part = folder / f"{name}.part"
-        part.write_bytes(data)
         part.replace(folder / name)
     return folder
+
+
+def download(url: str, out: Path, tries: int = TRIES) -> Path:
+    """``url``'s body, whole, in ``out`` (Step 4.4ci46: CI's setup lost a job
+    to one dropped answer). A dropped or slow answer (a connection refused,
+    reset or timed out, a body short of its ``Content-Length``, a 5xx) is
+    asked again, :data:`WAIT` s later, then twice that, up to ``tries`` asks;
+    past them, or at once on another answer (a 404), it fails naming the URL
+    and the last error, and leaves nothing in ``out``."""
+    for ask in range(1, tries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=120) as response, open(out, "wb") as f:
+                shutil.copyfileobj(response, f)
+                length, got = response.headers.get("Content-Length"), f.tell()
+            if length is not None and got != int(length):
+                raise ConnectionError(f"the answer ended at {got:,} of its {int(length):,} B")
+            return out
+        except urllib.error.HTTPError as error:
+            out.unlink(missing_ok=True)
+            if error.code < 500:
+                raise SystemExit(f"{url}: {error.code} {error.reason}") from error
+            last: Exception = error
+        except (OSError, http.client.HTTPException) as error:   # a cut body under read() is an IncompleteRead
+            out.unlink(missing_ok=True)
+            last = error
+        if ask < tries:
+            print(f"{url}: ask {ask} of {tries} failed ({last}); again in {WAIT * 2 ** (ask - 1):g} s", file=sys.stderr)
+            time.sleep(WAIT * 2 ** (ask - 1))
+    raise SystemExit(f"{url}: {tries} asks failed; the last: {last}")
 
 
 def browsers_dir(root: Path = ROOT) -> Path:

@@ -1772,7 +1772,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   behind harden-runner's egress block, which starts with the job (its
   pre-step), so its installs' hosts are named too, and on Linux its tests
   run with no network as well (Modkit's §12.4 hygiene), and only the
-  pytest log's tail and summary are printed. Each tier runs on xdist's
+  pytest log's tail and summary are printed. A setup download with no
+  retry of its own (apt under Playwright's `install-deps`, the game data's
+  and Azurik-Custom-Content's clones) runs as `retry "WHAT" COMMAND` from
+  `scripts/ci_retry.sh` (in any workflow: `tests/test_contracts.py`), and
+  `web_tools.download` fetches Pyodide's core and wheels: 3 tries, backing
+  off, then a failure by name (Step 4.4ci46). Each tier runs on xdist's
   workers (`--dist=loadgroup`, as the gate does) in a number each runner's
   memory sets, in the matrix: a killed worker ends the run by name
   (`--max-worker-restart=0`), where replacing one under loadgroup hangs it.

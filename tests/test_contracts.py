@@ -214,6 +214,60 @@ def test_the_release_workflow_runs_only_on_a_v_tag_its_published_draft_or_a_disp
     assert unpinned == []
 
 
+DOWNLOAD = re.compile(r"\bgit clone\b|\bsparse-checkout set\b|\bplaywright install-deps\b")
+"""A workflow's setup downloads with no retry of their own: a clone, a sparse checkout's set (which fetches the
+folder's blobs) and apt under Playwright's install-deps."""
+
+
+def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_bounded_retry_that_fails_by_name():
+    """Step 4.4ci46: run 42255487123's Linux job failed when apt under
+    ``playwright install-deps`` lost two packages to a mirror that closed the
+    connection. In every workflow, a step that runs a :data:`DOWNLOAD`
+    sources ``scripts/ci_retry.sh`` first and runs each as ``retry "WHAT"
+    COMMAND``, on that line or in a function of the step's that a retry line
+    names, whose commands are joined by ``&&`` (bash's -e is off inside it)
+    and whose clone first deletes what a failed one left. ``retry`` tries 3
+    times, 30 s then 60 s apart, then fails the step naming WHAT and the last
+    exit code."""
+    helper = (ROOT / "scripts" / "ci_retry.sh").read_text(encoding="utf-8")
+    assert re.search(r'(?m)^  for try in 1 2 3; do\n    "\$@" && return 0\n    status=\$\?\n', helper)
+    assert "      sleep $((try * 30))\n" in helper
+    assert helper.endswith('  echo "::error::$what failed 3 times (exit $status)"\n  return "$status"\n}\n')
+    retried = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for step in re.split(r"(?m)^      - ", path.read_text(encoding="utf-8"))[1:]:
+            lines = [line.strip() for line in step.splitlines() if not line.strip().startswith("#")]
+            if not any(DOWNLOAD.search(line) for line in lines):
+                continue
+            calls = {m[2]: m[1] for line in lines if (m := re.match(r'retry "([^"]+)" (\S+)', line))}
+            bodies, name = {}, None
+            for at, line in enumerate(lines):
+                if start := re.match(r"(\w+)\(\) \{", line):
+                    name = start[1]
+                    bodies[name] = [re.sub(r"\s+#.*", "", line)]   # its comment left out
+                elif name:
+                    bodies[name].append(line)
+                if DOWNLOAD.search(line):
+                    where = f"{path.name}: {line}"
+                    assert ". scripts/ci_retry.sh" in lines[:at], where
+                    assert line.startswith('retry "') or name in calls, where
+                if name and (line == "}" or line.endswith("; }")):
+                    name = None
+            for function in calls.keys() & bodies.keys():
+                body = "\n".join(bodies[function])
+                commands = re.split(r"\s+&&\s+", body.split("{", 1)[1].rsplit("}", 1)[0].strip().rstrip(";"))
+                assert not any(re.search(r";|\n", command) for command in commands), body
+                for command in commands:
+                    if "git clone" in command:
+                        target = re.search(r' ("[^"]+")$', command)
+                        assert target and commands[0] == f"rm -rf {target[1]}", body
+            retried += [(path.name, what) for what in calls.values()]
+    assert sorted(retried) == [("tests.yml", "Azurik-Custom-Content's clone"),
+                               ("tests.yml", "the browsers' system libraries (playwright install-deps)"),
+                               ("tests.yml", "the browsers' system libraries (playwright install-deps)"),
+                               ("tests.yml", "the game data's $1 folder")]
+
+
 def test_a_dispatched_dry_run_builds_and_checksums_the_release_but_reaches_no_attestation_draft_pypi_or_pages():
     """D1068 (Step 4.4ci8): each job's ``if:`` and ``needs`` read under each
     event that starts ``release.yml``. A dispatch on main runs check, the
