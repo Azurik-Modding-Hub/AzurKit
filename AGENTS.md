@@ -1633,7 +1633,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   union keeps of a bullet its lane edited): keep the newer.
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
-  with the gate's USA and Europe test (or the whole suite) in the background
+  with the gate's USA and Europe test and the scan of every tracked file
+  for a home path (or the whole suite) in the background
   under a lock, on 8 workers (pytest-xdist, `--dist loadgroup`), and prints a key and a receipt path. Its `plan()` picks the
   test files that import what changed (relative imports too, and a module
   run by its path, as `tests/_page.py` runs `tests/_static.py`); every change under `src/` adds the

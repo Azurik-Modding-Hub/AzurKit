@@ -17,8 +17,9 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 
 ``--changed`` runs only the test files that the worktree's changes against
 ``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
-files and the gate's test, whose USA and Europe cases make every receipt
-show both tiers run (D26). A change in a folder the tests read by path
+files, the gate's test, whose USA and Europe cases make every receipt
+show both tiers run (D26), and the scan of every tracked file for a home
+path (:data:`SCAN`). A change in a folder the tests read by path
 (:data:`DATA`: the goldens, the workflows, the kernels) picks its readers. Only what every session runs
 (:func:`graph_of`'s ``every_run``: conftest's and its plugins' top levels and hooks and all they reach) or a path no
 rule covers makes it the whole suite; what only a conftest fixture runs picks the tests that take it, and so does a
@@ -73,7 +74,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import perf  # noqa: E402
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
-SMOKE = (*LINT, "tests/test_gate.py")   # every changed-area run's; test_gate reads both images
+#: It reads every tracked text file, whatever changed (a workflow, a kernel, a comment).
+SCAN = "tests/test_agent_files.py::test_no_tracked_text_holds_a_home_path_or_cites_the_private_evidence_folder"
+SMOKE = (*LINT, "tests/test_gate.py", SCAN)   # every changed-area run's; test_gate reads both images
 CAP = 1800        # a run's cap on a host whose load is at most its CPU count (cap()): ~3x a whole run on 8 workers
 CAP_SCALE = 2.0   # and at most this many times it, on a loaded one
 DURATIONS = "--durations=12"   # the slowest tests, at the log's end (never in the keyed pytest_args)

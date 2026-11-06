@@ -41,7 +41,7 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
             "tests.test_sdk": {"azurkit", "azurkit.sdk"}, "tests.test_gate": {"azurkit.core.iso"},
             "tests.test_wheel": {"azurkit"}, "tests.test_other": {"json"}}
     assert "tests/test_gate.py" in SMOKE
-    assert any("pytest.mark.europe" in (ROOT / f).read_text(encoding="utf-8") for f in SMOKE)   # D26
+    assert any("pytest.mark.europe" in (ROOT / f.partition("::")[0]).read_text(encoding="utf-8") for f in SMOKE)  # D26
     assert fullsuite.plan(["src/azurkit/core/iso.py"], deps) == sorted(
         {*SMOKE, "tests/test_sdk.py", *fullsuite.SRC_TESTS})
     assert fullsuite.plan(["tests/test_other.py", "AGENTS.md", "tests/sdk_api.txt"], deps) == sorted(
@@ -50,6 +50,20 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
     for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "assets/icon/a.icns"):
         assert fullsuite.plan([whole], deps) is None, whole
     assert fullsuite.plan(["src/azurkit/sdk.py"], fullsuite.graph(ROOT)) is not None
+
+
+def test_every_changed_area_run_scans_every_tracked_file_for_a_home_path():
+    """Step 4.4dx3, review F1: the scan of every tracked text file for a home
+    path or an ``$EV`` cite reads whatever a change touches, so every
+    changed-area plan runs it: a workflow's, a kernel's, a doc's or a comment
+    edit's alone (:func:`fullsuite.parts` gives none), and the whole file
+    when that file is picked."""
+    path, _, name = fullsuite.SCAN.partition("::")
+    assert f"\ndef {name}():" in (ROOT / path).read_text(encoding="utf-8")
+    deps = {"tests.conftest": set(), "tests.test_agent_files": set(), "tests.test_reach": {"native/"}}
+    for changed in ([], [".github/workflows/tests.yml"], ["native/reach.c"], ["AGENTS.md"]):
+        assert fullsuite.SCAN in fullsuite.plan(changed, deps), changed
+    assert path in (picks := fullsuite.plan([path], deps)) and fullsuite.SCAN not in picks
 
 
 def test_a_change_in_the_goldens_picks_the_test_files_that_read_them():
