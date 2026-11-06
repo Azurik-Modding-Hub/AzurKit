@@ -438,12 +438,14 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     drops only its own tests). The session checks the app's no-window mode in a Python of its
     own, so the app isn't what every session runs. A function of such a module
     (``path::NAME``, :func:`narrowed`) the session doesn't call picks its
-    module's importers and the takers of the conftest fixtures that call it."""
+    module's importers and the takers of the conftest fixtures that call it;
+    any other path holding "::" (a file's own name) is the whole suite."""
     picked, touched, later = set(SMOKE), set(), set()
     for rel in changed:
-        if "::" in rel:
+        if "::" in rel:   # narrowed()'s part of an every_run module, or else a path whose name holds "::"
             path, _, name = rel.partition("::")
-            if (units := getattr(deps, "session_units", None)) is None or (module_of(path), name) in units:
+            if module_of(path) not in getattr(deps, "every_run", ()) or not name.isidentifier() \
+                    or (module_of(path), name) in deps.session_units:
                 return None
             later |= {module_of(path), *deps.fixture_units.get((module_of(path), name), ())}
             picked.update(SRC_TESTS if path.startswith("src/") else ())

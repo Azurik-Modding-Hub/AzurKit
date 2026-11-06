@@ -110,7 +110,8 @@ def test_what_every_session_runs_is_whole_and_what_only_a_fixture_runs_picks_its
     take the fixture (or a helper of theirs does, or they compute its name); a
     module's unused function or its ``__main__`` block isn't the session's; a
     module run by its path is used by the one that names it; a relative import
-    is an import."""
+    is an import. A path holding "::" is a part only when it names a function
+    of a module every session runs; else it is the whole suite."""
     files = {"tests/conftest.py": "import pytest\nfrom scripts import tools\n\n\ndef pytest_sessionstart(session):\n"
                                   "    tools.check()\n\n\n@pytest.fixture\ndef page():\n    return _open()\n\n\n"
                                   "def _open():\n    from scripts import pages\n    return pages\n",
@@ -133,8 +134,8 @@ def test_what_every_session_runs_is_whole_and_what_only_a_fixture_runs_picks_its
         ("return pages", "return pages.deep"), ("import pytest\n", "import pytest\nimport os\n"),
         ("import pytest", '"""a docstring"""\nimport pytest'))] == [["tests/conftest.py::_open"], ["tests/conftest.py"], []]
     for whole in ("tests/conftest.py", "tests/conftest.py::pytest_sessionstart", "scripts/tools.py", "scripts/hooked.py",
-                  "scripts/tools.py::check"):
-        assert fullsuite.plan([whole], deps) is None, whole
+                  "scripts/tools.py::check", "scripts/lazy.py::unused", "tests/cases::x.json", "tests/conftest.py::"):
+        assert fullsuite.plan([whole], deps) is None, whole   # a "::" in a path's own name: review S2
     takers = {*SMOKE, "tests/test_takes.py", "tests/test_wraps.py", "tests/test_computes.py"}
     assert fullsuite.plan(["tests/conftest.py::_open"], deps) == sorted(takers)
     assert fullsuite.plan(["scripts/tools.py::unused"], deps) == SMOKE
