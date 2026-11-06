@@ -3020,8 +3020,9 @@ def test_the_images_rest_is_walked_by_the_worker_that_hashes_it_and_the_other_re
 def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_save(browser, site, usa_iso, tmp_path):
     """D35: a byte of a level, outside what the seed's build reads and patches, changed after the pick and before Build.
     The changed level's sha is hashed from that File, so the build's own number agrees with it: Firefox reads the new bytes
-    silently and builds, and only the release's sha of the level fails its Save; WebKit and Chromium refuse the read.
-    The byte changes once the page holds still, its image's rest hashed (WebKit's, Chromium's, Step 4.4ba) and no worker
+    silently and builds, and only the release's sha of the level fails its Save; WebKit and Chromium refuse the read,
+    and the build fails naming the change: the engine's read is an OSError, never a throw that Pyodide takes as fatal
+    (Step 4.4ci30). The byte changes once the page holds still, its image's rest hashed (WebKit's, Chromium's, Step 4.4ba) and no worker
     on a job: on Windows WebKit opens each read of a File sharing it with readers only, so a write while one is open is
     refused by Windows itself (``PermissionError``), not by the page (Step 4.4ci30)."""
     image = tmp_path / usa_iso.name
@@ -3059,6 +3060,9 @@ def test_an_image_changed_between_its_pick_and_the_build_fails_the_build_or_its_
             page.evaluate("() => document.querySelector('#save').click()")
             failed = _page.until(page, "() => azurkit.saveCheck !== 'running' && azurkit.saveCheck")
             assert failed.startswith("Save failed: your image changed since you picked it")
+        else:   # by name (Step 4.4ci30: it was "Pyodide already fatally failed and can no longer be used")
+            assert page.evaluate("() => document.querySelector('#status').textContent") == (
+                "Your image changed since you picked it, so it can't be read: pick it again")
         assert page.evaluate("() => [azurkit.build, document.querySelector('#status').classList.contains('error')]") == [
             None, True]
     finally:

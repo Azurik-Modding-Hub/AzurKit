@@ -357,7 +357,19 @@ answering`;
 // so PAGES holds them with the tables.
 const PAGE = 1 << 20, BLOCK = 16 << 20, PAGES = 192, BLOCKS = 3;
 const ids = new WeakMap();   // a message's File -> its image's id (identify)
-function readInBlocks(WORKERFS) {
+// A read of the picked File the browser refuses (WebKit's, Chromium's: a File changed or gone since its pick), or one
+// that comes short (an image made shorter, which Firefox reads silently), is the engine's OSError (Emscripten's EIO,
+// 29, as its own terminal's failed reads give), never a throw through Pyodide's read, which took it as fatal: the
+// build failed "Pyodide already fatally failed and can no longer be used", its worker gone with it. A call that met
+// one is refused naming the change (CHANGED, engine(); Step 4.4ci30).
+const EIO = 29, CHANGED = "Your image changed since you picked it, so it can't be read: pick it again";
+let unreadable = false;   // whether the engine's call in flight met such a read
+function readInBlocks(FS) {
+  const WORKERFS = FS.filesystems.WORKERFS;
+  const unread = () => {
+    unreadable = true;
+    return new FS.ErrnoError(EIO);
+  };
   const kept = new Map();   // the last image's id -> its unit -> index -> bytes, the least recently used first
   const units = [[BLOCK, BLOCKS], [PAGE, PAGES]];
   const cachesOf = (id) => {
@@ -379,12 +391,16 @@ function readInBlocks(WORKERFS) {
         cache.delete(index);   // used last now
       } else {
         self.azurkitLateReads = (self.azurkitLateReads ?? 0) + 1;
-        data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));
+        try {
+          data = new Uint8Array(WORKERFS.reader.readAsArrayBuffer(file.slice(index * unit, (index + 1) * unit)));
+        } catch {
+          throw unread();
+        }
         if (cache.size >= keep) cache.delete(cache.keys().next().value);
       }
       cache.set(index, data);
       const from = at - index * unit, n = Math.min(end - at, data.length - from);
-      if (!(n > 0)) throw new Error("the image got shorter while the engine read it");
+      if (!(n > 0)) throw unread();   // the image got shorter while the engine read it
       buffer.set(data.subarray(from, from + n), offset + (at - position));
       at += n;
     }
@@ -580,7 +596,7 @@ async function load() {
   const restored = heap && await loadPyodide({ ...options, _loadSnapshot: heap,
                                                createPyodideModule: grown(create, heap.length) }).catch(() => null);
   const py = restored ?? await loadPyodide({ ...options, _makeSnapshot: true, createPyodideModule: grown(create, 0) });
-  const reads = readInBlocks(py.FS.filesystems.WORKERFS);
+  const reads = readInBlocks(py.FS);
   starting(1);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });
   if (!wheel.ok) throw new Error(`${site.wheel}: HTTP ${wheel.status}`);
@@ -598,7 +614,19 @@ async function load() {
       // no snapshot: the next worker starts as this one did
     }
   }
-  return { py, engine: py.runPython(ENGINE), reads, start: restored ? "snapshot" : "cold" };
+  const asked = py.runPython(ENGINE);
+  const engine = (request) => {   // a call that met an unreadable image (readInBlocks) refuses naming its change
+    unreadable = false;
+    let reply;
+    try {
+      reply = asked(request);
+    } catch (error) {
+      throw unreadable ? new Error(CHANGED) : error;
+    }
+    if (unreadable && reply && typeof reply === "object" && "refused" in reply) reply.refused = CHANGED;
+    return reply;
+  };
+  return { py, engine, reads, start: restored ? "snapshot" : "cold" };
 }
 
 // fn(the path of file mounted read-only at /in), unmounted after it (after the promise it gives, if it gives one). The
@@ -952,7 +980,8 @@ async function build({ py, engine, reads }, { file, packs, xbr, randomizer, char
     if (composed.patched.length) {
       await md5Ready();
       Object.assign(shas, await hashed(file, composed.patched, (done, total) => post({ type: "progress", stage: "layout",
-        label: "Hashing the changed files", done, total, percent: total ? Math.floor(done * 100 / total) : null })));
+        label: "Hashing the changed files", done, total, percent: total ? Math.floor(done * 100 / total) : null }))
+        .catch((error) => { throw error instanceof DOMException ? new Error(CHANGED) : error; }));   // a read refused
     }
     for (const key of composed.hash) {
       const { data, at, size } = engine({ type: "hash", key });   // digest copies them at the call
