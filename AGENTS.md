@@ -1635,16 +1635,23 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   --changed`. It runs the lint files in the foreground, then the changed area
   with the gate's USA and Europe test (or the whole suite) in the background
   under a lock, on 8 workers (pytest-xdist, `--dist loadgroup`), and prints a key and a receipt path. Its `plan()` picks the
-  test files that import what changed; every change under `src/` adds the
+  test files that import what changed (relative imports too, and a module
+  run by its path, as `tests/_page.py` runs `tests/_static.py`); every change under `src/` adds the
   files that run the whole package (the wheel's, and those taking the
   `pyodide`, `browser` or `frozen_app` fixture), a change under `web/` the
   site's, the app's and the icon's, `LICENSE` and `NOTICE.md` the About
   tab's test and the wheel's, `README.md` the wheel's, a change in
-  `tests/goldens/` the test files that read it (read by path: those
+  `tests/goldens/`, `.github/`, `native/` or `src/azurkit/core/_native/` the test files that read it (read by path: those
   reaching a module that names the folder, `record_goldens.GOLDENS`),
-  other docs nothing more; the suite's configuration, what `tests/conftest.py` imports (it
-  checks the app's no-window mode in a Python of its own) and a path no
-  rule covers run the whole suite. A changed-area run drives the page in
+  other docs nothing more; the suite's configuration, what every session
+  runs (conftest's and its plugins' top levels and hooks, and every module
+  and function they import or name, however deep; not the app, whose
+  no-window mode it checks in a Python of its own) and a path no rule
+  covers run the whole suite. What only a conftest fixture's body runs (the
+  `browser` fixture's close: `scripts/ci_resources.py`) picks the test files
+  that take that fixture, and a change to such a module (conftest too) that
+  only touches functions the session doesn't call picks those functions'
+  module's importers and the takers of the fixtures that call them. A changed-area run drives the page in
   Chromium alone, the whole suite in every browser (D970), and the receipt
   says which (`browsers`). Once a changed-area run's tests pass, its flake
   stage (Step 4.4dx2) runs each test function the stack adds or edits (a

@@ -86,6 +86,96 @@ def test_the_page_picks_the_site_app_and_icon_tests_and_the_docs_they_restate_pi
     assert sorted({fullsuite.WHEEL, *runs}) == sorted(fullsuite.SRC_TESTS)
 
 
+def test_what_every_session_runs_is_whole_and_what_only_a_fixture_runs_picks_its_takers():
+    """Step 4.4dx3: a module conftest's hooks or top level reach, through any
+    function they name however deep, is the whole suite, as is a change to
+    conftest's top level or a hook of it; one only a conftest fixture's body
+    runs (its own function or a module it imports) picks the test files that
+    take the fixture (or a helper of theirs does, or they compute its name); a
+    module's unused function or its ``__main__`` block isn't the session's; a
+    module run by its path is used by the one that names it; a relative import
+    is an import."""
+    files = {"tests/conftest.py": "import pytest\nfrom scripts import tools\n\n\ndef pytest_sessionstart(session):\n"
+                                  "    tools.check()\n\n\n@pytest.fixture\ndef page():\n    return _open()\n\n\n"
+                                  "def _open():\n    from scripts import pages\n    return pages\n",
+             "scripts/tools.py": "def check():\n    from scripts import hooked\n\n\ndef unused():\n"
+                                 "    from scripts import lazy\n\n\nif __name__ == '__main__':\n    unused()\n",
+             "scripts/hooked.py": "", "scripts/lazy.py": "", "scripts/pages.py": "import scripts.deep\n",
+             "scripts/deep.py": "", "tests/_server.py": "", "src/pkg/core.py": "",
+             "tests/_helper.py": "import pytest\n\n\n@pytest.fixture\ndef wrapped(page):\n    return page\n",
+             "tests/_runner.py": "from pathlib import Path\n\nSERVER = Path(__file__).with_name('_server.py')\n",
+             "src/pkg/__init__.py": "from . import core\n",
+             "tests/test_takes.py": "def test_a(page):\n    pass\n",
+             "tests/test_wraps.py": "from tests._helper import wrapped  # noqa: F401\n",
+             "tests/test_computes.py": "def test_c(request, kind):\n    request.getfixturevalue(f'{kind}age')\n",
+             "tests/test_iso.py": "def test_d(request, kind):\n    request.getfixturevalue(f'{kind}_iso')\n",
+             "tests/test_lazy.py": "from scripts import lazy  # noqa: F401\n",
+             "tests/test_serves.py": "from tests import _runner  # noqa: F401\n", "tests/test_pkg.py": "import pkg\n"}
+    deps = fullsuite.graph_of(files)
+    conftest = files["tests/conftest.py"]
+    assert [fullsuite.parts("tests/conftest.py", conftest, conftest.replace(*edit)) for edit in (
+        ("return pages", "return pages.deep"), ("import pytest\n", "import pytest\nimport os\n"),
+        ("import pytest", '"""a docstring"""\nimport pytest'))] == [["tests/conftest.py::_open"], ["tests/conftest.py"], []]
+    for whole in ("tests/conftest.py", "tests/conftest.py::pytest_sessionstart", "scripts/tools.py", "scripts/hooked.py",
+                  "scripts/tools.py::check"):
+        assert fullsuite.plan([whole], deps) is None, whole
+    takers = {*SMOKE, "tests/test_takes.py", "tests/test_wraps.py", "tests/test_computes.py"}
+    assert fullsuite.plan(["tests/conftest.py::_open"], deps) == sorted(takers)
+    assert fullsuite.plan(["scripts/tools.py::unused"], deps) == SMOKE
+    picks = {rel: fullsuite.plan([rel], deps) for rel in ("scripts/lazy.py", "scripts/deep.py", "tests/_server.py",
+                                                         "src/pkg/core.py")}
+    assert picks == {"scripts/lazy.py": sorted({*SMOKE, "tests/test_lazy.py"}),
+                     "scripts/deep.py": sorted(takers),
+                     "tests/_server.py": sorted({*SMOKE, "tests/test_serves.py"}),
+                     "src/pkg/core.py": sorted({*SMOKE, *fullsuite.SRC_TESTS, "tests/test_pkg.py"})}
+
+
+def _users(*names: str) -> set[str]:
+    """The test files whose import lines reach one of ``names`` (``tests._page``, ``scripts.perf``), directly or
+    through tests/ and scripts/ modules, or that run one by its file name beside them: read from the sources by
+    pattern, apart from fullsuite.graph()."""
+    uses = {}
+    for p in [*(ROOT / "tests").glob("*.py"), *(ROOT / "scripts").glob("*.py")]:
+        text, pkg = p.read_text(encoding="utf-8"), p.parent.name
+        found = {f"{m[0]}.{n.split(' as ')[0].strip()}" for m in re.findall(
+            r"^\s*from (tests|scripts) import (\([^)]*\)|[^\n#]+)", text, re.M) for n in m[1].strip("()").split(",")}
+        found |= {f"{a}.{b}" for a, b in re.findall(r"^\s*(?:from|import) (tests|scripts)\.(\w+)", text, re.M)}
+        uses[f"{pkg}.{p.stem}"] = found | {f"{pkg}.{n}" for n in re.findall(r"with_name\(\"(\w+)\.py\"\)", text)}
+    reached, more = set(names), set(names)
+    while more := {m for m, found in uses.items() if m not in reached and found & more}:
+        reached |= more
+    return {f"tests/{m.removeprefix('tests.')}.py" for m in reached if m.startswith("tests.test_")}
+
+
+def test_each_test_helper_picks_the_test_files_its_imports_reach_and_only_what_every_session_loads_is_whole():
+    """Step 4.4dx3, on this checkout: each tests/ helper picks the smoke files
+    and the test files whose imports reach it (:func:`_users`, read apart from
+    graph()), not the whole suite, unless conftest loads it at its top or as a
+    plugin; ``scripts/ci_resources.py``, which conftest runs only in the
+    browser fixture's close, picks the browser tests and its importers' too;
+    the workflows their readers; what conftest, its plugins and their tops
+    reach is whole; every tracked Python file is in the graph."""
+    deps = fullsuite.graph(ROOT)
+    conftest = (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    loaded = {f"tests/{n}.py" for n in re.findall(r"^from tests import (\w+)", conftest, re.M)
+              + re.findall(r"\"tests\.(\w+)\"", re.search(r"^pytest_plugins = .*$", conftest, re.M)[0])}
+    assert loaded == {"tests/_pyodide.py", "tests/_byte_safe.py"}
+    for helper in sorted({f"tests/{p.name}" for p in (ROOT / "tests").glob("_*.py")} - {"tests/__init__.py"}):
+        want = None if helper in loaded else sorted({*SMOKE, *_users(fullsuite.module_of(helper))})
+        assert fullsuite.plan([helper], deps) == want, helper
+    takers = {f"tests/{p.name}" for p in (ROOT / "tests").glob("test_*.py") if re.search(
+        r"^def test_\w+\([^)]*\bbrowser\b", p.read_text(encoding="utf-8"), re.M)}
+    assert fullsuite.plan(["scripts/ci_resources.py"], deps) == sorted(
+        {*SMOKE, *takers, *_users("scripts.ci_resources", "tests._page")})
+    readers = {f"tests/{p.name}" for p in (ROOT / "tests").glob("test_*.py")
+               if re.search(r'/ "\.github" /', p.read_text(encoding="utf-8"))}
+    assert fullsuite.plan([".github/workflows/tests.yml"], deps) == sorted({*SMOKE, *readers})
+    for whole in ("tests/conftest.py", "scripts/web_tools.py", "scripts/ci_shards.py", "src/azurkit/core/gate.py"):
+        assert fullsuite.plan([whole], deps) is None, whole
+    assert fullsuite.plan(["src/azurkit/tools/characters/__init__.py"], deps) is not None   # web_tools' lazy import
+    assert not {fullsuite.module_of(rel) for rel in _git(ROOT, "ls-files", "*.py").split()} - deps.keys()
+
+
 def test_a_changed_area_run_drives_the_page_in_chromium_alone_and_a_whole_run_in_every_browser(
         tmp_path, monkeypatch, pytester):
     """D970: a changed-area run's receipt names Chromium and its pytest

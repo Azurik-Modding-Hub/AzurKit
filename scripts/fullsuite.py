@@ -18,9 +18,12 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 ``--changed`` runs only the test files that the worktree's changes against
 ``main`` (or ``--base``) pick (:func:`plan`), plus :data:`SMOKE`: the lint
 files and the gate's test, whose USA and Europe cases make every receipt
-show both tiers run (D26). A change in the data folder the tests read by
-path (:data:`DATA`: the goldens) picks its readers. A path no rule covers makes it the whole suite; the meta's ``mode``
-says which. A changed-area run drives the page in
+show both tiers run (D26). A change in a folder the tests read by path
+(:data:`DATA`: the goldens, the workflows, the kernels) picks its readers. Only what every session runs
+(:func:`graph_of`'s ``every_run``: conftest's and its plugins' top levels and hooks and all they reach) or a path no
+rule covers makes it the whole suite; what only a conftest fixture runs picks the tests that take it, and so does a
+change to such a module (conftest too) in functions only fixtures or tests call (:func:`narrowed`). The meta's
+``mode`` says which. A changed-area run drives the page in
 :data:`CHANGED_BROWSERS` alone (``--browsers``, ``tests/conftest.py``), a
 whole one in every browser (D970); the meta's ``browsers`` says which.
 
@@ -79,7 +82,10 @@ FINAL = {"done", "capped", "error"}
 PERF_CAP = 4 * 3600    # the perf stage's cap (main's full record times every op in every profile)
 PERF_WAIT = 3 * 3600   # how long it waits for the load to fall under perf.LOAD_LINE
 WHOLE = {"pyproject.toml", "uv.lock", ".python-version", "tests/conftest.py", "tests/skip_allowlist.toml"}
-SESSION = {"tests.conftest", "tests._byte_safe", "scripts.ci_shards"}   # every run loads them: what they import is whole
+#: Every run loads them (conftest and its pytest_plugins): what a session runs of them is whole (:func:`graph_of`).
+SESSION = {"tests.conftest", "tests._byte_safe", "scripts.ci_shards"}
+CONFTEST = "tests.conftest"   # its fixtures run only for the tests that take them: graph()'s "tests.conftest::NAME"
+PY_DIRS = ("src", "scripts", "tests", "devkit", "nativekit", "shimkit", "assets")   # every tracked .py's but the root's
 WHEEL = "tests/test_wheel.py"                      # builds the wheel from every file under src/ and installs it
 #: The test files that run every module under src/ outside the import graph: the wheel's, and those whose tests
 #: take the pyodide, browser or frozen_app fixture (the wheel under Pyodide, the site in a browser, the frozen app).
@@ -89,15 +95,15 @@ DOCS = (".md", ".txt")
 ABOUT = "tests/test_site.py::test_the_page_opens_dark_with_its_areas_tabs_the_packs_in_groups_and_build_always_in_view"
 #: A path's own tests (a folder's ends in "/"), what reads it outside the import graph: the page (web/) is the
 #: site's, its service worker's, the app's (it serves it and freezes it in) and the favicons'; the About tab restates
-#: LICENSE and NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme);
-#: tests/_static.py is the site's and its service worker's tests' file server, which they run as a program.
+#: LICENSE and NOTICE.md, and the wheel carries them and README.md (pyproject's license-files and readme). A module run
+#: as a program by its path (``tests/_static.py``, the site tests' file server) is read by graph() as an import.
 RULES = (("web/", ("tests/test_site.py", "tests/test_service_worker.py", "tests/test_hosts.py", "tests/test_icon.py")),
-         ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)),
-         ("tests/_static.py", ("tests/test_site.py", "tests/test_service_worker.py")))
-#: The data folders the tests read by path, not by import (AzurKit's goldens): each is named by the modules that hold
-#: its last name as a string (``ROOT / "tests" / "goldens"``: ``scripts/record_goldens.py``), so a change in it picks
-#: the test files that reach one of them (:func:`graph`).
-DATA = ("tests/goldens/",)
+         ("LICENSE", (ABOUT, WHEEL)), ("NOTICE.md", (ABOUT, WHEEL)), ("README.md", (WHEEL,)))
+#: The folders the tests read by path, not by import: AzurKit's goldens, the workflows, the kernels' C sources
+#: (``nativekit`` builds them) and the libraries built from them (``azurkit.core.native`` loads them). Each is named
+#: by the modules that hold its last name as a string (``ROOT / "tests" / "goldens"``: ``scripts/record_goldens.py``),
+#: so a change in it picks the test files that reach one of them (:func:`graph`).
+DATA = ("tests/goldens/", ".github/", "native/", "src/azurkit/core/_native/")
 CHANGED_BROWSERS = ("chromium",)   # a changed-area run's (D970: a whole run drives the page in every browser)
 SUMMARY = re.compile(r"^=+ (\d+ (?:passed|failed|errors?|skipped|deselected).*? in [\d.]+s.*?) =+$", re.M)
 TIER = re.compile(r"^(vanilla|europe): (\d+) run$", re.M)
@@ -136,44 +142,293 @@ def module_of(rel: str) -> str | None:
     return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
 
 
-def imports(source: str) -> set[str]:
-    """Every module a Python source imports, its parent packages included."""
+def _roots(source: str | ast.AST | list) -> list:
+    return [ast.parse(source)] if isinstance(source, str) else source if isinstance(source, list) else [source]
+
+
+def _base(node: ast.ImportFrom, module: str | None, package: bool) -> str | None:
+    """The module a ``from ... import`` names, a relative one resolved against
+    ``module`` (``package``: an ``__init__``), or None when it can't be."""
+    if not node.level:
+        return node.module
+    if module is None:
+        return None
+    parts = module.split(".")[:None if package else -1]
+    parts = parts[:len(parts) - node.level + 1]
+    return ".".join([*parts, *([node.module] if node.module else [])]) or None
+
+
+def imports(source: str | ast.AST | list, module: str | None = None, package: bool = False) -> set[str]:
+    """Every module a Python source (or its nodes) imports, its parent packages
+    included; a relative import resolved against ``module`` (:func:`_base`)."""
     names = set()
-    for node in ast.walk(ast.parse(source)):
+    for node in (n for root in _roots(source) for n in ast.walk(root)):
         if isinstance(node, ast.Import):
             names |= {alias.name for alias in node.names}
-        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
-            names |= {node.module, *(f"{node.module}.{alias.name}" for alias in node.names)}
+        elif isinstance(node, ast.ImportFrom) and (base := _base(node, module, package)):
+            names |= {base, *(f"{base}.{alias.name}" for alias in node.names)}
     return {".".join(name.split(".")[:i]) for name in names for i in range(1, name.count(".") + 2)}
 
 
-def reads(source: str) -> set[str]:
+def reads(source: str | ast.AST) -> set[str]:
     """Each of :data:`DATA`'s folders a Python source names: one of its
     string constants is the folder's last name (``"goldens"``)."""
-    names = {node.value for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Constant)}
+    names = {node.value for root in _roots(source) for node in ast.walk(root) if isinstance(node, ast.Constant)}
     return {folder for folder in DATA if folder.rstrip("/").rpartition("/")[2] in names}
 
 
-def graph(wt: Path) -> dict[str, set[str]]:
-    """``{module: the modules it imports and the DATA folders it reads}`` over src/, scripts/ and tests/."""
-    files = [p for d in ("src", "scripts", "tests") for p in (wt / d).rglob("*.py")]
-    return {module_of(p.relative_to(wt).as_posix()): imports(text := p.read_text(encoding="utf-8")) | reads(text)
-            for p in files}
+def _runs(tree: ast.AST, rel: str, mods: dict[str, str]) -> set[str]:
+    """The modules a source runs as programs by their paths: a string (no
+    docstring, no space) that is another file's path, ends in "/" and it, or is
+    the name of one beside it (``Path(__file__).with_name("_static.py")``). A
+    test file named so is pytest's to run, not a program."""
+    docs = {id(node.body[0].value) for node in ast.walk(tree)
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)}
+    folder, out = rel.rpartition("/")[0], set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(text := node.value, str) and id(node) not in docs \
+                and text and not any(c.isspace() for c in text):
+            ends = {text, *(text[i + 1:] for i, c in enumerate(text) if c == "/"), f"{folder}/{text}".lstrip("/")}
+            out |= {mods[o] for o in ends & mods.keys() if o != rel and not mods[o].startswith("tests.test_")}
+    return out
+
+
+def _chains(nodes: list) -> set[str]:
+    """The names the nodes read, each whole (``web_tools.missing``,
+    ``close_browser``, ``web_tools`` when the module itself is passed on)."""
+    walked = [n for root in nodes for n in ast.walk(root)]
+    inner, out = {id(n.value) for n in walked if isinstance(n, ast.Attribute)}, set()
+    for n in walked:
+        if isinstance(n, (ast.Attribute, ast.Name)) and id(n) not in inner:
+            parts = []
+            while isinstance(n, ast.Attribute):
+                parts, n = [n.attr, *parts], n.value
+            if isinstance(n, ast.Name):
+                out.add(".".join([n.id, *parts]))
+    return out
+
+
+def _main_guard(node: ast.stmt) -> bool:
+    """``if __name__ == "__main__":``."""
+    return (isinstance(node, ast.If) and isinstance(t := node.test, ast.Compare) and isinstance(t.left, ast.Name)
+            and t.left.id == "__name__" and len(t.comparators) == 1 and isinstance(t.comparators[0], ast.Constant)
+            and t.comparators[0].value == "__main__")
+
+
+DYNAMIC = {"globals", "vars", "locals", "eval", "exec", "sys.modules"}   # a function reading one runs its module's all
+
+
+def _scope(tree: ast.Module, module: str, package: bool) -> dict:
+    """A module's parts for :func:`_reach`: what its top level imports and reads
+    (its classes whole, its functions' decorators and defaults), each top-level
+    function's own imports and reads, and the names its imports bind."""
+    aliases: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):   # "import a.b" binds a, "import a.b as c" binds c to a.b
+            for a in node.names:
+                aliases.setdefault(a.asname or a.name.partition(".")[0], set()).add(
+                    a.name if a.asname else a.name.partition(".")[0])
+        elif isinstance(node, ast.ImportFrom) and (base := _base(node, module, package)):
+            for a in node.names:
+                aliases.setdefault(a.asname or a.name, set()).add(f"{base}.{a.name}")
+    top, funcs = [], {}
+    for node in tree.body:
+        if _main_guard(node):   # its program's, not run on import
+            continue
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            top.append(node)
+            continue
+        top += [*node.decorator_list, *node.args.defaults, *filter(None, node.args.kw_defaults)]
+        marks = [d.func if isinstance(d, ast.Call) else d for d in node.decorator_list]
+        autouse = any(isinstance(d, ast.Call) and any(k.arg == "autouse" and not (isinstance(k.value, ast.Constant)
+                      and k.value.value is False) for k in d.keywords) for d in node.decorator_list)
+        funcs[node.name] = {"imports": imports(node.body, module, package), "chains": _chains(node.body),
+                            "decorated": bool(marks),
+                            "params": {a.arg for a in ast.walk(node.args) if isinstance(a, ast.arg)},
+                            "fixture": not autouse and any(c == "fixture" or c.endswith(".fixture")
+                                                           for c in _chains(marks))}
+    return {"imports": imports(top, module, package), "chains": _chains(top), "funcs": funcs, "aliases": aliases}
+
+
+def _resolve(scopes: dict, module: str, chain: str, depth: int = 0) -> list[tuple[str, str | None]]:
+    """What ``chain`` read in ``module`` names: ``(module, function)``,
+    ``(module, "*")`` for a module passed on whole, ``(module, None)`` for
+    anything else of one (a class, a value: its top level)."""
+    head, _, rest = chain.partition(".")
+    if head in scopes[module]["funcs"]:
+        return [(module, head)]
+    out = []
+    for target in scopes[module]["aliases"].get(head, ()) if depth < 8 else ():
+        full = [*target.split("."), *filter(None, rest.split("."))]
+        if found := next((i for i in range(len(full), 0, -1) if ".".join(full[:i]) in scopes), None):
+            mod = ".".join(full[:found])
+            out += [(mod, "*")] if found == len(full) else [
+                (mod, None), *_resolve(scopes, mod, ".".join(full[found:]), depth + 1)]
+    return out
+
+
+def _reach(scopes: dict, modules=(), units=(), seen: tuple = (frozenset(), frozenset())) -> tuple[set, set]:
+    """``(modules, functions)`` a run executes from ``modules`` (imported) and
+    ``units`` (called), past ``seen``: an imported module runs its top level, its
+    pytest hooks and its decorated functions (but conftest's fixtures), a called
+    function its imports and every function and module it names."""
+    seen_m, seen_u = set(seen[0]), set(seen[1])
+    todo = [("m", m) for m in modules] + [("u", u) for u in units]
+    while todo:
+        kind, item = todo.pop()
+        if kind == "m":
+            for name in (".".join(item.split(".")[:i]) for i in range(1, item.count(".") + 2)):
+                if name in seen_m:
+                    continue
+                seen_m.add(name)
+                if (s := scopes.get(name)) is None:
+                    continue
+                todo += [("m", m) for m in s["imports"]]
+                todo += [("u", u) for c in s["chains"] for u in _resolve(scopes, name, c)]
+                todo += [("u", (name, f)) for f, fn in s["funcs"].items() if f.startswith("pytest_") or f in (
+                    "__getattr__", "__dir__") or fn["decorated"] and not (name == CONFTEST and fn["fixture"])]
+        elif item not in seen_u:
+            seen_u.add(item)
+            mod, f = item
+            todo.append(("m", mod))
+            if mod not in scopes or f is None:
+                continue
+            every = scopes[mod]["funcs"]
+            if f == "*" or (fn := every.get(f)) is None:
+                todo += [("u", (mod, g)) for g in every] if f == "*" else []
+                continue
+            todo += [("m", m) for m in fn["imports"]]
+            todo += [("u", u) for c in fn["chains"] for u in _resolve(scopes, mod, c)]
+            todo += [("u", (mod, g)) for g in every] if fn["chains"] & DYNAMIC else []
+    return seen_m, seen_u
+
+
+def _names(tree: ast.AST, fixtures: set[str]) -> set[str]:
+    """The conftest fixtures a source may take: a parameter or a string of that
+    name, or where it asks for one by a name it computes, each the name may be
+    (``request.getfixturevalue(f"{release}_iso")``: those ending in ``_iso``;
+    one with no constant ends: every one)."""
+    found = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg):
+            found.add(node.arg)
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            found.add(node.value)
+        elif isinstance(node, ast.Call) and isinstance(call := node.func, ast.Attribute) \
+                and call.attr == "getfixturevalue":
+            for arg in (a for a in node.args if not isinstance(a, ast.Constant)):
+                parts = arg.values if isinstance(arg, ast.JoinedStr) and arg.values else [None]
+                ends = [v.value if isinstance(v, ast.Constant) else "" for v in (parts[0], parts[1:] and parts[-1])]
+                found |= {f for f in fixtures if f.startswith(ends[0]) and f.endswith(ends[-1])
+                          and len(f) >= len(ends[0]) + len(ends[-1])}
+    return found & fixtures
+
+
+class Graph(dict):
+    """:func:`graph_of`'s ``{module: what it uses}``; :attr:`every_run`: the
+    modules (and DATA folders) every run's session executes or reads, whatever
+    tests it selects; :attr:`session_units`: the ``(module, function)`` it calls;
+    :attr:`fixture_units`: each other one a conftest fixture calls, to the
+    fixtures (``tests.conftest::NAME``) that do."""
+    every_run: frozenset[str] = frozenset()
+    session_units: frozenset[tuple[str, str]] = frozenset()
+    fixture_units: dict[tuple[str, str], set[str]]
+
+
+def graph_of(files: dict[str, str]) -> Graph:
+    """``{module: the modules it imports or runs by path, the DATA folders it
+    reads and the conftest fixtures it may take}`` over ``files`` (``{path:
+    source}``). A conftest fixture is a module of its own
+    (``tests.conftest::NAME``) using what only it runs: its body's imports and
+    the functions it names, past the session's. :attr:`Graph.every_run` is what
+    :data:`SESSION`'s modules run as each session loads them (:func:`_reach`):
+    conftest's and its plugins' top levels, what those import, their hooks and
+    the functions and modules those name, however deep."""
+    mods = {rel: module_of(rel) for rel in files}
+    trees = {rel: ast.parse(text) for rel, text in files.items()}
+    scopes = {mods[rel]: _scope(tree, mods[rel], rel.endswith("__init__.py")) for rel, tree in trees.items()}
+    runs = {mods[rel]: _runs(tree, rel, mods) for rel, tree in trees.items()}
+    deps = Graph({mods[rel]: imports(tree, mods[rel], rel.endswith("__init__.py")) | reads(tree) | runs[mods[rel]]
+                  for rel, tree in trees.items()})
+    seen = _reach(scopes, modules=SESSION)   # and the folders and programs its modules name by path
+    deps.every_run = frozenset(seen[0] | {f for m in seen[0] & deps.keys() for f in deps[m] & set(DATA) | runs[m]})
+    deps.session_units, deps.fixture_units = frozenset(seen[1]), {}
+    fixtures = {f for f, fn in scopes[CONFTEST]["funcs"].items() if fn["fixture"]} if CONFTEST in scopes else set()
+    for f in fixtures:
+        own = _reach(scopes, units=[(CONFTEST, f)], seen=seen)
+        deps[f"{CONFTEST}::{f}"] = (own[0] - seen[0]) | {
+            f"{CONFTEST}::{g}" for g in scopes[CONFTEST]["funcs"][f]["params"] & fixtures - {f}}
+        for unit in own[1] - seen[1]:
+            deps.fixture_units.setdefault(unit, set()).add(f"{CONFTEST}::{f}")
+    for rel, tree in trees.items():
+        if mods[rel] != CONFTEST:
+            deps[mods[rel]] |= {f"{CONFTEST}::{f}" for f in _names(tree, fixtures)}
+    return deps
+
+
+def graph(wt: Path) -> Graph:
+    """:func:`graph_of` over every Python file under :data:`PY_DIRS` and at the root."""
+    paths = [p for d in PY_DIRS for p in (wt / d).rglob("*.py")] + sorted(wt.glob("*.py"))
+    return graph_of({p.relative_to(wt).as_posix(): p.read_text(encoding="utf-8") for p in paths})
+
+
+def parts(rel: str, old: str | None, new: str | None) -> list[str]:
+    """A module's change from ``old`` to ``new`` as the top-level functions it
+    changes (``rel::NAME``; none for its docstring, comments or layout alone),
+    or ``[rel]`` when anything else differs: its top level (imports, classes,
+    values, its ``__main__`` block), a function gone or defined twice, or either
+    side missing or unparsable."""
+    def split(text):
+        body = ast.parse(text).body
+        body = body[1:] if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) else body
+        funcs = [n for n in body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        return [ast.dump(n) for n in body if n not in funcs], {n.name: ast.dump(n) for n in funcs}, len(funcs)
+    try:
+        (top_a, fa, na), (top_b, fb, nb) = split(old), split(new)
+    except (SyntaxError, TypeError, ValueError):   # TypeError: a side missing
+        return [rel]
+    if top_a != top_b or len(fa) != na or len(fb) != nb or fa.keys() - fb.keys():
+        return [rel]
+    return [f"{rel}::{name}" for name in sorted(fb) if fa.get(name) != fb[name]]
+
+
+def narrowed(wt: Path, base: str, changed: list[str], deps: dict) -> list[str]:
+    """``changed`` with each module every session runs (``deps.every_run``) as
+    the functions its change against ``base`` changes (:func:`parts`)."""
+    out = []
+    for rel in changed:
+        if module_of(rel) in getattr(deps, "every_run", ()):
+            new = (wt / rel).read_text(encoding="utf-8") if (wt / rel).is_file() else None
+            out += parts(rel, git(wt, "show", f"{base}:{rel}", check=False) or None, new)
+        else:
+            out.append(rel)
+    return out
 
 
 def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     """The test files (or tests) to run for the ``changed`` paths, or ``None``
     for the whole suite: each changed test file, each test file that imports a
-    changed module directly or through others, each that reaches a module
-    reading a changed :data:`DATA` folder (``deps``' folder entries, :func:`graph`),
+    changed module directly or through others (or runs it by its path, or takes
+    a conftest fixture that runs it: :func:`graph_of`), each that reaches a
+    module reading a changed :data:`DATA` folder (``deps``' folder entries),
     :data:`SRC_TESTS` for a change under src/, a path's :data:`RULES` tests,
-    and :data:`SMOKE`; nothing more for other docs. A change to the
-    suite's configuration, to what every session loads (``tests/conftest.py``
-    and what it imports: it runs the app's no-window check in a Python of its
-    own, which every run's session holds) or to a path no rule covers is the
-    whole suite."""
-    picked, touched = set(SMOKE), set()
+    and :data:`SMOKE`; nothing more for other docs. A change to the suite's
+    configuration, to what every session runs (``deps.every_run``; for a plain
+    dict, :data:`SESSION` and all it imports) or to a path no rule covers is the
+    whole suite. The session checks the app's no-window mode in a Python of its
+    own, so the app isn't what every session runs. A function of such a module
+    (``path::NAME``, :func:`narrowed`) the session doesn't call picks its
+    module's importers and the takers of the conftest fixtures that call it."""
+    picked, touched, later = set(SMOKE), set(), set()
     for rel in changed:
+        if "::" in rel:
+            path, _, name = rel.partition("::")
+            if (units := getattr(deps, "session_units", None)) is None or (module_of(path), name) in units:
+                return None
+            later |= {module_of(path), *deps.fixture_units.get((module_of(path), name), ())}
+            picked.update(SRC_TESTS if path.startswith("src/") else ())
+            continue
         if rel in WHOLE:
             return None
         if own := next((tests for path, tests in RULES
@@ -182,6 +437,7 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
             continue
         if folder := next((folder for folder in DATA if rel.startswith(folder)), None):
             touched.add(folder)   # its readers are the modules whose deps name it
+            picked.update(SRC_TESTS if rel.startswith("src/") else ())
             continue
         if rel.endswith(DOCS) or rel in (".gitignore", perf.CEILINGS):   # the perf list: the perf stage reads it
             continue
@@ -190,10 +446,17 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
         else:
             touched.add(module)
             picked.update(SRC_TESTS if rel.startswith("src/") else ())
+    if (every := getattr(deps, "every_run", None)) is None:
+        every, todo = set(), list(SESSION)
+        while todo:
+            if (m := todo.pop()) not in every:
+                every.add(m)
+                todo += deps.get(m, ())
+    if touched & every:
+        return None
+    touched |= later
     while more := {m for m, uses in deps.items() if m not in touched and uses & touched}:
         touched |= more
-    if touched & SESSION:
-        return None
     picked |= {f"{m.replace('.', '/')}.py" for m in touched if m.startswith("tests.test_") and m in deps}
     return sorted(t for t in picked if t.partition("::")[0] == t or t.partition("::")[0] not in picked)
 
@@ -309,7 +572,7 @@ def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
     selection = None
     changed = sorted(set(git(wt, "diff", "--name-only", base).split() + untracked)) if base else []
     if changed_area and base:
-        selection = plan(changed, graph(wt))
+        selection = plan(narrowed(wt, base, changed, deps := graph(wt)), deps)
     mode, browsers = ("full", "all") if selection is None else ("changed", list(CHANGED_BROWSERS))
     flake = edited_tests(wt, base, changed) if mode == "changed" else []   # a whole run has no flake stage
     main = git(wt, "rev-parse", "--verify", "-q", "refs/heads/main", check=False).strip()
