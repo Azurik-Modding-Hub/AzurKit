@@ -29,7 +29,8 @@
 //      (sdk.data, sdk.data_edit: config.xbr's cells from the file the wheel ships, no image). A message with a File
 //      (file) has the image checked first, once a File (prime).
 // Out: {type: "native", kernel?, twin?} (the reach calls each path answered since the last, before the answer they
-//      went into), {type: "ready", catalog, version, commit, start} (start: "snapshot" or "cold", load()'s), {type: "progress", stage, label, done, total, percent} (core/progress.py's
+//      went into), {type: "ready", catalog, version, commit, start, cold?} (start: "snapshot" or "cold", load()'s;
+//      cold: why a kept snapshot wasn't started from), {type: "progress", stage, label, done, total, percent} (core/progress.py's
 //      record, mid-call: the check, then a build's stages; the worker's own: its start before ready, the kept image's
 //      walk), {type: "at", where} (the await the job is in: awaiting()), {type: "built", report, size, segments, heap} (a seed's report without its spoiler, which {type:
 //      "spoiled", text | refused} brings next: the build shows sooner),
@@ -544,42 +545,79 @@ const stored = (database, name, mode, fn) => new Promise((resolve) => {   // Ind
 // last only, by Pyodide's version and the wheel's integrity), so each later worker (a return visit, the one after a big
 // build) starts from it and skips CPython's start and those imports. The wheel's files are unpacked again (the file
 // system isn't in the heap). The heap holds no image: it is made before any is read. Any fault making, keeping or
-// starting from one starts the worker as before; "ready" says which start it was (start). Stock Pyodide can't restore a
-// heap grown past the module's initial memory, 31,457,280 B (a RangeError), so the restore grows it first (grown).
+// starting from one starts the worker as before; "ready" says which start it was (start) and, where a kept one wasn't
+// started from, why (cold). Stock Pyodide can't restore a heap grown past the module's initial memory, 31,457,280 B (a
+// RangeError), so the restore grows it first (grown).
+// It is kept as one record, {heap, size, sha256}, written in one transaction, and a worker starts only from a whole
+// one: a record that isn't one, or whose heap isn't its size and sha256 (another page's older form, a write cut short),
+// is refused by name and deleted, and the worker starts cold. A heap cut to 60 % or 90 % of its bytes held the
+// restoring worker's thread for good, the page never ready and saying nothing (Step 4.4ci37); the check costs a SHA-256
+// of the heap (30 MB).
 // Pyodide's wasm (9.6 MB) is compiled once a page (Step 4.4bf): the first worker compiles it as Pyodide does and posts
 // its Module ({type: "wasm"}), which the pool sends each later worker first (workers.mjs), and Pyodide's own
 // instantiateStreaming of its fetch is answered from that Module (about 0.1 s and 0.25-0.42 CPU-s a worker start: B's
 // after a change, F's after a big build); one that won't instantiate compiles as before.
+// Pyodide's instantiate catches what its instantiation and the callback it hands the instance throw (a grow refused, a
+// RangeError where memory is short; a compile refused), warns and never settles its load: so grown hands that to
+// `failed`, which ends loading()'s wait, and a restore refused so starts cold, a cold start refused says so by name.
 const SNAPSHOT = "azurkit-snapshot", IMPORTS = "import azurkit\nfrom azurkit import sdk\nfrom azurkit.core import iso\n";
+const STREAMING = WebAssembly.instantiateStreaming;
 let compiled = null;   // the Module the pool sent this worker, if any
 self.addEventListener("message", ({ data }) => {
   if (data?.type === "wasm" && data.module instanceof WebAssembly.Module) compiled = data.module;
 }, { once: true });
-const grown = (create, size) => (settings) => {
-  const instantiate = settings.instantiateWasm, given = compiled, streaming = WebAssembly.instantiateStreaming;
+const grown = (create, size, failed) => (settings) => {
+  const instantiate = settings.instantiateWasm, given = compiled;
   let mine = !given;
-  if (given) {
-    WebAssembly.instantiateStreaming = async (response, imports) => {   // Pyodide's one call, once
-      WebAssembly.instantiateStreaming = streaming;
+  WebAssembly.instantiateStreaming = async (response, imports) => {   // Pyodide's one call, once
+    WebAssembly.instantiateStreaming = STREAMING;
+    if (given) {
       try {
         const instance = await WebAssembly.instantiate(given, imports);
         Promise.resolve(response).then((r) => r.body?.cancel()).catch(() => {});   // its fetch, unread
         return { instance, module: given };
       } catch {
         mine = true;
-        return streaming.call(WebAssembly, response, imports);
       }
-    };
-  }
+    }
+    return STREAMING.call(WebAssembly, response, imports).catch((error) => {
+      failed(error);
+      throw error;
+    });
+  };
   settings.instantiateWasm = (imports, ready) => instantiate(imports, (instance, module) => {
-    WebAssembly.instantiateStreaming = streaming;
-    if (mine) post({ type: "wasm", module });
-    const { memory } = instance.exports, short = Math.ceil(size / 65536) - memory.buffer.byteLength / 65536;
-    if (short > 0) memory.grow(short);
-    return ready(instance, module);
+    WebAssembly.instantiateStreaming = STREAMING;
+    try {
+      if (mine) post({ type: "wasm", module });
+      const { memory } = instance.exports, short = Math.ceil(size / 65536) - memory.buffer.byteLength / 65536;
+      if (short > 0) memory.grow(short);
+      return ready(instance, module);
+    } catch (error) {
+      failed(error);
+      throw error;
+    }
   });
   return create(settings);
 };
+const loading = (loadPyodide, create, size, options) => new Promise((resolve, reject) => {
+  loadPyodide({ ...options, createPyodideModule: grown(create, size, reject) }).then(resolve, reject);
+});
+
+// The kept record's heap if it is a whole one, [heap, null]; else [null, why it was refused] ([null, null]: none kept).
+async function whole(record) {
+  if (record == null) return [null, null];
+  const { heap, size, sha256 } = record;
+  if (!(heap instanceof Uint8Array) || !Number.isSafeInteger(size) || typeof sha256 !== "string") {
+    return [null, "the kept snapshot was refused: it isn't a {heap, size, sha256} record"];
+  }
+  if (heap.length !== size) {
+    return [null, `the kept snapshot was refused: its heap is ${heap.length} bytes, not ${size}`];
+  }
+  if (hex(await crypto.subtle.digest("SHA-256", heap)) !== sha256) {
+    return [null, "the kept snapshot was refused: its heap's sha256 isn't the one kept with it"];
+  }
+  return [heap, null];
+}
 
 async function load() {
   starting(0);
@@ -591,11 +629,17 @@ async function load() {
     stdout: () => {}, stderr: () => {},
   };
   const key = `${version} ${site.integrity}`;
-  const heap = await stored(SNAPSHOT, "heap", "readonly", (store) => store.get(key)).catch(() => null);
+  const record = await stored(SNAPSHOT, "heap", "readonly", (store) => store.get(key)).catch(() => null);
+  let [heap, cold] = await whole(record).catch((error) => [null, `the kept snapshot wasn't checked: ${lastLine(error)}`]);
+  if (cold) stored(SNAPSHOT, "heap", "readwrite", (store) => store.delete(key)).catch(() => null);   // not awaited
   const { default: create } = await import(new URL("pyodide.asm.mjs", pyodide).href);
-  const restored = heap && await loadPyodide({ ...options, _loadSnapshot: heap,
-                                               createPyodideModule: grown(create, heap.length) }).catch(() => null);
-  const py = restored ?? await loadPyodide({ ...options, _makeSnapshot: true, createPyodideModule: grown(create, 0) });
+  const restored = heap && await loading(loadPyodide, create, heap.length, { ...options, _loadSnapshot: heap })
+    .catch((error) => {
+      cold = `the kept snapshot didn't restore: ${lastLine(error)}`;
+      return null;
+    });
+  heap = null;
+  const py = restored ?? await loading(loadPyodide, create, 0, { ...options, _makeSnapshot: true });
   const reads = readInBlocks(py.FS);
   starting(1);
   const wheel = await fetch(new URL(site.wheel, base), { integrity: site.integrity });
@@ -609,7 +653,10 @@ async function load() {
     try {
       py.runPython(IMPORTS);
       const made = py.makeMemorySnapshot();
-      stored(SNAPSHOT, "heap", "readwrite", (store) => { store.clear(); store.put(made, key); }).catch(() => null);   // not awaited
+      crypto.subtle.digest("SHA-256", made).then((sha) => stored(SNAPSHOT, "heap", "readwrite", (store) => {
+        store.clear();
+        store.put({ heap: made, size: made.length, sha256: hex(sha) }, key);
+      })).catch(() => null);   // not awaited
     } catch {
       // no snapshot: the next worker starts as this one did
     }
@@ -626,7 +673,7 @@ async function load() {
     if (unreadable && reply && typeof reply === "object" && "refused" in reply) reply.refused = CHANGED;
     return reply;
   };
-  return { py, engine, reads, start: restored ? "snapshot" : "cold" };
+  return { py, engine, reads, start: restored ? "snapshot" : "cold", cold };
 }
 
 // fn(the path of file mounted read-only at /in), unmounted after it (after the promise it gives, if it gives one). The
@@ -1089,7 +1136,8 @@ try {
       post({ type: "failed", message: lastLine(error) });
     }
   };
-  post({ type: "ready", start: loaded.start, ...loaded.engine({ type: "catalog" }) });
+  post({ type: "ready", start: loaded.start, ...(loaded.cold ? { cold: loaded.cold } : {}),
+         ...loaded.engine({ type: "catalog" }) });
 } catch (error) {
   post({ type: "failed", message: `AzurKit didn't load: ${lastLine(error)}` });
 }
