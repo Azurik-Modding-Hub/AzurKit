@@ -2687,10 +2687,11 @@ def test_a_seeds_build_after_the_pick_reads_the_images_id_no_more(browser, site,
 
 
 STUB_ENGINES = """(() => {
-    const { catalog, view, drawn } = %s, made = globalThis.made = [], later = [];
+    const { catalog, view, drawn, modes = {} } = %s, made = globalThis.made = [], later = [];
     globalThis.held = false;
     const pickers = (worker, m) => worker.say({ type: "reply", call: m.call, heap: 2 ** 28, reply: { ...view,
-        chosen: { ...view.chosen, weapon: m.given.character.weapon ?? null }, character: m.given.character } });
+        chosen: { ...view.chosen, ...modes[m.given.character?.mode], weapon: m.given.character?.weapon ?? null },
+        character: m.given.character } });
     globalThis.release = () => {
         held = false;
         for (const [worker, m] of later.splice(0)) pickers(worker, m);
@@ -2720,10 +2721,10 @@ STUB_ENGINES = """(() => {
         terminate() { this.stopped = true; }
     };
 })();"""
-"""The site's engines as stubs that load at once and answer pickers (``view``, with the weapon asked; held until
-``release()``) and a body's own pictures (``drawn``): ``made`` holds each with what it ``got``, its ``stopped``; the test
-answers each reshape's preview
-with ``say``. Left unanswered, the page's preview of the chosen model (sent whenever its first draw comes before
+"""The site's engines as stubs that load at once and answer pickers (``view``, with the weapon asked and, asked at a
+mode ``modes`` names, that mode's chosen fields; held until ``release()``) and a body's own pictures (``drawn``):
+``made`` holds each with what it ``got``, its ``stopped``; the test answers each reshape's preview with ``say``.
+Left unanswered, the page's preview of the chosen model (sent whenever its first draw comes before
 ``characters/index.json``) held F, so the pickers after it waited on B (none on a 3-core runner, run 41521288667)
 and a draw for its key while the index loaded left the model unshown."""
 
@@ -2850,10 +2851,13 @@ def test_reset_puts_every_slider_option_and_the_weapon_back_in_its_click(browser
     view = sdk.pickers({"iso": None, "character": {"species": "town_female_1"}})   # springs, its options live
     view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
     weapon = next(w["name"] for w in view["chosen"]["weapons"] if w["name"])
+    moved = sdk.pickers({"iso": None, "character": {"species": "town_female_1", "mode": "garret4"}})["chosen"]
+    assert moved["defaults"] != view["chosen"]["defaults"]   # Balance and Ground off: a Reset holding it shows them
     drawn = {side: base64.b64encode((_page.WEB / "characters" / f"nice_noreht.{side}.png").read_bytes()).decode()
              for side in ("front", "back")}
     served = Site(browser, site)
-    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn}))
+    served.context.add_init_script(STUB_ENGINES % json.dumps({"catalog": sdk.catalog(), "view": view, "drawn": drawn,
+                                                              "modes": {"garret4": {"defaults": moved["defaults"]}}}))
     shown = """() => { const c = azurkit.characters.state, $ = (id) => document.getElementById(id);
         return [c.character, [...document.querySelectorAll("#char-numbers input[type=text]")].map((b) => b.value).join(),
                 $("char-weapon").value, $("char-mode").value, ["char-chain", "char-clips", "char-sounds", "char-height",
