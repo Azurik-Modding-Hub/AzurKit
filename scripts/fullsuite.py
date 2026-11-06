@@ -806,8 +806,9 @@ def flake_stage(meta: Path, m: dict) -> dict:
     run, naming each test it failed with the output's tail. The stage's wall
     is :data:`FLAKE_CAP`: no run starts that its longest run so far won't
     fit in, and a run still going at it is ended with every process under
-    it (:func:`end`); each case with no passing run by then fails the block
-    by name, capped."""
+    it (:func:`end`): each case it failed so far fails the block (one that
+    passed an earlier run too), and each case with no passing run by then
+    fails it by name, capped."""
     tests, t0 = m["flake_tests"], time.time()
     deadline, out = t0 + FLAKE_CAP, meta.with_suffix(".flake.out")
     env = _env(meta.with_suffix(".cache")) | {"PYTHONUNBUFFERED": "1"}   # each outcome's line out before an end
@@ -825,7 +826,7 @@ def flake_stage(meta: Path, m: dict) -> dict:
         tail = [line[:240] for line in said.splitlines()[-FLAKE_TAIL:]]
         block["failures"] = [{"test": f"(their collection: exit {code})", "run": 0, "tail": tail}]
         return block | {"passed": False, "wall_s": round(time.time() - t0, 1)}
-    block["cases"], passed, tail = len(cases), set(), []
+    block["cases"], passed, tail, ended = len(cases), set(), [], False
     loop, loops = LOOP.format(secs=FLAKE_CAP + 60), []
     try:
         for run in range(1, block["runs"] + 1):
@@ -850,24 +851,29 @@ def flake_stage(meta: Path, m: dict) -> dict:
                 proc.kill()
                 proc.wait()
             text = out.read_text(encoding="utf-8", errors="replace")
-            passed |= {a and b or c for a, b, c, d in OUTCOME.findall(text) if "PASSED" in (a, d)}
+            outcomes = [(b or c, a or d) for a, b, c, d in OUTCOME.findall(text)]
+            passed |= {case for case, said in outcomes if said == "PASSED"}
             how = f"exit {code}" + (f", ended at the stage's {FLAKE_CAP} s" if ended else "")
             with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
                 log.write(f"\n==== flake run {run} of {block['runs']}, slowed ({block['slowed'][-1]['slowing']}; probes "
                           f"{probed}), {how} in {block['walls'][-1]} s ====\n{text}")
             tail = [line[:240] for line in text.splitlines()[-FLAKE_TAIL:]]
-            if ended:
+            if ended:   # its failures so far fail the block: one that passed an earlier run is a flake all the same
+                named = [case for case, said in outcomes if said in ("FAILED", "ERROR")]
+                block["failures"] = [{"test": test, "run": run, "tail": tail} for test in dict.fromkeys(named)]
+                block["note"] = f"run {run} ended at the stage's {FLAKE_CAP} s"
                 break
             block["done"] = run
             if code:
                 named = FAILED.findall(text) or [f"(the run: {how})"]
                 block["failures"] = [{"test": test, "run": run, "tail": tail} for test in dict.fromkeys(named)]
                 break
-        if not block["failures"] and (left := [case for case in cases if case not in passed]):
-            block["failures"] = [{"test": case, "run": len(block["walls"]), "tail": tail, "capped": True}
-                                 for case in left]
-            block["note"] = (f"capped: {len(left)} of {len(cases)} cases without a passing run within the stage's "
-                             f"{FLAKE_CAP} s")
+        named = {failure["test"] for failure in block["failures"]}
+        if (ended or not named) and (left := [case for case in cases if case not in passed | named]):
+            block["failures"] += [{"test": case, "run": len(block["walls"]), "tail": tail, "capped": True}
+                                  for case in left]
+            block["note"] = "; ".join(filter(None, (block.get("note"), f"capped: {len(left)} of {len(cases)} cases "
+                                                    f"without a passing run within the stage's {FLAKE_CAP} s")))
     finally:
         for proc in loops:   # a loop has no children: its own kill ends it (none if it ended by itself)
             proc.kill()

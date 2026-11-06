@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 import types
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -384,30 +385,48 @@ def test_the_flake_stage_builds_nothing_again_that_the_gates_run_built(tmp_path,
     assert (tmp_path / "builds").read_text() == "1" and not meta.with_suffix(".cache").exists()
 
 
-def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_its_unpassed_cases_as_capped(
+def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_its_failed_and_unpassed_cases(
         tmp_path, monkeypatch):
     """The stage's wall is FLAKE_CAP: a run still going at it is ended with
     every process under it (here a child in a session of its own, as
-    Playwright starts a browser), and each case that never passed fails the
-    stage by name as capped, never a silent pass; a case that passed before
-    the cap isn't named. The receipt keeps the run's wall time."""
+    Playwright starts a browser), each case it failed so far fails the
+    stage, though it passed an earlier run (the slowest run is the one the
+    cap ends), and each case that never passed fails it by name as capped,
+    never a silent pass; a case that passed before the cap isn't named. The
+    receipt keeps each run's wall time. The two stages run side by side."""
     _quick_flake(monkeypatch)
     monkeypatch.setattr(fullsuite, "FLAKE_CAP", 15)
-    (tmp_path / "test_x.py").write_text(   # ids with spaces, as a parameter's may hold
-        "import subprocess, sys, time\nfrom pathlib import Path\n\nimport pytest\n\n\n@pytest.mark.parametrize('x', ['a b'])"
-        "\ndef test_quick(x):\n    pass\n\n\n@pytest.mark.parametrize('x', ['c d'])\ndef test_hangs(x):\n"
-        "    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(600)'], start_new_session=True)\n"
-        "    Path(__file__).with_name('child').write_text(str(child.pid))\n    time.sleep(600)\n", encoding="utf-8")
-    meta = tmp_path / "suite-k.meta"
-    flake = fullsuite.flake_stage(meta, {"key": "k", "worktree": str(tmp_path), "cap_s": 600,
-                                         "flake_tests": ["test_x.py::test_quick", "test_x.py::test_hangs"]})
+
+    def stage(name: str, source: str, tests: list[str]) -> tuple[dict, Path]:
+        (folder := tmp_path / name).mkdir()
+        (folder / "test_x.py").write_text(source, encoding="utf-8")
+        return fullsuite.flake_stage(meta := folder / "suite-k.meta", {"key": "k", "worktree": str(folder), "cap_s": 600,
+                                                                     "flake_tests": tests}), meta
+
+    with ThreadPoolExecutor() as pool:
+        hung = pool.submit(stage, "hung", (   # ids with spaces, as a parameter's may hold
+            "import subprocess, sys, time\nfrom pathlib import Path\n\nimport pytest\n\n\n@pytest.mark.parametrize('x', "
+            "['a b'])\ndef test_quick(x):\n    pass\n\n\n@pytest.mark.parametrize('x', ['c d'])\ndef test_hangs(x):\n"
+            "    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(600)'], start_new_session=True)"
+            "\n    Path(__file__).with_name('child').write_text(str(child.pid))\n    time.sleep(600)\n"),
+            ["test_x.py::test_quick", "test_x.py::test_hangs"])
+        late = pool.submit(stage, "late", (   # passes run 1; run 2 fails test_flaky and hangs in test_late
+            "import time\nfrom pathlib import Path\n\nRUNS = Path(__file__).with_name('runs')\n\n\ndef test_flaky():\n"
+            "    RUNS.write_text(str(n := int(RUNS.read_text() if RUNS.exists() else 0) + 1))\n"
+            "    assert n == 1, f'run {n} of the flaky test fails'\n\n\ndef test_late():\n"
+            "    if RUNS.read_text() != '1':\n        time.sleep(600)\n"), ["test_x.py::test_flaky", "test_x.py::test_late"])
+        (flake, meta), (flaked, _) = hung.result(), late.result()
     assert (flake["passed"], flake["done"], len(flake["walls"])) == (False, 0, 1)
     assert [(f["test"], f.get("capped")) for f in flake["failures"]] == [("test_x.py::test_hangs[c d]", True)]
     assert flake["walls"][0] < fullsuite.FLAKE_CAP and flake["wall_s"] < fullsuite.FLAKE_CAP + 5
     assert "test_x.py::test_hangs[c d] capped: no passing run within 15 s" in fullsuite.describe(
         {"key": "k", "subject": "s", "mode": "changed", "pytest_args": [], "state": "done", "exit_code": 0,
          "flake_tests": flake["tests"], "flake": flake}, meta)
-    child, deadline = int((tmp_path / "child").read_text()), time.time() + 10
+    assert (flaked["passed"], flaked["done"], len(flaked["walls"]), flaked["note"]) == (
+        False, 1, 2, "run 2 ended at the stage's 15 s")
+    assert [(f["test"], f["run"], f.get("capped")) for f in flaked["failures"]] == [("test_x.py::test_flaky", 2, None)]
+    assert "test_x.py::test_flaky FAILED" in "\n".join(flaked["failures"][0]["tail"])
+    child, deadline = int((tmp_path / "hung" / "child").read_text()), time.time() + 10
     while _running(child) and time.time() < deadline:
         time.sleep(0.1)
     assert not _running(child), "the ended run's child outlived it"
