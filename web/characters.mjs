@@ -30,7 +30,7 @@ const FROM = "From the front and from behind.";
 // A reshape's dress waits for the slider to rest, past Build's head start (D1014): beside a build's its GiBs pass 6
 // (D1017), so a Build clicked at the change, or running, goes first
 const SETTLE_MS = 3500;
-const PICTURES = 16;   // the exact pictures of the last shapes drawn, in this page
+const PICTURES = 16;   // the exact pictures of the last shapes drawn, and the last models' shipped ones, in this page
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
 const box = (v) => typeof v === "number" ? String(v) : v ?? "1";
@@ -49,7 +49,7 @@ const bytesOf = (data) => typeof data === "string" ? Uint8Array.from(atob(data),
 export function characters({ call, app, host, say, image, packs, changed, shared, settled, busy }) {
   const c = { character: { species: "garret4" }, view: null, manifest: null, why: null, ticket: 0, source: null,
               matching: false, choice: 0, drawn: null, opened: false, installing: null, filter: "", read: null, failed: null,
-              shown: null, pictures: new Map(), wanted: null, dressing: false, settling: null };
+              shown: null, pictures: new Map(), shipped: new Map(), wanted: null, dressing: false, settling: null };
   const fallback = () => host.catalog?.characters?.source ?? "";
   // Show objects (D1034): off by default, remembered: by the site in this browser's storage, by the app in its config.
   c.objects = app ? host.show_objects === true : (() => {
@@ -376,11 +376,19 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     c.shown = shown;
     $("char-previews").toggleAttribute("data-preview", Boolean(shown?.preview));
   };
-  const shippedViews = (file) => Promise.all(["front", "back"].map(async (view) => {
-    const reply = await fetch(`characters/${file}.${view}.png`);
-    if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
-    return createImageBitmap(await reply.blob());
-  }));
+  // A model's shipped pictures, decoded once and held (c.shipped: the last PICTURES models'), so its pick again, her own
+  // shape after a reshape and a shipped nearest shape show at once (D1011), with no request: the app serves them from
+  // its own process, which its other work there (a plan, a full collection of a big heap) can hold for seconds.
+  const shippedViews = async (file) => {
+    const views = await Promise.all(["front", "back"].map(async (view) => {
+      const reply = await fetch(`characters/${file}.${view}.png`);
+      if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
+      return createImageBitmap(await reply.blob());
+    }));
+    c.shipped.set(file, views);
+    if (c.shipped.size > PICTURES) c.shipped.delete(c.shipped.keys().next().value);
+    return views;
+  };
   const answerViews = (reply) => Promise.all(["front", "back"].map((view) => createImageBitmap(new Blob(
     [bytesOf(reply[view])], { type: "image/png" }))));
 
@@ -399,7 +407,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
     marked(null);
     if (file) {
       try {
-        const views = await shippedViews(file);
+        const views = c.shipped.get(file) ?? await shippedViews(file);   // held: drawn in this call
         if (c.drawn !== key) return;
         put(views);
         marked(plain);
@@ -449,7 +457,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
         gap = away(shapes, kept.shapes);
       }
     }
-    const views = near?.views ?? (file ? await shippedViews(file).catch(() => null) : null);
+    const views = near?.views ?? (file ? c.shipped.get(file) ?? await shippedViews(file).catch(() => null) : null);
     if (c.drawn !== key) return;
     put(views);
     if (views) marked({ name, shape, preview: true });

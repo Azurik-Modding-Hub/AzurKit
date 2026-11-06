@@ -3268,7 +3268,8 @@ def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_
     slider rests and no Build runs, one dress at a time for the shape asked
     last, and replace it, unmarked; a refused dress leaves the Preview marked,
     saying why; the same shape again is exact at once with no ask, her own
-    shape her shipped pictures, and a build's character holds the shapes."""
+    shape her shipped pictures, held since her pick (drawn in the move's own
+    call, with no request), and a build's character holds the shapes."""
     _home(monkeypatch, tmp_path / "home")
     view = sdk.pickers({"iso": None, "character": {"species": "garret4"}})
     view["chosen"] |= {"name": "booblord", "variant": "booblord", "shapes": [{"name": "bust", "title": "Bust size"}]}
@@ -3339,8 +3340,9 @@ def test_a_reshape_shows_the_nearest_shape_marked_preview_at_once_and_its_exact_
         page.evaluate(moved, "1.3")
         _page.until(page, shows(1.3, False), 10)
         assert page.evaluate(pixels) == exact and len(asked) == 2
-        page.evaluate(moved, "1")
-        _page.until(page, shows(None, False), 10)
+        # her own shape: drawn in the move's own call, no request (run 42122369507's Intel runner waited past 10 s for
+        # her pictures from the app's server, which runs in this process)
+        assert page.evaluate(f"(value) => {{ ({moved})(value); return ({shows(None, False)})(); }}", "1")
         assert page.evaluate(pixels) == hers and len(asked) == 2
 
         page.evaluate(moved, "1.4")
