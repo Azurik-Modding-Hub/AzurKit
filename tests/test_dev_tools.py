@@ -307,17 +307,29 @@ def test_the_flake_stage_takes_the_tests_a_stack_added_or_edited_and_only_in_a_c
 def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_passes_a_steady_one(tmp_path,
                                                                                                   monkeypatch):
     """Once the selected tests pass, the flake stage runs the tests a stack
-    added or edited FLAKE_RUNS times at CI's pace (``taskpolicy -b`` and
-    nice 19 on macOS, busy loops beside it) on FLAKE_WORKERS: a test that
-    fails one run in three fails the receipt at its third run by its name
-    with its output's tail, and no perf stage runs; a steady one passes
-    every run. The receipt keeps the stage: its tests, runs and wall time."""
-    assert fullsuite.slowed() == ["taskpolicy", "-b"] * (sys.platform == "darwin") + fullsuite.niced(19)
-    assert fullsuite.flake_command(["t"])[-3:] == ["-rfE", "--numprocesses=2", "--dist=loadgroup"]   # no --browsers
-    monkeypatch.setattr(fullsuite, "slowed", lambda: fullsuite.niced(19))   # taskpolicy -b: seconds a pytest start
+    added or edited FLAKE_RUNS times at CI's pace on FLAKE_WORKERS: on macOS
+    under ``taskpolicy -b`` and nice 19 beside FLAKE_LOOPS at nice 10 if a
+    probe under it ends within FLAKE_QUIET (a busy box starves it), else
+    under the utility clamp beside FLAKE_UTILITY_LOOPS of its class;
+    elsewhere under nice 19. A test that fails one run in three fails the
+    receipt at its third run by its name with its output's tail, and no
+    perf stage runs; a steady one passes every run. The receipt keeps the
+    stage: its tests, runs, and each run's wall time and slowing."""
+    options, utility = fullsuite.slowings(), ["taskpolicy", "-c", "utility", *fullsuite.niced(19)]
+    assert options == ([(["taskpolicy", "-b", *fullsuite.niced(19)], fullsuite.niced(10), fullsuite.FLAKE_LOOPS),
+                        (utility, utility, fullsuite.FLAKE_UTILITY_LOOPS)] if sys.platform == "darwin" else
+                       [(fullsuite.niced(19), fullsuite.niced(10), fullsuite.FLAKE_LOOPS)])
+    monkeypatch.setattr(fullsuite, "FLAKE_QUIET", 0.001)   # a busy box: no probe ends in time
+    assert fullsuite.slowed() == (options[-1], {" ".join(option[0]): None for option in options[:-1]})
+    monkeypatch.setattr(fullsuite, "FLAKE_QUIET", 60)
+    monkeypatch.setattr(fullsuite, "PROBE", "pass")
+    option, probes = fullsuite.slowed()
+    assert option == options[0] and list(probes) == [" ".join(o[0]) for o in options[:-1]][:1] and all(probes.values())
+    assert fullsuite.flake_command(["t"], [])[-3:] == ["-rfE", f"--numprocesses={fullsuite.FLAKE_WORKERS}",
+                                                       "--dist=loadgroup"]   # no --browsers
+    monkeypatch.setattr(fullsuite, "slowed", lambda: ((fullsuite.niced(19), fullsuite.niced(10), 1), {}))
     monkeypatch.setattr(fullsuite, "PYTEST", (sys.executable, "-m", "pytest", "-p", "no:cacheprovider"))
     monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 0)   # in the run's own process: xdist's start is most of a run
-    monkeypatch.setattr(fullsuite, "FLAKE_LOOPS", 1)
     monkeypatch.setattr(fullsuite, "perf_stage", lambda meta, m: pytest.fail("a perf stage after a failed flake stage"))
     (tmp_path / "test_x.py").write_text(
         "from pathlib import Path\n\nRUNS = Path(__file__).with_name('runs')\n\n\ndef test_flaky():\n"
@@ -329,7 +341,7 @@ def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_pa
                                 "flake_tests": ["test_x.py::test_flaky", "test_x.py::test_steady"]})
     flake = m["flake"]
     assert fullsuite.load(meta)["state"] == "flake"   # saved as it ran
-    assert (flake["passed"], flake["runs"], flake["done"]) == (False, fullsuite.FLAKE_RUNS, 3)
+    assert (flake["passed"], flake["runs"], flake["done"], len(flake["walls"])) == (False, fullsuite.FLAKE_RUNS, 3, 3)
     assert flake["tests"] == m["flake_tests"] and flake["wall_s"] > 0 and "perf" not in m
     assert [(f["test"], f["run"]) for f in flake["failures"]] == [("test_x.py::test_flaky", 3)]
     assert "run 3 of the flaky test fails" in "\n".join(flake["failures"][0]["tail"])
@@ -338,6 +350,76 @@ def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_pa
     assert "test_x.py::test_flaky failed in run 3" in fullsuite.describe(done, meta)
     steady = fullsuite.flake_stage(meta, m | {"flake_tests": ["test_x.py::test_steady"]})
     assert (steady["passed"], steady["done"], steady["failures"]) == (True, fullsuite.FLAKE_RUNS, [])
+
+
+def _quick_flake(monkeypatch) -> None:
+    """The flake stage's runs in their pytest's own process (xdist's start is most of a run), slowed by nice alone."""
+    monkeypatch.setattr(fullsuite, "slowed", lambda: ((fullsuite.niced(19), fullsuite.niced(10), 0), {}))
+    monkeypatch.setattr(fullsuite, "PYTEST", (sys.executable, "-m", "pytest", "-p", "no:cacheprovider"))
+    monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 0)
+
+
+def test_the_flake_stage_builds_nothing_again_that_the_gates_run_built(tmp_path, monkeypatch):
+    """The gate's run and its flake stage share one build cache
+    (``web_tools.kept``, ``<meta>.cache``): a stand-in for the site's wheel
+    and database, built by a session fixture through it, is built once
+    across the gate's run and the stage's five, never again slowed (an
+    unshared one took more than 900 s under ``taskpolicy -b`` at load 50, so
+    every case errored at setup, Step 4.4dx4); the cache goes with the run."""
+    _quick_flake(monkeypatch)
+    monkeypatch.setattr(fullsuite, "WORKERS", 0)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
+    (tmp_path / "conftest.py").write_text(
+        "from pathlib import Path\n\nimport pytest\n\nfrom scripts import web_tools\n\nBUILDS = Path(__file__).with_name("
+        "'builds')\n\n\ndef build(out):\n    BUILDS.write_text(str(int(BUILDS.read_text() if BUILDS.exists() else 0) + 1))"
+        "\n    out.mkdir(parents=True, exist_ok=True)\n    (made := out / 'wheel.whl').write_bytes(b'built')\n    return made"
+        "\n\n\n@pytest.fixture(scope='session')\ndef wheel(tmp_path_factory):\n    return web_tools.kept('wheel', 'k', "
+        "tmp_path_factory.mktemp('wheel'), build)\n", encoding="utf-8")
+    (tmp_path / "test_x.py").write_text("def test_site(wheel):\n    assert wheel.read_bytes() == b'built'\n",
+                                        encoding="utf-8")
+    meta = tmp_path / "suite-k.meta"
+    m = fullsuite.run(meta, {"key": "k", "subject": "s", "mode": "changed", "worktree": str(tmp_path), "browsers": "all",
+                             "pytest_args": ["test_x.py"], "perf_args": [], "flake_tests": ["test_x.py::test_site"]})
+    assert (m["state"], m["exit_code"], m["flake"]["passed"], m["flake"]["done"]) == ("done", 0, True, fullsuite.FLAKE_RUNS)
+    assert (tmp_path / "builds").read_text() == "1" and not meta.with_suffix(".cache").exists()
+
+
+def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_its_unpassed_cases_as_capped(
+        tmp_path, monkeypatch):
+    """The stage's wall is FLAKE_CAP: a run still going at it is ended with
+    every process under it (here a child in a session of its own, as
+    Playwright starts a browser), and each case that never passed fails the
+    stage by name as capped, never a silent pass; a case that passed before
+    the cap isn't named. The receipt keeps the run's wall time."""
+    _quick_flake(monkeypatch)
+    monkeypatch.setattr(fullsuite, "FLAKE_CAP", 15)
+    (tmp_path / "test_x.py").write_text(   # ids with spaces, as a parameter's may hold
+        "import subprocess, sys, time\nfrom pathlib import Path\n\nimport pytest\n\n\n@pytest.mark.parametrize('x', ['a b'])"
+        "\ndef test_quick(x):\n    pass\n\n\n@pytest.mark.parametrize('x', ['c d'])\ndef test_hangs(x):\n"
+        "    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(600)'], start_new_session=True)\n"
+        "    Path(__file__).with_name('child').write_text(str(child.pid))\n    time.sleep(600)\n", encoding="utf-8")
+    meta = tmp_path / "suite-k.meta"
+    flake = fullsuite.flake_stage(meta, {"key": "k", "worktree": str(tmp_path), "cap_s": 600,
+                                         "flake_tests": ["test_x.py::test_quick", "test_x.py::test_hangs"]})
+    assert (flake["passed"], flake["done"], len(flake["walls"])) == (False, 0, 1)
+    assert [(f["test"], f.get("capped")) for f in flake["failures"]] == [("test_x.py::test_hangs[c d]", True)]
+    assert flake["walls"][0] < fullsuite.FLAKE_CAP and flake["wall_s"] < fullsuite.FLAKE_CAP + 5
+    assert "test_x.py::test_hangs[c d] capped: no passing run within 15 s" in fullsuite.describe(
+        {"key": "k", "subject": "s", "mode": "changed", "pytest_args": [], "state": "done", "exit_code": 0,
+         "flake_tests": flake["tests"], "flake": flake}, meta)
+    child, deadline = int((tmp_path / "child").read_text()), time.time() + 10
+    while _running(child) and time.time() < deadline:
+        time.sleep(0.1)
+    assert not _running(child), "the ended run's child outlived it"
+
+
+def _running(pid: int) -> bool:
+    """Whether the process ``pid`` runs (a zombie, ended and not yet reaped, doesn't)."""
+    if os.name == "nt":
+        return f" {pid} " in subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True,
+                                            text=True).stdout
+    return subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()[:1] not in (
+        "", "Z")
 
 
 def test_the_perf_gate_fails_an_unlisted_slow_op_reruns_a_spike_and_its_list_only_shrinks():

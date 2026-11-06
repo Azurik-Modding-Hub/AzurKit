@@ -1659,13 +1659,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   says which (`browsers`). Once a changed-area run's tests pass, its flake
   stage (Step 4.4dx2) runs each test function the stack adds or edits (a
   `def test*` whose source differs from the base's; a helper's change adds
-  none) 5 times at CI's runners' pace: `taskpolicy -b` and nice 19 on macOS
-  (nice 19 elsewhere), 4 busy loops beside it, on 2 workers, in every
-  browser its parameters name. A failure fails the receipt with the test,
-  the run and its output's tail; the receipt's `flake` block keeps the
-  tests, runs and wall time; no run starts once the stage's time and its
-  longest run pass 600 s, and past 20 tests each runs once (the block says
-  so); `land.py` needs it passed. A whole run has none. A run is killed past its
+  none) 5 times at CI's Intel runners' pace, on 3 workers, in every
+  browser its parameters name (Step 4.4dx4): on macOS each run under
+  `taskpolicy -b` and nice 19 beside 4 busy loops at nice 10 when a CPU
+  probe under it ends within 3 s (a quiet box), else under `taskpolicy -c
+  utility` and nice 19 beside 12 busy loops of that class (on a busy box
+  `taskpolicy -b` starves: past 900 s for builds of 8 s, false failures);
+  nice 19 and 4 loops elsewhere. Nothing built once is built slowed: the
+  gate's run and the stage share one build cache (`web_tools.CACHE`,
+  `<meta>.cache`), so the stage copies the run's wheel and database. A
+  failure fails the receipt with the test, the run and its output's tail;
+  the stage's wall is 840 s: no run starts that its longest so far won't
+  fit in, a run still going at it is ended with every process under it,
+  and each case with no passing run by then fails the receipt by name,
+  capped; past 20 tests each runs once (the block says so); the receipt's
+  `flake` block keeps the tests, runs, each run's wall time and slowing;
+  `land.py` needs it passed. A whole run has none. A run is killed past its
   cap, 1,800 s, scaled by the host's load per CPU up to twice that, and its log
   ends with the slowest tests. `--wait 540` waits for the result; exit 3 means
   it is still running, so issue the same command again.

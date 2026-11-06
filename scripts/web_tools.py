@@ -67,6 +67,12 @@ not as a page, a script or an XML document the browser renders (where an
 XHTML ``<script>`` runs) on the site's own origin, outside the page's CSP.
 A Jekyll build renders any text kind with front matter (a ``.json``,
 ``.gltf`` or ``.md``) as a page: :func:`site`'s ``.nojekyll`` turns it off."""
+CACHE = "AZURKIT_BUILD_CACHE"
+"""The variable naming a folder that keeps what :func:`wheel` and
+:func:`ship_database` build, by their inputs' sha256 (:func:`kept`): the
+gate's run and its flake stage share one (``scripts/fullsuite.py``), so the
+stage's slowed runs copy the gate's wheel and database, never build them
+again at CI's pace (Step 4.4dx4). Unset: each call builds."""
 WORKER = "sw.js"   # the site's service worker (D1013): web/sw.js, with the release site() lists in it
 RELEASE_LINE = "const RELEASE = null;"
 """The line of ``web/sw.js`` :func:`site` writes the release into: the
@@ -196,7 +202,58 @@ def fetch_browser(engine: str, root: Path = ROOT) -> Path:
     return browser_dir(engine, root)
 
 
+def digest(*parts: Path | str) -> str:
+    """The sha256 (32 hex digits) of ``parts``: a folder's files (each one's
+    path under it and bytes; ``__pycache__`` left out), a file's bytes (a
+    missing one its name alone), a string as it is."""
+    h = hashlib.sha256()
+    for part in parts:
+        if isinstance(part, str):
+            h.update(b"s\0" + part.encode() + b"\0")
+        elif part.is_dir():
+            for path in sorted(part.rglob("*")):
+                if path.is_file() and "__pycache__" not in path.parts:
+                    h.update(f"f\0{path.relative_to(part).as_posix()}\0".encode())
+                    h.update(hashlib.sha256(path.read_bytes()).digest())
+        else:
+            h.update(f"p\0{part.name}\0".encode())
+            h.update(hashlib.sha256(part.read_bytes()).digest() if part.is_file() else b"")
+    return h.hexdigest()[:32]
+
+
+def kept(kind: str, key: str, out: Path, build) -> Path:
+    """``build(out)``'s file, built once a ``key`` while :data:`CACHE` names
+    a folder: the first call builds it, under a lock its other callers wait
+    on, and keeps a copy in ``<folder>/<kind>-<key>/``; each later one copies
+    that into ``out``. Unset, it builds."""
+    if not (folder := os.environ.get(CACHE)):
+        return build(out)
+    shelf = Path(folder) / f"{kind}-{key}"
+    shelf.mkdir(parents=True, exist_ok=True)
+    with open(shelf / ".lock", "a") as lock:
+        if os.name == "posix":   # elsewhere two first calls both build: the copy's replace is atomic
+            import fcntl
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        if not (have := [p for p in shelf.iterdir() if not p.name.startswith(".")]):
+            made = build(out)
+            shutil.copyfile(made, part := shelf / f".{made.name}.part")
+            os.replace(part, shelf / made.name)
+            return made
+    out.mkdir(parents=True, exist_ok=True)
+    return Path(shutil.copyfile(have[0], out / have[0].name))
+
+
 def wheel(out: Path, root: Path = ROOT) -> Path:
+    """:func:`_wheel`, kept by its inputs (:func:`kept`): the files under
+    ``src/``, those the wheel's metadata names, this module and the commit
+    it stamps."""
+    import azurkit
+    key = digest(root / "src", *(root / name for name in ("pyproject.toml", "README.md", "LICENSE", "NOTICE.md")),
+                 Path(__file__), azurkit.head(root) or "", sys.version)
+    return kept("wheel", key, out, lambda out: _wheel(out, root))
+
+
+def _wheel(out: Path, root: Path = ROOT) -> Path:
     """The checkout's wheel, built into ``out``, with what lets its engine
     start at once (Step 4.3g): each module's bytecode
     (``__pycache__/<name>.cpython-314.pyc``, unchecked-hash, so Pyodide
@@ -272,6 +329,14 @@ def install(wheel: Path, venv: Path, root: Path = ROOT, env: dict[str, str] | No
 
 
 def ship_database(out: Path, path: Path | None = None, planner: bool = True) -> Path:
+    """:func:`_ship_database`, kept by its inputs (:func:`kept`): the files
+    of the package it imports, ``planner`` and this module."""
+    package = path / "azurkit" if path is not None else Path(importlib.util.find_spec("azurkit").origin).parent
+    key = digest(package, f"planner={planner}", Path(__file__), sys.version)
+    return kept("database", key, out, lambda out: _ship_database(out, path, planner))
+
+
+def _ship_database(out: Path, path: Path | None = None, planner: bool = True) -> Path:
     """The checked randomizer database (``dbcache.ship``) written into the
     folder ``out`` by a child Python under PYTHONHASHSEED=0 (never ``-I``,
     which ignores it), importing the package from ``path`` (an unpacked

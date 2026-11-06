@@ -31,10 +31,12 @@ whole one in every browser (D970); the meta's ``browsers`` says which.
 Once a changed-area run's pytest passes, its flake stage (Step 4.4dx2,
 :func:`flake_stage`) runs each test function the changes add or edit
 (:func:`edited_tests`: a changed ``def test*``, not a helper)
-:data:`FLAKE_RUNS` times at CI's runners' pace, inside the same lock; a
-failure fails the receipt with the test, the run and its output's tail,
-and the receipt's ``flake`` block keeps the tests, runs and wall time. A
-whole run has none.
+:data:`FLAKE_RUNS` times at CI's runners' pace (:func:`slowed`), inside the
+same lock and within :data:`FLAKE_CAP`, copying the wheel and database the
+run built (its build cache, ``<meta>.cache``); a failure fails the receipt
+with the test, the run and its output's tail, as does a case with no
+passing run by the cap, and the receipt's ``flake`` block keeps the tests,
+runs, each run's wall time and slowing. A whole run has none.
 
 Once pytest (and a flake stage) passes, the perf stage runs inside the same lock (D981,
 ``scripts/perf.py``): the player-facing ops the changes reach (perf.py's
@@ -64,6 +66,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -72,6 +75,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import perf  # noqa: E402
+import web_tools  # noqa: E402
 
 LINT = ("tests/test_contracts.py", "tests/test_leak_guard.py")
 #: It reads every tracked text file, whatever changed (a workflow, a kernel, a comment).
@@ -114,12 +118,19 @@ PYTEST = ("uv", "run", "--locked", "pytest")   # the worktree's own pytest (uv f
 #: The flake stage (Step 4.4dx2): most lost CI rounds were tests a stack had just added or edited that failed only on
 #: CI's slow runners, so a changed-area run runs each such test again and again at their pace.
 FLAKE_RUNS = 5      # one that fails a run in three passes all five 13 % of the time ((2/3)^5); a run is a pytest start
-FLAKE_WORKERS = 2   # tests.yml runs a runner's tier on 1-3 workers
-FLAKE_LOOPS = 4     # busy loops beside it: the pure tier slowed so took 39 min here, CI's 36 (Step 4.4ci27)
-FLAKE_CAP = 600     # no run starts past it: a changed run took 190-506 s (most of 40 receipts), a whole one 625-1056
+FLAKE_WORKERS = 3   # tests.yml runs the pure tier, the page's tests in it, on 3 workers on CI's Intel runners
+FLAKE_LOOPS = 4     # busy loops at nice 10 beside taskpolicy -b: the pure tier so took 39 min here, CI's 36 (4.4ci27)
+FLAKE_UTILITY_LOOPS = 12  # busy loops in its class beside the utility clamp: about CI's Intel pace at load 60 (4.4dx4)
+FLAKE_QUIET = 3.0   # s: PROBE's most under taskpolicy -b for a run to start under it (slowed(); Step 4.4dx4)
+PROBE = "for _ in range(600):\n    sum(range(200000))\n"   # 0.86 s here at nice 10 on an idle performance core
+FLAKE_CAP = 840     # the stage's wall: a run still going at it is ended, and none starts its longest so far won't fit in
 FLAKE_MANY = 20     # past this many tests, five runs can't fit the cap: each runs once, slowed, and the receipt says so
 FLAKE_TAIL = 40     # a failing run's last lines in the receipt, each cut at 240 characters
 FAILED = re.compile(r"^(?:FAILED|ERROR) (\S+)", re.M)
+#: A case's outcome in a verbose run's output, as xdist's workers print it (``[gw0] [ 50%] PASSED t.py::t[x]``) or
+#: pytest alone (``t.py::t[x] PASSED [ 50%]``); a case's id may hold spaces (``t.py::t[a linked folder]``).
+OUTCOME = re.compile(r"^\[gw\d+\] \[ *\d+%\] (PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS) (\S+::.*?) *$"
+                     r"|^(\S+::.*?) (PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b", re.M)
 #: A busy loop that ends itself once its runner is gone or at its deadline, so none outlives a killed run.
 LOOP = ("import os, time\nparent, end = os.getppid(), time.time() + {secs}\n"
         "while os.getppid() == parent and time.time() < end:\n    sum(range(100000))\n")
@@ -571,9 +582,12 @@ def describe(m: dict, meta: Path) -> str:
         f = m.get("flake") or {}
         line += (f"\n  flake {len(m['flake_tests'])} tests x {f.get('runs', FLAKE_RUNS)} slowed: " + (
             "not run" if not f else f"{'passed' if f.get('passed') else 'failed'}, {f.get('done')} runs in "
-                                    f"{f.get('wall_s')} s" + (f" ({f['note']})" if f.get("note") else "")))
+                                    f"{f.get('wall_s')} s" + (f" (each {', '.join(map(str, f['walls']))} s)"
+                                                              if f.get("walls") else "")
+                                    + (f" ({f['note']})" if f.get("note") else "")))
         for failure in f.get("failures", [])[:12]:
-            line += f"\n    {failure['test']} failed in run {failure['run']}"
+            line += f"\n    {failure['test']} " + (f"capped: no passing run within {f.get('cap_s')} s"
+                                                   if failure.get("capped") else f"failed in run {failure['run']}")
         line += "".join(f"\n      {tail}" for tail in (f.get("failures") or [{}])[0].get("tail", [])[-12:])
     if m.get("perf_args"):
         p = m.get("perf") or {}
@@ -617,9 +631,11 @@ def prepare(wt: Path, changed_area: bool, base_ref: str) -> dict:
             "branch": git(wt, "branch", "--show-current").strip(), "subject": git(wt, "log", "-1", "--format=%s").strip()}
 
 
-def _env() -> dict[str, str]:
-    """This environment for a run in another worktree: uv finds that one's own."""
-    return {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+def _env(cache: Path | None = None) -> dict[str, str]:
+    """This environment for a run in another worktree: uv finds that one's
+    own; with ``cache``, the folder its wheel and database builds keep their
+    files in (``web_tools.CACHE``)."""
+    return {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"} | ({web_tools.CACHE: str(cache)} if cache else {})
 
 
 def lint(wt: Path) -> tuple[bool, str]:
@@ -633,7 +649,7 @@ def command(m: dict) -> list[str]:
     changed-area run's browsers, on :data:`WORKERS` workers, and the slowest
     tests at the log's end."""
     browsers = [f"--browsers={','.join(m['browsers'])}"] if isinstance(m.get("browsers"), list) else []
-    return ["nice", "-n", "10", *PYTEST, *m["pytest_args"], *browsers,
+    return [*niced(10), *PYTEST, *m["pytest_args"], *browsers,
             f"--numprocesses={WORKERS}", "--dist=loadgroup", DURATIONS]
 
 
@@ -642,21 +658,85 @@ def niced(level: int) -> list[str]:
     return ["nice", "-n", str(level)] if os.name == "posix" else []
 
 
-def slowed() -> list[str]:
-    """The prefix that runs a command at CI's runners' pace (Step 4.4ci27):
-    macOS's lowest CPU and I/O priority (``taskpolicy -b``) under nice 19,
-    nice 19 elsewhere."""
-    return [*(["taskpolicy", "-b"] if sys.platform == "darwin" else []), *niced(19)]
+def slowings() -> list[tuple[list[str], list[str], int]]:
+    """The flake runs' slowings, slowest first: each run's prefix, its busy
+    loops' prefix and how many. On macOS its background policy
+    (``taskpolicy -b``: the efficiency cores alone, at the lowest CPU and I/O
+    priority) under nice 19 beside :data:`FLAKE_LOOPS` at nice 10, then its
+    utility clamp (``taskpolicy -c utility``) under nice 19 beside
+    :data:`FLAKE_UTILITY_LOOPS` in that class; elsewhere nice 19 beside
+    :data:`FLAKE_LOOPS` at nice 10."""
+    if sys.platform != "darwin":
+        return [(niced(19), niced(10), FLAKE_LOOPS)]
+    utility = ["taskpolicy", "-c", "utility", *niced(19)]
+    return [(["taskpolicy", "-b", *niced(19)], niced(10), FLAKE_LOOPS), (utility, utility, FLAKE_UTILITY_LOOPS)]
 
 
-def flake_command(tests: list[str]) -> list[str]:
+def slowed() -> tuple[tuple[list[str], list[str], int], dict[str, float | None]]:
+    """The slowing (:func:`slowings`) that runs a flake run at about CI's
+    Intel runners' pace, and what chose it: the first whose :data:`PROBE`
+    (a fixed CPU-bound loop timed under it) ends within
+    :data:`FLAKE_QUIET`, else the last; ``{prefix: the probe's s, None past
+    the bound}``. ``taskpolicy -b`` keeps CI's pace on a quiet box, but on a
+    busy one its processes starve behind every other's: its one-time builds
+    took over 900 s where they take 8 s, and at load 45 two runs of two
+    tests that pass in 48 s ended at 240-300 s with 1 case of 6 passed and 3
+    failed (Step 4.4dx4), while the utility clamp ran them at CI's pace."""
+    options, probed = slowings(), {}
+    for option in options[:-1]:
+        t0 = time.time()
+        try:
+            subprocess.run([*option[0], sys.executable, "-I", "-c", PROBE], stdin=subprocess.DEVNULL,
+                           capture_output=True, timeout=FLAKE_QUIET)
+            probed[" ".join(option[0])] = round(time.time() - t0, 2)
+            return option, probed
+        except subprocess.TimeoutExpired:
+            probed[" ".join(option[0])] = None
+    return options[-1], probed
+
+
+def flake_command(tests: list[str], prefix: list[str]) -> list[str]:
     """A flake run's pytest command: the tests in every browser their
-    parameters name (no ``--browsers``), slowed, on :data:`FLAKE_WORKERS`."""
-    return [*slowed(), *PYTEST, *tests, "-rfE", f"--numprocesses={FLAKE_WORKERS}", "--dist=loadgroup"]
+    parameters name (no ``--browsers``), under ``prefix`` (:func:`slowed`),
+    on :data:`FLAKE_WORKERS`, each case's outcome on a line as it ends
+    (``-v``, :data:`OUTCOME`)."""
+    return [*prefix, *PYTEST, *tests, "-v", "-rfE", f"--numprocesses={FLAKE_WORKERS}", "--dist=loadgroup"]
+
+
+def descendants(pid: int) -> list[int]:
+    """The processes under ``pid`` (POSIX ``ps``'s parent ids): its children, theirs and so on."""
+    rows = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True).stdout.split()
+    children: dict[int, list[int]] = {}
+    for child, parent in zip(rows[::2], rows[1::2]):
+        children.setdefault(int(parent), []).append(int(child))
+    found, todo = [], [pid]
+    while todo:
+        found += (more := children.get(todo.pop(), []))
+        todo += more
+    return found
+
+
+def end(proc: subprocess.Popen) -> int:
+    """End a run started in a session of its own: it, every process under it
+    (its workers and drivers, and the browsers Playwright starts in
+    sessions of their own) and its session's group; its exit code."""
+    if os.name != "posix":   # Windows: taskkill ends its tree
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+        return proc.wait()
+    for pid in [proc.pid, *descendants(proc.pid)]:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except OSError:
+        pass
+    return proc.wait()
 
 
 def runner(meta: Path) -> int:
-    """The detached run: wait for the lock, run pytest, write the receipt."""
+    """The detached run: wait for the lock, then :func:`run`."""
     import fcntl   # POSIX's: only the run locks (the module loads on Windows)
 
     deadline = time.time() + 60
@@ -666,18 +746,27 @@ def runner(meta: Path) -> int:
         time.sleep(0.05)
     with open(meta.parent / "lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        load5 = os.getloadavg()[1]
-        m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5)}
-        save(meta, m)
-        t0, capped = time.time(), False
+        run(meta, m)
+    return 0
+
+
+def run(meta: Path, m: dict) -> dict:
+    """Run pytest, then its :func:`stages`, and write the receipt. The run
+    and its flake stage share one build cache (``<meta>.cache``, removed
+    after), so the stage's slowed runs copy the wheel and database the run
+    built (``web_tools.kept``)."""
+    load5 = os.getloadavg()[1] if hasattr(os, "getloadavg") else 0.0
+    m |= {"state": "running", "started_at": now(), "load": round(load5, 1), "cap_s": cap(load5)}
+    save(meta, m)
+    t0, capped, cache = time.time(), False, meta.with_suffix(".cache")
+    try:
         with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
             proc = subprocess.Popen(command(m), cwd=m["worktree"], stdout=log, stderr=subprocess.STDOUT,
-                                    start_new_session=True, env=_env())
+                                    start_new_session=True, env=_env(cache))
             try:
                 code = proc.wait(timeout=m["cap_s"])
             except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGKILL)
-                code, capped = proc.wait(), True
+                code, capped = end(proc), True
         text = meta.with_suffix(".log").read_text(encoding="utf-8", errors="replace")
         tiers = dict(TIER.findall(text))
         summary = SUMMARY.findall(text)
@@ -686,9 +775,11 @@ def runner(meta: Path) -> int:
               "europe_run": int(tiers["europe"]) if "europe" in tiers else None}
         if code == 0 and not capped:
             m = stages(meta, m)
-        m |= {"state": "capped" if capped else "done", "finished_at": now()}
-        save(meta, m)
-    return 0
+    finally:
+        shutil.rmtree(cache, ignore_errors=True)
+    m |= {"state": "capped" if capped else "done", "finished_at": now()}
+    save(meta, m)
+    return m
 
 
 def stages(meta: Path, m: dict) -> dict:
@@ -705,50 +796,78 @@ def stages(meta: Path, m: dict) -> dict:
 
 def flake_stage(meta: Path, m: dict) -> dict:
     """The flake block: ``m["flake_tests"]`` run :data:`FLAKE_RUNS` times
-    (once past :data:`FLAKE_MANY` tests) by :func:`flake_command`, beside
-    :data:`FLAKE_LOOPS` busy loops at the gate's nice 10, each run's output
-    appended to the log. It stops at the first failing run, naming each test
-    it failed (or the run, killed past the run's cap ``m["cap_s"]``) with
-    the output's tail, and starts no run once the stage's time and its
-    longest run pass :data:`FLAKE_CAP`; the block says so."""
-    tests, t0, walls = m["flake_tests"], time.time(), []
+    (once past :data:`FLAKE_MANY` tests) by :func:`flake_command`, each
+    under the slowing :func:`slowed` picks as it starts, beside that
+    slowing's busy loops, each run's output appended to the log and its wall
+    time and slowing kept. Nothing built once is built
+    slowed: the runs copy the wheel and database the gate's run built (its
+    cache, ``<meta>.cache``: ``web_tools.kept``), and their cases are
+    collected first at the gate's nice 10. It stops at the first failing
+    run, naming each test it failed with the output's tail. The stage's wall
+    is :data:`FLAKE_CAP`: no run starts that its longest run so far won't
+    fit in, and a run still going at it is ended with every process under
+    it (:func:`end`); each case with no passing run by then fails the block
+    by name, capped."""
+    tests, t0 = m["flake_tests"], time.time()
+    deadline, out = t0 + FLAKE_CAP, meta.with_suffix(".flake.out")
+    env = _env(meta.with_suffix(".cache")) | {"PYTHONUNBUFFERED": "1"}   # each outcome's line out before an end
     block = {"tests": tests, "runs": 1 if len(tests) > FLAKE_MANY else FLAKE_RUNS, "done": 0, "failures": [],
-             "workers": FLAKE_WORKERS, "loops": FLAKE_LOOPS, "slowed": " ".join(slowed())}
+             "walls": [], "slowed": [], "workers": FLAKE_WORKERS, "cap_s": FLAKE_CAP}
     if block["runs"] < FLAKE_RUNS:
         block["note"] = f"{len(tests)} tests, past {FLAKE_MANY}: one slowed run each"
-    loop, loops, out = LOOP.format(secs=FLAKE_CAP + m["cap_s"] + 60), [], meta.with_suffix(".flake.out")
     try:
-        for _ in range(FLAKE_LOOPS):
-            loops.append(subprocess.Popen([*niced(10), sys.executable, "-c", loop], stdin=subprocess.DEVNULL,
-                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        listed = subprocess.run([*niced(10), *PYTEST, "--collect-only", "-q", *tests], cwd=m["worktree"], text=True,
+                                capture_output=True, stdin=subprocess.DEVNULL, env=env, timeout=FLAKE_CAP)
+        code, ids, said = listed.returncode, listed.stdout, listed.stdout + listed.stderr
+    except subprocess.TimeoutExpired:
+        code, ids, said = f"past {FLAKE_CAP} s", "", ""
+    if code or not (cases := re.findall(r"^(\S+::.*?) *$", ids, re.M)):
+        tail = [line[:240] for line in said.splitlines()[-FLAKE_TAIL:]]
+        block["failures"] = [{"test": f"(their collection: exit {code})", "run": 0, "tail": tail}]
+        return block | {"passed": False, "wall_s": round(time.time() - t0, 1)}
+    block["cases"], passed, tail = len(cases), set(), []
+    loop, loops = LOOP.format(secs=FLAKE_CAP + 60), []
+    try:
         for run in range(1, block["runs"] + 1):
-            if walls and time.time() - t0 + max(walls) > FLAKE_CAP:
+            if block["walls"] and time.time() + max(block["walls"]) > deadline:
                 block["note"] = f"{run - 1} of {block['runs']} runs within the stage's {FLAKE_CAP} s"
                 break
-            t1, capped = time.time(), False
+            (prefix, beside, count), probed = slowed()
+            slowing = f"{' '.join(prefix)}, {count} loops at {' '.join(beside) or 'its own priority'}"
+            block["slowed"].append({"slowing": slowing, "probes": probed})
+            loops = [subprocess.Popen([*beside, sys.executable, "-c", loop], stdin=subprocess.DEVNULL,
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) for _ in range(count)]
+            t1, ended, command = time.time(), False, flake_command(tests, prefix)
             with open(out, "w", encoding="utf-8") as sink:
-                proc = subprocess.Popen(flake_command(tests), cwd=m["worktree"], stdout=sink, stderr=subprocess.STDOUT,
-                                        stdin=subprocess.DEVNULL, start_new_session=True, env=_env())
+                proc = subprocess.Popen(command, cwd=m["worktree"], stdout=sink, stderr=subprocess.STDOUT,
+                                        stdin=subprocess.DEVNULL, start_new_session=True, env=env)
                 try:
-                    code = proc.wait(timeout=m["cap_s"])
+                    code = proc.wait(timeout=max(0.1, deadline - time.time()))
                 except subprocess.TimeoutExpired:
-                    if os.name == "posix":   # its workers and browsers too: its session
-                        os.killpg(proc.pid, signal.SIGKILL)
-                    else:
-                        proc.kill()
-                    code, capped = proc.wait(), True
-            walls.append(time.time() - t1)
+                    code, ended = end(proc), True
+            block["walls"].append(round(time.time() - t1, 1))
+            for proc in loops:   # a loop has no children: its own kill ends it (none if it ended by itself)
+                proc.kill()
+                proc.wait()
             text = out.read_text(encoding="utf-8", errors="replace")
-            how = f"exit {code}" + (f", killed past {m['cap_s']} s" if capped else "")
+            passed |= {a and b or c for a, b, c, d in OUTCOME.findall(text) if "PASSED" in (a, d)}
+            how = f"exit {code}" + (f", ended at the stage's {FLAKE_CAP} s" if ended else "")
             with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
-                log.write(f"\n==== flake run {run} of {block['runs']}, slowed ({block['slowed']}, {FLAKE_LOOPS} "
-                          f"loops), {how} ====\n{text}")
+                log.write(f"\n==== flake run {run} of {block['runs']}, slowed ({block['slowed'][-1]['slowing']}; probes "
+                          f"{probed}), {how} in {block['walls'][-1]} s ====\n{text}")
+            tail = [line[:240] for line in text.splitlines()[-FLAKE_TAIL:]]
+            if ended:
+                break
             block["done"] = run
-            if code or capped:
-                tail = [line[:240] for line in text.splitlines()[-FLAKE_TAIL:]]
-                named = (not capped and FAILED.findall(text)) or [f"(the run: {how})"]
+            if code:
+                named = FAILED.findall(text) or [f"(the run: {how})"]
                 block["failures"] = [{"test": test, "run": run, "tail": tail} for test in dict.fromkeys(named)]
                 break
+        if not block["failures"] and (left := [case for case in cases if case not in passed]):
+            block["failures"] = [{"test": case, "run": len(block["walls"]), "tail": tail, "capped": True}
+                                 for case in left]
+            block["note"] = (f"capped: {len(left)} of {len(cases)} cases without a passing run within the stage's "
+                             f"{FLAKE_CAP} s")
     finally:
         for proc in loops:   # a loop has no children: its own kill ends it (none if it ended by itself)
             proc.kill()
