@@ -2443,12 +2443,15 @@ def test_the_sites_worker_is_kept_after_a_small_build_and_a_refused_one_and_buil
 
 HEARD = """(() => {   // what the page's workers post that the page shows nowhere: each start, digest, write and note
     const Real = Worker;
-    Object.assign(globalThis, { starts: [], digests: [], writes: [], notes: [], compiled: [], identified: [] });
+    Object.assign(globalThis, { starts: [], colds: [], digests: [], writes: [], notes: [], compiled: [], identified: [] });
     globalThis.Worker = class extends Real {
         constructor(...args) {
             super(...args);
             this.addEventListener("message", ({ data }) => {
-                if (data?.type === "ready") starts.push(data.start);
+                if (data?.type === "ready") {
+                    starts.push(data.start);
+                    colds.push(data.cold ?? null);
+                }
                 if (data?.type === "digest") digests.push(data);
                 if (data?.type === "wrote") writes.push(data);
                 if (data?.type === "progress") notes.push(data.label);
@@ -2458,7 +2461,8 @@ HEARD = """(() => {   // what the page's workers post that the page shows nowher
         }
     };
 })();"""
-"""An init script: the page's workers' starts in ``starts``, their digests (DIGESTS) in ``digests``, their build
+"""An init script: the page's workers' starts in ``starts`` (and why each that is cold didn't start from a kept
+snapshot, or null, in ``colds``), their digests (DIGESTS) in ``digests``, their build
 files' writes (WROTE) in ``writes``, and the label of each record they post in ``notes``, in the order the page hears
 them (the bar shows the newest ask's latest: a newer ask's line, or B's work a click takes up, can hide one); each
 wasm a worker compiled itself in ``compiled`` and each image id it read in ``identified`` (the pool's own messages)."""
@@ -2504,6 +2508,44 @@ SNAPSHOT_KEPT = """() => new Promise((done) => {
     };
 })"""
 SNAPSHOT_GONE = """() => new Promise((done) => { indexedDB.deleteDatabase("azurkit-snapshot").onsuccess = () => done(true); })"""
+SNAPSHOT_CUT = """() => new Promise((done) => {   // the kept record's heap cut to its first 90 %: a write cut short
+    const opened = indexedDB.open("azurkit-snapshot", 1);
+    opened.onsuccess = () => {
+        const db = opened.result, t = db.transaction("heap", "readwrite"), store = t.objectStore("heap");
+        const keys = store.getAllKeys();
+        let sizes = null;
+        keys.onsuccess = () => {
+            const got = store.get(keys.result[0]);
+            got.onsuccess = () => {
+                const { heap, size, sha256 } = got.result;
+                store.put({ heap: heap.slice(0, Math.floor(size * 0.9)), size, sha256 }, keys.result[0]);
+                sizes = [Math.floor(size * 0.9), size];
+            };
+        };
+        t.oncomplete = () => { db.close(); done(sizes); };
+    };
+})"""
+SNAPSHOT_WHOLE = """() => new Promise((done) => {
+    const opened = indexedDB.open("azurkit-snapshot", 1);
+    opened.onupgradeneeded = () => opened.result.createObjectStore("heap");
+    opened.onsuccess = () => {
+        const asked = opened.result.transaction("heap").objectStore("heap").getAll();
+        asked.onsuccess = () => {
+            opened.result.close();
+            done(asked.result.length === 1 && asked.result[0].heap?.length === asked.result[0].size);
+        };
+    };
+})"""
+GROW_REFUSED = """{   // the worker's first grow of a wasm memory refused, as where memory is short (the restore's: grown())
+    const grow = WebAssembly.Memory.prototype.grow;
+    let refused = false;
+    WebAssembly.Memory.prototype.grow = function (pages) {
+        if (refused) return grow.call(this, pages);
+        refused = true;
+        throw new RangeError("Out of memory (the test's)");
+    };
+}
+"""
 
 
 def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_builds_as_cpython(browser, site, usa_iso,
@@ -2512,7 +2554,12 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
     snapshot, and the next starts from it, not from the fallback, whose
     catch would hide a restore that throws; that worker's build is CPython's.
     A heap grown past Pyodide's initial memory restores too (the grow hook;
-    stock Pyodide throws there)."""
+    stock Pyodide throws there). Step 4.4ci37: a kept record whose heap
+    isn't its size (a write cut short: one cut to 90 % held the restoring
+    worker's thread for good, the page never ready and saying nothing) is
+    refused by name and replaced, and a restore whose grow is refused (as
+    where memory is short: Pyodide swallowed the throw and never settled its
+    load) starts cold, saying why: each page gets ready."""
     served = Site(browser, site, tmp_path / "profile")   # persistent: WebKit's ephemeral storage refuses a big heap's put
     try:
         served.context.add_init_script(HEARD)
@@ -2540,6 +2587,19 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         _page.until(grew, SNAPSHOT_KEPT, 60)
         after = served.open()
         assert grew.evaluate("() => starts[0]") == "cold" and set(after.evaluate("() => starts")) == {"snapshot"}
+        for page in (grew, after):   # each B loaded: one loading would read the cut record and replace it first
+            _page.until(page, "() => azurkit.pool.state().b?.loaded", 300)
+        cut, size = after.evaluate(SNAPSHOT_CUT)
+        refused = served.open()
+        assert refused.evaluate("() => [starts[0], colds[0]]") == [
+            "cold", f"the kept snapshot was refused: its heap is {cut} bytes, not {size}"]
+        _page.until(refused, SNAPSHOT_WHOLE, 60)   # replaced by a whole one
+        served.context.unroute("**/worker.mjs")
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=GROW_REFUSED + worker,
+                                                                          content_type="text/javascript"))
+        short = served.open()
+        assert short.evaluate("() => [starts[0], colds[0]]") == [
+            "cold", "the kept snapshot didn't restore: Out of memory (the test's)"]
     finally:
         served.close()
 
