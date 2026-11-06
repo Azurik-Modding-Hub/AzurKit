@@ -4273,6 +4273,31 @@ def test_a_job_ahead_that_failed_or_whose_worker_stopped_isnt_tried_again_while_
     assert got == {"failed": [[["build k"], ["plan m"], [], 4], [["build k"], {"size": 4}], ["build k"], 2]}
 
 
+def test_a_second_worker_that_doesnt_load_loads_again_until_three_loads_failed(browser):
+    """A B whose load fails (a fetch or the engine's start: its ``failed``, or its worker's error before ``ready``) is
+    loaded again at once and works ahead, the last failure's message in the pool's state; once three B loads of a visit
+    have failed the page goes on without B, F answering. One failed load left the visit without B: GitHub's Windows
+    runner's Chromium page waited 600 s for the image's setup built ahead with no B, two workers started and none
+    dropped, retired or promoted (run 42198913490)."""
+    got = _on_stubs(browser, """
+    {
+        const { pool, stubs, f } = make();
+        pool.want([{ key: "plan 4", message: plan("4") }]);
+        pool.want([{ key: "plan 5", message: plan("5") }]);   // B's job dropped: a new B loads
+        stubs[2].say({ type: "failed", message: "AzurKit didn't load: TypeError: Failed to fetch" });
+        stubs[3].crash("");
+        stubs[4].say({ type: "ready", n: 5 });
+        const again = [stubs[2].stopped, stubs[3].stopped, stubs[4].tags(), pool.state().lost, pool.state().unloaded];
+        pool.want([{ key: "plan 6", message: plan("6") }]);
+        stubs[5].say({ type: "failed", message: "AzurKit didn't load: RangeError" });
+        const asked = pool.ask({ type: "tracker" });
+        f.say({ type: "reply", reply: { view: 6 } });
+        out.unloaded = [again, stubs.length, pool.state().b, pool.state().lost, (await asked).reply, f.tags()];
+    }""")
+    assert got == {"unloaded": [[True, True, ["plan 5"], "The engine stopped ()", 2], 6, None,
+                                "AzurKit didn't load: RangeError", {"view": 6}, ["tracker"]]}
+
+
 def test_a_clicks_build_whose_key_the_list_drops_and_lists_again_before_its_answer_is_built_once(browser):
     """A click's build queued behind the image's read, whose key the page's list drops (an ahead() before the image is
     read lists no build) and lists again (the image read), is built once, by F: no worker is sent it again after its
