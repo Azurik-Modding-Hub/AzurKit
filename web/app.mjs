@@ -840,14 +840,13 @@ const unready = () => Boolean(state.build?.flat && !state.url);   // Firefox's B
 
 function busy(on) {
   state.building = on;
-  $("build").disabled = on || !state.file || !state.ready || Boolean(state.opened);
   $("share").disabled = on || !state.packs;
   $("reset").disabled = on || state.plain;
   $("iso").disabled = on || !state.packs;
   for (const id of ["iso-path", "iso-choose", "out-path"]) $(id).disabled = on;
   $("save").disabled = on || !state.build || unready();
   $("cancel").hidden = !on;
-  lines();
+  gate();
   lock();
   lockRando();
   if (!on) {
@@ -857,13 +856,22 @@ function busy(on) {
 }
 
 // D979: a control that can't work yet is greyed, with the line that says what it waits for: Build until an image is
-// picked (a vanilla one: an AzurKit build only offers its recipe) and the engine is ready, Save until a build; the
+// picked (a vanilla one: an AzurKit build only offers its recipe) and the engine is ready, and while the Randomizer
+// tab's items can't make a seed (the line names the row to tick, its ⚠ line why: Step 4.4u1), Save until a build; the
 // settings of a pack whose vanilla values the image holds say so until it is read, and the spoiler's line names the
 // image too.
+function gate() {
+  $("build").disabled = state.building || !state.file || !state.ready || Boolean(state.opened) || Boolean(randoStarved());
+  lines();
+}
+
 function lines() {
+  const refused = randoStarved();
   const why = state.building ? "" : !state.file ? "Pick your image (1.) to build"
     : state.opened ? "Pick your vanilla image (1.) to build: this one is an AzurKit build"
-    : !state.ready ? "Preparing the engine…" : !state.build ? "Save follows a build"
+    : !state.ready ? "Preparing the engine…"
+    : refused ? `${refused.preflight_tick ?? "Change the items"} on the Randomizer tab to build`
+    : !state.build ? "Save follows a build"
     : unready() ? `${READYING}…` : "";
   $("build-line").textContent = why;
   $("build").title = $("build").disabled ? why : "";
@@ -1500,6 +1508,15 @@ function randoRecipe() {
   return { seed: R("seed").value.trim(), settings: randoSettings(), ...randoCost() };
 }
 
+// The engine's answer while Randomize is on and its preflight refuses the items as they are ticked (AZ-454: too few
+// proven spots for the progression items once some rows stay vanilla), else null: Build greys on it (Step 4.4u1). An
+// answer for other items is stale: the next one decides.
+function randoStarved() {
+  const view = state.rando.view;
+  if (!state.packs || !R("on").checked || !view?.preflight) return null;
+  return String(view.settings.exclude_categories) === String(randoSettings().exclude_categories) ? view : null;
+}
+
 // What the page remembers of the tab (D915): nothing at its defaults (off, D144's settings, vanilla's cost).
 function randoSetup() {
   const settings = randoSettings(), cost = randoCost();
@@ -1531,6 +1548,7 @@ function setRando({ on, seed, settings, obsidian_cost: cost }, from = null) {
   mark.title = mark.textContent ? `Changed by ${from}` : "";
   offered();
   lockRando();
+  gate();
   askRando();
 }
 
@@ -1542,6 +1560,7 @@ function loadRando(rando, from) {
     mark.textContent = R("on").checked ? "●" : "";
     R("on").checked = false;
     lockRando();
+    gate();
     return;
   }
   state.rando.load = { on: true, seed: rando.seed, obsidian_cost: rando.obsidian_cost, from };
@@ -1601,8 +1620,9 @@ function randoView(reply, ticket) {
     + `${reply.forfeitable} forfeitable`;
   renderSkips();
   renderGroups();
+  gate();
   const note = reply.note ?? state.rando.note;
-  warn([...(reply.preflight ? [`The build refuses: ${reply.preflight}`] : []), ...(note ? [note] : []),
+  warn([...(reply.preflight ? [`Can't make a seed: ${reply.preflight}.`] : []), ...(note ? [note] : []),
         ...(reply.body ? [reply.body] : []),
         ...reply.why_not.map((why) => `Not promised beatable (flagged, not refused): ${why}`)], Boolean(reply.preflight));
   remember();
@@ -1846,6 +1866,7 @@ function randoEvents(changed) {
   R("on").addEventListener("change", () => {
     $("randomizer").querySelector(".on .mark").textContent = "";
     lockRando();
+    gate();
     edited();
   });
   for (const id of ["movement", "ceiling"]) {
@@ -1857,7 +1878,10 @@ function randoEvents(changed) {
     });
   }
   R("difficulty").addEventListener("change", edited);
-  R("items").addEventListener("change", reread);
+  R("items").addEventListener("change", () => {
+    reread();
+    gate();   // the answer for the items as they were is stale
+  });
   R("groups").addEventListener("change", (e) => {
     turnGroup(e.target.dataset.group, e.target.checked);
     if (e.target.checked) R("skip-list").open = true;   // D1061: a tick shows which skips it turned on

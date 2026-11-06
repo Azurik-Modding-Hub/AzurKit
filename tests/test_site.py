@@ -2254,8 +2254,15 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
     (1.) to build" (its line in the bottom bar and its title), Save with it,
     the spoiler's line names the image, and each pack whose vanilla values
     the image holds says so in its settings; once the image is read, Build
-    works and Save waits on a build, and once built, nothing is greyed."""
+    works and Save waits on a build, and once built, nothing is greyed.
+    Step 4.4u1: with Randomize ticked and Obsidians unticked, whose vanilla
+    spots are most of those the disc fragments and powers may take, Build
+    greys with "Tick Obsidians on the Randomizer tab to build" and the tab's
+    ⚠ line says why, until Obsidians is ticked again or Randomize unticked."""
     vanilla = {name for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
+    starved = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"]
+                                       | {"exclude_categories": ["obsidians"]}})["preflight"]
+    obsidians = "() => document.querySelector('#rando-items input[data-category=obsidians]').click()"
     served = Site(browser, site)
     try:
         page = served.open()
@@ -2270,6 +2277,24 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         _page.built(page)
         _page.until(page, "() => azurkit.ready", 120)   # a worker that replaces the build's says "Preparing the engine…"
         assert page.evaluate(GREYED)[:4] == [False, False, "", ""] and served.stray() == []
+
+        _page.click(page, "tab-randomizer")
+        _page.until(page, SETTLED, 120)
+        _page.click(page, "rando-on")
+        page.evaluate(obsidians)
+        _page.until(page, f"() => ({SETTLED})()?.preflight", 120)
+        tick, works = "Tick Obsidians on the Randomizer tab to build", [False, True, "Save follows a build", ""]
+        assert page.evaluate(GREYED)[:4] == [True, True, tick, tick]   # a change forgets the build
+        assert page.evaluate(WARNED)[0] == f"⚠ Can't make a seed: {starved}."
+        _page.click(page, "rando-on")
+        assert page.evaluate(GREYED)[:4] == works
+        _page.click(page, "rando-on")
+        assert page.evaluate(GREYED)[:4] == [True, True, tick, tick]
+        page.evaluate(obsidians)
+        assert page.evaluate(GREYED)[:4] == works   # the answer for the items as they were is stale
+        _page.until(page, f"() => ({SETTLED})() && !azurkit.rando.view.preflight", 120)
+        assert page.evaluate(GREYED)[:4] == works
+        assert not [line for line in page.evaluate(WARNED) if line.startswith("⚠ Can't")] and served.stray() == []
     finally:
         served.close()
 

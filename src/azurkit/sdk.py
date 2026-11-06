@@ -1276,7 +1276,9 @@ def randomizer_settings(given: Mapping, *, progress: Callable[[dict], object] | 
     picks held and the forfeitable locations, what a build would leave
     unverified so far (``why_not``: the packs' movement past their logic
     floor, D83(c), a roll a skip on was proven at, an obsidian cost above
-    vanilla's), the preflight's refusal (``preflight``, AZ-454; ``None``),
+    vanilla's), the preflight's refusal (``preflight``, AZ-454, in plain
+    words with what to change, and ``preflight_tick``, its "Tick <row>",
+    Step 4.4u1; ``None``),
     the settings file of the settings (``file``, Save settings') and the
     skip groups (``groups``, D258: each group's picks, its highest rating
     and its tip).

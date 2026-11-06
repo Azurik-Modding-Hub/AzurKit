@@ -1086,6 +1086,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     image: the site's worker mounts it for the ask; with none, a ⚠ line says
     the plan stands on garret4's), so Track this seed plans a character
     build's plan, the skips, and a ⚠ line for the preflight's refusal
+    (too few proven spots for the fragments and powers once rows stay
+    vanilla, AZ-454: obsidians hold 32 of the 40; Build greys while
+    Randomize is on, its line the row to tick, Step 4.4u1)
     and what a build would leave unverified (a loaded share string's note
     of other sliders, naming the body where a size fold is the difference,
     stays until the tab is edited or the Patches tab's sliders and body

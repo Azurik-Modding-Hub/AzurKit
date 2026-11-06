@@ -49,6 +49,9 @@ DARK_FIRE = 1   # D1061: a dark area always needs Fire 1, unless its own nolight
 OPTIONS = ("skip_ceiling", "movement_tier", "dark_fire")
 # exclude_categories' values and the share string's mask bits: append only (a bit is its index)
 CATEGORIES = ("fragments", "powers", "gems", "obsidians", "consumables", "upgrades")
+#: Each category in plain words; its row on the Randomizer tab is the name capitalized (``randomizer.ITEMS``)
+NAMES = {"fragments": "disc fragments", "powers": "elemental powers", "gems": "gems", "obsidians": "obsidians",
+         "consumables": "fuel pickups", "upgrades": "upgrades"}
 UPGRADES = ("power_life", "power_staff1", "power_staff2", "power_ammo")   # "upgrades"; the other power_* "powers"
 SEED_DIFFICULTIES = (0, 2, 3, 4)   # the ratings a seed may be shaped to, 0 none: no Safe level, a Safe rating needs no trick
 SEED_DIFFICULTY_FILL = 1           # level > 0's algorithm: bumped when the same inputs give such a seed another placement

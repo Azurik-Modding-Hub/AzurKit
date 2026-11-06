@@ -304,7 +304,9 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
     build of them leaves unverified (``why_not``: the tier the movement
     sliders play as, a roll a skip on was proven at, an obsidian cost above
     vanilla's) and the preflight's
-    refusal (``preflight``: too few proven spots, AZ-454), the settings
+    refusal (``preflight``: too few proven spots, AZ-454, in plain words and
+    what to change; ``preflight_tick``, its short "Tick <row>", on which the
+    page greys Build, Step 4.4u1), the settings
     file of them (``file``: Save settings' text, Modkit's ``--save-settings``
     file) and the skip groups (``groups``, D258, D1061: each group's picks a
     setting can turn on, ``top`` the highest rating among them and ``tip``)
@@ -355,7 +357,8 @@ def tab(given: Mapping, sliders: Mapping[str, Mapping[str, float]], worn: Mappin
         r for r in [layer.obsidian_reason(cost)] if r]
     return {"settings": literal(st), "share": share_encode(st, skips), "note": note, "skips": rows,
             "held": len(every) - len(rows), "forfeitable": len(logic.forfeitable), "why_not": why,
-            "preflight": refused.reason if refused else None, "file": layer.settings_text(st),
+            "preflight": refused and refused.reason, "preflight_tick": refused and refused.tick,
+            "file": layer.settings_text(st),
             "groups": [{"id": key, "label": label, "picks": groups[key], "top": RATINGS[tops[key]],
                         "tip": SKIP_GROUP_TIPS.get(key)} for key, label in SKIP_GROUPS.items()],
             "difficulty": difficulty.levels(st, skips)}

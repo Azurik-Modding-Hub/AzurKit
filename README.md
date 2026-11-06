@@ -72,7 +72,9 @@ Windows or Linux from [Releases](https://github.com/Azurik-Modding-Hub/AzurKit/r
 - **Seeds:** any text is a seed, or New draws one; the same seed and settings give the same game everywhere.
 - **Share strings and files:** one `AZR-` string holds every setting; settings files save and load,
   Azurik_Modkit's too.
-- **Warns before you build** when your settings can't make a seed.
+- **Warns before you build** when your settings can't make a seed, saying why and what to change, and greys Build
+  until you do. Keeping obsidians vanilla is one: most of the spots the disc fragments and elemental powers may take
+  hold an obsidian, so tick Obsidians, or keep those two vanilla too.
 - **Works with movement mods:** your jump, speed, gravity and flap settings pick the movement difficulty the seed is
   made at (stronger moves play like Hard or Frame-perfect, weaker like Safe), in no time and never refused; a seed
   with any moved setting isn't promised beatable, and the page and spoiler say so.

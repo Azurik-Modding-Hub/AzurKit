@@ -62,9 +62,9 @@ spot of its own, so settings that leave fewer proven spots open to one
 (:meth:`_Slots.open_proven`, less those ``exclude_categories`` keeps
 vanilla) than the progression items left to place are refused before any
 attempt, by a :class:`Starved` naming the categories that hold them, the
-counts and what to shuffle (:meth:`_Slots.starved`); any other settings
-fill as before. :func:`roll` finds no seed for them at once, and the
-Randomize page names them (:func:`starved`).
+counts and what to change in plain words (:meth:`_Slots.starved`); any other
+settings fill as before. :func:`roll` finds no seed for them at once, and
+the Randomizer tab says so and greys Build (:func:`starved`).
 
 **Seed difficulty** (D1037; :mod:`.difficulty`), at a level over 0 that its
 settings can shape; level 0 enters none of it. **The pin:** in the progression
@@ -106,7 +106,9 @@ from azurkit.core import progress
 from azurkit.tools.randomizer.planner.difficulty import BOUND, Shape, asked
 from azurkit.tools.randomizer.planner.grammar import atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
+    CATEGORIES,
     DARK_FIRE,
+    NAMES,
     SEED_DIFFICULTY_FILL,
     Settings,
     category,
@@ -261,10 +263,21 @@ class FillError(ValueError):
 class Starved(FillError):
     """The preflight's :class:`FillError` (Step R1.27, AZ-454): the
     settings leave fewer proven spots open than progression items, so no
-    attempt is made (``attempts`` is empty); ``items``, every progression
-    item the plan places, competes for ``proven``, the spots left."""
+    attempt is made (``attempts`` is empty). ``reason`` says why and what
+    to change in the Randomizer tab's words (Step 4.4u1), ``tick`` its short
+    "Tick <row>" (None when no row holds the spots); ``items``, every
+    progression item the plan places, competes for ``proven``, the spots
+    left."""
 
-    ITEMS = "Progression items competing for those spots"
+    def __init__(self, reason: str, tick: str | None, items: list[str], proven: list[str]) -> None:
+        self.reason, self.tick, self.items, self.proven, self.attempts = reason, tick, items, proven, []
+        ValueError.__init__(self, f"no plan: {reason}")
+
+
+def _listed(words: Iterable[str], last: str = "and") -> str:
+    """``words`` as a sentence lists them: "a", "a and b", "a, b and c"."""
+    *rest, end = words
+    return f"{', '.join(rest)} {last} {end}" if rest else end
 
 
 class _Stuck(Exception):
@@ -377,34 +390,49 @@ class _Slots:
         return {loc: item for loc, item in self.vanilla.items()
                 if category(self.names.base[item]) in settings.exclude_categories}
 
+    def _open(self, excluded: frozenset[str]) -> tuple[list[str], list[str]]:
+        """The proven spots open to a progression item and the progression
+        items to place when ``excluded``'s categories stay vanilla."""
+        kept = {loc for loc, item in self.vanilla.items() if category(self.names.base[item]) in excluded}
+        free = [loc for loc in self.open_proven() if loc not in kept]
+        items = sorted(item for loc, item in self.vanilla.items() if loc not in self.prefilled and loc not in kept
+                       and self.kind[loc] == "nongem" and self.cls[item] == "progression")
+        return free, items
+
     def starved(self, settings: Settings) -> Starved | None:
         """The preflight (Step R1.27, AZ-454): a :class:`Starved` when the
         proven spots open to a progression item under ``settings`` are fewer
         than the progression items the plan places, each needing one of its
-        own (D122, D143), so no attempt can fill, naming the categories that
-        keep open spots vanilla, the counts and what to shuffle; None
-        otherwise."""
-        kept, spots = self.kept(settings), self.open_proven()
-        free = [loc for loc in spots if loc not in kept]
-        items = sorted(item for loc, item in self.vanilla.items() if loc not in self.prefilled and loc not in kept
-                       and self.kind[loc] == "nongem" and self.cls[item] == "progression")
+        own (D122, D143), so no attempt can fill; None otherwise. Its reason
+        (Step 4.4u1) names in the tab's words the rows kept vanilla whose
+        items hold the spots, the counts, the row whose tick alone is enough
+        (else them all) and the other way: the progression items' own rows
+        unticked too, which leaves none to place."""
+        excluded = settings.exclude_categories
+        free, items = self._open(excluded)
         if len(free) >= len(items):
             return None
-        held = collections.Counter(category(self.names.base[kept[loc]]) for loc in spots if loc in kept)
-        if held:
-            cats = sorted(held, key=lambda c: (-held[c], c))
-            by = ", ".join(f"{c} {held[c]}" for c in cats)
-            why = (f"exclude_categories keeps {len(spots) - len(free)} of the {len(spots)} proven spots a "
-                   f"progression item may take on their vanilla items ({by}), which leaves {len(free)} for the "
-                   f"{len(items)} progression items the plan places")
-            fix = (f"shuffle {cats[0]} (tick its row on the Randomize page, or leave it out of exclude_categories)"
-                   if len(cats) == 1 else f"shuffle some of {', '.join(cats)} (tick their rows on the Randomize "
-                   f"page, or leave them out of exclude_categories)")
-        else:
-            why = (f"the database has {len(spots)} proven spots a progression item may take for the {len(items)} "
-                   f"progression items the plan places")
-            fix = "it needs more proven spots"
-        return Starved(f"{why}, one each (D122, D143), so no attempt can fill and none is made: {fix}", items, free)
+        spots = self.open_proven()
+        held = collections.Counter(category(self.names.base[self.vanilla[loc]]) for loc in spots if loc not in free)
+        mine = {category(self.names.base[item]) for item in items}
+        kinds = _listed(NAMES[c] for c in CATEGORIES if c in mine)
+        if not held:
+            return Starved(f"the levels have {len(spots)} spots whose way there and back is proven for the "
+                           f"{len(items)} {kinds}, which go only on such spots: the logic needs more", None, items, free)
+
+        def fits(kept: frozenset[str]) -> bool:
+            more, left = self._open(kept)
+            return len(more) >= len(left)
+
+        cats = sorted(held, key=lambda c: (-held[c], CATEGORIES.index(c)))
+        enough = [c for c in cats if fits(excluded - {c})]
+        tick = "Tick " + (_listed((NAMES[c].capitalize() for c in enough), "or") if enough
+                          else _listed(NAMES[c].capitalize() for c in cats))
+        rows = _listed(NAMES[c].capitalize() for c in CATEGORIES if c in mine)
+        return Starved(f"keeping {_listed(NAMES[c] for c in cats)} vanilla leaves {len(free)} spots for the "
+                       f"{len(items)} {kinds}, which go only on spots whose way there and back is proven; of the "
+                       f"{len(spots)} such spots, {_listed(f'{held[c]} hold {NAMES[c]}' for c in cats)}. {tick}, or "
+                       f"untick {rows} too", tick, items, free)
 
     def ok(self, loc: str, item: str, budget: _Budget) -> bool:
         """The item rules (plan §3.3) for a spot of the right class."""
@@ -999,7 +1027,7 @@ def _fill(logic: Logic, seed: str, st: Settings, making: _Making | None = None) 
 def starved(logic: Logic, settings: Settings | None = None) -> Starved | None:
     """The preflight's refusal of ``settings`` (the database's defaults when
     None) on ``logic`` (:meth:`_Slots.starved`), None when an attempt may
-    fill: what the Randomize page names before a roll or a build."""
+    fill: what the Randomizer tab says before a build, its Build greyed."""
     st = settings if settings is not None else logic.db.defaults
     return _Slots(logic, st).starved(st)
 

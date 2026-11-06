@@ -593,7 +593,9 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
     share string that decodes to them, each skip a setting can turn on (by
     pick, D275) with the ceiling's state and its toggle, and the picks held.
     A share string made with other movement sliders is named; keeping the
-    obsidians vanilla is the preflight's refusal (AZ-454); a roll slider
+    obsidians vanilla is the preflight's refusal (AZ-454), a plan's too,
+    in plain words naming the row whose tick is enough and the other way,
+    the progression items' rows unticked too, which plans (Step 4.4u1); a roll slider
     the logic doesn't model and an obsidian cost above vanilla's leave a
     build unverified (D83(c)). A share link carries the randomizer and a
     page's remembered setup keeps it (D915), each refused by name when a
@@ -627,8 +629,19 @@ def test_the_tab_reads_its_settings_and_share_strings_flags_what_a_build_leaves_
     assert sdk.randomizer_settings({"share": view["share"]})["settings"] == given
     assert sdk.randomizer_settings({"share": _share(JUMP)})["note"].startswith(
         "the share string was made with the movement sliders player_physics jump_speed_scale 1.3")
-    starved = options["defaults"] | {"exclude_categories": ["obsidians"]}
-    assert sdk.randomizer_settings({"settings": starved})["preflight"].startswith("exclude_categories keeps")
+    starved = options["defaults"] | {"exclude_categories": ["obsidians"]}   # 32 of the 40 proven spots are theirs
+    view = sdk.randomizer_settings({"settings": starved})
+    assert (view["preflight"], view["preflight_tick"]) == (
+        "keeping obsidians vanilla leaves 8 spots for the 27 disc fragments and elemental powers, which go only on "
+        "spots whose way there and back is proven; of the 40 such spots, 32 hold obsidians. Tick Obsidians, or "
+        "untick Disc fragments and Elemental powers too", "Tick Obsidians")
+    with pytest.raises(ValueError, match=f"^no plan: {re.escape(view['preflight'])}$"):
+        sdk.plan({"seed": "2", "settings": starved})
+    both = options["defaults"] | {"exclude_categories": ["fragments", "obsidians"]}   # its tick names the one enough
+    assert sdk.randomizer_settings({"settings": both})["preflight"].endswith(
+        "32 hold obsidians and 5 hold disc fragments. Tick Obsidians, or untick Elemental powers too")
+    other = options["defaults"] | {"exclude_categories": ["fragments", "powers", "obsidians"]}   # nothing to place
+    assert sdk.randomizer_settings({"settings": other})["preflight"] is None and sdk.plan({"seed": "2", "settings": other})
     flagged = sdk.randomizer_settings({"settings": options["defaults"], "obsidian_cost": 20,
                                        "packs": {"player_physics": {"roll_speed_scale": 0.5}}})["why_not"]
     assert flagged == [*generator.movement_reasons({"player_physics": {"roll_speed_scale": 0.5}},
