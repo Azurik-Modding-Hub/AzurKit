@@ -1136,12 +1136,19 @@ def test_the_apps_server_types_each_file_from_its_table_never_the_systems_guess(
 
 def _post(url: str, call: str, body: dict, replies: list, timeout: float = 120) -> None:
     """POST ``body`` to the engine's ``call`` (``api/save``, say) from the
-    page at ``url`` (its token in the query); its reply goes in ``replies``."""
+    page at ``url`` (its token in the query); its reply goes in ``replies``
+    if it comes in ``timeout`` s in all: the socket's own timeout bounds each
+    read alone, and a call past ``app.KEEP`` sends a space each ``KEEP`` s."""
     host, query = urllib.parse.urlsplit(url).netloc, f"?{urllib.parse.urlsplit(url).query}"
     request = urllib.request.Request(f"http://{host}/{call}{query}", json.dumps(body).encode(),
                                      {"Origin": f"http://{host}", "Content-Type": "application/json"})
+    end, data = time.monotonic() + timeout, b""
     with contextlib.suppress(OSError), urllib.request.urlopen(request, timeout=timeout) as reply:
-        replies.append(json.load(reply))   # the app may quit before it answers
+        while chunk := reply.read1(1 << 16):   # the app may quit before it answers
+            if time.monotonic() > end:
+                raise TimeoutError(f"no answer in {timeout} s: {call}")
+            data += chunk
+        replies.append(json.loads(data))
 
 
 def test_a_long_call_never_leaves_its_connection_quiet_the_5_s_firefox_aborts_one_after_a_network_change(
@@ -1179,6 +1186,28 @@ def test_a_long_call_never_leaves_its_connection_quiet_the_5_s_firefox_aborts_on
         server.close()
     assert heard == [(b"HTTP/1.0 200 OK", True, {"files": 0}, True, True),
                      (b"HTTP/1.0 200 OK", False, {"files": 0}, True, True)], heard
+
+
+def test_a_tests_call_ends_at_its_timeout_while_the_app_keeps_its_connection_alive(tmp_path, monkeypatch):
+    """Step 4.4ci36: a call past ``app.KEEP`` s sends a space each ``KEEP`` s until its answer, so the socket's timeout,
+    each read's, never ended a call that never answers: a hung engine call waited for CI's 90 min stall watch where it
+    failed its test by name in ``_post``'s 120 s. ``_post`` reads its answer in its timeout in all."""
+    _home(monkeypatch, tmp_path / "home")
+    release = threading.Event()
+
+    def checked(iso: str, progress) -> dict:
+        release.wait(6)   # a call that outlasts the client's 2 s
+        return {"files": 0}
+    monkeypatch.setattr(sdk, "verify_all", checked)
+    server, replies = app.serve(_page.WEB), []
+    try:
+        t0 = time.monotonic()
+        _post(server.url, "api/verify_all", {"iso": str(tmp_path / "usa.iso")}, replies, timeout=2)
+        took = time.monotonic() - t0
+    finally:
+        release.set()
+        server.close()
+    assert replies == [] and 2 <= took < 6, (replies, took)
 
 
 def test_serves_engine_answers_while_serve_waits_on_its_input(tmp_path, monkeypatch):
