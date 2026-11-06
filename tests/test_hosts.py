@@ -2613,6 +2613,24 @@ def test_other_floors_items_show_faintly_fainter_with_distance_with_no_tooltip_o
         server.close()
 
 
+# From now on, what the tracker shows at each change of its page (``globalThis.shown``): the Got line's text and
+# animation (null while it is hidden), the flashing Got count's text and its animations (null while none flashes) and
+# the map's tips at spot ``loc``, read as the change is made, not when a later look of the test's comes: the count
+# flashes 0.9 s, which a slowed runner's two reads outlasted (4.4ci27's slowed pure tier read it gone)
+SHOWN = """(loc) => {
+    globalThis.shown = [];
+    const tips = () => { const m = azurkit.tracker.map, e = m.entry(m.level);
+        const at = [...e.items, ...e.spots].find((i) => i.id === loc).at, [x, y] = m.at(at[0], at[1]);
+        return m.hits.filter((h) => h.act && Math.hypot(h.x - x, h.y - y) < 1).map((h) => h.tip); };
+    new MutationObserver(() => {
+        const line = document.getElementById("track-got"), got = document.querySelector("#track-count .got.fresh");
+        shown.push([line.hidden ? null : [line.textContent, getComputedStyle(line).animationName],
+                    got ? [got.textContent, got.getAnimations().length] : null, tips()]);
+    }).observe(document.getElementById("tracker"), { subtree: true, childList: true, characterData: true,
+                                                   attributes: true });
+}"""
+
+
 def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what_was_got(browser, tmp_path, monkeypatch):
     """Step 4.3 live tracker (the owner, 2026-11-01: "when an item is
     collected on the tracker, can you remove it from the map, with a toggle
@@ -2659,20 +2677,17 @@ def test_a_collected_spot_leaves_the_map_and_a_live_pickup_flashes_and_says_what
         kept = app.Server.host_info(server)["tracker"] or {}
         assert [kept.get("collected"), clicked in kept["marks"][doc["sha256"]]["collected"]] == [True, True]
         _page.click(page, "track-collected")
+        page.evaluate(SHOWN, got)
         played.takes.append(game.Took(got, 0.5))
-        _page.until(page, "() => !document.getElementById('track-got').hidden")
-        assert page.evaluate("() => document.getElementById('track-got').textContent") == (
-            f"Got: {spots[got]['name']} · {level}")
-        assert page.evaluate(drawn, got) == [f"{spots[got]['name']}: collected (live)"]   # flashing, on the map
-        assert page.evaluate("() => [document.querySelector('#track-count .got.fresh')?.textContent,"
-                             " getComputedStyle(document.getElementById('track-got')).animationName]") == [
-            "Collected 2", "track-got"]
+        first = "() => shown.find((s) => s[0])"   # the change that shows the Got line
+        assert _page.until(page, first) == [[f"Got: {spots[got]['name']} · {level}", "track-got"], ["Collected 2", 1],
+                                            [f"{spots[got]['name']}: collected (live)"]]   # flashing, on the map
         _page.until(page, f"() => !({drawn})('{got}').length && document.getElementById('track-got').hidden", 30)
         page.emulate_media(reduced_motion="reduce")
+        page.evaluate(SHOWN, still)
         played.takes.append(game.Took(still, 0.6))
-        _page.until(page, "() => !document.getElementById('track-got').hidden")
-        assert page.evaluate("""() => [getComputedStyle(document.getElementById('track-got')).animationName,
-            document.querySelector('#track-count .got.fresh')?.getAnimations().length]""") == ["none", 0]
+        line, count, _ = _page.until(page, first)
+        assert [line[1], count and count[1]] == ["none", 0], (line, count)   # a plain highlight, nothing animated
         _page.check_csp(page)
         page.close()
     finally:
