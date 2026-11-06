@@ -31,7 +31,8 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
     docs select only the smoke files (the lint files and the gate's test,
     whose USA and Europe cases make every receipt run both tiers); the
     suite's configuration, what every session
-    loads and an unknown path make it whole. The session loads only
+    loads, an unknown path and a Python file outside graph()'s folders and the
+    root (review S1: under web/ or .github/ too) make it whole. The session loads only
     what tests/conftest.py imports (it checks the app in a Python of its
     own), so here a change to the sdk is changed-area."""
     deps = {"azurkit": set(), "azurkit.core": {"azurkit"}, "azurkit.core.iso": {"azurkit", "azurkit.core"},
@@ -47,7 +48,8 @@ def test_the_changed_area_plan_picks_importers_and_falls_back_to_the_whole_suite
     assert fullsuite.plan(["tests/test_other.py", "AGENTS.md", "tests/sdk_api.txt"], deps) == sorted(
         {*SMOKE, "tests/test_other.py"})
     assert fullsuite.plan(["bootstrap.py"], deps) == fullsuite.plan(["tests/perf_ceilings.toml"], deps) == SMOKE
-    for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "assets/icon/a.icns"):
+    for whole in ("pyproject.toml", "uv.lock", "tests/conftest.py", "src/azurkit/core/gate.py", "assets/icon/a.icns",
+                  "docs/gen.py", "web/serve.py", ".github/scripts/check.py"):
         assert fullsuite.plan([whole], deps) is None, whole
     assert fullsuite.plan(["src/azurkit/sdk.py"], fullsuite.graph(ROOT)) is not None
 

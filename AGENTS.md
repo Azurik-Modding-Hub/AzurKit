@@ -1648,7 +1648,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   runs (conftest's and its plugins' top levels and hooks, and every module
   and function they import or name, however deep; not the app, whose
   no-window mode it checks in a Python of its own), a path no rule
-  covers and a deleted module (not a test file) that no module still
+  covers (a Python file outside the graph's folders, `PY_DIRS`, and the
+  root is one) and a deleted module (not a test file) that no module still
   names (a rename is its old path deleted) run the whole suite. What only a conftest fixture's body runs (the
   `browser` fixture's close: `scripts/ci_resources.py`) picks the test files
   that take that fixture, and a change to such a module (conftest too) that

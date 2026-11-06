@@ -430,8 +430,10 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     :data:`SRC_TESTS` for a change under src/, a path's :data:`RULES` tests,
     and :data:`SMOKE`; nothing more for other docs. A change to the suite's
     configuration, to what every session runs (``deps.every_run``; for a plain
-    dict, :data:`SESSION` and all it imports), to a path no rule covers or a
-    deleted module no module still names is the whole suite (a renamed one is
+    dict, :data:`SESSION` and all it imports), to a path no rule covers (a
+    Python file outside :data:`PY_DIRS` and the root, which :func:`graph`
+    doesn't read, is one) or a deleted module no module still names is the
+    whole suite (a renamed one is
     its old path deleted, :func:`prepare` lists both; a deleted test file
     drops only its own tests). The session checks the app's no-window mode in a Python of its
     own, so the app isn't what every session runs. A function of such a module
@@ -446,8 +448,8 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
             later |= {module_of(path), *deps.fixture_units.get((module_of(path), name), ())}
             picked.update(SRC_TESTS if path.startswith("src/") else ())
             continue
-        if rel in WHOLE:
-            return None
+        if rel in WHOLE or rel.endswith(".py") and "/" in rel and rel.partition("/")[0] not in PY_DIRS:
+            return None   # a Python file graph() doesn't read: what it imports and what runs it are unknown
         if own := next((tests for path, tests in RULES
                         if rel == path or path.endswith("/") and rel.startswith(path)), ()):
             picked.update(own)
