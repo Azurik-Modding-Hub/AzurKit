@@ -131,6 +131,9 @@ FAILED = re.compile(r"^(?:FAILED|ERROR) (\S+)", re.M)
 #: pytest alone (``t.py::t[x] PASSED [ 50%]``); a case's id may hold spaces (``t.py::t[a linked folder]``).
 OUTCOME = re.compile(r"^\[gw\d+\] \[ *\d+%\] (PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS) (\S+::.*?) *$"
                      r"|^(\S+::.*?) (PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b", re.M)
+#: The group a worker under ``--dist loadgroup`` adds to an xdist group's case id (``t.py::t[x]@frozen_app``,
+#: ``tests/conftest.py``), which its collection without workers doesn't: past the id's last ``]``, ``/`` or ``:``.
+GROUP = re.compile(r"@[^@\[\]/:]*$")
 #: A busy loop that ends itself once its runner is gone or at its deadline, so none outlives a killed run.
 LOOP = ("import os, time\nparent, end = os.getppid(), time.time() + {secs}\n"
         "while os.getppid() == parent and time.time() < end:\n    sum(range(100000))\n")
@@ -695,6 +698,11 @@ def slowed() -> tuple[tuple[list[str], list[str], int], dict[str, float | None]]
     return options[-1], probed
 
 
+def case_id(said: str) -> str:
+    """A case's id as its collection names it: a worker's, without its group (:data:`GROUP`)."""
+    return GROUP.sub("", said)
+
+
 def flake_command(tests: list[str], prefix: list[str]) -> list[str]:
     """A flake run's pytest command: the tests in every browser their
     parameters name (no ``--browsers``), under ``prefix`` (:func:`slowed`),
@@ -851,7 +859,7 @@ def flake_stage(meta: Path, m: dict) -> dict:
                 proc.kill()
                 proc.wait()
             text = out.read_text(encoding="utf-8", errors="replace")
-            outcomes = [(b or c, a or d) for a, b, c, d in OUTCOME.findall(text)]
+            outcomes = [(case_id(b or c), a or d) for a, b, c, d in OUTCOME.findall(text)]
             passed |= {case for case, said in outcomes if said == "PASSED"}
             how = f"exit {code}" + (f", ended at the stage's {FLAKE_CAP} s" if ended else "")
             with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
@@ -865,7 +873,7 @@ def flake_stage(meta: Path, m: dict) -> dict:
                 break
             block["done"] = run
             if code:
-                named = FAILED.findall(text) or [f"(the run: {how})"]
+                named = [case_id(test) for test in FAILED.findall(text)] or [f"(the run: {how})"]
                 block["failures"] = [{"test": test, "run": run, "tail": tail} for test in dict.fromkeys(named)]
                 break
         named = {failure["test"] for failure in block["failures"]}

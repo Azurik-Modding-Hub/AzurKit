@@ -432,6 +432,31 @@ def test_a_flake_run_past_the_stages_cap_is_ended_with_its_processes_and_fails_i
     assert not _running(child), "the ended run's child outlived it"
 
 
+def test_the_flake_stage_counts_a_grouped_cases_runs_under_the_id_its_collection_gives_it(tmp_path, monkeypatch):
+    """Under ``--dist loadgroup`` a worker names a case of an xdist group
+    (each frozen_app test, ``tests/conftest.py``) ``<id>@<group>``, where the
+    stage's collection, with no workers, names it ``<id>``: its passing runs
+    count under that id (a steady grouped case passes, never capped), and so
+    does a failure's name; an ``@`` in a parameter stays."""
+    _quick_flake(monkeypatch)
+    monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 1)   # the suffix is a worker's
+    monkeypatch.setattr(fullsuite, "FLAKE_RUNS", 1)
+    (tmp_path / "conftest.py").write_text(   # tests/conftest.py's grouping
+        "import pytest\nfrom _pytest.nodeid import NodeId\n\n\ndef pytest_collection_modifyitems(config, items):\n"
+        "    for item in items:\n        item.add_marker(pytest.mark.xdist_group('frozen_app'))\n"
+        "        if getattr(config.option, 'loadgroup', False):\n"
+        "            item._id = NodeId.parse(f'{item.nodeid}@frozen_app')\n", encoding="utf-8")
+    (tmp_path / "test_x.py").write_text("import pytest\n\n\n@pytest.mark.parametrize('x', ['a b'])\ndef test_app(x):\n"
+                                        "    pass\n", encoding="utf-8")
+    meta = tmp_path / "suite-k.meta"
+    flake = fullsuite.flake_stage(meta, {"key": "k", "worktree": str(tmp_path), "cap_s": 600,
+                                         "flake_tests": ["test_x.py::test_app"]})
+    assert "PASSED test_x.py::test_app[a b]@frozen_app" in meta.with_suffix(".log").read_text(encoding="utf-8")
+    assert (flake["passed"], flake["done"], flake["cases"], flake["failures"]) == (True, 1, 1, [])
+    assert [fullsuite.case_id(said) for said in ("t.py::t@frozen_app", "t.py::t[a@b]", "t.py::t[a@b]@frozen_app",
+                                                 "a@b/t.py::t")] == ["t.py::t", "t.py::t[a@b]", "t.py::t[a@b]", "a@b/t.py::t"]
+
+
 def _running(pid: int) -> bool:
     """Whether the process ``pid`` runs (a zombie, ended and not yet reaped, doesn't)."""
     if os.name == "nt":
