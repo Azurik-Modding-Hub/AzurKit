@@ -1414,7 +1414,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   last 32; taken only under the engine's own key). A build's changed files are hashed there too (`sdk.image_staged`,
   `edits.staged`), one at a time, each handed over only for its digest. It posts its start's steps, a kept image's walk and a build's, a
   plan's and a tracker's stages as `core/progress.py`'s record, and each build's answer reports the heap,
-  by which the pool keeps the worker or replaces it. It joins the Blob itself, off the page's main thread, and returns the build
+  by which the pool keeps the worker or replaces it. A worker whose engine's wasm traps (Pyodide's fatal error: each
+  later call of it fails) says so in each failure it posts, naming the call and Python's innermost frames, and the
+  pool replaces it at once, its job or none, and sends the page's job to the next engine once, the page saying so
+  (D1126: the arm64 WebKit golden's trap, whose cause isn't found; `TRAPS` a visit). It joins the Blob itself, off the page's main thread, and returns the build
   as segments
   (`iso.Image.segments`), which the page joins into a Blob of slices of the
   player's file and the bytes the build writes (Blobs from the worker on, so
