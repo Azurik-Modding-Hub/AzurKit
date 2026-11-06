@@ -18,6 +18,7 @@ import http.server
 import json
 import subprocess
 import sys
+import textwrap
 import time
 import urllib.parse
 from pathlib import Path
@@ -183,6 +184,30 @@ def _short(value, size: int = 160):
     return value
 
 
+STATUS = 1200
+"""Characters of a stalled page's status line its failure prints at most: its `` · `` parts whole, in order, while
+they fit (a build's ends with its changed files, which run long), the rest counted; one part past them alone is cut."""
+WIDTH = 200
+"""Characters a line of that status takes at most: CI's log cuts each line at 240 (tests.yml), past pytest's ``E``
+prefix of 12, and cut the state's one line inside the status of run 42168608453's load failure."""
+
+
+def _status(text) -> list[str]:
+    """The lines a stalled page's status line ``text`` prints as (:data:`STATUS`, :data:`WIDTH`): ``status: `` and its
+    first piece, then each next piece of it indented by two, broken at spaces, so read joined by spaces it is whole."""
+    if not isinstance(text, str):
+        return [f"status: {text!r}"]
+    parts, kept = text.split(" · "), []
+    while len(kept) < len(parts) and (not kept or len(" · ".join([*kept, parts[len(kept)]])) <= STATUS):
+        kept.append(parts[len(kept)])
+    said = " · ".join(kept)
+    said = said if len(said) <= STATUS else f"{said[:STATUS]}…"
+    if left := len(parts) - len(kept):
+        said += f" · …and {left} more of its parts ({len(text) - len(' · '.join(kept))} characters)"
+    lines = textwrap.wrap(said, WIDTH - len("status: "), break_on_hyphens=False, replace_whitespace=False) or [""]
+    return [f"status: {lines[0]}", *(f"  {line}" for line in lines[1:])]
+
+
 def _heard(owner, call, seconds: float):
     """``call``'s answer (a coroutine of ``owner``'s Playwright object, ``owner._impl_obj``), as ``owner``'s sync call
     would give it, or TimeoutError past ``seconds``; Playwright aborts the call it cancels."""
@@ -191,11 +216,19 @@ def _heard(owner, call, seconds: float):
 
 
 def hang(page, last: int = 5) -> str:
-    """Why a wait on ``page`` may not have ended: its :data:`HANG` state, and the last ``last`` page errors (uncaught
-    exceptions and unhandled rejections) and console errors since the page opened (Playwright keeps them), each read
-    in :data:`HEAR` s."""
+    """Why a wait on ``page`` may not have ended: its :data:`HANG` state, its status line on lines of its own, whole
+    (:func:`_status`), and the last ``last`` page errors (uncaught exceptions and unhandled rejections) and console
+    errors since the page opened (Playwright keeps them), each read in :data:`HEAR` s."""
     said = []
-    for what, read in (("state", lambda: _short(_heard(page, page._impl_obj.evaluate(HANG), HEAR))),
+
+    def state():
+        read = _heard(page, page._impl_obj.evaluate(HANG), HEAR)
+        if not isinstance(read, dict):
+            return read
+        status = read.pop("status", None)
+        return "\n".join([str(_short(read)), *_status(status)])
+
+    for what, read in (("state", state),
                        ("page errors", lambda: [_short(f"{e.name}: {e.message}", 300)
                                                 for e in (_heard(page, page._impl_obj.page_errors(), HEAR) or [])[-last:]]),
                        ("console errors", lambda: [_short(m.text, 300) for m in _heard(
