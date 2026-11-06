@@ -1762,6 +1762,8 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     driver never answers (the ``browser`` fixture's, ``conftest.close_browser``) fails past its bound naming its
     browser and driver."""
     from playwright._impl._helper import DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS
+
+    from scripts import ci_resources
     assert _page.ACT * 1000 == DEFAULT_PLAYWRIGHT_TIMEOUT_IN_MILLISECONDS   # no wider than the bound the calls had
     served = Site(browser, site)
     try:
@@ -1769,6 +1771,10 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         status = " · ".join(["AzurKit didn't load: ValueError: " + " ".join(["can't read it"] * 30),
                              *(f"file{i:03}.xbr" for i in range(200))])   # one long part, then more than STATUS holds
         _page.answer(page, "(text) => { document.getElementById('status').textContent = text; }", status)
+        # each listing a failure below prints reads the processes' names, never their command lines: macOS's ps reads
+        # those apart, 3-25 s under taskpolicy -b on a busy Mac, which took the close's failure past its 10 s (4.4ci36)
+        read = []
+        monkeypatch.setattr(ci_resources, "commands", lambda pids, timeout=0: read.append(len(pids)) or {})
         monkeypatch.setattr(_page, "STALL", 2)
         monkeypatch.setattr(_page, "ACT", 2)
         t0 = time.monotonic()   # its reads in the HEAR they have outside the test: in 1 s GitHub's Intel Mac runner
@@ -1808,7 +1814,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         t4 = time.monotonic()
         with pytest.raises(AssertionError) as unclosed:
             conftest.close_browser(browser, 1, downloads=site)
-        assert 1 <= time.monotonic() - t4 < 10
+        assert 1 <= (closed := time.monotonic() - t4) < 10 and not read, (closed, read)
         name, lines = browser.browser_type.name, str(unclosed.value).splitlines()
         driver = re.fullmatch(rf"no answer in 1 s: the {name} browser's close, its driver (\d+)", lines[0])[1]
         assert lines[1] == "its driver heard its browser's pipe close: no", lines

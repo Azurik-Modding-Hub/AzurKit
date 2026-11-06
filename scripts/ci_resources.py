@@ -797,7 +797,7 @@ def held(driver: int, folders: dict[str, Path] | None = None, seconds: float = S
     Windows Error Reporting wrote since then (:func:`wer_reports`). Never raises: what can't be read says so."""
     deadline, said, age = time.monotonic() + seconds, [], None
     try:
-        rows = processes(seconds)
+        rows = table(seconds)   # what it prints, never a command line: macOS's ps reads those apart, seconds slowed
     except (OSError, subprocess.SubprocessError, ValueError) as e:
         said.append(f"its processes unread ({type(e).__name__})")
     else:

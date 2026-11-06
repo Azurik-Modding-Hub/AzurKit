@@ -249,7 +249,7 @@ def _drivers(owner) -> str:
     try:
         driver = owner._impl_obj._connection._transport._proc.pid
         return ", ".join(f"{name} {pid} ({age} s)" for _, (pid, _, age, name, *_) in
-                         ci_resources.tree(ci_resources.processes(), driver)) or f"none (the driver {driver} is gone)"
+                         ci_resources.tree(ci_resources.table(), driver)) or f"none (the driver {driver} is gone)"
     except Exception as error:
         return f"unread ({_short(str(error), 200)})"
 
