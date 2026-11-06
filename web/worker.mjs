@@ -100,6 +100,13 @@ function located(error, call) {
 }
 // A call's failure, as posted: after a trap, marked so (trapped), and the pool starts the engine again (workers.mjs).
 const failure = (error) => ({ type: "failed", message: lastLine(error), ...(dead ? { trapped: true } : {}) });
+// A tab's ask is answered whatever happens (the Characters, Tools, Tracker and Data tabs wait on it), its failure as a
+// refusal; but a trapped engine's is thrown on, to be posted as failure() is, so the pool starts the engine again and
+// sends the ask to the next once, as a build's (a refusal there left the engine dead, every later ask refused so).
+const refusal = (error) => {
+  if (dead) throw error;
+  return { refused: lastLine(error) };
+};
 
 // engine(request) -> a plain JS object: {catalog, version}, {report, size, segments} or {refused} (a refusal is a
 // ValueError or OSError, by its message); anything else raises. Each piece's bytes, and any bytes it hands back, come
@@ -1152,20 +1159,19 @@ try {
         try {
           return character(loaded, data);
         } catch (error) {
-          return post({ type: "reply", call: data.call, reply: { refused: lastLine(error) } });
+          return post({ type: "reply", call: data.call, reply: refusal(error) });
         }
       }
       if (data.type === "vanilla") return vanilla(loaded, data.file);
       if (TOOLS.includes(data.type)) {   // answered whatever happens: the queue waits for its hashing
-        return tool(loaded, data).catch((error) => ({ refused: lastLine(error) }))
-          .then((reply) => post({ type: "reply", call: data.call, reply }));
+        return tool(loaded, data).catch(refusal).then((reply) => post({ type: "reply", call: data.call, reply }));
       }
       if (data.type === "tracker" || data.type === "plan" || DATA.includes(data.type)) {   // answered whatever happens
         let reply;
         try {
           reply = loaded.engine(data);
         } catch (error) {
-          reply = { refused: lastLine(error) };
+          reply = refusal(error);
         }
         return post({ type: "reply", call: data.call, reply });
       }

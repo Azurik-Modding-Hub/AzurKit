@@ -3369,6 +3369,49 @@ def test_a_trapped_engine_is_started_again_and_the_pages_ask_sent_again_once_say
         served.close()
 
 
+def _trapping(worker: str, call: str) -> str:
+    """worker.mjs whose engine's ``call`` traps its wasm as :func:`_faults`' do, before any of its work."""
+    catalog = '    if request.type == "catalog":'
+    assert worker.count(catalog) == 1
+    return worker.replace(catalog, f"""    if request.type == {call!r}:
+        import ctypes
+        ctypes.string_at(0xFFFFFFF0, 64)
+{catalog}""")
+
+
+def test_a_tabs_ask_whose_engine_traps_starts_the_engine_again_and_is_answered(browser, site):
+    """D1126: an ask of the Characters, Tools, Tracker or Data tab answers its failure as a refusal, but a trapped
+    engine's failure is no refusal (it left that engine dead, each later ask refused with the trap's text until a
+    build): its engine starts again and the ask is sent to the next engine once, the page saying so, as a build's is.
+    On a page (no B) whose first engine traps in the Characters tab's list (pickers) and its next in Track this seed's
+    plan (plan), both are answered."""
+    served = Site(browser, site)
+    try:
+        plain = (site / "worker.mjs").read_text(encoding="utf-8")
+        bodies = [_trapping(plain, "plan"), _trapping(plain, "pickers")]   # each worker's, popped
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=bodies.pop() if bodies else plain,
+                                                                          content_type="text/javascript",
+                                                                          headers={"cache-control": "no-store"}))
+        served.context.add_init_script(TWO_CORES)
+        page = served.open()
+        page.evaluate("""() => { const s = document.querySelector("#status");
+            window.said = [];
+            new MutationObserver(() => said.push(s.textContent)).observe(s, { childList: true, subtree: true });
+            (async () => {
+                const pickers = await azurkit.engine.call("pickers", { given: { iso: null } });
+                const plan = await azurkit.engine.call("plan", { recipe: { seed: "azurkit" } });
+                window.answered = [pickers.refused ?? "community" in pickers, plan.refused ?? plan.plan.seed];
+            })(); }""")
+        assert _page.until(page, "() => window.answered", 600) == [True, "azurkit"]
+        recovered, said = page.evaluate("() => [azurkit.recovered, said]")
+        assert [line.split(": ")[0] for line in recovered] == [f"The engine's WebAssembly failed in its {call} call"
+                                                               for call in ("pickers", "plan")], recovered
+        assert {"The engine stopped and started again: reading the models again",
+                "The engine stopped and started again: planning the seed again"} <= set(said) and not bodies, said
+    finally:
+        served.close()
+
+
 def test_a_saves_check_keeps_its_bar_through_a_later_build_cancelled_and_the_engine_ready_again(browser, site, usa_iso):
     """D980, D1053: the check of a Save runs on past what ends a build's bar: a Build cancelled during it, and the new
     worker's ready (a Save at once after a build a big heap retires its worker meets the same on a slower disk)."""
