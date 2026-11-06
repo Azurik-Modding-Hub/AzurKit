@@ -1772,24 +1772,26 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         lines = str(never.value).splitlines()
         assert lines[0] == "no answer in 1 s: () => new Promise(() => {})" and lines[1].startswith("state: {'asks': [")
         assert lines[-2:-1] == ["its browser still answers"] and lines[-1].startswith("under its driver: ")
-        monkeypatch.setattr(_page, "HEAR", 1)   # the busy page's state read ends unread inside its 8 s (PROBE whole)
-        page.evaluate(BUSY)
-        t1 = time.monotonic()
-        with pytest.raises(AssertionError) as busy:
-            _page.until(page, "() => azurkit.build", 1)
-        held = time.monotonic() - t1
+        with monkeypatch.context() as cut:   # the busy page's state read ends unread inside its 8 s (PROBE whole)
+            cut.setattr(_page, "HEAR", 1)
+            page.evaluate(BUSY)
+            t1 = time.monotonic()
+            with pytest.raises(AssertionError) as busy:
+                _page.until(page, "() => azurkit.build", 1)
+            held = time.monotonic() - t1
         lines = str(busy.value).splitlines()
         assert re.fullmatch(r"no answer in [23] s: \(\) => azurkit\.build", lines[0])
         assert lines[1:2] + lines[-2:-1] == ["state: unread (no answer in 1 s)", "its browser still answers"]
         assert 1 <= settled < 20 and 3 <= held < 20, (settled, held)
         assert _page.until(page, "() => azurkit.ready", 30)   # the page answers again once its thread is free
-        t3 = time.monotonic()   # a pick whose input never comes
-        with pytest.raises(AssertionError) as unpicked:
+        t3 = time.monotonic()   # a pick whose input never comes, its page's state read in its whole HEAR (Firefox's
+        with pytest.raises(AssertionError) as unpicked:   # past the busy page's 1 s, slowed by taskpolicy -b: 4.4ci36)
             _page.pick(page, "#nowhere", site / "index.html")
         lines = str(unpicked.value).splitlines()
         assert lines[0] == "no answer in 2 s: the pick of index.html in #nowhere", lines
         assert lines[1].startswith("state: {'asks': [") and lines[-2:-1] == ["its browser still answers"], lines
         assert 2 <= time.monotonic() - t3 < 20
+        monkeypatch.setattr(_page, "HEAR", 1)   # the held navigation's state read below may end unread in 1 s
         monkeypatch.setattr(browser._impl_obj, "close", lambda **_: asyncio.sleep(600))   # a close never answered
         t4 = time.monotonic()
         with pytest.raises(AssertionError) as unclosed:
