@@ -42,13 +42,14 @@ PAGE = f"""<!doctype html>
 <body></body>
 </html>
 """
-# A test page's start under the worker (app.mjs registers it behind a first visit): register sw.js; on a page
-# it doesn't control, wait for its release to be kept and active and reload once (a sessionStorage guard; a failed
-# install, which sw.js posts, runs the page as it is); then the engine, a module worker from its own URL. sw.* drive
-# it for the tests.
+# A test page's start under the worker (app.mjs registers it behind a first visit): tell the host the load it is
+# (loaded?N: a GET of no listed file, so the network's, whichever release runs); register sw.js; on a page it doesn't
+# control, wait for its release to be kept and active and reload once (a sessionStorage guard; a failed install, which
+# sw.js posts, runs the page as it is); then the engine, a module worker from its own URL. sw.* drive it for the tests.
 START = """const sw = navigator.serviceWorker;
 const loads = Number(sessionStorage.getItem("loads") ?? 0) + 1;
 sessionStorage.setItem("loads", String(loads));
+fetch(`loaded?${loads}`).catch(() => {});
 const ask = (worker, message) => new Promise((done) => {
   const channel = new MessageChannel();
   channel.port1.onmessage = ({ data }) => done(data);
@@ -295,20 +296,24 @@ def test_the_sites_page_keeps_its_release_behind_a_first_visit_and_later_pages_r
         assert other.evaluate("() => crossOriginIsolated")
 
 
+RELOADED = 60
+"""s a first visit may take to keep its release and start again on it: :func:`started`'s bound for a page's start. Here
+the reload began 0.2-0.7 s after the first load at the runner's pace (``taskpolicy -b``, nice 19, 4 CPU loops); on
+GitHub's Windows runner Firefox's began past 5 s once (run 42168608453)."""
+
+
 def test_a_first_visit_keeps_its_release_and_reloads_on_it_while_this_process_holds_its_interpreter(
         browser, releases):
     """A first visit's install fetches its release from the host's own process (:class:`Host`), never this one: with
-    this interpreter held (``_page.hold``: its GIL, as a plan or a full collection here held it, when an install past
-    60 s on GitHub's Intel runner waited on a server of this process's, run 42071325305), the page registers ``sw.js``,
-    the release is kept and the page reloads onto it, all before the hold ends."""
+    this interpreter held (its GIL, as a plan or a full collection here held it, when an install past 60 s on GitHub's
+    Intel runner waited on a server of this process's, run 42071325305) until the host hears the reloaded page start
+    (``_page.Served.held``), the page registers ``sw.js``, the release is kept and the page reloads onto it."""
     with hosted(browser, releases["one"]) as (host, context):
         page = context.new_page()
         _page.load(page, host.url)
-        _page.hold()
-        held_until = time.time() * 1000
+        heard = host.served.held("/loaded?2", RELOADED)
         got = started(page, after=1)
-        assert (got["loads"], got["controller"], page.evaluate("() => performance.timeOrigin") < held_until) == (
-            2, f"{host.url}sw.js", True)
+        assert (heard, got["loads"], got["controller"]) == (True, 2, f"{host.url}sw.js")
 
 
 def test_the_sites_worker_lists_every_file_the_site_serves_with_its_sha256(tmp_path, monkeypatch):

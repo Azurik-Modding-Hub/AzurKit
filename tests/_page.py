@@ -12,6 +12,7 @@ own (D1072)."""
 from __future__ import annotations
 
 import asyncio
+import errno
 import hashlib
 import http.server
 import json
@@ -70,6 +71,22 @@ def hold(seconds: int = HOLD) -> None:
         ctypes.PyDLL(None).sleep(seconds)
 
 
+def _held_byte(fd: int) -> bytes:
+    """One byte of ``fd`` (none at its end), read by a C call that keeps this interpreter's GIL until it comes, as
+    :func:`hold` keeps it."""
+    import ctypes
+    data = ctypes.create_string_buffer(1)
+    if sys.platform == "win32":
+        import msvcrt
+        size = ctypes.c_ulong(0)
+        ctypes.PyDLL("kernel32").ReadFile(ctypes.c_void_p(msvcrt.get_osfhandle(fd)), data, 1, ctypes.byref(size), None)
+        return data.raw[:size.value]
+    libc = ctypes.PyDLL(None, use_errno=True)
+    while (size := libc.read(fd, data, ctypes.c_size_t(1))) < 0 and ctypes.get_errno() == errno.EINTR:
+        pass
+    return data.raw[:max(size, 0)]
+
+
 class Served:
     """``root`` served on 127.0.0.1 (``url``, no trailing ``/``) from a process of its own (``tests/_static.py``), so a
     page's files never wait on this interpreter: they did when this process served them and the site's routes fetched
@@ -113,6 +130,17 @@ class Served:
     def log(self) -> list[tuple[str, str, int]]:
         """Each request so far: its method, path (with its query) and body's size."""
         return [tuple(row) for row in json.loads(self._ask("log"))]
+
+    def held(self, path: str, seconds: float) -> bool:
+        """Whether it heard a request for ``path`` (with its query) in at most ``seconds`` s, at once if it had, with
+        this interpreter held all the while, idle, as :func:`hold` holds it: its answer is read by C calls that keep
+        the GIL."""
+        self.process.stdin.write(f"heard {seconds} {path}\n")
+        self.process.stdin.flush()
+        said = b""
+        while not said.endswith(b"\n") and (byte := _held_byte(self.process.stdout.fileno())):
+            said += byte
+        return said.strip() == b"heard"
 
     def close(self) -> None:
         """Ends it (it ends as its stdin closes, so also with this process)."""

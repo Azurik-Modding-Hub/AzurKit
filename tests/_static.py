@@ -9,7 +9,9 @@ validator, as the site's routes did; with ``--pages`` as GitHub Pages does, ``Ca
 ``Last-Modified`` too, every answer whole (no 304). Anything else is a 404 (another method a 405). Each request is
 logged. It reads commands on stdin, one line each, and answers each with one line: ``root PATH`` (a deploy: serve that
 folder from now on), ``down 1`` or ``down 0`` (each answer a 503 while down), ``log`` (every request so far, JSON:
-``[method, path, body bytes]``). It ends when stdin closes."""
+``[method, path, body bytes]``), ``heard SECONDS PATH`` (``heard`` once a request for ``PATH``, with its query, is
+logged, at once if one was, else ``unheard`` past ``SECONDS``: the answer a test reads with its interpreter held,
+``_page.Served.held``). It ends when stdin closes."""
 
 from __future__ import annotations
 
@@ -33,7 +35,7 @@ class Files(http.server.ThreadingHTTPServer):
 
 def main(argv: list[str]) -> None:
     types, pages = json.loads(argv[2]), "--pages" in argv[3:]
-    state, log, lock = {"root": Path(argv[1]).resolve(), "down": False}, [], threading.Lock()
+    state, log, lock = {"root": Path(argv[1]).resolve(), "down": False}, [], threading.Condition()
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args) -> None:
@@ -42,6 +44,7 @@ def main(argv: list[str]) -> None:
         def _heard(self) -> tuple[Path, bool]:
             with lock:
                 log.append([self.command, self.path, int(self.headers.get("Content-Length") or 0)])
+                lock.notify_all()
                 return state["root"], state["down"]
 
         def _answer(self, body: bool) -> None:
@@ -91,7 +94,12 @@ def main(argv: list[str]) -> None:
                     state["root"] = Path(arg).resolve()
                 elif word == "down":
                     state["down"] = arg == "1"
-                said = json.dumps(log) if word == "log" else "ok" if word in ("root", "down") else f"refused: {word}"
+                if word == "heard":
+                    seconds, _, path = arg.partition(" ")
+                    said = "heard" if lock.wait_for(lambda: any(row[1] == path for row in log), float(seconds)) else \
+                        "unheard"
+                else:
+                    said = json.dumps(log) if word == "log" else "ok" if word in ("root", "down") else f"refused: {word}"
             print(said, flush=True)
         server.shutdown()
 
