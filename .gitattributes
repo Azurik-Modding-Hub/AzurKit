@@ -1,0 +1,4 @@
+# Lanes each add their bullet at a section's end in the developer log: git's built-in union driver keeps both
+# sides' lines, so those merges never conflict (Step 4.4dx1). scripts/devlog.py names the stale copy union keeps of a
+# bullet a lane edited after adding it; the lint set and scripts/land.py refuse it.
+docs/DEVLOG.md merge=union

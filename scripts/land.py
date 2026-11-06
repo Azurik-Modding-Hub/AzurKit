@@ -13,7 +13,9 @@ receipt's passing perf block (D981, ``scripts/perf.py``). Every stack's
 debt, a memory peak or an untimed op, or raises a ceiling, against main's
 (``perf.check_list``; main without the file takes any, the first record, and
 a browser the stack's perf.py times and main's doesn't may add its own once,
-its first record: ``perf.new_browsers``, D994).
+its first record: ``perf.new_browsers``, D994). It refuses a head whose
+``docs/DEVLOG.md`` holds a bullet twice (``scripts/devlog.py``: the stale copy
+a union merge keeps of a bullet its lane edited, Step 4.4dx1).
 ``--release`` (the landing a release is cut from) refuses while the list
 holds anything: every op within its budget, showing progress, timed.
 
@@ -35,6 +37,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+import devlog  # noqa: E402
 import fullsuite as fs  # noqa: E402
 import perf  # noqa: E402
 
@@ -81,6 +84,8 @@ def land(repo: Path, branch: str, dry_run: bool = False, release: bool = False) 
     main = fs.git(repo, "rev-parse", "--verify", "-q", "refs/heads/main", check=False).strip() or None
     if main and fs.git(repo, "merge-base", main, top, check=False).strip() != main:
         return 1, f"land: {branch} ({top[:12]}) doesn't fast-forward from main ({main[:12]}): rebase it onto main"
+    if twice := devlog.stale(fs.git(repo, "show", f"{top}:{devlog.LOG}", check=False)):
+        return 1, f"land: {branch}'s developer log holds a bullet twice (Step 4.4dx1): " + "; ".join(twice)
     left = perf_list(repo, top) or perf.listed(None)
     new = perf.new_browsers(repo, main, top)   # each one's first record may add its own ops (D994)
     if grown := perf.check_list(left, perf_list(repo, main), new):   # any stack, list-only ones too (no perf stage)

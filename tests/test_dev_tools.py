@@ -1,6 +1,7 @@
 """The landing tools: ``scripts/fullsuite.py``'s changed-area plan,
 ``scripts/perf.py``'s verdicts and ``scripts/land.py``'s gate: a
-fast-forward, a passing receipt and its perf block."""
+fast-forward, a passing receipt and its perf block; the developer log's
+union merge and its stale bullets (``scripts/devlog.py``)."""
 
 from __future__ import annotations
 
@@ -17,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts import fullsuite, land, perf
+from scripts import devlog, fullsuite, land, perf
 from tests import _perf
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -674,6 +675,54 @@ def test_land_needs_a_passing_perf_block_for_src_or_web_a_list_that_only_shrinks
         assert (code == 0) == landed and (landed or "grows main's list" in why), why
         if not landed:
             _git(repo, "reset", "-q", "--hard", "main")
+
+
+def test_lanes_devlog_bullets_merge_once_each_and_land_refuses_the_stale_copy_of_one_a_lane_edited(tmp_path):
+    """Step 4.4dx1: with the repository's ``.gitattributes`` (git's union
+    driver on ``docs/DEVLOG.md``), two lanes' bullets at the 1.0.0 section's
+    end rebase onto each other with no conflict, each once. A lane whose
+    later commit edits its own bullet rebases cleanly too, but union keeps
+    the old line beside the new: ``devlog.stale`` names it (by its bold
+    title, or most of its words alike) and land.py refuses the stack."""
+    repo, log = tmp_path / "repo", Path(devlog.LOG)
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    (repo / "docs").mkdir()
+    for rel in (Path(".gitattributes"), log):
+        (repo / rel).write_bytes((ROOT / rel).read_bytes())
+    _git(repo, "add", ".gitattributes", devlog.LOG)
+    _git(repo, "commit", "-q", "-m", "main")
+
+    def add(branch, *bullets):
+        _git(repo, "switch", "-q", branch)
+        for old, new in zip(("", *bullets), bullets):
+            text = (repo / log).read_text(encoding="utf-8")
+            (repo / log).write_text(text.replace(old + "\n", new + "\n") if old else text + new + "\n", encoding="utf-8")
+            _git(repo, "commit", "-q", "-am", new)
+
+    a, b, c, d = (f"- **Bullet {x}** (Step 9.{x}): what lane {x} did and how it was checked." for x in "abcd")
+    c2 = c.replace("checked.", "checked, as its review asked.")
+    _git(repo, "branch", "p2/b")
+    add("main", a)
+    add("p2/b", b)
+    _git(repo, "rebase", "-q", "main", "p2/b")   # the landing queue's rebase
+    text = (repo / log).read_text(encoding="utf-8")
+    assert text.endswith(f"{a}\n{b}\n") and text.count(a) == text.count(b) == 1 and devlog.stale(text) == []
+    _git(repo, "switch", "-q", "-C", "main")   # b lands
+    _git(repo, "branch", "p2/c")
+    add("p2/c", c, c2)   # the lane's later commit edits its own bullet
+    add("main", d)
+    _git(repo, "rebase", "-q", "main", "p2/c")
+    text = (repo / log).read_text(encoding="utf-8")
+    at = text.splitlines().index(c) + 1
+    assert text.endswith(f"{d}\n{c}\n{c2}\n")   # union kept the old line
+    assert devlog.stale(text) == [f"{devlog.LOG}: lines {at} and {at + 1} are both **Bullet c**: keep one (a union "
+                                  f"merge keeps a lane's edited bullet beside its old line)"]
+    code, why = land.land(repo, "p2/c", dry_run=True)
+    assert code == 1 and why.startswith("land: p2/c's developer log holds a bullet twice") and "**Bullet c**" in why
+    edits = "\n".join(["## [1.0.0]", c.replace("**Bullet c**", "Bullet c"), c2.replace("**Bullet c**", "C"), a,
+                       "## [0.9.0]", a, a])   # an edit that drops the title; a in two releases, and twice in one
+    assert [why.split(" (")[0] for why in devlog.stale(edits)] == [
+        f"{devlog.LOG}: lines 2 and 3 are one bullet twice", f"{devlog.LOG}: lines 6 and 7 are both **Bullet a**: keep one"]
 
 
 def test_the_perf_gate_logs_firefoxs_tree_peak_and_no_verdict_or_list_reads_it(tmp_path, monkeypatch):

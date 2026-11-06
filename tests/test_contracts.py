@@ -6,7 +6,9 @@ subprocesses, prints or exits (the web page's worker runs them as they are;
 the app-only ``tools/randomizer/live/`` is exempt), only ``tools/characters``
 and the randomizer's drawing (its maps and icons: ``tools/randomizer/art/`` and
 the reach model's first stage, ``tools/randomizer/draft/``) import numpy, and
-nothing imports capstone, unicorn, zig, Tk or ``devkit`` (none of them ships)."""
+nothing imports capstone, unicorn, zig, Tk or ``devkit`` (none of them ships).
+Beside them, the lint set's other rule: the developer log holds no bullet twice
+(``scripts/devlog.py``, Step 4.4dx1)."""
 
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ from pathlib import Path
 
 from importlinter.cli import lint_imports
 
-from scripts import sdk_api
+from scripts import devlog, sdk_api
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "azurkit"
@@ -74,6 +76,13 @@ def test_the_sdk_api_is_its_snapshot():
     ``sdk.__all__``, its signature and its docstring) changes only with
     ``tests/sdk_api.txt``, whose diff shows the change."""
     assert sdk_api.SNAPSHOT.read_text(encoding="utf-8") == sdk_api.text(), "run scripts/sdk_api.py"
+
+
+def test_the_developer_log_holds_no_bullet_twice():
+    """Step 4.4dx1: ``docs/DEVLOG.md`` merges with git's union driver, which
+    keeps a lane's edited bullet beside its old line; no release holds two
+    bullets with one bold title or most of their words alike."""
+    assert devlog.stale((ROOT / devlog.LOG).read_text(encoding="utf-8")) == []
 
 
 def test_import_linter_contracts_hold(capsys):

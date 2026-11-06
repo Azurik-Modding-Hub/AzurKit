@@ -1626,7 +1626,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Change notes:** each change adds one Markdown bullet in a file of its
   own, `docs/devlog/<added|changed|removed|fixed>/<step>-<slug>.md` (ids
   welcome there), which a release joins; a change a player would notice
-  also updates README's Features (above), in plain words.
+  also updates README's Features (above), in plain words. `docs/DEVLOG.md`
+  merges with git's union driver (`.gitattributes`), so lanes' bullets at a
+  section's end never conflict; the lint set and `scripts/land.py` refuse a
+  release that holds one bullet twice (`scripts/devlog.py`: the stale copy
+  union keeps of a bullet its lane edited): keep the newer.
 - **The gate:** run `uv run --locked python scripts/fullsuite.py <worktree>
   --changed`. It runs the lint files in the foreground, then the changed area
   with the gate's USA and Europe test (or the whole suite) in the background
