@@ -20,11 +20,12 @@ the key and the meta's path; Modkit's ``waitfor`` reads that path too.
 files, the gate's test, whose USA and Europe cases make every receipt
 show both tiers run (D26), and the scan of every tracked file for a home
 path (:data:`SCAN`). A change in a folder the tests read by path
-(:data:`DATA`: the goldens, the workflows, the kernels) picks its readers. Only what every session runs
+(:data:`DATA`: the goldens, the workflows, the kernels) picks its readers, and so does any other file that isn't
+Python: the test files reaching a module that names it (:func:`namers`). Only what every session runs
 (:func:`graph_of`'s ``every_run``: conftest's and its plugins' top levels and hooks and all they reach) or a path no
-rule covers makes it the whole suite; what only a conftest fixture runs picks the tests that take it, and so does a
-change to such a module (conftest too) in functions only fixtures or tests call (:func:`narrowed`). The meta's
-``mode`` says which. A changed-area run drives the page in
+rule covers and no module names makes it the whole suite; what only a conftest fixture runs picks the tests that
+take it, and so does a change to such a module (conftest too) in functions only fixtures or tests call
+(:func:`narrowed`). The meta's ``mode`` says which. A changed-area run drives the page in
 :data:`CHANGED_BROWSERS` alone (``--browsers``, ``tests/conftest.py``), a
 whole one in every browser (D970); the meta's ``browsers`` says which.
 
@@ -194,19 +195,24 @@ def reads(source: str | ast.AST) -> set[str]:
     return {folder for folder in DATA if folder.rstrip("/").rpartition("/")[2] in names}
 
 
-def _runs(tree: ast.AST, rel: str) -> set[str]:
-    """The modules a source runs as programs by their paths: a string (no
-    docstring, no space) that is a Python file's path, ends in "/" and it, or
-    is the name of one beside it (``Path(__file__).with_name("_static.py")``),
-    whether or not the file is there (a deleted one's users still name it). A
-    test file named so is pytest's to run, not a program."""
+def _texts(tree: ast.AST) -> frozenset[str]:
+    """The strings a source holds, its docstrings aside (they tell, they read nothing)."""
     docs = {id(node.body[0].value) for node in ast.walk(tree)
             if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
             and node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)}
+    return frozenset(node.value for node in ast.walk(tree)
+                     if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs)
+
+
+def _runs(texts: frozenset[str], rel: str) -> set[str]:
+    """The modules a source (its :func:`_texts`) runs as programs by their
+    paths: a string (no space) that is a Python file's path, ends in "/" and
+    it, or is the name of one beside it (``Path(__file__).with_name("_static.py")``),
+    whether or not the file is there (a deleted one's users still name it). A
+    test file named so is pytest's to run, not a program."""
     folder, out = rel.rpartition("/")[0], set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(text := node.value, str) and id(node) not in docs \
-                and text and not any(c.isspace() for c in text):
+    for text in texts:
+        if text and not any(c.isspace() for c in text):
             ends = {text, *(text[i + 1:] for i, c in enumerate(text) if c == "/"), f"{folder}/{text}".lstrip("/")}
             out |= {m for o in ends if o != rel and (m := module_of(o)) and not m.startswith("tests.test_")}
     return out
@@ -348,10 +354,12 @@ class Graph(dict):
     modules (and DATA folders) every run's session executes or reads, whatever
     tests it selects; :attr:`session_units`: the ``(module, function)`` it calls;
     :attr:`fixture_units`: each other one a conftest fixture calls, to the
-    fixtures (``tests.conftest::NAME``) that do."""
+    fixtures (``tests.conftest::NAME``) that do; :attr:`texts`: each module's
+    strings (:func:`_texts`), which :func:`namers` reads."""
     every_run: frozenset[str] = frozenset()
     session_units: frozenset[tuple[str, str]] = frozenset()
     fixture_units: dict[tuple[str, str], set[str]]
+    texts: dict[str, frozenset[str]]
 
 
 def graph_of(files: dict[str, str]) -> Graph:
@@ -366,9 +374,11 @@ def graph_of(files: dict[str, str]) -> Graph:
     mods = {rel: module_of(rel) for rel in files}
     trees = {rel: ast.parse(text) for rel, text in files.items()}
     scopes = {mods[rel]: _scope(tree, mods[rel], rel.endswith("__init__.py")) for rel, tree in trees.items()}
-    runs = {mods[rel]: _runs(tree, rel) for rel, tree in trees.items()}
+    texts = {mods[rel]: _texts(tree) for rel, tree in trees.items()}
+    runs = {mods[rel]: _runs(texts[mods[rel]], rel) for rel in trees}
     deps = Graph({mods[rel]: imports(tree, mods[rel], rel.endswith("__init__.py")) | reads(tree) | runs[mods[rel]]
                   for rel, tree in trees.items()})
+    deps.texts = texts
     seen = _reach(scopes, modules=SESSION)   # and the folders and programs its modules name by path
     deps.every_run = frozenset(seen[0] | {f for m in seen[0] & deps.keys() for f in deps[m] & set(DATA) | runs[m]})
     deps.session_units, deps.fixture_units = frozenset(seen[1]), {}
@@ -435,19 +445,39 @@ def narrowed(wt: Path, base: str, changed: list[str], deps: dict) -> list[str]:
     return out
 
 
+def namers(rel: str, deps: dict) -> set[str]:
+    """The modules that may read ``rel``, a file that isn't Python, by its
+    path: one of whose strings (:attr:`Graph.texts`) holds its file name as a
+    whole word (``"ci_retry.sh"``, ``". scripts/ci_retry.sh"``), and, in a
+    folder below the top level, one that names that folder (a part between
+    "/"s: ``ROOT / "player_model"`` lists it) or sits in it (its package reads
+    its data by ``__file__``, a name it computes). A top-level folder or the
+    root holds unrelated modules (``scripts/``, ``tests/``): neither names the
+    files in it. A plain dict has no strings: no module names anything."""
+    folder, _, name = rel.rpartition("/")
+    word = re.compile(rf"(?<![\w.-]){re.escape(name)}(?![\w-])")
+    own = folder.rpartition("/")[2] if "/" in folder else None
+    package = module_of(f"{folder}/__init__.py") if own else None
+    return {m for m, texts in getattr(deps, "texts", {}).items()
+            if own and package in (m, m.rpartition(".")[0])
+            or any(name in t and word.search(t) or own and own in t and own in t.split("/") for t in texts)}
+
+
 def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
     """The test files (or tests) to run for the ``changed`` paths, or ``None``
     for the whole suite: each changed test file, each test file that imports a
     changed module directly or through others (or runs it by its path, or takes
     a conftest fixture that runs it: :func:`graph_of`), each that reaches a
-    module reading a changed :data:`DATA` folder (``deps``' folder entries),
-    :data:`SRC_TESTS` for a change under src/, a path's :data:`RULES` tests,
-    and :data:`SMOKE`; nothing more for other docs. A change to the suite's
-    configuration, to what every session runs (``deps.every_run``; for a plain
-    dict, :data:`SESSION` and all it imports), to a path no rule covers (a
-    Python file outside :data:`PY_DIRS` and the root, which :func:`graph`
-    doesn't read, is one) or a deleted module no module still names is the
-    whole suite (a renamed one is
+    module reading a changed :data:`DATA` folder (``deps``' folder entries) or
+    naming a changed file that isn't Python (:func:`namers`; a deleted one's
+    users still name it), :data:`SRC_TESTS` for a change under src/, a path's
+    :data:`RULES` tests, and :data:`SMOKE`; nothing more for other docs. A
+    change to the suite's configuration, to what every session runs
+    (``deps.every_run``, a file one of its modules names too; for a plain
+    dict, :data:`SESSION` and all it imports), to a path no rule covers that
+    no module names (a Python file outside :data:`PY_DIRS` and the root,
+    which :func:`graph` doesn't read, is one) or a deleted module no module
+    still names is the whole suite (a renamed one is
     its old path deleted, :func:`prepare` lists both; a deleted test file
     drops only its own tests). The session checks the app's no-window mode in a Python of its
     own, so the app isn't what every session runs. A function of such a module
@@ -477,7 +507,11 @@ def plan(changed: list[str], deps: dict[str, set[str]]) -> list[str] | None:
         if rel.endswith(DOCS) or rel in (".gitignore", perf.CEILINGS):   # the perf list: the perf stage reads it
             continue
         if (module := module_of(rel)) is None:
-            return None
+            if not (named := namers(rel, deps)):
+                return None   # no module names it: who reads it isn't known
+            touched |= named
+            picked.update(SRC_TESTS if rel.startswith("src/") else ())
+            continue
         if module not in deps and not module.startswith("tests.test_") and not any(
                 module in uses for uses in deps.values()):
             return None   # a deleted module no module names: who ran it isn't in the head tree

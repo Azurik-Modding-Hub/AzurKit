@@ -1696,12 +1696,17 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   tab's test and the wheel's, `README.md` the wheel's, a change in
   `tests/goldens/`, `.github/`, `native/` or `src/azurkit/core/_native/` the test files that read it (read by path: those
   reaching a module that names the folder, `record_goldens.GOLDENS`),
-  other docs nothing more; the suite's configuration, what every session
-  runs (conftest's and its plugins' top levels and hooks, and every module
-  and function they import or name, however deep; not the app, whose
-  no-window mode it checks in a Python of its own), a path no rule
-  covers (a Python file outside the graph's folders, `PY_DIRS`, and the
-  root is one) and a deleted module (not a test file) that no module still
+  any other file that isn't Python (a shell script, `.gitattributes`, a
+  package's data) the test files reaching a module whose strings, its
+  docstrings aside, hold its file name as a word, and below the top level
+  one naming its folder or sitting in it (`namers`: `scripts/ci_retry.sh`
+  picks `test_contracts`), other docs nothing more; the suite's
+  configuration, what every session runs (conftest's and its plugins' top
+  levels and hooks, and every module and function they import or name,
+  however deep, and the files they name; not the app, whose no-window mode
+  it checks in a Python of its own), a path no rule covers and no module
+  names (a Python file outside the graph's folders, `PY_DIRS`, and the root
+  is one) and a deleted module (not a test file) that no module still
   names (a rename is its old path deleted) run the whole suite. What only a conftest fixture's body runs (the
   `browser` fixture's close: `scripts/ci_resources.py`) picks the test files
   that take that fixture, and a change to such a module (conftest too) that

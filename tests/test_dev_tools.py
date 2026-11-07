@@ -173,6 +173,36 @@ def test_a_deleted_or_renamed_module_picks_the_tests_that_still_name_it_and_one_
     assert "tests/test_a.py" in fullsuite.prepare(lane, True, base)["pytest_args"]
 
 
+def test_a_file_that_isnt_python_picks_the_test_files_that_name_it_and_one_none_names_is_the_whole_suite():
+    """Step 4.4dx11: a file no rule covers that isn't Python (a shell
+    script, ``.gitattributes``, a package's data) picks the test files
+    reaching a module whose strings hold its name as a word, a docstring's
+    aside (here ``scripts/ci_retry.sh`` picks test_contracts, which reads
+    it), and below the top level one naming its folder or sitting in it
+    (a package reads its data by ``__file__``); deleted, its users still
+    name it. One no module names, or one a module every session runs
+    names, stays the whole suite."""
+    files = {"tests/conftest.py": "TIMES = 'tests/durations.json'\n",
+             "tests/test_reads.py": "from pathlib import Path\n\nRETRY = Path('scripts') / 'retry.sh'\n"
+                                    "OLD = '. gone.sh'\n",
+             "tests/test_told.py": '"""It reads scripts/told.sh."""\n\nNAME = "told.shx"\n',
+             "scripts/tools.py": "", "tests/test_tools.py": "from scripts import tools  # noqa: F401\n",
+             "src/pkg/__init__.py": "", "src/other.py": "",
+             "src/pkg/loader.py": "from pathlib import Path\n\nKITS = Path(__file__).parent / 'kits'\n", "tests/test_pkg.py": "from pkg import loader  # noqa: F401\n",
+             "tests/test_other.py": "import other  # noqa: F401\n"}
+    deps = fullsuite.graph_of(files)
+    reads, pkg = sorted({*SMOKE, "tests/test_reads.py"}), sorted({*SMOKE, *fullsuite.SRC_TESTS, "tests/test_pkg.py"})
+    assert {rel: fullsuite.plan([rel], deps) for rel in (
+        "scripts/retry.sh", "scripts/gone.sh", "src/pkg/table.json", "src/pkg/kits/a.glb", "scripts/told.sh",
+        "tests/durations.json", "scripts/new.sh")} == {
+        "scripts/retry.sh": reads, "scripts/gone.sh": reads, "src/pkg/table.json": pkg, "src/pkg/kits/a.glb": pkg,
+        "scripts/told.sh": None, "tests/durations.json": None, "scripts/new.sh": None}
+    checkout = fullsuite.graph(ROOT)
+    assert "tests/test_contracts.py" in (fullsuite.plan(["scripts/ci_retry.sh"], checkout) or [])
+    assert "tests/test_dev_tools.py" in (fullsuite.plan([".gitattributes"], checkout) or [])
+    assert fullsuite.plan(["tests/ci_durations.json"], checkout) is None   # scripts/ci_shards.py, every session's
+
+
 def test_a_change_to_a_functions_decorators_or_defaults_is_its_modules_top_level():
     """Step 4.4dx3, review F2: a function's decorators and defaults run as its
     module loads, so a change to them is its module's (conftest's: the whole
