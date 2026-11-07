@@ -428,9 +428,13 @@ def test_a_flake_run_or_collection_past_the_stages_cap_is_ended_with_its_process
     stage, though it passed an earlier run (the slowest run is the one the
     cap ends), and each case that never passed fails it by name as capped,
     never a silent pass; a case that passed before the cap isn't named. The
-    receipt keeps each run's wall time. A collection still going at it is
-    ended with its processes too (a child in its session, as ``uv run``
-    starts pytest) and fails the stage. The three stages run side by side."""
+    receipt keeps each run's wall time, within the stage's, which reaches the
+    cap (no bound above either: a slow box's starts, kill and reap add to
+    both). A collection still going at it is ended with its processes too (a
+    child in its session, as ``uv run`` starts pytest) and fails the stage.
+    Each stage then deletes its run's output, which no process of an ended
+    run still holds (on Windows, where a held file can't be deleted, the end
+    waits for each). The three stages run side by side."""
     _quick_flake(monkeypatch)
     monkeypatch.setattr(fullsuite, "FLAKE_CAP", 15)
 
@@ -460,7 +464,7 @@ def test_a_flake_run_or_collection_past_the_stages_cap_is_ended_with_its_process
         (flake, meta), (flaked, _), (listed, _) = hung.result(), late.result(), listing.result()
     assert (flake["passed"], flake["done"], len(flake["walls"])) == (False, 0, 1)
     assert [(f["test"], f.get("capped")) for f in flake["failures"]] == [("test_x.py::test_hangs[c d]", True)]
-    assert flake["walls"][0] < fullsuite.FLAKE_CAP and flake["wall_s"] < fullsuite.FLAKE_CAP + 5
+    assert 0 < flake["walls"][0] <= flake["wall_s"] and flake["wall_s"] >= fullsuite.FLAKE_CAP
     assert "test_x.py::test_hangs[c d] capped: no passing run within 15 s" in fullsuite.describe(
         {"key": "k", "subject": "s", "mode": "changed", "pytest_args": [], "state": "done", "exit_code": 0,
          "flake_tests": flake["tests"], "flake": flake}, meta)
@@ -470,6 +474,7 @@ def test_a_flake_run_or_collection_past_the_stages_cap_is_ended_with_its_process
     assert "test_x.py::test_flaky FAILED" in "\n".join(flaked["failures"][0]["tail"])
     assert (listed["passed"], [f["test"] for f in listed["failures"]], listed["walls"]) == (
         False, ["(their collection: exit past 15 s)"], [])
+    assert [name for name in ("hung", "late") if (tmp_path / name / "suite-k.flake.out").exists()] == []
     for name in ("hung", "listing"):
         child, deadline = int((tmp_path / name / "child").read_text()), time.time() + 10
         while _running(child) and time.time() < deadline:

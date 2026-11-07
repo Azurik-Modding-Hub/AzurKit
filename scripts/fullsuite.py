@@ -771,7 +771,13 @@ def flake_command(tests: list[str], prefix: list[str], runs: int = 1) -> list[st
 
 
 def descendants(pid: int) -> list[int]:
-    """The processes under ``pid`` (POSIX ``ps``'s parent ids): its children, theirs and so on."""
+    """The processes under ``pid``: its children, theirs and so on, by their parent ids (POSIX ``ps``'s; on
+    Windows ``ci_resources.tree``'s walk of the OS's table, which skips a child older than its parent, as Windows
+    hands an ended process's id to a new one)."""
+    if os.name != "posix":
+        import ci_resources   # this folder's, on the path above
+
+        return [row[0] for _, row in ci_resources.tree(ci_resources.table(), pid)[1:]]
     rows = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True).stdout.split()
     children: dict[int, list[int]] = {}
     for child, parent in zip(rows[::2], rows[1::2]):
@@ -786,10 +792,31 @@ def descendants(pid: int) -> list[int]:
 def end(proc: subprocess.Popen) -> int:
     """End a run started in a session of its own: it, every process under it
     (its workers and drivers, and the browsers Playwright starts in
-    sessions of their own) and its session's group; its exit code."""
-    if os.name != "posix":   # Windows: taskkill ends its tree
+    sessions of their own) and its session's group; its exit code. On
+    Windows it returns once each of them has ended: a killed process holds
+    its files open till then, and a run's own process is often a launcher
+    (a venv's ``python.exe``, ``uv``) that ends before the interpreter under
+    it, whose hold on the run's output failed the flake stage's delete of
+    it (WinError 32 on GitHub's Windows runner, Step 4.5i)."""
+    if os.name != "posix":   # Windows: taskkill ends its tree; each process under it is held, ended and waited for
+        import _winapi
+
+        held = []   # each held open, so its id names it till it has ended
+        for pid in descendants(proc.pid):
+            try:
+                held.append(_winapi.OpenProcess(0x00100001, False, pid))   # SYNCHRONIZE | PROCESS_TERMINATE
+            except OSError:   # it ended since the listing
+                pass
         subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
-        return proc.wait()
+        code = proc.wait()
+        for handle in held:
+            try:   # one out of taskkill's walk, which reaches only a live parent's children
+                _winapi.TerminateProcess(handle, 1)
+            except OSError:   # it has ended
+                pass
+            _winapi.WaitForSingleObject(handle, _winapi.INFINITE)
+            _winapi.CloseHandle(handle)
+        return code
     for pid in [proc.pid, *descendants(proc.pid)]:
         try:
             os.kill(pid, signal.SIGKILL)
