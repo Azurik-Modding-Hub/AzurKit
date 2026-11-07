@@ -79,8 +79,8 @@ layer stacks after the packs::
 
 A character's ``species`` may name a variant (a recipe over a base species:
 its sculpted mesh, painted textures, jiggle springs, clips and sounds), a
-built-in or one of the recipe file ``variant_file`` names, its shapes sized
-by ``shapes``::
+built-in, one of the recipe file ``variant_file`` names or, with none, one of
+yours (``tools.characters.library``), its shapes sized by ``shapes``::
 
     {"character": {"species": "mine", "variant_file": "<recipes.json>", "shapes": {"hips": 1.2}}}
 
@@ -688,16 +688,19 @@ def _reshape_kept(kind: str, stamp: gate.Stamp, character: Mapping, packs: Mappi
     Content Update) and a recipe file's bytes and its WAVs' (``variant_file``,
     an edit to either), each by its sha256, not a stat an edit in place can
     leave as it was; its glTF, PNG and clip files are pinned by their sha256
-    in it. Each call keeps and returns its own key's answer, so the app's
-    threads (a shape's pictures beside another's build) never cross theirs."""
+    in it; a variant of yours by what its build reads (``library.stamp``).
+    Each call keeps and returns its own key's answer, so the app's threads
+    (a shape's pictures beside another's build) never cross theirs."""
     from azurkit.tools.characters import _player_variants as variants
     from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import library
 
     recipes = character.get("variant_file")
     worn = recipes and variants.resolve(character["species"], recipes)
     read = [Path(recipes), *(variants.recipe_wav_files(worn) if worn else ())] if recipes else []
     key = json.dumps([str(stamp.path), stamp.release.name, character, packs, kit.installed(),
-                      [p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest() for p in read]], sort_keys=True)
+                      [p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest() for p in read],
+                      None if recipes else library.stamp(character["species"])], sort_keys=True)
     if (kept := _DRESSED.get(kind)) is not None and kept[0] == key:
         return kept[1]
     _DRESSED.pop(kind, None)   # the last one's dress goes before this one is worked out (one heap)
@@ -711,10 +714,11 @@ def _reshaped(recipe: Mapping, character: Mapping) -> dict:
     (its layers to ``characters.plan``'s, which the app keeps for that
     build, and :func:`_reshape_kept` for this process), kept for this
     process."""
-    from azurkit.tools.characters import picker, ports
+    from azurkit.tools.characters import library, picker, ports
 
     packs, stamp = _packs(recipe), _stamp(recipe["iso"])
-    key = json.dumps(["reshaped", str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
+    key = json.dumps(["reshaped", str(stamp.path), stamp.release.name, character, packs,
+                      library.stamp(character["species"])], sort_keys=True)
     if key not in _MATCHES:
         stamp, _, layers, _, _ = _plan({"iso": recipe["iso"], "packs": packs, "character": dict(character)})
         files = characters.worn_by(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), layers)
@@ -728,7 +732,7 @@ def _dress(recipe: Mapping) -> dict:
     """:func:`match`'s answer for ``recipe`` and, for a variant, its
     dress's ``preview`` (``picker.dressed``), kept for this process."""
     from azurkit.tools.characters import _player_variants as variants
-    from azurkit.tools.characters import picker, ports
+    from azurkit.tools.characters import library, picker, ports
 
     packs = _packs(recipe)
     if "character" not in recipe:
@@ -737,7 +741,8 @@ def _dress(recipe: Mapping) -> dict:
     if not isinstance(recipe.get("iso"), str):
         raise ValueError("recipe: iso names no image")
     stamp = _stamp(recipe["iso"])
-    key = json.dumps([str(stamp.path), stamp.release.name, character, packs], sort_keys=True)
+    key = json.dumps([str(stamp.path), stamp.release.name, character, packs, library.stamp(character["species"])],
+                     sort_keys=True)
     if key not in _MATCHES:
         vanilla, layers = _under_a_dress(stamp, packs)
         found, staging = characters.match(character, vanilla, layers, characters.packs_view(stamp.release, mods.PACKS))
@@ -1042,7 +1047,8 @@ def _character(given: object) -> tuple[dict, dict]:
     less ``variant``, its recipe's sha12) and that as a link carries it:
     names and numbers only, so a recipe file's path (``variant_file``) is
     refused by name (Q174), as is a variant AzurKit holds no recipe of with
-    that sha, naming what to Install or Update."""
+    that sha (a built-in, an installed one or one of yours, ``library``),
+    naming what to Install or Update, or to import as yours."""
     if not isinstance(given, Mapping):
         raise ValueError("preset: a character is an object naming its species")
     given = dict(given)
@@ -1058,10 +1064,14 @@ def _character(given: object) -> tuple[dict, dict]:
         raise ValueError(f"preset: the character's variant {sha!r} is no recipe sha")
     if sha is not None and worn is None:
         raise ValueError(f"preset: {character['species']!r} is a variant (recipe {sha}) this AzurKit has no recipe "
-                         "of: install it from the Characters tab's community variants")
+                         "of: install it from the Characters tab's community variants, or import its recipe file "
+                         "as one of yours")
     if worn is not None and sha not in (None, worn.sha):
-        raise ValueError(f"preset: {character['species']!r} is recipe {sha} there and recipe {worn.sha} here: "
-                         "Install or Update it (the Characters tab's community variants), or update AzurKit")
+        mine = worn.source != "built-in"
+        raise ValueError(f"preset: {character['species']!r} is recipe {sha} there and recipe {worn.sha} "
+                         + ("in your variants: import its recipe file as yours to wear it" if mine else
+                            "here: Install or Update it (the Characters tab's community variants), or update "
+                            "AzurKit"))
     return character, character | ({"variant": worn.sha} if worn is not None else {})
 
 

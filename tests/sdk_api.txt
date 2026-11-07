@@ -81,8 +81,8 @@ layer stacks after the packs::
 
 A character's ``species`` may name a variant (a recipe over a base species:
 its sculpted mesh, painted textures, jiggle springs, clips and sounds), a
-built-in or one of the recipe file ``variant_file`` names, its shapes sized
-by ``shapes``::
+built-in, one of the recipe file ``variant_file`` names or, with none, one of
+yours (``tools.characters.library``), its shapes sized by ``shapes``::
 
     {"character": {"species": "mine", "variant_file": "<recipes.json>", "shapes": {"hips": 1.2}}}
 

@@ -865,11 +865,33 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `jiggle.py`'s springs, its clips, sounds and effects): `species` names
     one as `--player-character` does, a built-in (`variants.json`) or one of
     the recipes of the file `variant_file` names (`--player-variant-file`;
-    the files a recipe names are read beside it), its shapes sized by
+    the files a recipe names are read beside it), else with no file one of
+    yours (below), its shapes sized by
     `shapes` (`--player-shape`); an option a recipe gives must be the
     variant's, its scale and attack numbers multiply the variant's
     (`tools.characters.variant`). The layer's recipe keeps the variant's
     sha, and its notes the file's name, never its folder.
+  - **Your own variants** (Step 4.6a; Modkit's variant library, D372,
+    D480): `tools/characters/library.py`, a folder each in the folder
+    `AZURKIT_VARIANTS` names, else `variants` in the user data folder
+    (Modkit's, so its saved variants open unmoved; the site's worker reads
+    `variants` in its working folder, or the `ROOT` a host sets):
+    `<name>/recipe.json`, `{"<name>": {recipe}}` (`variant_file`'s shape,
+    one recipe), the files it names beside it. `listing` gives each folder
+    its variant or its refusal (one recipe named as its folder, no
+    built-in's or species' name (`species.json`), at most 64 deep, the
+    loader's checks); New (`new`), Save, Save as, New from this
+    (`copy_as`: of a built-in an own copy, its recipe laid whole with its
+    files, `own_copy`) and Delete check first and write whole or not at all
+    (D35). `_player_variants.resolve` finds a built-in, else `variant_file`'s
+    recipe, else with no file yours (`library.find`; a folder that isn't a
+    variant refused by name), so a build, a link, a mods file and the
+    remembered setup wear one by name (a link with its sha12, Q174); each
+    key an answer for a character is kept under (`characters.cache_key`,
+    `app.ahead.key`, the sdk's dresses) stands on what a build of yours
+    reads (`library.stamp`: its folder's recipe and files by sha256). Its
+    checks are `tests/test_variant_library.py`'s, one a build of the probe
+    variant saved as yours, its golden's file for file.
   - **A seed with a character** (Step 4.3c2, Modkit's `randomize-full
     --seed` with `--player-character`): the sdk plans the randomizer after
     the body's size is folded into the walk and roll, so the plan stands

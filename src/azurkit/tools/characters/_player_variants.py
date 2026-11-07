@@ -323,7 +323,7 @@ def own_recipe(recipe: dict) -> dict:
     and attack numbers built in no pick but a Bare hands its Weapon box
     called one), and its ``notes`` with it (Step 2.209's looks, 3: hers
     say she carries the staff; no sha reads them; New from this keeps a
-    user's own, :func:`~azurik_mod.authoring.variant_library.own_copy`)."""
+    user's own, ``library.own_copy``)."""
     if recipe.get("weapon") in (None, "default", "own") or not any(recipe.get(k) for k in MOVES):
         return recipe
     return {k: v for k, v in recipe.items() if k not in ("weapon", "notes")}
@@ -3704,14 +3704,18 @@ def builtins() -> dict[str, Variant]:
 
 
 def resolve(name: str, user_file: str | Path | None = None) -> Variant | None:
-    """The variant ``name`` names (a built-in, else one in ``user_file``),
-    or ``None`` (a species, or nothing)."""
+    """The variant ``name`` names (a built-in, else one in ``user_file``,
+    else with no file one of yours: ``library.find``), or ``None`` (a
+    species, or nothing); a folder of yours of that name that isn't a
+    variant raises ``ValueError`` naming why."""
     if name in builtins():
         if user_file is not None:
             load_variants(Path(user_file).read_text(encoding="utf-8"), str(user_file), tuple(builtins()))
         return builtins()[name]
     if user_file is None:
-        return None
+        from azurkit.tools.characters import library
+
+        return library.find(name)
     return load_variants(Path(user_file).read_text(encoding="utf-8"), str(user_file), tuple(builtins())).get(name)
 
 

@@ -88,10 +88,16 @@ def key(recipe: object, extra: object = None, root: Path | None = None) -> str |
     work ahead: the click names what it refuses) when that image can't be
     read now or the recipe isn't JSON, and for a recipe file's character
     (``variant_file``: its contents aren't in the key, as
-    ``characters.cache_key``)."""
-    if isinstance(recipe, Mapping) and isinstance(character := recipe.get("character"), Mapping) \
-            and "variant_file" in character:
-        return None
+    ``characters.cache_key``); a variant of yours adds what its build reads
+    (``library.stamp``)."""
+    own = None
+    if isinstance(recipe, Mapping) and isinstance(character := recipe.get("character"), Mapping):
+        if "variant_file" in character:
+            return None
+        if isinstance(character.get("species"), str):
+            from azurkit.tools.characters import library
+
+            own = library.stamp(character["species"])
     stamp = None
     if isinstance(recipe, Mapping) and "iso" in recipe:
         if not isinstance(path := recipe["iso"], str):
@@ -102,7 +108,8 @@ def key(recipe: object, extra: object = None, root: Path | None = None) -> str |
             return None
         stamp = [os.path.realpath(path), at.st_size, at.st_mtime_ns, at.st_ctime_ns]
     try:
-        text = json.dumps([__version__, recipe, extra, stamp, installed(root)], sort_keys=True)
+        text = json.dumps([__version__, recipe, extra, stamp, installed(root), *([own] if own else [])],
+                          sort_keys=True)
     except (TypeError, ValueError, RecursionError):
         return None
     return hashlib.sha256(text.encode()).hexdigest()

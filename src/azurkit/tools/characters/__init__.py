@@ -30,8 +30,9 @@ base species, its sculpted mesh, painted textures and colours, its jiggle
 springs, its clips, sounds and effects) is worn as ``--player-character``
 wears one: ``species`` names a built-in (``variants.json``) or one of the
 recipes of the file ``variant_file`` names (``--player-variant-file``; the
-files a recipe names are read beside it), its shapes sized by ``shapes``
-(``{name: x}``, ``--player-shape``); an option the recipe gives must be the
+files a recipe names are read beside it), else one of yours
+(:mod:`.library`), its shapes sized by ``shapes`` (``{name: x}``,
+``--player-shape``); an option the recipe gives must be the
 variant's, and its scale and attack numbers multiply the variant's
 (:func:`variant`). The layer's recipe keeps the variant's sha and its
 notes the file's name, never its path (a build's manifest carries both).
@@ -126,15 +127,19 @@ def cache_key(what: str, recipe: Mapping, release: gate.Release, before: Sequenc
               extra: object = None) -> str | None:
     """The key :data:`CACHE` keeps ``what`` of ``recipe`` under on
     ``release`` over the layers ``before`` (each one's recipe, changes and
-    claims), with ``extra`` (the size the walk and roll were folded with)
-    and the content folder's ``installed.json``; ``None`` without a
+    claims), with ``extra`` (the size the walk and roll were folded with),
+    the content folder's ``installed.json`` and, for a variant of yours,
+    what its build reads (``library.stamp``); ``None`` without a
     :data:`CACHE`, or for a recipe file's character."""
     from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import library
 
     if CACHE is None or "variant_file" in recipe:
         return None
     h = hashlib.sha256(json.dumps([what, _code(), release.name, release.iso_sha256, recipe, extra, kit.installed()],
                                   sort_keys=True, default=str).encode())
+    if (own := library.stamp(recipe["species"])) is not None:
+        h.update(own.encode())
     for la in before:
         h.update(json.dumps([la.id, la.tool, la.kind, la.recipe, [(c.file, c.offset, c.before, c.group, c.whole)
                                                                    for c in la.changes],
@@ -193,8 +198,9 @@ def variant(recipe: Mapping, vanilla, worn=None) -> tuple[object, dict] | tuple[
     """The variant :func:`normalize`'s ``recipe`` wears and
     ``apply_player_model``'s options for it (Modkit's ``player_variant`` and
     ``variant_options``), or ``(None, None)`` for a species: ``species`` a
-    built-in variant, else one of ``variant_file``'s recipes (``worn``, a
-    ``Variant``, in place of either: a sculpt round's, laid over), its shapes
+    built-in variant, else one of ``variant_file``'s recipes, else one of
+    yours (``library``) (``worn``, a ``Variant``, in place of any: a sculpt
+    round's, laid over), its shapes
     sized by ``shapes``; a mode, size, sounds, anims or on/off option the
     recipe gives must be the variant's, its scale and attack numbers
     multiply the variant's (a weapon's moveset's, under a weapon: its

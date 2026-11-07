@@ -42,8 +42,9 @@ edited, or not beatable under its settings is refused by name.
 ``--obsidian-cost`` sets the obsidian locks' cost (vanilla 10). ``--character``
 dresses the player in a species' body (a recipe's character as JSON,
 ``{"species": "keylord"}`` and any of its options: ``tools.characters``;
-a variant by name, a built-in or one of a recipe file's,
-``{"species": "mine", "variant_file": "recipes.json"}``),
+a variant by name, a built-in, one of yours (a folder in ``variants`` in
+the user data folder, or ``$AZURKIT_VARIANTS``: ``tools.characters.library``)
+or one of a recipe file's, ``{"species": "mine", "variant_file": "recipes.json"}``),
 its size folded into the walk and roll first (with ``--seed``, the plan's
 too, and what the body leaves unmodelled leaves its logic unverified). A mods file
 of a randomized build (``open``) replays its seed and share string, and one with a character
