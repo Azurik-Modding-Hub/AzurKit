@@ -155,18 +155,18 @@ jobs:
         shell: bash
     steps:
       # First, on every OS (the block starts in harden-runner's pre-step, at the job's start, so the installs below run
-      # behind it too): only the hosts the steps below need. github.com (443: the checkout, the content clone,
-      # Pyodide's core; 22: the game data's SSH clone) and GitHub's release downloads; api and raw for setup-node's
-      # manifest; releases.astral.sh for uv and its Python; PyPI for uv sync; nodejs.org for Node; jsDelivr for
-      # Pyodide's wheels; Playwright's CDN and the two it redirects to (Microsoft's for WebKit, Firefox and FFmpeg;
-      # Chrome for Testing's bucket on storage.googleapis.com for Chromium's headless shell); the runner's apt sources
-      # for install-deps.
+      # behind it too): only the hosts the steps below need. github.com (the checkout, the content clone, Pyodide's
+      # core), ssh.github.com (the game data's SSH fetches, on GitHub's HTTPS port) and GitHub's release downloads; api
+      # and raw for setup-node's manifest; releases.astral.sh for uv and its Python; PyPI for uv sync; nodejs.org for
+      # Node; jsDelivr for Pyodide's wheels; Playwright's CDN and the two it redirects to (Microsoft's for WebKit,
+      # Firefox and FFmpeg; Chrome for Testing's bucket on storage.googleapis.com for Chromium's headless shell); the
+      # runner's apt sources for install-deps.
       - name: harden-runner, egress blocked
         uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: block
           allowed-endpoints: >-
-            github.com:443 github.com:22 api.github.com:443 raw.githubusercontent.com:443
+            github.com:443 ssh.github.com:443 api.github.com:443 raw.githubusercontent.com:443
             release-assets.githubusercontent.com:443 objects.githubusercontent.com:443
             releases.astral.sh:443 pypi.org:443 files.pythonhosted.org:443 nodejs.org:443 cdn.jsdelivr.net:443
             cdn.playwright.dev:443 playwright.download.prss.microsoft.com:443 storage.googleapis.com:443
@@ -228,12 +228,17 @@ jobs:
           trap 'rm -f "$key" "$hosts"' EXIT
           chmod 600 "$key"
           printf '%s\n' "$GAMEDATA_DEPLOY_KEY" > "$key"
-          # github.com's published ed25519 host key (GET /meta's ssh_keys), so the clone trusts no other host.
-          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$hosts"
-          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes"
+          # Every fetch (the clone, and the sparse set's through its origin) goes over SSH on GitHub's HTTPS port, the route
+          # GitHub documents for a network that cuts port 22 (ssh.github.com:443): run 42313664434's Intel job lost port 22
+          # to github.com for minutes, a connect timing out, so its 3 tries on that route failed. The one known host is
+          # [ssh.github.com]:443 with github.com's published ed25519 key (GET /meta's ssh_keys; ssh.github.com serves the
+          # same), so the fetches trust no other host. A connect gives up after 30 s and a connection silent 60 s ends its
+          # try, where that run's third try sat 2 h 11 min on a dead one.
+          echo "[ssh.github.com]:443 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
           parts() {   # parts <the parts' folder>: a fresh sparse clone holding only that folder (its blobs come with the set)
             rm -rf "$TIER_ROOM/gd" &&
-              git clone --quiet --depth 1 --filter=blob:none --sparse git@github.com:Azurik-Modding-Hub/AzurKit-gamedata.git "$TIER_ROOM/gd" &&
+              git clone --quiet --depth 1 --filter=blob:none --sparse ssh://git@ssh.github.com:443/Azurik-Modding-Hub/AzurKit-gamedata.git "$TIER_ROOM/gd" &&
               git -C "$TIER_ROOM/gd" sparse-checkout set "$1"
           }
           image() {   # image <the parts' folder> <the image's name> [reassemble.py's release argument]

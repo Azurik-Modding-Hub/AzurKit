@@ -268,6 +268,38 @@ def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_
                                ("tests.yml", "the game data's $1 folder")]
 
 
+GITHUB_ED25519 = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+"""github.com's published ed25519 host key (``GET https://api.github.com/meta``'s ``ssh_keys``), the key
+ssh.github.com serves on port 443 too."""
+
+
+def test_the_game_datas_fetches_go_over_ssh_on_githubs_https_port_to_one_pinned_host_and_a_dead_connection_ends_its_try():
+    """Step 4.4ci50: run 42313664434's Intel job lost port 22 to github.com
+    for minutes (a connect timed out, a fetch was cut) and its third try sat
+    2 h 11 min on a dead connection, so the job ended before any test. Every
+    fetch of the game data (the clone, and the sparse set's through its
+    origin) goes to ``ssh://git@ssh.github.com:443/``, GitHub's documented
+    route over its HTTPS port, and no workflow names the port-22 route; the
+    one known host is ``[ssh.github.com]:443`` with :data:`GITHUB_ED25519`,
+    checked strictly; ssh gives up a connect after 30 s and a connection
+    silent 60 s, so ``scripts/ci_retry.sh``'s next try runs; and the vanilla
+    job's egress block names ssh.github.com:443 and no port 22."""
+    text = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+    step = next(s for s in re.split(r"(?m)^      - ", text) if "${{ secrets.GAMEDATA_DEPLOY_KEY }}" in s)
+    code = re.sub(r"(?m)^\s*#.*\n", "", step)
+    assert re.findall(r"(?:ssh://)?git@[\w.:/-]+", code) == [
+        "ssh://git@ssh.github.com:443/Azurik-Modding-Hub/AzurKit-gamedata.git"]
+    assert not [path.name for path in WORKFLOWS.glob("*.yml")
+                if re.search(r"git@github\.com[:/]", path.read_text(encoding="utf-8"))]
+    assert re.findall(r'echo "([^"]*)" (>>?) "\$hosts"', code) == [(f"[ssh.github.com]:443 {GITHUB_ED25519}", ">")]
+    ssh = re.search(r'export GIT_SSH_COMMAND="ssh -i \$key ((?:-o \w+=\S+ ?)+)"\n', code)
+    assert dict(re.findall(r"-o (\w+)=(\S+)", ssh[1])) == {
+        "IdentitiesOnly": "yes", "UserKnownHostsFile": "$hosts", "StrictHostKeyChecking": "yes",
+        "ConnectTimeout": "30", "ServerAliveInterval": "15", "ServerAliveCountMax": "4"}
+    hosts = re.search(r"allowed-endpoints: >-\n((?: {12}.*\n)+)", text.split("\n  vanilla:\n", 1)[1])[1].split()
+    assert "ssh.github.com:443" in hosts and not [host for host in hosts if host.endswith(":22")]
+
+
 def test_a_dispatched_dry_run_builds_and_checksums_the_release_but_reaches_no_attestation_draft_pypi_or_pages():
     """D1068 (Step 4.4ci8): each job's ``if:`` and ``needs`` read under each
     event that starts ``release.yml``. A dispatch on main runs check, the

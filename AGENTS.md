@@ -1788,7 +1788,9 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   tier's writes took and a margin, Linux's unused toolchains go first, and
   still short of the first two the job stops by name before the images), from
   the game-data repo's parts with `GAMEDATA_DEPLOY_KEY` (the only secret a
-  workflow reads), never cached, uploaded or printed, and deleted after, with
+  workflow reads), fetched over SSH on GitHub's HTTPS port
+  (`ssh.github.com:443`, its host key pinned, a dead connection ending its
+  try: Step 4.4ci50), never cached, uploaded or printed, and deleted after, with
   the free disk and memory each minute and their lowest printed
   (`scripts/ci_resources.py`); on every OS the job runs
   behind harden-runner's egress block, which starts with the job (its
