@@ -1,6 +1,7 @@
-"""The item tracker's pictures, drawn from the player's own image at first
-use (Step 4.2c3: no picture of the game is in the wheel, the app or the
-site): each level's map, its floors seen from above in the colours the
+"""The item tracker's pictures, drawn from a vanilla image by
+``scripts/record_goldens.py``'s art family and shipped with the page in
+``web/art/<version>/`` (Step 4.3f; Step 4.2c3 drew them from the player's
+own image at first use): each level's map, its floors seen from above in the colours the
 level shows, with where its exits, items, spots,
 barriers, features and gems lie on it (``maps.json``'s entry), the world
 map of every level's main floor, and the item icons, each the game's own

@@ -12,6 +12,7 @@ project."""
 from __future__ import annotations
 
 import email
+import hashlib
 import json
 import re
 import subprocess
@@ -71,6 +72,29 @@ def test_readmes_links_are_absolute_so_pypis_page_follows_them():
     assert paths and [p for p in paths if not (ROOT / p).exists()] == []
     headings = {re.sub(r"[^\w\- ]", "", h.lower()).replace(" ", "-") for h in re.findall(r"^#+ (.+)", prose, re.M)}
     assert [t for t in targets if t.startswith(f"{REPO}#") and t.partition("#")[2] not in headings] == []
+
+
+def test_readme_and_about_name_what_of_the_game_ships():
+    """The package (so the app and the site) carries game files byte for
+    byte (a disc file's sha256 in either release's manifest: config.xbr,
+    the Data tab's), and the page pictures drawn from the game's files
+    (``web/characters/``, ``web/art/``), so README's Game data and the
+    About tab name each such file and the pictures, and README says the
+    player's image never leaves their computer (Step 4.4ci51)."""
+    from azurkit.core import gate
+    disc = {sha for release in gate.RELEASES for _, sha in release.files.values()}
+    tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", "src/azurkit", "web"], capture_output=True,
+                             text=True, check=True).stdout.split()
+    games = sorted({Path(rel).name for rel in tracked
+                    if rel.startswith("src/") and hashlib.sha256((ROOT / rel).read_bytes()).hexdigest() in disc})
+    assert games and any(rel.startswith(("web/characters/", "web/art/")) and rel.endswith(".png") for rel in tracked)
+    readme = (ROOT / "README.md").read_text(encoding="utf-8").partition("\n## Game data\n")[2].partition("\n## ")[0]
+    page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    about = re.search(r'<section id="about".*?<p>(.*?)</p>', page, re.DOTALL)[1]
+    for text in (" ".join(readme.split()), " ".join(about.split())):
+        assert [name for name in games if name not in text] == [], text
+        assert "pictures drawn from the game's files" in text, text
+    assert "your image never leaves it" in " ".join(readme.split())
 
 
 def test_the_wheel_carries_the_package_and_installs_alone_in_a_clean_venv(tmp_path):

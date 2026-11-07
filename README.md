@@ -291,7 +291,12 @@ build may work on a console, but nothing here has been checked on one.
 You bring your own copy of the game: AzurKit builds from your ISO, and no
 ISO image, whole or in parts, is ever in this repository.
 
-- Builds read your ISO and stay on your computer.
+- Builds read your ISO and stay on your computer: your image never leaves it.
+- What ships from the game, so it shows before you pick your image: the
+  game's original config.xbr (the Data tab's numbers) in the Python package,
+  the app and the site, and pictures drawn from the game's files (the
+  characters' front and back views, the tracker's maps and icons) in the app
+  and on the site.
 - Share presets (recipes), never ISOs.
 - Game files and bytes (an XBE or XBR file, a clip, a texture, a save, a
   snippet) may be committed here. They belong to the game's rights holders,
