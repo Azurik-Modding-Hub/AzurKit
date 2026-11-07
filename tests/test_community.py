@@ -394,3 +394,52 @@ def test_the_pages_content_install_fetches_each_entry_once_keeps_nothing_it_refu
     assert out["cycle"] == 'entry "x" requires itself (x -> y -> x)'
     assert out["unknown"] == 'no entry "z" in the community list'
     assert out["moved"] == {"f": ["packs/f/pack.json", "packs/shared.json"], "shared": "s2", "handed": True}
+
+
+OVERTAKEN = r"""
+const { content } = await import(process.argv[2]);
+const [GH, MINE] = process.argv.slice(3);
+const list = JSON.stringify({ format: "azurik-custom-content", schema_version: 1, entries: [] });
+let began, settle, status;   // GitHub's read: held until settled, then a 404 or no answer
+const fetch = (url) => String(url).startsWith(GH)
+  ? new Promise((done, no) => {
+      settle = () => status ? done({ ok: false, status }) : no(new TypeError("Failed to fetch"));
+      began();
+    })
+  : Promise.resolve({ ok: true, status: 200, text: async () => list });
+const store = new Map();
+const kept = { get: async (key) => store.get(key), put: async (kv) => kv.forEach(([k, v]) => store.set(k, v)) };
+const c = content({ call: async (_, given) => ({ manifest: JSON.parse(given.manifest) }), app: false, fallback: GH,
+                    kept, fetch, storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+                    location: { href: "https://site.example.test/", origin: "https://site.example.test" } });
+const out = [];
+for (const [code, overtaken] of [[0, true], [404, true], [0, false]]) {
+  status = code;
+  const asked = new Promise((done) => { began = done; });
+  const first = c.source(null);   // GitHub's, slow
+  await asked;
+  if (overtaken) await c.source(MINE);   // the player's own, read meanwhile
+  settle();
+  await first;
+  out.push([c.state.source, c.state.why, !!c.state.manifest]);
+}
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.mark.web
+def test_the_pages_content_read_the_player_overtook_says_nothing_when_it_fails_late(tmp_path):
+    """web/content.mjs on Node: GitHub's read of the list, slow and then
+    failing (no answer, or a 404) after the player's own source was read,
+    drops its failure as a later read drops its answer, so the page doesn't
+    say it couldn't reach the player's repository over the list it just read
+    from it; a read that fails while its source is still the one set says so."""
+    driver = tmp_path / "overtaken.mjs"
+    driver.write_text(OVERTAKEN, encoding="utf-8")
+    gh, mine = "https://github.example.test/content/", "https://mine.example.test/"
+    done = subprocess.run(["node", str(driver), (ROOT / "web" / "content.mjs").as_uri(), gh, mine],
+                          capture_output=True, text=True, timeout=60, check=False)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert json.loads(done.stdout) == [[mine, None, True], [mine, None, True], [
+        gh, f"Couldn't reach the community list at {gh} (no answer: offline, or it doesn't let other sites read it).",
+        True]]

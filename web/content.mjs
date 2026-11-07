@@ -126,7 +126,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
   get ??= (...args) => globalThis.fetch(...args);
   const store = () => storage ?? globalThis.localStorage;
   const s = { source: base, manifest: null, why: null, entries: [], installed: {}, installing: null };
-  let reads = 0;   // a read's answer is dropped once a later read or an Install has begun
+  let reads = 0;   // a read's answer or failure is dropped once a later read or an Install has begun
   const listeners = new Set();
   const changed = () => {
     for (const listen of listeners) listen(s);
@@ -176,8 +176,10 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       s.manifest = checked.manifest;
       await kept.put([["manifest", text]]).catch(() => {});
     } catch (error) {
-      s.why = error.plain ? error.message : `Couldn't reach the community list at ${s.source} (${error.message}).`;
+      if (mine !== reads) return s;   // its failure dropped as its answer is: s.source is a later read's now
       const last = await kept.get("manifest");
+      if (mine !== reads) return s;
+      s.why = error.plain ? error.message : `Couldn't reach the community list at ${s.source} (${error.message}).`;
       if (last) s.manifest = JSON.parse(last);
     }
     s.entries = states();
