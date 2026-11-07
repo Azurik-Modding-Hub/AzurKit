@@ -34,9 +34,10 @@ Once a changed-area run's pytest passes, its flake stage (Step 4.4dx2,
 (:func:`edited_tests`: a changed ``def test*``, not a helper)
 :data:`FLAKE_RUNS` times slowed toward CI's runners' pace (:func:`slowed`), inside the
 same lock and within :data:`FLAKE_CAP`, copying the wheel and database the
-run built (its build cache, ``<meta>.cache``): a test that takes no browser,
-pyodide or frozen_app fixture all its runs in the first run's session
-(Step 4.4dx12, ``scripts/flake_repeat.py``), the others a session a run; a failure fails the receipt
+run built (its build cache, ``<meta>.cache``): a test that reaches no
+module- or session-scoped fixture of the suite's own (the images' paths aside)
+all its runs in the first run's session (Step 4.4dx12,
+``scripts/flake_repeat.py``), the others a session a run; a failure fails the receipt
 with the test, the run and its output's tail, as does a case with no
 passing run by the cap, and the receipt's ``flake`` block keeps the tests,
 runs, each run's wall time and slowing. A whole run has none.
@@ -122,8 +123,8 @@ PYTEST = ("uv", "run", "--locked", "pytest")   # the worktree's own pytest (uv f
 #: CI's slow runners, so a changed-area run runs each such test again and again at their pace.
 FLAKE_RUNS = 5      # one that fails a run in three passes all five 13 % of the time ((2/3)^5); a run is a pytest start
 #: The plugin that runs a test FLAKE_RUNS times in one session (``--flake-runs``), from the worktree (Step 4.4dx12):
-#: each case ``<id>[<its parameters>-flake-run-K]`` (:data:`REPEATED`), for a test that takes no fixture a session
-#: starts once (``flake_repeat.OWN_SESSIONS``); the others keep a pytest start a run.
+#: each case ``<id>[<its parameters>-flake-run-K]`` (:data:`REPEATED`), for a test that reaches no fixture of the
+#: suite's own wider than a test (``flake_repeat.starts_nothing_once``); the others keep a pytest start a run.
 REPEAT = ("-o", "pythonpath=.", "-p", "scripts.flake_repeat")
 REPEATED = re.compile(r"(\[|-)flake-run-(\d+)\]$")
 FLAKE_WORKERS = 3   # tests.yml runs the pure tier, the page's tests in it, on 3 workers on CI's Intel runners
@@ -865,8 +866,8 @@ def flake_stage(meta: Path, m: dict) -> dict:
     (once past :data:`FLAKE_MANY` tests) by :func:`flake_command`, each
     under the slowing :func:`slowed` picks as it starts, beside that
     slowing's busy loops, each run's output appended to the log and its wall
-    time and slowing kept. A test that takes no fixture a session starts
-    once (``scripts/flake_repeat.py``) has all its runs in the first one's
+    time and slowing kept. A test that reaches no fixture a session sets up
+    once (``flake_repeat.starts_nothing_once``) has all its runs in the first one's
     session, its K-th a case of its own (:func:`split`); the later runs
     are the others' alone (the block's ``repeated`` names the first). Nothing built once is built
     slowed: the runs copy the wheel and database the gate's run built (its
