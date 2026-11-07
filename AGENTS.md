@@ -1830,12 +1830,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   the game-data repo's parts with `GAMEDATA_DEPLOY_KEY` (the only secret a
   workflow reads), fetched over SSH on GitHub's HTTPS port
   (`ssh.github.com:443`, its host key pinned, a dead connection ending its
-  try: Step 4.4ci50), each part (90 MiB) a fetch of its own, a partial
-  clone's checkout of that one file, with 6 tries of its own, so a macOS
-  runner's network lost for minutes costs one part and not the folder
-  (Step 4.5e), never cached, uploaded or printed, and deleted after, with
-  the free disk and memory each minute and their lowest printed
-  (`scripts/ci_resources.py`); on every OS the job runs
+  try: Step 4.4ci50), each part (90 MiB) a fetch of its own, that file's
+  blob fetched alone into a partial clone and then checked out with lazy
+  fetching off (`GIT_NO_LAZY_FETCH=1`: Git for Windows' FSCache hides from
+  a checkout the blob its own lazy fetch brought, Step 4.5h), with 6 tries
+  of its own, so a macOS runner's network lost for minutes costs one part
+  and not the folder (Step 4.5e), never cached, uploaded or printed, and
+  deleted after, with the free disk and memory each minute and their
+  lowest printed (`scripts/ci_resources.py`); on every OS the job runs
   behind harden-runner's egress block, which starts with the job (its
   pre-step), so its installs' hosts are named too, and on Linux its tests
   run with no network as well (Modkit's §12.4 hygiene), and only the

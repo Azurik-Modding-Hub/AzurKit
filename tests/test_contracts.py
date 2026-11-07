@@ -217,9 +217,9 @@ def test_the_release_workflow_runs_only_on_a_v_tag_its_published_draft_or_a_disp
     assert unpinned == []
 
 
-DOWNLOAD = re.compile(r"\bgit clone\b|\bgit -C \S+ checkout\b|\bplaywright install-deps\b")
-"""A workflow's setup downloads with no retry of their own: a clone, a partial clone's checkout (which fetches its
-files' blobs) and apt under Playwright's install-deps."""
+DOWNLOAD = re.compile(r"\bgit clone\b|\bgit -C \S+ (?:-c \S+ )*(?:checkout|fetch)\b|\bplaywright install-deps\b")
+"""A workflow's setup downloads with no retry of their own: a clone, a fetch, a partial clone's checkout (which may
+fetch its files' blobs) and apt under Playwright's install-deps."""
 
 
 def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_bounded_retry_that_fails_by_name():
@@ -311,7 +311,7 @@ def test_the_game_datas_fetches_go_over_ssh_on_githubs_https_port_to_one_pinned_
     """Step 4.4ci50: run 42313664434's Intel job lost port 22 to github.com
     for minutes (a connect timed out, a fetch was cut) and its third try sat
     2 h 11 min on a dead connection, so the job ended before any test. Every
-    fetch of the game data (the clone, and each file's checkout through its
+    fetch of the game data (the clone, and each file's blob through its
     origin) goes to ``ssh://git@ssh.github.com:443/``, GitHub's documented
     route over its HTTPS port, and no workflow names the port-22 route; the
     one known host is ``[ssh.github.com]:443`` with :data:`GITHUB_ED25519`,
@@ -334,15 +334,22 @@ def test_the_game_datas_fetches_go_over_ssh_on_githubs_https_port_to_one_pinned_
     assert "ssh.github.com:443" in hosts and not [host for host in hosts if host.endswith(":22")]
 
 
-def test_the_game_data_comes_a_file_a_fetch_each_retried_alone_so_a_lost_network_costs_one_part_not_the_folder():
+def test_the_game_data_comes_a_file_a_fetch_each_retried_alone_and_its_checkout_after_that_fetch_fetches_nothing():
     """Step 4.5e: runs 42313664434 (Intel) and 42387860921 (Apple Silicon)
     lost the macOS runner's whole network for minutes 2.5 min into the Europe
     folder's one 2.1 GiB fetch (a sparse set's), and each of its 3 tries,
     1.5 min of waits apart, started that fetch over inside the outage. The
-    clone holds the commit, its trees and the root's three small files, no
-    sparse set is left, and each file of the release's folder (``ls-tree``:
-    a part is 90 MiB) comes in a checkout of its own, its blob a fetch of its
-    own, through a retry of its own of 6 tries, 7.5 min of waits."""
+    clone holds the commit and its trees, no sparse set is left, and the
+    root's three small files, then each file of the release's folder
+    (``ls-tree``: a part is 90 MiB), come through ``part``, a retry of its
+    own of 6 tries, 7.5 min of waits. Step 4.5h: ``part`` fetches the files'
+    blobs in a ``git fetch`` of their own (the command git's lazy fetch runs,
+    with no background maintenance left to hold the folder the step deletes)
+    and then checks them out with lazy fetching off, since Git for Windows'
+    FSCache, on across a checkout's files, served that checkout the object
+    folder's listing from before its own lazy fetch, so it never saw the blob
+    just fetched (the bdcf682 candidate's two Windows jobs: "unable to read
+    sha1 file of .gitattributes", exit 255, all 6 tries)."""
     text = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
     step = next(s for s in re.split(r"(?m)^      - ", text) if "${{ secrets.GAMEDATA_DEPLOY_KEY }}" in s)
     code = re.sub(r"(?m)^\s*#.*\n", "", step)
@@ -350,9 +357,15 @@ def test_the_game_data_comes_a_file_a_fetch_each_retried_alone_so_a_lost_network
     assert re.findall(r"git clone (.*)", code) == [
         '--quiet --depth 1 --filter=blob:none --no-checkout '
         'ssh://git@ssh.github.com:443/Azurik-Modding-Hub/AzurKit-gamedata.git "$gd" &&']
-    assert re.findall(r'git -C "\$gd" (checkout .*?)(?:;|$)', code, re.M) == [
-        "checkout --quiet HEAD -- .gitattributes reassemble.py manifest.json", 'checkout --quiet HEAD -- "$1"']
-    assert re.search(r'(?m)^ +part\(\) \{ git -C "\$gd" checkout --quiet HEAD -- "\$1"; \}$', code)
+    assert re.findall(r"(?m)^(.*)\bgit -C (.*) (checkout|fetch)\b(.*)$", code) == [
+        ("              ", '"$gd" -c fetch.negotiationAlgorithm=noop', "fetch",
+         " --quiet --no-tags --no-write-fetch-head --recurse-submodules=no --filter=blob:none --no-auto-maintenance"
+         " origin $blobs &&"),
+        ("              GIT_NO_LAZY_FETCH=1 ", '"$gd"', "checkout", ' --quiet HEAD -- "$@"')]
+    assert re.search(r'(?m)^ +tree\(\) \{\n +rm -rf "\$gd" &&\n +git clone .*&&\n'
+                     r' +part \.gitattributes reassemble\.py manifest\.json\n +\}\n', code)
+    assert re.search(r'(?m)^ +part\(\) \{ .*\n +blobs="\$\(git -C "\$gd" rev-parse "\$\{@/#/HEAD:\}"\)" &&\n'
+                     r' +git -C "\$gd" -c .* fetch .* origin \$blobs &&\n +GIT_NO_LAZY_FETCH=1 git .*\n +\}\n', code)
     assert re.findall(r"(?m)^ +(retry .*)$", code) == [
         'retry --tries=6 "the game data\'s tree" tree', 'retry --tries=6 "the game data\'s $file" part "$file"']
     loop = re.search(r'(?m)^ +files="\$\(git -C "\$gd" ls-tree -r --name-only HEAD -- "\$1"\)"\n(?: +.*\n)?'
