@@ -1409,7 +1409,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   heavy one goes on, unkept, while the list holds no heavy job, a reshape's, so
   its heap is the next heavy job's, not resident beside it; and a change of
   the Characters tab's own, a number, an option or Reset, lists its build with
-  a rest, `SETTLE_MS`, before B starts it, where a pick starts at once: a
+  a rest, `REST` (7 s), before B starts it, where a pick starts at once: a
   slider's session of moves, a pause, a drag and Reset dropped a build ahead
   at each move, its heap resident beside the next B's, 7.2-7.4 GiB in WebKit,
   Step 4.4ci48), a

@@ -30,9 +30,11 @@ const FROM = "From the front and from behind.";
 // A reshape's dress waits for the slider to rest, past Build's head start (D1014): beside a build's its GiBs pass 6
 // (D1017), so a Build clicked at the change, or running, goes first
 const SETTLE_MS = 3500;
-// The site builds the tab's choice ahead once its own change (a number, an option, Reset) has rested as long, where a
-// pick starts at once: a slider's next move dropped a build ahead started sooner (app.mjs's aheadOnSite, Step 4.4ci48)
-const REST = SETTLE_MS;
+// The site builds the tab's choice ahead once its own change (a number, an option, Reset) has rested this long, where a
+// pick starts at once: past Build's head start and the engine's answer to the change, so a pause between a slider's
+// moves starts no build the next move drops (app.mjs's aheadOnSite, Step 4.4ci48: at 3.5 s the answer and a 3 s pause
+// outlasted it a pass, 5.2-7.5 GB in WebKit; at 7 s 3.9-4.0 GB)
+const REST = 2 * SETTLE_MS;
 const PICTURES = 16;   // the exact pictures of the last shapes drawn, and the last models' shipped ones, in this page
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
