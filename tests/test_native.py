@@ -272,6 +272,35 @@ def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_th
         paths, outcomes)
 
 
+def test_the_acceptance_kernels_play_keeps_every_stage_when_the_options_collect_one_spot_a_round():
+    """A shaped candidate's play in the kernel (``fill._Kernel.play``, az_accept) holds its most stages, L + 2: on a
+    chain of L spots the plan's options reach one a round (each spot's item opens the next, the last's is the victory)
+    and the rung none, ``difficulty.play``'s stages are a 0, a 1 for each spot, then a 0."""
+    from array import array
+    from types import SimpleNamespace as NS
+
+    from azurkit.tools.randomizer.planner import fill
+    from azurkit.tools.randomizer.planner.difficulty import Play
+    n, k = 3, fill._Kernel
+    chain = native.Graph(((),), locations=tuple((i, 0, 1 + i if i else 1) for i in range(n)), victory=1 + n)
+    t = native.Tables(1, 0, n, n, 0, (("false",), ("true",), *(("counter", i, 1) for i in range(n))),
+                      tuple(((i, 1),) for i in range(n)), frozenset(), (1,) * n, ((-1, -1),) * n, ((),), ((),), (),
+                      (chain, native.Graph(((),)), native.Graph(((),))))
+    w = [k.MAGIC, k.VERSION, n, n, n, 1] + [0] * (k.HEAD - 6)   # fill.c's F_* head: L, I, the names, one graph
+    w[7] = len(w)                                               # F_LOCS: each spot open (LF_OPEN), its own vanilla
+    for i in range(n):
+        w += [32, i] + [0] * 7
+    w[8] = len(w)                                               # F_ITEMS: each a progression item, none held
+    w += [0] * 5 * n
+    w[13] = w[17] = w[21] = w[23] = len(w)                      # F_PROG, F_NONGEM (none), F_GUARD, F_GIVES: zeros
+    w += [0] * (n + 1)
+    kernel = object.__new__(k)
+    kernel.blob, kernel.run, kernel._last = array("q", w), NS(shape=NS(ask=NS(rating=2))), (None, None)
+    spots, items = [f"s{i}" for i in range(n)], {f"x{i}": i for i in range(n)}
+    kernel.tabs = [NS(tables=t, graphs=(0, 0, 0), locs=spots, item=items), NS(tables=t, graphs=(1, 1, 1))]
+    assert kernel.play(dict(zip(spots, items)), 2, None) == Play(True, (0, *[1] * n, 0), ())
+
+
 def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path, monkeypatch):
     cases = list(_cases(1401, 40))
     cases += [(_monotone_of(t), call) for t, call in cases[:30]]

@@ -838,7 +838,7 @@ static i64 play(S *s, i64 e, i64 stop, i64 *out) {
 
 /* difficulty.need (Q_MODE 0: one reach of the rung's table, its victory) or play (1) of the candidate `placement`
  * (each location's item, -1 none, -2 not in the placement: its vanilla item counts as progression), on the attempt's
- * blob, tables and workspace (az_attempt_need's). Returns 0 with the answer in `out` (Q_HEAD + L + 1 words), or < 0:
+ * blob, tables and workspace (az_attempt_need's). Returns 0 with the answer in `out` (Q_HEAD + L + 2 words), or < 0:
  * the twin runs. */
 API i64 az_accept(const i64 *f, const i64 *t0, const i64 *t1, const i64 *t2, const i64 *t3, const i64 *call,
                   const i64 *placement, i64 *ws, i64 *out) {

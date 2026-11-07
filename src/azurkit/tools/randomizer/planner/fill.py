@@ -1153,7 +1153,7 @@ class _Kernel:
         graphs = [g for t in self.tabs for g in t.graphs] + [0] * 3 * (4 - len(self.tabs))
         call = array("q", [0, len(self.tabs), 0, *graphs, *[0] * 9, mode, 1 + ask - rating, -1 if stop is None else stop])
         out = native.accept(self.blob, [t.tables for t in self.tabs], call, self._placement(placement),
-                            4 + len(self.tabs[0].locs) + 1)
+                            4 + len(self.tabs[0].locs) + 2)
         return None if out is None or isinstance(out, int) else out
 
     def need(self, placement: Mapping[str, str], rating: int):
