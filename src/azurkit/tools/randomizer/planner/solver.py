@@ -54,6 +54,18 @@ what they hold never counts (D81: the fill puts no progression there), and
 once its slot is collected, its nodes a player can still reach are the
 **traps after completion**.
 
+**The save-point warp** (D1154, RANDOMIZER_PLAN R2.14; ``Settings.save_warp``,
+the pack ``qol_save_warp``): on a save platform the ritual stores that
+platform as the one return point and loads town's (``Temple``); the ritual
+there goes back to the stored one. With it counted, each save point of
+:func:`save_points` but town's that has a node gets an edge to town's
+platform's node, needing nothing, in every graph (logic and physical), so a
+node whose escape reaches one is no trap once town gets back to the start.
+The return gets no edge: an escape returns to the platform its own ritual
+stored, which that closure already holds, and the reach is monotone, so a
+return lands only where it was (a stored point the closure didn't set is
+history the escape can't count on). A platform with no node gets no edge.
+
 **The cost** (plan §2.13): a backward search from the start, in which an
 edge is passable on the items held and the flags its own source node can
 set, finds most safe nodes with no closure (the fast path), and a closure
@@ -80,7 +92,7 @@ from __future__ import annotations
 
 import collections
 from collections.abc import Callable, Container, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from azurkit.core import native
 from azurkit.tools.randomizer.planner.grammar import DISCS, parse
@@ -99,6 +111,7 @@ MAX_SETTINGS = Settings(4, "frame_perfect", {})   # every in-logic skip on, ever
 TRICK_FREE = Settings(0, "frame_perfect", {})     # no skip, every player tier's edge usable
 SWITCH = "(on) "                                  # a switchable option set's flag for a skip it turns on: this, its id
 STRICTEST = Settings(0, "safe", {})               # no skip, the safe tier (rule 10's options)
+WARP_TOWN = ("town", "Temple")                    # the save-point warp's town: its level and save point (the shim's)
 NAMED_KEPT = 1024                                     # :meth:`Logic._named`'s sets, then it starts again
 _ALL = 1 << 30                                        # a counter "with every item"
 
@@ -122,6 +135,11 @@ def _false(c, f):
 
 
 _true.ast, _false.ast = ("true",), ("false",)
+
+
+def trick_free(settings: Settings) -> Settings:
+    """:data:`TRICK_FREE` with what ``settings`` count beside the skips: the save-point warp (not a skip)."""
+    return replace(TRICK_FREE, save_warp=True) if settings.save_warp else TRICK_FREE
 
 
 def _all(rules: Iterable[Rule]) -> Rule:
@@ -227,10 +245,25 @@ class Reach:
     free_traps: frozenset[str] = frozenset()   # the traps a player gets into with no skip (D83(b))
 
 
+def save_points(db) -> dict[str, tuple[str, str, str | None]]:
+    """Each save point of a level with a level file -> (its level, its name,
+    its node: the node anchoring it or its derived zone, a stub's one node,
+    or None when no node holds it)."""
+    anchored = {a: n["id"] for doc in db.levels.values() for n in doc["node"] for a in n.get("anchors", [])}
+    out = {}
+    for lvl in sorted(db.levels):
+        zones = {o["id"]: o.get("main_zone") for o in db.derived.get(lvl, {}).get("objects", ())}
+        for sp in db.generated[lvl]["save_points"]:
+            node = lvl if lvl in db.stubs else anchored.get(sp["id"]) or anchored.get(f"zone:{zones.get(sp['id'])}")
+            out[sp["id"]] = (lvl, sp.get("save_id") or sp["id"], node)
+    return out
+
+
 class _Rules:
     """One option set's compiled graph: edges, credits and locations; the
     physical graph (R_phys) when ``physical``; each skip it turns on also
-    needing its :data:`SWITCH` flag when ``switchable``."""
+    needing its :data:`SWITCH` flag when ``switchable``; the save-point
+    warp's edges (``warps``) when its settings count it."""
 
     def __init__(self, logic: Logic, settings: Settings, physical: bool = False, switchable: bool = False):
         self.logic, self.db, self.physical, self.switchable = logic, logic.db, physical, switchable
@@ -250,6 +283,10 @@ class _Rules:
                 elif edge:
                     self.adj[edge[0]].append(edge[1:])
                     self.radj[edge[1]].append((edge[0], edge[2]))
+        self.warps: tuple[tuple[str, str], ...] = logic.warps if settings.save_warp else ()
+        for a, b in self.warps:
+            self.adj[a].append((b, _true))
+            self.radj[b].append((a, _true))
         self.credits: list[tuple[str, str, bool, Rule]] = []     # (flag, node, terminal, rule)
         for oid, (lvl, kind, o) in sorted(db.hand.items()):
             if kind == "button" and o["mode"] == "toggle" and not (physical or lg.harmless("toggle")):
@@ -520,6 +557,10 @@ class Logic:
             if kind != "barrier" and "of" in o:     # the button or event bound to a generated gate
                 self.bound[o["of"]] = oid
         self.start = self.canon(db.world["start"])
+        saves = {(lvl, name): node for lvl, name, node in save_points(db).values()}
+        town = saves.get(WARP_TOWN)
+        self.warps = tuple(sorted({(n, town) for (lvl, _), n in saves.items()          # the warp's edges (module doc)
+                                   if town and n and lvl != WARP_TOWN[0] and n != town}))
         self.everything = dict.fromkeys(set(db.counters) | {c for t in self.items.values() for c in t}, _ALL)
         self.slots = {disc: loc["id"] for doc in db.generated.values() for loc in doc["locations"]
                       if loc["pool"] and loc.get("guardian_slot") for disc, c in DISCS.items()
@@ -549,8 +590,8 @@ class Logic:
         """One option set's compiled graph (the physical one when
         ``physical``, its skips switchable when ``switchable``), compiled
         once: the fill reaches many placements under the same options."""
-        key = (settings.skip_ceiling, settings.movement_tier,
-               tuple(sorted(settings.skip_override.items())), physical, *(("switchable",) if switchable else ()))
+        key = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())),
+               physical, *(("switchable",) if switchable else ()), *(("warp",) if settings.save_warp else ()))
         if (got := self._compiled.get(key)) is None:   # one look: a spoiler's openers drop other settings' on their thread
             got = self._compiled[key] = _Rules(self, settings, physical, switchable)
         return got
@@ -822,12 +863,12 @@ class Logic:
         a skip on (else the physical again), each name an id (the canonical
         nodes, locations and items in sorted order) and each rule its
         closures' ``ast``, numbered children first."""
-        key = (settings.skip_ceiling, settings.movement_tier,
-               tuple(sorted(settings.skip_override.items())), *(("switchable",) if switchable else ()))
+        key = (settings.skip_ceiling, settings.movement_tier, tuple(sorted(settings.skip_override.items())),
+               *(("switchable",) if switchable else ()), *(("warp",) if settings.save_warp else ()))
         if (got := self._native.get(key)) is not None:
             return got
         logic, phys = self.rules(settings, switchable=switchable), self.rules(settings, True, switchable)
-        graphs = [logic, phys, *([self.rules(TRICK_FREE, physical=True)] if phys.on else [])]
+        graphs = [logic, phys, *([self.rules(trick_free(settings), physical=True)] if phys.on else [])]
         names = {self.canon(n) for n in self.db.nodes} | {self.start, *self.forced, *self.forced_phys}
         names.update(*self.regions.values())
         for g in graphs:

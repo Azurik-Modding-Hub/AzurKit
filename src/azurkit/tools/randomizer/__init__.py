@@ -225,10 +225,11 @@ def literal(settings: Settings) -> dict:
     """``settings`` as the tab holds them: a settings file's table in format
     /2, whose ``exclude_categories`` are exactly the categories kept vanilla
     (format /1's ``powers`` keeps the upgrades too), so a page reads and
-    sets each row's box as it is; a seed difficulty only when over 0."""
+    sets each row's box as it is; a seed difficulty only when over 0, the save warp only when on."""
     level = {"seed_difficulty": settings.seed_difficulty} if settings.seed_difficulty else {}
+    warp = {"save_warp": True} if settings.save_warp else {}
     return {"format": SETTINGS_FORMAT_ELEMENTAL, "skip_ceiling": settings.skip_ceiling,
-            "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE, **level,
+            "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE, **level, **warp,
             "exclude_categories": sorted(settings.exclude_categories, key=CATEGORIES.index),
             "skip_override": dict(sorted(settings.skip_override.items()))}
 

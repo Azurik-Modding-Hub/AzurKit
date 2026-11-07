@@ -8,7 +8,8 @@ through the packs' catalog (D83(c)).
   makes, at the tier they pick (``movement.played``, D1066), or a plan
   file's (``plan``, Modkit's ``randomize-full --plan``), exactly, read
   back and beatable under its settings (``layer.checked_plan``), with each
-  reason that leaves its logic unverified.
+  reason that leaves its logic unverified; the save-point warp counted when
+  the build applies its pack (:data:`WARP_PACK`, D1154).
 - :func:`plan_layer`: the writer's writes (``writer.layout`` and its
   per-file writes, each computed from the vanilla bytes), one group a node
   graph (its new strings, its TOC size and each location it repoints land
@@ -49,7 +50,7 @@ import io
 import math
 import struct
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import SimpleNamespace
 
 from azurkit.core import iso
@@ -68,6 +69,7 @@ CONFIG, ENGINE = "gamedata/config.xbr", "critters_engine"
 CONTAINED_GROUP = f"{LAYER} contained touch"   # + its species: one group a species (contained)
 OWN_GROUP = f"{LAYER} own row"                 # + its species: one group a row (own_rows)
 TOUCH = ("collisionRadius", "scale", "collisionAspectRatio", "playerCollisionRadius")
+WARP_PACK = "qol_save_warp"   # the save-point warp's pack: a build that applies it plans with the warp counted (D1154)
 
 
 @dataclass
@@ -144,19 +146,32 @@ def prepare(recipe: Mapping, packs: Mapping[str, Mapping[str, float]]) -> Prepar
     movement sliders pick (D1066); a share string made for other sliders is
     refused (AZ-383). Its ``plan``, a plan file's, is the plan as it is, no
     fill: its layer's recipe holds it, so its build's mods file builds it
-    again. ``ValueError`` names a setting or plan refused or the items no
-    attempt found a safe spot for (D35)."""
+    again. A build that applies :data:`WARP_PACK` plans with the save-point
+    warp counted (D1154); settings (a plan file's too) that count it in a
+    build without the pack are refused. ``ValueError`` names a setting or
+    plan refused or the items no attempt found a safe spot for (D35)."""
     recipe = normalize(recipe)
     logic = kept_logic()
     db = logic.db
     share = recipe.get("share")
     if "settings" in recipe:
         share = share_encode(settings_from_table(recipe["settings"], _skips(db), "settings"), _skips(db))
+    warp = WARP_PACK in packs
+    if "plan" not in recipe and (warp or share is not None):
+        given = share_decode(share, _skips(db)) if share is not None else db.defaults
+        if given.save_warp and not warp:
+            raise ValueError(f"randomizer: its settings count the save-point warp, and the build doesn't apply "
+                             f"{WARP_PACK}: add that pack (or untick the warp)")
+        if warp and not given.save_warp:
+            share = share_encode(replace(given, save_warp=True), _skips(db))
     args = SimpleNamespace(plan=recipe.get("plan"), seed=recipe.get("seed"), settings=None, share=share,
                            skip_ceiling=None, movement_tier=None, skip=None, no_skip=None, exclude_category=None)
     if "plan" not in recipe:
         note("placing the items")   # the seed's fill starts (core.progress: the call's stage folds it)
     plan, why = layer.plan_for(args, logic, sliders(packs))
+    if "plan" in recipe and plan.settings.save_warp and not warp:   # a plan file is built as it is (no warp added)
+        raise ValueError(f"randomizer: the plan's settings count the save-point warp, and the build doesn't apply "
+                         f"{WARP_PACK}: add that pack")
     made = {"plan": plan.doc} if "plan" in recipe else {"seed": plan.doc["seed"], "share": plan.doc["share"]}
     if "obsidian_cost" in recipe:
         made["obsidian_cost"] = recipe["obsidian_cost"]

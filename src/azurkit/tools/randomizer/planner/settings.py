@@ -22,6 +22,11 @@ tier and the skips on allow (:func:`top_rating`). A file writes
 ``seed_difficulty`` only when it is over 0, and a share string takes version 4
 then, so every other file and string is as before.
 
+``Settings.save_warp`` (D1154, D1155; RANDOMIZER_PLAN R2.14) counts the
+save-point warp of the pack ``qol_save_warp`` in the logic (the solver's
+warp edges): off by default. A file writes ``save_warp = true`` only when it
+is on, and a share string takes version 5 then.
+
 D275 (Step R1.31): skips that cross the same thing and differ only in the
 kit they need are variants of one batch (each variant's ``batch`` and
 ``batch_name``). A toggle, and so a share string's registry, names a pick:
@@ -64,6 +69,9 @@ SHARE_VERSION_SLIDERS = 2      # version 1 plus, after the mask, the movement sl
 #                                slider's index in SHARE_SLIDERS and its value (float64, little-endian)
 SHARE_VERSION_ELEMENTAL = 3    # version 2 (its slider count may be 0) whose mask's "powers" bit is the
 #                                elemental powers alone; before it, that bit keeps the upgrades too
+SHARE_VERSION_WARP = 5         # version 4's layout (its seed difficulty byte 0 at level 0), then an options byte:
+#                                SHARE_WARP, the save-point warp counted (D1154), its only bit
+SHARE_WARP = 1
 SHARE_VERSION_DIFFICULTY = 4   # a seed difficulty over 0: the head, the toggles, a literal category mask (a bit per
 #                                CATEGORIES entry, never folded), the slider count (0 too) and sliders, then one byte,
 #                                SEED_DIFFICULTY_FILL << 3 | the level
@@ -103,6 +111,7 @@ class Settings:
     exclude_categories: frozenset[str] = frozenset()
     sliders: Mapping[str, Mapping[str, float]] = field(default_factory=dict)   # {pack: {slider: value}}, AZ-383
     seed_difficulty: int = 0   # D1037: one of SEED_DIFFICULTIES
+    save_warp: bool = False    # D1154: the logic counts the save-point warp (the pack qol_save_warp)
 
 
 D144_DEFAULTS = Settings(0, "standard", {})   # D186: standard movement (was hard, D144)
@@ -179,7 +188,7 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
     for key in table:
         if key in RETIRED_KEYS:
             out.append(("settings_retired_key", key, "a retired preset key (D144: no presets)"))
-        elif key not in ("format", "skip_override", "exclude_categories", "seed_difficulty", *OPTIONS):
+        elif key not in ("format", "skip_override", "exclude_categories", "seed_difficulty", "save_warp", *OPTIONS):
             out.append(("unknown_key", key, "not a settings key"))
     if table.get("format") not in (SETTINGS_FORMAT, SETTINGS_FORMAT_ELEMENTAL):
         out.append(("unknown_format", "format", f"{table.get('format')!r}, not {SETTINGS_FORMAT!r} "
@@ -198,6 +207,8 @@ def settings_problems(table: Mapping, skips: Mapping[str, Mapping]) -> list[tupl
     level = table.get("seed_difficulty", 0)
     if not _int_in(level, SEED_DIFFICULTIES):
         out.append(("settings_bad_seed_difficulty", "seed_difficulty", f"{level!r} is not one of 0, 2, 3, 4"))
+    if not isinstance(table.get("save_warp", False), bool):
+        out.append(("settings_bad_save_warp", "save_warp", f"{table['save_warp']!r} is not true or false"))
     excluded = table.get("exclude_categories", [])
     if not (isinstance(excluded, list) and all(c in CATEGORIES for c in excluded)
             and excluded == sorted(set(excluded), key=CATEGORIES.index)):
@@ -238,7 +249,7 @@ def settings_from_table(table: Mapping, skips: Mapping[str, Mapping], where: str
         excluded.add("upgrades")      # /1's powers keep the upgrades too
     return Settings(table["skip_ceiling"], table["movement_tier"],
                     _folded(table.get("skip_override", {}), skips), frozenset(excluded),
-                    seed_difficulty=table.get("seed_difficulty", 0))
+                    seed_difficulty=table.get("seed_difficulty", 0), save_warp=table.get("save_warp", False))
 
 
 def skips_on(settings: Settings, skips: Mapping[str, Mapping]) -> list[str]:
@@ -288,12 +299,12 @@ def share_encode(settings: Settings, skips: Mapping[str, Mapping] | Iterable[str
 def _encode(settings: Settings, registry: list[str]) -> str:
     toggles = settings.skip_override
     head = settings.skip_ceiling | MOVEMENT_TIERS.index(settings.movement_tier) << 3 | (0x80 if toggles else 0)   # bits 5-6: D1061
-    level = settings.seed_difficulty
+    level, warp = settings.seed_difficulty, settings.save_warp
     form, kept = category_table(settings.exclude_categories)
-    mask = sum(1 << CATEGORIES.index(c) for c in (settings.exclude_categories if level else kept))
+    mask = sum(1 << CATEGORIES.index(c) for c in (settings.exclude_categories if level or warp else kept))
     sliders = sorted((SHARE_SLIDERS.index((pack, name)), float(v))
                      for pack, values in settings.sliders.items() for name, v in values.items())
-    version = SHARE_VERSION_DIFFICULTY if level else SHARE_VERSION_ELEMENTAL if form == SETTINGS_FORMAT_ELEMENTAL \
+    version = SHARE_VERSION_WARP if warp else SHARE_VERSION_DIFFICULTY if level else SHARE_VERSION_ELEMENTAL if form == SETTINGS_FORMAT_ELEMENTAL \
         else SHARE_VERSION_SLIDERS if sliders else SHARE_VERSION_CATEGORIES if mask else SHARE_VERSION
     out = bytearray([version, head])
     if toggles:
@@ -304,12 +315,14 @@ def _encode(settings: Settings, registry: list[str]) -> str:
             prev = index
     if version != SHARE_VERSION:
         out.append(mask)
-    if sliders or version in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY):
+    if sliders or version in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
         out.append(len(sliders))
         for index, v in sliders:
             out += bytes([index]) + struct.pack("<d", v)
-    if level:
-        out.append(SEED_DIFFICULTY_FILL << 3 | level)
+    if level or warp:
+        out.append(SEED_DIFFICULTY_FILL << 3 | level if level else 0)
+    if warp:
+        out.append(SHARE_WARP)
     return SHARE_PREFIX + base64.b32encode(bytes(out)).decode().rstrip("=")
 
 
@@ -323,7 +336,7 @@ def share_sliders(text: str, skips: Mapping[str, Mapping]) -> dict[str, dict[str
         version = b""
     return {p: dict(v) for p, v in share_decode(text, skips).sliders.items()} \
         if version in (bytes([SHARE_VERSION_SLIDERS]), bytes([SHARE_VERSION_ELEMENTAL]),
-                       bytes([SHARE_VERSION_DIFFICULTY])) else {}
+                       bytes([SHARE_VERSION_DIFFICULTY]), bytes([SHARE_VERSION_WARP])) else {}
 
 
 def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
@@ -343,11 +356,11 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
     except ValueError as exc:
         fail(f"not base32 ({exc})")
     if len(raw) < 2 or raw[0] not in (SHARE_VERSION, SHARE_VERSION_CATEGORIES, SHARE_VERSION_SLIDERS,
-                                      SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY):
+                                      SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
         fail(f"unknown version {raw[0] if raw else None!r}")
     head, k = raw[1], 2
-    table = {"format": SETTINGS_FORMAT_ELEMENTAL if raw[0] in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY)
-             else SETTINGS_FORMAT,
+    table = {"format": SETTINGS_FORMAT_ELEMENTAL
+             if raw[0] in (SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP) else SETTINGS_FORMAT,
              "skip_ceiling": head & 7, "movement_tier": MOVEMENT_TIERS[head >> 3 & 3],
              "dark_fire": (head >> 5 & 3) + 1, "skip_override": {}}
     if head & 0x80:
@@ -384,7 +397,7 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
         table["exclude_categories"] = [c for i, c in enumerate(CATEGORIES) if raw[k] >> i & 1]
         k += 1
     sliders: dict[str, dict[str, float]] = {}
-    if raw[0] in (SHARE_VERSION_SLIDERS, SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY):
+    if raw[0] in (SHARE_VERSION_SLIDERS, SHARE_VERSION_ELEMENTAL, SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
         count, k = (raw[k], k + 1) if k < len(raw) else (-1, k)
         if count < (raw[0] == SHARE_VERSION_SLIDERS) or k + 9 * count > len(raw):
             fail("no movement slider, or a truncated one")
@@ -395,17 +408,23 @@ def share_decode(text: str, skips: Mapping[str, Mapping]) -> Settings:
                 fail(f"slider {index}: no such slider, or a value that isn't a number")
             pack, name = SHARE_SLIDERS[index]
             sliders.setdefault(pack, {})[name] = value
-    if raw[0] == SHARE_VERSION_DIFFICULTY:
+    if raw[0] in (SHARE_VERSION_DIFFICULTY, SHARE_VERSION_WARP):
         if k >= len(raw):
             fail("no seed difficulty")
         level, made = raw[k] & 7, raw[k] >> 3
         k += 1
-        if made != SEED_DIFFICULTY_FILL:
-            fail(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill {SEED_DIFFICULTY_FILL}: "
-                 "the same seed would place items differently")
-        if level not in SEED_DIFFICULTIES[1:]:
-            fail(f"seed difficulty {level} is not one of 2, 3, 4")
-        table["seed_difficulty"] = level
+        if raw[k - 1] or raw[0] == SHARE_VERSION_DIFFICULTY:     # version 5's 0 is level 0
+            if made != SEED_DIFFICULTY_FILL:
+                fail(f"made with Seed difficulty's fill {made}; this AzurKit plans with fill {SEED_DIFFICULTY_FILL}: "
+                     "the same seed would place items differently")
+            if level not in SEED_DIFFICULTIES[1:]:
+                fail(f"seed difficulty {level} is not one of 2, 3, 4")
+            table["seed_difficulty"] = level
+    if raw[0] == SHARE_VERSION_WARP:
+        if k >= len(raw) or raw[k] != SHARE_WARP:
+            fail("no options byte, or an option this AzurKit doesn't know")
+        table["save_warp"] = True
+        k += 1
     if k != len(raw):
         fail("trailing bytes")
     settings = replace(settings_from_table(table, skips, "share string"), sliders=sliders)

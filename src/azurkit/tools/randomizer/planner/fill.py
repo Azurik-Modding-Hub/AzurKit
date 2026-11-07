@@ -118,7 +118,7 @@ from azurkit.tools.randomizer.planner.settings import (
     pick_of,
     skips_on,
 )
-from azurkit.tools.randomizer.planner.solver import TRICK_FREE, Logic, Reach
+from azurkit.tools.randomizer.planner.solver import Logic, Reach, trick_free
 from azurkit.tools.randomizer.writer import Names, graph_of, layout, string_cost
 
 GENERATOR = "azurik-rando-fill/4"     # the fill's version: bumped when the same inputs give another placement
@@ -206,7 +206,7 @@ def settings_table(settings: Settings) -> dict:
     setting without it keeps its digest (and both powers rows kept are
     format /1's ``powers``, so an old setting's too, Step 2.90a); a seed
     difficulty and its fill's version likewise only when over 0, so a level 0
-    plan is today's."""
+    plan is today's, and ``save_warp`` only when on (D1154)."""
     form, kept = category_table(settings.exclude_categories)
     table = {"format": form, "skip_ceiling": settings.skip_ceiling,
              "movement_tier": settings.movement_tier, "dark_fire": DARK_FIRE,
@@ -215,6 +215,8 @@ def settings_table(settings: Settings) -> dict:
         table["exclude_categories"] = kept
     if settings.seed_difficulty:
         table["seed_difficulty"], table["seed_difficulty_fill"] = settings.seed_difficulty, SEED_DIFFICULTY_FILL
+    if settings.save_warp:
+        table["save_warp"] = True
     return table
 
 
@@ -757,7 +759,7 @@ class _Reaches:
         if not physical:
             return
         phys = logic.rules(settings, physical=True)
-        graphs += [phys, logic.rules(TRICK_FREE, physical=True) if phys.on else phys]
+        graphs += [phys, logic.rules(trick_free(settings), physical=True) if phys.on else phys]
         self.read[True] = self._read(graphs)
 
     def _read(self, graphs) -> frozenset[str]:

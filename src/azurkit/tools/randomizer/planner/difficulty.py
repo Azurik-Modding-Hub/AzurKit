@@ -245,7 +245,7 @@ def rung(settings: Settings, rating: int, skips: Mapping[str, Mapping]) -> Setti
     on = picks_on(settings, skips)
     off = {pid: False for pid, value in settings.skip_override.items()
            if value and pid in on and min(skips[sid].get("difficulty", 0) for sid in on[pid]) >= rating}
-    return Settings(ceiling, tier, {**settings.skip_override, **off})
+    return Settings(ceiling, tier, {**settings.skip_override, **off}, save_warp=settings.save_warp)
 
 
 def progression(logic: Logic, placement: Mapping[str, str]) -> frozenset[str]:

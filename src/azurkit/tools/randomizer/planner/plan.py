@@ -66,7 +66,7 @@ from azurkit.tools.randomizer.planner.settings import (
     share_encode,
     share_sliders,
 )
-from azurkit.tools.randomizer.planner.solver import Logic, Reach, _Round, _Rules
+from azurkit.tools.randomizer.planner.solver import WARP_TOWN, Logic, Reach, _Round, _Rules, save_points
 
 PLAN_FORMAT = "azurik-rando-plan/1"
 _KEYS = {"format", "generator", "seed", "attempt", "settings", "share", "settings_digest", "db_digest", "placement",
@@ -168,15 +168,17 @@ def _path(logic: Logic, rules: _Rules, src: str, dst: str, counters: Mapping, fl
           avoid: Container[tuple[str, str]] = (), extra: Mapping[str, Iterable[str]] | None = None) -> tuple[str, ...]:
     """The fewest-hop node path from ``src`` to ``dst`` over the edges in
     logic passable with ``counters`` and ``flags``, a disc teleport taken
-    while its slot isn't collected; empty when there is none.  A tour's
+    while its slot isn't collected (labelled so) and a save-point warp's hop
+    labelled :data:`WARP`; empty when there is none.  A tour's
     (Step R1.16d): no hop ``(u, v)`` in ``avoid`` (a one-shot exit it has
     taken), and the hops ``extra`` maps each node to (rides the logic
     leaves out) as well."""
-    parent = {src: None}
+    parent, warps = {src: None}, set(rules.warps)
     todo = collections.deque([src])
     while todo and dst not in parent:
         u = todo.popleft()
-        hops = [(v, v) for v, rule in rules.adj.get(u, ()) if (u, v) not in avoid and rule(counters, flags)]
+        hops = [(v, v + WARP if (u, v) in warps else v) for v, rule in rules.adj.get(u, ())
+                if (u, v) not in avoid and rule(counters, flags)]
         hops += [(v, v) for v in (extra or {}).get(u, ())]
         hops += [(b, f"{b} (disc teleport)") for a, b, rule, disc in rules.teleports
                  if a == u and logic.slots[disc] not in slots_used and rule(counters, flags)]
@@ -209,6 +211,7 @@ ELEMENT_COUNTERS = ("earth", "air", "fire", "water")
 
 # -- the chain driver's segments (D172; Steps X.12, X.19; R1.16's input) ----------------------------------------------
 RIDE_FALL = 600      # ticks a ride's search lets a branch stay in the air (w1's spout lifts the body ~150, X.15)
+WARP = " (save warp)"   # a path's hop by the save-point warp (D1154): the ritual on a save platform, to town's
 SCENE_KINDS = frozenset({"rig", "teleport"})    # derived edges a mover or the wiring makes: whole steps (scene-side)
 # The minigames scripts/xemu_minigames.py's solvers play (Steps R1.8f, R1.8h, R1.8o): a level-file event -> (the solver,
 # the object the player walks up to first; None: the event's node)
@@ -379,6 +382,10 @@ class _Chain:
         destination, its ``difficulty`` (the edge's movement tier as a number, 1 safe .. 4 frame_perfect: above 1 the
         hop is in logic only by the plan's tier) and its hints."""
         u, kit, logic = u.split()[0], _kit(counters), self.logic
+        if v.endswith(WARP):      # the ritual: no level file's edge, the arrival a whole step
+            v = v.removesuffix(WARP)
+            return {"kind": "warp", "level": self.db.nodes[u][0], "from": u, "to": v, "goal": v, "requires": None,
+                    "confidence": None, "kit": kit, "mech": ["warp"], "scene": True}, {}
         if v.endswith(" (disc teleport)"):
             v = v.split()[0]
             e = next((e for lvl in sorted(self.db.levels) for e in self.db.levels[lvl]["edge"]
@@ -762,17 +769,8 @@ def _playthrough(plan: Plan, logic: Logic) -> tuple[Reach, list[SpoilerSphere]]:
 
 def save_nodes(logic: Logic) -> dict[str, tuple[str, str, str | None]]:
     """Each save point of a level with a level file -> (its level, its name,
-    its canonical node: the node anchoring it or its derived zone, a stub's
-    one node, or None when no node holds it)."""
-    db = logic.db
-    anchored = {a: n["id"] for doc in db.levels.values() for n in doc["node"] for a in n.get("anchors", [])}
-    out = {}
-    for lvl in sorted(db.levels):
-        zones = {o["id"]: o.get("main_zone") for o in db.derived.get(lvl, {}).get("objects", ())}
-        for sp in db.generated[lvl]["save_points"]:
-            node = lvl if lvl in db.stubs else anchored.get(sp["id"]) or anchored.get(f"zone:{zones.get(sp['id'])}")
-            out[sp["id"]] = (lvl, sp.get("save_id") or sp["id"], node)
-    return out
+    its canonical node, or None when no node holds it): :func:`.solver.save_points`."""
+    return save_points(logic.db)
 
 
 def _spans(spheres_: list[SpoilerSphere], last: frozenset[str]) -> dict[str, tuple[int, int]]:
@@ -819,7 +817,8 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
     lines = [
         f"plan {doc['sha256'][:12]}: seed {doc['seed']!r}, attempt {doc['attempt']}, {doc['generator']}",
         f"settings: skip_ceiling {st.skip_ceiling}, movement_tier {plan.asked.movement_tier}, dark_fire 1, "
-        + (f"seed_difficulty {st.seed_difficulty}, " if st.seed_difficulty else "") +
+        + (f"seed_difficulty {st.seed_difficulty}, " if st.seed_difficulty else "")
+        + ("save_warp on, " if st.save_warp else "") +
         f"toggles: {toggles}" + (f", kept vanilla: {kept}" if kept else "") + f"; share {doc['share']} "
         f"(skip registry tag {registry_tag(picks(logic.skip_tables)).hex()})",
         f"database {doc['db_digest'][:12]}: the plan places {len(plan.placement)} locations of "
@@ -828,6 +827,11 @@ def spoiler_lines(plan: Plan, logic: Logic) -> list[str]:
                                      or "none"),
         SOFTLOCK,
     ]
+    if st.save_warp:
+        rows = [node for lvl, _, node in save_points(db).values() if lvl != WARP_TOWN[0]]
+        lines.append(f"the save-point warp is counted (qol_save_warp: LT + A, B, X, Y on a save platform goes to "
+                     f"town's and back): a node that reaches a save platform is no trap once town gets back to the "
+                     f"start; {sum(map(bool, rows))} of its {len(rows)} save platforms have a node and count")
     if any("saveanywhere" in fam.split("+") for fam in families):
         lines.append("warning: a saveanywhere skip is on (plan §2.14): it never counts as an escape")
     reach, spheres_ = _playthrough(plan, logic)

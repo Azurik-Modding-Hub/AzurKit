@@ -48,7 +48,7 @@ from azurkit.core.xbr import nodes
 from azurkit.edits import manifest as edits
 from azurkit.tools import mods, randomizer
 from azurkit.tools.randomizer import dbcache, generator, layer, tracking, writer
-from azurkit.tools.randomizer.planner import difficulty, fill, loader
+from azurkit.tools.randomizer.planner import difficulty, fill, loader, solver
 from azurkit.tools.randomizer.planner.grammar import ParseError, parse
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan, plan_doc
@@ -599,6 +599,52 @@ def test_a_share_string_and_settings_file_carry_seed_difficulty_and_older_ones_r
             settings_from_table(table | {"seed_difficulty": level}, skips)
     assert settings_from_table(table | {"skip_ceiling": 0, "movement_tier": "standard",
                                         "skip_override": {pick: True}, "seed_difficulty": 2}, skips).seed_difficulty == 2
+
+
+def test_the_save_warp_counted_frees_the_traps_a_save_platform_leaves_and_rides_in_its_share_string_and_build():
+    """D1154 (RANDOMIZER_PLAN R2.14): the warp's sources are the shim's 41 rows, every save point but town's, each
+    with a node an edge to town's platform's (the five with none get no edge); it changes no flag forced on entry and
+    no region. Counted, the vanilla placement's a3 and a5 platform rooms are no traps; a plan of it verifies, names
+    it in its spoiler and reads back; share version 5 and a file carry it (written only when on), its options byte
+    refused when unknown; a build applying qol_save_warp plans with it, settings counting it without the pack are
+    refused, and the tracker reads it. Off, plans are as before (the goldens; the eighty plans' test)."""
+    logic = kept_logic()
+    skips = {sid: s for sid, (_, s) in logic.db.skips.items()}
+    shim = (Path(mods.__file__).parent / "shims" / "qol_save_warp.c").read_text(encoding="utf-8")
+    rows = re.findall(r'\{"levels/(?:\w+/)?(\w+)", "(\w+)"\}', shim.split("ROWS[][2]")[1].split("};")[0])
+    saves = {(lvl, name): node for lvl, name, node in solver.save_points(logic.db).values()}
+    assert len(rows) == 41 and set(saves) - set(rows) == {solver.WARP_TOWN} and set(rows) <= set(saves)
+    town = saves[solver.WARP_TOWN]
+    assert logic.warps == tuple(sorted({(saves[r], town) for r in rows if saves[r]}))
+    assert sum(saves[r] is None for r in rows) == 5
+    warp = dataclasses.replace(solver.TRICK_FREE, save_warp=True)
+    assert logic._forced_on_entry(logic.rules(warp)) == logic.forced and logic._regions(logic.rules(warp)) == logic.regions
+    assert logic._forced_on_entry(logic.rules(warp, physical=True)) == logic.forced_phys
+    on = dataclasses.replace(logic.db.defaults, save_warp=True)
+    vanilla = logic.vanilla_placement()
+    assert {"a3_z002", "a5_z021"} <= logic.reach(logic.db.defaults, vanilla).traps - logic.reach(on, vanilla).traps
+
+    table = {"format": "azurik-rando-settings/1", "skip_ceiling": 0, "movement_tier": "standard", "dark_fire": 1}
+    doc = randomizer.plan({"seed": "2", "settings": table | {"save_warp": True}})
+    plan = load_plan(doc, logic.db)
+    assert doc["settings"]["save_warp"] is True and plan.settings == on and not fill.verify(logic, on, plan.placement)
+    assert any(line.startswith("the save-point warp is counted") for line in randomizer.spoiler(doc))
+    assert tracking.tracker_of(doc).settings.save_warp
+    pick = next(p for p, ids in picks(skips).items() if turnable(skips[ids[0]]) and skips[ids[0]]["difficulty"] == 2)
+    for st in (on, Settings(4, "frame_perfect", {pick: True}, frozenset({"powers"}), JUMP, 3, True)):
+        text = share_encode(st, skips)
+        assert base64.b32decode(text[4:] + "=" * (-len(text[4:]) % 8))[0] == 5 and share_decode(text, skips) == st
+    bad = "AZR-" + base64.b32encode(bytes([5, 0x08, 0, 0, 0, 2])).decode().rstrip("=")
+    with pytest.raises(ValueError, match="an option this AzurKit doesn't know"):
+        share_decode(bad, skips)
+    assert "save_warp" not in layer.settings_text(logic.db.defaults) and "save_warp" not in PLANS["default"]["plan"]["settings"]
+    assert settings_from_table(tomllib.loads(layer.settings_text(on)), skips) == on
+    with pytest.raises(ValueError, match="save_warp: 1 is not true or false"):
+        settings_from_table(table | {"save_warp": 1}, skips)
+    built = generator.prepare({"seed": "2"}, {generator.WARP_PACK: {}})
+    assert built.plan.settings.save_warp and built.plan.doc["sha256"] == doc["sha256"]
+    with pytest.raises(ValueError, match="doesn't apply qol_save_warp"):
+        generator.prepare({"seed": "2", "share": doc["share"]}, {})
 
 
 def _share(sliders: dict) -> str:
