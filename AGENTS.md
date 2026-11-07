@@ -918,6 +918,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     `garret_match` a staging of the image with the build's packs applied,
     and `sdk.match` keeps each recipe's answer for the process (a dress
     takes seconds).
+  - **The Variants editor's colour views** (Step 4.6b; Modkit's
+    `authoring/colour_preview.py`, moved into the package so the editor
+    needs nothing of Modkit's authoring side): `tools/characters/colour_preview.py`
+    draws a body from the front and from behind in a recipe's `colours`
+    (each material row's texture recoloured as W38 recolours it), each
+    row's tile and palette, and its rows' textures whole as the Export's
+    PNGs. It writes no built byte and reads no file (the sdk hands it the
+    archives), and its own sines and cosines are fdlibm's; Modkit's
+    pickled `keep` and `kept` stay out (the store keeps no pickle).
   - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
     bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
     townsfolk's weapon, `bare_hands` and the spin attack,
