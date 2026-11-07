@@ -1904,7 +1904,10 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 pywebview uses [proxy_tools](https://github.com/jtushman/proxy_tools) 0.1.0,
 which the app carries. Its package states its licence as MIT (`License:
 MIT` and the classifier `License :: OSI Approved :: MIT License`) and ships
-no licence text.
+no licence text; its module's docstring reads ":copyright: (c) 2013 by
+Armin Ronacher (adapted by Jonathan Tushman 2014). :license: BSD". PyPI has
+it as an sdist alone, so `vendor/` keeps the wheel that sdist builds, its
+module unchanged.
 
 ## Python Software Foundation: typing_extensions
 

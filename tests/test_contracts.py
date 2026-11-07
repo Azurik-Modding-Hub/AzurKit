@@ -13,8 +13,11 @@ Beside them, the lint set's other rule: the developer log holds no bullet twice
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
+import tomllib
+import zipfile
 from pathlib import Path
 
 from importlinter.cli import lint_imports
@@ -419,3 +422,31 @@ def test_a_lane_branch_named_for_a_runner_runs_its_rows_and_linuxs_pure_tier_and
     for branch in ("p2/4.4dx5-mac-slots", "p2/4.4ci47-arm64-crash", "p2/4.4x-ARM64", "p2/arm64", "p2/4.4x-arm64x"):
         assert rows("push", f"refs/heads/{branch}") == every, branch
     assert rows("push", "refs/heads/p2/4.4x-arm64", "someone/AzurKit") == pull
+
+
+PROXY_TOOLS_MODULE = "d1539d95e1a713c068ca81d42e047b2c76568964cf277596d4e19efb22f476be"
+"""The sha256 of ``proxy_tools/__init__.py`` in proxy-tools 0.1.0's sdist on PyPI (``proxy_tools-0.1.0.tar.gz``,
+sha256 ``ccb3751f529c…``), its one release."""
+
+
+def test_every_locked_package_but_the_project_has_a_wheel_and_proxy_tools_is_the_one_its_sdist_builds():
+    """Step 4.4ci55: proxy-tools, pywebview's, has only an sdist, so every
+    ``uv sync --locked`` built it, asking PyPI's index for setuptools, the
+    one index ask a locked sync made: run 42335356378's Intel job failed on
+    it before any test. Each package ``uv.lock`` pins but the project has a
+    wheel, and proxy-tools' is ``vendor/``'s, the one file there, at the
+    lock's sha256: its sdist's module unchanged, its METADATA's licence MIT."""
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))["package"]
+    assert [p["name"] for p in lock if not p.get("wheels")] == ["azurkit"]
+    vendored = [p for p in lock if "path" in p["source"]]
+    assert [(p["name"], p["source"]["path"]) for p in vendored] == [
+        ("proxy-tools", "vendor/proxy_tools-0.1.0-py3-none-any.whl")]
+    wheel = ROOT / vendored[0]["source"]["path"]
+    assert [path.name for path in wheel.parent.iterdir()] == [wheel.name]
+    assert [w["hash"] for w in vendored[0]["wheels"]] == [f"sha256:{hashlib.sha256(wheel.read_bytes()).hexdigest()}"]
+    with zipfile.ZipFile(wheel) as zf:
+        meta = "proxy_tools-0.1.0.dist-info/"
+        assert sorted(zf.namelist()) == [*(f"{meta}{name}" for name in ("METADATA", "RECORD", "WHEEL", "top_level.txt")),
+                                         "proxy_tools/__init__.py"]
+        assert hashlib.sha256(zf.read("proxy_tools/__init__.py")).hexdigest() == PROXY_TOOLS_MODULE
+        assert "\nLicense: MIT\n" in zf.read(f"{meta}METADATA").decode()
