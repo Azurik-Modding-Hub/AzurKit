@@ -479,7 +479,8 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
     pack again. The page opens dark (D897), and its toggle picks light. The
     next launch starts from the image the last build read, opens in the
     theme the page picked, from its first paint (the app's own theme.js),
-    and with the page's setup as it was left: every pack ticked (D915; all
+    and, Remember settings ticked, with the page's setup as it was left:
+    every pack ticked (D915, D1156; all
     three remembered in platformdirs' config folder: the page's address, and
     so its storage, is new each launch); its ``host.json`` names the commit
     it was frozen from (About's: this checkout's HEAD). No CSP violation, no
@@ -529,6 +530,7 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
             _page.tick(page, [])
             _page.fill(page, "iso-path", str(out))
             assert _page.until(page, "() => azurkit.opened") == json.loads(json.dumps(sdk.open_build(str(out))))
+            _page.click(page, "remember")
             _page.click(page, "load-build")
             assert list(_page.ticked(page)) == list(mods.PACKS)
             setup = {"ticked": list(mods.PACKS), "values": {}, "xbr": []}   # the recipe loaded becomes it (D915)
@@ -543,13 +545,15 @@ def test_the_frozen_apps_page_builds_each_ported_packs_g1_golden_and_saves_cpyth
         with box.serving(app_path) as url:
             with urllib.request.urlopen(url.replace("/?token=", "/host.json?token="), timeout=30) as reply:
                 host = json.load(reply)
-            assert [host["iso"], host["theme"], host["setup"], host["commit"]] == [
-                str(usa_iso), "light", setup, _head()]
+            assert [host["iso"], host["theme"], host["remember"], host["setup"], host["commit"]] == [
+                str(usa_iso), "light", True, setup, _head()]
             page = context.new_page()
             assert _page.first_paint(page, url) == ["light", "rgb(232, 236, 241)"]
             assert page.evaluate("() => [azurkit.theme, document.documentElement.dataset.theme]") == ["light"] * 2
-            assert [list(_page.ticked(page)), page.evaluate("() => document.querySelector('#status').textContent")] == [
-                list(mods.PACKS), f"Restored your last setup: {len(mods.PACKS)} packs on. Reset to defaults clears it."]
+            assert [list(_page.ticked(page)), page.evaluate("() => document.querySelector('#status').textContent"),
+                    page.evaluate("() => document.getElementById('remember').checked")] == [
+                list(mods.PACKS), f"Restored your last setup: {len(mods.PACKS)} packs on. Reset to defaults clears it.",
+                True]
     finally:
         context.close()
         out.unlink(missing_ok=True)
@@ -859,14 +863,19 @@ def test_a_config_read_refused_for_a_moment_costs_no_remembered_setting_and_one_
                                                       "list, not an object): remembering theme writes it over\n")
 
 
-def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_path, monkeypatch):
-    """``api/setup`` remembers the page's setup (D915) in the app's config,
-    beside the theme, written whole; ``host.json`` gives it to the next
-    page, the config read once (Step 4.4ci16), and ``api/restore`` gives back what of it still applies, the rest
-    named (``sdk.restore``). ``null`` forgets it, and a setup holding
-    anything but pack and setting names, numbers and config.xbr ``set``
-    cells (an image's path as a pack or setting name, a ``replace_bytes``,
-    a character's recipe file) is refused by name, the config as it was."""
+def test_the_app_gives_the_next_page_its_setup_only_with_remember_settings_ticked(tmp_path, monkeypatch):
+    """``api/setup`` keeps the page's setup (D915) in the app's config only
+    with Remember settings ticked (``remember`` true, D1156), beside the
+    theme, written whole; ``host.json`` gives the choice and that setup to
+    the next page, the config read once (Step 4.4ci16), and ``api/restore``
+    gives back what of it still applies, the rest named (``sdk.restore``).
+    Unticked (``remember`` false or left out), the choice and the setup are
+    forgotten; ``null`` forgets the setup; a ``remember`` that isn't true or
+    false and a setup holding anything but pack and setting names, numbers
+    and config.xbr ``set`` cells (an image's path as a pack or setting name,
+    a ``replace_bytes``, a character's recipe file) are refused by name, the
+    config as it was. A setup AzurKit 1.0 kept, with no choice, is forgotten
+    at the next launch, unread."""
     _home(monkeypatch, tmp_path / "home")   # where the app remembers
     (page := tmp_path / "page").mkdir()
     (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
@@ -901,25 +910,71 @@ def test_the_app_remembers_the_pages_setup_in_its_config_beside_the_theme(tmp_pa
         return [json.loads(app._config().read_text(encoding="utf-8")),
                 sorted(p.name for p in app._config().parent.iterdir())]
 
+    remembered = {"theme": "light", "remember": True, "setup": setup}
     try:
         assert [call("api/theme", {"theme": "light"}), call("api/setup", {"setup": setup})] == [{}, {}]
-        assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
+        assert kept() == [{"theme": "light"}, ["app.json"]]   # unticked: nothing kept
+        assert call("api/setup", {"remember": True, "setup": setup}) == {}
+        assert kept() == [remembered, ["app.json"]]
         with monkeypatch.context() as counting:   # host.json reads the config once, its theme and start image too
             reads, real = [], Path.read_text
             counting.setattr(Path, "read_text", lambda path, *args, **kwargs: (
                 reads.append(path) if path == app._config() else None, real(path, *args, **kwargs))[1])
             host = call("host.json")
-        assert [reads, host["theme"], host["setup"]] == [[app._config()], "light", setup]
+        assert [reads, host["theme"], host["remember"], host["setup"]] == [[app._config()], "light", True, setup]
         assert call("api/restore", {"setup": setup}) == sdk.restore(setup) == {
             "ticked": ["fps_unlock"], "values": {"fps_unlock": {"target_fps": 120}}, "xbr": [cell],
             "dropped": ["qol_retired (no such pack)"]}
-        assert [call("api/setup", {"setup": given}) for given in refused.values()] == [
+        assert [call("api/setup", {"remember": True, "setup": given}) for given in refused.values()] == [
             {"refused": why} for why in refused]
-        assert kept() == [{"theme": "light", "setup": setup}, ["app.json"]]
-        assert call("api/setup", {"setup": None}) == {}
-        assert [kept(), call("host.json")["setup"]] == [[{"theme": "light"}, ["app.json"]], None]
+        assert call("api/setup", {"remember": 1, "setup": setup}) == {"refused": "remember: 1 is neither true nor false"}
+        assert kept() == [remembered, ["app.json"]]
+        assert call("api/setup", {"remember": True, "setup": None}) == {}
+        assert [kept(), call("host.json")["setup"]] == [[{"theme": "light", "remember": True}, ["app.json"]], None]
+        assert call("api/setup", {"remember": True, "setup": setup}) == {}
+        assert call("api/setup", {"remember": False, "setup": setup}) == {}
+        host = call("host.json")
+        assert [kept(), host["remember"], host["setup"]] == [[{"theme": "light"}, ["app.json"]], False, None]
     finally:
         server.close()
+    app._config().write_text(json.dumps({"theme": "light", "setup": setup}), encoding="utf-8")   # AzurKit 1.0's
+    server = app.serve(page)
+    try:
+        host = call("host.json")
+        assert [kept(), host["remember"], host["setup"]] == [[{"theme": "light"}, ["app.json"]], False, None]
+    finally:
+        server.close()
+
+
+def test_the_apps_relaunch_starts_at_the_defaults_with_remember_settings_unticked(browser, tmp_path, monkeypatch):
+    """D1156 in the app's page: Remember settings is off by default, so a
+    relaunch starts at the defaults with the box unticked and nothing said,
+    a setup AzurKit 1.0 kept (no choice in the config) forgotten unread, and
+    a change keeps nothing. Ticked, the box keeps the choice and the setup in
+    the config at once; unticked, it forgets both at once."""
+    _home(monkeypatch, tmp_path / "home")
+    defaults = [name for name, pack in mods.PACKS.items() if pack.default_on]
+    app._remember(theme="light", setup={"ticked": ["fps_unlock"], "values": {}, "xbr": []})   # AzurKit 1.0's
+    shown = """() => [document.getElementById("status").textContent, document.getElementById("remember").checked]"""
+    for launch in (1, 2):
+        server = app.serve(_page.WEB)
+        try:
+            page = browser.new_page()
+            page.goto(server.url)
+            _page.until(page, "() => globalThis.azurkit?.ready", 120)
+            assert [list(_page.ticked(page)), page.evaluate(shown), app._kept()] == [
+                defaults, ["", False], {"theme": "light"}], launch
+            _page.tick(page, ["fps_unlock"])
+            if launch == 2:
+                _page.click(page, "remember")
+                _until(lambda: app._kept() == {"theme": "light", "remember": True,
+                                               "setup": {"ticked": ["fps_unlock"], "values": {}, "xbr": []}})
+                _page.click(page, "remember")
+                _until(lambda: app._kept() == {"theme": "light"})
+            _page.check_csp(page)
+            page.close()   # its pagehide would keep the setup now
+        finally:
+            server.close()
 
 
 def _beamlord_source(tmp_path: Path, monkeypatch) -> Path:
@@ -1127,6 +1182,7 @@ def test_the_apps_patches_tab_installs_a_community_pack_and_builds_it_with_its_p
                 assert page.evaluate("() => azurkit.remembered?.community ?? null") == [{"id": "hard"}], (
                     f"the relaunch's page has no setup with hard to restore: {app._kept()}")
             if launch == 1:
+                _page.click(page, "remember")   # D1156: the relaunch restores the setup only with it ticked
                 page.evaluate("() => { document.getElementById('community-group').open = true; }")
                 _page.until(page, "() => document.getElementById('community-note').textContent.startsWith('No community')",
                             60)
@@ -1205,7 +1261,7 @@ def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(brow
     bar, a third (the host read) and two thirds (the page drawn: its remembered setup's restore in flight), until the
     page is ready; a quick one shows none."""
     _home(monkeypatch, tmp_path / "home")
-    app._remember(setup={"ticked": []})
+    app._remember(remember=True, setup={"ticked": []})
     bar = """() => { const seen = globalThis.__bar = [];
       new MutationObserver(() => { const p = document.getElementById("progress");
         if (p && !p.closest("[hidden]")) seen.push(p.getAttribute("value")); })
@@ -1722,7 +1778,7 @@ def test_the_apps_engine_process_answers_small_asks_during_a_build_and_cancel_st
         while building.is_alive() and progressed()["calls"].get("build", {}).get("stage") is None:
             time.sleep(0.05)
         assert building.is_alive(), f"the build ended before its first record: {replies}"
-        took = [ask("api/pickers", {"given": {}}), ask("api/setup", {"setup": {"ticked": ["fps_unlock"]}})]
+        took = [ask("api/pickers", {"given": {}}), ask("api/setup", {"remember": True, "setup": {"ticked": ["fps_unlock"]}})]
         assert all(s < 0.5 or s < 0.5 * _speed.factor() for s, _ in took) and took[1][1] == {}, took
         step = progressed()
         assert step["calls"]["build"]["stage"] in progress.STAGES and step["stage"] == step["calls"]["build"]["stage"]
@@ -1953,9 +2009,6 @@ def test_randomize_ticked_with_no_seed_in_the_apps_page_stops_the_build_ahead(br
             on.dispatchEvent(new Event("change", { bubbles: true }));
         }""")
         assert job.done.wait(60) and isinstance(job.error, engine.Cancelled) and server.slots.job("build") is job
-        # The page's api/setup has been sent: its check reads the logic (seconds), and left running it would write this
-        # setup into the next test's HOME, whose page would restore Randomize ticked (run 41372636477's data edits test).
-        _until(lambda: app._kept().get("setup", {}).get("randomizer"))
         page.close()
     finally:
         server.close()
@@ -2362,7 +2415,7 @@ def test_the_apps_api_builds_the_randomizer_tabs_seed_as_modkit_and_saves_its_sp
             "refused": f"{saved} exists: choose another name, or delete it first"}
         setup = {"ticked": list(packs), "values": {}, "xbr": [],
                  "randomizer": {"on": True, "seed": "2", "settings": defaults}}
-        assert call("api/setup", {"setup": setup}) == {}
+        assert call("api/setup", {"remember": True, "setup": setup}) == {}
         assert json.loads(app._config().read_text(encoding="utf-8"))["setup"] == setup
 
         def view(doc, marks, spoiler, kit=None):   # Step 4.2c2: the tracker from the app's api
@@ -4456,8 +4509,8 @@ def test_the_apps_bar_polls_any_asks_record_from_its_click_so_a_counted_1_2_s_ca
 
 def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_path, monkeypatch, usa_iso):
     """Step 4.7a in the app's page: a Data tab edit made before an image
-    (api/data, api/data_edit) is the setup the app remembers (api/setup),
-    so the next launch's page holds it, its cell marked ● and the Patches
+    (api/data, api/data_edit) is the setup the app remembers (api/setup)
+    with Remember settings ticked (D1156), so the next launch's page holds it, its cell marked ● and the Patches
     tab's line naming it; once the image's path is typed, Build applies it
     after the packs, its config.xbr CPython's of the same recipe."""
     from tests.test_site import DATA_CELL, DATA_EDIT
@@ -4474,6 +4527,7 @@ def test_the_apps_data_edits_join_the_build_and_outlive_a_relaunch(browser, tmp_
             page.goto(server.url)
             _page.until(page, "() => globalThis.azurkit?.ready", 120)
             if launch == 1:
+                _page.click(page, "remember")
                 _page.click(page, "tab-data")
                 _page.until(page, f"() => azurkit.data.state.answer && ({DATA_CELL})({json.dumps(cell)})")
                 page.evaluate(DATA_EDIT, [*cell, "500"])

@@ -1468,7 +1468,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     checked: reading all 2.6 GB takes minutes in WebKit's worker), and the
     page shows "◆ AzurKit build" with Load its recipe, which loads it as a
     link's, to build again from a vanilla image.
-  - **The remembered setup** (D915): the page keeps its ticks, each
+  - **The remembered setup** (D915, D1156): each visit starts at the
+    defaults unless Remember settings (in the bottom bar after Reset to
+    defaults, off by default) is ticked. The choice itself is kept (the
+    site's `azurkit.remember`; the app's `host.json` `remember`, sent with
+    each `api/setup`), and unticking forgets the kept setup at once; a
+    setup kept with no choice (AzurKit 1.0's) is removed unread on the
+    first visit. The theme, the tracker's plan and marks, installed content
+    and the caches stay kept whatever the box says. Ticked, the page keeps
+    its ticks, each
     setting that differs from its default (an unticked pack's too) and a
     loaded recipe's config.xbr `set` cells, `{"ticked", "values", "xbr"}`:
     names and numbers, never the image, its path or anything read from it.
@@ -1485,7 +1493,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     back. A share link or Load its recipe wins and becomes the remembered
     setup; once the page changes, its address drops the link's `#p=`.
     Reset to defaults, in the bottom bar (off at the defaults), ticks the
-    packs on by default, sets every setting to its default and forgets it.
+    packs on by default, sets every setting to its default and forgets it,
+    leaving Remember settings as it is.
 - **The site** is the page with Pyodide's core (and numpy's wheel, which the
   Characters tab's drawing loads: `web_tools.PACKAGES`), the wheel (with each module's
   unchecked-hash bytecode, so Pyodide doesn't compile the source, and the

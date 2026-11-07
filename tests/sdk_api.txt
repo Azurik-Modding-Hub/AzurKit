@@ -422,9 +422,10 @@ index, Modkit's ``maps.json``: ``{"pictures": {"world": PNG bytes},
 
 def restore(setup: 'object') -> 'dict':
 
-A UI's remembered setup (D915: the packs it had ticked, each setting
-it had changed, its pack ticked or not, and a loaded recipe's config.xbr
-``set`` operations, ``{"ticked": [pack], "values": {pack: {slider:
+A UI's remembered setup (D915; the page keeps one only with Remember
+settings ticked, D1156): the packs it had ticked, each setting it had
+changed, its pack ticked or not, and a loaded recipe's config.xbr
+``set`` operations (``{"ticked": [pack], "values": {pack: {slider:
 value}}, "xbr": [operation]}``; never an image, its path or anything
 read from one), as the UI applies it, with ``dropped``: what no longer
 normalizes (a pack renamed or retired, a setting gone, a value its

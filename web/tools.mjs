@@ -62,6 +62,7 @@ export const MODS = "AzurKit mods.json";
 // What the site keeps in this browser, by name: Clear removes these and nothing else.
 export const KEPT = {
   local: [["azurkit.setup", "Your setup (packs, settings and choices)"],
+          ["azurkit.remember", "Whether AzurKit remembers your setup"],
           ["azurkit.tracker", "The tracker's plans and marks"],
           ["azurkit.content_source", "Where community content comes from"],
           ["azurkit.show_objects", "Whether the Characters tab lists objects"],

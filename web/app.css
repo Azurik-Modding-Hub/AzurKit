@@ -84,6 +84,9 @@ h2 {
 .build > .note { flex-basis: 100%; font-size: 11px; }
 .actions { display: flex; align-items: center; gap: 4px; }
 #build-line { margin-left: 4px; white-space: nowrap; }
+.actions .on { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; white-space: nowrap; }
+.actions .on input { margin: 0; accent-color: var(--accent); }
+.actions .on:has(input:disabled) { color: var(--faint); }
 #packs .vanilla-note { margin: 0; padding: 3px 10px; font-size: 11px; }
 #packs .moved { margin: 0; padding: 3px 10px; font-size: 11px; }
 #packs .moved:empty { display: none; }

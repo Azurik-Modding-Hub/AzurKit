@@ -19,9 +19,10 @@
 // A pack's settings are locked until its pack is ticked (D907), and a setting that only picks whether a left-stick
 // click flips another in game shows as a small L3 toggle at the end of that one's row (D909).
 //
-// The page remembers its setup between visits (D915): the site in this browser's storage, the app in its config. It
-// comes back when the page opens, before you pick an image, less whatever no longer applies (named in the status
-// line); a share link, or a build's recipe you load, takes its place; Reset to defaults forgets it.
+// Each visit starts at the defaults (D1156, amending D915) unless Remember settings, in the bottom bar, is ticked: then
+// the page keeps its setup between visits (D915), the site in this browser's storage, the app in its config. It comes
+// back when the page opens, before you pick an image, less whatever no longer applies (named in the status line); a
+// share link, or a build's recipe you load, takes its place; Reset to defaults forgets it, the box left as it is.
 //
 // The Randomizer tab (Step 4.2c1, RANDOMIZER_PLAN §5.5): Randomize (off by default, the tab's one switch, which
 // unlocks its settings, D907), the seed and New, the options with D144's defaults, the share string, the item rows
@@ -89,10 +90,11 @@ function theme(name, keep = false) {
   } catch {}   // storage refused (a private window, say): the theme lasts this visit
 }
 
-// The setup the page remembers (D915): the packs ticked, each setting whose value differs from its default (its pack
-// ticked or not: an unticked pack keeps its values, D907; a value that isn't a number isn't kept) and a loaded recipe's
-// config.xbr cells (set: names and numbers, Q174). Never the image, its path or anything read from it: the site
-// keeps it in this browser's storage, the app in its config (api/setup), and the page at its defaults keeps nothing.
+// The setup the page remembers while Remember settings is ticked (D915, D1156): the packs ticked, each setting whose
+// value differs from its default (its pack ticked or not: an unticked pack keeps its values, D907; a value that isn't a
+// number isn't kept) and a loaded recipe's config.xbr cells (set: names and numbers, Q174). Never the image, its path
+// or anything read from it: the site keeps it in this browser's storage, the app in its config (api/setup), and the
+// page at its defaults keeps nothing.
 const SETUP = "azurkit.setup";
 function setup() {
   const values = {};
@@ -161,7 +163,8 @@ function aheadOnSite(begin = false, rest = 0) {   // none while a Save is checke
   state.engine.ahead(tracking ? [...plans, ...builds] : [...builds, ...plans], { begin, rest });
 }
 
-// Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
+// Keep the page's setup (none at its defaults, none with Remember settings unticked), once it is the page's own: after
+// the remembered one is back. The app's api/setup takes the choice with it.
 function remember() {
   clearTimeout(state.later);
   if (!state.packs || state.restoring) return;
@@ -170,21 +173,42 @@ function remember() {
   state.plain = !kept.xbr.length && !Object.keys(kept.values).length && kept.ticked.join() === defaults.join()
     && !kept.randomizer && !kept.character && !kept.community;
   $("reset").disabled = state.building || state.plain;
-  const text = state.plain ? null : JSON.stringify(kept);
+  const keep = $("remember").checked, text = keep && !state.plain ? JSON.stringify(kept) : null;
   if (text === state.kept) return;
   state.kept = text;
-  if (state.app) return state.engine.setup(state.plain ? null : kept);
+  if (state.app) return state.engine.setup(keep, text && kept);
   try {
-    if (state.plain) localStorage.removeItem(SETUP);
-    else localStorage.setItem(SETUP, text);
+    if (text) localStorage.setItem(SETUP, text);
+    else localStorage.removeItem(SETUP);
   } catch {}   // storage refused (a private window, say): the setup lasts this visit
 }
 
-// What the site's storage holds (the app's comes in host.json): the setup to restore, as the engine reads it.
+// Remember settings (D1156): off by default, so each visit starts at the defaults; ticked, the page keeps its setup for
+// the next visit; unticked, it keeps none and forgets the one it kept at once. The choice itself is kept (the site's
+// REMEMBER, the app's config through api/setup): it decides whether the next visit starts fresh. The box works once the
+// page is its own (start()), its remembered setup back.
+const REMEMBER = "azurkit.remember";
+function keepChosen() {
+  state.kept = undefined;   // what is kept follows the choice now
+  if (!state.app) {
+    try {
+      if ($("remember").checked) localStorage.setItem(REMEMBER, "1");
+      else localStorage.removeItem(REMEMBER);
+    } catch {}   // storage refused (a private window, say): nothing is kept anyway
+  }
+  remember();
+}
+
+// What the site's storage holds (the app's comes in host.json): whether it remembers, and if so the setup to restore,
+// as the engine reads it. A setup kept with no choice (AzurKit 1.0's, which always kept one) is removed unread.
 function stored() {
+  let keep = false;
   try {
-    state.kept = localStorage.getItem(SETUP);
+    keep = localStorage.getItem(REMEMBER) === "1";
+    if (keep) state.kept = localStorage.getItem(SETUP);
+    else localStorage.removeItem(SETUP);
   } catch {}
+  $("remember").checked = keep;
   if (state.kept == null) return null;
   try {
     return JSON.parse(state.kept);
@@ -565,7 +589,7 @@ function appEngine(host, { ready, built, refused, failed, saved, vanilla, opened
     preset: (recipe, report) => ask("api/preset", { recipe, report }, (reply) => shared(reply.fragment)),
     decode: (text) => ask("api/decode", { text }, (reply) => decoded(reply.preset)),
     restore: (setup) => followed("restore", ask("api/restore", { setup }, restored)),
-    setup: (setup) => post("api/setup", { setup }, true).catch(() => {}),   // remembering is a convenience
+    setup: (remember, setup) => post("api/setup", { remember, setup }, true).catch(() => {}),   // a convenience
     // a head start only: the click asks again either way
     prefetch: (gen, recipe, view) => post("api/prefetch", { gen, recipe, view }).catch(() => {}),
     speculate: (gen, iso, packs, xbr, randomizer, character, extra) => post("api/speculate",
@@ -961,8 +985,8 @@ function noteXbr() {
 }
 
 // Load a recipe (a share link's, or an AzurKit build's: a preset, already checked by the engine) into the page, marked,
-// in place of the remembered setup, which it becomes (D915). Without a packs layer (Modkit's mod file), the ticks and
-// every setting stay as they are.
+// in place of the remembered setup, which it becomes with Remember settings ticked (D915, D1156). Without a packs
+// layer (Modkit's mod file), the ticks and every setting stay as they are.
 function load(preset, from) {
   const packs = preset.layers.find((layer) => layer.tool === "mods")?.recipe;
   state.community.clear();
@@ -1007,9 +1031,11 @@ function restored({ ticked, values, xbr, dropped, randomizer, character, communi
   else back();
 }
 
-// Reset to defaults: the packs on by default, every setting at its default, no config.xbr cell; the remembered setup
-// forgotten (the next change is remembered again, so the status says what happened, not what is kept).
+// Reset to defaults: the packs on by default, every setting at its default, no config.xbr cell; a remembered setup
+// forgotten, Remember settings left as it is (ticked, the next change is remembered again, so the status says what
+// happened, not what is kept; it names a forgotten setup only when one was kept).
 function reset() {
+  const kept = state.kept != null;
   state.community.clear();
   state.replace.set([]);
   setTo(new Set(state.packs.packs.filter((pack) => pack.default_on).map((pack) => pack.name)), {}, []);
@@ -1019,8 +1045,8 @@ function reset() {
   unlinked();
   pick("patches");
   remember();
-  say("Reset to the defaults: the packs on by default, every setting at its default, Randomize off; the remembered "
-      + "setup is forgotten.");
+  say("Reset to the defaults: the packs on by default, every setting at its default, Randomize off"
+      + (kept ? "; the remembered setup is forgotten." : "."));
 }
 
 // The page's address drops a link's #p= once the page no longer holds that recipe, so a reload restores the setup.
@@ -1086,7 +1112,8 @@ function unopen() {
 }
 
 // The engine is ready (the site's again after each build). The first time, the page draws the catalog and asks for the
-// remembered setup back, unless a link brought a recipe (D915: the link wins); it is ready once that is back.
+// remembered setup back (only Remember settings keeps one, D1156), unless a link brought a recipe (D915: the link
+// wins); it is ready once that is back.
 function ready(catalog, version, commit) {
   if (!state.packs) {
     if (!state.app && "serviceWorker" in navigator) registered();
@@ -1149,6 +1176,7 @@ function ready(catalog, version, commit) {
 
 function start() {
   state.ready = true;
+  $("remember").disabled = false;
   if (state.launch) answered(state.launch);
   state.launch = null;
   busy(state.building);
@@ -1608,7 +1636,7 @@ function randoStarved() {
   return String(view.settings.exclude_categories) === String(randoSettings().exclude_categories) ? view : null;
 }
 
-// What the page remembers of the tab (D915): nothing at its defaults (off, D144's settings, vanilla's cost).
+// What the page remembers of the tab with Remember settings ticked (D915, D1156): nothing at its defaults (off, D144's settings, vanilla's cost).
 function randoSetup() {
   const settings = randoSettings(), cost = randoCost();
   const plain = !R("on").checked && !("obsidian_cost" in cost)
@@ -2167,7 +2195,8 @@ async function main() {
       launched(1);
     }
     state.engine = appEngine(host, callbacks);
-    state.remembered = host.setup ?? null;
+    $("remember").checked = host.remember === true;
+    state.remembered = host.setup ?? null;   // none unless Remember settings was ticked (D1156)
     state.kept = state.remembered && JSON.stringify(state.remembered);
     state.tracked = host.tracker ?? null;
     pickInApp(host);
@@ -2215,6 +2244,7 @@ async function main() {
   $("packs").addEventListener("input", changed);
   addEventListener("pagehide", remember);
   $("reset").addEventListener("click", reset);
+  $("remember").addEventListener("change", keepChosen);
   $("packs").addEventListener("toggle", place, true);   // a group's fold: "toggle" doesn't bubble
   addEventListener("resize", place);
   $("share").addEventListener("click", share);

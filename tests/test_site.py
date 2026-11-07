@@ -14,9 +14,10 @@ links (Step 4.1g2). The page is design A with the owner's changes (Step 4.1h): d
 first, its areas' tabs, the packs in their categories' groups, Build always in
 view, and an About tab; and with the owner's answers (Step 4.1i): a pack's
 settings locked until it is ticked (D907), the L3 toggles in their settings'
-rows (D909), light's faint text readable and a light first frame; and it
-remembers its setup between visits until Reset to defaults (Step 4.1j, D915),
-its faint text readable in dark too. Under the
+rows (D909), light's faint text readable and a light first frame; and each
+visit starts at the defaults unless Remember settings is ticked, which keeps
+its setup between visits until Reset to defaults (Step 4.1j, D915; Step
+4.19a, D1156), its faint text readable in dark too. Under the
 page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a GET of one of the site's own files or of the
 community content it reads (any https address, D1135): the image never leaves the page. The page is driven as
 ``tests/_page.py`` says."""
@@ -940,6 +941,7 @@ def test_a_packs_settings_lock_until_it_is_ticked_and_its_l3_toggles_sit_in_thei
 STORED = "() => JSON.parse(localStorage.getItem('azurkit.setup'))"   # the site's remembered setup (D915)
 STATUS = "() => document.querySelector('#status').textContent"
 RESET = "() => document.getElementById('reset').disabled"
+KEEP = "() => document.getElementById('remember').checked"   # Remember settings (D1156)
 # A pack's settings as their fields read: {setting: its box's text, or an L3 toggle's "1" on, "0" off}.
 FIELDS = """(pack) => Object.fromEntries([...document.querySelectorAll(`#packs .pack[data-pack="${pack}"] input[data-slider]`)]
     .map((field) => [field.dataset.slider, field.type === "checkbox" ? String(Number(field.checked)) : field.value]))"""
@@ -958,14 +960,52 @@ def _reload(page) -> None:
     _page.until(page, "() => globalThis.azurkit?.ready", 120)
 
 
-def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browser, site):
-    """D915: the page keeps its ticks and settings in the browser's storage
+def test_a_revisit_starts_at_the_defaults_with_remember_settings_unticked(browser, site):
+    """D1156: Remember settings, after Reset to defaults in the bottom bar,
+    is off by default, and so a reload starts at the defaults with nothing
+    kept and nothing said, a setup AzurKit 1.0 kept (no choice stored)
+    removed unread. Ticked, the page keeps its setup at once; unticked, it
+    forgets it at once, and the choice is kept for the next visit. Reset to
+    defaults with nothing kept doesn't say a setup was forgotten."""
+    defaults = [name for name, pack in mods.PACKS.items() if pack.default_on]
+    plain = [defaults, "", None, False]
+    served = Site(browser, site)
+    try:
+        page = served.open()
+        page.evaluate("(text) => localStorage.setItem('azurkit.setup', text)",
+                      json.dumps({"ticked": ["fps_unlock"], "values": {}, "xbr": []}))   # AzurKit 1.0's
+        _reload(page)
+        assert [list(_page.ticked(page)), page.evaluate(STATUS), page.evaluate(STORED), page.evaluate(KEEP)] == plain
+        _page.tick(page, ["fps_unlock"], {"fps_unlock": {"target_fps": "120"}})
+        _reload(page)   # its pagehide would keep the setup now
+        assert [list(_page.ticked(page)), page.evaluate(STATUS), page.evaluate(STORED), page.evaluate(KEEP)] == plain
+        _page.tick(page, ["fps_unlock"])
+        _page.click(page, "remember")
+        assert page.evaluate(STORED) == {"ticked": ["fps_unlock"], "values": {}, "xbr": []}
+        _page.click(page, "remember")
+        assert page.evaluate(STORED) is None
+        _page.click(page, "reset")
+        assert page.evaluate(STATUS) == ("Reset to the defaults: the packs on by default, every setting at its default, "
+                                         "Randomize off.")
+        _page.tick(page, ["fps_unlock"])
+        _reload(page)
+        assert [list(_page.ticked(page)), page.evaluate(STATUS), page.evaluate(STORED), page.evaluate(KEEP)] == plain
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+
+
+def test_a_revisit_restores_the_setup_with_remember_settings_ticked_until_reset_and_names_what_it_drops(browser, site):
+    """D915 with Remember settings ticked (D1156): the page keeps its ticks
+    and settings in the browser's storage
     (each setting changed from its default, an unticked pack's too, D907:
     names and numbers, nothing of the image), and a reload brings them back
-    before an image is picked, unmarked and locked as they were, and says
+    before an image is picked, unmarked and locked as they were, the box
+    still ticked, and says
     so. Reset to defaults, in the bottom bar and off while the page is at
     them, ticks the packs on by default, sets every setting to its default
-    and forgets the setup, so a reload opens at the defaults. A remembered
+    and forgets the setup, the box left ticked, so a reload opens at the defaults. A remembered
     pack or setting the catalog no longer has is dropped and named in the
     status line, the rest restored. A share link wins over the remembered
     setup and becomes it; once the page changes, the address drops the link
@@ -976,6 +1016,7 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
     try:
         page = served.open()
         assert [page.evaluate(STORED), page.evaluate(STATUS), page.evaluate(RESET)] == [None, "", True]
+        _page.click(page, "remember")
         fresh = page.evaluate(FIELDS, "player_physics")
         values = {"jump_speed_scale": "1.5", "toggle_gravity": "1"}
         _page.tick(page, ["fps_unlock", "player_physics"],
@@ -988,13 +1029,13 @@ def test_the_page_remembers_its_setup_until_reset_and_names_what_it_drops(browse
         assert fresh | values == shown[1] != fresh
         _reload(page)
         assert [_page.ticked(page), page.evaluate(FIELDS, "player_physics")] == shown
-        assert [page.evaluate(STATUS), _page.marked(page), page.evaluate(RESET)] == [
-            "Restored your last setup: 1 pack on. Reset to defaults clears it.", [], False]
+        assert [page.evaluate(STATUS), _page.marked(page), page.evaluate(RESET), page.evaluate(KEEP)] == [
+            "Restored your last setup: 1 pack on. Reset to defaults clears it.", [], False, True]
         assert [_locks(page)[name] for name in ("fps_unlock", "player_physics")] == [[True, "open"], [False, "locked"]]
 
         _page.click(page, "reset")
-        assert [list(_page.ticked(page)), page.evaluate(FIELDS, "player_physics"), page.evaluate(RESET)] == [
-            defaults, fresh, True]
+        assert [list(_page.ticked(page)), page.evaluate(FIELDS, "player_physics"), page.evaluate(RESET),
+                page.evaluate(KEEP)] == [defaults, fresh, True, True]
         _remembered(page, None)
         assert page.evaluate(STATUS) == ("Reset to the defaults: the packs on by default, every setting at its default, "
                                          "Randomize off; the remembered setup is forgotten.")   # a change is kept again
@@ -1175,7 +1216,8 @@ def test_the_sites_patches_tab_installs_a_community_pack_from_its_own_address_an
     locked = f"() => {hp}.value === '150' && {hp}.disabled && {hp}.closest('.pack').classList.contains('owned')"
     try:
         page = served.open()
-        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-test/')")
+        page.evaluate("() => { localStorage.setItem('azurkit.content_source', './content-test/'); "
+                      "localStorage.setItem('azurkit.remember', '1'); }")   # Remember settings ticked (D1156)
         page = served.open()
         _page.until(page, "() => azurkit.ready", 300)
         assert page.evaluate(f"() => {row}") is None   # nothing read until the group opens
@@ -1731,6 +1773,7 @@ def test_the_characters_tab_hides_the_objects_until_show_objects_and_keeps_a_wor
     served = Site(browser, site)
     try:
         page = served.open()
+        _page.click(page, "remember")   # the setup wearing a body is kept for the next visit (D1156)
         _page.click(page, "tab-characters")
         _page.until(page, "() => azurkit.characters.state.view", 60)
         assert page.evaluate(SPECIES_SHOWN) == [False, "102 species, 76 objects hidden", creatures, "garret4"]
@@ -2606,7 +2649,8 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
     spots are most of those the disc fragments and powers may take, Build
     greys with "Tick Obsidians on the Randomizer tab to build" and the tab's
     ⚠ line says why, until Obsidians is ticked again or Randomize unticked;
-    a reload that restores that setup greys it so on the Patches tab too.
+    a reload that restores that setup (Remember settings ticked) greys it so
+    on the Patches tab too.
     D1153: the "In game" line beside the build's result names the controls
     that build adds (its save warp), hidden before a build and once a change
     forgets it."""
@@ -2650,8 +2694,9 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         assert page.evaluate(GREYED)[:4] == works
         assert not [line for line in page.evaluate(WARNED) if line.startswith("⚠ Can't")] and served.stray() == []
 
+        _page.click(page, "remember")
         page.evaluate(obsidians)
-        _page.until(page, f"() => ({SETTLED})()?.preflight", 120)   # remembered (D915)
+        _page.until(page, f"() => ({SETTLED})()?.preflight", 120)   # remembered (D915, D1156)
         _reload(page)   # restored on the first tab, Patches: Randomize ticked asks there
         _page.pick(page, "#iso", usa_iso)
         _page.until(page, f"() => azurkit.vanilla?.release === 'usa' && ({SETTLED})()?.preflight", 300)
@@ -4087,9 +4132,9 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
     randomizer: a page opened with it holds Randomize ticked, the seed and
     the settings, and copies back the same link; a randomized build's
     recipe (Load its recipe) ticks it again with its seed and the settings
-    of its share string. The page remembers the tab (D915) until Reset to
-    defaults unticks it. No CSP violation, no request but GETs of the
-    site's files."""
+    of its share string. With Remember settings ticked the page remembers
+    the tab (D915, D1156) until Reset to defaults unticks it. No CSP
+    violation, no request but GETs of the site's files."""
     defaults = sdk.catalog()["randomizer"]["defaults"]
     report, segments = _seeded(usa_iso)
     golden = record_goldens.recorded("pipelines.json")[SEEDED]
@@ -4125,6 +4170,7 @@ def test_a_seed_built_from_the_randomizer_tab_is_modkits_and_its_link_spoiler_an
         caught.value.delete()
 
         _page.until(page, "() => azurkit.ready", 120)   # the site's engine, replaced after the build
+        _page.click(page, "remember")
         _page.click(page, "share")
         link = _page.until(page, "() => azurkit.link")
         recipe = {"packs": page.evaluate("() => azurkit.sent"), "randomizer": {"seed": "2", "settings": defaults}}

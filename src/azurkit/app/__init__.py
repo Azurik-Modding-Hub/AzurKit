@@ -18,12 +18,15 @@ release's own image), whether there are file dialogs (the window's), the
 site's address, which its share links name (:data:`SITE`, D884), and the
 theme the player last picked (dark until they pick light, D897; ``POST
 api/theme`` ``{"theme"}`` remembers it there too: the page's address, and
-so its storage, is new each launch) and the page's setup as it was last
-left (D915: the packs ticked, the settings changed and a loaded recipe's
-config.xbr cells, never the image or anything read from it; ``POST
-api/setup`` ``{"setup"}`` remembers it, ``null`` forgets it, and ``POST
-api/restore`` ``{"setup"}`` gives back what still applies,
-``sdk.restore``). The page's ``theme.js``, which sets
+so its storage, is new each launch), whether the page's Remember settings
+is ticked (``remember``, off by default, D1156) and, only while it is, the
+page's setup as it was last left (D915: the packs ticked, the settings
+changed and a loaded recipe's config.xbr cells, never the image or anything
+read from it; ``POST api/setup`` ``{"remember", "setup"}`` keeps the choice
+and, remembering, the setup, ``null`` or ``remember`` false forgetting it;
+a setup kept with no choice, AzurKit 1.0's, is forgotten at the launch,
+never restored; and ``POST api/restore`` ``{"setup"}`` gives back what
+still applies, ``sdk.restore``). The page's ``theme.js``, which sets
 the theme before its first paint, is the server's own (:func:`_theme_js`),
 and the window opens on that theme's ground (:data:`GROUNDS`), so a player
 who picked light never sees a dark first frame.
@@ -275,8 +278,8 @@ def _logic_ahead() -> None:
 
 
 def _kept() -> dict:
-    """What the app remembers (``{"iso", "theme", "setup"}``), else nothing. Read past a moment it is held open too: a
-    page handed no setup for one would remember the next change over it."""
+    """What the app remembers (``{"iso", "theme", "remember", "setup"}``), else nothing. Read past a moment it is held
+    open too: a page handed no setup for one would remember the next change over it."""
     try:
         return _read()
     except (OSError, ValueError):
@@ -338,10 +341,18 @@ def _set_theme(body: dict) -> dict:
     return {}
 
 
+def _setup(kept: dict) -> object:
+    """The page's setup the config holds (D915), only while the page's
+    Remember settings is ticked (``remember`` true, D1156), else ``None``."""
+    return kept.get("setup") if kept.get("remember") is True else None
+
+
 def _set_setup(body: dict) -> dict:
-    """``api/setup``: remember the page's setup (D915), or forget it
-    (``null``): pack and setting names (identifiers, so never a path), their
-    numbers and config.xbr ``set`` operations only, so never a
+    """``api/setup``: whether the page remembers its setup (``remember``,
+    Remember settings: false unless true, D1156) and, remembering, the
+    setup itself (D915), else none (unticked, the kept one is forgotten at
+    once; ``null`` forgets it too): pack and setting names (identifiers, so
+    never a path), their numbers and config.xbr ``set`` operations only, so never a
     ``replace_bytes``' bytes. A ``set``'s table, entity, prop and text
     value are free strings (config.xbr's names hold spaces; text cells hold
     text), checked by :func:`xbr.normalize` alone: the page fills them from
@@ -350,7 +361,9 @@ def _set_setup(body: dict) -> dict:
     the obsidian cost) is checked as a build checks it
     (``tools.randomizer.remembered``), and the Characters tab's
     (``character``) as a share link carries one: names and numbers."""
-    if (setup := body.get("setup")) is not None:
+    if not isinstance(remember := body.get("remember", False), bool):
+        raise ValueError(f"remember: {remember!r} is neither true nor false")
+    if (setup := body.get("setup") if remember else None) is not None:
         if not (isinstance(setup, dict) and set(setup) <= set(sdk.SETUP)):
             raise ValueError(f"setup: an object of {', '.join(sdk.SETUP)} only, or null")
         ticked, values, ops = setup.get("ticked", []), setup.get("values", {}), setup.get("xbr", [])
@@ -370,7 +383,7 @@ def _set_setup(body: dict) -> dict:
             raise ValueError(f"setup: {lost[0]}")   # by name and numbers, never a recipe file's path
         if "community" in setup:
             communal.normalize(setup["community"])   # ids and pins only, else refused by name
-    _remember(setup=setup)
+    _remember(remember=remember or None, setup=setup)
     return {}
 
 
@@ -550,7 +563,9 @@ class Server(http.server.ThreadingHTTPServer):
         self.drawing = pictures.Drawing()   # the tracker's maps and icons, shipped with the page
         self.picks: dict[str, Path] = {}    # the files picked this session to replace the image's, by its path
         self.slots = ahead.Ahead(kill=self._quiet)   # the work ahead, each click's way to it (D1007)
-        if warm.intent((kept := _kept()).get("setup"), kept.get("tracker")):
+        if "setup" in (kept := _kept()) and _setup(kept) is None:   # AzurKit 1.0's, kept unasked: never restored
+            _remember(setup=None)
+        if warm.intent(_setup(kept), kept.get("tracker")):
             threading.Thread(target=_logic_ahead, name="azurkit-logic", daemon=True).start()
         threading.Thread(target=self.serve_forever, name="azurkit-page", daemon=True).start()
 
@@ -639,7 +654,7 @@ class Server(http.server.ThreadingHTTPServer):
         kept = _kept()
         return {"engine": "app", "version": __version__, "commit": commit(), "catalog": sdk.catalog(), "iso": _start_image(kept),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(kept),
-                "setup": kept.get("setup"), "tracker": kept.get("tracker"),
+                "remember": kept.get("remember") is True, "setup": _setup(kept), "tracker": kept.get("tracker"),
                 "content_source": kept.get("content_source"), "show_objects": kept.get("show_objects") is True,
                 "attach": xemu.can_attach(), "age": round(time.monotonic() - self.started, 3)}
 

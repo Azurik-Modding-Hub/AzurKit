@@ -419,6 +419,10 @@ def click(id_: str) -> str:
     return f"() => document.getElementById({json.dumps(id_)}).click()"
 
 
+# Remember settings ticked (D1156), whatever an earlier launch in the same HOME left it
+TICK_REMEMBER = "() => { const box = document.getElementById('remember'); if (!box.checked) box.click(); }"
+
+
 def typed(id_: str, text: str) -> str:
     return (f"() => {{ const b = document.getElementById({json.dumps(id_)}); b.value = {json.dumps(text)}; "
             "b.dispatchEvent(new Event('input')); }")
@@ -1315,6 +1319,7 @@ def _browse(d: Driver, p: Page, op: str) -> None:
 
 def app_track(d: Driver, app: App, ctx) -> None:
     p = app.launch(d, ctx, None)
+    p.js(TICK_REMEMBER)   # A02's next launch restores the setup only with Remember settings ticked (D1156)
     _seeded(d, p, randomize=False)
     d.act(p, "A85", click("rando-view-tracker"), BROWSABLE, 600)   # its own work, before the head start
     p.wait(WORLD, 600)
@@ -1377,6 +1382,7 @@ RESHAPED = ("() => azurkit.characters.state.character.shapes && azurkit.characte
 
 def app_reshape(d: Driver, app: App, ctx) -> None:
     p = app.launch(d, ctx, None)
+    p.js(TICK_REMEMBER)   # A32's next launch restores the setup only with Remember settings ticked (D1156)
     d.act(p, None, typed("iso-path", str(d.iso)), USA)
     p.js(click("tab-characters"))
     p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
@@ -2061,7 +2067,7 @@ def app_data(d: Driver, app: App, ctx) -> None:
     config = app.home / "Library" / "Application Support" / "AzurKit" / "app.json"
     kept = json.loads(config.read_text(encoding="utf-8")) if config.is_file() else {}
     setup = json.loads(_data_mods(d, 100, "setup").read_text(encoding="utf-8"))
-    config.write_text(json.dumps(kept | {"setup": setup}), encoding="utf-8")
+    config.write_text(json.dumps(kept | {"remember": True, "setup": setup}), encoding="utf-8")   # Remember settings
     p = app.launch(d, ctx, None)
     p.wait("() => azurkit.ready && azurkit.xbr.length === 100", 600)
     d.act(p, None, typed("iso-path", str(d.iso)), USA, 900, change=True)

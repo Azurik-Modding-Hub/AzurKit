@@ -217,7 +217,7 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Tamper check:** a build changed after it was made is refused by name.
 - **Share links:** Copy link makes a short link with your packs, settings, seed and character, never your image or
   a path.
-- **Remembers your setup** between visits, never your image, until you Reset to defaults.
+- **Starts fresh each visit:** tick Remember settings to keep your setup for next time, never your image.
 - **Game data edits:** a mods file can set any value in `config.xbr` by name, or replace bytes in an XBR file.
 - **Modkit's mod files:** a mod file from Azurik_Modkit loads and builds too (its patches, sections,
   `_keyed_patches` and `xbr_edits`); what AzurKit can't apply as written is refused by name.
