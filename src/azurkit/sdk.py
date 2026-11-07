@@ -11,20 +11,24 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 :func:`content`, :func:`content_install` and :func:`content_check` (its
 community entries) with :func:`community` (the packs the content folder
 holds) and :func:`content_refusal`, the Data tab's :func:`data` and :func:`data_edit`
-(config.xbr's cells, edited before an image is picked), and the Tools
+(config.xbr's cells, edited before an image is picked; the command line's
+:func:`mods_diff`, what a mods file changes before a build,
+:func:`mod_template`, vanilla values to edit, and :func:`entity_diff`, two
+entities side by side), and the Tools
 tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
-:func:`saves`, the command line's :func:`mods_diff` (what a mods file
-changes, before a build), :func:`mod_template` (vanilla values to edit) and
-:func:`entity_diff` (two entities side by side), and the Variants editor's
-:func:`variant_check` (Check with game data), :func:`variant_colours`,
-:func:`variant_preview`, :func:`variant_rows` and :func:`export_pngs` (its
-colour views, the quick shape preview and its rows' PNGs, on the dress a
-Check keeps), :func:`add_png` and :func:`add_wav` (a file copied into a
-variant's folder) and :func:`base_bones`, :func:`own_sounds`,
-:func:`kit_throw` and :func:`move_sources` (what its tabs read of a base
-species). JSON in and
+:func:`saves`, and the Variants editor's :func:`variant_check` (Check
+with game data), :func:`variant_colours`, :func:`variant_preview`,
+:func:`variant_rows` and :func:`export_pngs` (its colour views, the quick
+shape preview and its rows' PNGs, on the dress a Check keeps),
+:func:`add_png` and :func:`add_wav` (a file copied into a variant's
+folder) and :func:`base_bones`, :func:`own_sounds`, :func:`kit_throw`
+and :func:`move_sources` (what its tabs read of a base species), with
+the Variants view's :func:`variants` (its list), :func:`variant_open`,
+:func:`variant_read` (a recipe as the library would hold it),
+:func:`variant_save` (Save, Save as, New from this), :func:`variant_delete`,
+:func:`variant_import` and :func:`variant_export` (a zip). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -135,7 +139,8 @@ __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_st
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
            "data", "data_edit", "mods_diff", "mod_template", "entity_diff", "image_info", "verify_all", "files", "extract", "mods_file", "community",
            "content_refusal", "file_entry", "saves", "variant_check", "variant_colours", "variant_preview",
-           "variant_rows", "export_pngs", "add_png", "add_wav", "base_bones", "own_sounds", "kit_throw", "move_sources"]
+           "variant_rows", "export_pngs", "add_png", "add_wav", "base_bones", "own_sounds", "kit_throw", "move_sources",
+           "variants", "variant_open", "variant_read", "variant_save", "variant_delete", "variant_import", "variant_export"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -1191,6 +1196,178 @@ def move_sources(given: Mapping) -> dict:
     _, config, bodies, _, body = _species(given, "move_sources")
     worn = {species: b for species, b, _ in picker.species_list()}
     return editor.move_sources(config, bodies, body, worn).to_json()
+
+
+# ------------------------------------------------- the Variants view's library calls (Step 4.6c, on Step 4.6a's)
+UNSAVED = "unsaved"   # the working name of a recipe the library doesn't hold yet (a new one, an edited built-in)
+
+
+def _grade(variant) -> str:
+    """``variant``'s grade at its recipe's scale (``_player_variants.status``, the picker's): unseen till a sitting."""
+    from azurkit.tools.characters import _player_variants as kinds
+
+    return kinds.status(variant, variant.scale)[0]
+
+
+def variants(given: Mapping | None = None) -> dict:
+    """The Variants view's list (Modkit's Variant box): ``root``, the
+    library's folder (yours each ``root/<name>``, the files its recipe
+    names beside its ``recipe.json``); ``builtins``, each built-in
+    variant's name, title, base, grade and ``community`` (the
+    Azurik-Custom-Content entry whose files it needs, with ``content``'s
+    ``manifest`` as :func:`pickers` takes it, else the content folder's
+    alone: ``None``); ``yours``, each library folder's name with its title,
+    base and grade, or its ``refusal``; ``species``, the species New may
+    start on, none of which a variant of yours may be named as; ``unsaved``,
+    the name a recipe not saved yet works under; and ``grades``, each
+    grade's words."""
+    from azurkit.tools.characters import _player_variants as kinds
+    from azurkit.tools.characters import content as kit
+    from azurkit.tools.characters import library, picker
+
+    manifest = ((given or {}).get("content") or {}).get("manifest") if isinstance(given, Mapping) else None
+    record = kit.installed()
+    entries, held = kit.states(kit.check(manifest) if manifest else None, record), picker._variants_of(kit.ROOT, record)
+    community = {}
+    for name in kinds.builtins():
+        entry = picker._entry_of(name, entries, held)
+        community[name] = entry["id"] if entry else None
+    return {"root": str(library.root()), "unsaved": UNSAVED, "grades": picker.GRADE_WORDS,
+            "builtins": [{"name": name, "title": v.title, "base": v.base, "grade": _grade(v),
+                          "community": community[name]} for name, v in kinds.builtins().items()],
+            "yours": [{"name": e.name, "title": e.variant.title, "base": e.variant.base, "grade": _grade(e.variant)}
+                      if e.variant is not None else {"name": e.name, "refusal": e.refusal} for e in library.listing()],
+            "species": [name for name, _, _ in picker.species_list()]}
+
+
+def _named(given: object, what: str) -> str:
+    if not isinstance(given, Mapping) or not isinstance(given.get("name"), str) or not given["name"]:
+        raise ValueError(f"{what}: an object naming the variant (name)")
+    return given["name"]
+
+
+def variant_open(given: Mapping) -> dict:
+    """The recipe the Variants view opens variant ``name`` as (Modkit's
+    ``_open``): a built-in's (``kind`` ``"built-in"``: its own recipe where
+    it is ``from`` others, else one ``from`` it with its labels), yours as
+    its ``recipe.json`` holds it (``"yours"``; a refused folder's recipe as
+    far as it reads, else ``{}``), with its ``folder`` and its ``read``
+    (:func:`variant_read`'s answer)."""
+    from azurkit.tools.characters import _player_variants as kinds
+    from azurkit.tools.characters import library
+
+    name = _named(given, "variant_open")
+    if name in kinds.builtins():
+        recipe, kind = library.opened(name), "built-in"
+    else:
+        folder = library.root() / name
+        if not kinds._NAME.match(name) or not folder.is_dir():
+            raise ValueError(f"variant {name!r}: no built-in and none of yours")
+        try:
+            doc = json.loads((folder / library.RECIPE).read_text(encoding="utf-8"))
+            recipe = doc[name] if isinstance(doc, dict) and isinstance(doc.get(name), dict) else {}
+        except (OSError, ValueError, RecursionError):
+            recipe = {}
+        kind = "yours"
+    folder = str(library.root() / (name if kind == "yours" else UNSAVED))
+    shown = {"name": name if kind == "yours" else UNSAVED, "recipe": recipe, "folder": folder}
+    return {"name": name, "kind": kind, "recipe": recipe, "folder": folder,
+            "read": variant_read({**shown, "built_in": name} if kind == "built-in" else shown)}
+
+
+def variant_read(given: Mapping) -> dict:
+    """The recipe the Variants view has open (``{"name", "recipe"}``: its
+    working name, yours or :data:`UNSAVED`) as the library would hold it
+    (``library.checked``, a species' name refused too), never raised:
+    ``{"sha", "base", "mode", "mesh", "grade"}`` (``mesh``: it brings a mesh
+    of its own; ``grade``: ``built_in``'s, the built-in it was opened from,
+    while the recipe is that one's as opened, else unseen) and its body as
+    it builds (``size``, ``scale``, ``arms``, ``rotate``, ``weapon``: a
+    recipe ``from`` another's from that one), or ``{"refusal"}``, the
+    loader's or the library's words."""
+    from azurkit.tools.characters import _player_variants as kinds
+    from azurkit.tools.characters import library
+
+    name = _named(given, "variant_read")
+    recipe = given.get("recipe")
+    if not isinstance(recipe, Mapping):
+        return {"refusal": f"variant {name!r}: its recipe is not an object of recipe fields"}
+    try:
+        v = library.checked(library.text_of(name, dict(recipe)), name, library.root() / name / library.RECIPE)
+        if name in library.species():
+            raise ValueError(f"variant {name!r}: a species has that name, so a character can't name the variant")
+    except ValueError as exc:
+        return {"refusal": str(exc)}
+    built = given.get("built_in")
+    grade = (_grade(kinds.builtins()[built]) if isinstance(built, str) and built in kinds.builtins()
+             and dict(recipe) == library.opened(built) else "unseen")
+    return {"refusal": None, "sha": v.sha, "base": v.base, "mode": v.mode, "mesh": v.mesh is not None, "grade": grade,
+            "size": v.size, "scale": v.scale, "arms": v.arms, "rotate": v.rotate, "weapon": v.weapon}
+
+
+def _saved(name: str, given: Mapping) -> dict:
+    """A written folder's answer: its name and folder, and with ``files`` its files (the site keeps them)."""
+    from azurkit.tools.characters import library
+
+    return {"name": name, "folder": str(library.root() / name)} | (
+        {"files": library.files_of(name)} if given.get("files") else {})
+
+
+def variant_save(given: Mapping) -> dict:
+    """Save, Save as and New from this (Modkit's): ``{"name", "recipe"}``
+    written again as your variant ``name`` (Save); with ``as``, a new
+    folder of that name holding the recipe and copies of the files it names
+    from ``from``'s folder (yours, the one open), one ``from`` a built-in an
+    own copy (``library.copy_as``: every field its own). Each whole or
+    nothing, a refusal naming why (D35). ``{"name", "folder"}``, and the
+    folder's ``files`` when ``files`` is true."""
+    from azurkit.tools.characters import library
+
+    name = _named(given, "variant_save")
+    recipe = given.get("recipe")
+    if not isinstance(recipe, Mapping):
+        raise ValueError(f"variant {name!r}: its recipe is not an object of recipe fields")
+    if "as" not in given:
+        library.save(name, dict(recipe))
+        return _saved(name, given)
+    new, source = given["as"], given.get("from")
+    if not isinstance(new, str):
+        raise ValueError(f"{new!r}: a variant's name is a lower-case letter, then lower-case letters, digits and _")
+    files = library.root() / source if isinstance(source, str) and (library.root() / source).is_dir() else None
+    library.copy_as(new, dict(recipe), files)
+    return _saved(new, given)
+
+
+def variant_delete(given: Mapping) -> dict:
+    """Delete: your folder ``name`` and everything in it (``library.delete``): ``{"name"}``."""
+    from azurkit.tools.characters import library
+
+    name = _named(given, "variant_delete")
+    library.delete(name)
+    return {"name": name}
+
+
+def variant_import(given: Mapping) -> dict:
+    """Import: ``data``, an Export's zip or a ``recipe.json`` alone, as a
+    new folder of yours (``library.import_``: its name free, the loader
+    taking it, each file it names in the zip): ``{"name", "folder"}``, and
+    its ``files`` when ``files`` is true. A refusal names what and why."""
+    from azurkit.tools.characters import library
+
+    if not isinstance(given, Mapping) or not isinstance(given.get("data"), (bytes, bytearray)):
+        raise ValueError("variant_import: an object holding the zip's or recipe.json's bytes (data)")
+    return _saved(library.import_(bytes(given["data"])), given)
+
+
+def variant_export(given: Mapping) -> dict:
+    """Export: your variant ``name`` as a zip (``library.pack``):
+    ``{"name": "<name>.zip", "zip": bytes, "unshareable": [...]}``, the
+    files it holds that aren't yours to share (a mesh, a texture: D393)."""
+    from azurkit.tools.characters import library
+
+    name = _named(given, "variant_export")
+    data, held = library.pack(name)
+    return {"name": f"{name}.zip", "zip": data, "unshareable": held}
 
 
 _SPOILERS: dict[str, tuple[generator.Prepared, dict]] = {}   # the last build's spoiler left out, by its plan's sha256

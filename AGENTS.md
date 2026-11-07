@@ -940,9 +940,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     recolour), `variant_preview` (the Shape tab's quick preview, no
     dress), `variant_rows` and `export_pngs` stand; `add_png`, `add_wav`,
     `base_bones`, `own_sounds`, `kit_throw` and `move_sources` need no
-    dress. The library's list, Save, Delete, Import and Export calls
-    wait for Step 4.6a's library (`tools/characters/library.py`), and
-    the site's worker handlers come with the editor's shell (Step 4.6c).
+    dress. The library's calls stand on Step 4.6a's library (Step 4.6c):
+    `sdk.variants` (the list: built-ins, yours with each refusal, the
+    species New starts on), `variant_open`, `variant_read` (a recipe as
+    the library would hold it, never raised), `variant_save` (Save; with
+    `as`, Save as and New from this, `library.copy_as`), `variant_delete`,
+    `variant_import` (an Export's zip or a recipe.json alone,
+    `library.import_`: its other files left out, a path outside its folder
+    or past 256 MiB refused) and `variant_export` (`library.pack`: the zip
+    and the files in it that aren't yours to share).
   - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
     bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
     townsfolk's weapon, `bare_hands` and the spin attack,

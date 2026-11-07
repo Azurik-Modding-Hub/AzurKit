@@ -24,7 +24,11 @@ The writers check first (:func:`checked`) and write whole or not at all
 (D35, D36): :func:`save` (a folder's recipe again), :func:`save_as` (a new
 folder), :func:`own_copy` (New from this on a built-in: a new folder of its
 whole recipe and files) and :func:`copy_as` (New from this and Save as:
-either), :func:`delete`; :func:`new` is New's recipe on a species.
+either), :func:`delete`; :func:`new` is New's recipe on a species. The
+Variants view's Export packs a folder as a zip (:func:`pack`), its Import
+makes a folder of one (:func:`import_`: an Export's zip, or a recipe.json
+alone), and the site keeps each folder's :func:`files_of` in its browser
+(Step 4.6c).
 """
 
 from __future__ import annotations
@@ -349,3 +353,117 @@ def unshareable(folder: Path) -> list[str]:
     or keys on its bones; a PNG is a game texture made over."""
     recipe = json.loads((folder / RECIPE).read_text(encoding="utf-8"))[folder.name]
     return sorted({f for f in named_files(recipe) if not f.casefold().endswith(".wav")})
+
+
+MOST = 256 * 1024 * 1024
+"""The most bytes an import's files hold unpacked (the community content's cap on one entry)."""
+
+
+def files_of(name: str) -> dict[str, bytes]:
+    """Your folder ``name`` as the variant it is: its ``recipe.json`` and each
+    file its recipe names, by path inside it (what an Export packs and the
+    site keeps in the browser); a file it names that isn't there is left
+    out (the listing names the refusal)."""
+    folder = root() / name
+    if not variants._NAME.match(name) or not (folder / RECIPE).is_file():
+        raise ValueError(f"variant {name!r}: the library ({root()}) has no such folder")
+    out = {RECIPE: (folder / RECIPE).read_bytes()}
+    try:
+        recipe = json.loads(out[RECIPE])[name]
+    except (ValueError, KeyError, TypeError, RecursionError):
+        return out
+    for f in sorted(set(named_files(recipe))):
+        if _inside(f) and (folder / f).is_file():
+            out[f] = (folder / f).read_bytes()
+    return out
+
+
+def _inside(path: object) -> bool:
+    """``path`` names a file inside a variant's folder: relative, POSIX, no ``..``, no empty or dot part."""
+    return isinstance(path, str) and bool(path) and "\\" not in path and ":" not in path and \
+        not path.startswith("/") and all(part not in ("", ".", "..") for part in path.split("/"))
+
+
+def pack(name: str) -> tuple[bytes, list[str]]:
+    """Export: your variant ``name`` as a zip, ``<name>/recipe.json`` and
+    each file it names beside it (:func:`files_of`), and the files of it
+    that aren't yours to share (:func:`unshareable`), which the zip holds
+    all the same: it is yours to keep, the sharing is your call."""
+    import io
+    import zipfile
+
+    files = files_of(name)
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for path, data in files.items():
+            z.writestr(zipfile.ZipInfo(f"{name}/{path}", (2026, 1, 1, 0, 0, 0)), data, zipfile.ZIP_DEFLATED)
+    try:
+        held = unshareable(root() / name)
+    except (OSError, ValueError, KeyError, TypeError):
+        held = []
+    return out.getvalue(), held
+
+
+def unpacked(data: bytes) -> tuple[str, dict, dict[str, bytes]]:
+    """An import's file read: a zip holding one variant (``recipe.json``
+    and its files, at its top or in one folder: an Export's) or a
+    ``recipe.json`` alone. Its name (the recipe's), its recipe and its
+    files by path beside the recipe; :class:`ValueError` names what isn't
+    one (two recipes, a path outside its folder, more than :data:`MOST`
+    bytes unpacked, no recipe)."""
+    import io
+    import zipfile
+
+    if not isinstance(data, (bytes, bytearray)):
+        raise ValueError("import: a zip or a recipe.json's bytes")
+    if data[:2] != b"PK":
+        text, files = bytes(data), {}
+    else:
+        try:
+            z = zipfile.ZipFile(io.BytesIO(bytes(data)))
+            infos = [i for i in z.infolist() if not i.is_dir()]
+        except (zipfile.BadZipFile, ValueError, OSError) as exc:
+            raise ValueError(f"import: not a zip ({exc})") from None
+        recipes = [i.filename for i in infos if i.filename.rsplit("/", 1)[-1] == RECIPE]
+        if len(recipes) != 1:
+            raise ValueError(f"import: the zip holds {len(recipes) or 'no'} {RECIPE} files; a variant's holds one")
+        top = recipes[0][:-len(RECIPE)]
+        if sum(i.file_size for i in infos) > MOST:
+            raise ValueError(f"import: the zip unpacks past {MOST:,} B")
+        files = {}
+        for info in infos:
+            if not info.filename.startswith(top) or not _inside(path := info.filename[len(top):]):
+                raise ValueError(f"import: {info.filename!r} is outside the variant's folder")
+            with z.open(info) as f:
+                files[path] = f.read(MOST + 1)
+        text = files.pop(RECIPE)
+    if jsondepth.deeper(text.decode("utf-8", "replace"), NESTING):
+        raise ValueError(f"import: not a recipe (it nests deeper than {NESTING})")
+    try:
+        doc = json.loads(text)
+    except (ValueError, RecursionError) as exc:
+        raise ValueError(f"import: {RECIPE} is not JSON ({exc})") from None
+    if not isinstance(doc, dict) or len(doc) != 1 or not isinstance(next(iter(doc.values())), dict):
+        raise ValueError(f"import: {RECIPE} holds one recipe, {{\"<name>\": {{recipe}}}}")
+    (name, recipe), = doc.items()
+    return name, recipe, files
+
+
+def import_(data: bytes, taken: Iterable[str] | None = None) -> str:
+    """Import: the variant in ``data`` (:func:`unpacked`) as a new folder of
+    the library, with the files its recipe names (its other files left
+    out), once :func:`save_as`'s checks pass: its name free, the loader
+    taking it, each file it names in the import (D35). Its name."""
+    name, recipe, files = unpacked(data)
+    _checked_new(name, recipe, taken)
+    root().mkdir(parents=True, exist_ok=True)
+    staged = Path(tempfile.mkdtemp(prefix=f".{name}.import-", dir=root()))
+    try:
+        for f in named_files(recipe):
+            if f in files:
+                (staged / f).parent.mkdir(parents=True, exist_ok=True)
+                (staged / f).write_bytes(files[f])
+        save_as(name, recipe, staged, taken)
+    finally:
+        shutil.rmtree(staged, ignore_errors=True)
+    return name

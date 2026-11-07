@@ -186,3 +186,72 @@ def test_the_characters_tab_lists_your_variants_in_the_custom_group(lib):
     assert (chosen["variant"], chosen["community"], chosen["refused"]) == (True, None, None)
     assert ["Source", f"yours, recipe {variants.resolve('booblord_mine').sha}", None] in chosen["info"]
     assert "it holds no recipe" in sdk.pickers({"iso": None, "character": {"species": "broken"}})["chosen"]["refused"]
+
+
+def _zip(files: dict[str, bytes]) -> bytes:
+    import io
+    import zipfile
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        for path, data in files.items():
+            z.writestr(path, data)
+    return out.getvalue()
+
+
+def test_the_variants_views_calls_open_read_save_import_and_export_whole_or_refused_by_name(lib):
+    """The Variants view's engine calls (Step 4.6c): the list holds the
+    built-ins, your folders (a refused one with its refusal) and the species
+    New starts on; a built-in opens as a recipe ``from`` it, read with its
+    sha and grade, and an edit of it reads unseen; a recipe the loader
+    refuses reads as its refusal, never raised. Save as on a built-in makes
+    its own copy and hands back its files (the site keeps them); Save writes
+    it again, a refused one writes nothing. Export packs a folder with the
+    files its recipe names, naming those not yours to share (a mesh: D393);
+    Import makes a folder of an Export's zip or a recipe.json alone, its
+    other files left out, and refuses by name a taken name, two recipes, a
+    path outside its folder and what is no zip or recipe; Delete removes it."""
+    import hashlib
+    import io
+    import zipfile
+
+    _write(lib, "broken", "{}")
+    listed = sdk.variants()
+    assert (listed["root"], [b["name"] for b in listed["builtins"]], listed["unsaved"]) == (
+        str(lib), list(variants.builtins()), sdk.UNSAVED)
+    assert listed["yours"][0]["name"] == "broken" and "it holds no recipe" in listed["yours"][0]["refusal"]
+    assert "keylord" in listed["species"] and "beamlord" not in listed["species"]
+    opened = sdk.variant_open({"name": "beamlord"})
+    beam = variants.builtins()["beamlord"]
+    assert (opened["kind"], opened["recipe"]["from"], opened["read"]["sha"], opened["read"]["grade"]) == (
+        "built-in", "beamlord", beam.sha, sdk._grade(beam))
+    edited = {**opened["recipe"], "title": "Mine"}
+    assert sdk.variant_read({"name": "unsaved", "recipe": edited, "built_in": "beamlord"})["grade"] == "unseen"
+    assert "'flying'" in sdk.variant_read({"name": "unsaved", "recipe": {"base": "keylord", "mode": "flying"}})["refusal"]
+    copy = sdk.variant_save({"name": "unsaved", "recipe": opened["recipe"], "as": "beam", "files": True})
+    assert copy["folder"] == str(lib / "beam") and "from" not in json.loads(copy["files"][library.RECIPE])["beam"]
+    sdk.variant_save({"name": "beam", "recipe": {"base": "keylord", "scale": 1.5}})
+    before = (lib / "beam" / library.RECIPE).read_bytes()
+    with pytest.raises(ValueError, match="wings"):
+        sdk.variant_save({"name": "beam", "recipe": {"base": "keylord", "wings": 2}})
+    assert (lib / "beam" / library.RECIPE).read_bytes() == before
+    glb = b"glTF fake body"
+    lady = {"base": "town_female_2", "mesh": {"gltf": {"file": "body.glb", "sha256": hashlib.sha256(glb).hexdigest()}},
+            "wavs": {"hurt": ["ow.wav"]}}
+    made = sdk.variant_import({"data": _zip({"lady/recipe.json": json.dumps({"lady": lady}).encode(), "lady/body.glb": glb,
+                                             "lady/ow.wav": b"RIFF", "lady/junk.txt": b"x"})})
+    assert made["name"] == "lady" and sorted(p.name for p in (lib / "lady").iterdir()) == ["body.glb", "ow.wav",
+                                                                                           library.RECIPE]
+    out = sdk.variant_export({"name": "lady"})
+    assert (out["name"], out["unshareable"]) == ("lady.zip", ["body.glb"])
+    assert sorted(zipfile.ZipFile(io.BytesIO(out["zip"])).namelist()) == ["lady/body.glb", "lady/ow.wav",
+                                                                           "lady/recipe.json"]
+    assert sdk.variant_import({"data": json.dumps({"solo": {"base": "keylord"}}).encode()})["name"] == "solo"
+    for data, why in ((out["zip"], r"variant 'lady': .* exists"),
+                      (_zip({"a/recipe.json": b"{}", "b/recipe.json": b"{}"}), "holds 2 recipe.json files"),
+                      (_zip({"x/recipe.json": b'{"x": {"base": "keylord"}}', "y/z.wav": b""}), "outside the variant's"),
+                      (b"PK not a zip", "not a zip"), (b"[1]", "holds one recipe")):
+        with pytest.raises(ValueError, match=why):
+            sdk.variant_import({"data": data})
+    sdk.variant_delete({"name": "lady"})
+    assert [e["name"] for e in sdk.variants()["yours"]] == ["beam", "broken", "solo"]

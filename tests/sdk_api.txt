@@ -13,20 +13,24 @@ randomizer's :func:`plan`, :func:`spoiler`, :func:`randomizer_settings`
 :func:`content`, :func:`content_install` and :func:`content_check` (its
 community entries) with :func:`community` (the packs the content folder
 holds) and :func:`content_refusal`, the Data tab's :func:`data` and :func:`data_edit`
-(config.xbr's cells, edited before an image is picked), and the Tools
+(config.xbr's cells, edited before an image is picked; the command line's
+:func:`mods_diff`, what a mods file changes before a build,
+:func:`mod_template`, vanilla values to edit, and :func:`entity_diff`, two
+entities side by side), and the Tools
 tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
-:func:`saves`, the command line's :func:`mods_diff` (what a mods file
-changes, before a build), :func:`mod_template` (vanilla values to edit) and
-:func:`entity_diff` (two entities side by side), and the Variants editor's
-:func:`variant_check` (Check with game data), :func:`variant_colours`,
-:func:`variant_preview`, :func:`variant_rows` and :func:`export_pngs` (its
-colour views, the quick shape preview and its rows' PNGs, on the dress a
-Check keeps), :func:`add_png` and :func:`add_wav` (a file copied into a
-variant's folder) and :func:`base_bones`, :func:`own_sounds`,
-:func:`kit_throw` and :func:`move_sources` (what its tabs read of a base
-species). JSON in and
+:func:`saves`, and the Variants editor's :func:`variant_check` (Check
+with game data), :func:`variant_colours`, :func:`variant_preview`,
+:func:`variant_rows` and :func:`export_pngs` (its colour views, the quick
+shape preview and its rows' PNGs, on the dress a Check keeps),
+:func:`add_png` and :func:`add_wav` (a file copied into a variant's
+folder) and :func:`base_bones`, :func:`own_sounds`, :func:`kit_throw`
+and :func:`move_sources` (what its tabs read of a base species), with
+the Variants view's :func:`variants` (its list), :func:`variant_open`,
+:func:`variant_read` (a recipe as the library would hold it),
+:func:`variant_save` (Save, Save as, New from this), :func:`variant_delete`,
+:func:`variant_import` and :func:`variant_export` (a zip). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -818,3 +822,72 @@ may name, the roll's left out), ``"own"`` (its body's clips),
 ``"lenders"`` ({body: its clips}: garret4 and each humanoid body whose
 clips the bake can put on it) and ``"variants"`` ({built-in: [the body
 they're read on, its Blender clips]}).
+
+
+def variants(given: 'Mapping | None' = None) -> 'dict':
+
+The Variants view's list (Modkit's Variant box): ``root``, the
+library's folder (yours each ``root/<name>``, the files its recipe
+names beside its ``recipe.json``); ``builtins``, each built-in
+variant's name, title, base, grade and ``community`` (the
+Azurik-Custom-Content entry whose files it needs, with ``content``'s
+``manifest`` as :func:`pickers` takes it, else the content folder's
+alone: ``None``); ``yours``, each library folder's name with its title,
+base and grade, or its ``refusal``; ``species``, the species New may
+start on, none of which a variant of yours may be named as; ``unsaved``,
+the name a recipe not saved yet works under; and ``grades``, each
+grade's words.
+
+
+def variant_open(given: 'Mapping') -> 'dict':
+
+The recipe the Variants view opens variant ``name`` as (Modkit's
+``_open``): a built-in's (``kind`` ``"built-in"``: its own recipe where
+it is ``from`` others, else one ``from`` it with its labels), yours as
+its ``recipe.json`` holds it (``"yours"``; a refused folder's recipe as
+far as it reads, else ``{}``), with its ``folder`` and its ``read``
+(:func:`variant_read`'s answer).
+
+
+def variant_read(given: 'Mapping') -> 'dict':
+
+The recipe the Variants view has open (``{"name", "recipe"}``: its
+working name, yours or :data:`UNSAVED`) as the library would hold it
+(``library.checked``, a species' name refused too), never raised:
+``{"sha", "base", "mode", "mesh", "grade"}`` (``mesh``: it brings a mesh
+of its own; ``grade``: ``built_in``'s, the built-in it was opened from,
+while the recipe is that one's as opened, else unseen) and its body as
+it builds (``size``, ``scale``, ``arms``, ``rotate``, ``weapon``: a
+recipe ``from`` another's from that one), or ``{"refusal"}``, the
+loader's or the library's words.
+
+
+def variant_save(given: 'Mapping') -> 'dict':
+
+Save, Save as and New from this (Modkit's): ``{"name", "recipe"}``
+written again as your variant ``name`` (Save); with ``as``, a new
+folder of that name holding the recipe and copies of the files it names
+from ``from``'s folder (yours, the one open), one ``from`` a built-in an
+own copy (``library.copy_as``: every field its own). Each whole or
+nothing, a refusal naming why (D35). ``{"name", "folder"}``, and the
+folder's ``files`` when ``files`` is true.
+
+
+def variant_delete(given: 'Mapping') -> 'dict':
+
+Delete: your folder ``name`` and everything in it (``library.delete``): ``{"name"}``.
+
+
+def variant_import(given: 'Mapping') -> 'dict':
+
+Import: ``data``, an Export's zip or a ``recipe.json`` alone, as a
+new folder of yours (``library.import_``: its name free, the loader
+taking it, each file it names in the zip): ``{"name", "folder"}``, and
+its ``files`` when ``files`` is true. A refusal names what and why.
+
+
+def variant_export(given: 'Mapping') -> 'dict':
+
+Export: your variant ``name`` as a zip (``library.pack``):
+``{"name": "<name>.zip", "zip": bytes, "unshareable": [...]}``, the
+files it holds that aren't yours to share (a mesh, a texture: D393).
