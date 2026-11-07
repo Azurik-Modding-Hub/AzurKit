@@ -2116,10 +2116,10 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
 
 def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):
     """A page's call that fails as Playwright's "Execution context was destroyed" (``_page.LOST``: a navigation under
-    it, or an error WebKit's agent answered it with) fails naming the call and its error, whether the page's document
-    began since the call (the page reloaded) or is the one from before it, its state and its driver's processes:
-    GitHub's Intel Mac runner failed a WebKit page's evaluate so with nothing more (run 42406769117). Any other error
-    is the call's own, raised as it came."""
+    it, or an error WebKit's agent answered it with) fails naming the call and its error, how long after or before the
+    call the page's document began (after it: the page reloaded; before it, by the gap: its load, or a navigation begun
+    before the call), its state and its driver's processes: GitHub's Intel Mac runner failed a WebKit page's evaluate
+    so with nothing more (run 42406769117). Any other error is the call's own, raised as it came."""
     from playwright._impl._errors import Error
     page = browser.new_page()
 
@@ -2128,18 +2128,19 @@ def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_
             await page._impl_obj.reload()
         raise Error("Execution context was destroyed, most likely because of a navigation.")
     try:
-        for reload, said in ((False, "its document is the one from before the call"),
-                             (True, "its document began ")):
+        for reload, said in ((False, "before the call: its load, or a reload or navigation begun before the call"),
+                             (True, "after the call: the page reloaded or navigated")):
             with pytest.raises(AssertionError) as failed:
                 _page.within(page, gone(reload), 30, "the stand-in call")
             lines = str(failed.value).splitlines()
             assert lines[0] == ("the stand-in call: Execution context was destroyed, most likely because of a "
-                                "navigation.") and lines[1].startswith(said), lines
+                                "navigation.") and re.match(rf"its document began \d+\.\d\d s {said}", lines[1]), lines
             assert any(line.startswith("state: ") for line in lines) and lines[-1].startswith("under its driver: ")
         with pytest.raises(Error, match="no such thing"):
             _page.answer(page, "() => { throw new Error('no such thing'); }")
     finally:
         page.close()
+
 
 def test_a_webkit_call_answered_past_its_bound_fails_though_its_log_is_still_read(monkeypatch):
     """Step 4.5f: a WebKit call on macOS takes its answer until its bound, never after: one that comes while macOS's log
