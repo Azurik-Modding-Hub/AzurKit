@@ -596,6 +596,12 @@ def test_the_trackers_spoiler_on_a_shaped_plan_takes_its_openers_from_the_engine
             "openers"] == shown["head"]["requires"]["openers"] and asked[1:] == ["openers"]
     finally:
         server.close()
+        # The plan's openers ahead reach on, low, past the close (a Here engine's; the app's end with its process): left
+        # running on a busy machine they counted kernel calls into a later test's host.json (Step 4.4ci55).
+        for thread in threading.enumerate():
+            if thread.name == "azurkit-openers":
+                thread.join(120)
+                assert not thread.is_alive()
 
 
 def test_the_apps_window_opens_on_the_remembered_themes_ground(monkeypatch):
