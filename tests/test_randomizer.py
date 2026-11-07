@@ -453,22 +453,39 @@ def test_the_openers_ahead_wait_out_a_plan_in_flight_so_a_tracks_fill_has_the_gi
 
 
 def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps_what_they_compiled_for_the_drop(monkeypatch):
-    """Engine's: each change's plan left a thread no stop reached; a stale one could run last and evict the newest's."""
+    """Engine's: each change's plan left a thread no stop reached; a stale one could run last and evict the newest's.
+    The fresh plan lands while the stale one's openers hold their first compile, on a Logic's memos of the test's own: a
+    test before it in the process may have kept that plan's openers (the tracker server's spoiler plans it too), and
+    then they end at once, before a look at the threads could find them (Step 4.4ci57's gate)."""
     from azurkit.app import engine
+    from azurkit.tools.randomizer.planner import solver
 
     logic, off = kept_logic(), {"a6.rjump_platforms": False}
+    for memo, empty in (("_compiled", {}), ("_native", {}), ("_opener_sets", None)):
+        monkeypatch.setattr(logic, memo, empty, raising=False)
     plans = [plan_doc(fill.fill(logic, "1", settings), logic.db)
              for settings in (Settings(3, "hard", {}, seed_difficulty=3), Settings(3, "hard", off, seed_difficulty=3))]
     answered = iter(plans)
     monkeypatch.setattr(engine.sdk, "plan", lambda *_, **__: next(answered))
     monkeypatch.setattr(engine, "_NEWEST", [None])
+    compiling, planned, init = threading.Event(), threading.Event(), solver._Rules.__init__
+
+    def compiled(self, *args, **kwargs) -> None:
+        init(self, *args, **kwargs)
+        if self.switchable and threading.current_thread().name == "azurkit-openers" and not compiling.is_set():
+            compiling.set()
+            planned.wait(60)   # the stale plan's openers at work until the fresh plan is made
+
+    monkeypatch.setattr(solver._Rules, "__init__", compiled)
 
     def running() -> list[threading.Thread]:
         return [t for t in threading.enumerate() if t.name == "azurkit-openers"]
 
     stale = engine._plan({})
+    assert compiling.wait(60)
     first = running()
     fresh = engine._plan({})
+    planned.set()
     assert stale is plans[0] and fresh is plans[1] and len(first) == 1
     first[0].join(120)
     assert not first[0].is_alive()
