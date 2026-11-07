@@ -605,11 +605,12 @@ const stored = (database, name, mode, fn) => new Promise((resolve) => {   // Ind
 // its Module ({type: "wasm"}), which the pool sends each later worker first (workers.mjs), and Pyodide's own
 // instantiateStreaming of its fetch is answered from that Module (about 0.1 s and 0.25-0.42 CPU-s a worker start: B's
 // after a change, F's after a big build); one that won't instantiate compiles as before. In WebKit (Safari's engine)
-// each worker compiles its own and posts none (Step 4.4ci47): every CI failure of the WebKit pack golden on GitHub's
-// Apple Silicon runner since 4.4bf (3 of 5 runs, 1 of 7 before) was JavaScriptCore's wasm going wrong (a load's
-// ValueError, a trap's "null reference", then the page's process killed by JSC's own assertion while it made a trap's
-// error: StackVisitor::readInlinableNativeCalleeFrame, a frame of optimized wasm whose code isn't its own), never
-// reproduced here; one Module's compiled code run by two workers at once is the step's change in what JSC does.
+// each worker compiles its own and posts none (Step 4.4ci47), a precaution against an unproven JSC fault: each CI
+// failure of the WebKit pack golden on GitHub's Apple Silicon runner since 4.4bf (3 of 10 runs, 1 of 7 before: not
+// significant) was JavaScriptCore's wasm going wrong (a load's ValueError, a trap's "null reference", then the page's
+// process killed by JSC's own assertion while it made a trap's error: StackVisitor::readInlinableNativeCalleeFrame, a
+// frame of optimized wasm whose code isn't its own), never reproduced here; one Module's compiled code run by two
+// workers at once is the step's change in what JSC does, so a possible cause, not a likely one.
 // Pyodide's instantiate catches what its instantiation and the callback it hands the instance throw (a grow refused, a
 // RangeError where memory is short; a compile refused), warns and never settles its load: so grown hands that to
 // `failed`, which ends loading()'s wait, and a restore refused so starts cold, a cold start refused says so by name.
