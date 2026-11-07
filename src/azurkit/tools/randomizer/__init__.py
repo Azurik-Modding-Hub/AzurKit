@@ -40,6 +40,7 @@ import collections
 import functools
 import json
 import math
+import time
 import tomllib
 from collections.abc import Callable, Mapping
 from dataclasses import replace
@@ -174,10 +175,15 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
 
 def tracker_ahead(recipe: Mapping, stop: Callable[[], bool] = lambda: False) -> None:
     """What the first tracker view of ``recipe``'s plan compiles (:func:`.tracking.ahead`), compiled before
-    :func:`plan` has it, on the settings it fills at; ``stop()`` is asked between them. A recipe it can't read
+    :func:`plan` has it, on the settings it fills at, once a call of this process has read the logic (it never reads
+    it: :func:`.planner.loader.logic_read`); ``stop()`` is asked meanwhile and between them. A recipe it can't read
     compiles nothing (its plan names why)."""
     from azurkit.tools.randomizer import tracking
 
+    while not loader.logic_read():
+        if stop():
+            return
+        time.sleep(0.1)
     try:
         settings = played(_settings(recipe, kept_logic().db))
     except (ValueError, TypeError):

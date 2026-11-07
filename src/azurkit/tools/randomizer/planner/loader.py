@@ -1727,6 +1727,14 @@ def kept_logic(root: Path | str = DATA_DIR) -> Logic:
         mine[0] = True
 
 
+def logic_read(root: Path | str = DATA_DIR) -> bool:
+    """Whether this process has read the Logic :func:`kept_logic` keeps for ``root``, none being read now (work ahead
+    that only uses it waits for it: never the 87.6 MB read of its own at low priority, which holds the GIL the calls
+    the player waits on need)."""
+    root = Path(root).resolve()
+    return root in _KEPT and root not in _READING
+
+
 def _served(root: Path, key: str) -> Logic | None:
     """The Logic kept for ``root`` while :func:`kept_logic` may serve it again, else None."""
     if (kept := _KEPT.get(root)) is not None:

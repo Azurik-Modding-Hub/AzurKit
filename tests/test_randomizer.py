@@ -350,6 +350,16 @@ def test_a_shaped_plans_first_tracker_view_compiles_no_option_set_the_trackers_w
     assert tracking.view({"plan": doc})["head"]["requires"]["asks"] == 3 and made == []
 
 
+def test_the_trackers_work_ahead_waits_for_a_logic_its_process_read_and_never_reads_it(monkeypatch):
+    """Its 87.6 MB read at low priority held the app server's GIL from the calls a launch and a Build wait on (Step
+    4.4ci56's first A/B: A02 to 9.2 s, A80's median 1.58 -> 2.77 s): it waits until a call has read it, or it stops."""
+    asked = iter([False, False, True])
+    monkeypatch.setattr(loader, "logic_read", lambda root=loader.DATA_DIR: False)
+    monkeypatch.setattr(randomizer, "kept_logic", lambda *_: pytest.fail("the logic read by work ahead"))
+    randomizer.tracker_ahead({"seed": "1"}, lambda: next(asked))
+    assert next(asked, None) is None
+
+
 def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_them_at_their_next_note(monkeypatch):
     """A click raises a job ahead's fill: its threads too. A change stops it: they end there, not at a batch's end."""
     from azurkit.app import procpool
