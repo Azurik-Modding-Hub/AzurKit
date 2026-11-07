@@ -206,6 +206,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **Replace files:** pick a file from your computer to stand in for one of the image's, at any size, in the Tools tab
   or with `azurkit build --file`; the recipe names it, never holds it, and a share link refuses it.
 - **Clashes named:** when two changes touch the same spot, the later one wins and the build says so.
+- **In game:** after a build, one line lists the controls it adds, such as the save warp, the speed toggle and
+  photo mode.
 - **Builds carry their recipe:** two small files on the disc; `azurkit open`, or picking the build in the page,
   gives it back.
 - **Tamper check:** a build changed after it was made is refused by name.

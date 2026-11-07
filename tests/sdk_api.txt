@@ -155,8 +155,9 @@ def image(recipe: 'Mapping', *, progress: 'Callable[[dict], object] | None' = No
 
 The image ``recipe`` builds, unwritten, and its report: the release,
 each layer's sites and bytes, the sha256 of each file that differs from
-vanilla, every conflict (D28) and each layer's notes (a slider value
-past float32's range, written as the infinity it saturates to, Q110);
+vanilla, every conflict (D28), each layer's notes (a slider value
+past float32's range, written as the infinity it saturates to, Q110)
+and the in-game controls it adds (``ingame``, :func:`_ingame`);
 with a randomizer, its verdict (``randomizer``: the seed, share string,
 settings, plan sha256, the movement sliders it stands on,
 ``logic_verified`` with each reason it is false, ``why_not``, and the

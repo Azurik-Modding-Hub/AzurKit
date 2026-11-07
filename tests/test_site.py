@@ -2606,7 +2606,10 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
     spots are most of those the disc fragments and powers may take, Build
     greys with "Tick Obsidians on the Randomizer tab to build" and the tab's
     ⚠ line says why, until Obsidians is ticked again or Randomize unticked;
-    a reload that restores that setup greys it so on the Patches tab too."""
+    a reload that restores that setup greys it so on the Patches tab too.
+    D1153: the "In game" line beside the build's result names the controls
+    that build adds (its save warp), hidden before a build and once a change
+    forgets it."""
     vanilla = {name for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
     starved = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"]
                                        | {"exclude_categories": ["obsidians"]}})["preflight"]
@@ -2617,14 +2620,16 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         assert page.evaluate(GREYED) == [True, True, "Pick your image (1.) to build", "Pick your image (1.) to build",
                                          "Pick your image (1.), then build with Randomize ticked to see its spoiler.",
                                          len(vanilla)]
+        assert page.evaluate(INGAME) == [True, ""]
         _page.pick(page, "#iso", usa_iso)
         _page.until(page, "() => azurkit.vanilla?.release === 'usa'", 300)
         assert page.evaluate(GREYED) == [False, True, "Save follows a build", "",
                                          "Build with Randomize ticked to see its spoiler.", 0]
-        _page.build(page, ["fps_unlock"])
+        _page.build(page, ["fps_unlock", "qol_save_warp"])
         _page.built(page)
         _page.until(page, "() => azurkit.ready", 120)   # a worker that replaces the build's says "Preparing the engine…"
         assert page.evaluate(GREYED)[:4] == [False, False, "", ""] and served.stray() == []
+        assert page.evaluate(INGAME) == [False, "In game: LT + A, B, X, Y on a save platform: town and back"]
 
         _page.click(page, "tab-randomizer")
         _page.until(page, SETTLED, 120)
@@ -2633,6 +2638,7 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         _page.until(page, f"() => ({SETTLED})()?.preflight", 120)
         tick, works = "Tick Obsidians on the Randomizer tab to build", [False, True, "Save follows a build", ""]
         assert page.evaluate(GREYED)[:4] == [True, True, tick, tick]   # a change forgets the build
+        assert page.evaluate(INGAME) == [True, ""]
         assert page.evaluate(WARNED)[0] == f"⚠ Can't make a seed: {starved}."
         _page.click(page, "rando-on")
         assert page.evaluate(GREYED)[:4] == works
@@ -2653,6 +2659,10 @@ def test_build_save_and_the_vanilla_values_are_greyed_with_their_lines_until_the
         assert served.stray() == []
     finally:
         served.close()
+
+
+# The "In game" line beside a build's result (D1153): [hidden, its text]
+INGAME = "() => [document.getElementById('ingame').hidden, document.getElementById('ingame').textContent]"
 
 
 # What the Tools tab greys until an image (D979): [Verify, Show its files and the filter disabled, Verify's title, the

@@ -204,3 +204,20 @@ def test_a_conflict_on_a_config_cell_names_the_cell_on_both_sides(usa_iso):
         f"{CONFIG} 0x{table.find('initial hp', 'Value').at + 8 + differ[0]:X} ({len(differ)} B): data xbr "
         "(#1 set settings_foo/initial hp/Value) overwrote pack player_max_hp, whose group "
         "player_max_hp settings_foo/initial hp/Value is dropped whole"]
+
+
+def test_a_builds_in_game_line_names_only_the_controls_it_adds_in_the_modern_pads_names(usa_iso):
+    """D1153: a build's report lists the in-game controls its own layers
+    add (``ingame``, the page's "In game" line), in the modern pad's names:
+    the save warp, the speed toggle's L3 where it landed, the roll's RB
+    where its distance or speed moved, photo mode. A toggle picked
+    on a slider at its vanilla value installs nothing and adds no L3, and a
+    build with no pack adds nothing."""
+    packs = {"qol_save_warp": {}, "qol_photo_mode": {},
+             "player_physics": {"walk_speed_scale": 1.5, "toggle_walk_speed_scale": 1, "roll_speed_scale": 2.0}}
+    assert sdk.image({"iso": str(usa_iso), "packs": packs})[1]["ingame"] == [
+        "LT + A, B, X, Y on a save platform: town and back", "L3: speed toggle", "RB: roll (distance x2)",
+        "click both sticks: photo mode"]
+    for packs, want in (({"player_physics": {"toggle_gravity": 1}}, []), ({}, []),
+                        ({"player_physics": {"roll_time_scale": 0.5}}, ["RB: roll (speed x0.5)"])):
+        assert sdk._ingame(sdk._plan({"iso": str(usa_iso), "packs": packs})[2]) == want, packs

@@ -792,13 +792,36 @@ def preview(recipe: Mapping) -> dict:
 _SPOILERS: dict[str, tuple[generator.Prepared, dict]] = {}   # the last build's spoiler left out, by its plan's sha256
 
 
+def _ingame(layers: list[Layer]) -> list[str]:
+    """The in-game controls a build of ``layers`` adds (D1153), in the modern
+    pad's names, each only where the build has it: the save warp, the speed
+    toggle where its L3 landed, the roll (the game's own RB) where the
+    player moved its distance or speed, and photo mode."""
+    from azurkit.tools.mods.packs import player_physics
+
+    by = {la.id: la for la in layers}
+    out = ["LT + A, B, X, Y on a save platform: town and back"] if "pack qol_save_warp" in by else []
+    if physics := by.get("pack player_physics"):
+        tick = f"({player_physics.TOGGLE_HOOKS[0][0].label})"
+        if any(c.group.endswith(tick) for c in physics.changes):
+            out.append("L3: speed toggle")
+        params = physics.recipe.get("params", {})
+        rolled = [f"{what} x{k:g}" for what, name in (("distance", "roll_speed_scale"), ("speed", "roll_time_scale"))
+                  if (k := params.get(name, 1.0)) != 1.0]
+        if rolled:
+            out.append(f"RB: roll ({', '.join(rolled)})")
+    if "pack qol_photo_mode" in by:
+        out.append("click both sticks: photo mode")
+    return out
+
+
 def _report(made: edits.Manifest, prepared: generator.Prepared | None, steps: Steps = Steps(),
             spoiler: bool = True) -> dict:
     out = {"release": made.release.name, "label": made.release.label,
            "layers": [{"id": la.id, "sites": len({c.group for c in la.changes}),
                        "bytes": sum(len(c.after) for c in la.changes)} for la in made.layers],
            "result": dict(made.result), "conflicts": [str(c) for c in made.conflicts],
-           "notes": [note for la in made.layers for note in la.notes]}
+           "notes": [note for la in made.layers for note in la.notes], "ingame": _ingame(made.layers)}
     if prepared is not None:
         verdict = made.verdicts[generator.TOOL]
         out |={"randomizer": verdict, "plan": prepared.plan.doc}
@@ -815,8 +838,9 @@ def image(recipe: Mapping, *, progress: Callable[[dict], object] | None = None, 
           picked: Mapping[str, bytes] | None = None) -> tuple[iso.Image, dict]:
     """The image ``recipe`` builds, unwritten, and its report: the release,
     each layer's sites and bytes, the sha256 of each file that differs from
-    vanilla, every conflict (D28) and each layer's notes (a slider value
-    past float32's range, written as the infinity it saturates to, Q110);
+    vanilla, every conflict (D28), each layer's notes (a slider value
+    past float32's range, written as the infinity it saturates to, Q110)
+    and the in-game controls it adds (``ingame``, :func:`_ingame`);
     with a randomizer, its verdict (``randomizer``: the seed, share string,
     settings, plan sha256, the movement sliders it stands on,
     ``logic_verified`` with each reason it is false, ``why_not``, and the

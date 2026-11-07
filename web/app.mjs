@@ -909,6 +909,14 @@ function forget() {
   lines();
   $("out-row").hidden = true;
   spoiler(null);
+  ingame([]);
+}
+
+// D1153: the in-game controls the build adds (sdk._ingame: the save warp, L3's speed toggle, the roll's RB where it
+// moved, photo mode), in a line beside its result; none hides it, as a build forgotten or begun does
+function ingame(controls) {
+  $("ingame").textContent = controls.length ? `In game: ${controls.join(" · ")}` : "";
+  $("ingame").hidden = !controls.length;
 }
 
 // Set the page to a recipe: tick exactly the packs `on` names, set each setting to `values`' value, else its default,
@@ -1250,6 +1258,7 @@ function built(reply) {
   report(`Ready · ${made.label} · ${bytes(size)}${verdict}${communal.join("")}` + made.conflicts.map((c) => ` · conflict: ${c}`).join("")
          + made.notes.map((n) => ` · note: ${n}`).join("")
          + ` · changed: ${changed.length ? changed.join(", ") : "nothing"}`);   // the file list last: it runs long
+  ingame(made.ingame);
   spoiler(made.spoiler ?? null, !made.plan || made.spoiler ? null : reply.spoiled ? () => reply.spoiled
     : () => state.engine.call("spoiler", {}));   // the app's engine makes it when View or Save asks
   if (made.plan && state.saveCheck === "running") state.tracking = made.plan;   // after the check (checkSave)
