@@ -2685,18 +2685,18 @@ def test_the_data_tab_edits_reverts_and_undoes_before_an_image(browser, site, us
             return sdk.data_edit({"edit": {"table": "settings_foo", "col": c, "row": r, "value": text}, "ops": ops})
         two = f"""() => {{ for (const e of [["settings_foo", "initial fuel", "501"],
             ["settings_foo", "initial fuel cap", "502"]]) ({DATA_EDIT})(e); }}"""
-        cleared = f"""async () => {{   // the worker busy with three grids, so the edit's answer comes after the Clear
-            for (let i = 0; i < 3; i++) {{
-                azurkit.engine.call("data", {{ given: {{ what: "table", table: "critters_damage" }} }}); }}
-            ({DATA_EDIT})(["settings_foo", "initial hp", "600"]);
-            await new Promise((r) => setTimeout(r, 0));
+        # Clear edits a microtask after the edit: its ask is out with the edits before it, and its answer, a task,
+        # comes after the Clear in any browser at any pace (a timer let the answer come first)
+        cleared = f"""async () => {{ ({DATA_EDIT})(["settings_foo", "initial hp", "600"]);
+            await null;
             ({DATA_PRESS})("Clear edits"); }}"""
         fuel = answer("initial fuel", "501", [op])["ops"]
         for script, want in ((two, answer("initial fuel cap", "502", fuel)["ops"]),
                              (cleared, [answer("initial hp", "600", [])["op"]])):
             depth = page.evaluate("() => azurkit.data.state.undo.length")
             page.evaluate(script)
-            assert _page.until(page, f"() => azurkit.data.state.undo.length === {depth + 2} && azurkit.xbr") == want
+            _page.until(page, f"() => azurkit.data.state.undo.length === {depth + 2}")
+            assert page.evaluate("() => azurkit.xbr") == want
         assert page.evaluate("() => azurkit.violations") == [] and served.stray() == []
     finally:
         served.close()
