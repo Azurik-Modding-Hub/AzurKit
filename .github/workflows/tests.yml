@@ -14,7 +14,7 @@
 #   each runner's in parts at once, a job each (--shard, scripts/ci_shards.py). Each image is rebuilt in the tier's
 #   folder, on the runner's roomiest disk, and the tier stops by name before it if no disk has its room
 #   (scripts/ci_resources.py --room; a Linux build streams a whole image where an APFS one clones it, and GitHub's Linux runners on AWS have far less room than its Azure ones: run 41981438506),
-#   from the private game-data repository's parts, one release at a time, with its read-only deploy key GAMEDATA_DEPLOY_KEY (the gamedata environment's secret; no other job
+#   from the private game-data repository's parts, one release at a time and each part a fetch of its own, with its read-only deploy key GAMEDATA_DEPLOY_KEY (the gamedata environment's secret; no other job
 #   reads a secret). That repository's own reassemble.py checks every part's sha256 and the whole image's, and the
 #   parts go at once. No cache and no artifact hold an image, its path is never printed, and the images are deleted
 #   after the tests. Azurik-Custom-Content (public) gives booblord's tests their files. The image's hygiene
@@ -26,8 +26,9 @@
 #   down still names what it ran out of, and stops a tier whose log has stalled or whose job nears its limit, its
 #   log's tail and processes printed first, so a hang names itself.
 # Each setup download with no retry of its own runs through one (Step 4.4ci46: run 42255487123's Linux job lost two
-# packages to a mirror that closed the connection): apt under install-deps and the two clones through
-# scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; a few tries, then a failure by name.
+# packages to a mirror that closed the connection): apt under install-deps, the content clone and each of the game data's
+# fetches through scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; a few tries, then
+# a failure by name.
 # uv sync goes through that retry too (Step 4.4ci55: its own retries of a request end within a minute).
 # Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
 # their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
@@ -245,7 +246,7 @@ jobs:
           . scripts/ci_retry.sh
           content() { rm -rf "$RUNNER_TEMP/content" && git clone --quiet --depth 1 https://github.com/Azurik-Modding-Hub/Azurik-Custom-Content.git "$RUNNER_TEMP/content"; }
           retry "Azurik-Custom-Content's clone" content
-      - name: The USA and Europe images, from the game-data repository's parts, one release at a time
+      - name: The USA and Europe images, from the game-data repository's parts, one release at a time, each part a fetch of its own
         env:
           GAMEDATA_DEPLOY_KEY: ${{ secrets.GAMEDATA_DEPLOY_KEY }}
         run: |
@@ -254,7 +255,7 @@ jobs:
           trap 'rm -f "$key" "$hosts"' EXIT
           chmod 600 "$key"
           printf '%s\n' "$GAMEDATA_DEPLOY_KEY" > "$key"
-          # Every fetch (the clone, and the sparse set's through its origin) goes over SSH on GitHub's HTTPS port, the route
+          # Every fetch (the clone, and each file's checkout through its origin) goes over SSH on GitHub's HTTPS port, the route
           # GitHub documents for a network that cuts port 22 (ssh.github.com:443): run 42313664434's Intel job lost port 22
           # to github.com for minutes, a connect timing out, so its 3 tries on that route failed. The one known host is
           # [ssh.github.com]:443 with github.com's published ed25519 key (GET /meta's ssh_keys; ssh.github.com serves the
@@ -262,17 +263,33 @@ jobs:
           # try, where that run's third try sat 2 h 11 min on a dead one.
           echo "[ssh.github.com]:443 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > "$hosts"
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
-          parts() {   # parts <the parts' folder>: a fresh sparse clone holding only that folder (its blobs come with the set)
-            rm -rf "$TIER_ROOM/gd" &&
-              git clone --quiet --depth 1 --filter=blob:none --sparse ssh://git@ssh.github.com:443/Azurik-Modding-Hub/AzurKit-gamedata.git "$TIER_ROOM/gd" &&
-              git -C "$TIER_ROOM/gd" sparse-checkout set "$1"
+          # Each file is a fetch of its own, retried alone (Step 4.5e). The clone holds the tip's commit and trees and the
+          # root's .gitattributes (the parts are binary), reassemble.py and the USA manifest; each of the folder's files
+          # (a part is 90 MiB) comes in a checkout of its own, its blob in one small fetch, so a cut connection costs that
+          # part alone and the next try starts at it. A macOS runner (runs 42313664434, Intel, and 42387860921, Apple
+          # Silicon) lost its whole network for minutes 2.5 min into the Europe folder's one 2.1 GiB fetch (harden-runner's
+          # own uploads timed out, a DNS lookup went unanswered, a connect timed out), and each try started that fetch
+          # over, all 3 inside the outage: 2 of 31 timed macOS fetches, none of 19 on Windows and Linux. Hence 6 tries a
+          # fetch, 7.5 min of waits between them.
+          gd="$TIER_ROOM/gd"
+          tree() {
+            rm -rf "$gd" &&
+              git clone --quiet --depth 1 --filter=blob:none --no-checkout ssh://git@ssh.github.com:443/Azurik-Modding-Hub/AzurKit-gamedata.git "$gd" &&
+              git -C "$gd" checkout --quiet HEAD -- .gitattributes reassemble.py manifest.json
           }
+          part() { git -C "$gd" checkout --quiet HEAD -- "$1"; }
           image() {   # image <the parts' folder> <the image's name> [reassemble.py's release argument]
-            retry "the game data's $1 folder" parts "$1"
-            rm -rf "$TIER_ROOM/gd/.git"
-            uv run --locked python -I "$TIER_ROOM/gd/reassemble.py" "$TIER_ROOM/iso/$2" "${@:3}" > /dev/null
-            rm -rf "$TIER_ROOM/gd"
-            echo "$2: rebuilt, each part's and the image's sha256 checked, the parts deleted"
+            retry --tries=6 "the game data's tree" tree
+            files="$(git -C "$gd" ls-tree -r --name-only HEAD -- "$1")"
+            n=0
+            for file in $files; do
+              retry --tries=6 "the game data's $file" part "$file"
+              n=$((n + 1))
+            done
+            rm -rf "$gd/.git"
+            uv run --locked python -I "$gd/reassemble.py" "$TIER_ROOM/iso/$2" "${@:3}" > /dev/null
+            rm -rf "$gd"
+            echo "$2: rebuilt from its $n files, each fetched alone, each part's and the image's sha256 checked, the parts deleted"
           }
           image parts usa.iso
           image europe europe.iso europe

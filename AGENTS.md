@@ -1830,7 +1830,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   the game-data repo's parts with `GAMEDATA_DEPLOY_KEY` (the only secret a
   workflow reads), fetched over SSH on GitHub's HTTPS port
   (`ssh.github.com:443`, its host key pinned, a dead connection ending its
-  try: Step 4.4ci50), never cached, uploaded or printed, and deleted after, with
+  try: Step 4.4ci50), each part (90 MiB) a fetch of its own, a partial
+  clone's checkout of that one file, with 6 tries of its own, so a macOS
+  runner's network lost for minutes costs one part and not the folder
+  (Step 4.5e), never cached, uploaded or printed, and deleted after, with
   the free disk and memory each minute and their lowest printed
   (`scripts/ci_resources.py`); on every OS the job runs
   behind harden-runner's egress block, which starts with the job (its
@@ -1838,7 +1841,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   run with no network as well (Modkit's §12.4 hygiene), and only the
   pytest log's tail and summary are printed. A setup download with no
   retry of its own (apt under Playwright's `install-deps`, the game data's
-  and Azurik-Custom-Content's clones) runs as `retry "WHAT" COMMAND` from
+  fetches and Azurik-Custom-Content's clone) runs as `retry "WHAT" COMMAND`
+  (`retry --tries=6 ...` for the game data's) from
   `scripts/ci_retry.sh` (in any workflow: `tests/test_contracts.py`), and
   `web_tools.download` fetches Pyodide's core and wheels: 3 tries, backing
   off, then a failure by name (Step 4.4ci46). Each tier runs on xdist's

@@ -217,9 +217,9 @@ def test_the_release_workflow_runs_only_on_a_v_tag_its_published_draft_or_a_disp
     assert unpinned == []
 
 
-DOWNLOAD = re.compile(r"\bgit clone\b|\bsparse-checkout set\b|\bplaywright install-deps\b")
-"""A workflow's setup downloads with no retry of their own: a clone, a sparse checkout's set (which fetches the
-folder's blobs) and apt under Playwright's install-deps."""
+DOWNLOAD = re.compile(r"\bgit clone\b|\bgit -C \S+ checkout\b|\bplaywright install-deps\b")
+"""A workflow's setup downloads with no retry of their own: a clone, a partial clone's checkout (which fetches its
+files' blobs) and apt under Playwright's install-deps."""
 
 
 def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_bounded_retry_that_fails_by_name():
@@ -230,19 +230,21 @@ def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_
     COMMAND``, on that line or in a function of the step's that a retry line
     names, whose commands are joined by ``&&`` (bash's -e is off inside it)
     and whose clone first deletes what a failed one left. ``retry`` tries 3
-    times, 30 s then 60 s apart, then fails the step naming WHAT and the last
-    exit code."""
+    times, 30 s then 60 s apart (``--tries=N``: N times, each wait 30 s
+    longer than the last), then fails the step naming WHAT and the last exit
+    code."""
     helper = (ROOT / "scripts" / "ci_retry.sh").read_text(encoding="utf-8")
-    assert re.search(r'(?m)^  for try in 1 2 3; do\n    "\$@" && return 0\n    status=\$\?\n', helper)
-    assert "      sleep $((try * 30))\n" in helper
-    assert helper.endswith('  echo "::error::$what failed 3 times (exit $status)"\n  return "$status"\n}\n')
+    assert "  local tries=3 what try=1 status=0\n  case $1 in --tries=*) tries=${1#--tries=}; shift ;; esac\n" in helper
+    assert re.search(r'(?m)^  while \[ "\$try" -le "\$tries" \]; do\n    "\$@" && return 0\n    status=\$\?\n', helper)
+    assert "      sleep $((try * 30))\n    fi\n    try=$((try + 1))\n  done\n" in helper
+    assert helper.endswith('  echo "::error::$what failed $tries times (exit $status)"\n  return "$status"\n}\n')
     retried = []
     for path in sorted(WORKFLOWS.glob("*.yml")):
         for step in re.split(r"(?m)^      - ", path.read_text(encoding="utf-8"))[1:]:
             lines = [line.strip() for line in step.splitlines() if not line.strip().startswith("#")]
             if not any(DOWNLOAD.search(line) for line in lines):
                 continue
-            calls = {m[2]: m[1] for line in lines if (m := re.match(r'retry "([^"]+)" (\S+)', line))}
+            calls = {m[2]: m[1] for line in lines if (m := re.match(r'retry (?:--tries=\d+ )?"([^"]+)" (\S+)', line))}
             bodies, name = {}, None
             for at, line in enumerate(lines):
                 if start := re.match(r"(\w+)\(\) \{", line):
@@ -253,7 +255,7 @@ def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_
                 if DOWNLOAD.search(line):
                     where = f"{path.name}: {line}"
                     assert ". scripts/ci_retry.sh" in lines[:at], where
-                    assert line.startswith('retry "') or name in calls, where
+                    assert re.match(r'retry (--tries=\d+ )?"', line) or name in calls, where
                 if name and (line == "}" or line.endswith("; }")):
                     name = None
             for function in calls.keys() & bodies.keys():
@@ -268,7 +270,8 @@ def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_
     assert sorted(retried) == [("tests.yml", "Azurik-Custom-Content's clone"),
                                ("tests.yml", "the browsers' system libraries (playwright install-deps)"),
                                ("tests.yml", "the browsers' system libraries (playwright install-deps)"),
-                               ("tests.yml", "the game data's $1 folder")]
+                               ("tests.yml", "the game data's $file"),
+                               ("tests.yml", "the game data's tree")]
 
 
 UV_SYNC = 'retry "uv sync" uv sync --locked --no-build'
@@ -308,7 +311,7 @@ def test_the_game_datas_fetches_go_over_ssh_on_githubs_https_port_to_one_pinned_
     """Step 4.4ci50: run 42313664434's Intel job lost port 22 to github.com
     for minutes (a connect timed out, a fetch was cut) and its third try sat
     2 h 11 min on a dead connection, so the job ended before any test. Every
-    fetch of the game data (the clone, and the sparse set's through its
+    fetch of the game data (the clone, and each file's checkout through its
     origin) goes to ``ssh://git@ssh.github.com:443/``, GitHub's documented
     route over its HTTPS port, and no workflow names the port-22 route; the
     one known host is ``[ssh.github.com]:443`` with :data:`GITHUB_ED25519`,
@@ -329,6 +332,32 @@ def test_the_game_datas_fetches_go_over_ssh_on_githubs_https_port_to_one_pinned_
         "ConnectTimeout": "30", "ServerAliveInterval": "15", "ServerAliveCountMax": "4"}
     hosts = re.search(r"allowed-endpoints: >-\n((?: {12}.*\n)+)", text.split("\n  vanilla:\n", 1)[1])[1].split()
     assert "ssh.github.com:443" in hosts and not [host for host in hosts if host.endswith(":22")]
+
+
+def test_the_game_data_comes_a_file_a_fetch_each_retried_alone_so_a_lost_network_costs_one_part_not_the_folder():
+    """Step 4.5e: runs 42313664434 (Intel) and 42387860921 (Apple Silicon)
+    lost the macOS runner's whole network for minutes 2.5 min into the Europe
+    folder's one 2.1 GiB fetch (a sparse set's), and each of its 3 tries,
+    1.5 min of waits apart, started that fetch over inside the outage. The
+    clone holds the commit, its trees and the root's three small files, no
+    sparse set is left, and each file of the release's folder (``ls-tree``:
+    a part is 90 MiB) comes in a checkout of its own, its blob a fetch of its
+    own, through a retry of its own of 6 tries, 7.5 min of waits."""
+    text = (WORKFLOWS / "tests.yml").read_text(encoding="utf-8")
+    step = next(s for s in re.split(r"(?m)^      - ", text) if "${{ secrets.GAMEDATA_DEPLOY_KEY }}" in s)
+    code = re.sub(r"(?m)^\s*#.*\n", "", step)
+    assert "sparse" not in code
+    assert re.findall(r"git clone (.*)", code) == [
+        '--quiet --depth 1 --filter=blob:none --no-checkout '
+        'ssh://git@ssh.github.com:443/Azurik-Modding-Hub/AzurKit-gamedata.git "$gd" &&']
+    assert re.findall(r'git -C "\$gd" (checkout .*?)(?:;|$)', code, re.M) == [
+        "checkout --quiet HEAD -- .gitattributes reassemble.py manifest.json", 'checkout --quiet HEAD -- "$1"']
+    assert re.search(r'(?m)^ +part\(\) \{ git -C "\$gd" checkout --quiet HEAD -- "\$1"; \}$', code)
+    assert re.findall(r"(?m)^ +(retry .*)$", code) == [
+        'retry --tries=6 "the game data\'s tree" tree', 'retry --tries=6 "the game data\'s $file" part "$file"']
+    loop = re.search(r'(?m)^ +files="\$\(git -C "\$gd" ls-tree -r --name-only HEAD -- "\$1"\)"\n(?: +.*\n)?'
+                     r' +for file in \$files; do\n +retry --tries=6 "the game data\'s \$file" part "\$file"\n', code)
+    assert loop
 
 
 def test_a_dispatched_dry_run_builds_and_checksums_the_release_but_reaches_no_attestation_draft_pypi_or_pages():
