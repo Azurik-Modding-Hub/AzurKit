@@ -1820,6 +1820,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   the pure job runs Windows' and Linux's alone: a push asks for 5 macOS
   jobs, where 7 left two waiting 20-33 min. `ci_shards` gives that part
   less of the tier by the table's `head`, the pure tier's seconds there.
+  A lane branch whose name ends in a runner's word (`-arm64`, `-intel`,
+  `-windows`, `-linux`: `p2/4.4ci47-webkit-arm64`) runs only that runner's
+  rows and Linux's pure tier (Step 4.4dx9), so a lane chasing one runner's
+  failure leaves main's macOS slots free; it tests no other runner on CI,
+  while main and every other lane branch run everything, so main's run
+  before a release covers all four.
   `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
   --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four

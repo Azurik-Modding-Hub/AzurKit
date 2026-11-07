@@ -387,3 +387,35 @@ def test_every_setup_uv_step_reads_its_manifest_inline_the_record_of_the_uv_it_i
                    for a in record["artifacts"]), path.name
         manifests.add(manifest)
     assert len(manifests) == 1
+
+
+def test_a_lane_branch_named_for_a_runner_runs_its_rows_and_linuxs_pure_tier_and_every_other_push_runs_every_row(
+        monkeypatch, tmp_path, capsys):
+    """Step 4.4dx9 (D1123's scope): two lanes' runs sat their 7 macOS jobs each on main's 5 slots, and one waited
+    44-121 min. ``tests.yml``'s first job (``scripts/ci_matrix.py``, run here as CI runs it, its ``$GITHUB_OUTPUT``
+    read back) gives a lane branch whose name ends in ``-arm64``, ``-intel``, ``-windows`` or ``-linux`` that runner's
+    rows of main's (a macOS runner's pure tier in its part 1) and Linux's pure tier, nothing else; main, a lane branch
+    named otherwise, a pull request and a fork's push run what they ran before, so main runs everything."""
+    from scripts import ci_matrix
+
+    def rows(event: str, ref: str, repository: str = ci_matrix.REPOSITORY) -> dict[str, list[dict]]:
+        out = tmp_path / f"output{len(list(tmp_path.iterdir()))}"
+        for name, value in (("GITHUB_EVENT_NAME", event), ("GITHUB_REPOSITORY", repository), ("GITHUB_REF", ref),
+                            ("GITHUB_OUTPUT", str(out))):
+            monkeypatch.setenv(name, value)
+        assert ci_matrix.main() == 0 and capsys.readouterr().out.startswith("pure: ")
+        return {kind: json.loads(got) for kind, got in re.findall(r"(?m)^(pure|vanilla)=(.*)$", out.read_text())}
+
+    every, pull = rows("push", "refs/heads/main"), rows("pull_request", "refs/pull/9/merge")
+    assert {row["label"] for row in every["vanilla"]} == set(ci_matrix.RUNNERS) and not pull["vanilla"]
+    for branch, label in (("p2/4.4ci47-webkit-arm64", "macos-arm64"), ("p2/4.4ci48-memory-intel", "macos-x86_64"),
+                          ("p2/4.4dx9-lanes-windows", "windows-x86_64"), ("p2/4.4dx9-lanes-linux", "linux-x86_64"),
+                          ("p2/4.4x-macos-arm64", "macos-arm64")):
+        got = rows("push", f"refs/heads/{branch}")
+        assert got == {"pure": [row for row in every["pure"] if row["label"] in (label, "linux-x86_64")],
+                       "vanilla": [row for row in every["vanilla"] if row["label"] == label]}, branch
+        tiers = [row["label"] for row in got["pure"]] + [row["label"] for row in got["vanilla"] if "pure" in row]
+        assert sorted(tiers) == sorted({label, "linux-x86_64"}), (branch, tiers)
+    for branch in ("p2/4.4dx5-mac-slots", "p2/4.4ci47-arm64-crash", "p2/4.4x-ARM64", "p2/arm64", "p2/4.4x-arm64x"):
+        assert rows("push", f"refs/heads/{branch}") == every, branch
+    assert rows("push", "refs/heads/p2/4.4x-arm64", "someone/AzurKit") == pull

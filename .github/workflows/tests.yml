@@ -1,7 +1,9 @@
 # AzurKit's tests on GitHub Actions (Step 4.4ci; D1022-D1024), on the four platforms the apps ship for: macOS on
 # Apple Silicon (macos-15) and on Intel (macos-15-intel, GitHub's Intel image since it retired macos-13), Windows x64
 # and Linux x64.
-# - matrix: the rows the two below run (scripts/ci_matrix.py, Step 4.4dx5), from the event, the repository and the ref.
+# - matrix: the rows the two below run (scripts/ci_matrix.py, Step 4.4dx5), from the event, the repository and the ref:
+#   a lane branch whose name ends in -arm64, -intel, -windows or -linux runs only that runner's rows and Linux's pure
+#   tier (Step 4.4dx9); main and every other lane branch run every row.
 # - pure: the pure tier (-m "not vanilla") on every push to main or a lane branch (p2/*) and every pull request. The web tier is in it: Node
 #   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
 #   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries. On a push that

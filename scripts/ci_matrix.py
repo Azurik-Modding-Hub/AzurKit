@@ -10,8 +10,12 @@ macOS jobs at once here, and the pure job's two macOS rows made a push's 7: two 
 one, on the run's critical path (runs 42198913490, 42222637371 and 42313664434). So on a push that runs the vanilla
 tier each macOS runner's part 1 runs its pure tier first (its row's ``pure``: the pure tier's workers), before the
 key or an image is on the runner, and scripts/ci_shards.py gives that part less of the vanilla tier by the pure
-tier's seconds (``tests/ci_durations.json``'s ``head``): the pure job runs only Windows' and Linux's. It prints the
-rows it picked, labels and numbers only."""
+tier's seconds (``tests/ci_durations.json``'s ``head``): the pure job runs only Windows' and Linux's.
+
+A lane branch whose name ends in a runner's word (:data:`NAMED`: ``p2/4.4ci47-webkit-arm64``) runs only that runner's
+rows and Linux's pure tier (Step 4.4dx9, D1123's scope): two lanes' 7 macOS jobs each sat on main's 5 slots, and one
+waited 44-121 min. Any other lane branch and main run every row, so main still runs everything before a release. It
+prints the rows it picked, labels and numbers only."""
 
 from __future__ import annotations
 
@@ -34,6 +38,9 @@ RUNNERS = {
     "windows-x86_64": ("windows-latest", 3, 2, 2),
     "linux-x86_64": ("ubuntu-latest", 3, 1, 2),
 }
+NAMED = {"arm64": "macos-arm64", "intel": "macos-x86_64", "windows": "windows-x86_64", "linux": "linux-x86_64"}
+"""The last word of a lane branch's name that picks its runner."""
+LINUX = "linux-x86_64"   # whose pure tier, the quickest, a lane named for another runner runs too
 FOLDED = frozenset(label for label, (image, *_) in RUNNERS.items() if image.startswith("macos-"))
 """The runners whose part 1 runs their pure tier on a push that runs the vanilla tier."""
 
@@ -46,13 +53,16 @@ def vanilla(event: str, repository: str, ref: str) -> bool:
 
 def rows(event: str, repository: str, ref: str) -> dict[str, list[dict]]:
     """``{"pure": rows, "vanilla": rows}``, each row a matrix entry: ``os``, ``label`` and ``workers``, and a vanilla
-    row's ``shard`` and ``shards`` (part 1 of a :data:`FOLDED` runner's also ``pure``, its pure tier's workers)."""
+    row's ``shard`` and ``shards`` (part 1 of a :data:`FOLDED` runner's also ``pure``, its pure tier's workers); a lane
+    branch named for a runner (:data:`NAMED`) gets that runner's rows and :data:`LINUX`'s pure tier."""
     runs = vanilla(event, repository, ref)
+    named = NAMED.get(ref.rpartition("-")[2]) if runs and ref.startswith("refs/heads/p2/") else None
+    pure_on, vanilla_on = ({named, LINUX}, {named}) if named else (RUNNERS.keys(), RUNNERS.keys())
     return {"pure": [{"os": image, "label": label, "workers": pure} for label, (image, pure, *_) in RUNNERS.items()
-                     if not (runs and label in FOLDED)],
+                     if label in pure_on and not (runs and label in FOLDED)],
             "vanilla": [{"os": image, "label": label, "workers": workers, "shard": k, "shards": parts}
                         | ({"pure": pure} if k == 1 and label in FOLDED else {})
-                        for label, (image, pure, workers, parts) in RUNNERS.items() if runs
+                        for label, (image, pure, workers, parts) in RUNNERS.items() if runs and label in vanilla_on
                         for k in range(1, parts + 1)]}
 
 
