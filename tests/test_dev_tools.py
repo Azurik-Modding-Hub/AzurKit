@@ -518,9 +518,13 @@ def test_a_flake_stages_test_that_starts_nothing_once_a_session_has_its_five_run
     monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 2)   # a case's runs on one worker (tests/conftest.py's groups)
     wide, runs = {"browser": "module", "pyodide": "session", "site": "module"}, fullsuite.FLAKE_RUNS
     paths = sorted(flake_repeat.PATHS)
-    head = ("import os\nfrom pathlib import Path\n\nimport pytest\n\nLOG = Path(__file__).with_name('log')\n\n\n"
-            "def log(request):\n    with LOG.open('a') as f:\n"
-            "        f.write(f'{request.node.name} {os.getpid()} {os.getppid()}\\n')\n\n\n")
+    # Each worker of a session logs to a file of its own, stamped, its session xdist's run id: on Windows two
+    # processes' appends to one file overwrite each other's lines (its C runtime seeks to the end, then writes: CI
+    # lost 4 of 35), and a worker's parent is its venv launcher there, not the session's pytest.
+    head = ("import time\nfrom pathlib import Path\n\nimport pytest\n\n\n"
+            "def log(request):\n    run, worker = (request.config.workerinput[k] for k in ('testrunuid', 'workerid'))\n"
+            "    with Path(__file__).with_name(f'log-{run}-{worker}').open('a') as f:\n"
+            "        f.write(f'{time.time_ns()} {request.node.name} {run}-{worker} {run}\\n')\n\n\n")
 
     def stage(name: str, source: str, tests: list[str]) -> tuple[dict, Path]:
         (folder := tmp_path / name).mkdir()
@@ -542,9 +546,10 @@ def test_a_flake_stages_test_that_starts_nothing_once_a_session_has_its_five_run
         + "@pytest.mark.parametrize('x', ['a', 'b'])\ndef test_pure(x, request):\n    log(request)\n\n\n"
         f"def test_bare({', '.join(paths)}, tmp_path, request):\n    log(request)\n",
         [f"test_x.py::test_{n}" for n in (*wide, "page", "pure", "bare")])
-    ran: dict[str, list[tuple[str, str]]] = {}   # each case's runs: (its worker, its session)
-    for name, pid, session in (line.split() for line in (folder / "log").read_text().splitlines()):
-        ran.setdefault(fullsuite.split(f"t.py::{name}")[0].removeprefix("t.py::"), []).append((pid, session))
+    ran: dict[str, list[tuple[str, str]]] = {}   # each case's runs as they ran: (its worker, its session)
+    for _, name, worker, session in sorted((line.split() for log in folder.glob("log-*")
+                                            for line in log.read_text().splitlines()), key=lambda row: int(row[0])):
+        ran.setdefault(fullsuite.split(f"t.py::{name}")[0].removeprefix("t.py::"), []).append((worker, session))
     assert {name: (len(r), len({pid for pid, _ in r}), len({s for _, s in r})) for name, r in ran.items()} == {
         **{f"test_{n}": (runs, runs, runs) for n in (*wide, "page")}, **dict.fromkeys(
             ("test_pure[a]", "test_pure[b]", "test_bare"), (runs, 1, 1))}
