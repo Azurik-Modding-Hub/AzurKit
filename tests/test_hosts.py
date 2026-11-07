@@ -190,13 +190,44 @@ def _head() -> str:
                           check=True).stdout.strip()
 
 
+ANSWERING = (app._Handler.do_GET.__code__, app._Handler.do_POST.__code__)
+ANSWERED_S = 30
+"""s a later test's :func:`_home` waits for a closed app server to answer the requests it took before its close
+(:func:`_answering`): a Live map test's page posts its marks every 0.7 s to its close, over at most 6 kept connections
+(a browser's to a host), so 6 config writes queued on one lock, each a read and a replace past Windows' refusals while
+its scanner holds the file (``app.WAITS``: 1.55 s each), 19 s at most (Step 4.5d)."""
+
+
+def _answering() -> list[str]:
+    """The paths of the requests a closed app server is still answering: socketserver waits for none of its daemon
+    threads at ``Server.close``, and a call past its ``closed`` check runs on (its own check refuses only later ones)."""
+    paths = []
+    for frame in sys._current_frames().values():
+        while frame is not None and frame.f_code not in ANSWERING:
+            frame = frame.f_back
+        if frame is not None and (handler := frame.f_locals["self"]).server.closed:
+            paths.append(handler.path.partition("?")[0])
+    return paths
+
+
 def _home(monkeypatch, home: Path) -> None:
     """This process's user folders, and its children's, under ``home``:
     HOME, and every folder platformdirs finds the app's config, data, cache
     and downloads in before HOME, whatever the host sets: no XDG_*_HOME (a
     GitHub Linux runner sets XDG_CONFIG_HOME, so every test's app.json was
     one file there, Step 4.4ci2) and, on Windows, whose known folders don't
-    follow HOME, platformdirs' WIN_PD_OVERRIDE_* and USERPROFILE."""
+    follow HOME, platformdirs' WIN_PD_OVERRIDE_* and USERPROFILE. First, an
+    earlier test's closed server answers every request it took (Step 4.5d):
+    one still running writes into ``home``, as the folders are found at each
+    read and write. The other floors' test's page posts its marks with Show
+    collected on to its close, and such a late ``api/tracked`` (its config's
+    replace refused as Windows refuses one) opened the collected spot's test's
+    page with Show collected on, its collected spot left on the map dimmed:
+    the one way found to that test's failure on GitHub's Windows Firefox."""
+    end = time.monotonic() + ANSWERED_S
+    while busy := _answering():
+        assert time.monotonic() < end, f"a closed app server still answers {busy} after {ANSWERED_S} s"
+        time.sleep(0.02)
     monkeypatch.setenv("HOME", str(home))
     for name in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
         monkeypatch.delenv(name, raising=False)
@@ -204,6 +235,33 @@ def _home(monkeypatch, home: Path) -> None:
         monkeypatch.setenv("USERPROFILE", str(home))
         for kind in ("APPDATA", "LOCAL_APPDATA", "DOWNLOADS"):
             monkeypatch.setenv(f"WIN_PD_OVERRIDE_{kind}", str(home / kind))
+
+
+def test_a_closed_servers_late_write_lands_in_its_own_tests_home_not_the_next_ones(tmp_path, monkeypatch):
+    """Step 4.5d: a page's ``api/tracked`` its test's server took just
+    before its close, its write held (as Windows' scanner holds the config
+    open), is answered before the next test's ``_home`` moves the user
+    folders, so it lands in its own test's config and the next test's has
+    none."""
+    _home(monkeypatch, tmp_path / "a")
+    mine, held, go, remember = app._config(), threading.Event(), threading.Event(), app._remember
+
+    def held_write(**kept) -> None:
+        held.set()
+        go.wait(30)
+        remember(**kept)
+    monkeypatch.setattr(app, "_remember", held_write)
+    server, replies, kept = app.serve(_page.WEB), [], {"marks": {}, "collected": True}
+    poster = threading.Thread(target=_post, args=(server.url, "api/tracked", {"tracker": kept}, replies))
+    poster.start()
+    assert held.wait(30)
+    server.close()
+    threading.Timer(0.3, go.set).start()
+    _home(monkeypatch, tmp_path / "b")
+    poster.join(30)
+    written = {p.relative_to(tmp_path).parts[0]: json.loads(p.read_text(encoding="utf-8")).get("tracker")
+               for p in (mine, app._config()) if p.exists()}
+    assert (written, replies) == ({"a": kept}, [{}])
 
 
 class Sandbox:
