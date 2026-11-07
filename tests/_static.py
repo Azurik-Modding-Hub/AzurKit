@@ -10,7 +10,8 @@ validator, as the site's routes did; with ``--pages`` as GitHub Pages does, ``Ca
 connection). It keeps each connection for the next request (HTTP/1.1) and sends without Nagle's delay, as GitHub Pages
 serves a page's files over a few kept connections, never one a file: a first visit's install asks for its release's
 551 files, which took one loopback connection each and passed its 60 s on GitHub's Windows runner (run 42236789239),
-where the page's second engine, a few big files, loaded in 2.9 s. Each request is logged. It reads commands on stdin,
+where the page's second engine, a few big files, loaded in 2.9 s. An answer's bytes go a piece at a time, each sent
+again while the system is short of buffers (:class:`Sender`). Each request is logged. It reads commands on stdin,
 one line each, and answers each with one line: ``root PATH`` (a deploy: serve that folder from now on), ``down 1`` or
 ``down 0`` (each answer a 503 while down), ``log`` (every request so far, JSON: ``[method, path, body bytes]``),
 ``heard SECONDS PATH`` (``heard`` once a request for ``PATH``, with its query, is logged, at once if one was, else
@@ -20,13 +21,53 @@ stdin closes."""
 from __future__ import annotations
 
 import email.utils
+import errno
 import http.server
+import io
 import json
 import socket
 import sys
 import threading
+import time
 import urllib.parse
 from pathlib import Path
+
+
+class Sender(io.BufferedIOBase):
+    """A connection's writer that sends an answer whole while the system is short of buffers a moment. macOS's
+    ``send()`` may refuse with ENOBUFS ("may succeed when buffers become available", send(2)) or ENOMEM, and with
+    ``sendall`` (socketserver's writer) that ended the answer cut: on GitHub's arm64 runner a first visit's install in
+    Firefox got a cut file, failed, and its registration was gone (run 42406769117). So it sends ``chunk`` bytes at a
+    time and sends a refused piece again after a pause, for up to ``PATIENCE`` s with none sent. macOS's ``send()``
+    says none of what it sent before such an error, so each piece goes whole or not at all: no larger than the
+    socket's low-water mark, raised to ``CHUNK``, the kernel waits for room for all of it and copies it in one chain
+    (XNU's ``sosend``), so a refused piece sent none of its bytes. Linux and Windows keep their own mark (Linux's
+    ``send()`` counts what went before an error)."""
+    CHUNK = 65536        # bytes a send: XNU's longest chain (sosendmaxchain), within the default send buffer
+    PATIENCE = 30.0      # s a piece waits for buffers before the answer fails as before: half a release's 60 s
+    SHORT = (errno.ENOBUFS, errno.ENOMEM)
+
+    def __init__(self, sock: socket.socket) -> None:
+        self._sock, self.chunk = sock, self.CHUNK
+        if sys.platform == "darwin":
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDLOWAT, self.CHUNK)
+            self.chunk = min(self.CHUNK, sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDLOWAT))   # at most the buffer
+
+    def writable(self) -> bool:
+        return True
+
+    def write(self, data) -> int:
+        view, sent, short = memoryview(data).cast("B"), 0, None
+        while sent < len(view):
+            try:
+                sent += self._sock.send(view[sent:sent + self.chunk])
+                short = None
+            except OSError as error:
+                short = short or time.monotonic()
+                if error.errno not in self.SHORT or time.monotonic() - short > self.PATIENCE:
+                    raise
+                time.sleep(0.01)
+        return sent
 
 
 class Files(http.server.ThreadingHTTPServer):
@@ -50,6 +91,10 @@ def main(argv: list[str]) -> None:
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"   # kept connections, as GitHub Pages keeps its, never one a file
         disable_nagle_algorithm = True  # TCP_NODELAY: an answer's body never waits on the client's ACK of its headers
+
+        def setup(self) -> None:
+            super().setup()
+            self.wfile = Sender(self.connection)
 
         def log_message(self, *args) -> None:
             pass

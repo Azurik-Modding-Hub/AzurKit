@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import errno
 import functools
 import hashlib
 import http.client
@@ -344,6 +345,44 @@ def test_a_sites_file_server_answers_a_pages_files_over_one_kept_connection(tmp_
         served.close()
     assert [row[:3] for row in got] == [(200, b"a", False), (200, b"bb", False), (404, b"", False),
                                         (405, b"", True)] and len({port for *_, port in got}) == 1, got
+
+
+def test_a_sites_file_server_sends_an_answer_whole_while_the_system_is_short_of_buffers():
+    """The site's file server's writer (:class:`_static.Sender`) sends a piece the system refused for want of buffers
+    (ENOBUFS, ENOMEM) again, so the answer comes whole and in order: on GitHub's arm64 runner macOS refused one with
+    ENOBUFS, ``sendall`` ended it cut, and a first visit's install of the release in Firefox failed (run 42406769117).
+    On macOS no piece is longer than the socket's low-water mark, so a refused piece sent none of its bytes."""
+    data = os.urandom(1_000_003)
+    listener = socket.create_server(("127.0.0.1", 0))
+    peer = socket.create_connection(listener.getsockname(), timeout=10)
+    sock, _ = listener.accept()
+    pieces, refusals, got = [], {2: errno.ENOBUFS, 3: errno.ENOMEM, 6: errno.ENOBUFS}, bytearray()
+
+    def send(piece) -> int:
+        pieces.append(len(piece))
+        if len(pieces) in refusals:
+            raise OSError(refusals[len(pieces)], os.strerror(refusals[len(pieces)]))
+        return sock.send(piece)
+
+    def read() -> None:
+        while len(got) < len(data) and (part := peer.recv(1 << 16)):
+            got.extend(part)
+
+    reader = threading.Thread(target=read)
+    reader.start()
+    try:
+        short = types.SimpleNamespace(setsockopt=sock.setsockopt, getsockopt=sock.getsockopt, send=send)
+        sender = _static.Sender(short)
+        sent = sender.write(data)
+        reader.join(10)
+        lowat = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDLOWAT)
+    finally:
+        for each in (sock, peer, listener):
+            each.close()
+        reader.join()
+    assert (sent, len(got), bytes(got) == data) == (len(data), len(data), True)
+    assert sys.platform != "darwin" or sender.chunk == lowat == max(pieces) == _static.Sender.CHUNK, (sender.chunk,
+                                                                                                     lowat, pieces)
 
 
 def _built(page) -> dict:
