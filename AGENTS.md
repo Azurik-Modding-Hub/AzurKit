@@ -97,6 +97,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     interpreter, which a plan in a thread or a full collection of a heap a
     randomizer test left holds for seconds (on GitHub's Intel runner 98 s);
     only a request elsewhere, and a test's own routes, come back to it.
+  - Each Firefox a test launches takes no proxy (`tests/conftest.py`'s
+    `DIRECT`, `network.proxy.type` 0, under the launch's own prefs):
+    Playwright keeps 127.0.0.1 in Firefox's proxy lookup, which on Windows
+    asks WinINet before each request starts, and a page's first load there
+    went unanswered past its 30 s with its request not yet sent.
 - **Skips:** a skip or an xfail fails the run unless `tests/skip_allowlist.toml`
   lists it, and that list is empty. Failures never become skips: no new
   `skipif`, `SkipTest` or `xfail`, and no allow-list entry to get green.

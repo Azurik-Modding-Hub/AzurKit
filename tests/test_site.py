@@ -2214,6 +2214,27 @@ def test_a_browser_that_answers_nothing_fails_its_later_calls_at_once(browser):
     assert took[1] < 1 and took[2] < 1, took
 
 
+def test_each_firefox_a_test_launches_takes_no_proxy_under_its_own_prefs():
+    """Each Firefox the tests launch (Playwright's ``launch`` and ``launch_persistent_context``, which its sync and async
+    APIs both call) takes ``network.proxy.type`` 0 under the prefs its launch gives (:data:`conftest.DIRECT`), so a
+    request to a test's host never waits on the system's proxy settings: on GitHub's Windows runner a page's load of
+    its 127.0.0.1 host went unanswered 30 s in Firefox, its one request heard 1 s before the failure (run 42409729869).
+    Read from the call Playwright's impl is given, a coroutine never started; another browser's launch is as given."""
+    from playwright._impl._browser_type import BrowserType
+
+    def prefs(name: str, method: str = "launch", *args, **options):
+        call = getattr(BrowserType, method)(types.SimpleNamespace(name=name), *args, headless=True, **options)
+        try:
+            return call.cr_frame.f_locals["firefoxUserPrefs"]
+        finally:
+            call.close()
+
+    own = {"browser.privatebrowsing.autostart": True}
+    assert prefs("firefox") == conftest.DIRECT == {"network.proxy.type": 0}
+    assert prefs("firefox", "launch_persistent_context", "profile", firefoxUserPrefs=own) == conftest.DIRECT | own
+    assert [prefs("chromium"), prefs("webkit", firefoxUserPrefs=own)] == [None, own]
+
+
 HELD = """const made = [];
 globalThis.Worker = class {   // hashedApart's worker, a stub: each one made, weakly
     constructor() { made.push(new WeakRef(this)); }

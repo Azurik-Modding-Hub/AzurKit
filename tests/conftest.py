@@ -39,7 +39,9 @@
   that leaves out its ``--headless`` argument, is refused before it starts
   anything, and ``PWDEBUG`` (or its npm forms), which opens a headed
   browser, is dropped. The session checks this guard too, and stops when it
-  doesn't hold.
+  doesn't hold. Every Firefox it launches takes no proxy (:data:`DIRECT`,
+  under the launch's own prefs), so a request to a test's host never waits
+  on the system's proxy settings.
 - Git finds a repository by the cwd alone: the variables that point it at
   one (``GIT_DIR``, which ``git rebase -x`` exports, and the rest of ``git
   rev-parse --local-env-vars``) are dropped, so a test's scratch repo is its
@@ -145,8 +147,33 @@ def _headless_only(launch):
     return checked
 
 
+DIRECT = {"network.proxy.type": 0}
+"""The prefs under each Firefox the tests launch (a launch's own win): no proxy, so Firefox asks nothing before a
+request to a test's host on 127.0.0.1. With Firefox's default, the system's settings (5), Playwright's
+``network.proxy.allow_hijacking_localhost`` (its ``playwright.cfg``) keeps 127.0.0.1 in the proxy lookup and Juggler's
+channel filter keeps every request off Firefox's direct fast path, so each request waits for the system's answer
+before it starts (``nsHttpChannel``: its proxy, then ``http-on-modify-request``, Playwright's request event); on
+Windows that answer is WinINet's, which can take seconds and more (Firefox's bug 1869403: "incredibly slow page load
+with 'use system proxy' enabled without a system proxy"; its cache is dropped at each network or registry change). On
+GitHub's Windows runner a page's first load of its host went unanswered 30 s in Firefox, its one request (``GET /``)
+heard only 1 s before the failure, its host printing no error (run 42409729869): a request held before it started."""
+
+
+def _direct(launch):
+    """Playwright's ``launch``, a Firefox one's prefs over :data:`DIRECT`."""
+    signature = inspect.signature(launch)
+
+    @functools.wraps(launch)
+    def direct(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        if getattr(bound.arguments["self"], "name", None) == "firefox":
+            bound.arguments["firefoxUserPrefs"] = DIRECT | (bound.arguments.get("firefoxUserPrefs") or {})
+        return launch(*bound.args, **bound.kwargs)
+    return direct
+
+
 for _name in ("launch", "launch_persistent_context"):   # the impl's: the sync and async APIs both call it
-    setattr(_BrowserType, _name, _headless_only(getattr(_BrowserType, _name)))
+    setattr(_BrowserType, _name, _headless_only(_direct(getattr(_BrowserType, _name))))
 
 
 def pytest_sessionstart(session):
