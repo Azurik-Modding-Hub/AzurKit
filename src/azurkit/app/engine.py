@@ -1,6 +1,7 @@
 """The app's engine (Step 4.3i): where the page's long calls run (:data:`JOBS`:
 a build, a save, a seed's plan and its build's spoiler, a plan file's spoiler,
-a shaped plan's openers, a character's pictures and its G4 match).
+a shaped plan's openers, a character's pictures and its G4 match, and the
+Variants editor's Check with the calls that stand on its dress).
 
 :class:`Here` runs them on the caller's thread, the server's request thread
 (:func:`azurkit.app.serve`'s default, as the app ran them before). :class:`Spawned`,
@@ -250,6 +251,23 @@ def _preview(recipe: Mapping, progress: Callable[[dict], object] | None = None) 
     return {k: base64.b64encode(v).decode() for k, v in _previewed(recipe).items()}
 
 
+def _shown(found: object) -> object:
+    """``found`` with each picture (its PNG bytes) as base64 text, as the page takes one."""
+    if isinstance(found, bytes):
+        return base64.b64encode(found).decode()
+    if isinstance(found, dict):
+        return {k: _shown(v) for k, v in found.items()}
+    return found
+
+
+def _editor(fn: Callable, bar: bool = False) -> Callable:
+    """A Variants editor's call (``sdk.variant_check`` and the calls that
+    stand on its kept dress, Step 4.6b), run in the engine so the Check a
+    call keeps serves the next, its pictures as base64; ``bar``: its
+    ``progress`` hears the dress."""
+    return lambda given, progress=None: _shown(fn(given, progress=progress) if bar else fn(given))
+
+
 def _warmed(job: Callable, always: bool = False) -> Callable:
     """``job``, run once a warm-up in flight has built the randomizer's
     logic, when ``always`` or its recipe has a randomizer (its ``progress``
@@ -315,10 +333,17 @@ JOBS: dict[str, Callable] = {"image": _warmed(_image), "save": _warmed(_save), "
                                                                     sdk.match(recipe, progress=progress)),
                              "spoiler": lambda plan, progress=None: sdk.spoiler(plan, built=True, progress=progress),
                              "plan_spoiler": _warmed(lambda plan, progress=None: sdk.spoiler(plan, progress=progress),
-                                                     always=True)}
+                                                     always=True),
+                             "variant_check": _editor(sdk.variant_check, bar=True),
+                             "variant_colours": _editor(sdk.variant_colours),
+                             "variant_preview": _editor(sdk.variant_preview),
+                             "variant_rows": _editor(sdk.variant_rows, bar=True),
+                             "export_pngs": _editor(sdk.export_pngs, bar=True)}
 """The calls an engine runs: ``{name: fn}``, ``fn(*args)`` (``progress=`` too for ``image``, ``save``, ``plan``,
-``preview``, ``match``, ``spoiler``, ``plan_spoiler`` and ``openers``: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
-``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's)."""
+``preview``, ``match``, ``spoiler``, ``plan_spoiler``, ``openers`` and the Variants editor's: ``core.progress`` records, the swap's items counted on them, :func:`_following`;
+``spoiler``: the last build's, which ``image`` leaves out; ``plan_spoiler``: a plan file's, the Tools tab's;
+``variant_*`` and ``export_pngs``: the editor's Check and the calls that stand on the dress it keeps here, their
+pictures base64)."""
 KILLS = {"image"}
 """The calls a cancel kills (a save cancels itself; the rest the page can't cancel)."""
 

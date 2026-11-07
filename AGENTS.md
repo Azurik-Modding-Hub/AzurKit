@@ -927,6 +927,22 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     PNGs. It writes no built byte and reads no file (the sdk hands it the
     archives), and its own sines and cosines are fdlibm's; Modkit's
     pickled `keep` and `kept` stay out (the store keeps no pickle).
+  - **The Variants editor's engine calls** (Step 4.6b; Modkit's
+    `variant_library` past its library's rules, on
+    `tools/characters/editor.py`): an edit is `{"iso", "name", "recipe",
+    "folder", "packs"}` (a built-in's by `name` alone), read as the loader
+    reads a recipe file, every refusal by name. `sdk.variant_check`
+    (Check with game data, a bar op) dresses it as a build does (its
+    recipe written beside its files as a hidden file the dress's
+    `variant_file` names, removed after) and keeps that dress before its
+    colours for the process (one, as `_DRESSED`; the app's in its
+    engine, `engine.JOBS`), on which `variant_colours` (the live
+    recolour), `variant_preview` (the Shape tab's quick preview, no
+    dress), `variant_rows` and `export_pngs` stand; `add_png`, `add_wav`,
+    `base_bones`, `own_sounds`, `kit_throw` and `move_sources` need no
+    dress. The library's list, Save, Delete, Import and Export calls
+    stand on `tools/characters/library.py` (Step 4.6a), and the site's
+    worker handlers come with the editor's shell (Step 4.6c).
   - **The kit and the funnel** (Step 4.3b2, D965): the townsfolk's
     bare-hands kit (`tools/characters/clips/townsfolk/`: the weaponless
     townsfolk's weapon, `bare_hands` and the spin attack,

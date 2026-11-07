@@ -15,9 +15,16 @@ holds) and :func:`content_refusal`, the Data tab's :func:`data` and :func:`data_
 tab's :func:`image_info`, :func:`verify_all`, :func:`files`,
 :func:`extract` and :func:`mods_file` (the image, its files, and mods
 files saved and read), :func:`file_entry` (a replaced file's) and
-:func:`saves`, and the command line's :func:`mods_diff` (what a mods file
+:func:`saves`, the command line's :func:`mods_diff` (what a mods file
 changes, before a build), :func:`mod_template` (vanilla values to edit) and
-:func:`entity_diff` (two entities side by side). JSON in and
+:func:`entity_diff` (two entities side by side), and the Variants editor's
+:func:`variant_check` (Check with game data), :func:`variant_colours`,
+:func:`variant_preview`, :func:`variant_rows` and :func:`export_pngs` (its
+colour views, the quick shape preview and its rows' PNGs, on the dress a
+Check keeps), :func:`add_png` and :func:`add_wav` (a file copied into a
+variant's folder) and :func:`base_bones`, :func:`own_sounds`,
+:func:`kit_throw` and :func:`move_sources` (what its tabs read of a base
+species). JSON in and
 out: a recipe is a JSON object and each call returns one; :func:`image`
 also returns the image, unwritten, which the web page joins into a Blob
 (``iso.Image.segments``), or :func:`save` writes. A refusal is a
@@ -95,6 +102,7 @@ never a recipe file's path (Q174).
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import functools
 import hashlib
@@ -126,7 +134,8 @@ __all__ = ["catalog", "verify", "vanilla", "layout", "prime", "image", "image_st
            "preset_encode", "preset_decode", "plan", "spoiler", "randomizer_logic", "randomizer_settings", "tracker",
            "art", "art_world", "restore", "content", "content_install", "content_check", "pickers", "match", "preview",
            "data", "data_edit", "mods_diff", "mod_template", "entity_diff", "image_info", "verify_all", "files", "extract", "mods_file", "community",
-           "content_refusal", "file_entry", "saves"]
+           "content_refusal", "file_entry", "saves", "variant_check", "variant_colours", "variant_preview",
+           "variant_rows", "export_pngs", "add_png", "add_wav", "base_bones", "own_sounds", "kit_throw", "move_sources"]
 RECIPE = ("iso", "packs", "xbr", "randomizer", "character", "community", "files")
 SETUP = ("ticked", "values", "xbr", "randomizer", "character", "community")   # a UI's remembered setup (D915, :func:`restore`)
 SOURCE = "https://raw.githubusercontent.com/Azurik-Modding-Hub/Azurik-Custom-Content/main/"
@@ -794,6 +803,394 @@ def preview(recipe: Mapping) -> dict:
         return _reshaped(recipe, character) if character.get("shapes") else dict(_dress(recipe)["preview"])
     _, config, bodies = _game(recipe["iso"])
     return picker.preview(bodies, picker.body_of(config, bodies, character["species"]))
+
+
+# ---------------------------------------------------------------- the Variants editor's calls (Step 4.6b)
+VARIANT_RECIPE = "recipe.json"   # a variant folder's recipe file, {name: recipe} (Modkit's variant_library.RECIPE)
+_WORN = {characters.XBE: "default.xbe", characters.CONFIG: "config.xbr", characters.FILES[0]: "characters.xbr",
+         characters.FILES[1]: "fx.xbr"}   # what a Check reads of its dress
+_CHECKED: dict[str, dict] = {}   # the last Check's dress before its colours (one heap, as _DRESSED)
+_BODIES: dict[tuple, object] = {}   # the last base body the Colours views recoloured (a colour_preview.Base)
+
+
+def _editing(given: object, what: str, *, image: bool = True) -> tuple[str, object, dict | None]:
+    """The variant the editor has open in ``given``: ``name`` a built-in's
+    (no ``recipe``), else its ``recipe`` read as ``folder``'s
+    ``recipe.json`` would hold it (its files beside it), checked as the
+    loader checks a recipe file: an unknown field or value, a number not
+    finite, a built-in's name, each refused by name (D23, D35). Its name,
+    the ``Variant`` and the recipe (``None``: a built-in's)."""
+    from azurkit.tools.characters import _player_variants as variants
+
+    if not isinstance(given, Mapping) or not isinstance(given.get("name"), str) or not given["name"]:
+        raise ValueError(f"{what}: an object naming the variant (name), with its recipe and folder (a built-in: none)")
+    if image and not isinstance(given.get("iso"), str):
+        raise ValueError(f"{what}: iso names no image")
+    name = given["name"]
+    if "recipe" not in given:
+        if name not in variants.builtins():
+            raise ValueError(f"variant {name!r}: no built-in has that name (give its recipe and folder)")
+        return name, variants.builtins()[name], None
+    recipe = given["recipe"]
+    if not isinstance(recipe, Mapping):
+        raise ValueError(f"variant {name!r}: its recipe is not an object of recipe fields")
+    if not isinstance(given.get("folder"), str) or not given["folder"]:
+        raise ValueError(f"variant {name!r}: folder names no folder for its files (its library folder)")
+    try:
+        found = variants.load_variants(json.dumps({name: recipe}), str(Path(given["folder"]) / VARIANT_RECIPE),
+                                       tuple(variants.builtins()))
+    except (TypeError, RecursionError) as exc:   # the loader's lookup in a list; JSON nested too deep
+        raise ValueError(f"variant {name!r}: not a recipe ({type(exc).__name__}: {exc})") from None
+    return name, found[name], dict(recipe)
+
+
+def _edit_key(given: Mapping, recipe: Mapping | None, leave: tuple[str, ...] = ()) -> str:
+    """An edit's identity: the image, the variant's name, folder and packs and its recipe but the fields ``leave``."""
+    stamp = _stamp(given["iso"])
+    shown = None if recipe is None else {k: v for k, v in recipe.items() if k not in leave}
+    return json.dumps([str(stamp.path), stamp.release.name, given["name"], given.get("folder"), shown,
+                       _packs({"packs": given.get("packs", {})})], sort_keys=True)
+
+
+def _dressing(given: Mapping, recipe: Mapping | None, steps: Steps = Steps()) -> tuple[dict[str, bytes], list[str]]:
+    """``default.xbe``, config.xbr, characters.xbr and fx.xbr as a build of
+    the edit (over ``given``'s ``packs``) writes them, and its dress's
+    lines: a built-in's by name; an edit's from its recipe written for the
+    dress beside its files (a hidden file in its folder, removed after; a
+    folder not made yet: a temporary one), as ``variant_file`` names it."""
+    import tempfile
+
+    from azurkit.tools.characters import ports
+
+    name = given["name"]
+    with contextlib.ExitStack() as stack:
+        file = None
+        if recipe is not None:
+            folder = Path(given["folder"])
+            if not folder.is_dir():
+                folder = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="azurkit-variant-")))
+            file = folder / f".{name}.edit-{os.getpid()}-{threading.get_ident()}.json"
+            stack.callback(file.unlink, missing_ok=True)
+            file.write_text(json.dumps({name: recipe}, indent=1) + "\n", encoding="utf-8")
+        character = {"species": name} | ({"variant_file": str(file)} if file else {})
+        try:
+            stamp, _, layers, _, _ = _plan({"iso": given["iso"], "packs": given.get("packs", {}),
+                                            "character": character}, steps)
+        except (ValueError, OSError) as exc:   # named as the editor holds it: its folder, its recipe.json
+            if file is None:
+                raise
+            said = str(exc).replace(file.name, VARIANT_RECIPE)
+            raise ValueError(said.replace(str(file.parent), given["folder"])) from None
+        files = characters.worn_by(ports.Vanilla(stamp.release, stamp.path, stamped=stamp), layers, _WORN)
+    lines = [line.replace(file.name, VARIANT_RECIPE) if file else line
+             for la in layers if la.tool == characters.TOOL for line in la.notes]
+    return files, lines
+
+
+def _colours_of(variant) -> tuple:
+    """``variant``'s colours, each ``png`` op's file found in its folder and checked."""
+    from azurkit.tools.characters import _player_variants as variants
+    from azurkit.tools.characters import paint
+
+    return paint.located(variant.colours, variants.colour_folder(variant)) if variant.colours else ()
+
+
+def _uncoloured(variant, recipe: Mapping | None) -> Mapping | None:
+    """The recipe a dress of ``variant`` before its colours is made of: its own, but garret4's own body's without
+    them (his build recolours his rows in place, ``colour_preview.uncoloured``)."""
+    from azurkit.tools.characters import colour_preview
+
+    if recipe is None or colour_preview.uncoloured(variant) is variant:
+        return recipe
+    return {k: v for k, v in recipe.items() if k != "colours"}
+
+
+def variant_check(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
+    """The Variants editor's Check with game data (Modkit's
+    ``variant_library.check``; a bar op, D980, D999): the variant ``given``
+    holds (``{"iso", "name", "recipe", "folder", "packs"}``: a built-in's
+    by ``name`` alone, an edit by its recipe and the folder its files are
+    in) dressed on the image as a build of it dresses it (``preview``'s
+    path; seconds, a detailed one minutes). ``{"refusal": why, "sha",
+    "bones"}`` when it can't dress (its base's own bones, where its Jiggle
+    tab's springs rows go), else its dress's ``log`` lines, its ``sha``
+    (sha256[:12] of what builds), the dressed ``body`` and its ``bones``
+    (each ``[name, its parent's]``), its own load runs against the build's
+    lines (``load``: ``own``, ``error`` and ``warning`` bytes, the lines of
+    the machine its ``default.xbe`` is for, ``model_inspect.lines_ram``,
+    and ``words``), each ``effects`` row's
+    bytes, and its picture in its colours (``front``, ``back``: PNG bytes,
+    160 px). This process keeps the dress before its colours for
+    :func:`variant_colours`, :func:`variant_preview` and :func:`variant_rows`.
+    A field or value the loader refuses is a ``ValueError`` naming it."""
+    from azurkit.tools.characters import colour_preview, editor, picker, ports
+    from azurkit.tools.characters import model_inspect as mi
+
+    with noting(Steps(progress)) as steps:
+        name, variant, recipe = _editing(given, "variant_check")
+        place = _edit_key(given, None)   # the image checked and the packs read first: their refusals are raised
+        steps("dress", f"Dressing {name}")
+        _CHECKED.clear()   # the last one's dress goes before this one is worked out (one heap)
+        dresses = colour_preview.dresses(variant)
+        try:
+            files, log = _dressing(given, recipe, steps)
+            bare = _uncoloured(variant, recipe)
+            plain = files if bare is recipe or not dresses else _dressing(given, bare, steps)[0]
+        except (ValueError, OSError) as exc:
+            _, config, bodies = _game(given["iso"])
+            try:
+                bones = editor.bones(bodies, colour_preview.body_of(config, bodies, variant.base))
+            except (ValueError, KeyError):
+                bones = None
+            return {"refusal": str(exc), "sha": variant.sha, "bones": bones}
+        body, worn = picker.worn_body(files["config.xbr"]), files["characters.xbr"]
+        xbe, own, stamp = files["default.xbe"], mi.own_runs(worn, body, files["fx.xbr"]), _stamp(given["iso"])
+        with ports.building(ports.Build(ports.Vanilla(stamp.release, stamp.path, stamped=stamp),
+                                        packs=characters.packs_view(stamp.release, mods.PACKS))):   # the packs' sites
+            error, warning = mi.lines_for(mi.budget_of(xbe), mi.lines_ram(xbe, mi.DEFAULT_RAM))
+        base = colour_preview.base(plain["characters.xbr"], body, True) if dresses else _base_of(given, name, variant,
+                                                                                                    recipe)
+        _CHECKED["last"] = {"place": place, "uncoloured": _edit_key(given, recipe, ("colours",)),
+                            "variant": variant, "base": base, "characters": plain["characters.xbr"], "kept": None}
+        return {"refusal": None, "sha": variant.sha, "log": log, "body": body, "bones": editor.bones(worn, body),
+                "load": {"own": own["bytes"], "error": error, "warning": warning, "words": mi.own_words(own)},
+                "effects": editor.effect_bytes(log, variant.effects),
+                **colour_preview.pictures(colour_preview.recoloured(base, _colours_of(variant)))}
+
+
+def _checked(given: Mapping, recipe: Mapping | None) -> dict | None:
+    """The kept Check of the same edit but its colours, else ``None``."""
+    kept = _CHECKED.get("last")
+    return kept if kept is not None and kept["uncoloured"] == _edit_key(given, recipe, ("colours",)) else None
+
+
+def _base_of(given: Mapping, name: str, variant, recipe: Mapping | None):
+    """The body the Colours views recolour: the image's own body of the
+    variant's base, or for a recipe whose build changes it the kept Check's
+    dress of the same edit (but its colours); a ``ValueError`` asks for the
+    Check."""
+    from azurkit.tools.characters import colour_preview
+
+    if colour_preview.dresses(variant):
+        if (kept := _checked(given, recipe)) is None:
+            raise ValueError(f"variant {name!r}: its build changes its body (a mesh, textures or texture_scale): "
+                             "Check with game data dresses it first")
+        return kept["base"]
+    stamp, config, bodies = _game(given["iso"])
+    body = colour_preview.body_of(config, bodies, variant.base)
+    key = (str(stamp.path), stamp.release.name, body)
+    if key not in _BODIES:
+        _BODIES.clear()
+        _BODIES[key] = colour_preview.base(bodies, body)
+    return _BODIES[key]
+
+
+def variant_colours(given: Mapping) -> dict:
+    """The Colours tab's live recolour (Modkit's colour views, D539, D768):
+    the variant ``given`` holds (as :func:`variant_check` takes it) drawn
+    in its ``colours`` from the front and from behind (``front``,
+    ``back``: PNG bytes, 160 px; its body the image's own of its base, or
+    for a recipe whose build changes it the last Check's dress, which it
+    asks for), each material row's ``tile`` (PNG, 64 px), ``palette`` (its
+    six main colours, RGB) and texture ``size`` as recoloured (``rows``, by
+    row), and ``across``, how wide the body draws against how tall (the
+    views' portrait crop). A fraction of a second; a colour op the loader
+    refuses is a ``ValueError`` naming it."""
+    from azurkit.tools.characters import colour_preview, draw, paint
+
+    name, variant, recipe = _editing(given, "variant_colours")
+    colours = _colours_of(variant)
+    base = _base_of(given, name, variant, recipe)
+    parts, by_row, rows = colour_preview.recoloured(base, colours), colour_preview.ops_by_row(base, colours), {}
+    for row, raw in base.rows().items():
+        tex = paint.recoloured(raw, by_row[row]) if by_row.get(row) else raw
+        rows[str(row)] = {"tile": draw.png_rgba(colour_preview.tile(tex), 6),
+                          "palette": colour_preview.palette(tex).tolist(), "size": list(base.sizes.get(row, ()))}
+    return {**colour_preview.pictures(parts), "rows": rows, "across": colour_preview.across(parts)}
+
+
+def variant_preview(given: Mapping) -> dict:
+    """The Shape tab's quick preview (Modkit's ``variant_library.preview``):
+    the last Check's dress of the variant ``given`` holds (as
+    :func:`variant_check` takes it), each drawn vertex moved to where the
+    build's position steps put it at the edit's shape values on the
+    Check's topology (``editor.moved``; no dress, so approximate: the finer
+    triangles a build makes at the new values aren't made), drawn in its
+    colours: ``{"front", "back": PNG bytes, "seconds"}``. A ``ValueError``
+    asks for the Check where none of this variant is kept or its mesh
+    changed beyond its shapes since."""
+    import time
+
+    from azurkit.tools.characters import colour_preview, editor
+
+    started = time.perf_counter()
+    name, variant, recipe = _editing(given, "variant_preview")
+    kept = _CHECKED.get("last")
+    ref, plain = kept and kept["variant"], variant.plain or variant.mesh
+    if (kept is None or kept["place"] != _edit_key(given, None) or plain is None or variant.base != ref.base
+            or repr(plain) != repr(ref.plain or ref.mesh)):
+        raise ValueError(f"variant {name!r}: no Check of its mesh is kept (none yet, another variant's, or its mesh "
+                         "changed beyond its shapes since): Check with game data dresses it")
+    drawn = [(q.P, q.T) for q in kept["base"].parts]
+    if kept["kept"] is None:   # its mesh prepared on the base's own body once a Check
+        _, config, bodies = _game(given["iso"])
+        kept["kept"] = editor.prepared(bodies, colour_preview.body_of(config, bodies, variant.base), ref, drawn)
+    moved = kept["base"].moved(editor.moved(kept["kept"], variant, drawn))
+    return {**colour_preview.pictures(colour_preview.recoloured(moved, _colours_of(variant))),
+            "seconds": time.perf_counter() - started}
+
+
+def variant_rows(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
+    """The Colours tab's Export, its pictures (Modkit's
+    ``colour_preview.variant_rows``, Step 2.203): each material row's
+    texture whole, recoloured as a build of the variant ``given`` holds
+    (as :func:`variant_check` takes it) recolours it: ``{"body", "files":
+    {"<name>_row<R>.png": PNG bytes}, "sizes": {row: [width, height]}}``,
+    of the image's own body of its base, or for a recipe whose build
+    changes it of the last Check's dress of the same edit (else dressed
+    now: a bar op). An edited one comes back through :func:`add_png`."""
+    from azurkit.tools.characters import colour_preview, picker
+
+    with noting(Steps(progress)) as steps:
+        name, variant, recipe = _editing(given, "variant_rows")
+        _, config, worn = _game(given["iso"])
+        if not colour_preview.dresses(variant):
+            body = colour_preview.body_of(config, worn, variant.base)
+        elif (kept := _checked(given, recipe)) is not None:
+            worn, body = kept["characters"], kept["base"].body
+        else:
+            steps("dress", f"Dressing {name}")
+            files = _dressing(given, _uncoloured(variant, recipe), steps)[0]
+            worn, body = files["characters.xbr"], picker.worn_body(files["config.xbr"])
+        rows = colour_preview.rows(worn, body, _colours_of(variant))
+    return {"body": body, "files": colour_preview.pngs(name, rows),
+            "sizes": {str(r): [img.shape[1], img.shape[0]] for r, img in sorted(rows.items())}}
+
+
+def export_pngs(given: Mapping, *, progress: Callable[[dict], object] | None = None) -> dict:
+    """The Colours tab's Export (Step 2.203): :func:`variant_rows`' files
+    written into the folder ``out`` (made if missing), each whole (a part
+    file renamed), none when ``out`` holds one of their names already (an
+    edited PNG is never overwritten, D35, D36): ``{"files": [names]}``."""
+    if not isinstance(given, Mapping) or not isinstance(given.get("out"), str) or not given["out"]:
+        raise ValueError("export_pngs: out names no folder to write the rows' PNGs into")
+    found = variant_rows({k: v for k, v in given.items() if k != "out"}, progress=progress)
+    out = Path(given["out"])
+    if there := [n for n in found["files"] if (out / n).exists()]:
+        raise ValueError(f"{out} holds {', '.join(there)} already: export into another folder (an edited PNG is "
+                         "never overwritten)")
+    out.mkdir(parents=True, exist_ok=True)
+    for n, data in found["files"].items():
+        part = out / f".{n}.{os.getpid()}.part"
+        part.write_bytes(data)
+        os.replace(part, out / n)
+    return {"files": list(found["files"])}
+
+
+def _folder_file(given: object, what: str) -> tuple[Path, Path]:
+    if not isinstance(given, Mapping) or not all(isinstance(given.get(k), str) and given[k] for k in ("folder", "file")):
+        raise ValueError(f"{what}: an object naming the variant's folder and the file to copy into it (file)")
+    return Path(given["folder"]), Path(given["file"])
+
+
+def add_png(given: Mapping) -> dict:
+    """The Colours tab's Import (Step 2.203): ``file``, an edited PNG of a
+    row's texture (8-bit RGB or RGBA, the texture's ``size``, [width,
+    height], as :func:`variant_rows` gives it), copied whole into the
+    variant's ``folder`` under a name of its own (``_2``, ``_3`` .. while
+    another file has it; one there with the same bytes taken as it is):
+    ``{"name", "sha256"}``, the row's ``png`` op's. A refusal names the file."""
+    from azurkit.tools.characters import editor
+
+    folder, file = _folder_file(given, "add_png")
+    size = given.get("size")
+    if not (isinstance(size, list) and len(size) == 2 and all(type(n) is int and n > 0 for n in size)):
+        raise ValueError(f"add_png: size {size!r} is not the row's texture's [width, height]")
+    name, sha = editor.add_png(folder, file, tuple(size))
+    return {"name": name, "sha256": sha}
+
+
+def add_wav(given: Mapping) -> dict:
+    """The Sounds tab's Add (Step 2.164b): ``file``, a WAV the build reads
+    (uncompressed integer PCM, mono or stereo, any rate), copied whole into
+    the variant's ``folder`` under a name a recipe's ``wavs`` take (as
+    :func:`add_png` names it): ``{"name"}``. A refusal names the file."""
+    from azurkit.tools.characters import editor
+
+    folder, file = _folder_file(given, "add_wav")
+    return {"name": editor.add_wav(folder, file)}
+
+
+def _species(given: object, what: str) -> tuple[gate.Stamp, bytes, bytes, str, str]:
+    """``given``'s image (its config.xbr and characters.xbr) and ``species``, a species the player can wear or a
+    body of one, with its body; a refusal names the field or the species."""
+    from azurkit.tools.characters import colour_preview
+
+    if not isinstance(given, Mapping) or not isinstance(given.get("iso"), str):
+        raise ValueError(f"{what}: an object naming the image (iso) and a base species (species)")
+    if not isinstance(given.get("species"), str) or not given["species"]:
+        raise ValueError(f"{what}: species names no base species")
+    stamp, config, bodies = _game(given["iso"])
+    try:
+        body = colour_preview.body_of(config, bodies, given["species"])
+    except ValueError:
+        raise ValueError(f"{what}: {given['species']!r} is no species or body of this image") from None
+    return stamp, config, bodies, given["species"], body
+
+
+def base_bones(given: Mapping) -> dict:
+    """A base species' own body's bones in the image (``{"iso",
+    "species"}``): ``{"body", "bones": [[name, its parent's], ...]}``,
+    where a recipe's springs rows go before its Check dresses it."""
+    from azurkit.tools.characters import editor
+
+    _, _, bodies, _, body = _species(given, "base_bones")
+    return {"body": body, "bones": editor.bones(bodies, body)}
+
+
+def own_sounds(given: Mapping) -> dict:
+    """The roles a base species' own sounds take as the player's, as its
+    build binds them (``{"iso", "species"}``): ``{"roles": [...]}``; a base
+    with any takes no ``voice`` or ``wavs`` of a recipe's (the build's
+    refusal), garret4's none."""
+    from azurkit.tools.characters import editor
+
+    stamp, config, bodies, species, _ = _species(given, "own_sounds")
+    with iso.Reader(stamp.path) as r:
+        files = {"config.xbr": config, "characters.xbr": bodies, "fx.xbr": r.read(characters.FILES[1]),
+                 "english.xbr": r.read(characters.SOUNDS[0])}
+    try:
+        return {"roles": list(editor.own_sounds(files, species))}
+    except KeyError:
+        raise ValueError(f"own_sounds: {species!r} is no species of critters_engine (a body has no sounds of its own)"
+                         ) from None
+
+
+def kit_throw(given: Mapping) -> dict:
+    """What a base species' default weapon throws as the player's
+    (``{"iso", "species"}``): ``{"throw": "rock" | "vase" | "", "columns":
+    [the attack columns that throw it]}``; a recipe on it naming no
+    weapon, whose own columns leave one of those, takes no projectile row
+    (the build's refusal)."""
+    from azurkit.tools.characters import editor
+
+    _, config, bodies, species, _ = _species(given, "kit_throw")
+    kind, columns = editor.kit_throw(config, bodies, species)
+    return {"throw": kind, "columns": list(columns)}
+
+
+def move_sources(given: Mapping) -> dict:
+    """The clips the Moves tab offers a base species' body (``{"iso",
+    "species"}``; D768, D785): ``{"columns"}`` (the attack columns a recipe
+    may name, the roll's left out), ``"own"`` (its body's clips),
+    ``"lenders"`` ({body: its clips}: garret4 and each humanoid body whose
+    clips the bake can put on it) and ``"variants"`` ({built-in: [the body
+    they're read on, its Blender clips]})."""
+    from azurkit.tools.characters import editor, picker
+
+    _, config, bodies, _, body = _species(given, "move_sources")
+    worn = {species: b for species, b, _ in picker.species_list()}
+    return editor.move_sources(config, bodies, body, worn).to_json()
 
 
 _SPOILERS: dict[str, tuple[generator.Prepared, dict]] = {}   # the last build's spoiler left out, by its plan's sha256

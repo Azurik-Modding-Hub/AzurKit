@@ -514,11 +514,13 @@ def _plan(recipe: Mapping, vanilla, before: Sequence[Layer], packs: Mapping[str,
     return found
 
 
-def worn_by(vanilla, layers: Sequence[Layer]) -> dict[str, bytes]:
-    """config.xbr and characters.xbr as ``layers`` (a build's to its
-    character's, :func:`plan`'s, last) leave them on ``vanilla`` (what
-    ``picker.dressed`` draws from)."""
-    names = {CONFIG: "config.xbr", FILES[0]: "characters.xbr"}
+def worn_by(vanilla, layers: Sequence[Layer], names: Mapping[str, str] | None = None) -> dict[str, bytes]:
+    """config.xbr and characters.xbr (or the files ``names`` gives, by
+    their short names) as ``layers`` (a build's to its character's,
+    :func:`plan`'s, last) leave them on ``vanilla`` (what
+    ``picker.dressed`` draws from; the editor's Check reads default.xbe and
+    fx.xbr too)."""
+    names = names or {CONFIG: "config.xbr", FILES[0]: "characters.xbr"}
     layers, reached = _reaching(layers, set(names))
     files = compose({f: vanilla.read(f) for f in reached}, layers)[0]
     return {short: bytes(files[full]) for full, short in names.items()}

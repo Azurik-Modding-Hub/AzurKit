@@ -402,19 +402,28 @@ def weapon_preview(characters_xbr: bytes, name: str, size: int = PREVIEW) -> dic
     return _pictures(parts, size)
 
 
-def dressed(staging, species: str, variant_file: str | None = None) -> dict[str, bytes]:
-    """:func:`preview` of the body the player wears in a dress's
-    ``staging`` (its config.xbr's ``critters_engine`` row for garret4
-    names it), from that staging's characters.xbr, in the idle its recipe
-    names (booblord's ``hip_idle``), else its body's."""
-    from azurkit.tools.characters import _player_variants as variants
+def worn_body(config_xbr: bytes) -> str:
+    """The body the player wears in a dress's config.xbr (its
+    ``critters_engine`` row for garret4 names it); ``ValueError`` when it names none."""
     from azurkit.tools.characters._player_character import PLAYER
     from azurkit.tools.characters.ports import XbrDocument
 
-    config = bytes(staging["config.xbr"])
-    cell = XbrDocument.from_bytes(config).keyed_section("critters_engine").find_cell(PLAYER, "body")
+    cell = XbrDocument.from_bytes(bytes(config_xbr)).keyed_section("critters_engine").find_cell(PLAYER, "body")
     body = cell.string_value if cell is not None and cell.type_code == 2 else None
     if not body:
-        raise ValueError(f"{species}: the dress names no body for the player")
+        raise ValueError("the dress names no body for the player")
+    return body
+
+
+def dressed(staging, species: str, variant_file: str | None = None) -> dict[str, bytes]:
+    """:func:`preview` of the body the player wears in a dress's
+    ``staging`` (:func:`worn_body`), from that staging's characters.xbr, in
+    the idle its recipe names (booblord's ``hip_idle``), else its body's."""
+    from azurkit.tools.characters import _player_variants as variants
+
+    try:
+        body = worn_body(staging["config.xbr"])
+    except ValueError as exc:
+        raise ValueError(f"{species}: {exc}") from None
     worn = variants.resolve(species, variant_file)
     return preview(bytes(staging["characters.xbr"]), body, clip=worn.idle_clips().get("idle") if worn else None)
