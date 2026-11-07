@@ -22,6 +22,13 @@ dependencies = [
     "numpy>=2.5.4",   # the randomizer's maps and icons (tools/randomizer/art), the characters' models
 ]
 
+# PyPI's page for a release never changes after its upload (tests/test_wheel.py holds the wheel's links to these).
+[project.urls]
+Homepage = "https://azurik-modding-hub.github.io/AzurKit/"
+Source = "https://github.com/Azurik-Modding-Hub/AzurKit"
+Issues = "https://github.com/Azurik-Modding-Hub/AzurKit/issues"
+Changelog = "https://github.com/Azurik-Modding-Hub/AzurKit/blob/main/docs/DEVLOG.md"
+
 [project.scripts]
 azurkit = "azurkit.cli:main"
 
