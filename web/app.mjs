@@ -131,9 +131,9 @@ function ahead() {
 // anew, so what no longer matches stops at once (B's job by terminate()) and B starts on the rest once the page holds
 // still. A reshaped character isn't built ahead: minutes, and a heap past KEEP terminated by the next slider's change
 // would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap. A change of the Characters
-// tab's own (a number, an option, Reset: rest) is built ahead once the tab has rested, for the same reason: a slider's
-// session (moves, a pause, a drag, Reset) dropped one build ahead a move, 7.2-7.4 GiB in WebKit (Step 4.4ci48). A
-// body's build asks with
+// tab's own (a number, an option, Reset: rest) that follows another of them is built ahead once the tab has rested,
+// for the same reason: a slider's session (moves, a pause, a drag, Reset) dropped one build ahead a move, 7.2-7.4 GiB
+// in WebKit (Step 4.4ci48); one alone is built ahead as any change. A body's build asks with
 // the tab's choice before the engine's answer to it, and each build is keyed on the character it sends: the answer
 // drops what the body locks or doesn't take (a variant's size, say), so a click takes B's build only when the two match.
 const reshaped = (character) => Boolean(character?.shapes && Object.keys(character.shapes).length);

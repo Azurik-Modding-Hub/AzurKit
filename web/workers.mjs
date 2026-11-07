@@ -102,6 +102,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
   cores ??= globalThis.navigator?.hardwareConcurrency ?? 1;
   let f = null, b = null, dead = null, noB = cores < CORES, closed = false, held = 0, list = [], changed = 0;
   let timer = null, clock = 0, base = 0, resting = 0;   // base: the last B's heap when it loaded; resting: want()'s rest
+  let restAt = -Infinity;                // the last change with a rest, unless a click or a pick came after it
   let lost = null;                       // the message of the last B load that failed (state()'s)
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
@@ -370,6 +371,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       };
       if (dead) return resolve(dead);
       if (key !== null) {
+        restAt = -Infinity;   // a click (Build, Track): the next change with a rest is one alone
         const done = kept.get(key);
         if (done) {
           kept.delete(key);
@@ -396,8 +398,10 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     // The work ahead, most wanted first: [{key, message, heavy, transfer, ends, kept}]; kept(its last message) hears a
     // job's end. A job whose key leaves the list is dropped (B's running one by terminate(), a kept one freed); one still
     // listed goes on or stays kept. begin: a pick, not a stream of changes: B needn't wait for the page to hold still.
-    // rest: ms the list holds still before B starts a heavy job of it (a slider's change: its next move would drop the
-    // job, and WebKit keeps a terminated worker's heap resident beside the next B's: Step 4.4ci48).
+    // rest: a slider's change, whose next move would drop the job (WebKit keeps a terminated worker's heap resident
+    // beside the next B's: Step 4.4ci48): one that follows another change with a rest within that many ms, no click
+    // or pick between, makes B wait as long before a heavy job of the list; one alone waits the settle, as any change,
+    // so a Build at its head start (D1014) finds its build under way.
     want: (items, { begin = false, rest = 0 } = {}) => {
       const keys = new Set(items.map((i) => i.key));
       // B's job the list no longer holds is dropped, but a heavy one goes on, unkept, while the list holds no heavy job
@@ -408,7 +412,10 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       }
       for (const key of [...kept.keys()]) if (!keys.has(key)) unkeep(key);
       for (const key of [...taken]) if (!keys.has(key) && !asked(key)) taken.delete(key);
-      if (items[0]?.key !== list[0]?.key) [changed, resting] = begin ? [-settle, 0] : [now(), rest];   // an item added after it: no new wait
+      if (items[0]?.key !== list[0]?.key) {   // an item added after it: no new wait
+        const t = now(), run = rest > 0 && t - restAt < rest;
+        [changed, resting, restAt] = begin ? [-settle, 0, -Infinity] : [t, run ? rest : 0, rest > 0 ? t : restAt];
+      }
       list = [...items];
       pump();
     },

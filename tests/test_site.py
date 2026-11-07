@@ -4705,20 +4705,30 @@ WORKERS_ROWS = """
         stubs[2].say({ type: "ready", n: 3 });
         out.heavy = [busy, f.tags(), beside, f.stopped, stubs[2].tags(), pool.state().dropped];
     }
-    {   // a list made by a change with a rest (the Characters tab's own): B starts its heavy job only once the list has
-        // held still that long, so the next move of a slider drops none; a small job starts at once, and so does a pick
-        const { pool, b } = make(), t0 = performance.now();
+    {   // a change with a rest (the Characters tab's own) alone: B starts its heavy job as any change's (Build's head
+        // start); one that follows another within the rest, no click between: only once the list has held still that
+        // long, so the next move of a slider drops none; after a click one is alone again; a small job and a pick's
+        // start at once
+        const { pool, b } = make();
         pool.want([{ key: "build r1", message: build("r1"), heavy: true }], { rest: 200 });
+        const alone = [...b.tags()];
+        b.say({ type: "built", report: {}, heap: 2 ** 26 });
+        const t0 = performance.now();
         pool.want([{ key: "build r2", message: build("r2"), heavy: true }], { rest: 200 });
-        const moving = [...b.tags()];
-        while (!b.tags().length) await new Promise((r) => setTimeout(r, 10));
-        const rested = [[...b.tags()], performance.now() - t0 >= 200];
+        pool.want([{ key: "build r3", message: build("r3"), heavy: true }], { rest: 200 });
+        const moving = b.tags().slice(1);
+        while (b.tags().length < 2) await new Promise((r) => setTimeout(r, 10));
+        const rested = [b.tags().slice(1), performance.now() - t0 >= 200];
+        b.say({ type: "built", report: { size: 3 }, heap: 2 ** 26 });
+        const got = await pool.ask(build("r3"), { key: "build r3", heavy: true });
+        pool.want([{ key: "build r4", message: build("r4"), heavy: true }], { rest: 200 });
+        const clicked = [got.report, b.tags().slice(2)];
         b.say({ type: "built", report: {}, heap: 2 ** 26 });
         pool.want([{ key: "plan r", message: plan("r") }], { rest: 200 });
-        const small = b.tags().slice(1);
+        const small = b.tags().slice(3);
         b.say({ type: "reply", reply: { plan: "r" } });
         pool.want([{ key: "build p", message: build("p"), heavy: true }], { begin: true });
-        out.rest = [moving, rested, small, b.tags().slice(2), b.stopped, pool.state().dropped];
+        out.rest = [alone, moving, rested, clicked, small, b.tags().slice(4), b.stopped, pool.state().dropped];
     }
     {   // while F builds, a small ask that may go anywhere is B's; one that may not waits for F
         const { pool, f, b } = make();
@@ -4833,8 +4843,10 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
     only when idle under KEEP; B is retired after a job past the line, its
     answer kept; F's build drops B's heavy job and B
     starts nothing beside it; a small ask that may go anywhere is B's while
-    F builds; a heavy job of a list with a rest waits until the list has
-    held still that long (none dropped), a small one and a pick's don't;
+    F builds; a heavy job of a list with a rest that follows another
+    within it, no click between, waits until the list has held still that
+    long (none dropped), one alone or after a click, a small one and a
+    pick's don't;
     past the 5 GiB tally B neither works nor stays, and kept bytes are freed; Cancel answers at once and demotes a listed build to
     work ahead, which Build again follows; a once ask waits, unsent, for
     the F after a seed's build past KEEP, and a stopped worker's running
@@ -4858,7 +4870,8 @@ def test_the_sites_second_worker_works_ahead_drops_on_a_change_and_hands_a_click
         "free": [{"size": 8}],
         "csp": [{"view": 9}, ["csp"]],
         "heavy": [["build x"], ["build y"], [True, 2], False, ["build x"], 1],
-        "rest": [[], [["build r2"], True], ["plan r"], ["build p"], False, 0],
+        "rest": [["build r1"], [], [["build r3"], True], [{"size": 3}, ["build r4"]], ["plan r"], ["build p"], False,
+                 0],
         "spare": [["build"], ["randomizer"], {"share": "s"}, False],
         "tally": [[True, 2], [["plan t", "build t"], ["plan t", "build t"], 2 ** 29 + 2 ** 29 + 2 ** 20 + 2 ** 20],
                   True, ["plan t"]],

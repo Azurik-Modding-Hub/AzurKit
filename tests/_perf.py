@@ -208,6 +208,7 @@ OPS = {op.id: op for op in (
     Op("S67", "a slider's drag (30 input events) -> the engine's answer to its last value", "characters", first=False),
     Op("S14", "Build keylord, first", "build", bar=True, head_start=True),   # D1067: its dress, made and kept
     Op("S64", "Build keylord again at a later visit (its dress kept)", "build", first=False, head_start=True),
+    Op("S72", "Build keylord after a number's change (its dress kept)", "build", first=False, head_start=True),
     Op("S15", "Build booblord", "build", content=True, head_start=True),   # her shipped dress (the content repo's entry)
     Op("S16", "Randomizer tab, first ask", "randomizer"),
     Op("S17", "seed typed, its ask", "randomizer"),
@@ -1502,6 +1503,30 @@ def site_booblord(d: Driver, ctx, url: str) -> None:
     d.leave(p)
 
 
+SIZE = ("(v) => { const b = document.getElementById('char-scale'); b.value = String(v); "
+        "b.dispatchEvent(new Event('change')); }")
+
+
+def site_slider_build(d: Driver, ctx, url: str) -> None:
+    """Build keylord after one number's change, its size (a change of the Characters tab's own, alone), with its dress
+    kept by a build before (S72): its build ahead starts as any change's, not after the tab's rest that a change
+    following another waits (Step 4.4ci48: that rest on each such change took its head start)."""
+    p = _site_page(d, ctx, url, None)
+    _pick(d, p, None)
+    d.act(p, None, click("tab-characters"), SPECIES, 1800)
+    d.act(p, None, model("keylord"), chosen("keylord"), 1800, change=True)
+    d.idle(p, "the head start before its first build", HEAD_START)
+    d.act(p, None, build_js(), BUILT, 1800)
+    d.idle(p, "the build's dress kept", done=DRESS_KEPT)
+    size = 1.0
+    while d.need("S72"):
+        d.idle(p, "the last build's rest", done=RESTED)
+        size = round(size + 0.1, 1)
+        d.act(p, None, SIZE, MOVED, 900, arg=size, change=True)
+        d.act(p, "S72", build_js(), BUILT, 1800)
+    d.leave(p)
+
+
 def _site_reshape(d: Driver, ctx, url: str, op: str, after: bool, again: str | None = None) -> None:
     """D999 on the site (D1021, D1054): booblord with one slider moved, built first with a bar (``op``), on a fresh
     page or ``after`` her own build in it (a heap a heavy job grew); then, untimed, the page drawing the reshape's
@@ -2008,6 +2033,7 @@ SCENARIOS = {   # name: (host, its ops, the driver)
     "site-characters": ("site", ("S07", "S09", "S12", "S13", "S66", "S67"), site_characters),
     "site-reshape-pictures": ("site", ("S51", "S52", "S53"), site_reshape_pictures),
     "site-booblord": ("site", ("S15",), site_booblord),
+    "site-slider-build": ("site", ("S72",), site_slider_build),
     "site-reshape": ("site", ("S62", "S65"), site_reshape),
     "site-reshape-after": ("site", ("S63",), site_reshape_after),
     "site-track": ("site", ("S18", "S19", "S20", "S21", "S22", "S23", "S25", "S30", "S31", "S70", "S71"), site_track),

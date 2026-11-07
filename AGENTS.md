@@ -1408,8 +1408,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   installed and the engine's version; a change drops B's job by `terminate()` (a
   heavy one goes on, unkept, while the list holds no heavy job, a reshape's, so
   its heap is the next heavy job's, not resident beside it; and a change of
-  the Characters tab's own, a number, an option or Reset, lists its build with
-  a rest, `REST` (7 s), before B starts it, where a pick starts at once: a
+  the Characters tab's own, a number, an option or Reset, that follows
+  another within `REST` (7 s), no Build or Track between, lists its build
+  with that rest before B starts it, where one alone and a pick start as any
+  change, so a Build at its head start finds its build under way (`S72`): a
   slider's session of moves, a pause, a drag and Reset dropped a build ahead
   at each move, its heap resident beside the next B's, 7.2-7.4 GiB in WebKit,
   Step 4.4ci48), a
