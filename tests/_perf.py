@@ -1066,7 +1066,8 @@ def app_start(d: Driver, app: App, ctx) -> None:
 
 def _reset(d: Driver, p: Page, op: str, drag: str) -> None:
     """Reset (D1062) with keylord chosen and every slider, option and the weapon moved, the engine's answer to them in
-    and a head start's worth of their work ahead under way; then a drag of its size's track, to the engine's answer to
+    and a head start after them (the app's work ahead under way; the site's waits for the tab's rest, longer, so none
+    runs there: Step 4.4ci48); then a drag of its size's track, to the engine's answer to
     its last value (``drag``: each value an ask); then the click to the tab at keylord's defaults, its pictures with
     them (``op``). Step 4.4u2: Reset waited for the engine's answer to it, behind each ask queued before it."""
     if not p.js(chosen("keylord")):

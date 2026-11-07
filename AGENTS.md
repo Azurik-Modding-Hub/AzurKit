@@ -1414,7 +1414,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   change, so a Build at its head start finds its build under way (`S72`): a
   slider's session of moves, a pause, a drag and Reset dropped a build ahead
   at each move, its heap resident beside the next B's, 7.2-7.4 GiB in WebKit,
-  Step 4.4ci48), a
+  Step 4.4ci48; a known flaw: a pause past `REST` still starts a build the
+  next move drops), a
   click matching its finished job takes its answer and one it is still working on
   follows its records. One heavy job at a time, none of B's beside F's build. One
   heap (w-reshape): a worker a job grew stays for the next heavy job (wasm memory
