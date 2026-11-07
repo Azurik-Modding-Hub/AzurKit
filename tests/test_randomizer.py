@@ -456,7 +456,8 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
     """Engine's: each change's plan left a thread no stop reached; a stale one could run last and evict the newest's.
     The fresh plan lands while the stale one's openers hold their first compile, on a Logic's memos of the test's own: a
     test before it in the process may have kept that plan's openers (the tracker server's spoiler plans it too), and
-    then they end at once, before a look at the threads could find them (Step 4.4ci57's gate)."""
+    then they end at once, before a look at the threads could find them (1.0.1's gate). Let go, the stale ones' work
+    never returns: their next note ends them, so a stale thread the engine doesn't end fails, however the two race."""
     from azurkit.app import engine
     from azurkit.tools.randomizer.planner import solver
 
@@ -469,6 +470,7 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
     monkeypatch.setattr(engine.sdk, "plan", lambda *_, **__: next(answered))
     monkeypatch.setattr(engine, "_NEWEST", [None])
     compiling, planned, init = threading.Event(), threading.Event(), solver._Rules.__init__
+    ended, work = [], difficulty._worked_out
 
     def compiled(self, *args, **kwargs) -> None:
         init(self, *args, **kwargs)
@@ -476,21 +478,30 @@ def test_a_plan_with_another_answer_ends_the_openers_ahead_of_the_last_and_keeps
             compiling.set()
             planned.wait(60)   # the stale plan's openers at work until the fresh plan is made
 
+    def worked_out(*args) -> list[dict]:
+        got = work(*args)
+        ended.append(threading.current_thread())
+        return got
+
     monkeypatch.setattr(solver._Rules, "__init__", compiled)
+    monkeypatch.setattr(difficulty, "_worked_out", worked_out)
 
     def running() -> list[threading.Thread]:
         return [t for t in threading.enumerate() if t.name == "azurkit-openers"]
 
-    stale = engine._plan({})
-    assert compiling.wait(60)
-    first = running()
-    fresh = engine._plan({})
-    planned.set()
+    try:
+        stale = engine._plan({})
+        assert compiling.wait(60)
+        first = running()
+        fresh = engine._plan({})
+    finally:
+        planned.set()
     assert stale is plans[0] and fresh is plans[1] and len(first) == 1
     first[0].join(120)
     assert not first[0].is_alive()
     for thread in running():
         thread.join(120)
+    assert first[0] not in ended and len(ended) == 1   # the stale ones' next note ended them; the fresh ones answered
     held = logic._opener_sets
     assert dict(held[0][2]) == off and held[3][0][1] == tuple(sorted(load_plan(fresh, logic.db).placement.items()))
 
