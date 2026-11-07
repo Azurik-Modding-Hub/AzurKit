@@ -4255,7 +4255,10 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
     Open a plan… (P31, Modkit's ``randomize-full --plan``) shows a plan
     file's seed and settings, locked but the obsidian cost and Close plan,
     and the page's recipe (Build's, Copy link's) is the plan whole; an edited
-    one is refused, naming the file; Close plan unlocks the tab again."""
+    one is refused, naming the file; Close plan unlocks the tab again.
+    Step 4.18b: the Save-point warp box starts unticked and mirrors the
+    qol_save_warp pack, its tick the pack's and the settings' save_warp,
+    the pack's untick its own (D1154, D1155)."""
     on = {name: {} for name, pack in mods.PACKS.items() if pack.default_on}
     other = sdk.randomizer_settings({"settings": sdk.catalog()["randomizer"]["defaults"],
                                      "packs": on | {"player_physics": {"jump_speed_scale": 1.3}}})["share"]
@@ -4280,6 +4283,18 @@ def test_the_randomizer_tab_reads_as_set_warns_of_a_shares_sliders_and_loads_a_l
         _page.click(page, "tab-randomizer")
         assert _page.until(page, SETTLED, 120)["share"] == other and f"⚠ {note}" not in page.evaluate(WARNED)
         _page.tick(page, list(on))
+        warp = """() => [document.getElementById("rando-warp").checked,
+                         document.querySelector("#packs input[data-pack=qol_save_warp]").checked]"""
+        assert page.evaluate(warp) == [False, False]   # off by default, Randomize or not (D1155)
+        _page.click(page, "rando-warp")
+        view = _page.until(page, SETTLED, 120)
+        assert page.evaluate(warp) == [True, True] and view["settings"]["save_warp"] is True
+        assert view["share"] == sdk.randomizer_settings({"settings": view["settings"], "packs": mods.normalize(
+            on | {"qol_save_warp": {}})})["share"] != "AZR-AAEA"
+        _page.click(page, "tab-patches")
+        _page.tick(page, list(on))
+        _page.click(page, "tab-randomizer")
+        assert "save_warp" not in _page.until(page, SETTLED, 120)["settings"] and page.evaluate(warp) == [False, False]
 
         assert page.evaluate("() => [...document.querySelectorAll('#rando-items .count')].map((c) => c.textContent)") == [
             f"{row[3]:,}" for row in sdk.catalog()["randomizer"]["items"]]

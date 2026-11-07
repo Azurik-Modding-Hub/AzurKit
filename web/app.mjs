@@ -827,7 +827,10 @@ function renderTabs(tabs) {
 
 function pick(id) {
   state.tab = id;
-  if (id === "randomizer" && state.packs) askRando(null, 0);   // the Patches tab's packs may have changed (at once)
+  if (id === "randomizer" && state.packs) {   // the Patches tab's packs may have changed (at once)
+    syncWarp();
+    askRando(null, 0);
+  }
   if (id === "characters" && state.characters) state.characters.open();
   if (id === "data" && state.data) state.data.open();   // the Patches tab's ticks may have changed: its ⚠ marks
   if (id === "tools" && state.tools) state.tools.open();
@@ -1461,6 +1464,24 @@ function pickInApp(host) {
 // turn on, what a build would leave unverified (the ⚠ line) and the preflight's refusal. The page holds the settings
 // as a settings file's table in format /2 (each unticked row's category, as it is) and decides no plan.
 const randoOptions = () => state.packs.randomizer;
+const WARP = "qol_save_warp";   // the save-point warp's pack: the tab's Save-point warp box mirrors its tick (D1154)
+const warpPack = () => $("packs").querySelector(`input[data-pack="${WARP}"]`);
+
+// The tab's Save-point warp box as the pack's tick (the logic counts the warp while it is ticked); a loaded setting
+// that counts the warp ticks the pack, marked ● where `from` changed it.
+function syncWarp(settings = null, from = null) {
+  const box = warpPack();
+  if (box && settings?.save_warp && !box.checked) {
+    box.checked = true;
+    linked(box);
+    tally();
+    lock();
+    const mark = box.closest(".pack").querySelector(".name .mark");
+    mark.textContent = from ? "●" : "";
+    mark.title = from ? `Changed by ${from}` : "";
+  }
+  R("warp").checked = Boolean(box?.checked);
+}
 const draw = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000);   // a seed, 0-999999 (Modkit's)
 
 function choices(select, values, tip) {
@@ -1512,6 +1533,7 @@ function randoSettings() {
   const ceiling = Number(R("ceiling").value), level = Number(R("difficulty").value);
   return { format: defaults.format, skip_ceiling: ceiling, movement_tier: R("movement").value,
            dark_fire: defaults.dark_fire, ...(level ? { seed_difficulty: level } : {}),
+           ...(warpPack()?.checked ? { save_warp: true } : {}),
            exclude_categories: categories.filter((c) => kept.has(c)),
            skip_override: Object.fromEntries(Object.entries(state.rando.overrides).sort()) };
 }
@@ -1614,6 +1636,7 @@ function setRando({ on, seed, settings, obsidian_cost: cost, plan = null }, from
   state.rando.recheck = false;
   state.rando.moved = null;
   R("cost").value = String(cost ?? randoOptions().obsidian_cost);
+  syncWarp(settings, from);
   const mark = $("randomizer").querySelector(".on .mark");
   mark.textContent = from && JSON.stringify(randoSetup()) !== before ? "●" : "";
   mark.title = mark.textContent ? `Changed by ${from}` : "";
@@ -1779,7 +1802,7 @@ function lockRando() {
   R("on").disabled = state.building || !state.packs;
   for (const field of $("randomizer").querySelectorAll(".rando-top :is(input, select, button), #rando-share, "
     + "#rando-copy, #rando-filter, #rando-clear, #rando-items input[data-category], #rando-skips input, "
-    + "#rando-groups input, #rando-load, #rando-save, #rando-plan, #rando-plan-close")) {
+    + "#rando-groups input, #rando-load, #rando-save, #rando-warp, #rando-plan, #rando-plan-close")) {
     if (field !== R("on")) field.disabled = off || (Boolean(state.rando.plan) && !open.has(field.id.slice(6)));
   }
 }
@@ -1995,6 +2018,15 @@ function randoEvents(changed) {
     });
   }
   R("difficulty").addEventListener("change", edited);
+  R("warp").addEventListener("change", () => {   // ticks or unticks the pack itself, as its own box does
+    const box = warpPack();
+    if (box) {
+      box.checked = R("warp").checked;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    R("warp").checked = Boolean(box?.checked);
+    edited();
+  });
   R("items").addEventListener("change", () => {
     reread();
     gate();   // the answer for the items as they were is stale
@@ -2178,6 +2210,7 @@ async function main() {
     changed();
     tally();
     lock();
+    syncWarp();
   });
   $("packs").addEventListener("input", changed);
   addEventListener("pagehide", remember);
