@@ -98,6 +98,7 @@ import hashlib
 import json
 import random
 import time
+import weakref
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Protocol
@@ -228,15 +229,24 @@ def _strip(x):
     return x
 
 
+_DB_DIGEST: list = [None]   # the last database's digest: (a weak ref to it, the digest)
+
+
 def db_digest(db) -> str:
     """Plan §3.5: the sha256 of the canonical database: what the solver and
     the fill read (the generated and level files, items, world and each
     location's node), without ``_meta``, notes, descriptions, hints or the
-    display name of anything that has an id. TOML comments never load."""
+    display name of anything that has an id. TOML comments never load.
+    Worked out once a database (read-only, as ``kept_logic`` serves it):
+    each plan and each plan's first tracker view asks it."""
     from azurkit.tools.randomizer.planner.loader import VERSION
-    return hashlib.sha256(canonical(_strip({
+    if (kept := _DB_DIGEST[0]) is not None and kept[0]() is db:
+        return kept[1]
+    digest = hashlib.sha256(canonical(_strip({
         "format": VERSION, "generated": db.generated, "levels": db.levels, "items": db.items,
         "world": db.world, "node_of": db.node_of}))).hexdigest()
+    _DB_DIGEST[0] = (weakref.ref(db), digest)
+    return digest
 
 
 def stream(seed: str, name: str, settings_hex: str) -> Rng:
@@ -518,6 +528,14 @@ class _Slots:
         def safe(item: str, got: frozenset[str]) -> list[str]:
             return [loc for loc in nongem if loc not in placed and loc in got and self.ok(loc, item, budget)]
 
+        def still(item: str, got: frozenset[str], spots: list[str], spot: str) -> list[str]:
+            """``safe(item, got)`` once ``spot`` of ``spots`` (its last answer) took ``item``: the put changed that
+            spot and its graph's budget alone, so a spot of another graph keeps its verdict and only that graph's are
+            asked again (a counted item's copies, hundreds of thousands of asks a plan)."""
+            g, was = graph_of(spot), set(spots)
+            return [loc for loc in nongem if loc not in placed and loc in got
+                    and (self.ok(loc, item, budget) if graph_of(loc) == g else loc in was)]
+
         def own(item: str, r: Reach) -> list[str]:
             """The spots ``item`` opens by lying there: at a node reached but not safe without it, collected once it
             lies there (its escape picks it up: vanilla's water in w2's hose pool)."""
@@ -585,12 +603,13 @@ class _Slots:
                         low = self.floor(k - 1, lg.items[item], reads) if item in read else 0
                         assumed[item] = low
                         got = reach().locations
+                        spots = safe(item, got)
                         for _ in range(k - low):
-                            spots = safe(item, got)
                             if not spots:
                                 raise _Stuck(f"no safe spot for {item} ({k} left)")
-                            put(rng.choice(spots), item)
+                            put(spot := rng.choice(spots), item)
                             k -= 1
+                            spots = still(item, got, spots, spot)
                 trace: list = []
                 told(len(placed) - start, True)
                 r = reaches(placed, trace=trace)
@@ -828,11 +847,24 @@ def verify(logic: Logic, settings: Settings, placement: Mapping[str, str],
     return _problems(logic, logic.reach(settings, placement), known_traps(logic, settings) if known is None else known)
 
 
+_FULL: list = [None]   # the last Logic's locations a full reach collects, sorted: (a weak ref to it, to its database, them)
+
+
+def _full(logic: Logic) -> tuple[str, ...]:
+    """The authored pool locations a full reach collects (all but the forfeitable), sorted, once a Logic and database:
+    a fill verifies a hundred placements."""
+    kept = _FULL[0]
+    if kept is None or kept[0]() is not logic or kept[1]() is not logic.db:
+        stubs = logic.db.stubs
+        kept = _FULL[0] = (weakref.ref(logic), weakref.ref(logic.db), tuple(
+            loc for loc, lvl in sorted(logic.pool.items()) if lvl not in stubs and loc not in logic.forfeitable))
+    return kept[2]
+
+
 def _problems(logic: Logic, r: Reach, known: frozenset[str]) -> list[str]:
     """:func:`verify`'s problems with a placement's reach ``r``."""
     out = [] if r.victory else [f"victory ({logic.db.world['victory']}) does not hold"]
-    missed = [loc for loc, lvl in sorted(logic.pool.items())
-              if lvl not in logic.db.stubs and loc not in r.locations and loc not in logic.forfeitable]
+    missed = [loc for loc in _full(logic) if loc not in r.locations]
     if missed:
         out.append(f"{len(missed)} locations are never collected ({', '.join(missed[:8])}"
                    f"{', ...' if len(missed) > 8 else ''})")
