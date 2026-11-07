@@ -375,14 +375,14 @@ def test_a_sites_file_server_sends_an_answer_whole_while_the_system_is_short_of_
         sender = _static.Sender(short)
         sent = sender.write(data)
         reader.join(10)
-        lowat = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDLOWAT)
+        darwin = sys.platform == "darwin"     # Windows refuses SO_SNDLOWAT (WSAEINVAL); only macOS's mark is pinned
+        lowat = sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDLOWAT) if darwin else None
     finally:
         for each in (sock, peer, listener):
             each.close()
         reader.join()
     assert (sent, len(got), bytes(got) == data) == (len(data), len(data), True)
-    assert sys.platform != "darwin" or sender.chunk == lowat == max(pieces) == _static.Sender.CHUNK, (sender.chunk,
-                                                                                                     lowat, pieces)
+    assert not darwin or sender.chunk == lowat == max(pieces) == _static.Sender.CHUNK, (sender.chunk, lowat, pieces)
 
 
 def _built(page) -> dict:
