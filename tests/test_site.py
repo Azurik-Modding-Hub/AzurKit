@@ -4093,12 +4093,14 @@ def test_seed_difficulty_greys_what_the_settings_cant_ask_moves_down_with_them_a
         served.close()
 
 
-# Each message the page posts to a worker, by its type (an init script: before the page's own)
+# Each message the page posts to a worker for an ask of its own, by its type (an init script: before the page's
+# own); not its work ahead's (B's jobs, call 0: app.mjs's planning() and viewing(), D1007), which plan the
+# Settings view's seed while Randomize is on or the Tracker view is open, ahead of Track this seed's click
 ASKED = """(() => {
     const post = Worker.prototype.postMessage;
     globalThis.asked = [];
     Worker.prototype.postMessage = function (message, ...rest) {
-        globalThis.asked.push(message?.type);
+        if (message?.call !== 0) globalThis.asked.push(message?.type);
         return post.call(this, message, ...rest);
     };
 })();"""
@@ -4124,7 +4126,10 @@ def test_the_site_shows_the_trackers_shipped_maps_and_with_no_plan_each_levels_v
     its vanilla item's icon, a spot's tip naming that item and a click on
     it marking nothing. A plan opened then shows the level browsed with
     the plan's spots, and each floor from the same files. No CSP
-    violation, no request but GETs of the site's files."""
+    violation, no request but GETs of the site's files. The view's own
+    asks are counted (``ASKED``): the work ahead's plan of the Settings
+    view's seed, for Track this seed, may come before the world map's
+    picture does (Step 4.4ci54: a Windows runner's Firefox)."""
     shipped = site / "art" / tracking.ART_VERSION
     levels = json.loads((shipped / "maps.json").read_text(encoding="utf-8"))["levels"]
     bare = sdk.tracker({})
