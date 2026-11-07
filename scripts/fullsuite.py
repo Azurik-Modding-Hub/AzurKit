@@ -34,7 +34,9 @@ Once a changed-area run's pytest passes, its flake stage (Step 4.4dx2,
 (:func:`edited_tests`: a changed ``def test*``, not a helper)
 :data:`FLAKE_RUNS` times slowed toward CI's runners' pace (:func:`slowed`), inside the
 same lock and within :data:`FLAKE_CAP`, copying the wheel and database the
-run built (its build cache, ``<meta>.cache``); a failure fails the receipt
+run built (its build cache, ``<meta>.cache``): a test that takes no browser,
+pyodide or frozen_app fixture all its runs in the first run's session
+(Step 4.4dx12, ``scripts/flake_repeat.py``), the others a session a run; a failure fails the receipt
 with the test, the run and its output's tail, as does a case with no
 passing run by the cap, and the receipt's ``flake`` block keeps the tests,
 runs, each run's wall time and slowing. A whole run has none.
@@ -119,6 +121,11 @@ PYTEST = ("uv", "run", "--locked", "pytest")   # the worktree's own pytest (uv f
 #: The flake stage (Step 4.4dx2): most lost CI rounds were tests a stack had just added or edited that failed only on
 #: CI's slow runners, so a changed-area run runs each such test again and again at their pace.
 FLAKE_RUNS = 5      # one that fails a run in three passes all five 13 % of the time ((2/3)^5); a run is a pytest start
+#: The plugin that runs a test FLAKE_RUNS times in one session (``--flake-runs``), from the worktree (Step 4.4dx12):
+#: each case ``<id>[<its parameters>-flake-run-K]`` (:data:`REPEATED`), for a test that takes no fixture a session
+#: starts once (``flake_repeat.OWN_SESSIONS``); the others keep a pytest start a run.
+REPEAT = ("-o", "pythonpath=.", "-p", "scripts.flake_repeat")
+REPEATED = re.compile(r"(\[|-)flake-run-(\d+)\]$")
 FLAKE_WORKERS = 3   # tests.yml runs the pure tier, the page's tests in it, on 3 workers on CI's Intel runners
 FLAKE_LOOPS = 4     # busy loops at nice 10 beside taskpolicy -b: the pure tier so took 39 min here, CI's 36 (4.4ci27)
 FLAKE_UTILITY_LOOPS = 12  # busy loops in its class beside the utility clamp: about CI's Intel pace at load 60 (4.4dx4)
@@ -133,8 +140,10 @@ FAILED = re.compile(r"^(?:FAILED|ERROR) (\S+)", re.M)
 OUTCOME = re.compile(r"^\[gw\d+\] \[ *\d+%\] (PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS) (\S+::.*?) *$"
                      r"|^(\S+::.*?) (PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b", re.M)
 #: The group a worker under ``--dist loadgroup`` adds to an xdist group's case id (``t.py::t[x]@frozen_app``,
-#: ``tests/conftest.py``), which its collection without workers doesn't: past the id's last ``]``, ``/`` or ``:``.
-GROUP = re.compile(r"@[^@\[\]/:]*$")
+#: ``tests/conftest.py``), which its collection without workers doesn't: past the id's last ``]``, ``/`` or ``:``,
+#: or, in ``-rfE``'s summary, which reads a parametrized one's group as its parameters' (``t.py::t[x]@frozen_app]``),
+#: past a ``]`` up to the last ``]``.
+GROUP = re.compile(r"@[^@\[\]/:]*$|(?<=\])@[^@\[\]/:]*\]$")
 #: A busy loop that ends itself once its runner is gone or at its deadline, so none outlives a killed run.
 LOOP = ("import os, time\nparent, end = os.getppid(), time.time() + {secs}\n"
         "while os.getppid() == parent and time.time() < end:\n    sum(range(100000))\n")
@@ -621,6 +630,8 @@ def describe(m: dict, meta: Path) -> str:
             "not run" if not f else f"{'passed' if f.get('passed') else 'failed'}, {f.get('done')} runs in "
                                     f"{f.get('wall_s')} s" + (f" (each {', '.join(map(str, f['walls']))} s)"
                                                               if f.get("walls") else "")
+                                    + (f" ({len(f['repeated'])} of them all {f.get('runs')} in the first run's "
+                                       "session)" if f.get("repeated") else "")
                                     + (f" ({f['note']})" if f.get("note") else "")))
         for failure in f.get("failures", [])[:12]:
             line += f"\n    {failure['test']} " + (f"capped: no passing run within {f.get('cap_s')} s"
@@ -740,12 +751,22 @@ def case_id(said: str) -> str:
     return GROUP.sub("", said)
 
 
-def flake_command(tests: list[str], prefix: list[str]) -> list[str]:
+def split(case: str) -> tuple[str, int | None]:
+    """A case's id without its repeat in one session (:data:`REPEAT`) and
+    the repeat's number, or ``None`` for a case run once a session."""
+    if found := REPEATED.search(case):
+        return case[:found.start()] + ("]" if found[1] == "-" else ""), int(found[2])
+    return case, None
+
+
+def flake_command(tests: list[str], prefix: list[str], runs: int = 1) -> list[str]:
     """A flake run's pytest command: the tests in every browser their
-    parameters name (no ``--browsers``), under ``prefix`` (:func:`slowed`),
-    on :data:`FLAKE_WORKERS`, each case's outcome on a line as it ends
-    (``-v``, :data:`OUTCOME`)."""
-    return [*prefix, *PYTEST, *tests, "-v", "-rfE", f"--numprocesses={FLAKE_WORKERS}", "--dist=loadgroup"]
+    parameters name (no ``--browsers``), each that takes no fixture a
+    session starts once ``runs`` times (:data:`REPEAT`), under ``prefix``
+    (:func:`slowed`), on :data:`FLAKE_WORKERS`, each case's outcome on a
+    line as it ends (``-v``, :data:`OUTCOME`)."""
+    return [*prefix, *PYTEST, *REPEAT, f"--flake-runs={runs}", *tests, "-v", "-rfE",
+            f"--numprocesses={FLAKE_WORKERS}", "--dist=loadgroup"]
 
 
 def descendants(pid: int) -> list[int]:
@@ -844,12 +865,15 @@ def flake_stage(meta: Path, m: dict) -> dict:
     (once past :data:`FLAKE_MANY` tests) by :func:`flake_command`, each
     under the slowing :func:`slowed` picks as it starts, beside that
     slowing's busy loops, each run's output appended to the log and its wall
-    time and slowing kept. Nothing built once is built
+    time and slowing kept. A test that takes no fixture a session starts
+    once (``scripts/flake_repeat.py``) has all its runs in the first one's
+    session, its K-th a case of its own (:func:`split`); the later runs
+    are the others' alone (the block's ``repeated`` names the first). Nothing built once is built
     slowed: the runs copy the wheel and database the gate's run built (its
     cache, ``<meta>.cache``: ``web_tools.kept``), and their cases are
     collected first at the gate's nice 10 (a collection past the cap is
     ended as a run is). It stops at the first failing run, naming each
-    test it failed with the output's tail. The stage's wall is
+    test it failed, with the run it failed in (a repeat's own) and the output's tail. The stage's wall is
     :data:`FLAKE_CAP`: no run starts that its longest run so far won't
     fit in, and a run still going at it is ended with every process under
     it (:func:`end`): each case it failed so far fails the block (one that
@@ -862,7 +886,8 @@ def flake_stage(meta: Path, m: dict) -> dict:
              "walls": [], "slowed": [], "workers": FLAKE_WORKERS, "cap_s": FLAKE_CAP}
     if block["runs"] < FLAKE_RUNS:
         block["note"] = f"{len(tests)} tests, past {FLAKE_MANY}: one slowed run each"
-    with subprocess.Popen([*niced(10), *PYTEST, "--collect-only", "-q", *tests], cwd=m["worktree"], text=True,
+    with subprocess.Popen([*niced(10), *PYTEST, *REPEAT, f"--flake-runs={block['runs']}", "--collect-only", "-q",
+                           *tests], cwd=m["worktree"], text=True,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, env=env,
                           start_new_session=True) as listing:   # a session of its own: end() reaches uv's python
         try:
@@ -871,14 +896,19 @@ def flake_stage(meta: Path, m: dict) -> dict:
         except subprocess.TimeoutExpired:
             end(listing)
             code, ids, said = f"past {FLAKE_CAP} s", "", "".join(listing.communicate())   # what it said so far
-    if code or not (cases := re.findall(r"^(\S+::.*?) *$", ids, re.M)):
+    if code or not (collected := [split(case) for case in re.findall(r"^(\S+::.*?) *$", ids, re.M)]):
         tail = [line[:240] for line in said.splitlines()[-FLAKE_TAIL:]]
         block["failures"] = [{"test": f"(their collection: exit {code})", "run": 0, "tail": tail}]
         return block | {"passed": False, "wall_s": round(time.time() - t0, 1)}
+    cases = list(dict.fromkeys(case for case, _ in collected))
+    once = sorted({case.partition("[")[0] for case, k in collected if k is None})   # a session a run
+    block["repeated"] = sorted({case.partition("[")[0] for case, k in collected if k is not None})
     block["cases"], passed, tail, ended = len(cases), set(), [], False
     loop, loops = LOOP.format(secs=FLAKE_CAP + 60), []
     try:
         for run in range(1, block["runs"] + 1):
+            if run > 1 and not once:   # every test had its runs in the first one's session
+                break
             if block["walls"] and time.time() + max(block["walls"]) > deadline:
                 block["note"] = f"{run - 1} of {block['runs']} runs within the stage's {FLAKE_CAP} s"
                 break
@@ -887,7 +917,8 @@ def flake_stage(meta: Path, m: dict) -> dict:
             block["slowed"].append({"slowing": slowing, "probes": probed})
             loops = [subprocess.Popen([*beside, sys.executable, "-c", loop], stdin=subprocess.DEVNULL,
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) for _ in range(count)]
-            t1, ended, command = time.time(), False, flake_command(tests, prefix)
+            t1, ended = time.time(), False
+            command = flake_command(tests, prefix, block["runs"]) if run == 1 else flake_command(once, prefix)
             with open(out, "w", encoding="utf-8") as sink:
                 proc = subprocess.Popen(command, cwd=m["worktree"], stdout=sink, stderr=subprocess.STDOUT,
                                         stdin=subprocess.DEVNULL, start_new_session=True, env=env)
@@ -900,22 +931,28 @@ def flake_stage(meta: Path, m: dict) -> dict:
                 proc.kill()
                 proc.wait()
             text = out.read_text(encoding="utf-8", errors="replace")
-            outcomes = [(case_id(b or c), a or d) for a, b, c, d in OUTCOME.findall(text)]
-            passed |= {case for case, said in outcomes if said == "PASSED"}
+            outcomes = [(*split(case_id(b or c)), a or d) for a, b, c, d in OUTCOME.findall(text)]
+            passed |= {case for case, _, said in outcomes if said == "PASSED"}
             how = f"exit {code}" + (f", ended at the stage's {FLAKE_CAP} s" if ended else "")
             with open(meta.with_suffix(".log"), "a", encoding="utf-8") as log:
                 log.write(f"\n==== flake run {run} of {block['runs']}, slowed ({block['slowed'][-1]['slowing']}; probes "
                           f"{probed}), {how} in {block['walls'][-1]} s ====\n{text}")
             tail = [line[:240] for line in text.splitlines()[-FLAKE_TAIL:]]
             if ended:   # its failures so far fail the block: one that passed an earlier run is a flake all the same
-                named = [case for case, said in outcomes if said in ("FAILED", "ERROR")]
-                block["failures"] = [{"test": test, "run": run, "tail": tail} for test in dict.fromkeys(named)]
+                named = {}
+                for case, k, said in outcomes:
+                    if said in ("FAILED", "ERROR"):
+                        named.setdefault(case, k or run)   # a repeat's own run, else the session's
+                block["failures"] = [{"test": test, "run": at, "tail": tail} for test, at in named.items()]
                 block["note"] = f"run {run} ended at the stage's {FLAKE_CAP} s"
                 break
-            block["done"] = run
+            block["done"] = run if once else block["runs"]
             if code:
-                named = [case_id(test) for test in FAILED.findall(text)] or [f"(the run: {how})"]
-                block["failures"] = [{"test": test, "run": run, "tail": tail} for test in dict.fromkeys(named)]
+                named = {}
+                for case, k in (split(case_id(test)) for test in FAILED.findall(text)):
+                    named.setdefault(case, k or run)
+                block["failures"] = [{"test": test, "run": at, "tail": tail}
+                                     for test, at in (named or {f"(the run: {how})": run}).items()]
                 break
         named = {failure["test"] for failure in block["failures"]}
         if (ended or not named) and (left := [case for case in cases if case not in passed | named]):

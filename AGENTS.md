@@ -1717,7 +1717,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   stage (Step 4.4dx2) runs each test function the stack adds or edits (a
   `def test*` whose source differs from the base's; a helper's change adds
   none) 5 times, slowed toward CI's Intel runners' pace, on 3 workers, in
-  every browser its parameters name (Step 4.4dx4): on macOS each run under
+  every browser its parameters name (Step 4.4dx4); one that takes no
+  `browser`, `pyodide` or `frozen_app` fixture has its 5 in the first
+  run's session, each a case `<id>[...-flake-run-K]` (the plugin
+  `scripts/flake_repeat.py`'s `--flake-runs`, Step 4.4dx12), the others a
+  session a run: on macOS each run under
   `taskpolicy -b` and nice 19 beside 4 busy loops at nice 10 when a CPU
   probe under it ends within 3 s (a quiet box), else under `taskpolicy -c
   utility` and nice 19 beside 12 busy loops of that class (on a busy box

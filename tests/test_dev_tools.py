@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts import devlog, fullsuite, land, perf
+from scripts import devlog, flake_repeat, fullsuite, land, perf
 from tests import _perf
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -342,7 +342,8 @@ def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_pa
     under ``taskpolicy -b`` and nice 19 beside FLAKE_LOOPS at nice 10 if a
     probe under it ends within FLAKE_QUIET (a busy box starves it), else
     under the utility clamp beside FLAKE_UTILITY_LOOPS of its class;
-    elsewhere under nice 19. A test that fails one run in three fails the
+    elsewhere under nice 19. A test that fails one run in three (one that
+    takes the browser fixture, here a stand-in: a session a run) fails the
     receipt at its third run by its name with its output's tail, and no
     perf stage runs; a steady one passes every run. The receipt keeps the
     stage: its tests, runs, and each run's wall time and slowing."""
@@ -361,9 +362,11 @@ def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_pa
     monkeypatch.setattr(fullsuite, "slowed", lambda: ((fullsuite.niced(19), fullsuite.niced(10), 1), {}))
     monkeypatch.setattr(fullsuite, "PYTEST", (sys.executable, "-m", "pytest", "-p", "no:cacheprovider"))
     monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 0)   # in the run's own process: xdist's start is most of a run
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))   # the repeats' plugin (fullsuite.REPEAT)
     monkeypatch.setattr(fullsuite, "perf_stage", lambda meta, m: pytest.fail("a perf stage after a failed flake stage"))
     (tmp_path / "test_x.py").write_text(
-        "from pathlib import Path\n\nRUNS = Path(__file__).with_name('runs')\n\n\ndef test_flaky():\n"
+        "from pathlib import Path\n\nimport pytest\n\nRUNS = Path(__file__).with_name('runs')\n\n\n@pytest.fixture\n"
+        "def browser():\n    return None\n\n\ndef test_flaky(browser):\n"
         "    RUNS.write_text(str(n := int(RUNS.read_text() if RUNS.exists() else 0) + 1))\n"
         "    assert n % 3, f'run {n} of the flaky test fails'\n\n\ndef test_steady():\n    pass\n", encoding="utf-8")
     meta = tmp_path / "suite-k.meta"
@@ -384,10 +387,12 @@ def test_the_flake_stage_fails_a_test_that_fails_one_run_in_three_by_name_and_pa
 
 
 def _quick_flake(monkeypatch) -> None:
-    """The flake stage's runs in their pytest's own process (xdist's start is most of a run), slowed by nice alone."""
+    """The flake stage's runs in their pytest's own process (xdist's start is most of a run), slowed by nice alone,
+    with this checkout's repeats plugin on their path (``fullsuite.REPEAT``)."""
     monkeypatch.setattr(fullsuite, "slowed", lambda: ((fullsuite.niced(19), fullsuite.niced(10), 0), {}))
     monkeypatch.setattr(fullsuite, "PYTEST", (sys.executable, "-m", "pytest", "-p", "no:cacheprovider"))
     monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 0)
+    monkeypatch.setenv("PYTHONPATH", str(ROOT))
 
 
 def test_the_flake_stage_builds_nothing_again_that_the_gates_run_built(tmp_path, monkeypatch):
@@ -442,10 +447,11 @@ def test_a_flake_run_or_collection_past_the_stages_cap_is_ended_with_its_process
             "    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(600)'], start_new_session=True)"
             "\n    Path(__file__).with_name('child').write_text(str(child.pid))\n    time.sleep(600)\n"),
             ["test_x.py::test_quick", "test_x.py::test_hangs"])
-        late = pool.submit(stage, "late", (   # passes run 1; run 2 fails test_flaky and hangs in test_late
-            "import time\nfrom pathlib import Path\n\nRUNS = Path(__file__).with_name('runs')\n\n\ndef test_flaky():\n"
+        late = pool.submit(stage, "late", (   # passes run 1; run 2 fails test_flaky and hangs in test_late (a session
+            "import time\nfrom pathlib import Path\n\nimport pytest\n\nRUNS = Path(__file__).with_name('runs')\n\n\n"
+            "@pytest.fixture\ndef browser():\n    return None\n\n\ndef test_flaky(browser):\n"   # a run: browser's)
             "    RUNS.write_text(str(n := int(RUNS.read_text() if RUNS.exists() else 0) + 1))\n"
-            "    assert n == 1, f'run {n} of the flaky test fails'\n\n\ndef test_late():\n"
+            "    assert n == 1, f'run {n} of the flaky test fails'\n\n\ndef test_late(browser):\n"
             "    if RUNS.read_text() != '1':\n        time.sleep(600)\n"), ["test_x.py::test_flaky", "test_x.py::test_late"])
         listing = pool.submit(stage, "listing", (   # its import hangs the stage's collection
             "import subprocess, sys, time\nfrom pathlib import Path\n\nchild = subprocess.Popen([sys.executable, '-c', "
@@ -493,7 +499,62 @@ def test_the_flake_stage_counts_a_grouped_cases_runs_under_the_id_its_collection
     assert "PASSED test_x.py::test_app[a b]@frozen_app" in meta.with_suffix(".log").read_text(encoding="utf-8")
     assert (flake["passed"], flake["done"], flake["cases"], flake["failures"]) == (True, 1, 1, [])
     assert [fullsuite.case_id(said) for said in ("t.py::t@frozen_app", "t.py::t[a@b]", "t.py::t[a@b]@frozen_app",
-                                                 "a@b/t.py::t")] == ["t.py::t", "t.py::t[a@b]", "t.py::t[a@b]", "a@b/t.py::t"]
+                                                 "a@b/t.py::t", "t.py::t[x]@frozen_app]")] == [
+        "t.py::t", "t.py::t[a@b]", "t.py::t[a@b]", "a@b/t.py::t", "t.py::t[x]"]   # the last: -rfE's
+
+
+def test_a_flake_stages_test_that_starts_nothing_once_a_session_has_its_five_runs_in_one_session(tmp_path, monkeypatch):
+    """Step 4.4dx12: a test that takes none of the fixtures a session starts
+    once (browser, pyodide, frozen_app: ``flake_repeat.OWN_SESSIONS``) has
+    its FLAKE_RUNS runs in the first run's session, each a case of its own
+    on one worker, one after another, where it took a session a run; one
+    that takes one keeps a session a run, the later ones its own alone. The
+    block names the tests repeated; a repeat that fails is named with its
+    own run, and the stage stops there."""
+    _quick_flake(monkeypatch)
+    monkeypatch.setattr(fullsuite, "FLAKE_WORKERS", 2)   # a case's runs on one worker (tests/conftest.py's groups)
+    names, runs = sorted(flake_repeat.OWN_SESSIONS), fullsuite.FLAKE_RUNS
+    head = ("import os\nfrom pathlib import Path\n\nimport pytest\n\nLOG = Path(__file__).with_name('log')\n\n\n"
+            "def log(request):\n    with LOG.open('a') as f:\n"
+            "        f.write(f'{request.node.name} {os.getpid()} {os.getppid()}\\n')\n\n\n")
+
+    def stage(name: str, source: str, tests: list[str]) -> tuple[dict, Path]:
+        (folder := tmp_path / name).mkdir()
+        (folder / "conftest.py").write_text(   # tests/conftest.py's grouping
+            "import pytest\nfrom _pytest.nodeid import NodeId\n\n\n@pytest.hookimpl(tryfirst=True)\n"
+            "def pytest_collection_modifyitems(config, items):\n    if getattr(config.option, 'loadgroup', False):\n"
+            "        for item in items:\n            if groups := sorted({str(m.args[0]) for m in "
+            "item.iter_markers('xdist_group')}):\n"
+            "                item._id = NodeId.parse(f\"{item.nodeid}@{'_'.join(groups)}\")\n", encoding="utf-8")
+        (folder / "test_x.py").write_text(source, encoding="utf-8")
+        return fullsuite.flake_stage(folder / "suite-k.meta", {"key": "k", "worktree": str(folder), "cap_s": 600,
+                                                              "flake_tests": tests}), folder
+
+    flake, folder = stage("steady", head + "".join(
+        f"@pytest.fixture\ndef {n}():\n    return None\n\n\ndef test_{n}({n}, request):\n    log(request)\n\n\n"
+        for n in names) + "@pytest.mark.parametrize('x', ['a', 'b'])\ndef test_pure(x, request):\n"
+        "    log(request)\n\n\n"
+        "def test_bare(request):\n    log(request)\n", [f"test_x.py::test_{n}" for n in (*names, "pure", "bare")])
+    ran: dict[str, list[tuple[str, str]]] = {}   # each case's runs: (its worker, its session)
+    for name, pid, session in (line.split() for line in (folder / "log").read_text().splitlines()):
+        ran.setdefault(fullsuite.split(f"t.py::{name}")[0].removeprefix("t.py::"), []).append((pid, session))
+    assert {name: (len(r), len({pid for pid, _ in r}), len({s for _, s in r})) for name, r in ran.items()} == {
+        **{f"test_{n}": (runs, runs, runs) for n in names}, **dict.fromkeys(
+            ("test_pure[a]", "test_pure[b]", "test_bare"), (runs, 1, 1))}
+    assert {r[0][1] for name, r in ran.items()} == {ran["test_browser"][0][1]}   # the first run's session
+    assert (flake["passed"], flake["done"], len(flake["walls"]), flake["cases"], flake["repeated"]) == (
+        True, runs, runs, len(names) + 3, ["test_x.py::test_bare", "test_x.py::test_pure"])
+    assert "(2 of them all 5 in the first run's session)" in fullsuite.describe(
+        {"key": "k", "subject": "s", "mode": "changed", "pytest_args": [], "state": "done", "exit_code": 0,
+         "flake_tests": flake["tests"], "flake": flake}, folder / "suite-k.meta")
+    flaky, folder = stage("flaky", "from pathlib import Path\n\nRUNS = Path(__file__).with_name('runs')\n\n\n"
+                          "def test_flaky():\n    RUNS.write_text(str(n := int(RUNS.read_text() if RUNS.exists()"
+                          " else 0) + 1))\n    assert n != 3, f'run {n} of the flaky test fails'\n",
+                          ["test_x.py::test_flaky"])
+    assert (flaky["passed"], flaky["done"], len(flaky["walls"]), (folder / "runs").read_text()) == (False, runs, 1, "5")
+    assert [(f["test"], f["run"]) for f in flaky["failures"]] == [("test_x.py::test_flaky", 3)]
+    assert [fullsuite.split(case) for case in ("t.py::t[a-flake-run-3]", "t.py::t[flake-run-12]", "t.py::t[a]")] == [
+        ("t.py::t[a]", 3), ("t.py::t", 12), ("t.py::t[a]", None)]
 
 
 def _running(pid: int) -> bool:
