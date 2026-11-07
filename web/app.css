@@ -523,6 +523,8 @@ p.views { margin: 0; padding: 2px 10px; }
 .about li { margin-bottom: 6px; }
 .about a { color: var(--accent); }
 .about summary { color: var(--accent); cursor: default; }
+.about details { margin-bottom: 4px; }
+.about details ul { margin-top: 6px; }
 .about pre {
   margin: 6px 0 0; padding: 8px 10px; font: 11px/1.45 var(--mono); white-space: pre-wrap; color: var(--muted);
   background: var(--field); border: 1px solid var(--line); border-radius: 3px;

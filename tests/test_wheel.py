@@ -88,9 +88,10 @@ def test_readme_and_about_name_what_of_the_game_ships():
     """The package (so the app and the site) carries game files byte for
     byte (a disc file's sha256 in either release's manifest: config.xbr,
     the Data tab's), and the page pictures drawn from the game's files
-    (``web/characters/``, ``web/art/``), so README's Game data and the
-    About tab name each such file and the pictures, and README says the
-    player's image never leaves their computer (Step 4.4ci51)."""
+    (``web/characters/``, ``web/art/``), so README's What you need (Step
+    4.4ci53 moved the text there from its Game data) and the About tab name
+    each such file and the pictures, and README says the player's image
+    never leaves their computer (Step 4.4ci51)."""
     from azurkit.core import gate
     disc = {sha for release in gate.RELEASES for _, sha in release.files.values()}
     tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", "src/azurkit", "web"], capture_output=True,
@@ -98,7 +99,7 @@ def test_readme_and_about_name_what_of_the_game_ships():
     games = sorted({Path(rel).name for rel in tracked
                     if rel.startswith("src/") and hashlib.sha256((ROOT / rel).read_bytes()).hexdigest() in disc})
     assert games and any(rel.startswith(("web/characters/", "web/art/")) and rel.endswith(".png") for rel in tracked)
-    readme = (ROOT / "README.md").read_text(encoding="utf-8").partition("\n## Game data\n")[2].partition("\n## ")[0]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8").partition("\n## What you need\n")[2].partition("\n## ")[0]
     page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
     about = re.search(r'<section id="about".*?<p>(.*?)</p>', page, re.DOTALL)[1]
     for text in (" ".join(readme.split()), " ".join(about.split())):

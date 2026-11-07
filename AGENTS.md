@@ -5,12 +5,16 @@ only: every family's truth is AzurKit's own (The goldens, below), the core's
 and the packs' since Step 4.12a, the characters' since Step 4.12c and the
 randomizer's since Step 4.12b, each first recorded at Modkit's last cut. A
 later Modkit result reaches AzurKit as a hand port (Porting from Modkit).
-[`README.md`](README.md) says what AzurKit is. These rules bind.
+[`README.md`](README.md) says what AzurKit is, [`docs/GUIDE.md`](docs/GUIDE.md)
+every feature in detail and [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) how
+to build and test it. These rules bind.
 
-**README's features:** a change a player would notice adds or updates its
-line in README.md's Features (and Highlights if it earns one), in the same
-commit. Each line is plain and short, with no step, D or AZ ids, and true on
-`main`.
+**The guide's features:** a change a player would notice adds or updates its
+line in `docs/GUIDE.md`, in the same commit, and README's short Features
+list only when it changes what a line there says: README stays a page of
+about 60-90 lines for players (what it is, what you need, how to use it, the
+main features, help, the licence), with links absolute (PyPI shows it). Each
+line is plain and short, with no step, D or AZ ids, and true on `main`.
 
 ## Where knowledge lives
 
@@ -291,8 +295,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
      G3's seed rows equal Modkit's at `<ref>` (`git -C "$MODKIT" show
      <ref>:tests/goldens/...`; AZ-009's files aside). A difference is a
      port bug until it is named.
-  7. **What a player sees**, on both hosts: README's Randomizer lines (the
-     skips, tiers, levels and locations), the Randomizer tab's lists where
+  7. **What a player sees**, on both hosts: the guide's Randomizer lines
+     (`docs/GUIDE.md`: the skips, tiers, levels and locations), the Randomizer tab's lists where
      the database doesn't give them, and old `AZR-` share strings, each
      still decoding or refused by name.
   8. The perf gate times the randomizer and tracker groups: a ceiling
@@ -1649,7 +1653,7 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
 - **Change notes:** each change adds one Markdown bullet in a file of its
   own, `docs/devlog/<added|changed|removed|fixed>/<step>-<slug>.md` (ids
   welcome there), which a release joins; a change a player would notice
-  also updates README's Features (above), in plain words. `docs/DEVLOG.md`
+  also updates the guide's features (above), in plain words. `docs/DEVLOG.md`
   merges with git's union driver (`.gitattributes`), so lanes' bullets at a
   section's end never conflict; the lint set and `scripts/land.py` refuse a
   release that holds one bullet twice (`scripts/devlog.py`: the stale copy
