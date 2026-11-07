@@ -2035,6 +2035,78 @@ def set_lines(picks: list[str], sets: list[list[int]]) -> list[str]:
     return out
 
 
+SETS_SAID = re.compile(r"; WHITE cycles its (\d+) attack sets? \(")
+"""The build log's X36 clause (:func:`apply_player_model`'s lines, a character layer's notes): its count of sets."""
+
+
+def said_sets(notes) -> int:
+    """How many attack sets X36 cycles in a build whose log lines are ``notes`` (:data:`SETS_SAID`; 0: no X36)."""
+    return max((int(m[1]) for line in notes for m in SETS_SAID.finditer(line)), default=0)
+
+
+def played_set_lines(config_xbr: bytes, characters_xbr: bytes, species: str, mode: str = DEFAULT_MODE,
+                     size: str = DEFAULT_SIZE, model_scale: float = 1.0, missing_anims: str | None = None,
+                     variant=None, weapon: str | None = None) -> list[str]:
+    """X36's :func:`set_lines` for a build of ``species`` (``variant`` its
+    recipe, if any) in the image whose files these are, without dressing it:
+    :func:`_dress`'s picks as W3 places them (its loadout, substitutes,
+    style, recipe columns, W17's and the cast's copies and the borrowed
+    columns' baked clips), the ones :func:`apply_player_model` hands
+    :func:`attack_sets`; ``[]`` for garret4's own body, Skin only, a body
+    with no clips or one the build refuses."""
+    from azurkit.tools.characters import _player_variants as variants
+    if species == PLAYER or mode != "own":
+        return []
+    doc = XbrDocument.from_bytes(config_xbr)
+    rows = _species(doc.keyed_section("critters_engine"))
+    if _refusal(rows, body_names(characters_xbr), species):
+        return []
+    theirs = rows[species]
+    body = read_body(characters_xbr, theirs["body"])
+    if not body.clips:
+        return []
+    baked = bakes(body, missing_anims or MODE_ANIMS[mode])
+    try:
+        lo = loadout(characters_xbr, body, mode, baked, variant, weapon)
+    except ValueError:
+        return []
+    worn = lo.recipe if lo.recipe is not None else variant if variant is not None else (
+        variants.overlay(species) if not lo.picked else None)
+    style, borrowing = lo.kit, lo.borrowing
+    anims = doc.keyed_section("attacks_anims")
+    columns, strings = anims.col_names(), anim_strings(anims)
+    picks = substitutes(columns, body, baked, strings if borrowing else None, floats=floats(species, mode, baked),
+                        borrow=borrowing)
+    if style is not None:
+        picks = style_picks(style, columns, picks)
+    recipe_picks = {}
+    if worn is not None:
+        if variants.refusal(worn, rows, columns, body):
+            return []
+        picks = [worn.clip_of(col) or pick for col, pick in zip(columns, picks)]
+        recipe_picks = {i: p for i, p in enumerate(picks) if worn.clip_of(columns[i])}
+    drawn = drawn_scale(size_scale(characters_xbr, body) if size == "garret4" else None, mode, theirs["scale"],
+                        model_scale)
+    copied = attack_copies(characters_xbr, body, list(picks), mode, drawn, scripted_switches(characters_xbr, body.name))
+    w3 = set(copied)
+    if lo.cast is not None and not attack_clips(body):
+        copied = with_casts(characters_xbr, body, columns, list(picks), copied)
+    copies = {clip: name for clip, (name, _) in copied.items()}
+    kept = sum(1 << i for i, col in enumerate(columns)
+               if borrowing and (col == ROLL or i not in recipe_picks))
+    named = [strings[i].value if kept >> i & 1 else p if columns[i] == ROLL and p not in w3 else copies.get(p, p)
+             for i, p in enumerate(picks)]
+    try:
+        place_anims(columns, strings, named)
+    except ValueError:
+        return []
+    plain = {name: clip for clip, name in copies.items()}
+    picks = [BAKED_DIR + p if kept >> i & 1 else plain.get(p, p) for i, p in enumerate(named)]
+    if any(picks[i] != p for i, p in recipe_picks.items()):   # the build refuses: W3 gave its string to another clip
+        return []
+    return set_lines(picks, attack_sets(columns, picks))
+
+
 def staff_scales(fx_xbr) -> list[int]:
     """The file offset of the scale (attributes 7-9, three f32) of every
     ``fx.xbr`` transform bound to ``m_stafftop`` or ``m_staffbottom``

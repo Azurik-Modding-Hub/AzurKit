@@ -912,8 +912,8 @@ function forget() {
   ingame([]);
 }
 
-// D1153: the in-game controls the build adds (sdk._ingame: the save warp, L3's speed toggle, the roll's RB where it
-// moved, photo mode), in a line beside its result; none hides it, as a build forgotten or begun does
+// D1153: the in-game controls the build adds (sdk._ingame: the save warp, LB's attack sets, L3's speed toggle, the
+// roll's RB where it moved, photo mode), in a line beside its result; none hides it, as a build forgotten or begun does
 function ingame(controls) {
   $("ingame").textContent = controls.length ? `In game: ${controls.join(" · ")}` : "";
   $("ingame").hidden = !controls.length;

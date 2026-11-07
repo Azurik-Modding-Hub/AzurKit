@@ -794,13 +794,18 @@ _SPOILERS: dict[str, tuple[generator.Prepared, dict]] = {}   # the last build's 
 
 def _ingame(layers: list[Layer]) -> list[str]:
     """The in-game controls a build of ``layers`` adds (D1153), in the modern
-    pad's names, each only where the build has it: the save warp, the speed
-    toggle where its L3 landed, the roll (the game's own RB) where the
-    player moved its distance or speed, and photo mode."""
+    pad's names, each only where the build has it: the save warp, LB's
+    attack sets (X36's, two or more, as the character layer's log says
+    them), the speed toggle where its L3 landed, the roll (the game's own
+    RB) where the player moved its distance or speed, and photo mode."""
     from azurkit.tools.mods.packs import player_physics
 
     by = {la.id: la for la in layers}
     out = ["LT + A, B, X, Y on a save platform: town and back"] if "pack qol_save_warp" in by else []
+    if worn := [la for la in layers if la.tool == characters.TOOL]:
+        from azurkit.tools.characters._player_character import said_sets
+        if (sets := max(said_sets(la.notes) for la in worn)) > 1:
+            out.append(f"LB: next attack set ({sets})")
     if physics := by.get("pack player_physics"):
         tick = f"({player_physics.TOGGLE_HOOKS[0][0].label})"
         if any(c.group.endswith(tick) for c in physics.changes):
