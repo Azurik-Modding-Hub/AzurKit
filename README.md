@@ -1,7 +1,7 @@
 # AzurKit
 
-<img src="assets/icon/AzurKit.svg" width="128" height="128" align="right"
-alt="AzurKit's icon: a disc of the four elements broken in four, its gold air piece lifted out">
+<img src="https://raw.githubusercontent.com/Azurik-Modding-Hub/AzurKit/main/assets/icon/AzurKit.svg"
+width="128" height="128" align="right" alt="AzurKit's icon: a disc of the four elements broken in four, its gold air piece lifted out">
 
 Patch packs, sliders, a randomizer and character swaps for *Azurik: Rise of
 Perathia* (Xbox), built from your own copy of the game.
@@ -9,7 +9,7 @@ Perathia* (Xbox), built from your own copy of the game.
 **Version 1.0:** use it in your browser at
 [azurik-modding-hub.github.io/AzurKit](https://azurik-modding-hub.github.io/AzurKit/), or download the app for macOS,
 Windows or Linux from [Releases](https://github.com/Azurik-Modding-Hub/AzurKit/releases)
-([Download and check it](#download-and-check-it)).
+([Download and check it](https://github.com/Azurik-Modding-Hub/AzurKit#download-and-check-it)).
 
 ## Highlights
 
@@ -242,7 +242,8 @@ In the page's Tools tab, in the browser and the app alike, or from the command l
 - **No tracking:** no logging, analytics or tracking.
 - **The app:** the same page in its own window, with real file dialogs; Save writes the image where you choose.
 - **Unsigned apps:** CI builds the app for Apple Silicon and Intel Macs, Windows and Linux, unsigned, each with a
-  checksum and a build attestation ([Download and check it](#download-and-check-it)).
+  checksum and a build attestation
+  ([Download and check it](https://github.com/Azurik-Modding-Hub/AzurKit#download-and-check-it)).
 - **Greyed until it can work:** Build, Save and the original values wait on your image (or a build) and say so.
 - **Progress bars:** a build, a save and the tracker's Track show their step and percent, as your image's first check
   does on the web page; in the app that check, like anything slower than a second, shows what it is doing.
@@ -294,12 +295,13 @@ ISO image, whole or in parts, is ever in this repository.
 - Share presets (recipes), never ISOs.
 - Game files and bytes (an XBE or XBR file, a clip, a texture, a save, a
   snippet) may be committed here. They belong to the game's rights holders,
-  not to this project's licence ([`NOTICE.md`](NOTICE.md)).
+  not to this project's licence
+  ([`NOTICE.md`](https://github.com/Azurik-Modding-Hub/AzurKit/blob/main/NOTICE.md)).
 - Recorded results are hashes (sha256) and lengths, by convention.
-- [`tests/_leak_guard.py`](tests/_leak_guard.py) refuses an ISO image or a
-  part of one, an xemu disk, an EEPROM dump, a guest RAM snapshot or a
-  private key, also inside a gzip file. It checks the checkout in the test
-  suite and every push through its `pre-push` hook.
+- [`tests/_leak_guard.py`](https://github.com/Azurik-Modding-Hub/AzurKit/blob/main/tests/_leak_guard.py)
+  refuses an ISO image or a part of one, an xemu disk, an EEPROM dump, a
+  guest RAM snapshot or a private key, also inside a gzip file. It checks the
+  checkout in the test suite and every push through its `pre-push` hook.
 
 *Unofficial fan tool. Not affiliated with or endorsed by the rights holders of
 Azurik: Rise of Perathia or Xbox.*
@@ -308,8 +310,9 @@ Azurik: Rise of Perathia or Xbox.*
 
 AzurKit is the lean rewrite of Azurik_Modkit, the proof of concept it replaces.
 The truth of the packs, the characters and the randomizer is AzurKit's own:
-[`tests/goldens/`](tests/goldens/), per-file sha256s it records from its own
-builds and plans, first recorded from Modkit's.
+[`tests/goldens/`](https://github.com/Azurik-Modding-Hub/AzurKit/tree/main/tests/goldens),
+per-file sha256s it records from its own builds and plans, first recorded from
+Modkit's.
 AzurKit never imports Modkit's code. A build's recipe is the two files at its
 image's root, `/azurkit.json` and `/azurkit.bin`.
 
@@ -346,12 +349,13 @@ headless Chromium, in WebKit (Safari's engine) and in Firefox; they need Node,
 and the Pyodide, Chromium, WebKit and Firefox that `uv run bootstrap.py` fetches into `.tools/`
 (`-m "not web"` leaves them out).
 
-Contributors and agents start at [`AGENTS.md`](AGENTS.md).
+Contributors and agents start at [`AGENTS.md`](https://github.com/Azurik-Modding-Hub/AzurKit/blob/main/AGENTS.md).
 
 ## License and credits
 
-MIT ([`LICENSE`](LICENSE)), for our own work: the game's files and bytes
-here are not under it. [`NOTICE.md`](NOTICE.md) thanks Jett Tripp
+MIT ([`LICENSE`](https://github.com/Azurik-Modding-Hub/AzurKit/blob/main/LICENSE)),
+for our own work: the game's files and bytes here are not under it.
+[`NOTICE.md`](https://github.com/Azurik-Modding-Hub/AzurKit/blob/main/NOTICE.md) thanks Jett Tripp
 (JTCPP), a fellow developer in the Azurik modding effort, whose
 Elemental_Games_Modding randomizer is where Azurik_Modkit began, and credits
 Azurik Perathia's Azurik Debug Menu, the photo mode's design.

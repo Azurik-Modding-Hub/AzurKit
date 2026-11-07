@@ -55,6 +55,24 @@ def test_pypis_page_links_the_site_the_source_the_issues_and_the_developer_log(t
     assert metadata.get_payload() == (ROOT / "README.md").read_text(encoding="utf-8")
 
 
+def test_readmes_links_are_absolute_so_pypis_page_follows_them():
+    """PyPI shows README (the description, above) with no repository round
+    it, so a relative link, image or ``#`` anchor there goes nowhere (Step
+    4.4ci51): each one outside code is an https URL, each into this
+    repository's ``main`` names a path that is here, and each anchor into its
+    page a heading of README's."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    prose = re.sub(r"```.*?```|`[^`\n]*`", "", readme, flags=re.DOTALL)
+    targets = [*re.findall(r"\]\(\s*<?([^)\s>]*)", prose), *re.findall(r"""\b(?:src|href)\s*=\s*["']([^"']*)""", prose),
+               *re.findall(r"^ {0,3}\[[^\]]+\]:\s*<?([^\s>]+)", prose, flags=re.MULTILINE)]
+    assert targets and [t for t in targets if not t.startswith("https://")] == []
+    raw = "https://raw.githubusercontent.com/Azurik-Modding-Hub/AzurKit/main/"
+    paths = [m[1] for t in targets if (m := re.match(rf"(?:{REPO}/(?:blob|tree)/main/|{raw})([^#?]+)", t))]
+    assert paths and [p for p in paths if not (ROOT / p).exists()] == []
+    headings = {re.sub(r"[^\w\- ]", "", h.lower()).replace(" ", "-") for h in re.findall(r"^#+ (.+)", prose, re.M)}
+    assert [t for t in targets if t.startswith(f"{REPO}#") and t.partition("#")[2] not in headings] == []
+
+
 def test_the_wheel_carries_the_package_and_installs_alone_in_a_clean_venv(tmp_path):
     def run(*argv: str) -> str:
         return subprocess.run(argv, capture_output=True, text=True, check=True, timeout=300).stdout
