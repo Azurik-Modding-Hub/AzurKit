@@ -12,7 +12,7 @@ license = "MIT"
 license-files = ["LICENSE", "NOTICE.md"]
 keywords = ["xbox", "azurik", "modding", "randomizer"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.14",
     "Topic :: Games/Entertainment",

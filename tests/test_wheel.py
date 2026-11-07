@@ -56,6 +56,16 @@ def test_pypis_page_links_the_site_the_source_the_issues_and_the_developer_log(t
     assert metadata.get_payload() == (ROOT / "README.md").read_text(encoding="utf-8")
 
 
+def test_pypis_page_calls_a_release_from_1_0_on_stable():
+    """A 1.0.0 page said Pre-Alpha, and PyPI never changes it after the
+    upload (Step 4.4ci51): from version 1 on the one Development Status
+    classifier is Production/Stable."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert int(project["version"].split(".")[0]) >= 1
+    assert [c for c in project["classifiers"] if c.startswith("Development Status ::")] == [
+        "Development Status :: 5 - Production/Stable"]
+
+
 def test_readmes_links_are_absolute_so_pypis_page_follows_them():
     """PyPI shows README (the description, above) with no repository round
     it, so a relative link, image or ``#`` anchor there goes nowhere (Step
