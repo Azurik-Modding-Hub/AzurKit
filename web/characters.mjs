@@ -30,6 +30,9 @@ const FROM = "From the front and from behind.";
 // A reshape's dress waits for the slider to rest, past Build's head start (D1014): beside a build's its GiBs pass 6
 // (D1017), so a Build clicked at the change, or running, goes first
 const SETTLE_MS = 3500;
+// The site builds the tab's choice ahead once its own change (a number, an option, Reset) has rested as long, where a
+// pick starts at once: a slider's next move dropped a build ahead started sooner (app.mjs's aheadOnSite, Step 4.4ci48)
+const REST = SETTLE_MS;
 const PICTURES = 16;   // the exact pictures of the last shapes drawn, and the last models' shipped ones, in this page
 const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
 const typed = (text) => NUMBER.test(text.trim()) && Number.isFinite(Number(text)) ? Number(text) : text;
@@ -315,7 +318,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
         c.character = { ...c.character, [name]: v };
       }
       fit();
-      changed();
+      changed({ rest: REST });
       if (name.startsWith("shape:") && c.view?.chosen.name === c.character.species) draw();   // at once: no ask's reply
       ask();
     };
@@ -542,7 +545,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   const option = (key, value, dflt) => {
     const { [key]: _, ...rest } = c.character;
     c.character = value === dflt ? rest : { ...rest, [key]: value };
-    changed();
+    changed({ rest: REST });
     ask();
   };
   $("char-filter").addEventListener("input", () => {
@@ -577,7 +580,7 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   // list's colours, the info). They waited for that answer, behind a dress or a build in its worker (Step 4.4u2).
   $("char-reset").addEventListener("click", () => {
     const name = c.character.species, held = c.panels.get(name);
-    set({ species: name });
+    set({ species: name }, REST);
     if (!held || c.view?.chosen.name !== name) return;   // none held: the answer shows them
     c.view = { ...c.view, chosen: { ...c.view.chosen, ...held, weapon: null } };
     render();
@@ -604,11 +607,11 @@ export function characters({ call, app, host, say, image, packs, changed, shared
   };
 
   // The tab's choice set from a link, a build's recipe or the remembered setup (null: garret4, every default).
-  const set = (character) => {
+  const set = (character, rest = 0) => {
     c.character = character ? { ...character } : { species: "garret4" };
     delete c.character.variant;
     c.choice++;
-    changed();
+    changed(rest ? { rest } : undefined);
     if (c.opened) ask();
   };
 

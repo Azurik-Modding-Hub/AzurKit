@@ -101,7 +101,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
                           grown = GROWN, tally = TALLY, ends: last = ends, held: heldBy = bytesOf } = {}) {
   cores ??= globalThis.navigator?.hardwareConcurrency ?? 1;
   let f = null, b = null, dead = null, noB = cores < CORES, closed = false, held = 0, list = [], changed = 0;
-  let timer = null, clock = 0, base = 0;   // base: the last B's heap when it loaded
+  let timer = null, clock = 0, base = 0, resting = 0;   // base: the last B's heap when it loaded; resting: want()'s rest
   let lost = null;                       // the message of the last B load that failed (state()'s)
   const queue = [];                      // F's asks not yet sent, in order
   const kept = new Map();                // B's finished jobs by key: {messages, last, bytes, at}
@@ -345,7 +345,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     if (total() >= tally && b && !b.job) dropB("retired");
     if (!b && !noB && f?.loaded && !heavyF() && total() + base < tally) b = spawn("b");
     if (!b?.loaded || b.job || heavyF() || total() >= tally) return;
-    const wait = changed + settle - now();
+    const wait = changed + Math.max(settle, next()?.heavy ? resting : 0) - now();
     if (wait > 0) {
       clearTimeout(timer);
       timer = setTimeout(pump, wait);
@@ -396,7 +396,9 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
     // The work ahead, most wanted first: [{key, message, heavy, transfer, ends, kept}]; kept(its last message) hears a
     // job's end. A job whose key leaves the list is dropped (B's running one by terminate(), a kept one freed); one still
     // listed goes on or stays kept. begin: a pick, not a stream of changes: B needn't wait for the page to hold still.
-    want: (items, { begin = false } = {}) => {
+    // rest: ms the list holds still before B starts a heavy job of it (a slider's change: its next move would drop the
+    // job, and WebKit keeps a terminated worker's heap resident beside the next B's: Step 4.4ci48).
+    want: (items, { begin = false, rest = 0 } = {}) => {
       const keys = new Set(items.map((i) => i.key));
       // B's job the list no longer holds is dropped, but a heavy one goes on, unkept, while the list holds no heavy job
       // (a reshape's: none is built ahead): terminated, its pages would stay resident in WebKit beside the heap the next
@@ -406,7 +408,7 @@ export function workers({ start, ready = () => {}, told = () => {}, free = () =>
       }
       for (const key of [...kept.keys()]) if (!keys.has(key)) unkeep(key);
       for (const key of [...taken]) if (!keys.has(key) && !asked(key)) taken.delete(key);
-      if (items[0]?.key !== list[0]?.key) changed = begin ? -settle : now();   // an item added after it: no new wait
+      if (items[0]?.key !== list[0]?.key) [changed, resting] = begin ? [-settle, 0] : [now(), rest];   // an item added after it: no new wait
       list = [...items];
       pump();
     },

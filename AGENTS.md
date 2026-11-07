@@ -1407,7 +1407,12 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   in WebKit), each key the recipe, the File by identity, what this browser keeps
   installed and the engine's version; a change drops B's job by `terminate()` (a
   heavy one goes on, unkept, while the list holds no heavy job, a reshape's, so
-  its heap is the next heavy job's, not resident beside it), a
+  its heap is the next heavy job's, not resident beside it; and a change of
+  the Characters tab's own, a number, an option or Reset, lists its build with
+  a rest, `SETTLE_MS`, before B starts it, where a pick starts at once: a
+  slider's session of moves, a pause, a drag and Reset dropped a build ahead
+  at each move, its heap resident beside the next B's, 7.2-7.4 GiB in WebKit,
+  Step 4.4ci48), a
   click matching its finished job takes its answer and one it is still working on
   follows its records. One heavy job at a time, none of B's beside F's build. One
   heap (w-reshape): a worker a job grew stays for the next heavy job (wasm memory

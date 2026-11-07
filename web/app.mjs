@@ -130,11 +130,14 @@ function ahead() {
 // Tracker view open), and, once the picked image is read, Build's build of the page's recipe; each change lists them
 // anew, so what no longer matches stops at once (B's job by terminate()) and B starts on the rest once the page holds
 // still. A reshaped character isn't built ahead: minutes, and a heap past KEEP terminated by the next slider's change
-// would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap. A body's build asks with
+// would leave its pages resident in WebKit (w-reshape). Its click runs in the one heap. A change of the Characters
+// tab's own (a number, an option, Reset: rest) is built ahead once the tab has rested, for the same reason: a slider's
+// session (moves, a pause, a drag, Reset) dropped one build ahead a move, 7.2-7.4 GiB in WebKit (Step 4.4ci48). A
+// body's build asks with
 // the tab's choice before the engine's answer to it, and each build is keyed on the character it sends: the answer
 // drops what the body locks or doesn't take (a variant's size, say), so a click takes B's build only when the two match.
 const reshaped = (character) => Boolean(character?.shapes && Object.keys(character.shapes).length);
-function aheadOnSite(begin = false) {   // none while a Save is checked: checkSave's end asks again
+function aheadOnSite(begin = false, rest = 0) {   // none while a Save is checked: checkSave's end asks again
   if (!state.engine?.ahead || !state.packs || state.restoring || state.saveCheck === "running") return;
   const seed = R("seed").value.trim(), share = state.rando.view?.share, rando = randoRecipe(), tracking = !$("tracker").hidden;
   const character = state.characters?.choice() ?? null, plans = [], builds = [];
@@ -153,7 +156,7 @@ function aheadOnSite(begin = false) {   // none while a Save is checked: checkSa
     builds.push(state.engine.building(state.file, chosen(), state.xbr, rando, character,
                                       { ...extras(), ...state.replace.picked() }));
   }
-  state.engine.ahead(tracking ? [...plans, ...builds] : [...builds, ...plans], { begin });
+  state.engine.ahead(tracking ? [...plans, ...builds] : [...builds, ...plans], { begin, rest });
 }
 
 // Keep the page's setup (none at its defaults), once it is the page's own: after the remembered one is back.
@@ -2062,7 +2065,7 @@ async function main() {
     unlinked();
     clearTimeout(state.later);
     state.later = setTimeout(remember, 250);
-    if (!state.app) aheadOnSite(event?.now);   // the site's: what no longer matches stops now
+    if (!state.app) aheadOnSite(event?.now, event?.rest);   // the site's: what no longer matches stops now
   };
   $("packs").addEventListener("change", () => {
     changed();
