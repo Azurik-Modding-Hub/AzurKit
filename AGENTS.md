@@ -612,7 +612,8 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     (`fill._Accept`) keeps the first of up to `difficulty.BOUND` (6) passing
     candidates that meets the promise, reading it lazily (`Shape.why_not`:
     one reach, then play_2 stopped at the first stage over half), else the
-    highest `Shape.score`, the first on a tie. Attempt k is pure, so a host
+    highest `Shape.score`, the first on a tie. Attempt k is pure (each in the
+    compiled kernel with its acceptance's reaches, The engine's contracts), so a host
     may run those past the first at once (`fill.WIDTH` on its `fill.BESIDE`):
     the app's engine on its threads (`procpool.Beside`, each as soon as a
     thread is free, its answer read in order, the rest stopped at their next
@@ -965,6 +966,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   0.02 s, by `Logic._tables` from its rules' closures' `ast`, a trace's
   spheres replayed from the kernel's rounds), on the app's CPython and,
   by the side module from the wheel, in the site's worker. The second is
+  the fill's (`native/fill.c`, Step 4.4ci57, D1141): `fill._Kernel` packs
+  a run's facts once (each id the reach tables'), and an attempt
+  (`_Slots.attempt`, its twin: the passes, the pin, the trap gate's
+  repairs and the verify, on CPython's MT19937 streams) and a shaped
+  candidate's need and play (`difficulty`'s, through `Shape.kernel`) each
+  run there whole, its reaches reach.c's, off the GIL, so the attempts
+  beside each other run on their own cores; the notes the twin would tell
+  are logged and told after the call in its order, so an attempt's cancel
+  point is its end. The third is
   the dress's (`native/dress.c`, Step 4.3r4d4): `retarget`'s engine
   model (`pose`, `origins`, `origins_at` over many times),
   `bake_clip`'s rows (`_linear_rows`, `_chain_rows`), the damage boxes

@@ -36,6 +36,7 @@ import struct
 import subprocess
 import sys
 import threading
+import time
 import tomllib
 from pathlib import Path
 
@@ -386,6 +387,8 @@ def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_
     monkeypatch.setattr(fill, "BESIDE", procpool.Beside)
     monkeypatch.setattr(procpool, "lowered", lambda: lowered[0])
     monkeypatch.setattr(procpool, "Low", low)
+    kernel = native.attempt   # each attempt as long as a busy computer's low priority makes it (Step 4.4ci57: the
+    monkeypatch.setattr(native, "attempt", lambda *a: time.sleep(0.1) or kernel(*a))   # kernel's take ~40 ms)
     with pytest.raises(Gone), progress.noting(progress.Steps(report)) as steps:
         steps("plan")
         fill._fill(kept_logic(), "31", Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3))
@@ -1180,6 +1183,12 @@ def counted(name, real):
         return real(*a, **k)
     return call
 native._native, native._twin = counted("kernel", native._native), counted("twin", native._twin)
+attempt = native.attempt
+def attempted(*a):
+    got = attempt(*a)
+    calls["attempt"] = calls.get("attempt", 0) + (got is not None and not isinstance(got, int))
+    return got
+native.attempt = attempted
 with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
     code = cli.main(["plan", "--seed", "2"])
 json.dumps({"code": code, "stdout": out.getvalue(), "stderr": err.getvalue(), "native": native.report(),
@@ -1190,13 +1199,13 @@ json.dumps({"code": code, "stdout": out.getvalue(), "stderr": err.getvalue(), "n
 def test_the_default_plan_file_is_its_goldens_byte_for_byte_under_pyodide_by_the_compiled_reach(pyodide):
     """``azurkit plan --seed 2`` under Pyodide, the site's runtime, reaching
     by the compiled reach's side module from the wheel (the kernel answers
-    its reaches, never the twin), prints the default plan file byte for
-    byte."""
+    its reaches, never the twin, and the fill's attempt, Step 4.4ci57),
+    prints the default plan file byte for byte."""
     got = pyodide(python=_PLAN_UNDER_PYODIDE)
     assert (got["code"], got["stderr"]) == (0, ""), got["stderr"][-2000:]
     assert got["stdout"] == DEFAULT_PLAN
     assert (got["native"]["loaded"], got["native"]["library"]) == (True, "emscripten-wasm32.so"), got["native"]
-    assert got["calls"]["kernel"] > 0 and got["calls"]["twin"] == 0, got["calls"]
+    assert got["calls"]["kernel"] > 0 and got["calls"]["twin"] == 0 and got["calls"]["attempt"] > 0, got["calls"]
 
 
 def test_seed_2s_plan_is_the_same_in_two_processes_under_two_hash_seeds():

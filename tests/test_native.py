@@ -199,6 +199,79 @@ def test_the_reach_kernel_gives_its_twins_answer_on_the_randomizers_own_tables()
             assert native._native(lib, nt.tables, **call) == native._twin(nt.tables, **call), st
 
 
+def test_the_fills_attempt_and_acceptance_kernels_give_their_twins_answers_on_the_randomizers_own_data(monkeypatch):
+    """``native/fill.c`` (Step 4.4ci57, D1141): an attempt of the fill (``fill._Kernel.attempt``) is its twin's
+    (``_Slots.attempt``): the placement, or the stuck reason and item, each repaired refusal and every note its
+    ``_Count`` hears, in order, over a spread of settings, seeds and attempts that reaches each of the kernel's paths
+    (an own spot, a trade and one that fails, the pin and its miss, a repair, its swap, its way in and its spots at the
+    traps, a vault) and placed and stuck outcomes; and a shaped candidate's need and play at each rung, stopped or
+    not (with play's notes), and its ``why_not`` and ``score``, are ``difficulty``'s."""
+    from azurkit.core import progress
+    from azurkit.tools.randomizer.planner import difficulty, fill
+    from azurkit.tools.randomizer.planner.loader import kept_logic
+    from azurkit.tools.randomizer.planner.settings import Settings
+    logic, paths, outcomes, notes = kept_logic(), 0, set(), []
+    real = native.attempt
+
+    def spy(*a):
+        nonlocal paths
+        if not isinstance(out := real(*a), int) and out is not None:
+            paths |= out[7]
+        return out
+    monkeypatch.setattr(native, "attempt", spy)
+    monkeypatch.setattr(progress, "note", notes.append)
+
+    class Heard(fill._Count):
+        def __init__(self):
+            super().__init__()
+            self.calls = []
+
+        def begin(self, n):
+            self.calls.append(n)
+
+        def __call__(self, placed, reach=False):
+            self.calls.append((placed, reach))
+    cases = [(logic.db.defaults, [("0", 0), ("0", 3), ("11", 3), ("2", 3), ("5", 0)]),
+             (Settings(0, "safe", {}), [("4", 0)]), (Settings(4, "frame_perfect", {}), [("0", 0)]),
+             (Settings(3, "hard", {}, seed_difficulty=3), [("0", 0), ("1", 3)]),
+             (Settings(3, "hard", {}, frozenset({"fragments"}), seed_difficulty=3), [("31", 12), ("31", 4)]),
+             (Settings(4, "frame_perfect", {}, seed_difficulty=4), [("15", 3), ("15", 0)])]
+    for st, seeds in cases:
+        run = fill._Run(logic, st)
+        assert run.kernel.blob is not None, st
+        for seed, k in seeds:
+            answers = []
+            for kernel in (False, True):
+                heard, repaired = Heard(), []
+                try:
+                    got = (run.kernel.attempt(seed, k, heard, repaired) if kernel else run.slots.attempt(
+                        st, run.reads, fill._streams(seed, k, run.digest), run.known, repaired, run.reaches, heard,
+                        run.pin), None, None)
+                except fill._Stuck as exc:
+                    got = (None, str(exc), exc.item)
+                answers.append((got, repaired, heard.calls))
+            assert answers[0] == answers[1], (st, seed, k)
+            outcomes.add(answers[0][0][1].split(" for ")[0].split(":")[0] if answers[0][0][1] else "placed")
+            if (shape := run.shape) is None or (placement := answers[0][0][0]) is None:
+                continue
+            for rating in range(2, shape.ask.rating + 1):
+                for stop in (None, shape.limit, 0):
+                    told = []
+                    for kernel in (False, True):
+                        notes.clear()
+                        play = (run.kernel.play(placement, rating, stop) if kernel else
+                                difficulty.play(logic, st, placement, rating, stop=stop, needed=True))
+                        need = (run.kernel.need(placement, rating) if kernel else
+                                difficulty.need(logic, st, placement, rating))
+                        told.append((need, play and (play.need, play.stages), len(notes)))
+                    assert told[0] == told[1], (st, seed, k, rating, stop)
+            judged = [(shape.why_not(placement), shape.score(placement))]
+            monkeypatch.setattr(shape, "kernel", None)
+            assert judged == [(shape.why_not(placement), shape.score(placement))], (st, seed, k)
+    assert (paths, outcomes) == (1023, {"placed", "no safe proven spot", "no safe spot", "the verify"}), (
+        paths, outcomes)
+
+
 def test_the_side_module_under_pyodide_gives_the_twins_answer(pyodide, tmp_path, monkeypatch):
     cases = list(_cases(1401, 40))
     cases += [(_monotone_of(t), call) for t, call in cases[:30]]

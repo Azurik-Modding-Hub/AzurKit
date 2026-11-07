@@ -15,7 +15,10 @@ loaded library is seen (the perf gate's native assert).
 
 The first kernel is the randomizer's reach (:func:`solve`): the solver's
 least fixpoint (``planner/solver.py``'s ``Logic._solve``) over
-:class:`Tables`, its graphs and rules as integer ids.
+:class:`Tables`, its graphs and rules as integer ids. The second is the
+fill's (:func:`attempt`, :func:`accept`): a whole attempt of
+``planner/fill.py``'s fill and a shaped candidate's need and play, on the
+blob ``fill._Kernel`` packs, its twins those modules' own.
 """
 
 from __future__ import annotations
@@ -44,7 +47,7 @@ TARGETS = {                               # (sys.platform, machine) -> the libra
     ("win32", "x86_64"): "windows-x86_64.dll",
     ("emscripten", "wasm32"): "emscripten-wasm32.so",   # a side module Pyodide's ctypes loads
 }
-KERNELS = ("reach", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs")
+KERNELS = ("reach", "attempt", "origins", "linear", "chain", "boxes", "sample", "heights", "skinned", "signed", "runs")
 DEPTH = 200                               # the deepest rule the kernel evaluates (its recursion); deeper: the twin
 LIMIT = 1 << 62                           # every number the kernel holds stays under it (int64); else the twin
                                           # (no number is refused for its size, D23)
@@ -92,7 +95,8 @@ def _load() -> tuple[ctypes.CDLL | None, str, str | None]:
     lib.az_reach.restype = ctypes.c_int64
     vp, i64, f64 = ctypes.c_void_p, ctypes.c_int64, ctypes.c_double
     try:
-        for fn, args in (("az_origins", [vp, vp, i64, vp, i64, vp, vp, i64, vp, vp]),
+        for fn, args in (("az_attempt_need", [vp] * 6), ("az_attempt", [vp] * 8), ("az_accept", [vp] * 9),
+                         ("az_origins", [vp, vp, i64, vp, i64, vp, vp, i64, vp, vp]),
                          ("az_linear", [vp, vp, vp, vp, vp, i64, vp]),
                          ("az_chain", [vp, vp, vp, i64, vp, vp, vp, i64, f64, f64, vp]),
                          ("az_boxes", [vp, i64, f64, vp]),
@@ -688,6 +692,42 @@ def solve(t: Tables, graph: int, phys: int, free: int, *, counters: Sequence[int
             return _native(lib, t, graph, phys, free, counters, held, flags, gives, got, late, traps, log, take_got)
     CALLS["twin"] += 1
     return _twin(t, graph, phys, free, counters, held, flags, gives, got, late, traps, log, take_got)
+
+
+# ---- the fill's attempt ----------------------------------------------------------------------------------------------
+def attempt(blob: array, tables: Sequence[Tables], call: array, words: int) -> array | int | None:
+    """One attempt of the fill in ``native/fill.c`` (its twin, the reference, is ``planner/fill.py``'s
+    ``_Slots.attempt``): the fill's packed ``blob``, the reach ``tables`` it reads (the plan's options', then a seed
+    difficulty's rungs, four at most) and the ``call``'s words; its answer's ``words`` words, an error's code below 0
+    (the call's told log too short, or a kernel that can't: fill.c names them), or None without the library."""
+    if (lib := library()) is None:
+        return None
+    at = [*map(_at, (t.blob for t in tables)), *[None] * (4 - len(tables))]
+    need = lib.az_attempt_need(_at(blob), *at, _at(call))
+    if need < 0:
+        return need
+    space, out = array("q", bytes(8 * need)), array("q", bytes(8 * words))
+    if rc := lib.az_attempt(_at(blob), *at, _at(call), _at(space), _at(out)):
+        return rc
+    CALLS["kernel"] += 1
+    return out
+
+
+def accept(blob: array, tables: Sequence[Tables], call: array, placement: array, words: int) -> array | int | None:
+    """``native/fill.c``'s az_accept: the seed difficulty's need or play (``planner/difficulty.py``'s, the twins) of a
+    candidate ``placement`` on :func:`attempt`'s blob and tables, its answer's ``words`` words; an error's code below
+    0, or None without the library."""
+    if (lib := library()) is None:
+        return None
+    at = [*map(_at, (t.blob for t in tables)), *[None] * (4 - len(tables))]
+    need = lib.az_attempt_need(_at(blob), *at, _at(call))
+    if need < 0:
+        return need
+    space, out = array("q", bytes(8 * need)), array("q", bytes(8 * words))
+    if rc := lib.az_accept(_at(blob), *at, _at(call), _at(placement), _at(space), _at(out)):
+        return rc
+    CALLS["kernel"] += 1
+    return out
 
 
 # ---- the dress ------------------------------------------------------------------------------------------------------

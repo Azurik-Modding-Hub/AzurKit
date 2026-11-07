@@ -322,26 +322,42 @@ def play(logic: Logic, settings: Settings, placement: Mapping[str, str], rating:
     return Play(True, tuple(stages), tuple(rounds))
 
 
+TWIN = object()   # what a kernel answers when it can't: these reaches run
+
+
 class Shape:
     """A level > 0's parameters for one fill: the plan's ``logic``, its settings, what they ask (:func:`asked`; a fill
-    runs the shape only when that isn't ``None``) and the rungs the pin reads, E_L .. E_2, the asked rating's first."""
+    runs the shape only when that isn't ``None``) and the rungs the pin reads, E_L .. E_2, the asked rating's first.
+    ``kernel``: the fill's compiled need and play (its ``need`` and ``play`` answer as :func:`need` and :func:`play`,
+    or :data:`TWIN`), else these run."""
 
     def __init__(self, logic: Logic, settings: Settings, ask: Ask) -> None:
         self.logic, self.settings, self.ask = logic, settings, ask
         skips = logic.skip_tables
         self.ladder = tuple(rung(settings, r, skips) for r in range(ask.rating, 1, -1))
         self.limit = len(progression(logic, {})) // 2
+        self.kernel = None
+
+    def _need(self, placement: Mapping[str, str], rating: int) -> bool:
+        if self.kernel is not None and (got := self.kernel.need(placement, rating)) is not TWIN:
+            return got
+        return need(self.logic, self.settings, placement, rating)
+
+    def _play(self, placement: Mapping[str, str], rating: int, stop: int | None = None) -> Play | None:
+        if self.kernel is not None and (got := self.kernel.play(placement, rating, stop)) is not TWIN:
+            return got
+        return play(self.logic, self.settings, placement, rating, stop=stop, needed=True)
 
     def why_not(self, placement: Mapping[str, str]) -> str | None:
         """Whether a passing candidate meets the promise (``None``) or why not, lazily: need_L, one reach, then play_2
         stopped at the first stage over half. It never reads play_r for r >= 3, so the plan kept is the one computing
         every score at once would keep."""
-        st, name = self.settings, RATING_NAMES[self.ask.rating]
-        if not need(self.logic, st, placement, self.ask.rating):
+        name = RATING_NAMES[self.ask.rating]
+        if not self._need(placement, self.ask.rating):
             return f"no {name} trick is needed; {name} asks for one"
         if self.ask.once:
             return None
-        got = play(self.logic, st, placement, 2, stop=self.limit, needed=True)
+        got = self._play(placement, 2, self.limit)
         if got is None:
             return f"a trick-free stretch runs past half the progression; {name} asks for at most half"
         if got.step_ups < 2:
@@ -351,13 +367,13 @@ class Shape:
     def score(self, placement: Mapping[str, str]) -> tuple:
         """The candidate's score (integers, lexicographic), read only when the bound ends with no ok: the need, then
         the step-ups at the asked rating up to 2, those at Standard up to 2, the longest stretch, shorter first."""
-        st, rating = self.settings, self.ask.rating
-        if not need(self.logic, st, placement, rating):
+        rating = self.ask.rating
+        if not self._need(placement, rating):
             return (0,)
         if self.ask.once:
-            return (1, min(play(self.logic, st, placement, rating, needed=True).step_ups, 2))
-        low = play(self.logic, st, placement, 2, needed=True)
-        own = () if rating == 2 else (min(play(self.logic, st, placement, rating, needed=True).step_ups, 2),)
+            return (1, min(self._play(placement, rating).step_ups, 2))
+        low = self._play(placement, 2)
+        own = () if rating == 2 else (min(self._play(placement, rating).step_ups, 2),)
         return (1, *own, min(low.step_ups, 2), -low.free)
 
 

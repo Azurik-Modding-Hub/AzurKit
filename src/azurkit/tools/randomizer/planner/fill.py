@@ -99,12 +99,13 @@ import json
 import random
 import time
 import weakref
+from array import array
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
-from azurkit.core import progress
-from azurkit.tools.randomizer.planner.difficulty import BOUND, Shape, asked
+from azurkit.core import native, progress
+from azurkit.tools.randomizer.planner.difficulty import BOUND, NOTE, TWIN, Play, Shape, asked
 from azurkit.tools.randomizer.planner.grammar import atoms, parse
 from azurkit.tools.randomizer.planner.settings import (
     CATEGORIES,
@@ -249,10 +250,14 @@ def db_digest(db) -> str:
     return digest
 
 
+def sub_seed(seed: str, name: str, settings_hex: str) -> int:
+    """The named stream's seed: the first 8 bytes of sha256(seed NUL name NUL settings_digest)."""
+    return int.from_bytes(hashlib.sha256(f"{seed}\0{name}\0{settings_hex}".encode()).digest()[:8], "big")
+
+
 def stream(seed: str, name: str, settings_hex: str) -> Rng:
-    """The named stream ``name``: sub_seed = the first 8 bytes of
-    sha256(seed NUL name NUL settings_digest)."""
-    return Rng(int.from_bytes(hashlib.sha256(f"{seed}\0{name}\0{settings_hex}".encode()).digest()[:8], "big"))
+    """The named stream ``name``."""
+    return Rng(sub_seed(seed, name, settings_hex))
 
 
 class FillError(ValueError):
@@ -950,6 +955,263 @@ class Outcome:
     why_not: str | None = None
 
 
+@dataclass(frozen=True)
+class _Verified:
+    """What :func:`_problems` reads of a verify's reach, from the kernel's ids."""
+    victory: bool
+    locations: frozenset[str]
+    free_traps: frozenset[str]
+    after_completion: frozenset[str]
+
+
+def _bits(ids: Iterable[int], count: int) -> list[int]:
+    """``ids`` as a set's words, each a signed 64-bit word (the kernel's u64 sets in an array of int64)."""
+    row = [0] * ((count + 63) // 64)
+    for i in ids:
+        row[i >> 6] |= 1 << (i & 63)
+    return [x - (1 << 64) if x >> 63 else x for x in row]
+
+
+def _named_bits(words: Sequence[int], names: Sequence[str]) -> frozenset[str]:
+    """The names of the bits set in ``words`` (a set's words, each a signed 64-bit word)."""
+    return frozenset(names[64 * w + b] for w, x in enumerate(words) if x for b in range(64) if x >> b & 1)
+
+
+class _Kernel:
+    """A run's attempts in the compiled kernel (``native/fill.c``, D1141; :meth:`_Slots.attempt` is its twin, the
+    reference): the run's facts packed once as the kernel's blob (:attr:`blob`, the words fill.c's ``F_*``, ``L_*`` and
+    ``I_*`` name; every id the reach tables'), each attempt's answer read back into what the twin gives, its notes told
+    afterwards in the twin's order. No blob (:meth:`attempt` answers None): the twin runs: no library, tables only the
+    reach's twin reads, numbers past the kernel's, or a stub level named as a node, where the kernel's ids can't tell
+    apart the names the twin's sets hold."""
+
+    MAGIC, VERSION, HEAD, OUT, CAP = 0x314C4C49464B, 1, 25, 8, 1 << 14    # fill.c's FILL_*, F_HEAD and O_HEAD; a first told log
+    CLASSES = {"progression": 0, "progression_counted": 1, "useful": 2, "filler": 3}
+    STREAMS = ("progression", "useful", "filler")
+
+    def __init__(self, run: _Run) -> None:
+        self.run, self.blob, self.cap, self._last = run, None, self.CAP, (None, None)
+        logic, slots, st, db = run.logic, run.slots, run.st, run.logic.db
+        if native.library() is None:
+            return
+        nt = logic._tables(st)
+        tabs = [nt, *(logic._tables(rung) for rung in (run.shape.ladder if run.pin is not None else ()))]
+        node_of, locs = db.node_of, slots.names.locations
+        pool = set(slots.pool)
+        copies = len(db.world["starting_items"]) + native._limits(nt.tables)[3] + len(nt.locs)   # an item's most
+
+        def fits(t: native.Tables) -> bool:   # solve's bound on what a reach of the fill can hold
+            terms, _, _, all_yields, most = native._limits(t)
+            top = most * copies * len(t.items) + copies + all_yields + 1
+            return (top + most * all_yields + t.locations) * terms < native.LIMIT
+        if (len(tabs) > 4 or any(t.tables.twin_only or (t.locs, t.items, t.nodes) != (nt.locs, nt.items, nt.nodes)
+                                 or not fits(t.tables) for t in tabs)
+                or db.stubs & db.nodes.keys() or any(logic.canon(node_of[loc]) != node_of[loc] for loc in pool)):
+            return
+        self.tabs, self.nw, self.lw = tabs, (nt.tables.nodes + 63) // 64, (nt.tables.locations + 63) // 64
+        placed = {**slots.prefilled, **slots.kept(st)}
+        read = {name for name, cs in logic.items.items() if cs.keys() & run.reads.keys()}
+        todo = [loc for loc in slots.pool if loc not in placed]
+        nongem = [loc for loc in todo if slots.kind[loc] == "nongem"]
+        by_class = collections.defaultdict(list)
+        for loc in nongem:
+            by_class[slots.cls[slots.vanilla[loc]]].append(slots.vanilla[loc])
+        self.steps = sum(len(by_class[cls]) for cls in _Count.REACHED) + 1
+        kinds = sorted({k for k in slots.kind.values() if k != "nongem"}, key=str)
+        groups = [("non-gem", None, by_class["filler"])]
+        for kind in kinds:
+            spots = [loc for loc in todo if slots.kind[loc] == kind]
+            groups.append((kind if kind == "gem" else f"yield-{kind[1]} cluster", spots,
+                           [slots.vanilla[loc] for loc in spots]))
+        self.whats = [what for what, _, _ in groups]
+        item, loc_id, node_id = nt.item, nt.loc, {n: i for i, n in enumerate(nt.nodes)}
+        names = {x: i for i, x in enumerate(nt.items)}
+
+        def name(x: str) -> int:
+            return names.setdefault(x, len(names))
+        graphs: dict[str, int] = {}
+        levels: dict[str, int] = {}
+        needed = run.pin.needed if run.pin is not None else ()
+        w = [0] * self.HEAD
+
+        def section(slot: int) -> None:
+            w[slot] = len(w)
+        section(7)                                   # F_LOCS: each location's L_W words
+        for loc in nt.locs:
+            row = locs[loc]
+            w += [1 * (loc in pool) | 2 * (loc in slots.excluded) | 4 * (loc in slots.vault) | 8 * (loc in slots.major)
+                  | 16 * (loc in slots.proven) | 32 * (loc in nt.placed) | 64 * (loc in slots.only),
+                  item.get(row["item"], -1), 0, graphs.setdefault(graph_of(loc), len(graphs)),
+                  node_id[logic.canon(node_of[loc])], levels.setdefault(logic.pool[loc], len(levels)),
+                  item[placed[loc]] if loc in placed else -1, name(row["item"]), name(row["template"])]
+        section(8)                                   # F_ITEMS: each item's I_W words
+        start = collections.Counter(db.world["starting_items"])
+        for x in nt.items:
+            w += [self.CLASSES.get(slots.cls[x], 4), name(slots.names.base[x]),
+                  1 * (x in read) | 2 * (x in VAULT_ITEMS) | 4 * (x in needed), start[x], string_cost(x)]
+        section(9)                                   # F_MOVE: a base name's move item
+        w += [item[slots.names.move_of[x]] if x in slots.names.move_of else -1 for x in names]
+        section(10)                                  # F_GRAPH: in the writer's graphs, and its budget
+        for key in graphs:
+            mine = key in slots.names.graphs
+            w += [int(mine), slots.names.budget(key) if mine else 0]
+        section(11)                                  # F_HAVE: each graph's vanilla strings, a bit a name
+        for key in graphs:
+            w += _bits((i for x in slots.names.have.get(key, ()) if (i := names.get(x)) is not None), len(names))
+        section(12)                                  # F_ONLY: AZ-725's items, by location
+        at = len(w)
+        w += [0] * (len(nt.locs) + 1)
+        for i, loc in enumerate(nt.locs):
+            w[at + i] = len(w)
+            w += sorted(item[x] for x in slots.only.get(loc, ()))
+        w[at + len(nt.locs)] = len(w)
+        section(13)                                  # F_PROG
+        prog = sorted(item[x] for x in by_class["progression"])
+        w += [len(prog), *prog]
+        section(14)                                  # F_USEFUL
+        useful = sorted(item[x] for x in by_class["useful"])
+        w += [len(useful), *useful]
+        section(15)                                  # F_COUNTED: the item, its copies, each count's band floor
+        counted = sorted(collections.Counter(by_class["progression_counted"]).items())
+        w.append(len(counted))
+        for x, k in counted:
+            w += [item[x], k, *(slots.floor(c, logic.items[x], run.reads) if x in read else 0 for c in range(k))]
+        section(16)                                  # F_GROUPS: the filler's, in order (the non-gem one's spots: -1)
+        w.append(len(groups))
+        most_group = max(len(prog), len(useful), len(nongem))
+        for i, (_, spots, items) in enumerate(groups):
+            w += [i, -1] if spots is None else [i, len(spots), *(loc_id[loc] for loc in spots)]
+            w += [len(items), *sorted(item[x] for x in items)]
+            most_group = max(most_group, len(spots or ()), len(items))
+        section(17)                                  # F_NONGEM
+        w += [len(nongem), *(loc_id[loc] for loc in nongem)]
+
+        def bitset(slot: int, ids: Iterable[int], count: int) -> None:
+            section(slot)
+            w.extend(_bits(ids, count))
+        stub_ids = [i for i, n in enumerate(nt.nodes) if n in db.stubs]
+        whole = [i for i, n in enumerate(nt.nodes)
+                 if all(x in run.known for x in (logic.stub_nodes[n] if n in db.stubs else (n,)))]
+        bitset(18, whole, len(nt.nodes))             # F_KNOWN_FULL: every name a canonical node stands for is known
+        bitset(19, (i for i, n in enumerate(nt.nodes) if n in run.known), len(nt.nodes))   # F_KNOWN_NAME: its own name
+        bitset(20, stub_ids, len(nt.nodes))          # F_STUB
+        bitset(21, (loc_id[loc] for loc in logic.guardian), len(nt.locs))     # F_GUARD
+        bitset(22, (loc_id[loc] for loc in _full(logic)), len(nt.locs))       # F_FULL
+        section(23)                                  # F_GIVES: what each location gives unplaced
+        w += nt.gives
+        w[:7] = [self.MAGIC, self.VERSION, len(nt.locs), len(nt.items), len(names), len(graphs), len(placed)]
+        w[24] = most_group
+        self.blob = array("q", w)
+
+    def attempt(self, seed: str, k: int, told: _Count, repaired: list[str]) -> dict[str, str] | None:
+        """Attempt ``k``'s placement as :meth:`_Slots.attempt` gives it (or its :class:`_Stuck`), its notes told to
+        ``told`` and its refusals in ``repaired``; None: the twin runs."""
+        if self.blob is None:
+            return None
+        run, nt = self.run, self.tabs[0]
+        keys = []
+        for name in self.STREAMS:
+            n = sub_seed(seed, name if k == 0 else f"attempt{k}/{name}", run.digest)
+            keys += [1 + (n >> 32 != 0), n & 0xFFFFFFFF, n >> 32]
+        vw, nl = 1 + self.lw + 2 * self.nw, len(nt.locs)
+        graphs = [g for t in self.tabs for g in t.graphs] + [0] * 3 * (4 - len(self.tabs))
+        while True:
+            call = array("q", [self.cap, len(self.tabs), int(run.pin is not None), *graphs, *keys])
+            at_log = self.OUT + nl + vw * (MAX_REPAIRS + 2)
+            out = native.attempt(self.blob, [t.tables for t in self.tabs], call, at_log + self.cap)
+            if out != -3:
+                break
+            self.cap *= 4      # a longer told log than any seen: the attempt again, with room
+        if out is None or isinstance(out, int):
+            return None
+        status, code, a, b, nlog, nrep = out[:6]
+        self._told(told, out[at_log:at_log + nlog])
+        reach = self.OUT + nl
+        repaired.extend(self._verify(out[reach + vw * i:reach + vw * (i + 1)]) for i in range(1, nrep + 1))
+        if status:
+            raise self._stuck(code, a, b, out[reach:reach + vw])
+        items, locs = nt.items, nt.locs
+        return {locs[i]: items[x] for i, x in enumerate(out[self.OUT:self.OUT + nl]) if x >= 0}
+
+    def _placement(self, placement: Mapping[str, str]) -> array:
+        """A candidate's placement as az_accept reads it, kept for the next ask of the same one (a candidate's need,
+        then its play)."""
+        if (last := self._last)[0] is placement:
+            return last[1]
+        item, got = self.tabs[0].item, array("q")
+        for loc in self.tabs[0].locs:   # an item's id; -1 none; -2 not in the placement (its vanilla item there)
+            x = placement.get(loc, ...)
+            got.append(-2 if x is ... else -1 if x is None else item.get(x, -1))
+        self._last = (placement, got)
+        return got
+
+    def _accept(self, placement: Mapping[str, str], mode: int, rating: int, stop: int | None) -> array | None:
+        """az_accept's answer for need (``mode`` 0) or play (1) at ``rating``, or None: the twin runs."""
+        ask = self.run.shape.ask.rating if self.run.shape is not None else 0
+        if self.blob is None or not 2 <= rating <= ask:
+            return None
+        graphs = [g for t in self.tabs for g in t.graphs] + [0] * 3 * (4 - len(self.tabs))
+        call = array("q", [0, len(self.tabs), 0, *graphs, *[0] * 9, mode, 1 + ask - rating, -1 if stop is None else stop])
+        out = native.accept(self.blob, [t.tables for t in self.tabs], call, self._placement(placement),
+                            4 + len(self.tabs[0].locs) + 1)
+        return None if out is None or isinstance(out, int) else out
+
+    def need(self, placement: Mapping[str, str], rating: int):
+        """difficulty.need's answer (no win at the rung), or :data:`~.difficulty.TWIN`."""
+        return TWIN if (out := self._accept(placement, 0, rating, None)) is None else not out[1]
+
+    def play(self, placement: Mapping[str, str], rating: int, stop: int | None):
+        """difficulty.play's (needed true) for what the acceptance reads (its stages; no rounds), or
+        :data:`~.difficulty.TWIN`; its notes told as the twin's."""
+        if (out := self._accept(placement, 1, rating, stop)) is None:
+            return TWIN
+        for _ in range(out[2]):
+            progress.note(NOTE)
+        return None if out[0] else Play(True, tuple(out[4:4 + out[3]]), ())
+
+    def _told(self, told: _Count, log: Sequence[int]) -> None:
+        """The twin's notes, in its order: a beside attempt's steps as one count and one note."""
+        if told is _Count.SILENT:
+            return
+        told.begin(self.steps)
+        if isinstance(told, _BesideCount):
+            told.fills.beside += len(log)
+            progress.note("placing the items")
+            return
+        for x in log:
+            told(x >> 1, bool(x & 1))
+
+    def _verify(self, words: Sequence[int]) -> str:
+        """The words of the verify's reach kept at ``words`` (fill.c's ``keep``)."""
+        run, nt, lw, nw = self.run, self.tabs[0], self.lw, self.nw
+        logic = run.logic
+        free, after = (logic._named(logic.stub_nodes, _named_bits(words[at:at + nw], nt.nodes))
+                       for at in (1 + lw, 1 + lw + nw))
+        r = _Verified(bool(words[0]), _named_bits(words[1:1 + lw], nt.locs), free, after)
+        return "the verify: " + "; ".join(_problems(logic, r, run.known))
+
+    def _stuck(self, code: int, a: int, b: int, words: Sequence[int]) -> _Stuck:
+        """The twin's :class:`_Stuck` for fill.c's reason ``code`` and its ids (``W_*``: an item ``a``, a location
+        ``b``; a count left ``b``; a filler group ``a``) or the verify's reach kept at ``words``."""
+        items, locs = self.tabs[0].items, self.tabs[0].locs
+        if code == 3:
+            return _Stuck(f"no safe spot for {items[a]} ({b} left)")
+        if code == 4:
+            return _Stuck(self._verify(words))
+        if code == 8:
+            return _Stuck(f"no {self.whats[a]} item may go on {locs[b]}")
+        item, loc = items[a] if a >= 0 else None, locs[b] if b >= 0 else None
+        if code == 1:
+            return _Stuck(f"no safe proven spot for {item}", item)
+        if code == 2:
+            return _Stuck(f"the repair puts {item} on {loc} over its graph's string budget")
+        if code == 5:
+            return _Stuck(f"no useful item may go into the vault {loc} (Q290)")
+        if code == 6:
+            return _Stuck(f"the vault {loc} is not safe without {item}")
+        return _Stuck(f"no safe spot for {item}")
+
+
 class _Run:
     """What a fill's attempts share: only caches and what a seed's every attempt reads alike."""
 
@@ -967,12 +1229,16 @@ class _Run:
         self.shape = None if ask is None else Shape(logic, st, ask)
         self.pin = None if ask is None else _Pin(logic, self.slots, st, self.shape.ladder)
         self.count = _Count(making, 1 if ask is None else BOUND)
+        self.kernel = _Kernel(self)
+        if self.shape is not None and self.kernel.blob is not None:
+            self.shape.kernel = self.kernel
 
     def attempt(self, seed: str, k: int, count: _Count | None = None) -> Outcome:
         repaired: list[str] = []
         try:
-            placement = self.slots.attempt(self.st, self.reads, _streams(seed, k, self.digest), self.known, repaired,
-                                           self.reaches, count or self.count, self.pin)
+            if (placement := self.kernel.attempt(seed, k, count or self.count, repaired)) is None:
+                placement = self.slots.attempt(self.st, self.reads, _streams(seed, k, self.digest), self.known,
+                                               repaired, self.reaches, count or self.count, self.pin)
         except _Stuck as exc:
             return Outcome(k, None, str(exc), exc.item)
         layout(placement, self.logic.db)     # the writer's own check (never over a budget): a WriteError is a bug
