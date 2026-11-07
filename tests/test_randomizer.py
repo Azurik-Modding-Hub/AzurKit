@@ -1406,6 +1406,8 @@ def test_the_databases_key_reads_again_only_a_file_whose_size_or_times_changed_a
     monkeypatch.setattr(Path, "read_bytes", lambda self: read.append(self.name) or real(self))
     assert dbcache.entry(root, None) == first and read == []
     (root / "items.toml").write_text("c", encoding="utf-8")
+    st = (root / "items.toml").stat()   # a rewrite inside one clock tick keeps its times: move them a whole second,
+    os.utime(root / "items.toml", ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))   # which HFS+ keeps too
     assert dbcache.entry(root, None) != first and read == ["items.toml"]
 
 
