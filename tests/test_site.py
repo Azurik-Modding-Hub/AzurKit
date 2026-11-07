@@ -2114,6 +2114,33 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     assert len(asked) == 1 and began - 2 < start < began - 0.9 and took < 10, (asked, began, took)
 
 
+def test_a_page_call_whose_context_went_names_whether_its_page_reloaded_and_its_state(browser):
+    """A page's call that fails as Playwright's "Execution context was destroyed" (``_page.LOST``: a navigation under
+    it, or an error WebKit's agent answered it with) fails naming the call and its error, whether the page's document
+    began since the call (the page reloaded) or is the one from before it, its state and its driver's processes:
+    GitHub's Intel Mac runner failed a WebKit page's evaluate so with nothing more (run 42406769117). Any other error
+    is the call's own, raised as it came."""
+    from playwright._impl._errors import Error
+    page = browser.new_page()
+
+    async def gone(reload: bool):
+        if reload:
+            await page._impl_obj.reload()
+        raise Error("Execution context was destroyed, most likely because of a navigation.")
+    try:
+        for reload, said in ((False, "its document is the one from before the call"),
+                             (True, "its document began ")):
+            with pytest.raises(AssertionError) as failed:
+                _page.within(page, gone(reload), 30, "the stand-in call")
+            lines = str(failed.value).splitlines()
+            assert lines[0] == ("the stand-in call: Execution context was destroyed, most likely because of a "
+                                "navigation.") and lines[1].startswith(said), lines
+            assert any(line.startswith("state: ") for line in lines) and lines[-1].startswith("under its driver: ")
+        with pytest.raises(Error, match="no such thing"):
+            _page.answer(page, "() => { throw new Error('no such thing'); }")
+    finally:
+        page.close()
+
 def test_a_webkit_call_answered_past_its_bound_fails_though_its_log_is_still_read(monkeypatch):
     """Step 4.5f: a WebKit call on macOS takes its answer until its bound, never after: one that comes while macOS's log
     is read at the bound, or by a read begun before it and still running, fails the call there as Playwright's own
@@ -4043,7 +4070,7 @@ def test_a_weapon_a_body_lifts_off_the_floor_builds_on_the_site_as_cpython_build
         _page.load(page, f"{served.origin}/{sdk.preset_encode(recipe)}")
         _page.until(page, "() => globalThis.azurkit?.loaded", 120)
         _page.pick(page, "#iso", usa_iso)
-        page.evaluate("() => document.querySelector('#build').click()")
+        _page.click(page, "build")
         built = _built(page)
         assert built == _as_cpython(built, report, made)
     finally:

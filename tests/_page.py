@@ -351,18 +351,54 @@ def stalled(owner, what: str, seconds: float, ended: tuple[str, ...] = ()) -> st
     return "\n".join([*said, f"under its driver: {_drivers(context)}"])
 
 
+LOST = "Execution context was destroyed"
+"""Playwright's words for a page's call whose page navigated under it, and, ending in a period, its WebKit driver's for
+a call WebKit answered with an error that is neither the page's own nor a closed session's: GitHub's Intel Mac runner
+failed a WebKit page's evaluate so with nothing more (run 42406769117), its log naming no ending of a page's process
+and the site's test pages having no navigation of their own (their service worker blocked)."""
+
+
+def lost(page, what: str, error, start: float, look=None) -> str:
+    """What a call to ``page`` that failed as :data:`LOST` says: ``what`` it was and its error, whether the page's
+    document began since the call began at ``start`` (seconds since the epoch: a reload or a navigation) or is the one
+    from before it, WebKit's log's lines on a page of its browser whose process it ended since then (``look``,
+    :func:`_ended`, read in :data:`HEAR` s), the page's state (:func:`hang`) and the processes under its driver."""
+    said = [f"{_short(what)}: {_short(str(error), 300)}"]
+    try:
+        origin = _heard(page, page._impl_obj.evaluate("() => performance.timeOrigin"), HEAR) / 1000
+        said.append(f"its document began {origin - start:.1f} s after the call: the page reloaded or navigated"
+                    if origin > start else "its document is the one from before the call")
+    except Exception as unread:   # a closed or crashed page, or no answer: say so, and the rest
+        said.append(f"its document: unread ({_short(str(unread), 200)})")
+    if look:
+        try:
+            if ended := _heard(page, asyncio.to_thread(look), HEAR):
+                said += ["WebKit ended a page's process in its browser since the call began (its log):",
+                         *(f"  {line}" for line in ended)]
+        except TimeoutError:
+            said.append(f"WebKit's log: unread in {HEAR} s")
+    return "\n".join([*said, hang(page), f"under its driver: {_drivers(page.context)}"])
+
+
 def within(owner, call, seconds: float, what: str):
     """``call``'s answer (:func:`_heard`), or an AssertionError naming ``what`` with the page's state past ``seconds``
     (:func:`stalled`); in WebKit on macOS also at once, naming it, as its log says WebKit ended the process of a page
     of the call's browser since the call began (from a second before it: the log's times are whole seconds), read once
-    the call went :data:`LOOK` s unanswered, each :data:`LOOK` s after and at ``seconds`` (:func:`_ended`)."""
-    look, since, began = _ended(owner), time.time() - 1, time.monotonic()
+    the call went :data:`LOOK` s unanswered, each :data:`LOOK` s after and at ``seconds`` (:func:`_ended`). A page's call
+    that fails as :data:`LOST` fails naming whether its page reloaded and what WebKit's log says (:func:`lost`); any
+    other error is the call's own, raised as it came."""
+    look, start, began = _ended(owner), time.time(), time.monotonic()
+    since = start - 1
     try:
         return _heard(owner, call, seconds, look and (lambda: look(since)))
     except _Ended as ending:
         raise AssertionError(stalled(owner, what, time.monotonic() - began, ending.args[0])) from None
     except TimeoutError:
         raise AssertionError(stalled(owner, what, seconds)) from None
+    except Exception as error:
+        if LOST not in str(error) or not hasattr(owner, "main_frame"):
+            raise
+        raise AssertionError(lost(owner, what, error, start, look and (lambda: look(since)))) from None
 
 
 def answer(page, js: str, arg=None, seconds: float = STALL):
