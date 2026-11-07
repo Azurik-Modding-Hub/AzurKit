@@ -1094,6 +1094,33 @@ def test_the_apps_characters_tab_remembers_show_objects_across_a_relaunch(browse
             server.close()
 
 
+def test_a_slow_app_launch_shows_its_stages_on_the_bar_and_a_quick_one_none(browser, tmp_path, monkeypatch):
+    """D980, past 1 s an op shows where it is: a launch whose server had run ``SLOW_LAUNCH`` by its ``host.json``
+    answer (``age``; Step 4.4ci56: a launch on a busy computer passed 1 s with nothing shown) shows its stages on the
+    bar, a third (the host read) and two thirds (the page drawn: its remembered setup's restore in flight), until the
+    page is ready; a quick one shows none."""
+    _home(monkeypatch, tmp_path / "home")
+    app._remember(setup={"ticked": []})
+    bar = """() => { const seen = globalThis.__bar = [];
+      new MutationObserver(() => { const p = document.getElementById("progress");
+        if (p && !p.closest("[hidden]")) seen.push(p.getAttribute("value")); })
+        .observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "value"] });
+    }"""
+    server = app.serve(_page.WEB)
+    try:
+        page = browser.new_page()
+        page.add_init_script(f"({bar})()")
+        for started, shown in ((10, []), (-10, ["33", "67"])):   # the launch's start 10 s ahead (quick), 10 s ago
+            server.started = time.monotonic() + started
+            page.goto(server.url)
+            _page.until(page, "() => globalThis.azurkit?.ready", 120)
+            assert [v for v in dict.fromkeys(page.evaluate("() => globalThis.__bar")) if v] == shown
+            assert page.evaluate("() => document.getElementById('progress-row').hidden")
+        _page.check_csp(page)
+    finally:
+        server.close()
+
+
 def test_the_apps_about_names_its_version_and_commit_or_says_no_git_can_name_it(browser, tmp_path, monkeypatch):
     """About shows the version and the commit AzurKit was built from (D992's release check, item 7), from what the
     host knows, never a fetch: the app run from this checkout names its HEAD (``host.json``'s ``commit``:

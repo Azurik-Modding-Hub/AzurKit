@@ -513,6 +513,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.host, self.cookie = f"127.0.0.1:{self.server_port}", f"azurkit-token-{self.server_port}"
         self.url = f"http://{self.host}/?token={self.token}"
         self.window = None                  # the pywebview window, once there is one: its file dialogs
+        self.started = time.monotonic()     # host.json's age: how long this launch has run (the page's bar, D980)
         self.busy = threading.Lock()        # one build or save at a time
         self.writing = threading.Lock()     # held by a save, which quit() waits on (never a build)
         self.out: Path | None = None        # where the save in flight writes
@@ -612,7 +613,8 @@ class Server(http.server.ThreadingHTTPServer):
         return {"engine": "app", "version": __version__, "commit": commit(), "catalog": sdk.catalog(), "iso": _start_image(kept),
                 "dialogs": self.window is not None, "site": SITE, "theme": _theme(kept),
                 "setup": kept.get("setup"), "tracker": kept.get("tracker"),
-                "content_source": kept.get("content_source"), "show_objects": kept.get("show_objects") is True}
+                "content_source": kept.get("content_source"), "show_objects": kept.get("show_objects") is True,
+                "age": round(time.monotonic() - self.started, 3)}
 
     def _recipe(self, body: dict) -> dict:
         recipe = {"iso": str(_path(body.get("iso"), "image")), "packs": body.get("packs", {})}

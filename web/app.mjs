@@ -66,7 +66,7 @@ const state = { engine: null, app: false, dialogs: false, ready: false, building
                 vanilla: null, asked: null, xbr: [], link: null, pending: null, loaded: null, opened: null,
                 site: null, theme: "dark", tab: null, remembered: null, kept: null, restoring: false, plain: true,
                 later: null, gen: Date.now(), spoiler: null, tracker: null, call: null, asks: new Map(),
-                vouched: new Map(), resting: new Map(), tracking: null, recovered: [],
+                vouched: new Map(), resting: new Map(), tracking: null, recovered: [], launch: null,
                 rando: { view: null, overrides: {}, ticket: 0, waiting: false, given: null, load: null, later: null,
                          note: null, noted: null, asked: null, recheck: false, probing: false,
                          moved: null } };
@@ -221,6 +221,17 @@ const AT_ONCE = new Set(["build", "save"]);   // shown from the click, over with
 const FOLLOWED = new Set([...AT_ONCE, "plan", "plan_spoiler", "save_check", "flat"]);
 const PAGES = new Set(["save_check", "flat"]);   // the page's own waits, with their own records: never a worker's
 let asked = 0, ticking = null;
+// A slow launch of the app's (D980: past 1 s an op shows where it is): one whose server had run SLOW_LAUNCH s by its
+// host.json answer (its age) shows its stages on the bar, the host read and the page drawn of the three (its setup
+// restored the last), until the page is ready (start()).
+const SLOW_LAUNCH = 0.5;
+
+function launched(done) {
+  const ask = state.asks.get(state.launch);
+  if (!ask) return;
+  ask.record = { stage: "launch", label: "Starting AzurKit", done, total: 3, percent: Math.round(100 * done / 3) };
+  showing();
+}
 
 // The bar shows ``step`` (none: hidden), each of its parts written only when it changes: a write of what it already
 // shows draws it again all the same, a round trip to the browser's drawing process (WebKit's GPU process, which a busy
@@ -1085,6 +1096,7 @@ function ready(catalog, version, commit) {
     $("version").textContent = `AzurKit ${version}`;
     $("about-version").textContent = `This is AzurKit ${version}, ${commit ? `built from commit ${commit.slice(0, 12)}`
       : "its commit is unknown (built or run without git)"}.`;   // the engine's azurkit.commit()
+    launched(2);
     if (!state.pending && state.remembered != null) {
       state.restoring = true;   // a remembered community pack is read from what the site hands its engine first
       return (state.remembered.community ? shared.ready : Promise.resolve())
@@ -1096,6 +1108,8 @@ function ready(catalog, version, commit) {
 
 function start() {
   state.ready = true;
+  if (state.launch) answered(state.launch);
+  state.launch = null;
   busy(state.building);
   // a link's community pack or variant is checked against what the site hands its engine first
   if (state.pending) state.community.ready.then(() => state.engine.decode(state.pending));
@@ -2006,6 +2020,10 @@ async function main() {
   state.site = host.site ?? null;
   state.host = host;
   if (host.engine === "app") {
+    if (host.age >= SLOW_LAUNCH) {
+      state.launch = asking("launch");
+      launched(1);
+    }
     state.engine = appEngine(host, callbacks);
     state.remembered = host.setup ?? null;
     state.kept = state.remembered && JSON.stringify(state.remembered);
