@@ -889,9 +889,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     remembered setup wear one by name (a link with its sha12, Q174); each
     key an answer for a character is kept under (`characters.cache_key`,
     `app.ahead.key`, the sdk's dresses) stands on what a build of yours
-    reads (`library.stamp`: its folder's recipe and files by sha256). Its
-    checks are `tests/test_variant_library.py`'s, one a build of the probe
-    variant saved as yours, its golden's file for file.
+    reads (`library.stamp`: its folder's recipe and files by sha256). The
+    Characters view lists them as its Custom group (`custom`). Its checks
+    are `tests/test_variant_library.py`'s, one a build of the probe variant
+    saved as yours, its golden's file for file.
   - **A seed with a character** (Step 4.3c2, Modkit's `randomize-full
     --seed` with `--player-character`): the sdk plans the randomizer after
     the body's size is folded into the walk and roll, so the plan stands

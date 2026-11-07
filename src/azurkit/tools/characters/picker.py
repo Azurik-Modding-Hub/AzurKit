@@ -9,7 +9,9 @@ nothing of its own.
   lists the objects only with Show objects),
   Azurik-Custom-Content's entries as the community group (D913: each
   marked community, its state Install, installed or Update, its variants
-  once installed), and the chosen model's info panel (with the image read,
+  once installed), your own variants as the Custom group (``library``:
+  each its title, base and grade, a folder that isn't one named with its
+  refusal), and the chosen model's info panel (with the image read,
   an "In game" line saying LB switches between its attack sets, where it
   plays 2 or more, each set's line in the row's tip, D1153), its Weapon box (each
   pick marked by its fit and coloured by the grade its build would read:
@@ -54,6 +56,8 @@ UNTESTED_PICK = {"green": "Should play, not tested", "yellow": "Rough edges, not
                  "red": "Not playable, not tested", "unseen": "Not tested"}
 """A pick no sitting saw, by the colour its fit gives it (D810), said plainly (the owner's review, D1061)."""
 COMMUNITY = "Community"
+CUSTOM = "Custom"
+"""The group your own variants are listed under (``library``)."""
 PREVIEW = 160
 SPECIES = Path(__file__).with_name("species.json")   # [species, body, object] of each the player can wear (above)
 """A preview's side, px (Modkit's gallery picker's)."""
@@ -160,7 +164,7 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     from azurkit.tools.characters import DEFAULT_CHAIN
     from azurkit.tools.characters import _player_character as swap
     from azurkit.tools.characters import _player_variants as variants
-    from azurkit.tools.characters import content, jiggle_rt
+    from azurkit.tools.characters import content, jiggle_rt, library
     from azurkit.tools.characters._player_weapons import DEFAULT, NOT_SEEN, attack_recipe, pick_grade, seen, weapons
     from azurkit.tools.characters.characters import object_bodies
 
@@ -184,7 +188,11 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     entries = (community or {}).get("entries") or content.states(None, record)
     held = _variants_of(root, record)
     built = variants.builtins()
-    worn = built.get(species)
+    try:
+        worn, lost = variants.resolve(species), None
+    except ValueError as exc:   # a folder of yours of that name that isn't a variant (now)
+        worn, lost = None, str(exc)
+    yours = worn is not None and worn.source != "built-in"
     if worn is not None and character.get("shapes"):
         worn = variants.reshaped(worn, character["shapes"])
     unit = worn.scale * scale if worn is not None else scale
@@ -221,9 +229,10 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
     rows = []
     if worn is not None:
         colour = model_grade(species, worn)[0]
-        entry = _entry_of(species, entries, held)
-        source = (f"community {entry['id']} v{record.get(entry['id'], {}).get('version', entry.get('version'))}"
-                  if entry else "built-in") + f", recipe {worn.sha}"
+        entry = None if yours else _entry_of(species, entries, held)
+        version = record.get(entry["id"], {}).get("version", entry.get("version")) if entry else None
+        source = ("yours" if yours else f"community {entry['id']} v{version}" if entry else "built-in") \
+            + f", recipe {worn.sha}"
         rows += [["Variant of", worn.base, None], ["Body", bodies.get(worn.base) or "unknown (no image read)", None],
                  ["Recipe", f"{MODE_TITLES[worn.mode]}, damage x{worn.damage:.2f}, reach x{worn.reach:g}, speed "
                             f"x{worn.speed:g}, balance {'off' if worn.balance is False else 'on'}"
@@ -284,8 +293,8 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
         del build["anims"]
     if not build.get("shapes"):
         build.pop("shapes", None)
-    entry = _entry_of(species, entries, held) if worn is not None else None
-    refused = None
+    entry = _entry_of(species, entries, held) if worn is not None and not yours else None
+    refused = lost
     if worn is not None and entry is not None and entry["id"] not in record and _needs_files(entry):
         refused = f"Install {entry['title']} (community) first"
     groups = []
@@ -304,6 +313,10 @@ def view(config_xbr: bytes | None, characters_xbr: bytes | None, character: Mapp
                      "label": f"{m.species}  (not yet tested)" if swap.status(m.species) == swap.UNTESTED
                      else m.species} for m in listed],
         "community": groups,
+        "custom": {"title": CUSTOM, "variants": [
+            {"name": e.name, "title": e.variant.title, "base": e.variant.base,
+             "colour": STATUS_COLOURS[model_grade(e.name, e.variant)[0]]} if e.variant is not None
+            else {"name": e.name, "refusal": e.refusal} for e in library.listing()]},
         "chosen": {"name": species, "variant": worn is not None, "community": entry["id"] if entry else None,
                    "info": rows, "weapons": picks, "weapon": weapon, "springs": springs,
                    "shapes": [{"name": s.name, "title": s.title} for s in (worn.shapes if worn is not None else ())],
