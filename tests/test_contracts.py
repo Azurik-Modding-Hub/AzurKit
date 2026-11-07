@@ -282,7 +282,8 @@ def test_every_workflows_uv_sync_builds_nothing_and_runs_through_the_bounded_ret
     step that sources ``scripts/ci_retry.sh`` first, so it tries 3 times
     and fails by name; ``--no-build`` runs no package's own code and fails
     a package with no wheel by name. In each job a ``uv run`` (which syncs
-    what isn't) comes only after that job's sync."""
+    what isn't) comes only after that job's sync; a ``uv run --no-project``
+    (Step 4.4dx5's matrix job: the standard library alone) syncs nothing."""
     synced = {}
     for path in sorted(WORKFLOWS.glob("*.yml")):
         text = re.sub(r"(?m)^\s*#.*\n", "", path.read_text(encoding="utf-8"))
@@ -292,7 +293,7 @@ def test_every_workflows_uv_sync_builds_nothing_and_runs_through_the_bounded_ret
             syncs = [at for at, line in enumerate(code) if "uv sync" in line]
             assert [code[at] for at in syncs] == [UV_SYNC] * len(syncs), path.name
             assert all(code[at - 1] == ". scripts/ci_retry.sh" for at in syncs), path.name
-            runs = [at for at, line in enumerate(code) if "uv run" in line]
+            runs = [at for at, line in enumerate(code) if "uv run" in line and "uv run --no-project" not in line]
             assert not runs or (syncs and syncs[0] < runs[0]), f"{path.name}: {code[runs[0]]}"
             synced[path.name] = synced.get(path.name, 0) + len(syncs)
     assert synced == {"apps.yml": 1, "checks.yml": 2, "release.yml": 3, "tests.yml": 2}
