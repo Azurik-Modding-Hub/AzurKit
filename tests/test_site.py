@@ -3797,6 +3797,30 @@ def test_a_tabs_ask_whose_engine_traps_starts_the_engine_again_and_is_answered(b
         served.close()
 
 
+def test_an_engines_numpy_load_in_webkit_waits_on_no_async_wasm_instantiate(browser, site):
+    """Step 4.5k: numpy's load (Pyodide's loadPackage) instantiates its 13 shared libraries with WebAssembly.instantiate,
+    whose promise WebKit's worker bug 208368 (GTK) can leave unsettled for good (CI's Linux WebKit engine sat at numpy
+    120 s and 596 s). In WebKit the worker's own instantiate settles by itself: with the browser's never settling there,
+    the Characters tab's list (pickers, which loads numpy) is answered; elsewhere the browser's own instantiates them."""
+    webkit = browser.browser_type.name == "webkit"
+    served = Site(browser, site)
+    try:
+        own = ("const own = WebAssembly.instantiate;\nself.instantiated = 0;\nWebAssembly.instantiate = (...args) => { "
+               f"self.instantiated += 1; return {'new Promise(() => {})' if webkit else 'own.apply(WebAssembly, args)'}; }};\n")
+        body = own + (site / "worker.mjs").read_text(encoding="utf-8")
+        served.context.route("**/worker.mjs", lambda route: route.fulfill(body=body, content_type="text/javascript",
+                                                                          headers={"cache-control": "no-store"}))
+        served.context.add_init_script(TWO_CORES)
+        page = served.open()
+        page.evaluate("""() => azurkit.engine.call("pickers", { given: { iso: null } })
+            .then((pickers) => { window.answered = [pickers.refused ?? "community" in pickers]; })""")
+        assert _page.until(page, "() => window.answered", 120) == [True]
+        engines = [w for w in page.workers if w.evaluate("() => 'instantiated' in self")]
+        assert [w.evaluate("() => self.instantiated") > 0 for w in engines] == [not webkit]
+    finally:
+        served.close()
+
+
 def test_a_saves_check_keeps_its_bar_through_a_later_build_cancelled_and_the_engine_ready_again(browser, site, usa_iso):
     """D980, D1053: the check of a Save runs on past what ends a build's bar: a Build cancelled during it, and the new
     worker's ready (a Save at once after a build a big heap retires its worker meets the same on a slower disk)."""

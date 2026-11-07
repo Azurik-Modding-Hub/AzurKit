@@ -617,6 +617,22 @@ const stored = (database, name, mode, fn) => new Promise((resolve) => {   // Ind
 const SNAPSHOT = "azurkit-snapshot", IMPORTS = "import azurkit\nfrom azurkit import sdk\nfrom azurkit.core import iso\n";
 const STREAMING = WebAssembly.instantiateStreaming;
 const SHARES = !(/AppleWebKit/.test(navigator.userAgent) && !/Chrome\//.test(navigator.userAgent));   // not WebKit
+// In WebKit the worker's WebAssembly.instantiate compiles and instantiates at once (a worker may), its promise settled
+// by itself (Step 4.5k): numpy's load (Pyodide's loadPackage) instantiates its 13 shared libraries each so, and in
+// CI's Linux WebKit an engine sat in it 120 s and 596 s, where it takes 0.1-0.2 s (60 of 60 here): WebKit's own
+// worker bug 208368 (GTK) leaves such a promise unsettled, its completion timer ignored on another run loop, closed
+// unfixed. Its sync compile is JSC's, which no timer settles. md5.wasm's load (hasher.mjs) is one too.
+if (!SHARES) {
+  WebAssembly.instantiate = (source, imports) => {
+    try {
+      const module = source instanceof WebAssembly.Module ? source : new WebAssembly.Module(source);
+      const instance = new WebAssembly.Instance(module, imports);
+      return Promise.resolve(module === source ? instance : { module, instance });
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+}
 let compiled = null;   // the Module the pool sent this worker, if any
 self.addEventListener("message", ({ data }) => {
   if (data?.type === "wasm" && data.module instanceof WebAssembly.Module) compiled = data.module;
