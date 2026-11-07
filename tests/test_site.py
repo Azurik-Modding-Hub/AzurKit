@@ -2808,15 +2808,17 @@ def test_a_later_worker_starts_from_the_first_ones_snapshot_also_grown_and_build
         served.close()
 
 
-def test_a_later_engine_worker_instantiates_the_wasm_the_pages_first_worker_compiled(browser, site):
+def test_a_later_engine_worker_instantiates_the_wasm_the_first_compiled_but_in_webkit_compiles_its_own(browser, site):
     """Step 4.4bf: Pyodide's wasm is compiled once a page, by its first worker, which posts the Module; B, loaded
-    after F, is sent it first and instantiates it, compiling none of its own."""
+    after F, is sent it first and instantiates it, compiling none of its own. In WebKit no worker posts one, so each
+    compiles its own (Step 4.4ci47: JavaScriptCore's wasm went wrong on CI's Apple Silicon runner after 4.4bf)."""
     served = Site(browser, site)
     try:
         served.context.add_init_script(HEARD)
         page = served.open()
         _page.until(page, "() => azurkit.pool.state().b?.loaded", 300)
-        assert page.evaluate("() => [starts.length, compiled]") == [2, [True]]
+        shared = [] if browser.browser_type.name == "webkit" else [True]
+        assert page.evaluate("() => [starts.length, compiled]") == [2, shared]
         assert page.evaluate("() => azurkit.violations") == []
     finally:
         served.close()

@@ -604,12 +604,18 @@ const stored = (database, name, mode, fn) => new Promise((resolve) => {   // Ind
 // Pyodide's wasm (9.6 MB) is compiled once a page (Step 4.4bf): the first worker compiles it as Pyodide does and posts
 // its Module ({type: "wasm"}), which the pool sends each later worker first (workers.mjs), and Pyodide's own
 // instantiateStreaming of its fetch is answered from that Module (about 0.1 s and 0.25-0.42 CPU-s a worker start: B's
-// after a change, F's after a big build); one that won't instantiate compiles as before.
+// after a change, F's after a big build); one that won't instantiate compiles as before. In WebKit (Safari's engine)
+// each worker compiles its own and posts none (Step 4.4ci47): every CI failure of the WebKit pack golden on GitHub's
+// Apple Silicon runner since 4.4bf (3 of 5 runs, 1 of 7 before) was JavaScriptCore's wasm going wrong (a load's
+// ValueError, a trap's "null reference", then the page's process killed by JSC's own assertion while it made a trap's
+// error: StackVisitor::readInlinableNativeCalleeFrame, a frame of optimized wasm whose code isn't its own), never
+// reproduced here; one Module's compiled code run by two workers at once is the step's change in what JSC does.
 // Pyodide's instantiate catches what its instantiation and the callback it hands the instance throw (a grow refused, a
 // RangeError where memory is short; a compile refused), warns and never settles its load: so grown hands that to
 // `failed`, which ends loading()'s wait, and a restore refused so starts cold, a cold start refused says so by name.
 const SNAPSHOT = "azurkit-snapshot", IMPORTS = "import azurkit\nfrom azurkit import sdk\nfrom azurkit.core import iso\n";
 const STREAMING = WebAssembly.instantiateStreaming;
+const SHARES = !(/AppleWebKit/.test(navigator.userAgent) && !/Chrome\//.test(navigator.userAgent));   // not WebKit
 let compiled = null;   // the Module the pool sent this worker, if any
 self.addEventListener("message", ({ data }) => {
   if (data?.type === "wasm" && data.module instanceof WebAssembly.Module) compiled = data.module;
@@ -636,7 +642,7 @@ const grown = (create, size, failed) => (settings) => {
   settings.instantiateWasm = (imports, ready) => instantiate(imports, (instance, module) => {
     WebAssembly.instantiateStreaming = STREAMING;
     try {
-      if (mine) post({ type: "wasm", module });
+      if (mine && SHARES) post({ type: "wasm", module });
       const { memory } = instance.exports, short = Math.ceil(size / 65536) - memory.buffer.byteLength / 65536;
       if (short > 0) memory.grow(short);
       return ready(instance, module);
