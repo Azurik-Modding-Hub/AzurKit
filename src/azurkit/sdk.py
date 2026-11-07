@@ -634,7 +634,8 @@ def pickers(given: Mapping, *, progress: Callable[[dict], object] | None = None)
     as :func:`content` or the site's page read it; none: the content
     folder's alone): every usable species in its grade's colour, the
     untested greyed (``species``), the community entries with their state
-    and, installed, their variants (``community``), the chosen model's info
+    and, installed, their variants (``community``), your own variants, each
+    its title, base and grade or its refusal (``custom``), the chosen model's info
     panel, Weapon box, springs, shapes and the options its recipe decides
     (``chosen``), and the character a build takes from the tab
     (``character``). A refusal names the field or the image.
