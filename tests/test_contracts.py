@@ -271,7 +271,34 @@ def test_each_workflow_setup_download_with_no_retry_of_its_own_runs_through_one_
                                ("tests.yml", "the game data's $1 folder")]
 
 
-GITHUB_ED25519 = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+UV_SYNC = 'retry "uv sync" uv sync --locked --no-build'
+"""Every workflow's one form of a sync (Step 4.4ci55)."""
+
+
+def test_every_workflows_uv_sync_builds_nothing_and_runs_through_the_bounded_retry_before_any_uv_run():
+    """Step 4.4ci55: run 42335356378's Intel job lost its ``uv sync`` to a
+    request uv's own 3 retries gave up on after 48.8 s. Each workflow's
+    every sync is :data:`UV_SYNC` (no ``uv sync`` in any other form), in a
+    step that sources ``scripts/ci_retry.sh`` first, so it tries 3 times
+    and fails by name; ``--no-build`` runs no package's own code and fails
+    a package with no wheel by name. In each job a ``uv run`` (which syncs
+    what isn't) comes only after that job's sync."""
+    synced = {}
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        text = re.sub(r"(?m)^\s*#.*\n", "", path.read_text(encoding="utf-8"))
+        jobs = re.split(r"(?m)^  [\w-]+:\n", text.split("\njobs:\n", 1)[1])[1:]
+        for job in jobs:
+            code = [line.strip() for line in job.splitlines() if not re.match(r"\s*(- )?name:", line)]
+            syncs = [at for at, line in enumerate(code) if "uv sync" in line]
+            assert [code[at] for at in syncs] == [UV_SYNC] * len(syncs), path.name
+            assert all(code[at - 1] == ". scripts/ci_retry.sh" for at in syncs), path.name
+            runs = [at for at, line in enumerate(code) if "uv run" in line]
+            assert not runs or (syncs and syncs[0] < runs[0]), f"{path.name}: {code[runs[0]]}"
+            synced[path.name] = synced.get(path.name, 0) + len(syncs)
+    assert synced == {"apps.yml": 1, "checks.yml": 2, "release.yml": 3, "tests.yml": 2}
+
+
+GITHUB_ED25519 ="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
 """github.com's published ed25519 host key (``GET https://api.github.com/meta``'s ``ssh_keys``), the key
 ssh.github.com serves on port 443 too."""
 

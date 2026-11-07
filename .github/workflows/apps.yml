@@ -62,7 +62,9 @@ jobs:
         with:
           version: "0.12.24"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
-      - run: uv sync --locked
+      - run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: Freeze the app, check its report says its compiled library loaded, archive it and write its sha256
         id: app
         env:

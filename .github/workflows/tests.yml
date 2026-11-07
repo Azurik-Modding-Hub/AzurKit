@@ -28,6 +28,7 @@
 # Each setup download with no retry of its own runs through one (Step 4.4ci46: run 42255487123's Linux job lost two
 # packages to a mirror that closed the connection): apt under install-deps and the two clones through
 # scripts/ci_retry.sh's retry, Pyodide's core and wheels through scripts/web_tools.py's; a few tries, then a failure by name.
+# uv sync goes through that retry too (Step 4.4ci55: its own retries of a request end within a minute).
 # Python 3.14 is uv's own (uv sync --locked, .python-version), never the runner's. Actions are pinned by commit sha,
 # their release beside it. No pull_request_target, and nothing here deploys, publishes or releases (D1024, D1026).
 name: tests
@@ -115,7 +116,9 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - run: uv sync --locked
+      - run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: Pyodide and the browsers (scripts/web_tools.py)
         run: uv run --locked python scripts/web_tools.py
       - name: The browsers' system libraries (Linux)
@@ -197,9 +200,11 @@ jobs:
           node-version: "24"
           package-manager-cache: false
       - name: uv sync --locked, before the key or an image is on the runner
-        # Not --no-build (§12.4 item 1): pywebview's proxy-tools 0.1.0 has only an sdist, so uv refuses the sync; uv.lock
-        # pins that sdist's sha256, and it builds here, before the key or an image exists.
-        run: uv sync --locked
+        # --no-build (§12.4 item 1): no package's own code runs here; every package uv.lock pins but the project is a wheel
+        # (vendor/ keeps proxy-tools', whose PyPI release is an sdist alone).
+        run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: Pyodide and the browsers (scripts/web_tools.py)
         run: uv run --locked python scripts/web_tools.py
       - name: The browsers' system libraries (Linux)

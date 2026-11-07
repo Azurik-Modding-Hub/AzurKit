@@ -51,6 +51,9 @@ jobs:
         with:
           version: "0.12.24"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
+      - run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: The checkout's files
         run: uv run --locked python -I tests/_leak_guard.py
       - name: Every file every commit adds or changes (the pre-push hook's scan, no remote ref left out)
@@ -86,6 +89,10 @@ jobs:
         with:
           version: "0.12.24"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
+      - if: steps.native.outputs.here == 'true'
+        run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: nativekit --check
         if: steps.native.outputs.here == 'true'
         run: uv run --locked python -m nativekit --check

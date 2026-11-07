@@ -139,7 +139,9 @@ jobs:
           version: "0.12.24"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false
-      - run: uv sync --locked
+      - run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: Freeze the app and archive it
         env:
           NAME: AzurKit-${{ needs.check.outputs.version }}-${{ matrix.label }}
@@ -184,7 +186,9 @@ jobs:
           version: "0.12.24"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false
-      - run: uv sync --locked
+      - run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: Build them (the wheel as the site's, its bytecode and checked database in it)
         run: |
           uv run --locked python -c 'import sys; from pathlib import Path; from scripts import web_tools; web_tools.wheel(Path(sys.argv[1]))' \
@@ -222,7 +226,9 @@ jobs:
           version: "0.12.24"
           manifest-file: ${{ env.SETUP_UV_MANIFEST }}
           enable-cache: false
-      - run: uv sync --locked
+      - run: |
+          . scripts/ci_retry.sh
+          retry "uv sync" uv sync --locked --no-build
       - name: Pyodide's pinned core and the site
         run: |
           uv run --locked python -c 'from scripts import web_tools; web_tools.fetch()'
