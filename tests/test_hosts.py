@@ -14,6 +14,7 @@ import base64
 import collections
 import contextlib
 import hashlib
+import http.client
 import importlib.metadata
 import io
 import json
@@ -1191,7 +1192,8 @@ def test_a_long_call_never_leaves_its_connection_quiet_the_5_s_firefox_aborts_on
     only once the call was done, so a plan file's spoiler and Track this seed, both in flight at one change, failed
     with "NetworkError" in 4.4ci27's slowed pure tier (three 240 s calls here, all at the change, 5.2 s after it). A
     call past ``app.KEEP`` s sends its answer's headers and a space each ``KEEP`` s until its answer, which reads as
-    the call's JSON; a quick call's answer keeps its length."""
+    the call's JSON and ends at the close of its connection, which the app makes though the connection is HTTP/1.1's,
+    kept (Step 4.5b); a quick call's answer keeps its length (here its connection closes as the client asks)."""
     _home(monkeypatch, tmp_path / "home")
     pause = [0.0]
 
@@ -1204,8 +1206,10 @@ def test_a_long_call_never_leaves_its_connection_quiet_the_5_s_firefox_aborts_on
     try:
         for pause[0] in (0.0, 6.0):   # the slow call past Firefox's 5 s
             body = json.dumps({"iso": str(tmp_path / "usa.iso")}).encode()
+            close = "" if pause[0] else "Connection: close\r\n"   # the quick call's client ends its kept connection
             with socket.create_connection(("127.0.0.1", server.server_port), timeout=30) as conn:
                 conn.sendall(f"POST /api/verify_all?token={server.token} HTTP/1.1\r\nHost: {server.host}\r\n"
+                             f"{close}"
                              f"Origin: http://{server.host}\r\nContent-Type: application/json\r\n"
                              f"Content-Length: {len(body)}\r\n\r\n".encode() + body)
                 came, data = [time.monotonic()], b""
@@ -1217,8 +1221,57 @@ def test_a_long_call_never_leaves_its_connection_quiet_the_5_s_firefox_aborts_on
                           max(b - a for a, b in zip(came, came[1:])) < 5, came[-1] - came[0] >= pause[0]))
     finally:
         server.close()
-    assert heard == [(b"HTTP/1.0 200 OK", True, {"files": 0}, True, True),
-                     (b"HTTP/1.0 200 OK", False, {"files": 0}, True, True)], heard
+    assert heard == [(b"HTTP/1.1 200 OK", True, {"files": 0}, True, True),
+                     (b"HTTP/1.1 200 OK", False, {"files": 0}, True, True)], heard
+
+
+def test_the_apps_server_holds_a_burst_of_connects_and_answers_a_pages_files_over_one_kept_connection(
+        tmp_path, monkeypatch):
+    """Step 4.5b: the app's server keeps a connection for the page's next request (HTTP/1.1, no Nagle delay) and its
+    listen queue is the system's longest, the two levers the site's test server needed on GitHub's Windows runner
+    (``tests/_static.py``): a page asks for its files at once, and with socketserver's queue of 5 Windows refused a
+    connect past it (ECONNREFUSED) where macOS and Linux drop it for a retry. 32 connects made before the app accepts
+    any are each answered; over one kept connection the page, a file and a quick call come whole, and once the app
+    has closed, that connection's next request is refused and closes it, as a new connection would be."""
+    _home(monkeypatch, tmp_path / "home")
+    page = tmp_path / "page"
+    page.mkdir()
+    (page / "index.html").write_text("<title>t</title>", encoding="utf-8")
+    (page / "app.mjs").write_text("export {};", encoding="utf-8")
+    accepting, accept = threading.Event(), app.Server.get_request
+
+    def held(self):   # the app accepts no connect until the burst is made
+        accepting.wait(30)
+        return accept(self)
+    monkeypatch.setattr(app.Server, "get_request", held)
+    server, burst, got = app.serve(page), [], []
+    try:
+        burst += [socket.create_connection(("127.0.0.1", server.server_port), timeout=10) for _ in range(32)]
+        accepting.set()
+        for sock in burst:
+            sock.sendall(f"GET /?token={server.token} HTTP/1.0\r\nHost: {server.host}\r\n\r\n".encode())
+        answers = {(answer.partition(b"\r\n")[0], answer.rpartition(b"\r\n\r\n")[2])
+                   for answer in (sock.makefile("rb").read() for sock in burst)}
+        connection, sent = http.client.HTTPConnection(server.host, timeout=10), {"Cookie": f"{server.cookie}={server.token}"}
+        call = sent | {"Origin": f"http://{server.host}", "Content-Type": "application/json"}
+        for method, path, body, headers in (("GET", f"/?token={server.token}", None, {}), ("GET", "/app.mjs", None, sent),
+                                            ("POST", "/api/cancel", b"{}", call), ("GET", "/app.mjs", None, sent)):
+            if len(got) == 3:
+                server.close()
+            connection.request(method, path, body, headers)
+            port = connection.sock.getsockname()[1]
+            reply = connection.getresponse()
+            got.append((reply.status, reply.read() if reply.status == 200 else b"", reply.will_close, port))
+        connection.close()
+    finally:
+        accepting.set()
+        if not server.closed:
+            server.close()
+        for sock in burst:
+            sock.close()
+    assert (len(burst), answers) == (32, {(b"HTTP/1.1 200 OK", b"<title>t</title>")}), answers
+    assert [row[:3] for row in got] == [(200, b"<title>t</title>", False), (200, b"export {};", False),
+                                        (200, b"{}", False), (403, b"", True)] and len({row[3] for row in got}) == 1, got
 
 
 def test_a_tests_call_ends_at_its_timeout_while_the_app_keeps_its_connection_alive(tmp_path, monkeypatch):

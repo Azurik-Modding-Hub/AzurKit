@@ -153,6 +153,7 @@ import json
 import math
 import os
 import secrets
+import socket
 import sys
 import threading
 import time
@@ -502,12 +503,17 @@ def _path(given: object, what: str) -> Path:
 
 
 class Server(http.server.ThreadingHTTPServer):
-    """The page's server and engine, on its own thread. :attr:`url` opens it."""
+    """The page's server and engine, on its own thread. :attr:`url` opens it. Its listen queue is the system's longest
+    (``socket.SOMAXCONN``), not socketserver's 5: a page's load asks for its files at once, and Windows refuses a
+    connect past a full queue where macOS and Linux drop it and the browser tries again (the site's test server's 29
+    ECONNREFUSED on GitHub's Windows runner, ``tests/_static.py``)."""
 
     daemon_threads = True
+    request_queue_size = socket.SOMAXCONN
 
     def __init__(self, page: Path, engine: engines.Here | engines.Spawned | None = None):
         super().__init__(("127.0.0.1", 0), _Handler)
+        self.closed = False                 # set by close(): a connection the page kept is answered no more
         self.engine = engine or engines.Here()   # where builds, saves, plans and pictures run
         self.page, self.token = page.resolve(), secrets.token_urlsafe(32)
         self.host, self.cookie = f"127.0.0.1:{self.server_port}", f"azurkit-token-{self.server_port}"
@@ -561,8 +567,15 @@ class Server(http.server.ThreadingHTTPServer):
 
     def close(self) -> None:
         self.quit()
+        self.closed = True
         self.shutdown()
         self.server_close()
+
+    def handle_error(self, request, client_address) -> None:
+        """A browser that dropped a kept connection (a closed context or window resets it) or left mid-answer is no
+        fault of the app's: only another error prints its traceback."""
+        if not isinstance(sys.exception(), ConnectionError):
+            super().handle_error(request, client_address)
 
     def cancel(self) -> dict:
         """``api/cancel``: a save stops at its next chunk; a build answers
@@ -1054,17 +1067,23 @@ class Server(http.server.ThreadingHTTPServer):
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
+    """Each connection kept for the page's next request (HTTP/1.1), its answers sent without Nagle's delay, as the
+    site's test server's (``tests/_static.py``): a page's load of its files and pictures takes a few connections, never
+    one a file. Every answer has its length, but a long call's (:meth:`_kept`), which closes its connection to end; a
+    refusal (``send_error``) closes its connection too, as its body may be unread."""
     server: Server
+    protocol_version = "HTTP/1.1"
+    disable_nagle_algorithm = True   # TCP_NODELAY: an answer's body never waits on the browser's ACK of its headers
 
     def _url(self) -> urllib.parse.SplitResult | None:
         """The request's URL when it carries this launch's token and names
-        this server as its host, else ``None``."""
+        this server as its host, and the app hasn't closed, else ``None``."""
         url = urllib.parse.urlsplit(self.path)
         given = urllib.parse.parse_qs(url.query).get("token", [""])[0]
         cookie = next((v for k, _, v in (c.strip().partition("=") for c in self.headers.get("Cookie", "").split(";"))
                        if k == self.server.cookie), "")
         token = self.server.token.encode()
-        if self.headers.get("Host") != self.server.host or not (
+        if self.server.closed or self.headers.get("Host") != self.server.host or not (
                 hmac.compare_digest(given.encode(), token) or hmac.compare_digest(cookie.encode(), token)):
             return None
         return url
@@ -1165,8 +1184,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     @contextlib.contextmanager
     def _kept(self):
         """While a call runs, its connection never quiet (:data:`KEEP`): past ``KEEP`` s its answer's headers go (200,
-        JSON, no length: the answer ends at the close) and a space each ``KEEP`` s after them. Yields a list that holds
-        ``True`` once they went."""
+        JSON, no length: the answer ends at the connection's close, which they say) and a space each ``KEEP`` s after
+        them. Yields a list that holds ``True`` once they went."""
         sent, done, lock = [], threading.Event(), threading.Lock()
 
         def keep() -> None:
@@ -1179,6 +1198,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                             self.send_response(200)
                             self.send_header("Content-Type", "application/json")
                             self.send_header("Cache-Control", "no-store")
+                            self.send_header("Connection", "close")   # and close_connection
                             self.end_headers()
                             sent.append(True)
                         self.wfile.write(b" ")
