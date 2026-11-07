@@ -1268,10 +1268,14 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
     S67 time a drag's answer). Content from (the source; default `sdk.SOURCE`, the hub's raw URL, live
     since the content repository went public, D1027) is remembered (the
     site's storage, the app's `content_source`).
-    The site reads a source on its own address only (its CSP's
-    `connect-src 'self'`; `scripts/web_tools.py --site DIR --content
-    CLONE` serves a clone as `./content-source/`), checks an Install in
-    its worker (`sdk.content_check`), keeps the files in IndexedDB and
+    The site reads any https address, with no warning, or its own (its
+    CSP's `connect-src 'self' https:`, D1135: `web/content.mjs`'s `where`
+    refuses plain http elsewhere and a folder by name, and a read that
+    fails says what failed, the last list shown; `scripts/web_tools.py
+    --site DIR --content CLONE` serves a clone as `./content-source/`,
+    the perf's source), checks an Install in
+    its worker (`sdk.content_check`, given the source: an Update only from
+    where it was installed, SEC-8), keeps the files in IndexedDB and
     writes them into its worker's `content/` once a worker; the app's
     engine installs into its content folder. A known flaw (D835): on the
     site a detailed variant's dress (booblord's) may run out of wasm

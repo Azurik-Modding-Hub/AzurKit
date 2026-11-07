@@ -932,7 +932,8 @@ def test_an_entry_installs_whole_or_not_at_all_pinned_to_its_version(tmp_path, m
 
 def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_https(tmp_path, monkeypatch):
     """SEC-8: a manifest listing an older version offers no Update, and an install from it (the app's, the site's
-    check) is refused by name; so is one from another source than the entry's own, a plain http source (only this
+    check) is refused by name; so is one from another source than the entry's own (the app's, and the site's check
+    given the page's Content from, as any https repository may be it, D1135), a plain http source (only this
     computer's is let through) and a redirect that ends on one. Each refusal changes nothing; the entry's own source
     at a higher version still Updates."""
     home, other, folder = tmp_path / "home", tmp_path / "other", tmp_path / "content"
@@ -944,12 +945,14 @@ def test_an_update_only_goes_up_from_where_it_was_installed_and_a_url_source_is_
     sdk.content_install({"id": "a", "source": str(home)})
     record = content.installed()
     older = at(home, 1, b"[]")
-    at(other, 3, b"[1]")
+    newer = at(other, 3, b"[1]")
     assert [(e["state"], e["installed"]) for e in sdk.content({"source": str(home)})["entries"]] == [("installed", 2)]
     for name, refused, why in [
         ("a downgrade", lambda: sdk.content_install({"id": "a", "source": str(home)}), r"^a: v1 is older than the v2"),
         ("the site's", lambda: sdk.content_check({"manifest": older, "id": "a", "files": {path: b"[]"}}), r"^a: v1 is older"),
         ("another source", lambda: sdk.content_install({"id": "a", "source": str(other)}), r"^a: it was installed from "),
+        ("the site's from another", lambda: sdk.content_check({"manifest": newer, "id": "a", "files": {path: b"[1]"},
+                                                               "source": str(other)}), r"^a: it was installed from "),
         ("http", lambda: sdk.content_install({"id": "a", "source": "http://example.test/c"}), r"is plain http"),
         ("http read", lambda: sdk.content({"source": "http://localhost.example.test/"}), r"is plain http"),
     ]:

@@ -276,6 +276,12 @@ can't be installed, or ``None``; ``files`` its checked files' bytes by path):
 :func:`builtin_refusal` by default, the sdk's for a pack (Step 4.3k)."""
 
 
+def writes(chosen: Iterable[Mapping], entry: str, record: Mapping) -> list[Mapping]:
+    """The entries of ``chosen`` an install of ``entry`` writes: it, and each
+    it requires that ``record`` (:func:`installed`) doesn't hold at its version."""
+    return [e for e in chosen if e["id"] == entry or _record(record, e["id"]).get("version") != e["version"]]
+
+
 def held_to(chosen: Iterable[Mapping], record: Mapping, source: str | None = None) -> None:
     """Refuse by name an install of ``chosen`` that takes an entry of
     ``record`` (:func:`installed`) below its installed version or, with a
@@ -415,7 +421,7 @@ def install(manifest: Mapping, entry: str, fetch: Callable[[str], bytes], root: 
     entries = {e["id"]: e for e in manifest["entries"]}
     had = installed(root)
     chosen = _chosen(entry, entries)
-    todo = [e["id"] for e in chosen if e["id"] == entry or _record(had, e["id"]).get("version") != e["version"]]
+    todo = [e["id"] for e in writes(chosen, entry, had)]
     held_to([entries[name] for name in todo], had, source)
     made, parts = [p for p in (root, *root.parents) if not p.exists()], []   # removed deepest first on a fault
     try:

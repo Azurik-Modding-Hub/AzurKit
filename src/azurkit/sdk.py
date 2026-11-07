@@ -1628,8 +1628,9 @@ def content_check(given: Mapping) -> dict:
     every file verified as :func:`content_install` verifies it
     (``tools.characters.content.verify``): ``{"manifest", "install": [each
     entry's id it writes, those required first]}``, or the refusal named: none
-    goes below its installed version (``tools.characters.content.held_to``;
-    the page reads only its own origin, so its source stays one)."""
+    it writes goes below its installed version or, with ``source`` (the
+    page's Content from), comes from another source than the one it was
+    installed from (``tools.characters.content.held_to``, SEC-8)."""
     from azurkit.tools.characters import content as kit
 
     if not isinstance(given, Mapping):
@@ -1637,6 +1638,9 @@ def content_check(given: Mapping) -> dict:
     manifest = kit.check(given.get("manifest"))
     if "id" not in given:
         return {"manifest": manifest, "install": []}
+    if not isinstance(source := given.get("source"), str | None):
+        raise ValueError("content: the source is a URL")
     chosen = kit.verify(manifest, given["id"], given.get("files") or {}, content_refusal)
-    kit.held_to(chosen, kit.installed())
+    record = kit.installed()
+    kit.held_to(kit.writes(chosen, given["id"], record), record, source)
     return {"manifest": manifest, "install": [e["id"] for e in chosen]}

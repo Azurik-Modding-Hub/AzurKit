@@ -135,7 +135,8 @@ In the page's Characters tab, or from the command line (`azurkit build --charact
 - **Community variants:** ours from Azurik-Custom-Content sit under the species, marked community, with Install
   and Update (or `azurkit content install booblord`); every file's size and checksum is checked first, so a bad
   download keeps nothing, and an installed one stays at its version until you update it. An update only goes up, from
-  where it was installed, and a web source is https. In the browser, Booblord's
+  where it was installed, and a web source is https: the web page reads ours from GitHub, or any https repository
+  you set as Content from. In the browser, Booblord's
   pictures and G4 values can run out of memory: the app draws them.
 - **Ready-made bodies:** every body's size at its defaults ships with AzurKit, and Booblord's whole build at the
   defaults comes with her download, for both releases, so their first Build skips that work; any other choice builds

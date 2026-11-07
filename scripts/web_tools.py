@@ -396,8 +396,9 @@ def site(out: Path, root: Path = ROOT, built: Path | None = None, content: Path 
     and makes no page of one with front matter (a content ``.json``,
     ``.gltf`` or ``.md``). The app's server answers ``host.json`` itself
     (``azurkit.app``). With
-    ``content`` (a clone of Azurik-Custom-Content, before it is public:
-    the page reads only its own origin until Step 4.4's CSP), its
+    ``content`` (a clone of Azurik-Custom-Content: the perf's and the
+    tests' copy; the released site reads the repository from GitHub, any
+    https one the player sets, D1135), its
     ``manifest.json`` and each file it lists in ``out/content-source/``,
     which the Characters tab's Content from ``./content-source/`` reads,
     each checked first (:func:`content_files`): a fault names the file and

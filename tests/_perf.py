@@ -1444,10 +1444,11 @@ def site_start(d: Driver, ctx, url: str) -> None:
         d.leave(p)
 
 
-SPECIES_LISTED = ("() => { const t = document.getElementById('char-content-note').textContent; return t && "
-                  "!t.startsWith('Reading') && document.querySelectorAll('#char-species .model').length; }")
-CONTENT_SOURCE = ("() => { const b = document.getElementById('char-source'); b.value = './content-source/'; "
-                  "b.dispatchEvent(new Event('change')); }")
+# The species listed and the community list's read ended: its line said, or none once it was read (Content from is
+# the site's ./content-source/, clean_storage's).
+SPECIES_LISTED = ("() => { const c = azurkit.characters.state, t = document.getElementById('char-content-note')"
+                  ".textContent; return (c.manifest || c.why) && !t.startsWith('Reading') && "
+                  "document.querySelectorAll('#char-species .model').length; }")
 WEAPONS_ANSWERED = ("() => azurkit.characters.state.view?.species.length === 178 && "
                     "document.querySelectorAll('#char-species .model').length === "
                     "azurkit.characters.state.view.species.filter((s) => !s.object).length")
@@ -1457,7 +1458,7 @@ def site_characters(d: Driver, ctx, url: str) -> None:
     p = _site_page(d, ctx, url, None)
     d.act(p, "S07", click("tab-characters"), SPECIES_LISTED, 600)
     if d.content is not None:
-        d.act(p, None, CONTENT_SOURCE, "() => document.querySelector('#char-community .entry[data-entry=beamlord]')", 600)
+        p.wait("() => document.querySelector('#char-community .entry[data-entry=beamlord]')", 600)
     _pick(d, p, "S09", WEAPONS_ANSWERED)
     if d.content is not None:
         d.act(p, "S13", """() => { azurkit.characters.state.view.perfOld = true;
@@ -1475,9 +1476,7 @@ def site_reshape_pictures(d: Driver, ctx, url: str) -> None:
     _pick(d, p, None)
     p.js(click("tab-characters"))
     p.wait(SPECIES, 1800)
-    d.act(p, None, "() => { const b = document.getElementById('char-source'); b.value = './content-source/'; "
-                   "b.dispatchEvent(new Event('change')); }",
-          """() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
+    p.wait("""() => document.querySelector('#char-community .entry[data-entry="booblord"] button')""", 600)
     _reshape_pictures(d, p, "S51", "S52", "S53")
     d.leave(p)
 
@@ -1486,7 +1485,7 @@ def _booblord(d: Driver, ctx, url: str) -> Page:
     """A new page with booblord installed and chosen (the player's last change), her pictures drawn."""
     p = _site_page(d, ctx, url, None)
     d.act(p, None, click("tab-characters"), SPECIES_LISTED, 600)
-    d.act(p, None, CONTENT_SOURCE, "() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
+    p.wait("() => document.querySelector('#char-community .entry[data-entry=booblord]')", 600)
     _pick(d, p, None, WEAPONS_ANSWERED)
     d.act(p, None, """() => document.querySelector('#char-community .entry[data-entry="booblord"] button').click()""",
           """() => document.querySelector('#char-community .entry[data-entry="booblord"] .model')
@@ -2038,12 +2037,16 @@ CLEAN = """async () => {
 
 
 def clean_storage(ctx, url: str) -> None:
-    """Every OPFS entry of the site's origin removed, untimed, from a page of the origin that runs no engine."""
+    """Every OPFS entry of the site's origin removed, untimed, from a page of the origin that runs no engine, and
+    Content from remembered as the site's ``./content-source/`` (the clone ``perf.py --content`` serves; with none, a
+    404 the page says plainly), as the app's config remembers the clone: the default, Azurik-Custom-Content on GitHub
+    (D1135), is the network's, which no op times."""
     page = ctx.new_page()
     try:
         page.goto(url.split("?")[0].rstrip("/") + "/theme.js")
         if not page.evaluate(CLEAN):
             raise RuntimeError("the site's OPFS holds a file no one lets go of")
+        page.evaluate("() => localStorage.setItem('azurkit.content_source', './content-source/')")
     finally:
         page.close()
 

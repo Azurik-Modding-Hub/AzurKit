@@ -17,8 +17,8 @@ settings locked until it is ticked (D907), the L3 toggles in their settings'
 rows (D909), light's faint text readable and a light first frame; and it
 remembers its setup between visits until Reset to defaults (Step 4.1j, D915),
 its faint text readable in dark too. Under the
-page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a GET of one of the site's own files: the image
-never leaves the page. The page is driven as
+page's CSP (no ``'unsafe-eval'``) nothing is refused, and every request is a GET of one of the site's own files or of the
+community content it reads (any https address, D1135): the image never leaves the page. The page is driven as
 ``tests/_page.py`` says."""
 
 from __future__ import annotations
@@ -91,6 +91,17 @@ def test_the_site_built_with_its_own_wheel_holds_no_dotfile_but_nojekyll(site):
     fetches each file it lists: a listed dotfile (``uv build``'s ``.gitignore``
     beside the wheel) would 404 and fail the worker's install on the real site."""
     assert [p.relative_to(site).as_posix() for p in site.rglob(".*")] == [".nojekyll"]
+
+
+def test_the_pages_policy_lets_it_fetch_any_https_address_and_runs_only_its_own_code():
+    """D1135 (the owner: "users should be able to load any community content repo they want"): the page's CSP lets
+    it fetch any https address, a content repository on GitHub or anywhere else (``connect-src 'self' https:``), and
+    no other directive widens: its scripts and workers are its own and nothing else loads from elsewhere, so what it
+    fetches is data, never code it runs."""
+    page = (web_tools.ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    assert [rule.split() for rule in web_tools.CSP.findall(page)[0].split("; ")] == [
+        ["default-src", "'self'"], ["script-src", "'self'", "'wasm-unsafe-eval'"], ["worker-src", "'self'", "blob:"],
+        ["connect-src", "'self'", "https:"], ["object-src", "'none'"], ["base-uri", "'none'"], ["form-action", "'none'"]]
 
 
 def test_the_sites_files_are_as_new_as_the_site_so_macos_sweeping_its_temp_folder_leaves_them(site):
@@ -238,8 +249,11 @@ class Site:
         return page
 
     def stray(self) -> list[str]:
-        """Each request that isn't a GET of a site file, with no body, at ``origin``."""
+        """Each request that isn't a GET of a site file, with no body, at ``origin``, or the page's read of the
+        community list from GitHub (``sdk.SOURCE``'s manifest, D1135: a tab reads it when first opened with no Content
+        from set; answered here as a 404, offline)."""
         files = {f"{self.origin}/{p.relative_to(self.root).as_posix()}" for p in self.root.rglob("*") if p.is_file()}
+        files.add(f"{sdk.SOURCE}manifest.json")
         bare = ((method, url.partition("#")[0], body) for method, url, body in self.requests)   # a link's fragment
         return [f"{method} {url}" for method, url, body in bare
                 if method != "GET" or body or (url if url != f"{self.origin}/" else f"{self.origin}/index.html") not in files]
@@ -1156,7 +1170,7 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
     """The Characters tab (Step 4.3d, D877, D913) on the site: with the image picked it lists the 178 species the
     player can wear, the 73 untested greyed, each row's grade read without colour too (its mark and its words as its
     title); Azurik-Custom-Content's entries (its source served from the site's own
-    address, the page's CSP's ``connect-src 'self'``) come under the species, beside Content from (D1035), each marked
+    address) come under the species, beside Content from (D1035), each marked
     community; Install of an entry whose
     file isn't its manifest's sha256, or is past its listed size (read no further, Step 4.3m, SEC-9), is refused by
     name and keeps nothing, and Beamlord's installs, its variant
@@ -1263,6 +1277,116 @@ def test_the_characters_tab_lists_species_variants_and_weapons_and_installs_from
             """, 120)
     finally:
         served.close()
+
+
+MINE = "https://content.example.test/azurik"
+"""A player's own content repository (D1135: any https address), typed with no trailing ``/``."""
+
+
+def test_the_released_site_reads_community_content_from_github_or_any_https_repository_and_builds_booblord(
+        browser, site, usa_iso):
+    """D1135 (the owner: "users should be able to load any community content repo they want"): the site as
+    ``release.yml`` builds it (``scripts/web_tools.py --site DIR``: no content of its own) reads Azurik-Custom-Content
+    from GitHub at the visit, ``sdk.SOURCE`` on raw.githubusercontent.com, another origin, which its CSP's
+    ``connect-src 'self' https:`` lets it fetch: here a route stands in for GitHub, answering as it does
+    (``Access-Control-Allow-Origin: *``) with the files a second local server serves from a clone of the repository
+    (CI's, else the one beside the main checkout). With nothing set Content from is that address, its list holds
+    booblord and her Install checks each file. A player's own https repository (:data:`MINE`, another origin again)
+    is read with no warning, an entry installs from it, and it is remembered for the next visit; booblord's Update
+    from it is refused by name (SEC-8: an Update comes from where she was installed). A plain http source is refused
+    by name before any fetch, and a read that fails (a 404, a host that lets only another site read it, no network)
+    says what failed while the page works on, the last list read shown. Reset goes back to GitHub's, and booblord's
+    Build at the page's defaults is G3's ``player-character=booblord`` golden, file for file. No CSP violation, and no
+    request but GETs of the site's files and the sources'."""
+    from tests.test_characters import _content_source
+
+    clone = Path(_content_source())
+    assert (clone / "manifest.json").is_file(), f"{clone}: a clone of Azurik-Custom-Content stands in for GitHub's"
+    manifest = json.loads((clone / "manifest.json").read_text(encoding="utf-8"))
+    titles = {e["id"]: e["title"] for e in manifest["entries"]}
+    newer = next(e["version"] for e in manifest["entries"] if e["id"] == "booblord") + 1
+    theirs = json.dumps(manifest | {"entries": [e | {"version": newer} if e["id"] == "booblord" else e
+                                                for e in manifest["entries"]]})   # booblord one version up
+    golden = record_goldens.recorded("pipelines.json")["randomize-full:player-character=booblord"]
+    changed = {path: sha for path, sha in golden.items() if path in gate.USA.files and sha != gate.USA.files[path][1]}
+    files, heard = _page.Served(clone), []
+    served = Site(browser, site)
+
+    def repository(route, request) -> None:   # GitHub's, MINE's and three that fail, each from files' server
+        heard.append(request.url)
+        host = urllib.parse.urlsplit(request.url).hostname
+        if host == "offline.example.test":
+            return route.abort("internetdisconnected")
+        cors = {"Access-Control-Allow-Origin": "https://another.example.test" if host == "closed.example.test" else "*"}
+        #   (a fulfil with none gets Playwright's own, the page's origin: closed's lets only another site read it)
+        base = next((b for b in (sdk.SOURCE, f"{MINE}/", "https://closed.example.test/") if request.url.startswith(b)),
+                    None)
+        if base is None:
+            return route.fulfill(status=404, body="", headers=cors)
+        if base == f"{MINE}/" and request.url == f"{base}manifest.json":
+            return route.fulfill(body=theirs, content_type="application/json", headers=cors)
+        got = served.context.request.get(f"{files.url}/{request.url.removeprefix(base)}")   # the driver's fetch
+        route.fulfill(response=got, headers=got.headers | cors)
+    served.context.route(re.compile(r"^https://(raw\.githubusercontent\.com|[a-z]+\.example\.test)/"), repository)
+    entry = """document.querySelector('#char-community .entry[data-entry="%s"]')"""
+    note, box = "document.getElementById('char-content-note').textContent", "document.getElementById('char-source')"
+    typed = f"(url) => {{ {box}.value = url; {box}.dispatchEvent(new Event('change')); }}"
+    read = f"() => !{note}.startsWith('Reading') && !azurkit.characters.state.installing && [{box}.value, {note}]"
+    state = lambda name: f"{entry % name}?.children[1].textContent"  # noqa: E731   its Install, Update or installed
+    try:
+        page = served.open()
+        _page.click(page, "tab-characters")
+        _page.until(page, f"() => {state('booblord')} === 'Install' && !{entry % 'booblord'}.querySelector('button')"
+                          ".disabled", 300)
+        assert _page.until(page, read, 60) == [sdk.SOURCE, ""]   # GitHub's, with no line
+        _page.answer(page, f"() => {entry % 'booblord'}.querySelector('button').click()")
+        _page.until(page, f"() => {state('booblord')} === 'installed v{newer - 1}'", 600)
+        _page.answer(page, typed, MINE)
+        assert _page.until(page, f"() => {state('booblord')} === 'Update to v{newer}' && ({read})()", 120) == [
+            f"{MINE}/", ""]   # read with no warning
+        _page.answer(page, f"() => {entry % 'beamlord'}.querySelector('button').click()")
+        _page.until(page, f"() => {state('beamlord')} === 'installed v1' && {entry % 'beamlord'}.querySelector('.model')",
+                    120)
+        _page.answer(page, f"() => {entry % 'booblord'}.querySelector('button').click()")
+        assert _page.until(page, "() => !azurkit.characters.state.installing && document.getElementById('status')"
+                                 ".textContent.includes('nothing was installed') && document.getElementById('status')"
+                                 ".textContent", 600) == (
+            f"{titles['booblord']}: nothing was installed: booblord: it was installed from {sdk.SOURCE}, not {MINE}/: an "
+            "Update comes from where it was installed (clear the installed content to take it from elsewhere)")
+        _page.check_csp(page)
+        _page.within(served.context, page._impl_obj.close(), _page.STALL, "the first page's close")
+        asked = heard.count(f"{MINE}/manifest.json")
+        page = served.open()   # the next visit: Content from remembered, and read from it
+        assert _page.answer(page, f"() => {box}.value") == f"{MINE}/"
+        _page.pick(page, "#iso", usa_iso)
+        _page.click(page, "tab-characters")
+        _page.until(page, f"() => {state('booblord')} === 'Update to v{newer}' && ({read})()", 300)
+        assert heard.count(f"{MINE}/manifest.json") == asked + 1
+        last = " Every built-in model below works. (the last list read is shown)"
+        for bad, why in [
+                ("http://content.example.test/azurik/", "http://content.example.test/azurik/ is plain http: the site "
+                 "reads an https address (the desktop app reads http on this computer too)."),
+                ("https://gone.example.test/", "Couldn't reach the community list at https://gone.example.test/ "
+                 "(HTTP 404: no manifest.json there)."),
+                *((f"https://{host}.example.test/", f"Couldn't reach the community list at https://{host}.example.test/ "
+                   "(no answer: offline, or it doesn't let other sites read it).") for host in ("closed", "offline"))]:
+            _page.answer(page, typed, bad)
+            assert _page.until(page, read, 120) == [bad, why + last], bad
+            assert _page.answer(page, f"""() => [document.querySelectorAll('#char-species .model').length > 100,
+                {state('booblord')}]""") == [True, f"Update to v{newer}"], bad   # the page works on
+        _page.click(page, "char-source-reset")
+        assert _page.until(page, f"() => {state('booblord')} === 'installed v{newer - 1}' && ({read})()", 120) == [
+            sdk.SOURCE, ""]
+        assert _page.answer(page, "() => localStorage.getItem('azurkit.content_source')") is None
+        _page.answer(page, _perf.model("booblord"))
+        _page.until(page, _perf.chosen("booblord", pictures=False), 600)
+        _page.click(page, "build")
+        assert _page.built(page)["result"] == changed
+        _page.check_csp(page)
+        assert served.stray() == []
+    finally:
+        served.close()
+        files.close()
 
 
 def test_an_install_lists_its_variants_while_the_images_check_runs(browser, site, usa_iso, tmp_path):

@@ -1,8 +1,10 @@
 // Azurik-Custom-Content on the page (Step 4.3k; D913, D988): the source it is read from, its list and Install/Update,
 // one path for every tab that lists its entries (the Characters tab's community variants, the Patches tab's community
 // packs). The engine decides what an entry may hold (sdk.content_check on the site's worker, sdk.content and
-// sdk.content_install in the app): this module fetches, keeps and hands over. Content from is remembered: by the site
-// in this browser's storage, by the app in its config. An Install fetches the entry and each entry it requires that
+// sdk.content_install in the app): this module fetches, keeps and hands over; what it fetches is data the engine reads
+// (recipes, models, pictures, sounds), never code the page or the engine runs. Content from (default
+// Azurik-Custom-Content on GitHub; on the site any https address, D1135) is remembered: by the site in this browser's
+// storage, by the app in its config. An Install fetches the entry and each entry it requires that
 // isn't kept at its version (the requires walk keeps a done set: each entry once, a cycle or an unknown id refused by
 // name), at most MAX_ENTRY bytes as the manifest lists them and no reply past its listed size, then the engine checks
 // every file's size and sha256 before anything is kept (D35); an installed entry stays at its version until its Update,
@@ -11,6 +13,28 @@
 // listens for a change (on) and draws the list its own way.
 export const SOURCE = "azurkit.content_source";   // the site's remembered source (localStorage)
 export const MAX_ENTRY = 256 * 1024 * 1024;        // the most bytes one Install fetches (the engine's entry cap)
+const UNREACHED = "no answer: offline, or it doesn't let other sites read it";   // a fetch that rejects (CORS too)
+
+// where(source, here): the address the site reads source at, or a refusal naming it (plain: said as it is). The page's
+// CSP (connect-src 'self' https:) lets it read any https address and its own (relative, or plain http when the site is
+// served from this computer); a folder is the app's. The app's engine holds its own (sdk._source and _secure: https, or
+// http only on this computer).
+export function where(source, here) {
+  const plain = (message) => Object.assign(new Error(message), { plain: true });
+  if (/^(\/|~|[A-Za-z]:\\)/.test(source)) {
+    throw plain("The site reads a URL, not a folder: the desktop app reads a folder of your own.");
+  }
+  let url;
+  try {
+    url = new URL(source, here.href);
+  } catch {
+    throw plain(`${source} is no web address: the site reads an https one.`);
+  }
+  if (url.origin === here.origin || url.protocol === "https:") return url;
+  throw plain(url.protocol === "http:"
+    ? `${source} is plain http: the site reads an https address (the desktop app reads http on this computer too).`
+    : `${source} is no https address: the site reads an https one.`);
+}
 
 // keeper(db): this browser's keeping of what the site installed (the last manifest read, installed.json's record and
 // the files), in IndexedDB's "azurkit-content" (the Characters tab's since Step 4.3d), opened on first use.
@@ -126,9 +150,9 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
     return { ...e, installed: held, state: held === null ? "install" : held === e.version ? "installed" : "update" };
   });
 
-  // The source's list: the app's engine reads it (a URL or a folder), the site fetches it (an http(s) or relative URL
-  // of its own address, never a folder) and its worker checks it; the last one read is kept, listed while the source
-  // can't be read (why says so; each tab adds its own line).
+  // The source's list: the app's engine reads it (a URL or a folder), the site fetches it (where's address: any https
+  // one, Azurik-Custom-Content's on GitHub by default, or its own) and its worker checks it; the last one read is kept,
+  // listed while the source can't be read (why says so plainly; each tab adds its own line).
   const read = async () => {
     await ready;
     const mine = ++reads;
@@ -142,17 +166,9 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
     }
     s.why = null;
     try {
-      if (/^(\/|~|[A-Za-z]:\\)/.test(s.source)) {
-        throw Object.assign(new Error("The site reads a URL, not a folder: the desktop app reads a folder of your "
-                                      + "own."), { plain: true });
-      }
-      if (new URL(s.source, here.href).origin !== here.origin) {   // the page's CSP: connect-src 'self'
-        throw Object.assign(new Error("Community content comes to this site with AzurKit 4.4; the desktop app lists "
-                                      + "it now."), { plain: true });
-      }
-      const reply = await get(new URL("manifest.json", new URL(s.source, here.href)), { cache: "no-store" })
-        .catch(() => { throw new Error("no answer"); });
-      if (!reply.ok) throw new Error(`HTTP ${reply.status}`);
+      const reply = await get(new URL("manifest.json", where(s.source, here)), { cache: "no-store" })
+        .catch(() => { throw new Error(UNREACHED); });
+      if (!reply.ok) throw new Error(`HTTP ${reply.status}${reply.status === 404 ? ": no manifest.json there" : ""}`);
       const text = await reply.text();
       const checked = await call("content_check", { manifest: text });
       if (mine !== reads) return s;
@@ -195,10 +211,11 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
         throw new Error(`its files are ${bytes.toLocaleString("en-US")} bytes, past the `
                         + `${MAX_ENTRY.toLocaleString("en-US")} one Install fetches`);
       }
-      const fetched = {}, from = new URL(s.source, here.href);
+      const fetched = {}, from = where(s.source, here);
       progress(0, wanted.length);
       for (const [k, f] of wanted.entries()) {
-        const reply = await get(new URL(f.path, from), { cache: "no-store" });
+        const reply = await get(new URL(f.path, from), { cache: "no-store" })
+          .catch(() => { throw new Error(`${f.path}: ${UNREACHED}`); });
         if (!reply.ok) throw new Error(`${f.path}: HTTP ${reply.status}`);
         fetched[f.path] = await capped(reply, f.path, f.size);
         progress(k + 1, wanted.length);
@@ -206,7 +223,7 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
       const held = Object.fromEntries(need.filter((id) => !todo.includes(id))
         .flatMap((id) => ids.get(id).files.map((f) => [f.path, files[f.path] ?? new Uint8Array()])));
       const checked = await call("content_check", { manifest: JSON.stringify(s.manifest), id: entry.id,
-                                                    files: { ...held, ...fetched } });
+                                                    files: { ...held, ...fetched }, source: s.source });
       if ("refused" in checked) throw new Error(checked.refused);
       for (const id of todo) {
         // A path another installed entry holds now stays (content.py's install keeps it too).
@@ -228,9 +245,11 @@ export function content({ call, app, host = {}, handoff = () => {}, fallback, ke
     }
   };
 
-  // Content from set (null or the fallback: Azurik-Custom-Content's), remembered, and the list read again.
+  // Content from set (null or the fallback: Azurik-Custom-Content's), remembered, and the list read again. The site's
+  // ends in a "/", as the sdk's _source ends a URL source, so a file's address is below it and one repository is one
+  // source (an Update comes only from the source it was installed from, SEC-8).
   const source = (url) => {
-    s.source = url || base;
+    s.source = !url ? base : (app || url.endsWith("/") ? url : `${url}/`);
     if (app) call("content_source", { source: s.source === base ? null : s.source });
     else {
       try {
