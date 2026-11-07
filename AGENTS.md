@@ -1556,7 +1556,10 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   a save cancels itself at its next chunk. Work ahead (`azurkit.app.ahead`,
   D1007): the page's settled setup is built, its typed seed planned and that
   plan's first tracker view read before their clicks (`api/speculate`,
-  `api/prefetch`), each keyed by its recipe, the image's stamp, the content's
+  `api/prefetch`; while the engine plans, the server compiles what that view
+  reaches under on its own Logic, `tracking.ahead`, once a call has read it and
+  while no other call or build ahead runs), each keyed by its recipe, the
+  image's stamp, the content's
   `installed.json` and the version, at the page's change number, at background
   priority (with its pool parts, the threads it starts and `sdk.py`'s hash pools)
   and waiting at its records behind a call the player waits on; a
