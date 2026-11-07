@@ -1778,11 +1778,11 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   release: only `release.yml`, below, deploys the site (Pages stays off
   until then, D1026), uploads to PyPI or makes a release, and no workflow
   tags. `.github/workflows/tests.yml` runs the
-  pure tier on every push to `main` and every pull request on the four
+  pure tier on every push to `main` or a lane branch (`p2/*`) and every pull request on the four
   platforms the apps ship for (macOS on Apple Silicon and on Intel,
   Windows x64, Linux x64; the web tier with Node 24 and
   `scripts/web_tools.py`'s Pyodide and browsers), and on a push to `main`
-  in this repository alone the vanilla and europe tiers on the same four:
+  or a lane branch in this repository alone (D1123) the vanilla and europe tiers on the same four:
   each image rebuilt in the tier's folder, on the runner's roomiest disk
   (`scripts/ci_resources.py --room`: short of the two images, the most the
   tier's writes took and a margin, Linux's unused toolchains go first, and
@@ -1811,8 +1811,15 @@ uv run --locked --group icon python assets/icon/render.py   # the icon, from its
   `tests/ci_durations.json`, each `xdist_group` in one part, so every part
   takes about an hour; refresh the table from a run's logs (`gh run view RUN
   --log`) when the tier's tests or their times change much, and change a
-  runner's count of parts in the matrix (`tests/test_tiers.py` holds each
-  label's parts 1..N once).
+  runner's count of parts in `scripts/ci_matrix.py` (`tests/test_tiers.py` holds each
+  label's parts 1..N once). That script, the workflow's first job, writes
+  both matrices from the event, the repository and the ref (Step 4.4dx5):
+  GitHub runs 5 macOS jobs at once here, so on a push that runs the vanilla
+  tier each macOS runner's part 1 runs its pure tier first (after the
+  setup, before the key or an image, behind that job's harden-runner) and
+  the pure job runs Windows' and Linux's alone: a push asks for 5 macOS
+  jobs, where 7 left two waiting 20-33 min. `ci_shards` gives that part
+  less of the tier by the table's `head`, the pure tier's seconds there.
   `checks.yml` runs the leak
   guard over the checkout and every commit, and `python -m nativekit
   --check` on macOS, Windows and Linux (D1019). `apps.yml` freezes the four

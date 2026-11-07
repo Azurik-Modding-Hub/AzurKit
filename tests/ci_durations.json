@@ -24,6 +24,7 @@
   }
  },
  "macos-arm64": {
+  "head": 1242,
   "rest": 17,
   "tests": {
    "tests/test_art.py::test_the_shipped_maps_are_what_the_tracker_draws_from_each_image": 375,
@@ -55,6 +56,7 @@
   }
  },
  "macos-x86_64": {
+  "head": 3552,
   "rest": 32,
   "tests": {
    "tests/test_art.py::test_the_shipped_maps_are_what_the_tracker_draws_from_each_image": 1065,

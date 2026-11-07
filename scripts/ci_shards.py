@@ -14,10 +14,12 @@ table, averaged over its jobs; the others stay. It prints test ids and numbers, 
 ``pytest --shard=LABEL:K/N`` runs the K-th of N parts of what the run selects (after ``-m``), its tests in their run
 order cut into N runs, every ``xdist_group``'s tests in the run of its first (one group on one worker, D991), by
 LABEL's seconds (a test the table doesn't list counts its ``rest``): the largest run's seconds as small as they can
-be, and of the cuts that give it, the one with the runs closest to even (the least sum of their squares). Every process
-of each shard cuts the same collection the same way, so the parts are disjoint and their union is the whole; the
-summary's ``shard`` line names its part, its count of the whole and the whole's ids' sha256, alike in each shard of a
-runner."""
+be, and of the cuts that give it, the one with the runs closest to even (the least sum of their squares). A label's
+``head`` is the seconds part 1 runs before its share: on a macOS runner its pure tier (Step 4.4dx5,
+``scripts/ci_matrix.py``), its wall seconds on the tier's workers, read from part 1's log, so that part takes that much
+less of the tier. Every process of each shard cuts the same collection the same way, so the parts are disjoint and
+their union is the whole; the summary's ``shard`` line names its part, its count of the whole and the whole's ids'
+sha256, alike in each shard of a runner."""
 
 from __future__ import annotations
 
@@ -33,7 +35,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 TABLE = ROOT / "tests" / "ci_durations.json"
-"""``{label: {"rest": s, "tests": {test id: s}}}``: each runner's measured seconds a test, whole seconds."""
+"""``{label: {["head": s,] "rest": s, "tests": {test id: s}}}``: each runner's measured seconds a test, whole seconds,
+and those part 1 runs first (its pure tier's wall seconds times the tier's workers)."""
 
 SPEC = re.compile(r"(?P<label>[\w.-]+):(?P<k>\d+)/(?P<n>\d+)\Z")
 JOB = re.compile(r"vanilla and europe \((?P<label>[\w.-]+)(?:, \d+ of \d+)?\)\Z")
@@ -50,16 +53,19 @@ SHARD = pytest.StashKey[tuple[str, int, int, dict]]()
 _line: list[str] = []   # this run's shard line: its own, or under xdist a worker's
 
 
-def split(weights: list[int], parts: int) -> list[int]:
-    """Where each of ``parts`` runs of ``weights``, kept in order, starts: the largest run's sum as small as it can be
-    and, of the cuts that give it, the one with the least sum of the runs' squared sums (the earliest cut on a tie)."""
+def split(weights: list[int], parts: int, head: int = 0) -> list[int]:
+    """Where each of ``parts`` runs of ``weights``, kept in order, starts, the first counting ``head`` more: the largest
+    run's sum as small as it can be and, of the cuts that give it, the one with the least sum of the runs' squared sums
+    (the earliest cut on a tie)."""
     n = len(weights)
     at = [0, *itertools.accumulate(weights)]
-    worst = [0, *[float("inf")] * n]   # worst[j]: the least largest run of the first j weights in the runs so far
-    for _ in range(parts):
+    worst = [head + s for s in at]   # worst[j]: the least largest run of the first j weights in the runs so far
+    for _ in range(parts - 1):
         worst = [min(max(worst[i], at[j] - at[i]) for i in range(j + 1)) for j in range(n + 1)]
-    bound, best, back = worst[n], [0, *[float("inf")] * n], []
-    for _ in range(parts):
+    bound = worst[n]
+    best = [(head + s) ** 2 if head + s <= bound else float("inf") for s in at]
+    back = [[0] * (n + 1)]
+    for _ in range(parts - 1):
         new, choice = [float("inf")] * (n + 1), [0] * (n + 1)
         for j in range(n + 1):
             for i in range(j + 1):
@@ -108,12 +114,13 @@ def pytest_collection_modifyitems(config, items):
     if (spec := config.stash.get(SHARD, None)) is None:
         return
     label, k, n, measured = spec
+    head = measured.get("head", 0)
     units: dict[str, list] = {}
     for item in items:
         units.setdefault(f"@{group}" if (group := _groups(item)) else item.nodeid, []).append(item)
     runs = list(units.values())
     weights = [sum(measured["tests"].get(_plain(item), measured["rest"]) for item in run) for run in runs]
-    starts = [*split(weights, n), len(runs)]
+    starts = [*split(weights, n, head), len(runs)]
     mine = {id(item) for run in runs[starts[k - 1]:starts[k]] for item in run}
     whole = len(items)
     digest = hashlib.sha256("\n".join(map(_plain, items)).encode()).hexdigest()[:12]
@@ -123,9 +130,11 @@ def pytest_collection_modifyitems(config, items):
     if dropped := [item for item in items if id(item) not in mine]:
         config.hook.pytest_deselected(items=dropped)
         items[:] = [item for item in items if id(item) in mine]
+    sums = [str(sum(weights[a:b])) for a, b in itertools.pairwise(starts)]
+    sums[0] = f"{head} + {sums[0]}" if head else sums[0]   # part 1's head first
     _line[:] = [f"shard {k} of {n} ({label}): {len(items)} of the {whole} tests selected (their ids' sha256 {digest}), "
                 f"each xdist_group in one shard, about {minutes:.0f} min on {workers} worker{'s' * (workers > 1)}; "
-                f"each shard's measured s: {', '.join(str(sum(weights[a:b])) for a, b in itertools.pairwise(starts))}"]
+                f"each shard's measured s: {', '.join(sums)}"]
     if hasattr(config, "workeroutput"):
         config.workeroutput["shard"] = _line[0]
 
@@ -162,10 +171,11 @@ def jobs(arg: str) -> dict[str, tuple[str, list[str]]]:
     return out
 
 
-def timed(lines: list[str]) -> tuple[int, float, int, dict[str, float]] | None:
-    """A job's workers, its tests' seconds and count, and ``{test: seconds}`` of those its ``--durations`` lines name
-    (their phases summed; its first block, as tests.yml prints the summary twice), or None if its tier never ended."""
-    workers = secs = ran = None
+def timed(lines: list[str]) -> tuple[int, float, int, dict[str, float], float | None] | None:
+    """A job's workers, its tests' seconds and count, ``{test: seconds}`` of those its ``--durations`` lines name
+    (their phases summed; its first block, as tests.yml prints the summary twice) and its pure tier's seconds (the
+    pytest result before the tier's command: a macOS part 1's), or None if its tier never ended."""
+    workers = secs = ran = pure = None
     listed: dict[str, float] = {}
     block = None
     for line in lines:
@@ -174,13 +184,16 @@ def timed(lines: list[str]) -> tuple[int, float, int, dict[str, float]] | None:
                 listed[test] = listed.get(test := GROUP.sub("", m[2]), 0) + float(m[1])
                 continue
             block = False
-        if workers is None and (m := TIER.search(line)):
-            workers = int(m[1])
+        if workers is None:
+            if m := TIER.search(line):
+                workers = int(m[1])
+            elif pure is None and (m := RESULT.match(line)):
+                pure = float(m["secs"])
         elif block is None and SLOWEST.match(line):
             block = True
         elif secs is None and (m := RESULT.match(line)):
             secs, ran = float(m["secs"]), sum(int(c) for c, kind in COUNT.findall(m["counts"]) if kind in RAN)
-    return None if workers is None or secs is None else (workers, secs, ran, listed)
+    return None if workers is None or secs is None else (workers, secs, ran, listed, pure)
 
 
 def measure(args: list[str]) -> dict[str, dict]:
@@ -196,15 +209,17 @@ def measure(args: list[str]) -> dict[str, dict]:
     out = {}
     for label, runs in sorted(seen.items()):
         tests: dict[str, list[float]] = {}
-        for *_, listed in runs:
+        for *_, listed, _ in runs:
             for test, s in listed.items():
                 tests.setdefault(test, []).append(s)
         rest = [(workers * secs - sum(listed.values())) / max(1, ran - len(listed))
-                for workers, secs, ran, listed in runs]
-        out[label] = {"rest": max(1, round(sum(rest) / len(rest))),
-                      "tests": {test: max(1, round(sum(s) / len(s))) for test, s in sorted(tests.items())}}
+                for workers, secs, ran, listed, _ in runs]
+        heads = [workers * pure for workers, *_, pure in runs if pure is not None]
+        out[label] = ({"head": round(sum(heads) / len(heads))} if heads else {}) | {
+            "rest": max(1, round(sum(rest) / len(rest))),
+            "tests": {test: max(1, round(sum(s) / len(s))) for test, s in sorted(tests.items())}}
         print(f"{label}: {len(runs)} job{'s' * (len(runs) > 1)}, {len(tests)} tests timed, the rest "
-              f"{out[label]['rest']} s each")
+              f"{out[label]['rest']} s each" + (f", part 1's head {out[label]['head']} s" if heads else ""))
     return out
 
 

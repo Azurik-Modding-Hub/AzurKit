@@ -1,9 +1,12 @@
 # AzurKit's tests on GitHub Actions (Step 4.4ci; D1022-D1024), on the four platforms the apps ship for: macOS on
 # Apple Silicon (macos-15) and on Intel (macos-15-intel, GitHub's Intel image since it retired macos-13), Windows x64
 # and Linux x64.
+# - matrix: the rows the two below run (scripts/ci_matrix.py, Step 4.4dx5), from the event, the repository and the ref.
 # - pure: the pure tier (-m "not vanilla") on every push to main or a lane branch (p2/*) and every pull request. The web tier is in it: Node
 #   24, and Pyodide's pinned core and Playwright's browsers from the repository's own installer
-#   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries.
+#   (scripts/web_tools.py); on Linux, Playwright's install-deps adds the browsers' system libraries. On a push that
+#   runs the vanilla tier, each macOS runner's pure tier runs first in its vanilla part 1, behind that job's
+#   harden-runner, so a push asks for 5 macOS jobs, the most GitHub runs here at once.
 # - vanilla: the vanilla and europe tiers (-m vanilla) on the same four, only on a push to main or to a lane branch
 #   (p2/*, the gamedata environment's two allowed branches, D1123) in this repository,
 #   each runner's in parts at once, a job each (--shard, scripts/ci_shards.py). Each image is rebuilt in the tier's
@@ -62,19 +65,36 @@ env:
     "url": "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-unknown-linux-gnu.tar.gz"}]}
 
 jobs:
+  matrix:
+    name: the rows this event runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      pure: ${{ steps.rows.outputs.pure }}
+      vanilla: ${{ steps.rows.outputs.vanilla }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci_matrix.py
+          sparse-checkout-cone-mode: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "0.12.24"
+          manifest-file: ${{ env.SETUP_UV_MANIFEST }}
+          enable-cache: false   # nothing to cache: a stdlib script
+      - id: rows
+        run: uv run --no-project --python 3.14 python -I scripts/ci_matrix.py
+
   pure:
     name: pure (${{ matrix.label }})
+    needs: matrix
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # No image in this tier: a Mac on Apple Silicon has 3 cores and about 4.4 GiB to spare, the others 4 and 11-14.
-          - {os: macos-15, label: macos-arm64, workers: 2}
-          - {os: macos-15-intel, label: macos-x86_64, workers: 3}
-          - {os: windows-latest, label: windows-x86_64, workers: 3}
-          - {os: ubuntu-latest, label: linux-x86_64, workers: 3}
+        include: ${{ fromJSON(needs.matrix.outputs.pure) }}   # each runner's workers: scripts/ci_matrix.py
     defaults:
       run:
         shell: bash
@@ -121,6 +141,7 @@ jobs:
 
   vanilla:
     name: vanilla and europe (${{ matrix.label }}, ${{ matrix.shard }} of ${{ matrix.shards }})
+    needs: matrix
     if: github.event_name == 'push' && github.repository == 'Azurik-Modding-Hub/AzurKit' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/p2/'))
     runs-on: ${{ matrix.os }}
     environment: gamedata
@@ -128,28 +149,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # The serial tier's lowest free memory, of what was free at its most (GiB, scripts/ci_resources.py's lines): Apple
-          # Silicon 1.1 of 4.4 and Linux 2.0-2.6 of 13.9, near that often, so one worker each; Intel 5.6 of 11.0 and Windows
-          # 5.2-5.3 of 13.2, seldom near it, so two.
-          # Each runner's tier runs as `shards` jobs at once (Step 4.4ci35), each its part of the tier (--shard,
-          # scripts/ci_shards.py: the tier's tests cut in their run order by that runner's seconds in
-          # tests/ci_durations.json, from the tier's logs, each xdist_group in one part). Whole, the tier took Intel
-          # 2:28-2:56 of tests, Apple Silicon 1:52-2:08, Windows 1:02-1:26 and Linux 1:26-1:28 (runs on 899cf05,
-          # bde5dae, b33204e and da30856), each job's setup and images 6-14 min more: so 3, 2, 2 and 2 parts, by the
-          # table about 60, 63, 43 and 45 min each (no part ends before its longest test: Intel's variant case, 56 min).
-          # GitHub runs 5 macOS jobs at once here: with the pure tier's two (22-32 min) these 5 make 7, so Intel's 3,
-          # listed first, start at once and Apple Silicon's 2 as the pure ones end, all done about 1 h 45 min in; 3 macOS
-          # parts, the most that never wait, would leave Apple Silicon's 2 h tier in one job, done about 2 h 20 min in.
-          - {os: macos-15-intel, label: macos-x86_64, workers: 2, shard: 1, shards: 3}
-          - {os: macos-15-intel, label: macos-x86_64, workers: 2, shard: 2, shards: 3}
-          - {os: macos-15-intel, label: macos-x86_64, workers: 2, shard: 3, shards: 3}
-          - {os: macos-15, label: macos-arm64, workers: 1, shard: 1, shards: 2}
-          - {os: macos-15, label: macos-arm64, workers: 1, shard: 2, shards: 2}
-          - {os: windows-latest, label: windows-x86_64, workers: 2, shard: 1, shards: 2}
-          - {os: windows-latest, label: windows-x86_64, workers: 2, shard: 2, shards: 2}
-          - {os: ubuntu-latest, label: linux-x86_64, workers: 1, shard: 1, shards: 2}
-          - {os: ubuntu-latest, label: linux-x86_64, workers: 1, shard: 2, shards: 2}
+        # Each runner's tier runs as `shards` jobs at once (Step 4.4ci35), each its part of the tier (--shard,
+        # scripts/ci_shards.py: the tier's tests cut in their run order by that runner's seconds in
+        # tests/ci_durations.json, from the tier's logs, each xdist_group in one part), on the workers its memory
+        # sets, a macOS runner's part 1 its pure tier first (`pure`): the rows, their counts and why are in
+        # scripts/ci_matrix.py.
+        include: ${{ fromJSON(needs.matrix.outputs.vanilla) }}
     defaults:
       run:
         shell: bash
@@ -201,6 +206,20 @@ jobs:
           . scripts/ci_retry.sh
           read -ra engines < <(uv run --locked python -c "from scripts import web_tools; print(*web_tools.BROWSERS)")
           retry "the browsers' system libraries (playwright install-deps)" uv run --locked playwright install-deps "${engines[@]}"
+      - name: The pure tier, a macOS runner's, in its part 1 before the key or an image is on the runner
+        # Step 4.4dx5: the pure job's step, on the pure tier's workers (the row's `pure`), here so a push's macOS jobs
+        # are 5, the most GitHub runs here at once: its two macOS rows made 7, and two waited 20-33 min for a slot, on
+        # the run's critical path (runs 42198913490, 42222637371, 42313664434). Its tests run behind the block above.
+        if: matrix.pure
+        run: |
+          stop="$RUNNER_TEMP/resources.stop"
+          uv run --locked python -I scripts/ci_resources.py "$stop" "runner=$RUNNER_TEMP" &
+          watcher=$!
+          status=0
+          uv run --locked pytest -m "not vanilla" -o faulthandler_timeout=1200 --numprocesses=${{ matrix.pure }} --dist=loadgroup --max-worker-restart=0 || status=$?
+          touch "$stop"
+          wait "$watcher" || true
+          exit "$status"
       - name: The tier's folder, on the runner's roomiest disk, or a stop by name if none has the tier's room
         # scripts/ci_resources.py --room: each disk's free room, and the folder on the one with the most (Linux's /mnt
         # only where it has more), once it has the two images and the most the tier's writes took beside them (run
