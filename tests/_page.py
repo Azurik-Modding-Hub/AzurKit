@@ -227,26 +227,34 @@ class _Ended(TimeoutError):
 async def _watched(call, seconds: float, look):
     """``call``'s answer, or TimeoutError past ``seconds``, or :class:`_Ended` with what ``look`` (a read of WebKit's
     log, :func:`_ended`) says ended, read in a thread of its own, in at most :data:`HEAR` s and one at a time, once the
-    call went :data:`LOOK` s unanswered, each :data:`LOOK` s after and at ``seconds``: an answer is taken as it
-    comes."""
-    task, end, reading = asyncio.ensure_future(call), time.monotonic() + seconds, None
+    call went :data:`LOOK` s unanswered, each :data:`LOOK` s after and at ``seconds``: an answer is taken as it comes
+    until ``seconds``, never after, as ``asyncio.wait_for``'s bound (the bound's timer notes whether it came first), so
+    a read still running past the bound only names what ended."""
+    loop = asyncio.get_running_loop()
+    task, reading, bound = asyncio.ensure_future(call), None, loop.create_future()
+    timer = loop.call_later(seconds, lambda: bound.set_result(task.done()))
     try:
         while True:
-            await asyncio.wait([task], timeout=min(LOOK, max(end - time.monotonic(), 0)))
-            if not task.done():
-                if reading is None or reading.done():
-                    reading = asyncio.ensure_future(asyncio.to_thread(look))
-                await asyncio.wait([task, reading], timeout=HEAR, return_when=asyncio.FIRST_COMPLETED)
-            if task.done():
+            await asyncio.wait([task, bound], timeout=LOOK, return_when=asyncio.FIRST_COMPLETED)
+            if task.done() and (not bound.done() or bound.result()):
+                return task.result()
+            past = bound.done()
+            if reading is None or reading.done():
+                reading = asyncio.ensure_future(asyncio.to_thread(look))
+            await asyncio.wait([reading] if past else [task, bound, reading], timeout=HEAR,
+                               return_when=asyncio.FIRST_COMPLETED)
+            if task.done() and (not bound.done() or bound.result()):
                 return task.result()
             if reading.done() and (lines := reading.result()):
                 raise _Ended(tuple(lines))
-            if time.monotonic() >= end:
+            if past:
                 raise TimeoutError
     finally:
+        timer.cancel()
         if not task.done():
             task.cancel()
             await asyncio.wait([task])
+        task.cancelled() or task.exception()   # a late answer's error, retrieved: nothing logs it at exit
 
 
 def _heard(owner, call, seconds: float, look=None):

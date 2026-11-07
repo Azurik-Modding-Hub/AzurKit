@@ -2061,6 +2061,32 @@ def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypa
     assert len(asked) == 1 and began - 2 < start < began - 0.9 and took < 10, (asked, began, took)
 
 
+def test_a_webkit_call_answered_past_its_bound_fails_though_its_log_is_still_read(monkeypatch):
+    """Step 4.5f: a WebKit call on macOS takes its answer until its bound, never after: one that comes while macOS's log
+    is read at the bound, or by a read begun before it and still running, fails the call there as Playwright's own
+    bound did, so ``_page.ACT`` and ``_page.STALL`` are no wider than the bounds the calls had; one that comes during a
+    read before the bound is taken. A stand-in call and a stand-in read that names nothing."""
+    from concurrent.futures import ThreadPoolExecutor
+    monkeypatch.setattr(_page, "LOOK", 0.2)
+
+    async def answered(at):
+        await asyncio.sleep(at)
+        return "answered"
+
+    def read():   # a log read that names nothing, in 0.6 s
+        time.sleep(0.6)
+        return []
+
+    def watched(bound, at):   # a Playwright's loop, in a thread of its own
+        with ThreadPoolExecutor(1) as pool:
+            try:
+                return pool.submit(asyncio.run, _page._watched(answered(at), bound, read)).result()
+            except TimeoutError as error:
+                return type(error)
+    # past a bound under LOOK, in the read at it; past one a read began before (at 0.2 s); before one, in a read
+    assert [watched(0.1, 0.4), watched(0.5, 0.65), watched(3, 0.4)] == [TimeoutError, TimeoutError, "answered"]
+
+
 def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(monkeypatch):
     """Step 4.4ci18: a browser's close its driver holds until a process the browser's ended parent left running ends
     (Windows' WebKit: a WebKitWebProcess.exe left by its ended browser holds the driver's pipes, out of reach of the
