@@ -192,10 +192,10 @@ def _head() -> str:
 
 ANSWERING = (app._Handler.do_GET.__code__, app._Handler.do_POST.__code__)
 ANSWERED_S = 30
-"""s a later test's :func:`_home` waits for a closed app server to answer the requests it took before its close
-(:func:`_answering`): a Live map test's page posts its marks every 0.7 s to its close, over at most 6 kept connections
-(a browser's to a host), so 6 config writes queued on one lock, each a read and a replace past Windows' refusals while
-its scanner holds the file (``app.WAITS``: 1.55 s each), 19 s at most (Step 4.5d)."""
+"""s a test waits at its end (:func:`_answered`) for a closed app server to answer the requests it took before its
+close (:func:`_answering`): a Live map test's page posts its marks every 0.7 s to its close, over at most 6 kept
+connections (a browser's to a host), so 6 config writes queued on one lock, each a read and a replace past Windows'
+refusals while its scanner holds the file (``app.WAITS``: 1.55 s each), 19 s at most (Step 4.5d)."""
 
 
 def _answering() -> list[str]:
@@ -210,24 +210,39 @@ def _answering() -> list[str]:
     return paths
 
 
+def _answered() -> None:
+    """Every closed app server has answered the requests it took (:func:`_answering`), within :data:`ANSWERED_S`."""
+    end = time.monotonic() + ANSWERED_S
+    while busy := _answering():
+        assert time.monotonic() < end, f"a closed app server still answers {busy} after {ANSWERED_S} s"
+        time.sleep(0.02)
+
+
+@pytest.fixture(autouse=True)
+def _closed_servers_answered(monkeypatch):
+    """Each test here ends once its closed servers have answered (:func:`_answered`), before its ``monkeypatch``
+    puts the user folders back (Step 4.5d): this fixture takes it, so its end runs first. socketserver waits for none
+    of a server's daemon threads at ``Server.close``, and the app finds its folders at each read and write, so a
+    request still running then wrote where the folders were next: the user's own (the run's HOME) or, past the next
+    test's :func:`_home`, that test's. The other floors' test's page posts its marks with Show collected on to its
+    close, and such a late ``api/tracked`` (its config's replace refused as Windows refuses one) opened the collected
+    spot's test's page with Show collected on, its collected spot left on the map dimmed: the one way found to that
+    test's failure on GitHub's Windows Firefox."""
+    yield
+    _answered()
+
+
 def _home(monkeypatch, home: Path) -> None:
     """This process's user folders, and its children's, under ``home``:
     HOME, and every folder platformdirs finds the app's config, data, cache
     and downloads in before HOME, whatever the host sets: no XDG_*_HOME (a
     GitHub Linux runner sets XDG_CONFIG_HOME, so every test's app.json was
     one file there, Step 4.4ci2) and, on Windows, whose known folders don't
-    follow HOME, platformdirs' WIN_PD_OVERRIDE_* and USERPROFILE. First, an
-    earlier test's closed server answers every request it took (Step 4.5d):
-    one still running writes into ``home``, as the folders are found at each
-    read and write. The other floors' test's page posts its marks with Show
-    collected on to its close, and such a late ``api/tracked`` (its config's
-    replace refused as Windows refuses one) opened the collected spot's test's
-    page with Show collected on, its collected spot left on the map dimmed:
-    the one way found to that test's failure on GitHub's Windows Firefox."""
-    end = time.monotonic() + ANSWERED_S
-    while busy := _answering():
-        assert time.monotonic() < end, f"a closed app server still answers {busy} after {ANSWERED_S} s"
-        time.sleep(0.02)
+    follow HOME, platformdirs' WIN_PD_OVERRIDE_* and USERPROFILE. First it
+    waits until every server closed before it has answered (:func:`_answered`,
+    Step 4.5d), so a late write lands in the folders it had; each test's end
+    waits too (:func:`_closed_servers_answered`)."""
+    _answered()
     monkeypatch.setenv("HOME", str(home))
     for name in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
         monkeypatch.delenv(name, raising=False)
@@ -237,31 +252,50 @@ def _home(monkeypatch, home: Path) -> None:
             monkeypatch.setenv(f"WIN_PD_OVERRIDE_{kind}", str(home / kind))
 
 
-def test_a_closed_servers_late_write_lands_in_its_own_tests_home_not_the_next_ones(tmp_path, monkeypatch):
-    """Step 4.5d: a page's ``api/tracked`` its test's server took just
-    before its close, its write held (as Windows' scanner holds the config
-    open), is answered before the next test's ``_home`` moves the user
-    folders, so it lands in its own test's config and the next test's has
-    none."""
-    _home(monkeypatch, tmp_path / "a")
-    mine, held, go, remember = app._config(), threading.Event(), threading.Event(), app._remember
+def test_a_closed_servers_late_write_lands_in_its_own_tests_home_not_the_next_ones(tmp_path, monkeypatch, pytester):
+    """Step 4.5d: in a run of two tests with this file's fixture, a page's
+    ``api/tracked`` the first test's server took just before its close, its
+    write held past that test's end (as Windows' scanner holds the config
+    open), lands in that test's config: the run's own (``base``) and the
+    next test's have none."""
+    _home(monkeypatch, tmp_path / "base")
+    pytester.makepyfile(test_x="""
+        import os
+        import threading
+        from pathlib import Path
 
-    def held_write(**kept) -> None:
-        held.set()
-        go.wait(30)
-        remember(**kept)
-    monkeypatch.setattr(app, "_remember", held_write)
-    server, replies, kept = app.serve(_page.WEB), [], {"marks": {}, "collected": True}
-    poster = threading.Thread(target=_post, args=(server.url, "api/tracked", {"tracker": kept}, replies))
-    poster.start()
-    assert held.wait(30)
-    server.close()
-    threading.Timer(0.3, go.set).start()
-    _home(monkeypatch, tmp_path / "b")
-    poster.join(30)
-    written = {p.relative_to(tmp_path).parts[0]: json.loads(p.read_text(encoding="utf-8")).get("tracker")
-               for p in (mine, app._config()) if p.exists()}
-    assert (written, replies) == ({"a": kept}, [{}])
+        from tests.test_hosts import _closed_servers_answered, _home, _page, _post, app  # noqa: F401 (the fixture)
+
+        HOMES, POSTERS, REPLIES = Path(os.environ["HOME"]).parent, [], []
+
+        def test_leaves_a_write_held_past_its_servers_close(monkeypatch):
+            _home(monkeypatch, HOMES / "a")
+            held, go, remember = threading.Event(), threading.Event(), app._remember
+
+            def held_write(**kept):
+                held.set()
+                go.wait(30)
+                remember(**kept)
+            monkeypatch.setattr(app, "_remember", held_write)
+            server, kept = app.serve(_page.WEB), {"marks": {}, "collected": True}
+            POSTERS.append(threading.Thread(target=_post, args=(server.url, "api/tracked", {"tracker": kept}, REPLIES)))
+            POSTERS[0].start()
+            assert held.wait(30)
+            server.close()
+            threading.Timer(0.3, go.set).start()
+
+        def test_moves_the_user_folders(monkeypatch):
+            _home(monkeypatch, HOMES / "b")
+            POSTERS[0].join(30)
+            assert REPLIES == [{}]
+    """)
+    pytester.runpytest_inprocess("-p", "no:cacheprovider").assert_outcomes(passed=2)
+    written = {}
+    for name in ("base", "a", "b"):
+        _home(monkeypatch, tmp_path / name)
+        if (config := app._config()).exists():
+            written[name] = json.loads(config.read_text(encoding="utf-8")).get("tracker")
+    assert written == {"a": {"marks": {}, "collected": True}}
 
 
 class Sandbox:
