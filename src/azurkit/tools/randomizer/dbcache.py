@@ -43,14 +43,31 @@ def entry(root: Path, planner: Path | None = None if FROZEN else PLANNER) -> Pat
     """The key of the database at ``root``, as a path whose name is the
     sha256 (32 hex digits) of the name and bytes of each file under it and
     under the planner's code (``planner``; None: the data's alone, as the
-    frozen app's): a changed file gives another key."""
+    frozen app's): a changed file gives another key. Each file's bytes are
+    hashed again only once its size or its modification or change time
+    differs (:func:`_file`): ``kept_logic`` asks the key each call, eight
+    times in a plan's first tracker view."""
     h = hashlib.sha256()
     for folder in (Path(root), *([planner] if planner is not None else [])):
         for path in sorted(folder.rglob("*")):
             if path.is_file() and "__pycache__" not in path.parts:
                 h.update(f"{path.relative_to(folder).as_posix()}\0".encode())
-                h.update(hashlib.sha256(path.read_bytes()).digest())
+                h.update(_file(path))
     return Path(h.hexdigest()[:32])
+
+
+_FILES: dict[Path, tuple[tuple[int, int, int], bytes]] = {}   # a file -> (its size and times, its bytes' sha256)
+
+
+def _file(path: Path) -> bytes:
+    """The sha256 of ``path``'s bytes, kept while its size, modification and change times stay as they were."""
+    at = path.stat()
+    stamp = (at.st_size, at.st_mtime_ns, at.st_ctime_ns)
+    if (kept := _FILES.get(path)) is not None and kept[0] == stamp:
+        return kept[1]
+    digest = hashlib.sha256(path.read_bytes()).digest()
+    _FILES[path] = (stamp, digest)
+    return digest
 
 
 def _path(root: Path, key: str | None = None) -> Path | None:

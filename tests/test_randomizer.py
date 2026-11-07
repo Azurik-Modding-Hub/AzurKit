@@ -1368,6 +1368,20 @@ def shipped_database(tmp_path_factory) -> Path:
     return web_tools.ship_database(tmp_path_factory.mktemp("shipped"))
 
 
+def test_the_databases_key_reads_again_only_a_file_whose_size_or_times_changed_and_follows_it(tmp_path, monkeypatch):
+    """``dbcache.entry``, which ``kept_logic`` asks each call (eight a plan's first tracker view): a file as it was is
+    not read again, and a changed one, even of the same size, gives another key."""
+    root = tmp_path / "data"
+    (root / "levels").mkdir(parents=True)
+    (root / "levels" / "w1.toml").write_text("a", encoding="utf-8")
+    (root / "items.toml").write_text("b", encoding="utf-8")
+    first, read, real = dbcache.entry(root, None), [], Path.read_bytes
+    monkeypatch.setattr(Path, "read_bytes", lambda self: read.append(self.name) or real(self))
+    assert dbcache.entry(root, None) == first and read == []
+    (root / "items.toml").write_text("c", encoding="utf-8")
+    assert dbcache.entry(root, None) != first and read == ["items.toml"]
+
+
 def test_the_shipped_database_is_a_fresh_checks_holds_no_absolute_path_and_is_the_planners_kept_logic_unwalked(
         shipped_database, monkeypatch):
     """The database the wheel and the app ship (``web_tools.ship_database``:
