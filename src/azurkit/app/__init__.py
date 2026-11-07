@@ -696,12 +696,14 @@ class Server(http.server.ThreadingHTTPServer):
     def _view_ahead(self, recipe: object, job: ahead.Job) -> None:
         """``randomizer.tracker_ahead`` of the plan ``job`` works out in the engine, on a thread of this process
         (whose Logic the view reads) as low as the job runs (D1007), each compile waiting while a call other than
-        that plan's is in flight here (they share this process's GIL), until the job ends or stops (the view, once
-        the plan is in, compiles what is left)."""
+        that plan's is in flight here or a build runs ahead (its answers pass this process's GIL, which a low thread
+        holds while the busy computer runs others: a Build then waits on it), until the job ends or stops (the view,
+        once the plan is in, compiles what is left)."""
         low, over = ahead.Low(), lambda: job.done.is_set() or job.state == "stopped"
 
         def stop() -> bool:
-            while not over() and self._others("plan"):
+            while not over() and (self._others("plan") or (built := self.slots.job("build")) is not None
+                                  and not built.done.is_set()):
                 time.sleep(0.05)
             low(job.state != "taken")
             return over()
