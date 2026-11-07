@@ -333,6 +333,23 @@ def test_a_shaped_plans_openers_worked_out_ahead_answer_its_spoiler_with_no_reac
     assert difficulty.openers(logic, settings, load_plan(doc, logic.db).placement)
 
 
+def test_a_shaped_plans_first_tracker_view_compiles_no_option_set_the_trackers_work_ahead_compiled(monkeypatch):
+    """The app's server compiles what a seed's first view reaches under while its engine fills (``tracking.ahead``),
+    as those compiles were most of a Hard plan's view after its click: the view, of a tracker built anew, compiles
+    none."""
+    from azurkit.tools.randomizer.planner import solver
+
+    logic, settings = kept_logic(), Settings(3, "hard", {}, seed_difficulty=3)
+    doc = plan_doc(fill.fill(logic, "1", settings), logic.db)
+    tracking.world()   # once a process, before any view (the tracker tab's own)
+    for memo, empty in (("_native", {}), ("_compiled", {}), ("_KEPT", collections.OrderedDict())):
+        monkeypatch.setattr(tracking if memo == "_KEPT" else logic, memo, empty)
+    tracking.ahead(load_plan(doc, logic.db).settings)
+    made, init = [], solver._Rules.__init__
+    monkeypatch.setattr(solver._Rules, "__init__", lambda self, *a, **k: made.append(a) or init(self, *a, **k))
+    assert tracking.view({"plan": doc})["head"]["requires"]["asks"] == 3 and made == []
+
+
 def test_a_shaped_fills_attempts_at_once_follow_its_priority_and_a_cancel_stops_them_at_their_next_note(monkeypatch):
     """A click raises a job ahead's fill: its threads too. A change stops it: they end there, not at a batch's end."""
     from azurkit.app import procpool

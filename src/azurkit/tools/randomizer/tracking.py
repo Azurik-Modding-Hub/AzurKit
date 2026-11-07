@@ -51,7 +51,8 @@ from azurkit.tools.randomizer.planner import difficulty
 from azurkit.tools.randomizer.planner.loader import kept_logic
 from azurkit.tools.randomizer.planner.plan import PlanError, load_plan
 from azurkit.tools.randomizer.planner.settings import CATEGORIES, RATING_NAMES, picks_on
-from azurkit.tools.randomizer.tracker import ELEMENTS, Row, Tracker, held_counts, marks, realms, spot_classes
+from azurkit.tools.randomizer.tracker import (ELEMENTS, Row, Tracker, held_counts, marks, no_skips, realms,
+                                              spot_classes)
 
 KEEP = 3                     # the plans whose trackers the process keeps
 GIVEN = ("plan", "marks", "kit", "held", "spoiler", "gems", "toggle", "reset")
@@ -193,6 +194,22 @@ def _requires(t: Tracker, spoiler: bool, openers: Callable[[Mapping], list] | No
         else:
             t.opened = openers(t.doc) if openers else difficulty.openers(t.logic, t.settings, t.placement)
     return difficulty.requires(t.profile, spoiler=spoiler, openers=t.opened if spoiler else None)
+
+
+def ahead(settings, stop: Callable[[], bool] = lambda: False) -> None:
+    """Compile on this process's kept Logic, each kept, the option sets a first view of a plan of ``settings`` (as
+    :func:`load_plan` reads them) reaches under, before the plan is in: its own (:class:`Tracker`'s), with no skip
+    (:func:`no_skips`) and, at a seed difficulty asking for a trick, each rung its profile plays (:func:`_requires`).
+    The app's server works them out beside its engine's fill, so that view only reaches (their compiles were most of
+    a Hard plan's first view, after its click). ``stop()`` is asked before each."""
+    logic = kept_logic()
+    sets = [settings, no_skips(settings)]
+    if settings.seed_difficulty and (ask := difficulty.asked(settings, logic.skip_tables)) is not None:
+        sets += [difficulty.rung(settings, r, logic.skip_tables) for r in range(2, ask.rating + 1)]
+    for st in sets:
+        if stop():
+            return
+        logic.reach(st, {}, traps=False)
 
 
 def head(t: Tracker, spoiler: bool = False, openers: Callable[[Mapping], list] | None = None) -> dict:

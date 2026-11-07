@@ -172,6 +172,19 @@ def plan(recipe: Mapping, progress: Callable[[dict], object] | None = None) -> d
         return plan_doc(filled, logic.db, settings)
 
 
+def tracker_ahead(recipe: Mapping, stop: Callable[[], bool] = lambda: False) -> None:
+    """What the first tracker view of ``recipe``'s plan compiles (:func:`.tracking.ahead`), compiled before
+    :func:`plan` has it, on the settings it fills at; ``stop()`` is asked between them. A recipe it can't read
+    compiles nothing (its plan names why)."""
+    from azurkit.tools.randomizer import tracking
+
+    try:
+        settings = played(_settings(recipe, kept_logic().db))
+    except (ValueError, TypeError):
+        return
+    tracking.ahead(settings, stop)
+
+
 def spoiler(doc: Mapping) -> list[str]:
     """The spoiler of the plan file's object ``doc``: its settings, the
     spheres with each progression item's obtain and return paths, the traps

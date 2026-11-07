@@ -685,8 +685,34 @@ class Server(http.server.ThreadingHTTPServer):
         return run
 
     def _planned(self, recipe: object) -> Callable[[ahead.Job], dict]:
-        """A seed's plan (``{seed, share}``, as Track asks it) in the engine, as a slot's job."""
-        return lambda job: self.engine.call("plan", recipe, progress=job.progress, fore=job.fore)
+        """A seed's plan (``{seed, share}``, as Track asks it) in the engine, as a slot's job; meanwhile, here, what
+        its first tracker view compiles (:meth:`_view_ahead`)."""
+        def run(job: ahead.Job) -> dict:
+            threading.Thread(target=self._view_ahead, args=(recipe, job), name="azurkit-view-ahead",
+                             daemon=True).start()
+            return self.engine.call("plan", recipe, progress=job.progress, fore=job.fore)
+        return run
+
+    def _view_ahead(self, recipe: object, job: ahead.Job) -> None:
+        """``randomizer.tracker_ahead`` of the plan ``job`` works out in the engine, on a thread of this process
+        (whose Logic the view reads) as low as the job runs (D1007), each compile waiting while a call other than
+        that plan's is in flight here (they share this process's GIL), until the job ends or stops (the view, once
+        the plan is in, compiles what is left)."""
+        low, over = ahead.Low(), lambda: job.done.is_set() or job.state == "stopped"
+
+        def stop() -> bool:
+            while not over() and self._others("plan"):
+                time.sleep(0.05)
+            low(job.state != "taken")
+            return over()
+        low(job.state != "taken")
+        with contextlib.suppress(Exception):   # a head start only: the view works it out
+            randomizer.tracker_ahead(recipe, stop)
+
+    def _others(self, kind: str) -> bool:
+        """Whether a call of another kind than ``kind`` is in flight (:meth:`follow`)."""
+        with self.following:
+            return any(other != kind for other, _ in self.calls.values())
 
     def speculate(self, body: dict) -> dict:
         """``api/speculate``: build the page's settled recipe ahead at its

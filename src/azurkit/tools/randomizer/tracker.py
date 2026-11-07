@@ -98,6 +98,11 @@ def spot_classes(db) -> dict[str, str]:
             if loc["pool"] and not loc["dead"] and loc["class"] in TRACKED}
 
 
+def no_skips(settings: Settings) -> Settings:
+    """``settings`` with no skip on: the tracker's second reach, what is reachable now with none (R1.41)."""
+    return replace(settings, skip_ceiling=0, skip_override={})
+
+
 @dataclass(frozen=True)
 class Row:
     """A row of the Table tab (Step R1.26): its key (the tree's id) and
@@ -303,7 +308,7 @@ class Tracker:
             return self.logic.reach(settings, self.placement, items=kit, traps=False, collected=self.collected,
                                     replay=True)
 
-        r, none = reach(self.settings), replace(self.settings, skip_ceiling=0, skip_override={})
+        r, none = reach(self.settings), no_skips(self.settings)
         self.reachable = frozenset(r.locations & self.spots) - self.collected
         # R1.41: those reachable now with no skip (the rest only a skip on reaches: a stored power's, say)
         self.plain = self.reachable if none == self.settings else self.reachable & reach(none).locations
