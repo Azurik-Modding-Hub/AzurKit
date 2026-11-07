@@ -1309,11 +1309,12 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
                                                 for e in manifest["entries"]]})   # booblord one version up
     golden = record_goldens.recorded("pipelines.json")["randomize-full:player-character=booblord"]
     changed = {path: sha for path, sha in golden.items() if path in gate.USA.files and sha != gate.USA.files[path][1]}
-    files, heard = _page.Served(clone), []
+    files, heard, asks = _page.Served(clone), [], set()   # asks: each request's method and body
     served = Site(browser, site)
 
     def repository(route, request) -> None:   # GitHub's, MINE's and three that fail, each from files' server
         heard.append(request.url)
+        asks.add((request.method, request.post_data_buffer))
         host = urllib.parse.urlsplit(request.url).hostname
         if host == "offline.example.test":
             return route.abort("internetdisconnected")
@@ -1384,6 +1385,7 @@ def test_the_released_site_reads_community_content_from_github_or_any_https_repo
         assert _page.built(page)["result"] == changed
         _page.check_csp(page)
         assert served.stray() == []
+        assert asks == {("GET", None)}   # the sources' requests too: GETs, no body
     finally:
         served.close()
         files.close()
