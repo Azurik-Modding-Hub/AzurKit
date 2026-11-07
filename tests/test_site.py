@@ -439,15 +439,21 @@ KEPT_FREE = 3 << 29
 runner, whose vanilla tier runs one worker (nothing else beside the golden), lost a WebKit page of the golden's 3 at
 once ("Target crashed": run 41744982709), and 3 take 3.3 GiB with the driver and pytest (Step 4.4ci14), which leaves
 at most 1.2 GiB of its most free; 2 took 2.8 GiB here at their peak. That tier read 1.2-5.3 GiB free a minute, 3.0 the
-median: 2 pages at once there with 4.0 GiB free, then 1 once pytest has grown (3.0-3.5 GiB)."""
+median: its memory holds 2 pages at once with 4.0 GiB free, then 1 once pytest has grown (3.0-3.5 GiB)."""
 
 
 def _at_once() -> int:
-    """How many of the pack golden's pages build at once: a page and its engine a core (at least 2), and no more than
-    the machine's free memory holds (:data:`PAGE_BUILDING` each past :data:`KEPT_FREE`), at least 1."""
+    """How many of the pack golden's pages build at once: each of a page's two engines a core of this worker's share of
+    the machine's cores (its cores over xdist's workers, each running a test beside it), as a pick starts both (F checks
+    the image, then B builds the page's recipe ahead, D1007), and no more than the machine's free memory holds
+    (:data:`PAGE_BUILDING` each past :data:`KEPT_FREE`), at least 1. A page and its engine a core of all the cores (4
+    on GitHub's 4-core Intel runner) let both releases' goldens, on its two workers at once, run 8 pages' 16 engines:
+    a load of 42-54 there, its process listing unanswered 13 s, and a pick's round trips past :data:`_page.ACT` while
+    the page itself had checked the image (run 42406769117)."""
     from scripts import ci_resources
     free = ci_resources.free_memory()[0]
-    return max(1, min(max(2, os.cpu_count() or 2), (free - KEPT_FREE) // PAGE_BUILDING))
+    share = (os.cpu_count() or 2) // max(1, int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "1")))
+    return max(1, min(share // 2, (free - KEPT_FREE) // PAGE_BUILDING))
 
 
 @pytest.mark.parametrize("release", RELEASES)
@@ -463,8 +469,8 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
     """One page per pack, one with fps_unlock's slider typed to 120 FPS,
     one with enemy_damage's sliders at a G1 case's values (config.xbr's
     cells) and one with photo mode's fly speed past float32's range, built
-    as many at once as the host has cores and its free memory holds
-    (``_at_once``): each page's report and segments are CPython's for the
+    as many at once as its worker's share of the cores holds a page's two
+    engines and its free memory holds (``_at_once``): each page's report and segments are CPython's for the
     values it sent, and the packs at their defaults and the slider case hold their
     G1 golden's files (and only ``filelist.txt`` besides); the fly speed
     is written as infinity with Q110's note, which the page shows, and one
@@ -487,8 +493,8 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
         name: {s.name for s in pack.sliders() if s.catalog()["vanilla"] is None and release.name in pack.releases}
         for name, pack in mods.PACKS.items() if any(s.catalog()["vanilla"] is None for s in pack.sliders())}
     try:
-        # A page and its engine a core (all 21 open on a 3-core runner, Firefox's next ran out of its 120 s to start),
-        # as many as the free memory holds, read before each group
+        # A page's two engines a core of this worker's share (all 21 open on a 3-core runner, Firefox's next ran out of
+        # its 120 s to start), as many as the free memory holds, read before each group
         at = 0
         while group := cases[at:at + _at_once()]:
             at += len(group)
@@ -532,17 +538,25 @@ def test_each_ported_pack_builds_its_g1_golden_in_each_browser(release, browser,
         served.close()
 
 
-def test_the_pack_golden_builds_no_more_pages_at_once_than_the_cores_and_the_free_memory_hold(monkeypatch):
-    """A page a core, at least 2, and a page of :data:`PAGE_BUILDING` past :data:`KEPT_FREE` of the free memory, at
-    least 1: GitHub's Apple Silicon runner (3 cores; its vanilla tier read 1.2-5.3 GiB free, 3.0 the median), where 3
-    at once cost a WebKit page ("Target crashed", run 41744982709), builds 2 with 4.0 GiB free or more, then 1 once
-    pytest has grown (3.0-3.5 GiB) and as it has less; its Windows runner (4 cores, 16 GB), 4; this Mac, its cores."""
+def test_the_pack_golden_builds_no_more_pages_at_once_than_its_workers_share_of_the_cores_and_the_free_memory_hold(
+        monkeypatch):
+    """A page's two engines a core of the worker's share of the cores (the cores over xdist's workers), and a page of
+    :data:`PAGE_BUILDING` past :data:`KEPT_FREE` of the free memory, at least 1: GitHub's 4-core Intel runner, two
+    workers, builds 1 page at a time in each (both releases' goldens at once ran 8 pages there, run 42406769117); its
+    Apple Silicon runner (3 cores, one worker; its vanilla tier read 1.2-5.3 GiB free, 3.0 the median, and 3 at once
+    cost a WebKit page, "Target crashed", run 41744982709), 1; this Mac (24 cores) 6 pages at -n 2, 12 alone, fewer
+    as its free memory holds fewer."""
     from scripts import ci_resources
-    for cores, free, want in ((3, 4.5, 2), (3, 4.0, 2), (3, 3.5, 1), (3, 3.0, 1), (3, 1.0, 1), (4, 9.0, 4),
-                              (1, 64.0, 2), (24, 64.0, 24)):
+    for cores, workers, free, want in ((4, 2, 9.0, 1), (3, None, 4.5, 1), (4, 1, 9.0, 2), (24, 2, 64.0, 6),
+                                       (24, None, 64.0, 12), (24, 1, 4.0, 2), (24, 1, 3.0, 1), (24, 8, 64.0, 1),
+                                       (1, None, 64.0, 1)):
         monkeypatch.setattr(os, "cpu_count", lambda: cores)
         monkeypatch.setattr(ci_resources, "free_memory", lambda: (int(free * (1 << 30)), 7 << 30))
-        assert _at_once() == want, (cores, free)
+        if workers is None:
+            monkeypatch.delenv("PYTEST_XDIST_WORKER_COUNT", raising=False)
+        else:
+            monkeypatch.setenv("PYTEST_XDIST_WORKER_COUNT", str(workers))
+        assert _at_once() == want, (cores, workers, free)
 
 
 def test_a_share_link_carries_the_recipe_and_a_page_opened_with_it_loads_it_marked(browser, site):
