@@ -490,21 +490,25 @@ LINE = re.compile(r"^\S+ (\d\d:\d\d:\d\d)\.\d+ +\w+ +([^\[\s]+)\[(\d+)[^\]]*\] \
                   re.M)
 """One of WebKit's lines in macOS's log (``--style compact``): its time, process, process id and message, the
 object's address dropped."""
+ENDED = "WebPageProxy::processDidTerminate"
+"""In the line a WebKit UI process writes on a page of its whose process ended other than by the page's close: a crash,
+a memory or CPU kill, its network process's request (``reason=``)."""
 
 
-def webkit_said(since: float) -> list[str]:
+def webkit_said(since: float, browsers: set[int] | None = None) -> list[str]:
     """WebKit's lines in macOS's log since ``since`` (seconds since the epoch) on a process that ended (:data:`ENDINGS`),
     each its time, process and message (cut at :data:`WIDTH`), at most 20; past them, every line counted by the call
     that wrote it, its ``reason=`` and the IPC message refused, with its last time (run 41818469100's ended GPU
     processes were "and 260 more"; a WebKit tier's page closes write about 20 harmless refusals, which a line's start
-    merged with the one before a kill and the kill's lines without their reason)."""
+    merged with the one before a kill and the kill's lines without their reason). With ``browsers`` (their UI
+    processes' ids), only the lines on a page of theirs whose process ended (:data:`ENDED`)."""
     try:
         out = subprocess.run(["log", "show", "--style", "compact", "--start",
                               time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(since)), "--predicate", ENDINGS],
                              capture_output=True, text=True, errors="replace", timeout=300).stdout
     except (OSError, subprocess.SubprocessError) as e:
         return [f"its log unread ({type(e).__name__})"]
-    lines = LINE.findall(out)
+    lines = [line for line in LINE.findall(out) if browsers is None or int(line[2]) in browsers and ENDED in line[3]]
     said = [f"{at} {who}: {what}"[:WIDTH] for at, who, _, what in lines]
     if len(said) <= 20:
         return said

@@ -42,6 +42,15 @@ PROBE = 10
 """s the probe of a stalled call's browser (its cookies) may take: a browser that answers gives them in ms. A bound of
 its own, so a test that cuts :data:`HEAR` for a state read that must go unread leaves this one whole (GitHub's Intel
 Mac runner took over 1 s for a page's read, run 41666183947)."""
+LOOK = 15
+"""s a WebKit page's call may go unanswered before macOS's log is read (in 2-3 s here, in at most :data:`HEAR`), then
+again each :data:`LOOK` s and at the call's bound, for a page of its browser whose process WebKit ended since the call
+began (:func:`within`), which fails the call at once by that name: on GitHub's Intel Mac runner WebKit ended a live
+page's process at its network process's request (``reason=RequestedByNetworkProcess``, run 42198913490) and told
+Playwright nothing, so the read-back's evaluate waited out its :data:`STALL` and its state went unread, naming nothing.
+A call answered in that time reads no log."""
+LOG = sys.platform == "darwin"
+"""Whether WebKit's log can be read (macOS's ``log``: ``scripts/ci_resources.py``'s ``webkit_said``)."""
 CLOSED = 2
 """s a worker whose evaluate failed may stay in ``page.workers`` before Playwright hears its close (:func:`checks`):
 Firefox fails an evaluate in flight as the worker's thread closes (Juggler's worker debugger ``onClose`` ends the
@@ -163,12 +172,15 @@ def saved_name(browser, name: str) -> str:
 
 # What a page that timed out was waiting on (app.mjs's state): each open ask's kind, its record's stage and percent and
 # its age in s; the pool's workers (workers.mjs's state(): each one's job, heap and last message with its age in ms);
-# Save's check and the status line. Names and numbers only, never game bytes.
+# Save's check, the page's last 5 refusals of its security policy (app.mjs's violations: what was refused and from
+# where, which the status line names only for the page's own) and the status line. Names and numbers only, never game
+# bytes.
 HANG = """() => {
     const s = globalThis.azurkit, now = performance.now();
     return s ? { asks: [...(s.asks?.values() ?? [])].map((a) => [a.kind, a.record?.stage ?? null, a.record?.percent ?? null,
                                                                 Math.round((now - a.since) / 1000)]),
                  pool: s.pool?.state?.() ?? null, saveCheck: s.saveCheck ?? null,
+                 violations: s.violations?.slice(-5) ?? null,
                  status: document.getElementById("status")?.textContent ?? null } : null;
 }"""
 
@@ -208,11 +220,63 @@ def _status(text) -> list[str]:
     return [f"status: {lines[0]}", *(f"  {line}" for line in lines[1:])]
 
 
-def _heard(owner, call, seconds: float):
+class _Ended(TimeoutError):
+    """A call left unanswered whose browser's WebKit ended a page's process since it began: its log's lines on it."""
+
+
+async def _watched(call, seconds: float, look):
+    """``call``'s answer, or TimeoutError past ``seconds``, or :class:`_Ended` with what ``look`` (a read of WebKit's
+    log, :func:`_ended`) says ended, read in a thread of its own, in at most :data:`HEAR` s and one at a time, once the
+    call went :data:`LOOK` s unanswered, each :data:`LOOK` s after and at ``seconds``: an answer is taken as it
+    comes."""
+    task, end, reading = asyncio.ensure_future(call), time.monotonic() + seconds, None
+    try:
+        while True:
+            await asyncio.wait([task], timeout=min(LOOK, max(end - time.monotonic(), 0)))
+            if not task.done():
+                if reading is None or reading.done():
+                    reading = asyncio.ensure_future(asyncio.to_thread(look))
+                await asyncio.wait([task, reading], timeout=HEAR, return_when=asyncio.FIRST_COMPLETED)
+            if task.done():
+                return task.result()
+            if reading.done() and (lines := reading.result()):
+                raise _Ended(tuple(lines))
+            if time.monotonic() >= end:
+                raise TimeoutError
+    finally:
+        if not task.done():
+            task.cancel()
+            await asyncio.wait([task])
+
+
+def _heard(owner, call, seconds: float, look=None):
     """``call``'s answer (a coroutine of ``owner``'s Playwright object, ``owner._impl_obj``), as ``owner``'s sync call
-    would give it, or TimeoutError past ``seconds``; Playwright aborts the call it cancels."""
+    would give it, or TimeoutError past ``seconds``, with ``look`` (:func:`_watched`) :class:`_Ended` once it names
+    what ended; Playwright aborts the call it cancels."""
     from playwright._impl._sync_base import mapping
-    return mapping.from_maybe_impl(owner._sync(asyncio.wait_for(call, max(seconds, 0.1))))
+    seconds = max(seconds, 0.1)
+    return mapping.from_maybe_impl(owner._sync(_watched(call, seconds, look) if look
+                                               else asyncio.wait_for(call, seconds)))
+
+
+def _ended(owner):
+    """A read of WebKit's lines in macOS's log since a time (seconds since the epoch) on a page of ``owner``'s browser
+    (a page's or a context's) whose process it ended (``scripts/ci_resources.py``'s ``webkit_said`` and ``ENDED``: the
+    browser's own UI process, by the processes under its driver), none if the log is unread; or None outside WebKit on
+    macOS (:data:`LOG`)."""
+    context = owner.context if hasattr(owner, "main_frame") else owner
+    if not LOG or context.browser is None or context.browser.browser_type.name != "webkit":
+        return None
+    from scripts import ci_resources
+
+    def said(since: float) -> list[str]:
+        try:
+            driver = context._impl_obj._connection._transport._proc.pid
+            browsers = {pid for _, (pid, *_) in ci_resources.tree(ci_resources.table(), driver)}
+            return [line for line in ci_resources.webkit_said(since, browsers) if ci_resources.ENDED in line]
+        except Exception:   # an unread listing names nothing
+            return []
+    return said
 
 
 def hang(page, last: int = 5) -> str:
@@ -254,15 +318,20 @@ def _drivers(owner) -> str:
         return f"unread ({_short(str(error), 200)})"
 
 
-def stalled(owner, what: str, seconds: float) -> str:
-    """What a call to ``owner`` (a page or a context) that went unanswered ``seconds`` s says: ``what`` it was, the
-    page's state (:func:`hang`), whether its browser still answers a call of its own (its cookies, in :data:`PROBE` s)
-    and the processes under its driver. A browser that answers nothing either has stopped: its Playwright connection is
-    closed naming ``what``, so every later call to it fails at once by name, its module's next tests too, never a
-    silent wait (D1072)."""
+def stalled(owner, what: str, seconds: float, ended: tuple[str, ...] = ()) -> str:
+    """What a call to ``owner`` (a page or a context) that went unanswered ``seconds`` s says: ``what`` it was, WebKit's
+    log's lines on a page of its browser whose process it ended since the call began (``ended``, :func:`_ended`), each
+    on a line of its own, the page's state (:func:`hang`), whether its browser still answers a call of its own (its
+    cookies, in :data:`PROBE` s) and the processes under its driver. A browser that answers nothing either has stopped:
+    its Playwright connection is closed naming ``what``, so every later call to it fails at once by name, its module's
+    next tests too, never a silent wait (D1072)."""
     page = owner if hasattr(owner, "main_frame") else None
     context = page.context if page else owner
-    said = [f"no answer in {seconds:.0f} s: {_short(what)}"] + ([hang(page)] if page else [])
+    said = [f"no answer in {seconds:.0f} s: {_short(what)}"]
+    if ended:
+        said += ["WebKit ended a page's process in its browser since the call began (its log):",
+                 *(f"  {line}" for line in ended)]
+    said += [hang(page)] if page else []
     try:
         _heard(context, context._impl_obj.cookies(), PROBE)
         said.append("its browser still answers")
@@ -276,9 +345,14 @@ def stalled(owner, what: str, seconds: float) -> str:
 
 def within(owner, call, seconds: float, what: str):
     """``call``'s answer (:func:`_heard`), or an AssertionError naming ``what`` with the page's state past ``seconds``
-    (:func:`stalled`)."""
+    (:func:`stalled`); in WebKit on macOS also at once, naming it, as its log says WebKit ended the process of a page
+    of the call's browser since the call began (from a second before it: the log's times are whole seconds), read once
+    the call went :data:`LOOK` s unanswered, each :data:`LOOK` s after and at ``seconds`` (:func:`_ended`)."""
+    look, since, began = _ended(owner), time.time() - 1, time.monotonic()
     try:
-        return _heard(owner, call, seconds)
+        return _heard(owner, call, seconds, look and (lambda: look(since)))
+    except _Ended as ending:
+        raise AssertionError(stalled(owner, what, time.monotonic() - began, ending.args[0])) from None
     except TimeoutError:
         raise AssertionError(stalled(owner, what, seconds)) from None
 

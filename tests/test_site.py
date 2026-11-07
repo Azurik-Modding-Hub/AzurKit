@@ -1900,7 +1900,8 @@ BUSY = "() => { setTimeout(() => { const end = Date.now() + 8000; while (Date.no
 
 def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its_bound(browser, site, monkeypatch,
                                                                                         tmp_path):
-    """D1072: a page promise that never settles fails its call by name past its bound, with the page's state, and a
+    """D1072: a page promise that never settles fails its call by name past its bound, with the page's state (its
+    refusals of its security policy among it, ``azurkit.violations``, Step 4.5f), and a
     page that answers nothing fails a wait by name past the wait's timeout and ``_page.STALL``, saying its state went
     unread and that its browser still answers, each within that bound and its reads (``_page.HEAR`` each, the
     browser's probe ``_page.PROBE``) and the listing of its driver's processes: never a silent wait (Windows' Firefox once left an evaluate unanswered 2 h
@@ -1923,6 +1924,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         status = " · ".join(["AzurKit didn't load: ValueError: " + " ".join(["can't read it"] * 30),
                              *(f"file{i:03}.xbr" for i in range(200))])   # one long part, then more than STATUS holds
         _page.answer(page, "(text) => { document.getElementById('status').textContent = text; }", status)
+        _page.answer(page, "() => { azurkit.violations.push('page: style-src-elem inline, a stand-in refusal'); }")
         # each listing a failure below prints reads the processes' names, never their command lines: macOS's ps reads
         # those apart, 3-25 s under taskpolicy -b on a busy Mac, which took the close's failure past its 10 s (4.4ci36)
         read = []
@@ -1935,6 +1937,7 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
         settled = time.monotonic() - t0
         lines = str(never.value).splitlines()
         assert lines[0] == "no answer in 1 s: () => new Promise(() => {})" and lines[1].startswith("state: {'asks': [")
+        assert "'violations': ['page: style-src-elem inline, a stand-in refusal']" in lines[1]   # the page's refusals
         assert lines[-2:-1] == ["its browser still answers"] and lines[-1].startswith("under its driver: ")
         said = [line for line in lines[2:] if line.startswith(("status: ", "  "))]   # whole, on lines CI doesn't cut
         shown, _, rest = " ".join(line.removeprefix("status: ").strip() for line in said).partition(" · …and ")
@@ -2000,6 +2003,62 @@ def test_a_call_a_page_leaves_unanswered_fails_by_name_with_its_state_within_its
     finally:
         monkeypatch.undo()   # the close has its own bound
         served.close()
+
+
+def test_a_call_whose_page_webkit_ended_fails_at_once_naming_the_ending(monkeypatch):
+    """Step 4.5f: WebKit may end a live page's process and tell Playwright nothing (its network process's request,
+    run 42198913490's Intel tier: the read-back's evaluate waited out its 120 s, its state unread, naming nothing). A
+    WebKit page's call left ``_page.LOOK`` s unanswered reads macOS's log from a second before the call began and fails
+    at once naming a page of its own browser whose process ended, not another browser's (another worker's) nor the
+    network process's refusal; a call answered sooner reads no log. A stand-in page that never answers, its log a
+    stand-in's."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from scripts import ci_resources
+    driver, ui, theirs = os.getpid(), 4242, 4343
+    rows = (("10.1", f"Playwright[{theirs}:9a1]", "Process", "[pageProxyID=3, webPageID=4, PID=950] "   # another's
+             "WebPageProxy::processDidTerminate: (pid 950), reason=Crash"),
+            ("11.2", "com.apple.WebKit.Networking.Development[813:9b2]", "IPC", "Received an invalid message "
+             "NetworkStorageManager_SetItem from WebContent process 38790, requesting for it to be terminated."),
+            ("11.3", f"Playwright[{ui}:9a1]", "Process", "[pageProxyID=1529, webPageID=1530, PID=38790] "   # its own
+             "WebPageProxy::processDidTerminate: (pid 38790), reason=RequestedByNetworkProcess"))
+    log = "".join(f"2026-11-06 10:57:{at} E  {who} [com.apple.WebKit:{kind}] 0x1 - {what}\n"
+                  for at, who, kind, what in rows)
+    asked = []
+    monkeypatch.setattr(ci_resources.subprocess, "run", lambda argv, **_: (
+        asked.append(argv[argv.index("--start") + 1]), types.SimpleNamespace(stdout=log))[1])
+    monkeypatch.setattr(ci_resources, "table", lambda timeout=0: [(driver, 1, 100, "node", "", 1 << 20),
+                                                                  (ui, driver, 90, "Playwright", "", 1 << 20)])
+    for name, value in (("LOG", True), ("LOOK", 1), ("HEAR", 1)):
+        monkeypatch.setattr(_page, name, value)
+
+    async def given(value):
+        return value
+
+    def apart(call):   # a Playwright's loop, in a thread of its own
+        with ThreadPoolExecutor(1) as pool:
+            return pool.submit(asyncio.run, call).result()
+    connection = types.SimpleNamespace(_transport=types.SimpleNamespace(_proc=types.SimpleNamespace(pid=driver)))
+    context = types.SimpleNamespace(browser=types.SimpleNamespace(browser_type=types.SimpleNamespace(name="webkit")),
+                                    _sync=apart, _impl_obj=types.SimpleNamespace(cookies=lambda: given([]),
+                                                                                 _connection=connection))
+    page = types.SimpleNamespace(main_frame=None, context=context, _sync=apart, _impl_obj=types.SimpleNamespace(
+        evaluate=lambda *_: given(7), page_errors=lambda: given([]), console_messages=lambda: given([])))
+    assert _page.answer(page, "() => 7") == 7 and asked == []
+    page._impl_obj.evaluate = lambda *_: asyncio.sleep(600)   # its process ended: never answered
+    began = time.time()
+    with pytest.raises(AssertionError) as ended:
+        _page.answer(page, "() => azurkit.build")
+    took = time.time() - began
+    lines = str(ended.value).splitlines()
+    assert re.fullmatch(r"no answer in [12] s: \(\) => azurkit\.build", lines[0]) and lines[1:4] == [
+        "WebKit ended a page's process in its browser since the call began (its log):",
+        "  10:57:11 Playwright: [pageProxyID=1529, webPageID=1530, PID=38790] WebPageProxy::processDidTerminate: (pid "
+        "38790), reason=RequestedByNetworkProcess", "state: unread (no answer in 1 s)"], lines
+    assert lines[-2:] == ["its browser still answers",
+                          f"under its driver: node {driver} (100 s), Playwright {ui} (90 s)"], lines
+    start = time.mktime(time.strptime(asked[0], "%Y-%m-%d %H:%M:%S"))
+    assert len(asked) == 1 and began - 2 < start < began - 0.9 and took < 10, (asked, began, took)
 
 
 def test_a_browsers_close_ends_what_its_ended_browser_left_running_and_says_so(monkeypatch):
